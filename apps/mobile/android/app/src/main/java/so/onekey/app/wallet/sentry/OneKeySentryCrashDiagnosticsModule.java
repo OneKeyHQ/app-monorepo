@@ -466,9 +466,12 @@ public final class OneKeySentryCrashDiagnosticsModule extends ReactContextBaseJa
             String eventId = event.getEventId() == null
                 ? String.valueOf(System.currentTimeMillis())
                 : event.getEventId().toString();
+            String reportPrefix = "javascript".equalsIgnoreCase(event.getPlatform())
+                ? "sentry-js-"
+                : "sentry-native-";
             writeReport(
                 context,
-                "sentry-native-" + eventId + ".json",
+                reportPrefix + eventId + ".json",
                 report,
                 event.getTimestamp() == null
                     ? System.currentTimeMillis()
@@ -758,16 +761,26 @@ public final class OneKeySentryCrashDiagnosticsModule extends ReactContextBaseJa
             return;
         }
 
-        List<File> retained = new ArrayList<>();
+        List<File> nativeReports = new ArrayList<>();
+        List<File> javascriptReports = new ArrayList<>();
         for (File report : reports) {
             if (now - report.lastModified() > MAX_REPORT_AGE_MS) {
                 if (!report.delete()) {
                     android.util.Log.w(NAME, "Unable to remove expired crash diagnostics");
                 }
             } else {
-                retained.add(report);
+                if (report.getName().startsWith("sentry-js-")) {
+                    javascriptReports.add(report);
+                } else {
+                    nativeReports.add(report);
+                }
             }
         }
+        rotateReports(nativeReports);
+        rotateReports(javascriptReports);
+    }
+
+    private static void rotateReports(List<File> retained) {
         retained.sort(Comparator.comparingLong(File::lastModified).reversed());
         for (int index = MAX_REPORT_COUNT; index < retained.size(); index += 1) {
             if (!retained.get(index).delete()) {

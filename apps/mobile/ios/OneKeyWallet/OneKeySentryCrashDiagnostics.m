@@ -488,11 +488,27 @@ static NSString *OneKeyCrashDiagnosticsDirectory(void)
   return [cachesDirectory stringByAppendingPathComponent:@"logs/crashes"];
 }
 
+static void OneKeyRotateCrashReports(
+    NSMutableArray<NSDictionary<NSString *, id> *> *reports)
+{
+  [reports sortUsingComparator:^NSComparisonResult(
+      NSDictionary<NSString *, id> *left,
+      NSDictionary<NSString *, id> *right) {
+    return [right[@"modifiedAt"] compare:left[@"modifiedAt"]];
+  }];
+  for (NSUInteger index = OneKeyCrashDiagnosticsMaxReportCount;
+       index < reports.count;
+       index += 1) {
+    [NSFileManager.defaultManager removeItemAtPath:reports[index][@"path"] error:nil];
+  }
+}
+
 static void OneKeyCleanupCrashReports(NSString *directoryPath, NSDate *now)
 {
   NSFileManager *fileManager = NSFileManager.defaultManager;
   NSArray<NSString *> *names = [fileManager contentsOfDirectoryAtPath:directoryPath error:nil];
-  NSMutableArray<NSDictionary<NSString *, id> *> *retained = [NSMutableArray array];
+  NSMutableArray<NSDictionary<NSString *, id> *> *nativeReports = [NSMutableArray array];
+  NSMutableArray<NSDictionary<NSString *, id> *> *javascriptReports = [NSMutableArray array];
   for (NSString *name in names ?: @[]) {
     NSString *path = [directoryPath stringByAppendingPathComponent:name];
     if ([name hasSuffix:@".tmp"]) {
@@ -508,20 +524,13 @@ static void OneKeyCleanupCrashReports(NSString *directoryPath, NSDate *now)
     if ([now timeIntervalSinceDate:modifiedAt] > OneKeyCrashDiagnosticsMaxReportAge) {
       [fileManager removeItemAtPath:path error:nil];
     } else {
-      [retained addObject:@{ @"path": path, @"modifiedAt": modifiedAt }];
+      NSMutableArray<NSDictionary<NSString *, id> *> *reports =
+          [name hasPrefix:@"sentry-js-"] ? javascriptReports : nativeReports;
+      [reports addObject:@{ @"path": path, @"modifiedAt": modifiedAt }];
     }
   }
-
-  [retained sortUsingComparator:^NSComparisonResult(
-      NSDictionary<NSString *, id> *left,
-      NSDictionary<NSString *, id> *right) {
-    return [right[@"modifiedAt"] compare:left[@"modifiedAt"]];
-  }];
-  for (NSUInteger index = OneKeyCrashDiagnosticsMaxReportCount;
-       index < retained.count;
-       index += 1) {
-    [fileManager removeItemAtPath:retained[index][@"path"] error:nil];
-  }
+  OneKeyRotateCrashReports(nativeReports);
+  OneKeyRotateCrashReports(javascriptReports);
 }
 
 static BOOL OneKeyWriteCrashDiagnosticsData(
@@ -631,9 +640,15 @@ static void OneKeyPersistCrashEvent(SentryEvent *event, BOOL replaceExisting)
     if (eventId.length == 0) {
       eventId = [NSString stringWithFormat:@"%.0f", NSDate.date.timeIntervalSince1970 * 1000];
     }
+    NSString *platform = [serializedEvent[@"platform"] isKindOfClass:NSString.class]
+        ? serializedEvent[@"platform"]
+        : @"";
+    NSString *reportPrefix = [platform caseInsensitiveCompare:@"javascript"] == NSOrderedSame
+        ? @"sentry-js-"
+        : @"sentry-native-";
     OneKeyWriteCrashDiagnosticsData(
         data,
-        [NSString stringWithFormat:@"sentry-native-%@.json", eventId],
+        [NSString stringWithFormat:@"%@%@.json", reportPrefix, eventId],
         event.timestamp ?: NSDate.date,
         replaceExisting);
   } @catch (NSException *exception) {

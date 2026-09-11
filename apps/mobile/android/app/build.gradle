@@ -12,6 +12,9 @@ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 def useDevShell = System.getenv('ONEKEY_DEV_SHELL') == 'true'
 def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
 def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
+def shouldAutoUploadSentryNativeSymbols =
+    System.getenv('SENTRY_DISABLE_AUTO_UPLOAD') != 'true' &&
+    System.getenv('SENTRY_DISABLE_NATIVE_DEBUG_UPLOAD') != 'true'
 
 sentry {
     // Enables or disables the automatic configuration of Native Symbols
@@ -19,6 +22,7 @@ sentry {
     // you don't need to do it manually.
     // Default is disabled.
     uploadNativeSymbols = true
+    autoUploadNativeSymbols = shouldAutoUploadSentryNativeSymbols
 
     // Enables or disables the automatic upload of the app's native source code to Sentry.
     // This executes sentry-cli with the --include-sources param automatically so
