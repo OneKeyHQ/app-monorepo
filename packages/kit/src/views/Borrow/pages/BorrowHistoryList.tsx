@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -28,7 +27,12 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { IBorrowHistory } from '@onekeyhq/shared/types/staking';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import {
+  EBorrowActionsEnum,
+  type IBorrowHistory,
+} from '@onekeyhq/shared/types/staking';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   PageFrame,
@@ -36,16 +40,25 @@ import {
   isLoadingState,
 } from '../../Staking/components/PageFrame';
 import { capitalizeString } from '../../Staking/utils/utils';
+import { getBorrowTxTitle } from '../borrowTxTitle';
 import { BorrowTestIDs } from '../testIDs';
 
-import { buildBorrowHistoryListItemKey } from './borrowHistoryList.utils';
+import {
+  BORROW_HISTORY_REMOTE_ACTIONS,
+  type IBorrowHistoryListItem,
+  buildBorrowHistoryListItemKey,
+  getBorrowHistoryActionForLocalTx,
+} from './borrowHistoryList.utils';
 
 type IHistoryItemProps = {
-  item: IBorrowHistory['list'][number] & {
-    token: IBorrowHistory['tokens'][number];
-    network: IBorrowHistory['networks'][number];
-  };
+  item: IEnrichedHistoryItem;
   provider?: string;
+};
+
+type IEnrichedHistoryItem = IBorrowHistoryListItem & {
+  token?: IBorrowHistory['tokens'][number];
+  network?: IBorrowHistory['networks'][number];
+  protocolLogoURI?: string;
 };
 
 const HistoryItemSkeleton = () => (
@@ -62,49 +75,7 @@ const HistoryItemSkeleton = () => (
   </ListItem>
 );
 
-const HistoryEmptyStateSkeleton = ({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) => (
-  <Stack position="relative" overflow="hidden">
-    <Empty
-      pt={40}
-      icon="ClockTimeHistoryOutline"
-      iconProps={{ color: '$transparent' }}
-      title={title}
-      titleProps={{ color: '$transparent' }}
-      description={description}
-      descriptionProps={{ color: '$transparent' }}
-    />
-    <Stack
-      position="absolute"
-      top={0}
-      right={0}
-      bottom={0}
-      left={0}
-      ai="center"
-      jc="center"
-      pointerEvents="none"
-    >
-      <Stack w="100%">
-        <HistoryItemSkeleton />
-      </Stack>
-    </Stack>
-  </Stack>
-);
-
 const BorrowHistorySkeleton = ({ hideFilter }: { hideFilter: boolean }) => {
-  const intl = useIntl();
-  const emptyTitle = intl.formatMessage({
-    id: ETranslations.global_no_transactions_yet,
-  });
-  const emptyDescription = intl.formatMessage({
-    id: ETranslations.global_no_transactions_yet_desc,
-  });
-
   return (
     <YStack>
       {!hideFilter ? (
@@ -114,10 +85,9 @@ const BorrowHistorySkeleton = ({ hideFilter }: { hideFilter: boolean }) => {
           </XStack>
         </XStack>
       ) : null}
-      <HistoryEmptyStateSkeleton
-        title={emptyTitle}
-        description={emptyDescription}
-      />
+      <Stack pt="$2">
+        <HistoryItemSkeleton />
+      </Stack>
     </YStack>
   );
 };
@@ -160,9 +130,17 @@ const HistoryItem = ({ item, provider }: IHistoryItemProps) => {
     <ListItem
       testID={BorrowTestIDs.historyListItem}
       avatarProps={{
-        src: item.token.info.logoURI,
+        src: item.token?.info.logoURI || item.protocolLogoURI,
+        fallbackProps: {
+          w: '$10',
+          h: '$10',
+          bg: '$bgStrong',
+          justifyContent: 'center',
+          alignItems: 'center',
+          children: <Icon name="ClockTimeHistoryOutline" />,
+        },
         borderRadius: '$full',
-        cornerImageProps: item.network.logoURI
+        cornerImageProps: item.network?.logoURI
           ? { src: item.network.logoURI }
           : undefined,
       }}
@@ -171,7 +149,7 @@ const HistoryItem = ({ item, provider }: IHistoryItemProps) => {
       onPress={onPress}
     >
       <YStack>
-        {item.amount ? (
+        {item.amount && item.token?.info.symbol ? (
           <NumberSizeableText
             size="$bodyLgMedium"
             formatter="balance"
@@ -191,12 +169,7 @@ const HistoryItem = ({ item, provider }: IHistoryItemProps) => {
 
 type IHistorySectionItem = {
   title: string;
-  data: Array<
-    IBorrowHistory['list'][number] & {
-      token: IBorrowHistory['tokens'][number];
-      network: IBorrowHistory['networks'][number];
-    }
-  >;
+  data: IEnrichedHistoryItem[];
 };
 
 type IHistoryContentProps = {
@@ -208,12 +181,8 @@ type IHistoryContentProps = {
   provider?: string;
 };
 
-const keyExtractor = (
-  item: IBorrowHistory['list'][number] & {
-    token: IBorrowHistory['tokens'][number];
-    network: IBorrowHistory['networks'][number];
-  },
-) => buildBorrowHistoryListItemKey(item);
+const keyExtractor = (item: IEnrichedHistoryItem) =>
+  buildBorrowHistoryListItemKey(item);
 
 const HistoryContent = ({
   sections,
@@ -224,14 +193,9 @@ const HistoryContent = ({
   provider,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
-    ({
-      item,
-    }: {
-      item: IBorrowHistory['list'][number] & {
-        token: IBorrowHistory['tokens'][number];
-        network: IBorrowHistory['networks'][number];
-      };
-    }) => <HistoryItem item={item} provider={provider} />,
+    ({ item }: { item: IEnrichedHistoryItem }) => (
+      <HistoryItem item={item} provider={provider} />
+    ),
     [provider],
   );
 
@@ -246,7 +210,13 @@ const HistoryContent = ({
 
   const items = useMemo(() => {
     // Define the desired order for filter options
-    const filterOrder = ['all', 'supply', 'borrow', 'withdraw', 'repay'];
+    const filterOrder = [
+      'all',
+      EBorrowActionsEnum.Supply,
+      EBorrowActionsEnum.Borrow,
+      EBorrowActionsEnum.Withdraw,
+      EBorrowActionsEnum.Repay,
+    ];
     const keys = Object.keys(filter);
 
     // Sort keys according to the defined order
@@ -340,14 +310,27 @@ function BorrowHistoryList() {
         };
       }
 
-      const historyResp =
-        await backgroundApiProxy.serviceStaking.getBorrowHistory({
+      // The remote Borrow history endpoint currently covers balance-changing
+      // actions only. Refresh the account history in the "all" view so
+      // metadata-only actions (for example setCollateral) remain visible
+      // through their locally persisted staking tags.
+      const [historyResp, localHistoryResp] = await Promise.all([
+        backgroundApiProxy.serviceStaking.getBorrowHistory({
           accountId,
           networkId,
           provider,
           marketAddress,
           type: filterType,
-        });
+        }),
+        filterType === 'all'
+          ? backgroundApiProxy.serviceHistory
+              .fetchAccountHistory({ accountId, networkId })
+              .catch((error) => {
+                console.warn('Failed to refresh local borrow history', error);
+                return undefined;
+              })
+          : Promise.resolve(undefined),
+      ]);
 
       // Create maps for quick lookup
       const networkMap = new Map(
@@ -370,28 +353,115 @@ function BorrowHistoryList() {
 
         return {
           ...item,
-          network: network || ({} as IBorrowHistory['networks'][number]),
-          token: token || ({} as IBorrowHistory['tokens'][number]),
+          network,
+          token,
         };
       });
 
-      const listMap = groupBy(enrichedList, (item) =>
-        formatDate(new Date(item.timestamp), { hideTimeForever: true }),
+      const remoteTxHashes = new Set(
+        historyResp.list.map((item) => item.txHash.toLowerCase()),
+      );
+      const localHistoryEntries = (localHistoryResp?.txs ?? [])
+        .map((tx: IAccountHistoryTx) => {
+          const action = getBorrowHistoryActionForLocalTx({
+            tx,
+            provider,
+            networkId,
+            marketAddress,
+          });
+          if (!action || BORROW_HISTORY_REMOTE_ACTIONS.has(action)) {
+            return undefined;
+          }
+
+          const actionToken = tx.stakingInfo?.send ?? tx.stakingInfo?.receive;
+          const token = actionToken
+            ? tokenMap.get(actionToken.token.address) ||
+              historyResp.tokens.find(
+                (item) =>
+                  item.info.networkId === actionToken.token.networkId &&
+                  item.info.address.toLowerCase() ===
+                    actionToken.token.address.toLowerCase(),
+              )
+            : undefined;
+          const txHash = tx.decodedTx.txid;
+          if (!txHash || remoteTxHashes.has(txHash.toLowerCase())) {
+            return undefined;
+          }
+
+          const historyItem: IEnrichedHistoryItem = {
+            networkId: tx.decodedTx.networkId,
+            txHash,
+            title:
+              getBorrowTxTitle({ intl, stakingInfo: tx.stakingInfo }) ?? action,
+            amount: actionToken?.amount ?? '',
+            tokenAddress: actionToken?.token.address ?? '',
+            timestamp: tx.decodedTx.updatedAt ?? tx.decodedTx.createdAt ?? 0,
+            type: action,
+            direction: tx.stakingInfo?.send ? 'send' : 'receive',
+            network: networkMap.get(tx.decodedTx.networkId),
+            token,
+            protocolLogoURI: tx.stakingInfo?.protocolLogoURI,
+          };
+
+          return {
+            item: historyItem,
+            isPending: tx.decodedTx.status === EDecodedTxStatus.Pending,
+          };
+        })
+        .filter(
+          (
+            entry,
+          ): entry is {
+            item: IEnrichedHistoryItem;
+            isPending: boolean;
+          } => Boolean(entry),
+        );
+
+      const pendingLocalItems = localHistoryEntries
+        .filter((entry) => entry.isPending)
+        .map((entry) => entry.item);
+      const localHistoryItems = localHistoryEntries
+        .filter((entry) => !entry.isPending)
+        .map((entry) => entry.item);
+      const listMap = [...enrichedList, ...localHistoryItems].reduce(
+        (map, item) => {
+          const sectionTitle = formatDate(new Date(item.timestamp), {
+            hideTimeForever: true,
+          });
+          const items = map.get(sectionTitle);
+          if (items) {
+            items.push(item);
+          } else {
+            map.set(sectionTitle, [item]);
+          }
+          return map;
+        },
+        new Map<string, IEnrichedHistoryItem[]>(),
       );
 
-      const sections: IHistorySectionItem[] = Object.entries(listMap)
+      const sections: IHistorySectionItem[] = Array.from(listMap)
         .map(([sectionTitle, data]) => ({
           title: sectionTitle,
           data,
         }))
         .toSorted((a, b) => b.data[0].timestamp - a.data[0].timestamp);
 
+      if (pendingLocalItems.length > 0) {
+        sections.unshift({
+          title: intl.formatMessage({ id: ETranslations.global_pending }),
+          data: pendingLocalItems,
+        });
+      }
+
       return {
         sections,
-        filter: historyResp.filter || {},
+        filter: {
+          all: intl.formatMessage({ id: ETranslations.global_all }),
+          ...historyResp.filter,
+        },
       };
     },
-    [accountId, networkId, provider, marketAddress, filterType],
+    [accountId, networkId, provider, marketAddress, filterType, intl],
     { watchLoading: true, pollingInterval: 30 * 1000 },
   );
 
