@@ -99,7 +99,10 @@ import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
-import { ProtocolIntroSection } from './components/ProtocolIntroSection';
+import {
+  ProtocolIntroSection,
+  hasProtocolIntroContent,
+} from './components/ProtocolIntroSection';
 import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { YieldBreakdownSheet } from './components/YieldBreakdownSheet';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
@@ -962,9 +965,11 @@ const DetailsPartComponent = ({
                   </YStack>
                 }
                 protocolContent={
-                  <ProtocolIntroSection
-                    protocolInfo={detailInfo.protocolInfo}
-                  />
+                  hasProtocolIntroContent(detailInfo.protocolInfo) ? (
+                    <ProtocolIntroSection
+                      protocolInfo={detailInfo.protocolInfo}
+                    />
+                  ) : undefined
                 }
               />
               <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />

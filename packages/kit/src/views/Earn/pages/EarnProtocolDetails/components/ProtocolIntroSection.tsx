@@ -331,6 +331,16 @@ function getLinkTitle({
   return getHostname(getLinkUrl(link));
 }
 
+/** Whether the intro payload has anything the Protocol tab could show. */
+export function hasProtocolIntroContent(
+  protocolInfo: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[] | undefined,
+): boolean {
+  const items = Array.isArray(protocolInfo)
+    ? protocolInfo
+    : protocolInfo?.items;
+  return (items ?? []).some(hasProtocolIntroItemContent);
+}
+
 function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
   return Boolean(
     hasText(getItemTitle(item)) ||
