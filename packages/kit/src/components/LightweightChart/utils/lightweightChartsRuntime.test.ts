@@ -309,4 +309,8 @@ it('embeds and selects compact prices in the native chart', () => {
     runInNewContext(`${html.slice(start, end)};
     getPriceFormatter({compactPriceMaxCharacters: 7})(-1e-30)`),
   ).toBe('-$0.0₂₉1');
+  expect(
+    runInNewContext(`${html.slice(start, end)};
+    getPriceFormatter({compactPriceMaxCharacters: 7})(-1.23456789e-30)`),
+  ).toBe('-$0.0₂₉...');
 });

@@ -1,13 +1,17 @@
+import { readFileSync } from 'fs';
 import { runInNewContext } from 'vm';
 
 import { formatChartPrice } from './formatChartPrice';
 
 describe('chart axis prices', () => {
-  it('compresses only more than five leading decimal zeros', () => {
+  it('compresses only when there are multiple leading decimal zeros', () => {
     expect(formatChartPrice(0.000_000_12)).toBe('$0.0₆12');
     expect(formatChartPrice(0.000_001_2)).toBe('$0.0₅12');
     expect(formatChartPrice(0.000_001_2, 20)).toBe('$0.0000012');
     expect(formatChartPrice(1e-30)).toBe('$0.0₂₉1');
+    expect(formatChartPrice(0.123_456_789)).toBe('$0.1234...');
+    expect(formatChartPrice(0.999_999_99)).toBe('$0.9999...');
+    expect(formatChartPrice(0.012_345_678_9)).toBe('$0.0123...');
   });
   it('removes floating-point tick noise without flattening real small prices', () => {
     for (let tick = 1; tick <= 9; tick += 1) {
@@ -38,10 +42,19 @@ describe('chart axis prices', () => {
     expect(formatChartPrice(NaN)).toBe('--');
   });
   it('executes identically without module dependencies in the native WebView', () => {
+    const nativeFormatChartPrice = runInNewContext(
+      `(${readFileSync(
+        'packages/kit/src/components/LightweightChart/utils/formatChartPrice.text-js',
+        'utf8',
+      )})`,
+    ) as (price: number, maxCharacters?: number) => string;
     for (const price of [
       0,
       0.1 + 0.2,
       0.700_000_000_000_000_2,
+      0.123_456_789,
+      0.999_999_99,
+      0.012_345_678_9,
       0.000_000_123,
       -1e-30,
       1_234_567,
@@ -49,6 +62,7 @@ describe('chart axis prices', () => {
       expect(
         runInNewContext(`(${formatChartPrice.toString()})(${price}, 7)`),
       ).toBe(formatChartPrice(price, 7));
+      expect(nativeFormatChartPrice(price, 7)).toBe(formatChartPrice(price, 7));
     }
   });
 });

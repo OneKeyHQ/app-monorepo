@@ -78,18 +78,19 @@ function preloadMarketDetailV2SwapPanel(
   target: IMarketDetailLayoutPreloadTarget,
   isStockRoute?: boolean,
 ) {
-  void (
-    target === 'desktop' && !isStockRoute
-      ? import(
-          /* webpackChunkName: "market-embedded-swap" */ '../../../Swap/pages/components/SwapMainLand'
-        )
-      : import(
-          /* webpackChunkName: "market-detail-v2-swap-panel" */ '../components/SwapPanel/SwapPanel'
-        )
-  ).catch(() => undefined);
   if (target === 'mobile') {
     void import(
-      /* webpackChunkName: "market-detail-v2-swap-panel-wrap" */ '../components/SwapPanel/SwapPanelWrap'
+      /* webpackChunkName: "market-detail-v2-embedded-swap" */ '../components/MarketDetailEmbeddedSwap'
+    ).catch(() => undefined);
+  }
+  if (target === 'mobile' || isStockRoute) {
+    void import(
+      /* webpackChunkName: "market-detail-v2-swap-panel" */ '../components/SwapPanel/SwapPanel'
+    ).catch(() => undefined);
+  }
+  if (target === 'mobile' || !isStockRoute) {
+    void import(
+      /* webpackChunkName: "market-embedded-swap" */ '../../../Swap/pages/components/SwapMainLand'
     ).catch(() => undefined);
   }
 }
