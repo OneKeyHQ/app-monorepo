@@ -17,6 +17,7 @@ import {
 import { trezorBleFlags } from './trezorBleFlags';
 
 import type { IPairCeremonyToken } from './BlePair';
+import type { ElectronBleScanOptions } from '@onekeyfe/hwk-adapter-core';
 import type {
   IpcMainLike,
   TrezorBleDeviceInfo,
@@ -271,7 +272,11 @@ export function createTrezorBlePairingIpcMain(
           // filter that used to happen in noble now happens here — the renderer
           // must still only ever see Trezor devices.
           const all = result as TrezorBleDeviceInfo[];
-          const devices = all.filter(isTrezorDevice);
+          const scanOptions: ElectronBleScanOptions | undefined = args[0];
+          // Ledger results were service-filtered in the SDK; retain their addresses
+          // so the same Windows pairing ceremony can run before GATT discovery.
+          const devices =
+            scanOptions?.vendor === 'ledger' ? all : all.filter(isTrezorDevice);
 
           lastScanAt = Date.now();
           for (const device of devices) {
@@ -428,7 +433,7 @@ export function createTrezorBlePairingIpcMain(
               await new Promise((resolve) => {
                 setTimeout(resolve, 3000);
               });
-              return await attemptConnect(2);
+              return attemptConnect(2);
             }
             // Bonded but unreachable: waking the device is the cure, not
             // re-pairing. Appended so trezorTransportUtils substring match survives.

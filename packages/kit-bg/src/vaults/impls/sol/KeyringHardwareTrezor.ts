@@ -12,7 +12,6 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
-  IUnsignedMessageSolana,
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
@@ -24,8 +23,7 @@ import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { thirdPartyPassphraseParamsFromDeviceParams } from '../../base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
+  callTrezorWithDevice,
   getTrezorAdapterFromBackgroundApi,
 } from '../../base/trezorTransportUtils';
 
@@ -85,12 +83,6 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
   override hwSdkNetwork: IHwSdkNetwork = 'sol';
 
-  private getBleFallbackOptions(
-    replayPolicy: 'read-only' | 'never' = 'read-only',
-  ) {
-    return buildTrezorBleFallbackOptions(this.backgroundApi, replayPolicy);
-  }
-
   // Best-effort: returns undefined on any failure so signing still proceeds.
   private async _resolveSolTokenDefinition(ataDetails?: IATADetails[]) {
     const tokenMint = ataDetails?.[0]?.mintAddress;
@@ -141,17 +133,14 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
         for (const index of usedIndexes) {
           const path = buildPath({ index });
 
-          const result = await callTrezorWithBleFallback(
-            dbDevice,
-            (connectId) =>
-              adapter.hw.solGetAddress(connectId, dbDevice.deviceId, {
-                path,
-                showOnDevice: params.isVerifyAddressAction ?? false,
-                ...thirdPartyPassphraseParamsFromDeviceParams(
-                  params.deviceParams,
-                ),
-              }),
-            this.getBleFallbackOptions(),
+          const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+            adapter.hw.solGetAddress(connectId, dbDevice.deviceId, {
+              path,
+              showOnDevice: params.isVerifyAddressAction ?? false,
+              ...thirdPartyPassphraseParamsFromDeviceParams(
+                params.deviceParams,
+              ),
+            }),
           );
 
           if (!result.success) {
@@ -207,19 +196,16 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
     const encodedToken = await this._resolveSolTokenDefinition(ataDetails);
 
-    const result = await callTrezorWithBleFallback(
-      dbDevice,
-      (connectId) =>
-        adapter.hw.solSignTransaction(connectId, dbDevice.deviceId, {
-          ...buildTrezorSolSignTransactionParams({
-            path,
-            serializedTx,
-            ataDetails,
-            encodedToken,
-          }),
-          ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+    const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+      adapter.hw.solSignTransaction(connectId, dbDevice.deviceId, {
+        ...buildTrezorSolSignTransactionParams({
+          path,
+          serializedTx,
+          ataDetails,
+          encodedToken,
         }),
-      this.getBleFallbackOptions('never'),
+        ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+      }),
     );
 
     if (!result.success) {
@@ -262,16 +248,13 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
         });
       const result =
         // eslint-disable-next-line no-await-in-loop
-        await callTrezorWithBleFallback(
-          dbDevice,
-          (connectId) =>
-            adapter.hw.solSignMessage(connectId, dbDevice.deviceId, {
-              path,
-              message: messageHex,
-              ...offchainParams,
-              ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
-            }),
-          this.getBleFallbackOptions('never'),
+        await callTrezorWithDevice(dbDevice, (connectId) =>
+          adapter.hw.solSignMessage(connectId, dbDevice.deviceId, {
+            path,
+            message: messageHex,
+            ...offchainParams,
+            ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+          }),
         );
       if (!result.success) {
         throw convertThirdPartyDeviceError(result.payload, {

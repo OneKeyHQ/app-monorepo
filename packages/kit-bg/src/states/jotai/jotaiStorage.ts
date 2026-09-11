@@ -332,7 +332,7 @@ export async function getNativeJotaiStorageEntries(): Promise<ReadonlyMap<
     platformEnv.isNativeBackgroundThread &&
     'getAllEntries' in onekeyJotaiStorage
   ) {
-    return await (onekeyJotaiStorage as JotaiStorageNativeMMKV).getAllEntries();
+    return (onekeyJotaiStorage as JotaiStorageNativeMMKV).getAllEntries();
   }
   return null;
 }
@@ -342,9 +342,7 @@ export async function clearNativeJotaiStorageForReset(): Promise<number> {
     platformEnv.isNativeBackgroundThread &&
     'clearAllForReset' in onekeyJotaiStorage
   ) {
-    return await (
-      onekeyJotaiStorage as JotaiStorageNativeMMKV
-    ).clearAllForReset();
+    return onekeyJotaiStorage.clearAllForReset();
   }
   return 0;
 }
@@ -354,9 +352,7 @@ export async function resetNativeJotaiStorageAfterMigrationMismatch(): Promise<v
     platformEnv.isNativeBackgroundThread &&
     'resetAfterMigrationMismatch' in onekeyJotaiStorage
   ) {
-    await (
-      onekeyJotaiStorage as JotaiStorageNativeMMKV
-    ).resetAfterMigrationMismatch();
+    await onekeyJotaiStorage.resetAfterMigrationMismatch();
     return;
   }
   throw new OneKeyLocalError(
