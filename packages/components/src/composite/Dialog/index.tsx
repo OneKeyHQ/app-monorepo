@@ -382,13 +382,20 @@ function DialogFrame({
               ? event.translationY
               : event.translationY * HEADER_DRAG_UPWARD_RESISTANCE;
         })
-        .onEnd((event) => {
+        .onEnd((event, success) => {
           'worklet';
 
-          if (
-            event.translationY > HEADER_DRAG_DISMISS_DISTANCE ||
-            event.velocityY > HEADER_DRAG_DISMISS_VELOCITY
-          ) {
+          // A cancelled or failed pan reaches here too, carrying its last
+          // translation and velocity, so only a completed pull may let go of
+          // the sheet. A flick counts only while the sheet sits below its
+          // resting position: a rubber-band pull-up released with downward
+          // momentum springs back rather than dismissing.
+          const shouldDismiss =
+            success &&
+            (event.translationY > HEADER_DRAG_DISMISS_DISTANCE ||
+              (event.translationY > 0 &&
+                event.velocityY > HEADER_DRAG_DISMISS_VELOCITY));
+          if (shouldDismiss) {
             runOnJS(dismissFromHeaderDrag)();
             return;
           }
