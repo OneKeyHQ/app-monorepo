@@ -1,6 +1,6 @@
 import * as NativeListModule from '@onekeyfe/react-native-native-list';
 
-import type { ImageSource } from '@onekeyhq/components';
+import type { ImageSource } from '@onekeyfe/react-native-native-list';
 
 interface INativeListAvatarPreloadModule {
   preloadNativeListAvatarImages: (
