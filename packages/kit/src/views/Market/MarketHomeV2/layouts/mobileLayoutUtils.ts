@@ -2,6 +2,36 @@ export const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 export const MARKET_MOBILE_COLUMN_HEADER_HEIGHT = 32;
 export const MARKET_MOBILE_CONTENT_TOP_GAP = 16;
 
+export type IMarketBannerHeaderDecision = {
+  scope: string;
+  isDecided: boolean;
+  hasBanners: boolean;
+};
+
+export function resolveMarketBannerHeaderDecision({
+  current,
+  scope,
+  isFetched,
+  bannerCount,
+}: {
+  current: IMarketBannerHeaderDecision;
+  scope: string;
+  isFetched: boolean;
+  bannerCount: number;
+}): IMarketBannerHeaderDecision {
+  if (current.scope !== scope) {
+    return {
+      scope,
+      isDecided: isFetched,
+      hasBanners: isFetched && bannerCount > 0,
+    };
+  }
+  if (!current.isDecided && isFetched) {
+    return { scope, isDecided: true, hasBanners: bannerCount > 0 };
+  }
+  return current;
+}
+
 const MARKET_MOBILE_COMPACT_HEADER_OFFSET =
   MARKET_MOBILE_COLUMN_HEADER_HEIGHT - MARKET_MOBILE_SECONDARY_HEADER_HEIGHT;
 const MARKET_MOBILE_EMPTY_CONTENT_OFFSET =
