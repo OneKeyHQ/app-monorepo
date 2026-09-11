@@ -4,7 +4,71 @@ import {
   getMarketNativeCompactListStyle,
   getMarketRecommendContainerPaddingTop,
   getMarketWebSecondaryHeaderHeight,
+  resolveMarketBannerHeaderDecision,
 } from './mobileLayoutUtils';
+
+describe('resolveMarketBannerHeaderDecision', () => {
+  it('waits for recovery after an initial failure before locking banner height', () => {
+    const initial = {
+      scope: 'en-US',
+      isDecided: false,
+      hasBanners: false,
+    };
+    const failed = resolveMarketBannerHeaderDecision({
+      current: initial,
+      scope: 'en-US',
+      isFetched: false,
+      bannerCount: 0,
+    });
+    expect(failed).toBe(initial);
+
+    const recovered = resolveMarketBannerHeaderDecision({
+      current: failed,
+      scope: 'en-US',
+      isFetched: true,
+      bannerCount: 2,
+    });
+    expect(recovered).toEqual({
+      scope: 'en-US',
+      isDecided: true,
+      hasBanners: true,
+    });
+    expect(
+      resolveMarketBannerHeaderDecision({
+        current: recovered,
+        scope: 'en-US',
+        isFetched: true,
+        bannerCount: 0,
+      }),
+    ).toBe(recovered);
+  });
+
+  it('resets the decision for a new scope and locks successful empty data', () => {
+    const changed = resolveMarketBannerHeaderDecision({
+      current: { scope: 'en-US', isDecided: true, hasBanners: true },
+      scope: 'zh-CN',
+      isFetched: false,
+      bannerCount: 0,
+    });
+    expect(changed).toEqual({
+      scope: 'zh-CN',
+      isDecided: false,
+      hasBanners: false,
+    });
+    expect(
+      resolveMarketBannerHeaderDecision({
+        current: changed,
+        scope: 'zh-CN',
+        isFetched: true,
+        bannerCount: 0,
+      }),
+    ).toEqual({
+      scope: 'zh-CN',
+      isDecided: true,
+      hasBanners: false,
+    });
+  });
+});
 
 describe('getMarketEmptyWatchlistContainerProps', () => {
   it('keeps a 16px visual gap below the stable header on Android', () => {
