@@ -10,10 +10,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  type IStockPriceLineChartHoverPoint,
-  StockPriceLineChart,
-} from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -44,15 +41,11 @@ export function StockSimpleChart({
   marketAssetId,
   range,
   priceMode,
-  onHoverChange,
 }: {
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
-  // Forwarded to the line chart so the price header above can follow the
-  // crosshair; called with undefined once the pointer leaves the plot.
-  onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
   const intl = useIntl();
   const [chartHeight, setChartHeight] = useState(
@@ -184,10 +177,6 @@ export function StockSimpleChart({
           stockDetail?.marketStatus?.isOpen === true ||
           tokenDetail?.stock?.isOpen === true
         }
-        // Design decision: the hover card keeps its price even though the
-        // price header above also mirrors the hovered point.
-        hoverLabelShowsPrice
-        onHoverChange={onHoverChange}
       />
     );
   }
