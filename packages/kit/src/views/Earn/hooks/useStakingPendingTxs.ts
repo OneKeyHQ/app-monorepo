@@ -169,6 +169,7 @@ export const useStakingPendingTxsByInfo = ({
   tagMatcher,
   onRefreshDelayMs = 0,
   precomputed,
+  revalidateOnFocus = true,
   accountId: explicitAccountId,
   indexedAccountId: explicitIndexedAccountId,
 }: {
@@ -178,6 +179,7 @@ export const useStakingPendingTxsByInfo = ({
   tagMatcher?: (tag: string) => boolean;
   onRefreshDelayMs?: number;
   precomputed?: IStakingPendingTxsPrecomputed;
+  revalidateOnFocus?: boolean;
   accountId?: string;
   indexedAccountId?: string;
 }) => {
@@ -676,7 +678,7 @@ export const useStakingPendingTxsByInfo = ({
     isLoading: filteredTxsLoading,
   } = usePromiseResult(fetchFilteredPendingTxs, [fetchFilteredPendingTxs], {
     initResult: UNVERIFIED_PENDING_TXS_RESULT,
-    revalidateOnFocus: true,
+    revalidateOnFocus,
     watchLoading: true,
   });
   const {

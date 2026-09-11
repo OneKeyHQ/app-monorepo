@@ -4,18 +4,27 @@ import type { ReactNode } from 'react';
 
 import BorrowEModeSwitch from '.';
 
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
 const mockRouteState = {
   accountId: 'account-1',
 };
-const mockRefresh = jest.fn();
+const mockRefresh = jest.fn().mockResolvedValue(undefined);
 const mockRefreshHealthFactor = jest.fn();
 const mockRunCheck = jest.fn();
 const mockResetTarget = jest.fn();
 const mockConfirmSwitch = jest.fn();
+const mockPendingState = {
+  pendingCount: 0,
+  isLoading: false,
+  isPendingHistoryVerified: true,
+};
+const mockStatusOptions = jest.fn();
+const mockPendingOptions = jest.fn();
+const mockCheckState = { current: null as { canSwitch: boolean } | null };
+const mockAppActive = { current: undefined as (() => void) | undefined };
 
 type IEModeStatusState = {
   eModeStatus: IBorrowEModeStatus | null;
@@ -68,16 +77,41 @@ jest.mock('@onekeyhq/components', () => {
     }: {
       confirmButtonProps?: {
         disabled?: boolean;
+        loading?: boolean;
       };
     }) => (
       <div
+        data-loading={confirmButtonProps?.loading}
         data-disabled={confirmButtonProps?.disabled}
         data-testid="e-mode-footer"
       />
     ),
   });
   return {
-    Alert: ({ title }: { title?: string }) => <div>{title}</div>,
+    Alert: ({
+      title,
+      action,
+    }: {
+      title?: string;
+      action?: {
+        primary: string;
+        primaryTestID: string;
+        onPrimaryPress: () => void;
+      };
+    }) => (
+      <div>
+        {title}
+        {action ? (
+          <button
+            type="button"
+            data-testid={action.primaryTestID}
+            onClick={action.onPrimaryPress}
+          >
+            {action.primary}
+          </button>
+        ) : null}
+      </div>
+    ),
     Button: ({
       children,
       onPress,
@@ -138,8 +172,17 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockIsFocused.current,
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useHandleAppStateActive', () => ({
+  useHandleAppStateActive: (onActive: () => void) => {
+    mockAppActive.current = onActive;
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/views/Borrow/hooks/useBorrowEModeStatus', () => ({
-  useBorrowEModeStatus: () => mockEModeStatusState.current,
+  useBorrowEModeStatus: (options: unknown) => {
+    mockStatusOptions(options);
+    return mockEModeStatusState.current;
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Borrow/hooks/useBorrowHealthFactor', () => ({
@@ -151,11 +194,10 @@ jest.mock('@onekeyhq/kit/src/views/Borrow/hooks/useBorrowHealthFactor', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs', () => ({
-  useStakingPendingTxsByInfo: () => ({
-    pendingCount: 0,
-    isLoading: false,
-    isPendingHistoryVerified: true,
-  }),
+  useStakingPendingTxsByInfo: (options: unknown) => {
+    mockPendingOptions(options);
+    return mockPendingState;
+  },
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -216,11 +258,25 @@ const capturedOnChange: {
 jest.mock('./EModeCategorySelect', () => ({
   EModeCategorySelect: (props: {
     onChange: (eModeId: number, observed: number | null) => void;
+    onOpen: () => void;
+    value: number | null;
+    userSelection: number | null;
+    disabled: boolean;
   }) => {
     if (!capturedOnChange.current) {
       capturedOnChange.current = props.onChange;
     }
-    return <div data-testid="e-mode-selector" />;
+    return (
+      <button
+        aria-label="Choose e-mode category"
+        type="button"
+        onClick={props.onOpen}
+        data-testid="e-mode-selector"
+        data-value={props.value}
+        data-user-selection={String(props.userSelection)}
+        disabled={props.disabled}
+      />
+    );
   },
 }));
 
@@ -234,7 +290,7 @@ jest.mock('./EModeImpactSection', () => ({
 
 jest.mock('./useEModeSwitch', () => ({
   useEModeSwitch: () => ({
-    check: null,
+    check: mockCheckState.current,
     isChecking: false,
     isSubmitting: false,
     runCheck: mockRunCheck,
@@ -246,6 +302,13 @@ jest.mock('./useEModeSwitch', () => ({
 describe('BorrowEModeSwitch status rendering', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRefresh.mockReset().mockResolvedValue(undefined);
+    mockCheckState.current = null;
+    Object.assign(mockPendingState, {
+      pendingCount: 0,
+      isLoading: false,
+      isPendingHistoryVerified: true,
+    });
     capturedOnChange.current = null;
     mockIsFocused.current = true;
     mockRouteState.accountId = 'account-1';
@@ -290,17 +353,139 @@ describe('BorrowEModeSwitch status rendering', () => {
       view.rerender(<BorrowEModeSwitch />);
     };
 
-    it('prefers the current id the picker displayed over its own copy', () => {
+    function deferRefresh() {
+      let resolve = () => {};
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      mockRefresh.mockReturnValueOnce(promise);
+      return resolve;
+    }
+
+    it.each([
+      [0, 1, 0],
+      [1, 0, 0],
+    ])(
+      'revalidates page %s versus picker %s before checking target %s',
+      async (pageId, observed, target) => {
+        const view = render(<BorrowEModeSwitch />);
+        moveCurrentTo(view, pageId);
+        const finishRefresh = deferRefresh();
+        pick(target, observed);
+        expect(mockRefresh).toHaveBeenCalledTimes(1);
+        expect(mockRunCheck).not.toHaveBeenCalled();
+        expect(mockResetTarget).not.toHaveBeenCalled();
+        expect(
+          screen
+            .getByTestId('e-mode-selector')
+            .getAttribute('data-user-selection'),
+        ).toBe('0');
+        expect(
+          screen.getByTestId('e-mode-footer').getAttribute('data-disabled'),
+        ).toBe('true');
+        await act(async () => {
+          moveCurrentTo(view, 1);
+          finishRefresh();
+        });
+        expect(mockRunCheck).toHaveBeenCalledTimes(1);
+        expect(mockRunCheck).toHaveBeenCalledWith(0);
+        expect(mockResetTarget).not.toHaveBeenCalled();
+        expect(
+          screen.getByTestId('e-mode-selector').getAttribute('data-value'),
+        ).toBe('0');
+        expect(
+          screen
+            .getByTestId('e-mode-selector')
+            .getAttribute('data-user-selection'),
+        ).toBe('0');
+      },
+    );
+
+    it('clears a mismatched pick only after the refreshed status confirms it is current', async () => {
       const view = render(<BorrowEModeSwitch />);
-
-      // The page's copy catches up to Off while the picker still shows 1.
       moveCurrentTo(view, 0);
-
+      const finishRefresh = deferRefresh();
       pick(0, 1);
+      expect(mockResetTarget).not.toHaveBeenCalled();
+      await act(async () => {
+        finishRefresh();
+      });
+      expect(mockResetTarget).toHaveBeenCalledTimes(1);
+      expect(mockRunCheck).not.toHaveBeenCalled();
+    });
 
-      // Answering against the page's copy would read this as "already Off" and
-      // silently discard a pick the user did make.
+    it('keeps a mismatched pick through a refresh failure and checks it after retry', async () => {
+      const view = render(<BorrowEModeSwitch />);
+      moveCurrentTo(view, 0);
+      const finishRefresh = deferRefresh();
+      pick(0, 1);
+      await act(async () => {
+        mockEModeStatusState.current = {
+          ...mockEModeStatusState.current,
+          isError: true,
+        };
+        view.rerender(<BorrowEModeSwitch />);
+        finishRefresh();
+      });
+      expect(mockResetTarget).not.toHaveBeenCalled();
+      expect(mockRunCheck).not.toHaveBeenCalled();
+      expect(
+        screen
+          .getByTestId('e-mode-selector')
+          .getAttribute('data-user-selection'),
+      ).toBe('0');
+      expect(
+        screen.getByTestId('e-mode-footer').getAttribute('data-disabled'),
+      ).toBe('true');
+      fireEvent.click(screen.getByTestId('borrow-e-mode-retry'));
+      expect(mockRefresh).toHaveBeenCalledTimes(2);
+      mockEModeStatusState.current = {
+        ...mockEModeStatusState.current,
+        isError: false,
+      };
+      moveCurrentTo(view, 1);
+      expect(mockRunCheck).toHaveBeenCalledTimes(1);
       expect(mockRunCheck).toHaveBeenCalledWith(0);
+      expect(mockResetTarget).not.toHaveBeenCalled();
+    });
+
+    it('does not overwrite a newer pick when an earlier refresh finishes', async () => {
+      const view = render(<BorrowEModeSwitch />);
+      moveCurrentTo(view, 0);
+      const finishRefresh = deferRefresh();
+      pick(0, 1);
+      pick(1, 0);
+      await act(async () => {
+        finishRefresh();
+      });
+      expect(mockRunCheck).toHaveBeenCalledTimes(1);
+      expect(mockRunCheck).toHaveBeenCalledWith(1);
+      expect(
+        screen
+          .getByTestId('e-mode-selector')
+          .getAttribute('data-user-selection'),
+      ).toBe('1');
+    });
+
+    it('ignores an old picker callback and refresh after an account change', async () => {
+      const view = render(<BorrowEModeSwitch />);
+      moveCurrentTo(view, 0);
+      const finishRefresh = deferRefresh();
+      pick(0, 1);
+      mockRouteState.accountId = 'account-2';
+      view.rerender(<BorrowEModeSwitch />);
+      jest.clearAllMocks();
+      pick(1, 0);
+      await act(async () => {
+        finishRefresh();
+      });
+      expect(mockRefresh).not.toHaveBeenCalled();
+      expect(mockRunCheck).not.toHaveBeenCalled();
+      expect(
+        screen
+          .getByTestId('e-mode-selector')
+          .getAttribute('data-user-selection'),
+      ).toBe('null');
     });
 
     it('treats a pick that matches the displayed id as clearing the target', () => {
@@ -330,6 +515,7 @@ describe('BorrowEModeSwitch status rendering', () => {
     // just ran.
     it('does not re-check the category the pick just checked', () => {
       const view = render(<BorrowEModeSwitch />);
+      fireEvent.click(screen.getByTestId('e-mode-selector'));
 
       pick(0, 1);
       expect(mockRunCheck).toHaveBeenCalledTimes(1);
@@ -339,10 +525,75 @@ describe('BorrowEModeSwitch status rendering', () => {
       expect(mockRunCheck).toHaveBeenCalledTimes(1);
     });
 
+    it('skips focus refreshes on picker cancellation while preserving a checked target', () => {
+      mockCheckState.current = { canSwitch: true };
+      const view = render(<BorrowEModeSwitch />);
+      pick(0, 1);
+      fireEvent.click(screen.getByTestId('e-mode-selector'));
+      jest.clearAllMocks();
+      mockIsFocused.current = false;
+      view.rerender(<BorrowEModeSwitch />);
+      mockIsFocused.current = true;
+      view.rerender(<BorrowEModeSwitch />);
+      expect(mockStatusOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ revalidateOnFocus: false }),
+      );
+      expect(mockPendingOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ revalidateOnFocus: false }),
+      );
+      expect(
+        screen.getByTestId('e-mode-footer').getAttribute('data-disabled'),
+      ).toBe('false');
+      view.rerender(<BorrowEModeSwitch />);
+      expect(mockRunCheck).not.toHaveBeenCalled();
+      expect(
+        screen.getByTestId('e-mode-selector').getAttribute('data-value'),
+      ).toBe('0');
+    });
+
+    it.each([
+      { pendingCount: 1, isLoading: false, isPendingHistoryVerified: true },
+      { pendingCount: 0, isLoading: true, isPendingHistoryVerified: true },
+      { pendingCount: 0, isLoading: false, isPendingHistoryVerified: false },
+    ])(
+      'keeps real transaction verification guards on picker return: %j',
+      (pending) => {
+        mockCheckState.current = { canSwitch: true };
+        const view = render(<BorrowEModeSwitch />);
+        pick(0, 1);
+        fireEvent.click(screen.getByTestId('e-mode-selector'));
+        Object.assign(mockPendingState, pending);
+        blurAndFocus(view);
+        expect(
+          screen.getByTestId('e-mode-footer').getAttribute('data-disabled'),
+        ).toBe('true');
+        expect(
+          screen.getByTestId('e-mode-selector').hasAttribute('disabled'),
+        ).toBe(true);
+      },
+    );
+
+    it('revalidates after resuming the app while the picker was open', () => {
+      const view = render(<BorrowEModeSwitch />);
+      pick(0, 1);
+      fireEvent.click(screen.getByTestId('e-mode-selector'));
+      mockRunCheck.mockClear();
+      mockAppActive.current?.();
+      blurAndFocus(view);
+      expect(mockRunCheck).toHaveBeenCalledWith(0);
+      expect(mockStatusOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ revalidateOnFocus: true }),
+      );
+      expect(mockPendingOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ revalidateOnFocus: true }),
+      );
+    });
+
     // Returning from the background is what the focus revalidation is for, and
     // it still has to fire.
     it('re-checks when focus returns without a pick', () => {
       const view = render(<BorrowEModeSwitch />);
+      fireEvent.click(screen.getByTestId('e-mode-selector'));
 
       pick(0, 1);
       mockRunCheck.mockClear();
@@ -379,7 +630,7 @@ describe('BorrowEModeSwitch status rendering', () => {
     expect(screen.queryByTestId('e-mode-footer')).toBeNull();
   });
 
-  it('hides cached status actions when the current scope refresh fails', () => {
+  it('keeps cached status visible but blocks submission when its refresh fails', () => {
     const view = render(<BorrowEModeSwitch />);
 
     expect(screen.getByTestId('e-mode-selector')).not.toBeNull();
@@ -395,7 +646,9 @@ describe('BorrowEModeSwitch status rendering', () => {
     view.rerender(<BorrowEModeSwitch />);
 
     expect(screen.getByTestId('borrow-e-mode-retry')).not.toBeNull();
-    expect(screen.queryByTestId('e-mode-selector')).toBeNull();
-    expect(screen.queryByTestId('e-mode-footer')).toBeNull();
+    expect(screen.queryByTestId('e-mode-selector')).not.toBeNull();
+    expect(
+      screen.getByTestId('e-mode-footer').getAttribute('data-disabled'),
+    ).toBe('true');
   });
 });

@@ -13,6 +13,7 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useBorrowEModeStatus } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowEModeStatus';
@@ -44,6 +45,12 @@ import {
 } from './emodeUtils';
 import { useEModeSwitch } from './useEModeSwitch';
 
+type IPendingPickerSelection = {
+  scopeKey: string;
+  target: number;
+  refreshed: boolean;
+};
+
 function BorrowEModeSwitchView() {
   const route = useAppRoute<
     IModalStakingParamList,
@@ -60,6 +67,13 @@ function BorrowEModeSwitchView() {
   const navigation = useAppNavigation();
   const isFocused = useRouteIsFocused();
   const [userSelection, setUserSelection] = useState<number | null>(null);
+  const [pendingPickerSelection, setPendingPickerSelection] =
+    useState<IPendingPickerSelection | null>(null);
+  const pickerScopeRef = useRef<string | null>(null);
+  const clearPickerScope = useCallback(() => {
+    pickerScopeRef.current = null;
+  }, []);
+  useHandleAppStateActive(clearPickerScope);
   const { earnAccount } = useEarnAccount({
     networkId,
     accountId: routeAccountId,
@@ -67,14 +81,32 @@ function BorrowEModeSwitchView() {
   });
   const accountId = earnAccount?.account?.id || routeAccountId || '';
 
-  const { eModeStatus, isInitialLoading, isError, refresh } =
-    useBorrowEModeStatus({
-      networkId,
-      provider,
-      marketAddress,
-      accountId,
-      enabled: !!accountId,
-    });
+  const scopeKey = JSON.stringify([
+    networkId,
+    provider.toLowerCase(),
+    marketAddress,
+    accountId,
+  ]);
+  const returningFromPicker = isFocused && pickerScopeRef.current === scopeKey;
+  const pendingSelection =
+    pendingPickerSelection?.scopeKey === scopeKey
+      ? pendingPickerSelection
+      : null;
+
+  const {
+    eModeStatus,
+    isInitialLoading,
+    isLoading: statusLoading,
+    isError,
+    refresh,
+  } = useBorrowEModeStatus({
+    networkId,
+    provider,
+    marketAddress,
+    accountId,
+    enabled: !!accountId,
+    revalidateOnFocus: !returningFromPicker,
+  });
   const currentEModeId = eModeStatus?.eModeId ?? null;
   const {
     healthFactorData,
@@ -122,12 +154,18 @@ function BorrowEModeSwitchView() {
   const availableIds = useMemo(() => rows.map((row) => row.eModeId), [rows]);
   const selection = useMemo(
     () =>
-      reconcileEModeSelection({
-        statusCurrentId: eModeStatus?.eModeId ?? null,
-        userSelection,
-        availableIds,
-      }),
-    [availableIds, eModeStatus?.eModeId, userSelection],
+      pendingSelection
+        ? {
+            effectiveSelection: pendingSelection.target,
+            userSelection: pendingSelection.target,
+            resetTarget: false,
+          }
+        : reconcileEModeSelection({
+            statusCurrentId: currentEModeId,
+            userSelection,
+            availableIds,
+          }),
+    [availableIds, currentEModeId, pendingSelection, userSelection],
   );
 
   const retainedTargetRef = useRef(selection.userSelection);
@@ -160,31 +198,37 @@ function BorrowEModeSwitchView() {
     tagMatcher: pendingTagMatcher,
     onRefresh: refreshManagementState,
     onRefreshDelayMs: 3000,
+    revalidateOnFocus: !returningFromPicker,
   });
   const previousIsFocused = usePrevious(isFocused);
   const focusActivationPending = isEModeFocusActivationPending({
     isFocused,
     previousIsFocused,
   });
-  // A pick runs its own check; skip the duplicate revalidation on refocus.
-  // Returning from the background must still revalidate.
-  const pickRanOwnCheckRef = useRef(false);
   useEffect(() => {
     if (!focusActivationPending) {
       return;
     }
-    const pickAlreadyChecked = pickRanOwnCheckRef.current;
-    pickRanOwnCheckRef.current = false;
-    if (pickAlreadyChecked || selection.userSelection === null) {
-      return;
+    pickerScopeRef.current = null;
+    if (
+      !returningFromPicker &&
+      !pendingSelection &&
+      selection.userSelection !== null
+    ) {
+      void runCheck(selection.userSelection);
     }
-    void runCheck(selection.userSelection);
-  }, [focusActivationPending, runCheck, selection.userSelection]);
+  }, [
+    focusActivationPending,
+    pendingSelection,
+    returningFromPicker,
+    runCheck,
+    selection.userSelection,
+  ]);
   const pendingGuardActive = isEModePendingGuardActive({
     pendingHistoryLoading,
     isPendingHistoryVerified,
     pendingCount,
-    focusRevalidating: focusActivationPending,
+    focusRevalidating: focusActivationPending && !returningFromPicker,
   });
 
   useEffect(() => {
@@ -196,6 +240,7 @@ function BorrowEModeSwitchView() {
 
   const previousCurrentIdRef = useRef<number | null>(null);
   const requiresRevalidation =
+    !pendingSelection &&
     currentEModeId !== null &&
     previousCurrentIdRef.current !== null &&
     previousCurrentIdRef.current !== currentEModeId &&
@@ -208,36 +253,104 @@ function BorrowEModeSwitchView() {
     }
   }, [currentEModeId, requiresRevalidation, runCheck, selection.userSelection]);
 
-  // Route params retain the callback passed at push time. Forward through a
-  // ref so a later pick uses the latest category and check handlers.
+  // A disagreeing picker snapshot must not be reconciled against stale page
+  // data. Keep the target until the explicit refresh has committed its result.
+  useEffect(() => {
+    if (
+      !pendingSelection?.refreshed ||
+      statusLoading !== false ||
+      isError ||
+      !eModeStatus
+    ) {
+      return;
+    }
+    setPendingPickerSelection(null);
+    if (
+      pendingSelection.target === currentEModeId ||
+      !availableIds.includes(pendingSelection.target)
+    ) {
+      setUserSelection(null);
+      resetTarget();
+      return;
+    }
+    void runCheck(pendingSelection.target);
+  }, [
+    availableIds,
+    currentEModeId,
+    eModeStatus,
+    isError,
+    pendingSelection,
+    resetTarget,
+    runCheck,
+    statusLoading,
+  ]);
+
+  const previousScopeRef = useRef(scopeKey);
+  useEffect(() => {
+    if (previousScopeRef.current !== scopeKey) {
+      previousScopeRef.current = scopeKey;
+      pickerScopeRef.current = null;
+      setPendingPickerSelection(null);
+      setUserSelection(null);
+      resetTarget();
+    }
+  }, [resetTarget, scopeKey]);
+
+  // Route callbacks retain their opening scope and forward to current handlers.
   const selectCategoryRef = useRef<
-    (eModeId: number, observedCurrentEModeId: number | null) => void
+    (
+      eModeId: number,
+      observedCurrentEModeId: number | null,
+      openedScope: string,
+    ) => void
   >(() => {});
   useEffect(() => {
     selectCategoryRef.current = (
-      eModeId: number,
-      observedCurrentEModeId: number | null,
+      eModeId,
+      observedCurrentEModeId,
+      openedScope,
     ) => {
-      // What the picker showed wins: this page stops revalidating while the
-      // picker is on top, so its own copy can be the stale one.
-      const currentId = observedCurrentEModeId ?? eModeStatus?.eModeId;
-      if (eModeId === currentId) {
+      if (openedScope !== scopeKey) {
+        return;
+      }
+      if (
+        observedCurrentEModeId !== null &&
+        observedCurrentEModeId !== currentEModeId
+      ) {
+        const request: IPendingPickerSelection = {
+          scopeKey,
+          target: eModeId,
+          refreshed: false,
+        };
+        setUserSelection(eModeId);
+        setPendingPickerSelection(request);
+        void refresh().then(() => {
+          setPendingPickerSelection((current) =>
+            current === request ? { ...request, refreshed: true } : current,
+          );
+        });
+        return;
+      }
+      setPendingPickerSelection(null);
+      if (eModeId === currentEModeId) {
         setUserSelection(null);
         resetTarget();
         return;
       }
       setUserSelection(eModeId);
-      pickRanOwnCheckRef.current = true;
       void runCheck(eModeId);
     };
-  }, [eModeStatus?.eModeId, resetTarget, runCheck]);
+  }, [currentEModeId, refresh, resetTarget, runCheck, scopeKey]);
 
   const onSelectCategory = useCallback(
     (eModeId: number, observedCurrentEModeId: number | null) => {
-      selectCategoryRef.current(eModeId, observedCurrentEModeId);
+      selectCategoryRef.current(eModeId, observedCurrentEModeId, scopeKey);
     },
-    [],
+    [scopeKey],
   );
+  const onOpenCategoryPicker = useCallback(() => {
+    pickerScopeRef.current = scopeKey;
+  }, [scopeKey]);
 
   const categorySelectScope = useMemo(
     () => ({ networkId, provider, marketAddress, accountId }),
@@ -268,13 +381,16 @@ function BorrowEModeSwitchView() {
 
   const effectiveSelection = selection.effectiveSelection;
   const selectedRow = rows.find((row) => row.eModeId === effectiveSelection);
-  const viewState = resolveEModeViewState({
-    effectiveSelection,
-    currentEModeId,
-    isChecking,
-    requiresRevalidation,
-    check,
-  });
+  const viewState =
+    pendingSelection && !isError
+      ? 'checking'
+      : resolveEModeViewState({
+          effectiveSelection,
+          currentEModeId,
+          isChecking,
+          requiresRevalidation,
+          check,
+        });
   const blockerItems = buildNeedActionItems(check);
   const blockerTitle = blockerItems.length
     ? intl.formatMessage(
@@ -331,7 +447,7 @@ function BorrowEModeSwitchView() {
         );
   }
 
-  if (isError && accountId) {
+  if (isError && !eModeStatus && accountId) {
     return (
       <Page scrollEnabled>
         <Page.Header
@@ -359,6 +475,7 @@ function BorrowEModeSwitchView() {
   const showInitialSkeleton = isInitialLoading || !eModeStatus;
   const showFooter = !showInitialSkeleton && !!selectedRow;
   const footerDisabled =
+    isError ||
     isSubmitting ||
     pendingGuardActive ||
     (viewState !== 'blocked' && viewState !== 'switchable');
@@ -369,6 +486,19 @@ function BorrowEModeSwitchView() {
         title={intl.formatMessage({ id: ETranslations.manage_e_mode__title })}
       />
       <Page.Body px="$5" gap="$5">
+        {isError && eModeStatus ? (
+          <Alert
+            type="critical"
+            title={intl.formatMessage({
+              id: ETranslations.defi_emode_load_error,
+            })}
+            action={{
+              primary: intl.formatMessage({ id: ETranslations.global_retry }),
+              primaryTestID: 'borrow-e-mode-retry',
+              onPrimaryPress: () => void refresh(),
+            }}
+          />
+        ) : null}
         {showInitialSkeleton ? (
           <YStack gap="$3" py="$4">
             <Skeleton h="$12" w="100%" borderRadius="$3" />
@@ -390,6 +520,7 @@ function BorrowEModeSwitchView() {
                 userSelection={selection.userSelection}
                 disabled={isSubmitting || pendingGuardActive}
                 onChange={onSelectCategory}
+                onOpen={onOpenCategoryPicker}
               />
               {viewState === 'error' ? (
                 <Alert
