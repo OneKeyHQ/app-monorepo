@@ -73,6 +73,7 @@ export function Overview24PriceChange({
     symbol,
     price: currentPrice,
     lastUpdated: new Date(lastUpdated).getTime(),
+    cacheKey: `${name}:${symbol}:usd`,
   });
   const lowPrice = Math.min(Number(low), Number(price));
   const highPrice = Math.max(Number(high), Number(price));

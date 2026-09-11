@@ -266,7 +266,7 @@ export function MarketDetailPools({
   // the index from the selected key keeps the selection pinned to the same tab,
   // and falls back to the first tab when the selected pool was delisted.
   const tabKeys = useMemo(() => {
-    const keys = validPools.map((i) => i.localId);
+    const keys = validPools.map((i) => i.onekeyNetworkId ?? i.localId);
     if (tickers?.length) {
       keys.push(CEX);
     }
