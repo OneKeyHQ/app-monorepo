@@ -5,6 +5,8 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPOSITORY_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd)
 OUTPUT_PATH="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/sentry.options.json"
+WORD_LIST_SOURCE="$REPOSITORY_ROOT/node_modules/bip39/src/wordlists/english.json"
+WORD_LIST_OUTPUT="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/OneKeyBip39English.json"
 
 read_env_value() {
   file_path="$1"
@@ -32,7 +34,7 @@ for env_file in "$REPOSITORY_ROOT/.env" "$REPOSITORY_ROOT/.env.expo"; do
   fi
 done
 
-/bin/rm -f "$OUTPUT_PATH"
+/bin/rm -f "$OUTPUT_PATH" "$WORD_LIST_OUTPUT"
 /bin/mkdir -p "$(dirname "$OUTPUT_PATH")"
 if [ -z "$SENTRY_DSN_VALUE" ]; then
   case "${CONFIGURATION:-}" in
@@ -44,6 +46,7 @@ if [ -z "$SENTRY_DSN_VALUE" ]; then
   exit 0
 fi
 
+/bin/cp "$WORD_LIST_SOURCE" "$WORD_LIST_OUTPUT"
 /usr/bin/plutil -create xml1 "$OUTPUT_PATH"
 /usr/bin/plutil -insert dsn -string "$SENTRY_DSN_VALUE" "$OUTPUT_PATH"
 /usr/bin/plutil -convert json "$OUTPUT_PATH"

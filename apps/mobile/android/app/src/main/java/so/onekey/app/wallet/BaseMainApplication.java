@@ -47,6 +47,7 @@ import java.util.List;
 import org.json.JSONObject;
 
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
+import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
@@ -459,6 +460,7 @@ public class BaseMainApplication extends Application implements ReactApplication
         options.setAttachScreenshot(false);
         options.setAttachViewHierarchy(false);
         options.setSendDefaultPii(false);
+        OneKeyNativeCrashDiagnostics.configure(this, options);
       });
     } catch (RuntimeException exception) {
       Log.e("Sentry", "Failed to initialize native Sentry", exception);

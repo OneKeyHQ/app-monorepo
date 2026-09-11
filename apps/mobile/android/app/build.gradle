@@ -9,9 +9,12 @@ apply plugin: 'com.google.gms.google-services'
 apply plugin: "io.sentry.android.gradle"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+def repositoryRoot = rootDir.getAbsoluteFile().getParentFile().getParentFile().getParentFile()
 def useDevShell = System.getenv('ONEKEY_DEV_SHELL') == 'true'
 def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
 def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
+def bip39EnglishWordList = new File(repositoryRoot, "node_modules/bip39/src/wordlists/english.json")
+def generatedSentryAssetsDir = file("${buildDir}/generated/assets/onekeySentry/main")
 def shouldAutoUploadSentryNativeSymbols =
     System.getenv('SENTRY_DISABLE_AUTO_UPLOAD') != 'true' &&
     System.getenv('SENTRY_DISABLE_NATIVE_DEBUG_UPLOAD') != 'true'
@@ -255,6 +258,7 @@ android {
     }
 
     sourceSets {
+        main.assets.srcDir(generatedSentryAssetsDir)
         debug.assets.srcDir(generatedDevShellAssetsDir)
     }
 
@@ -267,6 +271,20 @@ android {
             variant.runtimeConfiguration.resolutionStrategy.dependencySubstitution {
                 substitute project(':onekeyfe_react-native-app-update') using project(':app-update-noop')
             }
+        }
+    }
+}
+
+def prepareSentryNativeAssets = tasks.register("prepareSentryNativeAssets") {
+    inputs.file(bip39EnglishWordList)
+    outputs.file(file("${generatedSentryAssetsDir}/onekey-bip39-english.json"))
+
+    doLast {
+        delete(generatedSentryAssetsDir)
+        copy {
+            from(bip39EnglishWordList)
+            into(generatedSentryAssetsDir)
+            rename { "onekey-bip39-english.json" }
         }
     }
 }
@@ -298,6 +316,10 @@ def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
 }
 
 android.applicationVariants.configureEach { variant ->
+    def targetName = capitalizeVariantName(variant.name)
+    tasks.named("merge${targetName}Assets").configure {
+        dependsOn(prepareSentryNativeAssets)
+    }
     if (variant.buildType?.name?.equalsIgnoreCase("release")) {
         variant.preBuildProvider.configure {
             doFirst {
@@ -310,7 +332,6 @@ android.applicationVariants.configureEach { variant ->
         }
     }
     if (variant.buildType?.name?.equalsIgnoreCase("debug")) {
-        def targetName = capitalizeVariantName(variant.name)
         tasks.named("merge${targetName}Assets").configure {
             dependsOn(prepareDevShellDebugAssets)
         }

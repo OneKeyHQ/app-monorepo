@@ -136,6 +136,7 @@ private func initializeNativeSentry() {
     options.attachScreenshot = false
     options.attachViewHierarchy = false
     options.sendDefaultPii = false
+    OneKeyConfigureNativeSentryCrashDiagnostics(options)
   }
 }
 
