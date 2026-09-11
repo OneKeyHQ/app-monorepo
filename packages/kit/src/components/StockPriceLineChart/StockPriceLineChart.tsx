@@ -11,13 +11,14 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
+import { formatChartPrice } from '../LightweightChart/utils/formatChartPrice';
 
 import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
 
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 // Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
 // a stable width instead of resizing with the figures it prints.
-const PRICE_SCALE_WIDTH = 64;
+const PRICE_SCALE_WIDTH = 88;
 // Keeps the pulsing tail dot clear of the current price label on the axis.
 const LAST_POINT_RIGHT_GAP = 8;
 // The hover card follows the cursor on both axes. Fixed width so it can be
@@ -121,13 +122,10 @@ export function StockPriceLineChart({
   const { format } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
+  const maxPriceCharacters = chartWidth > 0 && chartWidth < 400 ? 7 : 8;
   const priceFormatter = useCallback(
-    (price: number) =>
-      numberFormat(String(price), {
-        formatter: 'price',
-        formatterOptions: { currency: '$' },
-      }),
-    [],
+    (price: number) => formatChartPrice(price, maxPriceCharacters),
+    [maxPriceCharacters],
   );
   const handleHover = useCallback(
     ({
@@ -330,6 +328,7 @@ export function StockPriceLineChart({
         priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
         timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
+        compactPriceMaxCharacters={maxPriceCharacters}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}
@@ -361,7 +360,10 @@ export function StockPriceLineChart({
               color="$text"
               numberOfLines={1}
             >
-              {priceFormatter(hoverData.price)}
+              {numberFormat(String(hoverData.price), {
+                formatter: 'price',
+                formatterOptions: { currency: '$' },
+              })}
             </SizableText>
           ) : null}
         </Stack>

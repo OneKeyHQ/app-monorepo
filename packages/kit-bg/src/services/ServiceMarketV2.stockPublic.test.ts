@@ -1,9 +1,15 @@
 // cspell:ignore financials
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import ServiceMarketV2 from './ServiceMarketV2';
 
 const mockGet = jest.fn();
+let mockPauseMemoizationTasks = false;
+
+jest.mock('next-tick', () => (callback: () => void) => {
+  if (!mockPauseMemoizationTasks) queueMicrotask(callback);
+});
 const mockAssetDetail = jest.fn();
 let mockListingCache: Record<string, INotificationWatchlistToken> = {};
 const mockNotificationSettings = {
@@ -50,6 +56,39 @@ describe('ServiceMarketV2 public stock APIs', () => {
     jest.clearAllMocks();
     mockGet.mockReset();
     mockListingCache = {};
+  });
+
+  afterEach(() => {
+    mockPauseMemoizationTasks = false;
+    jest.restoreAllMocks();
+  });
+
+  it('does not reuse an Android offline failure after an explicit token retry', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
+    mockPauseMemoizationTasks = true;
+    const service = createService();
+    const query = { networkId: 'evm--1', type: 'trending' };
+    const response = { list: [{ symbol: 'ETH' }], total: 1 };
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    await expect(service.fetchMarketTokenList(query)).rejects.toThrow(
+      'offline',
+    );
+    await expect(service.fetchMarketTokenList(query)).rejects.toThrow(
+      'offline',
+    );
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    mockGet.mockResolvedValue({ data: { data: response } });
+    await expect(
+      service.fetchMarketTokenList(query, { forceRemote: true }),
+    ).resolves.toEqual(response);
+    await expect(service.fetchMarketTokenList(query)).resolves.toEqual(
+      response,
+    );
+    expect(mockGet).toHaveBeenCalledTimes(3);
+    await expect(service.fetchMarketTokenList(query)).resolves.toEqual(
+      response,
+    );
+    expect(mockGet).toHaveBeenCalledTimes(3);
   });
 
   it('loads a stock watchlist quote without resolving a token variant', async () => {
@@ -376,6 +415,31 @@ describe('ServiceMarketV2 public stock APIs', () => {
       autoHandleError: false,
     });
     expect(result.items[0]?.stockId).toBe('AAPL');
+  });
+
+  it('passes the search cursor when loading the next page', async () => {
+    const service = createService();
+    mockGet.mockResolvedValueOnce({
+      data: {
+        data: {
+          items: [],
+          total: 1,
+          nextCursor: 'next',
+        },
+      },
+    });
+
+    await service.searchMarketStocks({
+      query: 'aapl',
+      cursor: 'next',
+      limit: 20,
+    });
+
+    expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks/search', {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      params: { query: 'aapl', limit: 20, cursor: 'next' },
+      autoHandleError: false,
+    });
   });
 
   it('loads stock detail and token variants by stockId', async () => {

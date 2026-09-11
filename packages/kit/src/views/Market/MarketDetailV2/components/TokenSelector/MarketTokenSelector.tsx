@@ -45,6 +45,7 @@ import type {
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
+import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketStockSelectorList } from './MarketStockSelectorList';
@@ -148,7 +149,9 @@ function BaseMarketTokenSelectorContent({
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
-  const toMarketStockDetailPage = useToMarketStockDetailPage();
+  const toMarketStockDetailPage = useToMarketStockDetailPage({
+    replaceCurrentDetail: true,
+  });
   const {
     data: topCoins,
     handleItemPress: handleTopCoinPress,
@@ -285,6 +288,10 @@ function BaseMarketTokenSelectorContent({
       networkId: string;
       assetId?: string;
       stockId?: string;
+      stock?: IMarketToken['stock'];
+      name?: string;
+      symbol?: string;
+      tokenImageUri?: string;
       isNative?: boolean;
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
@@ -294,6 +301,29 @@ function BaseMarketTokenSelectorContent({
       if (token.perpsCoin) {
         void closePopover?.();
         navigateToPerps(token.perpsCoin);
+        return;
+      }
+
+      const stockId = resolveMarketStockId({
+        stockId: token.stockId,
+        stock: token.tokenDetailPreview?.stock ?? token.stock,
+        name: token.tokenDetailPreview?.name ?? token.name,
+        symbol: token.tokenDetailPreview?.symbol ?? token.symbol,
+      });
+      if (stockId) {
+        void closePopover?.();
+        void toMarketStockDetailPage({
+          stockId,
+          symbol: token.tokenDetailPreview?.symbol ?? token.symbol ?? stockId,
+          name: token.tokenDetailPreview?.name ?? token.name ?? stockId,
+          logoUrl:
+            token.tokenDetailPreview?.tokenImageUri ??
+            token.tokenImageUri ??
+            '',
+          tokenAddress: token.address,
+          networkId: token.networkId,
+          isNative: token.isNative,
+        });
         return;
       }
 
@@ -319,6 +349,7 @@ function BaseMarketTokenSelectorContent({
       tokenDetailActions,
       closePopover,
       navigateToPerps,
+      toMarketStockDetailPage,
       searchValueDebounce,
       selectedCategory,
       showFavoriteButton,

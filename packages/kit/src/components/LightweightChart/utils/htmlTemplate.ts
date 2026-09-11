@@ -1,3 +1,4 @@
+import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
 
 import type { ILightweightChartConfig } from '../types';
@@ -14,7 +15,13 @@ function getStyles(): string {
 
 function getChartInitScript(): string {
   return `
+      var compactPriceFormatter = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
+        if (nextConfig.compactPriceMaxCharacters) {
+          return function(price) {
+            return compactPriceFormatter(price, nextConfig.compactPriceMaxCharacters);
+          };
+        }
         if (nextConfig.priceFormatterType === 'usd') return usdPriceFormatter;
         if (nextConfig.priceFormatterType === 'number') {
           return function(price) {
@@ -39,6 +46,7 @@ function getChartInitScript(): string {
           {
             visible: Boolean(nextConfig.showPriceScale),
             borderVisible: false,
+            minimumWidth: nextConfig.priceScaleMinimumWidth ?? 0,
             entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
           },
           nextConfig.priceScaleMargins

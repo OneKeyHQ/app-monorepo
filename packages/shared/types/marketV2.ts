@@ -715,6 +715,14 @@ export interface IMarketBannerDescription {
   fontColor: string;
 }
 
+export interface IMarketBannerTokenPreview {
+  logo: string;
+  name: string;
+  symbol: string;
+  price?: string | null;
+  priceChange24hPercent?: string | null;
+}
+
 export interface IMarketBannerItem {
   _id: string;
   title: string;
@@ -726,6 +734,7 @@ export interface IMarketBannerItem {
   tokenListId: string;
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
+  tokens?: IMarketBannerTokenPreview[];
   type?: EMarketBannerType;
 }
 
@@ -796,6 +805,7 @@ export interface IMarketStockPublicListRequest {
 
 export interface IMarketStockPublicSearchRequest {
   query: string;
+  cursor?: string;
   limit?: number;
 }
 

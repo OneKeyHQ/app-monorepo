@@ -5,6 +5,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchMarketBannerListForPlatform } from './marketBannerListPlatformApi';
@@ -31,9 +32,11 @@ export function useMarketBannerList(): {
         return await fetchMarketBannerListForPlatform({
           enableMockMarketBanner,
         });
-      } finally {
+      } catch (error) {
+        // Successful data must commit before the native layout fixes its header height.
         if (currentScopeRef.current === requestScope)
           setSettledScope(requestScope);
+        throw error;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -47,6 +50,8 @@ export function useMarketBannerList(): {
       // Optional banners must not turn a failed request into a page error.
       undefinedResultIfError: true,
       revalidateOnReconnect: true,
+      revalidateOnFocus: true,
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
 

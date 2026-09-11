@@ -43,6 +43,7 @@ import { MobilePositionsListHeader } from '../Components/MobilePositionsListHead
 import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
 import { type IPositionRowItem, PositionRow } from '../Components/PositionsRow';
 import { calcCellAlign, getColumnStyle } from '../utils';
+import { PERP_DESKTOP_EMPTY_STATE_TOP_INSET } from '../utils/tableLayout';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -455,7 +456,12 @@ function PerpPositionsList({
             </XStack>
           </ScrollView>
         </XStack>
-        <YStack flex={1} width="100%" minHeight={0}>
+        <YStack
+          flex={1}
+          width="100%"
+          minHeight={0}
+          pt={PERP_DESKTOP_EMPTY_STATE_TOP_INSET}
+        >
           <PerpPositionsEmptyState />
         </YStack>
       </YStack>
