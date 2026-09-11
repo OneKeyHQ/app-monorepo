@@ -18,6 +18,7 @@ export function EModeCategorySelect({
   userSelection,
   disabled,
   onChange,
+  onOpen,
 }: {
   rows: IEModeRow[];
   // Identifies the live status shared with the picker.
@@ -32,6 +33,7 @@ export function EModeCategorySelect({
   // Null lets the picker follow its current category as live status changes.
   userSelection: number | null;
   disabled?: boolean;
+  onOpen: () => void;
   onChange: (eModeId: number, observedCurrentEModeId: number | null) => void;
 }) {
   const intl = useIntl();
@@ -59,12 +61,13 @@ export function EModeCategorySelect({
     if (disabled) {
       return;
     }
+    onOpen();
     navigation.push(EModalStakingRoutes.BorrowEModeCategorySelect, {
       ...scope,
       selectedEModeId: userSelection,
       onSelect: onChange,
     });
-  }, [disabled, navigation, onChange, scope, userSelection]);
+  }, [disabled, navigation, onChange, onOpen, scope, userSelection]);
 
   return (
     <XStack
