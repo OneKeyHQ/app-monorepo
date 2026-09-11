@@ -1100,6 +1100,7 @@ function BatchCreateAccountPreviewPage({
               <ButtonGroup.Item
                 testID="batch-create-account-preview-page-number"
                 opacity={1}
+                px="$3"
                 onPress={() => {
                   showBatchCreateAccountPreviewPageNumberDialog({
                     page,
