@@ -231,7 +231,9 @@ function compactTradingViewNativePriceLeadingZeros(value: string) {
 
 export function formatTradingViewNativePriceTick(
   price: number,
-  significantFractionDigits: 4 | 6 = PRICE_SIGNIFICANT_FRACTION_DIGITS,
+  // Worklet default parameters cannot read captured constants before __closure is initialized.
+  // Keep this literal in sync manually with PRICE_SIGNIFICANT_FRACTION_DIGITS.
+  significantFractionDigits: 4 | 6 = 4,
 ) {
   'worklet';
 
