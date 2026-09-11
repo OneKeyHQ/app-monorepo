@@ -5,13 +5,32 @@ import type { IWcPayConfirmResult } from '@onekeyhq/shared/src/walletConnect/pay
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export const DEFAULT_POLL_MS = 3000;
+export const MIN_POLL_MS = 1000;
+export const MAX_POLL_MS = 60_000;
 export const MAX_POLL_COUNT = 60;
+
+/**
+ * Server-provided `pollInMs` is a trust-boundary value: a missing, NaN,
+ * zero, negative, or absurdly large delay must not turn into a
+ * `setTimeout(…, <=0)` burst that drains `MAX_POLL_COUNT` in one tick, nor
+ * park the poll loop for hours. Malformed values fall back to
+ * `DEFAULT_POLL_MS`; valid ones are clamped to `[MIN_POLL_MS, MAX_POLL_MS]`.
+ */
+export function resolvePollDelayMs(pollInMs: number | undefined): number {
+  if (typeof pollInMs !== 'number' || !Number.isFinite(pollInMs)) {
+    return DEFAULT_POLL_MS;
+  }
+  if (pollInMs <= 0) {
+    return DEFAULT_POLL_MS;
+  }
+  return Math.min(Math.max(pollInMs, MIN_POLL_MS), MAX_POLL_MS);
+}
 
 /**
  * Polls `serviceWalletConnectPay.confirmPayment` with a fixed `(paymentId,
  * optionId, signatures)` triple until the result is final or polling gives
- * up, re-arming the timer after each response using `pollInMs` (falling
- * back to `DEFAULT_POLL_MS`).
+ * up, re-arming the timer after each response using `pollInMs` (sanitised
+ * via `resolvePollDelayMs`, falling back to `DEFAULT_POLL_MS`).
  *
  * `enabled` lets a caller mount this hook before `signatures` exists (e.g.
  * while the user is still signing) with `enabled: false` — nothing is
@@ -98,7 +117,7 @@ export function useWcPayResultPolling({
         }
         setResult(next);
         if (!next.isFinal) {
-          timer = setTimeout(poll, next.pollInMs ?? DEFAULT_POLL_MS);
+          timer = setTimeout(poll, resolvePollDelayMs(next.pollInMs));
         }
       } catch {
         if (!cancelled) {
@@ -107,7 +126,7 @@ export function useWcPayResultPolling({
       }
     };
 
-    timer = setTimeout(poll, result.pollInMs ?? DEFAULT_POLL_MS);
+    timer = setTimeout(poll, resolvePollDelayMs(result.pollInMs));
     return () => {
       cancelled = true;
       if (timer) {

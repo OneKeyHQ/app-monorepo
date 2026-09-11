@@ -13,6 +13,9 @@ import type {
 import {
   DEFAULT_POLL_MS,
   MAX_POLL_COUNT,
+  MAX_POLL_MS,
+  MIN_POLL_MS,
+  resolvePollDelayMs,
   useWcPayResultPolling,
 } from '../useWcPayResultPolling';
 
@@ -107,9 +110,9 @@ describe('useWcPayResultPolling', () => {
   });
 
   it('starts polling fresh when enabled flips from false to true, and does not re-enter on an unchanged true', async () => {
-    const initialResult = processingResult({ pollInMs: 100 });
+    const initialResult = processingResult({ pollInMs: 1000 });
     serviceWalletConnectPay.confirmPayment.mockResolvedValue(
-      processingResult({ pollInMs: 100 }),
+      processingResult({ pollInMs: 1000 }),
     );
 
     const { rerender, unmount } = renderHook(
@@ -128,7 +131,7 @@ describe('useWcPayResultPolling', () => {
     expect(serviceWalletConnectPay.confirmPayment).not.toHaveBeenCalled();
 
     rerender({ enabled: true });
-    await advanceTimers(100);
+    await advanceTimers(1000);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
 
     // re-rendering with the same `enabled: true` value must not restart the
@@ -136,7 +139,7 @@ describe('useWcPayResultPolling', () => {
     rerender({ enabled: true });
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
 
-    await advanceTimers(100);
+    await advanceTimers(1000);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(2);
     unmount();
   });
@@ -218,7 +221,7 @@ describe('useWcPayResultPolling', () => {
   });
 
   it('re-submits the same signatures on every poll and stops once final', async () => {
-    const initialResult = processingResult({ pollInMs: 100 });
+    const initialResult = processingResult({ pollInMs: 1000 });
     const finalResult = succeededResult();
     serviceWalletConnectPay.confirmPayment.mockResolvedValueOnce(finalResult);
 
@@ -232,7 +235,7 @@ describe('useWcPayResultPolling', () => {
       }),
     );
 
-    await advanceTimers(100);
+    await advanceTimers(1000);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledWith({
       paymentId: PAYMENT_ID,
@@ -249,9 +252,9 @@ describe('useWcPayResultPolling', () => {
   });
 
   it('does not restart polling when signatures is re-created with identical content', async () => {
-    const initialResult = processingResult({ pollInMs: 100 });
+    const initialResult = processingResult({ pollInMs: 1000 });
     serviceWalletConnectPay.confirmPayment.mockResolvedValue(
-      processingResult({ pollInMs: 100 }),
+      processingResult({ pollInMs: 1000 }),
     );
 
     const { rerender, unmount } = renderHook(
@@ -268,7 +271,7 @@ describe('useWcPayResultPolling', () => {
 
     // advance partway into the first poll interval, then re-render with a
     // new array instance that carries the same content
-    await advanceTimers(50);
+    await advanceTimers(500);
     expect(serviceWalletConnectPay.confirmPayment).not.toHaveBeenCalled();
     rerender({ signatures: [...SIGNATURES] });
     // an identity-equal re-render must not reset or re-arm the timer
@@ -276,15 +279,15 @@ describe('useWcPayResultPolling', () => {
 
     // the original schedule still lands at the original 100ms mark, not a
     // fresh 100ms counted from the re-render
-    await advanceTimers(50);
+    await advanceTimers(500);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
     unmount();
   });
 
   it('resets pollExhausted and result when the request identity changes after exhaustion', async () => {
-    const initialResult = processingResult({ pollInMs: 10 });
+    const initialResult = processingResult({ pollInMs: 1000 });
     serviceWalletConnectPay.confirmPayment.mockResolvedValue(
-      processingResult({ pollInMs: 10 }),
+      processingResult({ pollInMs: 1000 }),
     );
 
     const { result, rerender, unmount } = renderHook(
@@ -309,13 +312,13 @@ describe('useWcPayResultPolling', () => {
       },
     );
 
-    await advanceTimers(10 * (MAX_POLL_COUNT + 1));
+    await advanceTimers(1000 * (MAX_POLL_COUNT + 1));
     expect(result.current.pollExhausted).toBe(true);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(
       MAX_POLL_COUNT,
     );
 
-    const retryInitialResult = processingResult({ pollInMs: 10 });
+    const retryInitialResult = processingResult({ pollInMs: 1000 });
     rerender({
       optionId: 'option-2',
       signatures: ['0xnewsig'],
@@ -327,7 +330,7 @@ describe('useWcPayResultPolling', () => {
     expect(result.current.pollExhausted).toBe(false);
     expect(result.current.result).toBe(retryInitialResult);
 
-    await advanceTimers(10);
+    await advanceTimers(1000);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(
       MAX_POLL_COUNT + 1,
     );
@@ -340,10 +343,10 @@ describe('useWcPayResultPolling', () => {
   });
 
   it('retries after DEFAULT_POLL_MS when confirmPayment rejects', async () => {
-    const initialResult = processingResult({ pollInMs: 100 });
+    const initialResult = processingResult({ pollInMs: 1000 });
     serviceWalletConnectPay.confirmPayment
       .mockRejectedValueOnce(new Error('network error'))
-      .mockResolvedValue(processingResult({ pollInMs: 100 }));
+      .mockResolvedValue(processingResult({ pollInMs: 1000 }));
 
     renderHook(() =>
       useWcPayResultPolling({
@@ -355,7 +358,7 @@ describe('useWcPayResultPolling', () => {
       }),
     );
 
-    await advanceTimers(100);
+    await advanceTimers(1000);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
 
     // the rejection reschedules using DEFAULT_POLL_MS, not the last pollInMs
@@ -366,9 +369,9 @@ describe('useWcPayResultPolling', () => {
   });
 
   it('sets pollExhausted after MAX_POLL_COUNT polls without a final result, and stops', async () => {
-    const initialResult = processingResult({ pollInMs: 10 });
+    const initialResult = processingResult({ pollInMs: 1000 });
     serviceWalletConnectPay.confirmPayment.mockResolvedValue(
-      processingResult({ pollInMs: 10 }),
+      processingResult({ pollInMs: 1000 }),
     );
 
     const { result, unmount } = renderHook(() =>
@@ -384,7 +387,7 @@ describe('useWcPayResultPolling', () => {
     // MAX_POLL_COUNT polls, each spaced 10ms apart, plus one more interval
     // for the (MAX_POLL_COUNT + 1)th timer to observe the count and exhaust
     // without issuing another request
-    await advanceTimers(10 * (MAX_POLL_COUNT + 1));
+    await advanceTimers(1000 * (MAX_POLL_COUNT + 1));
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(
       MAX_POLL_COUNT,
     );
@@ -394,7 +397,7 @@ describe('useWcPayResultPolling', () => {
     expect(result.current.result.isFinal).toBe(false);
 
     // no further calls beyond MAX_POLL_COUNT
-    await advanceTimers(10 * 5);
+    await advanceTimers(1000 * 5);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(
       MAX_POLL_COUNT,
     );
@@ -406,7 +409,7 @@ describe('useWcPayResultPolling', () => {
     const pending = new Promise<IWcPayConfirmResult>((resolvePromise) => {
       resolveConfirm = resolvePromise;
     });
-    const initialResult = processingResult({ pollInMs: 10 });
+    const initialResult = processingResult({ pollInMs: 1000 });
     serviceWalletConnectPay.confirmPayment.mockReturnValueOnce(pending);
 
     const { unmount } = renderHook(() =>
@@ -419,7 +422,7 @@ describe('useWcPayResultPolling', () => {
       }),
     );
 
-    await advanceTimers(10);
+    await advanceTimers(1000);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
 
     unmount();
@@ -434,5 +437,81 @@ describe('useWcPayResultPolling', () => {
 
     await advanceTimers(DEFAULT_POLL_MS * 5);
     expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not burst when the response carries a malformed pollInMs', async () => {
+    const initialResult = processingResult({ pollInMs: 1000 });
+    // a negative delay would otherwise make setTimeout fire immediately and
+    // drain MAX_POLL_COUNT in a single tick
+    serviceWalletConnectPay.confirmPayment.mockResolvedValue(
+      processingResult({ pollInMs: -1 }),
+    );
+
+    const { result, unmount } = renderHook(() =>
+      useWcPayResultPolling({
+        paymentId: PAYMENT_ID,
+        optionId: OPTION_ID,
+        signatures: SIGNATURES,
+        initialResult,
+        enabled: true,
+      }),
+    );
+
+    await advanceTimers(1000);
+    expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
+
+    // malformed delay falls back to DEFAULT_POLL_MS instead of re-polling now
+    await advanceTimers(DEFAULT_POLL_MS - 1);
+    expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
+    await advanceTimers(1);
+    expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(2);
+    expect(result.current.pollExhausted).toBe(false);
+    unmount();
+  });
+
+  it('clamps an oversized pollInMs to MAX_POLL_MS', async () => {
+    const initialResult = processingResult({
+      pollInMs: Number.MAX_SAFE_INTEGER,
+    });
+    serviceWalletConnectPay.confirmPayment.mockResolvedValue(
+      processingResult({ pollInMs: 1000 }),
+    );
+
+    const { unmount } = renderHook(() =>
+      useWcPayResultPolling({
+        paymentId: PAYMENT_ID,
+        optionId: OPTION_ID,
+        signatures: SIGNATURES,
+        initialResult,
+        enabled: true,
+      }),
+    );
+
+    await advanceTimers(MAX_POLL_MS - 1);
+    expect(serviceWalletConnectPay.confirmPayment).not.toHaveBeenCalled();
+    await advanceTimers(1);
+    expect(serviceWalletConnectPay.confirmPayment).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+});
+
+describe('resolvePollDelayMs', () => {
+  it('falls back to DEFAULT_POLL_MS for missing or malformed values', () => {
+    expect(resolvePollDelayMs(undefined)).toBe(DEFAULT_POLL_MS);
+    expect(resolvePollDelayMs(Number.NaN)).toBe(DEFAULT_POLL_MS);
+    expect(resolvePollDelayMs(Number.POSITIVE_INFINITY)).toBe(DEFAULT_POLL_MS);
+    expect(resolvePollDelayMs(0)).toBe(DEFAULT_POLL_MS);
+    expect(resolvePollDelayMs(-5000)).toBe(DEFAULT_POLL_MS);
+    expect(resolvePollDelayMs('3000' as unknown as number)).toBe(
+      DEFAULT_POLL_MS,
+    );
+  });
+
+  it('clamps valid values into [MIN_POLL_MS, MAX_POLL_MS]', () => {
+    expect(resolvePollDelayMs(1)).toBe(MIN_POLL_MS);
+    expect(resolvePollDelayMs(MIN_POLL_MS)).toBe(MIN_POLL_MS);
+    expect(resolvePollDelayMs(5000)).toBe(5000);
+    expect(resolvePollDelayMs(MAX_POLL_MS)).toBe(MAX_POLL_MS);
+    expect(resolvePollDelayMs(MAX_POLL_MS + 1)).toBe(MAX_POLL_MS);
   });
 });
