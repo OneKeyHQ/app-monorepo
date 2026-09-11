@@ -7,7 +7,8 @@ export async function createBackupExportArchive(
 ): Promise<IBackupDataExportArchive> {
   // Hermes has no Streams API. Load it before evaluating zip.js, on demand.
   if (typeof globalThis.TransformStream === 'undefined') {
-    await import('web-streams-polyfill/polyfill');
+    // Metro disables package exports, so use the physical entry point.
+    await import('web-streams-polyfill/dist/polyfill.js');
   }
   const { ZipWriter, Uint8ArrayWriter, Uint8ArrayReader } =
     await import('@zip.js/zip.js/index-native.js');

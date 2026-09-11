@@ -10315,7 +10315,7 @@ __metadata:
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
     "@types/yauzl": "npm:2.10.3"
-    "@zip.js/zip.js": "npm:2.14.0"
+    "@zip.js/zip.js": "npm:2.10.0"
     eth-url-parser: "npm:^1.0.4"
     fflate: "npm:0.8.2"
     idb: "npm:^7.1.1"
@@ -22531,10 +22531,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@zip.js/zip.js@npm:2.14.0":
-  version: 2.14.0
-  resolution: "@zip.js/zip.js@npm:2.14.0"
-  checksum: 10/661e102c79c09e91829bef87257e311ac33f2e09166498e0caf26bbc686eab274191165cd8e7922738b529812200b800d509bd82119e345be348588412896448
+"@zip.js/zip.js@npm:2.10.0":
+  version: 2.10.0
+  resolution: "@zip.js/zip.js@npm:2.10.0"
+  checksum: 10/32ce34ea51e3da45678fa3420dccd2d706aff81af8a15494d839f262a485f922803b75480d8f2dd42274c40e7620198d4bac49a7df06c1198de7d82d4813d37f
   languageName: node
   linkType: hard
 

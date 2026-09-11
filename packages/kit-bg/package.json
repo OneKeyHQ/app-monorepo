@@ -4,7 +4,7 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@zip.js/zip.js": "2.14.0",
+    "@zip.js/zip.js": "2.10.0",
     "eth-url-parser": "^1.0.4",
     "fflate": "0.8.2",
     "idb": "^7.1.1",
