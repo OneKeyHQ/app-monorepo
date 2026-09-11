@@ -796,6 +796,7 @@ export interface IMarketStockPublicListRequest {
 
 export interface IMarketStockPublicSearchRequest {
   query: string;
+  cursor?: string;
   limit?: number;
 }
 
