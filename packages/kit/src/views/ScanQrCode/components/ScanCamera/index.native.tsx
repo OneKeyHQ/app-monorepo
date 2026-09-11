@@ -1,10 +1,9 @@
 import { useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { CameraView } from 'expo-camera';
+import { Camera, CameraType } from 'react-native-camera-kit';
 
 import { usePreventRemove } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IScanCameraProps } from './types';
 
@@ -13,7 +12,7 @@ export type { IScanCameraProps };
 /**
  * The screen-bound half of the native camera: unmount the Camera first,
  * dispatch the blocked navigation action a beat later — tearing the
- * camera down mid-transition wedges the native camera session. Both hooks
+ * camera down mid-transition wedges react-native-camera-kit. Both hooks
  * in here require a screen's navigation context, so hosts outside any
  * screen (the DeviceStage overlay) must opt out via
  * `disableNavigationGuard` — mounting this there throws at useRoute.
@@ -65,17 +64,19 @@ export function ScanCamera({
         <ScanCameraNavigationGuard onPreventRemove={onPreventRemove} />
       )}
       {isFocus ? (
-        <CameraView
-          style={rest.style ?? { flex: 1 }}
-          facing="back"
-          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-          responsiveOrientationWhenOrientationLocked={
-            platformEnv.isNativeIOSPad
-          }
-          onBarcodeScanned={({ data }) => {
-            if (typeof data === 'string') {
-              handleScanResult?.(data);
+        <Camera
+          style={{ flex: 1 }}
+          resizeMode="cover"
+          showFrame={false}
+          zoom={1}
+          zoomMode="on"
+          cameraType={CameraType.Back}
+          scanBarcode
+          onReadCode={({ nativeEvent: { codeStringValue } }) => {
+            if (typeof codeStringValue !== 'string') {
+              return;
             }
+            handleScanResult?.(codeStringValue);
           }}
           {...rest}
         />
