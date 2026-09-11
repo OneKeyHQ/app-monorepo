@@ -704,7 +704,7 @@ function StockOverviewGrid() {
       },
       {
         label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_24h_volume,
+          id: ETranslations.market_stock_volume__title,
         }),
         tooltip: intl.formatMessage({
           id: ETranslations.market_stock_volume_tooltip,
