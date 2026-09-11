@@ -73,10 +73,12 @@ import type { IToken } from './types';
 
 interface IStockTradePanelProps {
   portfolioData?: IMarketAccountPortfolioItem[];
+  resolvedVariantKeys?: string[];
 }
 
 function StockTradePanelContentContainer({
   portfolioData,
+  resolvedVariantKeys,
 }: IStockTradePanelProps) {
   const {
     networkId,
@@ -893,6 +895,7 @@ function StockTradePanelContentContainer({
       marketPresetSettings={undefined}
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
       portfolioData={portfolioData}
+      resolvedVariantKeys={resolvedVariantKeys}
     />
   );
 }

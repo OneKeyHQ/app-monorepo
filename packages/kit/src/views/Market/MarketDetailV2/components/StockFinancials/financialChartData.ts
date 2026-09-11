@@ -6,6 +6,7 @@ import type {
 
 import {
   buildFinancialWaterfall,
+  getFinancialEarningsRows,
   getFinancialPeriodLabel,
   getFinancialRows,
   getNetMargin,
@@ -80,7 +81,8 @@ export function buildFinancialChart(
     sourceRows = [data.revenueToProfitConversion];
   const currency =
     data.currency ??
-    sourceRows.find((row) => row.reportedCurrency)?.reportedCurrency;
+    sourceRows.find((row) => row.reportedCurrency)?.reportedCurrency ??
+    'USD';
   const bar = (
     key: string,
     label: string,
@@ -177,18 +179,17 @@ export function buildFinancialChart(
         kind: 'estimate',
       },
     ],
-    rows: getFinancialRows(data.earnings.items, data.period, currency).map(
-      (row) => ({
-        key: row.date,
-        label: getFinancialPeriodLabel(row),
-        values: [
-          row.actual,
-          data.period === 'annual' &&
-          (!isFinancialNumber(row.numAnalysts) || row.numAnalysts < 3)
-            ? null
-            : row.estimate,
-        ],
-      }),
-    ),
+    rows: getFinancialEarningsRows(
+      data.earnings.items,
+      data.period,
+      currency,
+    ).map((row) => ({
+      key: row.date,
+      label:
+        data.period === 'quarter' && !row.fiscalPeriod
+          ? row.date
+          : getFinancialPeriodLabel(row),
+      values: [row.actual, row.estimate],
+    })),
   };
 }

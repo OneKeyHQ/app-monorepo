@@ -31,9 +31,11 @@ export function useMarketBannerList(): {
         return await fetchMarketBannerListForPlatform({
           enableMockMarketBanner,
         });
-      } finally {
+      } catch (error) {
+        // Successful data must commit before the native layout fixes its header height.
         if (currentScopeRef.current === requestScope)
           setSettledScope(requestScope);
+        throw error;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -44,6 +46,8 @@ export function useMarketBannerList(): {
         ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
         : undefined,
       watchLoading: true,
+      // Optional banners must not turn a failed request into a page error.
+      undefinedResultIfError: true,
       revalidateOnReconnect: true,
     },
   );

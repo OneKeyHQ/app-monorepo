@@ -113,6 +113,7 @@ export type IStockTradePanelContentProps = {
   marketPresetSettings?: IMarketPresetSettingsState;
   estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
   portfolioData?: IMarketAccountPortfolioItem[];
+  resolvedVariantKeys?: string[];
 };
 
 export function StockTradePanelContent(props: IStockTradePanelContentProps) {
@@ -148,6 +149,7 @@ export function StockTradePanelContent(props: IStockTradePanelContentProps) {
     quoteError,
     disableNativeToken,
     portfolioData,
+    resolvedVariantKeys,
   } = props;
 
   const {
@@ -497,7 +499,10 @@ export function StockTradePanelContent(props: IStockTradePanelContentProps) {
         justifyContent="space-between"
         gap="$2"
       >
-        <StockTokenVariantSelector portfolioData={portfolioData} />
+        <StockTokenVariantSelector
+          portfolioData={portfolioData}
+          resolvedVariantKeys={resolvedVariantKeys}
+        />
         <XStack alignItems="center" justifyContent="flex-end" gap="$3">
           <BaseMarketTokenPrice
             price={currentMarketToken?.price || '--'}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,6 +11,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -35,6 +36,7 @@ import type {
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketStarV2 } from '../../components/MarketStarV2';
+import { MarketTooltipLabel } from '../../components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
@@ -76,9 +78,10 @@ import { getStockTokenVariantActionIdentity } from '../utils/stockTokenVariant';
 import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
 import {
+  MARKET_CHART_TOOLBAR_HEIGHT,
   MARKET_CHART_TOOLBAR_VERTICAL_INSET,
   MARKET_SIMPLE_CHART_RANGE_GAP,
-  MARKET_SIMPLE_CHART_RANGE_WIDTHS,
+  MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH,
 } from './components/marketSimpleChartConstants';
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
@@ -89,10 +92,6 @@ import {
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
-
-// Height of the whole chart block, and of the toolbar row that leads it in
-// Simple mode (Figma 25476:88857 / 25476:88858).
-const STOCK_CHART_TOOLBAR_HEIGHT = 40;
 
 function StockPageHeader({
   showFavoriteButton,
@@ -195,18 +194,19 @@ function StockPageHeader({
       />
 
       {/* The stock route can share the listing before any token variant
-          resolves, so the row also stands on a bare `stockId`. The favorite
-          button still needs a real chain/contract identity. */}
+          resolves, so the row also stands on a bare `stockId`.
+          Favorites use the stock ID independently of the selected token. */}
       {tokenActionIdentity || stockId ? (
         <XStack alignItems="center" gap="$4">
-          {showFavoriteButton && tokenActionIdentity ? (
+          {showFavoriteButton && (stockId || tokenActionIdentity) ? (
             <MarketStarV2
-              chainId={tokenActionIdentity.networkId}
-              contractAddress={tokenActionIdentity.address}
+              stockId={stockId}
+              chainId={tokenActionIdentity?.networkId ?? ''}
+              contractAddress={tokenActionIdentity?.address ?? ''}
               size="small"
               customIconSize="$5"
               from={EWatchlistFrom.Detail}
-              tokenSymbol={tokenActionIdentity.symbol}
+              tokenSymbol={stockDetail?.symbol ?? tokenActionIdentity?.symbol}
               isNative={isNative}
             />
           ) : null}
@@ -388,11 +388,22 @@ function StockPriceHeader({
               {hoverPoint.price}
             </NumberSizeableText>
           ) : (
-            <StockLivePrice
-              price={price}
-              priceMode={priceMode}
-              isSharePrice={isSharePrice}
-            />
+            <MarketTooltipLabel
+              testID="stock-price-tooltip-trigger"
+              // The row baseline-aligns this figure with the change beside it.
+              alignSelf="baseline"
+              tooltip={intl.formatMessage({
+                id: isSharePrice
+                  ? ETranslations.market_stock_price_underlying_tooltip
+                  : ETranslations.market_token_price_onchain_tooltip,
+              })}
+            >
+              <StockLivePrice
+                price={price}
+                priceMode={priceMode}
+                isSharePrice={isSharePrice}
+              />
+            </MarketTooltipLabel>
           )}
           <XStack alignItems="baseline" flexShrink={0} gap="$1.5">
             {changeValueText ? (
@@ -426,47 +437,70 @@ function StockPriceHeader({
         <StockMarketStatusBadge stock={stockStatus} variant="inline" />
       </YStack>
 
-      {/* Figma widths are minimums: Spanish/Italian labels outgrow the
-          English boxes, and a fixed width would truncate both options into
-          the same truncated string. */}
-      <XStack
-        minWidth={191}
-        height={38}
-        flexShrink={0}
-        py="$1"
-        gap="$0.5"
-        alignItems="center"
-      >
-        <Button
-          testID="stock-price-mode-share"
-          minWidth={94}
-          height={30}
-          m="$0"
-          px="$2.5"
-          borderWidth={0}
-          textEllipsis
-          size="small"
-          variant={priceMode === 'share' ? 'secondary' : 'tertiary'}
-          borderRadius="$full"
-          onPress={() => onPriceModeChange('share')}
-        >
-          {intl.formatMessage({ id: ETranslations.market_share_price })}
-        </Button>
-        <Button
-          testID="stock-price-mode-token"
-          minWidth={95}
-          height={30}
-          m="$0"
-          px="$2.5"
-          borderWidth={0}
-          textEllipsis
-          size="small"
-          variant={priceMode === 'token' ? 'secondary' : 'tertiary'}
-          borderRadius="$full"
-          onPress={() => onPriceModeChange('token')}
-        >
-          {intl.formatMessage({ id: ETranslations.market_token_price })}
-        </Button>
+      {/* Both options hug their label, per Figma 25476:89067: the widths this
+          used to carry were read off the English boxes, which left the shorter
+          CJK labels sitting in half-empty pills. #13271 restored them as
+          minimums to stop long Spanish/Italian labels truncating; hugging
+          answers that case too, since a button with no minimum and no shrink
+          simply grows to its text, and the header above wraps the pair onto
+          their own line when the row runs out of space. */}
+      <XStack height={38} py="$1" gap="$0.5" alignItems="center" flexShrink={0}>
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            // eslint-disable-next-line props-checker/validator -- Tooltip injects the trigger handlers.
+            <Button
+              testID="stock-price-mode-share"
+              height={30}
+              m="$0"
+              px="$2.5"
+              borderWidth={0}
+              flexShrink={0}
+              textEllipsis
+              size="small"
+              variant={priceMode === 'share' ? 'secondary' : 'tertiary'}
+              borderRadius="$full"
+              onPress={() => onPriceModeChange('share')}
+            >
+              {intl.formatMessage({ id: ETranslations.market_share_price })}
+            </Button>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.market_toggle_share_price_tooltip,
+              })}
+            </SizableText>
+          }
+        />
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            // eslint-disable-next-line props-checker/validator -- Tooltip injects the trigger handlers.
+            <Button
+              testID="stock-price-mode-token"
+              height={30}
+              m="$0"
+              px="$2.5"
+              borderWidth={0}
+              flexShrink={0}
+              textEllipsis
+              size="small"
+              variant={priceMode === 'token' ? 'secondary' : 'tertiary'}
+              borderRadius="$full"
+              onPress={() => onPriceModeChange('token')}
+            >
+              {intl.formatMessage({ id: ETranslations.market_token_price })}
+            </Button>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.market_toggle_token_price_tooltip,
+              })}
+            </SizableText>
+          }
+        />
       </XStack>
     </XStack>
   );
@@ -481,17 +515,21 @@ function StockChartModeControl({
 }) {
   const intl = useIntl();
 
-  // Figma 25476:88969: Simple (62) and Pro (40) sit 2px apart, exactly like the
-  // range selector on the other end of the toolbar.
+  // Figma 26552:24685. The small button supplies the 18px leading icon $2
+  // from its label, but its $2.5 padding only survives on `secondary`:
+  // `tertiary` is hard-coded to $2 so it can sit inline like a link. The
+  // design wants both states on the same box, so px is set here — without it
+  // the pill jumps 2px per side as the selection moves.
   return (
-    <XStack height={32} alignItems="center" gap="$0.5">
+    <XStack alignItems="center" gap="$0.5" flexShrink={0}>
       <Button
         testID="stock-chart-mode-simple"
-        minWidth={62}
         height={32}
         m="$0"
-        px="$2"
+        px="$2.5"
         borderWidth={0}
+        flexShrink={0}
+        icon="TradingViewLineOutline"
         size="small"
         variant={mode === 'simple' ? 'secondary' : 'tertiary'}
         borderRadius="$full"
@@ -501,11 +539,12 @@ function StockChartModeControl({
       </Button>
       <Button
         testID="stock-chart-mode-pro"
-        minWidth={40}
         height={32}
         m="$0"
-        px="$2"
+        px="$2.5"
         borderWidth={0}
+        flexShrink={0}
+        icon="TradingViewCandlesOutline"
         size="small"
         variant={mode === 'pro' ? 'secondary' : 'tertiary'}
         borderRadius="$full"
@@ -518,6 +557,9 @@ function StockChartModeControl({
 }
 
 export function StockChart({
+  chartContainerTestID,
+  fullscreenStyle,
+  fullscreenZIndex,
   marketTradingView,
   priceMode,
   chartMode,
@@ -527,6 +569,9 @@ export function StockChart({
   isChartFullscreen,
   onEnterChartFullscreen,
 }: {
+  chartContainerTestID: string;
+  fullscreenStyle?: CSSProperties;
+  fullscreenZIndex?: number;
   marketTradingView: ReactNode;
   priceMode: IMarketPriceSource;
   chartMode: ITradingViewChartMode;
@@ -545,54 +590,45 @@ export function StockChart({
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
-  const rangeSelectorWidth = chartRanges.reduce(
-    (total, item, index) =>
-      total +
-      MARKET_SIMPLE_CHART_RANGE_WIDTHS[item] +
-      (index > 0 ? MARKET_SIMPLE_CHART_RANGE_GAP : 0),
-    0,
-  );
+  const rangeSelectorWidth =
+    chartRanges.length * MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH +
+    (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP;
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
     setChartDisplayMode({ mode: nextMode });
   };
 
-  // Keep the Pro controls on TradingView's interval row so switching modes
-  // does not shift the chart body; fullscreen restores the widget controls.
-  return (
-    <YStack
+  // The toolbar goes to the container's footer, under the resize handle: the
+  // handle's line has to sit on the chart's own clipping edge to read as the
+  // cut it makes while dragging, so nothing of ours may live below it inside
+  // the resizable box.
+  const toolbar = isChartFullscreen ? undefined : (
+    <XStack
+      testID="stock-chart-toolbar"
       width="100%"
-      flex={1}
-      minHeight={0}
-      gap={isSimpleMode ? '$4' : '$0'}
-      position="relative"
+      height={MARKET_CHART_TOOLBAR_HEIGHT}
+      py="$1"
+      gap="$3"
+      alignItems="center"
     >
-      {isSimpleMode ? (
-        <XStack
-          testID="stock-chart-toolbar"
-          width="100%"
-          height={STOCK_CHART_TOOLBAR_HEIGHT}
-          py="$1"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <XStack
-            testID="stock-chart-range-selector"
-            minWidth={rangeSelectorWidth}
-            alignItems="center"
-            gap="$0.5"
-          >
-            {chartRanges.map((item) => {
-              const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
+      <XStack
+        testID="stock-chart-range-selector"
+        flex={1}
+        minWidth={isSimpleMode ? rangeSelectorWidth : 0}
+        alignItems="center"
+        gap="$0.5"
+      >
+        {isSimpleMode
+          ? chartRanges.map((item) => {
               return (
                 <Stack
                   key={item}
-                  minWidth={itemWidth}
+                  minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
                   height={32}
                   flexShrink={0}
                 >
                   <Button
                     testID={`stock-chart-range-${item}`}
-                    minWidth={itemWidth}
+                    minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
                     height={32}
                     m="$0"
                     px="$2"
@@ -608,46 +644,61 @@ export function StockChart({
                   </Button>
                 </Stack>
               );
-            })}
-          </XStack>
-          <Stack testID="stock-chart-mode-control">
-            <StockChartModeControl mode={mode} onChange={handleModeChange} />
-          </Stack>
-        </XStack>
+            })
+          : null}
+      </XStack>
+      <Stack testID="stock-chart-mode-control">
+        <StockChartModeControl mode={mode} onChange={handleModeChange} />
+      </Stack>
+    </XStack>
+  );
+
+  return (
+    // Figma 26459:25760 / 26459:25981: the chart owns the resizable block and
+    // the toolbar sits under it. Pro keeps only the mode switch there —
+    // TradingView carries its own interval row, so an app-side range selector
+    // would be a second, disagreeing control.
+    <MarketDesktopChartContainer
+      testID={chartContainerTestID}
+      isFullscreen={isChartFullscreen}
+      fullscreenZIndex={fullscreenZIndex}
+      fullscreenStyle={fullscreenStyle}
+      footer={toolbar}
+    >
+      {/* Desktop keeps the draggable title bar clear of the fullscreen chart. */}
+      {isChartFullscreen && platformEnv.isDesktop ? (
+        <Stack height={48} bg="$bgApp" flexShrink={0} />
       ) : null}
-      {isSimpleMode ? (
-        <StockSimpleChart
-          range={range}
-          priceMode={priceMode}
-          onHoverChange={onHoverChange}
-        />
-      ) : (
-        <>
-          <Stack flex={1} minWidth={0} overflow="hidden">
-            {marketTradingView}
-          </Stack>
-          {isChartFullscreen ? null : (
-            <MarketDetailProChartControls
-              testID="stock-chart-mode-control-pro"
-              top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
-              fullscreenTestID="stock-chart-fullscreen-toggle"
-              chartMode={chartMode}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-              onEnterChartFullscreen={onEnterChartFullscreen}
-            >
-              <StockChartModeControl mode={mode} onChange={handleModeChange} />
-            </MarketDetailProChartControls>
-          )}
-        </>
-      )}
-    </YStack>
+      <YStack width="100%" flex={1} minHeight={0} position="relative">
+        {isSimpleMode ? (
+          <StockSimpleChart
+            range={range}
+            priceMode={priceMode}
+            onHoverChange={onHoverChange}
+          />
+        ) : (
+          <>
+            <Stack flex={1} minWidth={0} overflow="hidden">
+              {marketTradingView}
+            </Stack>
+            {isChartFullscreen ? null : (
+              <MarketDetailProChartControls
+                testID="stock-chart-mode-control-pro"
+                top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
+                fullscreenTestID="stock-chart-fullscreen-toggle"
+                chartMode={chartMode}
+                isChartSwitchDisabled={isChartSwitchDisabled}
+                onChartSwitch={onChartSwitch}
+                onEnterChartFullscreen={onEnterChartFullscreen}
+              />
+            )}
+          </>
+        )}
+      </YStack>
+    </MarketDesktopChartContainer>
   );
 }
 
-// Design ships a 3 x 4 grid of twelve figures. The four financial metrics in
-// the last rows are not part of the public stock payload yet, so they fall back
-// to `--` until the backend requirement lands.
 function StockOverviewGrid() {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
@@ -664,11 +715,17 @@ function StockOverviewGrid() {
     () => [
       {
         label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_market_cap_tooltip,
+        }),
         value: formatCurrencyStatValue(marketCap),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_dividend_yield,
+        }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_dividend_yield_desc,
         }),
         value: formatPercentValue(
           stockDetail?.dividendYieldTtm ??
@@ -679,17 +736,26 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_pe_ttm,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_pe_ttm_desc,
+        }),
         value: formatRatioValue(
           stockDetail?.peRatio ?? stock?.tradingActivity?.peRatio,
         ),
       },
       {
         label: intl.formatMessage({ id: ETranslations.market_stock_eps }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_eps_tooltip,
+        }),
         value: formatCurrencyStatValue(stockDetail?.epsTtm),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_24h_volume,
+        }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_volume_tooltip,
         }),
         value: formatCurrencyStatValue(
           stockDetail?.volume24h ?? stock?.assetAnalysis?.volume24h,
@@ -699,6 +765,9 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_turnover_rate,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_turnover_rate_tooltip,
+        }),
         value: formatDirectPercentValue(
           stockDetail?.turnoverRate24h ?? stock?.assetAnalysis?.turnoverRate,
         ),
@@ -706,6 +775,9 @@ function StockOverviewGrid() {
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_high,
+        }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_52_week_high_tooltip,
         }),
         value: formatCurrencyStatValue(
           stockDetail?.weekHigh52 ?? stock?.assetAnalysis?.weekHigh52,
@@ -715,6 +787,9 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_low,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_52_week_low_tooltip,
+        }),
         value: formatCurrencyStatValue(
           stockDetail?.weekLow52 ?? stock?.assetAnalysis?.weekLow52,
         ),
@@ -723,11 +798,17 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.market_stock_net_income_fy,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_net_income_fy_tooltip,
+        }),
         value: formatCurrencyStatValue(stockDetail?.netIncomeFy),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.market_stock_revenue_fy,
+        }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_revenue_fy_tooltip,
         }),
         value: formatCurrencyStatValue(stockDetail?.revenueFy),
       },
@@ -735,10 +816,16 @@ function StockOverviewGrid() {
         label: intl.formatMessage({
           id: ETranslations.market_stock_shares_float,
         }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_shares_float_tooltip,
+        }),
         value: formatMarketCapValue(stockDetail?.sharesFloat),
       },
       {
         label: intl.formatMessage({ id: ETranslations.market_stock_beta_1y }),
+        tooltip: intl.formatMessage({
+          id: ETranslations.market_stock_beta_tooltip,
+        }),
         value: formatRatioValue(stockDetail?.beta1y),
       },
     ],
@@ -801,9 +888,9 @@ function StockOverviewGrid() {
           pr="$2.5"
           gap="$1.5"
         >
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <MarketTooltipLabel tooltip={item.tooltip}>
             {item.label}
-          </SizableText>
+          </MarketTooltipLabel>
           <SizableText size="$headingXl">{item.value}</SizableText>
         </YStack>
       ))}
@@ -831,6 +918,11 @@ function StockPosition({
 }
 
 const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
+// The track has to stay readable as a bar, so the distribution column claims a
+// floor wide enough for label + track + percentage. Below that the row wraps
+// and the column sits under the dial instead of being squeezed beside it.
+const STOCK_ANALYST_BAR_MIN_WIDTH = 96;
+const STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH = 240;
 
 function StockAnalystRatings() {
   const intl = useIntl();
@@ -876,8 +968,12 @@ function StockAnalystRatings() {
       {isLoading ? (
         <XStack
           testID="stock-detail-analyst-ratings-skeleton"
+          flexWrap="wrap"
           gap="$8"
           alignItems="center"
+          // Only bites once the row wraps: until then the distribution column
+          // grows into the leftover space and there is nothing to centre.
+          justifyContent="center"
           py="$2"
         >
           <Skeleton
@@ -886,16 +982,31 @@ function StockAnalystRatings() {
           />
           {/* Three 24px bars with 12px gaps add up to the 96px the loaded
           bars occupy, so the section does not jump when data lands. */}
-          <YStack flex={1} gap="$3">
+          <YStack
+            flex={1}
+            minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}
+            gap="$3"
+          >
             <Skeleton width="100%" height={24} />
             <Skeleton width="100%" height={24} />
             <Skeleton width="100%" height={24} />
           </YStack>
         </XStack>
       ) : (
-        <XStack gap="$8" alignItems="center" py="$2" pr="$2">
+        <XStack
+          flexWrap="wrap"
+          gap="$8"
+          alignItems="center"
+          justifyContent="center"
+          py="$2"
+          pr="$2"
+        >
           <StockAnalystGauge ratings={ratings} ratingCounts={ratingCounts} />
-          <YStack flex={1} minWidth={0} justifyContent="center">
+          <YStack
+            flex={1}
+            minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}
+            justifyContent="center"
+          >
             {[
               {
                 key: 'buy',
@@ -929,12 +1040,16 @@ function StockAnalystRatings() {
                   alignItems="center"
                   gap="$3"
                 >
-                  <SizableText size="$bodyMdMedium" width={32}>
+                  <SizableText
+                    size="$bodyMdMedium"
+                    minWidth={32}
+                    flexShrink={0}
+                  >
                     {item.label}
                   </SizableText>
                   <Stack
                     flex={1}
-                    minWidth={0}
+                    minWidth={STOCK_ANALYST_BAR_MIN_WIDTH}
                     height={4}
                     borderRadius="$full"
                     bg="$neutral5"
@@ -1206,6 +1321,7 @@ export function StockDesktopLayout({
 }) {
   const {
     portfolioData: stockPortfolioData,
+    resolvedVariantKeys: resolvedStockVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
   } = useStockPortfolioData();
@@ -1237,16 +1353,15 @@ export function StockDesktopLayout({
             px={STOCK_DETAIL_HORIZONTAL_GUTTER}
             pt="$5"
             pb="$8"
-            gap="$6"
+            gap="$4"
           >
             <StockPriceHeader
               priceMode={priceMode}
               onPriceModeChange={handlePriceModeChange}
               hoverPoint={chartHoverPoint}
             />
-            <MarketDesktopChartContainer
-              testID="stock-token-detail-tradingview"
-              isFullscreen={isChartFullscreen}
+            <StockChart
+              chartContainerTestID="stock-token-detail-tradingview"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={{
                 position: 'fixed',
@@ -1255,23 +1370,15 @@ export function StockDesktopLayout({
                 right: 0,
                 bottom: platformEnv.isWeb ? 40 : 0,
               }}
-            >
-              {/* Desktop keeps the draggable title bar clear of the
-                  fullscreen chart. */}
-              {isChartFullscreen && platformEnv.isDesktop ? (
-                <Stack height={48} bg="$bgApp" flexShrink={0} />
-              ) : null}
-              <StockChart
-                marketTradingView={marketTradingView}
-                priceMode={priceMode}
-                chartMode={chartMode}
-                isChartSwitchDisabled={isChartSwitchDisabled}
-                onHoverChange={setChartHoverPoint}
-                onChartSwitch={onChartSwitch}
-                isChartFullscreen={isChartFullscreen}
-                onEnterChartFullscreen={onEnterChartFullscreen}
-              />
-            </MarketDesktopChartContainer>
+              marketTradingView={marketTradingView}
+              priceMode={priceMode}
+              chartMode={chartMode}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onHoverChange={setChartHoverPoint}
+              onChartSwitch={onChartSwitch}
+              isChartFullscreen={isChartFullscreen}
+              onEnterChartFullscreen={onEnterChartFullscreen}
+            />
           </YStack>
           {/* The tab owns the whole lower region: Overview carries the stat
               grid and the editorial sections, My position replaces all of
@@ -1294,6 +1401,7 @@ export function StockDesktopLayout({
             swapToken={swapToken}
             disableTrade={disableTrade}
             portfolioData={stockPortfolioData}
+            resolvedVariantKeys={resolvedStockVariantKeys}
             stockDetailDesktopLayout
           />
         </Stack>

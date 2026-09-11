@@ -1225,6 +1225,7 @@ async function launchIosPhysicalDeviceDevelopment({
   acquireNamedLockCommand = acquireNamedLock,
   acquirePreparationLockCommand = acquireWorktreePreparationLock,
   deviceId,
+  fileSystem = fs,
   launchAppCommand = launchIosPhysicalApp,
   loadVendorManifestCommand = loadVendorManifest,
   metroPort,
@@ -1244,6 +1245,19 @@ async function launchIosPhysicalDeviceDevelopment({
   if (metroUrl || shell !== 'auto' || vendor !== 'auto') {
     throw new Error(
       '[nativeDevShell] iOS physical-device development does not support DevSession shell, vendor, or --metro-url overrides.',
+    );
+  }
+  const podsDebugConfig = path.join(
+    MOBILE_ROOT,
+    'ios',
+    'Pods',
+    'Target Support Files',
+    'Pods-OneKeyWallet',
+    'Pods-OneKeyWallet.debug.xcconfig',
+  );
+  if (!fileSystem.existsSync(podsDebugConfig)) {
+    throw new Error(
+      '[nativeDevShell] iOS physical-device development requires CocoaPods dependencies. Run yarn app:ios:pod-install before retrying. No vendor download or Metro startup has been performed.',
     );
   }
   const sessionId = createSessionId({ deviceId });
@@ -2209,14 +2223,8 @@ async function waitForNativeAppStartup({
         elapsed += 1000
       ) {
         await wait(1000);
-        runForOutputCommand('xcrun', [
-          'simctl',
-          'spawn',
-          deviceId,
-          '/bin/kill',
-          '-0',
-          String(launch.processId),
-        ]);
+        // Simulator app PIDs belong to the host; newer runtimes omit /bin/kill.
+        runForOutputCommand('/bin/kill', ['-0', String(launch.processId)]);
       }
     }
   } catch (error) {

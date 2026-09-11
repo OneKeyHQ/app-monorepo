@@ -23,11 +23,19 @@ import {
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketStockDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
 }
+
+export type IMarketStockDetailNavigationTarget =
+  IMarketStockDetailPreview & {
+    tokenAddress?: string;
+    networkId?: string;
+    isNative?: boolean;
+  };
 
 export function useToMarketStockDetailPage(
   options?: IUseToMarketStockDetailPageOptions,
@@ -41,9 +49,20 @@ export function useToMarketStockDetailPage(
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   return useCallback(
-    async (stock: string | IMarketStockDetailPreview) => {
+    async (stock: string | IMarketStockDetailNavigationTarget) => {
       const stockId = typeof stock === 'string' ? stock : stock.stockId;
       const stockPreview = typeof stock === 'string' ? undefined : stock;
+      const stockTokenParams =
+        stockPreview?.tokenAddress && stockPreview.networkId
+          ? {
+              tokenAddress: stockPreview.tokenAddress,
+              network:
+                networkUtils.getNetworkShortCode({
+                  networkId: stockPreview.networkId,
+                }) || stockPreview.networkId,
+              isNative: stockPreview.isNative,
+            }
+          : undefined;
       const preloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
@@ -81,6 +100,7 @@ export function useToMarketStockDetailPage(
                 stockPreviewLogoUrl: stockPreview.logoUrl,
               }
             : undefined),
+          ...stockTokenParams,
           from: platformEnv.isExtensionUiPopup
             ? EEnterWay.ExtensionPopup
             : EEnterWay.ExtensionSidePanel,
@@ -92,6 +112,7 @@ export function useToMarketStockDetailPage(
       if (options?.replaceCurrentDetail) {
         navigation.replace(ETabMarketRoutes.MarketStockDetail, {
           stockId,
+          ...stockTokenParams,
           ...(stockPreview
             ? {
                 stockPreviewSymbol: stockPreview.symbol,
@@ -109,6 +130,7 @@ export function useToMarketStockDetailPage(
           screen: ETabMarketRoutes.MarketStockDetail,
           params: {
             stockId,
+            ...stockTokenParams,
             ...(stockPreview
               ? {
                   stockPreviewSymbol: stockPreview.symbol,

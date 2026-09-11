@@ -95,12 +95,14 @@ export function SwapPanel({
   swapToken,
   disableTrade,
   portfolioData,
+  resolvedVariantKeys,
   onShowSwapDialog,
   stockDetailDesktopLayout,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  resolvedVariantKeys?: string[];
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
   stockDetailDesktopLayout?: boolean;
 }) {
@@ -279,7 +281,10 @@ export function SwapPanel({
           <MarketWatchListProviderMirrorV2
             storeName={EJotaiContextStoreNames.marketWatchListV2}
           >
-            <StockTradePanel portfolioData={portfolioData} />
+            <StockTradePanel
+              portfolioData={portfolioData}
+              resolvedVariantKeys={resolvedVariantKeys}
+            />
           </MarketWatchListProviderMirrorV2>
         )}
       </AccountSelectorProviderMirror>

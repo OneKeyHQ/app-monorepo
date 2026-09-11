@@ -137,6 +137,24 @@ it('ends loading on failure and does not persist a failed page', async () => {
   expect(swrCacheUtils.get(swrKeys.marketHomeStocks(queryKey))).toBeUndefined();
 });
 
+it('shows a retryable error when refreshing a previously empty native list fails', async () => {
+  fetchList.mockResolvedValue({ items: [], total: 0 });
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.items).toEqual([]);
+  expect(result.current.isError).toBe(false);
+
+  fetchList.mockRejectedValue(new Error('offline'));
+  await act(async () => result.current.refresh());
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  expect(result.current.isLoading).toBe(false);
+
+  fetchList.mockResolvedValue(response);
+  await act(async () => result.current.refresh());
+  await waitFor(() => expect(result.current.items).toEqual(response.items));
+  expect(result.current.isError).toBe(false);
+});
+
 it('rejects an expired stock snapshot on entry', () => {
   const now = Date.now();
   const clock = jest.spyOn(Date, 'now').mockReturnValue(now - 6 * 60 * 1000);
@@ -174,4 +192,89 @@ it('keeps pagination enabled after appending the second page', async () => {
     fetchList.mock.calls.some(([params]) => params?.cursor === 'third'),
   ).toBe(true);
   expect(result.current.canLoadMore).toBe(false);
+});
+
+it('starts one native cursor request for concurrent end-reached events', async () => {
+  const nextPage = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor ? nextPage.promise : response,
+  );
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  let requests: Promise<void>[] = [];
+  act(() => {
+    requests = [result.current.loadMore(), result.current.loadMore()];
+  });
+  const calls = fetchList.mock.calls.filter(
+    ([params]) => params?.cursor,
+  ).length;
+  await act(async () => {
+    nextPage.resolve({ ...response, nextCursor: undefined });
+    await Promise.all(requests);
+  });
+  expect(calls).toBe(1);
+});
+
+it('discards a native cursor response superseded by first-page refresh', async () => {
+  const nextPage = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor ? nextPage.promise : response,
+  );
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = result.current.loadMore();
+  });
+  const fresh = {
+    ...response,
+    items: [{ ...response.items[0], stockId: 'FRESH' }],
+  };
+  fetchList.mockResolvedValue(fresh);
+  await act(async () => result.current.refresh());
+  await act(async () => {
+    nextPage.resolve({
+      ...response,
+      items: [{ ...response.items[0], stockId: 'STALE' }],
+    });
+    await pending;
+  });
+  expect(result.current.items.map((item) => item.stockId)).toEqual(['FRESH']);
+  expect(result.current.isLoadingMore).toBe(false);
+});
+
+it('keeps the current native category loading while an old cursor request completes', async () => {
+  const oldPage = deferred<IMarketStockPublicListResponse>();
+  const currentPage = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockImplementation(async (params) => {
+    if (params?.cursor)
+      return params.category === 'tech' ? oldPage.promise : currentPage.promise;
+    return response;
+  });
+  const { result, rerender } = renderHook(
+    ({ category }) => useMarketStockList({ category }),
+    { initialProps: { category: 'tech' } },
+  );
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  let oldRequest: Promise<void> | undefined;
+  act(() => {
+    oldRequest = result.current.loadMore();
+  });
+  rerender({ category: 'energy' });
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  let currentRequest: Promise<void> | undefined;
+  act(() => {
+    currentRequest = result.current.loadMore();
+  });
+  await act(async () => {
+    oldPage.resolve(response);
+    await oldRequest;
+  });
+  const loadingAfterOldCompletion = result.current.isLoadingMore;
+  await act(async () => {
+    currentPage.resolve(response);
+    await currentRequest;
+  });
+  expect(loadingAfterOldCompletion).toBe(true);
+  expect(result.current.isLoadingMore).toBe(false);
 });

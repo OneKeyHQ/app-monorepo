@@ -11,11 +11,15 @@ import {
   isOneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  getDeviceErrorPayloadMessage,
+  toPlainErrorObject,
+} from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { DEVICE_STAGE_DISCONNECTED_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
@@ -116,18 +120,21 @@ const DEDICATED_DIALOG_ERROR_CODES = [
   HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.DeviceNotOpenedPassphrase,
   HardwareErrorCode.NewFirmwareForceUpdate,
+  // Bluetooth off / no BLE permission / location services off: the SDK
+  // (and the Android pre-check) raise the "Enable Bluetooth" family of
+  // dialogs for these, so the stage stands down instead of landing a
+  // second notice under the sheet (OK-62113).
+  HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BleLocationError,
+  HardwareErrorCode.BleLocationServicesDisabled,
 ];
 
 /** DeviceNotFound (105) is deliberately absent: the initial search
  * failing is its own verdict — the "Device not connected" card's
- * territory (doc §05 mapping A), classified apart in mapErrorToReason. */
-const DISCONNECTED_CODES = [
-  HardwareErrorCode.PollingTimeout,
-  HardwareErrorCode.BridgeDeviceDisconnected,
-  HardwareErrorCode.BleDeviceDisconnected,
-  HardwareErrorCode.BleScanError,
-  HardwareErrorCode.BleTimeoutError,
-];
+ * territory (doc §05 mapping A), classified apart in mapErrorToReason.
+ * The set itself lives in shared so the authenticity flow's classifier
+ * reads "disconnected" the same way. */
+const DISCONNECTED_CODES = DEVICE_STAGE_DISCONNECTED_CODES;
 
 const ACTION_TO_STEP: Partial<Record<string, IDeviceStageStepValue>> = {
   [EHardwareUiStateAction.DeviceChecking]: 'connecting',
@@ -252,6 +259,32 @@ export function resolveDeviceNotFoundLanding({
     return 'disconnected';
   }
   return 'deviceNotFound';
+}
+
+/**
+ * The devices that confirm a passphrase typed on the app on their own
+ * screen with no ButtonRequest to announce it — so no `ui-button` ever
+ * reaches the stage, and the submit has to paint the confirm itself.
+ *
+ * Each asks "use this passphrase?" for every non-empty host passphrase:
+ * - Pro: since firmware 4.13.0 the screen is a bare wait (firmware-pro
+ *   09b371804e dropped the ProtectCall `interact`); older builds still
+ *   send the request, which only repaints the same step.
+ * - Pro 2 / Neo: the V2 session's confirm page (firmware-pro2
+ *   `wallet_session_show_passphrase_confirm`) reports to the device
+ *   alone, and the SDK closes no phase until the call returns.
+ * Touch still sends the request; Classic and Mini show no confirm at all.
+ */
+const HOST_PASSPHRASE_SILENT_CONFIRM_DEVICES: ReadonlySet<
+  IHardwareUiPayload['deviceType']
+> = new Set([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo]);
+
+export function confirmsHostPassphraseOnScreen(
+  payload: IHardwareUiPayload | undefined,
+): boolean {
+  return Boolean(
+    payload && HOST_PASSPHRASE_SILENT_CONFIRM_DEVICES.has(payload.deviceType),
+  );
 }
 
 /** The steps that ask something of the person. Only an ask outranks an
@@ -804,6 +837,12 @@ export class DeviceStageBurstScope {
       return;
     }
     let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
+    // Firmware rejected the package; later cleanup must not turn this into
+    // a transport failure or a firmware-upgrade suggestion.
+    const isInvalidPortfolioPackage =
+      isHardwareErrorByCode({ error, code: HardwareErrorCode.RuntimeError }) &&
+      getDeviceErrorPayloadMessage(error?.payload ?? {}) ===
+        'Failure_DataError,Invalid portfolio package';
     // DeviceNotFound splits by whether this burst ever heard from the
     // device (see resolveDeviceNotFoundLanding). The at-initiation half
     // lands the Device-not-connected card and is done — synchronously,
@@ -828,6 +867,7 @@ export class DeviceStageBurstScope {
     if (
       reason === 'generic' &&
       !wasVendorBurst &&
+      !isInvalidPortfolioPackage &&
       // These failures identify the cause even when the transport tracker
       // has already cleared the connection (for example USB blocking BLE).
       !isHardwareErrorByCode({
@@ -889,6 +929,7 @@ export class DeviceStageBurstScope {
     }
     if (
       reason === 'generic' &&
+      !isInvalidPortfolioPackage &&
       isHardwareErrorByCode({
         error,
         code: [
@@ -1464,8 +1505,14 @@ export class DeviceStageBurstScope {
   }
 
   /** PIN / passphrase handed to the device: hold the stage as processing
-   * instead of the legacy close-then-reopen. */
-  async noteInputSubmitted() {
+   * instead of the legacy close-then-reopen — or, for a passphrase typed
+   * on the app, as the confirm the device goes on to show without asking
+   * (see confirmsHostPassphraseOnScreen). */
+  async noteInputSubmitted({
+    hostPassphraseEntered = false,
+  }: {
+    hostPassphraseEntered?: boolean;
+  } = {}) {
     // Not gated on the firmware workflow: the card this answers was the
     // device's own ask, which plays there too (OK-62087) — and no authored
     // narrative can be standing behind an update.
@@ -1474,8 +1521,14 @@ export class DeviceStageBurstScope {
     if (!prev || prev.step === 'off') {
       return;
     }
+    const narrative = firmwareWorkflow ? undefined : this.authoredAuthStep;
+    const confirmsOnScreen =
+      hostPassphraseEntered &&
+      prev.step === 'passphraseOnApp' &&
+      !prev.vendor &&
+      confirmsHostPassphraseOnScreen(prev.payload);
     await this.setStep(
-      firmwareWorkflow ? 'processing' : (this.authoredAuthStep ?? 'processing'),
+      narrative ?? (confirmsOnScreen ? 'confirm' : 'processing'),
       {},
     );
   }
