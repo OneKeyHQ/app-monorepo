@@ -20,10 +20,12 @@ const meta = {
     step: 'off',
     deviceType: 'pro2',
     deviceName: DEMO.deviceName,
+    replicaWidth: 220,
   },
   argTypes: {
     step: ARG_TYPES.step,
     deviceType: ARG_TYPES.deviceType,
+    replicaWidth: ARG_TYPES.replicaWidth,
   },
 } satisfies Meta<typeof DeviceStage>;
 

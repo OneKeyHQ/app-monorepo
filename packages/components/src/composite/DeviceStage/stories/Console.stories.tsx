@@ -23,6 +23,7 @@ const meta = {
     passphraseMode: 'verify',
     errorReason: 'rejected',
     authFailureReason: 'unofficialDevice',
+    replicaWidth: 220,
   },
   argTypes: {
     step: ARG_TYPES.step,
@@ -31,6 +32,7 @@ const meta = {
     errorReason: ARG_TYPES.errorReason,
     authFailureReason: ARG_TYPES.authFailureReason,
     qrValue: ARG_TYPES.qrValue,
+    replicaWidth: ARG_TYPES.replicaWidth,
   },
 } satisfies Meta<typeof DeviceStage>;
 

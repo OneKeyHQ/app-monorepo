@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { Keyboard, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type {
@@ -311,11 +312,15 @@ export function StageHost({
   children: ReactNode;
 }) {
   const { height } = useWindowDimensions();
+  // The portal is the full window on device (the preview mounts the stage
+  // on the overlay window), so the bar clears the status bar band by the
+  // window's own inset; the web canvas reports none.
+  const { top: barTop } = useSafeAreaInsets();
   const bar = useMemo(
     () => (
       <XStack
         position="absolute"
-        top={0}
+        top={barTop}
         left={0}
         right={0}
         p="$2"
@@ -326,7 +331,7 @@ export function StageHost({
         {children}
       </XStack>
     ),
-    [children],
+    [barTop, children],
   );
   return (
     <Stack minHeight={height - 190}>
@@ -384,4 +389,9 @@ export const ARG_TYPES = {
     ],
   },
   qrValue: { control: 'text' },
+  // OK-62091's tuning knob: the full stage's device width; the port and
+  // the card height follow.
+  replicaWidth: {
+    control: { type: 'range', min: 160, max: 320, step: 4 },
+  },
 } as const;

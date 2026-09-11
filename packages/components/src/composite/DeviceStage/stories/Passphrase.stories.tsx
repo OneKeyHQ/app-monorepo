@@ -22,11 +22,13 @@ const meta = {
     // Add-hidden-wallet titling and its Keep-accessible switch. The
     // empty-entry refusal is common to both.
     passphraseMode: 'verify',
+    replicaWidth: 220,
   },
   argTypes: {
     step: ARG_TYPES.step,
     deviceType: ARG_TYPES.deviceType,
     passphraseMode: ARG_TYPES.passphraseMode,
+    replicaWidth: ARG_TYPES.replicaWidth,
   },
 } satisfies Meta<typeof DeviceStage>;
 
