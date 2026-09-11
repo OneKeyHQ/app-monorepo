@@ -10,7 +10,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
-import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
+import {
+  EFirmwareUpdateTipMessages,
+  EHardwareVendor,
+} from '@onekeyhq/shared/types/device';
 
 import {
   EHardwareUiStateAction,
@@ -729,6 +732,34 @@ describe('DeviceStageBurstScope', () => {
     await scope.endExplicit({ token });
     await letTheExitRun();
     expect(stage?.step).toBe('off');
+  });
+
+  it('takes down a wait a straggler paints while the yield reads the stage', async () => {
+    // The Ledger install sheet (OK-62656): the probe's call-end clear is
+    // still crossing the event queue when the dialog asks the stage to
+    // yield. Landing between the yield's read and its write, it repaints
+    // `processing` under the hold and bumps the claim, so a single exit
+    // would stand down and leave that capsule right under the sheet.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      connectId: CONNECT_ID,
+      vendor: EHardwareVendor.ledger,
+    });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    stageAtom.get.mockImplementationOnce(async () => {
+      const read = stage;
+      await scope.onThirdPartyState({
+        ui: undefined,
+        install: undefined,
+        batch: undefined,
+      });
+      expect(stage?.step).toBe('processing');
+      return read;
+    });
+    await expect(scope.silence()).resolves.toBe(true);
+    expect(stage?.step).toBe('off');
+    await scope.endExplicit({ token });
   });
 
   it('leaves on a call-end close during the firmware workflow even behind a foreign hold', async () => {

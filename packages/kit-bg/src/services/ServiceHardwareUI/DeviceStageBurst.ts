@@ -1641,7 +1641,20 @@ export class DeviceStageBurstScope {
     // by the burst's own end, a user close, a new burst, or the device
     // asking again (see onHardwareUiEvent).
     this.yieldedToDialog = true;
-    return this.forceOff({ force: true });
+    // A paint racing this yield — a straggler landing between forceOff's
+    // read and its write — bumps the claim and keeps its own stage up,
+    // right where the dialog is about to rise. The yield outranks it, so
+    // the exit runs again; only the device asking again (which lifts the
+    // yield, see onHardwareUiEvent) may keep the stage.
+    let left = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const claim = this.claimSeq;
+      left = (await this.forceOff({ force: true })) || left;
+      if (claim === this.claimSeq || !this.yieldedToDialog) {
+        break;
+      }
+    }
+    return left;
   }
 
   /** A flow abandoned before any burst began — the checking beat a connect
