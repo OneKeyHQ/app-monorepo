@@ -6,6 +6,7 @@ describe('isTravelModeNetworkRequestAllowed', () => {
     ['utility', '/utility/v2/market/basic-config', 'GET'],
     ['utility', '/utility/v1/market/tokens', 'get'],
     ['utility', '/utility/v2/market/token/list/batch', 'post'],
+    ['utility', '/utility/v2/market/banner/token-list/banner-1', 'get'],
     ['swap', '/swap/v1/networks', undefined],
     ['swap', '/swap/v1/speed-config?networkId=evm--1', 'get'],
     ['swap', '/swap/v1/token/detail?networkId=evm--1', 'get'],
@@ -76,5 +77,22 @@ describe('isTravelModeNetworkRequestAllowed', () => {
         url: '/utility/v1/market/asset/list',
       }),
     ).toBe(false);
+  });
+
+  it('allows only the dynamic banner token list paths', () => {
+    expect(
+      isTravelModeNetworkRequestAllowed({
+        baseURL: 'https://utility.onekeycn.com',
+        method: 'get',
+        url: '/utility/v2/market/banner/token-list/banner-1',
+      }),
+    ).toBe(true);
+    expect(
+      isTravelModeNetworkRequestAllowed({
+        baseURL: 'https://utility.onekeycn.com',
+        method: 'get',
+        url: '/utility/v2/market/banner/token-list',
+      }),
+    ).toBe(true);
   });
 });

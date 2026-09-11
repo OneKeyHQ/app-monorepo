@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { Camera, CameraType } from 'react-native-camera-kit';
+import { CameraView } from 'expo-camera';
 
 import { usePreventRemove } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IScanCameraProps } from './types';
 
@@ -64,19 +65,17 @@ export function ScanCamera({
         <ScanCameraNavigationGuard onPreventRemove={onPreventRemove} />
       )}
       {isFocus ? (
-        <Camera
-          style={{ flex: 1 }}
-          resizeMode="cover"
-          showFrame={false}
-          zoom={1}
-          zoomMode="on"
-          cameraType={CameraType.Back}
-          scanBarcode
-          onReadCode={({ nativeEvent: { codeStringValue } }) => {
-            if (typeof codeStringValue !== 'string') {
-              return;
+        <CameraView
+          style={rest.style ?? { flex: 1 }}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          responsiveOrientationWhenOrientationLocked={
+            platformEnv.isNativeIOSPad
+          }
+          onBarcodeScanned={({ data }) => {
+            if (typeof data === 'string') {
+              handleScanResult?.(data);
             }
-            handleScanResult?.(codeStringValue);
           }}
           {...rest}
         />

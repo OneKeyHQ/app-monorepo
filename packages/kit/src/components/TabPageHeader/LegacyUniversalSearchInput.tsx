@@ -18,6 +18,7 @@ import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -48,6 +49,12 @@ export function LegacyUniversalSearchInput({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      return;
+    }
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
       params: {

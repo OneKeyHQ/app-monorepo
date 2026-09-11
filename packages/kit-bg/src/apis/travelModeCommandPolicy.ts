@@ -40,7 +40,11 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'shouldUseGlobalDeriveType',
   ]),
   serviceApp: new Set(['isAppLocked', 'restartApp']),
-  serviceDiscovery: new Set(['fetchDiscoveryHomePageData', 'getBookmarkData']),
+  serviceDiscovery: new Set([
+    'buildWebsiteIconUrl',
+    'fetchDiscoveryHomePageData',
+    'getBookmarkData',
+  ]),
   serviceHyperliquid: new Set([
     'cancelPendingActiveAssetChange',
     'changeActiveAsset',
@@ -76,7 +80,12 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
   ]),
   serviceMarketV2: new Set([
     'fetchMarketBannerList',
+    'fetchMarketBannerPerpsTokenList',
+    'fetchMarketBannerTokenList',
     'fetchMarketBasicConfig',
+    'fetchMarketChains',
+    'fetchMarketPerpsTokenList',
+    'fetchMarketStockList',
     'fetchMarketTokenList',
     'fetchMarketTokenListBatch',
   ]),

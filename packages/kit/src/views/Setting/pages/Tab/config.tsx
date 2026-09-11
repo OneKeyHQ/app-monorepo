@@ -48,6 +48,7 @@ import {
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
 import {
   openUrlExternal,
@@ -1069,9 +1070,41 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         Component: SubSearchSettings,
       },
     ];
+    const isTravelMode =
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode';
+    const hiddenTravelModeItemIds = new Set([
+      'notifications',
+      'onekey-transfer',
+      'manual-backup',
+      'address-book',
+      'account-derivation',
+      'passcode',
+      'add-network',
+      'custom-rpc',
+    ]);
+    const filteredConfig = isTravelMode
+      ? config.map((category) =>
+          category
+            ? {
+                ...category,
+                configs: category.configs
+                  .map((group) =>
+                    group.filter(
+                      (item) =>
+                        !item ||
+                        !item.id ||
+                        !hiddenTravelModeItemIds.has(item.id),
+                    ),
+                  )
+                  .filter((group) => group.length > 0),
+              }
+            : category,
+        )
+      : config;
     // Desktop link tabs are derived from the annotated items so their
     // platform gating and copy never fork from the source item.
-    const linkTabCategories: ISettingsConfig = config.flatMap(
+    const linkTabCategories: ISettingsConfig = filteredConfig.flatMap(
       (category) =>
         category?.configs
           .flat()
@@ -1095,7 +1128,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [],
           })) ?? [],
     );
-    return [...config, ...linkTabCategories].toSorted((a, b) => {
+    return [...filteredConfig, ...linkTabCategories].toSorted((a, b) => {
       const aOrder = a
         ? (SETTINGS_CONFIG_ORDER.get(a.name) ?? SETTINGS_CONFIG_ORDER.size)
         : SETTINGS_CONFIG_ORDER.size + 1;

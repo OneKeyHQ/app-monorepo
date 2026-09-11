@@ -12,6 +12,7 @@ import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
@@ -102,6 +103,11 @@ function BasicMarketStarV2({
     tokenSymbol,
     isNative,
   });
+  if (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
+  ) {
+    return null;
+  }
 
   return (
     <IconButton
