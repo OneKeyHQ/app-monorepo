@@ -194,6 +194,9 @@ function FinancialCard({
   );
 }
 
+// Gap between the two card columns; also feeds the card width calculation.
+const CARD_COLUMN_GAP = '$10';
+
 export function StockFinancials({
   stockId,
   labels: labelsOverride,
@@ -207,7 +210,7 @@ export function StockFinancials({
   const labels = labelsOverride ?? translatedLabels;
   const { result, isLoading, retry } = useStockFinancials(stockId);
   const [contentWidth, setContentWidth] = useState(0);
-  const columnGap = getTokenValue('$8', 'space');
+  const columnGap = getTokenValue(CARD_COLUMN_GAP, 'space');
   // Measure the content column: the desktop trade panel also consumes width.
   const cardWidth =
     contentWidth >= 800 ? (contentWidth - columnGap) / 2 : '100%';
@@ -222,7 +225,7 @@ export function StockFinancials({
       </SizableText>
       <XStack
         flexWrap="wrap"
-        columnGap="$8"
+        columnGap={CARD_COLUMN_GAP}
         rowGap="$10"
         pb="$6"
         onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
