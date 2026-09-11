@@ -69,7 +69,10 @@ function MarketEmbeddedSwapContent({
   const [swapTokenSeed] = useState(swapToken);
   // Consume the route's draft once per mount; live input must not reinitialize Swap.
   const [initialInputAmountDraft] = useState(inputDraft);
-  const { defaultTokens } = useSpeedSwapInit(swapTokenSeed.networkId, true);
+  const { defaultTokens, speedConfigReady } = useSpeedSwapInit(
+    swapTokenSeed.networkId,
+    true,
+  );
   const swapInitParams = useMemo<ISwapInitParams | undefined>(
     () =>
       buildMarketEmbeddedSwapInitParams({
@@ -80,7 +83,12 @@ function MarketEmbeddedSwapContent({
     [defaultTokens, initialInputAmountDraft, swapTokenSeed],
   );
 
-  if (!swapInitParams) {
+  const [initialParams, setInitialParams] = useState<ISwapInitParams>();
+  if (speedConfigReady && swapInitParams && !initialParams) {
+    setInitialParams(swapInitParams);
+  }
+
+  if (!initialParams) {
     return <MarketEmbeddedSwapLoading />;
   }
 
@@ -94,7 +102,7 @@ function MarketEmbeddedSwapContent({
       <LazyEmbeddedSwap
         pageType={EPageType.modal}
         singleSwapBridgeHeader
-        swapInitParams={swapInitParams}
+        swapInitParams={initialParams}
         initialInputAmountDraft={initialInputAmountDraft}
         onInputDraftChange={onInputDraftChange}
       />
