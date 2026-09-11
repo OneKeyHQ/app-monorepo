@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
   PrimeRedemptionFormView,
@@ -24,13 +25,21 @@ async function readInfiniPaymentEntryGuard() {
   }
 }
 
+type IPrimeRedemptionDialogParams = {
+  expectedOneKeyUserId: string;
+  isPrimeActiveBeforeRedeem: boolean;
+  initialCode?: string;
+  primeGiftSerialNo?: string;
+  onRedeemed?: (result: IPrimeRedemptionResult) => void;
+};
+
 function PrimeRedemptionDialogContent({
   expectedOneKeyUserId,
   isPrimeActiveBeforeRedeem,
-}: {
-  expectedOneKeyUserId: string;
-  isPrimeActiveBeforeRedeem: boolean;
-}) {
+  initialCode,
+  primeGiftSerialNo,
+  onRedeemed,
+}: IPrimeRedemptionDialogParams) {
   const intl = useIntl();
   const {
     codeValue,
@@ -42,6 +51,9 @@ function PrimeRedemptionDialogContent({
   } = usePrimeRedemptionSubmit({
     expectedOneKeyUserId,
     isPrimeActiveBeforeRedeem,
+    initialCode,
+    primeGiftSerialNo,
+    onRedeemed,
   });
   const [isPendingPaymentConfirmation, setIsPendingPaymentConfirmation] =
     useState(false);
@@ -131,7 +143,10 @@ function PrimeRedemptionDialogContent({
     <YStack mx="$-5">
       <Dialog.Header />
       <YStack px="$5" py="$5">
-        <PrimeRedemptionFormView form={form} />
+        <PrimeRedemptionFormView
+          form={form}
+          isCodeReadOnly={Boolean(primeGiftSerialNo)}
+        />
       </YStack>
       <Dialog.Footer
         showCancelButton={false}
@@ -148,20 +163,12 @@ function PrimeRedemptionDialogContent({
   );
 }
 
-export function showPrimeRedemptionDialog({
-  expectedOneKeyUserId,
-  isPrimeActiveBeforeRedeem,
-}: {
-  expectedOneKeyUserId: string;
-  isPrimeActiveBeforeRedeem: boolean;
-}): IDialogInstance {
+export function showPrimeRedemptionDialog(
+  params: IPrimeRedemptionDialogParams,
+): IDialogInstance {
   return Dialog.show({
+    testID: 'prime-redemption-dialog',
     showFooter: false,
-    renderContent: (
-      <PrimeRedemptionDialogContent
-        expectedOneKeyUserId={expectedOneKeyUserId}
-        isPrimeActiveBeforeRedeem={isPrimeActiveBeforeRedeem}
-      />
-    ),
+    renderContent: <PrimeRedemptionDialogContent {...params} />,
   });
 }
