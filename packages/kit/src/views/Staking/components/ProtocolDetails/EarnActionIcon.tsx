@@ -613,6 +613,7 @@ function BasicEarnActionIcon({
   }
   let onPress: undefined | IIconButtonProps['onPress'];
   let icon: IKeyOfIcons | undefined;
+  let disabled: boolean | undefined;
   switch (actionIcon?.type) {
     case 'link':
       icon = 'OpenOutline';
@@ -620,6 +621,7 @@ function BasicEarnActionIcon({
       break;
     case 'copy':
       icon = 'Copy3Outline';
+      disabled = actionIcon.disabled;
       onPress = () => copyText(actionIcon.data.text);
       break;
     case 'portfolio':
@@ -739,6 +741,7 @@ function BasicEarnActionIcon({
       size="small"
       icon={icon}
       onPress={onPress}
+      disabled={disabled}
       color="$iconSubdued"
       variant="tertiary"
     />

@@ -599,9 +599,11 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
 function useOpenLinkFromDialog() {
   const dialog = useDialogInstance();
   return useCallback(
-    (url: string) => {
+    async (url: string) => {
       if (platformEnv.isNative) {
-        void dialog.close();
+        // Awaited: presenting the browser while the sheet is still on its
+        // way out would overlap the two transitions.
+        await dialog.close();
       }
       openUrlExternal(url);
     },
@@ -965,7 +967,7 @@ function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
   const openLink = useOpenLinkFromDialog();
   const handlePress = useCallback(() => {
     if (url) {
-      openLink(url);
+      void openLink(url);
     }
   }, [openLink, url]);
 
@@ -1410,7 +1412,7 @@ function AuditAccordionItem({
   const openLink = useOpenLinkFromDialog();
   const handleOpen = useCallback(() => {
     if (url && !isButtonDisabled) {
-      openLink(url);
+      void openLink(url);
     }
   }, [isButtonDisabled, openLink, url]);
 
