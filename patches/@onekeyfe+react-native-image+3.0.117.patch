@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
-index 0f60f74..f94dac9 100644
+index 0f60f74..3efb5f5 100644
 --- a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
 +++ b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
 @@ -1,14 +1,20 @@
@@ -42,7 +42,7 @@ index 0f60f74..f94dac9 100644
      skeleton.updateBounds(width, height)
    }
  
-@@ -137,6 +143,10 @@ internal fun oneKeyImageRequestSignature(
+@@ -137,6 +151,10 @@ internal fun oneKeyImageRequestSignature(
  class HybridOneKeyImage(private val context: ThemedReactContext) :
    HybridOneKeyImageSpec(), RecyclableView {
    private enum class DisplayState { LOADING, IMAGE, ERROR, FALLBACK }
@@ -53,7 +53,7 @@ index 0f60f74..f94dac9 100644
  
    private val hostView = OneKeyImageHostView(context)
    // The Activity outlives ScreenStack Fragments but still provides bounded
-@@ -156,6 +166,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -156,6 +174,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
    private var displayRunnable: Runnable? = null
    private var pendingDisplayGeneration: Long? = null
    private var fallbackRunnable: Runnable? = null
@@ -61,7 +61,7 @@ index 0f60f74..f94dac9 100644
  
    /**
     * Native reusable containers own their request cleanup explicitly, so their
-@@ -236,6 +247,11 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -236,6 +255,11 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
        field = value
        if (!suppressPropEffects) applyVariant()
      }
@@ -81,7 +81,7 @@ index 0f60f74..f94dac9 100644
      hostView.onReadyForRequest = { scheduleLoad() }
      hostView.onAttachmentChanged = { attached ->
        if (attached) {
-@@ -317,6 +333,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -317,6 +340,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
      resizeWidth = null
      overscan = 1.1
      loadingStrategy = OneKeyImageLoadingStrategy.STATIC
@@ -89,7 +89,7 @@ index 0f60f74..f94dac9 100644
      onLoadStart = null
      onLoad = null
      onDisplay = null
-@@ -375,6 +392,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -375,6 +399,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
  
      cancelCurrent(invalidateGeneration = true)
      val requestGeneration = generation
@@ -97,7 +97,7 @@ index 0f60f74..f94dac9 100644
      onLoadStart?.invoke()
  
      val customIdentity = OneKeyImageModel.headers(sourceHeadersJson).isNotEmpty()
-@@ -430,6 +448,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -430,6 +455,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
          hostView.drawStateSymbol = false
          hostView.setBackgroundColor(Color.TRANSPARENT)
          hostView.setImageDrawable(resource)
@@ -105,7 +105,7 @@ index 0f60f74..f94dac9 100644
          applyAutoplay()
          val loadCallback = onLoad
          val loadEndCallback = onLoadEnd
-@@ -563,6 +582,8 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -563,6 +589,8 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
      clearCurrentTarget()
      requestActive = false
      hostView.skeletonRequested = false
@@ -114,7 +114,7 @@ index 0f60f74..f94dac9 100644
      if (invalidateGeneration) generation++
    }
  
-@@ -605,6 +626,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -605,6 +633,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
    private fun showLoading(requestIsActive: Boolean) {
      displayState = DisplayState.LOADING
      requestActive = requestIsActive
@@ -122,7 +122,7 @@ index 0f60f74..f94dac9 100644
      hostView.setImageDrawable(null)
      hostView.drawStateSymbol = false
      applyLoadingAppearance()
-@@ -621,11 +643,15 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -621,11 +650,15 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
    private fun showTerminalState(state: DisplayState) {
      displayState = state
      requestActive = false
@@ -140,7 +140,7 @@ index 0f60f74..f94dac9 100644
      hostView.invalidate()
    }
  
-@@ -634,7 +660,11 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -634,7 +667,11 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
        DisplayState.IMAGE -> Unit
        DisplayState.LOADING -> applyLoadingAppearance()
        DisplayState.ERROR, DisplayState.FALLBACK -> {
@@ -153,7 +153,8 @@ index 0f60f74..f94dac9 100644
          hostView.stateSymbol = stateSymbol()
          hostView.invalidate()
        }
-@@ -644,10 +681,12 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -643,11 +680,13 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+ 
    private fun applyLoadingAppearance() {
      val strategy = loadingStrategy ?: OneKeyImageLoadingStrategy.STATIC
 +    val placeholder = resolvedPlaceholderColor()
@@ -168,7 +169,7 @@ index 0f60f74..f94dac9 100644
      hostView.invalidate()
    }
  
-@@ -658,11 +688,66 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+@@ -658,11 +697,66 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
      OneKeyImageVariant.AVATAR -> "●"
    }
  
@@ -276,7 +277,7 @@ index f4588c6..2354db3 100644
    }()
  
 diff --git a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImage.swift b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImage.swift
-index 6d83c77..876b76d 100644
+index 6d83c77..77eace8 100644
 --- a/node_modules/@onekeyfe/react-native-image/ios/OneKeyImage.swift
 +++ b/node_modules/@onekeyfe/react-native-image/ios/OneKeyImage.swift
 @@ -22,6 +22,7 @@ private final class OneKeyImageHostView: SDAnimatedImageView {
@@ -338,7 +339,7 @@ index 6d83c77..876b76d 100644
  
    private let hostView = OneKeyImageHostView()
    private let skeletonIndicator = OneKeyImageSkeletonIndicator()
-@@ -95,6 +97,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -95,6 +107,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
    private var requestActive = false
    private var isResetting = false
    private var displayState = DisplayState.loading
@@ -346,7 +347,7 @@ index 6d83c77..876b76d 100644
  
    var view: UIView { hostView }
  
-@@ -132,6 +135,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -132,6 +145,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
      }
    }
    var loadingStrategy: OneKeyImageLoadingStrategy? = .static { didSet { applyVariant() } }
@@ -354,7 +355,7 @@ index 6d83c77..876b76d 100644
    var onLoadStart: (() -> Void)?
    var onLoad: ((_ width: Double, _ height: Double, _ cacheType: OneKeyImageCacheType) -> Void)?
    var onDisplay: (() -> Void)?
-@@ -215,7 +219,9 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -215,7 +229,9 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
        self.cancelCurrentRequest(invalidateGeneration: true)
        self.lastRequestSignature = nil
        if let source = self.sourceUri, !source.isEmpty {
@@ -365,19 +366,20 @@ index 6d83c77..876b76d 100644
        } else {
          self.showFallback()
        }
-@@ -258,7 +264,10 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -258,9 +274,11 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
  
      cancelCurrentRequest(invalidateGeneration: true)
      let generation = requestGeneration
 -    showLoading(requestIsActive: true, letLibraryStartIndicator: true)
-+    if !showMemoryCachedImageIfAvailable(requestIsActive: true) {
-+      showLoading(requestIsActive: true, letLibraryStartIndicator: true)
-+    }
 +    requestStartedAt = CACurrentMediaTime()
      onLoadStart?()
      guard Self.isCurrentRequestGeneration(generation, current: requestGeneration) else { return }
++    if showMemoryCachedImageIfAvailable(requestIsActive: true) { return }
++    showLoading(requestIsActive: true, letLibraryStartIndicator: true)
  
-@@ -372,6 +381,8 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+     if let violation = OneKeyImageSafetyPolicy.preflight(source: rawString) {
+       finishWithError(violation, generation: generation)
+@@ -372,6 +390,8 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
          self.skeletonIndicator.stopAnimatingIndicator()
          self.fallbackLayer.isHidden = true
          self.hostView.backgroundColor = .clear
@@ -386,7 +388,7 @@ index 6d83c77..876b76d 100644
          self.applyAutoplay()
          let onLoad = self.onLoad
          let onLoadEnd = self.onLoadEnd
-@@ -380,7 +391,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -380,7 +400,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
              onLoad?(
                Double(image?.size.width ?? 0),
                Double(image?.size.height ?? 0),
@@ -395,7 +397,7 @@ index 6d83c77..876b76d 100644
              )
            },
            onLoadEnd: { onLoadEnd?() }
-@@ -428,6 +439,8 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -428,6 +448,8 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
      activeSafetyHandle = nil
      requestActive = false
      skeletonIndicator.stopAnimatingIndicator()
@@ -404,7 +406,7 @@ index 6d83c77..876b76d 100644
      if invalidateGeneration { requestGeneration &+= 1 }
    }
  
-@@ -474,6 +487,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -474,6 +496,7 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
      resizeWidth = nil
      overscan = 1.1
      loadingStrategy = .static
@@ -412,7 +414,7 @@ index 6d83c77..876b76d 100644
      onLoadStart = nil
      onLoad = nil
      onDisplay = nil
-@@ -498,11 +512,68 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -498,11 +521,86 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
    ) {
      displayState = .loading
      requestActive = requestIsActive
@@ -467,21 +469,39 @@ index 6d83c77..876b76d 100644
 +      ?? (requestURL == rawURL ? nil : memoryCachedImage(for: rawURL)) else {
 +      return false
 +    }
++    let generation = requestGeneration
++    if requestIsActive, !claimTerminal(generation) { return true }
 +    displayState = .image
-+    requestActive = requestIsActive
++    requestActive = false
 +    skeletonIndicator.stopAnimatingIndicator()
 +    fallbackLayer.isHidden = true
 +    resetImageTransition()
 +    hostView.image = image
 +    hostView.backgroundColor = .clear
++    if requestIsActive {
++      applyLoadedImageTransition(cacheType: .memory)
++    }
 +    applyAutoplay()
++    if requestIsActive {
++      let onLoad = onLoad
++      let onLoadEnd = onLoadEnd
++      Self.deliverTerminalCallbacks(
++        primary: {
++          onLoad?(Double(image.size.width), Double(image.size.height), .memory)
++        },
++        onLoadEnd: { onLoadEnd?() }
++      )
++      guard requestGeneration == generation else { return true }
++      pendingDisplayGeneration = generation
++      schedulePendingDisplayIfNeeded()
++    }
 +    return true
 +  }
 +
    private func showError() {
      showTerminalState(.error)
    }
-@@ -515,13 +586,15 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -515,13 +613,15 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
      displayState = state
      requestActive = false
      skeletonIndicator.stopAnimatingIndicator()
@@ -499,7 +519,7 @@ index 6d83c77..876b76d 100644
    }
  
    private func applyVariant() {
-@@ -531,22 +614,27 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -531,22 +631,27 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
      case .loading:
        applyLoadingAppearance(letLibraryStartIndicator: false)
      case .error, .fallback:
@@ -530,7 +550,7 @@ index 6d83c77..876b76d 100644
        }
      } else {
        skeletonIndicator.stopAnimatingIndicator()
-@@ -566,13 +654,77 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
+@@ -566,13 +671,77 @@ final class HybridOneKeyImage: HybridOneKeyImageSpec, RecyclableView {
      )
    }
  
@@ -635,7 +655,7 @@ index f15571d..9bd8b07 100644
      image.afterUpdate()
    }
 diff --git a/node_modules/@onekeyfe/react-native-image/lib/module/index.js b/node_modules/@onekeyfe/react-native-image/lib/module/index.js
-index a3eb58b..b2942ef 100644
+index a3eb58b..c6d4ce8 100644
 --- a/node_modules/@onekeyfe/react-native-image/lib/module/index.js
 +++ b/node_modules/@onekeyfe/react-native-image/lib/module/index.js
 @@ -47,6 +47,7 @@ export function OneKeyImage({
@@ -715,7 +735,7 @@ index ae2faac..d07f176 100644
          ? newProps->onLoadStart.isProvided()
          : !newProps->onLoadStart.hasSameValue(oldProps->onLoadStart)) {
 diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
-index e097a68..4fb1b30 100644
+index e097a68..6148e8c 100644
 --- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
 +++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
 @@ -93,6 +93,12 @@ abstract class HybridOneKeyImageSpec: HybridView() {
@@ -779,7 +799,7 @@ index e3eeb05..77215d5 100644
    var onLoad: ((_ width: Double, _ height: Double, _ cacheType: OneKeyImageCacheType) -> Void)? { get set }
    var onDisplay: (() -> Void)? { get set }
 diff --git a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
-index bf02bc9..f16c4e2 100644
+index bf02bc9..0848e5e 100644
 --- a/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
 +++ b/node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
 @@ -357,6 +357,30 @@ open class HybridOneKeyImageSpec_cxx {
@@ -900,7 +920,7 @@ index d56c364..978703c 100644
      "onLoad": true,
      "onDisplay": true,
 diff --git a/node_modules/@onekeyfe/react-native-image/lib/typescript/src/OneKeyImage.nitro.d.ts b/node_modules/@onekeyfe/react-native-image/lib/typescript/src/OneKeyImage.nitro.d.ts
-index 46d5f96..c974545 100644
+index 46d5f96..2a1db46 100644
 --- a/node_modules/@onekeyfe/react-native-image/lib/typescript/src/OneKeyImage.nitro.d.ts
 +++ b/node_modules/@onekeyfe/react-native-image/lib/typescript/src/OneKeyImage.nitro.d.ts
 @@ -36,6 +36,8 @@ export interface OneKeyImageNativeProps extends HybridViewProps {
@@ -913,7 +933,7 @@ index 46d5f96..c974545 100644
      onLoad?: (width: number, height: number, cacheType: OneKeyImageCacheType) => void;
      onDisplay?: () => void;
 diff --git a/node_modules/@onekeyfe/react-native-image/lib/typescript/src/index.d.ts b/node_modules/@onekeyfe/react-native-image/lib/typescript/src/index.d.ts
-index 4861259..5a6b8f5 100644
+index 4861259..c529d37 100644
 --- a/node_modules/@onekeyfe/react-native-image/lib/typescript/src/index.d.ts
 +++ b/node_modules/@onekeyfe/react-native-image/lib/typescript/src/index.d.ts
 @@ -45,7 +45,7 @@ export interface OneKeyImageProps extends Omit<OneKeyImageNativeProps, 'sourceUr
@@ -975,7 +995,7 @@ index ae2faac..d07f176 100644
          ? newProps->onLoadStart.isProvided()
          : !newProps->onLoadStart.hasSameValue(oldProps->onLoadStart)) {
 diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
-index e097a68..4fb1b30 100644
+index e097a68..6148e8c 100644
 --- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
 +++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/android/kotlin/com/margelo/nitro/onekeyimage/HybridOneKeyImageSpec.kt
 @@ -93,6 +93,12 @@ abstract class HybridOneKeyImageSpec: HybridView() {
@@ -1039,7 +1059,7 @@ index e3eeb05..77215d5 100644
    var onLoad: ((_ width: Double, _ height: Double, _ cacheType: OneKeyImageCacheType) -> Void)? { get set }
    var onDisplay: (() -> Void)? { get set }
 diff --git a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
-index bf02bc9..f16c4e2 100644
+index bf02bc9..0848e5e 100644
 --- a/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
 +++ b/node_modules/@onekeyfe/react-native-image/nitrogen/generated/ios/swift/HybridOneKeyImageSpec_cxx.swift
 @@ -357,6 +357,30 @@ open class HybridOneKeyImageSpec_cxx {
@@ -1173,7 +1193,7 @@ index 8611727..8866ada 100644
    onLoad?: (
      width: number,
 diff --git a/node_modules/@onekeyfe/react-native-image/src/index.tsx b/node_modules/@onekeyfe/react-native-image/src/index.tsx
-index be71e2e..986fa36 100644
+index be71e2e..03c32a4 100644
 --- a/node_modules/@onekeyfe/react-native-image/src/index.tsx
 +++ b/node_modules/@onekeyfe/react-native-image/src/index.tsx
 @@ -156,6 +156,7 @@ export function OneKeyImage({
@@ -1184,7 +1204,7 @@ index be71e2e..986fa36 100644
    hybridRef,
    onLoadStart,
    onLoad,
-@@ -330,7 +331,7 @@ export function OneKeyImage({
+@@ -329,7 +330,7 @@ export function OneKeyImage({
      ...viewProps,
      ...nativeCallbacks,
      style: shouldWrapNative ? StyleSheet.absoluteFill : style,

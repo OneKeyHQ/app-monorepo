@@ -423,6 +423,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     theme,
   });
   const listIdentity = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}:${searchText}`;
+  const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}`;
   const identityRef = useRef(listIdentity);
   const generationRef = useRef(1);
   if (identityRef.current !== listIdentity) {
@@ -585,6 +586,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       hasData: sectionData.length > 0,
       hasResolved,
       identity: listIdentity,
+      presentationScope,
       initialScrollKey,
       isDeprecatedWallet,
       isHiddenWallet,
@@ -606,32 +608,38 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       isOthersUniversal,
       linkedNetworkId,
       listIdentity,
+      presentationScope,
       sectionData.length,
       sectionDataOriginal.length,
       snapshot,
       title,
     ],
   );
-  const [presentedList, setPresentedList] = useState(candidateList);
+  const [preloadedList, setPreloadedList] = useState(candidateList);
+  const presentedList =
+    candidateList.hasResolved &&
+    candidateList.presentationScope === preloadedList.presentationScope
+      ? candidateList
+      : preloadedList;
   const candidateListRef = useRef(candidateList);
   candidateListRef.current = candidateList;
   useEffect(() => {
     if (
       candidateList.hasResolved &&
-      candidateList.identity === presentedList.identity
+      candidateList.presentationScope === preloadedList.presentationScope
     ) {
-      setPresentedList(candidateList);
+      setPreloadedList(candidateList);
     }
-  }, [candidateList, presentedList.identity]);
+  }, [candidateList, preloadedList.presentationScope]);
   useEffect(() => {
     if (
       !candidateList.hasResolved ||
-      candidateList.identity === presentedList.identity
+      candidateList.presentationScope === preloadedList.presentationScope
     ) {
       return;
     }
     let cancelled = false;
-    const targetIdentity = candidateList.identity;
+    const targetPresentationScope = candidateList.presentationScope;
     void preloadAccountSelectorImages(
       initialImagePreloadSourcesRef.current,
     ).then(() => {
@@ -639,9 +647,9 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       if (
         !cancelled &&
         latestCandidate.hasResolved &&
-        latestCandidate.identity === targetIdentity
+        latestCandidate.presentationScope === targetPresentationScope
       ) {
-        setPresentedList(latestCandidate);
+        setPreloadedList(latestCandidate);
       }
     });
     return () => {
@@ -649,9 +657,9 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     };
   }, [
     candidateList.hasResolved,
-    candidateList.identity,
+    candidateList.presentationScope,
     initialImagePreloadScope,
-    presentedList.identity,
+    preloadedList.presentationScope,
   ]);
   const nativeSnapshot = useAccountSelectorNativeSnapshotV2({
     identity: presentedList.identity,
