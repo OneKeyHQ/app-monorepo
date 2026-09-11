@@ -33,6 +33,7 @@ export enum EGalleryRoutes {
   ComponentCloudBackup = 'component-CloudBackup',
   ComponentCloudSync = 'component-CloudSync',
   ComponentPortal = 'component-Portal',
+  ComponentPro2PrimeGift = 'component-Pro2PrimeGift',
   ComponentQRWallet = 'component-QrWallet',
   ComponentRefreshControl = 'component-RefreshControl',
   ComponentRichSizeableText = 'component-RichSizeableText',
