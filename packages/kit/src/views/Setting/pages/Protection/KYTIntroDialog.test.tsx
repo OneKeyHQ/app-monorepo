@@ -156,11 +156,21 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
-  useOneKeyAuthMethods: () => ({
-    isPrimeSubscriptionActive: mockIsPrimeSubscriptionActive,
-  }),
-}));
+jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  return {
+    useOneKeyAuthMethods: () => ({
+      isPrimeSubscriptionActive: React.useSyncExternalStore(
+        (listener) => {
+          mockPrimeAtomListeners.add(listener);
+          return () => mockPrimeAtomListeners.delete(listener);
+        },
+        () => mockIsPrimeSubscriptionActive,
+        () => mockIsPrimeSubscriptionActive,
+      ),
+    }),
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -185,7 +195,16 @@ jest.mock('@onekeyhq/kit/src/hooks/useRunAfterTokensDone', () => ({
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
-    useAppUpdatePersistAtom: () => [mockAppUpdateInfo],
+    useAppUpdatePersistAtom: () => [
+      React.useSyncExternalStore(
+        (listener) => {
+          mockPrimeAtomListeners.add(listener);
+          return () => mockPrimeAtomListeners.delete(listener);
+        },
+        () => mockAppUpdateInfo,
+        () => mockAppUpdateInfo,
+      ),
+    ],
     useSettingsPersistAtom: () => [
       { receiveRiskMonitoringMap: mockReceiveRiskMonitoringMap },
     ],
@@ -348,21 +367,126 @@ describe('KYTIntroOnMount', () => {
     );
   });
 
-  it('never backfills an intro from Home readiness or a Prime account refresh', async () => {
+  it('keeps the Home fallback behind its existing readiness gates', async () => {
     mockIsPrimeSubscriptionActive = true;
     mockAppUpdateInfo = { status: 'done', firstLaunch: false };
+    render(<KYTIntroOnMount />);
+
+    expect(mockRunAfterTokensDone).not.toHaveBeenCalled();
+
+    act(() => {
+      mockTabFocusCallback?.(true, false);
+    });
+    expect(mockRunAfterTokensDone).toHaveBeenCalledTimes(1);
+    expect(mockTryClaim).not.toHaveBeenCalled();
+
+    act(() => {
+      mockTokensDoneCallback?.('tokensDone');
+    });
+
+    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+    expect(mockIntroShownLog).toHaveBeenCalledWith(
+      expect.objectContaining({ entryPoint: 'homeAutoIntro' }),
+    );
+  });
+
+  it('backfills after a subscription refresh without a purchase event', async () => {
+    mockAppUpdateInfo = { status: 'done', firstLaunch: false };
+    render(<KYTIntroOnMount />);
+    act(() => {
+      mockTabFocusCallback?.(true, false);
+      mockTokensDoneCallback?.('tokensDone');
+    });
+    expect(mockTryClaim).not.toHaveBeenCalled();
+
+    act(() => {
+      mockIsPrimeSubscriptionActive = true;
+      mockPrimeAtomListeners.forEach((listener) => listener());
+    });
+
+    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+    expect(mockTryClaim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onekeyUserId: 'user-a',
+        entryPoint: 'homeAutoIntro',
+      }),
+    );
+  });
+
+  it.each([
+    { status: 'checking', firstLaunch: false },
+    { status: 'done', firstLaunch: true },
+  ])('waits for the app update flow to settle: %j', async (updateInfo) => {
+    mockIsPrimeSubscriptionActive = true;
+    mockAppUpdateInfo = updateInfo;
+    render(<KYTIntroOnMount />);
+    act(() => {
+      mockTabFocusCallback?.(true, false);
+      mockTokensDoneCallback?.('tokensDone');
+    });
+    expect(mockTryClaim).not.toHaveBeenCalled();
+
+    act(() => {
+      mockAppUpdateInfo = { status: 'done', firstLaunch: false };
+      mockPrimeAtomListeners.forEach((listener) => listener());
+    });
+
+    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+  });
+
+  it('waits for a blocking root overlay to close before showing the Home intro', async () => {
+    mockIsPrimeSubscriptionActive = true;
+    mockAppUpdateInfo = { status: 'done', firstLaunch: false };
+    mockRootState.routes.push({ name: 'fullScreenPush' });
+    mockRootState.index = 1;
+    render(<KYTIntroOnMount />);
+    act(() => {
+      mockTabFocusCallback?.(true, true);
+      mockTokensDoneCallback?.('tokensDone');
+    });
+    expect(mockTryClaim).not.toHaveBeenCalled();
+
+    act(() => {
+      mockRootState.index = 0;
+      mockRootState.routes.pop();
+      mockTabFocusCallback?.(true, false);
+    });
+
+    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+  });
+
+  it('upgrades a racing Home attempt and opens only one dialog', async () => {
+    let resolveClaim: ((value: IKytIntroClaimResult) => void) | undefined;
+    mockIsPrimeSubscriptionActive = true;
+    mockAppUpdateInfo = { status: 'done', firstLaunch: false };
+    mockTryClaim.mockImplementationOnce(
+      () =>
+        new Promise<IKytIntroClaimResult>((resolve) => {
+          resolveClaim = resolve;
+        }),
+    );
     render(<KYTIntroOnMount />);
 
     act(() => {
       mockTabFocusCallback?.(true, false);
       mockTokensDoneCallback?.('tokensDone');
-      mockSetCurrentUserId('user-b');
     });
-    await act(async () => Promise.resolve());
+    await waitFor(() => expect(mockTryClaim).toHaveBeenCalledTimes(1));
 
-    expect(mockRunAfterTokensDone).not.toHaveBeenCalled();
-    expect(mockTryClaim).not.toHaveBeenCalled();
-    expect(mockDialogShow).not.toHaveBeenCalled();
+    act(() => {
+      emitPurchaseSuccess();
+      resolveClaim?.({
+        status: 'claimed',
+        claimId: 'home-claim',
+        entryPoint: 'homeAutoIntro',
+      });
+    });
+
+    await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+    expect(mockTryClaim).toHaveBeenCalledTimes(2);
+    expect(mockIntroShownLog).toHaveBeenCalledWith(
+      expect.objectContaining({ entryPoint: 'primeSubscribeSuccess' }),
+    );
   });
 
   it('serializes duplicate purchase events while a claim is pending', async () => {
