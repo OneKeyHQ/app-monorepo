@@ -81,7 +81,7 @@ export function PairDetailDialog({
       <XStack gap="$4">
         <PoolDetailsItem
           title={intl.formatMessage({ id: ETranslations.global_price })}
-          currency
+          unit={target}
           isNumeric
           formatter="price"
         >
@@ -115,7 +115,7 @@ export function PairDetailDialog({
             id: ETranslations.market_twenty_four_hour_volume,
           })}
           formatter="marketCap"
-          currency
+          unit={base}
           isNumeric
         >
           {String(volume)}

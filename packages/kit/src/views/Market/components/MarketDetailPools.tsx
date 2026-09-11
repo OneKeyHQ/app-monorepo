@@ -256,7 +256,7 @@ export function MarketDetailPools({
     }
     return symbols;
   }, [validPools, existingNetworkMap, tickers?.length]);
-  // Identify the selected tab by a stable key (pool localId, or the CEX
+  // Identify the selected network group by a stable key (network and contract, or the CEX
   // sentinel) instead of a positional index. validPools changes asynchronously:
   // it holds every pool while existingNetworks is loading, then drops delisted
   // pools once it resolves. A raw index could fall out of range (silently
@@ -264,7 +264,9 @@ export function MarketDetailPools({
   // the index from the selected key keeps the selection pinned to the same tab,
   // and falls back to the first tab when the selected pool was delisted.
   const tabKeys = useMemo(() => {
-    const keys = validPools.map((i) => i.onekeyNetworkId ?? i.localId);
+    const keys = validPools.map(
+      (i) => `${i.coingeckoNetworkId}:${i.contract_address}`,
+    );
     if (tickers?.length) {
       keys.push(CEX);
     }
@@ -406,7 +408,6 @@ export function MarketDetailPools({
               <NumberSizeableText
                 userSelect="none"
                 size="$bodyMd"
-                formatterOptions={{ currency }}
                 formatter="marketCap"
                 textAlign="right"
               >
@@ -487,16 +488,20 @@ export function MarketDetailPools({
           flexGrow: 2,
           flexBasis: 0,
         },
-        render: (price: string) => (
-          <NumberSizeableText
-            userSelect="none"
-            size="$bodyMd"
-            formatter="price"
-            formatterOptions={{ currency }}
-            textAlign="right"
-          >
-            {price}
-          </NumberSizeableText>
+        render: (price: string, item: IDataSourceItem) => (
+          <XStack gap="$1" justifyContent="flex-end">
+            <NumberSizeableText
+              userSelect="none"
+              size="$bodyMd"
+              formatter="price"
+              textAlign="right"
+            >
+              {price}
+            </NumberSizeableText>
+            <SizableText size="$bodyMd">
+              {'target' in item ? item.target : ''}
+            </SizableText>
+          </XStack>
         ),
       },
       gtXl
@@ -575,16 +580,20 @@ export function MarketDetailPools({
           flexGrow: 2,
           flexBasis: 0,
         },
-        render: (volumeUsdH24: string) => (
-          <NumberSizeableText
-            userSelect="none"
-            size="$bodyMd"
-            formatter="marketCap"
-            formatterOptions={{ currency }}
-            textAlign="right"
-          >
-            {volumeUsdH24}
-          </NumberSizeableText>
+        render: (volumeUsdH24: string, item: IDataSourceItem) => (
+          <XStack gap="$1" justifyContent="flex-end">
+            <NumberSizeableText
+              userSelect="none"
+              size="$bodyMd"
+              formatter="marketCap"
+              textAlign="right"
+            >
+              {volumeUsdH24}
+            </NumberSizeableText>
+            <SizableText size="$bodyMd">
+              {'base' in item ? item.base : ''}
+            </SizableText>
+          </XStack>
         ),
       },
     ],

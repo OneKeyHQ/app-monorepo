@@ -6,6 +6,7 @@ import type { PropsWithChildren } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailChart } from './MarketDetailChart';
@@ -27,7 +28,13 @@ jest.mock('../../../Market/components/TokenPriceChart', () => ({
   ),
 }));
 
+const originalIsWeb = platformEnv.isWeb;
+afterEach(() => {
+  platformEnv.isWeb = originalIsWeb;
+});
+
 it('uses the same token app chart after the exchange page fails to load', () => {
+  platformEnv.isWeb = false;
   const token = {
     tvPlatform: {
       identifier: 'binance',
@@ -37,6 +44,20 @@ it('uses the same token app chart after the exchange page fails to load', () => 
   } as IMarketTokenDetail;
   render(<MarketDetailChart coinGeckoId="binancecoin" token={token} />);
   fireEvent.click(screen.getByText('Exchange chart'));
+  expect(screen.queryByText('Exchange chart')).toBeNull();
+  expect(screen.getByText('App chart: binancecoin')).toBeTruthy();
+});
+
+it('uses the app datafeed on web even with a supported exchange ticker', () => {
+  platformEnv.isWeb = true;
+  const token = {
+    tvPlatform: {
+      identifier: 'binance',
+      baseToken: 'BNB',
+      targetToken: 'USDT',
+    },
+  } as IMarketTokenDetail;
+  render(<MarketDetailChart coinGeckoId="binancecoin" token={token} />);
   expect(screen.queryByText('Exchange chart')).toBeNull();
   expect(screen.getByText('App chart: binancecoin')).toBeTruthy();
 });

@@ -58,6 +58,8 @@ export function MarketDetailContent({ coinGeckoId }: { coinGeckoId: string }) {
         const response =
           await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
             coinGeckoId,
+            true,
+            USD_CURRENCY_ID,
           );
         lastTokenRef.current = response;
         return response;

@@ -22,6 +22,7 @@ export function PoolDetailsItem({
   title,
   children,
   currency,
+  unit,
   isNumeric = false,
   formatter = 'marketCap',
   bordered = true,
@@ -29,6 +30,7 @@ export function PoolDetailsItem({
   title: string;
   rank?: number;
   currency?: boolean;
+  unit?: string;
   children: ReactElement | string;
   isNumeric?: boolean;
   formatter?: INumberSizeableTextProps['formatter'];
@@ -38,13 +40,18 @@ export function PoolDetailsItem({
   const renderChildren = useMemo(() => {
     if (isNumeric) {
       return (
-        <NumberSizeableText
-          size="$bodyMdMedium"
-          formatter={formatter}
-          formatterOptions={currency ? { currency: currencySymbol } : undefined}
-        >
-          {children as string}
-        </NumberSizeableText>
+        <XStack gap="$1" alignItems="center">
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            formatter={formatter}
+            formatterOptions={
+              currency ? { currency: currencySymbol } : undefined
+            }
+          >
+            {children as string}
+          </NumberSizeableText>
+          {unit ? <SizableText size="$bodyMdMedium">{unit}</SizableText> : null}
+        </XStack>
       );
     }
     return typeof children === 'string' ? (
@@ -52,7 +59,7 @@ export function PoolDetailsItem({
     ) : (
       children
     );
-  }, [children, currency, currencySymbol, formatter, isNumeric]);
+  }, [unit, children, currency, currencySymbol, formatter, isNumeric]);
   return (
     <YStack
       pb="$3"

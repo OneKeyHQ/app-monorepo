@@ -13,7 +13,6 @@ import {
   YStack,
   useIsOverlayPage,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatLocaleDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
@@ -66,14 +65,13 @@ export function Overview24PriceChange({
   lastUpdated: string;
 }) {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
+  const currency = '$';
   const price = useTokenPrice({
     name,
     symbol,
     price: currentPrice,
     lastUpdated: new Date(lastUpdated).getTime(),
-    cacheKey: `${name}:${symbol}:usd`,
+    cacheKey: `legacy-market:${name}:${symbol}:usd`,
   });
   const lowPrice = Math.min(Number(low), Number(price));
   const highPrice = Math.max(Number(high), Number(price));
@@ -141,7 +139,6 @@ function OverviewMarketVOLItem({
   tooltip?: string;
   children: INumberSizeableTextProps['children'];
 }) {
-  const [settings] = useSettingsPersistAtom();
   return (
     <YStack
       pb="$3"
@@ -157,9 +154,7 @@ function OverviewMarketVOLItem({
         <NumberSizeableText
           size="$bodyMdMedium"
           formatter={formatter}
-          formatterOptions={
-            currency ? { currency: settings.currencyInfo.symbol } : undefined
-          }
+          formatterOptions={currency ? { currency: '$' } : undefined}
         >
           {children}
         </NumberSizeableText>
@@ -207,7 +202,6 @@ function OverviewMarketVOL({
   ath: IMarketDetailAthOrAtl;
   detailPlatforms: IMarketDetailPlatform;
 }) {
-  const [settings] = useSettingsPersistAtom();
   const intl = useIntl();
   const athPercent = useMemo(
     () =>
@@ -293,7 +287,7 @@ function OverviewMarketVOL({
                   <NumberSizeableText
                     formatter="price"
                     formatterOptions={{
-                      currency: settings.currencyInfo.symbol,
+                      currency: '$',
                     }}
                   >
                     {ath.value}
@@ -324,7 +318,7 @@ function OverviewMarketVOL({
                   <NumberSizeableText
                     formatter="price"
                     formatterOptions={{
-                      currency: settings.currencyInfo.symbol,
+                      currency: '$',
                     }}
                   >
                     {atl.value}

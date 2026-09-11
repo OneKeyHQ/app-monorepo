@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import { Spinner, Stack } from '@onekeyhq/components';
 import { TradingViewV1 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV1';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { TokenPriceChart } from '../../../Market/components/TokenPriceChart';
@@ -57,8 +58,8 @@ export function MarketDetailChart({
   token: IMarketTokenDetail;
 }) {
   const ticker = resolveMarketChartTicker(coinGeckoId, token);
-  // Tokens without a supported exchange pair keep the existing app datafeed.
-  return ticker ? (
+  // Cross-origin widget failures cannot be detected reliably on web. Use the app datafeed there.
+  return ticker && !platformEnv.isWeb ? (
     <ExchangeChart
       key={`${ticker.identifier}:${ticker.baseToken}:${ticker.targetToken}`}
       ticker={ticker}
