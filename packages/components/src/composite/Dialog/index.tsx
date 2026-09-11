@@ -17,12 +17,9 @@ import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
 } from 'react-native-reanimated';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 
@@ -81,6 +78,7 @@ import {
   DialogTitle,
   SetDialogHeader,
 } from './Header';
+import { HeaderDragZone } from './HeaderDragZone';
 import { renderToContainer } from './renderToContainer';
 
 import type {
@@ -220,22 +218,8 @@ const useSafeKeyboardAnimationStyle = ({
   return animatedStyles;
 };
 
-// A header drag lets go of the sheet once it has moved this far or this
-// fast; shorter and slower pulls spring back. Tamagui's own frame drag reads
-// the snap points for that decision, which a header-only drag has no view of.
-const HEADER_DRAG_DISMISS_DISTANCE = 120;
-const HEADER_DRAG_DISMISS_VELOCITY = 800;
-// Pulling the header up moves the sheet a fifth of the way: a hint that it
-// cannot go there, not a scroll.
-const HEADER_DRAG_UPWARD_RESISTANCE = 0.2;
-const HEADER_DRAG_SPRING = {
-  stiffness: 220,
-  damping: 30,
-  mass: 1,
-  overshootClamping: true,
-} as const;
-// Without a title the drag zone is only the grabber strip; keep it tall
-// enough to catch a finger.
+// Without a title the header drag zone is only the grabber strip; keep it
+// tall enough to catch a finger.
 const HEADER_DRAG_ZONE_MIN_HEIGHT = 24;
 
 /**
@@ -354,8 +338,8 @@ function DialogFrame({
 
   // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
   // so a scrollable body scrolls natively with no hand-off to the sheet, and
-  // the grabber + title row carry a pan of their own that moves the sheet body
-  // and lets go of it past the thresholds above.
+  // the grabber + title row (HeaderDragZone) carry a pan of their own that
+  // moves the sheet body and lets go of it past its thresholds.
   const isHeaderDragOnly =
     media.md && sheetDragArea === 'header' && !disableDrag;
   const headerDragY = useSharedValue(0);
@@ -367,42 +351,6 @@ function DialogFrame({
   const dismissFromHeaderDrag = useCallback(() => {
     handleOpenChange(false);
   }, [handleOpenChange]);
-  const headerDragGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(isHeaderDragOnly)
-        .activeOffsetY([-10, 10])
-        .failOffsetX([-20, 20])
-        .hitSlop({ top: 8, bottom: 8 })
-        .onUpdate((event) => {
-          'worklet';
-
-          headerDragY.value =
-            event.translationY >= 0
-              ? event.translationY
-              : event.translationY * HEADER_DRAG_UPWARD_RESISTANCE;
-        })
-        .onEnd((event, success) => {
-          'worklet';
-
-          // A cancelled or failed pan reaches here too, carrying its last
-          // translation and velocity, so only a completed pull may let go of
-          // the sheet. A flick counts only while the sheet sits below its
-          // resting position: a rubber-band pull-up released with downward
-          // momentum springs back rather than dismissing.
-          const shouldDismiss =
-            success &&
-            (event.translationY > HEADER_DRAG_DISMISS_DISTANCE ||
-              (event.translationY > 0 &&
-                event.velocityY > HEADER_DRAG_DISMISS_VELOCITY));
-          if (shouldDismiss) {
-            runOnJS(dismissFromHeaderDrag)();
-            return;
-          }
-          headerDragY.value = withSpring(0, HEADER_DRAG_SPRING);
-        }),
-    [isHeaderDragOnly, headerDragY, dismissFromHeaderDrag],
-  );
   const headerDragStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: headerDragY.value }],
   }));
@@ -417,15 +365,14 @@ function DialogFrame({
   const renderDialogContent = (
     <Animated.View style={safeKeyboardAnimationStyle}>
       {isHeaderDragOnly ? (
-        <GestureDetector gesture={headerDragGesture}>
-          <Stack
-            collapsable={false}
-            minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
-          >
-            <SheetGrabber />
-            {dialogHeader}
-          </Stack>
-        </GestureDetector>
+        <HeaderDragZone
+          dragY={headerDragY}
+          onDismiss={dismissFromHeaderDrag}
+          minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
+        >
+          <SheetGrabber />
+          {dialogHeader}
+        </HeaderDragZone>
       ) : (
         dialogHeader
       )}
