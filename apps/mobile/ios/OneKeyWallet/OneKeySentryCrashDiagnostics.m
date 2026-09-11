@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <MetricKit/MetricKit.h>
 #import <React/RCTBridgeModule.h>
 #import <Sentry/Sentry.h>
 #import <Sentry/SentryDebugMeta.h>
@@ -208,6 +209,31 @@ static NSArray<NSDictionary<NSString *, id> *> *OneKeyCrashDebugImages(
   return result;
 }
 
+static id OneKeySanitizeCrashJSONValue(id value)
+{
+  if ([value isKindOfClass:NSString.class]) {
+    return OneKeySanitizeCrashString(value) ?: @"";
+  }
+  if ([value isKindOfClass:NSArray.class]) {
+    NSMutableArray *result = [NSMutableArray array];
+    for (id item in (NSArray *)value) {
+      [result addObject:OneKeySanitizeCrashJSONValue(item) ?: NSNull.null];
+    }
+    return result;
+  }
+  if ([value isKindOfClass:NSDictionary.class]) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    for (id key in (NSDictionary *)value) {
+      if (![key isKindOfClass:NSString.class]) {
+        continue;
+      }
+      result[key] = OneKeySanitizeCrashJSONValue(((NSDictionary *)value)[key]) ?: NSNull.null;
+    }
+    return result;
+  }
+  return value;
+}
+
 static NSString *OneKeyCrashDiagnosticsDirectory(void)
 {
   NSString *cachesDirectory = NSSearchPathForDirectoriesInDomains(
@@ -246,6 +272,78 @@ static void OneKeyCleanupCrashReports(NSString *directoryPath, NSDate *now)
        index < retained.count;
        index += 1) {
     [fileManager removeItemAtPath:retained[index][@"path"] error:nil];
+  }
+}
+
+static BOOL OneKeyWriteCrashDiagnosticsData(NSData *data, NSString *fileName)
+{
+  if (data.length == 0 || fileName.length == 0) {
+    return NO;
+  }
+  @synchronized(NSFileManager.defaultManager) {
+    NSString *directoryPath = OneKeyCrashDiagnosticsDirectory();
+    NSFileManager *fileManager = NSFileManager.defaultManager;
+    [fileManager createDirectoryAtPath:directoryPath
+           withIntermediateDirectories:YES
+                            attributes:@{
+                              NSFileProtectionKey:
+                                  NSFileProtectionCompleteUntilFirstUserAuthentication,
+                            }
+                                 error:nil];
+    NSString *path = [directoryPath stringByAppendingPathComponent:fileName];
+    if (![data writeToFile:path options:NSDataWritingAtomic error:nil]) {
+      return NO;
+    }
+    [fileManager setAttributes:@{
+      NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication,
+    } ofItemAtPath:path error:nil];
+    OneKeyCleanupCrashReports(directoryPath, NSDate.date);
+    return YES;
+  }
+}
+
+static BOOL OneKeyMetricKitPayloadHasDiagnostics(MXDiagnosticPayload *payload)
+{
+  return payload.crashDiagnostics.count > 0 ||
+      payload.hangDiagnostics.count > 0 ||
+      payload.cpuExceptionDiagnostics.count > 0 ||
+      payload.diskWriteExceptionDiagnostics.count > 0 ||
+      payload.appLaunchDiagnostics.count > 0;
+}
+
+static void OneKeyPersistMetricKitPayloads(NSArray<MXDiagnosticPayload *> *payloads)
+{
+  NSDate *now = NSDate.date;
+  OneKeyCleanupCrashReports(OneKeyCrashDiagnosticsDirectory(), now);
+  for (MXDiagnosticPayload *payload in payloads ?: @[]) {
+    if (!OneKeyMetricKitPayloadHasDiagnostics(payload) ||
+        [now timeIntervalSinceDate:payload.timeStampEnd] > OneKeyCrashDiagnosticsMaxReportAge) {
+      continue;
+    }
+    id sanitizedPayload = OneKeySanitizeCrashJSONValue(payload.dictionaryRepresentation);
+    if (![sanitizedPayload isKindOfClass:NSDictionary.class]) {
+      continue;
+    }
+    NSDictionary<NSString *, id> *report = @{
+      @"schemaVersion": @(OneKeyCrashDiagnosticsSchemaVersion),
+      @"source": @"metrickit",
+      @"platform": @"ios",
+      @"capturedAt": OneKeyCrashDateString(now),
+      @"payload": sanitizedPayload,
+    };
+    NSData *data = [NSJSONSerialization dataWithJSONObject:report
+                                                   options:NSJSONWritingPrettyPrinted
+                                                     error:nil];
+    long long begin = llround(payload.timeStampBegin.timeIntervalSince1970 * 1000);
+    long long end = llround(payload.timeStampEnd.timeIntervalSince1970 * 1000);
+    NSString *fileName =
+        [NSString stringWithFormat:@"metrickit-%lld-%lld.json", begin, end];
+    NSString *filePath =
+        [OneKeyCrashDiagnosticsDirectory() stringByAppendingPathComponent:fileName];
+    if ([NSFileManager.defaultManager fileExistsAtPath:filePath]) {
+      continue;
+    }
+    OneKeyWriteCrashDiagnosticsData(data, fileName);
   }
 }
 
@@ -294,33 +392,52 @@ static void OneKeyPersistCrashEvent(SentryEvent *event)
       return;
     }
 
-    NSString *directoryPath = OneKeyCrashDiagnosticsDirectory();
-    NSFileManager *fileManager = NSFileManager.defaultManager;
-    [fileManager createDirectoryAtPath:directoryPath
-           withIntermediateDirectories:YES
-                            attributes:@{
-                              NSFileProtectionKey:
-                                  NSFileProtectionCompleteUntilFirstUserAuthentication,
-                            }
-                                 error:nil];
     NSString *eventId = event.eventId.sentryIdString;
     if (eventId.length == 0) {
       eventId = [NSString stringWithFormat:@"%.0f", NSDate.date.timeIntervalSince1970 * 1000];
     }
-    NSString *path = [directoryPath stringByAppendingPathComponent:
-        [NSString stringWithFormat:@"sentry-native-%@.json", eventId]];
-    if (![data writeToFile:path options:NSDataWritingAtomic error:nil]) {
-      return;
-    }
-    [fileManager setAttributes:@{
-      NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication,
-    } ofItemAtPath:path error:nil];
-    OneKeyCleanupCrashReports(directoryPath, NSDate.date);
+    OneKeyWriteCrashDiagnosticsData(
+        data,
+        [NSString stringWithFormat:@"sentry-native-%@.json", eventId]);
   } @catch (NSException *exception) {
     NSLog(@"[OneKeySentryCrashDiagnostics] Failed to persist native crash diagnostics: %@",
           exception.reason);
   }
 }
+
+@interface OneKeyMetricKitDiagnosticsSubscriber : NSObject <MXMetricManagerSubscriber>
++ (instancetype)sharedSubscriber;
+- (void)start;
+@end
+
+@implementation OneKeyMetricKitDiagnosticsSubscriber
+
++ (instancetype)sharedSubscriber
+{
+  static OneKeyMetricKitDiagnosticsSubscriber *subscriber;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    subscriber = [[OneKeyMetricKitDiagnosticsSubscriber alloc] init];
+  });
+  return subscriber;
+}
+
+- (void)start
+{
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    MXMetricManager *manager = MXMetricManager.sharedManager;
+    [manager addSubscriber:self];
+    OneKeyPersistMetricKitPayloads(manager.pastDiagnosticPayloads);
+  });
+}
+
+- (void)didReceiveDiagnosticPayloads:(NSArray<MXDiagnosticPayload *> *)payloads
+{
+  OneKeyPersistMetricKitPayloads(payloads);
+}
+
+@end
 
 @interface OneKeySentryCrashDiagnostics : NSObject <RCTBridgeModule>
 @end
@@ -336,6 +453,7 @@ RCT_EXPORT_MODULE(OneKeySentryCrashDiagnostics)
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(initialize:(NSDictionary *)configuration)
 {
+  [[OneKeyMetricKitDiagnosticsSubscriber sharedSubscriber] start];
   static BOOL initialized = NO;
   @synchronized([OneKeySentryCrashDiagnostics class]) {
     if (initialized) {

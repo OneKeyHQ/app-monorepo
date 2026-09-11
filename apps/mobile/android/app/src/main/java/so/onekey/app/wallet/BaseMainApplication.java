@@ -456,6 +456,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       return;
     }
 
+    OneKeySentryCrashDiagnosticsModule.persistHistoricalProcessExitDiagnostics(this);
     OneKeySentryCrashDiagnosticsModule.persistPendingNativeCrashEnvelopes(this);
 
     OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");

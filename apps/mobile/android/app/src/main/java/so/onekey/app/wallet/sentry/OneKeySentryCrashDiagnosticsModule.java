@@ -1,6 +1,9 @@
 package so.onekey.app.wallet.sentry;
 
+import android.app.ActivityManager;
+import android.app.ApplicationExitInfo;
 import android.content.Context;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
 
@@ -10,9 +13,11 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.module.annotations.ReactModule;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -54,7 +59,9 @@ public final class OneKeySentryCrashDiagnosticsModule extends ReactContextBaseJa
     private static final int SCHEMA_VERSION = 1;
     private static final int MAX_REPORT_COUNT = 5;
     private static final int MAX_FRAME_COUNT = 256;
+    private static final int MAX_PROCESS_EXIT_COUNT = 10;
     private static final int MAX_STRING_LENGTH = 1024;
+    private static final int MAX_TRACE_LENGTH = 128 * 1024;
     private static final long MAX_REPORT_AGE_MS = 7L * 24L * 60L * 60L * 1000L;
     private static final Object INITIALIZATION_LOCK = new Object();
     private static final Object FILE_LOCK = new Object();
@@ -180,6 +187,123 @@ public final class OneKeySentryCrashDiagnosticsModule extends ReactContextBaseJa
             serializer,
             0
         );
+    }
+
+    public static void persistHistoricalProcessExitDiagnostics(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return;
+        }
+
+        File directory = new File(context.getCacheDir(), "logs/crashes");
+        long now = System.currentTimeMillis();
+        cleanupReports(directory, now);
+        try {
+            ActivityManager activityManager =
+                (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (activityManager == null) {
+                return;
+            }
+            List<ApplicationExitInfo> exits =
+                activityManager.getHistoricalProcessExitReasons(
+                    null,
+                    0,
+                    MAX_PROCESS_EXIT_COUNT
+                );
+            for (ApplicationExitInfo exit : exits) {
+                if (
+                    !isRelevantExitReason(exit.getReason()) ||
+                    now - exit.getTimestamp() > MAX_REPORT_AGE_MS
+                ) {
+                    continue;
+                }
+                String fileName = String.format(
+                    "android-exit-%d-%d-%d.json",
+                    exit.getTimestamp(),
+                    exit.getPid(),
+                    exit.getReason()
+                );
+                if (new File(directory, fileName).isFile()) {
+                    continue;
+                }
+                writeReport(context, fileName, buildProcessExitReport(exit));
+            }
+        } catch (Throwable error) {
+            android.util.Log.e(NAME, "Failed to persist Android exit diagnostics", error);
+        }
+    }
+
+    private static boolean isRelevantExitReason(int reason) {
+        return reason == ApplicationExitInfo.REASON_ANR ||
+            reason == ApplicationExitInfo.REASON_CRASH ||
+            reason == ApplicationExitInfo.REASON_CRASH_NATIVE ||
+            reason == ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE ||
+            reason == ApplicationExitInfo.REASON_INITIALIZATION_FAILURE ||
+            reason == ApplicationExitInfo.REASON_LOW_MEMORY;
+    }
+
+    private static JSONObject buildProcessExitReport(ApplicationExitInfo exit) throws Exception {
+        JSONObject report = new JSONObject();
+        report.put("schemaVersion", SCHEMA_VERSION);
+        report.put("source", "application-exit-info");
+        report.put("platform", "android");
+        report.put("capturedAt", Instant.now().toString());
+        report.put("timestamp", Instant.ofEpochMilli(exit.getTimestamp()).toString());
+        report.put("pid", exit.getPid());
+        report.put("reason", exit.getReason());
+        report.put("reasonName", processExitReasonName(exit.getReason()));
+        report.put("status", exit.getStatus());
+        report.put("importance", exit.getImportance());
+        report.put("pssKb", exit.getPss());
+        report.put("rssKb", exit.getRss());
+        putString(report, "processName", exit.getProcessName());
+        putString(report, "description", exit.getDescription());
+
+        try (InputStream trace = exit.getTraceInputStream()) {
+            if (trace != null) {
+                report.put("traceAvailable", true);
+                if (exit.getReason() == ApplicationExitInfo.REASON_ANR) {
+                    String anrTrace = readLimitedText(trace, MAX_TRACE_LENGTH);
+                    if (!anrTrace.isEmpty()) {
+                        report.put("anrTrace", sanitizeTrace(anrTrace));
+                    }
+                }
+            }
+        }
+        return report;
+    }
+
+    private static String processExitReasonName(int reason) {
+        switch (reason) {
+            case ApplicationExitInfo.REASON_ANR:
+                return "anr";
+            case ApplicationExitInfo.REASON_CRASH:
+                return "crash";
+            case ApplicationExitInfo.REASON_CRASH_NATIVE:
+                return "native-crash";
+            case ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE:
+                return "excessive-resource-usage";
+            case ApplicationExitInfo.REASON_INITIALIZATION_FAILURE:
+                return "initialization-failure";
+            case ApplicationExitInfo.REASON_LOW_MEMORY:
+                return "low-memory";
+            default:
+                return "unknown";
+        }
+    }
+
+    private static String readLimitedText(InputStream input, int limit) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int remaining = limit;
+        while (remaining > 0) {
+            int count = input.read(buffer, 0, Math.min(buffer.length, remaining));
+            if (count < 0) {
+                break;
+            }
+            output.write(buffer, 0, count);
+            remaining -= count;
+        }
+        return output.toString(StandardCharsets.UTF_8.name());
     }
 
     private static void persistPendingNativeCrashEnvelopes(
@@ -490,12 +614,26 @@ public final class OneKeySentryCrashDiagnosticsModule extends ReactContextBaseJa
     }
 
     private static String sanitize(String value) {
+        return sanitize(value, MAX_STRING_LENGTH);
+    }
+
+    private static String sanitize(String value, int maxLength) {
         String result = value.replace('\n', ' ').replace('\r', ' ');
+        return redactAndTruncate(result, maxLength);
+    }
+
+    private static String sanitizeTrace(String value) {
+        String result = value.replace("\r\n", "\n").replace('\r', '\n');
+        return redactAndTruncate(result, MAX_TRACE_LENGTH);
+    }
+
+    private static String redactAndTruncate(String value, int maxLength) {
+        String result = value;
         for (Pattern pattern : SENSITIVE_PATTERNS) {
             result = pattern.matcher(result).replaceAll("[REDACTED]");
         }
-        return result.length() > MAX_STRING_LENGTH
-            ? result.substring(0, MAX_STRING_LENGTH) + "...(truncated)"
+        return result.length() > maxLength
+            ? result.substring(0, maxLength) + "...(truncated)"
             : result;
     }
 
