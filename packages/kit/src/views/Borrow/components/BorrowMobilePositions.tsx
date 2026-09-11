@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -132,8 +132,14 @@ export function BorrowMobilePositions({
   const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
   const networkId = market?.networkId ?? '';
   const marketAddress = market?.marketAddress ?? '';
+  const normalizedMarketAddress = marketAddress.toLowerCase();
   const eModeId = eModeStatus?.eModeId;
   const hasCollateralControls = Boolean(market && accountId);
+
+  // Scoped keys hide the old card; clear the selection so returning stays collapsed.
+  useEffect(() => {
+    setExpandedKey(null);
+  }, [accountId, networkId, normalizedMarketAddress]);
 
   const labels = useMemo(
     () => ({
@@ -294,7 +300,10 @@ export function BorrowMobilePositions({
                       labels.collateralNotAvailable,
                     ].join(', ')}
                   >
-                    <CollateralBadge canBeCollateral={false} bg="$bgStrong" />
+                    <CollateralBadge
+                      canBeCollateral={false}
+                      unavailableBg="$bgStrong"
+                    />
                   </Stack>
                 ) : (
                   <CollateralSwitchCell
