@@ -87,7 +87,6 @@ function HeaderView({
     headerTitleAlign,
     headerTransparent = false,
     headerStyle,
-    headerShadowVisible,
     headerBackground,
     headerShown = true,
     headerRightContainerStyle = EMPTY_HEADER_RIGHT_CONTAINER_STYLE,
@@ -321,7 +320,6 @@ function HeaderView({
             headerTransparent
             headerBackground={headerBackground}
             headerStyle={headerStyleMemo}
-            headerShadowVisible={headerShadowVisible}
           />
         </Stack>
         {headerSearchBarOptions ? (

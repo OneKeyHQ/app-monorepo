@@ -48,7 +48,6 @@ function PrimeGiftPageHeader({
         id: ETranslations.prime_gift__title,
       })}
       headerLeft={renderHeaderLeft}
-      headerShadowVisible={false}
     />
   );
 }
