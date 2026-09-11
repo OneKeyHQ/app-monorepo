@@ -6,6 +6,7 @@ import {
   ZCASH_BLOCKS_PER_DAY,
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
+  estimateZcashChainTipFromClock,
 } from './birthday';
 
 describe('estimateZcashBirthdayHeight', () => {
@@ -40,6 +41,18 @@ describe('estimateZcashBirthdayHeight', () => {
         chainTip,
       }),
     ).toBe(ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET);
+  });
+
+  it('estimates the tip from the clock when the network tip is missing', () => {
+    const clockTip = estimateZcashChainTipFromClock(now);
+    expect(clockTip).toBeGreaterThan(ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET);
+    expect(
+      estimateZcashBirthdayHeight({
+        birthdayTimestamp: now,
+        now,
+        chainTip: null,
+      }),
+    ).toBe(clockTip - ZCASH_BIRTHDAY_SAFETY_BLOCKS);
   });
 
   it('keeps the product floor above the unsupported Sapling era', () => {

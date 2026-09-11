@@ -5,6 +5,7 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
+import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import {
   EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
@@ -13,10 +14,13 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import VaultBtc from '../btc/Vault';
 
+import { KeyringHardware } from './KeyringHardware';
 import Vault, {
   isTerminalTransparentHistoryStatus,
   shouldPreferTransparentForShieldedSend,
 } from './Vault';
+
+import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
 
 describe('Zcash Transparent Mode runtime boundary', () => {
   const accountId = "hd-1--m/44'/133'/0'";
@@ -142,5 +146,97 @@ describe('Zcash Transparent Mode runtime boundary', () => {
     ).resolves.toBe(backendResponse);
     expect(backend).toHaveBeenCalledTimes(1);
     expect(runtime).not.toHaveBeenCalled();
+  });
+});
+
+describe('Zcash hardware account address authority', () => {
+  const staleMeta = {
+    ufvk: 'uview1-device',
+    unifiedAddress: 'u1-device',
+    transparentAddress: 't1-device',
+    seedFingerprintHex: '00'.repeat(32),
+    hdIndex: 0,
+    birthdayHeight: 3_000_000,
+    birthdaySource: 'manual-height',
+    addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION - 1,
+    createdAt: 1,
+  } as IZcashAccountMeta;
+
+  function createVault() {
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          zcash: {
+            getAccountMeta: jest.fn(async () => staleMeta),
+            saveAccountMeta: jest.fn(async () => undefined),
+          },
+        },
+      },
+    });
+    const runtime = jest
+      .spyOn(vault, 'zcashGetApi')
+      .mockRejectedValue(new Error('keys module must not be consulted'));
+    return { runtime, vault };
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('keeps the address the device displayed when the scheme version moves', async () => {
+    const { runtime, vault } = createVault();
+
+    await expect(
+      vault.zcashGetAccountMeta({ accountId: "hw-1--m/44'/133'/0'" }),
+    ).resolves.toBe(staleMeta);
+    expect(runtime).not.toHaveBeenCalled();
+  });
+
+  it('still re-derives for software accounts, where the app is the authority', async () => {
+    const { runtime, vault } = createVault();
+
+    await vault.zcashGetAccountMeta({ accountId: "hd-1--m/44'/133'/0'" });
+    expect(runtime).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Zcash hardware transparent send', () => {
+  const accountId = "hw-1--m/44'/133'/0'";
+
+  function createVault() {
+    return Object.assign(Object.create(Vault.prototype) as Vault, {
+      accountId,
+      networkId: 'zec--0',
+      keyring: Object.create(KeyringHardware.prototype) as KeyringHardware,
+      backgroundApi: {
+        simpleDb: {
+          zcash: {
+            getPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
+          },
+        },
+      },
+    });
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('refuses at build time instead of after the device prompt', async () => {
+    const vault = createVault();
+    const build = jest.spyOn(
+      Vault.prototype as unknown as {
+        zcashBuildTransparentEncodedTx: () => Promise<never>;
+      },
+      'zcashBuildTransparentEncodedTx',
+    );
+
+    await expect(
+      vault.buildEncodedTx({
+        transfersInfo: [{ to: 't1-recipient', amount: '0.1' }],
+      } as never),
+    ).rejects.toThrow(/transparent sends from hardware/i);
+    expect(build).not.toHaveBeenCalled();
   });
 });

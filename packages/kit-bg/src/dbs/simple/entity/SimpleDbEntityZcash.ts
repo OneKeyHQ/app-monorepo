@@ -81,6 +81,17 @@ export type IZcashPrivacyModeStateView = Partial<IZcashPrivacyModeState> & {
 export interface IZcashAccountMeta {
   ufvk: string;
   unifiedAddress: string;
+  // Hardware only, and only while it differs from unifiedAddress: what WE
+  // derive from the device's own UFVK, beside what the device displayed.
+  //
+  // The device is the display authority (it shows Orchard + P2PKH; we show
+  // Orchard alone), so the two strings legitimately differ today. Keeping
+  // ours is what makes the firmware change checkable: the day the firmware
+  // drops its P2PKH receiver, the device string becomes byte-identical to
+  // this one, and plain equality proves the alignment landed -- with no
+  // ZIP-316 decoder and no re-enable. A device that starts returning an
+  // address unrelated to the UFVK it handed us shows up the same way.
+  derivedUnifiedAddress?: string;
   transparentAddress: string;
   seedFingerprintHex: string;
   hdIndex: number;

@@ -230,6 +230,9 @@ describe('Zcash KeyringHardware', () => {
       meta: expect.objectContaining({
         ufvk: 'uview1device',
         unifiedAddress: 'u1device',
+        // The app's own derivation is kept beside the device's, so the
+        // firmware's P2PKH drop (docs/05 D17) becomes checkable later.
+        derivedUnifiedAddress: 'u1app',
         transparentAddress: 't1account',
         seedFingerprintHex: 'ab'.repeat(32),
         hdIndex: 2,
@@ -237,6 +240,57 @@ describe('Zcash KeyringHardware', () => {
         birthdaySource: 'manual-height',
       }),
     });
+  });
+
+  it('stops keeping a second string once the firmware address agrees', async () => {
+    const saveAccountMeta = jest.fn();
+    mockGetZcashApi.mockResolvedValue({
+      deriveAddressFromUfvk: jest.fn().mockResolvedValue({
+        unifiedAddress: 'u1device',
+        transparentAddress: 't1account',
+      }),
+      getChainTip: jest.fn().mockResolvedValue(3_000_000),
+    });
+    const keyring = createKeyring({
+      sdk: {
+        zcashGetUnifiedAddress: jest.fn().mockResolvedValue({
+          success: true,
+          payload: [
+            {
+              path: "m/32'/133'/2'",
+              address: 'u1device',
+              ufvk: 'uview1device',
+              seedFingerprint: 'ab'.repeat(32),
+            },
+          ],
+        }),
+      },
+      simpleDbZcash: {
+        getPrivacyModeState: jest.fn().mockResolvedValue({
+          intent: 'on',
+          birthdayHeight: 2_500_000,
+        }),
+        getAccountMeta: jest.fn().mockResolvedValue(undefined),
+        saveAccountMeta,
+      },
+      serviceAccount: {
+        getDBAccount: jest.fn().mockResolvedValue({
+          id: 'hw-1--acc',
+          pathIndex: 2,
+          address: 't1account',
+        }),
+      },
+    });
+
+    await keyring.retryLocalWalletSetup({
+      deviceParams: deviceParams as never,
+    });
+
+    const [{ meta }] = saveAccountMeta.mock.calls[0] as [
+      { meta: Record<string, unknown> },
+    ];
+    expect(meta.unifiedAddress).toBe('u1device');
+    expect(meta.derivedUnifiedAddress).toBeUndefined();
   });
 
   it('rejects a device viewing key that does not match the account', async () => {

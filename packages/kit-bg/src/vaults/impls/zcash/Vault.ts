@@ -22,6 +22,7 @@ import {
   ensureAutoToast,
   toUserFacingZcashError,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/errorCopy';
+import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import {
   LOCK_FOR_BLOCKS,
   TRANSPARENT_TX_EXPIRY_DELTA,
@@ -60,6 +61,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { debugZcashSendLog } from '@onekeyhq/shared/src/utils/debugZcashSend';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IPrivacyChainComposedBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import { composePrivacyChainBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
@@ -344,6 +346,13 @@ export default class Vault extends VaultBtc {
       accountId,
     });
     if (!meta || meta.addressSchemeVersion === ZCASH_ADDRESS_SCHEME_VERSION) {
+      return meta;
+    }
+    if (accountUtils.isHwAccount({ accountId })) {
+      // The device is the address authority here (KeyringHardware
+      // .retryLocalWalletSetup stores exactly what it displayed). Re-deriving
+      // would put a string on the receive page that the device never showed,
+      // so a scheme bump has to go back to the device instead.
       return meta;
     }
     try {
@@ -1191,16 +1200,26 @@ export default class Vault extends VaultBtc {
       // Extension reset reloads the offscreen document after acknowledging the
       // request. A successful probe can only come from the replacement page.
       await timerUtils.wait(250);
-      await this.getLocalWalletChainTip();
+      const api = await this.zcashGetApi();
+      await api.getChainTip({
+        network: ZCASH_NETWORK_MAIN,
+        lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+      });
       return true;
     }
     return false;
   }
 
+  // Runtime first; when the carrier cannot reach lightwalletd (native
+  // file:// WebView), ask from the background runtime directly.
   async getLocalWalletChainTip(): Promise<number | null> {
     const api = await this.zcashGetApi();
-    return api.getChainTip({
+    const runtimeTip = await api.getChainTip({
       network: ZCASH_NETWORK_MAIN,
+      lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+    });
+    if (runtimeTip !== null) return runtimeTip;
+    return fetchZcashChainTipDirect({
       lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
     });
   }
@@ -1581,16 +1600,10 @@ export default class Vault extends VaultBtc {
       await this.backgroundApi.simpleDb.zcash.getPrivacyModeState({
         accountId,
       });
-    if (privacyModeState.intent !== 'on') {
-      return undefined;
-    }
-    const balance = await this.getLocalWalletBalance({ accountId });
-    if (!balance) {
-      throw zcashTransparentError(
-        'NOT_SYNCED',
-        'Zcash spendable balance is unavailable. Refresh before sending.',
-      );
-    }
+    const balance =
+      privacyModeState.intent === 'on'
+        ? await this.getLocalWalletBalance({ accountId })
+        : null;
     const spendTransparent = shouldPreferTransparentForShieldedSend({
       enabled:
         privacyModeState.preferTransparentForShieldedSends === true &&
@@ -1633,9 +1646,21 @@ export default class Vault extends VaultBtc {
       ...(eligible === undefined ? {} : { eligible }),
       ...(total === undefined ? {} : { total, totalParsed: toParsed(total) }),
     });
-    // The transparent builder only pays transparent recipients; shielded
-    // inputs can pay either address kind. A transparent recipient defaults
-    // to the transparent pool, everything else to the current shielded pool.
+    if (!balance) {
+      // Scanner readiness must not block spending indexer-owned transparent funds.
+      return [
+        pool(
+          'transparent',
+          'Transparent',
+          transparentSpendable,
+          true,
+          transparentTotal,
+          !toAddress || /^(t[13]|u1)/.test(toAddress),
+        ),
+      ];
+    }
+    // A transparent recipient defaults to transparent inputs. Unified recipients
+    // can also be paid from the indexer's transparent UTXOs without scanning.
     const transparentRecipient = !!toAddress && !isShieldedAddress(toAddress);
     const shieldedDefault = (key: IZcashSpendSource) =>
       !transparentRecipient && ZCASH_CURRENT_SHIELDED_POOL === key;
@@ -1658,7 +1683,7 @@ export default class Vault extends VaultBtc {
         transparentSpendable,
         transparentRecipient,
         transparentTotal,
-        !toAddress || transparentRecipient,
+        !toAddress || transparentRecipient || toAddress.startsWith('u1'),
       ),
     ];
   }
@@ -1934,11 +1959,7 @@ export default class Vault extends VaultBtc {
     // rather than blocking the repair.
     let ceiling: number | undefined;
     try {
-      const api = await this.zcashGetApi();
-      const tip = await api.getChainTip({
-        network: ZCASH_NETWORK_MAIN,
-        lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
-      });
+      const tip = await this.getLocalWalletChainTip();
       ceiling = tip ?? undefined;
     } catch (e) {
       console.log('[zcash] rescan tip clamp skipped (tip fetch failed)', {
@@ -1995,16 +2016,7 @@ export default class Vault extends VaultBtc {
           ? from.timestamp
           : Date.now() - Math.max(0, from.daysAgo) * 24 * 60 * 60 * 1000;
       birthdaySource = 'manual-month';
-      const api = await this.zcashGetApi();
-      const tip = await api.getChainTip({
-        network: ZCASH_NETWORK_MAIN,
-        lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
-      });
-      if (!tip) {
-        throw new OneKeyLocalError(
-          'zcash: could not fetch chain tip to rescan',
-        );
-      }
+      const tip = await this.getLocalWalletChainTip();
       birthdayHeight = estimateZcashBirthdayHeight({
         birthdayTimestamp,
         now: Date.now(),
@@ -2277,6 +2289,12 @@ export default class Vault extends VaultBtc {
       (token) => token.info.isNative || token.info.address === '',
     );
     if (!nativeToken) {
+      return serverResponse;
+    }
+    // Token details are also fetched by vaults built without an account (the
+    // network-level read). There is no spendable sum to compute then, and
+    // asking would only raise "record not found".
+    if (!this.accountId) {
       return serverResponse;
     }
     let spendable: BigNumber;
@@ -3018,7 +3036,10 @@ export default class Vault extends VaultBtc {
         derivationPath: normalizedPath.derivationPath,
       });
     }
-    if (targetHeight <= 0) {
+    // The height is derived from the UTXOs themselves, so an account with none
+    // has no height to report. That is an empty wallet, not a broken indexer:
+    // return 0 and let callers answer "no funds". Prune treats 0 as undefined.
+    if (targetHeight <= 0 && utxos.length > 0) {
       throw zcashTransparentError(
         'CHAIN_HEIGHT_UNAVAILABLE',
         'Zcash chain height is unavailable from the UTXO source',
@@ -3097,10 +3118,10 @@ export default class Vault extends VaultBtc {
     transferInfo: NonNullable<IBuildEncodedTxParams['transfersInfo']>[number];
     sendMax: boolean;
   }): Promise<IEncodedTxZcash> {
-    if (!/^t[13]/.test(transferInfo.to)) {
+    if (!/^(t[13]|u1)/.test(transferInfo.to)) {
       throw zcashTransparentError(
         'UNSUPPORTED_TRANSPARENT_DESTINATION',
-        'Transparent Mode supports only t1 and t3 recipients',
+        'Transparent funds support t1, t3 and Unified recipients with an Orchard receiver',
       );
     }
     const validation = await this.validateAddress(transferInfo.to);
@@ -3372,6 +3393,10 @@ export default class Vault extends VaultBtc {
           spendTransparent: encodedTx.zcashSpendTransparent,
         });
         feeZatValue = feeZat;
+        debugZcashSendLog('bg.fee-quote', {
+          spendSource: encodedTx.zcashSpendSource,
+          feeZat,
+        });
       } catch (e) {
         // Swallowing EVERY quote failure here was the "doomed send" bug: when
         // the quote itself said "this send is impossible" (insufficient
@@ -3390,7 +3415,13 @@ export default class Vault extends VaultBtc {
           'AMOUNT_OUT_OF_RANGE',
           'INVALID_MEMO',
         ];
-        if (runtime && actionable.includes(runtime.code)) {
+        const blocksConfirmation =
+          !!runtime && actionable.includes(runtime.code);
+        debugZcashSendLog('bg.fee-quote-error', {
+          code: runtime?.code,
+          blocksConfirmation,
+        });
+        if (blocksConfirmation) {
           throw toUserFacingZcashError(e);
         }
         console.log('[zcash] fee quote failed, using conventional estimate', {
@@ -3468,30 +3499,33 @@ export default class Vault extends VaultBtc {
           privacyMode.operation === undefined,
         toAddress: transferInfo.to,
       });
+    const hardwareShield =
+      transferInfo.localWalletShield === true &&
+      this.keyring instanceof KeyringHardware;
+    debugZcashSendLog('bg.build-route', {
+      privacyIntent: privacyMode.intent,
+      sourcePool,
+      requestedSpendSource,
+      preferTransparentForShieldedSend,
+      hardwareShield,
+      isShielding: transferInfo.localWalletShield === true,
+      isMaxSend: params.transferPayload?.isMaxSend === true,
+    });
     if (
       privacyMode.intent !== 'on' &&
-      (transferInfo.localWalletShield ||
+      (hardwareShield ||
         sourcePool === 'orchard' ||
-        sourcePool === 'ironwood')
+        sourcePool === 'ironwood' ||
+        requestedSpendSource !== undefined)
     ) {
       throw zcashTransparentError(
         'PRIVACY_MODE_DISABLED',
         'Enable Zcash Privacy Mode before using a shielded pool',
       );
     }
-    if (
-      !transferInfo.localWalletShield &&
-      (sourcePool === 'transparent' || privacyMode.intent !== 'on')
-    ) {
-      return this.zcashBuildTransparentEncodedTx({
-        transferInfo,
-        sendMax: params.transferPayload?.isMaxSend === true,
-      });
-    }
-    if (transferInfo.localWalletShield) {
-      // Shield sweep: pcztShield takes no amount and deducts the fee from the
-      // swept value. Keep the gross value so updateUnsignedTx can recompute
-      // the displayed net amount from the exact shielding quote.
+    if (hardwareShield) {
+      // Preserve the device's existing PCZT shielding flow. Stateless transparent
+      // signing is currently supported by software keyrings only.
       const spendableT = new BigNumber(
         (await this.zcashGetBalanceSafe())?.poolsDetail.transparentRegular
           .spendable ?? '0',
@@ -3514,6 +3548,28 @@ export default class Vault extends VaultBtc {
         zcashMode: 'privacy',
       };
     }
+    const buildsTransparentTx =
+      transferInfo.localWalletShield ||
+      sourcePool === 'transparent' ||
+      privacyMode.intent !== 'on';
+    if (buildsTransparentTx && this.keyring instanceof KeyringHardware) {
+      // KeyringHardware.signTransaction rejects zcashMode 'transparent' (the
+      // device exposes no per-input sighash path yet). Refuse here instead:
+      // the old failure point was after the review page, the password and the
+      // device prompt.
+      throw zcashTransparentError(
+        'HARDWARE_TRANSPARENT_SEND_UNSUPPORTED',
+        'Zcash transparent sends from hardware wallets are not supported yet. Shield the funds first, then send from the private pool.',
+      );
+    }
+    if (buildsTransparentTx) {
+      return this.zcashBuildTransparentEncodedTx({
+        transferInfo,
+        sendMax:
+          transferInfo.localWalletShield === true ||
+          params.transferPayload?.isMaxSend === true,
+      });
+    }
     let amountValue = new BigNumber(transferInfo.amount)
       .shiftedBy(ZCASH_DECIMALS)
       .toFixed(0, BigNumber.ROUND_DOWN);
@@ -3526,6 +3582,21 @@ export default class Vault extends VaultBtc {
         : (requestedSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL);
     if (params.transferPayload?.isMaxSend === true) {
       const balanceForMax = await this.zcashGetBalanceSafe();
+      debugZcashSendLog('bg.max-balance', {
+        spendSource,
+        available: !!balanceForMax,
+        hasSpendable: new BigNumber(
+          balanceForMax?.poolsDetail[spendSource].spendable ?? '0',
+        ).gt(0),
+        hasLocked: new BigNumber(
+          balanceForMax?.poolsDetail[spendSource].locked ?? '0',
+        ).gt(0),
+        hasPending: new BigNumber(
+          balanceForMax?.poolsDetail[spendSource].pendingSpendable ?? '0',
+        )
+          .plus(balanceForMax?.poolsDetail[spendSource].pendingChange ?? '0')
+          .gt(0),
+      });
       if (!balanceForMax) {
         throw zcashTransparentError(
           'NOT_SYNCED',
@@ -3545,6 +3616,12 @@ export default class Vault extends VaultBtc {
       let resolved: string | undefined;
       for (let attempt = 0; attempt < 6; attempt += 1) {
         const candidate = spendable.minus(feeGuess);
+        debugZcashSendLog('bg.max-probe', {
+          attempt,
+          spendSource,
+          candidatePositive: candidate.gt(0),
+          feeGuessZat: feeGuess.toFixed(0),
+        });
         if (candidate.lte(0)) break;
         try {
           // eslint-disable-next-line no-await-in-loop
@@ -3553,6 +3630,11 @@ export default class Vault extends VaultBtc {
             valueZat: candidate.toFixed(0),
             spendSource,
             spendTransparent: preferTransparentForShieldedSend,
+          });
+          debugZcashSendLog('bg.max-quote', {
+            attempt,
+            feeZat,
+            feeCovered: new BigNumber(feeZat).lte(feeGuess),
           });
           if (new BigNumber(feeZat).lte(feeGuess)) {
             resolved = candidate.toFixed(0);
@@ -3564,6 +3646,11 @@ export default class Vault extends VaultBtc {
           // INSUFFICIENT_FUNDS carries the exact shortfall -- guidance for
           // the next guess, not a failure of the max-send itself.
           const shortfall = zcashErrorAmount(e, 'shortfallZat');
+          debugZcashSendLog('bg.max-quote-error', {
+            attempt,
+            code: readZcashRuntimeError(e)?.code,
+            hasPositiveShortfall: shortfall !== null && shortfall > 0,
+          });
           if (
             readZcashRuntimeError(e)?.code === 'INSUFFICIENT_FUNDS' &&
             shortfall !== null &&
@@ -3577,6 +3664,7 @@ export default class Vault extends VaultBtc {
         }
       }
       if (resolved === undefined) {
+        debugZcashSendLog('bg.max-unresolved', { spendSource });
         throw toUserFacingZcashError(
           Object.assign(new Error('INSUFFICIENT_FUNDS'), {
             code: 'INSUFFICIENT_FUNDS',
@@ -3585,6 +3673,7 @@ export default class Vault extends VaultBtc {
         );
       }
       amountValue = resolved;
+      debugZcashSendLog('bg.max-resolved', { spendSource });
     }
     return {
       // btc-structural part (display intent only; note selection is wasm-side)
@@ -3696,15 +3785,37 @@ export default class Vault extends VaultBtc {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = await this.buildEncodedTx(params);
-    const unsignedTx: IUnsignedTxPro = {
-      encodedTx,
-      transfersInfo: params.transfersInfo ?? [],
-    };
-    if (encodedTx.zcashMode !== 'privacy' || !this.accountId) {
-      return unsignedTx;
+    let stage = 'encoded';
+    debugZcashSendLog('bg.unsigned-start', {
+      isMaxSend: params.transferPayload?.isMaxSend === true,
+    });
+    try {
+      const encodedTx = await this.buildEncodedTx(params);
+      const unsignedTx: IUnsignedTxPro = {
+        encodedTx,
+        transfersInfo: params.transfersInfo ?? [],
+      };
+      if (encodedTx.zcashMode !== 'privacy' || !this.accountId) {
+        debugZcashSendLog('bg.unsigned-ready', {
+          mode: encodedTx.zcashMode,
+          hasPczt: false,
+        });
+        return unsignedTx;
+      }
+      stage = 'pczt';
+      const withPczt = await this.zcashAttachPczt(encodedTx);
+      debugZcashSendLog('bg.unsigned-ready', {
+        mode: encodedTx.zcashMode,
+        hasPczt: !!withPczt.pcztHex,
+      });
+      return { ...unsignedTx, encodedTx: withPczt };
+    } catch (error) {
+      debugZcashSendLog('bg.unsigned-error', {
+        stage,
+        code: readZcashRuntimeError(error)?.code,
+      });
+      throw error;
     }
-    return { ...unsignedTx, encodedTx: await this.zcashAttachPczt(encodedTx) };
   }
 
   // Builds the PCZT here, not at signing time, so the reviewed transaction is
@@ -3749,6 +3860,11 @@ export default class Vault extends VaultBtc {
       });
       let created: IZcashPcztReservation;
       try {
+        debugZcashSendLog('bg.pczt-create', {
+          isShielding: encodedTx.isShielding === true,
+          spendSource: encodedTx.zcashSpendSource,
+          spendTransparent: encodedTx.zcashSpendTransparent,
+        });
         created = encodedTx.isShielding
           ? await this.zcashShieldFunds({ accountId, reservationId })
           : await this.zcashCreatePczt({
@@ -3766,6 +3882,9 @@ export default class Vault extends VaultBtc {
           );
         }
       } catch (error) {
+        debugZcashSendLog('bg.pczt-create-error', {
+          code: readZcashRuntimeError(error)?.code,
+        });
         await this.zcashAbandonPczt({ accountId, reservationId }).catch(() => {
           // A carrier failure may have happened after runtime reservation.
           // Keep the host journal until a later explicit release succeeds.

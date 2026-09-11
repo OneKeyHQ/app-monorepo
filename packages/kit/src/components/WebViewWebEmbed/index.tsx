@@ -11,7 +11,10 @@ import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
-import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import {
+  EWebEmbedRoutePath,
+  WEB_EMBED_ANDROID_LOCAL_ORIGIN,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -61,6 +64,29 @@ function getDevSessionWebEmbedUrl() {
   } catch {
     return undefined;
   }
+}
+
+// Paths mirror the handlers registered by the app's WebEmbedLocalOrigin
+// (apps/mobile/android/.../so/onekey/app/wallet/webview).
+const ANDROID_LOCAL_BUNDLE_DIR_MARKER = '/onekey-bundle/';
+
+function getAndroidLocalOriginWebEmbedUrl(webEmbedPath: string) {
+  const markerIndex = webEmbedPath.indexOf(ANDROID_LOCAL_BUNDLE_DIR_MARKER);
+  if (webEmbedPath && markerIndex >= 0) {
+    const relativePath = webEmbedPath.slice(
+      markerIndex + ANDROID_LOCAL_BUNDLE_DIR_MARKER.length,
+    );
+    return `${WEB_EMBED_ANDROID_LOCAL_ORIGIN}/bundle/${relativePath}/index.html`;
+  }
+  if (webEmbedPath) {
+    // A hot-update dir outside the mapped root would silently lose the update.
+    defaultLogger.app.webembed.webViewOnError({
+      code: 0,
+      description: 'web-embed hot-update path is outside onekey-bundle',
+      url: webEmbedPath,
+    });
+  }
+  return `${WEB_EMBED_ANDROID_LOCAL_ORIGIN}/web-embed/index.html`;
 }
 
 // /onboarding/auto_typing
@@ -177,18 +203,17 @@ export function WebViewWebEmbed({
       return undefined;
     }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    // Android serves local files from a virtual https origin: file:// is an
+    // opaque origin and cannot use OPFS. One host covers both APK assets and
+    // the verified hot-update bundle, so browser storage survives updates.
+    if (platformEnv.isNativeAndroid) {
+      const nativeUri = getAndroidLocalOriginWebEmbedUrl(webEmbedPath);
+      defaultLogger.app.webembed.webEmbedWebViewSource({ nativeUri });
+      return { uri: nativeUri };
+    }
     if (webEmbedPath) {
       return {
         uri: `file://${webEmbedPath}/index.html`,
-      };
-    }
-    // Android
-    if (platformEnv.isNativeAndroid) {
-      defaultLogger.app.webembed.webEmbedWebViewSource({
-        nativeUri: 'file:///android_asset/web-embed/index.html',
-      });
-      return {
-        uri: 'file:///android_asset/web-embed/index.html',
       };
     }
     // iOS
@@ -267,6 +292,10 @@ export function WebViewWebEmbed({
   }, []);
 
   const allowFileAccessByUrl = useMemo(() => {
+    // Android no longer loads from file://, so it needs no file access.
+    if (platformEnv.isNativeAndroid) {
+      return undefined;
+    }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     return !!webEmbedPath || undefined;
   }, []);

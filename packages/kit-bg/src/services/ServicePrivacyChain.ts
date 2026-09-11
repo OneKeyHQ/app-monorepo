@@ -1371,11 +1371,52 @@ class ServicePrivacyChain extends ServiceBase {
     birthdayTimestamp?: number;
   }): Promise<void> {
     const capability = await this.requireAccountCapability(networkId);
+    await this.assertEnabledAccountLimit({ networkId, accountId, capability });
     await capability.enableAccount({
       accountId,
       birthdayHeight,
       birthdayTimestamp,
     });
+  }
+
+  // Scan cost is linear in the number of distinct viewing keys the scanner
+  // trial-decrypts against, so the ceiling counts keys, not app accounts:
+  // aliases sharing one key are free and must not be refused.
+  private async assertEnabledAccountLimit({
+    networkId,
+    accountId,
+    capability,
+  }: {
+    networkId: string;
+    accountId: string;
+    capability: ILocalWalletCapability;
+  }): Promise<void> {
+    const settings = await getVaultSettings({ networkId });
+    const limit = settings.localWallet?.maxEnabledAccounts;
+    if (limit === undefined) {
+      return;
+    }
+    const { accounts } = await capability.listAccounts();
+    const enabledKeys = new Set(
+      accounts
+        .filter((account) => account.syncEnabled)
+        .map((account) => account.accountRuntimeKey),
+    );
+    // A never-enabled account has no runtime identity yet, so it is absent
+    // here: that correctly falls through to the ceiling check, because
+    // enabling it does add a key.
+    const targetKey = accounts.find(
+      (account) => account.accountId === accountId,
+    )?.accountRuntimeKey;
+    if (targetKey !== undefined && enabledKeys.has(targetKey)) {
+      return;
+    }
+    if (enabledKeys.size >= limit) {
+      throw new OneKeyLocalError({
+        message: `Privacy Mode is limited to ${limit} accounts at a time. Every enabled account is scanned against every block, so more of them slows syncing for all of them. Turn one off before enabling another.`,
+        autoToast: true,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -1429,7 +1470,19 @@ class ServicePrivacyChain extends ServiceBase {
       return undefined;
     }
     const capability = await this.requireAccountCapability(networkId);
-    return capability.getAccountAddresses({ accountId });
+    const addresses = await capability.getAccountAddresses({ accountId });
+    if (!addresses) {
+      return undefined;
+    }
+    // Pausing stops trial decryption but keeps the cache and birthday, so the
+    // address material is still on hand. Handing it out anyway would let a
+    // payment land in a pool nothing is scanning; the receive entry has to go
+    // with the scanner, not just the balance.
+    const state = await capability.getAccountState({ accountId });
+    if (!state.enabled) {
+      return { ...addresses, privateAddress: undefined };
+    }
+    return addresses;
   }
 
   @backgroundMethod()
