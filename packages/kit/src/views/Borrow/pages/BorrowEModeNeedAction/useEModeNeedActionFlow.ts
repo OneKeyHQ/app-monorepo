@@ -328,9 +328,18 @@ export function useEModeNeedActionFlow({
     (action: 'repay' | 'setCollateral' | 'setEMode'): IStakingInfo => ({
       label: EEarnLabels.Borrow,
       protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-      tags: [EEarnLabels.Borrow, buildBorrowTag({ provider, action })],
+      tags: [
+        EEarnLabels.Borrow,
+        buildBorrowTag({
+          provider,
+          action,
+          ...(action === 'setEMode'
+            ? { setEModeScope: { networkId, marketAddress } }
+            : {}),
+        }),
+      ],
     }),
-    [provider],
+    [marketAddress, networkId, provider],
   );
 
   // Chain intent + re-entrancy — refs only, never drive the UI:

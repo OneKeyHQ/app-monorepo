@@ -6,6 +6,7 @@ import type { IEarnStakeType } from '@onekeyhq/shared/types/staking';
 const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
 const BORROW_CLAIM_SCOPE_VERSION = 'v1';
 const BORROW_SET_COLLATERAL_SCOPE_VERSION = 'v1';
+const BORROW_SET_MODE_SCOPE_VERSION = 'v1';
 
 function isNativeEarnEthSymbol(symbol?: string) {
   return symbol?.toUpperCase() === 'ETH';
@@ -31,6 +32,7 @@ export const buildLocalTxStatusSyncId = ({
 // borrow:{provider}:{action}
 // borrow:{provider}:claim:{claimIds}[:v1:{networkId}:{marketAddress}]
 // borrow:{provider}:setCollateral:v1:{networkId}:{marketAddress}:{reserveAddress}
+// borrow:{provider}:setEMode:v1:{networkId}:{marketAddress}
 export type IBorrowAction =
   | 'supply'
   | 'borrow'
@@ -79,12 +81,14 @@ export const buildBorrowTag = ({
   claimIds,
   claimScope,
   setCollateralScope,
+  setEModeScope,
 }: {
   provider: string;
   action: IBorrowAction;
   claimIds?: string[];
   claimScope?: IBorrowClaimScope;
   setCollateralScope?: IBorrowSetCollateralScope;
+  setEModeScope?: IBorrowClaimScope;
 }): string => {
   const base = `borrow:${provider.toLowerCase()}:${action}`;
   if (action === 'claim' && claimIds?.length) {
@@ -105,6 +109,12 @@ export const buildBorrowTag = ({
     )}:${encodeURIComponent(
       normalizedScope.marketAddress,
     )}:${encodeURIComponent(normalizedScope.reserveAddress)}`;
+  }
+  if (action === 'setEMode' && setEModeScope) {
+    const marketAddress = normalizeBorrowMarketAddress(setEModeScope);
+    return `${base}:${BORROW_SET_MODE_SCOPE_VERSION}:${encodeURIComponent(
+      setEModeScope.networkId,
+    )}:${encodeURIComponent(marketAddress)}`;
   }
   return base;
 };
@@ -128,6 +138,7 @@ export const parseBorrowTag = (
   claimIds?: string[];
   claimScope?: IBorrowClaimScope;
   setCollateralScope?: IBorrowSetCollateralScope;
+  setEModeScope?: IBorrowClaimScope;
 } | null => {
   if (!tag.startsWith('borrow:')) return null;
   const parts = tag.split(':');
@@ -173,6 +184,26 @@ export const parseBorrowTag = (
           reserveAddress: setCollateralScopeReserveAddress,
         })
       : undefined;
+  const setEModeScopeNetworkId =
+    parts[3] === BORROW_SET_MODE_SCOPE_VERSION
+      ? decodeBorrowTagPart(parts[4])
+      : undefined;
+  const setEModeScopeMarketAddress =
+    parts[3] === BORROW_SET_MODE_SCOPE_VERSION
+      ? decodeBorrowTagPart(parts[5])
+      : undefined;
+  const setEModeScope =
+    parts[2] === 'setEMode' &&
+    setEModeScopeNetworkId &&
+    setEModeScopeMarketAddress
+      ? {
+          networkId: setEModeScopeNetworkId,
+          marketAddress: normalizeBorrowMarketAddress({
+            networkId: setEModeScopeNetworkId,
+            marketAddress: setEModeScopeMarketAddress,
+          }),
+        }
+      : undefined;
   return {
     provider: parts[1],
     action: parts[2] as IBorrowAction,
@@ -181,6 +212,7 @@ export const parseBorrowTag = (
       : {}),
     ...(claimScope ? { claimScope } : {}),
     ...(setCollateralScope ? { setCollateralScope } : {}),
+    ...(setEModeScope ? { setEModeScope } : {}),
   };
 };
 

@@ -91,6 +91,17 @@ describe('getBorrowHistoryActionForLocalTx', () => {
       }),
     ).toBe('claim');
   });
+
+  it('does not leak a scoped setEMode transaction to another market', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: buildLocalBorrowTx([
+          'borrow:aave:setEMode:v1:evm--1:0xother-market',
+        ]),
+        ...marketParams,
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe('borrowHistoryList utils', () => {

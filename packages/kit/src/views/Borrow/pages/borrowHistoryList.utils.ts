@@ -98,6 +98,27 @@ export function getBorrowHistoryActionForLocalTx({
     return 'claim';
   }
 
+  const eModeTags = parsedTags.filter((tag) => tag.action === 'setEMode');
+  if (eModeTags.length > 0) {
+    const scopedEModeTags = eModeTags.filter((tag) => tag.setEModeScope);
+    if (scopedEModeTags.length > 0) {
+      const normalizedMarketAddress = normalizeBorrowMarketAddress({
+        networkId,
+        marketAddress,
+      });
+      return scopedEModeTags.some((tag) => {
+        const scope = tag.setEModeScope;
+        return (
+          scope?.networkId === networkId &&
+          scope.marketAddress === normalizedMarketAddress
+        );
+      })
+        ? 'setEMode'
+        : undefined;
+    }
+    return 'setEMode';
+  }
+
   return parsedTags[0]?.action;
 }
 
