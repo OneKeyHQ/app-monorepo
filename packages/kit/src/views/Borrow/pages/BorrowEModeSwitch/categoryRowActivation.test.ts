@@ -119,5 +119,24 @@ describe('buildCategoryRowActivationProps', () => {
         outlineOffset: -2,
       }).accessibilityState,
     ).toEqual({ selected: true });
+    expect(
+      buildCategoryRowActivationProps({
+        onActivate: jest.fn(),
+        selected: false,
+        outlineOffset: -2,
+      }).accessibilityState,
+    ).toEqual({ selected: false });
+  });
+
+  // The collapsed trigger is one control with no selected state of its own.
+  it('says nothing about selection when the caller has none', () => {
+    setBrowser(true);
+
+    expect(
+      buildCategoryRowActivationProps({
+        onActivate: jest.fn(),
+        outlineOffset: 1,
+      }).accessibilityState,
+    ).toEqual({});
   });
 });

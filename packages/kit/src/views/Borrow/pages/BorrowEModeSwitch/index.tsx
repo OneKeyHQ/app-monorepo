@@ -205,10 +205,18 @@ function BorrowEModeSwitchView() {
   // reference stable and route the call through a ref, so a pick made after a
   // pending setEMode confirms still compares against the current category
   // instead of the one that was current when the picker opened.
-  const selectCategoryRef = useRef<(eModeId: number) => void>(() => {});
+  const selectCategoryRef = useRef<
+    (eModeId: number, observedCurrentEModeId: number | null) => void
+  >(() => {});
   useEffect(() => {
-    selectCategoryRef.current = (eModeId: number) => {
-      if (eModeId === eModeStatus?.eModeId) {
+    selectCategoryRef.current = (
+      eModeId: number,
+      observedCurrentEModeId: number | null,
+    ) => {
+      // What the picker showed wins: this page stops revalidating while the
+      // picker is on top, so its own copy can be the stale one.
+      const currentId = observedCurrentEModeId ?? eModeStatus?.eModeId;
+      if (eModeId === currentId) {
         setUserSelection(null);
         resetTarget();
         return;
@@ -218,9 +226,12 @@ function BorrowEModeSwitchView() {
     };
   }, [eModeStatus?.eModeId, resetTarget, runCheck]);
 
-  const onSelectCategory = useCallback((eModeId: number) => {
-    selectCategoryRef.current(eModeId);
-  }, []);
+  const onSelectCategory = useCallback(
+    (eModeId: number, observedCurrentEModeId: number | null) => {
+      selectCategoryRef.current(eModeId, observedCurrentEModeId);
+    },
+    [],
+  );
 
   const categorySelectScope = useMemo(
     () => ({ networkId, provider, marketAddress, accountId }),
@@ -370,6 +381,7 @@ function BorrowEModeSwitchView() {
                 scope={categorySelectScope}
                 currentEModeId={currentEModeId ?? 0}
                 value={effectiveSelection}
+                userSelection={selection.userSelection}
                 disabled={isSubmitting || pendingGuardActive}
                 onChange={onSelectCategory}
               />
