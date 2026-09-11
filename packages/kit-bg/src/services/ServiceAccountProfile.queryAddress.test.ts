@@ -100,10 +100,10 @@ import {
   EAddressInteractionStatus,
   EServerInteractedStatus,
 } from '@onekeyhq/shared/types/address';
+import type { IServerAccountBadgeResp } from '@onekeyhq/shared/types/address';
 
 import ServiceAccountProfile from './ServiceAccountProfile';
 
-import type { IServerAccountBadgeResp } from '@onekeyhq/shared/types/address';
 /* eslint-enable import/first, import/order */
 
 const NETWORK_ID = 'evm--1';
