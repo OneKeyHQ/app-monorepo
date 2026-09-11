@@ -19807,6 +19807,8 @@
     "packages/kit/src/components/LightweightChart/index.ts": 5810,
     "packages/kit/src/components/LightweightChart/utils/chartColor.ts": 21379,
     "packages/kit/src/components/LightweightChart/utils/constants.ts": 1918,
+    "packages/kit/src/components/LightweightChart/utils/formatChartPrice.ts": 14055,
+    "packages/kit/src/components/LightweightChart/utils/formatChartPriceSource.ts": 5667,
     "packages/kit/src/components/LightweightChart/utils/htmlTemplate.ts": 24071,
     "packages/kit/src/components/LightweightChart/utils/lightweightChartsRuntime.ts": 23767,
     "packages/kit/src/components/LightweightChart/utils/lightweightChartsRuntimeSource.ts": 2757,
