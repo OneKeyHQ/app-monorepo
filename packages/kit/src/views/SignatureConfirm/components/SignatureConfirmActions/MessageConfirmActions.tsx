@@ -221,7 +221,6 @@ function MessageConfirmActions(props: IProps) {
           result,
         });
         isSubmitted.current = true;
-        onSuccess?.(result);
 
         try {
           await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
@@ -234,16 +233,29 @@ function MessageConfirmActions(props: IProps) {
           // noop
         }
 
-        if (accountUtils.isQrAccount({ accountId })) {
-          navigation.popStack();
-        }
+        try {
+          if (accountUtils.isQrAccount({ accountId })) {
+            navigation.popStack();
+          }
 
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_sign_success,
-          }),
-        });
-        close?.({ flag: EDAppModalPageStatus.Confirmed });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_sign_success,
+            }),
+          });
+          close?.({ flag: EDAppModalPageStatus.Confirmed });
+        } finally {
+          // Resolve the caller only after close() has been issued. The
+          // history write above yields to the event loop, so firing onSuccess
+          // before it lets a caller that re-shows its own UI on success (the
+          // WalletConnect Pay host dialog) stack over this page until close()
+          // runs. TxConfirmActions avoids this by popping synchronously right
+          // after onSuccess; this path awaits in between, so order it after
+          // close. The finally keeps the caller's promise settling even if
+          // one of the statements above ever throws: isSubmitted is already
+          // set, so the unmount onCancel fallback would not fire either.
+          onSuccess?.(result);
+        }
       } finally {
         setIsLoading(false);
       }

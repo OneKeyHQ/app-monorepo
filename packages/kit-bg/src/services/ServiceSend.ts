@@ -398,6 +398,7 @@ class ServiceSend extends ServiceBase {
         gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
         broadcastDeadline?: IBatchSignTransactionParamsBase['broadcastDeadline'];
         beforeBroadcastAction?: IBatchSignTransactionParamsBase['beforeBroadcastAction'];
+        wcPayPreBroadcastRecord?: IBatchSignTransactionParamsBase['wcPayPreBroadcastRecord'];
         transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
@@ -414,6 +415,7 @@ class ServiceSend extends ServiceBase {
       gasAccountSubmitId,
       broadcastDeadline,
       beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
       transferPayload,
       isPrivateSend,
       useDefaultRpc,
@@ -463,6 +465,18 @@ class ServiceSend extends ServiceBase {
       });
     }
 
+    // The WC Pay pre-broadcast boundary requires the local
+    // sign-then-broadcast pipeline below. An external account broadcasts
+    // inside its connected wallet during the "signing" step, where no txid
+    // can be durably recorded first — fail explicitly (before that signing
+    // starts) instead of silently skipping the duplicate-payment boundary.
+    if (wcPayPreBroadcastRecord && isExternalAccount) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay does not support external accounts',
+        autoToast: false,
+      });
+    }
+
     const signedTx = await this.signTransaction({
       networkId,
       accountId,
@@ -509,6 +523,17 @@ class ServiceSend extends ServiceBase {
         data: {
           primeInfiniBroadcastSkipReason: broadcastSkipReason,
         },
+      });
+    }
+
+    // A skipped broadcast would return a txid that was neither recorded at
+    // the pre-broadcast boundary below nor sent; the executor would persist
+    // it as a completed action and hand it to WalletConnect Pay as if it
+    // were on chain. Same rule as Prime: fail loudly instead.
+    if (wcPayPreBroadcastRecord && broadcastSkipReason) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay requires a real broadcast',
+        autoToast: false,
       });
     }
 
@@ -751,6 +776,49 @@ class ServiceSend extends ServiceBase {
           hasCompletedBeforeBroadcastAction: true,
           hasAttemptedBroadcast: false,
         });
+      }
+
+      // WalletConnect Pay duplicate-payment boundary. The durable progress
+      // store exists because the UI runtime can be reclaimed while a
+      // broadcast is confirming, yet the executor-side record only lands
+      // after the whole confirm round-trip settles in the UI. Record the
+      // txid here instead — in the background, after signing (an EVM txid is
+      // fixed by the signed bytes) and before broadcast — so a resumed
+      // attempt always knows the transfer was already sent. The write is
+      // awaited and any failure aborts the broadcast: failing closed costs
+      // one retry, broadcasting unrecorded can charge a merchant payment
+      // twice. Deliberately independent of the Prime hook above — its
+      // threat model excludes externally supplied encodedTx, which is
+      // exactly what WalletConnect Pay transactions are.
+      if (wcPayPreBroadcastRecord) {
+        ensureBroadcastDeadline();
+        // sender + nonce give the phantom-txid recovery check a
+        // propagation-independent criterion (confirmed on-chain tx count vs
+        // this nonce). EVM signing guarantees the nonce on the signed
+        // encodedTx (packTransaction requires it), and WC Pay broadcast
+        // actions are EVM-only. The sender is deliberately NOT read from
+        // encodedTx.from — that field is server-supplied, never validated
+        // and never part of what gets signed (the actual sender is the key
+        // behind accountId) — so the resolved signing account's address is
+        // the one eth_getTransactionCount must be asked about.
+        const wcPayEvmTxFields = signedTx.encodedTx as {
+          nonce?: number | string;
+        } | null;
+        const wcPayBroadcastNonce = new BigNumber(
+          wcPayEvmTxFields?.nonce ?? NaN,
+        );
+        await this.backgroundApi.serviceWalletConnectPay.recordPreBroadcastTxid(
+          {
+            record: wcPayPreBroadcastRecord,
+            txid: signedTx.txid,
+            broadcastMeta: wcPayBroadcastNonce.isInteger()
+              ? {
+                  sender: accountAddress,
+                  nonce: wcPayBroadcastNonce.toNumber(),
+                }
+              : undefined,
+          },
+        );
       }
 
       let hasAttemptedBroadcast = false;
@@ -1018,6 +1086,7 @@ class ServiceSend extends ServiceBase {
       gasAccountSubmitId,
       broadcastDeadline,
       beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
       useDefaultRpc,
     } = params;
 
@@ -1025,6 +1094,13 @@ class ServiceSend extends ServiceBase {
     if (beforeBroadcastAction && isMultiTxs) {
       throw new OneKeyLocalError({
         message: 'Infini payment supports exactly one transaction',
+        autoToast: false,
+      });
+    }
+    // one durable slot records exactly one txid; a batch cannot share it
+    if (wcPayPreBroadcastRecord && isMultiTxs) {
+      throw new OneKeyLocalError({
+        message: 'WalletConnect Pay supports exactly one transaction',
         autoToast: false,
       });
     }
@@ -1101,6 +1177,7 @@ class ServiceSend extends ServiceBase {
                 gasAccountSubmitId: effectiveGasAccountSubmitId,
                 broadcastDeadline,
                 beforeBroadcastAction,
+                wcPayPreBroadcastRecord,
                 transferPayload,
                 isPrivateSend,
                 useDefaultRpc,
@@ -1491,7 +1568,14 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async prepareSendConfirmUnsignedTx(
-    params: ISendTxBaseParams & IBuildUnsignedTxParams,
+    params: ISendTxBaseParams &
+      IBuildUnsignedTxParams & {
+        // pin the tx to this exact nonce instead of deriving the next one;
+        // used when re-executing a possibly-broadcast action so a
+        // misjudged "never broadcast" can only produce a nonce conflict
+        // (one tx lands), never a second payment at nonce+1
+        nonceInfo?: { nonce: number };
+      },
   ) {
     const {
       networkId,
@@ -1511,6 +1595,7 @@ class ServiceSend extends ServiceBase {
       disableMev,
       withoutNonce,
       withUuid,
+      nonceInfo,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -1564,23 +1649,28 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (
-      isNonceRequired &&
-      new BigNumber(newUnsignedTx.nonce ?? 0).isZero() &&
-      !withoutNonce
-    ) {
-      const nonce = await this.backgroundApi.serviceSend.getNextNonce({
-        accountId,
-        networkId,
-        accountAddress: account.address,
-      });
+    if (isNonceRequired && !withoutNonce) {
+      if (nonceInfo) {
+        newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx: newUnsignedTx,
+          nonceInfo,
+        });
+      } else if (new BigNumber(newUnsignedTx.nonce ?? 0).isZero()) {
+        const nonce = await this.backgroundApi.serviceSend.getNextNonce({
+          accountId,
+          networkId,
+          accountAddress: account.address,
+        });
 
-      newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
-        accountId,
-        networkId,
-        unsignedTx: newUnsignedTx,
-        nonceInfo: { nonce },
-      });
+        newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx: newUnsignedTx,
+          nonceInfo: { nonce },
+        });
+      }
     }
 
     if (withUuid) {

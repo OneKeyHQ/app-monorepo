@@ -19,6 +19,8 @@ export const PARSE_HANDLER_LOADERS: Record<
   [EQRCodeHandlerNames.solana]: () => loadHandler(() => import('./solana')),
   [EQRCodeHandlerNames.walletconnect]: () =>
     loadHandler(() => import('./walletconnect')),
+  [EQRCodeHandlerNames.walletConnectPay]: () =>
+    loadHandler(() => import('./walletConnectPay')),
   [EQRCodeHandlerNames.migrate]: () => loadHandler(() => import('./migrate')),
   [EQRCodeHandlerNames.animation]: () =>
     loadHandler(() => import('./animation')),

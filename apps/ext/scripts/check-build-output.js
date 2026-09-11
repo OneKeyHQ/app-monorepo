@@ -262,10 +262,12 @@ function main() {
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),
     // The x baseline after #13208 is 39849351 bytes in Linux CI, already
-    // above 38 MiB. Restore about 2.6% headroom for incremental growth.
+    // above 38 MiB. The WalletKit 1.5.6 upgrade (bundled @walletconnect/pay
+    // stack, ~0.47 MB in the single-file MV3 background bundle) pushes the
+    // merged output past 40.1 MB, so 40 MiB keeps ~4% headroom over that.
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
-      39 * 1024 * 1024,
+      40 * 1024 * 1024,
     ),
   };
 

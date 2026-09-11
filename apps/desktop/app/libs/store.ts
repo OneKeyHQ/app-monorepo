@@ -5,6 +5,11 @@ import { app, safeStorage } from 'electron';
 import logger from 'electron-log/main';
 import Store from 'electron-store';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  SECURE_STORAGE_PERMANENT_READ_ERROR_NAME,
+  buildSecureStoragePermanentReadErrorMessage,
+} from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 import type {
   IDesktopStoreFallbackUpdateBundleData,
@@ -94,11 +99,17 @@ export const clearUpdateSettings = () => {
   store.delete(EDesktopStoreKeys.UpdateSettings);
 };
 
+// Failures must THROW, never collapse into the absent-value `undefined`:
+// callers (e.g. the WalletConnect Pay durable-progress store) need to tell
+// "no ciphertext stored" from "cannot read right now" — treating a decrypt
+// failure (key rotation, Linux keyring change, copied config dir) as absent
+// makes them destroy still-intact encrypted records. Only a genuinely
+// missing value returns undefined.
 export const getSecureItem = (key: string) => {
   const available = safeStorage.isEncryptionAvailable();
   if (!available) {
     logger.error('safeStorage is not available');
-    return undefined;
+    throw new OneKeyLocalError('safeStorage is not available');
   }
   const item = store.get(EDesktopStoreKeys.EncryptedData, {});
   const value = item[key];
@@ -107,24 +118,49 @@ export const getSecureItem = (key: string) => {
       const result = safeStorage.decryptString(Buffer.from(value, 'hex'));
       return result;
     } catch (_e) {
-      logger.error(`failed to decrypt ${key}`);
-      return undefined;
+      logger.error(`failed to decrypt ${key}`, _e);
+      // encryption IS available (checked above) yet this value does not
+      // decrypt: the blob was sealed with a different safeStorage key, which
+      // no retry on this installation can fix. Label it permanent so
+      // consumers of re-obtainable values (supabase sessions) may map it to
+      // absent; the environmental !available failure above stays unlabeled
+      // (transient).
+      // The sentinel must ride in the MESSAGE: the DESKTOP_API_CALL IPC
+      // boundary preserves only `message` (makeIpcSafeError in app.ts →
+      // unwrapElectronIpcError rebuilds the error under its own name), and
+      // the renderer-side adapter (secureStorage/index.desktop.ts) re-tags
+      // `name` from it. The in-process `name` tag below is for main-side
+      // consumers only. Assigned through the Error base type: OneKey errors
+      // type `name` as their class-name enum.
+      const decryptError = new OneKeyLocalError(
+        buildSecureStoragePermanentReadErrorMessage(
+          'failed to decrypt secure item',
+        ),
+      );
+      (decryptError as Error).name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
+      throw decryptError;
     }
   }
+  return undefined;
 };
 
+// Same contract on the write side: a swallowed encrypt/persist failure lets
+// callers believe the payload landed (WalletConnect Pay writes its plaintext
+// index only after this succeeds — a silent failure here would leave an
+// index whose missing ciphertext later reads as confirmed-absent).
 export const setSecureItem = (key: string, value: string): void => {
   const available = safeStorage.isEncryptionAvailable();
   if (!available) {
     logger.error('safeStorage is not available');
-    return undefined;
+    throw new OneKeyLocalError('safeStorage is not available');
   }
   try {
     const items = store.get(EDesktopStoreKeys.EncryptedData, {});
     items[key] = safeStorage.encryptString(value).toString('hex');
     store.set(EDesktopStoreKeys.EncryptedData, items);
   } catch (_e) {
-    logger.error(`failed to encrypt ${key}`);
+    logger.error(`failed to encrypt ${key}`, _e);
+    throw new OneKeyLocalError('failed to encrypt secure item');
   }
 };
 
