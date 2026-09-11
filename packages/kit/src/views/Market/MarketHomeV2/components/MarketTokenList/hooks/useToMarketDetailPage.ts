@@ -317,16 +317,18 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
           // Then navigate to detail page using rootNavigationRef
           // because the current navigation context is from modal, not from the target tab
-          if (navigationGenerationRef.current !== navigationGeneration) {
-            return;
-          }
-          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-            screen: targetTab,
-            params: {
-              screen: detailRouteName,
-              params,
-            },
-          });
+          setTimeout(() => {
+            if (navigationGenerationRef.current !== navigationGeneration) {
+              return;
+            }
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: targetTab,
+              params: {
+                screen: detailRouteName,
+                params,
+              },
+            });
+          }, 500);
         }
       } else {
         if (stockId) {
