@@ -103,6 +103,12 @@ const getRewardButtonToken = (button: IWrappedActionButton) => {
   return button.data.token;
 };
 
+// The symbol a claim button pays out, matched against the pending claim's
+// receive token so only that reward's button spins (OK-62924). Undefined for a
+// button without a token keeps the vault-wide match.
+const getRewardButtonSymbol = (button: IWrappedActionButton) =>
+  getRewardButtonToken(button)?.info?.symbol;
+
 const getRewardButtonDisabled = (button: IWrappedActionButton) => {
   return 'disabled' in button ? button.disabled : undefined;
 };
@@ -509,7 +515,11 @@ const AssetStatusField = ({
               <EarnTooltip tooltip={status.tooltip} />
             </XStack>
             {actionableStatus ? (
-              <WrappedActionButton asset={asset} reward={actionableStatus} />
+              <WrappedActionButton
+                asset={asset}
+                reward={actionableStatus}
+                rewardSymbol={getRewardButtonSymbol(actionableStatus.button)}
+              />
             ) : null}
           </XStack>
         );
@@ -559,7 +569,11 @@ const ActionField = ({
               <EarnTooltip tooltip={reward.tooltip} />
             </XStack>
           ) : null}
-          <WrappedActionButton asset={asset} reward={reward} />
+          <WrappedActionButton
+            asset={asset}
+            reward={reward}
+            rewardSymbol={getRewardButtonSymbol(reward.button)}
+          />
         </Stack>
       ))}
     </FieldWrapper>
@@ -1054,6 +1068,9 @@ const PortfolioItemComponent = ({
                                 <WrappedActionButton
                                   asset={asset}
                                   reward={actionableStatus}
+                                  rewardSymbol={getRewardButtonSymbol(
+                                    actionableStatus.button,
+                                  )}
                                 />
                               ) : null}
                             </XStack>
@@ -1078,6 +1095,9 @@ const PortfolioItemComponent = ({
                             <WrappedActionButton
                               asset={asset}
                               reward={reward}
+                              rewardSymbol={getRewardButtonSymbol(
+                                reward.button,
+                              )}
                             />
                           </XStack>
                         ))}
