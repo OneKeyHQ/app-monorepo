@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -69,40 +71,22 @@ export function BorrowPositionCard({
   onToggleExpand,
   testID,
   actionsTestID,
-}: IBorrowPositionCardProps) {
+}: IBorrowPositionCardProps): ReactElement {
   const reducedMotion = useReducedMotion();
   const isPressable = Boolean(onToggleExpand);
-  // ListItem.Text's own pairing, which is what Earn's asset rows render
-  // through: the title is $bodyLgMedium on $text, the subtitle $bodyMd on
-  // $textSubdued. The fiat value is the title here and the token amount the
-  // subtitle under it.
   const amountSize = tokenAmount?.size ?? '$bodyMd';
   const amountColor = tokenAmount?.color ?? '$textSubdued';
 
-  // The whole card is the pointer target, but it can't carry the button role:
-  // the collateral Switch is a focusable role="switch" and ARIA forbids
-  // interactive descendants inside role="button". The asset row below has no
-  // interactive children, so it carries the semantics and the keyboard entry
-  // point instead. It deliberately takes no onPress — that would make tamagui
-  // attach press handling and claim the native touch responder, which would
-  // stop the card's own pressStyle from ever firing.
-  //
-  // No explicit label: `accessible` merges the row's children into one node,
-  // and a label would replace their text, so the balance and fiat value would
-  // stop being announced. Letting it compose reads out the asset and both
-  // amounts, then the button role and expanded state.
+  // Keep button semantics on the asset row so the collateral switch is not
+  // nested inside a button. Pointer presses stay on the card for pressStyle.
+  // Let the row's children supply its label so both balances are announced.
   const disclosureProps = isPressable
     ? ({
         'aria-expanded': isExpanded,
         accessible: true,
         accessibilityRole: 'button',
         accessibilityState: { expanded: isExpanded },
-        // accessibilityActions, not onAccessibilityTap: that one is wired to
-        // iOS accessibilityActivate only, and `accessible` collapses this
-        // subtree into a single node whose TalkBack double-tap arrives as
-        // ACTION_CLICK. With no onPress on the row (see above) the click has
-        // nothing to land on and does not bubble, so Android screen readers
-        // could not expand the card at all.
+        // TalkBack activation does not bubble to the card's onPress.
         accessibilityActions: ACCESSIBILITY_ACTIVATE,
         onAccessibilityAction: (event: {
           nativeEvent: { actionName: string };
@@ -111,9 +95,7 @@ export function BorrowPositionCard({
             onToggleExpand?.();
           }
         },
-        // focusVisibleStyle, not focusStyle: the row takes DOM focus on every
-        // pointer press, so a plain :focus ring boxes the asset row the moment
-        // the card is tapped.
+        // Show the focus ring for keyboard navigation, not pointer presses.
         focusVisibleStyle: {
           outlineColor: '$focusRing',
           outlineWidth: 2,
@@ -144,9 +126,6 @@ export function BorrowPositionCard({
       <YStack
         testID={testID}
         cursor={isPressable ? 'pointer' : undefined}
-        // $bgSubdued, not $bgApp: the card has to read as a block against the
-        // page, the way the e-mode bar below it already does. The fill is only
-        // one step off the page background, so the hairline border stays.
         bg="$bgSubdued"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
@@ -221,10 +200,6 @@ export function BorrowPositionCard({
               ) : null}
             </YStack>
             {isPressable ? (
-              // Following the disclosure-triangle convention: points inward from
-              // the leading edge while collapsed, down once expanded. The row
-              // already carries role="button" and an Icon takes no focus, so
-              // this stays a signifier and not a second tap target.
               <Stack
                 transition={reducedMotion ? undefined : 'quick'}
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
