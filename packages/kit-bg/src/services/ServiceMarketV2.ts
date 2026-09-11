@@ -1149,6 +1149,7 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async searchMarketStocks({
     query,
+    cursor,
     limit = 20,
   }: IMarketStockPublicSearchRequest) {
     const normalizedQuery = query.trim();
@@ -1160,7 +1161,11 @@ class ServiceMarketV2 extends ServiceBase {
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
     } = {
-      params: { query: normalizedQuery, limit },
+      params: {
+        query: normalizedQuery,
+        limit,
+        ...(cursor ? { cursor } : {}),
+      },
       headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
     };

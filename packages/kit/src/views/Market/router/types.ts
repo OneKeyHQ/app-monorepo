@@ -12,6 +12,9 @@ export type IModalMarketParamList = {
     tokenAddress?: string;
     network?: string;
     stockId?: string;
+    stockPreviewSymbol?: string;
+    stockPreviewName?: string;
+    stockPreviewLogoUrl?: string;
     isNative?: boolean;
     showFavoriteButton?: boolean;
   };
