@@ -350,7 +350,7 @@ function TwapEmptyState({ titleId }: { titleId: ETranslations }) {
   const title = intl.formatMessage({ id: titleId });
 
   return gtMd ? (
-    <PerpDesktopEmptyState title={title} />
+    <PerpDesktopEmptyState title={title} alignToTop />
   ) : (
     <PerpMobileEmptyState contentOffsetY={-96} title={title} />
   );

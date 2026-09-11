@@ -55,6 +55,7 @@ import { PullToRefresh } from '../../PullToRefresh';
 import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { calcCellAlign, getColumnStyle } from '../utils';
 import {
+  PERP_DESKTOP_EMPTY_STATE_TOP_INSET,
   PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
   PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
   getPerpDesktopTableFixedSectionWidth,
@@ -592,13 +593,18 @@ export function CommonTableListView<T>({
   const desktopEmptyComponent = ListEmptyComponent ? (
     emptyComponent
   ) : (
-    <PerpDesktopEmptyState title={emptyMessage} />
+    <PerpDesktopEmptyState title={emptyMessage} alignToTop />
   );
   const effectiveListLoading = Boolean(
     listLoading && paginatedData.length === 0,
   );
   const showDesktopEmptyState =
     !effectiveListLoading && paginatedData.length === 0;
+  useEffect(() => {
+    if (!isMobile && showDesktopEmptyState) {
+      headerScrollViewRef.current?.scrollTo({ x: 0, animated: false });
+    }
+  }, [isMobile, showDesktopEmptyState]);
   const mobileLayoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
@@ -1040,6 +1046,7 @@ export function CommonTableListView<T>({
     <YStack flex={1} testID="perp-desktop-table">
       {desktopHeader}
       <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
         style={{
           flex: 1,
         }}
@@ -1051,7 +1058,11 @@ export function CommonTableListView<T>({
           // pagination and optional sub-tabs above the table.
           <YStack
             testID="perp-desktop-table-empty"
-            pt={Math.max(0, 40 - desktopEmptyStateTopInset)}
+            flex={1}
+            pt={Math.max(
+              0,
+              PERP_DESKTOP_EMPTY_STATE_TOP_INSET - desktopEmptyStateTopInset,
+            )}
           >
             {desktopEmptyComponent}
           </YStack>
