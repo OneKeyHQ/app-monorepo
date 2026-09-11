@@ -137,7 +137,13 @@ export type IModalStakingParamList = {
     marketAddress: string;
     accountId: string;
     selectedEModeId: number | null;
-    onSelect?: (eModeId: number) => void;
+    // The picker reports the current id it actually showed the user alongside
+    // the pick. Both screens now hold independently fetched copies of the same
+    // status, and only this screen stays focused while it is open, so the
+    // pusher's copy can be the older of the two — deciding "did they pick the
+    // category they are already in" against it would answer for a screen the
+    // user was not looking at.
+    onSelect?: (eModeId: number, observedCurrentEModeId: number | null) => void;
   };
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {
     provider: string;

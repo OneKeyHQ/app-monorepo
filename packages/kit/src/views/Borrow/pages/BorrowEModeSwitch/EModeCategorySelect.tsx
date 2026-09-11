@@ -15,6 +15,7 @@ export function EModeCategorySelect({
   scope,
   currentEModeId,
   value,
+  userSelection,
   disabled,
   onChange,
 }: {
@@ -29,8 +30,12 @@ export function EModeCategorySelect({
   };
   currentEModeId: number;
   value: number | null;
+  // The raw pick, before it collapses onto the current category. The picker
+  // resolves the fallback against its own live status; handing it the already
+  // collapsed value would freeze the checkmark while the Current badge moves.
+  userSelection: number | null;
   disabled?: boolean;
-  onChange: (eModeId: number) => void;
+  onChange: (eModeId: number, observedCurrentEModeId: number | null) => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -62,10 +67,10 @@ export function EModeCategorySelect({
     }
     navigation.push(EModalStakingRoutes.BorrowEModeCategorySelect, {
       ...scope,
-      selectedEModeId: value,
+      selectedEModeId: userSelection,
       onSelect: onChange,
     });
-  }, [disabled, navigation, onChange, scope, value]);
+  }, [disabled, navigation, onChange, scope, userSelection]);
 
   return (
     <XStack

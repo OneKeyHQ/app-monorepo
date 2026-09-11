@@ -122,21 +122,27 @@ export default function BorrowEModeCategorySelectModal() {
 
   const rows = useMemo(
     () =>
-      eModeStatus
-        ? buildEModeRows(
-            eModeStatus,
-            intl.formatMessage({ id: ETranslations.defi_emode_off }),
-          )
-        : [],
+      buildEModeRows(
+        eModeStatus,
+        intl.formatMessage({ id: ETranslations.defi_emode_off }),
+      ),
     [eModeStatus, intl],
   );
 
+  // Both the checkmark and the Current badge resolve against the same live
+  // status. Taking the caller's already-collapsed selection would pin the
+  // checkmark to the category that was current when this opened while the
+  // badge moved on without it.
+  const currentEModeId = eModeStatus?.eModeId ?? 0;
+  const resolvedSelection = selectedEModeId ?? currentEModeId;
+
+  const observedCurrentEModeId = eModeStatus?.eModeId ?? null;
   const handleSelect = useCallback(
     (eModeId: number) => {
-      onSelect?.(eModeId);
+      onSelect?.(eModeId, observedCurrentEModeId);
       navigation.pop();
     },
-    [navigation, onSelect],
+    [navigation, observedCurrentEModeId, onSelect],
   );
 
   return (
@@ -152,8 +158,8 @@ export default function BorrowEModeCategorySelectModal() {
             <EModeCategoryRow
               key={row.eModeId}
               row={row}
-              currentEModeId={eModeStatus?.eModeId ?? 0}
-              isSelected={row.eModeId === selectedEModeId}
+              currentEModeId={currentEModeId}
+              isSelected={row.eModeId === resolvedSelection}
               onPress={handleSelect}
             />
           ))}

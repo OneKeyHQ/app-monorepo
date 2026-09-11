@@ -190,6 +190,9 @@ const rowOf = (container: HTMLElement, eModeId: number) =>
     `[data-testid="borrow-e-mode-category-row-${eModeId}"]`,
   ) as HTMLElement;
 
+const markOf = (container: HTMLElement, eModeId: number) =>
+  rowOf(container, eModeId).querySelector('[data-icon="CheckLargeOutline"]');
+
 describe('BorrowEModeCategorySelectModal', () => {
   beforeEach(() => {
     pop.mockClear();
@@ -249,8 +252,22 @@ describe('BorrowEModeCategorySelectModal', () => {
 
     fireEvent.click(rowOf(container, 0));
 
-    expect(onSelect).toHaveBeenCalledWith(0);
+    expect(onSelect).toHaveBeenCalledWith(0, 1);
     expect(pop).toHaveBeenCalledTimes(1);
+  });
+
+  // The pusher stops revalidating while this screen is on top, so its copy of
+  // the status can be the older one. Report what was actually on screen, or the
+  // caller decides "is this the category you are already in" for a screen the
+  // user never saw.
+  it('reports the current category it displayed, not the one it was pushed with', () => {
+    const { container, onSelect } = renderModal({
+      status: { ...eModeStatus, eModeId: 2 } as IBorrowEModeStatus,
+    });
+
+    fireEvent.click(rowOf(container, 0));
+
+    expect(onSelect).toHaveBeenCalledWith(0, 2);
   });
 
   it('does not let a disabled category be picked', () => {
@@ -272,7 +289,7 @@ describe('BorrowEModeCategorySelectModal', () => {
     expect(row.getAttribute('tabindex')).toBe('0');
 
     fireEvent.keyDown(row, { key: 'Enter' });
-    expect(onSelect).toHaveBeenCalledWith(0);
+    expect(onSelect).toHaveBeenCalledWith(0, 1);
 
     fireEvent.keyDown(row, { key: ' ' });
     expect(onSelect).toHaveBeenCalledTimes(2);
@@ -311,10 +328,37 @@ describe('BorrowEModeCategorySelectModal', () => {
   it('follows the hook when the current category changes underneath it', () => {
     const { container } = renderModal({
       status: { ...eModeStatus, eModeId: 2 } as IBorrowEModeStatus,
+      selectedEModeId: null,
     });
 
     expect(rowOf(container, 2).textContent).toContain('global_current');
     expect(rowOf(container, 1).textContent).not.toContain('global_current');
+  });
+
+  // With no explicit pick the checkmark tracks the current category, so it has
+  // to move with it; leaving it on the old row would put the tick and the
+  // Current badge on different rows.
+  it('moves the checkmark with the current category when nothing was picked', () => {
+    const { container } = renderModal({
+      status: { ...eModeStatus, eModeId: 2 } as IBorrowEModeStatus,
+      selectedEModeId: null,
+    });
+
+    expect(markOf(container, 2)).not.toBeNull();
+    expect(markOf(container, 1)).toBeNull();
+  });
+
+  // An explicit pick is the user's, and only this screen changes it, so it
+  // stays put even when the current category moves.
+  it('keeps the checkmark on an explicit pick', () => {
+    const { container } = renderModal({
+      status: { ...eModeStatus, eModeId: 2 } as IBorrowEModeStatus,
+      selectedEModeId: 1,
+    });
+
+    expect(markOf(container, 1)).not.toBeNull();
+    expect(markOf(container, 2)).toBeNull();
+    expect(rowOf(container, 2).textContent).toContain('global_current');
   });
 
   it('renders nothing to pick while the status is still resolving', () => {
