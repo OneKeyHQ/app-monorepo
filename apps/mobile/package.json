@@ -124,6 +124,7 @@
     "@shopify/react-native-skia": "2.6.2",
     "@types/react-native-canvas": "^0.1.13",
     "@walletconnect/react-native-compat": "2.23.10",
+    "bip39": "^3.1.0",
     "burnt": "0.12.2",
     "expo": "57.0.14",
     "expo-apple-authentication": "~57.0.1",
