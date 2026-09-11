@@ -255,11 +255,13 @@ const ProtocolHeader = ({
             <>
               {/* A filled hairline, not a vertical Divider: iOS never painted
                   the hairline right border the Divider draws on its zero-width
-                  Separator, so the line was missing (OK-62886). */}
+                  Separator, so the line was missing (OK-62886). $border rather
+                  than $borderSubdued: at hairline width the subdued tone all
+                  but vanished next to the text. */}
               <Stack
                 w={StyleSheet.hairlineWidth}
                 h="$6"
-                bg="$borderSubdued"
+                bg="$border"
                 flexShrink={0}
               />
               <SizableText
