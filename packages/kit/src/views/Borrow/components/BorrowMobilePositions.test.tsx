@@ -130,15 +130,15 @@ jest.mock('./BorrowTableList/CollateralBadge', () => ({
   __esModule: true,
   CollateralBadge: ({
     canBeCollateral,
-    bg,
+    unavailableBg,
   }: {
     canBeCollateral?: boolean;
-    bg?: string;
+    unavailableBg?: string;
   }) => (
     <span
       data-testid="collateral-badge"
       data-can={String(canBeCollateral)}
-      data-bg={bg}
+      data-bg={unavailableBg}
     />
   ),
 }));
@@ -399,6 +399,41 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
     ).toBe('false');
   });
 
+  it.each([
+    { accountId: 'account-2' },
+    { marketAddress: '0xOtherMarket' },
+    { networkId: 'evm--8453' },
+  ])(
+    'keeps the original card collapsed after a scope round-trip: %j',
+    (nextScope) => {
+      const originalScope = { ...scope };
+      const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+      const positionId = cardId('supplied', '0xAaa');
+
+      fireEvent.click(getByTestId(positionId));
+      expect(getByTestId(positionId).getAttribute('data-expanded')).toBe(
+        'true',
+      );
+
+      Object.assign(scope, nextScope);
+      rerender(<BorrowMobilePositions />);
+      expect(getByTestId(positionId).getAttribute('data-expanded')).toBe(
+        'false',
+      );
+
+      Object.assign(scope, originalScope);
+      rerender(<BorrowMobilePositions />);
+      expect(getByTestId(positionId).getAttribute('data-expanded')).toBe(
+        'false',
+      );
+
+      fireEvent.click(getByTestId(positionId));
+      expect(getByTestId(positionId).getAttribute('data-expanded')).toBe(
+        'true',
+      );
+    },
+  );
+
   it('keeps the open card open when the indexer changes address casing', () => {
     const { getByTestId, rerender } = render(<BorrowMobilePositions />);
 
@@ -409,6 +444,7 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
       buildEntry('supplied', '0xAAA'),
       buildEntry('borrowed', '0xBbb'),
     );
+    scope.marketAddress = '0xMARKET';
     rerender(<BorrowMobilePositions />);
 
     expect(
