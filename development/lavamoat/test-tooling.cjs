@@ -439,6 +439,7 @@ function copyLavamoatValidationFixture(targetRepo) {
     'development/lavamoat/check-generated-file-scope.cjs',
     'development/lavamoat/check-policy-diff.cjs',
     'development/lavamoat/error.cjs',
+    'development/lavamoat/javascript-literal.cjs',
     'development/lavamoat/generated-files.cjs',
     'development/lavamoat/generated-file-security.test.cjs',
     'development/lavamoat/normalize-policy-artifacts.cjs',

@@ -1,0 +1,56 @@
+name: validate-lavamoat-supply-chain
+
+on:
+  pull_request:
+    branches: [x, onekey, 'hotfix/*', 'release/*']
+  push:
+    branches: [x]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: lavamoat-supply-chain-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install-policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      YARN_ENABLE_GLOBAL_CACHE: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: yarn
+          registry-url: https://npm.pkg.github.com
+          scope: '@onekeyhq'
+      - name: Test install admission before installing dependencies
+        run: node --test development/lavamoat/supply-chain.test.cjs
+      - name: Install reviewed dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=4096
+        run: yarn install --immutable
+      - name: Check all installed workspace dependencies
+        run: yarn supply-chain check
+      - name: Verify every locked esbuild and Sentry CLI binary without fallback installers
+        run: yarn lavamoat:supply-chain:binaries
+      - name: Verify SWC without its fallback installer
+        run: |
+          node -e "require('@swc/core').transformSync('const value = 1;', { jsc: { parser: { syntax: 'ecmascript' } } });"
+      - name: Test Git checker compatibility and existing binary installations
+        run: node --test development/lavamoat/supply-chain-git.test.cjs development/lavamoat/check-install-binaries.test.cjs
+      - name: Verify Git commit provenance
+        if: matrix.os == 'ubuntu-24.04'
+        run: yarn lavamoat:git-dependencies:check

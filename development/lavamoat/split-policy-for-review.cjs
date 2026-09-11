@@ -22,6 +22,7 @@ const riskRules = [
       /^XMLHttpRequest(?:\.|$)/,
       /^WebSocket(?:\.|$)/,
       /^EventSource(?:\.|$)/,
+      /^navigator$/,
       /^navigator\.sendBeacon$/,
       /^importScripts$/,
     ],
@@ -39,10 +40,14 @@ const riskRules = [
       /^webkitIndexedDB$/,
       /^caches(?:\.|$)/,
       /^CacheStorage(?:\.|$)/,
+      /^document$/,
       /^document\.cookie$/,
       /^cookieStore(?:\.|$)/,
+      /^navigator$/,
       /^navigator\.clipboard(?:\.|$)/,
       /^navigator\.permissions(?:\.|$)/,
+      /^navigator\.storage(?:\.|$)/,
+      /^navigator\.storageBuckets(?:\.|$)/,
       /^Clipboard(?:\.|$)/,
       /^ClipboardItem(?:\.|$)/,
       /^clipboardData(?:\.|$)/,
@@ -69,6 +74,7 @@ const riskRules = [
     category: 'hardware-device',
     description: 'USB、HID、Bluetooth、摄像头、地理位置等设备访问能力',
     globals: [
+      /^navigator$/,
       /^navigator\.usb(?:\.|$)/,
       /^navigator\.hid(?:\.|$)/,
       /^navigator\.bluetooth(?:\.|$)/,
@@ -113,10 +119,15 @@ const riskRules = [
     category: 'dom-injection-navigation',
     description: 'DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力',
     globals: [
+      // Whole DOM objects also expose their methods and descendant objects.
+      /^document$/,
+      /^document\.(?:activeElement|body|head|documentElement|defaultView)$/,
       /^document\.write$/,
       /^document\.writeln$/,
-      /^document\.createElement$/,
+      /^document\.createElement(?:NS)?$/,
       /^document\.createRange$/,
+      /^document\.(?:getElementById|getElementsByClassName|getElementsByTagName|querySelector|querySelectorAll|elementFromPoint|elementsFromPoint)$/,
+      /^document(?:\.(?:body|head|documentElement))?\.(?:append|appendChild|insertBefore|insertAdjacentElement|insertAdjacentHTML|replaceChild|replaceChildren)$/,
       /^DOMParser(?:\.|$)/,
       /(?:^|\.)innerHTML$/,
       /(?:^|\.)outerHTML$/,
@@ -631,7 +642,10 @@ writeJson(path.join(reviewRoot, 'summary.json'), {
   policies: summaries,
   totalPolicies: summaries.length,
 });
-writeText(path.join(reviewRoot, 'README.review.md'), createReviewIndex(summaries));
+writeText(
+  path.join(reviewRoot, 'README.review.md'),
+  createReviewIndex(summaries),
+);
 
 console.log(
   `Generated LavaMoat review files for ${summaries.length} policies.`,

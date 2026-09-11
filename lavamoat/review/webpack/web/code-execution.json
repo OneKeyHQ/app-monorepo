@@ -26,9 +26,21 @@
         "WebAssembly.Module": true
       }
     },
-    "@onekeyhq/kit>expo-camera": {
+    "@onekeyhq/kit-bg>fflate": {
       "globals": {
         "Worker": true
+      }
+    },
+    "@onekeyhq/kit>@onekeyfe/react-native-native-list": {
+      "globals": {
+        "Worker": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>barcode-detector": {
+      "globals": {
+        "WebAssembly.instantiate": true,
+        "WebAssembly.instantiateStreaming": true,
+        "WebAssembly.RuntimeError": true
       }
     },
     "@onekeyhq/kit>zbar.wasm": {
@@ -73,7 +85,7 @@
         "WebAssembly": true
       }
     },
-    "external:../../node_modules/@sentry/browser/build/npm/esm/eventbuilder.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": {
       "globals": {
         "WebAssembly": true
       }

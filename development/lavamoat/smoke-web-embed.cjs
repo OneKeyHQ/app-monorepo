@@ -186,13 +186,17 @@ function validateArtifact(root) {
 async function main() {
   const { values } = parseArgs({
     options: {
+      artifact: { type: 'string' },
       chrome: { type: 'string' },
       output: { type: 'string' },
       'file-ota': { type: 'boolean', default: false },
     },
   });
   const root = fs.realpathSync(
-    path.resolve(__dirname, '../../apps/web-embed/web-build'),
+    path.resolve(
+      values.artifact ||
+        path.resolve(__dirname, '../../apps/web-embed/web-build'),
+    ),
   );
   const output = values.output
     ? path.resolve(values.output)
@@ -346,6 +350,23 @@ async function main() {
           null,
           { timeout: 60_000 },
         );
+        // Keep the first SDK call cold, as on native: deserialization must not
+        // prewarm the lazy WASM loader before public transaction generation.
+        const kaspaPublicTransaction = await withDeadline(
+          page.evaluate(buildPublicKaspaTransaction),
+          60_000,
+        );
+        validatePublicKaspaTransaction(kaspaPublicTransaction);
+        const kaspaPublicTransactionRepeat = await withDeadline(
+          page.evaluate(buildPublicKaspaTransaction),
+          60_000,
+        );
+        validatePublicKaspaTransaction(kaspaPublicTransactionRepeat);
+        assert.deepEqual(
+          kaspaPublicTransactionRepeat,
+          kaspaPublicTransaction,
+          'Repeated public Kaspa generation must preserve unsigned transaction semantics',
+        );
         result.state = await withDeadline(
           page.evaluate(async () => {
             const dispatch = globalThis.$onekey.$private.webembedReceiveHandler;
@@ -427,23 +448,10 @@ async function main() {
           }),
           60_000,
         );
-        result.state.kaspaPublicTransaction = await withDeadline(
-          page.evaluate(buildPublicKaspaTransaction),
-          60_000,
-        );
-        validatePublicKaspaTransaction(result.state.kaspaPublicTransaction);
-        result.state.kaspaPublicTransactionRepeat = await withDeadline(
-          page.evaluate(buildPublicKaspaTransaction),
-          60_000,
-        );
-        validatePublicKaspaTransaction(
-          result.state.kaspaPublicTransactionRepeat,
-        );
-        assert.deepEqual(
-          result.state.kaspaPublicTransactionRepeat,
-          result.state.kaspaPublicTransaction,
-          'Repeated public Kaspa generation must preserve unsigned transaction semantics',
-        );
+        Object.assign(result.state, {
+          kaspaPublicTransaction,
+          kaspaPublicTransactionRepeat,
+        });
         assert.equal(
           result.state.response,
           `LavaMoat---lazy-route: ${page.url()}`,

@@ -86,7 +86,11 @@ const fingerprintFiles = [
 ];
 
 const nativeContractDependencies = {
-  android: ['expo-image-loader', 'expo-navigation-bar'],
+  android: [
+    '@onekeyfe/react-native-text',
+    'expo-image-loader',
+    'expo-navigation-bar',
+  ],
   ios: [
     '@onramper/onramper-react-native',
     'expo-apple-authentication',

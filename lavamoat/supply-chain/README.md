@@ -33,6 +33,14 @@ not share either application's JS heap or native storage resources.
   `patch-package` and injected-code setup. Manually invoking
   `yarn setup:dependencies` or `yarn after-install` also requires that full check.
 
+Yarn's `--mode=update-lockfile` does not link packages, run lifecycle scripts or
+invoke post-processing. Configuration and Git-source admission still run, but
+the final installed-package audit is skipped only for this official mode.
+Normal installs and `--mode=skip-build` require complete installation state in
+`afterAllInstalled`, before the repository's after-install plugin runs. A
+lockfile-only update is not an installed-dependency validation; follow it with
+`yarn install --immutable` and the full policy check before building.
+
 Yarn omits lockfile checksums for some OS-conditional packages. For the existing
 `@stoprocent/bluetooth-hci-socket` dependency, the policy instead records SHA-256
 hashes for every file in the original cached package archive, plus its complete

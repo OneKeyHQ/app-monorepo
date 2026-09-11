@@ -281,13 +281,17 @@ jobs:
           invalid_paths=()
           while IFS= read -r -d '' changed_path; do
             case "${changed_path}" in
-              lavamoat/*) ;;
+              lavamoat/webpack/cli/policy.json|lavamoat/webpack/desktop-main/policy.json|lavamoat/webpack/desktop-preload/policy.json|lavamoat/webpack/desktop-services/index/policy.json|lavamoat/webpack/desktop-services/enum/policy.json|lavamoat/webpack/desktop-services/windowsHello/policy.json|lavamoat/webpack/desktop-services/checkBiometricAuthChanged/policy.json|lavamoat/node/build-tools/policy.json|lavamoat/webpack/ext/mv3/pages/policy.json|lavamoat/webpack/ext/mv3/background/policy.json|lavamoat/webpack/ext/mv3/content-script/policy.json|lavamoat/webpack/web-embed/policy.json|lavamoat/webpack/web/policy.json|lavamoat/webpack/desktop-renderer/policy.json|lavamoat/review/*.json|lavamoat/review/README.review.md) ;;
               *) invalid_paths+=("${changed_path}") ;;
             esac
-          done < <(git diff --cached --name-only -z "${HEAD_SHA}")
+            file_mode=$(git --literal-pathspecs ls-files --format='%(objectmode)' -- "${changed_path}")
+            if [ -n "${file_mode}" ] && [ "${file_mode}" != "100644" ]; then
+              invalid_paths+=("${changed_path} (mode ${file_mode})")
+            fi
+          done < <(git diff --cached --no-renames --name-only -z "${HEAD_SHA}")
 
           if [ "${#invalid_paths[@]}" -gt 0 ]; then
-            printf '::error::LavaMoat policy update patch touched files outside lavamoat/: %s\n' "${invalid_paths[*]}"
+            printf '::error::LavaMoat policy update patch changed files outside generated policies/reports or used unsafe file modes: %s\n' "${invalid_paths[*]}"
             exit 1
           fi
 

@@ -2936,6 +2936,7 @@ async function launchDevShell({
     releaseDeviceMetroRoute = deviceMetro.release;
     report = createRunReport({
       deviceId: selectedDevice.id,
+      metroBindHost: listenerHost,
       metroPort,
       metroUrl: deviceMetroUrl,
       platform,
@@ -2970,15 +2971,10 @@ async function launchDevShell({
     await writeRunReport(report);
     child = spawn(
       'yarn',
-      [
-        'workspace',
-        '@onekeyhq/mobile',
-        'native-bundle',
-        ...getMetroCommandArgs({
-          metroPort,
-          metroBindHost: listenerHost,
-        }),
-      ],
+      getMetroCommandArgs({
+        metroPort,
+        metroBindHost: listenerHost,
+      }),
       {
         cwd: REPO_ROOT,
         env: {

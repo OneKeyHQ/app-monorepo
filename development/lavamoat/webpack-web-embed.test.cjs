@@ -27,6 +27,105 @@ const {
   withDeadline,
 } = require('./smoke-web-embed.cjs');
 
+test('the protected Web Embed build excludes compiler Sentry plugins without changing the outer finalizer or Rspack entry', () => {
+  const repoRoot = path.resolve(__dirname, '../..');
+  const workspace = path.join(repoRoot, 'apps/web-embed');
+  const { scripts } = JSON.parse(
+    fs.readFileSync(path.join(workspace, 'package.json'), 'utf8'),
+  );
+  const stages = scripts['build:lavamoat'].split(' && ');
+  assert.equal(stages[0], 'yarn clean');
+  const compilerCommand =
+    ' yarn run -T webpack build -c webpack.config.lavamoat.js';
+  assert.ok(stages[1].startsWith('cross-env '));
+  assert.ok(stages[1].endsWith(compilerCommand));
+  const bindings = stages[1]
+    .slice('cross-env '.length, -compilerCommand.length)
+    .split(' ');
+  assert.ok(bindings.includes('SENTRY_UPLOAD_BY_CLI=true'));
+  assert.deepEqual(stages.slice(2), [
+    'node scripts/check-browser-compat.js --lavamoat',
+    'node scripts/finalize-production-assets.js --strip-only',
+    'bash ./postbuild.sh',
+  ]);
+  assert.match(scripts.build, /rspack build --config-loader jiti/);
+  assert.ok(!scripts.build.includes('SENTRY_UPLOAD_BY_CLI'));
+  assert.ok(!scripts.build.includes('ONEKEY_LAVAMOAT'));
+
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-web-embed-compiler-env-'),
+  );
+  const probe = path.join(directory, 'probe.cjs');
+  const inspect = () => {
+    const scenarioAssert = require('node:assert/strict');
+    if (process.argv[2] === 'outer') {
+      scenarioAssert.equal(process.env.SENTRY_UPLOAD_BY_CLI, undefined);
+      process.stdout.write('outer-finalizer-flag-unset\n');
+      return;
+    }
+    const config = require(process.argv[2]);
+    scenarioAssert.equal(process.env.SENTRY_UPLOAD_BY_CLI, 'true');
+    for (const key of [
+      'SENTRY_AUTH_TOKEN',
+      'SENTRY_TOKEN',
+      'SENTRY_PROJECT',
+      'SENTRY_ORG',
+    ]) {
+      scenarioAssert.equal(process.env[key], '');
+    }
+    const pluginNames = config.plugins
+      .flat(Infinity)
+      .map((plugin) => plugin.name || plugin.constructor.name);
+    scenarioAssert.deepEqual(
+      pluginNames.filter((name) => /sentry|upload/i.test(name)),
+      [],
+      'The actual enforcement compiler must not instantiate Sentry plugins',
+    );
+    scenarioAssert.ok(pluginNames.includes('LavaMoatPlugin'));
+    process.stdout.write('protected-compiler-sentry-excluded\n');
+  };
+  fs.writeFileSync(probe, `(${inspect.toString()})();\n`);
+  const env = {
+    ...process.env,
+    SENTRY_AUTH_TOKEN: '',
+    SENTRY_TOKEN: '',
+    SENTRY_PROJECT: '',
+    SENTRY_ORG: '',
+    ENABLE_ANALYZER: '',
+  };
+  delete env.SENTRY_UPLOAD_BY_CLI;
+  try {
+    // Execute the real manifest's cross-env bindings in a child, then inspect
+    // the unchanged parent environment used by the later strip-only finalizer.
+    for (const [args, marker] of [
+      [
+        [
+          require.resolve('cross-env/src/bin/cross-env.js'),
+          ...bindings,
+          process.execPath,
+          probe,
+          path.join(workspace, 'webpack.config.lavamoat.js'),
+        ],
+        'protected-compiler-sentry-excluded',
+      ],
+      [[probe, 'outer'], 'outer-finalizer-flag-unset'],
+    ]) {
+      const result = spawnSync(process.execPath, args, {
+        cwd: repoRoot,
+        env,
+        encoding: 'utf8',
+        timeout: 30_000,
+        maxBuffer: 1_048_576,
+      });
+      assert.ifError(result.error);
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      assert.ok(result.stdout.includes(marker));
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('Web Embed smoke rejects a dispatcher that never settles', async () => {
   await assert.rejects(withDeadline(new Promise(() => {}), 20), /deadline/);
   assert.equal(await withDeadline(Promise.resolve('ready'), 1000), 'ready');

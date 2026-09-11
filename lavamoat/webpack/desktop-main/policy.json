@@ -2144,20 +2144,20 @@
         "console": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-985e2bf3.js": {
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-474dbbae.js": {
       "globals": {
         "SuppressedError": true
       },
       "packages": {
-        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": true
+        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js": true
       }
     },
     "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index.js": {
       "packages": {
-        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-985e2bf3.js": true
+        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-474dbbae.js": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": {
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js": {
       "builtin": {
         "@stoprocent/noble": true,
         "electron.ipcMain.handle": true,
@@ -2175,7 +2175,7 @@
       "packages": {
         "@onekeyfe/hd-shared": true,
         "electron-log": true,
-        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-985e2bf3.js": true,
+        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-474dbbae.js": true,
         "external:../../node_modules/@onekeyfe/hd-transport-electron/node_modules/p-retry/index.js": true
       }
     },

@@ -4,6 +4,10 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 
 const { LavaMoatError } = require('./error.cjs');
+const {
+  generatedPolicyPaths,
+  isGeneratedPolicyFile,
+} = require('./generated-files.cjs');
 
 function parseArgs(argv) {
   let outputFile;
@@ -53,7 +57,29 @@ function assertGitSuccess(result, command) {
 }
 
 function getTrackedDiff() {
-  const result = runGit(['diff', '--binary', '--', 'lavamoat']);
+  const filesResult = runGit([
+    'diff',
+    '--no-renames',
+    '--name-only',
+    '-z',
+    'HEAD',
+    '--',
+    ...generatedPolicyPaths,
+  ]);
+  assertGitSuccess(filesResult, 'git diff --name-only HEAD');
+  const files = filesResult.stdout.split('\0').filter(isGeneratedPolicyFile);
+  if (files.length === 0) {
+    return '';
+  }
+  const result = runGit([
+    '--literal-pathspecs',
+    'diff',
+    '--no-renames',
+    '--binary',
+    'HEAD',
+    '--',
+    ...files,
+  ]);
   assertGitSuccess(result, 'git diff --binary -- lavamoat');
   return result.stdout;
 }
@@ -61,16 +87,17 @@ function getTrackedDiff() {
 function getUntrackedFiles() {
   const result = runGit([
     'ls-files',
+    '-z',
     '--others',
     '--exclude-standard',
     '--',
-    'lavamoat',
+    ...generatedPolicyPaths,
   ]);
   assertGitSuccess(
     result,
     'git ls-files --others --exclude-standard -- lavamoat',
   );
-  return result.stdout.split(/\r?\n/).filter(Boolean).toSorted();
+  return result.stdout.split('\0').filter(isGeneratedPolicyFile).toSorted();
 }
 
 function getNewFileDiff(file) {

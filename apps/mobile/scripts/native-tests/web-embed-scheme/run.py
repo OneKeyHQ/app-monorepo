@@ -107,12 +107,14 @@ def main():
     (app / "Info.plist").write_bytes(plistlib.dumps(info))
     sdk = run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-path")
     arch = "arm64" if platform.machine() == "arm64" else "x86_64"
-    command = ["xcrun", "--sdk", "iphonesimulator", "clang", "-fobjc-arc", "-fmodules", "-Werror",
-               "-fmodules-cache-path=" + str(output / "module-cache"), "-target", arch + "-apple-ios15.5-simulator",
-               "-isysroot", sdk, "-I", str(PACKAGE), "-I", str(output), "-framework", "UIKit", "-framework", "WebKit",
+    command = ["/usr/bin/xcrun", "--sdk", "iphonesimulator", "clang", "-fobjc-arc", "-fmodules", "-Werror",
+               "-fmodules-cache-path=module-cache", "-target", arch + "-apple-ios15.5-simulator",
+               "-isysroot", sdk, "-I", str(PACKAGE), "-I", ".", "-framework", "UIKit", "-framework", "WebKit",
                "-framework", "Foundation", str(HERE / "Probe.m"), str(HERE / "StateFixture.m"),
-               str(PACKAGE / "RNCOneKeyWebEmbedAssets.m"), "-o", str(app / "Probe")]
-    compilation = subprocess.run(command, text=True, capture_output=True, timeout=120)
+               str(PACKAGE / "RNCOneKeyWebEmbedAssets.m"), "-o", "Probe.app/Probe"]
+    # Keep the caller's output directory out of compiler arguments. Argument
+    # lists never pass through a shell; paths are not shell-escaped strings.
+    compilation = subprocess.run(command, cwd=output, shell=False, text=True, capture_output=True, timeout=120)
     (output / "compile.log").write_text(compilation.stdout + compilation.stderr)
     compilation.check_returncode()
     run("codesign", "--force", "--sign", "-", str(app))

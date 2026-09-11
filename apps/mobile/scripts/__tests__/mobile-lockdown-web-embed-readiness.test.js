@@ -476,7 +476,8 @@ test.each([
     await startProtectedBackgroundCheck();
     expect(report()).toMatchObject({
       status: 'failed',
-      stage: 'kaspa-commit',
+      stage: 'kaspa-commit-result',
+      failure: 'result-invalid',
       intrinsics: true,
       kaspaUnsigned: false,
       kaspaRuns: 0,
@@ -628,7 +629,10 @@ test('a second reveal stall fails at the shared deadline and late completion can
   await check;
   expect(report()).toMatchObject({
     status: 'failed',
-    stage: 'kaspa-reveal',
+    stage: 'kaspa-reveal-request',
+    failure: 'total-deadline',
+    elapsedMs: 60_000,
+    rpcElapsedMs: 60_000,
     intrinsics: true,
     kaspaUnsigned: false,
     kaspaRuns: 1,
@@ -655,7 +659,10 @@ test('a late bridge reply after the deadline does not start security or transact
   await jest.advanceTimersByTimeAsync(0);
   expect(report()).toMatchObject({
     status: 'failed',
-    stage: 'bridge',
+    stage: 'bridge-request',
+    failure: 'total-deadline',
+    elapsedMs: 60_000,
+    rpcElapsedMs: 60_000,
     intrinsics: false,
     kaspaUnsigned: false,
     kaspaRuns: 0,
@@ -670,7 +677,8 @@ test('an SDK rejection preserves the intrinsic result without exposing the error
   await startProtectedBackgroundCheck();
   expect(report()).toMatchObject({
     status: 'failed',
-    stage: 'kaspa-reveal',
+    stage: 'kaspa-reveal-request',
+    failure: 'request-rejected',
     intrinsics: true,
     kaspaUnsigned: false,
     kaspaRuns: 0,
@@ -680,6 +688,161 @@ test('an SDK rejection preserves the intrinsic result without exposing the error
   );
   expect(mockKaspaDeserialize).not.toHaveBeenCalled();
 });
+
+test.each([
+  ['commit', mockKaspaCommit, 'kaspa-commit-request'],
+  ['reveal', mockKaspaReveal, 'kaspa-reveal-request'],
+  ['deserialize', mockKaspaDeserialize, 'kaspa-deserialize-request'],
+])(
+  'separates a rejected %s request from result validation',
+  async (name, api, stage) => {
+    api.mockRejectedValue('private rejected fixture');
+    await startProtectedBackgroundCheck();
+    expect(report()).toMatchObject({
+      status: 'failed',
+      stage,
+      failure: 'request-rejected',
+      intrinsics: true,
+      kaspaUnsigned: false,
+      kaspaRuns: 0,
+      elapsedMs: 0,
+      rpcElapsedMs: 0,
+    });
+    expect(mockReport.mock.calls[0][0]).not.toContain(
+      'private rejected fixture',
+    );
+    expect(jest.getTimerCount()).toBe(0);
+  },
+);
+
+test('distinguishes the existing 30 second reverse RPC timeout from the total deadline', async () => {
+  mockSecurityState.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(
+          () =>
+            resolve({
+              hardenType: 'function',
+              objectFrozen: true,
+              arrayFrozen: true,
+              functionFrozen: true,
+              promiseFrozen: true,
+            }),
+          500,
+        );
+      }),
+  );
+  mockKaspaCommit.mockImplementationOnce(
+    () =>
+      new Promise((resolve, reject) => {
+        // eslint-disable-next-line onekey/no-raw-error -- reproduce the fixed native bridge timeout
+        setTimeout(
+          () => reject(new Error('WebEmbed bridge call timeout (30s)')),
+          30_000,
+        );
+      }),
+  );
+  const check = startProtectedBackgroundCheck();
+  await jest.advanceTimersByTimeAsync(30_499);
+  expect(mockReport).not.toHaveBeenCalled();
+  await jest.advanceTimersByTimeAsync(1);
+  await check;
+  expect(report()).toMatchObject({
+    status: 'failed',
+    stage: 'kaspa-commit-request',
+    failure: 'rpc-timeout',
+    intrinsics: true,
+    kaspaUnsigned: false,
+    kaspaRuns: 0,
+    elapsedMs: 30_500,
+    rpcElapsedMs: 30_000,
+  });
+  expect(mockKaspaReveal).not.toHaveBeenCalled();
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+test.each([
+  ['primitive', () => 'WebEmbed bridge call timeout (30s)', 'request-rejected'],
+  [
+    'inherited',
+    () => Object.create({ message: 'WebEmbed bridge call timeout (30s)' }),
+    'request-rejected',
+  ],
+  [
+    'similar message',
+    () => ({ message: 'WebEmbed bridge call timeout (30s): private fixture' }),
+    'request-rejected',
+  ],
+  [
+    'accessor',
+    (getter) => Object.defineProperty({}, 'message', { get: getter }),
+    'request-rejected',
+  ],
+  [
+    'throwing descriptor',
+    () =>
+      new Proxy(
+        {},
+        {
+          getOwnPropertyDescriptor() {
+            // eslint-disable-next-line onekey/no-raw-error -- verify hostile error inspection cannot leak or replace the report
+            throw new Error('private descriptor fixture');
+          },
+        },
+      ),
+    'unknown',
+  ],
+])(
+  'classifies a %s rejection without evaluating or exposing arbitrary payloads',
+  async (name, makeError, failure) => {
+    const getter = jest.fn(() => {
+      // eslint-disable-next-line onekey/no-raw-error -- verify the getter is never invoked
+      throw new Error('private getter fixture');
+    });
+    mockKaspaCommit.mockRejectedValue(makeError(getter));
+    await startProtectedBackgroundCheck();
+    expect(report()).toMatchObject({
+      status: 'failed',
+      stage: 'kaspa-commit-request',
+      failure,
+      intrinsics: true,
+      kaspaRuns: 0,
+    });
+    expect(getter).not.toHaveBeenCalled();
+    expect(mockReport.mock.calls[0][0]).not.toMatch(
+      /private|WebEmbed bridge call timeout/,
+    );
+  },
+);
+
+test.each([
+  [-100, 0],
+  [90_000, 60_000],
+  [Number.NaN, 0],
+  [Number.POSITIVE_INFINITY, 0],
+])(
+  'bounds elapsed diagnostics when the clock changes by %s',
+  async (change, expected) => {
+    let now = 1_000_000;
+    const clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      mockKaspaCommit.mockImplementation(async () => {
+        now += change;
+        return null;
+      });
+      await startProtectedBackgroundCheck();
+      expect(report()).toMatchObject({
+        status: 'failed',
+        stage: 'kaspa-commit-result',
+        failure: 'result-invalid',
+        elapsedMs: expected,
+        rpcElapsedMs: expected,
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  },
+);
 
 test.each(['empty', 'undefined', 'omitted'])(
   'accepts normalized %s only with an explicit empty signature in the original SafeJSON',

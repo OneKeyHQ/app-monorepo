@@ -21,6 +21,7 @@ const { values } = parseArgs({
 const repoRoot = path.resolve(__dirname, '../../..');
 const repoRequire = createRequire(path.join(repoRoot, 'package.json'));
 const { _electron: electron } = repoRequire('playwright-core');
+const { parse } = createRequire(repoRequire.resolve('jsdom'))('parse5');
 const { LavaMoatError } = repoRequire('./development/lavamoat/error.cjs');
 const desktopRoot = path.join(repoRoot, 'apps/desktop');
 const mainPath = path.join(
@@ -337,12 +338,23 @@ async function run() {
     'expected exactly one protected runtime entry',
   );
   const html = fs.readFileSync(indexPath, 'utf8');
-  const scripts = [
-    ...html
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi),
-  ].map((match) => {
-    const url = new URL(match[1], pathToFileURL(indexPath));
+  const sources = [];
+  const visit = (node) => {
+    if (
+      node.tagName === 'script' &&
+      node.namespaceURI === 'http://www.w3.org/1999/xhtml'
+    ) {
+      const attributes = Object.fromEntries(
+        node.attrs.map(({ name, value }) => [name, value]),
+      );
+      if (attributes.src) sources.push(attributes);
+    }
+    // Parse actual elements; comments, script text and template content are inert.
+    node.childNodes?.forEach(visit);
+  };
+  visit(parse(html, { scriptingEnabled: true }));
+  const scripts = sources.map(({ src, integrity, crossorigin }) => {
+    const url = new URL(src, pathToFileURL(indexPath));
     assert.equal(url.protocol, 'file:', 'HTML scripts must resolve locally');
     let resolved = fileURLToPath(url);
     if (!fs.existsSync(resolved))
@@ -354,10 +366,12 @@ async function run() {
     );
     const contents = fs.readFileSync(resolved);
     const sri = crypto.createHash('sha384').update(contents).digest('base64');
-    assert.ok(
-      match[0].includes(`integrity="sha384-${sri}"`),
+    assert.equal(
+      integrity,
+      `sha384-${sri}`,
       'HTML SRI must match final script bytes',
     );
+    assert.equal(crossorigin, 'anonymous');
     return path.relative(rendererRoot, resolved);
   });
   assert.equal(

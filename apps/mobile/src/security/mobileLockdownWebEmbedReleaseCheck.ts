@@ -8,6 +8,32 @@ function requirePublicKaspaResult(condition: unknown): asserts condition {
   if (!condition) throw new Error('Unexpected unsigned Kaspa E2E result.');
 }
 
+function boundedElapsedMs(startedAt: number) {
+  const elapsed = Date.now() - startedAt;
+  return Number.isFinite(elapsed)
+    ? Math.min(60_000, Math.max(0, Math.floor(elapsed)))
+    : 0;
+}
+
+function classifyRequestFailure(error: unknown) {
+  try {
+    // Match only the existing background-to-main RPC timeout. Never invoke an
+    // error getter, serialize its payload, or expose an arbitrary SDK message.
+    const message =
+      error !== null &&
+      (typeof error === 'object' || typeof error === 'function')
+        ? Object.getOwnPropertyDescriptor(error, 'message')
+        : undefined;
+    return message &&
+      Object.hasOwn(message, 'value') &&
+      message.value === 'WebEmbed bridge call timeout (30s)'
+      ? 'rpc-timeout'
+      : 'request-rejected';
+  } catch {
+    return 'unknown';
+  }
+}
+
 function publicKaspaRecord(
   value: unknown,
   keys: string[],
@@ -270,16 +296,39 @@ export async function runMobileLockdownWebEmbedReleaseCheck() {
   let kaspaRuns = 0;
   let fileBridge = false;
   let bridgeSource: 'file' | 'bundled-https' | 'bundled-scheme' | undefined;
-  let stage = 'bridge';
+  const startedAt = Date.now();
+  let stage = 'bridge-import';
+  const progress: { phase: 'load' | 'request' | 'result' } = { phase: 'load' };
+  let failure:
+    | 'total-deadline'
+    | 'result-invalid'
+    | 'unknown'
+    | ReturnType<typeof classifyRequestFailure> = 'result-invalid';
+  let requestStartedAt: number | undefined;
+  let rpcElapsedMs: number | undefined;
+  const startRequest = (requestStage: string) => {
+    stage = requestStage;
+    progress.phase = 'request';
+    requestStartedAt = Date.now();
+    rpcElapsedMs = undefined;
+  };
+  const finishRequest = (resultStage: string) => {
+    stage = resultStage;
+    progress.phase = 'result';
+    if (requestStartedAt !== undefined) {
+      rpcElapsedMs = boundedElapsedMs(requestStartedAt);
+    }
+  };
   try {
     const call = async () => {
       const { default: webembedApiProxy } =
         await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy');
       if (expired) return false;
+      startRequest('bridge-request');
       const result = await webembedApiProxy.test.test1(runId);
       if (expired) return false;
+      finishRequest('origin');
       const prefix = `${runId}: `;
-      stage = 'origin';
       if (!result.startsWith(prefix)) return false;
       const url = new URL(result.slice(prefix.length));
       fileBridge =
@@ -303,9 +352,10 @@ export async function runMobileLockdownWebEmbedReleaseCheck() {
         bridgeSource = 'bundled-scheme';
       }
       if (!bridgeSource) return false;
-      stage = 'intrinsics';
+      startRequest('intrinsics-request');
       const state = await webembedApiProxy.test.getRuntimeSecurityState();
       if (expired) return false;
+      finishRequest('intrinsics');
       intrinsics =
         state.hardenType === 'function' &&
         state.objectFrozen &&
@@ -325,7 +375,7 @@ export async function runMobileLockdownWebEmbedReleaseCheck() {
         'kaspa:qz6ey0j433zey0txecm7e4as4q44jnafqxtclxj5xfl3559lft0p78rdmumy9';
       let previous: (string | number)[] | undefined;
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        stage = 'kaspa-commit';
+        startRequest('kaspa-commit-request');
         const commitResult = await api.buildCommitTxInfo({
           accountAddress,
           transferDataString:
@@ -333,8 +383,9 @@ export async function runMobileLockdownWebEmbedReleaseCheck() {
           isTestnet: false,
         });
         if (expired) return false;
+        finishRequest('kaspa-commit-result');
         const commit = readPublicKaspaCommit(commitResult);
-        stage = 'kaspa-reveal';
+        startRequest('kaspa-reveal-request');
         const reveal = await api.createKRC20RevealTxJSON({
           accountAddress,
           isTestnet: false,
@@ -359,15 +410,16 @@ export async function runMobileLockdownWebEmbedReleaseCheck() {
           },
         });
         if (expired) return false;
+        finishRequest('kaspa-reveal-result');
         requirePublicKaspaResult(
           typeof reveal === 'string' && reveal.length > 0,
         );
         stage = 'kaspa-raw-unsigned';
         const raw = readPublicKaspaReveal(reveal, commit.commitScriptPubKey);
-        stage = 'kaspa-deserialize';
+        startRequest('kaspa-deserialize-request');
         const transaction: unknown = await api.deserializeFromSafeJSON(reveal);
         if (expired) return false;
-        stage = 'kaspa-unsigned';
+        finishRequest('kaspa-unsigned');
         const comparable = [
           commit.commitAddress,
           commit.commitScriptHex,
@@ -392,18 +444,25 @@ export async function runMobileLockdownWebEmbedReleaseCheck() {
       new Promise<false>((resolve) => {
         timeout = setTimeout(() => {
           expired = true;
+          failure = 'total-deadline';
           resolve(false);
         }, 60_000);
       }),
     ]);
-  } catch {
-    // Never include bridge error payloads or the native file path in diagnostics.
+  } catch (error) {
+    // Requests and validation used to share a stage, hiding whether the page
+    // replied. Keep only fixed classifications and bounded local durations.
+    if (progress.phase === 'request') failure = classifyRequestFailure(error);
+    else if (progress.phase === 'load') failure = 'unknown';
   } finally {
     expired = true;
     if (timeout !== undefined) clearTimeout(timeout);
   }
+  if (progress.phase === 'request' && requestStartedAt !== undefined) {
+    rpcElapsedMs = boundedElapsedMs(requestStartedAt);
+  }
   writeMobileLockdownE2EReport(
-    `[MobileLockdownWebEmbedE2E] ${JSON.stringify({ runId, runtime: 'background', status: passed ? 'passed' : 'failed', fileBridge, bridgeSource, intrinsics, kaspaUnsigned, kaspaRuns, ...(!passed ? { stage } : {}) })}`,
+    `[MobileLockdownWebEmbedE2E] ${JSON.stringify({ runId, runtime: 'background', status: passed ? 'passed' : 'failed', fileBridge, bridgeSource, intrinsics, kaspaUnsigned, kaspaRuns, ...(!passed ? { stage, failure, elapsedMs: boundedElapsedMs(startedAt), rpcElapsedMs } : {}) })}`,
     !passed,
   );
 }

@@ -268,7 +268,7 @@
         "fs": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": {
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js": {
       "builtins": {
         "electron.ipcMain.handle": true,
         "electron.ipcMain.removeHandler": true,

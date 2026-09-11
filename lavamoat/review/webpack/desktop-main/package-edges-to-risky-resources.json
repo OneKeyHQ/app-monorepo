@@ -201,10 +201,10 @@
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
   },
-  "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-985e2bf3.js": {
-    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": true
+  "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-474dbbae.js": {
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js": true
   },
-  "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js": {
+  "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js": {
     "electron-log": true
   },
   "external:../../node_modules/memoizee/ext/async.js": {
