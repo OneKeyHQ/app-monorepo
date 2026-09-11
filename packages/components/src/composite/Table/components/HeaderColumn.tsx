@@ -138,6 +138,9 @@ function HeaderColumn<T>({
     titleContent = titleTooltip ? (
       <Tooltip
         placement="top"
+        // Interactive mode for its hover-intent delay: sweeping the pointer
+        // along the header row must not flash each column's tooltip.
+        hovering
         // The trigger consumes the press, so it performs the sort itself
         // rather than leaving the click to bubble to the column.
         onPress={handleColumnPress}

@@ -389,6 +389,7 @@ function StockPriceHeader({
           ) : (
             <MarketTooltipLabel
               testID="stock-price-tooltip-trigger"
+              hovering
               // The row baseline-aligns this figure with the change beside it.
               alignSelf="baseline"
               tooltip={intl.formatMessage({

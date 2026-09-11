@@ -272,6 +272,8 @@ export function StockTokenInfoPopover({ label }: { label: ReactNode }) {
         // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
         <Tooltip
           placement="top"
+          // Interactive mode for its hover-intent delay, not for interactive content.
+          hovering
           renderContent={
             <SizableText size="$bodySm">
               {intl.formatMessage({
