@@ -51,7 +51,6 @@ describe('KeyringHardwareTrezor.prepareAccounts', () => {
                 btcGetMasterFingerprint,
               },
             }),
-            requestTrezorBleConnectIdForDevice: jest.fn(),
           },
         },
         getVaultSettings: jest.fn().mockResolvedValue({

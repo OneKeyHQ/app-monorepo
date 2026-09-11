@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { SolanaOffChainMessageVersion } from '@onekeyfe/hd-transport';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -304,7 +303,6 @@ export class KeyringHardware extends KeyringHardwareBase {
                   message: payload.message,
                   messagePayload,
                 }),
-                messageVersion: SolanaOffChainMessageVersion.MESSAGE_VERSION_1,
               },
             );
 

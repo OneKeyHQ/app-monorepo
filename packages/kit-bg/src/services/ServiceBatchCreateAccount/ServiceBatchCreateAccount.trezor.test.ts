@@ -176,12 +176,9 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
         },
       ],
     });
-    const requestTrezorBleConnectIdForDevice = jest.fn(async () => 'BLE_ID');
     const service = new ServiceBatchCreateAccount({
       backgroundApi: {
-        serviceThirdPartyHardware: {
-          requestTrezorBleConnectIdForDevice,
-        },
+        serviceThirdPartyHardware: {},
       },
     });
 
@@ -222,7 +219,6 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
     expect(allNetworkGetAddress).toHaveBeenCalledTimes(1);
     expect(allNetworkGetAddress.mock.calls[0][0]).toBe('USB_CONNECT_ID');
     expect(allNetworkGetAddress.mock.calls[0][1]).toBe(dbDevice.deviceId);
-    expect(requestTrezorBleConnectIdForDevice).not.toHaveBeenCalled();
   });
 
   it('uses an interaction id directly and never enters transport fallback', async () => {
@@ -236,12 +232,9 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
       success: true,
       payload: [],
     });
-    const requestTrezorBleConnectIdForDevice = jest.fn();
     const service = new ServiceBatchCreateAccount({
       backgroundApi: {
-        serviceThirdPartyHardware: {
-          requestTrezorBleConnectIdForDevice,
-        },
+        serviceThirdPartyHardware: {},
       },
     });
 
@@ -275,7 +268,6 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
         interactionId: 'hwk-trezor-interaction',
       }),
     );
-    expect(requestTrezorBleConnectIdForDevice).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(
@@ -456,7 +448,7 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
       );
       expect(getChainFingerprint).toHaveBeenCalledWith(
         interactionId,
-        '',
+        'stored-evm',
         'evm',
       );
       expect(releaseInteraction).toHaveBeenCalledWith(interactionId);

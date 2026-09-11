@@ -1,5 +1,4 @@
 import {
-  DEVICE,
   EConnectorInteraction,
   HardwareErrorCode,
   failure,
@@ -7,9 +6,6 @@ import {
 } from '@onekeyfe/hwk-adapter-core';
 import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 
-import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
-import { matchesVerifiedDeviceIdentity } from '@onekeyhq/kit-bg/src/dbs/local/verifiedDeviceIdentity';
-import type { IVerifiedDeviceIdentity } from '@onekeyhq/kit-bg/src/dbs/local/verifiedDeviceIdentity';
 import {
   EThirdPartyHardwareUiAction,
   thirdPartyAppInstallAtom,
@@ -20,6 +16,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { BaseAdapter } from './BaseAdapter';
+import { registerBleBindingUi } from './registerBleBindingUi';
 
 import type {
   DeviceInfo,
@@ -55,6 +52,7 @@ export class LedgerAdapter
   readonly supportsAllNetworkGetAddress = true;
 
   readonly hw: IHardwareWallet;
+  readonly cancelBleBinding: (bindingSessionId: string) => void;
 
   private readonly appInstallProgressLogState = new Map<
     string,
@@ -63,62 +61,12 @@ export class LedgerAdapter
 
   private activeInteractionId: string | undefined;
 
-  private readonly verifiedBleBindingWrites = new Map<string, Promise<void>>();
-
   constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
-
-    this.hw.on(DEVICE.LEDGER_CONNECTION_VERIFIED, (event) => {
-      const { connectId, chain, fingerprint, extra, selectionRequestId } =
-        event.payload;
-      // Multiple wallet/device records may share a physical Ledger. Bind only
-      // the originating record, never all records with this locator or fingerprint.
-      const dbDeviceId = extra?.dbDeviceId;
-      if (!dbDeviceId || !selectionRequestId || !connectId) return;
-      // Normalize the current SDK event at the adapter boundary. Persistence
-      // accepts identity proofs, not Ledger-specific chain/fingerprint fields.
-      const verifiedDeviceIdentity: IVerifiedDeviceIdentity = {
-        vendor: this.vendor,
-        identity: { type: 'chainFingerprint', chain, value: fingerprint },
-      };
-      const previous =
-        this.verifiedBleBindingWrites.get(dbDeviceId) ?? Promise.resolve();
-      const write = previous
-        .then(async () => {
-          const device = await localDb.getDevice(dbDeviceId);
-          if (
-            !device ||
-            device.id !== dbDeviceId ||
-            !matchesVerifiedDeviceIdentity(
-              {
-                vendor: device.vendor,
-                deviceId: device.deviceId,
-                connectId: device.connectId,
-                chainFingerprints: device.settings?.chainFingerprints,
-              },
-              verifiedDeviceIdentity,
-            )
-          )
-            return;
-          await localDb.updateDeviceConnectId({
-            dbDeviceId: device.id,
-            connectId,
-            bleConnectId: connectId,
-            verifiedDeviceIdentity,
-          });
-        })
-        .catch(() => {
-          defaultLogger.hardware.sdkLog.log(
-            '[3rdPartyHW][Ledger] verified BLE binding persistence failed',
-          );
-        });
-      this.verifiedBleBindingWrites.set(dbDeviceId, write);
-      void write.finally(() => {
-        if (this.verifiedBleBindingWrites.get(dbDeviceId) === write) {
-          this.verifiedBleBindingWrites.delete(dbDeviceId);
-        }
-      });
+    this.cancelBleBinding = registerBleBindingUi({
+      hw: this.hw,
+      vendor: this.vendor,
     });
 
     this.hw.on('ui-event', (event) => {
@@ -222,6 +170,7 @@ export class LedgerAdapter
     });
 
     this.hw.on(UI_REQUEST.REQUEST_SELECT_DEVICE, (event) => {
+      if (event.payload.scanning) return;
       const deviceSearchTargets = event.payload.devices.map((device) => ({
         searchTargetId: device.connectId,
         searchTargetReusePolicy: resolveSearchTargetReusePolicy(device),

@@ -7,44 +7,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-export function createTrezorBleBindingDialogCallbacks({
-  promiseId,
-  dialogInstanceRef,
-  settledRef,
-  resolveCallback,
-  clearState,
-}: {
-  promiseId: number;
-  dialogInstanceRef: { current: unknown | null };
-  settledRef: { current: boolean };
-  resolveCallback: (params: {
-    id: number;
-    data: string | null;
-  }) => Promise<void>;
-  clearState: () => Promise<void>;
-}) {
-  return {
-    onBound: (connectId: string) => {
-      settledRef.current = true;
-      void resolveCallback({
-        id: promiseId,
-        data: connectId,
-      });
-      void clearState();
-    },
-    onClose: async () => {
-      dialogInstanceRef.current = null;
-      if (!settledRef.current) {
-        await resolveCallback({
-          id: promiseId,
-          data: null,
-        });
-      }
-      await clearState();
-    },
-  };
-}
-
 export function createThirdPartyDeviceSelectionDialogCallbacks({
   vendor,
   requestId,
