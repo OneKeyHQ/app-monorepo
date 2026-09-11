@@ -19,7 +19,6 @@ import type {
 
 import {
   buildMarketTradingViewBootstrap,
-  isSameMarketTradingViewBootstrap,
   normalizeChartTokenAddress,
 } from '../utils/marketTradingViewBootstrap';
 import { resolveIsStockToken } from '../utils/resolveIsStockToken';
@@ -112,13 +111,7 @@ export function useMarketTradingViewParams({
       identity: chartIdentity,
       value: nextChartBootstrap,
     };
-  } else if (
-    nextChartBootstrap &&
-    !isSameMarketTradingViewBootstrap(
-      chartBootstrapRef.current.value,
-      nextChartBootstrap,
-    )
-  ) {
+  } else if (!chartBootstrapRef.current.value && nextChartBootstrap) {
     chartBootstrapRef.current.value = nextChartBootstrap;
   }
 

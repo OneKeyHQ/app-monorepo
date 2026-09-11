@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -116,6 +117,7 @@ export function DesktopLayout({
   });
 
   const isFocused = useIsFirstFocus();
+  const isRouteFocused = useIsFocused();
 
   const containerProps = useMemo(
     () => ({
@@ -140,6 +142,29 @@ export function DesktopLayout({
 
   const { activeTabName, setActiveTabName, tabsRef } =
     useSyncedMarketTab(selectedTabName);
+  useFocusEffect(
+    useCallback(() => {
+      const restore = tabsRef.current?.restoreScrollPosition;
+      const frameIds: number[] = [];
+      const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+      const scheduleRestore = (delay: number) => {
+        timeoutIds.push(
+          setTimeout(() => {
+            frameIds.push(requestAnimationFrame(() => restore?.()));
+          }, delay),
+        );
+      };
+      scheduleRestore(0);
+      scheduleRestore(100);
+      scheduleRestore(300);
+      scheduleRestore(800);
+      scheduleRestore(1500);
+      return () => {
+        frameIds.forEach((frameId) => cancelAnimationFrame(frameId));
+        timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
+      };
+    }, [tabsRef]),
+  );
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
@@ -494,6 +519,7 @@ export function DesktopLayout({
           ref={tabsRef as any}
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}
+          isRouteFocused={isRouteFocused}
           onTabChange={onTabChangeHandler}
           {...containerProps}
         >

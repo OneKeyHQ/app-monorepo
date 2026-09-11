@@ -200,24 +200,11 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   // Clear cached token detail when switching token or display currency.
   // This prevents showing stale data from the previous price scope.
   useEffect(() => {
-    const prevToken = prevTokenRef.current;
-    const isTokenChanged =
-      prevToken &&
-      (prevToken.tokenAddress !== data.tokenAddress ||
-        prevToken.networkId !== data.networkId ||
-        prevToken.currencyId !== currencyInfo.id ||
-        prevToken.marketTokenId !== data.marketTokenId ||
-        prevToken.marketVariantId !== data.marketVariantId);
-
-    if (isTokenChanged) {
-      // Only clear display-related atoms when switching tokens.
-      // Do NOT call clearTokenDetail() here — it resets tokenAddressAtom
-      // and networkIdAtom to '', which races with changeActiveToken's
-      // in-flight fetch and causes its stale check to discard the result.
-      tokenDetailActions.setTokenDetail(undefined);
-      tokenDetailActions.setTokenDetailWebsocket(undefined);
-      tokenDetailActions.setPerpsInfo(undefined);
-    }
+    // Keep the previous detail snapshot while the new identity is fetching.
+    // Clearing these atoms creates an intermediate empty render, then the
+    // response creates a second render and makes the whole detail page flash.
+    // Request-key guards below prevent the previous request from updating the
+    // current identity.
 
     // Update ref for next comparison
     prevTokenRef.current = {

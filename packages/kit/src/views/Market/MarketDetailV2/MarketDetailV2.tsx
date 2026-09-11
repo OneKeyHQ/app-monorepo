@@ -256,7 +256,8 @@ function MarketDetail({
             isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
-              isTokenVariantPending || isInitialTokenDetailPending
+              isTokenVariantPending ||
+              (isInitialTokenDetailPending && !resolvedTokenDetailPreview)
             }
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}

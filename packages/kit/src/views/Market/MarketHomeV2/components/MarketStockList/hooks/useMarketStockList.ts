@@ -97,7 +97,10 @@ export function useMarketStockList({ category }: { category?: string }) {
       swrKey,
       swrShouldPersist: (data) => Boolean(data.response && !data.failed),
       watchLoading: true,
-      revalidateOnFocus: true,
+      // Desktop stock lists stay mounted while detail routes are pushed. A
+      // focus revalidation replaces the paginated first page and collapses
+      // the shared scroll container on return from detail.
+      revalidateOnFocus: platformEnv.isNative,
       revalidateOnReconnect: true,
     },
   );

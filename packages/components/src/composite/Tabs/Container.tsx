@@ -186,6 +186,7 @@ export interface ITabContainerRef {
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
   syncCurrentPage: () => void;
+  restoreScrollPosition?: () => void;
 }
 
 export interface ITabContainerProps {
@@ -214,6 +215,7 @@ export interface ITabContainerProps {
    * containers with dynamic content or header heights.
    */
   disableWebTabContentVisibility?: boolean;
+  isRouteFocused?: boolean;
   /** Only used on native Android, ignored on web */
   useNativeHeaderAnimation?: boolean;
   /**
@@ -239,12 +241,14 @@ export function Container({
   initialTabName,
   disableScroll,
   disableWebTabContentVisibility = false,
+  isRouteFocused = true,
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<
     ITabContainerProps,
     | 'disableScroll'
     | 'disableWebTabContentVisibility'
+    | 'isRouteFocused'
     | 'useNativeHeaderAnimation'
     | 'tabPressAnimationEnabled'
     | 'renderSubHeader'
@@ -373,6 +377,14 @@ export function Container({
 
   const [scrollElement, setScrollElement] = useState<Element | null>(null);
   const isSwitchingTabRef = useRef(false);
+  const routeScrollSnapshotRef = useRef<Record<string, number>>({});
+
+  const restoreScrollPosition = useCallback(() => {
+    const element = scrollElement as HTMLElement | null;
+    const savedScrollTop = scrollTopRef.current[focusedTab.value];
+    if (!element || typeof savedScrollTop !== 'number') return;
+    element.scrollTo({ top: savedScrollTop, behavior: 'instant' });
+  }, [focusedTab, scrollElement]);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const mutationObserverRef = useRef<MutationObserver | null>(null);
@@ -708,8 +720,9 @@ export function Container({
         );
       },
       syncCurrentPage: syncFocusedTabPosition,
+      restoreScrollPosition,
     }),
-    [focusedTab, onTabPress, syncFocusedTabPosition],
+    [focusedTab, onTabPress, restoreScrollPosition, syncFocusedTabPosition],
   );
 
   // Memoised args for renderHeader/renderTabBar. tabNames identity may
@@ -766,9 +779,15 @@ export function Container({
               if (!isEffectValid.current || !width) {
                 return null;
               }
-              if (!isSwitchingTabRef.current) {
-                scrollTopRef.current[focusedTab.value] =
-                  scrollElement.scrollTop;
+              if (!isSwitchingTabRef.current && isRouteFocused) {
+                const currentScrollTop = scrollElement.scrollTop;
+                const tabName = focusedTab.value;
+                if (
+                  currentScrollTop > 0 ||
+                  routeScrollSnapshotRef.current[tabName] === undefined
+                ) {
+                  scrollTopRef.current[focusedTab.value] = currentScrollTop;
+                }
               }
               return (
                 <ContainerChild
