@@ -504,14 +504,17 @@ export function StockTradePanelContent(props: IStockTradePanelContentProps) {
           resolvedVariantKeys={resolvedVariantKeys}
         />
         <XStack alignItems="center" justifyContent="flex-end" gap="$3">
-          <BaseMarketTokenPrice
-            price={currentMarketToken?.price || '--'}
-            tokenName={currentMarketToken?.name || ''}
-            tokenSymbol={currentMarketToken?.symbol || ''}
-            currency="$"
-            size="$bodyLgMedium"
+          <StockTokenInfoPopover
+            label={
+              <BaseMarketTokenPrice
+                price={currentMarketToken?.price || '--'}
+                tokenName={currentMarketToken?.name || ''}
+                tokenSymbol={currentMarketToken?.symbol || ''}
+                currency="$"
+                size="$bodyLgMedium"
+              />
+            }
           />
-          <StockTokenInfoPopover />
         </XStack>
       </XStack>
 

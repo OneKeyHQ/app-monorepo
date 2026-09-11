@@ -30,12 +30,15 @@ interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
 }
 
-export type IMarketStockDetailNavigationTarget =
-  IMarketStockDetailPreview & {
-    tokenAddress?: string;
-    networkId?: string;
-    isNative?: boolean;
-  };
+export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview & {
+  tokenAddress?: string;
+  networkId?: string;
+  isNative?: boolean;
+};
+
+export type IMarketStockDetailNavigationInput =
+  | string
+  | IMarketStockDetailNavigationTarget;
 
 export function useToMarketStockDetailPage(
   options?: IUseToMarketStockDetailPageOptions,
@@ -49,7 +52,7 @@ export function useToMarketStockDetailPage(
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   return useCallback(
-    async (stock: string | IMarketStockDetailNavigationTarget) => {
+    async (stock: IMarketStockDetailNavigationInput) => {
       const stockId = typeof stock === 'string' ? stock : stock.stockId;
       const stockPreview = typeof stock === 'string' ? undefined : stock;
       const stockTokenParams =
