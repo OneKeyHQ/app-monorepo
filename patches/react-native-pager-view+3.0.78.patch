@@ -1,0 +1,29 @@
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
+index d8cded7..cbcb371 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/ViewPagerAdapter.kt
+@@ -93,13 +93,21 @@ class ViewPagerAdapter() : Adapter<ViewPagerViewHolder>() {
+       handler.post { removeAll() }
+       return
+     }
++    val removedChildrenCount = childrenViews.size
++    if (removedChildrenCount == 0) {
++      return
++    }
+     for (index in 1..childrenViews.size) {
+       val child = childrenViews[index-1]
+-      if (child.parent?.parent != null) {
+-        (child.parent.parent as ViewGroup).removeView(child.parent as View)
++      // OneKey patch: RecyclerView must own holder container removal during recycle.
++      // if (child.parent?.parent != null) {
++      //   (child.parent.parent as ViewGroup).removeView(child.parent as View)
++      // }
++      val parent = child.parent
++      if (parent is ViewGroup) {
++        parent.removeView(child)
+       }
+     }
+-    val removedChildrenCount = childrenViews.size
+     childrenViews.clear()
+     notifyItemRangeRemoved(0, removedChildrenCount)
+   }
