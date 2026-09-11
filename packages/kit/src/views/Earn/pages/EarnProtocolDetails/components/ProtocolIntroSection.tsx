@@ -1613,6 +1613,10 @@ function ProtocolIntroSectionComponent({
         },
         showCancelButton: false,
         disableDrag: platformEnv.isRuntimeBrowser,
+        // These bodies scroll; only the grabber and the title drag the sheet
+        // away, so the list never fights the sheet for a vertical swipe
+        // (OK-61140).
+        sheetDragArea: 'header',
       });
     },
     [intl],
