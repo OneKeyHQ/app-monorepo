@@ -10,6 +10,14 @@ jest.mock('./lightweightChartsStandalone.text-js', () => {
   );
 });
 
+jest.mock('./formatChartPrice.text-js', () => {
+  const fs = jest.requireActual<typeof import('fs')>('fs');
+  return fs.readFileSync(
+    'packages/kit/src/components/LightweightChart/utils/formatChartPrice.text-js',
+    'utf8',
+  );
+});
+
 const { generateChartHTML } =
   jest.requireActual<typeof import('./htmlTemplate')>('./htmlTemplate');
 const { getLightweightChartsRuntimeScriptTag } = jest.requireActual<
@@ -291,6 +299,7 @@ it('embeds and selects compact prices in the native chart', () => {
     },
   });
   expect(html).toContain('"compactPriceMaxCharacters":7');
+  expect(html).not.toContain('[bytecode]');
   expect(html).toContain('"priceScaleMinimumWidth":88');
   const start = html.indexOf('var compactPriceFormatter =');
   const end = html.indexOf('function getNormalizedLineWidth', start);

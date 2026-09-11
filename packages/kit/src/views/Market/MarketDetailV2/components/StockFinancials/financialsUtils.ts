@@ -193,6 +193,10 @@ function getFinancialTickStep(value: number) {
 
 export function getFinancialPerformanceDomain(values: (number | null)[]) {
   const numbers = values.filter(isFinancialNumber);
+  // Keep the existing padded scale for very small datasets. With one or two
+  // points, a rounded four-step scale can make the top tick less useful than
+  // the original 10% breathing room.
+  if (numbers.length <= 2) return getFinancialDomain(values);
   const min = Math.min(0, ...numbers);
   const max = Math.max(0, ...numbers);
   let step = getFinancialTickStep((max - min || 1) / 4);

@@ -86,10 +86,10 @@ export function StockPriceLineChart({
   const { format } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
+  const maxPriceCharacters = chartWidth > 0 && chartWidth < 400 ? 7 : 8;
   const priceFormatter = useCallback(
-    (price: number) =>
-      formatChartPrice(price, chartWidth > 0 && chartWidth < 400 ? 7 : 8),
-    [chartWidth],
+    (price: number) => formatChartPrice(price, maxPriceCharacters),
+    [maxPriceCharacters],
   );
   const handleHover = useCallback(
     ({
@@ -243,7 +243,7 @@ export function StockPriceLineChart({
         priceScaleEntireTextOnly
         priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
         priceFormatter={priceFormatter}
-        compactPriceMaxCharacters={chartWidth > 0 && chartWidth < 400 ? 7 : 8}
+        compactPriceMaxCharacters={maxPriceCharacters}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}

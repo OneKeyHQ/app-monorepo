@@ -135,6 +135,10 @@ describe('stock financial chart data', () => {
       min: 20,
       max: 30,
     });
+    expect(getFinancialPerformanceDomain([100e9, 20e9])).toEqual({
+      min: 0,
+      max: 110e9,
+    });
   });
 
   it('keeps zero and constant percentage axes readable', () => {

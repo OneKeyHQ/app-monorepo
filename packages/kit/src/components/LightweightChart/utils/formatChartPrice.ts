@@ -17,24 +17,25 @@ export function formatChartPrice(price: number, maxCharacters = 8): string {
   const parts = value.toExponential().split('e');
   const digits = parts[0].replace('.', '');
   const exponent = Number(parts[1]) - (scale?.exponent ?? 0);
+  const decimalPosition = exponent + 1;
   let body: string;
-  if (value > 0 && !unit && exponent < -6) {
-    const zeros = String(-exponent - 1).replace(/[0-9]/g, (digit) =>
-      '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit)),
-    );
-    body = `0.0${zeros}${digits}`;
-  } else if (exponent < 0) {
-    body = `0.${'0'.repeat(-exponent - 1)}${digits}`;
+  if (decimalPosition <= 0) {
+    body = `0.${'0'.repeat(-decimalPosition)}${digits}`;
   } else {
-    const decimalPosition = exponent + 1;
     body =
       decimalPosition >= digits.length
         ? digits + '0'.repeat(decimalPosition - digits.length)
         : `${digits.slice(0, decimalPosition)}.${digits.slice(decimalPosition)}`;
   }
+  if (value > 0 && !unit && exponent < 0 && body.length > limit) {
+    const zeros = String(-exponent - 1).replace(/[0-9]/g, (digit) =>
+      '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit)),
+    );
+    body = `0.0${zeros}${digits}`;
+  }
   if (body.length <= limit) return `${prefix}${body}${unit}`;
   // Replace the last two amount positions with an ellipsis; keep currency and unit.
-  let end = limit - 2;
+  let end = Math.max(1, limit - 2);
   // A zero-count subscript is indivisible, including counts with multiple digits.
   while (/[₀₁₂₃₄₅₆₇₈₉]/.test(body.charAt(end))) end += 1;
   return `${prefix}${body.slice(0, end)}...${unit}`;

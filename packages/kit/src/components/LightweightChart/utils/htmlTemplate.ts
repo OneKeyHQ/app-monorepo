@@ -1,4 +1,4 @@
-import { formatChartPrice } from './formatChartPrice';
+import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
 
 import type { ILightweightChartConfig } from '../types';
@@ -15,7 +15,7 @@ function getStyles(): string {
 
 function getChartInitScript(): string {
   return `
-      var compactPriceFormatter = ${formatChartPrice.toString()};
+      var compactPriceFormatter = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
         if (nextConfig.compactPriceMaxCharacters) {
           return function(price) {
