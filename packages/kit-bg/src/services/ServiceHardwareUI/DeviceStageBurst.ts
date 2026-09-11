@@ -1628,8 +1628,9 @@ export class DeviceStageBurstScope {
    * not at the end of the call that painted it. The burst's own
    * bookkeeping is untouched — its end() still releases the layer, and
    * finds nothing left to take down; a later beat from the same burst
-   * (the device speaking again) repaints as usual. */
-  async silence() {
+   * (the device speaking again) repaints as usual. Reports whether a
+   * stage actually left, so the surface can let the exit play first. */
+  async silence(): Promise<boolean> {
     this.clearOffTimer();
     this.clearPendingOpen();
     this.dismissSeq += 1;
@@ -1641,7 +1642,20 @@ export class DeviceStageBurstScope {
     // by the burst's own end, a user close, a new burst, or the device
     // asking again (see onHardwareUiEvent).
     this.yieldedToDialog = true;
-    await this.forceOff({ force: true });
+    // A paint racing this yield — a straggler landing between forceOff's
+    // read and its write — bumps the claim and keeps its own stage up,
+    // right where the dialog is about to rise. The yield outranks it, so
+    // the exit runs again; only the device asking again (which lifts the
+    // yield, see onHardwareUiEvent) may keep the stage.
+    let left = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const claim = this.claimSeq;
+      left = (await this.forceOff({ force: true })) || left;
+      if (claim === this.claimSeq || !this.yieldedToDialog) {
+        break;
+      }
+    }
+    return left;
   }
 
   /** A flow abandoned before any burst began — the checking beat a connect
@@ -1737,7 +1751,9 @@ export class DeviceStageBurstScope {
     }, delayMs);
   }
 
-  private async forceOff(options: { force?: boolean } = {}) {
+  /** Writes the off; false when nothing was on stage to take down (or a
+   * newer claim, an outcome, or a live burst kept it). */
+  private async forceOff(options: { force?: boolean } = {}): Promise<boolean> {
     const claim = this.claimSeq;
     const prev = await deviceStageAtom.get();
     // Re-checked after the await: a burst that claimed the stage while
@@ -1747,10 +1763,10 @@ export class DeviceStageBurstScope {
     // painted while its device call ran on without a PIN or confirm
     // surface.
     if (claim !== this.claimSeq || (!options.force && this.depth > 0)) {
-      return;
+      return false;
     }
     if (!prev || prev.step === 'off') {
-      return;
+      return false;
     }
     // An error outcome owns its own exit: the notice form leaves through
     // onClose after its readable hold, the ask form waits for the person.
@@ -1761,7 +1777,7 @@ export class DeviceStageBurstScope {
       (prev.step === 'error' || prev.step === 'deviceNotFound') &&
       !options.force
     ) {
-      return;
+      return false;
     }
     await deviceStageAtom.set({
       burstId: prev.burstId,
@@ -1777,6 +1793,7 @@ export class DeviceStageBurstScope {
     // Every exit announces itself: a flow awaiting a card's answer must
     // stop waiting on a card that is gone, whichever route took it.
     appEventBus.emit(EAppEventBusNames.DeviceStageOff, undefined);
+    return true;
   }
 
   private async setStep(

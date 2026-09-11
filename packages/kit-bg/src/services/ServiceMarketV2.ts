@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -379,6 +380,11 @@ class ServiceMarketV2 extends ServiceBase {
       timeFrame,
     });
     if (options?.forceRemote) {
+      if (platformEnv.isNativeAndroid) {
+        // Android background can retain a rejected promise across network recovery.
+        // Invalidate only this query so later polling cannot reuse that failure.
+        void this.memoizedFetchMarketTokenList.delete(normalizedParams);
+      }
       return this._fetchMarketTokenListFromApi(normalizedParams);
     }
     return this.memoizedFetchMarketTokenList(normalizedParams);
@@ -1068,7 +1074,7 @@ class ServiceMarketV2 extends ServiceBase {
       return data.data;
     },
     {
-      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
       promise: true,
     },
   );
