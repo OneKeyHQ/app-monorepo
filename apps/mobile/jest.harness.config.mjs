@@ -62,6 +62,8 @@ export default {
     'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/MarketSwapReviewDialog\\.test\\.tsx',
     'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/MarketSwapReviewInitializer\\.test\\.tsx',
     'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/StockTradePanelContent\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketDetailV2/components/MarketDetailEmbeddedSwap\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage\\.test\\.tsx',
     'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapReviewActions\\.test\\.tsx',
     'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapActions\\.test\\.tsx',
     'packages/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery\\.test\\.ts',

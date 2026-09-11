@@ -4,12 +4,18 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
   rootNavigationRef,
+  useIsModalPage,
   useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import {
+  EModalMarketRoutes,
+  type IModalMarketParamList,
+} from '@onekeyhq/kit/src/views/Market/router/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -47,6 +53,7 @@ export function useToMarketStockDetailPage(
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
+  const isModalPage = useIsModalPage();
   const media = useMedia();
   const preloadLayout =
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
@@ -113,7 +120,7 @@ export function useToMarketStockDetailPage(
       }
 
       if (options?.replaceCurrentDetail) {
-        navigation.replace(ETabMarketRoutes.MarketStockDetail, {
+        const stockDetailParams = {
           stockId,
           ...stockTokenParams,
           ...(stockPreview
@@ -123,7 +130,17 @@ export function useToMarketStockDetailPage(
                 stockPreviewLogoUrl: stockPreview.logoUrl,
               }
             : undefined),
-        });
+        };
+        if (isModalPage) {
+          (
+            navigation as unknown as IModalNavigationProp<IModalMarketParamList>
+          ).replace(EModalMarketRoutes.MarketDetailV2, stockDetailParams);
+        } else {
+          navigation.replace(
+            ETabMarketRoutes.MarketStockDetail,
+            stockDetailParams,
+          );
+        }
         return;
       }
 
@@ -147,6 +164,7 @@ export function useToMarketStockDetailPage(
     },
     [
       navigation,
+      isModalPage,
       options?.replaceCurrentDetail,
       preloadLayout,
       splitViewType,

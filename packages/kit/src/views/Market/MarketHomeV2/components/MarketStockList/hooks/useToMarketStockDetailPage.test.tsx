@@ -12,6 +12,7 @@ import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/util
 import { useToMarketStockDetailPage } from './useToMarketStockDetailPage';
 
 const mockReplace = jest.fn();
+let mockIsModalPage = false;
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ replace: mockReplace }),
@@ -33,6 +34,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/components', () => ({
   ESplitViewType: { UNKNOWN: 'UNKNOWN' },
   rootNavigationRef: { current: { navigate: jest.fn() } },
+  useIsModalPage: () => mockIsModalPage,
   useMedia: () => ({ gtLg: true }),
   useSplitViewType: () => 'UNKNOWN',
 }));
@@ -88,6 +90,7 @@ describe('useToMarketStockDetailPage', () => {
     jest.clearAllMocks();
     mockedPlatformEnv.isExtensionUiPopup = false;
     mockedPlatformEnv.isExtensionUiSidePanel = false;
+    mockIsModalPage = false;
   });
 
   it('replaces the current detail while preserving the stock preview', async () => {
@@ -112,6 +115,27 @@ describe('useToMarketStockDetailPage', () => {
       },
     );
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('replaces the current market detail inside the market modal', async () => {
+    mockIsModalPage = true;
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+    await act(async () => {
+      await result.current({
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple',
+        logoUrl: 'aapl.png',
+      });
+    });
+    expect(mockReplace).toHaveBeenCalledWith('MarketDetailV2', {
+      stockId: 'AAPL',
+      stockPreviewSymbol: 'AAPL',
+      stockPreviewName: 'Apple',
+      stockPreviewLogoUrl: 'aapl.png',
+    });
   });
 
   it('preserves the selected stock preview in the detail route seed', async () => {
