@@ -10,6 +10,10 @@ import { ipcMessageKeys } from './config';
 
 import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
+import type {
+  ElectronBleConnectOptions,
+  ElectronBleScanOptions,
+} from '@onekeyfe/hwk-adapter-core';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 
 const DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS = 150_000;
@@ -377,11 +381,11 @@ const desktopApi = {
   // in main, and they can be swapped/multiplexed without touching this
   // renderer surface.
   thirdPartyBle: {
-    scan: (options?: { serviceUuids?: string[]; durationMs?: number }) =>
+    scan: (options?: ElectronBleScanOptions) =>
       ipcRenderer.invoke(TREZOR_BLE_CHANNELS.scan, options),
     stopScan: () => ipcRenderer.invoke(TREZOR_BLE_CHANNELS.stopScan),
-    connect: (id: string) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.connect, id),
+    connect: (id: string, options?: ElectronBleConnectOptions) =>
+      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.connect, id, options),
     disconnect: (id: string) =>
       ipcRenderer.invoke(TREZOR_BLE_CHANNELS.disconnect, id),
     subscribe: (id: string) =>

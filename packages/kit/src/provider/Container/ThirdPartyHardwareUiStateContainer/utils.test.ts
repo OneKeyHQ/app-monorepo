@@ -12,7 +12,6 @@ import {
   cancelThirdPartyHardwareUiRequest,
   clearThirdPartyHardwareUiStateIfCurrent,
   createThirdPartyDeviceSelectionDialogCallbacks,
-  createTrezorBleBindingDialogCallbacks,
 } from './utils';
 
 describe('ThirdPartyHardwareUiStateContainer utils', () => {
@@ -203,57 +202,6 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
 
     expect(cancel).not.toHaveBeenCalled();
     expect(clearState).toHaveBeenCalledTimes(1);
-  });
-
-  it('resolves a Trezor BLE binding once and clears UI state', async () => {
-    const resolveCallback = jest.fn(async () => undefined);
-    const clearState = jest.fn(async () => undefined);
-    const dialogInstanceRef = { current: {} };
-    const settledRef = { current: false };
-
-    const callbacks = createTrezorBleBindingDialogCallbacks({
-      promiseId: 123,
-      dialogInstanceRef,
-      settledRef,
-      resolveCallback,
-      clearState,
-    });
-
-    callbacks.onBound('BLE_CONNECT_ID');
-    await callbacks.onClose();
-
-    expect(resolveCallback).toHaveBeenCalledTimes(1);
-    expect(resolveCallback).toHaveBeenCalledWith({
-      id: 123,
-      data: 'BLE_CONNECT_ID',
-    });
-    expect(clearState).toHaveBeenCalledTimes(2);
-    expect(dialogInstanceRef.current).toBeNull();
-  });
-
-  it('resolves null when the Trezor BLE binding dialog is closed before binding', async () => {
-    const resolveCallback = jest.fn(async () => undefined);
-    const clearState = jest.fn(async () => undefined);
-    const dialogInstanceRef = { current: {} };
-    const settledRef = { current: false };
-
-    const callbacks = createTrezorBleBindingDialogCallbacks({
-      promiseId: 123,
-      dialogInstanceRef,
-      settledRef,
-      resolveCallback,
-      clearState,
-    });
-
-    await callbacks.onClose();
-
-    expect(resolveCallback).toHaveBeenCalledTimes(1);
-    expect(resolveCallback).toHaveBeenCalledWith({
-      id: 123,
-      data: null,
-    });
-    expect(clearState).toHaveBeenCalledTimes(1);
-    expect(dialogInstanceRef.current).toBeNull();
   });
 
   it('returns an SDK target once for operation-first device selection', async () => {

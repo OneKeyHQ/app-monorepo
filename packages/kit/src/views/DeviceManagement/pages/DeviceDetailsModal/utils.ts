@@ -1,24 +1,10 @@
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
-import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { EDeviceType } from '@onekeyfe/hd-shared';
-
-type IDeviceConnectionInfo = {
-  vendor?: EHardwareVendor;
-  connectId?: string;
-  deviceId?: string;
-  bleConnectId?: string;
-  settings?: {
-    vendorModel?: string;
-    vendorModelName?: string;
-  };
-  settingsRaw?: string;
-};
 
 export const TREZOR_AUTO_LOCK_OPTIONS = [
   { minute: 1 },
@@ -105,25 +91,4 @@ export async function syncRelevantDeviceStateEvent<T>({
     await refresh();
   }
   return applied;
-}
-
-export function canShowTrezorBleBinding(
-  device: IDeviceConnectionInfo | undefined,
-  platform: {
-    isDesktop?: boolean;
-    isSupportDesktopBle?: boolean;
-  } = platformEnv,
-) {
-  // Stay visible even after a bleConnectId is bound: a stored BLE connectId can
-  // go stale (device wiped/re-flashed → new peripheral id, or OS bond dropped),
-  // and the signing-time fallback has no path to re-bind an already-bound
-  // device. Keeping this entry lets the user re-pick and overwrite the stale
-  // connectId instead of getting stuck on repeated reconnect failures.
-  return (
-    thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platform) &&
-    device?.vendor === EHardwareVendor.trezor &&
-    Boolean(device.connectId) &&
-    Boolean(device.deviceId) &&
-    thirdPartyDeviceUtils.isTrezorBleSupportedDevice(device)
-  );
 }

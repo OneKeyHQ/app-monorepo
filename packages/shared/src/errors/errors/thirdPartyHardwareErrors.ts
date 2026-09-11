@@ -25,9 +25,10 @@ export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
   ThirdPartyHwErrorCode.PinMismatch;
 // Literal until the SDK bump lands: HardwareErrorCode.BlePairingCancelled.
 export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE = 10_310;
-// Literals until the SDK bump lands: HardwareErrorCode.InteractionNotFound/InteractionEnded.
-export const THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE = 10_112;
-export const THIRD_PARTY_HW_INTERACTION_ENDED_CODE = 10_113;
+export const THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE =
+  ThirdPartyHwErrorCode.InteractionNotFound;
+export const THIRD_PARTY_HW_INTERACTION_ENDED_CODE =
+  ThirdPartyHwErrorCode.InteractionEnded;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors

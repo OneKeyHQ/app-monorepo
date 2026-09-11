@@ -48,6 +48,11 @@ export type IThirdPartyHardwareSearchOptions = {
   transportType?: 'usb' | 'ble' | 'qr';
 };
 
+/** Transport metadata attached to SDK discovery results for UI consumers. */
+export type IThirdPartyHardwareSearchDeviceRaw = {
+  connectionType?: 'usb' | 'ble' | 'qr';
+};
+
 export type IThirdPartyConnectedDevicePayload = {
   /** Runtime-only lifecycle id. It must never be written to the Device table. */
   interactionId: string;
@@ -126,6 +131,7 @@ export interface IThirdPartyHardwareAdapter {
   ): () => void;
   uiResponse(response: IAdapterUiResponse): void;
   cancel(connectId?: string): void;
+  cancelBleBinding?(bindingSessionId: string): void;
 
   searchDevices(
     options?: IThirdPartyHardwareSearchOptions,

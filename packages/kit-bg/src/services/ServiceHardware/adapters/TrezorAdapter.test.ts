@@ -40,6 +40,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   jest
     .spyOn(actual.thirdPartyHardwareUiStateAtom, 'set')
     .mockResolvedValue(undefined);
+  jest
+    .spyOn(actual.thirdPartyBleBindingAtom, 'set')
+    .mockResolvedValue(undefined);
   return actual;
 });
 
@@ -105,42 +108,67 @@ describe('TrezorAdapter', () => {
     expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
   });
 
-  it('persists a BLE binding only from the SDK identity-verified event', async () => {
-    const listeners = new Map<string, (event: unknown) => void>();
+  /** Drive every listener the adapter registered for one SDK event. */
+  function createBindingHw() {
+    const listeners: [string, (event: unknown) => void][] = [];
     const hw = {
-      on: jest.fn((name: string, listener: (event: unknown) => void) =>
-        listeners.set(name, listener),
-      ),
-    } as unknown as IHardwareWallet;
-    const adapter = new TrezorAdapter(hw);
-    jest.spyOn(adapter, 'flushThpCredentials').mockResolvedValue(undefined);
-    mockedLocalDb.getDevice.mockResolvedValue({
-      id: 'db-device',
-      deviceId: 'expected-device',
-      vendor: 'trezor',
-    } as IDBDevice);
-    listeners.get(DEVICE.TREZOR_CONNECTION_VERIFIED)?.({
-      payload: {
-        deviceId: 'expected-device',
-        connectId: 'verified-ble',
-        connectionType: 'ble',
-        extra: { dbDeviceId: 'db-device' },
-        selectionRequestId: 'selection-request',
-      },
+      on: jest.fn((name: string, listener: (event: unknown) => void) => {
+        listeners.push([name, listener]);
+      }),
+      uiResponse: jest.fn(),
+      cancel: jest.fn(),
+    };
+    const emit = (name: string, payload: unknown) => {
+      listeners
+        .filter(([registered]) => registered === name)
+        .forEach(([, listener]) => listener({ type: name, payload }));
+    };
+    return {
+      hw: hw as unknown as IHardwareWallet,
+      emit,
+      uiResponse: hw.uiResponse,
+    };
+  }
+
+  const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+  async function requestBinding({
+    emit,
+    identityVendor = 'trezor',
+    selectionRequestId = 'request-1',
+    extra,
+  }: {
+    emit: (name: string, payload: unknown) => void;
+    identityVendor?: string;
+    selectionRequestId?: string;
+    extra?: Record<string, string>;
+  }) {
+    emit(UI_REQUEST.REQUEST_SELECT_DEVICE, {
+      requestId: 'request-1',
+      bindingSessionId: 'session-1',
+      scanning: true,
+      context: { kind: 'bind-connection', transport: 'ble' },
+      devices: [],
     });
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    expect(
-      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
-    ).toEqual([
-      [
-        {
-          dbDeviceId: 'db-device',
-          bleConnectId: 'verified-ble',
-          verifiedDeviceId: 'expected-device',
-        },
-      ],
-    ]);
-  });
+    await flush();
+    emit(UI_REQUEST.DEVICE_BINDING_STATUS, {
+      selectionRequestId: 'request-1',
+      status: 'verifying',
+    });
+    await flush();
+    emit(UI_REQUEST.REQUEST_SAVE_DEVICE_BINDING, {
+      requestId: 'save-1',
+      selectionRequestId,
+      connection: { transport: 'ble', connectId: 'new-ble' },
+      identity: {
+        vendor: identityVendor,
+        type: 'deviceId',
+        value: 'expected-device',
+      },
+      extra,
+    });
+    await flush();
+  }
 
   it.each([
     'missing-extra',
@@ -149,12 +177,8 @@ describe('TrezorAdapter', () => {
     'wrong-identity',
     'wrong-vendor',
   ])('does not persist an unqualified binding (%s)', async (scenario) => {
-    const listeners = new Map<string, (event: unknown) => void>();
-    const adapter = new TrezorAdapter({
-      on: jest.fn((name: string, listener: (event: unknown) => void) =>
-        listeners.set(name, listener),
-      ),
-    } as unknown as IHardwareWallet);
+    const { hw, emit, uiResponse } = createBindingHw();
+    const adapter = new TrezorAdapter(hw);
     jest.spyOn(adapter, 'flushThpCredentials').mockResolvedValue(undefined);
     mockedLocalDb.getDevice.mockResolvedValue({
       id: scenario === 'wrong-record' ? 'another-record' : 'db-device',
@@ -162,26 +186,69 @@ describe('TrezorAdapter', () => {
       deviceId:
         scenario === 'wrong-identity' ? 'another-device' : 'expected-device',
     } as IDBDevice);
-    listeners.get(DEVICE.TREZOR_CONNECTION_VERIFIED)?.({
-      payload: {
-        deviceId: 'expected-device',
-        connectId: 'new-ble',
-        connectionType: 'ble',
-        extra:
-          scenario === 'missing-extra'
-            ? undefined
-            : { dbDeviceId: 'db-device' },
-        selectionRequestId:
-          scenario === 'missing-request' ? undefined : 'request-1',
-      },
+
+    await requestBinding({
+      emit,
+      identityVendor: scenario === 'wrong-vendor' ? 'ledger' : 'trezor',
+      selectionRequestId:
+        scenario === 'missing-request' ? 'another-request' : 'request-1',
+      extra:
+        scenario === 'missing-extra' ? undefined : { dbDeviceId: 'db-device' },
     });
-    await new Promise<void>((resolve) => setImmediate(resolve));
+
     expect(
       mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
     ).toHaveLength(0);
     expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
     if (scenario === 'missing-extra' || scenario === 'missing-request')
       expect(mockedLocalDb.getDevice.mock.calls).toHaveLength(0);
+    // Only a failed identity check means the user is holding another device;
+    // everything else here is the request no longer being ours to answer.
+    expect(uiResponse).toHaveBeenCalledWith({
+      type: UI_RESPONSE.RECEIVE_SAVE_DEVICE_BINDING,
+      payload: {
+        requestId: 'save-1',
+        saved: false,
+        reason: scenario === 'wrong-identity' ? 'mismatch' : 'skipped',
+      },
+    });
+  });
+
+  it('persists a verified binding and acknowledges it to the SDK', async () => {
+    const { hw, emit, uiResponse } = createBindingHw();
+    const adapter = new TrezorAdapter(hw);
+    const flushThp = jest
+      .spyOn(adapter, 'flushThpCredentials')
+      .mockResolvedValue(undefined);
+    mockedLocalDb.getDevice.mockResolvedValue({
+      id: 'db-device',
+      vendor: 'trezor',
+      deviceId: 'expected-device',
+    } as IDBDevice);
+    mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mockResolvedValue(
+      { cleanedRecordIds: [] },
+    );
+
+    await requestBinding({ emit, extra: { dbDeviceId: 'db-device' } });
+
+    expect(
+      mockedLocalDb.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls,
+    ).toEqual([
+      [
+        expect.objectContaining({
+          dbDeviceId: 'db-device',
+          bleConnectId: 'new-ble',
+          verifiedDeviceId: 'expected-device',
+        }),
+      ],
+    ]);
+    expect(flushThp).toHaveBeenCalledWith('expected-device', {
+      connectId: 'new-ble',
+    });
+    expect(uiResponse).toHaveBeenCalledWith({
+      type: UI_RESPONSE.RECEIVE_SAVE_DEVICE_BINDING,
+      payload: { requestId: 'save-1', saved: true },
+    });
   });
 
   it('only clears Trezor UI for the interaction that currently owns it', () => {

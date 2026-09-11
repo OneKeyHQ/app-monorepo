@@ -14,8 +14,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { thirdPartyPassphraseParamsFromDeviceParams } from '../../base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
+  callTrezorWithDevice,
   getTrezorAdapterFromBackgroundApi,
 } from '../../base/trezorTransportUtils';
 
@@ -184,12 +183,6 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
   override hwSdkNetwork: IHwSdkNetwork = 'tron';
 
-  private getBleFallbackOptions(
-    replayPolicy: 'read-only' | 'never' = 'read-only',
-  ) {
-    return buildTrezorBleFallbackOptions(this.backgroundApi, replayPolicy);
-  }
-
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
@@ -227,17 +220,14 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
         for (const index of usedIndexes) {
           const path = buildPath({ index });
 
-          const result = await callTrezorWithBleFallback(
-            dbDevice,
-            (connectId) =>
-              adapter.hw.tronGetAddress(connectId, dbDevice.deviceId, {
-                path,
-                showOnDevice: params.isVerifyAddressAction ?? false,
-                ...thirdPartyPassphraseParamsFromDeviceParams(
-                  params.deviceParams,
-                ),
-              }),
-            this.getBleFallbackOptions(),
+          const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+            adapter.hw.tronGetAddress(connectId, dbDevice.deviceId, {
+              path,
+              showOnDevice: params.isVerifyAddressAction ?? false,
+              ...thirdPartyPassphraseParamsFromDeviceParams(
+                params.deviceParams,
+              ),
+            }),
           );
 
           if (!result.success) {
@@ -275,14 +265,11 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
     const adapter = await getTrezorAdapterFromBackgroundApi(this.backgroundApi);
     const path = await this.vault.getAccountPath();
 
-    const result = await callTrezorWithBleFallback(
-      dbDevice,
-      (connectId) =>
-        adapter.hw.tronSignTransaction(connectId, dbDevice.deviceId, {
-          ...buildTrezorTronSignTransactionParams({ path, encodedTx }),
-          ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
-        }),
-      this.getBleFallbackOptions('never'),
+    const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+      adapter.hw.tronSignTransaction(connectId, dbDevice.deviceId, {
+        ...buildTrezorTronSignTransactionParams({ path, encodedTx }),
+        ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+      }),
     );
 
     if (!result.success) {

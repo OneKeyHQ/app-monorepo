@@ -287,7 +287,6 @@ export enum EThirdPartyHardwareUiAction {
   // Trezor transport fallback: USB is unavailable and this DB device has not
   // yet learned its BLE connectId. UI scans BLE candidates, binds the matching
   // device_id, then resolves the waiting hardware call.
-  requestTrezorBleBinding = 'request-trezor-ble-binding',
   // Keystone QR: the adapter needs the app to show an animated UR QR code for
   // the device to scan (import / signing round trip).
   requestKeystoneQrDisplay = 'request-keystone-qr-display',
@@ -353,14 +352,6 @@ export type IThirdPartyHardwareUiState = {
     nfcData?: string;
     /** Trezor passphrase: expected hidden wallet identity in verify mode. */
     passphraseState?: string;
-    /** Trezor BLE binding: USB-side connect id of the DB device. */
-    usbConnectId?: string;
-    /** Trezor BLE binding: stable device_id read from Trezor features. */
-    featuresDeviceId?: string;
-    /** Trezor BLE binding: servicePromise id resolved with the fallback connectId. */
-    promiseId?: number;
-    /** Trezor BLE binding mode. */
-    trezorBleBindingMode?: 'manual-binding' | 'auto-fallback';
     /** SDK operation-first selection candidates from the current discovery. */
     deviceSearchTargets?: IThirdPartyHardwareSearchTarget[];
     deviceSelection?: Omit<DeviceSelectionRequest, 'devices'>;
@@ -379,6 +370,24 @@ export const {
 } = globalAtom<IThirdPartyHardwareUiState | undefined>({
   initialValue: undefined,
   name: EAtomNames.thirdPartyHardwareUiStateAtom,
+});
+
+export type IThirdPartyBleBindingState = {
+  vendor: EHardwareVendor;
+  bindingSessionId: string;
+  requestId: string;
+  status: 'scanning' | 'verifying' | 'saved' | 'failed' | 'cancelled';
+  targets: IThirdPartyHardwareSearchTarget[];
+  rejectedConnectId?: string;
+  reason?: 'missing-binding' | 'known-connection-unavailable' | 'manual-rebind';
+};
+
+export const {
+  target: thirdPartyBleBindingAtom,
+  use: useThirdPartyBleBindingAtom,
+} = globalAtom<IThirdPartyBleBindingState | undefined>({
+  initialValue: undefined,
+  name: EAtomNames.thirdPartyBleBindingAtom,
 });
 
 export async function publishThirdPartyHardwareUiState(

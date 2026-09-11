@@ -1032,9 +1032,6 @@ export class DeviceStageBurstScope {
       return;
     }
     if (ui) {
-      if (ui.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding) {
-        return;
-      }
       if (ui.action === EThirdPartyHardwareUiAction.error) {
         await this.setStep('error', { vendor: ui.vendor });
         return;

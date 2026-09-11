@@ -18,11 +18,9 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorPro
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import {
   EHardwareVendor,
   type IOneKeyDeviceFeatures,
@@ -30,19 +28,12 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
-import {
-  EThirdPartyHardwareUiAction,
-  publishThirdPartyHardwareUiState,
-  thirdPartyHardwareUiStateAtom,
-} from '../../states/jotai/atoms';
+import { thirdPartyHardwareUiStateAtom } from '../../states/jotai/atoms';
 import {
   thirdPartyCommonCallParamsForCreateScene,
   thirdPartyConnectionContextFromDevice,
 } from '../../vaults/base/thirdPartyHardwareCommonParams';
-import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
-} from '../../vaults/base/trezorTransportUtils';
+import { callTrezorWithDevice } from '../../vaults/base/trezorTransportUtils';
 import { buildAddAccountsNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 import { normalizeAllNetworkInstallCancelErrors } from '../ServiceBatchCreateAccount/thirdPartyAllNetworkErrors';
@@ -77,7 +68,10 @@ import type {
   IThirdPartyHardwareConnectionStateEvent,
 } from '../ServiceHardware/adapters/types';
 import type { AllNetworkAddressParams, SearchDevice } from '@onekeyfe/hd-core';
-import type { ICommonCallParams } from '@onekeyfe/hwk-adapter-core';
+import type {
+  BindBleDeviceParams,
+  ICommonCallParams,
+} from '@onekeyfe/hwk-adapter-core';
 
 type IThirdPartySearchDevicesResponse =
   | {
@@ -220,13 +214,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
     IThirdPartyVendor,
     () => void
   >();
-
-  /** In-flight BLE binding dialog request; concurrent callers share it. */
-  private _pendingTrezorBleBindingRequest?: {
-    usbConnectId: string;
-    featuresDeviceId: string;
-    promise: Promise<string | null>;
-  };
 
   private isRegisteredThirdPartyVendor(
     vendor: string | undefined,
@@ -394,202 +381,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   /**
-   * Trezor USB→BLE binding. Mirror of
-   * `ServiceHardware.repairBleConnectIdWithProgress`, but device_id-based:
-   * Trezor has no `ble_name`, so the host CANNOT identify a BLE device at scan
-   * stage — it must CONNECT and read `device_id`. The UI scans BLE
-   * (`searchDevices({ vendor: trezor })`), lists candidates, and the user picks
-   * `bleConnectId`. We connect to it — the user's OWN device auto-connects via the
-   * shared THP credential (no pairing) — read its `device_id`, and if it matches
-   * the USB-known device we persist `bleConnectId` on the SAME DB record. A
-   * different device (device_id mismatch, or it asks to pair) → return null so
-   * the UI says "not this one, pick another".
-   *
-   * Trezor-only by construction (uses the trezor adapter); never touches the
-   * OneKey / Ledger BLE paths.
-   */
-  @backgroundMethod()
-  async bindTrezorBleConnectId({
-    usbConnectId,
-    featuresDeviceId,
-    bleConnectId,
-  }: {
-    usbConnectId: string;
-    featuresDeviceId: string;
-    bleConnectId: string;
-  }): Promise<string | null> {
-    const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
-    if (!adapter) {
-      throw new OneKeyLocalError({
-        message: appLocale.intl.formatMessage({
-          id: ETranslations.trezor_adapter_not_available__msg,
-        }),
-      });
-    }
-
-    // Pairing cannot identify the device: an expired credential makes the
-    // expected device ask too. Complete the handshake, then compare device_id.
-    let probeInteractionId: string | undefined;
-
-    try {
-      const result = await adapter.connectDevice(bleConnectId);
-      if (!result.success) {
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorBLEBind] candidate probe failed bleConnectId=${bleConnectId}`,
-        );
-        throw convertThirdPartyDeviceError(result.payload, {
-          vendor: EHardwareVendor.trezor,
-        });
-      }
-      probeInteractionId = result.payload.interactionId;
-      // No device_id is "could not verify", not "different device" — a
-      // mismatch verdict would grey the user's own device out for good.
-      if (!result.payload.deviceId) {
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorBLEBind] candidate identity unavailable bleConnectId=${bleConnectId} expectedDeviceId=${featuresDeviceId}`,
-        );
-        throw new OneKeyLocalError({
-          message: appLocale.intl.formatMessage({
-            id: ETranslations.hardware_connect_failed,
-          }),
-          autoToast: true,
-        });
-      }
-      if (result.payload.deviceId !== featuresDeviceId) {
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorBLEBind] candidate rejected bleConnectId=${bleConnectId} expectedDeviceId=${featuresDeviceId} actualDeviceId=${result.payload.deviceId}`,
-        );
-        return null;
-      }
-      const device = await localDb.getDeviceByQuery({
-        connectId: usbConnectId,
-        featuresDeviceId,
-        vendor: EHardwareVendor.trezor,
-      });
-      if (!device) {
-        // Matched but our DB record is missing — internal error, not a mismatch.
-        defaultLogger.hardware.sdkLog.log(
-          `[TrezorBLEBind] candidate matched but db device missing usbConnectId=${usbConnectId} deviceId=${featuresDeviceId}`,
-        );
-        throw new OneKeyLocalError({
-          message: appLocale.intl.formatMessage({
-            id: ETranslations.hardware_connect_failed,
-          }),
-          autoToast: true,
-        });
-      }
-      await localDb.updateDeviceConnectId({
-        dbDeviceId: device.id,
-        bleConnectId,
-      });
-      // Binding can mint THP credentials, buffered until the row carries this
-      // bleConnectId — it does now. Without this drain the user re-enters the
-      // pairing code on every connect. Best-effort: must never fail the bind.
-      try {
-        await this.persistTrezorThpCredentials({
-          connectId: bleConnectId,
-          deviceId: featuresDeviceId,
-        });
-      } catch {
-        // ignore — credential persistence is non-critical to binding.
-      }
-      // The DB write emits nothing on its own; notify the device-details UI so
-      // the "bind Bluetooth" row reflects the new bleConnectId immediately.
-      appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-        deviceId: device.id,
-      });
-      defaultLogger.hardware.sdkLog.log(
-        `[TrezorBLEBind] candidate matched bleConnectId=${bleConnectId} deviceId=${featuresDeviceId}`,
-      );
-      defaultLogger.hardware.sdkLog.log(
-        `[3rdPartyHW][Trezor] bound BLE connectId=${bleConnectId} to device_id=${featuresDeviceId}`,
-      );
-      return bleConnectId;
-    } finally {
-      if (probeInteractionId) {
-        await adapter
-          .releaseInteraction(probeInteractionId)
-          .catch(() => undefined);
-      }
-    }
-  }
-
-  /**
-   * Business-call Trezor transport recovery. The picker may return a newly
-   * bound BLE connectId, or the known USB connectId if USB is restored.
-   */
-  async requestTrezorBleConnectIdForDevice({
-    device,
-  }: {
-    device: IDBDevice;
-  }): Promise<string | null> {
-    if (
-      !thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platformEnv)
-    ) {
-      defaultLogger.hardware.sdkLog.log(
-        '[3rdPartyHW][Trezor] skip BLE binding request: platform does not support Trezor BLE binding',
-      );
-      return null;
-    }
-    const usbConnectId = device.usbConnectId || device.connectId;
-    const featuresDeviceId = device.deviceId;
-    if (!usbConnectId || !featuresDeviceId) {
-      defaultLogger.hardware.sdkLog.log(
-        `[3rdPartyHW][Trezor] skip BLE binding request: usbConnectId=${String(
-          usbConnectId,
-        )} device_id=${String(featuresDeviceId)}`,
-      );
-      return null;
-    }
-
-    // One binding dialog at a time: same device joins it, another device gives up.
-    const pending = this._pendingTrezorBleBindingRequest;
-    if (pending) {
-      if (
-        pending.usbConnectId === usbConnectId &&
-        pending.featuresDeviceId === featuresDeviceId
-      ) {
-        defaultLogger.hardware.sdkLog.log(
-          `[3rdPartyHW][Trezor] joining in-flight BLE binding request usbConnectId=${usbConnectId}`,
-        );
-        return pending.promise;
-      }
-      defaultLogger.hardware.sdkLog.log(
-        `[3rdPartyHW][Trezor] skip BLE binding request: another binding in flight (usbConnectId=${pending.usbConnectId})`,
-      );
-      return null;
-    }
-
-    const requestPromise = new Promise<string | null>((resolve, reject) => {
-      const promiseId = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-
-      void publishThirdPartyHardwareUiState({
-        action: EThirdPartyHardwareUiAction.requestTrezorBleBinding,
-        vendor: EHardwareVendor.trezor,
-        payload: {
-          usbConnectId,
-          featuresDeviceId,
-          promiseId,
-          trezorBleBindingMode: 'auto-fallback',
-        },
-      });
-    }).then((bleConnectId) => bleConnectId || null);
-
-    const record = { usbConnectId, featuresDeviceId, promise: requestPromise };
-    this._pendingTrezorBleBindingRequest = record;
-    try {
-      return await requestPromise;
-    } finally {
-      if (this._pendingTrezorBleBindingRequest === record) {
-        this._pendingTrezorBleBindingRequest = undefined;
-      }
-    }
-  }
-
-  /**
    * Flush a Trezor device's buffered THP pairing credentials into its DB
    * settings. Credentials are minted at pairing — which happens during
    * createHWWallet, before the device record exists — so they're buffered in
@@ -635,6 +426,43 @@ class ServiceThirdPartyHardware extends ServiceBase {
           error instanceof Error ? error.message : String(error)
         }`,
       );
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async rebindBleDevice({ dbDeviceId }: { dbDeviceId: string }): Promise<void> {
+    const device = await localDb.getDevice(dbDeviceId);
+    const { vendor } = device;
+    let identity: BindBleDeviceParams['identity'];
+    if (vendor === EHardwareVendor.trezor && device.deviceId) {
+      identity = { vendor, type: 'deviceId', value: device.deviceId };
+    } else if (vendor === EHardwareVendor.ledger) {
+      const chain = (['evm', 'btc', 'sol', 'tron', 'zcash'] as const).find(
+        (candidate) => device.settings?.chainFingerprints?.[candidate],
+      );
+      const value = chain && device.settings?.chainFingerprints?.[chain];
+      if (!chain || !value) {
+        throw new OneKeyLocalError(
+          'Ledger wallet identity is required for Bluetooth binding',
+        );
+      }
+      identity = { vendor, type: 'chainFingerprint', chain, value };
+    } else {
+      throw new OneKeyLocalError('Device does not support Bluetooth binding');
+    }
+    const adapter = await this.getAdapterForVendor(vendor);
+    if (!adapter?.hw.bindBleDevice) {
+      throw new OneKeyLocalError('Bluetooth binding is not available');
+    }
+    const result = await adapter.hw.bindBleDevice({
+      identity,
+      extra: { dbDeviceId },
+    });
+    if (!result.success) {
+      throw convertThirdPartyDeviceError(result.payload, {
+        vendor: getVendorProfile(vendor).defaultDeviceName || vendor,
+      });
     }
   }
 
@@ -826,21 +654,18 @@ class ServiceThirdPartyHardware extends ServiceBase {
     // The SDK resolves transport and verifies the physical identity before
     // prompting for a wallet. Older explicit-target callers keep their target.
     const result = dbDevice
-      ? await callTrezorWithBleFallback(
-          dbDevice,
-          (cid) =>
-            getPassphraseState(cid, passphraseState, {
-              ...thirdPartyConnectionContextFromDevice(dbDevice),
-              ...(isHardwareInteractionId(connectId)
-                ? { interactionId: connectId }
-                : {}),
-              expectedDeviceIdentity: {
-                vendor: 'trezor',
-                type: 'deviceId',
-                value: dbDevice.deviceId,
-              },
-            }),
-          buildTrezorBleFallbackOptions(this.backgroundApi),
+      ? await callTrezorWithDevice(dbDevice, (cid) =>
+          getPassphraseState(cid, passphraseState, {
+            ...thirdPartyConnectionContextFromDevice(dbDevice),
+            ...(isHardwareInteractionId(connectId)
+              ? { interactionId: connectId }
+              : {}),
+            expectedDeviceIdentity: {
+              vendor: 'trezor',
+              type: 'deviceId',
+              value: dbDevice.deviceId,
+            },
+          }),
         )
       : await getPassphraseState(connectId, passphraseState);
     if (result.success) {
@@ -1318,9 +1143,14 @@ class ServiceThirdPartyHardware extends ServiceBase {
   async thirdPartyHardwareCancel(params: {
     vendor: EHardwareVendor;
     connectId?: string;
+    bindingSessionId?: string;
   }) {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (params.bindingSessionId !== undefined) {
+      adapter?.cancelBleBinding?.(params.bindingSessionId);
+      return;
+    }
     adapter?.cancel(params.connectId);
   }
 

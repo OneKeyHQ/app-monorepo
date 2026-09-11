@@ -37,8 +37,7 @@ import {
 import localDb from '../../dbs/local/localDb';
 import { thirdPartyConnectionContextFromDevice } from '../../vaults/base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
+  callTrezorWithDevice,
   getTrezorAdapterFromBackgroundApi,
 } from '../../vaults/base/trezorTransportUtils';
 
@@ -388,7 +387,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const response = await callTrezorWithBleFallback(
+        const response = await callTrezorWithDevice(
           device,
           async (targetConnectId) =>
             action({
@@ -396,7 +395,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               device,
               operationContext,
             }),
-          buildTrezorBleFallbackOptions(this.backgroundApi, 'never'),
         );
         if (!response.success) {
           throw convertThirdPartyDeviceError(response.payload, {

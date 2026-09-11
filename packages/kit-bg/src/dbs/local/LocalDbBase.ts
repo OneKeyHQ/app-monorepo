@@ -6179,6 +6179,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     bleConnectId,
     verifiedDeviceIdentity,
     verifiedLedgerFingerprint,
+    assertBindingActive,
   }: {
     dbDeviceId: string;
     connectId?: string;
@@ -6187,6 +6188,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     verifiedDeviceIdentity?: IVerifiedDeviceIdentity;
     /** @deprecated Pass verifiedDeviceIdentity instead. */
     verifiedLedgerFingerprint?: { chain: string; fingerprint: string };
+    /** Background-local lifecycle guard; never persisted or sent over RPC. */
+    assertBindingActive?: () => void;
   }) {
     assertHardwareRuntimeIdsNotPersisted({
       operation: 'updateDeviceConnectId',
@@ -6203,6 +6206,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ids: [dbDeviceId],
         updater: async (item) => {
           const currentSettings = parseDeviceSettingsRaw(item.settingsRaw);
+          assertBindingActive?.();
           if (
             verifiedDeviceIdentity &&
             !matchesVerifiedDeviceIdentity(
@@ -6249,9 +6253,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             item.bleConnectId = bleConnectId;
           }
           item.updatedAt = await this.timeNow();
+          assertBindingActive?.();
           return item;
         },
       });
+      assertBindingActive?.();
     });
   }
 
@@ -6277,10 +6283,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     dbDeviceId,
     bleConnectId,
     verifiedDeviceId,
+    assertBindingActive,
   }: {
     dbDeviceId: string;
     bleConnectId: string;
     verifiedDeviceId: string;
+    /** Background-local lifecycle guard; never persisted or sent over RPC. */
+    assertBindingActive?: () => void;
   }): Promise<{ cleanedRecordIds: string[] }> {
     assertHardwareRuntimeIdsNotPersisted({
       operation: 'updateDeviceBleConnectIdAndCleanStaleAliases',
@@ -6325,6 +6334,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Device,
         ids: [dbDeviceId],
         updater: async (item) => {
+          assertBindingActive?.();
           if (
             item.deviceId !== verifiedDeviceId ||
             (parseDeviceSettingsRaw(item.settingsRaw).vendor ??
@@ -6336,6 +6346,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
           item.bleConnectId = bleConnectId;
           item.updatedAt = await this.timeNow();
+          assertBindingActive?.();
           return item;
         },
       });
@@ -6345,6 +6356,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           name: ELocalDBStoreNames.Device,
           ids: staleRecordIds,
           updater: async (item) => {
+            assertBindingActive?.();
             const collides = (value?: string | null) => {
               const normalized = value?.trim().toLowerCase();
               return Boolean(normalized && aliases.includes(normalized));
@@ -6361,10 +6373,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.bleConnectId = undefined;
             }
             item.updatedAt = await this.timeNow();
+            assertBindingActive?.();
             return item;
           },
         });
       }
+      assertBindingActive?.();
     });
     // A concurrent read between the pre-commit cache clear and the commit
     // can re-fill the record cache with pre-commit data; drop it again so

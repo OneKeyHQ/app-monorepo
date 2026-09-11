@@ -74,7 +74,6 @@ describe('KeyringHardwareTrezor Solana OCMS v1 signing', () => {
         vault: {
           getAccountPath: jest.fn().mockResolvedValue("m/44'/501'/0'/0'"),
         },
-        getBleFallbackOptions: jest.fn(() => ({})),
       },
     ) as KeyringHardwareTrezor;
     const signer = Uint8Array.from({ length: 32 }, (_, index) => index);
@@ -144,7 +143,6 @@ describe('KeyringHardwareTrezor Solana OCMS v1 signing', () => {
         vault: {
           getAccountPath: jest.fn().mockResolvedValue("m/44'/501'/0'/0'"),
         },
-        getBleFallbackOptions: jest.fn(() => ({ replayPolicy: 'never' })),
       },
     ) as KeyringHardwareTrezor;
     const signer = bs58.encode(

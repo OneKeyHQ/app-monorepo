@@ -10,6 +10,59 @@ import type { IDBDevice } from './types';
 import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 
 describe('LocalDbBase verified Ledger binding transaction guard', () => {
+  it.each(['ledger', 'trezor'] as const)(
+    'rolls back %s binding when cancelled during the transaction',
+    async (vendor) => {
+      const db = Object.create(LocalDbBase.prototype) as LocalDbBase;
+      const record = {
+        id: 'db',
+        deviceId: 'verified',
+        connectId: 'old',
+        bleConnectId: 'old',
+        updatedAt: 1,
+        settingsRaw: JSON.stringify({ vendor }),
+      } as IDBDevice;
+      const original = { ...record };
+      let active = true;
+      const assertBindingActive = () => {
+        if (!active) throw new OneKeyLocalError('Binding cancelled');
+      };
+      db.timeNow = async () => {
+        active = false;
+        return 2;
+      };
+      db.getDeviceSafe = jest.fn().mockResolvedValue({ ...record, vendor });
+      db.getAllDevices = jest.fn().mockResolvedValue({ devices: [] });
+      db.withTransaction = async (bucketName, task) => {
+        try {
+          return await task({ bucketName });
+        } catch (error) {
+          Object.assign(record, original);
+          throw error;
+        }
+      };
+      db.txUpdateRecords = async ({ updater }) => {
+        await (updater as (item: IDBDevice) => Promise<IDBDevice>)(record);
+      };
+      const update =
+        vendor === 'ledger'
+          ? db.updateDeviceConnectId({
+              dbDeviceId: 'db',
+              connectId: 'new',
+              bleConnectId: 'new',
+              assertBindingActive,
+            })
+          : db.updateDeviceBleConnectIdAndCleanStaleAliases({
+              dbDeviceId: 'db',
+              bleConnectId: 'new',
+              verifiedDeviceId: 'verified',
+              assertBindingActive,
+            });
+      await expect(update).rejects.toThrow('Binding cancelled');
+      expect(record).toEqual(original);
+    },
+  );
+
   it.each([true, false])(
     'updates only the originating record when two records share a BLE locator (same fingerprint=%s)',
     async (sameFingerprint) => {

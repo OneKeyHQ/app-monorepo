@@ -749,10 +749,6 @@ function FinalizeWalletSetupPage({
                 );
               keystoneFirstContactInFlightRef.current = false;
               if (!connected.success) {
-                console.log(
-                  '[3rdPartyHW][Keystone] connectDevice FAILED:',
-                  JSON.stringify(connected.payload, null, 2),
-                );
                 throw convertThirdPartyDeviceError(
                   connected.payload as { error: string; code: number },
                   { vendor: 'Keystone' },

@@ -11,7 +11,6 @@ import type {
   IDBDevice,
   ITrezorThpCredential,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { matchesVerifiedDeviceIdentity } from '@onekeyhq/kit-bg/src/dbs/local/verifiedDeviceIdentity';
 import {
   EThirdPartyHardwareUiAction,
   type IThirdPartyHardwareUiState,
@@ -21,6 +20,7 @@ import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { BaseAdapter } from './BaseAdapter';
+import { registerBleBindingUi } from './registerBleBindingUi';
 
 import type {
   DeviceInfo,
@@ -172,15 +172,27 @@ export class TrezorAdapter
 
   private readonly _featuresDeviceIdByConnectId = new Map<string, string>();
 
-  private readonly _verifiedBleBindingWrites = new Map<string, Promise<void>>();
+  readonly cancelBleBinding: (bindingSessionId: string) => void;
 
   constructor(hw: IHardwareWallet, disposeSdkEvents?: () => void) {
     super();
     this.hw = this._createProcessingAwareHw(hw);
+    this.cancelBleBinding = registerBleBindingUi({
+      hw: this.hw,
+      vendor: this.vendor,
+      onSaved: async (request) => {
+        if (request.identity.vendor === 'trezor') {
+          await this.flushThpCredentials(request.identity.value, {
+            connectId: request.connection.connectId,
+          });
+        }
+      },
+    });
     this._disposeSdkEvents = disposeSdkEvents;
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] adapter created');
 
     this.hw.on(UI_REQUEST.REQUEST_SELECT_DEVICE, (event) => {
+      if (event.payload.scanning) return;
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestDeviceSelection,
@@ -203,47 +215,6 @@ export class TrezorAdapter
             serialNumber: device.serialNumber,
           })),
         },
-      });
-    });
-
-    this.hw.on(DEVICE.TREZOR_CONNECTION_VERIFIED, (event) => {
-      const { deviceId, connectId, connectionType, extra, selectionRequestId } =
-        event.payload;
-      const dbDeviceId = extra?.dbDeviceId;
-      if (connectionType !== 'ble' || !dbDeviceId || !selectionRequestId)
-        return;
-      const previous =
-        this._verifiedBleBindingWrites.get(dbDeviceId) ?? Promise.resolve();
-      const write = previous
-        .then(async () => {
-          const device = await localDb.getDevice(dbDeviceId);
-          if (
-            !device ||
-            device.id !== dbDeviceId ||
-            !matchesVerifiedDeviceIdentity(device, {
-              vendor: this.vendor,
-              identity: { type: 'deviceId', value: deviceId },
-            }) ||
-            device.bleConnectId === connectId
-          )
-            return;
-          await localDb.updateDeviceBleConnectIdAndCleanStaleAliases({
-            dbDeviceId: device.id,
-            bleConnectId: connectId,
-            verifiedDeviceId: deviceId,
-          });
-          await this.flushThpCredentials(deviceId, { connectId });
-        })
-        .catch(() => {
-          defaultLogger.hardware.sdkLog.log(
-            '[3rdPartyHW][Trezor] verified BLE binding persistence failed',
-          );
-        });
-      this._verifiedBleBindingWrites.set(dbDeviceId, write);
-      void write.finally(() => {
-        if (this._verifiedBleBindingWrites.get(dbDeviceId) === write) {
-          this._verifiedBleBindingWrites.delete(dbDeviceId);
-        }
       });
     });
 

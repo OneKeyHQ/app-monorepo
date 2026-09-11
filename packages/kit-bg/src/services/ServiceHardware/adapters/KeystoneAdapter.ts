@@ -33,18 +33,6 @@ type IQrDisplayEvent = {
   };
 };
 
-function debugKeystoneUsb(label: string, value?: unknown): void {
-  if (process.env.NODE_ENV === 'production') return;
-  let valueText = '';
-  try {
-    valueText = value === undefined ? '' : ` ${JSON.stringify(value)}`;
-  } catch {
-    valueText = ' {"stringifyError":true}';
-  }
-  // eslint-disable-next-line no-console
-  console.log(`[KEYSTONE-USB-DEBUG] app-adapter trace-v1 ${label}${valueText}`);
-}
-
 type IKeystoneLifecycleHw = IHardwareWallet & {
   connectDevice(searchTargetId: string): Promise<Response<string>>;
   searchDeviceTargets?: (
@@ -239,8 +227,6 @@ export class KeystoneAdapter
     searchTargetId: string,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
     const prior = this.pendingConnect;
-    const started = Date.now();
-    debugKeystoneUsb('connect-enter', { hasPrior: Boolean(prior) });
     let settleTracked: () => void = () => undefined;
     const tracked = new Promise<void>((resolve) => {
       settleTracked = resolve;
@@ -248,17 +234,13 @@ export class KeystoneAdapter
     this.pendingConnect = tracked;
     try {
       if (prior) {
-        debugKeystoneUsb('connect-prior-cancel');
+        // A replacement first-contact flow must not share QR/USB state with
+        // the one it supersedes: cancel, then wait for it to settle.
         this.cancel();
-        debugKeystoneUsb('connect-prior-wait');
         await prior;
-        debugKeystoneUsb('connect-prior-complete', {
-          elapsedMs: Date.now() - started,
-        });
       }
       return await this.connectDeviceTarget(searchTargetId);
     } finally {
-      debugKeystoneUsb('connect-settled', { elapsedMs: Date.now() - started });
       settleTracked();
       if (this.pendingConnect === tracked) {
         this.pendingConnect = undefined;
@@ -271,19 +253,15 @@ export class KeystoneAdapter
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
     this.activeInteractionId = undefined;
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Keystone] connectDevice');
-    debugKeystoneUsb('sdk-connect-start');
     const connected = await (this.hw as IKeystoneLifecycleHw).connectDevice(
       searchTargetId,
     );
-    debugKeystoneUsb('sdk-connect-result', { success: connected.success });
     if (!connected.success) {
       return { success: false, payload: connected.payload };
     }
     const interactionId = connected.payload;
     this.activeInteractionId = interactionId;
-    debugKeystoneUsb('device-info-start');
     const info = await this.hw.getDeviceInfo(interactionId, '');
-    debugKeystoneUsb('device-info-result', { success: info.success });
     if (!info.success) {
       await (this.hw as IKeystoneLifecycleHw)
         .releaseInteraction(interactionId)
@@ -308,7 +286,6 @@ export class KeystoneAdapter
       };
     }
     this.emitConnectionStateChange({ type: 'connected', device });
-    debugKeystoneUsb('connected-event-emitted');
     return {
       success: true,
       payload: device,

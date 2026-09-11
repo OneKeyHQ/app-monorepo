@@ -71,10 +71,7 @@ import {
   thirdPartyConnectionContextFromDevice,
   withHardwareOperationContext,
 } from '../../vaults/base/thirdPartyHardwareCommonParams';
-import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
-} from '../../vaults/base/trezorTransportUtils';
+import { callTrezorWithDevice } from '../../vaults/base/trezorTransportUtils';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
@@ -1028,11 +1025,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
         requestParams,
       );
     } else if (vendor === EHardwareVendor.trezor && dbDevice) {
-      response = await callTrezorWithBleFallback(
-        dbDevice,
-        (targetConnectId) =>
-          allNetworkGetAddress(targetConnectId, deviceId, requestParams),
-        buildTrezorBleFallbackOptions(this.backgroundApi),
+      response = await callTrezorWithDevice(dbDevice, (targetConnectId) =>
+        allNetworkGetAddress(targetConnectId, deviceId, requestParams),
       );
     } else {
       response = await allNetworkGetAddress(connectId, deviceId, requestParams);

@@ -25,8 +25,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { thirdPartyPassphraseParamsFromDeviceParams } from '../../base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
+  callTrezorWithDevice,
   getTrezorAdapterFromBackgroundApi,
 } from '../../base/trezorTransportUtils';
 
@@ -96,12 +95,6 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
 
   override hwSdkNetwork: IHwSdkNetwork = 'evm';
 
-  private getBleFallbackOptions(
-    replayPolicy: 'read-only' | 'never' = 'read-only',
-  ) {
-    return buildTrezorBleFallbackOptions(this.backgroundApi, replayPolicy);
-  }
-
   // Best-effort: returns undefined on any failure so signing still proceeds.
   private async _resolveEvmDefinitions(params: {
     path: string;
@@ -156,20 +149,17 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
         for (const index of usedIndexes) {
           const path = buildPath({ index });
 
-          const result = await callTrezorWithBleFallback(
-            dbDevice,
-            (connectId) =>
-              adapter.hw.evmGetAddress(connectId, dbDevice.deviceId, {
-                path,
-                showOnDevice: params.isVerifyAddressAction ?? false,
-                ...(verifyChainId !== undefined
-                  ? { chainId: verifyChainId }
-                  : {}),
-                ...thirdPartyPassphraseParamsFromDeviceParams(
-                  params.deviceParams,
-                ),
-              }),
-            this.getBleFallbackOptions(),
+          const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+            adapter.hw.evmGetAddress(connectId, dbDevice.deviceId, {
+              path,
+              showOnDevice: params.isVerifyAddressAction ?? false,
+              ...(verifyChainId !== undefined
+                ? { chainId: verifyChainId }
+                : {}),
+              ...thirdPartyPassphraseParamsFromDeviceParams(
+                params.deviceParams,
+              ),
+            }),
           );
 
           if (!result.success) {
@@ -219,16 +209,13 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
       data: encodedTx.data,
     });
 
-    const result = await callTrezorWithBleFallback(
-      dbDevice,
-      (connectId) =>
-        adapter.hw.evmSignTransaction(connectId, dbDevice.deviceId, {
-          path,
-          ...txParams,
-          ...(ethereumDefinitions ? { ethereumDefinitions } : {}),
-          ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
-        }),
-      this.getBleFallbackOptions('never'),
+    const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+      adapter.hw.evmSignTransaction(connectId, dbDevice.deviceId, {
+        path,
+        ...txParams,
+        ...(ethereumDefinitions ? { ethereumDefinitions } : {}),
+        ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+      }),
     );
 
     if (!result.success) {
@@ -333,11 +320,8 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
       ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
     };
 
-    const result = await callTrezorWithBleFallback(
-      dbDevice,
-      (connectId) =>
-        adapter.hw.evmSignMessage(connectId, dbDevice.deviceId, sdkParams),
-      this.getBleFallbackOptions('never'),
+    const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+      adapter.hw.evmSignMessage(connectId, dbDevice.deviceId, sdkParams),
     );
 
     if (!result.success) {
@@ -369,11 +353,8 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
       ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
     };
 
-    const result = await callTrezorWithBleFallback(
-      dbDevice,
-      (connectId) =>
-        adapter.hw.evmSignTypedData(connectId, dbDevice.deviceId, sdkParams),
-      this.getBleFallbackOptions('never'),
+    const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+      adapter.hw.evmSignTypedData(connectId, dbDevice.deviceId, sdkParams),
     );
 
     if (!result.success) {
