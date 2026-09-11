@@ -1,0 +1,93 @@
+[
+  {
+    "category": "node-system",
+    "name": "child_process.execFileSync",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.spawn",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.chmodSync",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.copyFileSync",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.mkdirSync",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFile",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.unlink",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.unlinkSync",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFile",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFileSync",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "worker_threads",
+    "resource": "esbuild",
+    "type": "builtin",
+    "value": true
+  }
+]

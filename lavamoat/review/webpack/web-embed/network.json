@@ -1,0 +1,72 @@
+{
+  "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
+  "resources": {
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "fetch": true,
+        "WebSocket": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js": {
+      "globals": {
+        "importScripts": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch": {
+      "globals": {
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "fetch": "write",
+        "navigator": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/shared>axios": {
+      "globals": {
+        "fetch": true,
+        "importScripts": true,
+        "navigator": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/shared>localforage": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@sentry-internal/browser-utils/build/esm/instrument/xhr.js": {
+      "globals": {
+        "XMLHttpRequest.prototype": true
+      }
+    },
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/browserapierrors.js": {
+      "globals": {
+        "XMLHttpRequest.prototype": true
+      }
+    },
+    "external:../../node_modules/expo-device/build/ExpoDevice.web.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

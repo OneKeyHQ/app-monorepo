@@ -1,0 +1,17 @@
+{
+  "off": {
+    "RNCOneKeyWebEmbedAssets.h": "1c8c7a97f3d8fdc42c6e8b28d8817962364e9ec10a9beda80f983c4fb3c304cd",
+    "RNCOneKeyWebEmbedAssets.m": "bc4bd14947128b3fbbbdd5aaf22d6202cb951812569a6c4971724d33a940c958",
+    "RNCWebViewImpl.m": "80f07d99c9d83f2a09018c3d75a0fc4e1feb17af40dcd3c519ade9585c6126bf"
+  },
+  "zero": {
+    "RNCOneKeyWebEmbedAssets.h": "1c8c7a97f3d8fdc42c6e8b28d8817962364e9ec10a9beda80f983c4fb3c304cd",
+    "RNCOneKeyWebEmbedAssets.m": "bc4bd14947128b3fbbbdd5aaf22d6202cb951812569a6c4971724d33a940c958",
+    "RNCWebViewImpl.m": "80f07d99c9d83f2a09018c3d75a0fc4e1feb17af40dcd3c519ade9585c6126bf"
+  },
+  "debug": {
+    "RNCOneKeyWebEmbedAssets.h": "1c8c7a97f3d8fdc42c6e8b28d8817962364e9ec10a9beda80f983c4fb3c304cd",
+    "RNCOneKeyWebEmbedAssets.m": "bc4bd14947128b3fbbbdd5aaf22d6202cb951812569a6c4971724d33a940c958",
+    "RNCWebViewImpl.m": "80f07d99c9d83f2a09018c3d75a0fc4e1feb17af40dcd3c519ade9585c6126bf"
+  }
+}

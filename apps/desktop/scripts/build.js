@@ -35,10 +35,13 @@ const hrstart = process.hrtime();
 // menu/i18n strings here are versioned with the native shell, not the OTA bundle.
 // If a future OTA ever needs to update main-process translations, this shim must
 // be taught to prefer the active bundle dir before falling back to the asar copy.
-const localeJsonOutDir = path.join(__dirname, '..', 'app/dist', 'locale-json');
 const externalizeLocaleJsonPlugin = {
   name: 'externalize-locale-json',
   setup(pluginBuild) {
+    const localeJsonOutDir = path.join(
+      pluginBuild.initialOptions.outdir,
+      'locale-json',
+    );
     pluginBuild.onLoad(
       { filter: /[\\/]locale[\\/]json[\\/][^\\/]+\.json$/ },
       (args) => {
@@ -108,7 +111,7 @@ console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
 console.log('process.env.VERSION', process.env.VERSION);
 console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
 console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
-build({
+const buildOptions = {
   entryPoints,
   platform: 'node',
   bundle: true,
@@ -237,31 +240,41 @@ build({
         : 'false',
     ),
   },
-})
-  .then((result) => {
-    // Copy static assets (recovery.html) to dist
-    if (result && result.metafile) {
-      fs.writeFileSync(
-        path.join(__dirname, '..', 'app/dist', 'meta.json'),
-        JSON.stringify(result.metafile),
+};
+
+function createBuildOptions() {
+  return { ...buildOptions };
+}
+
+module.exports = { createBuildOptions, entryPoints };
+
+if (require.main === module) {
+  build(createBuildOptions())
+    .then((result) => {
+      // Copy static assets (recovery.html) to dist
+      if (result && result.metafile) {
+        fs.writeFileSync(
+          path.join(__dirname, '..', 'app/dist', 'meta.json'),
+          JSON.stringify(result.metafile),
+        );
+        console.log('[Electron Build] Wrote metafile');
+      }
+      const recoveryHtmlSrc = path.join(electronSource, 'recovery.html');
+      const recoveryHtmlDst = path.join(
+        __dirname,
+        '..',
+        'app/dist',
+        'recovery.html',
       );
-      console.log('[Electron Build] Wrote metafile');
-    }
-    const recoveryHtmlSrc = path.join(electronSource, 'recovery.html');
-    const recoveryHtmlDst = path.join(
-      __dirname,
-      '..',
-      'app/dist',
-      'recovery.html',
-    );
-    if (fs.existsSync(recoveryHtmlSrc)) {
-      fs.copyFileSync(recoveryHtmlSrc, recoveryHtmlDst);
-      console.log('[Electron Build] Copied recovery.html to dist');
-    }
-    const hrend = process.hrtime(hrstart);
-    console.log(
-      '[Electron Build] Finished in %dms',
-      (hrend[1] / 1_000_000 + hrend[0] * 1000).toFixed(1),
-    );
-  })
-  .catch(() => process.exit(1));
+      if (fs.existsSync(recoveryHtmlSrc)) {
+        fs.copyFileSync(recoveryHtmlSrc, recoveryHtmlDst);
+        console.log('[Electron Build] Copied recovery.html to dist');
+      }
+      const hrend = process.hrtime(hrstart);
+      console.log(
+        '[Electron Build] Finished in %dms',
+        (hrend[1] / 1_000_000 + hrend[0] * 1000).toFixed(1),
+      );
+    })
+    .catch(() => process.exit(1));
+}

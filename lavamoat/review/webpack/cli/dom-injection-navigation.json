@@ -1,0 +1,83 @@
+{
+  "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
+  "resources": {
+    "@babel/traverse>debug": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyfe/hd-core>axios": {
+      "globals": {
+        "document": true,
+        "location.href": true
+      }
+    },
+    "@onekeyfe/hd-core>axios>follow-redirects": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "document": true,
+        "location.href": true,
+        "location.origin": true,
+        "location.pathname": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": {
+      "globals": {
+        "document.createElement": true,
+        "document.documentElement": true,
+        "document.head": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": {
+      "globals": {
+        "document.createElement": true,
+        "location.hostname": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": {
+      "globals": {
+        "document": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm-debug/socket.js": {
+      "globals": {
+        "location": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm-debug/transports/polling.js": {
+      "globals": {
+        "document": true,
+        "location": true
+      }
+    },
+    "external:../../node_modules/socket.io-client/build/esm-debug/url.js": {
+      "globals": {
+        "location": true
+      }
+    },
+    "qrcode": {
+      "globals": {
+        "document.createElement": true
+      }
+    }
+  }
+}

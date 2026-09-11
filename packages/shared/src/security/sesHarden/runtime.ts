@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '../../errors';
 
 import { getConfiguredSesHardenLevel } from './config';
+import defaultLoadSes from './loadSes';
 import { getSesLockdownOptions } from './options';
 
 import type {
@@ -356,13 +357,6 @@ function installSesHardenPatchWarningMonitor(
 
 export function getSesHardenPatchWarnings(): readonly ISesHardenPatchWarning[] {
   return [...(getSesGlobal().__ONEKEY_SES_HARDEN_PATCH_WARNINGS__ ?? [])];
-}
-
-function defaultLoadSes(): void {
-  // Loading SES installs globalThis.lockdown synchronously. Keep it out of the
-  // module top level so L0 remains a true no-lockdown path.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('ses');
 }
 
 function warmUpLitSymbolMetadata(): void {

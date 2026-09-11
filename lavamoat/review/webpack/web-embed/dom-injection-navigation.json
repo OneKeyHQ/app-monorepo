@@ -1,0 +1,150 @@
+{
+  "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
+  "resources": {
+    "@onekeyhq/core>cardano-crypto.js": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>borc>iso-url": {
+      "globals": {
+        "location": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "location": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "location.href": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
+      "globals": {
+        "document": true,
+        "location.reload": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>react-dom": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>react-native-web": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "document": true,
+        "location": true,
+        "open": true,
+        "parent": true,
+        "top": true
+      }
+    },
+    "@onekeyhq/shared>axios": {
+      "globals": {
+        "document": true,
+        "location.href": true
+      }
+    },
+    "@onekeyhq/shared>stackblur-canvas": {
+      "globals": {
+        "document.getElementById": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "document": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": {
+      "globals": {
+        "document.createElement": true,
+        "document.documentElement": true,
+        "document.head": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": {
+      "globals": {
+        "document.createElement": true,
+        "location.hostname": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": {
+      "globals": {
+        "document": true,
+        "open": true
+      }
+    },
+    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": {
+      "globals": {
+        "document": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+      "globals": {
+        "document.createElement": true
+      }
+    },
+    "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js": {
+      "globals": {
+        "document": true
+      }
+    }
+  }
+}

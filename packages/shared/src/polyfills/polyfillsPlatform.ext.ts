@@ -1,7 +1,4 @@
 /* eslint-disable import-js/order */
-import 'core-js/es7/global';
-import 'globalthis';
-
 import './globalShim';
 import './setimmediateShim';
 import './requestIdleCallbackShim';

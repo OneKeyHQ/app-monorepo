@@ -1,14 +1,21 @@
 import type { ComponentType } from 'react';
 
 import {
+  captureException,
   init,
+  reactNativeErrorHandlersIntegration,
   nativeCrash as sentryNativeCrash,
   withErrorBoundary,
   withProfiler,
   wrap,
 } from '@sentry/react-native';
+import {
+  createSyntheticError,
+  isErrorLike,
+} from '@sentry/react-native/dist/js/utils/error';
 
 import appGlobals from '../../appGlobals';
+import { setNativePromiseRejectionTrackingOptions } from '../../errors/nativePromiseRejectionTracker.native';
 
 import {
   buildBasicOptions,
@@ -23,6 +30,48 @@ import type { FallbackRender } from '@sentry/react';
 export * from '@sentry/react-native';
 
 export * from './basicOptions';
+
+function getNativePromiseIntegrations(): ReturnType<
+  typeof reactNativeErrorHandlersIntegration
+>[] {
+  const hermes = (
+    globalThis as typeof globalThis & {
+      HermesInternal?: { hasPromise?: () => boolean };
+    }
+  ).HermesInternal;
+  if (process.env.ONEKEY_MOBILE_LOCKDOWN === 'false' || !hermes?.hasPromise?.())
+    return [];
+  return [
+    // Keep the SDK's synchronous/native error chain. Its default Hermes
+    // rejection setup mutates Promise and cannot run after lockdown.
+    reactNativeErrorHandlersIntegration({ onunhandledrejection: false }),
+    {
+      name: 'OneKeyHermesPromiseErrors',
+      setupOnce() {
+        setNativePromiseRejectionTrackingOptions({
+          allRejections: true,
+          onUnhandled: (id, error) => {
+            // Preserve Sentry's native rejection mechanism and its standard
+            // captureException normalization for Error and non-Error values.
+            captureException(error, {
+              data: { id },
+              originalException: error,
+              syntheticException: isErrorLike(error)
+                ? undefined
+                : createSyntheticError(),
+              mechanism: { handled: true, type: 'onunhandledrejection' },
+            });
+          },
+          onHandled: (id) => {
+            if (__DEV__) {
+              console.warn(`Promise Rejection Handled (id: ${id})`);
+            }
+          },
+        });
+      },
+    },
+  ];
+}
 
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -93,7 +142,7 @@ export const initSentry = () => {
     // Performance tracing fully disabled on native — tracesSampleRate is
     // stripped above so the SDK installs none of its default tracing
     // integrations; error reporting + breadcrumbs are unaffected.
-    integrations: [],
+    integrations: getNativePromiseIntegrations(),
     enableAutoPerformanceTracing: false,
   });
 };

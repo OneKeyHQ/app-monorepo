@@ -193,7 +193,16 @@ function readBudget(name, fallback) {
 }
 
 function main() {
-  const outputRoot = path.join(buildRoot, `${getBrowser()}_v3`);
+  const isLavaMoat = process.argv.includes('--lavamoat');
+  const productionOutput = process.argv.includes('--production-output');
+  if (productionOutput && !isLavaMoat) {
+    throw new Error('--production-output requires --lavamoat.');
+  }
+  const outputRoot = path.join(
+    buildRoot,
+    ...(isLavaMoat && !productionOutput ? ['lavamoat'] : []),
+    `${getBrowser()}_v3`,
+  );
   const manifestPath = path.join(outputRoot, 'manifest.json');
   if (!fs.existsSync(manifestPath)) {
     throw new Error(`Missing extension manifest: ${manifestPath}`);
@@ -201,7 +210,7 @@ function main() {
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   if (manifest.manifest_version !== 3) {
-    throw new Error('Rspack extension output must use Manifest V3.');
+    throw new Error('Extension output must use Manifest V3.');
   }
   for (const reference of collectManifestReferences(manifest)) {
     assertFile(outputRoot, reference, 'manifest.json');

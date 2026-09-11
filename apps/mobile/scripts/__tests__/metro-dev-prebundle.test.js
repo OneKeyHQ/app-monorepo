@@ -546,20 +546,28 @@ describe('metro-dev-prebundle release transport', () => {
   });
 
   it('pins repository provenance during offline attestation verification', async () => {
-    const fixture = createTemporaryRepo();
-    const artifactPath = path.join(fixture.repoRoot, 'artifact.bin');
-    const bundlePath = path.join(
-      fixture.repoRoot,
-      'artifact.attestation.jsonl',
+    const repoRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-metro-attestation-'),
     );
+    const artifactPath = path.join(repoRoot, 'artifact.bin');
+    const bundlePath = path.join(repoRoot, 'artifact.attestation.jsonl');
+    const trustedRoot =
+      'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl';
     const runGh = jest.fn(async () => undefined);
     try {
+      // Provenance verification needs its trusted root, not a full native ABI
+      // fixture whose file copying can exceed this test's timeout under load.
+      await fs.ensureDir(path.dirname(path.join(repoRoot, trustedRoot)));
+      await fs.copyFile(
+        path.join(REPO_ROOT, trustedRoot),
+        path.join(repoRoot, trustedRoot),
+      );
       await fs.writeFile(artifactPath, 'artifact');
       await fs.writeFile(bundlePath, 'attestation');
       await verifyArtifactAttestation({
         artifactPath,
         bundlePath,
-        repoRoot: fixture.repoRoot,
+        repoRoot,
         runGh,
         sourceCommit: 'a'.repeat(40),
       });
@@ -572,10 +580,7 @@ describe('metro-dev-prebundle release transport', () => {
         '--bundle',
         bundlePath,
         '--custom-trusted-root',
-        path.join(
-          fixture.repoRoot,
-          'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
-        ),
+        path.join(repoRoot, trustedRoot),
         '--signer-workflow',
         'OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml',
         '--source-ref',
@@ -585,7 +590,7 @@ describe('metro-dev-prebundle release transport', () => {
         '--deny-self-hosted-runners',
       ]);
     } finally {
-      await fs.remove(fixture.repoRoot);
+      await fs.remove(repoRoot);
     }
   }, 15_000);
 

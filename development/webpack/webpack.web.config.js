@@ -12,6 +12,18 @@ const {
 } = require('../plugins/WebAppVersionManifestPlugin');
 
 const { ENABLE_ANALYZER, NODE_ENV } = require('./constant');
+const {
+  createLavaMoatWebpackOptimization,
+  createLavaMoatWebpackPlugin,
+  createLavaMoatWebpackRules,
+  createLavaMoatWebpackValidationPlugin,
+  isLavaMoatEnabled,
+  isLavaMoatPolicyGeneration,
+} = require('./lavamoat');
+const {
+  createKaspaCompatibilityRule,
+} = require('./lavamoat-kaspa-compatibility.cjs');
+const { createProtectedWebSesRule } = require('./lavamoat-web-ses-loader.cjs');
 const analyzerConfig = require('./webpack.analyzer.config');
 const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
@@ -25,44 +37,86 @@ module.exports = ({
   basePath,
   platform = babelTools.developmentConsts.platforms.web,
 }) => {
+  const isPolicyGeneration = isLavaMoatPolicyGeneration();
+  const isProtectedWeb =
+    platform === babelTools.developmentConsts.platforms.web &&
+    isLavaMoatEnabled();
   const configs = ENABLE_ANALYZER
     ? [webConfig, analyzerConfig({ configName: platform })]
     : [webConfig];
   switch (NODE_ENV) {
     case 'production':
       return merge(
-        baseConfig({ platform, basePath }),
+        baseConfig({
+          platform,
+          basePath,
+          // Preserve the shipping Web translation optimization before wrapping
+          // modules. Other platforms and ordinary Webpack builds are unchanged.
+          firstPartyBabelPlugins: isLavaMoatEnabled()
+            ? [require.resolve('../babel-plugins/inline-translations')]
+            : [],
+        }),
         productionConfig({ platform, basePath }),
         ...configs,
         {
           output: {
             crossOriginLoading: 'anonymous',
           },
+          module: {
+            rules: [
+              ...createLavaMoatWebpackRules(),
+              ...(isLavaMoatEnabled() ? [createKaspaCompatibilityRule()] : []),
+              ...(isLavaMoatEnabled() ? [createProtectedWebSesRule()] : []),
+            ],
+          },
+          optimization: {
+            ...createLavaMoatWebpackOptimization(),
+            ...(isProtectedWeb
+              ? {
+                  splitChunks: {
+                    cacheGroups: {
+                      // Keep lazy-only SDK modules out of named initial chunks.
+                      cryptoVendor: { chunks: 'initial' },
+                      networkVendor: { chunks: 'initial' },
+                    },
+                  },
+                }
+              : {}),
+          },
           plugins: [
             new SubresourceIntegrityPlugin(),
-            new WebAppVersionManifestPlugin({
-              RawSource: webpack.sources.RawSource,
-              processAssetsStage:
-                webpack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
+            createLavaMoatWebpackValidationPlugin(),
+            // Policy-only compilation suppresses runnable chunks and emission.
+            !isPolicyGeneration &&
+              new WebAppVersionManifestPlugin({
+                RawSource: webpack.sources.RawSource,
+                processAssetsStage:
+                  webpack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
+              }),
+            !isPolicyGeneration &&
+              new InjectManifest({
+                swSrc: path.join(basePath, 'src/service-worker.js'),
+                swDest: 'service-worker.js',
+                // apps/web/index.js registers it from the stable root path so one
+                // SW can discover and preload future app versions.
+                // Precache NOTHING. This is a large SPA (~800+ chunks); the
+                // InjectManifest default precaches every emitted asset, which makes
+                // the SW `install` an ATOMIC all-or-nothing fetch of every file —
+                // one failed/blocked/throttled request leaves the SW stuck "trying
+                // to install" forever (observed in prod/test: #2500+ installs with
+                // ERR_CONNECTION_CLOSED bursts). Every asset is already covered by
+                // service-worker.js (versioned HTML cache for navigations,
+                // CacheFirst scripts/styles, CacheFirst images/fonts), so a full
+                // precache adds fragility with no benefit.
+                // `exclude: [/./]` matches every manifest URL -> empty precache.
+                exclude: [/./],
+              }),
+            createLavaMoatWebpackPlugin({
+              basePath,
+              target: 'web',
+              readableResourceIds: !isProtectedWeb,
             }),
-            new InjectManifest({
-              swSrc: path.join(basePath, 'src/service-worker.js'),
-              swDest: 'service-worker.js',
-              // apps/web/index.js registers it from the stable root path so one
-              // SW can discover and preload future app versions.
-              // Precache NOTHING. This is a large SPA (~800+ chunks); the
-              // InjectManifest default precaches every emitted asset, which makes
-              // the SW `install` an ATOMIC all-or-nothing fetch of every file —
-              // one failed/blocked/throttled request leaves the SW stuck "trying
-              // to install" forever (observed in prod/test: #2500+ installs with
-              // ERR_CONNECTION_CLOSED bursts). Every asset is already covered by
-              // service-worker.js (versioned HTML cache for navigations,
-              // CacheFirst scripts/styles, CacheFirst images/fonts), so a full
-              // precache adds fragility with no benefit.
-              // `exclude: [/./]` matches every manifest URL -> empty precache.
-              exclude: [/./],
-            }),
-          ],
+          ].filter(Boolean),
         },
       );
     case 'development':

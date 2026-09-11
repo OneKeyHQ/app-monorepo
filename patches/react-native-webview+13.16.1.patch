@@ -1,5 +1,150 @@
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/OneKeyWebEmbedAssetLoader.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/OneKeyWebEmbedAssetLoader.java
+new file mode 100644
+index 0000000..ee41ae1
+--- /dev/null
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/OneKeyWebEmbedAssetLoader.java
+@@ -0,0 +1,65 @@
++package com.reactnativecommunity.webview;
++
++import android.content.Context;
++import android.net.Uri;
++import android.webkit.WebResourceResponse;
++
++import androidx.annotation.Nullable;
++import androidx.webkit.WebViewAssetLoader;
++
++import java.io.ByteArrayInputStream;
++import java.util.Collections;
++
++/** OneKey patch: no filesystem mounts, configurable roots, or reserved-origin network fallback. */
++public final class OneKeyWebEmbedAssetLoader {
++    private final WebViewAssetLoader loader;
++    private final boolean secureBridgeSupported;
++
++    public OneKeyWebEmbedAssetLoader(Context context, boolean secureBridgeSupported) {
++        this.secureBridgeSupported = secureBridgeSupported;
++        WebViewAssetLoader.AssetsPathHandler assets =
++                new WebViewAssetLoader.AssetsPathHandler(context.getApplicationContext());
++        loader = new WebViewAssetLoader.Builder()
++                .addPathHandler("/web-embed/", suffix -> {
++                    String path = OneKeyWebEmbedUrlPolicy.getAssetPath(
++                            OneKeyWebEmbedUrlPolicy.ORIGIN + "/web-embed/" + suffix);
++                    if (path == null) return denied();
++                    WebResourceResponse response = assets.handle(path);
++                    if (response == null || response.getData() == null) return denied();
++                    if (path.endsWith(".wasm")) response.setMimeType("application/wasm");
++                    if (path.endsWith(".bin")) response.setMimeType("application/octet-stream");
++                    // Each APK supplies its own index and immutable hashed assets.
++                    response.setResponseHeaders(Collections.singletonMap("Cache-Control", "no-store"));
++                    return response;
++                })
++                .build();
++    }
++
++    public boolean canLoadDocument(String url) {
++        return secureBridgeSupported && OneKeyWebEmbedUrlPolicy.isDocumentUrl(url);
++    }
++
++    public boolean canReceiveMessage(String origin, boolean isMainFrame) {
++        return secureBridgeSupported && OneKeyWebEmbedUrlPolicy.isBridgeMessageAllowed(origin, isMainFrame);
++    }
++
++    private static WebResourceResponse denied() {
++        return new WebResourceResponse("text/plain", "UTF-8", 404, "Not Found",
++                Collections.singletonMap("Cache-Control", "no-store"),
++                new ByteArrayInputStream(new byte[0]));
++    }
++
++    public @Nullable WebResourceResponse intercept(String url, String method, boolean isMainFrame) {
++        if (!secureBridgeSupported || (isMainFrame && !canLoadDocument(url))) return denied();
++        if (OneKeyWebEmbedUrlPolicy.isReservedHost(url)) {
++            if (!"GET".equals(method) || OneKeyWebEmbedUrlPolicy.getAssetPath(url) == null) {
++                return denied();
++            }
++            WebResourceResponse response = loader.shouldInterceptRequest(Uri.parse(url));
++            return response == null ? denied() : response;
++        }
++        if (OneKeyWebEmbedUrlPolicy.isLocalFile(url)) return denied();
++        // Unrelated HTTPS subresources retain the existing WebView/CSP/policy checks.
++        return null;
++    }
++}
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/OneKeyWebEmbedUrlPolicy.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/OneKeyWebEmbedUrlPolicy.java
+new file mode 100644
+index 0000000..9e47d10
+--- /dev/null
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/OneKeyWebEmbedUrlPolicy.java
+@@ -0,0 +1,68 @@
++package com.reactnativecommunity.webview;
++
++import java.net.URI;
++import java.net.URISyntaxException;
++
++/** OneKey patch: this origin only represents the immutable APK WebEmbed directory. */
++public final class OneKeyWebEmbedUrlPolicy {
++    public static final String DOMAIN = "appassets.androidplatform.net";
++    public static final String ORIGIN = "https://" + DOMAIN;
++    public static final String DOCUMENT_URL = ORIGIN + "/web-embed/index.html";
++    private static final String PATH_PREFIX = "/web-embed/";
++
++    private OneKeyWebEmbedUrlPolicy() {}
++
++    private static URI parse(String value) {
++        if (value == null) return null;
++        try {
++            return new URI(value);
++        } catch (URISyntaxException exception) {
++            return null;
++        }
++    }
++
++    public static boolean isReservedHost(String value) {
++        if (value == null) return false;
++        int separator = value.indexOf("://");
++        if (separator < 0) return false;
++        String authority = value.substring(separator + 3).split("[/\\\\?#]", 2)[0];
++        // Encoded authorities are never needed by the fixed APK URL. Treat them
++        // as blocked candidates instead of letting Android normalize a fallback.
++        if (authority.indexOf('%') >= 0) return true;
++        String host = authority.substring(authority.lastIndexOf('@') + 1).split(":", 2)[0];
++        while (host.endsWith(".")) host = host.substring(0, host.length() - 1);
++        return DOMAIN.equalsIgnoreCase(host);
++    }
++
++    public static boolean isLocalFile(String value) {
++        if (value == null) return false;
++        int separator = value.indexOf(':');
++        String scheme = separator < 0 ? "" : value.substring(0, separator);
++        return "file".equalsIgnoreCase(scheme) || "content".equalsIgnoreCase(scheme);
++    }
++
++    public static String getAssetPath(String value) {
++        URI uri = parse(value);
++        if (uri == null || !"https".equals(uri.getScheme())
++                || !DOMAIN.equals(uri.getRawAuthority()) || uri.getRawQuery() != null) {
++            return null;
++        }
++        String path = uri.getRawPath();
++        if (path == null || !path.startsWith(PATH_PREFIX)) return null;
++        String suffix = path.substring(PATH_PREFIX.length());
++        // Reject escaped separators/dot segments before Android Uri decodes the path.
++        if (!suffix.matches("[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")) return null;
++        for (String segment : suffix.split("/")) {
++            if (".".equals(segment) || "..".equals(segment)) return null;
++        }
++        return "web-embed/" + suffix;
++    }
++
++    public static boolean isDocumentUrl(String value) {
++        return "web-embed/index.html".equals(getAssetPath(value));
++    }
++
++    public static boolean isBridgeMessageAllowed(String origin, boolean isMainFrame) {
++        return isMainFrame && ORIGIN.equals(origin);
++    }
++}
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
-index 07f73fd..709de64 100644
+index 07f73fd..1dfcb0e 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
 @@ -14,6 +14,7 @@ import android.webkit.ConsoleMessage;
@@ -11,20 +156,20 @@ index 07f73fd..709de64 100644
  import android.webkit.WebView;
  import android.webkit.WebViewClient;
 @@ -34,7 +35,10 @@ import com.reactnativecommunity.webview.events.TopOpenWindowEvent;
- 
+
  import java.util.ArrayList;
  import java.util.Collections;
 +import java.util.HashSet;
  import java.util.List;
 +import java.util.Locale;
 +import java.util.Set;
- 
+
  public class RNCWebChromeClient extends WebChromeClient implements LifecycleEventListener {
      protected static final FrameLayout.LayoutParams FULLSCREEN_LAYOUT_PARAMS = new FrameLayout.LayoutParams(
 @@ -50,6 +54,125 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
- 
+
      protected static final int COMMON_PERMISSION_REQUEST = 3;
- 
+
 +    private static String normalizeHostname(String hostname) {
 +        if (hostname == null) {
 +            return "";
@@ -145,19 +290,29 @@ index 07f73fd..709de64 100644
 +    }
 +
      protected RNCWebView mWebView;
- 
+
      protected View mVideoView;
-@@ -146,15 +269,35 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+@@ -88,6 +211,9 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+     @Override
+     public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+
++        // OneKey patch: a protected APK document cannot create an unscoped child WebView.
++        if (mWebView.getOneKeyWebEmbedAssetLoader() != null) return false;
++
+         final WebView newWebView = new WebView(view.getContext());
+
+         if(mHasOnOpenWindowEvent) {
+@@ -146,15 +272,35 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
      public void onPermissionRequest(final PermissionRequest request) {
- 
+
          grantedPermissions = new ArrayList<>();
 +        boolean hasMediaPermissionWhitelist =
 +                mWebView != null && mWebView.hasMediaPermissionWhitelist();
- 
+
          ArrayList<String> requestedAndroidPermissions = new ArrayList<>();
          for (String requestedResource : request.getResources()) {
              String androidPermission = null;
- 
+
              if (requestedResource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
 -                androidPermission = Manifest.permission.RECORD_AUDIO;
 +                if (!hasMediaPermissionWhitelist) {
@@ -185,32 +340,89 @@ index 07f73fd..709de64 100644
              } else if(requestedResource.equals(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
+@@ -369,4 +515,4 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+     public void setHasOnOpenWindowEvent(boolean hasEvent) {
+       mHasOnOpenWindowEvent = hasEvent;
+     }
+-}
+\ No newline at end of file
++}
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
-index 80c6803..8958637 100644
+index 80c6803..345871b 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 @@ -44,6 +44,8 @@ import com.reactnativecommunity.webview.events.TopMessageEvent;
  import org.json.JSONException;
  import org.json.JSONObject;
- 
+
 +import java.util.Collections;
 +import java.util.HashSet;
  import java.util.List;
  import java.util.Map;
  import java.util.Set;
-@@ -78,6 +80,8 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+@@ -78,6 +80,58 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
      protected boolean hasScrollEvent = false;
      protected boolean nestedScrollEnabled = false;
      protected ProgressChangedFilter progressChangedFilter;
++    // OneKey patch: immutable loader is safely published to WebView request threads.
++    private volatile @Nullable OneKeyWebEmbedAssetLoader oneKeyWebEmbedAssetLoader;
++
++    public void setOneKeyWebEmbedAssets(boolean enabled) {
++        oneKeyWebEmbedAssetLoader = enabled
++                ? new OneKeyWebEmbedAssetLoader(getContext(),
++                        WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
++                : null;
++        if (enabled && fallbackBridge != null) {
++            // OneKey patch: remove an interface installed before the scoped prop arrived.
++            removeJavascriptInterface(JAVASCRIPT_INTERFACE);
++            fallbackBridge = null;
++        }
++    }
++
++    public @Nullable OneKeyWebEmbedAssetLoader getOneKeyWebEmbedAssetLoader() {
++        return oneKeyWebEmbedAssetLoader;
++    }
++
++    public boolean isOneKeyWebEmbedNavigationAllowed(String url) {
++        OneKeyWebEmbedAssetLoader loader = oneKeyWebEmbedAssetLoader;
++        return loader == null || loader.canLoadDocument(url);
++    }
++
++    public void reportOneKeyWebEmbedNavigationError() {
++        if (mRNCWebViewClient != null) {
++            mRNCWebViewClient.onReceivedError(this, -1,
++                    "Protected WebEmbed requires its fixed APK document and a secure main-frame bridge.",
++                    OneKeyWebEmbedUrlPolicy.DOCUMENT_URL);
++        }
++    }
++
++    @Override
++    public void loadUrl(String url) {
++        if (!isOneKeyWebEmbedNavigationAllowed(url)) {
++            reportOneKeyWebEmbedNavigationError();
++            return;
++        }
++        super.loadUrl(url);
++    }
++
++    @Override
++    public void loadUrl(String url, Map<String, String> additionalHttpHeaders) {
++        if (!isOneKeyWebEmbedNavigationAllowed(url)) {
++            reportOneKeyWebEmbedNavigationError();
++            return;
++        }
++        super.loadUrl(url, additionalHttpHeaders);
++    }
++
 +    protected @Nullable Set<String> mediaPermissionWhitelist;
 +    protected @Nullable Set<String> mediaPermissionWhitelistDomainKeys;
- 
+
      /**
       * WebView must be created with an context of the current activity
-@@ -107,6 +111,34 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+@@ -107,6 +161,34 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
          this.nestedScrollEnabled = nestedScrollEnabled;
      }
- 
+
 +    public void setMediaPermissionWhitelist(@Nullable Set<String> origins) {
 +        if (origins == null) {
 +            mediaPermissionWhitelist = null;
@@ -242,8 +454,107 @@ index 80c6803..8958637 100644
      @Override
      public void onHostResume() {
          // do nothing
+@@ -253,7 +335,13 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+             this.bridgeListener = new WebViewCompat.WebMessageListener() {
+               @Override
+               public void onPostMessage(@NonNull WebView view, @NonNull WebMessageCompat message, @NonNull Uri sourceOrigin, boolean isMainFrame, @NonNull JavaScriptReplyProxy replyProxy) {
+-                RNCWebView.this.onMessage(message.getData(), sourceOrigin.toString());
++                // OneKey patch: a subframe or remote page cannot use the protected APK bridge.
++                OneKeyWebEmbedAssetLoader scopedLoader = oneKeyWebEmbedAssetLoader;
++                if (scopedLoader != null
++                        && !scopedLoader.canReceiveMessage(sourceOrigin.toString(), isMainFrame)) return;
++                // OneKey patch: retain frame provenance through the queued native event.
++                // RNCWebView.this.onMessage(message.getData(), sourceOrigin.toString());
++                RNCWebView.this.onMessage(message.getData(), sourceOrigin.toString(), isMainFrame);
+               }
+             };
+             WebViewCompat.addWebMessageListener(
+@@ -264,6 +352,8 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+             );
+           }
+         } else {
++          // OneKey patch: an unscoped JavascriptInterface is never a secure-bridge fallback.
++          if (oneKeyWebEmbedAssetLoader != null) return;
+           if (fallbackBridge == null) {
+             fallbackBridge = new RNCWebViewBridge(webView);
+             addJavascriptInterface(fallbackBridge, JAVASCRIPT_INTERFACE);
+@@ -325,6 +415,13 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+     }
+
+     public void onMessage(String message, String sourceUrl) {
++        // OneKey patch: public/legacy entrypoints never carry trusted frame provenance.
++        onMessage(message, sourceUrl, false);
++    }
++
++    private void onMessage(String message, String sourceUrl, boolean isVerifiedMainFrame) {
++        OneKeyWebEmbedAssetLoader scopedLoader = oneKeyWebEmbedAssetLoader;
++        if (scopedLoader != null && !scopedLoader.canReceiveMessage(sourceUrl, isVerifiedMainFrame)) return;
+         ThemedReactContext reactContext = getThemedReactContext();
+         RNCWebView mWebView = this;
+
+@@ -333,6 +430,9 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+             webView.post(new Runnable() {
+                 @Override
+                 public void run() {
++                    // OneKey patch: the scoped prop may have changed while this event was queued.
++                    OneKeyWebEmbedAssetLoader currentLoader = oneKeyWebEmbedAssetLoader;
++                    if (currentLoader != null && !currentLoader.canReceiveMessage(sourceUrl, isVerifiedMainFrame)) return;
+                     if (mRNCWebViewClient == null) {
+                         return;
+                     }
+@@ -444,6 +544,8 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+          */
+         @JavascriptInterface
+         public void postMessage(String message) {
++            // OneKey patch: previously retained JS references cannot bypass interface removal.
++            if (mWebView.getOneKeyWebEmbedAssetLoader() != null) return;
+             if (mWebView.getMessagingEnabled()) {
+                 // Post to main thread because `mWebView.getUrl()` requires to be executed on main.
+                 mWebView.post(() -> mWebView.onMessage(message, mWebView.getUrl()));
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+index 0287e1c..3bb4f4b 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+@@ -49,6 +49,28 @@ public class RNCWebViewClient extends WebViewClient {
+         basicAuthCredential = credential;
+     }
+
++    // OneKey patch: preserve this client and every existing callback for all WebViews.
++    @Override
++    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
++        OneKeyWebEmbedAssetLoader loader = ((RNCWebView) view).getOneKeyWebEmbedAssetLoader();
++        if (loader != null) {
++            WebResourceResponse response = loader.intercept(request.getUrl().toString(),
++                    request.getMethod(), request.isForMainFrame());
++            if (response != null) return response;
++        }
++        return super.shouldInterceptRequest(view, request);
++    }
++
++    @Override
++    public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
++        OneKeyWebEmbedAssetLoader loader = ((RNCWebView) view).getOneKeyWebEmbedAssetLoader();
++        if (loader != null) {
++            WebResourceResponse response = loader.intercept(url, "GET", false);
++            if (response != null) return response;
++        }
++        return super.shouldInterceptRequest(view, url);
++    }
++
+     @Override
+     public void onPageFinished(WebView webView, String url) {
+         super.onPageFinished(webView, url);
+@@ -93,6 +115,8 @@ public class RNCWebViewClient extends WebViewClient {
+     @Override
+     public boolean shouldOverrideUrlLoading(WebView view, String url) {
+         final RNCWebView rncWebView = (RNCWebView) view;
++        // OneKey patch: native rejection must not depend on a JS callback timeout.
++        if (!rncWebView.isOneKeyWebEmbedNavigationAllowed(url)) return true;
+         final boolean isJsDebugging = rncWebView.getReactApplicationContext().getJavaScriptContextHolder().get() == 0;
+
+         if (!isJsDebugging && rncWebView.mMessagingJSModule != null) {
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
-index f83033b..e0b3c40 100644
+index f83033b..dbe2331 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 @@ -27,6 +27,7 @@ import org.json.JSONObject
@@ -252,7 +563,7 @@ index f83033b..e0b3c40 100644
  import java.net.URL
 +import java.util.HashSet
  import java.util.Locale
- 
+
  val invalidCharRegex = "[\\\\/%\"]".toRegex()
 @@ -34,6 +35,17 @@ val invalidCharRegex = "[\\\\/%\"]".toRegex()
  class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
@@ -270,7 +581,7 @@ index f83033b..e0b3c40 100644
 +            }
 +        }
      }
- 
+
      private val TAG = "RNCWebViewManagerImpl"
 @@ -147,7 +159,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              val webChromeClient: RNCWebChromeClient =
@@ -279,7 +590,7 @@ index f83033b..e0b3c40 100644
 -                        return Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
 +                        return safeDefaultVideoPoster()
                      }
- 
+
                      override fun onShowCustomView(view: View, callback: CustomViewCallback) {
 @@ -214,7 +226,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              webChromeClient?.onHideCustomView()
@@ -290,7 +601,36 @@ index f83033b..e0b3c40 100644
                  }
              }
              webChromeClient.setAllowsProtectedMedia(mAllowsProtectedMedia);
-@@ -721,4 +733,19 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+@@ -269,6 +281,14 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+     }
+
+     fun onAfterUpdateTransaction(viewWrapper: RNCWebViewWrapper) {
++        // OneKey patch: no later React prop may broaden the scoped APK loader.
++        if (viewWrapper.webView.oneKeyWebEmbedAssetLoader != null) {
++            viewWrapper.webView.settings.allowFileAccess = false
++            viewWrapper.webView.settings.allowContentAccess = false
++            viewWrapper.webView.settings.allowFileAccessFromFileURLs = false
++            viewWrapper.webView.settings.allowUniversalAccessFromFileURLs = false
++            viewWrapper.webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
++        }
+         mPendingSource?.let { source ->
+             loadSource(viewWrapper, source)
+         }
+@@ -384,6 +404,13 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+
+     private fun loadSource(viewWrapper: RNCWebViewWrapper, source: ReadableMap?) {
+         val view = viewWrapper.webView
++        // OneKey patch: HTML/baseURL sources must not impersonate the trusted APK origin.
++        if (view.oneKeyWebEmbedAssetLoader != null &&
++            (source == null || source.hasKey("html") || !source.hasKey("uri") ||
++                !view.isOneKeyWebEmbedNavigationAllowed(source.getString("uri")))) {
++            view.reportOneKeyWebEmbedNavigationError()
++            return
++        }
+         if (source != null) {
+             if (source.hasKey("html")) {
+                 val html = source.getString("html")
+@@ -721,4 +748,19 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              WebSettingsCompat.setPaymentRequestEnabled(view.settings, enabled)
          }
      }
@@ -311,13 +651,27 @@ index f83033b..e0b3c40 100644
 +    }
  }
 diff --git a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-index 4709e28..e4d48a1 100644
+index 4709e28..24698e3 100644
 --- a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
 +++ b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-@@ -338,6 +338,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
+@@ -63,6 +63,13 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
+         return mRNCWebViewManagerImpl.createViewInstance(context);
+     }
+
++    @Override
++    // OneKey patch: keep all stock view creation, commands, and event emitters.
++    @ReactProp(name = "oneKeyWebEmbedAssets", defaultBoolean = false)
++    public void setOneKeyWebEmbedAssets(RNCWebViewWrapper view, boolean enabled) {
++        view.getWebView().setOneKeyWebEmbedAssets(enabled);
++    }
++
+     @Override
+     @ReactProp(name = "allowFileAccess")
+     public void setAllowFileAccess(RNCWebViewWrapper view, boolean value) {
+@@ -338,6 +345,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
          mRNCWebViewManagerImpl.setPaymentRequestEnabled(view, value);
      }
- 
+
 +    @ReactProp(name = "mediaPermissionWhitelist")
 +    public void setMediaPermissionWhitelist(RNCWebViewWrapper view, @Nullable ReadableArray value) {
 +        mRNCWebViewManagerImpl.setMediaPermissionWhitelist(view, value);
@@ -327,13 +681,26 @@ index 4709e28..e4d48a1 100644
      @Override
      public void setAllowingReadAccessToURL(RNCWebViewWrapper view, @Nullable String value) {}
 diff --git a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-index 974337f..d4f774d 100644
+index 974337f..8c11152 100644
 --- a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
 +++ b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-@@ -279,6 +279,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper> {
+@@ -46,6 +46,12 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper> {
+       return mRNCWebViewManagerImpl.createViewInstance(context, view);
+     }
+
++    // OneKey patch: keep all stock view creation, commands, and event emitters.
++    @ReactProp(name = "oneKeyWebEmbedAssets", defaultBoolean = false)
++    public void setOneKeyWebEmbedAssets(RNCWebViewWrapper view, boolean enabled) {
++        view.getWebView().setOneKeyWebEmbedAssets(enabled);
++    }
++
+     @ReactProp(name = "allowFileAccess")
+     public void setAllowFileAccess(RNCWebViewWrapper view, boolean value) {
+         mRNCWebViewManagerImpl.setAllowFileAccess(view, value);
+@@ -279,6 +285,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper> {
          mRNCWebViewManagerImpl.setPaymentRequestEnabled(view, value);
      }
- 
+
 +    @ReactProp(name = "mediaPermissionWhitelist")
 +    public void setMediaPermissionWhitelist(RNCWebViewWrapper view, @Nullable ReadableArray value) {
 +        mRNCWebViewManagerImpl.setMediaPermissionWhitelist(view, value);
@@ -342,17 +709,597 @@ index 974337f..d4f774d 100644
      @Override
      protected void addEventEmitters(@NonNull ThemedReactContext reactContext, RNCWebViewWrapper viewWrapper) {
          // Do not register default touch emitter and let WebView implementation handle touches
+diff --git a/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.h b/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.h
+new file mode 100644
+index 0000000..71f0956
+--- /dev/null
++++ b/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.h
+@@ -0,0 +1,57 @@
++// OneKey patch: serve only the bundled WebEmbed through a public, isolated scheme.
++#import <Foundation/Foundation.h>
++#import <WebKit/WebKit.h>
++
++NS_ASSUME_NONNULL_BEGIN
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++typedef NS_ENUM(NSUInteger, RNCOneKeyTraceStage) {
++  RNCOneKeyTraceInitStarted,
++  RNCOneKeyTraceRequestStart,
++  RNCOneKeyTraceReadBegin,
++  RNCOneKeyTraceReadComplete,
++  RNCOneKeyTraceDeliveryEnter,
++  RNCOneKeyTraceDeliveryDiscarded,
++  RNCOneKeyTraceResponseEnter,
++  RNCOneKeyTraceResponseReturn,
++  RNCOneKeyTraceDataEnter,
++  RNCOneKeyTraceDataReturn,
++  RNCOneKeyTraceFinishEnter,
++  RNCOneKeyTraceFinishReturn,
++  RNCOneKeyTraceStop,
++  RNCOneKeyTraceInvalidate,
++  RNCOneKeyTraceRequestInvalidated,
++  RNCOneKeyTraceDealloc,
++  RNCOneKeyTraceSourceChanged,
++  RNCOneKeyTraceLoadRequest,
++  RNCOneKeyTraceNavigationStart,
++  RNCOneKeyTraceNavigationCommit,
++  RNCOneKeyTraceNavigationFinish,
++  RNCOneKeyTraceNavigationFailure,
++  RNCOneKeyTraceProcessTerminated,
++  RNCOneKeyTraceDestroy,
++  RNCOneKeyTraceFailClosed,
++  RNCOneKeyTraceRequestBudget,
++  RNCOneKeyTraceEventBudget,
++  RNCOneKeyTraceWindowEnded,
++};
++#endif
++
++
++@interface RNCOneKeyWebEmbedAssets : NSObject <WKURLSchemeHandler>
+++ (NSURL *)documentURL;
+++ (BOOL)isDocumentURL:(nullable NSURL *)url allowFragment:(BOOL)allowFragment;
+++ (BOOL)isAllowedSource:(nullable NSDictionary *)source;
+++ (BOOL)isAllowedNavigationAction:(WKNavigationAction *)action source:(NSDictionary *)source;
+++ (BOOL)isAllowedMessage:(WKScriptMessage *)message
++                webView:(WKWebView *)webView
++                 source:(NSDictionary *)source
++     navigationCommitted:(BOOL)navigationCommitted;
++- (instancetype)initWithBundle:(NSBundle *)bundle;
++- (void)invalidate;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++- (void)traceLifecycle:(RNCOneKeyTraceStage)stage generation:(NSUInteger)generation committed:(BOOL)committed;
++#endif
++
++@end
++
++NS_ASSUME_NONNULL_END
+diff --git a/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.m b/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.m
+new file mode 100644
+index 0000000..afd96aa
+--- /dev/null
++++ b/node_modules/react-native-webview/apple/RNCOneKeyWebEmbedAssets.m
+@@ -0,0 +1,511 @@
++// OneKey patch: no network proxy, CORS relaxation, private WebKit API, or mutable root.
++#import "RNCOneKeyWebEmbedAssets.h"
++#import <fcntl.h>
++#import <sys/stat.h>
++#import <unistd.h>
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++#import <os/log.h>
++#import <stdatomic.h>
++#import <time.h>
++
++#if !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_RUN_ID) || \
++    !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_MANIFEST) || \
++    !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_VERSION) || \
++    !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_BUILD) || \
++    !defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_BUNDLE)
++#error "Native trace requires every exact public E2E identity constant"
++#endif
++
++static atomic_uint OKTraceEventCount;
++static atomic_uint OKTraceHandlerCount;
++static atomic_bool OKTraceWindowReported;
++static NSTimeInterval OKTraceStarted;
++static dispatch_once_t OKTraceStartOnce;
++static const NSUInteger OKTraceMaxRequests = 16;
++
++static BOOL OKTraceHex(NSString *value, NSUInteger length) {
++  if (![value isKindOfClass:NSString.class] || value.length != length) return NO;
++  NSCharacterSet *hex = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"];
++  return [value rangeOfCharacterFromSet:hex.invertedSet].location == NSNotFound;
++}
++
++static BOOL OKTraceIdentityMatches(NSBundle *bundle) {
++  NSDictionary *identity = [bundle objectForInfoDictionaryKey:@"OneKeyMobileLockdownNativeTrace"];
++  NSDictionary *expected = @{@"runId": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_RUN_ID,
++    @"manifestDigest": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_MANIFEST,
++    @"version": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_VERSION,
++    @"buildNumber": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_BUILD,
++    @"bundleVersion": @ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_BUNDLE};
++  if (![bundle.bundleIdentifier isEqual:@"so.onekey.wallet"] ||
++      ![identity isKindOfClass:NSDictionary.class] || ![identity isEqualToDictionary:expected] ||
++      !OKTraceHex(identity[@"runId"], 32) || !OKTraceHex(identity[@"manifestDigest"], 64)) return NO;
++  return [[bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:expected[@"version"]] &&
++    [[bundle objectForInfoDictionaryKey:@"CFBundleVersion"] isEqual:expected[@"buildNumber"]] &&
++    [[bundle objectForInfoDictionaryKey:@"BUNDLE_VERSION"] isEqual:expected[@"bundleVersion"]];
++}
++
++static const char *OKTraceStageName(RNCOneKeyTraceStage stage) {
++  switch (stage) {
++    case RNCOneKeyTraceInitStarted: return "handler-init-start";
++    case RNCOneKeyTraceRequestStart: return "request-start";
++    case RNCOneKeyTraceReadBegin: return "read-begin";
++    case RNCOneKeyTraceReadComplete: return "read-complete";
++    case RNCOneKeyTraceDeliveryEnter: return "delivery-enter";
++    case RNCOneKeyTraceDeliveryDiscarded: return "delivery-discarded";
++    case RNCOneKeyTraceResponseEnter: return "response-enter";
++    case RNCOneKeyTraceResponseReturn: return "response-return";
++    case RNCOneKeyTraceDataEnter: return "data-enter";
++    case RNCOneKeyTraceDataReturn: return "data-return";
++    case RNCOneKeyTraceFinishEnter: return "finish-enter";
++    case RNCOneKeyTraceFinishReturn: return "finish-return";
++    case RNCOneKeyTraceStop: return "request-stop";
++    case RNCOneKeyTraceInvalidate: return "handler-invalidate";
++    case RNCOneKeyTraceRequestInvalidated: return "request-invalidated";
++    case RNCOneKeyTraceDealloc: return "handler-dealloc";
++    case RNCOneKeyTraceSourceChanged: return "source-changed";
++    case RNCOneKeyTraceLoadRequest: return "load-request";
++    case RNCOneKeyTraceNavigationStart: return "navigation-start";
++    case RNCOneKeyTraceNavigationCommit: return "navigation-commit";
++    case RNCOneKeyTraceNavigationFinish: return "navigation-finish";
++    case RNCOneKeyTraceNavigationFailure: return "navigation-failure";
++    case RNCOneKeyTraceProcessTerminated: return "process-terminated";
++    case RNCOneKeyTraceDestroy: return "view-destroy";
++    case RNCOneKeyTraceFailClosed: return "view-fail-closed";
++    case RNCOneKeyTraceRequestBudget: return "request-budget-exhausted";
++    case RNCOneKeyTraceEventBudget: return "event-budget-exhausted";
++    case RNCOneKeyTraceWindowEnded: return "observation-window-ended";
++  }
++  return NULL;
++}
++
++// Fixed startup history, never a wrapping buffer: the first 256 reservations win.
++// Each slot is written once and published with release/acquire synchronization.
++typedef struct {
++  uint64_t timestampNs;
++  uint64_t elapsedNs;
++  NSUInteger handler;
++  NSUInteger request;
++  NSUInteger bytes;
++  NSInteger status;
++  NSUInteger generation;
++  unsigned flags;
++  RNCOneKeyTraceStage stage;
++  NSUInteger asset;
++} OKTraceRecord;
++static OKTraceRecord OKTraceRecords[256];
++static atomic_bool OKTracePublished[256];
++static atomic_uint OKTraceDropped;
++static atomic_uint OKTraceRequestDropped;
++_Static_assert(ATOMIC_INT_LOCK_FREE == 2 && ATOMIC_BOOL_LOCK_FREE == 2, "Native trace atomics must be lock-free");
++static atomic_bool OKTraceFlushed;
++static uint64_t OKTraceStartedNs;
++
++static void OKTraceIncrementBounded(atomic_uint *counter) {
++  unsigned count = atomic_load_explicit(counter, memory_order_relaxed);
++  while (count < 65535 && !atomic_compare_exchange_weak_explicit(
++    counter, &count, count + 1, memory_order_relaxed, memory_order_relaxed)) {}
++}
++
++static void OKTraceFlush(void) {
++  if (atomic_exchange_explicit(&OKTraceFlushed, true, memory_order_acq_rel)) return;
++  // The snapshot does not close the original 90-second capture window. Later
++  // slots are not included in this one dump and cannot be confused with it.
++  uint64_t snapshotStartNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++  unsigned reserved = MIN(atomic_load_explicit(&OKTraceEventCount, memory_order_acquire), 256);
++  unsigned dropped = atomic_load_explicit(&OKTraceDropped, memory_order_relaxed);
++  unsigned requestDropped = atomic_load_explicit(&OKTraceRequestDropped, memory_order_relaxed);
++  unsigned published = 0;
++  OKTraceRecord snapshot[256];
++  bool ready[256] = {false};
++  // This is an interval-sampled reservation prefix, not an atomic snapshot.
++  // Copy ready slots before any formatting or log submission. A writer still
++  // owning an unpublished slot is skipped without waiting or reading its data.
++  for (unsigned index = 0; index < reserved; index++) {
++    if (!atomic_load_explicit(&OKTracePublished[index], memory_order_acquire)) continue;
++    snapshot[index] = OKTraceRecords[index];
++    ready[index] = true;
++    published++;
++  }
++  uint64_t snapshotEndNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++  os_log_t log = os_log_create("so.onekey.lavamoat.e2e", "native-web-embed");
++  for (unsigned index = 0; index < reserved; index++) {
++    if (!ready[index]) continue;
++    const OKTraceRecord *record = &snapshot[index];
++    const char *stageName = OKTraceStageName(record->stage);
++    os_log_with_type(log, OS_LOG_TYPE_DEFAULT,
++      "OneKeyNativeWebEmbedDeferredV1 run=%{public}s manifest=%{public}s sequence=%u timestampNs=%llu handler=%llu request=%llu stage=%{public}s asset=%{public}s elapsed=%llu bytes=%llu status=%lld generation=%llu flags=%u",
++      ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_RUN_ID, ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_MANIFEST,
++      index, (unsigned long long)record->timestampNs,
++      (unsigned long long)record->handler, (unsigned long long)record->request, stageName,
++      record->asset == 1 ? "kaspa-loader" : record->asset == 2 ? "kaspa-sdk" : "none",
++      (unsigned long long)MIN(record->elapsedNs / NSEC_PER_MSEC, 90000),
++      (unsigned long long)MIN(record->bytes, 64 * 1024 * 1024),
++      (long long)MAX(MIN(record->status, 999), -999),
++      (unsigned long long)MIN(record->generation, 65535), record->flags & 31);
++  }
++  os_log_with_type(log, OS_LOG_TYPE_DEFAULT,
++    "OneKeyNativeWebEmbedDeferredSummaryV1 run=%{public}s manifest=%{public}s snapshotStartElapsed=%llu snapshotEndElapsed=%llu flushElapsed=%llu flushTimestampNs=%llu reserved=%u published=%u unpublished=%u dropped=%u requestDropped=%u windowMs=90000 capacity=256 requestLimit=16",
++    ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_RUN_ID, ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE_MANIFEST,
++    (unsigned long long)((snapshotStartNs - OKTraceStartedNs) / NSEC_PER_MSEC),
++    (unsigned long long)((snapshotEndNs - OKTraceStartedNs) / NSEC_PER_MSEC),
++    (unsigned long long)((clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - OKTraceStartedNs) / NSEC_PER_MSEC),
++    (unsigned long long)clock_gettime_nsec_np(CLOCK_REALTIME),
++    reserved, published, reserved - published,
++    dropped, requestDropped);
++}
++
++static void OKTraceEmit(NSUInteger handler, NSUInteger request, RNCOneKeyTraceStage stage,
++                        NSUInteger asset, NSTimeInterval started, NSUInteger bytes,
++                        NSInteger status, NSUInteger generation, unsigned flags) {
++  (void)started;
++  // No Objective-C messaging, allocation, stage formatting, logging, locks or
++  // queue submission in this recorder. Original call sites and callbacks remain.
++  if (stage > RNCOneKeyTraceWindowEnded || asset > 2) return;
++  uint64_t now = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++  uint64_t elapsed = now >= OKTraceStartedNs ? now - OKTraceStartedNs : UINT64_MAX;
++  if (elapsed > 90ULL * NSEC_PER_SEC) {
++    if (atomic_exchange_explicit(&OKTraceWindowReported, true, memory_order_relaxed)) {
++      OKTraceIncrementBounded(&OKTraceDropped);
++      return;
++    }
++    stage = RNCOneKeyTraceWindowEnded;
++  }
++  unsigned sequence = atomic_load_explicit(&OKTraceEventCount, memory_order_relaxed);
++  do {
++    if (sequence >= 256) { OKTraceIncrementBounded(&OKTraceDropped); return; }
++  } while (!atomic_compare_exchange_weak_explicit(&OKTraceEventCount, &sequence, sequence + 1,
++    memory_order_relaxed, memory_order_relaxed));
++  OKTraceRecords[sequence] = (OKTraceRecord){
++    .timestampNs = clock_gettime_nsec_np(CLOCK_REALTIME), .elapsedNs = elapsed,
++    .handler = handler, .request = request, .bytes = bytes, .status = status,
++    .generation = generation, .flags = flags,
++    .stage = sequence == 255 ? RNCOneKeyTraceEventBudget : stage, .asset = asset};
++  atomic_store_explicit(&OKTracePublished[sequence], true, memory_order_release);
++}
++
++static NSUInteger OKTraceAsset(NSArray<NSString *> *components) {
++  if (components.count != 3 || ![components[0] isEqual:@"static"] || ![components[1] isEqual:@"js"]) return 0;
++  NSRegularExpression *pattern = [NSRegularExpression regularExpressionWithPattern:@"^(871|693)\\.[a-f0-9]+\\.chunk\\.js$" options:0 error:nil];
++  NSString *name = components[2];
++  NSTextCheckingResult *match = [pattern firstMatchInString:name options:0 range:NSMakeRange(0, name.length)];
++  if (!match || match.range.location != 0 || match.range.length != name.length) return 0;
++  return [[name substringWithRange:[match rangeAtIndex:1]] isEqual:@"871"] ? 1 : 2;
++}
++
++#endif
++
++
++static NSString *const OKWebEmbedScheme = @"onekey-web-embed";
++static NSString *const OKWebEmbedHost = @"bundle";
++
++@implementation RNCOneKeyWebEmbedAssets {
++  int _rootFD;
++  BOOL _invalidated;
++  NSMapTable<id<WKURLSchemeTask>, NSObject *> *_tasks;
++  dispatch_queue_t _readQueue;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  BOOL _traceEnabled;
++  NSUInteger _traceHandler;
++  NSUInteger _traceNextRequest;
++  BOOL _traceRequestBudgetReported;
++  NSUInteger _traceGeneration;
++  NSTimeInterval _traceStarted;
++  NSMapTable<id<WKURLSchemeTask>, NSDictionary *> *_traceTasks;
++#endif
++
++}
++
+++ (NSURL *)documentURL {
++  return [NSURL URLWithString:@"onekey-web-embed://bundle/index.html"];
++}
++
+++ (BOOL)hasAllowedAuthority:(NSURLComponents *)parts {
++  return parts && [parts.string hasPrefix:@"onekey-web-embed://bundle/"] &&
++    [parts.percentEncodedHost isEqualToString:OKWebEmbedHost] && [parts.scheme isEqualToString:OKWebEmbedScheme] &&
++    [parts.host isEqualToString:OKWebEmbedHost] && !parts.user &&
++    !parts.password && !parts.port && !parts.query;
++}
++
+++ (BOOL)isDocumentURL:(NSURL *)url allowFragment:(BOOL)allowFragment {
++  if (!url) return NO;
++  NSString *canonical = self.documentURL.absoluteString;
++  if (![url.absoluteString isEqualToString:canonical] &&
++      !(allowFragment && [url.absoluteString hasPrefix:[canonical stringByAppendingString:@"#"]])) return NO;
++  NSURLComponents *parts = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
++  return [self hasAllowedAuthority:parts] &&
++    [parts.percentEncodedPath isEqualToString:@"/index.html"] &&
++    (allowFragment || !parts.fragment);
++}
++
+++ (BOOL)isAllowedSource:(NSDictionary *)source {
++  if (![source isKindOfClass:[NSDictionary class]] || ![source[@"uri"] isKindOfClass:[NSString class]]) return NO;
++  for (NSString *key in source) {
++    if (![key isEqualToString:@"uri"] && ![key isEqualToString:@"method"]) return NO;
++  }
++  if (![source[@"uri"] isEqualToString:self.documentURL.absoluteString]) return NO;
++  return (!source[@"method"] || [source[@"method"] isEqual:@"GET"]) &&
++    [self isDocumentURL:[NSURL URLWithString:source[@"uri"]] allowFragment:NO];
++}
++
+++ (BOOL)isAllowedNavigationAction:(WKNavigationAction *)action source:(NSDictionary *)source {
++  return [self isAllowedSource:source] && action.targetFrame.isMainFrame &&
++    [self isDocumentURL:action.request.URL allowFragment:YES] &&
++    [action.request.HTTPMethod isEqualToString:@"GET"];
++}
++
+++ (BOOL)isAllowedMessage:(WKScriptMessage *)message
++                webView:(WKWebView *)webView
++                 source:(NSDictionary *)source
++     navigationCommitted:(BOOL)navigationCommitted {
++  WKFrameInfo *frame = message.frameInfo;
++  WKSecurityOrigin *origin = frame.securityOrigin;
++  return navigationCommitted && message.webView == webView && frame.isMainFrame &&
++    [origin.protocol isEqualToString:OKWebEmbedScheme] &&
++    [origin.host isEqualToString:OKWebEmbedHost] && origin.port == 0 &&
++    [self isAllowedSource:source] &&
++    [self isDocumentURL:frame.request.URL allowFragment:YES] &&
++    (!frame.request.HTTPMethod || [frame.request.HTTPMethod isEqualToString:@"GET"]) &&
++    [self isDocumentURL:webView.URL allowFragment:YES];
++}
++
++- (instancetype)initWithBundle:(NSBundle *)bundle {
++  if ((self = [super init])) {
++    _rootFD = -1;
++    _tasks = [NSMapTable strongToStrongObjectsMapTable];
++    _readQueue = dispatch_queue_create("so.onekey.webembed.assets", DISPATCH_QUEUE_SERIAL);
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++    _traceEnabled = OKTraceIdentityMatches(NSBundle.mainBundle);
++    if (_traceEnabled) {
++      _traceHandler = atomic_fetch_add(&OKTraceHandlerCount, 1) + 1;
++      dispatch_once(&OKTraceStartOnce, ^{
++        OKTraceStarted = NSProcessInfo.processInfo.systemUptime;
++        OKTraceStartedNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++        // This static block retains no handler, view, request or message object.
++        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 65LL * NSEC_PER_SEC),
++          dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ OKTraceFlush(); });
++      });
++      _traceStarted = OKTraceStarted;
++      _traceTasks = [NSMapTable strongToStrongObjectsMapTable];
++      [self traceLifecycle:RNCOneKeyTraceInitStarted generation:0 committed:NO];
++    }
++#endif
++
++    // The signed app bundle is the only root. Never accept a JS-supplied directory.
++    NSURL *resources = bundle.resourceURL.URLByResolvingSymlinksInPath;
++    NSURL *root = [resources URLByAppendingPathComponent:@"web-embed" isDirectory:YES];
++    struct stat attributes;
++    if (root.isFileURL && lstat(root.fileSystemRepresentation, &attributes) == 0 &&
++        S_ISDIR(attributes.st_mode) && !S_ISLNK(attributes.st_mode)) {
++      _rootFD = open(root.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
++    }
++  }
++  return self;
++}
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++- (void)traceLifecycle:(RNCOneKeyTraceStage)stage generation:(NSUInteger)generation committed:(BOOL)committed {
++  if (!_traceEnabled) return;
++  _traceGeneration = generation;
++  OKTraceEmit(_traceHandler, 0, stage, 0, _traceStarted, 0, 0, generation,
++    ([NSThread isMainThread] ? 1 : 0) | (committed ? 8 : 0));
++}
++
++- (NSDictionary *)traceBeginTask:(id<WKURLSchemeTask>)task components:(NSArray *)components {
++  if (!_traceEnabled) return nil;
++  NSUInteger asset = OKTraceAsset(components);
++  if (!asset) return nil;
++  if (_traceNextRequest >= OKTraceMaxRequests) {
++    OKTraceIncrementBounded(&OKTraceRequestDropped);
++    if (!_traceRequestBudgetReported) {
++      _traceRequestBudgetReported = YES;
++      [self traceLifecycle:RNCOneKeyTraceRequestBudget generation:_traceGeneration committed:NO];
++    }
++    return nil;
++  }
++  NSUInteger request = ++_traceNextRequest;
++  NSDictionary *context = @{@"request": @(request), @"asset": @(asset), @"generation": @(_traceGeneration)};
++  [_traceTasks setObject:context forKey:task];
++  [self traceRequest:RNCOneKeyTraceRequestStart context:context bytes:0 status:0 flags:0];
++  return context;
++}
++
++- (void)traceRequest:(RNCOneKeyTraceStage)stage context:(NSDictionary *)context bytes:(NSUInteger)bytes status:(NSInteger)status flags:(unsigned)flags {
++  if (!_traceEnabled || !context) return;
++  OKTraceEmit(_traceHandler, [context[@"request"] unsignedIntegerValue], stage,
++    [context[@"asset"] unsignedIntegerValue], _traceStarted, bytes, status,
++    [context[@"generation"] unsignedIntegerValue], flags | ([NSThread isMainThread] ? 1 : 0));
++}
++
++- (void)traceForgetTask:(id<WKURLSchemeTask>)task context:(NSDictionary *)context {
++  if (context && [_traceTasks objectForKey:task] == context) [_traceTasks removeObjectForKey:task];
++}
++
++#endif
++- (void)dealloc {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  if (_traceEnabled) OKTraceEmit(_traceHandler, 0, RNCOneKeyTraceDealloc, 0, _traceStarted, 0, 0, 0, [NSThread isMainThread] ? 1 : 0);
++#endif
++
++  if (_rootFD >= 0) close(_rootFD);
++}
++
++- (void)invalidate {
++  NSAssert([NSThread isMainThread], @"WebEmbed task state is main-thread only");
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [self traceLifecycle:RNCOneKeyTraceInvalidate generation:_traceGeneration committed:NO];
++  for (NSDictionary *context in _traceTasks.objectEnumerator) [self traceRequest:RNCOneKeyTraceRequestInvalidated context:context bytes:0 status:0 flags:2];
++  [_traceTasks removeAllObjects];
++#endif
++  _invalidated = YES;
++  [_tasks removeAllObjects];
++}
++
+++ (NSArray<NSString *> *)pathComponentsForRequest:(NSURLRequest *)request {
++  if (!request.URL) return nil;
++  NSURLComponents *parts = [NSURLComponents componentsWithURL:request.URL resolvingAgainstBaseURL:NO];
++  NSString *path = parts.percentEncodedPath;
++  if (![self hasAllowedAuthority:parts] || parts.fragment ||
++      ![request.HTTPMethod isEqualToString:@"GET"] || ![path hasPrefix:@"/"]) return nil;
++  NSCharacterSet *allowed = [NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._/"];
++  if ([path rangeOfCharacterFromSet:allowed.invertedSet].location != NSNotFound) return nil;
++  NSArray<NSString *> *components = [[path substringFromIndex:1] componentsSeparatedByString:@"/"];
++  for (NSString *component in components) {
++    if (!component.length || [component isEqualToString:@"."] || [component isEqualToString:@".."]) return nil;
++  }
++  return components;
++}
++
++- (NSData *)readComponents:(NSArray<NSString *> *)components {
++  if (_rootFD < 0) return nil;
++  int current = dup(_rootFD);
++  if (current < 0) return nil;
++  for (NSUInteger index = 0; index < components.count; index++) {
++    BOOL last = index == components.count - 1;
++    int next = openat(current, components[index].fileSystemRepresentation,
++                      O_RDONLY | O_NOFOLLOW | O_CLOEXEC | (last ? 0 : O_DIRECTORY));
++    close(current);
++    current = next;
++    if (current < 0) return nil;
++  }
++  struct stat attributes;
++  if (fstat(current, &attributes) != 0 || !S_ISREG(attributes.st_mode)) {
++    close(current);
++    return nil;
++  }
++  NSMutableData *data = [NSMutableData data];
++  uint8_t buffer[65536];
++  ssize_t count;
++  while ((count = read(current, buffer, sizeof(buffer))) > 0) {
++    [data appendBytes:buffer length:(NSUInteger)count];
++  }
++  close(current);
++  return count == 0 ? data : nil;
++}
++
+++ (NSString *)mimeTypeForPath:(NSString *)path {
++  NSDictionary *types = @{@"html": @"text/html", @"js": @"application/javascript",
++    @"json": @"application/json", @"css": @"text/css", @"wasm": @"application/wasm",
++    @"bin": @"application/octet-stream", @"png": @"image/png", @"svg": @"image/svg+xml",
++    @"jpg": @"image/jpeg", @"jpeg": @"image/jpeg", @"webp": @"image/webp",
++    @"woff": @"font/woff", @"woff2": @"font/woff2", @"ttf": @"font/ttf"};
++  return types[path.pathExtension.lowercaseString] ?: @"application/octet-stream";
++}
++
++- (void)webView:(WKWebView *)webView startURLSchemeTask:(id<WKURLSchemeTask>)task {
++  NSAssert([NSThread isMainThread], @"WebEmbed task state is main-thread only");
++  if (_invalidated) {
++    [task didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorCancelled userInfo:nil]];
++    return;
++  }
++  NSObject *token = [NSObject new];
++  [_tasks setObject:token forKey:task];
++  NSURLRequest *request = task.request;
++  NSArray<NSString *> *components = [RNCOneKeyWebEmbedAssets pathComponentsForRequest:request];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  NSDictionary *traceContext = [self traceBeginTask:task components:components];
++#endif
++
++  dispatch_async(_readQueue, ^{
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++    [self traceRequest:RNCOneKeyTraceReadBegin context:traceContext bytes:0 status:0 flags:0];
++#endif
++
++    NSData *data = components ? [self readComponents:components] : nil;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++    [self traceRequest:RNCOneKeyTraceReadComplete context:traceContext bytes:data.length status:0 flags:data ? 16 : 0];
++#endif
++
++    dispatch_async(dispatch_get_main_queue(), ^{
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceDeliveryEnter context:traceContext bytes:data.length status:0 flags:(self->_invalidated ? 2 : 0) | ([self->_tasks objectForKey:task] == token ? 4 : 0)];
++#endif
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) {
++        [self traceRequest:RNCOneKeyTraceDeliveryDiscarded context:traceContext bytes:0 status:1 flags:(self->_invalidated ? 2 : 0) | ([self->_tasks objectForKey:task] == token ? 4 : 0)];
++        [self traceForgetTask:task context:traceContext];
++      }
++#endif
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) return;
++      NSInteger status = !components ? 403 : data ? 200 : 404;
++      NSData *body = data ?: [NSData data];
++      NSString *mime = data ? [RNCOneKeyWebEmbedAssets mimeTypeForPath:components.lastObject] : @"application/octet-stream";
++      NSHTTPURLResponse *response = [[NSHTTPURLResponse alloc] initWithURL:request.URL statusCode:status HTTPVersion:@"HTTP/1.1"
++        headerFields:@{@"Content-Type": mime, @"Content-Length": [NSString stringWithFormat:@"%lu", (unsigned long)body.length], @"Cache-Control": @"no-store", @"X-Content-Type-Options": @"nosniff"}];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceResponseEnter context:traceContext bytes:body.length status:status flags:0];
++#endif
++      [task didReceiveResponse:response];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceResponseReturn context:traceContext bytes:body.length status:status flags:0];
++#endif
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) {
++        [self traceRequest:RNCOneKeyTraceDeliveryDiscarded context:traceContext bytes:0 status:2 flags:(self->_invalidated ? 2 : 0) | ([self->_tasks objectForKey:task] == token ? 4 : 0)];
++        [self traceForgetTask:task context:traceContext];
++      }
++#endif
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) return;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceDataEnter context:traceContext bytes:body.length status:status flags:0];
++#endif
++      [task didReceiveData:body];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceDataReturn context:traceContext bytes:body.length status:status flags:0];
++#endif
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) {
++        [self traceRequest:RNCOneKeyTraceDeliveryDiscarded context:traceContext bytes:0 status:3 flags:(self->_invalidated ? 2 : 0) | ([self->_tasks objectForKey:task] == token ? 4 : 0)];
++        [self traceForgetTask:task context:traceContext];
++      }
++#endif
++      if (self->_invalidated || [self->_tasks objectForKey:task] != token) return;
++      [self->_tasks removeObjectForKey:task];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceForgetTask:task context:traceContext];
++#endif
++
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceFinishEnter context:traceContext bytes:body.length status:status flags:0];
++#endif
++      [task didFinish];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++      [self traceRequest:RNCOneKeyTraceFinishReturn context:traceContext bytes:body.length status:status flags:0];
++#endif
++
++    });
++  });
++}
++
++- (void)webView:(WKWebView *)webView stopURLSchemeTask:(id<WKURLSchemeTask>)task {
++  NSAssert([NSThread isMainThread], @"WebEmbed task state is main-thread only");
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  NSDictionary *traceContext = [_traceTasks objectForKey:task];
++  [self traceRequest:RNCOneKeyTraceStop context:traceContext bytes:0 status:0 flags:0];
++  [self traceForgetTask:task context:traceContext];
++#endif
++  [_tasks removeObjectForKey:task];
++}
++@end
 diff --git a/node_modules/react-native-webview/apple/RNCWebView.mm b/node_modules/react-native-webview/apple/RNCWebView.mm
-index c0816b6..3a32f01 100644
+index c0816b6..c49621b 100644
 --- a/node_modules/react-native-webview/apple/RNCWebView.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebView.mm
 @@ -65,6 +65,7 @@ @interface RNCWebView () <RCTRNCWebViewViewProtocol>
- 
+
  @implementation RNCWebView {
      RNCWebViewImpl * _view;
 +    NSDictionary * _sourceFromProps;
  }
- 
+
  + (ComponentDescriptorProvider)componentDescriptorProvider
 @@ -76,6 +77,7 @@ + (ComponentDescriptorProvider)componentDescriptorProvider
  // Reproduce the idea from here: https://github.com/facebook/react-native/blob/8bd3edec88148d0ab1f225d2119435681fbbba33/React/Fabric/Mounting/ComponentViews/InputAccessory/RCTInputAccessoryComponentView.mm#L142
@@ -362,7 +1309,18 @@ index c0816b6..3a32f01 100644
      [_view destroyWebView];
  }
  #endif // !TARGET_OS_OSX
-@@ -512,7 +514,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+@@ -289,6 +291,10 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+         _view.name = RCTNSStringFromString(newViewProps.name);      \
+     }
+
++    // OneKey patch: configure the scheme before applying source or file-access props.
++    // OneKey patch: reconcile a recycled view even when Fabric props stayed false after a rejected live toggle.
++    // REMAP_WEBVIEW_PROP(oneKeyWebEmbedAssets)
++    _view.oneKeyWebEmbedAssets = newViewProps.oneKeyWebEmbedAssets;
+     REMAP_WEBVIEW_PROP(scrollEnabled)
+     REMAP_WEBVIEW_STRING_PROP(injectedJavaScript)
+     REMAP_WEBVIEW_STRING_PROP(injectedJavaScriptBeforeContentLoaded)
+@@ -512,7 +518,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
      if (!newViewProps.newSource.method.empty()) {
          [source setValue:RCTNSStringFromString(newViewProps.newSource.method) forKey:@"method"];
      }
@@ -372,23 +1330,32 @@ index c0816b6..3a32f01 100644
 +        _sourceFromProps = [source copy];
 +        [_view setSource:source];
 +    }
- 
+
      [super updateProps:props oldProps:oldProps];
  }
-@@ -540,7 +546,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
+@@ -540,7 +550,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
  }
- 
+
  - (void)loadUrl:(nonnull NSString *)url {
 -    // android only
 +    [_view setSource:@{@"uri": url}];
  }
- 
+
  - (void)postMessage:(nonnull NSString *)data {
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.h b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
-index 1f6bbfd..e4c9cd7 100644
+index 1f6bbfd..bbcf4c3 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.h
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
-@@ -112,6 +112,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
+@@ -97,6 +97,8 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
+ @property (nonatomic, assign) BOOL cacheEnabled;
+ @property (nonatomic, assign) BOOL javaScriptEnabled;
+ @property (nonatomic, assign) BOOL javaScriptCanOpenWindowsAutomatically;
++// OneKey patch: immutable, bundled-only candidate mode.
++@property (nonatomic, assign) BOOL oneKeyWebEmbedAssets;
+ @property (nonatomic, assign) BOOL allowFileAccessFromFileURLs;
+ @property (nonatomic, assign) BOOL allowUniversalAccessFromFileURLs;
+ @property (nonatomic, assign) BOOL allowsLinkPreview;
+@@ -112,6 +114,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
  @property (nonatomic, assign) BOOL enableApplePay;
  @property (nonatomic, copy) NSArray<NSDictionary *> * _Nullable menuItems;
  @property (nonatomic, copy) NSArray<NSString *> * _Nullable suppressMenuItems;
@@ -397,13 +1364,21 @@ index 1f6bbfd..e4c9cd7 100644
  #if !TARGET_OS_OSX
  @property (nonatomic, assign) WKDataDetectorTypes dataDetectorTypes;
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-index 7f5c24d..3b9ebdb 100644
+index 7f5c24d..0b96d29 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-@@ -23,6 +23,88 @@
+@@ -6,6 +6,7 @@
+  */
+
+ #import "RNCWebViewImpl.h"
++#import "RNCOneKeyWebEmbedAssets.h"
+ #import <React/RCTConvert.h>
+ #import <React/RCTAutoInsetsProtocol.h>
+ #import "RNCWKProcessPoolManager.h"
+@@ -23,6 +24,88 @@
  static NSURLCredential* clientAuthenticationCredential;
  static NSDictionary* customCertificatesForHost;
- 
+
 +static NSString *OKNormalizeHostname(NSString *hostname) {
 +  NSString *normalizedHostname = [[hostname ?: @"" stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
 +  while ([normalizedHostname hasSuffix:@"."]) {
@@ -487,18 +1462,226 @@ index 7f5c24d..3b9ebdb 100644
 +}
 +
  NSString *const CUSTOM_SELECTOR = @"_CUSTOM_SELECTOR_";
- 
+
  #if TARGET_OS_IOS
-@@ -126,6 +208,8 @@ @interface RNCWebViewImpl () <WKUIDelegate, WKNavigationDelegate, WKScriptMessag
+@@ -126,6 +209,8 @@ @interface RNCWebViewImpl () <WKUIDelegate, WKNavigationDelegate, WKScriptMessag
  @property (nonatomic, strong) WKUserScript *injectedObjectJsonScript;
  @property (nonatomic, strong) WKUserScript *atStartScript;
  @property (nonatomic, strong) WKUserScript *atEndScript;
 +@property (nonatomic, copy, nullable) NSSet<NSString *> *mediaPermissionWhitelistSet;
 +@property (nonatomic, copy, nullable) NSSet<NSString *> *mediaPermissionWhitelistDomainKeys;
  @end
- 
+
  @implementation RNCWebViewImpl
-@@ -874,7 +958,7 @@ - (void)visitSource
+@@ -135,6 +220,13 @@ @implementation RNCWebViewImpl
+ #else
+   RCTUIColor * _savedBackgroundColor;
+ #endif // !TARGET_OS_OSX
++  // OneKey patch: revoke stale navigation/message callbacks independently of JS state.
++  RNCOneKeyWebEmbedAssets *_oneKeyWebEmbedHandler;
++  WKNavigation *_oneKeyWebEmbedNavigation;
++  NSUInteger _oneKeyWebEmbedGeneration;
++  BOOL _oneKeyWebEmbedModeLocked;
++  BOOL _oneKeyWebEmbedBlocked;
++  BOOL _oneKeyWebEmbedCommitted;
+   BOOL _savedHideKeyboardAccessoryView;
+   BOOL _savedKeyboardDisplayRequiresUserAction;
+
+@@ -310,6 +402,7 @@ - (UIMenu *)editMenuInteraction:(UIEditMenuInteraction *)interaction menuForConf
+
+ - (void)dealloc
+ {
++  [_oneKeyWebEmbedHandler invalidate];
+   [[NSNotificationCenter defaultCenter] removeObserver:self];
+   if (@available(iOS 11.0, *)) {
+     [self.webView.configuration.websiteDataStore.httpCookieStore removeObserver:self];
+@@ -389,6 +482,8 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+  */
+ - (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures
+ {
++  // OneKey patch: a protected document cannot create an unguarded child WebView.
++  if (_oneKeyWebEmbedAssets) return nil;
+   if (!navigationAction.targetFrame.isMainFrame) {
+     NSURL *url = navigationAction.request.URL;
+
+@@ -422,7 +517,15 @@ - (void)webView:(WKWebView *)webView runOpenPanelWithParameters:(WKOpenPanelPara
+
+ - (WKWebViewConfiguration *)setUpWkWebViewConfig
+ {
++  _oneKeyWebEmbedModeLocked = YES;
+   WKWebViewConfiguration *wkWebViewConfig = [WKWebViewConfiguration new];
++  if (_oneKeyWebEmbedAssets) {
++    _oneKeyWebEmbedHandler = [[RNCOneKeyWebEmbedAssets alloc] initWithBundle:NSBundle.mainBundle];
++    [wkWebViewConfig setURLSchemeHandler:_oneKeyWebEmbedHandler forURLScheme:@"onekey-web-embed"];
++    if (_allowFileAccessFromFileURLs || _allowUniversalAccessFromFileURLs || _allowingReadAccessToURL.length) {
++      [self oneKeyWebEmbedFailClosed];
++    }
++  }
+   WKPreferences *prefs = [[WKPreferences alloc]init];
+   BOOL _prefsUsed = NO;
+   if (!_javaScriptEnabled) {
+@@ -437,10 +540,14 @@ - (WKWebViewConfiguration *)setUpWkWebViewConfig
+     }
+   }
+ #endif
+-  if (_allowUniversalAccessFromFileURLs) {
++  // OneKey patch: never enable file-origin privileges in the scoped scheme.
++  // if (_allowUniversalAccessFromFileURLs) {
++  if (_allowUniversalAccessFromFileURLs && !_oneKeyWebEmbedAssets) {
+     [wkWebViewConfig setValue:@TRUE forKey:@"allowUniversalAccessFromFileURLs"];
+   }
+-  if (_allowFileAccessFromFileURLs) {
++  // OneKey patch: keep WK file-origin security defaults intact.
++  // if (_allowFileAccessFromFileURLs) {
++  if (_allowFileAccessFromFileURLs && !_oneKeyWebEmbedAssets) {
+     [prefs setValue:@TRUE forKey:@"allowFileAccessFromFileURLs"];
+     _prefsUsed = YES;
+   }
+@@ -613,6 +720,8 @@ - (void)destroyWebView
+ - (void)removeFromSuperview
+ #endif
+ {
++  [self resetOneKeyWebEmbedAfterDestroy];
++
+   if (_webView) {
+     [_webView.configuration.userContentController removeScriptMessageHandlerForName:HistoryShimName];
+     [_webView.configuration.userContentController removeScriptMessageHandlerForName:MessageHandlerName];
+@@ -775,6 +884,30 @@ - (void)setAutomaticallyAdjustsScrollIndicatorInsets:(BOOL)automaticallyAdjustsS
+ - (void)userContentController:(WKUserContentController *)userContentController
+       didReceiveScriptMessage:(WKScriptMessage *)message
+ {
++  // OneKey patch: authenticate native frame metadata, then recheck at event dispatch.
++  if (_oneKeyWebEmbedAssets) {
++    if (_oneKeyWebEmbedBlocked || !_oneKeyWebEmbedHandler ||
++        ![RNCOneKeyWebEmbedAssets isAllowedMessage:message webView:_webView source:_source navigationCommitted:_oneKeyWebEmbedCommitted]) return;
++    NSUInteger generation = _oneKeyWebEmbedGeneration;
++    dispatch_async(dispatch_get_main_queue(), ^{
++      if (generation != self->_oneKeyWebEmbedGeneration || self->_oneKeyWebEmbedBlocked ||
++          ![RNCOneKeyWebEmbedAssets isAllowedMessage:message webView:self->_webView source:self->_source navigationCommitted:self->_oneKeyWebEmbedCommitted]) return;
++      if ([message.name isEqualToString:HistoryShimName]) {
++        if (self->_onLoadingFinish) {
++          NSMutableDictionary *event = [self baseEvent];
++          event[@"navigationType"] = message.body;
++          self->_onLoadingFinish(event);
++        }
++      } else if ([message.name isEqualToString:MessageHandlerName] && self->_onMessage) {
++        NSMutableDictionary *event = [self baseEvent];
++        event[@"data"] = message.body;
++        event[@"url"] = RNCOneKeyWebEmbedAssets.documentURL.absoluteString;
++        self->_onMessage(event);
++      }
++    });
++    return;
++  }
++
+   if ([message.name isEqualToString:HistoryShimName]) {
+     if (_onLoadingFinish) {
+       NSMutableDictionary<NSString *, id> *event = [self baseEvent];
+@@ -791,10 +924,75 @@ - (void)userContentController:(WKUserContentController *)userContentController
+   }
+ }
+
++// OneKey patch: share the teardown transition with native lifecycle regression tests.
++- (void)resetOneKeyWebEmbedAfterDestroy {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceDestroy generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
++  // OneKey patch: invalidate the old instance before Fabric can recycle it.
++  _oneKeyWebEmbedGeneration++;
++  _oneKeyWebEmbedCommitted = NO;
++  [_oneKeyWebEmbedHandler invalidate];
++  _oneKeyWebEmbedHandler = nil;
++  _oneKeyWebEmbedNavigation = nil;
++  _oneKeyWebEmbedModeLocked = NO;
++  _oneKeyWebEmbedBlocked = NO;
++}
++
++// OneKey patch: configuration changes cannot convert a live WebView into a trusted one.
++- (void)oneKeyWebEmbedFailClosed {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceFailClosed generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
++  _oneKeyWebEmbedBlocked = YES;
++  _oneKeyWebEmbedCommitted = NO;
++  _oneKeyWebEmbedGeneration++;
++  [_oneKeyWebEmbedHandler invalidate];
++  [_webView stopLoading];
++  if (_onLoadingError) {
++    _onLoadingError(@{@"domain": @"OneKeyWebEmbed", @"code": @403,
++      @"description": @"Protected WebEmbed rejected an invalid native configuration or navigation.",
++      @"url": RNCOneKeyWebEmbedAssets.documentURL.absoluteString});
++  }
++}
++
++- (void)setOneKeyWebEmbedAssets:(BOOL)enabled {
++  if (_oneKeyWebEmbedModeLocked && _oneKeyWebEmbedAssets != enabled) {
++    _oneKeyWebEmbedAssets = YES;
++    [self oneKeyWebEmbedFailClosed];
++    return;
++  }
++  _oneKeyWebEmbedAssets = enabled;
++}
++
++- (void)setAllowFileAccessFromFileURLs:(BOOL)enabled {
++  if (_oneKeyWebEmbedAssets && enabled) { [self oneKeyWebEmbedFailClosed]; return; }
++  _allowFileAccessFromFileURLs = enabled;
++}
++
++- (void)setAllowUniversalAccessFromFileURLs:(BOOL)enabled {
++  if (_oneKeyWebEmbedAssets && enabled) { [self oneKeyWebEmbedFailClosed]; return; }
++  _allowUniversalAccessFromFileURLs = enabled;
++}
++
+ - (void)setSource:(NSDictionary *)source
+ {
+   if (![_source isEqualToDictionary:source]) {
+     _source = [source copy];
++    if (_oneKeyWebEmbedAssets) {
++      _oneKeyWebEmbedGeneration++;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceSourceChanged generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
++      _oneKeyWebEmbedCommitted = NO;
++      if (![RNCOneKeyWebEmbedAssets isAllowedSource:source]) {
++        [self oneKeyWebEmbedFailClosed];
++        return;
++      }
++    }
+
+     if (_webView != nil) {
+       [self visitSource];
+@@ -804,6 +1002,7 @@ - (void)setSource:(NSDictionary *)source
+
+ - (void)setAllowingReadAccessToURL:(NSString *)allowingReadAccessToURL
+ {
++  if (_oneKeyWebEmbedAssets && allowingReadAccessToURL.length) { [self oneKeyWebEmbedFailClosed]; return; }
+   if (![_allowingReadAccessToURL isEqualToString:allowingReadAccessToURL]) {
+     _allowingReadAccessToURL = [allowingReadAccessToURL copy];
+
+@@ -835,6 +1034,19 @@ - (void)refreshContentInset
+
+ - (void)visitSource
+ {
++  // OneKey patch: bypass HTML/baseURL conversion and asynchronous cookie loading.
++  if (_oneKeyWebEmbedAssets) {
++    if (_oneKeyWebEmbedBlocked) return;
++    if (![RNCOneKeyWebEmbedAssets isAllowedSource:_source]) { [self oneKeyWebEmbedFailClosed]; return; }
++    if (_oneKeyWebEmbedCommitted && [RNCOneKeyWebEmbedAssets isDocumentURL:_webView.URL allowFragment:YES]) return;
++    _oneKeyWebEmbedGeneration++;
++    _oneKeyWebEmbedCommitted = NO;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceLoadRequest generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++    _oneKeyWebEmbedNavigation = [_webView loadRequest:[NSURLRequest requestWithURL:RNCOneKeyWebEmbedAssets.documentURL]];
++    return;
++  }
+   // Check for a static html source first
+   NSString *html = [RCTConvert NSString:_source[@"html"]];
+   if (html) {
+@@ -874,7 +1086,7 @@ - (void)visitSource
        [webView loadHTMLString:@"" baseURL:nil];
        return;
      }
@@ -507,10 +1690,10 @@ index 7f5c24d..3b9ebdb 100644
        [webView loadRequest:request];
      }
      else {
-@@ -1149,6 +1233,12 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
+@@ -1149,6 +1361,12 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
    customCertificatesForHost = certificates;
  }
- 
+
 +- (void)setMediaPermissionWhitelist:(NSArray<NSString *> *)origins {
 +  _mediaPermissionWhitelist = [origins copy];
 +  _mediaPermissionWhitelistSet = origins ? [NSSet setWithArray:origins] : nil;
@@ -520,7 +1703,7 @@ index 7f5c24d..3b9ebdb 100644
  - (void)                    webView:(WKWebView *)webView
    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
                    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
-@@ -1245,44 +1335,8 @@ - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSStr
+@@ -1245,44 +1463,8 @@ - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSStr
   * prompt
   */
  - (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString *))completionHandler{
@@ -564,9 +1747,9 @@ index 7f5c24d..3b9ebdb 100644
 -  }];
 -#endif // !TARGET_OS_OSX
  }
- 
+
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000 /* iOS 15 */
-@@ -1294,6 +1348,26 @@ - (void)                         webView:(WKWebView *)webView
+@@ -1294,6 +1476,26 @@ - (void)                         webView:(WKWebView *)webView
                          initiatedByFrame:(WKFrameInfo *)frame
                                      type:(WKMediaCaptureType)type
                           decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler {
@@ -593,24 +1776,151 @@ index 7f5c24d..3b9ebdb 100644
    if (_mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElsePrompt || _mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElseDeny) {
      if ([origin.host isEqualToString:webView.URL.host]) {
        decisionHandler(WKPermissionDecisionGrant);
+@@ -1329,6 +1531,18 @@ - (void)                  webView:(WKWebView *)webView
+   decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
+                   decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
+ {
++    // OneKey patch: native authorization precedes and cannot be overridden by JS.
++    BOOL protectedNavigation = _oneKeyWebEmbedAssets;
++    NSUInteger protectedGeneration = _oneKeyWebEmbedGeneration;
++    if (protectedNavigation) {
++      if (_oneKeyWebEmbedBlocked ||
++          ![RNCOneKeyWebEmbedAssets isAllowedNavigationAction:navigationAction source:_source]) {
++        decisionHandler(WKNavigationActionPolicyCancel);
++        return;
++      }
++      // Preserve the existing JS callback and its ability to deny the safe URL.
++    }
++
+     static NSDictionary<NSNumber *, NSString *> *navigationTypes;
+     static dispatch_once_t onceToken;
+
+@@ -1365,6 +1579,15 @@ - (void)                  webView:(WKWebView *)webView
+     if (_onShouldStartLoadWithRequest) {
+         int lockIdentifier = [[RNCWebViewDecisionManager getInstance] setDecisionHandler: ^(BOOL shouldStart){
+             dispatch_async(dispatch_get_main_queue(), ^{
++                // OneKey patch: a delayed JS decision cannot authorize a replaced view or mode.
++                if (protectedNavigation != self->_oneKeyWebEmbedAssets ||
++                    (protectedNavigation && (self->_oneKeyWebEmbedBlocked ||
++                      protectedGeneration != self->_oneKeyWebEmbedGeneration ||
++                      webView != self->_webView ||
++                      ![RNCOneKeyWebEmbedAssets isAllowedSource:self->_source]))) {
++                    decisionHandler(WKNavigationActionPolicyCancel);
++                    return;
++                }
+                 if (!shouldStart) {
+                     decisionHandler(WKNavigationActionPolicyCancel);
+                     return;
+@@ -1426,6 +1649,10 @@ - (void)                  webView:(WKWebView *)webView
+  */
+ - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
+ {
++  if (_oneKeyWebEmbedAssets) { _oneKeyWebEmbedCommitted = NO; _oneKeyWebEmbedGeneration++; }
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceProcessTerminated generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
+   RCTLogWarn(@"Webview Process Terminated");
+   if (_onContentProcessDidTerminate) {
+     NSMutableDictionary<NSString *, id> *event = [self baseEvent];
+@@ -1441,6 +1668,12 @@ - (void)                    webView:(WKWebView *)webView
+   decidePolicyForNavigationResponse:(WKNavigationResponse *)navigationResponse
+                     decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler
+ {
++  if (_oneKeyWebEmbedAssets && (_oneKeyWebEmbedBlocked || !navigationResponse.forMainFrame ||
++      ![RNCOneKeyWebEmbedAssets isDocumentURL:navigationResponse.response.URL allowFragment:YES])) {
++    decisionHandler(WKNavigationResponsePolicyCancel);
++    return;
++  }
++
+   WKNavigationResponsePolicy policy = WKNavigationResponsePolicyAllow;
+   if ([navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
+     NSHTTPURLResponse *response = (NSHTTPURLResponse *)navigationResponse.response;
+@@ -1485,6 +1718,11 @@ - (void)               webView:(WKWebView *)webView
+   didFailProvisionalNavigation:(WKNavigation *)navigation
+                      withError:(NSError *)error
+ {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceNavigationFailure generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
++  if (_oneKeyWebEmbedAssets) { _oneKeyWebEmbedCommitted = NO; _oneKeyWebEmbedGeneration++; }
+   if (_onLoadingError) {
+     if ([error.domain isEqualToString:NSURLErrorDomain] && error.code == NSURLErrorCancelled) {
+       // NSURLErrorCancelled is reported when a page has a redirect OR if you load
+@@ -1565,9 +1803,38 @@ -(void)appWillResignActive
+  * Called when the navigation is complete.
+  * @see https://fburl.com/rtys6jlb
+  */
++// OneKey patch: messages are enabled only after the current allowed document commits.
++- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
++  if (_oneKeyWebEmbedAssets && webView == _webView) {
++    _oneKeyWebEmbedNavigation = navigation;
++    _oneKeyWebEmbedCommitted = NO;
++    _oneKeyWebEmbedGeneration++;
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceNavigationStart generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
++  }
++}
++
++- (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
++  if (_oneKeyWebEmbedAssets) {
++    _oneKeyWebEmbedCommitted = !_oneKeyWebEmbedBlocked && webView == _webView && navigation == _oneKeyWebEmbedNavigation &&
++      [RNCOneKeyWebEmbedAssets isAllowedSource:_source] &&
++      [RNCOneKeyWebEmbedAssets isDocumentURL:webView.URL allowFragment:YES];
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++    [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceNavigationCommit generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
++  }
++}
++
+ - (void)webView:(WKWebView *)webView
+ didFinishNavigation:(WKNavigation *)navigation
+ {
++#if defined(ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE) && ONEKEY_MOBILE_LOCKDOWN_NATIVE_TRACE == 1 && !DEBUG
++  [_oneKeyWebEmbedHandler traceLifecycle:RNCOneKeyTraceNavigationFinish generation:_oneKeyWebEmbedGeneration committed:_oneKeyWebEmbedCommitted];
++#endif
++
+   if (_ignoreSilentHardwareSwitch) {
+     [self forceIgnoreSilentHardwareSwitch:true];
+   }
+@@ -1656,6 +1923,7 @@ - (void)setPullToRefreshEnabled:(BOOL)pullToRefreshEnabled
+
+ - (void)stopLoading
+ {
++  if (_oneKeyWebEmbedAssets) { _oneKeyWebEmbedCommitted = NO; _oneKeyWebEmbedGeneration++; }
+   [_webView stopLoading];
+ }
+
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewManager.mm b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
-index f8f375f..a83678d 100644
+index f8f375f..7b524e3 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewManager.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
-@@ -102,6 +102,9 @@ - (RNCView *)view
+@@ -59,6 +59,8 @@ - (RNCView *)view
+ RCT_EXPORT_VIEW_PROPERTY(injectedJavaScriptObject, NSString)
+ RCT_EXPORT_VIEW_PROPERTY(javaScriptEnabled, BOOL)
+ RCT_EXPORT_VIEW_PROPERTY(javaScriptCanOpenWindowsAutomatically, BOOL)
++// OneKey patch: expose the same scoped mode in the legacy manager.
++RCT_EXPORT_VIEW_PROPERTY(oneKeyWebEmbedAssets, BOOL)
+ RCT_EXPORT_VIEW_PROPERTY(allowFileAccessFromFileURLs, BOOL)
+ RCT_EXPORT_VIEW_PROPERTY(allowUniversalAccessFromFileURLs, BOOL)
+ RCT_EXPORT_VIEW_PROPERTY(allowsInlineMediaPlayback, BOOL)
+@@ -102,6 +104,9 @@ - (RNCView *)view
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000 /* iOS 15 */
  RCT_EXPORT_VIEW_PROPERTY(mediaCapturePermissionGrantType, RNCWebViewPermissionGrantType)
  #endif
 +RCT_CUSTOM_VIEW_PROPERTY(mediaPermissionWhitelist, NSArray, RNCWebViewImpl) {
 +  view.mediaPermissionWhitelist = json == nil ? nil : [RCTConvert NSStringArray:json];
 +}
- 
+
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000 /* iOS 13 */
  RCT_EXPORT_VIEW_PROPERTY(fraudulentWebsiteWarningEnabled, BOOL)
-@@ -206,6 +209,19 @@ - (RNCView *)view
+@@ -206,6 +211,19 @@ - (RNCView *)view
    }];                                                                                                                                   \
  }
- 
+
 +RCT_EXPORT_METHOD(loadUrl:(nonnull NSNumber *)reactTag url:(NSString *)url)
 +{
 +  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, BASE_VIEW_PER_OS() *> *viewRegistry) {
@@ -634,7 +1944,7 @@ index a3eef13..b7c14a1 100644
 @@ -27,6 +27,11 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
       */
      stopLoading(): void;
- 
+
 +    /**
 +     * Loads the url.
 +     */
@@ -672,16 +1982,25 @@ index 998cc88..59407fc 100644
  }
  export {};
 diff --git a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-index 7f4e6c4..e9a75a2 100644
+index 7f4e6c4..e4d3153 100644
 --- a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
 +++ b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-@@ -295,6 +295,7 @@ export interface NativeProps extends ViewProps {
+@@ -248,6 +248,8 @@ export interface NativeProps extends ViewProps {
+   fraudulentWebsiteWarningEnabled?: WithDefault<boolean, true>;
+   // !iOS only
+
++  // OneKey patch: explicit protected APK WebEmbed instances only.
++  oneKeyWebEmbedAssets?: WithDefault<boolean, false>;
+   allowFileAccessFromFileURLs?: boolean;
+   allowUniversalAccessFromFileURLs?: boolean;
+   applicationNameForUserAgent?: string;
+@@ -295,6 +297,7 @@ export interface NativeProps extends ViewProps {
    userAgent?: string;
    injectedJavaScriptObject?: string;
    paymentRequestEnabled?: boolean;
 +  mediaPermissionWhitelist?: ReadonlyArray<string>;
  }
- 
+
  export interface NativeCommands {
 diff --git a/node_modules/react-native-webview/src/WebView.android.tsx b/node_modules/react-native-webview/src/WebView.android.tsx
 index 6497a8b..233bb7a 100644
@@ -714,9 +2033,9 @@ index 3b0a38b..52e4bce 100644
 --- a/node_modules/react-native-webview/src/WebViewShared.tsx
 +++ b/node_modules/react-native-webview/src/WebViewShared.tsx
 @@ -19,6 +19,10 @@ import styles from './WebView.styles';
- 
+
  const defaultOriginWhitelist = ['http://*', 'https://*'] as const;
- 
+
 +export const ERROR_CODE = {
 +  CONNECTION_FAILED: -1001000,
 +};
@@ -751,10 +2070,10 @@ index 3b0a38b..52e4bce 100644
        // !patch for Android only
        onLoadProgress?.(event);
 diff --git a/node_modules/react-native-webview/src/WebViewTypes.ts b/node_modules/react-native-webview/src/WebViewTypes.ts
-index eca8141..7387db3 100644
+index eca8141..b336498 100644
 --- a/node_modules/react-native-webview/src/WebViewTypes.ts
 +++ b/node_modules/react-native-webview/src/WebViewTypes.ts
-@@ -1357,4 +1357,11 @@ export interface WebViewSharedProps extends ViewProps {
+@@ -1357,4 +1357,14 @@ export interface WebViewSharedProps extends ViewProps {
     * Enables support for the Payment Request API for the WebView
     */
    paymentRequestEnabled?: boolean;
@@ -765,4 +2084,7 @@ index eca8141..7387db3 100644
 +   * @platform ios, android
 +   */
 +  mediaPermissionWhitelist?: string[];
++
++  /** OneKey patch: fixed APK WebEmbed origin; Android only, disabled by default. */
++  oneKeyWebEmbedAssets?: boolean;
  }

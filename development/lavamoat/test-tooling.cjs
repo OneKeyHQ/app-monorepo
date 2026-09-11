@@ -1,0 +1,1015 @@
+// cspell:ignore LavaMoat LAVAMOAT ONEKEYBOT lavamoat
+
+const assert = require('assert/strict');
+const { spawnSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const { LavaMoatError } = require('./error.cjs');
+const { disabledTargetDirs, enabledTargets } = require('./targets.cjs');
+const policyTargets = enabledTargets.map(({ policy }) => path.dirname(policy));
+
+const repoRoot = path.resolve(__dirname, '../..');
+const dollarSign = String.fromCodePoint(36);
+const checkGeneratedFileScopeScript = path.join(
+  repoRoot,
+  'development/lavamoat/check-generated-file-scope.cjs',
+);
+const checkPolicyDiffScript = path.join(
+  repoRoot,
+  'development/lavamoat/check-policy-diff.cjs',
+);
+const validatePolicyArtifactsScript = path.join(
+  repoRoot,
+  'development/lavamoat/validate-policy-artifacts.cjs',
+);
+
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    cwd: options.cwd,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new LavaMoatError(
+      [
+        `${command} ${args.join(' ')} failed with status ${result.status}`,
+        result.stdout,
+        result.stderr,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
+  }
+
+  return result;
+}
+
+function runScript(script, cwd, args = []) {
+  const result = spawnSync(process.execPath, [script, ...args], {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result;
+}
+
+function expectStatus(result, expectedStatus, label) {
+  if (result.status !== expectedStatus) {
+    throw new LavaMoatError(
+      [
+        `${label} expected status ${expectedStatus}, got ${result.status}`,
+        result.stdout,
+        result.stderr,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
+  }
+}
+
+function writeFile(file, content) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, content);
+}
+
+function initRepo(dir) {
+  run('git', ['init', '-q'], { cwd: dir });
+  run('git', ['config', 'user.email', 'lavamoat-test@example.com'], {
+    cwd: dir,
+  });
+  run('git', ['config', 'user.name', 'LavaMoat Test'], { cwd: dir });
+  run('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir });
+}
+
+function commitAll(dir, message) {
+  run('git', ['add', '.'], { cwd: dir });
+  run('git', ['commit', '-q', '-m', message], { cwd: dir });
+}
+
+function createTempRoot() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-lavamoat-tooling-'));
+}
+
+function testGeneratedFileScope(tempRoot) {
+  const repo = path.join(tempRoot, 'scope');
+  fs.mkdirSync(repo);
+  initRepo(repo);
+
+  writeFile(path.join(repo, 'src/app.ts'), 'base\n');
+  commitAll(repo, 'init');
+
+  writeFile(path.join(repo, 'src/feature.ts'), 'committed business change\n');
+  commitAll(repo, 'committed non-lavamoat change');
+
+  writeFile(path.join(repo, 'lavamoat/webpack/web/policy.json'), '{}\n');
+  expectStatus(
+    runScript(checkGeneratedFileScopeScript, repo),
+    0,
+    'check-generated-file-scope allows lavamoat-only changes after committed business changes',
+  );
+
+  for (const forbidden of [
+    'lavamoat/supply-chain/install-scripts.json',
+    'lavamoat/webpack/web/policy-override.json',
+    'lavamoat/review/executable.js',
+  ]) {
+    const file = path.join(repo, forbidden);
+    writeFile(file, '{}\n');
+    expectStatus(
+      runScript(checkGeneratedFileScopeScript, repo),
+      1,
+      `generated updates must not change ${forbidden}`,
+    );
+    fs.rmSync(file);
+  }
+
+  writeFile(path.join(repo, 'src/app.ts'), 'dirty\n');
+  expectStatus(
+    runScript(checkGeneratedFileScopeScript, repo),
+    1,
+    'check-generated-file-scope rejects non-lavamoat changes',
+  );
+
+  const renameRepo = path.join(tempRoot, 'scope-rename');
+  fs.mkdirSync(renameRepo);
+  initRepo(renameRepo);
+  writeFile(path.join(renameRepo, 'src/app.ts'), 'base\n');
+  commitAll(renameRepo, 'init');
+  fs.mkdirSync(path.join(renameRepo, 'lavamoat/webpack/web'), {
+    recursive: true,
+  });
+  run('git', ['mv', 'src/app.ts', 'lavamoat/webpack/web/app.ts'], {
+    cwd: renameRepo,
+  });
+  expectStatus(
+    runScript(checkGeneratedFileScopeScript, renameRepo),
+    1,
+    'check-generated-file-scope rejects renames from non-lavamoat files',
+  );
+}
+
+function createPolicyDiffBaseRepo(repo) {
+  fs.mkdirSync(repo);
+  initRepo(repo);
+  writeFile(
+    path.join(repo, 'lavamoat/webpack/web/policy.json'),
+    '{"old":true}\n',
+  );
+  commitAll(repo, 'init');
+}
+
+function testPolicyDiff(tempRoot) {
+  const repo = path.join(tempRoot, 'diff');
+  createPolicyDiffBaseRepo(repo);
+
+  const output = path.join(repo, 'policy.patch');
+  writeFile(output, 'stale\n');
+  expectStatus(
+    runScript(checkPolicyDiffScript, repo, ['--output', output]),
+    0,
+    'check-policy-diff succeeds when lavamoat is clean',
+  );
+  if (fs.existsSync(output)) {
+    throw new LavaMoatError(
+      'check-policy-diff should remove stale output when clean',
+    );
+  }
+
+  writeFile(
+    path.join(repo, 'lavamoat/webpack/web/policy.json'),
+    '{"new":true}\n',
+  );
+  writeFile(
+    path.join(repo, 'lavamoat/review/summary.json'),
+    '{"resources":{}}\n',
+  );
+  expectStatus(
+    runScript(checkPolicyDiffScript, repo, ['--output', output]),
+    1,
+    'check-policy-diff reports lavamoat changes',
+  );
+  if (!fs.existsSync(output)) {
+    throw new LavaMoatError(
+      'check-policy-diff should write patch output on diff',
+    );
+  }
+
+  const applyRepo = path.join(tempRoot, 'apply');
+  createPolicyDiffBaseRepo(applyRepo);
+  run('git', ['apply', '--check', '--whitespace=error', output], {
+    cwd: applyRepo,
+  });
+  run('git', ['apply', '--whitespace=error', output], { cwd: applyRepo });
+  expectStatus(
+    runScript(checkGeneratedFileScopeScript, applyRepo),
+    0,
+    'policy diff patch only changes lavamoat files',
+  );
+  commitAll(applyRepo, 'apply policy diff');
+  expectStatus(
+    runScript(checkPolicyDiffScript, applyRepo),
+    0,
+    'check-policy-diff succeeds after committing generated policy changes',
+  );
+
+  const deleteRepo = path.join(tempRoot, 'delete-diff');
+  createPolicyDiffBaseRepo(deleteRepo);
+  const deleteOutput = path.join(deleteRepo, 'delete-policy.patch');
+  fs.rmSync(path.join(deleteRepo, 'lavamoat/webpack/web/policy.json'));
+  expectStatus(
+    runScript(checkPolicyDiffScript, deleteRepo, ['--output', deleteOutput]),
+    1,
+    'check-policy-diff reports deleted lavamoat files',
+  );
+
+  const deleteApplyRepo = path.join(tempRoot, 'delete-apply');
+  createPolicyDiffBaseRepo(deleteApplyRepo);
+  run('git', ['apply', '--check', '--whitespace=error', deleteOutput], {
+    cwd: deleteApplyRepo,
+  });
+  run('git', ['apply', '--whitespace=error', deleteOutput], {
+    cwd: deleteApplyRepo,
+  });
+  if (
+    fs.existsSync(
+      path.join(deleteApplyRepo, 'lavamoat/webpack/web/policy.json'),
+    )
+  ) {
+    throw new LavaMoatError(
+      'delete policy diff should remove tracked lavamoat files',
+    );
+  }
+  expectStatus(
+    runScript(checkGeneratedFileScopeScript, deleteApplyRepo),
+    0,
+    'deleted policy diff patch only changes lavamoat files',
+  );
+}
+
+function copyFileFromRepo(targetRepo, sourceRelativePath) {
+  const source = path.join(repoRoot, sourceRelativePath);
+  const target = path.join(targetRepo, sourceRelativePath);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.copyFileSync(source, target);
+}
+
+function testPolicyReview(tempRoot) {
+  const repo = path.join(tempRoot, 'review');
+  for (const file of [
+    'split-policy-for-review.cjs',
+    'targets.cjs',
+    'error.cjs',
+  ]) {
+    copyFileFromRepo(repo, `development/lavamoat/${file}`);
+  }
+  fs.mkdirSync(path.join(repo, 'node_modules'), { recursive: true });
+  fs.symlinkSync(
+    path.dirname(require.resolve('lavamoat-core/package.json')),
+    path.join(repo, 'node_modules/lavamoat-core'),
+    'junction',
+  );
+
+  const grants = {
+    navigator: { navigator: true },
+    'writable-navigator': { navigator: 'write' },
+    document: { document: true },
+    'dom-node': { 'document.head': true },
+    'dom-append': { 'document.body.appendChild': true },
+    'dom-insert': { 'document.head.insertAdjacentHTML': true },
+    'dom-create-ns': { 'document.createElementNS': true },
+    'dom-query': { 'document.querySelector': true },
+    'bucket-storage': { 'navigator.storageBuckets': true },
+    safe: {
+      'navigator.userAgent': true,
+      'navigator.userAgentData': true,
+      'document.readyState': true,
+      'document.documentElement.clientWidth': true,
+      globalThis: true,
+      window: true,
+    },
+    denied: { navigator: true, document: true },
+  };
+  const policy = {
+    resources: {
+      ...Object.fromEntries(
+        Object.entries(grants).map(([resource, globals]) => [
+          resource,
+          { globals },
+        ]),
+      ),
+      'node-loader': { builtin: { 'module.createRequire': true } },
+      'node-prefixed-loader': { builtin: { 'node:module._load': true } },
+      'electron-bridge': {
+        builtin: { 'electron.ipcRenderer.send': true },
+        globals: { ipcRenderer: true },
+      },
+      caller: {
+        packages: Object.fromEntries(
+          [
+            ...Object.keys(grants),
+            'node-loader',
+            'node-prefixed-loader',
+            'electron-bridge',
+          ].map((resource) => [resource, true]),
+        ),
+      },
+    },
+  };
+  const override = {
+    resources: {
+      denied: { globals: { navigator: false, document: false } },
+    },
+  };
+  for (const target of policyTargets) {
+    const policyDir = path.join(repo, 'lavamoat', target);
+    writeFile(path.join(policyDir, 'policy.json'), JSON.stringify(policy));
+    writeFile(
+      path.join(policyDir, 'policy-override.json'),
+      JSON.stringify(override),
+    );
+  }
+
+  expectStatus(
+    runScript(
+      path.join(repo, 'development/lavamoat/split-policy-for-review.cjs'),
+      repo,
+    ),
+    0,
+    'policy review generates reports from effective permissions',
+  );
+
+  const expectedCategories = {
+    navigator: ['hardware-device', 'network', 'storage-privacy'],
+    'writable-navigator': ['hardware-device', 'network', 'storage-privacy'],
+    document: ['dom-injection-navigation', 'storage-privacy'],
+    'dom-node': ['dom-injection-navigation'],
+    'dom-append': ['dom-injection-navigation'],
+    'dom-insert': ['dom-injection-navigation'],
+    'dom-create-ns': ['dom-injection-navigation'],
+    'dom-query': ['dom-injection-navigation'],
+    'bucket-storage': ['storage-privacy'],
+    'node-loader': ['code-execution', 'node-system'],
+    'node-prefixed-loader': ['code-execution', 'node-system'],
+    'electron-bridge': [
+      'extension-desktop-bridge',
+      'extension-desktop-bridge',
+      'node-system',
+    ],
+    safe: [],
+    denied: [],
+  };
+  for (const target of policyTargets) {
+    const reviewDir = path.join(repo, 'lavamoat/review', target);
+    const readReview = (file) =>
+      JSON.parse(fs.readFileSync(path.join(reviewDir, file), 'utf8'));
+    const entries = readReview('all-high-risk-entries.json');
+    for (const [resource, categories] of Object.entries(expectedCategories)) {
+      assert.deepEqual(
+        entries
+          .filter((entry) => entry.resource === resource)
+          .map((entry) => entry.category)
+          .toSorted(),
+        categories,
+        `${target} risk categories for ${resource}`,
+      );
+    }
+
+    const riskyResources = Object.keys(expectedCategories).filter(
+      (resource) => expectedCategories[resource].length > 0,
+    );
+    const edges = readReview('package-edges-to-risky-resources.json');
+    assert.deepEqual(
+      Object.keys(edges.caller).toSorted(),
+      riskyResources.toSorted(),
+      `${target} callers retain edges to broad and DOM permissions`,
+    );
+    assert.equal(
+      readReview('summary.json').highRiskResources,
+      riskyResources.length,
+      `${target} summary includes broad permissions`,
+    );
+    assert.equal(
+      readReview('denied-overrides.json').length,
+      2,
+      `${target} denied permissions remain visible only in override report`,
+    );
+    assert.equal(
+      readReview('hardware-device.json').resources['writable-navigator'].globals
+        .navigator,
+      'write',
+      `${target} report preserves the original permission value`,
+    );
+    assert.deepEqual(
+      readReview('extension-desktop-bridge.json').resources['electron-bridge'],
+      {
+        builtins: { 'electron.ipcRenderer.send': true },
+        globals: { ipcRenderer: true },
+      },
+      `${target} report preserves globals and builtins in the same category`,
+    );
+  }
+}
+
+function copyLavamoatValidationFixture(targetRepo) {
+  for (const dir of disabledTargetDirs.map((target) => `lavamoat/${target}`)) {
+    writeFile(path.join(targetRepo, dir, '.gitkeep'), 'placeholder\n');
+  }
+
+  for (const file of [
+    '.github/workflows/update-lavamoat-policies.yml',
+    '.github/workflows/validate-lavamoat-policies.yml',
+    'apps/cli/package.json',
+    'apps/desktop/package.json',
+    'apps/ext/package.json',
+    'apps/mobile/package.json',
+    'apps/web/package.json',
+    'apps/web-embed/package.json',
+    'development/lavamoat/check-generated-file-scope.cjs',
+    'development/lavamoat/check-policy-diff.cjs',
+    'development/lavamoat/error.cjs',
+    'development/lavamoat/javascript-literal.cjs',
+    'development/lavamoat/generated-files.cjs',
+    'development/lavamoat/generated-file-security.test.cjs',
+    'development/lavamoat/normalize-policy-artifacts.cjs',
+    'development/lavamoat/split-policy-for-review.cjs',
+    'apps/cli/scripts/smoke-lavamoat.cjs',
+    'apps/cli/scripts/package-macos-standalone.js',
+    'apps/desktop/scripts/smoke-lavamoat-preload.cjs',
+    'apps/desktop/scripts/smoke-lavamoat-services.cjs',
+    'apps/desktop/scripts/smoke-lavamoat.cjs',
+    'apps/desktop/scripts/lavamoat-sdk-requires.cjs',
+    'apps/ext/scripts/smoke-lavamoat.cjs',
+    'apps/ext/scripts/smoke-lavamoat.test.cjs',
+    'development/lavamoat/smoke-web-embed.cjs',
+    'development/lavamoat/webpack-web-embed.test.cjs',
+    'development/lavamoat/webpack-web-startup.test.cjs',
+    'development/lavamoat/webpack-extension.test.cjs',
+    'development/lavamoat/webpack-extension-origin.test.cjs',
+    'development/lavamoat/webpack-extension-fetch.test.cjs',
+    'development/lavamoat/webpack-extension-passkey.test.cjs',
+    'development/lavamoat/extension-request-protocol.test.cjs',
+    'development/lavamoat/webpack-extension-kaspa.test.cjs',
+    'development/lavamoat/node-webpack.cjs',
+    'development/lavamoat/node-webpack-loader.cjs',
+    'development/lavamoat/node-webpack.test.cjs',
+    'development/lavamoat/node-build-runtime.mjs',
+    'development/lavamoat/node-build-runtime.test.cjs',
+    'development/lavamoat/smoke-web.cjs',
+    'development/lavamoat/smoke-web.test.cjs',
+    'development/lavamoat/prepare-linux-browser-sandbox.cjs',
+    'development/lavamoat/prepare-linux-browser-sandbox.test.cjs',
+    'development/lavamoat/targets.cjs',
+    'development/lavamoat/test-tooling.cjs',
+    'development/lavamoat/validate-policy-artifacts.cjs',
+    'development/lavamoat/validate-webpack-integration.cjs',
+    'development/lavamoat/webpack-loader-policy.test.cjs',
+    'development/lavamoat/webpack-wasm-assets.test.cjs',
+    'development/lavamoat/webpack-runtime-chunks.test.cjs',
+    'development/lavamoat/webpack-resource-identifiers.test.cjs',
+    'development/lavamoat/webpack-host-globals.test.cjs',
+    'development/lavamoat/webpack-tronweb-protobuf.test.cjs',
+    'development/webpack/lavamoat.js',
+    'development/webpack/lavamoat-ext-locales-loader.cjs',
+    'development/webpack/lavamoat-ext-worker-loader.cjs',
+    'development/webpack/lavamoat-web-ses-loader.cjs',
+    'development/webpack/lavamoat-ext-kaspa-loader.cjs',
+    'development/webpack/lavamoat-tronweb-protobuf-loader.cjs',
+    'development/webpack/lavamoat-kaspa-compatibility.cjs',
+    'development/webpack/lavamoat-wasm-loader.cjs',
+    'package.json',
+    'lavamoat/review/README.review.md',
+    'lavamoat/review/summary.json',
+    ...enabledTargets.flatMap(({ policy, override }) => [
+      `lavamoat/${policy}`,
+      `lavamoat/${override}`,
+    ]),
+  ]) {
+    copyFileFromRepo(targetRepo, file);
+  }
+
+  for (const target of policyTargets) {
+    for (const file of [
+      'all-high-risk-entries.json',
+      'code-execution.json',
+      'crypto-random.json',
+      'denied-overrides.json',
+      'dom-injection-navigation.json',
+      'effective-policy-summary.json',
+      'extension-desktop-bridge.json',
+      'hardware-device.json',
+      'native-modules.json',
+      'network.json',
+      'node-builtins.json',
+      'node-system.json',
+      'package-edges-to-risky-resources.json',
+      'storage-privacy.json',
+      'summary.json',
+    ]) {
+      copyFileFromRepo(targetRepo, `lavamoat/review/${target}/${file}`);
+    }
+  }
+}
+
+function testPolicyArtifactValidation(tempRoot) {
+  const repo = path.join(tempRoot, 'artifacts');
+  fs.mkdirSync(repo);
+  copyLavamoatValidationFixture(repo);
+
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, repo),
+    0,
+    'validate-policy-artifacts accepts fixture',
+  );
+
+  const unnormalizedPolicyRepo = path.join(
+    tempRoot,
+    'artifacts-unnormalized-policy',
+  );
+  fs.mkdirSync(unnormalizedPolicyRepo);
+  copyLavamoatValidationFixture(unnormalizedPolicyRepo);
+  writeFile(
+    path.join(
+      unnormalizedPolicyRepo,
+      'lavamoat/webpack/web/policy-override.json',
+    ),
+    '{"resources":{"a":{"meta":{"webpack-optimization":["z","a"]}},"z":{}}}\n',
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, unnormalizedPolicyRepo),
+    1,
+    'validate-policy-artifacts rejects unnormalized policy artifact',
+  );
+
+  writeFile(path.join(repo, 'lavamoat/webpack/web/policy-debug.json'), '{}\n');
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, repo),
+    1,
+    'validate-policy-artifacts rejects policy-debug.json',
+  );
+
+  const missingScriptRepo = path.join(
+    tempRoot,
+    'artifacts-missing-root-script',
+  );
+  fs.mkdirSync(missingScriptRepo);
+  copyLavamoatValidationFixture(missingScriptRepo);
+  const packageJsonFile = path.join(missingScriptRepo, 'package.json');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonFile, 'utf8'));
+  delete packageJson.scripts['lavamoat:build:web'];
+  writeFile(packageJsonFile, `${JSON.stringify(packageJson, null, 2)}\n`);
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingScriptRepo),
+    1,
+    'validate-policy-artifacts rejects missing enabled target script',
+  );
+
+  const disabledRootScriptRepo = path.join(
+    tempRoot,
+    'artifacts-disabled-root-script',
+  );
+  fs.mkdirSync(disabledRootScriptRepo);
+  copyLavamoatValidationFixture(disabledRootScriptRepo);
+  const disabledRootPackageJsonFile = path.join(
+    disabledRootScriptRepo,
+    'package.json',
+  );
+  const disabledRootPackageJson = JSON.parse(
+    fs.readFileSync(disabledRootPackageJsonFile, 'utf8'),
+  );
+  disabledRootPackageJson.scripts['lavamoat:policy:mobile'] =
+    'yarn workspace @onekeyhq/mobile lavamoat:policy';
+  writeFile(
+    disabledRootPackageJsonFile,
+    `${JSON.stringify(disabledRootPackageJson, null, 2)}\n`,
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, disabledRootScriptRepo),
+    1,
+    'validate-policy-artifacts rejects root LavaMoat scripts for disabled targets',
+  );
+
+  const incompleteCiScriptRepo = path.join(
+    tempRoot,
+    'artifacts-incomplete-ci-script',
+  );
+  fs.mkdirSync(incompleteCiScriptRepo);
+  copyLavamoatValidationFixture(incompleteCiScriptRepo);
+  const incompleteCiPackageJsonFile = path.join(
+    incompleteCiScriptRepo,
+    'package.json',
+  );
+  const incompleteCiPackageJson = JSON.parse(
+    fs.readFileSync(incompleteCiPackageJsonFile, 'utf8'),
+  );
+  incompleteCiPackageJson.scripts['lavamoat:ci:validate'] =
+    'yarn lavamoat:test-tooling && yarn lavamoat:policy:all';
+  writeFile(
+    incompleteCiPackageJsonFile,
+    `${JSON.stringify(incompleteCiPackageJson, null, 2)}\n`,
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, incompleteCiScriptRepo),
+    1,
+    'validate-policy-artifacts rejects incomplete aggregate CI script',
+  );
+
+  const missingWorkspaceScriptRepo = path.join(
+    tempRoot,
+    'artifacts-missing-workspace-script',
+  );
+  fs.mkdirSync(missingWorkspaceScriptRepo);
+  copyLavamoatValidationFixture(missingWorkspaceScriptRepo);
+  const webPackageJsonFile = path.join(
+    missingWorkspaceScriptRepo,
+    'apps/web/package.json',
+  );
+  const webPackageJson = JSON.parse(
+    fs.readFileSync(webPackageJsonFile, 'utf8'),
+  );
+  delete webPackageJson.scripts['build:lavamoat'];
+  writeFile(webPackageJsonFile, `${JSON.stringify(webPackageJson, null, 2)}\n`);
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingWorkspaceScriptRepo),
+    1,
+    'validate-policy-artifacts rejects missing workspace target script',
+  );
+
+  const missingWorkspaceDependencyRepo = path.join(
+    tempRoot,
+    'artifacts-missing-workspace-dependency',
+  );
+  fs.mkdirSync(missingWorkspaceDependencyRepo);
+  copyLavamoatValidationFixture(missingWorkspaceDependencyRepo);
+  const webDependencyPackageJsonFile = path.join(
+    missingWorkspaceDependencyRepo,
+    'apps/web/package.json',
+  );
+  const webDependencyPackageJson = JSON.parse(
+    fs.readFileSync(webDependencyPackageJsonFile, 'utf8'),
+  );
+  delete webDependencyPackageJson.dependencies['@onekeyhq/core'];
+  writeFile(
+    webDependencyPackageJsonFile,
+    `${JSON.stringify(webDependencyPackageJson, null, 2)}\n`,
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingWorkspaceDependencyRepo),
+    1,
+    'validate-policy-artifacts rejects missing workspace dependencies',
+  );
+
+  const disabledWorkspaceScriptRepo = path.join(
+    tempRoot,
+    'artifacts-disabled-workspace-script',
+  );
+  fs.mkdirSync(disabledWorkspaceScriptRepo);
+  copyLavamoatValidationFixture(disabledWorkspaceScriptRepo);
+  const mobilePackageJsonFile = path.join(
+    disabledWorkspaceScriptRepo,
+    'apps/mobile/package.json',
+  );
+  const mobilePackageJson = JSON.parse(
+    fs.readFileSync(mobilePackageJsonFile, 'utf8'),
+  );
+  mobilePackageJson.scripts ||= {};
+  mobilePackageJson.scripts['lavamoat:policy'] =
+    'ONEKEY_LAVAMOAT=1 webpack build';
+  writeFile(
+    mobilePackageJsonFile,
+    `${JSON.stringify(mobilePackageJson, null, 2)}\n`,
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, disabledWorkspaceScriptRepo),
+    1,
+    'validate-policy-artifacts rejects disabled workspace LavaMoat scripts',
+  );
+
+  const disabledTargetPolicyRepo = path.join(
+    tempRoot,
+    'artifacts-disabled-target-policy',
+  );
+  fs.mkdirSync(disabledTargetPolicyRepo);
+  copyLavamoatValidationFixture(disabledTargetPolicyRepo);
+  writeFile(
+    path.join(disabledTargetPolicyRepo, 'lavamoat/webpack/ext/mv2/policy.json'),
+    '{"resources":{}}\n',
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, disabledTargetPolicyRepo),
+    1,
+    'validate-policy-artifacts rejects disabled target policy files',
+  );
+
+  const missingWorkflowCommandRepo = path.join(
+    tempRoot,
+    'artifacts-missing-workflow-command',
+  );
+  fs.mkdirSync(missingWorkflowCommandRepo);
+  copyLavamoatValidationFixture(missingWorkflowCommandRepo);
+  const validateWorkflowFile = path.join(
+    missingWorkflowCommandRepo,
+    '.github/workflows/validate-lavamoat-policies.yml',
+  );
+  const validateWorkflow = fs
+    .readFileSync(validateWorkflowFile, 'utf8')
+    .replace('yarn lavamoat:build:web', 'echo missing-web-lavamoat-build');
+  writeFile(validateWorkflowFile, validateWorkflow);
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingWorkflowCommandRepo),
+    1,
+    'validate-policy-artifacts rejects missing workflow target command',
+  );
+
+  const missingValidateArtifactUploadRepo = path.join(
+    tempRoot,
+    'artifacts-missing-validate-artifact-upload',
+  );
+  fs.mkdirSync(missingValidateArtifactUploadRepo);
+  copyLavamoatValidationFixture(missingValidateArtifactUploadRepo);
+  const missingUploadValidateWorkflowFile = path.join(
+    missingValidateArtifactUploadRepo,
+    '.github/workflows/validate-lavamoat-policies.yml',
+  );
+  writeFile(
+    missingUploadValidateWorkflowFile,
+    fs
+      .readFileSync(missingUploadValidateWorkflowFile, 'utf8')
+      .replace(
+        'uses: actions/upload-artifact@v4\n        with:\n          name: lavamoat-policy-diff-all',
+        'uses: actions/cache@v4\n        with:\n          name: lavamoat-policy-diff-all',
+      ),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingValidateArtifactUploadRepo),
+    1,
+    'validate-policy-artifacts rejects missing validation artifact upload',
+  );
+
+  const validateWorkflowWritePermissionRepo = path.join(
+    tempRoot,
+    'artifacts-validate-workflow-write-permission',
+  );
+  fs.mkdirSync(validateWorkflowWritePermissionRepo);
+  copyLavamoatValidationFixture(validateWorkflowWritePermissionRepo);
+  const writePermissionValidateWorkflowFile = path.join(
+    validateWorkflowWritePermissionRepo,
+    '.github/workflows/validate-lavamoat-policies.yml',
+  );
+  writeFile(
+    writePermissionValidateWorkflowFile,
+    fs
+      .readFileSync(writePermissionValidateWorkflowFile, 'utf8')
+      .replace(
+        'contents: read\n  packages: read',
+        'contents: write\n  packages: read',
+      ),
+  );
+  expectStatus(
+    runScript(
+      validatePolicyArtifactsScript,
+      validateWorkflowWritePermissionRepo,
+    ),
+    1,
+    'validate-policy-artifacts rejects write permission in validation workflow',
+  );
+
+  const missingUpdateTriggerRepo = path.join(
+    tempRoot,
+    'artifacts-missing-update-trigger',
+  );
+  fs.mkdirSync(missingUpdateTriggerRepo);
+  copyLavamoatValidationFixture(missingUpdateTriggerRepo);
+  const missingUpdateTriggerWorkflowFile = path.join(
+    missingUpdateTriggerRepo,
+    '.github/workflows/update-lavamoat-policies.yml',
+  );
+  writeFile(
+    missingUpdateTriggerWorkflowFile,
+    fs
+      .readFileSync(missingUpdateTriggerWorkflowFile, 'utf8')
+      .replace(
+        "startsWith(github.event.comment.body, '@onekeybot update-policies')",
+        "startsWith(github.event.comment.body, '@onekeybot update')",
+      ),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingUpdateTriggerRepo),
+    1,
+    'validate-policy-artifacts rejects missing update workflow trigger command',
+  );
+
+  const missingCrossRepoGuardRepo = path.join(
+    tempRoot,
+    'artifacts-missing-cross-repo-guard',
+  );
+  fs.mkdirSync(missingCrossRepoGuardRepo);
+  copyLavamoatValidationFixture(missingCrossRepoGuardRepo);
+  const missingCrossRepoWorkflowFile = path.join(
+    missingCrossRepoGuardRepo,
+    '.github/workflows/update-lavamoat-policies.yml',
+  );
+  writeFile(
+    missingCrossRepoWorkflowFile,
+    fs
+      .readFileSync(missingCrossRepoWorkflowFile, 'utf8')
+      .replaceAll('isCrossRepository', 'isNotCrossRepository')
+      .replaceAll('IS_CROSS_REPO_PR', 'IS_NOT_CROSS_REPO_PR'),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingCrossRepoGuardRepo),
+    1,
+    'validate-policy-artifacts rejects missing cross-repository PR guard',
+  );
+
+  const missingUpdateArtifactDownloadRepo = path.join(
+    tempRoot,
+    'artifacts-missing-update-artifact-download',
+  );
+  fs.mkdirSync(missingUpdateArtifactDownloadRepo);
+  copyLavamoatValidationFixture(missingUpdateArtifactDownloadRepo);
+  const missingDownloadUpdateWorkflowFile = path.join(
+    missingUpdateArtifactDownloadRepo,
+    '.github/workflows/update-lavamoat-policies.yml',
+  );
+  writeFile(
+    missingDownloadUpdateWorkflowFile,
+    fs
+      .readFileSync(missingDownloadUpdateWorkflowFile, 'utf8')
+      .replace('pattern: lavamoat-policy-diff-*', 'pattern: other-artifact-*'),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingUpdateArtifactDownloadRepo),
+    1,
+    'validate-policy-artifacts rejects missing update artifact download pattern',
+  );
+
+  const missingUpdateWritePermissionRepo = path.join(
+    tempRoot,
+    'artifacts-missing-update-write-permission',
+  );
+  fs.mkdirSync(missingUpdateWritePermissionRepo);
+  copyLavamoatValidationFixture(missingUpdateWritePermissionRepo);
+  const missingWritePermissionUpdateWorkflowFile = path.join(
+    missingUpdateWritePermissionRepo,
+    '.github/workflows/update-lavamoat-policies.yml',
+  );
+  writeFile(
+    missingWritePermissionUpdateWorkflowFile,
+    fs
+      .readFileSync(missingWritePermissionUpdateWorkflowFile, 'utf8')
+      .replace('      contents: write', '      contents: read'),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingUpdateWritePermissionRepo),
+    1,
+    'validate-policy-artifacts rejects missing update workflow write permission',
+  );
+
+  const unsafePrCheckoutRepo = path.join(
+    tempRoot,
+    'artifacts-unsafe-pr-checkout',
+  );
+  fs.mkdirSync(unsafePrCheckoutRepo);
+  copyLavamoatValidationFixture(unsafePrCheckoutRepo);
+  const headShaShellVariable = `${dollarSign}{HEAD_SHA}`;
+  const prNumberShellVariable = `${dollarSign}{PR_NUMBER}`;
+  const repoShellVariable = `${dollarSign}{REPO}`;
+  const unsafePrCheckoutWorkflowFile = path.join(
+    unsafePrCheckoutRepo,
+    '.github/workflows/update-lavamoat-policies.yml',
+  );
+  writeFile(
+    unsafePrCheckoutWorkflowFile,
+    fs
+      .readFileSync(unsafePrCheckoutWorkflowFile, 'utf8')
+      .replace(
+        `git read-tree "${headShaShellVariable}"`,
+        `gh pr checkout "${prNumberShellVariable}" --repo "${repoShellVariable}"\n          git read-tree "${headShaShellVariable}"`,
+      ),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, unsafePrCheckoutRepo),
+    1,
+    'validate-policy-artifacts rejects PR checkout in privileged update workflow',
+  );
+
+  const workflowIfSecretsRepo = path.join(
+    tempRoot,
+    'artifacts-workflow-if-secrets',
+  );
+  fs.mkdirSync(workflowIfSecretsRepo);
+  copyLavamoatValidationFixture(workflowIfSecretsRepo);
+  const updateWorkflowFile = path.join(
+    workflowIfSecretsRepo,
+    '.github/workflows/update-lavamoat-policies.yml',
+  );
+  const hasDiffsCondition = `${dollarSign}{{ steps.check-diffs.outputs.HAS_DIFFS == 'true' }}`;
+  const botTokenCondition = `${dollarSign}{{ secrets.ONEKEYBOT_GITHUB_TOKEN != '' }}`;
+  const updateWorkflow = fs
+    .readFileSync(updateWorkflowFile, 'utf8')
+    .replace(`if: ${hasDiffsCondition}`, `if: ${botTokenCondition}`);
+  writeFile(updateWorkflowFile, updateWorkflow);
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, workflowIfSecretsRepo),
+    1,
+    'validate-policy-artifacts rejects secrets in workflow if conditions',
+  );
+
+  const missingReviewCategoryRepo = path.join(
+    tempRoot,
+    'artifacts-missing-review-category',
+  );
+  fs.mkdirSync(missingReviewCategoryRepo);
+  copyLavamoatValidationFixture(missingReviewCategoryRepo);
+  fs.rmSync(
+    path.join(
+      missingReviewCategoryRepo,
+      'lavamoat/review/webpack/web/hardware-device.json',
+    ),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingReviewCategoryRepo),
+    1,
+    'validate-policy-artifacts rejects missing review category file',
+  );
+
+  const missingReviewSummaryCategoryRepo = path.join(
+    tempRoot,
+    'artifacts-missing-review-summary-category',
+  );
+  fs.mkdirSync(missingReviewSummaryCategoryRepo);
+  copyLavamoatValidationFixture(missingReviewSummaryCategoryRepo);
+  const reviewSummaryFile = path.join(
+    missingReviewSummaryCategoryRepo,
+    'lavamoat/review/webpack/web/summary.json',
+  );
+  const reviewSummary = JSON.parse(fs.readFileSync(reviewSummaryFile, 'utf8'));
+  delete reviewSummary.categoryCounts['hardware-device'];
+  writeFile(reviewSummaryFile, `${JSON.stringify(reviewSummary, null, 2)}\n`);
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingReviewSummaryCategoryRepo),
+    1,
+    'validate-policy-artifacts rejects missing review summary category',
+  );
+
+  const missingToolFileRepo = path.join(
+    tempRoot,
+    'artifacts-missing-tool-file',
+  );
+  fs.mkdirSync(missingToolFileRepo);
+  copyLavamoatValidationFixture(missingToolFileRepo);
+  fs.rmSync(
+    path.join(
+      missingToolFileRepo,
+      'development/lavamoat/validate-webpack-integration.cjs',
+    ),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, missingToolFileRepo),
+    1,
+    'validate-policy-artifacts rejects missing LavaMoat tool file',
+  );
+}
+
+function main() {
+  const tempRoot = createTempRoot();
+  try {
+    testGeneratedFileScope(tempRoot);
+    testPolicyDiff(tempRoot);
+    testPolicyReview(tempRoot);
+    testPolicyArtifactValidation(tempRoot);
+    run(
+      process.execPath,
+      [
+        '--test',
+        path.join(__dirname, 'generated-file-security.test.cjs'),
+        path.join(__dirname, 'smoke-web.test.cjs'),
+        path.join(__dirname, 'prepare-linux-browser-sandbox.test.cjs'),
+      ],
+      { cwd: repoRoot },
+    );
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+
+  console.log('LavaMoat tooling self-test passed.');
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
+}

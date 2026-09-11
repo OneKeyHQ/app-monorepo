@@ -291,8 +291,12 @@ const getAppChannel = (): IAppChannel | undefined => {
 };
 
 const isRuntimeBrowser: boolean =
-  // eslint-disable-next-line unicorn/prefer-global-this
-  typeof window !== 'undefined' && !isNative;
+  // Compartment global aliases can include `window` in a service worker or
+  // Node runtime. Require a DOM document; native main and bg remain separate.
+  !isNative &&
+  typeof document === 'object' &&
+  document !== null &&
+  document.nodeType === 9;
 
 // @ts-ignore
 const isRuntimeFirefox: boolean = typeof InstallTrigger !== 'undefined';

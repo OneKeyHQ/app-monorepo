@@ -1,0 +1,254 @@
+[
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.arch",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.channel",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.deskChannel",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.isMas",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.platform",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.pathname.startsWith",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "ServiceWorker",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.documentElement",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.head",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.origin",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage.setItem",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.hostname",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage.getItem",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location.origin",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome.runtime.getURL",
+    "resource": "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/contentScript.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome.runtime.connect",
+    "resource": "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome.runtime.lastError",
+    "resource": "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome.runtime.onConnect.addListener",
+    "resource": "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/JsBridgeExtBackground.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/extension-bridge-hosted/node_modules/uuid/dist/esm-browser/rng.js",
+    "type": "global",
+    "value": true
+  }
+]

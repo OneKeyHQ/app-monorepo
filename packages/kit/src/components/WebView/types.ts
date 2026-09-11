@@ -87,6 +87,8 @@ export interface IInpageProviderWebViewProps
    * @default false
    */
   allowFileAccess?: boolean;
+  /** Fixed protected APK WebEmbed origin; Android only, disabled by default. */
+  oneKeyWebEmbedAssets?: boolean;
   /** @platform ios
    * @description URL string that specifies the directory WKWebView can read from when loading local file URLs.
    */

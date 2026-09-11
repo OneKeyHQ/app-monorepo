@@ -1,0 +1,10 @@
+[
+  {
+    "effectiveValue": false,
+    "field": "globals",
+    "generatedValue": true,
+    "name": "require",
+    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble",
+    "type": "global"
+  }
+]

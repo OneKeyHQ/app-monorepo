@@ -1,0 +1,114 @@
+[
+  {
+    "category": "node-system",
+    "name": "child_process.exec",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.closeSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.mkdirSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.openSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readdirSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readFileSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.readSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.renameSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.statSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFile",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.writeFileSync",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "http",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "https",
+    "resource": "electron-log",
+    "type": "builtin",
+    "value": true
+  }
+]

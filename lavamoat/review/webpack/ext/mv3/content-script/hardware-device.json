@@ -1,0 +1,15 @@
+{
+  "description": "USB、HID、Bluetooth、摄像头、地理位置等设备访问能力",
+  "resources": {
+    "@onekeyhq/shared": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

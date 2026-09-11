@@ -2,6 +2,8 @@ import path from 'path';
 
 import { merge } from 'webpack-merge';
 
+import { CHROMIUM_BASELINE_TARGET } from '../../apps/web-embed/scripts/browser-compat-baseline';
+
 import { nodeEnv, publicUrl } from './constant';
 import { createBaseConfig } from './rspack.base.config';
 import { createDevelopmentConfig } from './rspack.development.config';
@@ -23,7 +25,7 @@ export function createWebEmbedConfig({
     basePath,
     target: ['web', 'es2017'],
     swcTargets: {
-      chrome: '67',
+      chrome: CHROMIUM_BASELINE_TARGET,
       safari: '15.5',
     },
     enableImportMetaCompat: true,

@@ -8,6 +8,7 @@ import { buildCallRemoteApiMethod } from '../../apis/RemoteApiProxyBase';
 
 import type { IWebembedApiKeys } from './IWebembedApi';
 import type { IBackgroundApiWebembedCallMessage } from '../../apis/IBackgroundApi';
+import type WebEmbedApiChainKaspa from '../WebEmbedApiChainKaspa';
 
 const getOrCreateWebEmbedApiModule = memoizee(
   async (name: IWebembedApiKeys) => {
@@ -43,4 +44,11 @@ const callWebEmbedApiMethod =
     'webEmbedApi',
   );
 
-export default { callWebEmbedApiMethod };
+const preloadKaspa = async (): Promise<void> => {
+  const module = (await getOrCreateWebEmbedApiModule(
+    'chainKaspa',
+  )) as WebEmbedApiChainKaspa;
+  await module.preload();
+};
+
+export default { callWebEmbedApiMethod, preloadKaspa };

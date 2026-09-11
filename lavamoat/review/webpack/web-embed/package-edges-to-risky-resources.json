@@ -1,0 +1,235 @@
+{
+  "@onekeyhq/core": {
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib": true,
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": true,
+    "@onekeyhq/core>cardano-crypto.js": true,
+    "@onekeyhq/core>tonweb-mnemonic": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/shared": true,
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true
+  },
+  "@onekeyhq/core>@onekeyfe/cardano-coin-selection-asmjs": {
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "@onekeyhq/core>@onekeyfe/kaspa-core-lib": {
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib>@noble/hashes": true,
+    "@onekeyhq/shared": true
+  },
+  "@onekeyhq/core>bip39": {
+    "@onekeyhq/core>bip39>@noble/hashes": true
+  },
+  "@onekeyhq/core>cardano-crypto.js": {
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2": true
+  },
+  "@onekeyhq/core>cardano-crypto.js>borc": {
+    "@onekeyhq/core>cardano-crypto.js>borc>iso-url": true,
+    "@onekeyhq/core>xrpl>bignumber.js": true
+  },
+  "@onekeyhq/core>cardano-crypto.js>pbkdf2>to-buffer>typed-array-buffer>is-typed-array>which-typed-array>for-each": {
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
+  },
+  "@onekeyhq/core>cip-23>keccak>readable-stream": {
+    "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true
+  },
+  "@onekeyhq/core>cosmjs-types>protobufjs": {
+    "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch": true
+  },
+  "@onekeyhq/core>elliptic": {
+    "@onekeyhq/core>elliptic>brorand": true
+  },
+  "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each": {
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
+  },
+  "@onekeyhq/kit": {
+    "@onekeyhq/core>xrpl>bignumber.js": true,
+    "@onekeyhq/shared": true,
+    "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": true
+  },
+  "@onekeyhq/kit-bg": {
+    "@onekeyhq/core": true,
+    "@onekeyhq/shared": true,
+    "external:../../node_modules/jotai/esm/vanilla/utils.mjs": true
+  },
+  "@onekeyhq/kit>expo-camera>expo>expo-file-system": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
+    "@onekeyhq/kit>expo-camera>react-native-web": true
+  },
+  "@onekeyhq/shared": {
+    "@onekeyhq/core>@noble/secp256k1": true,
+    "@onekeyhq/kit>expo-camera>react-native-web": true,
+    "@onekeyhq/shared>axios": true,
+    "@onekeyhq/shared>localforage": true,
+    "@onekeyhq/shared>react-native-uuid": true,
+    "@onekeyhq/shared>stackblur-canvas": true,
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/browserapierrors.js": true,
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/transports/offline.js": true,
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true,
+    "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedProviderReceiveHandler.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectJsBridge.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+  },
+  "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/client.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": {
+    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/breadcrumbs.js": {
+    "external:../../node_modules/@sentry-internal/browser-utils/build/esm/instrument/xhr.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/globalhandlers.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/linkederrors.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": true
+  },
+  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/sdk.js": {
+    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/browserapierrors.js": true
+  },
+  "external:../../node_modules/@sentry/core/build/esm/utils/envelope.js": {
+    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
+  },
+  "external:../../node_modules/@sentry/core/build/esm/utils/eventbuilder.js": {
+    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
+  },
+  "external:../../node_modules/@sentry/core/build/esm/utils/prepareEvent.js": {
+    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
+  },
+  "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../node_modules/browserify-rsa/index.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/crypto-browserify/index.js": {
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2": true,
+    "@onekeyhq/core>ecpair>randombytes": true,
+    "external:../../node_modules/randomfill/browser.js": true
+  },
+  "external:../../node_modules/diffie-hellman/lib/dh.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/diffie-hellman/lib/generatePrime.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/es-abstract/2023/IsCallable.js": {
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
+  },
+  "external:../../node_modules/es-to-primitive/es2015.js": {
+    "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
+  },
+  "external:../../node_modules/expo-device/build/Device.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-device/build/ExpoDevice.web.js": true
+  },
+  "external:../../node_modules/expo-device/build/ExpoDevice.web.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/ImageManipulator.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/NativeImageManipulatorModule.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorImageRef.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  },
+  "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/expo-localization/build/ExpoLocalization.js": {
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
+  },
+  "external:../../node_modules/memoizee/ext/async.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/memoizee/ext/max-age.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/memoizee/ext/promise.js": {
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
+  },
+  "external:../../node_modules/miller-rabin/lib/mr.js": {
+    "@onekeyhq/core>elliptic>brorand": true
+  },
+  "external:../../node_modules/parse-asn1/index.js": {
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2": true
+  },
+  "external:../../node_modules/public-encrypt/publicEncrypt.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/randomfill/browser.js": {
+    "@onekeyhq/core>ecpair>randombytes": true
+  },
+  "external:../../node_modules/react-native-mmkv/lib/createMMKV/createMMKV.web.js": {
+    "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js": true
+  },
+  "external:../../node_modules/react-native-mmkv/lib/deleteMMKV/deleteMMKV.web.js": {
+    "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js": true
+  },
+  "external:../../node_modules/react-native-mmkv/lib/existsMMKV/existsMMKV.web.js": {
+    "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js": true
+  }
+}

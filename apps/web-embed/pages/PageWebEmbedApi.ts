@@ -86,11 +86,22 @@ const init = (times = 0) => {
     .request({
       method: 'getSensitiveEncodeKey',
     })
-    .then((key) => {
+    .then(async (key) => {
       defaultLogger.app.webembed.callPageGetEncodeKeySuccess();
 
       if (key) {
         setBgSensitiveTextEncodeKey(key as string);
+
+        try {
+          // The Kaspa SDK is a large lazy WebAssembly chunk. Resolve it before
+          // the readiness handshake so a native WebView recycle cannot cancel
+          // the first API call while that chunk is still in flight.
+          await webembedApi.preloadKaspa();
+        } catch (error) {
+          console.error('web-embed Kaspa SDK preload failed', error);
+          printMessageToBody('web-embed init failed! Kaspa SDK preload');
+          return;
+        }
 
         defaultLogger.app.webembed.callPageApiReady();
 
@@ -101,6 +112,10 @@ const init = (times = 0) => {
       } else {
         printMessageToBody('web-embed init failed! encoded key is empty');
       }
+    })
+    .catch((error) => {
+      console.error('web-embed init request failed', error);
+      printMessageToBody('web-embed init failed! request error');
     });
 };
 

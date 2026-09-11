@@ -1,0 +1,35 @@
+{
+  "description": "USB、HID、Bluetooth、摄像头、地理位置等设备访问能力",
+  "resources": {
+    "@babel/traverse>debug": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyfe/hd-core>axios": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/fake-indexeddb/build/esm/lib/scheduling.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

@@ -7,6 +7,8 @@
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
     "build": "yarn clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" NODE_ENV=production yarn run -T rspack build --config-loader jiti && node ./scripts/check-browser-compat.js && node ./scripts/finalize-production-assets.js && bash ./postbuild.sh",
+    "build:lavamoat": "yarn clean && cross-env NODE_ENV=production SENTRY_UPLOAD_BY_CLI=true ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=0 NODE_OPTIONS=--max-old-space-size=8192 yarn run -T webpack build -c webpack.config.lavamoat.js && node scripts/check-browser-compat.js --lavamoat && node scripts/finalize-production-assets.js --strip-only && bash ./postbuild.sh",
+    "lavamoat:policy": "cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=1 NODE_OPTIONS=--max-old-space-size=8192 yarn run -T webpack build -c webpack.config.lavamoat.js",
     "prebundle:build": "node scripts/web-embed-prebundle.js build",
     "prebundle:input-key": "node scripts/web-embed-prebundle.js input-key",
     "prebundle:package": "node scripts/web-embed-prebundle.js package",
@@ -16,7 +18,10 @@
   "private": true,
   "dependencies": {
     "@onekeyhq/components": "*",
+    "@onekeyhq/core": "*",
     "@onekeyhq/kit": "*",
+    "@onekeyhq/kit-bg": "*",
+    "@onekeyhq/qr-wallet-sdk": "*",
     "@onekeyhq/shared": "*"
   },
   "devDependencies": {

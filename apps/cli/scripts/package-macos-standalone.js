@@ -547,4 +547,8 @@ function main() {
   console.log(`Tarball dir: ${npmPackage.tarballDir}`);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { prepareSeaEntry };

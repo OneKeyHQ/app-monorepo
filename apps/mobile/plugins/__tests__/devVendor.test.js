@@ -1,4 +1,4 @@
-/* cspell:words autolinking codegen */
+/* cspell:words autolinking codegen UNLOCALIZED */
 
 const { spawnSync } = require('child_process');
 const crypto = require('crypto');
@@ -1538,6 +1538,90 @@ describe('devVendor', () => {
     invalidRuntime.runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ =
       firstMainURL.replace('runtimeTarget=main', 'runtimeTarget=worker');
     expect(invalidRuntime.getDevServer().bundleLoadedFromServer).toBe(false);
+  });
+
+  it('replaces both iOS segment trees on repeated union builds', () => {
+    const { script, shellPath } = loadIOSMainBundlePhase();
+    const directory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey union copy '),
+    );
+    const projectRoot = path.join(directory, 'mobile');
+    const unionOutput = path.join(projectRoot, 'out-dir-bundle/ios/dist');
+    const buildDirectory = path.join(directory, 'build');
+    const app = path.join(buildDirectory, 'OneKey.app');
+    const nodeBinary = path.join(directory, 'Node Fixture');
+    try {
+      fs.mkdirSync(path.join(projectRoot, 'ios'), { recursive: true });
+      fs.mkdirSync(unionOutput, { recursive: true });
+      fs.mkdirSync(app, { recursive: true });
+      fs.writeFileSync(nodeBinary, '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+      for (const name of [
+        'common.bundle',
+        'main.jsbundle.hbc',
+        'background.bundle',
+      ])
+        fs.writeFileSync(path.join(unionOutput, name), `fixture:${name}`);
+      fs.writeFileSync(path.join(app, 'unrelated-resource'), 'preserved');
+      const run = () =>
+        spawnSync(shellPath, ['-c', script], {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            BUNDLE_COMMAND: 'export:embed',
+            CLI_PATH: '/unused-fixture-cli',
+            CONFIGURATION: 'Release',
+            CONFIGURATION_BUILD_DIR: buildDirectory,
+            ENTRY_FILE: 'index.js',
+            NODE_BINARY: nodeBinary,
+            PODS_ROOT: path.join(projectRoot, 'ios/Pods'),
+            PROJECT_DIR: path.join(projectRoot, 'ios'),
+            SKIP_BUNDLING: '0',
+            UNION_BUILD: 'true',
+            UNLOCALIZED_RESOURCES_FOLDER_PATH: 'OneKey.app',
+          },
+        });
+      for (const revision of ['first', 'second']) {
+        for (const name of ['segments', 'segments-background']) {
+          const source = path.join(unionOutput, name);
+          fs.rmSync(source, { recursive: true, force: true });
+          fs.mkdirSync(source);
+          fs.writeFileSync(path.join(source, `${revision}.seg.hbc`), revision);
+        }
+        const result = run();
+        expect({ status: result.status, stderr: result.stderr }).toEqual({
+          status: 0,
+          stderr: '',
+        });
+        for (const name of ['segments', 'segments-background']) {
+          expect(fs.readdirSync(path.join(app, name))).toEqual([
+            `${revision}.seg.hbc`,
+          ]);
+          expect(
+            fs.readFileSync(
+              path.join(app, name, `${revision}.seg.hbc`),
+              'utf8',
+            ),
+          ).toBe(revision);
+        }
+      }
+      for (const name of ['segments', 'segments-background'])
+        fs.rmSync(path.join(unionOutput, name), { recursive: true });
+      const result = run();
+      expect({ status: result.status, stderr: result.stderr }).toEqual({
+        status: 0,
+        stderr: '',
+      });
+      for (const name of ['segments', 'segments-background'])
+        expect(fs.existsSync(path.join(app, name))).toBe(false);
+      expect(
+        fs.readFileSync(path.join(app, 'unrelated-resource'), 'utf8'),
+      ).toBe('preserved');
+      expect(fs.readFileSync(path.join(app, 'main.jsbundle'), 'utf8')).toBe(
+        'fixture:main.jsbundle.hbc',
+      );
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it('quotes iOS bundle phase tool paths containing spaces', () => {

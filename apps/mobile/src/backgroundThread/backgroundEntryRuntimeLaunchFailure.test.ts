@@ -1,5 +1,7 @@
 import type { IBackgroundThreadRequest } from './rpcProtocol';
 
+const mockBootstrapOrder: string[] = [];
+
 let mockRequestExecutor:
   | ((request: IBackgroundThreadRequest) => Promise<unknown>)
   | undefined;
@@ -26,9 +28,24 @@ const mockExecutorInstalled = new Promise<void>((resolve) => {
   mockResolveExecutorInstalled = resolve;
 });
 
-jest.mock('@onekeyhq/shared/src/polyfills', () => ({}));
+jest.mock('@onekeyhq/shared/src/polyfills', () => {
+  mockBootstrapOrder.push('polyfills');
+  return {};
+});
+jest.mock('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker', () => ({
+  prepareNativePromiseRejectionTracker: jest.fn(() => {
+    mockBootstrapOrder.push('promise-rejection-tracker-ready');
+  }),
+}));
+jest.mock('../security/finishMobileLockdown', () => ({
+  finishMobileLockdown: jest.fn((runtime: 'main' | 'background') => {
+    mockBootstrapOrder.push(`lockdown-${runtime}`);
+  }),
+}));
 jest.mock('@onekeyhq/shared/src/polyfills/runtimeCapabilities', () => ({
-  markRuntimePolyfillsReady: jest.fn(),
+  markRuntimePolyfillsReady: jest.fn(() => {
+    mockBootstrapOrder.push('polyfills-ready');
+  }),
 }));
 jest.mock('@onekeyhq/shared/src/modules3rdParty/sentry', () => ({
   initSentry: jest.fn(),
@@ -52,6 +69,7 @@ jest.mock('./setupBackgroundThreadRPCHandler', () => ({
     executor: (request: IBackgroundThreadRequest) => Promise<unknown>,
   ) => {
     mockRequestExecutor = executor;
+    mockBootstrapOrder.push('executor');
     mockResolveExecutorInstalled?.();
   },
 }));
@@ -101,6 +119,14 @@ describe('background entry runtime-launch recovery', () => {
     for (let index = 0; index < 5; index += 1) {
       await Promise.resolve();
     }
+
+    expect(mockBootstrapOrder).toEqual([
+      'polyfills',
+      'promise-rejection-tracker-ready',
+      'lockdown-background',
+      'polyfills-ready',
+      'executor',
+    ]);
 
     await expect(
       mockRequestExecutor?.({

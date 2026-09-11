@@ -1,0 +1,2739 @@
+{
+  "resources": {
+    "@onekeyfe/hd-shared": {
+      "globals": {
+        "setTimeout": true,
+        "SuppressedError": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble": {
+      "builtin": {
+        "@stoprocent/noble": true,
+        "electron.ipcMain": true
+      },
+      "globals": {
+        "Buffer.alloc": true,
+        "Buffer.from": true,
+        "clearTimeout": true,
+        "require": true,
+        "setTimeout": true
+      },
+      "meta": {
+        "webpack-optimization": [
+          "Dependency '@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-connector' reexports from '@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-connector": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": {
+      "globals": {
+        "AbortController": true,
+        "clearTimeout": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core>@noble/hashes": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": {
+      "globals": {
+        "Buffer.alloc": true,
+        "Buffer.from": true,
+        "clearTimeout": true,
+        "fetch": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-adapter-core": true,
+        "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@noble/hashes": true,
+        "@onekeyhq/core>@alephium/web3>@noble/curves": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@noble/hashes": {
+      "builtin": {
+        "node:crypto": true
+      },
+      "globals": {
+        "TextEncoder": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": {
+      "globals": {
+        "AbortController": true,
+        "clearTimeout": true,
+        "console": true,
+        "crypto": true,
+        "Deno": true,
+        "process": true,
+        "setTimeout": true,
+        "TextDecoder": true,
+        "TextEncoder": true
+      }
+    },
+    "@onekeyhq/components>@react-navigation/stack>color>color-convert": {
+      "packages": {
+        "@onekeyhq/components>@react-navigation/stack>color>color-string>color-name": true
+      }
+    },
+    "@onekeyhq/components>iso-639-1": {
+      "globals": {
+        "__e": "write",
+        "__g": "write",
+        "define": true
+      }
+    },
+    "@onekeyhq/components>lodash": {
+      "globals": {
+        "define": true
+      }
+    },
+    "@onekeyhq/core>@alephium/web3>@noble/curves": {
+      "packages": {
+        "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": true
+      }
+    },
+    "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": {
+      "builtin": {
+        "node:crypto": true
+      },
+      "globals": {
+        "TextDecoder": true,
+        "TextEncoder": true
+      }
+    },
+    "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js": {
+      "packages": {
+        "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js>bn.js": true,
+        "@onekeyhq/core>elliptic>inherits": true,
+        "@onekeyhq/core>elliptic>minimalistic-assert": true,
+        "@onekeyhq/core>near-api-js>node-fetch>encoding>iconv-lite>safer-buffer": true
+      }
+    },
+    "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js>bn.js": {
+      "builtin": {
+        "buffer.Buffer": true
+      },
+      "globals": {
+        "Buffer": true
+      }
+    },
+    "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>async-retry>retry": {
+      "globals": {
+        "clearTimeout": true,
+        "setTimeout": true
+      }
+    },
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "builtin": {
+        "tty.isatty": true,
+        "util.deprecate": true,
+        "util.format": true,
+        "util.inspect": true
+      },
+      "globals": {
+        "console": true,
+        "document": true,
+        "localStorage": true,
+        "navigator": true,
+        "process": true
+      },
+      "packages": {
+        "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug>ms": true,
+        "@stoprocent/noble>patch-package>chalk>supports-color": true
+      }
+    },
+    "@onekeyhq/core>elliptic>inherits": {
+      "builtin": {
+        "util.inherits": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>es6-symbol": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>es6-symbol": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>es6-symbol>ext": true,
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>esniff>d": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>es6-symbol>ext": {
+      "globals": {
+        "__global__": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>esniff>d": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>esniff>d>type": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>esniff>event-emitter": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>esniff>d": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": {
+      "globals": {
+        "document": true,
+        "MutationObserver": true,
+        "process": true,
+        "queueMicrotask": true,
+        "setImmediate": true,
+        "setTimeout": true,
+        "WebKitMutationObserver": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>ajv>uri-js": {
+      "globals": {
+        "define": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>node-fetch>encoding>iconv-lite>safer-buffer": {
+      "builtin": {
+        "buffer": true
+      },
+      "globals": {
+        "process.binding": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "builtin": {
+        "@onekeyfe/electron-mac-icloud.cloudkitDeleteRecord": true,
+        "@onekeyfe/electron-mac-icloud.cloudkitFetchRecord": true,
+        "@onekeyfe/electron-mac-icloud.cloudkitGetAccountInfo": true,
+        "@onekeyfe/electron-mac-icloud.cloudkitIsAvailable": true,
+        "@onekeyfe/electron-mac-icloud.cloudkitQueryRecords": true,
+        "@onekeyfe/electron-mac-icloud.cloudkitRecordExists": true,
+        "@onekeyfe/electron-mac-icloud.cloudkitSaveRecord": true,
+        "@onekeyfe/electron-mac-icloud.cloudkitSetContainerID": true,
+        "@onekeyfe/electron-mac-icloud.keychainGetItem": true,
+        "@onekeyfe/electron-mac-icloud.keychainHasItem": true,
+        "@onekeyfe/electron-mac-icloud.keychainIsICloudSyncEnabled": true,
+        "@onekeyfe/electron-mac-icloud.keychainRemoveItem": true,
+        "@onekeyfe/electron-mac-icloud.keychainSetItem": true,
+        "child_process.exec": true,
+        "child_process.execFile": true,
+        "crypto": true,
+        "electron.app": true,
+        "electron.autoUpdater": true,
+        "electron.BrowserWindow": true,
+        "electron.dialog": true,
+        "electron.inAppPurchase": true,
+        "electron.ipcMain": true,
+        "electron.Menu": true,
+        "electron.nativeImage": true,
+        "electron.Notification": true,
+        "electron.session": true,
+        "electron.ShareMenu": true,
+        "electron.shell": true,
+        "electron.systemPreferences": true,
+        "fs": true,
+        "fs/promises": true,
+        "http": true,
+        "https": true,
+        "node:crypto.createHash": true,
+        "node:crypto.randomUUID": true,
+        "node:fs.accessSync": true,
+        "node:fs.constants": true,
+        "node:fs.createReadStream": true,
+        "node:fs.createWriteStream": true,
+        "node:fs.mkdirSync": true,
+        "node:fs/promises.mkdir": true,
+        "node:fs/promises.open": true,
+        "node:fs/promises.readdir": true,
+        "node:fs/promises.rename": true,
+        "node:fs/promises.rm": true,
+        "node:fs/promises.stat": true,
+        "node:path": true,
+        "node:stream.Readable": true,
+        "node:stream.Transform": true,
+        "node:stream/promises.pipeline": true,
+        "os": true,
+        "path": true,
+        "url.pathToFileURL": true,
+        "util.promisify": true
+      },
+      "globals": {
+        "$desktopMainAppFunctions": true,
+        "AbortController": true,
+        "Buffer.allocUnsafe": true,
+        "Buffer.byteLength": true,
+        "Buffer.concat": true,
+        "Buffer.from": true,
+        "Buffer.isBuffer": true,
+        "clearTimeout": true,
+        "fetch": true,
+        "Notification": true,
+        "process.env.APPIMAGE": true,
+        "process.env.container": true,
+        "process.env.DESKTOP_SESSION": true,
+        "process.env.DISPLAY": true,
+        "process.env.FLATPAK_ID": true,
+        "process.env.WAYLAND_DISPLAY": true,
+        "process.env.XDG_CURRENT_DESKTOP": true,
+        "process.env.XDG_SESSION_DESKTOP": true,
+        "process.getProcessMemoryInfo": true,
+        "process.mas": true,
+        "process.platform": true,
+        "require": true,
+        "setTimeout": true,
+        "URL": true
+      },
+      "packages": {
+        "@onekeyhq/components>lodash": true,
+        "@onekeyhq/kit-bg>ipaddr.js": true,
+        "@onekeyhq/kit-bg>yauzl": true,
+        "@onekeyhq/shared": true,
+        "@sentry/electron": true,
+        "$root$": true,
+        "adm-zip": true,
+        "electron-is-dev": true,
+        "electron-log": true,
+        "electron-updater": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
+        "external:../../node_modules/openpgp/dist/node/openpgp.min.js": true,
+        "external:../../node_modules/systeminformation/lib/index.js": true,
+        "semver": true
+      }
+    },
+    "@onekeyhq/kit-bg>yauzl": {
+      "builtin": {
+        "events.EventEmitter": true,
+        "fs.close": true,
+        "fs.fstat": true,
+        "fs.open": true,
+        "stream.PassThrough": true,
+        "stream.Transform": true,
+        "stream.Writable": true,
+        "util.inherits": true,
+        "zlib.createInflateRaw": true
+      },
+      "globals": {
+        "Buffer": true,
+        "setImmediate": true
+      },
+      "packages": {
+        "@onekeyhq/kit-bg>yauzl>buffer-crc32": true,
+        "@onekeyhq/kit-bg>yauzl>fd-slicer": true
+      }
+    },
+    "@onekeyhq/kit-bg>yauzl>buffer-crc32": {
+      "builtin": {
+        "buffer.Buffer": true
+      }
+    },
+    "@onekeyhq/kit-bg>yauzl>fd-slicer": {
+      "builtin": {
+        "events.EventEmitter": true,
+        "fs.close": true,
+        "fs.read": true,
+        "fs.write": true,
+        "stream.PassThrough": true,
+        "stream.Readable": true,
+        "stream.Writable": true,
+        "util.inherits": true
+      },
+      "globals": {
+        "Buffer": true,
+        "setImmediate": true
+      },
+      "packages": {
+        "@onekeyhq/kit-bg>yauzl>fd-slicer>pend": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>@expo/cli>@expo/plist>@xmldom/xmldom": {
+      "globals": {
+        "java.lang.String": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>@expo/cli>@expo/plist>xmlbuilder": {
+      "globals": {
+        "children": true
+      }
+    },
+    "@onekeyhq/kit>react-intl": {
+      "globals": {
+        "__REACT_INTL_BYPASS_GLOBAL_CONTEXT__": true,
+        "__REACT_INTL_CONTEXT__": "write",
+        "clearTimeout": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyhq/kit>react-intl>@formatjs/ecma402-abstract": true,
+        "@onekeyhq/kit>react-intl>@formatjs/intl": true,
+        "@onekeyhq/kit>react-intl>hoist-non-react-statics": true,
+        "@onekeyhq/kit>react-intl>intl-messageformat": true,
+        "@onekeyhq/kit>react-intl>react": true,
+        "@onekeyhq/kit>react-intl>tslib": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>@formatjs/ecma402-abstract": {
+      "globals": {
+        "Intl.getCanonicalLocales": true
+      },
+      "packages": {
+        "@onekeyhq/kit>react-intl>@formatjs/intl-listformat>@formatjs/intl-localematcher": true,
+        "@onekeyhq/kit>react-intl>tslib": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser": {
+      "packages": {
+        "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser>@formatjs/icu-skeleton-parser": true,
+        "@onekeyhq/kit>react-intl>tslib": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser>@formatjs/icu-skeleton-parser": {
+      "packages": {
+        "@onekeyhq/kit>react-intl>tslib": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>@formatjs/intl": {
+      "globals": {
+        "Intl.DateTimeFormat": true,
+        "Intl.DisplayNames": true,
+        "Intl.ListFormat": true,
+        "Intl.NumberFormat": true,
+        "Intl.PluralRules": true,
+        "Intl.RelativeTimeFormat": true
+      },
+      "packages": {
+        "@onekeyhq/kit>react-intl>@formatjs/ecma402-abstract": true,
+        "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser": true,
+        "@onekeyhq/kit>react-intl>@formatjs/intl>@formatjs/fast-memoize": true,
+        "@onekeyhq/kit>react-intl>intl-messageformat": true,
+        "@onekeyhq/kit>react-intl>tslib": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>@formatjs/intl-listformat>@formatjs/intl-localematcher": {
+      "globals": {
+        "Intl.getCanonicalLocales": true,
+        "Intl.Locale": true
+      },
+      "packages": {
+        "@onekeyhq/kit>react-intl>tslib": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>hoist-non-react-statics": {
+      "packages": {
+        "@onekeyhq/kit>react-intl>hoist-non-react-statics>react-is": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>intl-messageformat": {
+      "globals": {
+        "Intl.DateTimeFormat": true,
+        "Intl.Locale": true,
+        "Intl.NumberFormat": true,
+        "Intl.PluralRules": true
+      },
+      "packages": {
+        "@onekeyhq/kit>react-intl>@formatjs/icu-messageformat-parser": true,
+        "@onekeyhq/kit>react-intl>@formatjs/intl>@formatjs/fast-memoize": true,
+        "@onekeyhq/kit>react-intl>tslib": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>react": {
+      "globals": {
+        "dispatchEvent": true,
+        "ErrorEvent": true,
+        "process": true,
+        "reportError": true
+      }
+    },
+    "@onekeyhq/kit>react-intl>tslib": {
+      "globals": {
+        "SuppressedError": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "builtin": {
+        "fs.readFileSync": true,
+        "path.join": true
+      },
+      "globals": {
+        "__dirname": true,
+        "$$appGlobals": "write",
+        "$$onekeyDisabledSetInterval": "write",
+        "$$onekeyDisabledSetTimeout": "write",
+        "$onekeySystemDiskIsFull": "write",
+        "addEventListener": true,
+        "chrome": true,
+        "clearTimeout": true,
+        "console": true,
+        "desktopApi": true,
+        "document": true,
+        "DOMException": true,
+        "indexedDB": true,
+        "InstallTrigger": true,
+        "localStorage": true,
+        "location.pathname.startsWith": true,
+        "navigator": true,
+        "opr": true,
+        "process.env.BUILD_TIME": true,
+        "process.env.E2E_MODE": true,
+        "process.env.ENABLE_NATIVE_BACKGROUND_THREAD": true,
+        "process.env.EXT_CHANNEL": true,
+        "process.env.HARDWARE_SDK_CONNECT_SRC": true,
+        "process.env.JEST_WORKER_ID": true,
+        "process.env.WORKFLOW_GITHUB_SHA": true,
+        "require": true,
+        "serviceWorker": true,
+        "ServiceWorker": true,
+        "setTimeout": true,
+        "URL": true,
+        "URLSearchParams": true
+      },
+      "packages": {
+        "@onekeyfe/hd-shared": true,
+        "@onekeyhq/components>iso-639-1": true,
+        "@onekeyhq/components>lodash": true,
+        "@onekeyhq/core>bip39": true,
+        "@onekeyhq/core>tronweb>validator": true,
+        "@onekeyhq/kit>expo-camera>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
+        "@onekeyhq/kit>react-intl": true,
+        "@onekeyhq/shared>react-native-url-polyfill>whatwg-url-without-unicode>punycode": true,
+        "$root$": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": true,
+        "external:../../node_modules/@onekeyfe/hd-core/package.json": true,
+        "external:../../node_modules/memoizee/index.js": true
+      }
+    },
+    "@onekeyhq/shared>react-native-uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@sentry/electron": {
+      "builtin": {
+        "electron": true,
+        "fs.existsSync": true,
+        "fs.promises": true,
+        "node:child_process.exec": true,
+        "node:events.EventEmitter": true,
+        "path.basename": true,
+        "path.dirname": true,
+        "path.isAbsolute": true,
+        "path.join": true,
+        "path.resolve": true,
+        "stream.Readable": true,
+        "url.fileURLToPath": true,
+        "url.format": true,
+        "url.pathToFileURL": true,
+        "url.URL": true,
+        "zlib.createGzip": true
+      },
+      "globals": {
+        "__filename": true,
+        "__SENTRY_IPC__": "write",
+        "Buffer.from": true,
+        "clearInterval": true,
+        "clearTimeout": true,
+        "document": true,
+        "process.arch": true,
+        "process.hrtime": true,
+        "process.listenerCount": true,
+        "process.mas": true,
+        "process.on": true,
+        "process.platform": true,
+        "process.uptime": true,
+        "process.versions.chrome": true,
+        "process.versions.electron": true,
+        "process.versions.node": true,
+        "process.windowsStore": true,
+        "require.resolve": true,
+        "Response": true,
+        "setImmediate": true,
+        "setInterval": true,
+        "setTimeout": true,
+        "URL": true
+      },
+      "meta": {
+        "webpack-optimization": [
+          "Dependency '@sentry/electron>@sentry/node' reexports from '@sentry/electron>@sentry/core' and webpack collapsed that to a direct import.",
+          "Dependency '@sentry/electron>@sentry/node' reexports from '@sentry/electron>@sentry/node>@sentry/node-core' and webpack collapsed that to a direct import.",
+          "Dependency '@sentry/electron>@sentry/node' reexports from '@sentry/electron>@sentry/node>@sentry/opentelemetry' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "@sentry/electron>@sentry/browser": true,
+        "@sentry/electron>@sentry/core": true,
+        "@sentry/electron>@sentry/node": true,
+        "@sentry/electron>@sentry/node>@sentry/node-core": true,
+        "@sentry/electron>@sentry/node>@sentry/opentelemetry": true
+      }
+    },
+    "@sentry/electron>@sentry/browser": {
+      "globals": {
+        "__SENTRY_DEBUG__": true,
+        "__SENTRY_RELEASE__": true,
+        "addEventListener": true,
+        "clearTimeout": true,
+        "fetch": true,
+        "Headers": true,
+        "importScripts": true,
+        "indexedDB.open": true,
+        "performance.timeOrigin": true,
+        "PerformanceObserver.supportedEntryTypes": true,
+        "Request": true,
+        "setTimeout": true,
+        "URL": true,
+        "WebAssembly": true,
+        "XMLHttpRequest.prototype": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": true,
+        "@sentry/electron>@sentry/browser>@sentry-internal/feedback": true,
+        "@sentry/electron>@sentry/browser>@sentry-internal/replay": true,
+        "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": true,
+        "@sentry/electron>@sentry/core": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": {
+      "globals": {
+        "__SENTRY_DEBUG__": true,
+        "addEventListener": true,
+        "clearTimeout": true,
+        "FormData": true,
+        "performance": true,
+        "PerformanceEventTiming": true,
+        "PerformanceObserver": true,
+        "Request": true,
+        "setTimeout": true,
+        "URL": true,
+        "URLSearchParams": true,
+        "XMLHttpRequest.prototype": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/core": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/feedback": {
+      "globals": {
+        "__SENTRY_DEBUG__": true,
+        "cancelAnimationFrame": true,
+        "clearTimeout": true,
+        "document.createElement": true,
+        "document.createElementNS": true,
+        "document.createTextNode": true,
+        "FormData": true,
+        "getComputedStyle": true,
+        "HTMLFormElement": true,
+        "isSecureContext": true,
+        "matchMedia": true,
+        "requestAnimationFrame": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/core": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay": {
+      "globals": {
+        "__rrMutationObserver": true,
+        "__RRWEB_EXCLUDE_IFRAME__": true,
+        "__RRWEB_EXCLUDE_SHADOW_DOM__": true,
+        "__SENTRY_DEBUG__": true,
+        "__SENTRY_EXCLUDE_REPLAY_WORKER__": true,
+        "addEventListener": true,
+        "Blob": true,
+        "clearTimeout": true,
+        "CSSConditionRule": true,
+        "CSSGroupingRule": true,
+        "CSSMediaRule": true,
+        "CSSRule": true,
+        "CSSSupportsRule": true,
+        "customElements.get": true,
+        "document": true,
+        "Document": true,
+        "DragEvent": true,
+        "Element": true,
+        "ErrorEvent": true,
+        "FormData": true,
+        "Headers": true,
+        "HTMLElement": true,
+        "HTMLFormElement": true,
+        "innerHeight": true,
+        "innerWidth": true,
+        "location.href": true,
+        "location.origin": true,
+        "MouseEvent": true,
+        "MutationObserver": true,
+        "Node.DOCUMENT_FRAGMENT_NODE": true,
+        "Node.prototype.contains": true,
+        "parent": true,
+        "PointerEvent": true,
+        "Request": true,
+        "setTimeout": true,
+        "TextEncoder": true,
+        "URL": true,
+        "URLSearchParams": true,
+        "Worker": true,
+        "Zone": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/browser>@sentry-internal/browser-utils": true,
+        "@sentry/electron>@sentry/core": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": {
+      "globals": {
+        "Blob": true,
+        "cancelAnimationFrame": true,
+        "createImageBitmap": true,
+        "document": true,
+        "HTMLCanvasElement": true,
+        "HTMLImageElement": true,
+        "ImageData": true,
+        "performance.now": true,
+        "URL.createObjectURL": true,
+        "WeakRef": true,
+        "Worker": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/core": true
+      }
+    },
+    "@sentry/electron>@sentry/core": {
+      "globals": {
+        "__SENTRY_BROWSER_BUNDLE__": true,
+        "__SENTRY_DEBUG__": true,
+        "__SENTRY_TRACING__": true,
+        "clearTimeout": true,
+        "CustomEvent": true,
+        "document": true,
+        "DOMError": true,
+        "DOMException": true,
+        "EdgeRuntime": true,
+        "Element": true,
+        "ErrorEvent": true,
+        "Event": true,
+        "Headers": true,
+        "HTMLElement": true,
+        "process": true,
+        "Request": true,
+        "Response": true,
+        "setInterval": true,
+        "setTimeout": true,
+        "TextDecoder": true,
+        "TextEncoder": true,
+        "URL": true,
+        "URLSearchParams": true
+      }
+    },
+    "@sentry/electron>@sentry/node": {
+      "builtin": {
+        "node:diagnostics_channel.default.subscribe": true,
+        "node:diagnostics_channel.default.unsubscribe": true,
+        "node:diagnostics_channel.subscribe": true,
+        "node:net.isIPv6": true
+      },
+      "globals": {
+        "__SENTRY_DEBUG__": true,
+        "Buffer": true,
+        "PRISMA_INSTRUMENTATION": true,
+        "process.env.EVENTARC_CLOUD_EVENT_SOURCE": true,
+        "process.env.FUNCTION_TARGET": true,
+        "process.env.GCLOUD_PROJECT": true,
+        "process.env.K_SERVICE": true,
+        "process.env.OTEL_FASTIFY_IGNORE_PATHS": true,
+        "process.env.OTEL_SERVICE_NAME": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-amqplib": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-connect": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-dataloader": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-express": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-fs": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-generic-pool": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-graphql": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-hapi": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-http": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-ioredis": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-kafkajs": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-knex": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-koa": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-lru-memoizer": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mongodb": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mongoose": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mysql": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mysql2": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-pg": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-redis": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-tedious": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-undici": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/resources": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/sdk-trace-base": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true,
+        "@sentry/electron>@sentry/node>@prisma/instrumentation": true,
+        "@sentry/electron>@sentry/node>@sentry/node-core": true,
+        "@sentry/electron>@sentry/node>@sentry/opentelemetry": true,
+        "@sentry/electron>@sentry/node>minimatch": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/api": {
+      "globals": {
+        "console": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/context-async-hooks": {
+      "builtin": {
+        "async_hooks.AsyncLocalStorage": true,
+        "async_hooks.createHook": true,
+        "events.EventEmitter": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/core": {
+      "builtin": {
+        "util.inspect": true
+      },
+      "globals": {
+        "clearTimeout": true,
+        "performance": true,
+        "process.env": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": {
+      "builtin": {
+        "fs.readFileSync": true,
+        "path.isAbsolute": true,
+        "path.join": true,
+        "path.normalize": true,
+        "path.parse": true,
+        "path.sep": true,
+        "util.types.isProxy": true
+      },
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>@opentelemetry/api-logs": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle": true,
+        "@sentry/electron>@sentry/node>import-in-the-middle": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-amqplib": {
+      "globals": {
+        "clearInterval": true,
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true,
+        "setInterval": true,
+        "URL": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-connect": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-connect>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-dataloader": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-express": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-express>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-fs": {
+      "builtin": {
+        "util.promisify.custom": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-generic-pool": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-graphql": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-hapi": {
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-hapi>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-http": {
+      "builtin": {
+        "events.errorMonitor": true,
+        "url.URL": true
+      },
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true,
+        "URL": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-http>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-http>forwarded-parse": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-http>@opentelemetry/core": {
+      "builtin": {
+        "util.inspect": true
+      },
+      "globals": {
+        "clearTimeout": true,
+        "performance": true,
+        "process.env": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-http>forwarded-parse": {
+      "builtin": {
+        "util.format": true,
+        "util.inherits": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-ioredis": {
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-redis>@opentelemetry/redis-common": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-kafkajs": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-knex": {
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-koa": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-lru-memoizer": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mongodb": {
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mongoose": {
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mysql": {
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-mysql2": {
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-pg>@opentelemetry/sql-common": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-pg": {
+      "globals": {
+        "Buffer": true,
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true,
+        "URL": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-pg>@opentelemetry/sql-common": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-pg>@opentelemetry/sql-common": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-redis": {
+      "globals": {
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true,
+        "URL": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-redis>@opentelemetry/redis-common": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-redis>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-tedious": {
+      "builtin": {
+        "events.EventEmitter": true
+      },
+      "globals": {
+        "Buffer.from": true,
+        "process.env.OTEL_SEMCONV_STABILITY_OPT_IN": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation-undici": {
+      "builtin": {
+        "diagnostics_channel": true,
+        "url.URL": true
+      },
+      "globals": {
+        "process.version.replace": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle": {
+      "builtin": {
+        "module._resolveFilename": true,
+        "module.builtinModules": true,
+        "module.isBuiltin": true,
+        "module.prototype.require": true,
+        "path.parse": true,
+        "path.posix.join": true,
+        "path.relative": true,
+        "path.sep": true
+      },
+      "globals": {
+        "process": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>module-details-from-path": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>debug": {
+      "builtin": {
+        "tty.isatty": true,
+        "util.deprecate": true,
+        "util.formatWithOptions": true,
+        "util.inspect": true
+      },
+      "globals": {
+        "console": true,
+        "document": true,
+        "localStorage": true,
+        "navigator": true,
+        "process": true
+      },
+      "packages": {
+        "@onekeyhq/shared>ms": true,
+        "@stoprocent/noble>patch-package>chalk>supports-color": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle>module-details-from-path": {
+      "builtin": {
+        "path.sep": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/resources": {
+      "builtin": {
+        "child_process.exec": true,
+        "crypto.randomUUID": true,
+        "fs.promises.readFile": true,
+        "os.arch": true,
+        "os.hostname": true,
+        "os.platform": true,
+        "os.release": true,
+        "os.userInfo": true,
+        "process.arch": true,
+        "process.env": true,
+        "process.platform": true,
+        "util.promisify": true
+      },
+      "globals": {
+        "process.argv": true,
+        "process.argv0": true,
+        "process.execArgv": true,
+        "process.execPath": true,
+        "process.pid": true,
+        "process.title": true,
+        "process.versions.node": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/sdk-trace-base": {
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/sdk-trace-base>@opentelemetry/sdk-trace": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@opentelemetry/sdk-trace-base>@opentelemetry/sdk-trace": {
+      "globals": {
+        "Buffer.allocUnsafe": true,
+        "clearTimeout": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/resources": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@prisma/instrumentation": {
+      "globals": {
+        "process.env.PRISMA_SHOW_ALL_TRACES": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@prisma/instrumentation>@opentelemetry/instrumentation": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@prisma/instrumentation>@opentelemetry/instrumentation": {
+      "builtin": {
+        "fs.readFileSync": true,
+        "path.isAbsolute": true,
+        "path.join": true,
+        "path.normalize": true,
+        "path.parse": true,
+        "path.sep": true,
+        "util.types.isProxy": true
+      },
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation>require-in-the-middle": true,
+        "@sentry/electron>@sentry/node>@prisma/instrumentation>@opentelemetry/instrumentation>@opentelemetry/api-logs": true,
+        "@sentry/electron>@sentry/node>import-in-the-middle": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core": {
+      "builtin": {
+        "diagnostics_channel": true,
+        "module.register": true,
+        "node:child_process.execFile": true,
+        "node:diagnostics_channel": true,
+        "node:events.errorMonitor": true,
+        "node:fs.createReadStream": true,
+        "node:fs.existsSync": true,
+        "node:fs.readdir": true,
+        "node:fs.readFile": true,
+        "node:fs.readFileSync": true,
+        "node:http": true,
+        "node:https": true,
+        "node:net.connect": true,
+        "node:net.isIP": true,
+        "node:net.isIPv6": true,
+        "node:net.Socket": true,
+        "node:os.arch": true,
+        "node:os.cpus": true,
+        "node:os.freemem": true,
+        "node:os.hostname": true,
+        "node:os.platform": true,
+        "node:os.release": true,
+        "node:os.totalmem": true,
+        "node:os.uptime": true,
+        "node:path.dirname": true,
+        "node:path.join": true,
+        "node:path.posix": true,
+        "node:path.sep": true,
+        "node:readline.createInterface": true,
+        "node:stream.Readable": true,
+        "node:tls.connect": true,
+        "node:util.format": true,
+        "node:util.getSystemErrorMap": true,
+        "node:util.promisify": true,
+        "node:util.types": true,
+        "node:worker_threads.Worker": true,
+        "node:zlib.createGzip": true,
+        "url.pathToFileURL": true,
+        "worker_threads.isMainThread": true,
+        "worker_threads.threadId": true
+      },
+      "globals": {
+        "__filename": true,
+        "__SENTRY_DEBUG__": true,
+        "__SENTRY_SERVER_MODULES__": true,
+        "__SENTRY_TRACING__": true,
+        "Buffer.byteLength": true,
+        "Buffer.concat": true,
+        "Buffer.from": true,
+        "clearInterval": true,
+        "clearTimeout": true,
+        "document": true,
+        "Intl.DateTimeFormat": true,
+        "process": true,
+        "setImmediate": true,
+        "setInterval": true,
+        "setTimeout": true,
+        "URL": true,
+        "WeakRef": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/context-async-hooks": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/instrumentation": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true,
+        "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks": true,
+        "@sentry/electron>@sentry/node>@sentry/opentelemetry": true,
+        "@sentry/electron>@sentry/node>import-in-the-middle": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks": {
+      "builtin": {
+        "node:fs.mkdirSync": true,
+        "node:fs.readFileSync": true,
+        "node:fs.writeFileSync": true,
+        "node:module.prototype._compile": true,
+        "node:os.tmpdir": true,
+        "node:path.basename": true,
+        "node:path.dirname": true,
+        "node:path.join": true
+      },
+      "globals": {
+        "process.env.TRACING_DUMP": true,
+        "process.env.TRACING_DUMP_DIR": true,
+        "process.version.slice": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>@apm-js-collab/code-transformer": true,
+        "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug": true,
+        "@sentry/electron>@sentry/node>import-in-the-middle>module-details-from-path": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>@apm-js-collab/code-transformer": {
+      "globals": {
+        "Buffer.from": true,
+        "FinalizationRegistry": true,
+        "WebAssembly.Instance": true,
+        "WebAssembly.Module": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/node-core>@apm-js-collab/tracing-hooks>debug": {
+      "builtin": {
+        "tty.isatty": true,
+        "util.deprecate": true,
+        "util.formatWithOptions": true,
+        "util.inspect": true
+      },
+      "globals": {
+        "console": true,
+        "document": true,
+        "localStorage": true,
+        "navigator": true,
+        "process": true
+      },
+      "packages": {
+        "@onekeyhq/shared>ms": true,
+        "@stoprocent/noble>patch-package>chalk>supports-color": true
+      }
+    },
+    "@sentry/electron>@sentry/node>@sentry/opentelemetry": {
+      "globals": {
+        "__SENTRY_DEBUG__": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/api": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/core": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/sdk-trace-base": true,
+        "@sentry/electron>@sentry/node>@opentelemetry/semantic-conventions": true
+      }
+    },
+    "@sentry/electron>@sentry/node>import-in-the-middle": {
+      "builtin": {
+        "module.isBuiltin": true,
+        "path.relative": true,
+        "path.sep": true,
+        "url.fileURLToPath": true,
+        "worker_threads.MessageChannel": true
+      },
+      "globals": {
+        "clearInterval": true,
+        "setInterval": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>import-in-the-middle>module-details-from-path": true
+      }
+    },
+    "@sentry/electron>@sentry/node>import-in-the-middle>module-details-from-path": {
+      "builtin": {
+        "path.sep": true
+      }
+    },
+    "@sentry/electron>@sentry/node>minimatch": {
+      "globals": {
+        "process": true
+      },
+      "packages": {
+        "@sentry/electron>@sentry/node>minimatch>brace-expansion": true
+      }
+    },
+    "@sentry/electron>@sentry/node>minimatch>brace-expansion": {
+      "packages": {
+        "@sentry/electron>@sentry/node>minimatch>brace-expansion>balanced-match": true
+      }
+    },
+    "@stoprocent/noble>patch-package>chalk>ansi-styles": {
+      "packages": {
+        "@onekeyhq/components>@react-navigation/stack>color>color-convert": true
+      }
+    },
+    "@stoprocent/noble>patch-package>chalk>supports-color": {
+      "builtin": {
+        "os.release": true,
+        "tty.isatty": true
+      },
+      "globals": {
+        "process.env": true,
+        "process.platform": true
+      },
+      "packages": {
+        "@stoprocent/noble>patch-package>chalk>supports-color>has-flag": true
+      }
+    },
+    "@stoprocent/noble>patch-package>chalk>supports-color>has-flag": {
+      "globals": {
+        "process.argv": true
+      }
+    },
+    "adm-zip": {
+      "builtin": {
+        "crypto.randomFillSync": true,
+        "fs": true,
+        "path.basename": true,
+        "path.dirname": true,
+        "path.isAbsolute": true,
+        "path.join": true,
+        "path.normalize": true,
+        "path.posix": true,
+        "path.relative": true,
+        "path.resolve": true,
+        "path.sep": true,
+        "path.win32.basename": true,
+        "path.win32.normalize": true,
+        "zlib.createDeflateRaw": true,
+        "zlib.createInflateRaw": true,
+        "zlib.deflateRawSync": true,
+        "zlib.inflateRawSync": true
+      },
+      "globals": {
+        "Buffer.alloc": true,
+        "Buffer.from": true,
+        "Buffer.isBuffer": true,
+        "localPath": "write",
+        "process": true,
+        "setImmediate": true
+      }
+    },
+    "electron-context-menu": {
+      "builtin": {
+        "electron.app.on": true,
+        "electron.app.removeListener": true,
+        "electron.BrowserWindow.getAllWindows": true,
+        "electron.clipboard.readText": true,
+        "electron.clipboard.write": true,
+        "electron.clipboard.writeText": true,
+        "electron.Menu.buildFromTemplate": true,
+        "electron.shell.openExternal": true
+      },
+      "globals": {
+        "process.platform": true,
+        "process.type": true,
+        "URL": true
+      },
+      "packages": {
+        "electron-context-menu>cli-truncate": true,
+        "electron-context-menu>electron-dl": true,
+        "electron-is-dev": true
+      }
+    },
+    "electron-context-menu>cli-truncate": {
+      "packages": {
+        "electron-context-menu>cli-truncate>slice-ansi": true,
+        "electron-context-menu>cli-truncate>string-width": true
+      }
+    },
+    "electron-context-menu>cli-truncate>slice-ansi": {
+      "packages": {
+        "@stoprocent/noble>patch-package>chalk>ansi-styles": true,
+        "electron-context-menu>cli-truncate>slice-ansi>astral-regex": true,
+        "electron-context-menu>cli-truncate>slice-ansi>is-fullwidth-code-point": true
+      }
+    },
+    "electron-context-menu>cli-truncate>string-width": {
+      "packages": {
+        "electron-context-menu>cli-truncate>slice-ansi>is-fullwidth-code-point": true,
+        "electron-context-menu>cli-truncate>string-width>emoji-regex": true,
+        "electron-context-menu>cli-truncate>string-width>strip-ansi": true
+      }
+    },
+    "electron-context-menu>cli-truncate>string-width>strip-ansi": {
+      "packages": {
+        "@onekeyhq/kit>expo-camera>react-native>ansi-regex": true
+      }
+    },
+    "electron-context-menu>electron-dl": {
+      "builtin": {
+        "electron.app.badgeCount": true,
+        "electron.app.dock.downloadFinished": true,
+        "electron.app.getPath": true,
+        "electron.app.on": true,
+        "electron.BrowserWindow.fromWebContents": true,
+        "electron.BrowserWindow.getAllWindows": true,
+        "electron.dialog.showErrorBox": true,
+        "electron.shell.showItemInFolder": true,
+        "path.basename": true,
+        "path.extname": true,
+        "path.isAbsolute": true,
+        "path.join": true
+      },
+      "globals": {
+        "process.platform": true,
+        "process.versions.electron.split": true
+      },
+      "packages": {
+        "electron-context-menu>electron-dl>ext-name": true,
+        "electron-context-menu>electron-dl>pupa": true,
+        "electron-context-menu>electron-dl>unused-filename": true
+      }
+    },
+    "electron-context-menu>electron-dl>ext-name": {
+      "packages": {
+        "electron-context-menu>electron-dl>ext-name>ext-list": true,
+        "electron-context-menu>electron-dl>ext-name>sort-keys-length": true
+      }
+    },
+    "electron-context-menu>electron-dl>ext-name>ext-list": {
+      "packages": {
+        "@onekeyhq/core>@aptos-labs/ts-sdk>form-data>mime-types>mime-db": true
+      }
+    },
+    "electron-context-menu>electron-dl>ext-name>sort-keys-length": {
+      "packages": {
+        "electron-context-menu>electron-dl>ext-name>sort-keys-length>sort-keys": true
+      }
+    },
+    "electron-context-menu>electron-dl>ext-name>sort-keys-length>sort-keys": {
+      "packages": {
+        "electron-context-menu>electron-dl>ext-name>sort-keys-length>sort-keys>is-plain-obj": true
+      }
+    },
+    "electron-context-menu>electron-dl>pupa": {
+      "packages": {
+        "electron-context-menu>electron-dl>pupa>escape-goat": true
+      }
+    },
+    "electron-context-menu>electron-dl>unused-filename": {
+      "packages": {
+        "electron-context-menu>electron-dl>unused-filename>modify-filename": true,
+        "electron-context-menu>electron-dl>unused-filename>path-exists": true
+      }
+    },
+    "electron-context-menu>electron-dl>unused-filename>modify-filename": {
+      "builtin": {
+        "path.basename": true,
+        "path.dirname": true,
+        "path.extname": true,
+        "path.join": true
+      }
+    },
+    "electron-context-menu>electron-dl>unused-filename>path-exists": {
+      "builtin": {
+        "fs.access": true,
+        "fs.accessSync": true,
+        "util.promisify": true
+      }
+    },
+    "electron-is-dev": {
+      "builtin": {
+        "electron": true
+      },
+      "globals": {
+        "process.env": true
+      }
+    },
+    "electron-log": {
+      "builtin": {
+        "child_process.exec": true,
+        "electron": true,
+        "events": true,
+        "fs.closeSync": true,
+        "fs.existsSync": true,
+        "fs.mkdirSync": true,
+        "fs.openSync": true,
+        "fs.readdirSync": true,
+        "fs.readFileSync": true,
+        "fs.readSync": true,
+        "fs.renameSync": true,
+        "fs.statSync": true,
+        "fs.writeFile": true,
+        "fs.writeFileSync": true,
+        "http": true,
+        "https": true,
+        "os": true,
+        "path.basename": true,
+        "path.dirname": true,
+        "path.join": true,
+        "path.parse": true,
+        "path.resolve": true,
+        "util.formatWithOptions": true
+      },
+      "globals": {
+        "__dirname": true,
+        "__electronLog": "write",
+        "addEventListener": true,
+        "Buffer.alloc": true,
+        "Buffer.byteLength": true,
+        "Buffer.from": true,
+        "console.debug": true,
+        "console.error": true,
+        "console.info": true,
+        "console.log": true,
+        "console.warn": true,
+        "postMessage": true,
+        "process": true,
+        "setTimeout": true,
+        "URLSearchParams": true
+      }
+    },
+    "electron-store": {
+      "builtin": {
+        "electron.app": true,
+        "electron.ipcMain": true,
+        "electron.ipcRenderer": true,
+        "electron.shell.openPath": true,
+        "path.isAbsolute": true,
+        "path.join": true
+      },
+      "packages": {
+        "electron-store>conf": true
+      }
+    },
+    "electron-store>conf": {
+      "builtin": {
+        "assert.deepEqual": true,
+        "crypto.createCipheriv": true,
+        "crypto.createDecipher": true,
+        "crypto.createDecipheriv": true,
+        "crypto.pbkdf2Sync": true,
+        "crypto.randomBytes": true,
+        "events.EventEmitter": true,
+        "fs.existsSync": true,
+        "fs.mkdirSync": true,
+        "fs.readFileSync": true,
+        "fs.watch": true,
+        "fs.watchFile": true,
+        "fs.writeFileSync": true,
+        "path.dirname": true,
+        "path.resolve": true,
+        "util.isDeepStrictEqual": true
+      },
+      "globals": {
+        "Buffer.concat": true,
+        "Buffer.from": true,
+        "process.platform": true
+      },
+      "packages": {
+        "electron-store>conf>ajv": true,
+        "electron-store>conf>ajv-formats": true,
+        "electron-store>conf>atomically": true,
+        "electron-store>conf>debounce-fn": true,
+        "electron-store>conf>dot-prop": true,
+        "electron-store>conf>env-paths": true,
+        "electron-store>conf>onetime": true,
+        "electron-store>conf>pkg-up": true,
+        "semver": true
+      }
+    },
+    "electron-store>conf>ajv": {
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@onekeyhq/components>@react-navigation/native>fast-deep-equal": true,
+        "@onekeyhq/core>near-api-js>ajv>json-schema-traverse": true,
+        "@onekeyhq/core>near-api-js>ajv>uri-js": true
+      }
+    },
+    "electron-store>conf>ajv-formats": {
+      "packages": {
+        "electron-store>conf>ajv": true
+      }
+    },
+    "electron-store>conf>atomically": {
+      "builtin": {
+        "fs.chmod": true,
+        "fs.chmodSync": true,
+        "fs.chown": true,
+        "fs.chownSync": true,
+        "fs.close": true,
+        "fs.closeSync": true,
+        "fs.fsync": true,
+        "fs.fsyncSync": true,
+        "fs.mkdir": true,
+        "fs.mkdirSync": true,
+        "fs.open": true,
+        "fs.openSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true,
+        "fs.realpath": true,
+        "fs.realpathSync": true,
+        "fs.rename": true,
+        "fs.renameSync": true,
+        "fs.stat": true,
+        "fs.statSync": true,
+        "fs.unlink": true,
+        "fs.unlinkSync": true,
+        "fs.write": true,
+        "fs.writeSync": true,
+        "path.basename": true,
+        "path.dirname": true,
+        "util.promisify": true
+      },
+      "globals": {
+        "clearInterval": true,
+        "process.getuid": true,
+        "process.on": true,
+        "setInterval": true,
+        "setTimeout": true
+      }
+    },
+    "electron-store>conf>debounce-fn": {
+      "globals": {
+        "clearTimeout": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "electron-store>conf>debounce-fn>mimic-fn": true
+      }
+    },
+    "electron-store>conf>dot-prop": {
+      "packages": {
+        "electron-store>conf>dot-prop>is-obj": true
+      }
+    },
+    "electron-store>conf>env-paths": {
+      "builtin": {
+        "os.homedir": true,
+        "os.tmpdir": true,
+        "path.basename": true,
+        "path.join": true
+      },
+      "globals": {
+        "process.env": true,
+        "process.platform": true
+      }
+    },
+    "electron-store>conf>onetime": {
+      "packages": {
+        "electron-store>conf>onetime>mimic-fn": true
+      }
+    },
+    "electron-store>conf>pkg-up": {
+      "packages": {
+        "electron-store>conf>pkg-up>find-up": true
+      }
+    },
+    "electron-store>conf>pkg-up>find-up": {
+      "builtin": {
+        "path.dirname": true,
+        "path.join": true,
+        "path.parse": true,
+        "path.resolve": true
+      },
+      "packages": {
+        "electron-store>conf>pkg-up>find-up>locate-path": true
+      }
+    },
+    "electron-store>conf>pkg-up>find-up>locate-path": {
+      "builtin": {
+        "path.resolve": true
+      },
+      "globals": {
+        "process.cwd": true
+      },
+      "packages": {
+        "electron-store>conf>pkg-up>find-up>locate-path>p-locate": true,
+        "electron-store>conf>pkg-up>find-up>locate-path>path-exists": true
+      }
+    },
+    "electron-store>conf>pkg-up>find-up>locate-path>p-locate": {
+      "packages": {
+        "electron-store>conf>pkg-up>find-up>locate-path>p-locate>p-limit": true
+      }
+    },
+    "electron-store>conf>pkg-up>find-up>locate-path>p-locate>p-limit": {
+      "packages": {
+        "electron-store>conf>pkg-up>find-up>locate-path>p-locate>p-limit>p-try": true
+      }
+    },
+    "electron-store>conf>pkg-up>find-up>locate-path>path-exists": {
+      "builtin": {
+        "fs.access": true,
+        "fs.accessSync": true
+      }
+    },
+    "electron-updater": {
+      "builtin": {
+        "child_process.execFile": true,
+        "child_process.execFileSync": true,
+        "child_process.spawn": true,
+        "child_process.spawnSync": true,
+        "crypto.createHash": true,
+        "crypto.randomBytes": true,
+        "electron.app": true,
+        "electron.autoUpdater": true,
+        "electron.net.request": true,
+        "electron.Notification": true,
+        "electron.session.fromPartition": true,
+        "electron.shell.openPath": true,
+        "events.EventEmitter": true,
+        "fs.createReadStream": true,
+        "fs.createWriteStream": true,
+        "fs.unlinkSync": true,
+        "http.createServer": true,
+        "os.homedir": true,
+        "os.release": true,
+        "path.basename": true,
+        "path.delimiter": true,
+        "path.dirname": true,
+        "path.extname": true,
+        "path.isAbsolute": true,
+        "path.join": true,
+        "path.normalize": true,
+        "path.posix.basename": true,
+        "stream.Transform": true,
+        "stream.Writable": true,
+        "url.URL": true,
+        "zlib.gunzipSync": true,
+        "zlib.gzipSync": true,
+        "zlib.inflateRawSync": true
+      },
+      "globals": {
+        "Buffer.allocUnsafe": true,
+        "Buffer.concat": true,
+        "Buffer.from": true,
+        "console": true,
+        "Intl.NumberFormat": true,
+        "process": true,
+        "setImmediate": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "electron-updater>builder-util-runtime": true,
+        "electron-updater>fs-extra": true,
+        "electron-updater>js-yaml": true,
+        "electron-updater>lazy-val": true,
+        "electron-updater>lodash.escaperegexp": true,
+        "electron-updater>lodash.isequal": true,
+        "electron-updater>semver": true
+      }
+    },
+    "electron-updater>builder-util-runtime": {
+      "builtin": {
+        "crypto.createHash": true,
+        "crypto.randomBytes": true,
+        "events.EventEmitter": true,
+        "fs.createWriteStream": true,
+        "stream.Transform": true,
+        "url.URL": true
+      },
+      "globals": {
+        "Buffer.allocUnsafe": true,
+        "Buffer.concat": true,
+        "Buffer.from": true,
+        "Buffer.isBuffer": true,
+        "process.versions.electron": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": true,
+        "electron-updater>builder-util-runtime>sax": true
+      }
+    },
+    "electron-updater>builder-util-runtime>sax": {
+      "builtin": {
+        "stream.Stream": true,
+        "string_decoder.StringDecoder": true
+      },
+      "globals": {
+        "Buffer": true
+      }
+    },
+    "electron-updater>fs-extra": {
+      "builtin": {
+        "assert": true,
+        "path.basename": true,
+        "path.dirname": true,
+        "path.isAbsolute": true,
+        "path.join": true,
+        "path.parse": true,
+        "path.relative": true,
+        "path.resolve": true,
+        "path.sep": true,
+        "util.callbackify": true
+      },
+      "globals": {
+        "process.arch": true,
+        "process.cwd": true,
+        "process.emitWarning": true,
+        "process.platform": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "electron-updater>fs-extra>graceful-fs": true,
+        "electron-updater>fs-extra>jsonfile": true,
+        "electron-updater>fs-extra>universalify": true
+      }
+    },
+    "electron-updater>fs-extra>graceful-fs": {
+      "builtin": {
+        "assert.equal": true,
+        "constants.hasOwnProperty": true,
+        "constants.O_SYMLINK": true,
+        "constants.O_WRONLY": true,
+        "fs": true,
+        "stream.Stream.call": true,
+        "util": true
+      },
+      "globals": {
+        "clearTimeout": true,
+        "process": true,
+        "setTimeout": true
+      }
+    },
+    "electron-updater>fs-extra>jsonfile": {
+      "builtin": {
+        "fs": true
+      },
+      "globals": {
+        "Buffer.isBuffer": true
+      },
+      "packages": {
+        "electron-updater>fs-extra>graceful-fs": true,
+        "electron-updater>fs-extra>universalify": true
+      }
+    },
+    "electron-updater>semver": {
+      "globals": {
+        "process": true
+      }
+    },
+    "external:../../node_modules/@expo/plist/build/build.js": {
+      "globals": {
+        "Buffer.isBuffer": true
+      },
+      "packages": {
+        "@onekeyfe/hwk-trezor-connector-electron-ble>buffer>base64-js": true,
+        "@onekeyhq/kit>expo-camera>expo>@expo/cli>@expo/plist>xmlbuilder": true
+      }
+    },
+    "external:../../node_modules/@expo/plist/build/index.js": {
+      "packages": {
+        "external:../../node_modules/@expo/plist/build/build.js": true,
+        "external:../../node_modules/@expo/plist/build/parse.js": true
+      }
+    },
+    "external:../../node_modules/@expo/plist/build/parse.js": {
+      "builtin": {
+        "assert": true
+      },
+      "globals": {
+        "Buffer.from": true
+      },
+      "packages": {
+        "@onekeyhq/kit>expo-camera>expo>@expo/cli>@expo/plist>@xmldom/xmldom": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/CrossEventEmitter.js": {
+      "globals": {
+        "setTimeout": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-events/cross-events.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "$$onekeyAppStorage": true,
+        "console": true,
+        "document": true,
+        "localStorage": true,
+        "navigator": true,
+        "process": true
+      },
+      "packages": {
+        "@onekeyhq/shared>ms": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/consts.js": true,
+        "external:../../node_modules/lodash-es/isNil.js": true,
+        "external:../../node_modules/lodash-es/lodash.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/common.js": {
+      "packages": {
+        "@onekeyhq/shared>ms": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/index.js": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/common.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/consts.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/CrossEventEmitter.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedProviderReceiveHandler.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectJsBridge.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeSimple.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/notification/index.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/utils/hashUtils.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/utils/isOneKeyWebsite.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/versionInfo.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": {
+      "globals": {
+        "document.createElement": true,
+        "document.documentElement": true,
+        "document.head": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedProviderReceiveHandler.js": {
+      "globals": {
+        "$onekey": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectJsBridge.js": {
+      "globals": {
+        "$onekey": "write",
+        "performance.now": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+      "globals": {
+        "clearTimeout": true,
+        "console.log": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/CrossEventEmitter.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/versionInfo.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-types/dist/index.js": true,
+        "external:../../node_modules/lodash-es/isNil.js": true,
+        "external:../../node_modules/lodash-es/isPlainObject.js": true,
+        "external:../../node_modules/lodash-es/isString.js": true,
+        "external:../../node_modules/lodash-es/lodash.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+      "globals": {
+        "$onekey": true,
+        "addEventListener": true,
+        "location.origin": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeSimple.js": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": {
+      "globals": {
+        "localStorage": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/consts.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": {
+      "globals": {
+        "localStorage": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/consts.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/CrossEventEmitter.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/index.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
+      "globals": {
+        "$onekey": "write",
+        "addEventListener": true,
+        "clearTimeout": true,
+        "document.readyState": true,
+        "localStorage.setItem": true,
+        "removeEventListener": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/consts.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/CrossEventEmitter.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/versionInfo.js": true,
+        "external:../../node_modules/lodash-es/isFunction.js": true,
+        "external:../../node_modules/lodash-es/lodash.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": {
+      "globals": {
+        "document.createElement": true,
+        "location.hostname": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+      "globals": {
+        "localStorage.getItem": true,
+        "location.origin": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/consts.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/classes.js": {
+      "packages": {
+        "@onekeyhq/shared>fast-safe-stringify": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/errors.js": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/classes.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/error-constants.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/utils.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/classes.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/error-constants.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/errors.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/utils.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/utils.js": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/classes.js": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/error-constants.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-events/cross-events.js": {
+      "globals": {
+        "console": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-474dbbae.js": {
+      "globals": {
+        "SuppressedError": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index.js": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-474dbbae.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js": {
+      "builtin": {
+        "@stoprocent/noble": true,
+        "electron.ipcMain.handle": true,
+        "electron.ipcMain.removeHandler": true,
+        "electron.webContents.getAllWebContents": true
+      },
+      "globals": {
+        "Buffer.from": true,
+        "clearInterval": true,
+        "clearTimeout": true,
+        "process.platform": true,
+        "setInterval": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyfe/hd-shared": true,
+        "electron-log": true,
+        "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/index-474dbbae.js": true,
+        "external:../../node_modules/@onekeyfe/hd-transport-electron/node_modules/p-retry/index.js": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/node_modules/p-retry/index.js": {
+      "packages": {
+        "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>async-retry>retry": true
+      }
+    },
+    "external:../../node_modules/ip/lib/ip.js": {
+      "builtin": {
+        "buffer.Buffer": true,
+        "os.networkInterfaces": true
+      }
+    },
+    "external:../../node_modules/lodash-es/_baseGetTag.js": {
+      "packages": {
+        "external:../../node_modules/lodash-es/_getRawTag.js": true,
+        "external:../../node_modules/lodash-es/_objectToString.js": true,
+        "external:../../node_modules/lodash-es/_Symbol.js": true
+      }
+    },
+    "external:../../node_modules/lodash-es/_getPrototype.js": {
+      "packages": {
+        "external:../../node_modules/lodash-es/_overArg.js": true
+      }
+    },
+    "external:../../node_modules/lodash-es/_getRawTag.js": {
+      "packages": {
+        "external:../../node_modules/lodash-es/_Symbol.js": true
+      }
+    },
+    "external:../../node_modules/lodash-es/_root.js": {
+      "packages": {
+        "external:../../node_modules/lodash-es/_freeGlobal.js": true
+      }
+    },
+    "external:../../node_modules/lodash-es/_Symbol.js": {
+      "packages": {
+        "external:../../node_modules/lodash-es/_root.js": true
+      }
+    },
+    "external:../../node_modules/lodash-es/isFunction.js": {
+      "packages": {
+        "external:../../node_modules/lodash-es/_baseGetTag.js": true,
+        "external:../../node_modules/lodash-es/isObject.js": true
+      }
+    },
+    "external:../../node_modules/lodash-es/isPlainObject.js": {
+      "packages": {
+        "external:../../node_modules/lodash-es/_baseGetTag.js": true,
+        "external:../../node_modules/lodash-es/_getPrototype.js": true,
+        "external:../../node_modules/lodash-es/isObjectLike.js": true
+      }
+    },
+    "external:../../node_modules/lodash-es/isString.js": {
+      "packages": {
+        "external:../../node_modules/lodash-es/_baseGetTag.js": true,
+        "external:../../node_modules/lodash-es/isArray.js": true,
+        "external:../../node_modules/lodash-es/isObjectLike.js": true
+      }
+    },
+    "external:../../node_modules/lru-queue/index.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true
+      }
+    },
+    "external:../../node_modules/memoizee/ext/async.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true,
+        "external:../../node_modules/memoizee/lib/registered-extensions.js": true
+      }
+    },
+    "external:../../node_modules/memoizee/ext/dispose.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "external:../../node_modules/memoizee/lib/registered-extensions.js": true
+      }
+    },
+    "external:../../node_modules/memoizee/ext/max-age.js": {
+      "globals": {
+        "clearTimeout": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true,
+        "external:../../node_modules/is-promise/index.js": true,
+        "external:../../node_modules/memoizee/lib/registered-extensions.js": true,
+        "external:../../node_modules/timers-ext/valid-timeout.js": true
+      }
+    },
+    "external:../../node_modules/memoizee/ext/max.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "external:../../node_modules/lru-queue/index.js": true,
+        "external:../../node_modules/memoizee/lib/registered-extensions.js": true
+      }
+    },
+    "external:../../node_modules/memoizee/ext/promise.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true,
+        "external:../../node_modules/is-promise/index.js": true,
+        "external:../../node_modules/memoizee/lib/registered-extensions.js": true
+      }
+    },
+    "external:../../node_modules/memoizee/ext/ref-counter.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>esniff>d": true,
+        "external:../../node_modules/memoizee/lib/registered-extensions.js": true
+      }
+    },
+    "external:../../node_modules/memoizee/index.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "external:../../node_modules/memoizee/ext/async.js": true,
+        "external:../../node_modules/memoizee/ext/dispose.js": true,
+        "external:../../node_modules/memoizee/ext/max-age.js": true,
+        "external:../../node_modules/memoizee/ext/max.js": true,
+        "external:../../node_modules/memoizee/ext/promise.js": true,
+        "external:../../node_modules/memoizee/ext/ref-counter.js": true,
+        "external:../../node_modules/memoizee/lib/resolve-length.js": true,
+        "external:../../node_modules/memoizee/normalizers/get-1.js": true,
+        "external:../../node_modules/memoizee/normalizers/get-fixed.js": true,
+        "external:../../node_modules/memoizee/normalizers/get-primitive-fixed.js": true,
+        "external:../../node_modules/memoizee/normalizers/get.js": true,
+        "external:../../node_modules/memoizee/normalizers/primitive.js": true,
+        "external:../../node_modules/memoizee/plain.js": true
+      }
+    },
+    "external:../../node_modules/memoizee/lib/configure-map.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>esniff>d": true,
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>esniff>event-emitter": true,
+        "external:../../node_modules/memoizee/lib/resolve-normalize.js": true,
+        "external:../../node_modules/memoizee/lib/resolve-resolve.js": true
+      }
+    },
+    "external:../../node_modules/memoizee/lib/resolve-length.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true
+      }
+    },
+    "external:../../node_modules/memoizee/lib/resolve-normalize.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true
+      }
+    },
+    "external:../../node_modules/memoizee/lib/resolve-resolve.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true
+      }
+    },
+    "external:../../node_modules/memoizee/normalizers/get-1.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true
+      }
+    },
+    "external:../../node_modules/memoizee/normalizers/get-fixed.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true
+      }
+    },
+    "external:../../node_modules/memoizee/normalizers/get.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true
+      }
+    },
+    "external:../../node_modules/memoizee/plain.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "external:../../node_modules/memoizee/lib/configure-map.js": true,
+        "external:../../node_modules/memoizee/lib/registered-extensions.js": true,
+        "external:../../node_modules/memoizee/lib/resolve-length.js": true
+      }
+    },
+    "external:../../node_modules/openpgp/dist/node/openpgp.min.js": {
+      "builtin": {
+        "buffer": true,
+        "crypto": true,
+        "os": true,
+        "stream": true,
+        "util": true,
+        "zlib": true
+      },
+      "globals": {
+        "atob": true,
+        "btoa": true,
+        "crypto": true,
+        "DOMException": true,
+        "msCrypto": true,
+        "nacl": "write",
+        "navigator": true,
+        "setTimeout": true,
+        "TextDecoder": true,
+        "TextEncoder": true
+      },
+      "packages": {
+        "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@metaplex-foundation/js>@bundlr-network/client>arweave>asn1.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/audio.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/battery.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "fs.existsSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/bluetooth.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readFileSync": true,
+        "path.basename": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/bluetoothVendors.js": true,
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/cpu.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readFile": true,
+        "fs.readFileSync": true,
+        "fs.stat": true,
+        "os.arch": true,
+        "os.cpus": true,
+        "os.loadavg": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/docker.js": {
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/dockerSocket.js": true,
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/dockerSocket.js": {
+      "builtin": {
+        "net.createConnection": true,
+        "os.type": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/filesystem.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readFile": true,
+        "os.release": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/graphics.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readdirSync": true,
+        "fs.statSync": true,
+        "path.join": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/index.js": {
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true,
+        "process.versions.node": true,
+        "process.versions.v8": true,
+        "setInterval": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/audio.js": true,
+        "external:../../node_modules/systeminformation/lib/battery.js": true,
+        "external:../../node_modules/systeminformation/lib/bluetooth.js": true,
+        "external:../../node_modules/systeminformation/lib/cpu.js": true,
+        "external:../../node_modules/systeminformation/lib/docker.js": true,
+        "external:../../node_modules/systeminformation/lib/filesystem.js": true,
+        "external:../../node_modules/systeminformation/lib/graphics.js": true,
+        "external:../../node_modules/systeminformation/lib/internet.js": true,
+        "external:../../node_modules/systeminformation/lib/memory.js": true,
+        "external:../../node_modules/systeminformation/lib/network.js": true,
+        "external:../../node_modules/systeminformation/lib/osinfo.js": true,
+        "external:../../node_modules/systeminformation/lib/printer.js": true,
+        "external:../../node_modules/systeminformation/lib/processes.js": true,
+        "external:../../node_modules/systeminformation/lib/system.js": true,
+        "external:../../node_modules/systeminformation/lib/usb.js": true,
+        "external:../../node_modules/systeminformation/lib/users.js": true,
+        "external:../../node_modules/systeminformation/lib/util.js": true,
+        "external:../../node_modules/systeminformation/lib/virtualbox.js": true,
+        "external:../../node_modules/systeminformation/lib/wifi.js": true,
+        "external:../../node_modules/systeminformation/package.json": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/internet.js": {
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/memory.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.readFile": true,
+        "os.freemem": true,
+        "os.totalmem": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/network.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execFileSync": true,
+        "child_process.execSync": true,
+        "fs.existsSync": true,
+        "os.EOL": true,
+        "os.networkInterfaces": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true,
+        "process.versions.node.split": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/osinfo.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execFile": true,
+        "child_process.execSync": true,
+        "fs.existsSync": true,
+        "fs.readFileSync": true,
+        "fs.stat": true,
+        "os.arch": true,
+        "os.EOL": true,
+        "os.hostname": true,
+        "os.networkInterfaces": true,
+        "os.release": true,
+        "os.uptime": true
+      },
+      "globals": {
+        "Intl.DateTimeFormat": true,
+        "process.arch": true,
+        "process.env": true,
+        "process.nextTick": true,
+        "process.platform": true,
+        "process.ppid": true,
+        "process.versions.openssl": true,
+        "process.versions.v8": true,
+        "result": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/printer.js": {
+      "builtin": {
+        "child_process.exec": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/processes.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.existsSync": true,
+        "os.totalmem": true,
+        "path.join": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/system.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "fs.existsSync": true,
+        "fs.readFile": true,
+        "os.arch": true,
+        "os.release": true,
+        "os.totalmem": true
+      },
+      "globals": {
+        "process.arch": true,
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/osinfo.js": true,
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/usb.js": {
+      "builtin": {
+        "child_process.exec": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/users.js": {
+      "builtin": {
+        "child_process.exec": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/util.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "child_process.spawn": true,
+        "fs.existsSync": true,
+        "fs.lstatSync": true,
+        "fs.readdirSync": true,
+        "fs.readFileSync": true,
+        "http": true,
+        "https": true,
+        "os.cpus": true,
+        "os.EOL": true,
+        "os.release": true,
+        "path.join": true,
+        "util.noop": true
+      },
+      "globals": {
+        "process.env": true,
+        "process.hrtime": true,
+        "process.nextTick": true,
+        "process.platform": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/virtualbox.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "os.EOL": true
+      },
+      "globals": {
+        "process.nextTick": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/systeminformation/lib/wifi.js": {
+      "builtin": {
+        "child_process.exec": true,
+        "child_process.execSync": true,
+        "os.EOL": true
+      },
+      "globals": {
+        "process.nextTick": true,
+        "process.platform": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "external:../../node_modules/systeminformation/lib/util.js": true
+      }
+    },
+    "external:../../node_modules/timers-ext/valid-timeout.js": {
+      "packages": {
+        "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext": true,
+        "external:../../node_modules/timers-ext/max-timeout.js": true
+      }
+    },
+    "semver": {
+      "globals": {
+        "process": true
+      },
+      "packages": {
+        "semver>lru-cache": true
+      }
+    },
+    "semver>lru-cache": {
+      "packages": {
+        "semver>lru-cache>yallist": true
+      }
+    }
+  }
+}
