@@ -177,6 +177,7 @@ export function StockSimpleChart({
           stockDetail?.marketStatus?.isOpen === true ||
           tokenDetail?.stock?.isOpen === true
         }
+        hoverLabelLargePrice
       />
     );
   }
