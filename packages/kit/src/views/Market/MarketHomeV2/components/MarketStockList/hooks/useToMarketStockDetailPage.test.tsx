@@ -72,8 +72,8 @@ jest.mock('@onekeyhq/shared/src/utils/extUtils', () => ({
   closeExtensionPopupAfterExpandTabOpen: jest.fn(),
 }));
 
-const mockNavigate: jest.Mock =
-  jest.requireMock('@onekeyhq/components').rootNavigationRef.current.navigate;
+const mockNavigate: jest.Mock = jest.requireMock('@onekeyhq/components')
+  .rootNavigationRef.current.navigate;
 const mockedPlatformEnv = platformEnv as typeof platformEnv & {
   isExtensionUiPopup: boolean;
   isExtensionUiSidePanel: boolean;

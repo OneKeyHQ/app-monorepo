@@ -317,7 +317,9 @@ function BaseMarketTokenSelectorContent({
           symbol: token.tokenDetailPreview?.symbol ?? token.symbol ?? stockId,
           name: token.tokenDetailPreview?.name ?? token.name ?? stockId,
           logoUrl:
-            token.tokenDetailPreview?.tokenImageUri ?? token.tokenImageUri ?? '',
+            token.tokenDetailPreview?.tokenImageUri ??
+            token.tokenImageUri ??
+            '',
           tokenAddress: token.address,
           networkId: token.networkId,
           isNative: token.isNative,
