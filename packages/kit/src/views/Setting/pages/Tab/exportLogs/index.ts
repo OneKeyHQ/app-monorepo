@@ -77,6 +77,8 @@ export const collectLogDigest = async (
   };
 };
 
+export const disposeLogDigest = async (_digest: ILogDigest) => {};
+
 export const exportLogs = async (filename?: string) => {
   const digest = await collectLogDigest(filename);
   if (digest.bundle.type !== 'text') {
