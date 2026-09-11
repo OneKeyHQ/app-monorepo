@@ -703,7 +703,11 @@ function GridSection({
                 description={cell.description}
                 descriptionComponent={
                   cell?.items ? (
-                    <YStack gap="$2">
+                    // flexShrink/minWidth down this chain let a long token
+                    // name ("Morpho-cbBTC-USDC-wrapper") wrap inside its
+                    // column instead of running under the next cell
+                    // (OK-62923).
+                    <YStack gap="$2" flexShrink={1} minWidth={0}>
                       {(cell?.items ?? []).map((item, itemIndex) => (
                         <XStack
                           key={
@@ -713,6 +717,8 @@ function GridSection({
                           }
                           ai="center"
                           gap="$1.5"
+                          flexShrink={1}
+                          minWidth={0}
                         >
                           <Token
                             size="xs"
@@ -721,7 +727,11 @@ function GridSection({
                             tokenImageUri={item.logoURI}
                           />
                           {item.title?.text ? (
-                            <EarnText text={item.title} size="$bodyLgMedium" />
+                            <EarnText
+                              text={item.title}
+                              size="$bodyLgMedium"
+                              flexShrink={1}
+                            />
                           ) : null}
                         </XStack>
                       ))}
