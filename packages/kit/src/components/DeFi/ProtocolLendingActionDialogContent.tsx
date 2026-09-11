@@ -1548,10 +1548,11 @@ function ProtocolLendingActionBorrowContent({
       // metadata is normalized to Legacy on the manage page as well.
       approveType: EApproveType.Legacy,
       approveTarget,
-      // useTrackTokenAllowance never fetches on mount - seed it with the
-      // manage-page allowance, which tracks the selected reserve because
-      // useManagePage loads again per reserveAddress.
+      // The manage-page allowance can lag after an approval transaction. Keep
+      // it as the first-paint value, then reconcile with the chain allowance
+      // before deciding whether the approval step is needed.
       currentAllowance: protocolInfo?.approve?.allowance,
+      refreshAllowanceOnMount: true,
       onApprovedSubmit: submitBorrowTx,
       onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
       // close() destroys a static dialog after its exit animation. Keep only

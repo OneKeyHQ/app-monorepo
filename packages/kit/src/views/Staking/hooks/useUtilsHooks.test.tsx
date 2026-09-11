@@ -59,6 +59,24 @@ describe('useTrackTokenAllowance', () => {
     expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(0);
   });
 
+  it('refreshes a seeded allowance when requested', async () => {
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({
+        ...params,
+        initialValue: '5',
+        refreshOnMount: true,
+      }),
+    );
+
+    expect(result.current.loading).toBe(true);
+    expect(result.current.allowance).toBe('5');
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.allowance).toBe('10');
+    });
+    expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1);
+  });
+
   it('keeps the fallback allowance when the initial fetch fails', async () => {
     serviceStaking.fetchTokenAllowance.mockRejectedValue(
       new Error('network error'),

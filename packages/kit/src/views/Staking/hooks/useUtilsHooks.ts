@@ -64,6 +64,7 @@ export function useTrackTokenAllowance({
   networkId,
   accountId,
   initialValue,
+  refreshOnMount = false,
   tokenAddress,
   spenderAddress,
   approveType,
@@ -71,6 +72,8 @@ export function useTrackTokenAllowance({
   networkId: string;
   accountId: string;
   initialValue?: string;
+  /** Fetch the chain allowance even when the caller provides a seed value. */
+  refreshOnMount?: boolean;
   tokenAddress: string;
   spenderAddress: string;
   approveType?: EApproveType;
@@ -78,7 +81,7 @@ export function useTrackTokenAllowance({
   const isLegacyApprove = approveType === EApproveType.Legacy;
   const isExistApproveTarget = !!spenderAddress;
   const shouldFetchInitialAllowance =
-    initialValue === undefined && isExistApproveTarget;
+    isExistApproveTarget && (initialValue === undefined || refreshOnMount);
   const allowanceTargetKey = [
     accountId,
     networkId,
@@ -176,6 +179,7 @@ export function useTrackTokenAllowance({
     allowanceTargetKey,
     isLegacyApprove,
     isExistApproveTarget,
+    refreshOnMount,
     shouldFetchInitialAllowance,
   ]);
   const trackAllowance = useCallback((txid: string) => {
