@@ -35,11 +35,19 @@ const PrimeInfiniPayment = LazyLoadPage(
 const PrimeInfiniSubscription = LazyLoadPage(
   () => import('../pages/PrimeInfiniSubscription'),
 );
+const PrimeGift = LazyLoadPage(() => import('../pages/PrimeGift'));
 
 export const PrimeRouter: IModalFlowNavigatorConfig<
   EPrimePages,
   IPrimeParamList
 >[] = [
+  {
+    name: EPrimePages.PrimeGift,
+    component: PrimeGift,
+    options: {
+      headerShown: false,
+    },
+  },
   {
     name: EPrimePages.PrimeDashboard,
     component: PrimeDashboard,
