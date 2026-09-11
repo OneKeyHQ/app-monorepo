@@ -74,7 +74,13 @@ export function TabSettingsListItem({
   }) {
   const { isMobileLayout } = useSettingsLayout();
   return (
-    <BaseListItem py="$3" px={isMobileLayout ? '$4' : '$5'} mx={0} borderRadius={0} {...props}>
+    <BaseListItem
+      py="$3"
+      px={isMobileLayout ? '$4' : '$5'}
+      mx={0}
+      borderRadius={0}
+      {...props}
+    >
       {children}
       {showDot ? (
         <Stack width="$2" height="$2" bg="$bgAccent" borderRadius="$full" />
