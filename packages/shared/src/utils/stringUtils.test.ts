@@ -1,7 +1,5 @@
 import stringUtils, {
-  isCombiningMark,
   isPrintableASCIIString,
-  splitGraphemes,
   stableStringify,
 } from './stringUtils';
 
@@ -9,52 +7,6 @@ test('stableStringify', () => {
   expect(stableStringify({ a: '1', b: '2' })).toBe(
     stableStringify({ b: '2', a: '1' }),
   );
-});
-
-describe('splitGraphemes', () => {
-  const withoutSegmenter = (run: () => void) => {
-    const descriptor = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
-    Object.defineProperty(Intl, 'Segmenter', {
-      value: undefined,
-      configurable: true,
-      writable: true,
-    });
-    try {
-      run();
-    } finally {
-      if (descriptor) Object.defineProperty(Intl, 'Segmenter', descriptor);
-    }
-  };
-
-  test.each([
-    ['Intl.Segmenter', (run: () => void) => run()],
-    ['the code point fallback', withoutSegmenter],
-  ])('never starts a grapheme with a combining mark via %s', (_name, env) => {
-    env(() => {
-      for (const text of [
-        'กำไรขั้นต้น',
-        'กำไรสุทธิ',
-        'পরিচালন-বহির্ভূত আয়',
-        'e\u0301te',
-      ]) {
-        const graphemes = splitGraphemes(text);
-        expect(graphemes.join('')).toBe(text);
-        expect(graphemes.filter((item) => /^\p{M}/u.test(item))).toEqual([]);
-      }
-    });
-  });
-
-  test('keeps conjuncts and emoji sequences whole in the fallback', () => {
-    withoutSegmenter(() => {
-      expect(splitGraphemes('ক্ষমা')).toEqual(['ক্ষ', 'মা']);
-      expect(splitGraphemes('👩‍💻!')).toEqual(['👩‍💻', '!']);
-    });
-  });
-
-  test('isCombiningMark covers Thai tone marks but not base letters', () => {
-    expect(isCombiningMark(0x0e_49)).toBe(true);
-    expect(isCombiningMark(0x0e_01)).toBe(false);
-  });
 });
 
 describe('isPrintableASCIIString', () => {

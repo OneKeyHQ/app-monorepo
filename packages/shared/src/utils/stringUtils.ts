@@ -1,5 +1,4 @@
 /* eslint-disable no-bitwise */
-/* cspell:ignore akat nukta virama */
 import safeStringify from 'fast-safe-stringify';
 import { Base64 } from 'js-base64';
 import { isString } from 'lodash';
@@ -321,81 +320,6 @@ function stripLineBreaks(value: string) {
   return value.replace(/[\r\n]+/g, '');
 }
 
-// Combining marks render with no advance of their own and belong to the
-// preceding character, so they must never be split from it or start a line.
-// Hand-rolled ranges because Hermes lacks reliable \p{…} support.
-const COMBINING_MARK_RANGES: readonly (readonly [number, number])[] = [
-  [0x03_00, 0x03_6f], // Combining diacritical marks
-  [0x09_00, 0x09_03], // Devanagari signs
-  [0x09_3a, 0x09_3c], // Devanagari vowel signs, nukta
-  [0x09_3e, 0x09_4f], // Devanagari vowel signs, virama
-  [0x09_51, 0x09_57], // Devanagari stress signs
-  [0x09_62, 0x09_63], // Devanagari vowel signs
-  [0x09_81, 0x09_83], // Bengali signs
-  [0x09_bc, 0x09_bc], // Bengali nukta
-  [0x09_be, 0x09_cd], // Bengali vowel signs, virama
-  [0x09_d7, 0x09_d7], // Bengali au length mark
-  [0x09_e2, 0x09_e3], // Bengali vowel signs
-  [0x0e_31, 0x0e_31], // Thai mai han-akat
-  [0x0e_33, 0x0e_3a], // Thai sara am, vowel signs
-  [0x0e_47, 0x0e_4e], // Thai tone marks
-  [0x1a_b0, 0x1a_ff], // Combining diacritical marks extended
-  [0x1d_c0, 0x1d_ff], // Combining diacritical marks supplement
-  [0x20_0d, 0x20_0d], // Zero-width joiner
-  [0x20_d0, 0x20_ff], // Combining marks for symbols
-  [0x30_99, 0x30_9a], // Kana voiced sound marks
-  [0xfe_00, 0xfe_0f], // Variation selectors
-  [0xfe_20, 0xfe_2f], // Combining half marks
-  [0x1_f3_fb, 0x1_f3_ff], // Emoji skin tone modifiers
-];
-
-// A virama joins the next consonant into a conjunct; a zero-width joiner joins
-// the next character into an emoji sequence.
-const JOINING_CODE_POINTS = new Set([0x09_4d, 0x09_cd, 0x20_0d]);
-
-export function isCombiningMark(codePoint: number): boolean {
-  return COMBINING_MARK_RANGES.some(
-    ([start, end]) => codePoint >= start && codePoint <= end,
-  );
-}
-
-function splitGraphemesByCodePoint(text: string): string[] {
-  const graphemes: string[] = [];
-  let joinNext = false;
-  for (const char of text) {
-    const codePoint = char.codePointAt(0) ?? 0;
-    if (graphemes.length > 0 && (joinNext || isCombiningMark(codePoint))) {
-      graphemes[graphemes.length - 1] += char;
-    } else {
-      graphemes.push(char);
-    }
-    joinNext = JOINING_CODE_POINTS.has(codePoint);
-  }
-  return graphemes;
-}
-
-// Splits text into user-perceived characters (grapheme clusters). Uses
-// Intl.Segmenter where available; the fallback (Hermes without an intl
-// polyfill) keeps combining marks, virama conjuncts and ZWJ sequences with
-// their base character instead of splitting per code point.
-export function splitGraphemes(text: string): string[] {
-  try {
-    const { Segmenter } = Intl as unknown as {
-      Segmenter?: new (
-        locale: string | undefined,
-        options: { granularity: 'grapheme' },
-      ) => { segment: (value: string) => Iterable<{ segment: string }> };
-    };
-    if (typeof Segmenter === 'function') {
-      const segmenter = new Segmenter(undefined, { granularity: 'grapheme' });
-      return Array.from(segmenter.segment(text), (item) => item.segment);
-    }
-  } catch {
-    // Fall through to the code point fallback.
-  }
-  return splitGraphemesByCodePoint(text);
-}
-
 export default {
   STRINGIFY_REPLACER,
   generateUUID,
@@ -412,6 +336,4 @@ export default {
   isUTF8,
   decodeJWT,
   stripLineBreaks,
-  isCombiningMark,
-  splitGraphemes,
 };

@@ -420,7 +420,9 @@ it('renders dated quarterly forecasts when the API omits the fiscal period', () 
   fireEvent.mouseEnter(
     screen.getByTestId('stock-financials-earnings-chart-point-1'),
   );
-  expect(chart.querySelector('svg')?.textContent).toContain('2026-09-30');
+  expect(
+    screen.getByTestId('stock-financials-earnings-chart-labels').textContent,
+  ).toContain('2026-09-30');
   const tooltip = screen.getByTestId('stock-financials-earnings-chart-tooltip');
   expect(tooltip.textContent).toContain('Actual --');
   expect(tooltip.textContent).toContain('Estimate 1.98');
@@ -549,18 +551,20 @@ it('preserves positive adjustments and losses when collapsing the waterfall', ()
   }
 });
 
-it('breaks labels wider than their column instead of letting them overlap', () => {
-  // Ten columns leave each label about 58px, a nine-unit budget.
-  const rows = [
-    'Betriebsfremde',
+it('renders axis labels as platform text so every script wraps natively', () => {
+  const axisLabels = [
+    'Betriebsfremde Erträge/Aufwendungen',
     '费用及调整项',
     'กำไรขั้นต้น',
-    ...Array.from({ length: 7 }, (_, index) => `Q${index + 1}`),
-  ].map((label, index) => ({ key: String(index), label, values: [index + 1] }));
+  ];
   render(
     <IntlProvider locale="en" messages={intlMessages}>
       <FinancialChart
-        rows={rows}
+        rows={axisLabels.map((label, index) => ({
+          key: String(index),
+          label,
+          values: [index + 1],
+        }))}
         series={[
           { key: 'revenue', label: 'Revenue', color: 'blue9', kind: 'bar' },
         ]}
@@ -568,17 +572,15 @@ it('breaks labels wider than their column instead of letting them overlap', () =
       />
     </IntlProvider>,
   );
-  const lines = Array.from(
-    screen.getByTestId('labels').querySelectorAll('text'),
-    (node) => node.textContent,
-  );
-  expect(lines).toEqual(
-    expect.arrayContaining(['Betriebsf', 'remde', '费用及调', '整项']),
-  );
-  expect(lines).not.toContain('Betriebsfremde');
-  expect(lines).not.toContain('费用及调整项');
-  // A forced break must never leave a combining mark at the start of a line.
-  expect(lines.filter((line) => /^\p{M}/u.test(line ?? ''))).toEqual([]);
+  expect(
+    Array.from(
+      screen.getByTestId('labels-labels').children,
+      (node) => node.textContent,
+    ),
+  ).toEqual(axisLabels);
+  expect(
+    screen.getByTestId('labels').querySelector('svg')?.textContent,
+  ).not.toContain('กำไรขั้นต้น');
 });
 
 it('shows hover values and missing fields without converting them to zero', () => {

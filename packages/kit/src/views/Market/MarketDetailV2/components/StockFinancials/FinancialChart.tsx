@@ -21,7 +21,6 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { splitGraphemes } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
   getFinancialDomain,
@@ -58,6 +57,11 @@ export type IFinancialChartRow = {
 const TOP = 16;
 const BOTTOM = 188;
 const RIGHT = 60;
+// The SVG only holds the plot; axis labels render below it as text.
+const CHART_HEIGHT = BOTTOM + 6;
+// Browsers keep an over-wide single word on one line unless allowed to break
+// it; native text already breaks such words.
+const AXIS_LABEL_WEB_STYLE = { wordBreak: 'break-word' } as const;
 
 function circleRadius(kind: IFinancialChartSeries['kind']) {
   if (kind === 'line') return 2.5;
@@ -79,49 +83,6 @@ function roundedBarPath(
     return `M${x} ${top}H${right}V${bottom - r}Q${right} ${bottom} ${right - r} ${bottom}H${x + r}Q${x} ${bottom} ${x} ${bottom - r}Z`;
   }
   return `M${x} ${bottom}V${top + r}Q${x} ${top} ${x + r} ${top}H${right - r}Q${right} ${top} ${right} ${top + r}V${bottom}Z`;
-}
-
-// Label width in 5.5px units at fontSize 11: a character takes one unit, or
-// two for CJK and other full-width glyphs. Graphemes keep combining marks
-// (Thai, Bengali, …) with their base, so the marks add no width.
-function graphemeUnits(grapheme: string) {
-  return (grapheme.codePointAt(0) ?? 0) >= 0x2e_80 ? 2 : 1;
-}
-
-type ILabelLine = { text: string; units: number };
-
-function wrapLabel(label: string, columnWidth: number) {
-  const maxUnits = Math.max(5, Math.floor((columnWidth - 4) / 5.5));
-  const lines: ILabelLine[] = [];
-  label.split(/[\s/]+/).forEach((word) => {
-    // SvgText never wraps on its own, so a word wider than the column (German
-    // compounds, CJK labels without spaces) is broken across lines rather than
-    // running into the neighboring columns. Breaks fall between graphemes, so
-    // a combining mark never starts a line.
-    const pieces: ILabelLine[] = [];
-    let piece: ILabelLine = { text: '', units: 0 };
-    splitGraphemes(word).forEach((grapheme) => {
-      const units = graphemeUnits(grapheme);
-      if (piece.text && piece.units + units > maxUnits) {
-        pieces.push(piece);
-        piece = { text: '', units: 0 };
-      }
-      piece = { text: piece.text + grapheme, units: piece.units + units };
-    });
-    if (piece.text) pieces.push(piece);
-    pieces.forEach((part) => {
-      const last = lines.at(-1);
-      if (last && last.units + 1 + part.units <= maxUnits) {
-        lines[lines.length - 1] = {
-          text: `${last.text} ${part.text}`,
-          units: last.units + 1 + part.units,
-        };
-      } else {
-        lines.push(part);
-      }
-    });
-  });
-  return lines.map((line) => line.text);
 }
 
 export function FinancialChart({
@@ -150,9 +111,6 @@ export function FinancialChart({
   const left = lineIndex >= 0 ? 44 : 0;
   const plotWidth = Math.max(1, width - left - RIGHT);
   const columnWidth = plotWidth / Math.max(1, rows.length);
-  const rowLabels = rows.map((row) => wrapLabel(row.label, columnWidth));
-  const labelLineCount = Math.max(1, ...rowLabels.map((lines) => lines.length));
-  const chartHeight = BOTTOM + 20 + (labelLineCount - 1) * 13 + 8;
   const selectedIndex = rows.findIndex((row) => row.key === selection?.key);
   const selectedRow = rows[selectedIndex];
   const domain = (
@@ -204,7 +162,7 @@ export function FinancialChart({
   return (
     <YStack gap="$1" testID={testID} zIndex={selectedRow ? 1 : 0}>
       <Stack
-        height={chartHeight}
+        height={CHART_HEIGHT}
         onLayout={(event) => {
           const nextWidth = event.nativeEvent.layout.width;
           if (nextWidth > 0) setWidth(nextWidth);
@@ -212,8 +170,8 @@ export function FinancialChart({
       >
         <Svg
           width="100%"
-          height={chartHeight}
-          viewBox={`0 0 ${width} ${chartHeight}`}
+          height={CHART_HEIGHT}
+          viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
         >
           {[0, 1, 2, 3, 4].map((tick) => {
             const tickY = TOP + ((BOTTOM - TOP) * tick) / 4;
@@ -242,10 +200,12 @@ export function FinancialChart({
                   })}
                 </SvgText>
                 {lineIndex >= 0 ? (
+                  // Start-anchored at the card edge so the axis lines up with
+                  // the card title above it.
                   <SvgText
-                    x={left - 8}
+                    x={0}
                     y={tickY + 4}
-                    textAnchor="end"
+                    textAnchor="start"
                     fontSize={11}
                     fill={textColor}
                   >
@@ -277,7 +237,6 @@ export function FinancialChart({
             const center = x(rowIndex);
             const range = row.range;
             const previousRange = rows[rowIndex - 1]?.range;
-            const lines = rowLabels[rowIndex];
             return (
               <G key={row.key}>
                 {range ? (
@@ -344,18 +303,6 @@ export function FinancialChart({
                     );
                   })
                 )}
-                {lines.map((line, lineNumber) => (
-                  <SvgText
-                    key={`${lineNumber}-${line}`}
-                    x={center}
-                    y={BOTTOM + 20 + lineNumber * 13}
-                    textAnchor="middle"
-                    fontSize={11}
-                    fill={textColor}
-                  >
-                    {line}
-                  </SvgText>
-                ))}
               </G>
             );
           })}
@@ -422,7 +369,7 @@ export function FinancialChart({
           <YStack
             position="absolute"
             left={tooltipLeft}
-            bottom={chartHeight - TOP + 12}
+            bottom={CHART_HEIGHT - TOP + 12}
             width={tooltipWidth}
             py="$3"
             px="$3"
@@ -517,6 +464,25 @@ export function FinancialChart({
           </YStack>
         ) : null}
       </Stack>
+      {/* Axis labels are platform text rather than SvgText: native and browser
+          line breaking handles every script (Thai, Bengali, CJK, long German
+          compounds), which SVG text cannot do on its own. */}
+      <XStack pl={left} pr={RIGHT} pb="$1" testID={`${testID}-labels`}>
+        {rows.map((row) => (
+          <SizableText
+            key={row.key}
+            width={columnWidth}
+            px="$0.5"
+            fontSize={11}
+            lineHeight={13}
+            color="$textSubdued"
+            textAlign="center"
+            $platform-web={AXIS_LABEL_WEB_STYLE}
+          >
+            {row.label}
+          </SizableText>
+        ))}
+      </XStack>
       <XStack gap="$3" justifyContent="center" flexWrap="wrap" minHeight="$5">
         {series.map((item) => (
           <XStack key={item.key} gap="$1" alignItems="center">
