@@ -93,6 +93,7 @@ jest.mock('../BorrowProvider', () => {
     networkId: 'evm--1',
     marketAddress: '0xMarket',
     accountId: 'account-1',
+    earnAccountLoading: false,
   };
   (globalThis as Record<string, unknown>).__mobilePositionScope = scope;
   return {
@@ -106,7 +107,10 @@ jest.mock('../BorrowProvider', () => {
         logoURI: 'https://example.com/aave.png',
       },
       borrowDataStatus: {},
-      earnAccount: { data: { account: { id: scope.accountId } } },
+      earnAccount: {
+        data: scope.accountId ? { account: { id: scope.accountId } } : null,
+        loading: scope.earnAccountLoading,
+      },
     }),
   };
 });
@@ -202,6 +206,7 @@ const scope = (globalThis as Record<string, unknown>).__mobilePositionScope as {
   networkId: string;
   marketAddress: string;
   accountId: string;
+  earnAccountLoading: boolean;
 };
 
 function buildEntry(
@@ -304,6 +309,7 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
     scope.networkId = 'evm--1';
     scope.marketAddress = '0xMarket';
     scope.accountId = 'account-1';
+    scope.earnAccountLoading = false;
   });
 
   it('starts with every card collapsed', () => {
@@ -397,6 +403,56 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
     expect(
       getByTestId(cardId('supplied', '0xAaa')).getAttribute('data-expanded'),
     ).toBe('false');
+  });
+
+  // A blank accountId is a loading frame, not a different account: the gate
+  // publishes data: null whenever the derive scope resets or a market switch is
+  // cancelled, with the component still mounted. Clearing on it turns what used
+  // to be a self-healing flicker into permanent loss of the user's expansion.
+  it('keeps the card expanded across a transient blank accountId', () => {
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+    const positionId = cardId('supplied', '0xAaa');
+
+    fireEvent.click(getByTestId(positionId));
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('true');
+
+    scope.accountId = '';
+    scope.earnAccountLoading = true;
+    rerender(<BorrowMobilePositions />);
+
+    // The same account resolves back; nothing about the scope actually moved.
+    scope.accountId = 'account-1';
+    scope.earnAccountLoading = false;
+    rerender(<BorrowMobilePositions />);
+
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('true');
+  });
+
+  // The blank must not swallow a real switch either. Every real account switch
+  // blanks, so the path is account-1 -> '' -> account-2 -> '' -> account-1, and
+  // scoped keys already hide account-1's card while account-2 is showing. Only
+  // the return leg proves the reset ran: skip it on either switch and the stale
+  // key is still held, so coming back pops the card open on its own.
+  it('drops the open card when a blank resolves into a different account', () => {
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+    const positionId = cardId('supplied', '0xAaa');
+    const blankThenResolve = (accountId: string) => {
+      scope.accountId = '';
+      scope.earnAccountLoading = true;
+      rerender(<BorrowMobilePositions />);
+      scope.accountId = accountId;
+      scope.earnAccountLoading = false;
+      rerender(<BorrowMobilePositions />);
+    };
+
+    fireEvent.click(getByTestId(positionId));
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('true');
+
+    blankThenResolve('account-2');
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('false');
+
+    blankThenResolve('account-1');
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('false');
   });
 
   it.each([
