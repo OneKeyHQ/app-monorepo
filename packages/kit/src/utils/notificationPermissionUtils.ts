@@ -154,13 +154,20 @@ export async function isNotificationFullyEnabled(): Promise<boolean> {
 // rejection or interrupt the caller's feature flow.
 export async function enableNotificationsBestEffort({
   navigation,
+  stayOnCurrentPage = false,
+  shouldContinue = () => true,
 }: {
   navigation: IAppNavigation;
+  stayOnCurrentPage?: boolean;
+  shouldContinue?: () => boolean;
 }): Promise<void> {
   try {
     // 1) Turn on the OneKey notification master switch if it is off.
     const serverSettings =
       await backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache();
+    if (!shouldContinue()) {
+      return;
+    }
     // `/notification/v1/config/update` replaces the entire config object
     // (NotificationsSettings always submits `{ ...currentSettings, ...part }`),
     // so we may only merge-submit when we already hold a complete server
@@ -175,6 +182,10 @@ export async function enableNotificationsBestEffort({
     const hasServerSettings =
       !!serverSettings && Object.keys(serverSettings).length > 0;
     if (!hasServerSettings) {
+      if (stayOnCurrentPage) {
+        // A gift remains claimed even when notification setup must be deferred.
+        return;
+      }
       await timerUtils.wait(300);
       navigation.pushModal(EModalRoutes.SettingModal, {
         screen: EModalSettingRoutes.SettingNotifications,
@@ -189,6 +200,9 @@ export async function enableNotificationsBestEffort({
         },
       );
     }
+    if (!shouldContinue()) {
+      return;
+    }
     // 2) If the system permission is still missing, route to the existing
     // notification permission guide page. Desktop cannot resolve the real OS
     // permission (see isNotificationFullyEnabled above), so the gate would
@@ -202,9 +216,16 @@ export async function enableNotificationsBestEffort({
     const permission =
       await backgroundApiProxy.serviceNotification.getPermission();
     if (
+      shouldContinue() &&
       permission.isSupported &&
       permission.permission !== ENotificationPermission.granted
     ) {
+      if (stayOnCurrentPage) {
+        // Do not send gift recipients to Settings after a denied OS request.
+        // The success page remains visible and KYT stays enabled.
+        await backgroundApiProxy.serviceNotification.requestPermission();
+        return;
+      }
       await timerUtils.wait(300);
       navigation.pushModal(EModalRoutes.NotificationsModal, {
         screen: EModalNotificationsRoutes.NotificationIntroduction,

@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,23 +29,27 @@ import { PRIME_FEATURE_INTROS } from '../PrimeFeatures/primeFeatureIntroUtils';
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 import type { IPrimeFeatureIntro } from '../PrimeFeatures/primeFeatureIntroUtils';
 
+type IPrimeBenefitsItemLayoutProps = Pick<IListItemProps, 'mx' | 'px'>;
+
 function PrimeBenefitsBaseItem({
   icon,
   title,
   subtitle,
   onPress,
   isComingSoon,
+  itemProps,
 }: {
   icon: IKeyOfIcons;
   title: string;
   subtitle: string;
-  onPress: () => void;
+  onPress?: () => void;
   isComingSoon?: boolean;
+  itemProps?: IPrimeBenefitsItemLayoutProps;
 }) {
   const intl = useIntl();
 
   return (
-    <ListItem drillIn onPress={onPress}>
+    <ListItem drillIn={Boolean(onPress)} onPress={onPress} {...itemProps}>
       <YStack borderRadius="$3" borderCurve="continuous" bg="$brand4" p="$2">
         <Icon name={icon} size="$6" color="$brand9" />
       </YStack>
@@ -78,12 +83,14 @@ function PrimeBenefitsBaseItem({
   );
 }
 
-function PrimeBenefitsItem({
+export function PrimeBenefitsItem({
   feature,
   onPress,
+  itemProps,
 }: {
   feature: IPrimeFeatureIntro;
-  onPress: () => void;
+  onPress?: () => void;
+  itemProps?: IPrimeBenefitsItemLayoutProps;
 }) {
   const intl = useIntl();
 
@@ -101,6 +108,7 @@ function PrimeBenefitsItem({
       )}
       isComingSoon={feature.isComingSoon}
       onPress={onPress}
+      itemProps={itemProps}
     />
   );
 }

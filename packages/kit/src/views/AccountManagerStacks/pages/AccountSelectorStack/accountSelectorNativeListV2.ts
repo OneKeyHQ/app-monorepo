@@ -21,6 +21,7 @@ import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
 import type {
+  ImageSource,
   LeadingVisual,
   NativeListTheme,
 } from '@onekeyfe/react-native-native-list';
@@ -183,22 +184,13 @@ export function accountSelectorWalletVisualV2({
   };
 }
 
-export function accountSelectorAccountVisualV2({
+export function accountSelectorAccountImageSourceV2({
   account,
   indexedAccount,
-  network,
-  theme,
 }: {
   account?: IDBAccount;
   indexedAccount?: IDBIndexedAccount;
-  network?: {
-    logoURI?: string;
-    isCustomNetwork?: boolean;
-    isAllNetworks?: boolean;
-    name?: string;
-  };
-  theme: NativeListTheme;
-}): LeadingVisual {
+}): ImageSource | undefined {
   let uri: string | undefined;
   if (account && accountUtils.isExternalAccount({ accountId: account.id })) {
     const external = account as IDBExternalAccount;
@@ -228,12 +220,31 @@ export function accountSelectorAccountVisualV2({
       uri = `onekey-avatar://blockie/v1/${encodeURIComponent(seed.toLowerCase())}`;
     }
   }
+  return uri
+    ? { uri, width: 32, height: 32, contentFit: 'contain', retryTimes: 1 }
+    : undefined;
+}
+
+export function accountSelectorAccountVisualV2({
+  account,
+  indexedAccount,
+  network,
+  theme,
+}: {
+  account?: IDBAccount;
+  indexedAccount?: IDBIndexedAccount;
+  network?: {
+    logoURI?: string;
+    isCustomNetwork?: boolean;
+    isAllNetworks?: boolean;
+    name?: string;
+  };
+  theme: NativeListTheme;
+}): LeadingVisual {
   return {
     kind: 'account',
     shape: 'rounded',
-    image: uri
-      ? { uri, width: 32, height: 32, contentFit: 'contain', retryTimes: 1 }
-      : undefined,
+    image: accountSelectorAccountImageSourceV2({ account, indexedAccount }),
     backgroundColor: theme.strongBackground,
     fallbackIcon: {
       name:

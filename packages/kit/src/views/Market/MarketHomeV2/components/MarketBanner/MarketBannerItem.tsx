@@ -1,10 +1,11 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
 import {
   Icon,
   Image,
+  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
@@ -15,6 +16,7 @@ import { LeverageBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBa
 import {
   EMarketBannerType,
   type IMarketBannerItem,
+  type IMarketBannerTokenPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTestIDs } from '../../testIDs';
@@ -87,7 +89,7 @@ function BannerTokenGroupComponent({ tokenLogos }: { tokenLogos?: string[] }) {
 
 const BannerTokenGroup = memo(BannerTokenGroupComponent);
 
-function MarketBannerItemComponent({
+function LegacyMarketBannerItem({
   item,
   isSmallScreen,
   onPress,
@@ -117,7 +119,7 @@ function MarketBannerItemComponent({
       onPress={handlePress}
       transition="quick"
       animateOnly={ANIMATE_ONLY_BORDER_COLOR}
-      borderWidth={StyleSheet.hairlineWidth}
+      borderWidth={StyleSheet?.hairlineWidth ?? 1}
       borderColor="$neutral3"
       hoverStyle={{ borderColor: '$neutral4' }}
       pressStyle={{ borderColor: '$neutral5' }}
@@ -169,6 +171,159 @@ function MarketBannerItemComponent({
       </YStack>
       <BannerTokenGroup tokenLogos={tokenLogos} />
     </Stack>
+  );
+}
+
+function normalizeMarketValue(value?: string | null) {
+  const normalized = value?.trim();
+  return normalized && Number.isFinite(Number(normalized)) ? normalized : '--';
+}
+
+function BannerTokenRow({ token }: { token: IMarketBannerTokenPreview }) {
+  const price = normalizeMarketValue(token.price);
+  const change = normalizeMarketValue(token.priceChange24hPercent);
+  const numericChange = Number(change);
+  let changeColor: '$textSubdued' | '$textSuccess' | '$textCritical' | '$text' =
+    '$textSubdued';
+  if (Number.isFinite(numericChange)) {
+    changeColor = '$text';
+    if (numericChange > 0) changeColor = '$textSuccess';
+    if (numericChange < 0) changeColor = '$textCritical';
+  }
+
+  return (
+    <XStack
+      alignItems="center"
+      gap="$2"
+      h="$6"
+      testID={MarketTestIDs.bannerTokenRow}
+    >
+      <Image
+        size="$6"
+        borderRadius="$full"
+        source={{ uri: token.logo }}
+        fallback={
+          <Stack
+            w="$6"
+            h="$6"
+            bg="$bgStrong"
+            borderRadius="$full"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon size="$4" name="CryptoCoinOutline" color="$iconSubdued" />
+          </Stack>
+        }
+      />
+      <SizableText size="$bodyMdMedium" flex={1} minWidth={0} numberOfLines={1}>
+        {token.symbol || token.name}
+      </SizableText>
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="price"
+        formatterOptions={{ currency: '$' }}
+        numberOfLines={1}
+        maxWidth="$24"
+        flexShrink={0}
+        testID={MarketTestIDs.bannerTokenPrice}
+      >
+        {price}
+      </NumberSizeableText>
+      <NumberSizeableText
+        size="$bodyMdMedium"
+        formatter="priceChange"
+        formatterOptions={{ showPlusMinusSigns: numericChange > 0 }}
+        color={changeColor}
+        numberOfLines={1}
+        width="$20"
+        textAlign="right"
+        flexShrink={0}
+        testID={MarketTestIDs.bannerTokenChange}
+      >
+        {change}
+      </NumberSizeableText>
+    </XStack>
+  );
+}
+
+function MarketBannerItemComponent(props: IMarketBannerItemProps) {
+  const { item, onPress } = props;
+  const tokens = useMemo(
+    () =>
+      (item.tokens ?? [])
+        .toSorted((left, right) => {
+          const leftChange = Number(
+            normalizeMarketValue(left.priceChange24hPercent),
+          );
+          const rightChange = Number(
+            normalizeMarketValue(right.priceChange24hPercent),
+          );
+          if (!Number.isFinite(leftChange))
+            return Number.isFinite(rightChange) ? 1 : 0;
+          if (!Number.isFinite(rightChange)) return -1;
+          return rightChange - leftChange;
+        })
+        .slice(0, 3),
+    [item.tokens],
+  );
+  const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
+
+  // Older API deployments do not provide token previews yet.
+  if (!item.tokens) return <LegacyMarketBannerItem {...props} />;
+
+  return (
+    <YStack
+      testID={MarketTestIDs.bannerItem}
+      bg={convertThemeToken(item.backgroundColor, '$bgSubdued')}
+      borderRadius="$3"
+      px="$4"
+      py="$5"
+      width={336}
+      flexShrink={0}
+      gap="$5"
+      userSelect="none"
+    >
+      <XStack
+        alignItems="center"
+        gap="$2"
+        h="$6"
+        onPress={handlePress}
+        role="button"
+        aria-label={item.title}
+        testID={MarketTestIDs.bannerTitle}
+        borderRadius="$1"
+        hoverStyle={{ opacity: 0.8 }}
+        pressStyle={{ opacity: 0.6 }}
+      >
+        <SizableText
+          size="$headingSm"
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
+        >
+          {item.title}
+        </SizableText>
+        {item.type === EMarketBannerType.Perps ? (
+          <LeverageBadge leverage={10} />
+        ) : null}
+        <Icon
+          name="ChevronRightSmallOutline"
+          size="$4"
+          color="$iconSubdued"
+          flexShrink={0}
+        />
+      </XStack>
+      <YStack gap="$4" minHeight={104}>
+        {tokens.length ? (
+          tokens.map((token, index) => (
+            <BannerTokenRow key={`${token.symbol}-${index}`} token={token} />
+          ))
+        ) : (
+          <SizableText color="$textSubdued">--</SizableText>
+        )}
+      </YStack>
+    </YStack>
   );
 }
 
