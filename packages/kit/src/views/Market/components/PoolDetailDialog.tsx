@@ -11,7 +11,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
@@ -35,8 +34,7 @@ export function PoolDetailsItem({
   formatter?: INumberSizeableTextProps['formatter'];
   bordered?: boolean;
 }) {
-  const [settings] = useSettingsPersistAtom();
-  const currencySymbol = settings.currencyInfo.symbol;
+  const currencySymbol = '$';
   const renderChildren = useMemo(() => {
     if (isNumeric) {
       return (

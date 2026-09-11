@@ -16,7 +16,6 @@ import {
   useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
@@ -163,8 +162,7 @@ export function MarketDetailPools({
   tickers?: IMarketDetailTicker[];
   detailPlatforms: IMarketDetailPlatform;
 }) {
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
+  const currency = '$';
   const intl = useIntl();
   const { gtXl: gtXlMedia } = useMedia();
   const isOverlayPage = useIsOverlayPage();
