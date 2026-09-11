@@ -1,10 +1,8 @@
 /* eslint-disable import/first */
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
-  const { Pressable, Text, View } = jest.requireActual(
-    'react-native',
-  ) as typeof import('react-native');
+  const React = jest.requireActual('react');
+  const { Pressable, Text, View } = jest.requireActual('react-native');
 
   return {
     Icon: View,
@@ -41,9 +39,7 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
-  const { View } = jest.requireActual(
-    'react-native',
-  ) as typeof import('react-native');
+  const { View } = jest.requireActual('react-native');
 
   return { ListItem: View };
 });

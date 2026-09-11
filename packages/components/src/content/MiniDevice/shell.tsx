@@ -95,41 +95,43 @@ const styles = StyleSheet.create({
 });
 
 // Memoized like the sibling shells: only a scene change re-renders it.
-const DeviceBody = memo(function DeviceBody({
-  animation,
-  screenContent,
-}: {
-  animation: IMiniDeviceAnimation;
-  screenContent?: ReactNode;
-}) {
-  // The panel glow and the content share the one presence opacity: "lit"
-  // is nothing but content shown.
-  const litStyle = useAnimatedStyle(
-    () => ({ opacity: animation.screenContent.value }),
-    [animation],
-  );
-  const glowLayerStyle = useMemo(
-    () => [styles.screenGlow, litStyle],
-    [litStyle],
-  );
-  const slotLayerStyle = useMemo(
-    () => [styles.screenSlot, litStyle],
-    [litStyle],
-  );
-  return (
-    <>
-      <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
-      <View style={styles.screen}>
-        <Animated.View pointerEvents="none" style={glowLayerStyle} />
-        {screenContent ? (
-          <Animated.View pointerEvents="none" style={slotLayerStyle}>
-            {screenContent}
-          </Animated.View>
-        ) : null}
-      </View>
-    </>
-  );
-});
+const DeviceBody = memo(
+  ({
+    animation,
+    screenContent,
+  }: {
+    animation: IMiniDeviceAnimation;
+    screenContent?: ReactNode;
+  }) => {
+    // The panel glow and the content share the one presence opacity: "lit"
+    // is nothing but content shown.
+    const litStyle = useAnimatedStyle(
+      () => ({ opacity: animation.screenContent.value }),
+      [animation],
+    );
+    const glowLayerStyle = useMemo(
+      () => [styles.screenGlow, litStyle],
+      [litStyle],
+    );
+    const slotLayerStyle = useMemo(
+      () => [styles.screenSlot, litStyle],
+      [litStyle],
+    );
+    return (
+      <>
+        <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
+        <View style={styles.screen}>
+          <Animated.View pointerEvents="none" style={glowLayerStyle} />
+          {screenContent ? (
+            <Animated.View pointerEvents="none" style={slotLayerStyle}>
+              {screenContent}
+            </Animated.View>
+          ) : null}
+        </View>
+      </>
+    );
+  },
+);
 
 export interface IMiniDeviceShellProps {
   /**

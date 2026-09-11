@@ -68,6 +68,7 @@ const NOISE_TILE_SOURCE = require('./noise-tile.png');
 // The model suffix keeps the filename unique: webpack/rspack dev emits
 // assets as bare [name].[ext], where same-named files overwrite each other.
 const SHELL_SOURCE = require('./shell-classic.png');
+
 const NOISE_TILE_SIZE = 128;
 
 // Tiled through an SVG <Pattern> rather than an Image: RN core's
@@ -306,65 +307,67 @@ function DeviceButton({
 
 // Memoized like the sibling bodies: it must only re-render when the scene
 // actually changes. Scenes keep both props referentially stable.
-const DeviceBody = memo(function DeviceBody({
-  animation,
-  screenContent,
-}: {
-  animation: IClassicDeviceAnimation;
-  screenContent?: ReactNode;
-}) {
-  // The panel glow and the content share the one presence opacity: "lit"
-  // is nothing but content shown.
-  const litStyle = useAnimatedStyle(
-    () => ({ opacity: animation.screenContent.value }),
-    [animation],
-  );
-  const glowLayerStyle = useMemo(
-    () => [styles.screenGlow, litStyle],
-    [litStyle],
-  );
-  const slotLayerStyle = useMemo(
-    () => [styles.screenSlot, litStyle],
-    [litStyle],
-  );
-  return (
-    <>
-      <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
-      <View style={styles.screenHole}>
-        <View style={styles.screen}>
-          <Animated.View pointerEvents="none" style={glowLayerStyle} />
-          {screenContent ? (
-            <Animated.View pointerEvents="none" style={slotLayerStyle}>
-              {screenContent}
-            </Animated.View>
-          ) : null}
-          {/* Glass reflection stays above whatever the panel shows. */}
-          <LinearGradient
-            colors={SCREEN_SHEEN_COLORS}
-            start={GRAD_TOP}
-            end={GRAD_BOTTOM}
-            style={ABSOLUTE_FILL}
-          />
+const DeviceBody = memo(
+  ({
+    animation,
+    screenContent,
+  }: {
+    animation: IClassicDeviceAnimation;
+    screenContent?: ReactNode;
+  }) => {
+    // The panel glow and the content share the one presence opacity: "lit"
+    // is nothing but content shown.
+    const litStyle = useAnimatedStyle(
+      () => ({ opacity: animation.screenContent.value }),
+      [animation],
+    );
+    const glowLayerStyle = useMemo(
+      () => [styles.screenGlow, litStyle],
+      [litStyle],
+    );
+    const slotLayerStyle = useMemo(
+      () => [styles.screenSlot, litStyle],
+      [litStyle],
+    );
+    return (
+      <>
+        <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
+        <View style={styles.screenHole}>
+          <View style={styles.screen}>
+            <Animated.View pointerEvents="none" style={glowLayerStyle} />
+            {screenContent ? (
+              <Animated.View pointerEvents="none" style={slotLayerStyle}>
+                {screenContent}
+              </Animated.View>
+            ) : null}
+            {/* Glass reflection stays above whatever the panel shows. */}
+            <LinearGradient
+              colors={SCREEN_SHEEN_COLORS}
+              start={GRAD_TOP}
+              end={GRAD_BOTTOM}
+              style={ABSOLUTE_FILL}
+            />
+          </View>
         </View>
-      </View>
 
-      <View style={styles.buttons}>
-        <DeviceButton press={animation.press?.power ?? PRESS_RELEASED}>
-          {POWER_ICON}
-        </DeviceButton>
-        <DeviceButton press={animation.press?.up ?? PRESS_RELEASED}>
-          {UP_ICON}
-        </DeviceButton>
-        <DeviceButton press={animation.press?.down ?? PRESS_RELEASED}>
-          {DOWN_ICON}
-        </DeviceButton>
-        <DeviceButton press={animation.press?.ok ?? PRESS_RELEASED}>
-          {OK_ICON}
-        </DeviceButton>
-      </View>
-    </>
-  );
-});
+        <View style={styles.buttons}>
+          <DeviceButton press={animation.press?.power ?? PRESS_RELEASED}>
+            {POWER_ICON}
+          </DeviceButton>
+          <DeviceButton press={animation.press?.up ?? PRESS_RELEASED}>
+            {UP_ICON}
+          </DeviceButton>
+          <DeviceButton press={animation.press?.down ?? PRESS_RELEASED}>
+            {DOWN_ICON}
+          </DeviceButton>
+          <DeviceButton press={animation.press?.ok ?? PRESS_RELEASED}>
+            {OK_ICON}
+          </DeviceButton>
+        </View>
+      </>
+    );
+  },
+);
 
 export interface IClassicDeviceShellProps {
   /**

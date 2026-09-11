@@ -29,7 +29,7 @@ export function UnOrderedListItem({
   titleSize = '$bodyLg',
   ...rest
 }: IUnOrderedListItemProps) {
-  const titleFontToken = getFontToken(titleSize as FontSizeTokens);
+  const titleFontToken = getFontToken(titleSize);
   const titleLineHeight =
     titleFontToken && typeof titleFontToken === 'object'
       ? titleFontToken.lineHeight

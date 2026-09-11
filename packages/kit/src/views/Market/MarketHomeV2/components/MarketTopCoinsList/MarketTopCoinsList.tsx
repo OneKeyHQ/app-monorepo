@@ -362,7 +362,7 @@ export function MarketTopCoinsList({
           rowProps={{ height: TOP_COINS_DESKTOP_ROW_HEIGHT }}
           scrollEnabled={!webTabIntegrated}
           showHeader={!useDesktopPortal}
-          showSkeleton={isLoading && data.length === 0}
+          showSkeleton={isLoading ? data.length === 0 : null}
           skeletonCount={12}
           tabIntegrated={tabIntegrated}
         />

@@ -51,6 +51,7 @@ jest.mock('./stacks', () => ({}));
 const { useTheme } = require('./tamagui') as typeof import('./tamagui');
 const { useNativeThemeNameSubscription } =
   require('./useNativeThemeNameSubscription.native') as typeof import('./useNativeThemeNameSubscription.native');
+
 const { useNativeThemeNameSubscription: useWebThemeNameSubscription } =
   jest.requireActual<typeof import('./useNativeThemeNameSubscription')>(
     './useNativeThemeNameSubscription',

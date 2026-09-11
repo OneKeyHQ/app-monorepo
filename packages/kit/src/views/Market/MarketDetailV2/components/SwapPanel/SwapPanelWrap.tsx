@@ -748,8 +748,10 @@ function SwapPanelWrapContent({
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
               disableSaveSlippageForFutureOrders={
-                marketPresetEnabled &&
-                marketPresetSettings.selectedPresetKey === EMarketPresetKey.AUTO
+                marketPresetEnabled
+                  ? marketPresetSettings.selectedPresetKey ===
+                    EMarketPresetKey.AUTO
+                  : null
               }
               defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
               defaultCustomPriorityFee={effectiveCustomPriorityFee}

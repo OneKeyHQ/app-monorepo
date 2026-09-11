@@ -11,9 +11,7 @@ yarn jest packages/kit-bg/src/dbs/simple/base/SimpleDbEntityBase.test.ts
 */
 
 jest.mock('@onekeyhq/shared/src/utils/promiseUtils', () => {
-  const actual = jest.requireActual(
-    '@onekeyhq/shared/src/utils/promiseUtils',
-  ) as typeof import('@onekeyhq/shared/src/utils/promiseUtils');
+  const actual = jest.requireActual('@onekeyhq/shared/src/utils/promiseUtils');
   return {
     ...actual,
     waitAsync: jest.fn(async () => undefined),

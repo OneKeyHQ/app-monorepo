@@ -45,28 +45,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ServiceAccount from './ServiceAccount';
 
-const localDbMock = (
-  jest.requireMock('../../dbs/local/localDb') as {
-    default: {
-      getAccountSafe: jest.Mock;
-      getAddressByNetworkImpl: jest.Mock;
-      getAllHyperLiquidAgentCredentials: jest.Mock;
-      getCredentialSafe: jest.MockedFunction<
-        (credentialId: string) => Promise<unknown>
-      >;
-      getHyperLiquidAgentCredential: jest.MockedFunction<
-        (params: {
-          userAddress: string;
-          agentName: EHyperLiquidAgentName;
-        }) => Promise<ICoreHyperLiquidAgentCredential | undefined>
-      >;
-      getIndexedAccountSafe: jest.Mock;
-      getWalletSafe: jest.Mock;
-      isTempWalletRemoved: jest.Mock;
-      removeCredentials: jest.Mock;
-    };
-  }
-).default;
+const localDbMock = jest.requireMock('../../dbs/local/localDb').default;
 
 const mockGetCredentialSafe = localDbMock.getCredentialSafe;
 const mockGetHyperLiquidAgentCredential =
@@ -75,13 +54,8 @@ const mockGetAllHyperLiquidAgentCredentials =
   localDbMock.getAllHyperLiquidAgentCredentials;
 const mockRemoveCredentials = localDbMock.removeCredentials;
 
-const mockAppErrorLog = (
-  jest.requireMock('@onekeyhq/shared/src/logger/logger') as {
-    defaultLogger: {
-      app: { error: { log: jest.MockedFunction<(msg: string) => void> } };
-    };
-  }
-).defaultLogger.app.error.log;
+const mockAppErrorLog = jest.requireMock('@onekeyhq/shared/src/logger/logger')
+  .defaultLogger.app.error.log;
 
 const credential: ICoreHyperLiquidAgentCredential = {
   userAddress: '0x1111111111111111111111111111111111111111',

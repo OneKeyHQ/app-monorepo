@@ -70,10 +70,8 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
-  const { Controller, FormProvider } = jest.requireActual(
-    'react-hook-form',
-  ) as typeof import('react-hook-form');
+  const React = jest.requireActual('react');
+  const { Controller, FormProvider } = jest.requireActual('react-hook-form');
 
   function Container({
     accessibilityLabel,
@@ -382,10 +380,9 @@ describe('PrimeRedemptionDialog', () => {
       screen.getByRole('button', { name: ETranslations.global_back }),
     );
 
-    expect(
-      (screen.getByTestId(PrimeTestIDs.redemptionCodeInput) as HTMLInputElement)
-        .value,
-    ).toBe('OKP-PJ37L-DYXWR');
+    expect(screen.getByTestId(PrimeTestIDs.redemptionCodeInput).value).toBe(
+      'OKP-PJ37L-DYXWR',
+    );
     expect(mockDialogFooterClose).not.toHaveBeenCalled();
     expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
     expect(
@@ -571,10 +568,9 @@ describe('PrimeRedemptionDialog', () => {
       isPrimeActiveBeforeRedeem: true,
       errorCode: 90_506,
     });
-    expect(
-      (screen.getByTestId(PrimeTestIDs.redemptionCodeInput) as HTMLInputElement)
-        .value,
-    ).toBe('OKP-PJ37L-DYXWR');
+    expect(screen.getByTestId(PrimeTestIDs.redemptionCodeInput).value).toBe(
+      'OKP-PJ37L-DYXWR',
+    );
 
     mockRedeemPrimeCode.mockResolvedValueOnce({
       addedDays: 30,

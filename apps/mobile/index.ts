@@ -21,6 +21,7 @@ type IAppModule = typeof import('./App');
 require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
+
 markRuntimePolyfillsReady();
 
 // ── On-device Storybook workbench: independent top-level entry ──

@@ -44,6 +44,7 @@ const SCENE_TRACK_QUANTUM_MS = 33;
 
 export function trackAt(rawT: number, kfs: IKeyframe[]): number {
   'worklet';
+
   const t = Math.floor(rawT / SCENE_TRACK_QUANTUM_MS) * SCENE_TRACK_QUANTUM_MS;
 
   if (t <= kfs[0].t) return kfs[0].v;

@@ -88,7 +88,7 @@ function parseEntry(serialized: string): SWRCacheEntry | undefined {
     if (
       !isPlainObject(parsed) ||
       !Number.isSafeInteger((parsed as { t?: unknown }).t) ||
-      ((parsed as { t: number }).t as number) < 0
+      (parsed as { t: number }).t < 0
     ) {
       return undefined;
     }

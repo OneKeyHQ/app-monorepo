@@ -211,9 +211,7 @@ describe('InviteCodeDialog', () => {
       ]),
     );
     expect(getMockBag().footerProps?.confirmButtonProps?.disabled).toBe(true);
-    const confirmButton = screen.getByTestId(
-      'confirm-button',
-    ) as HTMLButtonElement;
+    const confirmButton = screen.getByTestId('confirm-button');
     expect(confirmButton.disabled).toBe(true);
   });
 

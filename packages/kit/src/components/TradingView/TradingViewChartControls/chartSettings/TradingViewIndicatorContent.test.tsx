@@ -128,7 +128,7 @@ describe('TradingView indicator settings layout', () => {
     );
 
     const fixedRows = mockXStack.mock.calls
-      .map(([props]) => props as IMockLayoutProps)
+      .map(([props]) => props)
       .filter((props) => props.h === 49 || props.h === 62);
     expect(fixedRows).toHaveLength(2);
     expect(fixedRows).toEqual(

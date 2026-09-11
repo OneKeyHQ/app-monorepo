@@ -74,7 +74,7 @@ describe('TradingViewNative sub-indicator coordinates', () => {
       config: { id: 'obv', indicator: 'OBV' },
       points: POINTS,
     }).pane;
-    pane.series[0]!.values[29] = -12_345_678;
+    pane.series[0].values[29] = -12_345_678;
 
     const widestLabel = getTradingViewNativeSubIndicatorAxisLabel([pane]);
     expect(

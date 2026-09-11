@@ -32,6 +32,7 @@ import type {
   ITradingViewSettingsMockLineStyle,
   ITradingViewSettingsMockNumberParam,
 } from './TradingViewSettingsMockState';
+
 const TRADING_VIEW_INDICATOR_FIELD_LABEL_WIDTH = 136;
 const TRADING_VIEW_INDICATOR_COMPACT_SLIDER_WIDTH = 210;
 const TRADING_VIEW_INDICATOR_DEFAULT_SLIDER_WIDTH = 370;

@@ -55,7 +55,7 @@ const SwapProBuySellGroup = ({
         />
       )}
       <SwapProTimeRangeSelector
-        disabled={!supportSpeedSwap && !isHyperliquidBtc}
+        disabled={!supportSpeedSwap ? !isHyperliquidBtc : null}
         items={swapProTimeRangeItems}
         selectedValue={swapProTimeRange}
         onChange={handleTimeRangeChange}

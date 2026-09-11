@@ -691,7 +691,9 @@ function MobileBrowser() {
                   : 'auto'
               }
               accessibilityElementsHidden={
-                shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected
+                shouldKeepBrowserTabLayerAttached
+                  ? !isBrowserHeaderTabSelected
+                  : null
               }
               importantForAccessibility={
                 shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected

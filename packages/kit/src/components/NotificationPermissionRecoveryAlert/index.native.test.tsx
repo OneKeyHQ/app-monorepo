@@ -102,10 +102,7 @@ jest.mock('../../hooks/useRouteIsFocused', () => {
   };
 });
 
-const focusControl = jest.requireMock('../../hooks/useRouteIsFocused') as {
-  __resetFocus: () => void;
-  __setFocus: (value: boolean) => void;
-};
+const focusControl = jest.requireMock('../../hooks/useRouteIsFocused');
 
 const notificationService =
   backgroundApiProxy.serviceNotification as unknown as {

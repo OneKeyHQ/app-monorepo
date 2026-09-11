@@ -120,8 +120,7 @@ export function ContainerChild({
 
   useLayoutEffect(() => {
     // WindowScroller inserts an unstyled wrapper between the flex container and pager.
-    const windowScrollerElement = listContainerRef.current
-      ?.parentElement as HTMLElement | null;
+    const windowScrollerElement = listContainerRef.current?.parentElement;
     if (!fillAvailableSpace || !windowScrollerElement) {
       return;
     }

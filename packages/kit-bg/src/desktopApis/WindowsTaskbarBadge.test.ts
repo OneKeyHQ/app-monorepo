@@ -29,11 +29,7 @@ jest.mock('electron', () => {
   };
 });
 
-const electronMock = jest.requireMock('electron') as {
-  nativeImage: {
-    createFromDataURL: jest.Mock;
-  };
-};
+const electronMock = jest.requireMock('electron');
 
 class FakeWindow extends EventEmitter {
   destroyed = false;

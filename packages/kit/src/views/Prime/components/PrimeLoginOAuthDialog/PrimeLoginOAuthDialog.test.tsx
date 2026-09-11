@@ -22,7 +22,7 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual('react');
   const AccordionContext = React.createContext<{
     value: string;
     onValueChange: (value: string) => void;
@@ -283,7 +283,7 @@ jest.mock('../oneKeyIdLoginToastUtils', () => ({
 }));
 
 jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual('react');
 
   function MockPrimeLoginEmailDialog() {
     React.useEffect(() => {

@@ -95,7 +95,7 @@ const STEP_TIMEOUT_MS = 60 * 1000;
 const POST_UPDATE_STEP_TIMEOUT_MS = 120 * 1000;
 
 const BootloaderDialogHostBridge = forwardRef<IBootloaderModeDialogHost>(
-  function BootloaderDialogHostBridge(_props, ref) {
+  (_props, ref) => {
     const dialogHost = useInPageDialog(EInPageDialogType.inOnboardingPage);
     useImperativeHandle(ref, () => dialogHost, [dialogHost]);
     return null;

@@ -179,8 +179,7 @@ function pruneCompletedSyncStorageResults() {
     (completedSyncStorageResults.size > SYNC_STORAGE_QUEUE_RESULT_CACHE_LIMIT ||
       totalValueChars > SYNC_STORAGE_QUEUE_RESULT_CACHE_MAX_VALUE_CHARS)
   ) {
-    const oldestSourceQueueId = completedSyncStorageResults.keys().next()
-      .value as string | undefined;
+    const oldestSourceQueueId = completedSyncStorageResults.keys().next().value;
     if (!oldestSourceQueueId) {
       return;
     }

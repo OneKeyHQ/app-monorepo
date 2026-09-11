@@ -843,7 +843,7 @@ export function DeviceStage({
   // device, the capsule's own face.
   let activeScene: IStageScene | undefined = 'connecting';
   if (STEP_POSE[sceneStep] === 'card') {
-    activeScene = SCENE_ANIMATION[sceneStep] as IStageScene | undefined;
+    activeScene = SCENE_ANIMATION[sceneStep];
   }
   // The instant-entry grant: an arrival whose reveal the presenter
   // carries (the device coming back from a step that hid it, or the

@@ -680,15 +680,18 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           <SwapActionsState
             forceNoConnectWallet={noAccount}
             disabled={
-              !noAccount &&
-              (isLoading ||
-                !currentMarketToken?.networkId ||
-                (!currentMarketToken?.contractAddress &&
-                  !currentMarketToken?.isNative) ||
-                !!isActionDisabled ||
-                (!isRefreshQuote && !!quoteError))
+              !noAccount
+                ? isLoading ||
+                  !currentMarketToken?.networkId ||
+                  (!currentMarketToken?.contractAddress &&
+                    !currentMarketToken?.isNative) ||
+                  !!isActionDisabled ||
+                  (!isRefreshQuote && !!quoteError)
+                : null
             }
-            forceQuoteActionLoading={!noAccount && (isLoading || quoteLoading)}
+            forceQuoteActionLoading={
+              !noAccount ? isLoading || quoteLoading : null
+            }
             onRefreshQuote={() => onRefreshQuote(true)}
             onPreSwap={handleStockPreSwap}
             onOpenRecipientAddress={onOpenRecipientAddress}

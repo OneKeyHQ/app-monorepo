@@ -822,8 +822,7 @@ describe('ServicePrime.apiLogoutPrimeUserDevice logging', () => {
     );
     simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
     service.getPrimeClient = jest.fn(async () => ({ post }));
-    (service as any).apiOAuthLoginWithPersistedSession =
-      refreshPersistedKeylessSession;
+    service.apiOAuthLoginWithPersistedSession = refreshPersistedKeylessSession;
     service.apiFetchPrimeUserInfo = jest.fn(async () => undefined);
 
     await expect(
@@ -4259,7 +4258,7 @@ describe('ServicePrime apiFetchPrimeUserInfo lifecycle commit guard', () => {
       .spyOn(service, 'updatePrimeAtomByServerUserInfo')
       .mockResolvedValue({ primeSubscription: undefined });
 
-    const result = await (service as any)._fetchPrimeUserInfo();
+    const result = await service._fetchPrimeUserInfo();
 
     expect(updateSpy).not.toHaveBeenCalled();
     expect(result.serverUserInfo).toBeUndefined();
@@ -4303,9 +4302,9 @@ describe('ServicePrime apiFetchPrimeUserInfo lifecycle commit guard', () => {
       .spyOn(service, 'updatePrimeAtomByServerUserInfo')
       .mockResolvedValue({ primeSubscription: { isActive: true } as any });
 
-    const olderFetch = (service as any)._fetchPrimeUserInfo();
+    const olderFetch = service._fetchPrimeUserInfo();
     await olderFetchStarted.promise;
-    const newerFetch = (service as any)._fetchPrimeUserInfo();
+    const newerFetch = service._fetchPrimeUserInfo();
     await newerFetchStarted.promise;
 
     newerResponse.resolve({ userId: 'user-a', isPrime: true });

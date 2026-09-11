@@ -18,7 +18,7 @@ export function ensureQRCodeUtilLoaded(): Promise<void> {
     qrCodeUtilPromise = import('qrcode').then(
       (mod) => {
         // CJS/ESM interop shape differs across metro and jest
-        loadedQRCodeUtil = (mod.default ?? mod) as IQRCodeUtil;
+        loadedQRCodeUtil = mod.default ?? mod;
       },
       (error) => {
         // a segment load can fail transiently; drop the failed attempt so

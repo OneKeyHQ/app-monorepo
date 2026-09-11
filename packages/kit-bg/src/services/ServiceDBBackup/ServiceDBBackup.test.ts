@@ -70,65 +70,21 @@ import ServiceDBBackup from './ServiceDBBackup';
 type ICredentialRow = { id: string };
 type IAppStatusData = { lastDBBackupTime?: number };
 
-const mockedLoggerAppErrorLog = (
-  jest.requireMock('@onekeyhq/shared/src/logger/logger') as {
-    defaultLogger: {
-      app: {
-        error: {
-          log: jest.MockedFunction<(message: string) => void>;
-        };
-      };
-    };
-  }
+const mockedLoggerAppErrorLog = jest.requireMock(
+  '@onekeyhq/shared/src/logger/logger',
 ).defaultLogger.app.error.log;
 
-const mockedAtoms = jest.requireMock('../../states/jotai/atoms') as {
-  passwordAtom: {
-    get: jest.MockedFunction<() => Promise<{ unLock: boolean }>>;
-  };
-  settingsPersistAtom: {
-    get: jest.MockedFunction<
-      () => Promise<{
-        instanceId: string;
-        sensitiveEncodeKey: string;
-        instanceIdBackup?: string;
-      }>
-    >;
-  };
-};
+const mockedAtoms = jest.requireMock('../../states/jotai/atoms');
 
-const mockedLegacyIndexedDb = (
-  jest.requireMock(
-    '../../migrations/indexedToBucketsMigration/legacyIndexedDb',
-  ) as {
-    default: {
-      getAll: jest.MockedFunction<
-        (name: ELocalDBStoreNames) => Promise<ICredentialRow[]>
-      >;
-      delete: jest.MockedFunction<
-        (name: ELocalDBStoreNames, id: string) => Promise<void>
-      >;
-    };
-  }
+const mockedLegacyIndexedDb = jest.requireMock(
+  '../../migrations/indexedToBucketsMigration/legacyIndexedDb',
 ).default;
 
-const mockedMigrateAccountBucketRecords = (
-  jest.requireMock(
-    '../../migrations/indexedToBucketsMigration/migrateRecordsFn',
-  ) as {
-    migrateAccountBucketRecords: jest.MockedFunction<
-      (params: { tx: unknown; records: unknown }) => Promise<void>
-    >;
-  }
+const mockedMigrateAccountBucketRecords = jest.requireMock(
+  '../../migrations/indexedToBucketsMigration/migrateRecordsFn',
 ).migrateAccountBucketRecords;
 
-const mockedDbBackupTools = (
-  jest.requireMock('./dbBackupTools') as {
-    default: {
-      backupInstanceMeta: jest.MockedFunction<(meta: unknown) => Promise<void>>;
-    };
-  }
-).default;
+const mockedDbBackupTools = jest.requireMock('./dbBackupTools').default;
 
 const HL_AGENT_CREDENTIAL_ID =
   'hyperliquid-agent--0x1111111111111111111111111111111111111111--agent_one';

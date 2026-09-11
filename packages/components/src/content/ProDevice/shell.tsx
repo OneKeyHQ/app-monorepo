@@ -88,35 +88,37 @@ const styles = StyleSheet.create({
 });
 
 // Memoized like the sibling shells: only a scene change re-renders it.
-const DeviceBody = memo(function DeviceBody({
-  animation,
-  screenContent,
-}: {
-  animation: IProDeviceAnimation;
-  screenContent?: ReactNode;
-}) {
-  const slotStyle = useAnimatedStyle(
-    () => ({ opacity: animation.screenContent.value }),
-    [animation],
-  );
-  const slotLayerStyle = useMemo(
-    () => [styles.screenSlot, slotStyle],
-    [slotStyle],
-  );
-  return (
-    <>
-      <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
-      <View style={styles.screen}>
-        {screenContent ? (
-          <Animated.View pointerEvents="none" style={slotLayerStyle}>
-            {screenContent}
-          </Animated.View>
-        ) : null}
-        <View pointerEvents="none" style={styles.screenFilm} />
-      </View>
-    </>
-  );
-});
+const DeviceBody = memo(
+  ({
+    animation,
+    screenContent,
+  }: {
+    animation: IProDeviceAnimation;
+    screenContent?: ReactNode;
+  }) => {
+    const slotStyle = useAnimatedStyle(
+      () => ({ opacity: animation.screenContent.value }),
+      [animation],
+    );
+    const slotLayerStyle = useMemo(
+      () => [styles.screenSlot, slotStyle],
+      [slotStyle],
+    );
+    return (
+      <>
+        <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
+        <View style={styles.screen}>
+          {screenContent ? (
+            <Animated.View pointerEvents="none" style={slotLayerStyle}>
+              {screenContent}
+            </Animated.View>
+          ) : null}
+          <View pointerEvents="none" style={styles.screenFilm} />
+        </View>
+      </>
+    );
+  },
+);
 
 export interface IProDeviceShellProps {
   /**

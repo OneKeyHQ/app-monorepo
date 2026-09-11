@@ -927,7 +927,9 @@ export function MobileLayout({
               }
               onScrollEnd={noop}
               renderHeader={renderInformationHeader}
-              scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
+              scrollEnabled={
+                !isChartFullscreen ? !isTradingViewScrollLocked : null
+              }
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
               tokenLogoUrl={tokenDetail?.logoUrl}

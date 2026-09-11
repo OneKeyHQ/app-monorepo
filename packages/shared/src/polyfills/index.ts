@@ -22,4 +22,5 @@ require('../request');
 const timerUtils = (
   require('../utils/timerUtils') as typeof import('../utils/timerUtils')
 ).default;
+
 timerUtils.interceptTimerWithDisable();

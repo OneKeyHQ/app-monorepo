@@ -94,42 +94,44 @@ const DOT_SLIDE = LinearTransition.duration(MARK_IN_MS).easing(easeOutFn);
 // Memoized: `onKey` is stable (its value rides a ref), so a keypress
 // re-renders the dots strip alone instead of all twelve keys' Tamagui
 // style resolution on the same JS beat as the dot's layout transition.
-const PinKey = memo(function PinKey({
-  value,
-  onKey,
-}: {
-  value: IPinKeyValue;
-  onKey: (value: IPinKeyValue) => void;
-}) {
-  const handlePress = useCallback(() => onKey(value), [onKey, value]);
-  return (
-    <Stack
-      testID={`device-stage-pin-key-${value}`}
-      flex={1}
-      h="$14"
-      borderRadius="$4"
-      borderCurve="continuous"
-      bg="$bgStrong"
-      justifyContent="center"
-      alignItems="center"
-      hoverStyle={KEY_HOVER}
-      pressStyle={KEY_PRESS}
-      focusable
-      focusVisibleStyle={KEY_FOCUS}
-      onPress={handlePress}
-    >
-      {value === 'delete' || value === 'confirm' ? (
-        <Icon
-          size="$6"
-          name={value === 'delete' ? 'XBackspaceSolid' : 'Checkmark2Solid'}
-          color="$iconStrong"
-        />
-      ) : (
-        <Stack w="$2" h="$2" borderRadius="$full" bg="#FFFFFF" />
-      )}
-    </Stack>
-  );
-});
+const PinKey = memo(
+  ({
+    value,
+    onKey,
+  }: {
+    value: IPinKeyValue;
+    onKey: (value: IPinKeyValue) => void;
+  }) => {
+    const handlePress = useCallback(() => onKey(value), [onKey, value]);
+    return (
+      <Stack
+        testID={`device-stage-pin-key-${value}`}
+        flex={1}
+        h="$14"
+        borderRadius="$4"
+        borderCurve="continuous"
+        bg="$bgStrong"
+        justifyContent="center"
+        alignItems="center"
+        hoverStyle={KEY_HOVER}
+        pressStyle={KEY_PRESS}
+        focusable
+        focusVisibleStyle={KEY_FOCUS}
+        onPress={handlePress}
+      >
+        {value === 'delete' || value === 'confirm' ? (
+          <Icon
+            size="$6"
+            name={value === 'delete' ? 'XBackspaceSolid' : 'Checkmark2Solid'}
+            color="$iconStrong"
+          />
+        ) : (
+          <Stack w="$2" h="$2" borderRadius="$full" bg="#FFFFFF" />
+        )}
+      </Stack>
+    );
+  },
+);
 
 export interface IPinPadProps {
   onSubmit?: (pin: string) => void;

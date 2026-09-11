@@ -8,10 +8,8 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
-  const { Text, View } = jest.requireActual(
-    'react-native',
-  ) as typeof import('react-native');
+  const React = jest.requireActual('react');
+  const { Text, View } = jest.requireActual('react-native');
   const renderActionList = jest.fn(
     (props: { renderTrigger: import('react').ReactNode }) =>
       React.createElement(

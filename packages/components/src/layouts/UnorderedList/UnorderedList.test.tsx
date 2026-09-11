@@ -7,7 +7,7 @@ import { UnOrderedList } from '.';
 import { render, screen } from '@testing-library/react';
 
 jest.mock('../../primitives', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual('react');
   const Primitive = ({ children }: { children?: ReactNode }) =>
     React.createElement('div', null, children);
   return {

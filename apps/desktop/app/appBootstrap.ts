@@ -20,7 +20,7 @@ if (harnessOutputFile) {
       'utf8',
     );
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { app } = require('electron') as typeof import('electron');
+    const { app } = require('electron');
     app.exit(3);
   });
 } else {

@@ -12,6 +12,7 @@
 require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
+
 markRuntimePolyfillsReady();
 
 // Lightweight logger for background runtime entry diagnostics.
@@ -87,6 +88,7 @@ const {
   setBackgroundThreadRequestExecutor,
 } =
   require('./src/backgroundThread/setupBackgroundThreadRPCHandler') as typeof import('./src/backgroundThread/setupBackgroundThreadRPCHandler');
+
 const rpcHandlerEnd = Date.now();
 
 const { AppRegistry } =

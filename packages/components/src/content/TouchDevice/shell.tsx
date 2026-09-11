@@ -104,31 +104,33 @@ const styles = StyleSheet.create({
 
 // Memoized like the sibling bodies: it must only re-render when the scene
 // actually changes.
-const DeviceBody = memo(function DeviceBody({
-  animation,
-  screenContent,
-}: {
-  animation: ITouchDeviceAnimation;
-  screenContent?: ReactNode;
-}) {
-  const litStyle = useAnimatedStyle(
-    () => ({ opacity: animation.screenContent.value }),
-    [animation],
-  );
-  const contentStyle = useMemo(() => [styles.content, litStyle], [litStyle]);
-  return (
-    <>
-      <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
-      <View style={styles.screen}>
-        {screenContent ? (
-          <Animated.View pointerEvents="none" style={contentStyle}>
-            {screenContent}
-          </Animated.View>
-        ) : null}
-      </View>
-    </>
-  );
-});
+const DeviceBody = memo(
+  ({
+    animation,
+    screenContent,
+  }: {
+    animation: ITouchDeviceAnimation;
+    screenContent?: ReactNode;
+  }) => {
+    const litStyle = useAnimatedStyle(
+      () => ({ opacity: animation.screenContent.value }),
+      [animation],
+    );
+    const contentStyle = useMemo(() => [styles.content, litStyle], [litStyle]);
+    return (
+      <>
+        <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
+        <View style={styles.screen}>
+          {screenContent ? (
+            <Animated.View pointerEvents="none" style={contentStyle}>
+              {screenContent}
+            </Animated.View>
+          ) : null}
+        </View>
+      </>
+    );
+  },
+);
 
 export interface ITouchDeviceShellProps {
   /**

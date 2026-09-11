@@ -18,7 +18,7 @@ const mockShow = jest.fn<
 >();
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual('react');
 
   function UnOrderedList({ children }: { children?: ReactNode }) {
     return React.createElement('ul', null, children);

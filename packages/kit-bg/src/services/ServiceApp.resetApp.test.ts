@@ -53,27 +53,14 @@ import ServiceApp from './ServiceApp';
 
 const mockedLocalSecretEnvelopeModule = jest.requireMock(
   '../dbs/local/localSecretEnvelope',
-) as {
-  deleteMmkvProfileKeyForLocalSecretEnvelope: jest.MockedFunction<
-    () => Promise<void>
-  >;
-  localSecretEnvelopeService: {
-    clearCapabilityCache: jest.MockedFunction<() => void>;
-  };
-};
+);
 const mockDeleteMmkvProfileKeyForLocalSecretEnvelope =
   mockedLocalSecretEnvelopeModule.deleteMmkvProfileKeyForLocalSecretEnvelope;
 const mockClearLocalSecretEnvelopeCapabilityCache =
   mockedLocalSecretEnvelopeModule.localSecretEnvelopeService
     .clearCapabilityCache;
-const mockRemoveSecureItem = (
-  jest.requireMock(
-    '@onekeyhq/shared/src/storage/instance/secureStorageInstance',
-  ) as {
-    default: {
-      removeSecureItem: jest.MockedFunction<(key: string) => Promise<void>>;
-    };
-  }
+const mockRemoveSecureItem = jest.requireMock(
+  '@onekeyhq/shared/src/storage/instance/secureStorageInstance',
 ).default.removeSecureItem;
 
 describe('ServiceApp.resetApp', () => {

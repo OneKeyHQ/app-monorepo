@@ -70,10 +70,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
 
 const focusControl = jest.requireMock(
   '@onekeyhq/kit/src/hooks/useRouteIsFocused',
-) as {
-  __setFocus: (value: boolean) => void;
-  __resetFocus: () => void;
-};
+);
 
 // Mirrors STOCK_DETAIL_POLLING_INTERVAL in StockDetailContext.tsx.
 const STOCK_DETAIL_POLLING_MS = 15 * 1000;

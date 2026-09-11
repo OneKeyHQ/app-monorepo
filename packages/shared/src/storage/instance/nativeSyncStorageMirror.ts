@@ -368,9 +368,7 @@ function isNativeStorageTransportReady() {
 }
 
 function getOldestRequestAgeMs(queue: IRemoteMutationQueue) {
-  const first = queue.pending.values().next().value as
-    | IPendingRemoteMutation
-    | undefined;
+  const first = queue.pending.values().next().value;
   return first ? Math.max(0, Date.now() - first.enqueuedAt) : 0;
 }
 
@@ -591,9 +589,7 @@ function drainRemoteMutations(store: INativeSyncStorageName) {
         });
         return;
       }
-      const first = queue.pending.entries().next().value as
-        | [number, IPendingRemoteMutation]
-        | undefined;
+      const first = queue.pending.entries().next().value;
       if (!first) {
         return;
       }

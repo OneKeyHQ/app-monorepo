@@ -82,6 +82,7 @@ const ONEKEY_WATERMARK_ASSET =
   require('@onekeyhq/components/svg/illus/logo.svg') as
     | string
     | { default: string };
+
 const ONEKEY_WATERMARK_URI =
   typeof ONEKEY_WATERMARK_ASSET === 'string'
     ? ONEKEY_WATERMARK_ASSET
