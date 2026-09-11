@@ -22,7 +22,7 @@ const meta = {
     // Add-hidden-wallet titling and its Keep-accessible switch. The
     // empty-entry refusal is common to both.
     passphraseMode: 'verify',
-    replicaWidth: 220,
+    replicaWidth: DEMO.replicaWidth,
   },
   argTypes: {
     step: ARG_TYPES.step,

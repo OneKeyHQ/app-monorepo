@@ -23,7 +23,7 @@ const meta = {
     passphraseMode: 'verify',
     errorReason: 'rejected',
     authFailureReason: 'unofficialDevice',
-    replicaWidth: 220,
+    replicaWidth: DEMO.replicaWidth,
   },
   argTypes: {
     step: ARG_TYPES.step,

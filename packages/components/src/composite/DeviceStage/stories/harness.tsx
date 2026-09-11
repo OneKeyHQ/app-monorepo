@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { Keyboard, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type {
@@ -10,11 +9,13 @@ import type {
   IDeviceStageProps,
   IDeviceStageStep,
 } from '@onekeyhq/components/src/composite/DeviceStage';
+import { REPLICA_WIDTH } from '@onekeyhq/components/src/composite/DeviceStage/consts';
 import {
   useDeviceStageEscapeOwner,
   useDeviceStageExitPolicy,
 } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
+import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks/useLayout';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
 
@@ -354,6 +355,9 @@ export const DEMO = {
     },
   ],
   qrValue: '0x627Ddbef61C811af05288Cd79db324fCac914AeF',
+  /** The range control's seed: the width that ships, so the stories
+   * follow the next retune instead of pinning a stale number. */
+  replicaWidth: REPLICA_WIDTH,
 };
 
 export const ARG_TYPES = {

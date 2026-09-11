@@ -20,7 +20,7 @@ const meta = {
     step: 'off',
     deviceType: 'pro2',
     deviceName: DEMO.deviceName,
-    replicaWidth: 220,
+    replicaWidth: DEMO.replicaWidth,
   },
   argTypes: {
     step: ARG_TYPES.step,

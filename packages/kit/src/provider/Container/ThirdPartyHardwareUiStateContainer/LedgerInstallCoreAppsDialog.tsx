@@ -26,7 +26,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { waitForDeviceStageExit } from '../DeviceStageContainer/waitForDeviceStageExit';
+import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceStageExit';
 
 import type {
   IEnsureLedgerCoreAppsReadyResult,
@@ -178,13 +178,9 @@ export async function showLedgerInstallCoreAppsDialog(params: {
 
   // A flow's hold (onboarding's, the accounts phase's) spans this dialog,
   // and on a phone the stage's capsule docks exactly where the sheet's
-  // Install button sits (OK-62656). The stage yields first — the bootloader
-  // hand-off's own move (OK-62105): the hold's bookkeeping is untouched,
-  // the install's progress and the device's next word bring the stage
-  // back, and the hold's own end still releases it. The sheet rises once
-  // the capsule has left, the entrance's mirror.
-  await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
-  await waitForDeviceStageExit();
+  // Install button sits (OK-62656): the stage leaves before the sheet
+  // rises; the install's progress brings it back.
+  await yieldDeviceStageToDialog();
 
   return new Promise<IInstallCoreAppsResult>((resolve) => {
     let settled = false;

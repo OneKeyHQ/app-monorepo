@@ -66,8 +66,8 @@ import { AuthChecklist, AuthFailureCard } from './AuthPanels';
 import { BluetoothBadge } from './BluetoothBadge';
 import { CardValue } from './CardValue';
 import {
+  COMPACT_DEVICE_WIDTH,
   COMPACT_PORT_HEIGHT,
-  COMPACT_SCALE,
   PORT_HEIGHT,
   REPLICA_WIDTH,
   STAGE_DESIGN_WIDTH,
@@ -318,23 +318,18 @@ function replicaMetricsFor(replicaWidth: number) {
   const scale = replicaWidth / STAGE_DESIGN_WIDTH;
   return {
     fullPort: Math.round(PORT_HEIGHT * scale),
-    fullWordsMargin: Math.round(
-      (STAGE_ROW.fullHeight - STAGE_ROW.top - PORT_HEIGHT) * scale,
-    ),
-    compactScale: COMPACT_SCALE / scale,
+    /** The words' margin over the spacer, per arrangement: the full
+     * stage tucks them into the foot, the miniature clears them. */
+    wordsMarginByKind: {
+      full: Math.round(
+        (STAGE_ROW.fullHeight - STAGE_ROW.top - PORT_HEIGHT) * scale,
+      ),
+      compact: STAGE_ROW.bottom,
+    } satisfies Record<IReplicaArrangement, number>,
+    compactScale: COMPACT_DEVICE_WIDTH / replicaWidth,
     thumbScale: CAPSULE_ROW.thumbDeviceWidth / replicaWidth,
     estimatedHeight: Math.round(DEVICE_ESTIMATED_HEIGHT * scale),
   };
-}
-type IReplicaMetrics = ReturnType<typeof replicaMetricsFor>;
-
-/** The words' margin over the spacer, per arrangement: the full stage
- * tucks them into the foot, the miniature clears them. */
-function wordsMarginFor(
-  kind: IReplicaArrangement,
-  metrics: IReplicaMetrics,
-): number {
-  return kind === 'full' ? metrics.fullWordsMargin : STAGE_ROW.bottom;
 }
 
 const styles = StyleSheet.create({
@@ -539,11 +534,13 @@ export function DeviceStage({
   onInstallConfirm,
 }: IDeviceStageProps) {
   const intl = useIntl();
-  const metrics = useMemo(
-    () => replicaMetricsFor(replicaWidth),
-    [replicaWidth],
-  );
-  const { fullPort, compactScale, thumbScale, estimatedHeight } = metrics;
+  const {
+    fullPort,
+    wordsMarginByKind,
+    compactScale,
+    thumbScale,
+    estimatedHeight,
+  } = replicaMetricsFor(replicaWidth);
   const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
   const localizedErrorMessage = resolveErrorMessage(
     intl,
@@ -867,7 +864,7 @@ export function DeviceStage({
   // only when the shown step does: on the empty beat of a crossing, or
   // live inside the stage.
   const spacerTarget = shownPort ? STAGE_ROW.top + shownPort : 0;
-  const wordsMarginTarget = shownKind ? wordsMarginFor(shownKind, metrics) : 0;
+  const wordsMarginTarget = shownKind ? wordsMarginByKind[shownKind] : 0;
   // While the card is on show `activeArrangement` IS the shown
   // arrangement; under the other poses the card height goes unused.
   const shownPanel = panelMeasures[activeArrangement];
@@ -986,17 +983,15 @@ export function DeviceStage({
 
   // The stage's own flow, aimed on the container's clock through onAim:
   // the replica gate, the staged port and miniature scale, and the
-  // column's spacer and words margin. The miniature's scale is the
-  // port's own fact — the compact port IS the scaled replica — so one
-  // derivation replaces a second step list.
+  // column's spacer and words margin. The arrangement kind picks the
+  // miniature's scale; the compact miniature keeps its absolute width,
+  // so its scale divides out the width in play.
+  const scaleTarget = shownKind === 'compact' ? compactScale : 1;
   const replicaShown = useSharedValue(shownPort ? 1 : 0);
   const portHeight = useSharedValue(shownPort ?? fullPort);
-  const deviceScale = useSharedValue(
-    shownKind === 'compact' ? compactScale : 1,
-  );
+  const deviceScale = useSharedValue(scaleTarget);
   const spacerHeight = useSharedValue(spacerTarget);
   const wordsMargin = useSharedValue(wordsMarginTarget);
-  const scaleTarget = shownKind === 'compact' ? compactScale : 1;
   const handleAim = useCallback(
     (facts: IMorphAimFacts) => {
       // The gate lands in one piece — the branch fades (swapFade and the
@@ -1182,29 +1177,25 @@ export function DeviceStage({
 
   // The replica width in play and the fog's full-port geometry ride in
   // as plain styles beside the animated ones.
-  const replicaWidthStyle = useMemo(
-    () => ({ width: replicaWidth }),
-    [replicaWidth],
-  );
-  const fogSizeStyle = useMemo(
-    () => ({ width: replicaWidth, height: fullPort }),
-    [fullPort, replicaWidth],
-  );
   const replicaStyle = useMemo(
-    () => [styles.replicaLayer, replicaWidthStyle, replicaLayerStyle],
-    [replicaLayerStyle, replicaWidthStyle],
+    () => [styles.replicaLayer, { width: replicaWidth }, replicaLayerStyle],
+    [replicaLayerStyle, replicaWidth],
   );
   const portStyle = useMemo(
-    () => [styles.portWindow, replicaWidthStyle, portWindowStyle],
-    [portWindowStyle, replicaWidthStyle],
+    () => [styles.portWindow, { width: replicaWidth }, portWindowStyle],
+    [portWindowStyle, replicaWidth],
   );
   const deviceStyle = useMemo(
     () => [styles.miniature, deviceSeatStyle],
     [deviceSeatStyle],
   );
   const fogStyle = useMemo(
-    () => [styles.fog, fogSizeStyle, fogMotionStyle],
-    [fogMotionStyle, fogSizeStyle],
+    () => [
+      styles.fog,
+      { width: replicaWidth, height: fullPort },
+      fogMotionStyle,
+    ],
+    [fogMotionStyle, fullPort, replicaWidth],
   );
   const wordsStyle = useMemo(
     () => [styles.wordsBlock, wordsFlowStyle],
@@ -2223,7 +2214,7 @@ export function DeviceStage({
       morph={morph}
       cardInnerHeight={cardInnerHeight}
       cardContentMeasured={shownPanelMeasured}
-      heightArrangeToken={shownPort}
+      heightArrangeToken={shownKind}
       onAim={handleAim}
       onDismiss={onClose}
       dismissLabel={dismissLabel}

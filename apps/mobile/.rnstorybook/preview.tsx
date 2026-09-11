@@ -14,6 +14,7 @@ import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
 import { OverlayContainer } from '@onekeyhq/components/src/layouts/OverlayContainer';
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
+import { HARDWARE_STAGE_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 
 import { HyperlinkTextStub } from './HyperlinkTextStub';
 
@@ -84,18 +85,25 @@ const preview: Preview = {
               FullWindowOverlay window, because that is where the app
               mounts it since 8c0391dfa8 (the stage must cover native
               modal pages on iOS). Keeping the shell on the same window
-              means on-device rounds exercise the real geometry — the
-              overlay window's own touch delivery included. The wrapper
-              gives the portal a viewport on the pass-through platforms:
-              OverlayContainer is a full-window host only on iOS, and
-              MorphOverlay's layer anchors absolute to fill it. */}
+              means on-device rounds exercise the window's geometry and
+              touch delivery; the app additionally nests the stage in its
+              own OverlayContainer with a raise token (OK-62422), which
+              this shell does not replay. The wrapper mirrors the app's
+              (FullWindowOverlayContainer): a viewport on the
+              pass-through platforms — OverlayContainer is a full-window
+              host only on iOS, and MorphOverlay's layer anchors absolute
+              to fill it — kept as a native view, since RN 0.86 Fabric
+              flattens a layout-only box-none container and kills
+              hit-testing for the whole portal subtree. */}
           <Stack
             position="absolute"
             top={0}
             left={0}
             right={0}
             bottom={0}
+            zIndex={HARDWARE_STAGE_Z_INDEX}
             pointerEvents="box-none"
+            collapsable={false}
           >
             <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
           </Stack>
