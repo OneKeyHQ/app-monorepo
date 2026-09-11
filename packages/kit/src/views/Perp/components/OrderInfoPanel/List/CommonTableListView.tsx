@@ -508,6 +508,21 @@ export function CommonTableListView<T>({
 
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
 
+  const paginatedData = useMemo<T[]>(() => {
+    if (!enablePagination || data.length <= pageSize || !currentListPage) {
+      return data;
+    }
+    const startIndex = (currentListPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return data.slice(startIndex, endIndex);
+  }, [data, currentListPage, pageSize, enablePagination]);
+
+  const effectiveListLoading = Boolean(
+    listLoading && paginatedData.length === 0,
+  );
+  const showDesktopEmptyState =
+    !effectiveListLoading && paginatedData.length === 0;
+
   // Fixed column shadow management using shared hook
   // Right-fixed column: shadow shows when scrollable content is not scrolled to end
   const {
@@ -518,7 +533,7 @@ export function CommonTableListView<T>({
     shadowTransitionEnabled,
   } = useFixedColumnShadow({
     position: 'right',
-    enabled: hasFixedColumns,
+    enabled: hasFixedColumns && !isMobile && !showDesktopEmptyState,
     initialVisible: true,
   });
 
@@ -541,15 +556,6 @@ export function CommonTableListView<T>({
     },
     [handleNativeScroll, handleWebScroll],
   );
-
-  const paginatedData = useMemo<T[]>(() => {
-    if (!enablePagination || data.length <= pageSize || !currentListPage) {
-      return data;
-    }
-    const startIndex = (currentListPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    return data.slice(startIndex, endIndex);
-  }, [data, currentListPage, pageSize, enablePagination]);
 
   const totalPages = useMemo(() => {
     if (!enablePagination || data.length <= pageSize) return 1;
@@ -595,11 +601,6 @@ export function CommonTableListView<T>({
   ) : (
     <PerpDesktopEmptyState title={emptyMessage} alignToTop />
   );
-  const effectiveListLoading = Boolean(
-    listLoading && paginatedData.length === 0,
-  );
-  const showDesktopEmptyState =
-    !effectiveListLoading && paginatedData.length === 0;
   useEffect(() => {
     if (!isMobile && showDesktopEmptyState) {
       headerScrollViewRef.current?.scrollTo({ x: 0, animated: false });
@@ -1046,7 +1047,9 @@ export function CommonTableListView<T>({
     <YStack flex={1} testID="perp-desktop-table">
       {desktopHeader}
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={
+          showDesktopEmptyState ? { flexGrow: 1 } : undefined
+        }
         style={{
           flex: 1,
         }}
