@@ -219,9 +219,11 @@ describe('BorrowPositionCard screen-reader activation', () => {
 });
 
 describe('BorrowPositionCard collateral slot', () => {
-  // The card is pressable end to end, so the switch inside it has to stop the
-  // press from reaching the card. CollateralSwitchCell is what does that; this
-  // pins the card's half of the contract, that a stopped press is honoured.
+  // Narrow on purpose: the real swallow lives in CollateralSwitchCell and is
+  // covered there. What is left for the card is that it takes the press on the
+  // bubble phase, so a child that stops propagation is actually obeyed — a
+  // capture-phase handler here would silently override every such child. Web
+  // only; on native the swallow runs through the touch responder instead.
   it('does not expand when the collateral control swallows the press', () => {
     const onToggleExpand = jest.fn();
     const { getByTestId } = renderCard({
