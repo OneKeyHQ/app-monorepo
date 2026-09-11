@@ -34,6 +34,12 @@ jest.mock('@onekeyhq/shared/src/polyfills/runtimeCapabilities', () => ({
   }),
 }));
 
+jest.mock('@onekeyhq/shared/src/modules3rdParty/sentry', () => ({
+  initSentry: jest.fn(() => {
+    mockLoadOrder.push('sentry');
+  }),
+}));
+
 jest.mock(
   '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger',
   () => ({
@@ -121,6 +127,7 @@ describe('background entry initialization order', () => {
     expect(mockLoadOrder).toEqual([
       'polyfills',
       'polyfills-ready',
+      'sentry',
       'handler',
       'storage',
       'travel-mode-ack-start',
@@ -133,6 +140,7 @@ describe('background entry initialization order', () => {
     expect(mockLoadOrder).toEqual([
       'polyfills',
       'polyfills-ready',
+      'sentry',
       'handler',
       'storage',
       'travel-mode-ack-start',
