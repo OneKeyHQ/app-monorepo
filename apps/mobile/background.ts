@@ -11,7 +11,7 @@
 
 require('@onekeyhq/shared/src/polyfills');
 const { prepareNativePromiseRejectionTracker } =
-  require('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker') as typeof import('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker');
+  require('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker') as typeof import('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native');
 prepareNativePromiseRejectionTracker();
 const { finishMobileLockdown } =
   require('./src/security/finishMobileLockdown') as typeof import('./src/security/finishMobileLockdown');
@@ -150,6 +150,16 @@ async function initializeBackgroundRuntime() {
         require('./src/splitBundle/nativeBridgeBackground') as typeof import('./src/splitBundle/nativeBridgeBackground');
       installProdBundleLoader(getBackgroundNativeSplitBundleLoader());
     }
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { runMobileLockdownReleaseCheck } =
+        require('./src/security/mobileLockdownReleaseCheck') as typeof import('./src/security/mobileLockdownReleaseCheck');
+      const { getBackgroundNativeSplitBundleLoader } =
+        require('./src/splitBundle/nativeBridgeBackground') as typeof import('./src/splitBundle/nativeBridgeBackground');
+      void runMobileLockdownReleaseCheck(
+        'background',
+        getBackgroundNativeSplitBundleLoader(),
+      );
+    }
     bgEntryLog(
       `segment loader installed in ${Date.now() - segLoaderStart}ms (+${Date.now() - bgEntryStart}ms)`,
     );
@@ -227,17 +237,6 @@ async function initializeBackgroundRuntime() {
     return;
   }
   await getBackgroundApiProxy();
-
-    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
-      const { runMobileLockdownReleaseCheck } =
-        require('./src/security/mobileLockdownReleaseCheck') as typeof import('./src/security/mobileLockdownReleaseCheck');
-      const { getBackgroundNativeSplitBundleLoader } =
-        require('./src/splitBundle/nativeBridgeBackground') as typeof import('./src/splitBundle/nativeBridgeBackground');
-      void runMobileLockdownReleaseCheck(
-        'background',
-        getBackgroundNativeSplitBundleLoader(),
-      );
-    }
   if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
     if (!__DEV__) {
       const { runMobileLockdownWebEmbedReleaseCheck } =
@@ -245,6 +244,7 @@ async function initializeBackgroundRuntime() {
       void runMobileLockdownWebEmbedReleaseCheck();
     }
   }
+
   const bgEntryEnd = Date.now();
   const entryElapsed = bgEntryEnd - bgEntryStart;
   bgEntryLog(

@@ -255,6 +255,11 @@
         "crypto.getRandomValues": true
       }
     },
+    "@onekeyhq/shared>react-native-uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
       "globals": {
         "crypto": true
@@ -291,6 +296,11 @@
       }
     },
     "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js": {
       "globals": {
         "crypto": true
       }
@@ -348,6 +358,12 @@
     "external:../../node_modules/crypto-js/core.js": {
       "globals": {
         "crypto": true
+      }
+    },
+    "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js": {
+      "globals": {
+        "crypto.getRandomValues": true,
+        "crypto.subtle": true
       }
     },
     "external:../../node_modules/isomorphic-webcrypto/src/browser.mjs": {

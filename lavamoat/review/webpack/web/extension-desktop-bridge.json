@@ -23,18 +23,7 @@
     },
     "@onekeyhq/kit-bg": {
       "globals": {
-        "chrome.contextMenus.create": true,
-        "chrome.contextMenus.onClicked.addListener": true,
-        "chrome.contextMenus.removeAll": true,
-        "chrome.contextMenus.update": true,
-        "chrome.runtime.getURL": true,
-        "chrome.scripting": true,
-        "chrome.sidePanel": true,
-        "chrome.storage.local.clear": true,
-        "chrome.storage.local.get": true,
-        "chrome.storage.local.set": true,
-        "chrome.storage.session.clear": true,
-        "chrome.tabs": true,
+        "chrome": true,
         "desktopApi": true,
         "desktopApiProxy": true
       }

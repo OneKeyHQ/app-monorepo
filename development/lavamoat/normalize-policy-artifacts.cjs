@@ -43,10 +43,10 @@ function normalizeJsonFile(file) {
   return false;
 }
 
-const files = enabledTargets.flatMap((target) => [
+// Overrides are reviewed inputs. Generation must never rewrite them.
+const files = enabledTargets.map((target) =>
   path.join(lavamoatRoot, target.policy),
-  path.join(lavamoatRoot, target.override),
-]);
+);
 const missingFiles = files.filter((file) => !fs.existsSync(file));
 
 if (missingFiles.length > 0) {

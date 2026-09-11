@@ -31,6 +31,7 @@ const {
   applyDevVendorConfig,
   isDevVendorEnabled,
 } = require('./plugins/devVendor');
+const { applyMobileLockdownConfig } = require('./plugins/mobileLockdown');
 const {
   getThirdPartyMMKVImportError,
 } = require('./scripts/native-storage-metro-policy');
@@ -737,7 +738,7 @@ config.cacheVersion = [
   .join('-');
 
 const metroConfigWithPlugins = applyDevVendorConfig(
-  splitCodePlugin(config, projectRoot),
+  applyMobileLockdownConfig(splitCodePlugin(config, projectRoot)),
   projectRoot,
 );
 

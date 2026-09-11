@@ -1,6 +1,16 @@
 {
   "description": "加密、随机数、密钥相关 API",
   "resources": {
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "@onekeyhq/core": {
       "globals": {
         "crypto.subtle": true
@@ -59,6 +69,11 @@
     "@onekeyhq/core>@onekeyfe/kaspa-core-lib>@noble/hashes": {
       "globals": {
         "crypto": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "crypto.getRandomValues": true
       }
     },
     "@onekeyhq/core>@solana/web3.js>jayson>uuid": {
@@ -245,6 +260,11 @@
         "crypto": true
       }
     },
+    "@onekeyhq/shared>react-native-uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
       "globals": {
         "crypto": true
@@ -281,11 +301,6 @@
       }
     },
     "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
-      "globals": {
-        "crypto": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": {
       "globals": {
         "crypto": true
       }
@@ -341,6 +356,11 @@
       }
     },
     "external:../../node_modules/crypto-js/core.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/expo-web-browser/build/ExpoWebBrowser.web.js": {
       "globals": {
         "crypto": true
       }

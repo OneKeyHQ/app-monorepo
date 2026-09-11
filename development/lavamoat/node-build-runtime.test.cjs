@@ -8,6 +8,9 @@ const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 const { pathToFileURL } = require('node:url');
+const vm = require('node:vm');
+
+const { javascriptLiteral } = require('./javascript-literal.cjs');
 
 const cliRequire = createRequire(
   path.resolve(__dirname, '../../apps/cli/package.json'),
@@ -18,6 +21,34 @@ function write(directory, name, source) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, source);
 }
+
+test('fixture literals preserve data without escaping a JavaScript or HTML script boundary', () => {
+  const { parse } = createRequire(require.resolve('jsdom'))('parse5');
+  for (const value of [
+    '</script><script>globalThis.injected=true</script>',
+    '<!-- <script> & -->',
+    '\u2028\u2029\n\r\t\0',
+    String.raw`C:\fixture\"quoted"\'single'\file.js`,
+    '");globalThis.injected=true;//',
+    undefined,
+  ]) {
+    const source = `globalThis.value = ${javascriptLiteral(value)};`;
+    const document = parse(`<script>${source}</script>`);
+    const scripts = [];
+    const visit = (node) => {
+      if (node.tagName === 'script') scripts.push(node);
+      node.childNodes?.forEach(visit);
+    };
+    visit(document);
+    assert.equal(scripts.length, 1);
+    assert.equal(scripts[0].childNodes[0].value, source);
+    const context = {};
+    vm.runInNewContext(source, context);
+    assert.equal(context.value, value);
+    assert.equal(Object.hasOwn(context, 'value'), true);
+    assert.equal(Object.hasOwn(context, 'injected'), false);
+  }
+});
 
 test('official Node runtime executes real esbuild while denying an unrelated package filesystem access', () => {
   const directory = fs.realpathSync(
@@ -49,7 +80,7 @@ test('official Node runtime executes real esbuild while denying an unrelated pac
     write(
       directory,
       'node_modules/denied/index.js',
-      `exports.read = () => require('node:fs').readFileSync(${JSON.stringify(path.join(directory, 'private-fixture.txt'))}, 'utf8');`,
+      `exports.read = () => require('node:fs').readFileSync(${javascriptLiteral(path.join(directory, 'private-fixture.txt'))}, 'utf8');`,
     );
     write(directory, 'private-fixture.txt', 'synthetic-fixture-only');
     write(
@@ -66,12 +97,12 @@ test('official Node runtime executes real esbuild while denying an unrelated pac
     write(
       directory,
       'driver.mjs',
-      `import { generatePolicy, run } from ${JSON.stringify(pathToFileURL(path.join(path.dirname(require.resolve('@lavamoat/node/package.json')), 'src/index.js')).href)};
-      const entry = ${JSON.stringify(path.join(directory, 'entry.cjs'))};
-      const policy = await generatePolicy(entry, { projectRoot: ${JSON.stringify(directory)}, write: false });
+      `import { generatePolicy, run } from ${javascriptLiteral(pathToFileURL(path.join(path.dirname(require.resolve('@lavamoat/node/package.json')), 'src/index.js')).href)};
+      const entry = ${javascriptLiteral(path.join(directory, 'entry.cjs'))};
+      const policy = await generatePolicy(entry, { projectRoot: ${javascriptLiteral(directory)}, write: false });
       if (!policy.resources.esbuild) throw Error('esbuild must be a protected package, not an implicit native exit');
       policy.resources.denied = {};
-      const namespace = await run(entry, { policy, projectRoot: ${JSON.stringify(directory)} });
+      const namespace = await run(entry, { policy, projectRoot: ${javascriptLiteral(directory)} });
       console.log(JSON.stringify(await namespace.default()));`,
     );
     const result = spawnSync(

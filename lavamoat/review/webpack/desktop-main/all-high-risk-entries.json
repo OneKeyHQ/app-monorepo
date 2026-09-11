@@ -1983,42 +1983,42 @@
   {
     "category": "extension-desktop-bridge",
     "name": "electron.ipcMain.handle",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
     "name": "electron.ipcMain.handle",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "extension-desktop-bridge",
     "name": "electron.ipcMain.removeHandler",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
     "name": "electron.ipcMain.removeHandler",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "extension-desktop-bridge",
     "name": "electron.webContents.getAllWebContents",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
     "name": "electron.webContents.getAllWebContents",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-263d4736.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
     "type": "builtin",
     "value": true
   },

@@ -13,7 +13,11 @@
   "scripts": {
     "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env')){if(fs.existsSync('.env.example')){fs.copyFileSync('.env.example','.env')}else{fs.writeFileSync('.env','')}}\"",
     "skills:sync": "node development/scripts/skillshare/install.js",
-    "postinstall": "node development/scripts/postinstall.js",
+    "setup:dependencies": "node development/scripts/postinstall.js",
+    "lavamoat:supply-chain:check": "yarn supply-chain check",
+    "lavamoat:supply-chain:inventory": "yarn supply-chain inventory",
+    "lavamoat:supply-chain:test": "node --test development/lavamoat/supply-chain.test.cjs development/lavamoat/supply-chain-git.test.cjs",
+    "lavamoat:git-dependencies:check": "git-safe-dependencies --type=yarn",
     "copy:inject": "node development/scripts/copy-injected.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
     "app:desktop:web": "yarn workspace @onekeyhq/desktop dev:renderer",
@@ -149,11 +153,16 @@
     "lavamoat:policy:web": "yarn copy:inject && yarn lavamoat:policy:web:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
     "lavamoat:policy:desktop-renderer:raw": "yarn workspace @onekeyhq/desktop lavamoat:policy:renderer",
     "lavamoat:policy:desktop-renderer": "yarn copy:inject && yarn lavamoat:policy:desktop-renderer:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
+    "lavamoat:policy:web-embed:raw": "yarn workspace @onekeyhq/web-embed lavamoat:policy",
+    "lavamoat:policy:web-embed": "yarn copy:inject && yarn lavamoat:policy:web-embed:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
     "lavamoat:policy:all": "yarn copy:inject && yarn lavamoat:policy:web:raw && yarn lavamoat:policy:desktop-renderer:raw && yarn lavamoat:policy:web-embed:raw && yarn lavamoat:policy:ext-pages:raw && yarn lavamoat:policy:ext-background:raw && yarn lavamoat:policy:ext-content-script:raw && yarn lavamoat:policy:cli:raw && yarn lavamoat:policy:desktop-main:raw && yarn lavamoat:policy:desktop-preload:raw && yarn lavamoat:policy:desktop-services-index:raw && yarn lavamoat:policy:desktop-services-enum:raw && yarn lavamoat:policy:desktop-services-windowsHello:raw && yarn lavamoat:policy:desktop-services-checkBiometricAuthChanged:raw && yarn lavamoat:policy:node-build:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
     "lavamoat:build:web:raw": "yarn workspace @onekeyhq/web build:lavamoat",
     "lavamoat:build:web": "yarn copy:inject && yarn lavamoat:build:web:raw",
+    "lavamoat:smoke:web": "node development/lavamoat/smoke-web.cjs",
     "lavamoat:build:desktop-renderer:raw": "yarn workspace @onekeyhq/desktop build:renderer:lavamoat",
     "lavamoat:build:desktop-renderer": "yarn copy:inject && yarn lavamoat:build:desktop-renderer:raw",
+    "lavamoat:build:web-embed:raw": "yarn workspace @onekeyhq/web-embed build:lavamoat",
+    "lavamoat:build:web-embed": "yarn copy:inject && yarn lavamoat:build:web-embed:raw",
     "lavamoat:build:all": "yarn copy:inject && yarn lavamoat:build:web:raw && yarn lavamoat:build:desktop-renderer:raw && yarn lavamoat:build:web-embed:raw && yarn lavamoat:build:ext-pages:raw && yarn lavamoat:build:ext-background:raw && yarn lavamoat:build:ext-content-script:raw && yarn lavamoat:build:cli:raw && yarn lavamoat:build:desktop-main:raw && yarn lavamoat:build:desktop-preload:raw && yarn lavamoat:build:desktop-services-index:raw && yarn lavamoat:build:desktop-services-enum:raw && yarn lavamoat:build:desktop-services-windowsHello:raw && yarn lavamoat:build:desktop-services-checkBiometricAuthChanged:raw && yarn lavamoat:build:node-build:raw && yarn workspace @onekeyhq/ext lavamoat:finalize",
     "lavamoat:review": "node development/lavamoat/split-policy-for-review.cjs",
     "lavamoat:normalize-policies": "node development/lavamoat/normalize-policy-artifacts.cjs",
@@ -165,15 +174,6 @@
     "lavamoat:ci:validate": "yarn lavamoat:test-tooling && yarn lavamoat:policy:all && yarn lavamoat:validate-artifacts && yarn lavamoat:validate-generated-scope && yarn lavamoat:diff",
     "lavamoat:ci:build": "yarn lavamoat:build:all",
     "lavamoat:ci:all": "yarn lavamoat:ci:validate && yarn lavamoat:ci:build",
-    "lavamoat:smoke:web": "node development/lavamoat/smoke-web.cjs",
-    "lavamoat:supply-chain:check": "yarn supply-chain check",
-    "lavamoat:supply-chain:inventory": "yarn supply-chain inventory",
-    "lavamoat:supply-chain:test": "node --test development/lavamoat/supply-chain.test.cjs development/lavamoat/supply-chain-git.test.cjs",
-    "lavamoat:git-dependencies:check": "git-safe-dependencies --type=yarn",
-    "lavamoat:policy:web-embed:raw": "yarn workspace @onekeyhq/web-embed lavamoat:policy",
-    "lavamoat:policy:web-embed": "yarn copy:inject && yarn lavamoat:policy:web-embed:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
-    "lavamoat:build:web-embed:raw": "yarn workspace @onekeyhq/web-embed build:lavamoat",
-    "lavamoat:build:web-embed": "yarn copy:inject && yarn lavamoat:build:web-embed:raw",
     "lavamoat:supply-chain:binaries": "node development/lavamoat/check-install-binaries.cjs",
     "lavamoat:policy:ext-pages:raw": "yarn workspace @onekeyhq/ext lavamoat:policy:pages",
     "lavamoat:policy:ext-pages": "yarn copy:inject && yarn lavamoat:policy:ext-pages:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
@@ -370,6 +370,9 @@
     "@emurgo/cardano-serialization-lib-nodejs": "13.2.0",
     "@expo/webpack-config": "~19.0.1",
     "@formatjs/icu-messageformat-parser": "2.7.8",
+    "@lavamoat/git-safe-dependencies": "1.0.1",
+    "@lavamoat/node": "1.0.7",
+    "@lavamoat/webpack": "2.2.3",
     "@open-wc/webpack-import-meta-loader": "^0.4.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
     "@react-native-community/cli": "^18.0.1",
@@ -460,6 +463,7 @@
     "jest-expo": "~57.0.4",
     "jest-html-reporter": "^3.10.2",
     "jsdom": "^20.0.0",
+    "lavamoat-core": "18.0.5",
     "markdown-it": "^10.0.0",
     "metro": "0.84.4",
     "node-notifier": "^10.0.1",
@@ -491,13 +495,13 @@
     "workbox-webpack-plugin": "^7.4.0",
     "worker-loader": "^3.0.8",
     "worker-rspack-loader": "3.1.5",
-    "yaml": "^2.8.0",
-    "@lavamoat/webpack": "2.2.3",
-    "lavamoat-core": "18.0.5",
-    "@lavamoat/git-safe-dependencies": "1.0.1",
-    "@lavamoat/node": "1.0.7"
+    "yaml": "^2.8.0"
   },
   "resolutions": {
+    "glob@npm:^10.2.2": "npm:10.5.0",
+    "glob@npm:^10.3.10": "npm:10.5.0",
+    "lavamoat-core": "18.0.5",
+    "arbundles/avsc": "https://github.com/Irys-xyz/avsc#a730cc8018b79e114b6a3381bbb57760a24c6cef",
     "react-native-nitro-modules": "0.37.0",
     "@cspell/dict-data-science": "2.0.13",
     "@ungap/structured-clone@^1.3.0": "1.3.3",
@@ -620,7 +624,98 @@
     "ws@^7.5.10": "7.5.11",
     "yaml@^2.6.1": "2.9.0",
     "fast-xml-parser": "4.5.4",
-    "shell-quote": "1.8.4",
-    "lavamoat-core": "18.0.5"
+    "shell-quote": "1.8.4"
+  },
+  "dependenciesMeta": {
+    "@onekeyfe/electron-mac-icloud@1.2.6": {
+      "built": true
+    },
+    "@reown/appkit@1.8.9": {
+      "built": false
+    },
+    "@serialport/bindings-cpp@12.0.1": {
+      "built": true
+    },
+    "@shopify/react-native-skia@2.6.2": {
+      "built": true
+    },
+    "@stoprocent/bluetooth-hci-socket@2.2.5": {
+      "built": true
+    },
+    "@stoprocent/noble@2.3.16": {
+      "built": true
+    },
+    "@swc/core@1.7.6": {
+      "built": false
+    },
+    "bigint-buffer@1.1.5": {
+      "built": true
+    },
+    "blake-hash@2.0.0": {
+      "built": true
+    },
+    "bufferutil@4.0.8": {
+      "built": true
+    },
+    "core-js@2.6.12": {
+      "built": false
+    },
+    "core-js@3.49.0": {
+      "built": false
+    },
+    "core-js-pure@3.34.0": {
+      "built": false
+    },
+    "detox@20.46.3": {
+      "built": true
+    },
+    "dtrace-provider@0.8.8": {
+      "built": false
+    },
+    "electron-check-biometric-auth-changed@1.0.0": {
+      "built": true
+    },
+    "es5-ext@0.10.64": {
+      "built": false
+    },
+    "keccak@1.4.0": {
+      "built": true
+    },
+    "keccak@2.1.0": {
+      "built": true
+    },
+    "keccak@3.0.4": {
+      "built": true
+    },
+    "protobufjs@6.11.4": {
+      "built": false
+    },
+    "react-native-video@7.0.0-beta.11": {
+      "built": false
+    },
+    "realm@20.2.0": {
+      "built": false
+    },
+    "secp256k1@3.8.1": {
+      "built": true
+    },
+    "secp256k1@4.0.4": {
+      "built": true
+    },
+    "secp256k1@5.0.1": {
+      "built": true
+    },
+    "tiny-secp256k1@1.1.6": {
+      "built": true
+    },
+    "tiny-secp256k1@1.1.7": {
+      "built": true
+    },
+    "usb@2.16.0": {
+      "built": true
+    },
+    "utf-8-validate@5.0.10": {
+      "built": true
+    }
   }
 }
