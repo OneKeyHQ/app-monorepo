@@ -206,6 +206,12 @@ export type IFinalizeWalletSetupCreateWalletResult = {
   };
 };
 
+export type IFinalizeWalletSetupAccountCreationResult = {
+  status: 'completed' | 'requires-hidden-wallet';
+};
+
+export type IHardwareWalletCreationMode = 'onboarding' | 'standard-wallet';
+
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
@@ -1775,7 +1781,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         createWalletFn: () => Promise<IFinalizeWalletSetupCreateWalletResult>;
         generatingAccountsFn?: (
           params: IFinalizeWalletSetupCreateWalletResult,
-        ) => Promise<void>;
+        ) => Promise<IFinalizeWalletSetupAccountCreationResult | void>;
       },
     ) => {
       let createdResult: IFinalizeWalletSetupCreateWalletResult | null = null;
@@ -1794,12 +1800,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             walletId: wallet.id,
             dbDeviceId: wallet.associatedDevice,
           });
-
-          await Promise.all([
-            generatingAccountsFn({ wallet, indexedAccount, hidden }),
-            timerUtils.wait(1000),
-          ]);
         }
+        const [accountCreationResult] = await Promise.all([
+          generatingAccountsFn?.({ wallet, indexedAccount, hidden }),
+          generatingAccountsFn ? timerUtils.wait(1000) : undefined,
+        ]);
 
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.Ready,
@@ -1809,6 +1814,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           wallet,
           indexedAccount,
           isOverrideWallet,
+          accountCreationResult: accountCreationResult || undefined,
         };
         return createResult;
       } catch (error) {
@@ -2236,13 +2242,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   createHWWalletWithoutHidden = contextAtomMethod(
-    async (_, set, params: IDBCreateHwWalletParamsBase) => {
+    async (
+      _,
+      set,
+      params: IDBCreateHwWalletParamsBase,
+      options?: { mode: IHardwareWalletCreationMode },
+    ) => {
       const { createHWWalletWithoutHidden } =
         await import('./hardwareWalletActions');
       return createHWWalletWithoutHidden({
         actions: this,
         set,
         params,
+        mode: options?.mode,
       });
     },
   );

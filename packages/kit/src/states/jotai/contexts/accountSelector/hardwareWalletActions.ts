@@ -2,9 +2,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type {
   IDBCreateHwWalletParamsBase,
   IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isThirdPartyPassphraseAlwaysOnDeviceErrorCode } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -12,7 +16,11 @@ import {
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import type { IAccountSelectorActionsInstance } from './actions';
+import type {
+  IAccountSelectorActionsInstance,
+  IFinalizeWalletSetupAccountCreationResult,
+  IHardwareWalletCreationMode,
+} from './actions';
 
 const { serviceAccount } = backgroundApiProxy;
 
@@ -78,14 +86,55 @@ export async function updateHwWalletsDeprecatedStatus({
   }
 }
 
+async function createStandardWalletAccounts({
+  actions,
+  set,
+  wallet,
+  indexedAccount,
+  hideCheckingDeviceLoading,
+  mode,
+}: {
+  actions: IAccountSelectorActionsInstance;
+  set: IJotaiSetter;
+  wallet: IDBWallet;
+  indexedAccount: IDBIndexedAccount | undefined;
+  hideCheckingDeviceLoading?: boolean;
+  mode: IHardwareWalletCreationMode;
+}): Promise<IFinalizeWalletSetupAccountCreationResult> {
+  try {
+    await actions.addDefaultNetworkAccounts.call(set, {
+      wallet,
+      indexedAccount,
+      isCreateWallet: true,
+      skipDeviceCancel: false,
+      hideCheckingDeviceLoading,
+    });
+    return { status: 'completed' };
+  } catch (error) {
+    if (
+      mode === 'onboarding' &&
+      isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+        (error as IOneKeyError | undefined)?.code,
+      )
+    ) {
+      // Device onboarding can finish without standard accounts; adding a
+      // standard wallet explicitly still requires account creation to succeed.
+      return { status: 'requires-hidden-wallet' };
+    }
+    throw error;
+  }
+}
+
 export async function createHWWalletWithoutHidden({
   actions,
   set,
   params,
+  mode = 'standard-wallet',
 }: {
   actions: IAccountSelectorActionsInstance;
   set: IJotaiSetter;
   params: IDBCreateHwWalletParamsBase;
+  mode?: IHardwareWalletCreationMode;
 }) {
   let createdDevice: IDBDevice | undefined;
 
@@ -110,12 +159,13 @@ export async function createHWWalletWithoutHidden({
       return { isOverrideWallet, wallet, indexedAccount, hidden: undefined };
     },
     generatingAccountsFn: async ({ wallet, indexedAccount }) => {
-      await actions.addDefaultNetworkAccounts.call(set, {
+      const accountCreationResult = await createStandardWalletAccounts({
+        actions,
+        set,
         wallet,
         indexedAccount,
-        isCreateWallet: true,
-        skipDeviceCancel: false,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+        mode,
       });
       if (createdDevice?.connectId && createdDevice.deviceId) {
         await updateHwWalletsDeprecatedStatus({
@@ -126,6 +176,7 @@ export async function createHWWalletWithoutHidden({
           uuid: createdDevice.uuid,
         });
       }
+      return accountCreationResult;
     },
   });
 }

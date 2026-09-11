@@ -108,7 +108,9 @@ export function ErrorToastContainer() {
 
       const canLocalizeError =
         p.i18nKey &&
-        (MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
+        ((p.isHardwareError &&
+          Object.values<string>(ETranslations).includes(p.i18nKey)) ||
+          MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
           (p.i18nKey === ETranslations.wallet_action_failed &&
             typeof p.i18nInfo?.message === 'string'));
       const title = canLocalizeError

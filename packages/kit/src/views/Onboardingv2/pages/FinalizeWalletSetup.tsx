@@ -18,6 +18,7 @@ import {
   Icon,
   LinearGradient,
   SizableText,
+  Toast,
   XStack,
   YStack,
   resetOnboardingModal,
@@ -38,6 +39,10 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type {
+  IOneKeyError,
+  IOneKeyErrorI18nInfo,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -74,7 +79,10 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { waitForDeviceStageExit } from '../../../provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import {
+  type IFinalizeWalletSetupAccountCreationResult,
+  useAccountSelectorActions,
+} from '../../../states/jotai/contexts/accountSelector/actions';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import {
@@ -257,6 +265,7 @@ function FinalizeWalletSetupPage({
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;
+        info?: IOneKeyErrorI18nInfo;
       }
     | undefined
   >(undefined);
@@ -271,6 +280,9 @@ function FinalizeWalletSetupPage({
   const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
   const prefetchedGiftSerialNoRef = useRef<string | undefined>(undefined);
   const [creatingGiftWalletId, setCreatingGiftWalletId] = useState<string>();
+  const accountCreationResultRef = useRef<
+    IFinalizeWalletSetupAccountCreationResult | undefined
+  >(undefined);
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const deviceData = route?.params?.deviceData;
@@ -681,14 +693,19 @@ function FinalizeWalletSetupPage({
                 vendorModelName: connected.payload.modelName,
               } as SearchDevice;
             }
-            await actions.current.createHWWalletWithoutHidden({
-              device: thirdPartyDevice,
-              hideCheckingDeviceLoading: true,
-              features: featuresForCreate,
-              isFirmwareVerified: true,
-              defaultIsTemp: true,
-              vendor: deviceData.vendor,
-            });
+            const { accountCreationResult } =
+              await actions.current.createHWWalletWithoutHidden(
+                {
+                  device: thirdPartyDevice,
+                  hideCheckingDeviceLoading: true,
+                  features: featuresForCreate,
+                  isFirmwareVerified: true,
+                  defaultIsTemp: true,
+                  vendor: deviceData.vendor,
+                },
+                { mode: 'onboarding' },
+              );
+            accountCreationResultRef.current = accountCreationResult;
             await trackHardwareWalletConnection({
               status: 'success',
               deviceType: thirdPartyDevice.deviceType,
@@ -751,18 +768,23 @@ function FinalizeWalletSetupPage({
       setIsWalletCreationReadyForReferralCheck(true);
     } catch (error) {
       console.error('createWallet error:', error);
-      const hardwareError = error as {
-        messageId: ETranslations;
-        message: string;
+      const hardwareError = error as IOneKeyError<IOneKeyErrorI18nInfo> & {
+        messageId?: ETranslations;
       };
+      const errorKey = hardwareError?.key;
       setSetupError({
         messageId: fixErrorString(
           hardwareError
-            ? hardwareError.messageId ||
+            ? (errorKey &&
+              Object.values<string>(ETranslations).includes(errorKey)
+                ? errorKey
+                : undefined) ||
+                hardwareError.messageId ||
                 hardwareError.message ||
                 ETranslations.global_unknown_error
             : ETranslations.global_unknown_error,
         ) as ETranslations,
+        info: hardwareError?.info,
       });
     } finally {
       await endBurst();
@@ -967,7 +989,18 @@ function FinalizeWalletSetupPage({
       getInviteDialog: () => showInviteCodeDialogRef.current,
       isClosed: () => closePageCalled.current,
       closePage,
-      openKeylessAutoConnectDappModal,
+      openKeylessAutoConnectDappModal: async () => {
+        if (
+          accountCreationResultRef.current?.status === 'requires-hidden-wallet'
+        ) {
+          accountCreationResultRef.current = undefined;
+          Toast.error({
+            title:
+              ETranslations.hardware_third_party_passphrase_always_on_device,
+          });
+        }
+        await openKeylessAutoConnectDappModal();
+      },
     });
   }, [
     isReadyActionVisible,
@@ -1207,10 +1240,13 @@ function FinalizeWalletSetupPage({
               <Alert
                 icon="InfoCircleOutline"
                 type="info"
-                description={intl.formatMessage({
-                  id: setupError.messageId,
-                  defaultMessage: setupError.messageId,
-                })}
+                description={intl.formatMessage(
+                  {
+                    id: setupError.messageId,
+                    defaultMessage: setupError.messageId,
+                  },
+                  setupError.info,
+                )}
               />
               <XStack gap="$4" alignItems="center">
                 <Button
