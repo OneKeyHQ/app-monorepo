@@ -17,6 +17,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -562,6 +563,7 @@ function BasicEarnActionIcon({
   onActionSuccess?: () => void;
 }) {
   const [cancelLoading, setCancelLoading] = useState(false);
+  const { copyText } = useClipboard();
   const handleUniversalWithdraw = useUniversalWithdraw({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: protocolInfo?.networkId || tokenInfo?.networkId || '',
@@ -608,6 +610,10 @@ function BasicEarnActionIcon({
     case 'link':
       icon = 'OpenOutline';
       onPress = () => openUrlExternal(actionIcon.data.link);
+      break;
+    case 'copy':
+      icon = 'Copy3Outline';
+      onPress = () => copyText(actionIcon.data.text);
       break;
     case 'portfolio':
       return (
