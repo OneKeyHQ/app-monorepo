@@ -2,6 +2,8 @@ import type { ComponentProps } from 'react';
 
 import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
 
+import { PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT } from '../utils/tableLayout';
+
 function OrderInfoSubTabs<T extends string>({
   tabs,
   activeTab,
@@ -52,7 +54,11 @@ function OrderInfoSubTabs<T extends string>({
             return (
               <YStack
                 key={tab.key}
-                h={isPillVariant ? undefined : 36}
+                h={
+                  isPillVariant
+                    ? undefined
+                    : PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT - 1
+                }
                 px={isPillVariant ? '$2' : '$0'}
                 py={isPillVariant ? '$1' : '$0'}
                 onPress={() => onChange(tab.key)}
