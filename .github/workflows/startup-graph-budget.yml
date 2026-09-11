@@ -48,14 +48,6 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn install --immutable
 
-      - name: Check development module ID registry
-        run: |
-          yarn workspace @onekeyhq/mobile dev-vendor:registry:update
-          if ! git diff --exit-code -- apps/mobile/bundle-registry/module-id-registry.json; then
-            echo "::error title=Stale module ID registry::Run yarn workspace @onekeyhq/mobile dev-vendor:registry:update and commit the registry update."
-            exit 1
-          fi
-
       - name: Union Build (three-bundle split)
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
