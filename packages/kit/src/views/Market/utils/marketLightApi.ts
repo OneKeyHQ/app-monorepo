@@ -203,7 +203,7 @@ const fetchMarketBannerListLight = memoizee(
     return data;
   },
   {
-    maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+    maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
     promise: true,
   },
 );
