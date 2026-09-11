@@ -5,6 +5,7 @@ import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.StringWriter;
@@ -29,8 +30,14 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+import io.sentry.EnvelopeReader;
+import io.sentry.IEnvelopeReader;
+import io.sentry.ISerializer;
 import io.sentry.JsonSerializer;
+import io.sentry.SentryEnvelope;
+import io.sentry.SentryEnvelopeItem;
 import io.sentry.SentryEvent;
+import io.sentry.SentryItemType;
 import io.sentry.SentryOptions;
 import io.sentry.SentryOptions.BeforeSendCallback;
 import io.sentry.android.core.SentryAndroidOptions;
@@ -38,6 +45,7 @@ import io.sentry.android.core.SentryAndroidOptions;
 public final class OneKeyNativeCrashDiagnostics {
   private static final String TAG = "OneKeyCrashDiagnostics";
   private static final int MAX_REPORT_COUNT = 5;
+  private static final int MAX_CACHED_ENVELOPE_COUNT = 60;
   private static final long MAX_REPORT_AGE_MS = 7L * 24L * 60L * 60L * 1000L;
   private static final Object FILE_LOCK = new Object();
   private static final Object MNEMONIC_WORDS_LOCK = new Object();
@@ -88,8 +96,7 @@ public final class OneKeyNativeCrashDiagnostics {
     Pattern.compile("(?i)\\b(?:[a-z0-9]{1,20}1)[a-z0-9]{20,90}\\b"),
     Pattern.compile("\\b[1-9A-HJ-NP-Za-km-z]{32,128}\\b"),
     Pattern.compile("\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b"),
-    Pattern.compile("(?iu)\\b(?:mnemonic|seed(?:\\s+phrase)?)\\s*[=:]\\s*(?:\\p{L}{2,16}[\\s,]+){2,}\\p{L}{2,16}\\b"),
-    Pattern.compile("(?iu)(?:\\b\\p{L}{2,16}\\b[\\s,]+){11,}\\b\\p{L}{2,16}\\b")
+    Pattern.compile("(?iu)\\b(?:mnemonic|seed(?:\\s+phrase)?)\\s*[=:]\\s*(?:\\p{L}{2,16}[\\s,]+){2,}\\p{L}{2,16}\\b")
   );
   private static final Set<String> NON_SENSITIVE_TOKEN_KEYS = new HashSet<>(
     Arrays.asList(
@@ -107,7 +114,7 @@ public final class OneKeyNativeCrashDiagnostics {
 
   public static void configure(Context context, SentryAndroidOptions options) {
     Context applicationContext = context.getApplicationContext();
-    scheduleReportCleanup(applicationContext);
+    schedulePendingNativeCrashProcessing(applicationContext, options);
     BeforeSendCallback existingBeforeSend = options.getBeforeSend();
     options.setBeforeSend((event, hint) -> {
       SentryEvent preparedEvent = existingBeforeSend == null
@@ -122,6 +129,87 @@ public final class OneKeyNativeCrashDiagnostics {
 
   private static boolean isNativeCrash(SentryEvent event) {
     return event.isCrashed() && !"javascript".equalsIgnoreCase(event.getPlatform());
+  }
+
+  private static void persistPendingNativeCrashEnvelopes(Context context) {
+    File sentryCache = new File(context.getCacheDir(), "sentry");
+    SentryOptions parsingOptions = new SentryOptions();
+    ISerializer serializer = new JsonSerializer(parsingOptions);
+    IEnvelopeReader envelopeReader = new EnvelopeReader(serializer);
+    persistPendingNativeCrashEnvelopes(
+      context,
+      sentryCache,
+      envelopeReader,
+      serializer,
+      0,
+      new int[] { 0 }
+    );
+  }
+
+  private static void persistPendingNativeCrashEnvelopes(
+    Context context,
+    File directory,
+    IEnvelopeReader envelopeReader,
+    ISerializer serializer,
+    int depth,
+    int[] visitedEnvelopeCount
+  ) {
+    if (!directory.isDirectory() || depth > 5) {
+      return;
+    }
+    File[] files = directory.listFiles();
+    if (files == null) {
+      return;
+    }
+    for (File file : files) {
+      if (visitedEnvelopeCount[0] >= MAX_CACHED_ENVELOPE_COUNT) {
+        return;
+      }
+      if (file.isDirectory()) {
+        persistPendingNativeCrashEnvelopes(
+          context,
+          file,
+          envelopeReader,
+          serializer,
+          depth + 1,
+          visitedEnvelopeCount
+        );
+      } else if (file.getName().endsWith(".envelope")) {
+        visitedEnvelopeCount[0] += 1;
+        try (FileInputStream input = new FileInputStream(file)) {
+          persistNativeCrashEvents(
+            context,
+            envelopeReader.read(input),
+            serializer
+          );
+        } catch (Throwable error) {
+          Log.e(TAG, "Failed to read cached native crash envelope", error);
+        }
+      }
+    }
+  }
+
+  private static void persistNativeCrashEvents(
+    Context context,
+    SentryEnvelope envelope,
+    ISerializer serializer
+  ) {
+    if (envelope == null) {
+      return;
+    }
+    for (SentryEnvelopeItem item : envelope.getItems()) {
+      if (item.getHeader().getType() != SentryItemType.Event) {
+        continue;
+      }
+      try {
+        SentryEvent event = item.getEvent(serializer);
+        if (event != null && isNativeCrash(event)) {
+          persist(context, event);
+        }
+      } catch (Throwable error) {
+        Log.e(TAG, "Failed to read native crash event", error);
+      }
+    }
   }
 
   private static void persist(Context context, SentryEvent event) {
@@ -498,16 +586,18 @@ public final class OneKeyNativeCrashDiagnostics {
     }
   }
 
-  private static void scheduleReportCleanup(Context context) {
-    Thread cleanupThread = new Thread(() -> {
+  private static void schedulePendingNativeCrashProcessing(
+    Context context,
+    SentryAndroidOptions options
+  ) {
+    options.getExecutorService().submit(() -> {
       synchronized (FILE_LOCK) {
         File directory = new File(context.getCacheDir(), "logs/crashes");
         if (directory.isDirectory()) {
           cleanupReports(directory, System.currentTimeMillis());
         }
       }
-    }, "onekey-crash-log-cleanup");
-    cleanupThread.setPriority(Thread.MIN_PRIORITY);
-    cleanupThread.start();
+      persistPendingNativeCrashEnvelopes(context);
+    });
   }
 }

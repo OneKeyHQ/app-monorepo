@@ -225,7 +225,6 @@ static NSString *OneKeySanitizeCrashString(NSString *value)
       @"\\b[1-9A-HJ-NP-Za-km-z]{32,128}\\b",
       @"\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b",
       @"(?i)\\b(?:mnemonic|seed(?:\\s+phrase)?)\\s*[=:]\\s*(?:\\p{L}{2,16}[\\s,]+){2,}\\p{L}{2,16}\\b",
-      @"(?i)(?:\\b\\p{L}{2,16}\\b[\\s,]+){11,}\\b\\p{L}{2,16}\\b",
     ];
     NSMutableArray<NSRegularExpression *> *compiledPatterns = [NSMutableArray array];
     for (NSString *pattern in rawPatterns) {
@@ -507,15 +506,18 @@ static BOOL OneKeyWriteCrashDiagnosticsData(
     [fileManager createDirectoryAtPath:directoryPath
            withIntermediateDirectories:YES
                             attributes:@{
-                              NSFileProtectionKey: NSFileProtectionComplete,
+                              NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication,
                             }
                                  error:nil];
+    [fileManager setAttributes:@{
+      NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication,
+    } ofItemAtPath:directoryPath error:nil];
     NSString *path = [directoryPath stringByAppendingPathComponent:fileName];
     if (![data writeToFile:path options:NSDataWritingAtomic error:nil]) {
       return NO;
     }
     [fileManager setAttributes:@{
-      NSFileProtectionKey: NSFileProtectionComplete,
+      NSFileProtectionKey: NSFileProtectionCompleteUntilFirstUserAuthentication,
       NSFileModificationDate: eventDate,
     } ofItemAtPath:path error:nil];
     OneKeyCleanupCrashReports(directoryPath, NSDate.date);
@@ -552,10 +554,12 @@ static void OneKeyPersistNativeSentryCrashSnapshot(
     NSData *data = [NSJSONSerialization dataWithJSONObject:report
                                                    options:NSJSONWritingPrettyPrinted
                                                      error:nil];
-    OneKeyWriteCrashDiagnosticsData(
+    if (!OneKeyWriteCrashDiagnosticsData(
         data,
         [NSString stringWithFormat:@"sentry-native-%@.json", eventId],
-        eventDate);
+        eventDate)) {
+      NSLog(@"[OneKeyCrashDiagnostics] Failed to write native crash diagnostics");
+    }
   } @catch (NSException *exception) {
     NSLog(@"[OneKeyCrashDiagnostics] Failed to persist native crash diagnostics");
   }
