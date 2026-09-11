@@ -131,6 +131,9 @@ function TradingViewIndicatorCheckerColorTrigger({
       <Stack
         flex={1}
         borderRadius="$1"
+        // Native has no CSS `background`, so the plain fill shows there; web
+        // paints the checker over it.
+        bg={color}
         style={{
           background: `repeating-conic-gradient(${color} 0% 25%, ${checkerColor} 0% 50%) 50% / 6px 6px`,
         }}
