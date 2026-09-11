@@ -20,7 +20,10 @@ import {
   type ViewProps,
 } from 'react-native';
 
-import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  usePropsAndStyle,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 
 import { hasCustomSourceIdentity } from './optimization';
@@ -37,6 +40,12 @@ const CACHE_POLICIES: Record<IImageCachePolicy, OneKeyImageCachePolicy> = {
   'memory-disk': OneKeyImageCachePolicy.MEMORY_DISK,
   none: OneKeyImageCachePolicy.NONE,
 };
+
+const LOADING_STRATEGIES = {
+  none: OneKeyImageLoadingStrategy.NONE,
+  skeleton: OneKeyImageLoadingStrategy.SKELETON,
+  static: OneKeyImageLoadingStrategy.STATIC,
+} as const;
 
 const getRandomRetryDelay = () => Math.floor(Math.random() * 3) * 1000;
 
@@ -173,6 +182,7 @@ function normalizeSource(
 }
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
+  const theme = useTheme();
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
     if (props?.size) {
@@ -214,6 +224,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     resizeMode,
     contentFit,
     cachePolicy,
+    loadingStrategy = 'static',
     recyclingKey,
     retryTimes = 1,
     canRetry = true,
@@ -331,10 +342,11 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       fallback={fallbackOverlay}
       contentFit={getContentFit({ contentFit, resizeMode })}
       cachePolicy={cachePolicy ? CACHE_POLICIES[cachePolicy] : undefined}
+      placeholderColor={theme.bgStrong.val}
       recyclingKey={effectiveRecyclingKey}
       autoplay={autoplay}
       optimizeTos={!hasCustomSourceIdentity(rawSource)}
-      loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
+      loadingStrategy={LOADING_STRATEGIES[loadingStrategy]}
       onError={handleError}
       onLoad={onLoad ? handleLoad : undefined}
       onLoadEnd={onLoadEnd}

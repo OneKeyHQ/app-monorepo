@@ -10,7 +10,7 @@ import type { OneKeyImageProps } from '@onekeyfe/react-native-image';
 
 type INativeImageProps = Pick<
   OneKeyImageProps,
-  'source' | 'style' | 'optimizeTos'
+  'loadingStrategy' | 'optimizeTos' | 'placeholderColor' | 'source' | 'style'
 >;
 
 const mockNativeImage = jest.fn<null, [INativeImageProps]>(() => null);
@@ -36,11 +36,16 @@ jest.mock('@onekeyfe/react-native-image', () => ({
   OneKeyImage: (props: INativeImageProps) => mockNativeImage(props),
   OneKeyImageCachePolicy: { MEMORY_DISK: 'memory-disk' },
   OneKeyImageContentFit: { COVER: 'cover' },
-  OneKeyImageLoadingStrategy: { SKELETON: 'skeleton' },
+  OneKeyImageLoadingStrategy: {
+    NONE: 'none',
+    SKELETON: 'skeleton',
+    STATIC: 'static',
+  },
 }));
 
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   usePropsAndStyle: (props: object) => [props, { width: 40, height: 40 }],
+  useTheme: () => ({ bgStrong: { val: '#222222' } }),
 }));
 
 describe('native ImageV2 rendition ownership', () => {
@@ -117,6 +122,22 @@ describe('native ImageV2 rendition ownership', () => {
     render(<ImageV2 source={privateSource} />);
     expect(mockNativeImage).toHaveBeenLastCalledWith(
       expect.objectContaining({ source: privateSource, optimizeTos: false }),
+    );
+  });
+
+  it('uses a theme backing by default and only enables skeleton explicitly', () => {
+    const uri = 'https://uni.onekey-asset.com/token.png';
+    const { rerender } = render(<ImageV2 src={uri} />);
+    expect(mockNativeImage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        loadingStrategy: 'static',
+        placeholderColor: '#222222',
+      }),
+    );
+
+    rerender(<ImageV2 src={uri} loadingStrategy="skeleton" />);
+    expect(mockNativeImage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ loadingStrategy: 'skeleton' }),
     );
   });
 });

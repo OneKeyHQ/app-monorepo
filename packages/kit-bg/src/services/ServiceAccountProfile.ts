@@ -49,7 +49,7 @@ import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBUtxoAccount } from '../dbs/local/types';
+import type { IDBAccount, IDBUtxoAccount } from '../dbs/local/types';
 import type BTCVault from '../vaults/impls/btc/Vault';
 
 type IAccountBadgeResult = {
@@ -1329,62 +1329,73 @@ class ServiceAccountProfile extends ServiceBase {
       xpub?: string;
     };
     const resolved: IResolved[] = [];
-
-    await Promise.all(
-      accounts.map(async (a) => {
-        if (!a.accountId) return;
-        try {
-          if (accountUtils.isOthersAccount({ accountId: a.accountId })) {
-            // Others: reuse pre-resolved address/xpub if upstream supplied
-            // it, otherwise fetch the dbAccount once.
-            if (a.accountAddress || a.xpub) {
-              resolved.push({
-                ownerAccountId: a.accountId,
-                compoundKeyAccountId: a.accountId,
-                accountAddress: a.accountAddress,
-                xpub: a.xpub,
-              });
-              return;
-            }
-            const acc =
-              await this.backgroundApi.serviceAccount.getDBAccountSafe({
-                accountId: a.accountId,
-              });
-            const xpub = accountUtils.pickXpubFromDBAccount(acc);
-            if (acc && (acc.address || xpub)) {
-              resolved.push({
-                ownerAccountId: a.accountId,
-                compoundKeyAccountId: a.accountId,
-                accountAddress: acc.address,
-                xpub,
-              });
-            }
-            return;
-          }
-
-          // HD/HW indexed account: expand to all derives so ChainSelector
-          // can use per-derive compound keys.
-          const { accounts: dbAccountsList } =
-            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-              { indexedAccountId: a.accountId },
-            );
-          for (const dbAcc of dbAccountsList ?? []) {
-            const xpub = accountUtils.pickXpubFromDBAccount(dbAcc);
-            if (dbAcc.address || xpub) {
-              resolved.push({
-                ownerAccountId: a.accountId,
-                compoundKeyAccountId: dbAcc.id,
-                accountAddress: dbAcc.address,
-                xpub,
-              });
-            }
-          }
-        } catch {
-          // Skip this account; its slot in the result will fall back to
-          // the empty shape below.
-        }
-      }),
+    let allDbAccounts: IDBAccount[] = [];
+    const needsAccountSnapshot = accounts.some(
+      (account) =>
+        !accountUtils.isOthersAccount({ accountId: account.accountId }) ||
+        (!account.accountAddress && !account.xpub),
     );
+    if (needsAccountSnapshot) {
+      try {
+        ({ accounts: allDbAccounts } =
+          await this.backgroundApi.serviceAccount.getAllAccounts());
+      } catch {
+        return accounts.map((account) => ({
+          accountId: account.accountId,
+          value: undefined,
+          currency: undefined,
+        }));
+      }
+    }
+    const dbAccountById = new Map<string, IDBAccount>();
+    const dbAccountsByIndexedAccountId = new Map<string, IDBAccount[]>();
+    for (const dbAccount of allDbAccounts) {
+      dbAccountById.set(dbAccount.id, dbAccount);
+      if (dbAccount.indexedAccountId) {
+        const groupedAccounts =
+          dbAccountsByIndexedAccountId.get(dbAccount.indexedAccountId) ?? [];
+        groupedAccounts.push(dbAccount);
+        dbAccountsByIndexedAccountId.set(
+          dbAccount.indexedAccountId,
+          groupedAccounts,
+        );
+      }
+    }
+
+    for (const account of accounts) {
+      if (account.accountId) {
+        if (accountUtils.isOthersAccount({ accountId: account.accountId })) {
+          const dbAccount = dbAccountById.get(account.accountId);
+          const accountAddress = account.accountAddress || dbAccount?.address;
+          const xpub =
+            account.xpub || accountUtils.pickXpubFromDBAccount(dbAccount);
+          if (accountAddress || xpub) {
+            resolved.push({
+              ownerAccountId: account.accountId,
+              compoundKeyAccountId: account.accountId,
+              accountAddress,
+              xpub,
+            });
+          }
+        } else {
+          // Expand HD/HW indexed accounts from the single batch snapshot so
+          // the full account table is not cloned and filtered once per row.
+          const dbAccounts =
+            dbAccountsByIndexedAccountId.get(account.accountId) ?? [];
+          for (const dbAccount of dbAccounts) {
+            const xpub = accountUtils.pickXpubFromDBAccount(dbAccount);
+            if (dbAccount.address || xpub) {
+              resolved.push({
+                ownerAccountId: account.accountId,
+                compoundKeyAccountId: dbAccount.id,
+                accountAddress: dbAccount.address,
+                xpub,
+              });
+            }
+          }
+        }
+      }
+    }
 
     if (resolved.length === 0) {
       return accounts.map((a) => ({
