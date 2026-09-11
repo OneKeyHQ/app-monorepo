@@ -116,6 +116,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.PrimeModal,
     children: PrimeRouter,
+    theme: 'dark',
     onUnmounted() {
       void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
     },

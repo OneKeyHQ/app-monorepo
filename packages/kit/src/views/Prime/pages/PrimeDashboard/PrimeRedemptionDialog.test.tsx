@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 /* cspell:ignore Infini */
 
+import { cloneElement } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
 import {
@@ -12,6 +13,8 @@ import {
   within,
 } from '@testing-library/react';
 
+import type { IDialogContainerProps } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IPrimeRedemptionParams,
@@ -24,6 +27,15 @@ import { showPrimeRedemptionDialog } from './PrimeRedemptionDialog';
 
 type IDialogConfig = {
   renderContent?: ReactNode;
+  dialogContainer?: (options: {
+    ref: { current: null };
+  }) => ReactElement<IDialogContainerProps>;
+};
+
+const lastDarkContainer = {
+  onClose: undefined as
+    | ((extra?: { flag?: string }) => void | Promise<void>)
+    | undefined,
 };
 
 type IDialogMockInstance = {
@@ -43,6 +55,7 @@ const mockFetchPrimeUserInfo = jest.fn<
 >();
 const mockDialogFooterClose = jest.fn<Promise<void>, []>();
 const mockPrimeRedemptionResult = jest.fn();
+const mockPrimeGiftStage = jest.fn();
 const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
   Promise<{
     isLoggedIn: boolean;
@@ -249,6 +262,20 @@ jest.mock('@onekeyhq/components', () => {
       React.createElement('span', { 'data-testid': 'success-lottie' }),
     SizableText: Container,
     Stack: Container,
+    Theme: ({ children }: { children?: ReactNode }) => children,
+    DialogContainer: React.forwardRef(
+      (
+        props: {
+          onClose?: (extra?: { flag?: string }) => void | Promise<void>;
+        },
+        _ref,
+      ) => {
+        lastDarkContainer.onClose = props.onClose;
+        return React.createElement('div', {
+          'data-testid': 'dark-dialog-container',
+        });
+      },
+    ),
     useThemeName: () => 'light',
     useForm: jest.requireActual('react-hook-form').useForm,
     UnOrderedList,
@@ -278,6 +305,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
       subscription: {
         primeRedemptionResult: (...args: unknown[]) => {
           mockPrimeRedemptionResult(...args);
+        },
+        primeGiftStage: (...args: unknown[]) => {
+          mockPrimeGiftStage(...args);
         },
       },
     },
@@ -312,6 +342,7 @@ function renderDialog({
 describe('PrimeRedemptionDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    lastDarkContainer.onClose = undefined;
     mockDialogShow.mockReturnValue({
       close: jest.fn(async () => undefined),
       getForm: () => undefined,
@@ -400,6 +431,7 @@ describe('PrimeRedemptionDialog', () => {
     renderDialog({
       initialCode: 'TEST_DEVICE_CODE',
       primeGiftSerialNo: 'DEVICE-A',
+      giftSource: 'onboarding',
       onRedeemed,
     });
 
@@ -440,6 +472,22 @@ describe('PrimeRedemptionDialog', () => {
       ],
     ]);
     expect(onRedeemed).toHaveBeenCalledTimes(1);
+    expect(mockPrimeRedemptionResult.mock.calls).toEqual([
+      [
+        expect.objectContaining({
+          result: 'unknown',
+          source: 'onboarding',
+          entry: 'primeGift',
+        }),
+      ],
+      [
+        expect.objectContaining({
+          result: 'success',
+          source: 'onboarding',
+          entry: 'primeGift',
+        }),
+      ],
+    ]);
   });
 
   describe.each([undefined, 'DEVICE-A'])(
@@ -714,5 +762,21 @@ describe('PrimeRedemptionDialog', () => {
       isPrimeActiveBeforeRedeem: false,
       errorCode: undefined,
     });
+  });
+
+  it('forwards Dialog.show injected onClose through the dark dialog container', async () => {
+    renderDialog();
+    const config = mockDialogShow.mock.calls.at(-1)?.[0] as IDialogConfig;
+    const injectedOnClose = jest.fn(async () => undefined);
+    const element = config.dialogContainer?.({ ref: { current: null } });
+    if (!element) {
+      throw new OneKeyLocalError('expected dialogContainer');
+    }
+    render(cloneElement(element, { onClose: injectedOnClose }));
+    expect(lastDarkContainer.onClose).toBe(injectedOnClose);
+    await act(async () => {
+      await lastDarkContainer.onClose?.();
+    });
+    expect(injectedOnClose).toHaveBeenCalledTimes(1);
   });
 });

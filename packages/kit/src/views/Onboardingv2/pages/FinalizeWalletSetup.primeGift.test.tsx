@@ -90,6 +90,7 @@ jest.mock('@react-navigation/core', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
     useNavigation: () => ({ isFocused: () => true }),
+    useIsFocused: () => true,
     useFocusEffect: (effect: () => void | (() => void)) =>
       React.useEffect(effect, [effect]),
   };
