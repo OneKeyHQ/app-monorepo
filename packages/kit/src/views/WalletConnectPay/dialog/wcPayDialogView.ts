@@ -2,11 +2,12 @@ import { EWcPayStatus } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 /**
  * Pure mapping from the flow machine's observable state to the dialog step.
- * Priority (top wins) mirrors the safety ordering of the page it replaces:
- * the terminal result phase must shadow every pre-payment state (it is
- * terminal — see PaymentOptionsModal's phase contract), the paying lock (Q9:
- * the whole confirming stretch is non-dismissible) shadows content states,
- * and content states shadow the skeleton ones.
+ * Priority (top wins) is the flow's safety ordering: the terminal result
+ * phase must shadow every pre-payment state (it is only ever entered once
+ * signatures exist, its polling keeps re-submitting confirmPayment, and a
+ * payable state reached from it could pay twice), the paying lock (Q9: the
+ * whole confirming stretch is non-dismissible) shadows content states, and
+ * content states shadow the skeleton ones.
  */
 export type IWcPayDialogTerminalReason =
   | 'failed'

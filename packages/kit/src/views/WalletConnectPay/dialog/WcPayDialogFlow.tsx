@@ -98,11 +98,15 @@ const EMPTY_OPTIONS: IWcPayOption[] = [];
 const EMPTY_SIGNATURES: string[] = [];
 
 /**
- * What the flow is doing right now. Ported unchanged from
- * PaymentOptionsModal — see the phase contract there. `result` is TERMINAL:
- * it is only ever entered once signatures exist, its polling keeps
- * re-submitting confirmPayment, and returning to a payable state from it
- * could pay a second time.
+ * What the flow is doing right now.
+ *
+ * `paying` carries the step the inline pipeline last reported (the
+ * confirm-modal path reports none and stays on `preparing`, with the pushed
+ * modal covering the sheet anyway).
+ *
+ * `result` is TERMINAL: it is only ever entered once signatures exist, its
+ * polling keeps re-submitting confirmPayment, and returning to a payable
+ * state from it could pay a second time.
  */
 type IWcPayPagePhase =
   | { name: 'idle' }
@@ -129,8 +133,11 @@ const WC_PAY_IDLE_RESULT: IWcPayConfirmResult = {
 /**
  * Banner-surfaced failure plus the identity of the attempt that produced it.
  * The identity matters for the post-sign kind: its Retry must re-enter the
- * recovery machinery for the SAME payment option and account (see the
- * SendFailed lock in PaymentOptionsModal).
+ * recovery machinery for the SAME payment option and account (stored
+ * progress is keyed by payment+option+account), so the flow refuses to start
+ * a differently-targeted attempt while one is on screen — the SendFailed
+ * lock in handlePay, the pinned selection and the disabled controls all
+ * enforce the same rule.
  */
 interface IWcPayInlineFailureRecord {
   failure: IWcPayInlineFailure;
@@ -139,8 +146,16 @@ interface IWcPayInlineFailureRecord {
 }
 
 /**
- * Kind-derived banner copy — the ONLY failure text rendered;
- * `failure.message` is a diagnostic, never shown (see PaymentOptionsModal).
+ * Kind-derived banner copy — the ONLY failure text rendered.
+ * `failure.message` is either a raw vault/RPC string (post-sign) or the
+ * pipeline's English debug text (balance) — never reviewed as copy, never
+ * translated — so it is logged as a diagnostic and never shown.
+ *
+ * This is NOT the "may this attempt be re-run in place" decision:
+ * `failure.retryable` answers that one (false for both banner kinds). The
+ * banner's Retry re-runs handlePay from the top, which re-enters the
+ * durable-progress recovery machinery instead of repeating the failed
+ * attempt.
  */
 function getWcPayInlineFailureCopy(
   failure: IWcPayInlineFailure,
@@ -200,8 +215,10 @@ function getWcPayOptionNetworkId(option: IWcPayOption): string | undefined {
 }
 
 // External accounts broadcast inside their connected wallet during the
-// "signing" step, so the duplicate-payment boundary cannot cover them;
-// watch-only accounts cannot sign at all (see PaymentOptionsModal).
+// "signing" step, so the duplicate-payment boundary (durable pre-broadcast
+// txid record) cannot cover them; watch-only accounts cannot sign at all.
+// WalletConnect Pay refuses both — the background enforces the same in
+// buildPayAccounts and ServiceSend.
 function isWcPayUnsupportedAccountType({
   accountId,
   indexedAccountId,
@@ -297,10 +314,15 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   const [isSubFlowOwningScreen, setIsSubFlowOwningScreen] = useState(false);
 
   // Pre-sign cancellation for the attempt in flight. Aborted when this flow
-  // unmounts (the container unmounts it on close), preserving the page's
-  // contract: closing during the pre-sign stretch cancels the attempt; once
-  // an action has broadcast, the executor stops aborting on it. See
-  // PaymentOptionsModal for the full rationale.
+  // unmounts (the container unmounts it on close): closing during the
+  // pre-sign stretch cancels the attempt instead of letting the pipeline run
+  // on headless and complete a payment the user believes dismissed. The
+  // signal is only ever consulted before signing, so aborting can never lose
+  // an in-flight broadcast — and once an action of the attempt has
+  // broadcast, the executor stops aborting on it: it ends the sequence at
+  // the next UI boundary and returns the results produced so far. handlePay
+  // detects that partial set by length and ends without submitting it (the
+  // broadcast txid is durably recorded for resume).
   const payCancelControllerRef = useRef<AbortController | undefined>(undefined);
   // Synchronous re-entry latch. `isPaying` is React state and only lands on
   // the next render; this ref closes the same-task window a second caller
@@ -385,9 +407,12 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     indexedAccountId,
   });
 
-  // a pre-sign banner reports one account's attempt; switching account makes
-  // it stale. The post-sign banner survives account switches on purpose —
-  // see PaymentOptionsModal.
+  // a pre-sign banner (insufficient balance) reports one account's attempt;
+  // switching account makes it stale exactly like switching option does. The
+  // post-sign banner is different: it may shadow an already-broadcast
+  // transaction, and discarding it on an account switch would re-arm Pay for
+  // a second payment from the new account while the first may still land —
+  // so it survives until its own Retry resolves the attempt
   useEffect(() => {
     setInlineFailure((prev) =>
       prev?.failure.kind === EWcPayInlineFailureKind.SendFailed
@@ -458,7 +483,8 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     {
       watchLoading: true,
       // an account switch re-runs this request; the stale result must not
-      // survive into the loading window (see PaymentOptionsModal)
+      // survive into the loading window, or Pay could hand options resolved
+      // for the previous account to the executor signing with the new one
       undefinedResultIfReRun: true,
     },
   );
@@ -467,16 +493,28 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   const networkMap = result?.networkMap;
   const supportsDurableProgress = result?.supportsDurableProgress ?? false;
   const options = payResult?.options ?? EMPTY_OPTIONS;
-  // Deterministic pre-form gate — see PaymentOptionsModal for why
-  // option.actions cannot be trusted here.
+  // Deterministic pre-form gate: option.actions is advisory — the server
+  // may omit it or return a list diverging from the authoritative one that
+  // getRequiredPaymentActions fetches AFTER the compliance form — so on
+  // platforms without durable progress every option is refused upfront.
+  // Gating on option.actions could collect personal identity data first and
+  // only then refuse the payment.
   const areOptionsRefusedOnPlatform = shouldRefuseWcPayOptionUpfront({
     supportsDurableProgress,
   });
-  // The post-sign failure state is terminal for the option/account choice.
+  // The post-sign failure state is terminal for the option/account choice:
+  // its banner is the safety exit back into the recovery machinery, and
+  // drifting to another target must not discard it (see handlePay).
   const isSendFailedLocked =
     inlineFailure?.failure.kind === EWcPayInlineFailureKind.SendFailed;
   // While SendFailed-locked the selection is PINNED to the attempt that
-  // failed (see PaymentOptionsModal for the drift rationale).
+  // failed instead of drifting with the account-scoped option list: an
+  // account switch re-fetches options, and the `?? options[0]` fallback
+  // would silently land on a differently-targeted option — leaving every
+  // control disabled at once (list locked, Pay mismatch-blocked, banner not
+  // clearable). Pinning resolves to undefined when the failed option is not
+  // in the current account's list; Pay stays disabled and the banner tells
+  // the user to switch back.
   const selectedOption: IWcPayOption | undefined = (() => {
     if (areOptionsRefusedOnPlatform) {
       return undefined;
@@ -496,8 +534,13 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   });
   const isExpiredLocally = useIsExpiredLocally(effectiveExpiryMs);
   const payStatus = payResult?.info?.status;
-  // Positive gate: only a server-reported requires_action status may enter
-  // the payment executor (see PaymentOptionsModal).
+  // Single gate for starting a payment, shared by the Pay button and
+  // handlePay. Positive gate: only a server-reported requires_action status
+  // may enter the payment executor. A missing or non-actionable status
+  // (e.g. `processing` while options are still present) must NOT be payable,
+  // or an already-submitted payment could be fetched and broadcast again.
+  // The local deadline must also not have passed (the sheet may outlive it
+  // while the server status is stale).
   const isPaymentActionable =
     payStatus === EWcPayStatus.RequiresAction && !isExpiredLocally;
 
@@ -514,9 +557,15 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     ) {
       return;
     }
-    // A post-sign failure pins the payment to the attempt that produced it
-    // (see PaymentOptionsModal); a differently-targeted attempt must not
-    // start.
+    // A post-sign failure pins the payment to the attempt that produced it:
+    // its transaction may already be on chain, and only a retry with the
+    // same option and account re-enters the recovery machinery (stored
+    // progress is keyed by payment+option+account). Starting a
+    // differently-targeted attempt here would sign a second payment while
+    // the first may still land. The option list and the Pay button are
+    // disabled to the same rule — this is the belt to that suspenders; the
+    // background's payment-level guard (getStoredActionResults) is the hard
+    // boundary behind both.
     if (
       inlineFailure?.failure.kind === EWcPayInlineFailureKind.SendFailed &&
       (selectedOption.id !== inlineFailure.optionId ||
@@ -548,7 +597,10 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       const optionId = selectedOption.id;
 
       // Refuse before the compliance form whenever durable progress is
-      // unavailable (see PaymentOptionsModal).
+      // unavailable. option.actions cannot prove the payment is sign-only
+      // (the field is advisory; the authoritative list is only fetched
+      // after the form), so collecting KYC first could hand personal data
+      // to the compliance provider for a payment that cannot complete here.
       if (
         shouldRefuseWcPayOptionUpfront({
           supportsDurableProgress:
@@ -619,7 +671,13 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
 
       // 3. sign sequentially; results order must match actions order.
       // Progress is persisted in the background per payment+option+account
-      // (see PaymentOptionsModal for the resume contract).
+      // as each action completes, so a retry — or a relaunch after the app
+      // was killed mid-flow (on native, main/bg are separate JS heaps and
+      // this flow's state does not survive) — resumes from the first
+      // incomplete action instead of re-broadcasting transactions that are
+      // already on-chain. The background validates stored entries against
+      // the freshly fetched action list by fingerprint and clears the record
+      // only once the server reports a final payment state.
       const progressAccountKey = indexedAccountId ?? accountId ?? '';
       const completedResults =
         await backgroundApiProxy.serviceWalletConnectPay.getStoredActionResults(
@@ -711,7 +769,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         accountId,
         indexedAccountId,
         completedResults,
-        // pre-sign cancellation boundary — see PaymentOptionsModal
+        // pre-sign cancellation boundary: fires when this flow unmounts, so
+        // a close during the (closable) preparing stretch actually cancels
+        // the flow instead of letting it sign and broadcast headless
         cancelSignal: cancelController.signal,
         option: selectedOption,
         inlineController,
@@ -746,15 +806,24 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       });
 
       // A result set shorter than the action list is the executor's
-      // stopped-after-broadcast exit: do NOT submit a known-partial
-      // signature set (see PaymentOptionsModal — every produced result is
-      // already durably persisted; the next entry resumes).
+      // stopped-after-broadcast exit: the flow went away after an on-chain
+      // result existed and the remaining actions were never executed. Do
+      // NOT submit a known-partial signature set — confirmPayment's
+      // contract for short arrays is unverified, and ANY isFinal verdict it
+      // returns (failed included) clears the whole progress record,
+      // deleting the broadcast evidence. Every produced result is already
+      // durably persisted, so ending here keeps the resume machinery
+      // intact: the next entry into this payment resumes from the stored
+      // prefix, and an abandoned payment expires server-side.
       if (signatures.length < actions.length) {
         return;
       }
 
-      // 4. submit and show result. A confirmPayment failure must NOT drop
-      // the signatures back on the options step (see PaymentOptionsModal).
+      // 4. submit and show result. The transaction may already be broadcast
+      // by this point, so a confirmPayment failure must NOT drop the
+      // signatures back on the options step (retrying there would sign and
+      // broadcast a second payment). Keep the same signatures in the result
+      // phase, whose polling keeps re-submitting confirmPayment.
       setPagePhase({ name: 'paying', step: 'submitting' });
       let confirmResult: IWcPayConfirmResult;
       try {
@@ -781,8 +850,11 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     } catch (error) {
       if (isWcPayInlinePostSignError(error)) {
         // thrown at or after signing: a transaction may already be on chain,
-        // so this must not vanish — the banner's Retry re-enters the
-        // durable-progress recovery machinery (see PaymentOptionsModal)
+        // so this must not vanish — the banner's Retry re-runs handlePay,
+        // which re-enters the durable-progress recovery machinery (stored
+        // action results, never-broadcast probe, pinned nonce) instead of
+        // signing a second payment. The raw vault/RPC text is a diagnostic
+        // only — the banner shows reviewed copy instead.
         console.error('wcPay inline post-sign failure', error);
         setInlineFailure({
           failure: classifyWcPayInlineFailure({ stage: 'send', error }),
@@ -790,10 +862,19 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
           accountKey: indexedAccountId ?? accountId ?? '',
         });
       } else if (isWcPayErrorCode(error, EWcPayErrorCode.ProgressDamaged)) {
-        // Deterministically corrupt stored progress: surfaced as a dedicated
-        // in-dialog step with a user-confirmed discard (see
-        // PaymentOptionsModal for the content-verdict-only contract).
-        // Never from a dead flow: the fetches above can outlive a close.
+        // Deterministically corrupt stored progress: without an escape this
+        // payment+option+account stays refused until the 48h storage TTL.
+        // Surfaced as a dedicated in-dialog step with a user-confirmed
+        // discard, only reachable on a CONTENT verdict: the payload was read
+        // and decoded and is provably not a record the store ever wrote
+        // (arrays only), so it cannot carry a real txid. Read FAILURES —
+        // content unknown, possibly an intact txid-bearing record — classify
+        // as unreadable, never corrupt, and can never reach this discard
+        // (see readSecureEntries), so this path cannot delete real
+        // duplicate-payment evidence.
+        // Never from a dead flow: the fetches above can outlive a close, and
+        // the record is not lost — the step re-surfaces on the next entry
+        // into this payment, or the TTL cleans it up.
         if (cancelController.signal.aborted) {
           return;
         }
@@ -878,7 +959,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       setDamagedDiscardFailed(false);
     } catch (discardError) {
       // a failed discard must not vanish silently: the record is untouched
-      // and the step says so (see PaymentOptionsModal's failed-discard path)
+      // and the step says so, so the user can try the discard again
       console.error('wcPay discard damaged progress failed', discardError);
       setDamagedDiscardFailed(true);
     } finally {
@@ -889,9 +970,12 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   const inlineFailureCopy = inlineFailure
     ? getWcPayInlineFailureCopy(inlineFailure.failure, intl)
     : undefined;
-  // With the selection pinned, the only drift left is the signing account —
-  // plus a pinned option missing from the current account's list (see
-  // PaymentOptionsModal).
+  // With the selection pinned (see selectedOption above) the only drift
+  // left is the signing account — plus a pinned option missing from the
+  // current account's list, which surfaces as selectedOption === undefined
+  // and keeps the option check below true. Retry must stay disabled until
+  // the user is back on the exact attempt that failed; the banner explains
+  // the way out.
   const isSendFailedTargetMismatch =
     isSendFailedLocked &&
     !!inlineFailure &&

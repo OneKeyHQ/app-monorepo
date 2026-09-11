@@ -24074,8 +24074,6 @@
     "packages/kit/src/views/WalletConnectPay/hooks/wcPayInlineSignSolana.ts": 11901,
     "packages/kit/src/views/WalletConnectPay/hooks/wcPayInlineUtils.ts": 12201,
     "packages/kit/src/views/WalletConnectPay/pages/DataCollectionModal.tsx": 11594,
-    "packages/kit/src/views/WalletConnectPay/pages/PaymentOptionsModal.tsx": 5906,
-    "packages/kit/src/views/WalletConnectPay/pages/PaymentResultModal.tsx": 803,
     "packages/kit/src/views/WalletConnectPay/router/index.ts": 21901,
     "packages/kit/src/views/WebView/components/AddressBar.tsx": 23549,
     "packages/kit/src/views/WebView/components/Header.tsx": 3347,

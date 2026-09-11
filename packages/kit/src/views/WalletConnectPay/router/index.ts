@@ -3,19 +3,12 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IModalWalletConnectPayParamList } from '@onekeyhq/shared/src/routes';
 import { EModalWalletConnectPayRoutes } from '@onekeyhq/shared/src/routes';
 
-const PaymentOptionsModal = LazyLoadPage(() =>
-  import('../pages/PaymentOptionsModal').then((m) => ({
-    default: m.PaymentOptionsModal,
-  })),
-);
+// The payment flow itself is not a route: WalletConnectPayDialogContainer
+// renders WcPayDialogFlow from wcPayDialogStore. Only the compliance form
+// (a full-screen page the flow parks behind) lives in this modal stack.
 const DataCollectionModal = LazyLoadPage(() =>
   import('../pages/DataCollectionModal').then((m) => ({
     default: m.DataCollectionModal,
-  })),
-);
-const PaymentResultModal = LazyLoadPage(() =>
-  import('../pages/PaymentResultModal').then((m) => ({
-    default: m.PaymentResultModal,
   })),
 );
 
@@ -24,15 +17,7 @@ export const WalletConnectPayModalRouter: IModalFlowNavigatorConfig<
   IModalWalletConnectPayParamList
 >[] = [
   {
-    name: EModalWalletConnectPayRoutes.PaymentOptions,
-    component: PaymentOptionsModal,
-  },
-  {
     name: EModalWalletConnectPayRoutes.DataCollection,
     component: DataCollectionModal,
-  },
-  {
-    name: EModalWalletConnectPayRoutes.PaymentResult,
-    component: PaymentResultModal,
   },
 ];
