@@ -1,3 +1,5 @@
+import { runInNewContext } from 'vm';
+
 import type { UTCTimestamp } from 'lightweight-charts';
 
 jest.mock('./lightweightChartsStandalone.text-js', () => {
@@ -272,4 +274,30 @@ describe('resolveSerializablePriceFormatterTickStep', () => {
       }),
     ).toBeUndefined();
   });
+});
+
+it('embeds and selects compact prices in the native chart', () => {
+  const html = generateChartHTML({
+    data: [],
+    lineWidth: 2,
+    compactPriceMaxCharacters: 7,
+    priceScaleMinimumWidth: 88,
+    theme: {
+      bgColor: '#000000',
+      textSubduedColor: '#999999',
+      lineColor: '#8D8FE8',
+      topColor: 'transparent',
+      bottomColor: 'transparent',
+    },
+  });
+  expect(html).toContain('"compactPriceMaxCharacters":7');
+  expect(html).toContain('"priceScaleMinimumWidth":88');
+  const start = html.indexOf('var compactPriceFormatter =');
+  const end = html.indexOf('function getNormalizedLineWidth', start);
+  expect(start).toBeGreaterThan(0);
+  expect(end).toBeGreaterThan(start);
+  expect(
+    runInNewContext(`${html.slice(start, end)};
+    getPriceFormatter({compactPriceMaxCharacters: 7})(-1e-30)`),
+  ).toBe('-$0.0₂₉1');
 });

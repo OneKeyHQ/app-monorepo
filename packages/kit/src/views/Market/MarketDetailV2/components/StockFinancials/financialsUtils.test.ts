@@ -9,6 +9,7 @@ import {
   createFinancialsLoader,
   getFinancialDomain,
   getFinancialPercentDomain,
+  getFinancialPerformanceDomain,
   getFinancialPeriodLabel,
   getFinancialRows,
   getNetMargin,
@@ -123,14 +124,27 @@ describe('stock financial chart data', () => {
     expect(getFinancialDomain([null, 0]).max).toBeGreaterThan(0);
   });
 
+  it('uses reference chart intervals for quarterly AAPL financials', () => {
+    expect(
+      getFinancialPerformanceDomain([94.04e9, 143.75e9, 111.18e9]),
+    ).toEqual({
+      min: 0,
+      max: 160e9,
+    });
+    expect(getFinancialPercentDomain([24.9, 26.8, 29.3, 26.6, 27.2])).toEqual({
+      min: 20,
+      max: 30,
+    });
+  });
+
   it('keeps zero and constant percentage axes readable', () => {
     expect(getFinancialPercentDomain([0, null])).toEqual({
-      min: -1.2,
-      max: 1.2,
+      min: -1.5,
+      max: 0.5,
     });
     expect(getFinancialPercentDomain([25, 25])).toEqual({
-      min: 23.8,
-      max: 26.2,
+      min: 23.5,
+      max: 25.5,
     });
   });
 });
@@ -178,4 +192,31 @@ describe('stock financial request cache', () => {
       now.mockRestore();
     }
   });
+});
+
+it('contains losses, cross-zero data, constants and missing financial data', () => {
+  for (const values of [
+    [-100, -20],
+    [-100, 230],
+    [0, 0],
+    [25, 25],
+    [],
+    [null, NaN, Infinity],
+  ]) {
+    for (const getDomain of [
+      getFinancialPerformanceDomain,
+      getFinancialPercentDomain,
+    ]) {
+      const domain = getDomain(values);
+      expect(Number.isFinite(domain.min)).toBe(true);
+      expect(Number.isFinite(domain.max)).toBe(true);
+      expect(domain.max).toBeGreaterThan(domain.min);
+      for (const value of values) {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          expect(value).toBeGreaterThanOrEqual(domain.min);
+          expect(value).toBeLessThanOrEqual(domain.max);
+        }
+      }
+    }
+  }
 });
