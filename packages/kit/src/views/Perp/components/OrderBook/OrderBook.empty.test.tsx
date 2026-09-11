@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { OrderBook, OrderBookMobile } from '.';
 
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, within } from '@testing-library/react';
 
 import { getVerticalOrderBookLayout } from '../../layouts/perpLayoutUtils';
 
@@ -58,12 +58,14 @@ jest.mock('react-native', () => ({
   View: ({
     children,
     onLayout,
+    testID,
   }: {
     children?: ReactNode;
     onLayout?: (event: LayoutChangeEvent) => void;
+    testID?: string;
   }) => {
     if (onLayout) mockVerticalLayout = onLayout;
-    return <div>{children}</div>;
+    return <div data-testid={testID}>{children}</div>;
   },
 }));
 
@@ -111,10 +113,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: false },
 }));
 
-jest.mock('./AnimatedDepthBlock', () => ({
-  DepthBar: () => null,
-  DepthBarColumn: () => null,
-  SideRatioSegments: () => null,
+jest.mock('react-native-reanimated', () => ({
+  useReducedMotion: () => false,
 }));
 
 jest.mock('../../hooks/usePerpsActiveAssetCtxDisplay', () => ({
@@ -162,6 +162,7 @@ describe('OrderBook empty vertical state', () => {
     const { levelsPerSide } = getVerticalOrderBookLayout(
       containerHeight,
       maxLevelsPerSide,
+      true,
     );
 
     const { getAllByText, getByText } = render(
@@ -179,6 +180,92 @@ describe('OrderBook empty vertical state', () => {
     expect(getAllByText('--')).toHaveLength(levelsPerSide * 2 * 3 + 1);
     expect(getByText('B 50%')).toBeTruthy();
     expect(getByText('50% S')).toBeTruthy();
+  });
+});
+
+describe('OrderBook populated vertical resizing', () => {
+  it('updates rows and depth bars before the next animation frame', () => {
+    const frameGlobals = globalThis as {
+      requestAnimationFrame: (callback: (timestamp: number) => void) => number;
+      cancelAnimationFrame: (handle: number) => void;
+    };
+    const requestFrame = jest
+      .spyOn(frameGlobals, 'requestAnimationFrame')
+      .mockReturnValue(1);
+    const cancelFrame = jest
+      .spyOn(frameGlobals, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined);
+    const onSelectLevel = jest.fn();
+    const view = render(
+      <OrderBook
+        asks={Array.from({ length: 18 }, (_, index) => ({
+          n: 1,
+          px: String(101 + index),
+          sz: '1',
+        }))}
+        bids={Array.from({ length: 18 }, (_, index) => ({
+          n: 1,
+          px: String(99 - index),
+          sz: '1',
+        }))}
+        horizontal={false}
+        initialContainerHeight={640}
+        maxLevelsPerSide={18}
+        onSelectLevel={onSelectLevel}
+        selectedTickOption={{
+          targetTick: 1,
+          apiTick: 1,
+          exact: true,
+          nSigFigs: 3,
+          multiplier: 1,
+          label: '1',
+          value: '1',
+        }}
+        showTickSelector={false}
+        variant="web"
+      />,
+    );
+
+    try {
+      const onLayout = mockVerticalLayout;
+      expect(onLayout).toBeDefined();
+      for (const height of [640, 500, 683, 500]) {
+        act(() => {
+          onLayout?.({
+            nativeEvent: { layout: { height, width: 300, x: 0, y: 0 } },
+          } as LayoutChangeEvent);
+        });
+        const { levelsPerSide } = getVerticalOrderBookLayout(height, 18, true);
+        const buttons = within(
+          view.getByTestId('perp-orderbook-ladder'),
+        ).getAllByRole<HTMLButtonElement>('button');
+        const rows = buttons.filter((button) => !button.disabled);
+        const bars = buttons.filter((button) => button.disabled);
+        expect(rows).toHaveLength(levelsPerSide * 2);
+        expect(bars).toHaveLength(levelsPerSide * 2);
+
+        fireEvent.click(rows[0]);
+        expect(onSelectLevel).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            side: 'ask',
+            price: (100 + levelsPerSide).toFixed(2),
+            index: levelsPerSide - 1,
+          }),
+        );
+        fireEvent.click(rows[rows.length - 1]);
+        expect(onSelectLevel).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            side: 'bid',
+            price: (100 - levelsPerSide).toFixed(2),
+            index: levelsPerSide - 1,
+          }),
+        );
+      }
+    } finally {
+      view.unmount();
+      requestFrame.mockRestore();
+      cancelFrame.mockRestore();
+    }
   });
 });
 
