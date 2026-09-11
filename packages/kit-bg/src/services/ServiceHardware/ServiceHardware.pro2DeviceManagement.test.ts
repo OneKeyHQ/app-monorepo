@@ -316,7 +316,7 @@ describe('ServiceHardware wallet session compatibility', () => {
         primeCode: 'TEST_CODE',
         primeCodeStatus: 'available',
       },
-      succeeds: true,
+      verified: true,
     },
     {
       deviceType: EDeviceType.Neo,
@@ -324,7 +324,7 @@ describe('ServiceHardware wallet session compatibility', () => {
       verificationData: {
         sno: 'NEO_SERIAL',
       },
-      succeeds: true,
+      verified: true,
     },
     {
       deviceType: EDeviceType.Pro2,
@@ -334,29 +334,61 @@ describe('ServiceHardware wallet session compatibility', () => {
         primeCode: 'TEST_CODE',
         primeCodeStatus: 'redeemed',
       },
-      succeeds: true,
+      verified: true,
     },
     {
       deviceType: EDeviceType.Pro,
       connectId: 'PRO_USB',
       verificationData: null,
-      succeeds: false,
+      verified: true,
     },
     {
       deviceType: EDeviceType.Pro,
       connectId: 'PRO_USB',
       verificationData: undefined,
-      succeeds: false,
+      verified: true,
     },
     {
       deviceType: EDeviceType.Pro,
       connectId: 'PRO_USB',
       verificationData: { sno: '' },
-      succeeds: false,
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: '   ' },
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: 123 },
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: 'PRO_SERIAL' },
+      responseCode: 10_105,
+      verified: false,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: '' },
+      responseCode: 10_105,
+      verified: false,
     },
   ])(
-    'sends the same UTF-8 challenge to verify-v2 and normalizes the genuine-check result for $deviceType: $verificationData',
-    async ({ deviceType, connectId, verificationData, succeeds }) => {
+    'uses the server verdict for genuine verification ($verified) with $deviceType: $verificationData',
+    async ({
+      deviceType,
+      connectId,
+      verificationData,
+      responseCode = 0,
+      verified,
+    }) => {
       const instanceId = '94537ae5-32e9-4417-860a-1d37c8decb3e';
       jest.mocked(settingsPersistAtom.get).mockResolvedValue({
         instanceId,
@@ -386,7 +418,7 @@ describe('ServiceHardware wallet session compatibility', () => {
         },
       });
       const postMock = jest.fn().mockResolvedValue({
-        data: { code: 0, message: 'OK', data: verificationData },
+        data: { code: responseCode, message: 'RESULT', data: verificationData },
       });
       jest.spyOn(service, 'getClient').mockResolvedValue({
         post: postMock,
@@ -395,7 +427,7 @@ describe('ServiceHardware wallet session compatibility', () => {
         deviceVerify: deviceVerifySpy,
       } as never);
       service.getCompatibleConnectId = jest.fn().mockResolvedValue(connectId);
-      const operation = service.firmwareAuthenticate({
+      const result = await service.firmwareAuthenticate({
         device: {
           connectId,
           deviceType,
@@ -405,21 +437,19 @@ describe('ServiceHardware wallet session compatibility', () => {
           commType: 'webusb',
         },
       });
-      if (succeeds) {
-        const result = await operation;
-        expect(result.verified).toBe(true);
-        expect(result.result).toEqual({
-          code: 0,
-          message: 'OK',
-          data: verificationData?.sno,
-        });
-        expect(result.payload).toMatchObject({
-          cert: 'cert',
-          signature: 'signature',
-        });
-      } else {
-        await expect(operation).rejects.toThrow('invalid serial number');
-      }
+      expect(result.verified).toBe(verified);
+      expect(result.result).toEqual({
+        code: responseCode,
+        message: 'RESULT',
+        data:
+          typeof verificationData?.sno === 'string'
+            ? verificationData.sno
+            : undefined,
+      });
+      expect(result.payload).toMatchObject({
+        cert: 'cert',
+        signature: 'signature',
+      });
       expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
       const deviceVerifyArg = deviceVerifySpy.mock.calls[0]?.[1] as {
         dataHex: string;

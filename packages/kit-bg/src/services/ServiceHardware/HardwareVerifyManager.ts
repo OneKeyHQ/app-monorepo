@@ -299,14 +299,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         try {
           const response = await this.requestFirmwareVerification(payload);
           const serialNumber = response.data?.sno;
-          if (
-            response.code === 0 &&
-            (typeof serialNumber !== 'string' || !serialNumber.trim())
-          ) {
-            throw new OneKeyLocalError(
-              'Device verification returned an invalid serial number.',
-            );
-          }
           // Keep redemption codes inside the background service while preserving
           // the certificate serial format used by the genuine-check UI.
           result = {
