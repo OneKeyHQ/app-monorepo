@@ -8,6 +8,8 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPrimeGiftAnalyticsSource } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import type {
   IPrimeGiftClaimResult,
   IPrimeGiftDeviceVerification,
@@ -35,9 +37,11 @@ type IClaimSnapshot = {
 export function usePrimeGiftClaim({
   device,
   serialNo,
+  source,
 }: {
   device: Omit<SearchDevice, 'commType'>;
   serialNo: string;
+  source: IPrimeGiftAnalyticsSource;
 }) {
   const { user, loginOneKeyId } = useOneKeyAuth();
   const [eligibilityBySerialNo] = usePrimeGiftEligibilityPersistAtom();
@@ -165,6 +169,11 @@ export function usePrimeGiftClaim({
       localUserId,
       error: undefined,
     }));
+    defaultLogger.prime.subscription.primeGiftStage({
+      source,
+      stage: 'verify',
+      status: 'start',
+    });
     try {
       const prepared =
         await backgroundApiProxy.servicePrime.apiPreparePrimeGiftRedemption({
@@ -184,11 +193,32 @@ export function usePrimeGiftClaim({
           ? message(ETranslations.prime_gift_already_claimed__msg)
           : undefined,
       }));
-      if (isAlreadyRedeemed || !prepared.code?.trim()) return;
+      if (isAlreadyRedeemed) {
+        defaultLogger.prime.subscription.primeGiftStage({
+          source,
+          stage: 'verify',
+          status: 'alreadyClaimed',
+        });
+        return;
+      }
+      if (!prepared.code?.trim()) {
+        defaultLogger.prime.subscription.primeGiftStage({
+          source,
+          stage: 'verify',
+          status: 'noCode',
+        });
+        return;
+      }
+      defaultLogger.prime.subscription.primeGiftStage({
+        source,
+        stage: 'verify',
+        status: 'success',
+      });
       redemptionDialogRef.current = showPrimeRedemptionDialog({
         expectedOneKeyUserId: onekeyUserId,
         initialCode: prepared.code,
         primeGiftSerialNo: serialNo,
+        giftSource: source,
         isPrimeActiveBeforeRedeem: Boolean(user?.primeSubscription?.isActive),
         onRedeemed: (redemption) => {
           if (!isCurrent()) return;
@@ -213,12 +243,18 @@ export function usePrimeGiftClaim({
       });
     } catch (error) {
       if (isCurrent()) {
+        const isCancel = errorToastUtils.isUserCancelStyleError(error);
+        defaultLogger.prime.subscription.primeGiftStage({
+          source,
+          stage: 'verify',
+          status: isCancel ? 'cancel' : 'failed',
+        });
         setSnapshot((value) => ({
           ...value,
           serialNo,
           localUserId,
           localIsLoggedIn,
-          error: errorToastUtils.isUserCancelStyleError(error)
+          error: isCancel
             ? undefined
             : getPrimeRedemptionErrorPresentation({
                 error,
@@ -242,27 +278,54 @@ export function usePrimeGiftClaim({
     user?.displayEmail,
     user?.email,
     eligibility,
+    source,
   ]);
 
   const login = useCallback(async () => {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setIsSubmitting(true);
+    defaultLogger.prime.subscription.primeGiftStage({
+      source,
+      stage: 'login',
+      status: 'start',
+    });
+    const loginSerialNo = serialNo;
     try {
       await loginOneKeyId();
-      if (isCurrent()) await refresh();
+      if (
+        contextRef.current.mounted &&
+        contextRef.current.serialNo === loginSerialNo
+      ) {
+        defaultLogger.prime.subscription.primeGiftStage({
+          source,
+          stage: 'login',
+          status: 'success',
+        });
+      }
+      if (isCurrent()) {
+        await refresh();
+      }
     } catch (error) {
-      if (isCurrent() && !errorToastUtils.isUserCancelStyleError(error)) {
-        setSnapshot((value) => ({
-          ...value,
-          serialNo,
-          localUserId,
-          localIsLoggedIn,
-          error: getPrimeRedemptionErrorPresentation({
-            error,
-            fallbackMessage: message(ETranslations.prime_gift_error__msg),
-          }).message,
-        }));
+      if (isCurrent()) {
+        const isCancel = errorToastUtils.isUserCancelStyleError(error);
+        defaultLogger.prime.subscription.primeGiftStage({
+          source,
+          stage: 'login',
+          status: isCancel ? 'cancel' : 'failed',
+        });
+        if (!isCancel) {
+          setSnapshot((value) => ({
+            ...value,
+            serialNo,
+            localUserId,
+            localIsLoggedIn,
+            error: getPrimeRedemptionErrorPresentation({
+              error,
+              fallbackMessage: message(ETranslations.prime_gift_error__msg),
+            }).message,
+          }));
+        }
       }
     } finally {
       submittingRef.current = false;
@@ -276,6 +339,7 @@ export function usePrimeGiftClaim({
     localUserId,
     localIsLoggedIn,
     message,
+    source,
   ]);
   return {
     user,

@@ -62,7 +62,7 @@ import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
-import { SwapPanelContent } from './SwapPanelContent';
+import { StockTradePanelContent } from './StockTradePanelContent';
 import { resolveMarketPaymentTokenDisplay } from './utils/marketPaymentTokenDisplayUtils';
 
 import type {
@@ -71,19 +71,15 @@ import type {
 } from './components/MarketPresetSelector';
 import type { IToken } from './types';
 
-interface ISwapPanelWrapProps {
-  onCloseDialog?: () => void;
-  stockDetailDesktopLayout?: boolean;
+interface IStockTradePanelProps {
   portfolioData?: IMarketAccountPortfolioItem[];
   resolvedVariantKeys?: string[];
 }
 
-function SwapPanelWrapContent({
-  onCloseDialog,
-  stockDetailDesktopLayout,
+function StockTradePanelContentContainer({
   portfolioData,
   resolvedVariantKeys,
-}: ISwapPanelWrapProps) {
+}: IStockTradePanelProps) {
   const {
     networkId,
     tokenAddress,
@@ -91,7 +87,7 @@ function SwapPanelWrapContent({
     tokenDetail,
     isReady,
   } = useTokenDetail();
-  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
+  const { selectedTokenVariant, stockId } = useStockDetail();
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const isModalPage = useIsOverlayPage();
@@ -101,7 +97,6 @@ function SwapPanelWrapContent({
   const swapPanel = useSwapPanel({
     networkId: networkId || 'evm--1',
   });
-  const [hasInitialReady, setHasInitialReady] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
@@ -124,7 +119,6 @@ function SwapPanelWrapContent({
   );
 
   const {
-    isLoading: speedSwapInitLoading,
     speedConfig,
     speedConfigReady,
     supportSpeedSwap: originalSupportSpeedSwap,
@@ -244,10 +238,9 @@ function SwapPanelWrapContent({
   });
   const marketPresetEnabled = resolveMarketPresetEnabled({
     enabled: marketPresetSettings.enabled,
-    stockDetailDesktopLayout,
+    stockDetailDesktopLayout: true,
   });
-  const marketPresetLoading =
-    !stockDetailDesktopLayout && marketPresetSettings.isLoading;
+  const marketPresetLoading = false;
   const effectiveSlippage = marketPresetEnabled
     ? marketPresetSettings.selectedSlippageValue
     : (nonPresetSlippage ?? slippage);
@@ -292,13 +285,12 @@ function SwapPanelWrapContent({
     hasSelectedVariant: Boolean(selectedTokenVariant),
     selectedVariantMatchesTokenDetail,
   });
-  const currentStockInfo =
-    isStockRoute && tokenDetail?.stock
-      ? {
-          ...tokenDetail.stock,
-          tokenToAssetRatio: stockTokenToAssetRatio,
-        }
-      : undefined;
+  const currentStockInfo = tokenDetail?.stock
+    ? {
+        ...tokenDetail.stock,
+        tokenToAssetRatio: stockTokenToAssetRatio,
+      }
+    : undefined;
   const currentMarketToken: ISwapToken = selectedTokenVariant
     ? {
         networkId: selectedTokenVariant.networkId,
@@ -324,7 +316,7 @@ function SwapPanelWrapContent({
           '',
         currency: 'usd',
         isNative: false,
-        isStock: isStockRoute,
+        isStock: true,
         stock: currentStockInfo,
       }
     : {
@@ -337,7 +329,7 @@ function SwapPanelWrapContent({
         price: marketTokenPrice || '',
         currency: marketTokenCurrency,
         isNative: !!tokenDetail?.isNative,
-        isStock: isStockRoute,
+        isStock: true,
         stock: currentStockInfo,
       };
   const disableNativeToken =
@@ -387,11 +379,8 @@ function SwapPanelWrapContent({
   ]);
 
   const compatibleDefaultTokens = useMemo(
-    () =>
-      isStockRoute
-        ? filterStockPayTokenCandidates(defaultTokens)
-        : defaultTokens,
-    [defaultTokens, isStockRoute],
+    () => filterStockPayTokenCandidates(defaultTokens),
+    [defaultTokens],
   );
 
   const filterDefaultTokens = useMemo(() => {
@@ -457,22 +446,20 @@ function SwapPanelWrapContent({
   );
   // Keep the stock form visible while preparing the current pair, but never
   // quote or review with placeholder precision or the previous payment token.
-  const executionReady =
-    !stockDetailDesktopLayout ||
-    Boolean(
-      isReady &&
-      selectedVariantMatchesTokenDetail &&
-      tokenDetail?.decimalsResolved !== false &&
-      typeof tokenDetail?.decimals === 'number' &&
-      Number.isInteger(tokenDetail.decimals) &&
-      tokenDetail.decimals >= 0 &&
-      speedConfigReady &&
-      paymentTokenPreferenceReady &&
-      paymentToken &&
-      paymentTokenCandidates.some((token) =>
-        equalTokenNoCaseSensitive({ token1: token, token2: paymentToken }),
-      ),
-    );
+  const executionReady = Boolean(
+    isReady &&
+    selectedVariantMatchesTokenDetail &&
+    tokenDetail?.decimalsResolved !== false &&
+    typeof tokenDetail?.decimals === 'number' &&
+    Number.isInteger(tokenDetail.decimals) &&
+    tokenDetail.decimals >= 0 &&
+    speedConfigReady &&
+    paymentTokenPreferenceReady &&
+    paymentToken &&
+    paymentTokenCandidates.some((token) =>
+      equalTokenNoCaseSensitive({ token1: token, token2: paymentToken }),
+    ),
+  );
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
@@ -498,7 +485,7 @@ function SwapPanelWrapContent({
       isNative: paymentToken?.isNative || false,
     },
     tradeType: tradeType || ESwapDirection.BUY,
-    swapType: isStockRoute ? ESwapTabSwitchType.STOCK : ESwapTabSwitchType.SWAP,
+    swapType: ESwapTabSwitchType.STOCK,
     fromTokenAmount: currentFromTokenAmount,
     antiMEV: Array.isArray(swapMevNetConfig)
       ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
@@ -517,10 +504,8 @@ function SwapPanelWrapContent({
     balance,
     balanceToken,
     fetchBalanceLoading,
-    priceRate,
     stockQuoteDisplay,
     quoteResult,
-    quoteList,
     quoteActionLoading,
     quoteError,
     quoteReadyForReview,
@@ -541,14 +526,6 @@ function SwapPanelWrapContent({
     sendMarketSignMessage,
     buildMarketApproveInfos,
   } = speedSwapActions;
-
-  const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
-    if (!balanceToken?.networkId) return undefined;
-    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: balanceToken.networkId,
-    });
-    return result?.mergeDeriveAssetsEnabled;
-  }, [balanceToken?.networkId]);
 
   const saveTokenPreference = useCallback(
     (token: IToken) => {
@@ -703,12 +680,10 @@ function SwapPanelWrapContent({
     speedSwapBuildTxLoading,
     swapApprovingMatchLoading,
   ]);
-  // Review preparation and rebuilding belong to the dialog. Keep the stock
-  // form behind it stable while preserving execution guards below.
-  const reviewOwnsLoading =
-    stockDetailDesktopLayout && (isReviewOpening || isReviewDialogOpen);
-  const isSwapPanelLoading =
-    !reviewOwnsLoading && (isActionLoading || isReviewOpening);
+  // Keep the stock form stable while review preparation and the review dialog
+  // own the loading state.
+  const reviewOwnsLoading = isReviewOpening || isReviewDialogOpen;
+  const isSwapPanelLoading = !reviewOwnsLoading && isActionLoading;
 
   const openReviewDialog = useCallback(
     async (isWrap?: boolean) => {
@@ -871,22 +846,6 @@ function SwapPanelWrapContent({
     };
   }, []);
 
-  useEffect(() => {
-    if (
-      !isActionLoading &&
-      isReady &&
-      !speedSwapInitLoading &&
-      originalSupportSpeedSwap !== undefined
-    ) {
-      setHasInitialReady(true);
-    }
-  }, [
-    isActionLoading,
-    isReady,
-    originalSupportSpeedSwap,
-    speedSwapInitLoading,
-  ]);
-
   // Override setPaymentToken so user-initiated changes are persisted
   const swapPanelWithPreference = useMemo(
     () => ({
@@ -897,12 +856,9 @@ function SwapPanelWrapContent({
   );
 
   return (
-    <SwapPanelContent
+    <StockTradePanelContent
       activeAccount={activeAccount}
-      enableAddressTypeSelector={!!mergeDeriveAssetsEnabled}
       currentMarketToken={currentMarketToken}
-      onCloseDialog={onCloseDialog}
-      priceRate={executionReady ? priceRate : undefined}
       stockQuoteDisplay={executionReady ? stockQuoteDisplay : undefined}
       stockTokenToAssetRatio={stockTokenToAssetRatio}
       stockUnderlyingSymbol={stockId}
@@ -914,17 +870,15 @@ function SwapPanelWrapContent({
       balanceLoading={!executionReady || fetchBalanceLoading}
       paymentTokenPrice={executionReady ? paymentTokenPrice : undefined}
       paymentTokenDisplay={paymentTokenDisplay}
-      paymentTokenDisplayLoading={
-        Boolean(stockDetailDesktopLayout) && !paymentTokenDisplay
-      }
+      paymentTokenDisplayLoading={!paymentTokenDisplay}
       isLoading={isSwapPanelLoading}
-      isReviewActive={Boolean(reviewOwnsLoading)}
+      isReviewActive={reviewOwnsLoading}
       quoteLoading={
         !executionReady || (!reviewOwnsLoading && quoteActionLoading)
       }
       isActionDisabled={
         !executionReady ||
-        (isStockRoute && !selectedVariantTradable) ||
+        !selectedVariantTradable ||
         (selectedTokenVariant && !selectedVariantMatchesTokenDetail) ||
         marketPresetLoading ||
         (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
@@ -932,9 +886,7 @@ function SwapPanelWrapContent({
       isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
       onForceRefreshQuote={forceRefreshMarketQuote}
-      hasInitialReady={
-        stockDetailDesktopLayout ? executionReady : hasInitialReady
-      }
+      hasInitialReady={executionReady}
       onSwap={handleSwap}
       onOpenRecipientAddress={handleOpenRecipientAddress}
       slippageAutoValue={speedConfig?.slippage}
@@ -946,25 +898,21 @@ function SwapPanelWrapContent({
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       quoteResult={executionReady ? quoteResult : undefined}
-      quoteListLength={quoteList.length}
       onOpenProviderList={handleOpenProviderList}
       quoteError={executionReady ? quoteError : undefined}
       disableNativeToken={disableNativeToken}
-      marketPresetSettings={
-        stockDetailDesktopLayout ? undefined : marketPresetSettings
-      }
+      marketPresetSettings={undefined}
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-      stockDetailDesktopLayout={stockDetailDesktopLayout}
       portfolioData={portfolioData}
       resolvedVariantKeys={resolvedVariantKeys}
     />
   );
 }
 
-export function SwapPanelWrap(props: ISwapPanelWrapProps) {
+export function StockTradePanel(props: IStockTradePanelProps) {
   return (
     <SwapProviderMirror storeName={EJotaiContextStoreNames.marketSwap}>
-      <SwapPanelWrapContent {...props} />
+      <StockTradePanelContentContainer {...props} />
     </SwapProviderMirror>
   );
 }
