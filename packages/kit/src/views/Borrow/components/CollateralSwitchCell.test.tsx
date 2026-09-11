@@ -338,9 +338,36 @@ describe('CollateralSwitchCell settlement guard', () => {
     );
     const wrapper = view.UNSAFE_getByProps({ position: 'relative' });
 
-    expect(wrapper.props.m).toBeUndefined();
-    expect(wrapper.props.p).toBeUndefined();
-    expect(wrapper.props.hitSlop).toBeUndefined();
+    // Every spelling, not just the shorthand the halo happened to use: a
+    // longhand px/py/margin would reintroduce the same overhang.
+    const spacing = [
+      'm',
+      'margin',
+      'mx',
+      'my',
+      'ml',
+      'mr',
+      'mt',
+      'mb',
+      'marginHorizontal',
+      'marginVertical',
+      'p',
+      'padding',
+      'px',
+      'py',
+      'pl',
+      'pr',
+      'pt',
+      'pb',
+      'paddingHorizontal',
+      'paddingVertical',
+      'hitSlop',
+    ] as const;
+    const set = spacing.filter(
+      (key) => (wrapper.props as Record<string, unknown>)[key] !== undefined,
+    );
+
+    expect(set).toEqual([]);
   });
 
   it('uses the top-level account id and preserves eModeId=0 when enabling', async () => {
