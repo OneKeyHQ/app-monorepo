@@ -19,11 +19,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeGiftPages } from '@onekeyhq/shared/src/routes/prime';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { getPrimeGiftDurationText } from '../hooks/primeGiftDuration';
+import { usePrimeGiftOfferImpression } from '../hooks/usePrimeGiftOfferImpression';
 
 export function PrimeGiftOffer({
   device,
@@ -71,10 +73,20 @@ export function PrimeGiftOffer({
       appEventBus.off(EAppEventBusNames.PrimeGiftRedeemed, onRedeemed);
     };
   }, [serialNo, refresh]);
-  if (!serialNo || !eligibility?.eligible || !eligibility.hasUnclaimedGift)
+  const isEligible = Boolean(
+    serialNo && eligibility?.eligible && eligibility.hasUnclaimedGift,
+  );
+  const impressionRef = usePrimeGiftOfferImpression({
+    enabled: isEligible,
+    serialNo,
+    source,
+  });
+  if (!serialNo || !eligibility?.eligible || !eligibility.hasUnclaimedGift) {
     return null;
+  }
   return (
     <XStack
+      ref={impressionRef}
       testID={`prime-gift-offer-${source}`}
       accessibilityRole="button"
       focusable
@@ -87,17 +99,18 @@ export function PrimeGiftOffer({
       borderRadius="$4"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
-      onPress={() =>
-        navigation.pushModal(EModalRoutes.PrimeModal, {
-          screen: EPrimePages.PrimeGift,
+      onPress={() => {
+        defaultLogger.prime.subscription.primeGiftOfferClick({ source });
+        navigation.pushModal(EModalRoutes.PrimeGiftModal, {
+          screen: EPrimeGiftPages.PrimeGift,
           params: {
             device: deviceUtils.dbDeviceToSearchDevice(device),
             serialNo,
             source,
             onboardingRouteKey,
           },
-        })
-      }
+        });
+      }}
     >
       <Icon
         name={

@@ -30,6 +30,7 @@ jest.mock('@onekeyhq/components', () => {
     React.createElement('div', null, children);
   return {
     Page: Object.assign(Container, { Header: () => null, Body: Container }),
+    NavCloseButton: () => null,
   };
 });
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({

@@ -6,8 +6,10 @@ import { useIntl } from 'react-intl';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPrimeGiftAnalyticsSource } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { PrimeDarkDialogContainer } from '../../components/PrimeDarkDialogContainer';
 import {
   PrimeRedemptionFormView,
   PrimeRedemptionSuccessView,
@@ -30,6 +32,7 @@ type IPrimeRedemptionDialogParams = {
   isPrimeActiveBeforeRedeem: boolean;
   initialCode?: string;
   primeGiftSerialNo?: string;
+  giftSource?: IPrimeGiftAnalyticsSource;
   onRedeemed?: (result: IPrimeRedemptionResult) => void;
 };
 
@@ -38,6 +41,7 @@ function PrimeRedemptionDialogContent({
   isPrimeActiveBeforeRedeem,
   initialCode,
   primeGiftSerialNo,
+  giftSource,
   onRedeemed,
 }: IPrimeRedemptionDialogParams) {
   const intl = useIntl();
@@ -53,6 +57,7 @@ function PrimeRedemptionDialogContent({
     isPrimeActiveBeforeRedeem,
     initialCode,
     primeGiftSerialNo,
+    giftSource,
     onRedeemed,
   });
   const [isPendingPaymentConfirmation, setIsPendingPaymentConfirmation] =
@@ -166,9 +171,24 @@ function PrimeRedemptionDialogContent({
 export function showPrimeRedemptionDialog(
   params: IPrimeRedemptionDialogParams,
 ): IDialogInstance {
+  const renderContent = <PrimeRedemptionDialogContent {...params} />;
+  const isHardwarePrimeGift = Boolean(params.primeGiftSerialNo);
   return Dialog.show({
     testID: 'prime-redemption-dialog',
     showFooter: false,
-    renderContent: <PrimeRedemptionDialogContent {...params} />,
+    renderContent,
+    ...(isHardwarePrimeGift
+      ? {
+          dialogContainer: ({ ref }) => (
+            <PrimeDarkDialogContainer
+              ref={ref}
+              testID="prime-redemption-dialog"
+              showFooter={false}
+              renderContent={renderContent}
+              onClose={async () => undefined}
+            />
+          ),
+        }
+      : {}),
   });
 }

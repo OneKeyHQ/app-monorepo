@@ -28,6 +28,9 @@ export enum EPrimePages {
   PrimeInfiniPayment = 'PrimeInfiniPayment',
   // Infini crypto subscription management page
   PrimeInfiniSubscription = 'PrimeInfiniSubscription',
+}
+
+export enum EPrimeGiftPages {
   PrimeGift = 'PrimeGift',
 }
 
@@ -89,7 +92,10 @@ export type IPrimeParamList = {
     networkId?: string;
   };
   [EPrimePages.PrimeInfiniSubscription]: undefined;
-  [EPrimePages.PrimeGift]: {
+};
+
+export type IPrimeGiftParamList = {
+  [EPrimeGiftPages.PrimeGift]: {
     device: Omit<SearchDevice, 'commType'>;
     serialNo: string;
     source: 'onboarding' | 'deviceDetails';

@@ -7,8 +7,8 @@ import {
   Button,
   Dialog,
   Icon,
-  IconButton,
   LottieView,
+  Page,
   ScrollView,
   SizableText,
   Stack,
@@ -17,7 +17,6 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { SetupCard } from '@onekeyhq/kit/src/views/Onboardingv2/components/SetupCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
@@ -29,38 +28,12 @@ import { getPrimeGiftDurationText } from '../hooks/primeGiftDuration';
 import { PrimeBenefitsItem } from '../pages/PrimeDashboard/PrimeBenefitsList';
 import { PRIME_FEATURE_INTROS } from '../pages/PrimeFeatures/primeFeatureIntroUtils';
 
+import { PrimeDarkDialogContainer } from './PrimeDarkDialogContainer';
+
 import type { IntlShape } from 'react-intl';
 
 // UI transplanted from yikZero/app-monorepo, commit 120881a7a66e806bbf45858e937db0402c7f7607.
 // Callers supply live state and actions; layout and copy follow the original demo.
-
-export function PrimeGiftHeader({
-  title,
-  onBack,
-}: {
-  title: string;
-  onBack?: () => void;
-}) {
-  return (
-    <XStack h={52} px="$2" alignItems="center">
-      {onBack ? (
-        <IconButton
-          variant="tertiary"
-          size="large"
-          icon="ChevronLeftOutline"
-          testID="prime-gift-back"
-          onPress={onBack}
-        />
-      ) : (
-        <Stack w="$10" />
-      )}
-      <SizableText flex={1} textAlign="center" size="$headingMd">
-        {title}
-      </SizableText>
-      <Stack w="$10" />
-    </XStack>
-  );
-}
 
 function StatusCheckRow({
   done,
@@ -99,25 +72,33 @@ function StatusCheckRow({
 
 function openBenefits(intl: IntlShape) {
   Dialog.show({
-    testID: 'prime-gift-dialog-benefits',
-    title: intl.formatMessage({ id: ETranslations.prime_gift_benefits__title }),
-    renderContent: (
-      <ScrollView maxHeight={360}>
-        {PRIME_FEATURE_INTROS.filter((feature) => !feature.isComingSoon).map(
-          (feature) => (
-            <PrimeBenefitsItem
-              key={feature.id}
-              feature={feature}
-              itemProps={{ mx: 0, px: 0 }}
-            />
-          ),
-        )}
-      </ScrollView>
+    dialogContainer: ({ ref }) => (
+      <PrimeDarkDialogContainer
+        ref={ref}
+        testID="prime-gift-dialog-benefits"
+        title={intl.formatMessage({
+          id: ETranslations.prime_gift_benefits__title,
+        })}
+        renderContent={
+          <ScrollView maxHeight={360}>
+            {PRIME_FEATURE_INTROS.filter(
+              (feature) => !feature.isComingSoon,
+            ).map((feature) => (
+              <PrimeBenefitsItem
+                key={feature.id}
+                feature={feature}
+                itemProps={{ mx: 0, px: 0 }}
+              />
+            ))}
+          </ScrollView>
+        }
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.prime_gift_back_to_claim__action,
+        })}
+        showCancelButton={false}
+        onClose={async () => undefined}
+      />
     ),
-    onConfirmText: intl.formatMessage({
-      id: ETranslations.prime_gift_back_to_claim__action,
-    }),
-    showCancelButton: false,
   });
 }
 
@@ -179,50 +160,48 @@ export function PrimeGiftClaimContent({
           })}
         </Button>
       </YStack>
-      <SetupCard elevated={false}>
-        <YStack bg="$bgSubdued" borderRadius="$4" overflow="hidden" py="$1">
-          <StatusCheckRow
-            testID="prime-gift-check-account"
-            done={isAccountReady}
-            title={intl.formatMessage({
-              id: ETranslations.sign_in_to_onekey_id__title,
-            })}
-            status={
-              isAccountReady && accountName
-                ? accountName
-                : intl.formatMessage({
-                    id: ETranslations.prime_gift_account__desc,
-                  })
-            }
-          />
-          <StatusCheckRow
-            testID="prime-gift-check-device"
-            done={isDeviceVerified}
-            title={intl.formatMessage({
-              id: ETranslations.prime_gift_verify__title,
-            })}
-            status={intl.formatMessage({
-              id: isDeviceVerified
-                ? ETranslations.prime_gift_verified__desc
-                : ETranslations.prime_gift_verify__desc,
-            })}
-          />
-          <StatusCheckRow
-            testID="prime-gift-check-eligibility"
-            done={isDeviceVerified && isEligible}
-            title={intl.formatMessage({
-              id: ETranslations.prime_gift_eligibility__title,
-            })}
-            status={
-              isDeviceVerified
-                ? eligibilityStatus
-                : intl.formatMessage({
-                    id: ETranslations.prime_gift_eligibility_pending__desc,
-                  })
-            }
-          />
-        </YStack>
-      </SetupCard>
+      <YStack bg="$bgSubdued" borderRadius="$4" overflow="hidden" py="$1">
+        <StatusCheckRow
+          testID="prime-gift-check-account"
+          done={isAccountReady}
+          title={intl.formatMessage({
+            id: ETranslations.sign_in_to_onekey_id__title,
+          })}
+          status={
+            isAccountReady && accountName
+              ? accountName
+              : intl.formatMessage({
+                  id: ETranslations.prime_gift_account__desc,
+                })
+          }
+        />
+        <StatusCheckRow
+          testID="prime-gift-check-device"
+          done={isDeviceVerified}
+          title={intl.formatMessage({
+            id: ETranslations.prime_gift_verify__title,
+          })}
+          status={intl.formatMessage({
+            id: isDeviceVerified
+              ? ETranslations.prime_gift_verified__desc
+              : ETranslations.prime_gift_verify__desc,
+          })}
+        />
+        <StatusCheckRow
+          testID="prime-gift-check-eligibility"
+          done={isDeviceVerified && isEligible}
+          title={intl.formatMessage({
+            id: ETranslations.prime_gift_eligibility__title,
+          })}
+          status={
+            isDeviceVerified
+              ? eligibilityStatus
+              : intl.formatMessage({
+                  id: ETranslations.prime_gift_eligibility_pending__desc,
+                })
+          }
+        />
+      </YStack>
       {error ? (
         <Alert
           type="critical"
@@ -246,23 +225,25 @@ export function PrimeGiftClaimFooter({
 }) {
   const intl = useIntl();
   return (
-    <YStack px="$5" pt="$3" pb="$5" gap="$3" flexShrink={0}>
-      <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-        {intl.formatMessage({
-          id: ETranslations.prime_gift_eligible_device_once__desc,
-        })}
-      </SizableText>
-      <Button
-        size="large"
-        variant="primary"
-        loading={isProcessing}
-        disabled={isProcessing}
-        testID="prime-gift-claim-primary"
-        onPress={onSubmit}
+    <Page.Footer>
+      <Page.FooterActions
+        onConfirm={() => {
+          onSubmit();
+        }}
+        onConfirmText={primaryLabel}
+        confirmButtonProps={{
+          loading: isProcessing,
+          disabled: isProcessing,
+          testID: 'prime-gift-claim-primary',
+        }}
       >
-        {primaryLabel}
-      </Button>
-    </YStack>
+        <SizableText size="$bodySm" color="$textSubdued" $md={{ mb: '$2' }}>
+          {intl.formatMessage({
+            id: ETranslations.prime_gift_eligible_device_once__desc,
+          })}
+        </SizableText>
+      </Page.FooterActions>
+    </Page.Footer>
   );
 }
 
@@ -400,20 +381,14 @@ export function PrimeGiftSuccessContent({
 }
 
 export function PrimeGiftClaimView({
-  onBack,
   primaryLabel,
   isProcessing,
   onSubmit,
   ...contentProps
 }: ComponentProps<typeof PrimeGiftClaimContent> &
-  ComponentProps<typeof PrimeGiftClaimFooter> & { onBack: () => void }) {
-  const intl = useIntl();
+  ComponentProps<typeof PrimeGiftClaimFooter>) {
   return (
     <YStack flex={1}>
-      <PrimeGiftHeader
-        title={intl.formatMessage({ id: ETranslations.prime_gift__title })}
-        onBack={onBack}
-      />
       <ScrollView flex={1}>
         <PrimeGiftClaimContent {...contentProps} />
       </ScrollView>
@@ -438,16 +413,19 @@ export function PrimeGiftSuccessView({
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
         <PrimeGiftSuccessContent {...contentProps} />
       </ScrollView>
-      <YStack px="$5" pb="$5">
-        <Button
-          size="large"
-          variant="primary"
-          testID="prime-gift-enter-wallet"
-          onPress={onEnterWallet}
-        >
-          {intl.formatMessage({ id: ETranslations.enter_wallet })}
-        </Button>
-      </YStack>
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirm={() => {
+            onEnterWallet();
+          }}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.enter_wallet,
+          })}
+          confirmButtonProps={{
+            testID: 'prime-gift-enter-wallet',
+          }}
+        />
+      </Page.Footer>
     </YStack>
   );
 }
