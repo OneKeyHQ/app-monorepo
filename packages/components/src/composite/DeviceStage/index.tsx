@@ -29,10 +29,6 @@ import { easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
 import {
-  restoreAndroidSoftInputMode,
-  suspendAndroidSoftInputPan,
-} from '../../hooks/useKeyboardController';
-import {
   Button,
   Haptics,
   Icon,
@@ -586,25 +582,6 @@ export function DeviceStage({
       fireStepHaptic(step);
     }
   }, [step]);
-  // The system-keyboard steps own their lift: the shell already rides the
-  // keyboard (MorphOverlay), so the Android window must not pan on top of
-  // it. The manifest's adjustPan did exactly that for the passphrase field
-  // — it sits low on the screen, so the OS shoved the whole window up by
-  // the overlap while the shell rose by the keyboard's height, and the card
-  // ended a keyboard's worth above the keys with its title in the status
-  // bar (OK-62098). Adjust-nothing for the step's stay, the manifest mode
-  // back the moment it leaves. No-op off Android.
-  const systemKeyboardStep =
-    step === 'passphraseOnApp' || step === 'pairingCode';
-  useEffect(() => {
-    if (!systemKeyboardStep) {
-      return undefined;
-    }
-    suspendAndroidSoftInputPan();
-    return () => {
-      restoreAndroidSoftInputMode();
-    };
-  }, [systemKeyboardStep]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
   }, []);
@@ -619,6 +596,7 @@ export function DeviceStage({
     swapFade,
     progress,
     width: morphWidth,
+    reveal,
     pillSize,
     reducedMotion,
   } = morph;
@@ -1047,6 +1025,8 @@ export function DeviceStage({
   // fade gated by the card's arrival window, so a reveal racing the
   // teleport can never show the device at the wrong seat.
   const pillHeight = pillSize.height;
+  // Both windows also wear the island morph's reveal (see MorphOverlay),
+  // under the warm floor: the layer stays rasterized through the grow.
   const replicaLayerStyle = useAnimatedStyle(() => {
     // Layout-free centering: the box's live width in a transform,
     // snapped to the physical pixel grid — Yoga rounds layout but a
@@ -1069,7 +1049,7 @@ export function DeviceStage({
               [0, PILL_OUT_END],
               [1, 0],
               Extrapolation.CLAMP,
-            ),
+            ) * reveal.value,
             REPLICA_HOLD_ALPHA,
           ) * capsuleSeatShown.value,
         transform: [{ translateX: centerX }, { translateY: -REPLICA_TOP }],
@@ -1078,6 +1058,7 @@ export function DeviceStage({
     const staged =
       replicaShown.value *
       swapFade.value *
+      reveal.value *
       interpolate(
         progress.value,
         [CARD_IN_START, 1],
@@ -1093,7 +1074,7 @@ export function DeviceStage({
           : Math.max(staged, REPLICA_HOLD_ALPHA),
       transform: [{ translateX: centerX }, { translateY: 0 }],
     };
-  }, [capsuleSeatShown, morphWidth, progress, replicaShown, swapFade]);
+  }, [capsuleSeatShown, morphWidth, progress, replicaShown, reveal, swapFade]);
   // At the thumbnail seat the window opens to the capsule's own height —
   // nothing to crop, the whole device is on show.
   const portWindowStyle = useAnimatedStyle(

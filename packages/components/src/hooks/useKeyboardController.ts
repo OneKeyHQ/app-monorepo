@@ -14,8 +14,3 @@ export const useKeyboardState = () => {
     isVisible: false,
   };
 };
-
-// Web and desktop have no soft-input window mode; see the native file.
-export function suspendAndroidSoftInputPan(): void {}
-
-export function restoreAndroidSoftInputMode(): void {}

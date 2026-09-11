@@ -297,10 +297,11 @@ export function StepButton({
 /** The demo host: the stage portals to the shell's canvas-wide mount
  * (the hardware-dialog level) on every platform, and its minHeight
  * (window minus a workbench-chrome allowance) keeps the canvas — and so
- * that mount — tall enough for the stage to anchor to the bottom. The
- * stage is modal — its wall takes every touch on the canvas — so the
- * driver's buttons ride the same portal, mounted after the stage and
- * therefore above it: a bar floating along the canvas top. */
+ * that mount — tall enough for a card hung from its top. The stage is
+ * modal — its wall takes every touch on the canvas — so the driver's
+ * buttons ride the same portal, mounted after the stage and therefore
+ * above it: a bar floating along the canvas bottom, clear of the
+ * stage's own edge. */
 export function StageHost({
   driver,
   props,
@@ -315,7 +316,7 @@ export function StageHost({
     () => (
       <XStack
         position="absolute"
-        top={0}
+        bottom={0}
         left={0}
         right={0}
         p="$2"

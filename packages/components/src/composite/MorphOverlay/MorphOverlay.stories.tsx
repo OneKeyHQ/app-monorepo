@@ -169,15 +169,16 @@ function Demo({
     [goTall, goWaiting, onShortLayout, onTallLayout, shown],
   );
 
-  // The story's host, the stage stories' own: the overlay anchored to
-  // the bottom of a canvas kept tall enough (window minus a
-  // workbench-chrome allowance), and the buttons on the same portal,
-  // mounted after it and so above its wall — a bar along the canvas top.
+  // The story's host, the stage stories' own: the overlay hung from the
+  // top of a canvas kept tall enough (window minus a workbench-chrome
+  // allowance), and the buttons on the same portal, mounted after it
+  // and so above its wall — a bar along the canvas bottom, clear of the
+  // shell.
   const bar = useMemo(
     () => (
       <XStack
         position="absolute"
-        top={0}
+        bottom={0}
         left={0}
         right={0}
         p="$2"

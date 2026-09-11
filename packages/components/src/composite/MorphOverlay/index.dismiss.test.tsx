@@ -75,10 +75,10 @@ jest.mock('react-native-reanimated', () => {
     cancelAnimation: jest.fn(),
     makeMutable: <T,>(value: T) => ({ value }),
     runOnJS: jest.fn(identity),
-    useAnimatedKeyboard: () => ({ height: { value: 0 } }),
     useAnimatedStyle: () => ({}),
     useReducedMotion: () => false,
     useSharedValue: <T,>(value: T) => useRef({ value }).current,
+    withDelay: <T,>(_delay: number, value: T): T => value,
     withSpring: identity,
     withTiming: identity,
   };
@@ -96,7 +96,7 @@ const dragEvent = {
   absoluteX: 0,
   absoluteY: 0,
   translationX: 0,
-  translationY: 24,
+  translationY: -24,
   velocityX: 0,
   velocityY: 0,
 };
@@ -175,7 +175,7 @@ describe('MorphOverlay dismiss gesture', () => {
     setPose('card');
     act(() => {
       latestGesture().handlers.onEnd?.(
-        { ...dragEvent, translationY: 300 },
+        { ...dragEvent, translationY: -300 },
         true,
       );
     });
@@ -191,7 +191,10 @@ describe('MorphOverlay dismiss gesture', () => {
       setPose('hidden');
       setPose('card');
       act(() => {
-        latestGesture().handlers.onUpdate?.({ ...dragEvent, translationY: 48 });
+        latestGesture().handlers.onUpdate?.({
+          ...dragEvent,
+          translationY: -48,
+        });
       });
       const reopenedPresence = state.result.current.presence.value;
       expect(reopenedPresence).toBeLessThan(1);
@@ -203,7 +206,7 @@ describe('MorphOverlay dismiss gesture', () => {
           gesture.handlers.onFinalize?.(dragEvent, false);
         }
         if (event === 'dismiss') {
-          gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+          gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
         }
       });
       expect(state.result.current.presence.value).toBe(reopenedPresence);
@@ -215,7 +218,7 @@ describe('MorphOverlay dismiss gesture', () => {
     const { state, gesture, setPose, onDismiss } = setup();
     jest.mocked(runOnJS).mockImplementationOnce(() => jest.fn());
     act(() => {
-      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
     });
     const queuedDismiss = jest.mocked(runOnJS).mock.calls.at(-1)?.[0];
     expect(queuedDismiss).toBeInstanceOf(Function);
@@ -225,6 +228,16 @@ describe('MorphOverlay dismiss gesture', () => {
     setPose('card');
     act(() => {
       if (typeof queuedDismiss === 'function') queuedDismiss();
+    });
+    expect(state.result.current.presence.value).toBe(1);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('never dismisses on a downward drag — the shell hangs from the top', () => {
+    const { state, gesture, onDismiss } = setup();
+    act(() => {
+      gesture.handlers.onUpdate?.({ ...dragEvent, translationY: 300 });
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
     });
     expect(state.result.current.presence.value).toBe(1);
     expect(onDismiss).not.toHaveBeenCalled();

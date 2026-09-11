@@ -22,6 +22,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -36,10 +37,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { Portal } from '../../hocs';
-import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
+
+import { dynamicIslandRect } from './dynamicIsland';
 
 import type { LayoutChangeEvent } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -49,15 +51,16 @@ import type { SharedValue } from 'react-native-reanimated';
  * resting as a capsule when nothing is asked of the person and blooming
  * into a card when something is — the breathing is the point. It owns
  * the surface itself: the pose springs, the measured rest sizes, the
- * presence door, the keyboard ride, the two-phase crossing that swaps
- * one card content for another on an empty beat, and the chrome around
- * the content — the optional scrim, the card's toolbar band (grabber
- * and close button), the capsule's trailing close button, and the
- * dismiss gestures. What the poses SAY is the caller's business
- * entirely — content arrives as slots (capsule row, parked card seats,
- * an optional under-content stage layer), and callers with animated
- * flow of their own ride the same clock through `onAim` (see
- * DeviceStage, the container's one tenant and the reason it exists).
+ * presence door and the Dynamic Island morph it hangs from, the
+ * two-phase crossing that swaps one card content for another on an
+ * empty beat, and the chrome around the content — the optional scrim,
+ * the card's toolbar band (the close button), the capsule's trailing
+ * close button, and the dismiss gesture. What the poses SAY is the
+ * caller's business entirely — content arrives as slots (capsule row,
+ * parked card seats, an optional under-content stage layer), and
+ * callers with animated flow of their own ride the same clock through
+ * `onAim` (see DeviceStage, the container's one tenant and the reason
+ * it exists).
  *
  * The design file's layer tree maps onto the view like this (Modules /
  * MorphOverlay): Overlay → the scrim; Outer Container → the layer plus
@@ -135,15 +138,17 @@ export function stageBgAlpha(alpha: number): string {
 
 /**
  * The resting capsule's own chrome: `pad` is the capsule's padding
- * around the caller's row (the trailing close button sits inside it),
- * `lift` its clearance from the layer's bottom edge (the spec floats it
- * clear). The caller's row is the capsule's content — whatever it
- * renders, plus this padding, IS the capsule, radius pinned to
- * height/2, a true capsule.
+ * around the caller's row (the trailing close button sits inside it);
+ * `wideTop` its clearance from the layer's top edge on a wide window,
+ * clear of the desktop's title bar. On a phone-class window the capsule
+ * shares the card's seat under the status bar band (see CARD.margin).
+ * The caller's row is the capsule's content — whatever it renders, plus
+ * this padding, IS the capsule, radius pinned to height/2, a true
+ * capsule.
  */
 export const PILL = {
   pad: 16,
-  lift: 36,
+  wideTop: 36,
 };
 
 /** First-frame stand-ins for the capsule's rest size, corrected by the
@@ -154,9 +159,12 @@ const PILL_REST = {
 };
 
 /**
- * The expanded card, floating the way the system sheet itself floats
- * (the iOS 26 appearance: ~10-13pt of air on the sides and the bottom,
- * measured off the sheet on an iPhone 17 Pro): `margin` is that gap and
+ * The expanded card, hung under the status bar band — the notification
+ * banner's own seat, clear of the clock (which the system paints over
+ * everything) and of the Dynamic Island (a cutout nothing can paint
+ * over); a wide window has no band to speak of and hangs it off the top
+ * edge itself. `margin` is its air under that band and off the sides
+ * (the system sheet's own ~10-13pt, measured on an iPhone 17 Pro) and
  * `radius` is the corner, the concentric value on the reference phone
  * (that display's corner radius minus `margin`). It is a constant on
  * every platform: the only source for a real per-device radius is a
@@ -164,10 +172,9 @@ const PILL_REST = {
  * and no public API exposes it. Height hugs the content column plus the
  * chrome.
  * `pad` is the content column's side inset; `padTop` is the toolbar
- * band the content starts under (the grabber's 16 plus 10 of air) — a
- * fixed band, so the close button coming and going never shifts the
- * column; `bottomPad` is the air under the last block, which together
- * with `margin` clears a home-indicator phone's 34pt zone.
+ * band the content starts under (the close button's territory) — a
+ * fixed band, so the button coming and going never shifts the column;
+ * `bottomPad` is the air under the last block, the card's chin.
  */
 export const CARD = {
   margin: 8,
@@ -182,9 +189,10 @@ export const CARD = {
   maxWidth: 400,
 };
 
-/** The toolbar's furniture: the system sheet's own grabber, and the
- * 44pt close circle inset from the card's top-right corner. */
-const GRABBER = { top: 5, width: 36, height: 5 };
+/** The toolbar's furniture: the 44pt close circle inset from the card's
+ * top-right corner. (The sheet grammar's grabber left with the bottom
+ * posture — a card hung from the top dismisses by an upward drag,
+ * undecorated, the way desktop prompt cards do.) */
 const CLOSE = { inset: 16, size: 44 };
 
 /** The optional scrim over the app — the design's dark overlay, lighter
@@ -241,17 +249,34 @@ export const SWAP_IN_MS = 280;
 export const ARRANGE_MS = 560;
 export const arrangeEase = Easing.bezierFn(0.4, 0, 0.2, 1);
 
-/** Extra travel past the shell's own height when it sinks off the edge,
- * covering the lift and the home-indicator band. */
+/** Extra travel past the shell's own height when it slides off the top
+ * edge, covering the lift and the shadow's spread under the shell. */
 const EXIT_OVERSHOOT = 80;
 
 /**
+ * The Dynamic Island morph (see ./dynamicIsland): on an island phone
+ * the shell appears AS the island — its own rectangle, indistinguishable
+ * from it — and grows to the pose from there, dropping to its seat
+ * under the status bar; a programmatic exit shrinks it back up into the
+ * island. The content reveals a beat behind the growing box and hides
+ * ahead of the shrinking one.
+ */
+const ISLAND_REVEAL_DELAY_MS = 120;
+const ISLAND_REVEAL_MS = 220;
+const ISLAND_HIDE_MS = 150;
+/** The native shell shadow at rest; the island morph fades it with the
+ * content — a halo around the bare island would give the morph away. */
+const SHELL_SHADOW_OPACITY = 0.3;
+
+/**
  * The dismiss drag, tuned toward the system sheet: the card follows the
- * finger down 1:1 and meets a rubber band upward; release projects the
- * finger's momentum a beat ahead and dismisses past half the card,
- * otherwise the card springs back to rest. The drag rides `presence`
- * itself — the shell's own exit axis — so a dismissing release simply
- * continues into the exit, velocity and all.
+ * finger up 1:1 (off the edge it hangs from) and meets a rubber band
+ * downward; release projects the finger's momentum a beat ahead and
+ * dismisses past half the card, otherwise the card springs back to
+ * rest. The drag rides `presence` itself — the shell's own slide axis —
+ * so a dismissing release simply continues into the slide-out, velocity
+ * and all (never into the island shrink: a gesture's exit follows the
+ * finger).
  */
 const DRAG_RUBBER = 0.55;
 const DRAG_PROJECTION_S = 0.15;
@@ -267,6 +292,8 @@ function rubberBand(distance: number, dimension: number): number {
 }
 
 const styles = StyleSheet.create({
+  // The shell hangs from the top edge on every platform — the
+  // notification's place — and centers on the window.
   layer: {
     position: 'absolute',
     top: 0,
@@ -274,10 +301,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  // The wide posture's anchor: the shell hangs from the top edge.
-  layerTop: {
     justifyContent: 'flex-start',
   },
   backdrop: {
@@ -303,7 +326,7 @@ const styles = StyleSheet.create({
     ...(platformEnv.isNative
       ? {
           shadowColor: '#000',
-          shadowOpacity: 0.3,
+          shadowOpacity: SHELL_SHADOW_OPACITY,
           shadowRadius: 24,
           shadowOffset: { width: 0, height: 10 },
         }
@@ -372,23 +395,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: '50%',
   },
-  // The toolbar band over the seats, on the same centering: the grabber
-  // at the card's center, the close button inset from its corner. Tall
-  // enough to contain the button (native hit-testing stops at a parent's
-  // frame); box-none, so the band itself never takes a touch from the
-  // column under it.
+  // The toolbar band over the seats, on the same centering: the close
+  // button inset from the card's corner. Tall enough to contain the
+  // button (native hit-testing stops at a parent's frame); box-none, so
+  // the band itself never takes a touch from the column under it.
   toolbar: {
     position: 'absolute',
     top: 0,
     left: '50%',
     height: CLOSE.inset + CLOSE.size,
     alignItems: 'center',
-  },
-  grabber: {
-    marginTop: GRABBER.top,
-    width: GRABBER.width,
-    height: GRABBER.height,
-    borderRadius: GRABBER.height / 2,
   },
   cardBadge: {
     position: 'absolute',
@@ -518,6 +534,10 @@ export interface IMorphOverlayState<T> {
   radius: SharedValue<number>;
   lift: SharedValue<number>;
   presence: SharedValue<number>;
+  /** The Dynamic Island morph's content window: 0 while the shell is
+   * the bare island, 1 at rest — and 1 throughout wherever there is no
+   * island. Content layers multiply their opacity by it. */
+  reveal: SharedValue<number>;
   /** The capsule's measured rest size — the caller's row plus the
    * capsule's own padding (estimates until the first layout report). */
   pillSize: { width: number; height: number };
@@ -659,9 +679,10 @@ export function useMorphOverlay<T>(
   const width = useSharedValue(PILL_REST.estimatedWidth);
   const height = useSharedValue(PILL_REST.estimatedHeight);
   const radius = useSharedValue(PILL_REST.estimatedHeight / 2);
-  const lift = useSharedValue(PILL.lift);
+  const lift = useSharedValue(CARD.margin);
   const progress = useSharedValue(live.pose === 'card' ? 1 : 0);
   const presence = useSharedValue(live.pose === 'hidden' ? 0 : 1);
+  const reveal = useSharedValue(1);
 
   return {
     pose: live.pose,
@@ -674,6 +695,7 @@ export function useMorphOverlay<T>(
     radius,
     lift,
     presence,
+    reveal,
     pillSize,
     reducedMotion,
     onPillLayout,
@@ -709,7 +731,7 @@ export interface IMorphOverlayProps<T> {
   onAim?: (facts: IMorphAimFacts) => void;
   /**
    * The person's way out, and the switch for every dismissal at once:
-   * given, the card wears its close button and follows a downward drag
+   * given, the card wears its close button and follows an upward drag
    * (release past half the card, or with momentum, dismisses), and the
    * capsule wears its trailing close button; absent, none of those
    * exist and the stage can only be left by the driver. Tapping outside
@@ -802,20 +824,12 @@ export function MorphOverlay<T>({
     radius,
     lift,
     presence,
+    reveal,
     pillSize,
     reducedMotion,
     onPillLayout,
   } = morph;
   const { width: screenWidth } = useWindowDimensions();
-  // The keyboard ride reads the app's keyboard-controller feed — the one
-  // PageFooter and the keyboard-aware pages already ride — so the shell
-  // and the app's own inputs move on the same frames (OK-62107).
-  // Reanimated's useAnimatedKeyboard is deprecated upstream: iOS 26 hands
-  // it end values only, and its interactive-dismiss tracking could leave a
-  // stale height standing after the keyboard was gone, which rested the
-  // capsule a keyboard's worth above the edge with nothing on screen to
-  // clear. The feed's height is negative on native; web pins it at 0.
-  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
   const themeName = useThemeName();
   // The shell's edge definition — the native ring's hairline border, the
   // web outline — is the dark theme's neutral3 whatever the app's theme:
@@ -824,39 +838,30 @@ export function MorphOverlay<T>({
   // native ring and the web outline are one value.)
   const shellEdgeColor = getTokenValue('$neutral3Dark', 'color');
   const media = useMedia();
-  // The posture switch, on the Dialog's own sheet↔panel line (md, a
-  // phone-class window): phone posture rests the shell on the bottom
-  // edge — the sheet grammar, thumb and keyboard territory — while a
-  // wide window (iPad, desktop, a wide web tab) hangs it from the top,
-  // where the notification grammar lives. One boundary, two faces: the
-  // anchor flips, and the card's width cap applies only to the wide
-  // side.
-  const phonePosture = media.md;
-  // Android draws edge to edge, so the layer's bottom edge is the
-  // screen's — under the navigation bar — and the phone-posture shell
-  // lifts by that inset on top of its own clearance (OK-62279: the
-  // capsule and the card sat behind the bar). iOS keeps the constants:
-  // PILL.lift and CARD.margin + bottomPad were sized against the
-  // home-indicator zone already. The wide posture hangs from the top,
-  // where no bottom inset applies.
-  //
-  // The keyboard ADDS to it on purpose, no max: the feed's Android
-  // keyboard height is the IME inset minus the system bar (it treats the
-  // bar as opaque unless told otherwise), so inset + keyboard is exactly
-  // the keyboard's top edge measured from the screen bottom; a max would
-  // rest the shell one bar height under the keyboard.
-  //
-  // A shared value, so the drag worklets and the position worklet read
-  // the same clearance (an inset change — a nav-mode switch — re-aims
-  // both without rebuilding the gesture).
+  // The window class, on the Dialog's own sheet↔panel line (md, a
+  // phone-class window). The shell hangs from the top on both sides of
+  // it; the class only picks the capsule's seat and caps the card's
+  // width on the wide side (iPad, desktop, a wide web tab).
+  const phoneClass = media.md;
+  // The shell's seat on a phone-class window: under the status bar band
+  // — the notification banner's place — with the card's own margin of
+  // air, capsule and card alike. The band is the top inset: on an island
+  // or notch phone it carries the cutout, which nothing can paint over,
+  // and the clock, which the system paints over everything; a wide
+  // window has no band to speak of and keeps its own constants.
   const insets = useSafeAreaInsets();
-  const bottomInset =
-    platformEnv.isNativeAndroid && phonePosture ? insets.bottom : 0;
-  const bottomClearance = useSharedValue(bottomInset);
-  useEffect(() => {
-    bottomClearance.value = bottomInset;
-  }, [bottomClearance, bottomInset]);
-  const cardWidth = phonePosture
+  const phoneTop = insets.top + CARD.margin;
+  const pillTop = phoneClass ? phoneTop : PILL.wideTop;
+  const cardTop = phoneClass ? phoneTop : CARD.margin;
+  // The Dynamic Island, when the window has one: the rectangle every
+  // entrance grows out of and every programmatic exit shrinks back into
+  // (see ./dynamicIsland). Read off the same inset, so a rotation
+  // (landscape reports no inset) drops it and the plain slide takes over.
+  const island = useMemo(
+    () => dynamicIslandRect(insets.top, Boolean(platformEnv.isNativeIOS)),
+    [insets.top],
+  );
+  const cardWidth = phoneClass
     ? screenWidth - CARD.margin * 2
     : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
   const cardHeight = CARD.padTop + cardInnerHeight + CARD.bottomPad;
@@ -902,13 +907,54 @@ export function MorphOverlay<T>({
     prevTokenRef.current = heightArrangeToken;
     const first = firstRunRef.current;
     firstRunRef.current = false;
+    // The settled signal rides the height animation, not the progress
+    // spring: height is the one size axis every transition class moves
+    // (a live in-card move never touches progress), so "settled" means
+    // the size has actually landed, crossings and flights alike. A
+    // re-aim mid-flight reports unfinished and stays silent. Explicit
+    // 'worklet' directive: the babel plugin only converts callbacks
+    // written inline in the animation call on its own.
+    const notifySettled = (finished?: boolean) => {
+      'worklet';
+
+      if (finished && onGeometrySettled) {
+        runOnJS(onGeometrySettled)();
+      }
+    };
     if (pose === 'hidden') {
-      // The shell leaves the way the system sheet does: it sinks whole
-      // below the bottom edge, opaque all the way. Geometry holds, so
-      // the slide never doubles as a shrink. After a dismissing drag
-      // the exit is already in flight on this very axis — the spring
-      // re-aimed here simply carries on, velocity and all.
-      presence.value = first || reducedMotion ? 0 : withSpring(0, MORPH_SPRING);
+      // A programmatic exit on an island phone shrinks the shell back
+      // into the island, the content hiding ahead of the box; the
+      // presence gate closes the moment the box lands on the island's
+      // own rectangle — where the shell IS the island, so the gate is
+      // invisible. Every other exit slides whole past the top edge,
+      // opaque all the way — the notification's move — and geometry
+      // holds, so the slide never doubles as a shrink. After a
+      // dismissing drag the slide is already in flight on the presence
+      // axis (the finger's own line): the spring re-aimed here simply
+      // carries on, velocity and all, and never turns into a shrink.
+      if (island && !first && !reducedMotion && presence.value === 1) {
+        reveal.value = withTiming(0, {
+          duration: ISLAND_HIDE_MS,
+          easing: easeInFn,
+        });
+        width.value = withSpring(island.width, MORPH_SPRING);
+        height.value = withSpring(
+          island.height,
+          MORPH_SPRING,
+          (finished?: boolean) => {
+            'worklet';
+
+            if (finished) {
+              presence.value = 0;
+            }
+          },
+        );
+        radius.value = withSpring(island.radius, MORPH_SPRING);
+        lift.value = withSpring(island.top, MORPH_SPRING);
+      } else {
+        presence.value =
+          first || reducedMotion ? 0 : withSpring(0, MORPH_SPRING);
+      }
       onGeometrySettled?.();
       return;
     }
@@ -918,29 +964,54 @@ export function MorphOverlay<T>({
       height: card ? cardHeight : pillSize.height,
       // A capsule's radius tracks its own height — always half of it.
       radius: card ? cardRadius : pillSize.height / 2,
-      lift: card ? CARD.margin : PILL.lift,
+      lift: card ? cardTop : pillTop,
       progress: card ? 1 : 0,
     };
-    // An entrance appears already at its pose — geometry snaps while the
-    // shell is still invisible, then presence carries the arrival. The
+    // An entrance appears already at its pose: on an island phone the
+    // shell appears AS the island (its own rectangle, presence already
+    // up — indistinguishable from the island itself) and grows to the
+    // pose from there, the content revealing a beat behind the box;
+    // elsewhere geometry snaps while the shell is still invisible and
+    // presence carries the arrival, the slide in from the top edge. The
     // very first run is the mount landing on whatever pose it opened at.
     // The snap window outlives the arrival commit (the presence check):
     // while presence is under overshoot/(height+lift+overshoot) — the
-    // same travel math as positionStyle — the door has not yet lifted
-    // the shell's top past the anchored edge, so a measure landing a
+    // same travel math as positionStyle — the door has not yet lowered
+    // the shell's bottom past the top edge, so a measure landing a
     // frame later (parked content flipped on the entrance itself, see
     // DeviceStage's stage tail) corrects the geometry in place while
     // provably off screen, instead of visibly springing under the
-    // reveal.
-    const offscreenBelow =
-      EXIT_OVERSHOOT /
-      (targets.height + targets.lift + bottomInset + EXIT_OVERSHOOT);
-    const arriving = prevPose === 'hidden' || presence.value < offscreenBelow;
+    // reveal. (The island entrance runs presence at 1 from its first
+    // frame, so a later measure re-aims springs already in flight — the
+    // box is growing anyway.)
+    const offscreenAbove =
+      EXIT_OVERSHOOT / (targets.height + targets.lift + EXIT_OVERSHOOT);
+    const arriving = prevPose === 'hidden' || presence.value < offscreenAbove;
     if (first || reducedMotion || arriving) {
+      if (island && !first && !reducedMotion) {
+        width.value = island.width;
+        height.value = island.height;
+        radius.value = island.radius;
+        lift.value = island.top;
+        reveal.value = 0;
+        progress.value = targets.progress;
+        onAim?.({ snap: true, card, landInPlace: true });
+        presence.value = 1;
+        width.value = withSpring(targets.width, MORPH_SPRING);
+        height.value = withSpring(targets.height, MORPH_SPRING, notifySettled);
+        radius.value = withSpring(targets.radius, MORPH_SPRING);
+        lift.value = withSpring(targets.lift, MORPH_SPRING);
+        reveal.value = withDelay(
+          ISLAND_REVEAL_DELAY_MS,
+          withTiming(1, { duration: ISLAND_REVEAL_MS, easing: easeOutFn }),
+        );
+        return;
+      }
       width.value = targets.width;
       height.value = targets.height;
       radius.value = targets.radius;
       lift.value = targets.lift;
+      reveal.value = 1;
       progress.value = targets.progress;
       onAim?.({ snap: true, card, landInPlace: true });
       presence.value = first || reducedMotion ? 1 : withSpring(1, MORPH_SPRING);
@@ -965,20 +1036,6 @@ export function MorphOverlay<T>({
     width.value = withSpring(targets.width, MORPH_SPRING);
     // A crossing lands content and height target together — in one
     // piece — see `cardContentMeasured` for the one deferral.
-    // The settled signal rides the height animation, not the progress
-    // spring: height is the one size axis every transition class moves
-    // (a live in-card move never touches progress), so "settled" means
-    // the size has actually landed, crossings and flights alike. A
-    // re-aim mid-flight reports unfinished and stays silent. Explicit
-    // 'worklet' directive: the babel plugin only converts callbacks
-    // written inline in the animation call on its own.
-    const notifySettled = (finished?: boolean) => {
-      'worklet';
-
-      if (finished && onGeometrySettled) {
-        runOnJS(onGeometrySettled)();
-      }
-    };
     const landed = card && prevPose === 'card' && prevKey !== shownKey;
     if (!landed || cardContentMeasured) {
       height.value = heightRidesArrange
@@ -995,23 +1052,26 @@ export function MorphOverlay<T>({
   }, [
     onGeometrySettled,
     activeSeatKey,
-    bottomInset,
     cardContentMeasured,
     cardHeight,
     cardRadius,
+    cardTop,
     cardWidth,
     height,
     heightArrangeToken,
+    island,
     lift,
     litKey,
     onAim,
     pillSize,
+    pillTop,
     pillWidth,
     pose,
     presence,
     progress,
     radius,
     reducedMotion,
+    reveal,
     shownKey,
     width,
   ]);
@@ -1037,24 +1097,20 @@ export function MorphOverlay<T>({
         .activeOffsetY([-DRAG_ACTIVATION_PT, DRAG_ACTIVATION_PT])
         .onUpdate((event) => {
           if (!dragAllowed.value) return;
-          // The dismissing direction is the anchored edge's own: down on
-          // the bottom, up off the top. Normalized here, the rest of the
-          // math never knows which way the shell hangs.
-          const drag = phonePosture ? event.translationY : -event.translationY;
+          // The dismissing direction is the anchored edge's own: up, off
+          // the top. Normalized here, the rest of the math only knows
+          // "toward the exit".
+          const drag = -event.translationY;
           // The same door the position worklet opens (see positionStyle).
-          const travel =
-            height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT;
+          const travel = height.value + lift.value + EXIT_OVERSHOOT;
           const pull = drag >= 0 ? drag : -rubberBand(-drag, height.value);
           presence.value = 1 - pull / travel;
         })
         .onEnd((event) => {
           if (!dragAllowed.value) return;
-          const drag = phonePosture ? event.translationY : -event.translationY;
-          const dragVelocity = phonePosture
-            ? event.velocityY
-            : -event.velocityY;
-          const travel =
-            height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT;
+          const drag = -event.translationY;
+          const dragVelocity = -event.velocityY;
+          const travel = height.value + lift.value + EXIT_OVERSHOOT;
           // Finger velocity, in presence units per second.
           const velocity = -dragVelocity / travel;
           const projected = drag + dragVelocity * DRAG_PROJECTION_S;
@@ -1071,25 +1127,15 @@ export function MorphOverlay<T>({
             presence.value = withSpring(1, MORPH_SPRING);
           }
         }),
-    [
-      bottomClearance,
-      dismissFromDrag,
-      dragAllowed,
-      dragEnabled,
-      height,
-      lift,
-      phonePosture,
-      presence,
-    ],
+    [dismissFromDrag, dragAllowed, dragEnabled, height, lift, presence],
   );
 
   // Size and position ride separate styles on purpose: the size worklet
   // returns layout props only (no transform array), so its output passes
   // reanimated's shallow-equal check and re-commits layout ONLY when the
-  // morph moves those axes — while presence and keyboard frames stay
-  // pure view transforms, no Yoga pass. The translate restates the old
-  // bottom-margin ride exactly: the layer bottom-anchors this single
-  // child, so margin and -translate are the same pixel.
+  // morph moves those axes — while presence frames stay pure view
+  // transforms, no Yoga pass. The layer top-anchors this single child,
+  // so the lift and the translate are the same pixel.
   const geometrySizeStyle = useAnimatedStyle(
     () => ({
       width: width.value,
@@ -1099,37 +1145,26 @@ export function MorphOverlay<T>({
     [height, radius, width],
   );
   const positionStyle = useAnimatedStyle(() => {
-    // Being-there, the shell's door, spoken off the anchored edge: on
-    // the bottom (phone posture) exits sink below it — the presented
-    // sheet's own move — and the lift and the keyboard's spring ride
-    // the same axis, so app-side inputs stay above it frame for frame.
-    // Hung from the top (wide posture) the same door opens upward, the
-    // notification's move, and the keyboard never collides. A drag
-    // pulls presence under 1 (and a breath over it, rubber-banded), so
-    // the finger rides this same line either way.
+    // Being-there, the shell's door, spoken off the top edge it hangs
+    // from: a slide exit lifts the shell whole past that edge — the
+    // notification's move — and a drag pulls presence under 1 (and a
+    // breath over it, rubber-banded), so the finger rides this same
+    // line. The island morph never moves this axis: it keeps presence
+    // at 1 and shrinks the box instead. The keyboard is nobody's
+    // business up here — the app's own inputs ride below, in its
+    // territory.
     const travel =
-      (1 - presence.value) *
-      (height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT);
+      (1 - presence.value) * (height.value + lift.value + EXIT_OVERSHOOT);
     return {
       // The hard gate on the hidden rest (OK-62485): fully departed, the
       // shell paints nothing at all. The slide itself stays opaque to the
       // last frame, so no exit looks different — but the parked shell can
-      // no longer be caught on screen when the anchor and this transform
-      // land in different frames (a rotation flips the posture, and with
-      // it the anchor's edge and this door's direction).
+      // no longer be caught on screen when a layout and this transform
+      // land in different frames (a rotation re-seats the capsule).
       opacity: presence.value > 0 ? 1 : 0,
-      transform: [
-        {
-          translateY: phonePosture
-            ? travel -
-              lift.value -
-              bottomClearance.value -
-              Math.abs(keyboardHeight.value)
-            : lift.value - travel,
-        },
-      ],
+      transform: [{ translateY: lift.value - travel }],
     };
-  }, [bottomClearance, height, keyboardHeight, lift, phonePosture, presence]);
+  }, [height, lift, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
   // the exit and the drag alike. Its level rides a clock of its own, so a
   // flip while the shell is up (a wait turning into a failure card,
@@ -1147,9 +1182,10 @@ export function MorphOverlay<T>({
     () => ({
       opacity:
         interpolate(presence.value, [0, 1], [0, 1], Extrapolation.CLAMP) *
+        reveal.value *
         scrimLevel.value,
     }),
-    [presence, scrimLevel],
+    [presence, reveal, scrimLevel],
   );
   // The face clips, so it re-rounds in step with the shell — and the
   // native ring wears the same style to hug the same corner.
@@ -1157,16 +1193,19 @@ export function MorphOverlay<T>({
     () => ({ borderRadius: radius.value }),
     [radius],
   );
+  // Every content window also wears the island morph's reveal — 1
+  // wherever there is no island, so nothing changes elsewhere.
   const pillFadeStyle = useAnimatedStyle(
     () => ({
-      opacity: interpolate(
-        progress.value,
-        [0, PILL_OUT_END],
-        [1, 0],
-        Extrapolation.CLAMP,
-      ),
+      opacity:
+        interpolate(
+          progress.value,
+          [0, PILL_OUT_END],
+          [1, 0],
+          Extrapolation.CLAMP,
+        ) * reveal.value,
     }),
-    [progress],
+    [progress, reveal],
   );
   // The pose window times the crossing swap: swapFade is the two-phase
   // branch fade, 1 whenever no crossing is in flight. Opacity and scale
@@ -1176,6 +1215,7 @@ export function MorphOverlay<T>({
     () => ({
       opacity:
         swapFade.value *
+        reveal.value *
         interpolate(
           progress.value,
           [CARD_IN_START, 1],
@@ -1193,21 +1233,22 @@ export function MorphOverlay<T>({
         },
       ],
     }),
-    [progress, swapFade],
+    [progress, reveal, swapFade],
   );
   // The toolbar belongs to the card pose, not to its content: it rides
   // the pose window alone, so a crossing swapping the seats underneath
-  // never blinks the grabber or the close button.
+  // never blinks the close button.
   const toolbarFadeStyle = useAnimatedStyle(
     () => ({
-      opacity: interpolate(
-        progress.value,
-        [CARD_IN_START, 1],
-        [0, 1],
-        Extrapolation.CLAMP,
-      ),
+      opacity:
+        interpolate(
+          progress.value,
+          [CARD_IN_START, 1],
+          [0, 1],
+          Extrapolation.CLAMP,
+        ) * reveal.value,
     }),
-    [progress],
+    [progress, reveal],
   );
 
   // The wall over the app: the scrim's tint under its animated level —
@@ -1225,21 +1266,33 @@ export function MorphOverlay<T>({
     ],
     [scrimFadeStyle, themeName],
   );
+  // The shell's edge furniture fades with the island morph's reveal: a
+  // shadow halo or a hairline ring around the bare island would give
+  // the morph away. Web has no island and no ring; its outline and CSS
+  // shadow stay static.
+  const shellRevealStyle = useAnimatedStyle(
+    () => ({ shadowOpacity: SHELL_SHADOW_OPACITY * reveal.value }),
+    [reveal],
+  );
+  const ringRevealStyle = useAnimatedStyle(
+    () => ({ borderRadius: radius.value, opacity: reveal.value }),
+    [radius, reveal],
+  );
   const shellStyle = useMemo(
     () =>
       platformEnv.isNative
-        ? [styles.shell, geometrySizeStyle, positionStyle]
+        ? [styles.shell, geometrySizeStyle, positionStyle, shellRevealStyle]
         : [
             styles.shell,
             geometrySizeStyle,
             positionStyle,
             { outlineColor: shellEdgeColor },
           ],
-    [geometrySizeStyle, positionStyle, shellEdgeColor],
+    [geometrySizeStyle, positionStyle, shellEdgeColor, shellRevealStyle],
   );
   const ringStyle = useMemo(
-    () => [styles.ring, faceRadiusStyle, { borderColor: shellEdgeColor }],
-    [faceRadiusStyle, shellEdgeColor],
+    () => [styles.ring, ringRevealStyle, { borderColor: shellEdgeColor }],
+    [ringRevealStyle, shellEdgeColor],
   );
   const faceStyle = useMemo(
     () => [styles.face, faceRadiusStyle],
@@ -1256,10 +1309,6 @@ export function MorphOverlay<T>({
   const cardStyle = useMemo(
     () => [styles.cardContent, cardCenter, cardFadeStyle],
     [cardCenter, cardFadeStyle],
-  );
-  const layerStyle = useMemo(
-    () => (phonePosture ? styles.layer : [styles.layer, styles.layerTop]),
-    [phonePosture],
   );
   const toolbarStyle = useMemo(
     () => [styles.toolbar, cardCenter, toolbarFadeStyle],
@@ -1282,7 +1331,7 @@ export function MorphOverlay<T>({
           box-none layer out of the native hierarchy, and the flattened
           path loses hit-testing for the whole subtree — the stage draws
           but nothing inside takes a touch. Keep the native view. */}
-      <Stack style={layerStyle} pointerEvents="box-none" collapsable={false}>
+      <Stack style={styles.layer} pointerEvents="box-none" collapsable={false}>
         {/* The wall blocks the app whenever the shell is there, and is
             deliberately NOT a dismissal surface: a stray tap outside
             must never cancel a device operation mid-flight — the close
@@ -1317,21 +1366,13 @@ export function MorphOverlay<T>({
                     </PanelSeat>
                   ))}
                 </Animated.View>
-                {/* The card's toolbar band: the grabber whenever the
-                    card is on show, the close button with the grant.
-                    Over the seats, so the button stays tappable above
-                    whatever column is lit. */}
+                {/* The card's toolbar band: the close button with the
+                    grant. Over the seats, so the button stays tappable
+                    above whatever column is lit. */}
                 <Animated.View
                   style={toolbarStyle}
                   pointerEvents={pose === 'card' ? 'box-none' : 'none'}
                 >
-                  {/* The grabber is the sheet grammar's handle — phone
-                      posture only. A top-hung card dismisses by its
-                      close button (and an upward drag, undecorated),
-                      the way desktop prompt cards do. */}
-                  {phonePosture ? (
-                    <Stack style={styles.grabber} bg="$neutral6" />
-                  ) : null}
                   {cornerBadge ? (
                     <Animated.View
                       style={styles.cardBadge}
