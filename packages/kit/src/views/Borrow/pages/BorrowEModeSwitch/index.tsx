@@ -166,8 +166,19 @@ function BorrowEModeSwitchView() {
     isFocused,
     previousIsFocused,
   });
+  // Picking a category pushes and pops a screen, so this page blurs and
+  // refocuses on every pick — and the pick has already run its own check for
+  // that id. Without this the revalidation below fires a second identical
+  // request and flashes the footer's pending guard. Returning from the
+  // background still revalidates, which is what this exists for.
+  const pickRanOwnCheckRef = useRef(false);
   useEffect(() => {
-    if (!focusActivationPending || selection.userSelection === null) {
+    if (!focusActivationPending) {
+      return;
+    }
+    const pickAlreadyChecked = pickRanOwnCheckRef.current;
+    pickRanOwnCheckRef.current = false;
+    if (pickAlreadyChecked || selection.userSelection === null) {
       return;
     }
     void runCheck(selection.userSelection);
@@ -222,6 +233,7 @@ function BorrowEModeSwitchView() {
         return;
       }
       setUserSelection(eModeId);
+      pickRanOwnCheckRef.current = true;
       void runCheck(eModeId);
     };
   }, [eModeStatus?.eModeId, resetTarget, runCheck]);
