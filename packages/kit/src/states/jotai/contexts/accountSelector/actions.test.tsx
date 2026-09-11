@@ -3,9 +3,11 @@
 import type { ReactNode } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as ThirdPartyHardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import { Toast } from '@onekeyhq/components';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
@@ -248,6 +250,13 @@ const mockGetAllNetworksFallbackNetworkId = jest.fn<
   [{ walletId: string }]
 >();
 
+jest.mock('@onekeyhq/components', () => ({
+  ...jest.requireActual<typeof import('@onekeyhq/components')>(
+    '@onekeyhq/components',
+  ),
+  Toast: { error: jest.fn() },
+}));
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
   const actual = jest.requireActual<
     typeof import('@onekeyhq/kit-bg/src/states/jotai/utils')
@@ -326,6 +335,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceAccount: {
+      isThirdPartyHwByWalletId: jest.fn().mockResolvedValue(true),
       addTonImportedAccountByMnemonic: (
         ...args: Parameters<typeof mockAddTonImportedAccountByMnemonic>
       ) => mockAddTonImportedAccountByMnemonic(...args),
@@ -3145,6 +3155,43 @@ describe('useAccountSelectorActions', () => {
         failedAccounts: [],
       });
     });
+
+    it.each(['onboarding', 'standard-wallet'] as const)(
+      'handles resolved passphrase-only failures in %s mode',
+      async (mode) => {
+        mockAddDefaultNetworkAccountsService.mockResolvedValue({
+          addedAccounts: [],
+          failedAccounts: [
+            {
+              networkId: 'evm--1',
+              deriveType: 'default',
+              error: {
+                code: ThirdPartyHardwareErrorCode.PassphraseAlwaysOnDevice,
+              },
+            },
+          ],
+        });
+        const { Wrapper } = createWrapper();
+        const { result } = renderHook(
+          () => useAccountSelectorActions().current,
+          { wrapper: Wrapper },
+        );
+
+        await act(async () => {
+          const createdResult =
+            await result.current.createHWWalletWithoutHidden(createParams, {
+              mode,
+            });
+          expect(createdResult.accountCreationResult?.status).toBe(
+            mode === 'onboarding' ? 'requires-hidden-wallet' : 'completed',
+          );
+        });
+
+        expect(Toast.error).toHaveBeenCalledTimes(
+          mode === 'onboarding' ? 0 : 1,
+        );
+      },
+    );
 
     it('gives a newly created wallet selection All Networks when the store has no network yet', async () => {
       const { Wrapper, store } = createWrapper();

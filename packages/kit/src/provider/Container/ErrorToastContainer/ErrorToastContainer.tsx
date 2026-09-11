@@ -8,7 +8,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  ETranslations,
+  isKnownTranslationKey,
+} from '@onekeyhq/shared/src/locale';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 
 import { getErrorAction } from './ErrorToasts';
@@ -108,8 +111,7 @@ export function ErrorToastContainer() {
 
       const canLocalizeError =
         p.i18nKey &&
-        ((p.isHardwareError &&
-          Object.values<string>(ETranslations).includes(p.i18nKey)) ||
+        ((p.isHardwareError && isKnownTranslationKey(p.i18nKey)) ||
           MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
           (p.i18nKey === ETranslations.wallet_action_failed &&
             typeof p.i18nInfo?.message === 'string'));

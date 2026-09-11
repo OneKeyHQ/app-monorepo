@@ -1878,6 +1878,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         hideCheckingDeviceLoading?: boolean;
         autoHandleExitError?: boolean;
         isCreateWallet?: boolean;
+        deferPassphraseAlwaysOnDeviceToast?: boolean;
       },
     ) => {
       const {
@@ -1887,6 +1888,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         hideCheckingDeviceLoading,
         autoHandleExitError = true,
         isCreateWallet,
+        deferPassphraseAlwaysOnDeviceToast,
       } = params;
       defaultLogger.account.batchCreatePerf.addDefaultNetworkAccounts({
         wallet,
@@ -2037,10 +2039,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 failedAccount.error.code,
               )
             ) {
-              Toast.error({
-                title:
-                  ETranslations.hardware_third_party_passphrase_always_on_device,
-              });
+              if (!deferPassphraseAlwaysOnDeviceToast) {
+                Toast.error({
+                  title:
+                    ETranslations.hardware_third_party_passphrase_always_on_device,
+                });
+              }
             } else {
               const network =
                 await backgroundApiProxy.serviceNetwork.getNetwork({

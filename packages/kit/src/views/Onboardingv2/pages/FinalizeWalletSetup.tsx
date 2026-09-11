@@ -50,7 +50,10 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  ETranslations,
+  isKnownTranslationKey,
+} from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
@@ -775,8 +778,7 @@ function FinalizeWalletSetupPage({
       setSetupError({
         messageId: fixErrorString(
           hardwareError
-            ? (errorKey &&
-              Object.values<string>(ETranslations).includes(errorKey)
+            ? (errorKey && isKnownTranslationKey(errorKey)
                 ? errorKey
                 : undefined) ||
                 hardwareError.messageId ||

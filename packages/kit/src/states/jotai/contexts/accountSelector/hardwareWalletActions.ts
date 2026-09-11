@@ -102,13 +102,22 @@ async function createStandardWalletAccounts({
   mode: IHardwareWalletCreationMode;
 }): Promise<IFinalizeWalletSetupAccountCreationResult> {
   try {
-    await actions.addDefaultNetworkAccounts.call(set, {
+    const result = await actions.addDefaultNetworkAccounts.call(set, {
       wallet,
       indexedAccount,
       isCreateWallet: true,
       skipDeviceCancel: false,
       hideCheckingDeviceLoading,
+      deferPassphraseAlwaysOnDeviceToast: mode === 'onboarding',
     });
+    if (
+      mode === 'onboarding' &&
+      result?.failedAccounts.some(({ error }) =>
+        isThirdPartyPassphraseAlwaysOnDeviceErrorCode(error.code),
+      )
+    ) {
+      return { status: 'requires-hidden-wallet' };
+    }
     return { status: 'completed' };
   } catch (error) {
     if (
