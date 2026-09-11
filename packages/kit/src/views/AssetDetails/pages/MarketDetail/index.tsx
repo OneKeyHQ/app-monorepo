@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { Currency, useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -44,7 +44,6 @@ type IMarketDetailProps = IPageScreenProps<
 
 export function MarketDetailContent({ coinGeckoId }: { coinGeckoId: string }) {
   const intl = useIntl();
-  const currency = useCurrency();
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
@@ -97,7 +96,7 @@ export function MarketDetailContent({ coinGeckoId }: { coinGeckoId: string }) {
                   </SizableText>
                   <Currency
                     pt="$2"
-                    sourceCurrency={currency.id}
+                    sourceCurrency={USD_CURRENCY_ID}
                     targetCurrency={USD_CURRENCY_ID}
                     size="$heading3xl"
                   >
@@ -152,7 +151,7 @@ export function MarketDetailContent({ coinGeckoId }: { coinGeckoId: string }) {
           </Tabs.Container>
         ) : (
           <Stack flex={1} ai="center" jc="center" gap="$2">
-            {isLoading ? (
+            {isLoading !== false ? (
               <Spinner size="large" />
             ) : (
               <>
