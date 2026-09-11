@@ -37,6 +37,8 @@ export interface ITableProps<T> {
   showHeader?: boolean;
   showBackToTopButton?: boolean;
   showSkeleton?: boolean;
+  // Mount offscreen web rows when they approach the viewport.
+  deferOffscreenRows?: boolean;
   skeletonCount?: number;
   dataSource: T[];
   estimatedDataLength?: number;

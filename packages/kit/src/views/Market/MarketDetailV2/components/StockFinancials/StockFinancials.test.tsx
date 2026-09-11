@@ -284,16 +284,124 @@ it('preserves useful charts and exposes retry for partial source failure', () =>
   expect(mockRetry).toHaveBeenCalledTimes(1);
 });
 
-it('hides low-consensus annual estimates without discarding quarterly estimates', () => {
+it('preserves annual and quarterly estimates regardless of analyst counts', () => {
   expect(
     buildFinancialChart(annual, 'earnings', labels).rows[0].values,
-  ).toEqual([2, null]);
+  ).toEqual([2, 3]);
   expect(
     buildFinancialChart(quarterly, 'earnings', labels).rows[0].values,
   ).toEqual([2, 3]);
 });
 
-it('shows exact hover values and missing fields without converting them to zero', () => {
+it.each([null, 0, 1, 2, 3])(
+  'renders annual Estimate with %s analysts',
+  (numAnalysts) => {
+    mockResult.annual.data = {
+      ...annual,
+      earnings: {
+        items: [{ ...annual.earnings.items[0], numAnalysts }],
+      },
+    };
+    renderFinancials();
+    const chart = screen.getByTestId('stock-financials-earnings-chart');
+    expect(chart.querySelectorAll('circle')).toHaveLength(2);
+    fireEvent.mouseEnter(
+      screen.getByTestId('stock-financials-earnings-chart-point-0'),
+    );
+    expect(
+      screen.getByTestId('stock-financials-earnings-chart-tooltip').textContent,
+    ).toContain('Estimate 3');
+  },
+);
+
+it('leaves absent estimates empty instead of inventing a zero comparison', () => {
+  mockResult.annual.data = {
+    ...annual,
+    earnings: {
+      items: [{ ...annual.earnings.items[0], estimate: null }],
+    },
+  };
+  renderFinancials();
+  expect(
+    screen
+      .getByTestId('stock-financials-earnings-chart')
+      .querySelectorAll('circle'),
+  ).toHaveLength(1);
+  fireEvent.mouseEnter(
+    screen.getByTestId('stock-financials-earnings-chart-point-0'),
+  );
+  expect(
+    screen.getByTestId('stock-financials-earnings-chart-tooltip').textContent,
+  ).toContain('Estimate --');
+});
+
+it('renders dated quarterly forecasts when the API omits the fiscal period', () => {
+  mockResult.quarter.data = {
+    ...quarterly,
+    earnings: {
+      items: [
+        { ...quarterly.earnings.items[0], estimate: null },
+        {
+          ...quarterly.earnings.items[0],
+          date: '2026-09-30',
+          fiscalYear: '2026',
+          fiscalPeriod: undefined,
+          actual: null,
+          estimate: 1.98,
+        },
+      ],
+    },
+  };
+  renderFinancials();
+  fireEvent.click(screen.getByTestId('stock-financials-earnings-quarter'));
+  const chart = screen.getByTestId('stock-financials-earnings-chart');
+  expect(chart.querySelectorAll('circle')).toHaveLength(2);
+  expect(chart.querySelector('circle[fill="none"]')).toBeTruthy();
+  fireEvent.mouseEnter(
+    screen.getByTestId('stock-financials-earnings-chart-point-1'),
+  );
+  const tooltip = screen.getByTestId('stock-financials-earnings-chart-tooltip');
+  expect(tooltip.textContent).toContain('2026-09-30');
+  expect(tooltip.textContent).toContain('Actual --');
+  expect(tooltip.textContent).toContain('Estimate 1.98');
+});
+
+it('uses the same compact amount units for axes and hover values in every locale', () => {
+  const chart = buildFinancialChart(
+    {
+      ...annual,
+      performance: [
+        {
+          ...annual.performance[0],
+          revenue: 100_000_000_000,
+          netIncome: 20_000_000_000,
+        },
+      ],
+    },
+    'performance',
+    labels,
+  );
+  render(
+    <IntlProvider locale="zh-CN" messages={intlMessages}>
+      <FinancialChart rows={chart.rows} series={chart.series} testID="chart" />
+    </IntlProvider>,
+  );
+  expect(
+    screen.getByTestId('chart').querySelector('svg')?.textContent,
+  ).toContain('110B');
+  fireEvent.mouseEnter(screen.getByTestId('chart-point-0'));
+  expect(screen.getByTestId('chart-tooltip').textContent).toContain(
+    'Revenue 100B',
+  );
+  expect(screen.getByTestId('chart-tooltip').textContent).toContain(
+    'Net income 20B',
+  );
+  expect(screen.getByTestId('chart-tooltip').textContent).toContain(
+    'Net margin % 20%',
+  );
+});
+
+it('shows hover values and missing fields without converting them to zero', () => {
   const chart = buildFinancialChart(annual, 'debt', labels);
   render(
     <IntlProvider locale="en" messages={intlMessages}>

@@ -1,3 +1,4 @@
+import { reportInstallAttribution } from '@onekeyhq/kit/src/components/LastActivityTracker/installAttribution';
 import {
   closeWcPayDialog,
   getWcPayDialogState,
@@ -6,6 +7,7 @@ import {
 } from '@onekeyhq/kit/src/views/WalletConnectPay/dialog/wcPayDialogStore';
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabMarketRoutes,
@@ -80,6 +82,13 @@ jest.mock('../../../../views/Earn/earnUtils', () => ({
 jest.mock('../../../../views/WebView/utils/webViewNavigation', () => ({
   openWebView: jest.fn(),
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/components/LastActivityTracker/installAttribution',
+  () => ({
+    reportInstallAttribution: jest.fn(async () => {}),
+  }),
+);
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   perpsCommonConfigPersistAtom: {
@@ -244,6 +253,7 @@ describe('stocks / perps universal links', () => {
   it.each([
     'https://app.onekey.so/market',
     'https://app.onekeytest.com/market/',
+    'https://app.onekey.so/clip/market?click_id=0123456789ABCDEFGHIJKL',
   ])('routes market universal link to the Market tab home: %s', async (url) => {
     handleDeepLinkUrl({ url });
     await flushAsyncTasks();
@@ -257,6 +267,243 @@ describe('stocks / perps universal links', () => {
       },
     });
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+
+  it('consumes App Clip attribution for a direct universal-link handoff on iOS', async () => {
+    const originalIsNativeIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    try {
+      handleDeepLinkUrl({
+        url: 'https://app.onekey.so/clip/market?click_id=ABCDEFGHIJKL0123456789&utm_campaign=direct',
+      });
+      await flushAsyncTasks();
+
+      expect(reportInstallAttribution).toHaveBeenCalledTimes(1);
+    } finally {
+      platformEnv.isNativeIOS = originalIsNativeIOS;
+    }
+  });
+
+  it('opens a same-domain App Clip web campaign in the full-app WebView', async () => {
+    const { openWebView } = jest.requireMock(
+      '../../../../views/WebView/utils/webViewNavigation',
+    );
+    const webUrl = 'https://app.onekey.so/campaign/summer?source=app-clip';
+    handleDeepLinkUrl({
+      url: `https://app.onekey.so/clip/web/summer?web_url=${encodeURIComponent(
+        webUrl,
+      )}`,
+    });
+    await flushAsyncTasks();
+
+    expect(openWebView).toHaveBeenCalledWith({
+      appClipCampaign: true,
+      source: 'deeplink',
+      url: webUrl,
+    });
+  });
+
+  it('routes an App Clip selection to the existing market detail page', async () => {
+    handleDeepLinkUrl({
+      url: 'https://app.onekey.so/clip/market?network=eth&address=0x1234&is_native=false',
+    });
+    await flushAsyncTasks();
+
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          tokenAddress: '0x1234',
+          network: 'eth',
+          isNative: false,
+        },
+      },
+    });
+  });
+
+  it('preserves a Cosmos IBC denomination in an App Clip handoff', async () => {
+    const ibcDenom = `ibc/${'A'.repeat(64)}`;
+    handleDeepLinkUrl({
+      url: `https://app.onekey.so/clip/market?network=cosmos--osmosis-1&address=${encodeURIComponent(
+        ibcDenom,
+      )}&is_native=false`,
+    });
+    await flushAsyncTasks();
+
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          tokenAddress: ibcDenom,
+          network: 'cosmos--osmosis-1',
+          isNative: false,
+        },
+      },
+    });
+  });
+
+  it('preserves a Cosmos factory denomination in an App Clip handoff', async () => {
+    const factoryDenom = 'factory/osmo1creator/subdenom';
+    handleDeepLinkUrl({
+      url: `https://app.onekey.so/clip/market?network=cosmos--osmosis-1&address=${encodeURIComponent(
+        factoryDenom,
+      )}&is_native=false`,
+    });
+    await flushAsyncTasks();
+
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          tokenAddress: factoryDenom,
+          network: 'cosmos--osmosis-1',
+          isNative: false,
+        },
+      },
+    });
+  });
+
+  it('unwraps a validated App Clip custom-scheme market handoff', async () => {
+    const originalIsNativeIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    const canonicalUrl =
+      'https://app.onekey.so/clip/market?network=evm--56&address=0x1234&is_native=false&symbol=QUQ&click_id=0123456789ABCDEFGHIJKL';
+    try {
+      handleDeepLinkUrl({
+        url: `onekey-wallet://app-clip?url=${encodeURIComponent(canonicalUrl)}`,
+      });
+      await flushAsyncTasks();
+
+      expect(reportInstallAttribution).toHaveBeenCalledTimes(1);
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: {
+            tokenAddress: '0x1234',
+            network: 'evm--56',
+            isNative: false,
+          },
+        },
+      });
+    } finally {
+      platformEnv.isNativeIOS = originalIsNativeIOS;
+    }
+  });
+
+  it('preserves an empty native-token address in an App Clip handoff', async () => {
+    const canonicalUrl =
+      'https://app.onekey.so/clip/market?network=btc--0&address=&is_native=true&symbol=BTC';
+    handleDeepLinkUrl({
+      url: `onekey-wallet://app-clip?url=${encodeURIComponent(canonicalUrl)}`,
+    });
+    await flushAsyncTasks();
+
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          tokenAddress: '',
+          network: 'btc--0',
+          isNative: true,
+        },
+      },
+    });
+  });
+
+  it('unwraps a validated App Clip web handoff', async () => {
+    const { openWebView } = jest.requireMock(
+      '../../../../views/WebView/utils/webViewNavigation',
+    );
+    const webUrl = 'https://app.onekey.so/campaign/autumn?source=app-clip';
+    const canonicalUrl = `https://app.onekey.so/clip/web?web_url=${encodeURIComponent(
+      webUrl,
+    )}&utm_campaign=autumn`;
+    handleDeepLinkUrl({
+      url: `onekey-wallet://app-clip?url=${encodeURIComponent(canonicalUrl)}`,
+    });
+    await flushAsyncTasks();
+
+    expect(openWebView).toHaveBeenCalledWith({
+      appClipCampaign: true,
+      source: 'deeplink',
+      url: webUrl,
+    });
+  });
+
+  it.each([
+    'https://evil.example/clip/market?network=eth&address=0x1234',
+    'https://app.onekey.so/settings',
+    'not-a-url',
+  ])(
+    'rejects an invalid App Clip custom-scheme handoff: %s',
+    async (canonicalUrl) => {
+      const { openWebView } = jest.requireMock(
+        '../../../../views/WebView/utils/webViewNavigation',
+      );
+      handleDeepLinkUrl({
+        url: `onekey-wallet://app-clip?url=${encodeURIComponent(canonicalUrl)}`,
+      });
+      await flushAsyncTasks();
+
+      expect(navigate).not.toHaveBeenCalled();
+      expect(openWebView).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not consume App Clip attribution for an invalid custom-scheme handoff', async () => {
+    const originalIsNativeIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    try {
+      const canonicalUrl =
+        'https://evil.example/clip/market?network=eth&address=0x1234';
+      handleDeepLinkUrl({
+        url: `onekey-wallet://app-clip?url=${encodeURIComponent(canonicalUrl)}`,
+      });
+      await flushAsyncTasks();
+
+      expect(reportInstallAttribution).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNativeIOS = originalIsNativeIOS;
+    }
+  });
+
+  it('falls back to market home for invalid App Clip market detail params', async () => {
+    handleDeepLinkUrl({
+      url: 'https://app.onekey.so/clip/market?network=eth&address=https%3A%2F%2Fevil.example',
+    });
+    await flushAsyncTasks();
+
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.TabMarket,
+      },
+    });
+  });
+
+  it.each([
+    'http://app.onekey.so/campaign',
+    'https://evil.example/campaign',
+    'https://user:secret@app.onekey.so/campaign',
+    'https://app.onekey.so/settings',
+    'https://app.onekey.so/campaigns',
+  ])('rejects an unsafe App Clip web campaign URL: %s', async (webUrl) => {
+    const { openWebView } = jest.requireMock(
+      '../../../../views/WebView/utils/webViewNavigation',
+    );
+    handleDeepLinkUrl({
+      url: `https://app.onekey.so/clip/web?web_url=${encodeURIComponent(
+        webUrl,
+      )}`,
+    });
+    await flushAsyncTasks();
+
+    expect(openWebView).not.toHaveBeenCalled();
   });
 
   it('routes earn detail universal link to EarnProtocolDetailsShare with vault', async () => {
