@@ -139,7 +139,9 @@ function SettingCategoryListItem({
       iconProps={iconProps}
       title={title}
       subtitle={config.subtitle}
-      px={SETTINGS_PAGE_CONTENT_PADDING_X}
+      {...(useMobilePresentation
+        ? undefined
+        : { px: SETTINGS_PAGE_CONTENT_PADDING_X })}
       titleProps={titleProps}
       onPress={handlePress}
     />
