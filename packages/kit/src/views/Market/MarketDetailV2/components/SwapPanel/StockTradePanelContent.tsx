@@ -459,10 +459,12 @@ export function StockTradePanelContent(props: IStockTradePanelContentProps) {
 
   const noAccount =
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
-  // ActionButton enables its fallback action, so keep it out of transient stock loading states.
+  // ActionButton enables its fallback action even when its generic disabled
+  // flag is set. Keep it out of transient stock loading states only.
   const shouldUseSwapFallbackAction =
     speedConfigReady &&
-    !isActionDisabled &&
+    !isLoading &&
+    !quoteLoading &&
     shouldJumpToMarketTradeFallback({
       supportSpeedSwap: supportSpeedSwap.enabled,
       isAccountNetworkSupported: supportSpeedSwap.isAccountNetworkSupported,

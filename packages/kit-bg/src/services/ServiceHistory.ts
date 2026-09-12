@@ -3232,6 +3232,9 @@ class ServiceHistory extends ServiceBase {
         xpub,
       });
       if (prevTx) {
+        if (prevTx.stakingInfo && !newHistoryTx.stakingInfo) {
+          newHistoryTx.stakingInfo = prevTx.stakingInfo;
+        }
         prevTx.decodedTx.status = EDecodedTxStatus.Dropped;
         prevTx.replacedNextId = newHistoryTx.id;
 

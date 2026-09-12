@@ -461,6 +461,19 @@ describe('StockTradePanelContent', () => {
     );
   });
 
+  it('keeps the full Swap fallback available after an unavailable quote', () => {
+    const props = createProps();
+    props.supportSpeedSwap.enabled = false;
+    props.isActionDisabled = true;
+
+    render(<StockTradePanelContent {...props} />);
+
+    expect(swapActionsStateMock).not.toHaveBeenCalled();
+    expect(actionButtonMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ disabled: true }),
+    );
+  });
+
   it.each([false, true])(
     'keeps a neutral action while stock execution is not ready (speed config ready: %p)',
     (speedConfigReady) => {

@@ -13,7 +13,7 @@ import {
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { safePushToEarnRoute } from '../Earn/earnUtils';
+import { EarnNavigation, safePushToEarnRoute } from '../Earn/earnUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
@@ -39,10 +39,7 @@ export const BorrowNavigation = {
       return;
     }
 
-    // Reserve details are pushed on top of BorrowHome on desktop. Pop the
-    // detail route so the existing BorrowProvider and selected market remain
-    // mounted instead of creating a second, empty BorrowHome instance.
-    navigation.pop();
+    void EarnNavigation.popToEarnHome(navigation, { mode: 'borrow' });
   },
 
   // Navigate from deep link (when user clicks a borrow share link)
