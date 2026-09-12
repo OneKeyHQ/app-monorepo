@@ -736,12 +736,14 @@ function mergeLocalTxDisplayFields({
   localTx: IAccountHistoryTx;
   onChainHistoryTx: IAccountHistoryTx;
 }): IAccountHistoryTx {
+  const localStakingInfo = localTx.stakingInfo;
   if (onChainHistoryTx.decodedTx.payload?.label) {
-    return onChainHistoryTx;
+    return localStakingInfo && !onChainHistoryTx.stakingInfo
+      ? { ...onChainHistoryTx, stakingInfo: localStakingInfo }
+      : onChainHistoryTx;
   }
 
   const localTransfer = localTx.decodedTx.actions?.[0]?.assetTransfer;
-  const localStakingInfo = localTx.stakingInfo;
   // stakingInfo also identifies a staking tx whose merged record no longer has
   // an assetTransfer action (the indexer parsed no transfers), so the label
   // survives every later refresh instead of only the first merge.
@@ -752,6 +754,14 @@ function mergeLocalTxDisplayFields({
   if (!isInternalStaking && !isInternalSwap) {
     return onChainHistoryTx;
   }
+
+  // Keep local staking metadata even when the indexer already supplied a
+  // display label. Borrow metadata-only actions such as setCollateral are
+  // identified by these tags and otherwise disappear after confirmation.
+  const preserveLocalStakingInfo =
+    localStakingInfo && !onChainHistoryTx.stakingInfo
+      ? { stakingInfo: localStakingInfo }
+      : {};
 
   const internalStakingLabel = isInternalStaking
     ? localTransfer?.internalStakingLabel ||
@@ -801,7 +811,7 @@ function mergeLocalTxDisplayFields({
 
   return {
     ...onChainHistoryTx,
-    stakingInfo: onChainHistoryTx.stakingInfo ?? localStakingInfo,
+    ...preserveLocalStakingInfo,
     decodedTx: {
       ...onChainHistoryTx.decodedTx,
       actions: onChainHistoryTx.decodedTx.actions.map((action, index) =>

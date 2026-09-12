@@ -1,4 +1,18 @@
-import { buildBorrowHistoryListItemKey } from './borrowHistoryList.utils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import {
+  buildBorrowHistoryListItemKey,
+  getBorrowHistoryActionForLocalTx,
+} from './borrowHistoryList.utils';
+
+function createLocalTx(tags: string[]): IAccountHistoryTx {
+  return {
+    decodedTx: {
+      txid: '0xset-collateral',
+      networkId: 'evm--1',
+    },
+    stakingInfo: { tags },
+  } as unknown as IAccountHistoryTx;
+}
 
 describe('borrowHistoryList utils', () => {
   it('builds different keys for records that share the same tx hash', () => {
@@ -44,5 +58,55 @@ describe('borrowHistoryList utils', () => {
     expect(buildBorrowHistoryListItemKey(item)).toBe(
       buildBorrowHistoryListItemKey(item),
     );
+  });
+
+  it('matches a scoped collateral transaction to its market', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: createLocalTx([
+          'borrow:aave:setCollateral',
+          'borrow:aave:setCollateral:v1:evm--1:0xMarket:0xReserve',
+        ]),
+        provider: 'AAVE',
+        networkId: 'evm--1',
+        marketAddress: '0xmarket',
+      }),
+    ).toBe('setCollateral');
+  });
+
+  it('does not leak a scoped collateral transaction into another market', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: createLocalTx([
+          'borrow:aave:setCollateral',
+          'borrow:aave:setCollateral:v1:evm--1:0xMarket:0xReserve',
+        ]),
+        provider: 'aave',
+        networkId: 'evm--1',
+        marketAddress: '0xother-market',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps legacy unscoped collateral transactions visible', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: createLocalTx(['borrow:aave:setCollateral']),
+        provider: 'aave',
+        networkId: 'evm--1',
+        marketAddress: '0xmarket',
+      }),
+    ).toBe('setCollateral');
+  });
+
+  it('ignores collateral transactions from another provider', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: createLocalTx(['borrow:spark:setCollateral']),
+        provider: 'aave',
+        networkId: 'evm--1',
+        marketAddress: '0xmarket',
+      }),
+    ).toBeUndefined();
   });
 });
