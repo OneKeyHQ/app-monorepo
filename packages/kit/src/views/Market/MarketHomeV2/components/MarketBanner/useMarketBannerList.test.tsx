@@ -11,14 +11,28 @@ import {
   fetchMarketBannerStockTokenListForPlatform,
   fetchMarketBannerTokenListForPlatform,
 } from './marketBannerListPlatformApi';
-import { useMarketBannerList } from './useMarketBannerList';
+import {
+  hydrateMarketBannerQuotes,
+  useMarketBannerList,
+} from './useMarketBannerList';
 
 let mockResult: IMarketBannerItem[] | undefined;
 let mockLoading: boolean | undefined;
 let mockLocale = 'en-US';
 let mockRequest: () => Promise<unknown>;
+let mockHydrate: () => Promise<unknown>;
+let mockEnabled = false;
+let mockLiveResult: unknown;
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (request: () => Promise<unknown>) => {
+  usePromiseResult: (
+    request: () => Promise<unknown>,
+    _deps: unknown[],
+    options: { watchLoading?: boolean },
+  ) => {
+    if (!options.watchLoading) {
+      mockHydrate = request;
+      return { result: mockLiveResult };
+    }
     mockRequest = request;
     return { result: mockResult, isLoading: mockLoading };
   },
@@ -27,7 +41,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => mockLocale,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: false }],
+  useDevSettingsPersistAtom: () => [
+    { enabled: mockEnabled, settings: { enableMockMarketBanner: mockEnabled } },
+  ],
 }));
 jest.mock('./marketBannerListPlatformApi', () => ({
   fetchMarketBannerListForPlatform: jest.fn(),
@@ -50,6 +66,8 @@ const makeBanner = (
 });
 
 beforeEach(() => {
+  mockEnabled = false;
+  mockLiveResult = undefined;
   mockResult = undefined;
   mockLoading = undefined;
   mockLocale = 'en-US';
@@ -144,7 +162,9 @@ it.each([EMarketBannerType.Index, EMarketBannerType.StockIndex])(
 
     let hydrated: unknown;
     await act(async () => {
-      hydrated = await mockRequest();
+      hydrated = await hydrateMarketBannerQuotes(
+        await fetchMarketBannerListForPlatform(),
+      );
     });
 
     expect(hydrated).toEqual([makeBanner({ type, indices, tokens: indices })]);
@@ -175,7 +195,9 @@ it('keeps stock-backed index assets on the stock list endpoint', async () => {
 
   let hydrated: unknown;
   await act(async () => {
-    hydrated = await mockRequest();
+    hydrated = await hydrateMarketBannerQuotes(
+      await fetchMarketBannerListForPlatform(),
+    );
   });
 
   expect(fetchMarketBannerStockTokenListForPlatform).toHaveBeenCalledWith(
@@ -196,4 +218,48 @@ it('keeps stock-backed index assets on the stock list endpoint', async () => {
       ],
     }),
   ]);
+});
+
+it('releases the page with base data while optional quotes are still pending', async () => {
+  const banners = [makeBanner({ type: EMarketBannerType.Stock })];
+  jest.mocked(fetchMarketBannerListForPlatform).mockResolvedValue(banners);
+  jest
+    .mocked(fetchMarketBannerStockTokenListForPlatform)
+    .mockReturnValue(new Promise(() => {}));
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  await act(async () => {
+    mockResult = (await mockRequest()) as IMarketBannerItem[];
+  });
+  rerender();
+  void mockHydrate();
+  expect(result.current.isLoading).toBe(false);
+  expect(result.current.bannerList).toEqual(banners);
+});
+it('skips remote quotes in mock mode', async () => {
+  mockEnabled = true;
+  mockResult = [makeBanner({ type: EMarketBannerType.Stock })];
+  renderHook(() => useMarketBannerList());
+  await mockHydrate();
+  expect(fetchMarketBannerStockTokenListForPlatform).not.toHaveBeenCalled();
+  expect(fetchMarketBannerTokenListForPlatform).not.toHaveBeenCalled();
+});
+
+it('ignores quotes completed for a previous base response', async () => {
+  mockResult = [makeBanner({ title: 'Old' })];
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  const pending = mockHydrate();
+  mockResult = [makeBanner({ title: 'New' })];
+  rerender();
+  mockLiveResult = await pending;
+  rerender();
+  expect(result.current.bannerList[0].title).toBe('New');
+});
+it('ignores quotes completed for a previous language', async () => {
+  mockResult = [makeBanner()];
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  mockLiveResult = await mockHydrate();
+  mockLocale = 'zh-CN';
+  mockResult = [makeBanner({ title: '中文' })];
+  rerender();
+  expect(result.current.bannerList[0].title).toBe('中文');
 });

@@ -3,15 +3,15 @@ import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 export function isMarketIndexQuoteBanner({
   type,
   assetType,
-  title,
+  indices,
 }: {
   type?: EMarketBannerType;
   assetType?: string;
-  title?: string;
-}) {
+  indices?: readonly unknown[];
+}): boolean {
   return (
     type === EMarketBannerType.Index ||
     type === EMarketBannerType.StockIndex ||
-    (type === undefined && assetType === undefined && title?.includes('指数'))
+    (type === undefined && assetType === undefined && Boolean(indices?.length))
   );
 }

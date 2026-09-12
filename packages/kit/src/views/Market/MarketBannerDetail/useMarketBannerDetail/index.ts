@@ -5,7 +5,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketBannerListSortAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
-  IMarketBannerIndexPreview,
   IMarketStockPublicItem,
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
@@ -58,25 +57,6 @@ function mapStockBannerItemToToken(
   };
 }
 
-function mapIndexBannerItemToToken(
-  item: IMarketBannerIndexPreview,
-): IMarketTokenListItem {
-  return {
-    address: item.symbol,
-    name: item.name,
-    symbol: item.symbol,
-    decimals: 0,
-    logoUrl: item.logo,
-    price: item.price ?? undefined,
-    priceChange24hPercent: item.priceChange24hPercent ?? undefined,
-    stock: {
-      subtitle: item.name,
-      source: 'index',
-      sourceLogoUri: item.logo,
-    },
-  };
-}
-
 export function useMarketBannerDetail({
   tokenListId,
   isPerps,
@@ -95,12 +75,8 @@ export function useMarketBannerDetail({
   const { result: tickerResult, isLoading: tickerIsLoading } = usePromiseResult(
     async () => {
       if (isPerps) return null;
-      if (isIndex) {
-        const banners =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketBannerList();
-        const banner = banners.find((item) => item.tokenListId === tokenListId);
-        return (banner?.indices ?? []).map(mapIndexBannerItemToToken);
-      }
+      // Index quotes are display-only; restored legacy routes have no tradable rows.
+      if (isIndex) return [];
       if (isStock) {
         const data =
           await backgroundApiProxy.serviceMarketV2.fetchMarketBannerStockTokenList(

@@ -83,6 +83,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'fetchMarketBannerList',
     'fetchMarketBannerPerpsTokenList',
     'fetchMarketBannerTokenList',
+    'fetchMarketBannerStockTokenList',
     'fetchMarketBasicConfig',
     'fetchMarketChains',
     'fetchMarketPerpsTokenList',

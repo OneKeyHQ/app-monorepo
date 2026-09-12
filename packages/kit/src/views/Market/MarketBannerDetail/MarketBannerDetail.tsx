@@ -73,7 +73,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { tokenListId, type, assetType } = route.params;
   const isPerps = type === EMarketBannerType.Perps;
   const isMixed = type === EMarketBannerType.StockPerps;
-  const isIndex = isMarketIndexQuoteBanner({ type, assetType, title });
+  const isIndex = isMarketIndexQuoteBanner({ type, assetType });
   const isStock =
     type === EMarketBannerType.Stock ||
     type === EMarketBannerType.StockPerps ||

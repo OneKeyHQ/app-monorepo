@@ -17,15 +17,9 @@ import {
   fetchMarketBannerTokenListForPlatform,
 } from './marketBannerListPlatformApi';
 
-async function fetchMarketBannerListWithLiveTokens({
-  enableMockMarketBanner,
-}: {
-  enableMockMarketBanner?: boolean;
-}): Promise<IMarketBannerItem[]> {
-  const banners = await fetchMarketBannerListForPlatform({
-    enableMockMarketBanner,
-  });
-
+export async function hydrateMarketBannerQuotes(
+  banners: IMarketBannerItem[],
+): Promise<IMarketBannerItem[]> {
   const hydratedBanners = await Promise.all(
     banners.map(async (banner) => {
       // Index banners expose quote rows in `indices`; they do not have a
@@ -105,7 +99,7 @@ export function useMarketBannerList(): {
   const { result: bannerList } = usePromiseResult<IMarketBannerItem[]>(
     async () => {
       try {
-        return await fetchMarketBannerListWithLiveTokens({
+        return await fetchMarketBannerListForPlatform({
           enableMockMarketBanner,
         });
       } catch (error) {
@@ -131,9 +125,39 @@ export function useMarketBannerList(): {
     },
   );
 
+  const { result: liveQuotes } = usePromiseResult(
+    async () => {
+      if (!bannerList || enableMockMarketBanner) return undefined;
+      return {
+        source: bannerList,
+        scope: requestScope,
+        banners: await hydrateMarketBannerQuotes(bannerList),
+      };
+    },
+    [bannerList, enableMockMarketBanner, requestScope],
+    { checkIsFocused: !platformEnv.isWeb },
+  );
+  const displayedBanners =
+    liveQuotes?.source === bannerList && liveQuotes?.scope === requestScope
+      ? liveQuotes.banners
+      : bannerList;
+  const normalizedBanners = useMemo(
+    () =>
+      (displayedBanners ?? []).map((banner) =>
+        isMarketIndexQuoteBanner(banner) && banner.indices?.length
+          ? {
+              ...banner,
+              type: EMarketBannerType.StockIndex,
+              tokens: banner.indices,
+            }
+          : banner,
+      ),
+    [displayedBanners],
+  );
+
   return {
     scope,
-    bannerList: bannerList || [],
+    bannerList: normalizedBanners,
     isLoading: bannerList === undefined && settledScope !== requestScope,
     isFetched: bannerList !== undefined,
   };

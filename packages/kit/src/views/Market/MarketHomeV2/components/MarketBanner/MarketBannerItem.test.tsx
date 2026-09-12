@@ -237,3 +237,35 @@ describe('Market theme banner', () => {
     expect(screen.queryAllByTestId('market-banner-token-row')).toHaveLength(0);
   });
 });
+
+it.each(['指数报价', 'Index Quotes'])(
+  'classifies untyped index payloads independently of title: %s',
+  (title) => {
+    const onPress = jest.fn();
+    render(
+      <MarketBannerItem
+        item={{
+          ...makeBanner([makeToken('^GSPC', '1', '100')]),
+          title,
+          type: undefined,
+          indices: [makeToken('^GSPC', '1', '100')],
+        }}
+        onPress={onPress}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('market-banner-item'));
+    expect(onPress).not.toHaveBeenCalled();
+    expect(screen.getByText('S&P 500')).toBeTruthy();
+  },
+);
+it('does not infer index semantics from a translated title alone', () => {
+  const onPress = jest.fn();
+  render(
+    <MarketBannerItem
+      item={{ ...makeBanner([]), title: '指数主题', type: undefined }}
+      onPress={onPress}
+    />,
+  );
+  fireEvent.click(screen.getByTestId('market-banner-item'));
+  expect(onPress).toHaveBeenCalledTimes(1);
+});

@@ -324,7 +324,6 @@ function BannerTokenRow({ token }: { token: IMarketBannerTokenPreview }) {
 
 function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   const { item, onPress } = props;
-  const { isSmallScreen } = props;
   const isIndexBanner = isMarketIndexQuoteBanner(item);
   const tokens = useMemo(() => {
     const bannerTokens = item.tokens ?? [];
@@ -370,8 +369,8 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
       borderRadius="$3"
       px="$4"
       py="$5"
-      width={isSmallScreen ? '100%' : 336}
-      flexShrink={isSmallScreen ? 1 : 0}
+      width={336}
+      flexShrink={0}
       gap="$5"
       userSelect="none"
       hoverStyle={isIndexBanner ? undefined : { opacity: 0.8 }}
