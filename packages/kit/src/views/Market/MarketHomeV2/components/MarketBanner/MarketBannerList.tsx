@@ -78,7 +78,7 @@ function BannerContainerDesktop({
       pointerEvents={hidden ? 'none' : 'auto'}
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
-      pt="$4"
+      pt={platformEnv.isNative ? '$2' : '$4'}
       pb="$2"
       px="$5"
       gap="$3"

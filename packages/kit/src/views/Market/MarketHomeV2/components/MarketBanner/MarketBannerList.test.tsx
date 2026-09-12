@@ -8,6 +8,7 @@ import { MarketBannerList, MarketBannerProvider } from './MarketBannerList';
 import type { useMarketBannerList } from './useMarketBannerList';
 
 let mockState: ReturnType<typeof useMarketBannerList>;
+let mockIsSmallScreen = true;
 jest.mock('./useMarketBannerList', () => ({
   useMarketBannerList: () => mockState,
 }));
@@ -32,10 +33,12 @@ jest.mock('@onekeyhq/components', () => ({
   }: PropsWithChildren<{ opacity?: number }>) => (
     <div aria-hidden={opacity === 0 ? true : undefined}>{children}</div>
   ),
-  XStack: ({ children }: PropsWithChildren) => (
-    <div data-testid="reserved-space">{children}</div>
+  XStack: ({ children, pt }: PropsWithChildren<{ pt?: string }>) => (
+    <div data-testid="reserved-space" data-padding-top={pt}>
+      {children}
+    </div>
   ),
-  useMedia: () => ({ md: true }),
+  useMedia: () => ({ md: mockIsSmallScreen }),
 }));
 
 function Page() {
@@ -52,6 +55,17 @@ const populated = () => ({
   isLoading: false,
   isFetched: true,
   scope: 'en-US:false',
+});
+
+beforeEach(() => {
+  mockIsSmallScreen = true;
+});
+
+it('keeps native tablet banner padding aligned with the fixed header height', () => {
+  mockIsSmallScreen = false;
+  mockState = populated();
+  render(<Page />);
+  expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$2');
 });
 
 it('does not insert a banner after the native page has started without one', () => {
