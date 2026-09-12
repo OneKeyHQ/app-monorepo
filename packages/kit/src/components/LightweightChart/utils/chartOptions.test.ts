@@ -14,6 +14,36 @@ const theme = {
 };
 
 describe('createChartOptions', () => {
+  it('locks the right edge with no gap by default', () => {
+    const options = createChartOptions(theme);
+
+    expect(options.timeScale).toMatchObject({ fixRightEdge: true });
+    expect(options.timeScale).not.toHaveProperty('rightOffsetPixels');
+  });
+
+  it('opens a pixel gap after the last point when asked', () => {
+    const options = createChartOptions(
+      theme,
+      true,
+      11,
+      undefined,
+      true,
+      false,
+      false,
+      undefined,
+      'right',
+      undefined,
+      undefined,
+      undefined,
+      16,
+    );
+
+    expect(options.timeScale).toMatchObject({
+      fixRightEdge: false,
+      rightOffsetPixels: 16,
+    });
+  });
+
   it('reserves the requested price scale width on the first layout', () => {
     const options = createChartOptions(
       theme,

@@ -133,6 +133,14 @@ export interface ITradingViewNativeProps {
   storageNamespace?: ITradingViewNativeStorageNamespace;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
+  /**
+   * Opt-in for stock detail charts, which can anchor the Prev close line on the
+   * stock's previous session close. It shows the chart setting and lets the
+   * line draw from `previousClose`; every other chart hides both.
+   */
+  enablePreviousClose?: boolean;
+  /** Previous session close anchoring the Prev close reference line. */
+  previousClose?: number;
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;

@@ -17,6 +17,7 @@ type IMockDialogConfig = {
     isChartSwitchDisabled?: boolean;
     onChartSwitch?: () => void;
     onOpenSettings: () => void;
+    showPreviousClose?: boolean;
   }>;
   testID?: string;
 };
@@ -117,6 +118,29 @@ describe('TradingViewNativeChartSettingsButton', () => {
     mockDialogShow.mock.calls[0][0].renderContent.props.onOpenSettings();
     expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
       screen: 'MarketChartSettings',
+      params: { showPreviousClose: false },
+    });
+  });
+
+  it('carries the Prev close opt-in into quick and full settings', () => {
+    render(
+      <TradingViewNativeChartSettingsButton
+        priceAxisWidth={52}
+        enablePreviousClose
+      />,
+    );
+
+    const buttonProps = mockIconButton.mock.calls[0][0] as {
+      onPress: () => void;
+    };
+    buttonProps.onPress();
+
+    const content = mockDialogShow.mock.calls[0][0].renderContent;
+    expect(content.props.showPreviousClose).toBe(true);
+    content.props.onOpenSettings();
+    expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
+      screen: 'MarketChartSettings',
+      params: { showPreviousClose: true },
     });
   });
 });

@@ -192,6 +192,8 @@ const TradingViewNativeContent = memo(
     indicatorSettingsState,
     forcedChartType,
     chartComponents,
+    previousClose,
+    enablePreviousClose = false,
     enableNativeChartSettings,
     initialRightOffset,
     nativeChartDisplayMode,
@@ -459,11 +461,13 @@ const TradingViewNativeContent = memo(
     );
     const chartComponentRenderNodes = useTradingViewNativeChartComponents({
       chartComponents,
-      dataProviderKey,
-      latestPrice,
+      previousClose,
       referenceLineColor:
         themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine],
-      showPreviousClose: normalizedChartSettings.options.previousClose,
+      // Only opted-in charts draw the line, and the hook itself needs a real
+      // close, so no live price can end up labelled "Prev close".
+      showPreviousClose:
+        enablePreviousClose && normalizedChartSettings.options.previousClose,
     });
 
     useEffect(() => {
@@ -798,6 +802,7 @@ const TradingViewNativeContent = memo(
             calendarAvailableTimeRange={calendarAvailableTimeRange}
             compactMobileLayout={isCompactDisplayMode}
             enableNativeChartSettings={enableNativeChartSettings}
+            enablePreviousClose={enablePreviousClose}
             intervalConfig={intervalConfig}
             activeIndicatorValues={activeIndicatorValues}
             maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
@@ -904,6 +909,7 @@ const TradingViewNativeContent = memo(
             !isNativeChartFullscreen ? (
               <TradingViewNativeChartSettingsButton
                 priceAxisWidth={priceAxisWidth}
+                enablePreviousClose={enablePreviousClose}
                 isChartSwitchDisabled={isChartSwitchDisabled}
                 onChartSwitch={onChartSwitch}
               />

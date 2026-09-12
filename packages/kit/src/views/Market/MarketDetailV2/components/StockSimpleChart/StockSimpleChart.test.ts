@@ -4,6 +4,8 @@ import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
   fetchStockSimpleChartPoints,
+  resolveStockSimpleChartPreviousClose,
+  resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
@@ -563,5 +565,95 @@ describe('stock simple chart request identity', () => {
     });
 
     expect(secondVariant).not.toEqual(firstVariant);
+  });
+});
+
+describe('resolveStockSimpleChartPreviousClose', () => {
+  const stockDetail = { previousClose: '328.21' };
+
+  it('frames the intraday share ranges with the reported previous close', () => {
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail,
+      }),
+    ).toBe(328.21);
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1H',
+        stockDetail,
+      }),
+    ).toBe(328.21);
+  });
+
+  it('stays off for longer ranges, token price mode, and missing quotes', () => {
+    for (const range of ['1W', '1M', '1Y', 'All'] as const) {
+      expect(
+        resolveStockSimpleChartPreviousClose({
+          priceMode: 'share',
+          range,
+          stockDetail,
+        }),
+      ).toBeUndefined();
+    }
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'token',
+        range: '1D',
+        stockDetail,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail: undefined,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail: { previousClose: '' },
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('resolveStockSimpleChartPulseLastPoint', () => {
+  it('always pulses crypto, which trades around the clock', () => {
+    expect(resolveStockSimpleChartPulseLastPoint({})).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockDetail: null,
+        tokenStock: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('pulses a stock only while its market is open', () => {
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockId: 'AAPL',
+        stockDetail: { marketStatus: { isOpen: true } },
+      }),
+    ).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockId: 'AAPL',
+        stockDetail: { marketStatus: { isOpen: false } },
+      }),
+    ).toBe(false);
+    expect(resolveStockSimpleChartPulseLastPoint({ stockId: 'AAPL' })).toBe(
+      false,
+    );
+    expect(
+      resolveStockSimpleChartPulseLastPoint({ tokenStock: { isOpen: true } }),
+    ).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({ tokenStock: { isOpen: false } }),
+    ).toBe(false);
   });
 });

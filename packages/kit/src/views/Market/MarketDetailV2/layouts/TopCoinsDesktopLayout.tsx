@@ -35,6 +35,7 @@ import { EarnNavigation } from '../../../Earn/earnUtils';
 import { PriceChangePercentage } from '../../components/PriceChangePercentage';
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
+import { MarketAboutDescription } from '../components/MarketAboutDescription';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -531,9 +532,11 @@ function TopCoinsInformation({
                 { ticker: symbol },
               )}
             </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {about}
-            </SizableText>
+            <MarketAboutDescription
+              description={about}
+              testID="top-coins-about-description"
+              toggleTestID="top-coins-about-description-toggle"
+            />
           </YStack>
         ) : null}
       </>

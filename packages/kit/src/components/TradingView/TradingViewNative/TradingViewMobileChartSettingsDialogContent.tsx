@@ -96,11 +96,14 @@ function QuickSettingOption({
 export function TradingViewMobileChartSettingsDialogContent({
   chartMode,
   isChartSwitchDisabled = false,
+  showPreviousClose = false,
   onChartSwitch,
   onOpenSettings,
 }: {
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
+  // Only stock detail charts offer Prev close.
+  showPreviousClose?: boolean;
   onChartSwitch?: () => void;
   onOpenSettings: () => void;
 }) {
@@ -111,6 +114,13 @@ export function TradingViewMobileChartSettingsDialogContent({
   const normalizedSettings = useMemo(
     () => normalizeTradingViewNativeChartSettings(settings),
     [settings],
+  );
+  const quickSettingOptions = useMemo(
+    () =>
+      QUICK_SETTING_OPTIONS.filter(
+        (option) => option !== 'previousClose' || showPreviousClose,
+      ),
+    [showPreviousClose],
   );
 
   const handleOpenSettings = useCallback(async () => {
@@ -181,7 +191,7 @@ export function TradingViewMobileChartSettingsDialogContent({
             onChange={handleChartTypeChange}
           />
           <XStack flexWrap="wrap" rowGap="$1">
-            {QUICK_SETTING_OPTIONS.map((option) => (
+            {quickSettingOptions.map((option) => (
               <QuickSettingOption
                 key={option}
                 option={option}
