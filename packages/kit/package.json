@@ -4,8 +4,8 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@onekeyfe/react-native-native-list": "3.0.119",
-    "@onekeyfe/react-native-text": "3.0.119",
+    "@onekeyfe/react-native-native-list": "3.0.121",
+    "@onekeyfe/react-native-text": "3.0.121",
     "@onekeyhq/components": "*",
     "@types/url-parse": "^1.4.8",
     "date-fns": "2.30.0",

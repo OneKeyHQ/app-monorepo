@@ -368,7 +368,7 @@ function MobileLayoutComponent({
   const theme = useTheme();
   const nativeTabBar = useMemo<CollapsiblePagerNativeTabBarConfig | undefined>(
     () =>
-      platformEnv.isNativeIOS
+      platformEnv.isNative
         ? {
             items: tabNames.map((name, index) => ({
               key: name,
@@ -449,7 +449,7 @@ function MobileLayoutComponent({
     CollapsiblePagerNativeSubHeaderConfig | undefined
   >(
     () =>
-      platformEnv.isNativeIOS &&
+      platformEnv.isNative &&
       isMarketStockCategoryById(
         filterBarProps.categories,
         activeSpotCategoryId,
@@ -734,7 +734,7 @@ function MobileLayoutComponent({
         offscreenPageLimit={1}
         scrollEnabled
         nestedScrollEnabled={nestedPager}
-        nativeSmoothHeaderScrollEnabled={platformEnv.isNativeIOS}
+        nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
         testID="market-native-collapsible-pager"
         nativeTabBar={nativeTabBar}
         nativeSubHeader={nativeSubHeader}
