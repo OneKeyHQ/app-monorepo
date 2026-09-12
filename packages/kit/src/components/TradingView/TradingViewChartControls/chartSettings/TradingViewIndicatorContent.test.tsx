@@ -11,6 +11,7 @@ type IMockLayoutProps = {
   children?: ReactNode;
   flex?: number;
   flexShrink?: number;
+  h?: number | string;
   height?: number | string;
   maxHeight?: number | string;
   maxWidth?: number | string;
@@ -30,13 +31,16 @@ const mockYStack = jest.fn(
 const mockButton = jest.fn(
   ({ children }: IMockLayoutProps) => children ?? null,
 );
+const mockStack = jest.fn(({ children }: IMockLayoutProps) => children ?? null);
 let mockWindowHeight = 390;
 
 jest.mock('@onekeyhq/components', () => ({
   Button: (props: IMockLayoutProps) => mockButton(props),
+  Divider: () => null,
   IconButton: () => null,
   ScrollView: (props: IMockLayoutProps) => mockScrollView(props),
   SizableText: ({ children }: IMockLayoutProps) => children ?? null,
+  Stack: (props: IMockLayoutProps) => mockStack(props),
   XStack: (props: IMockLayoutProps) => mockXStack(props),
   YStack: (props: IMockLayoutProps) => mockYStack(props),
   useSafeAreaInsets: () => ({ bottom: 21, left: 0, right: 0, top: 0 }),
@@ -70,18 +74,27 @@ function getLayoutProps(
   mockComponent: jest.Mock,
   testID: string,
 ): IMockLayoutProps | undefined {
-  return mockComponent.mock.calls
+  const matchingProps = mockComponent.mock.calls
     .map(([props]) => props as IMockLayoutProps)
     .find((props) => props.testID === testID);
+  if (!matchingProps) {
+    return undefined;
+  }
+  const { children: _children, ...layoutProps } = matchingProps;
+  return layoutProps;
 }
 
-function renderDialog(displayMode: 'focused' | 'full') {
+function renderDialog(
+  displayMode: 'focused' | 'full',
+  { mobileLayout = false }: { mobileLayout?: boolean } = {},
+) {
   const value = createTradingViewIndicatorSettingsValue();
   const selectedIndicator = value.indicators[0];
 
   return render(
     <TradingViewIndicatorSettingsDialog
       displayMode={displayMode}
+      mobileLayout={mobileLayout}
       value={value}
       maxActiveSubIndicatorCount={null}
       selectedIndicatorScope={selectedIndicator.scope}
@@ -164,5 +177,22 @@ describe('TradingView indicator settings layout', () => {
       'trading-view-indicator-settings-mock-cancel',
       'trading-view-indicator-settings-mock-confirm',
     ]);
+  });
+
+  it('renders the mobile body and footer for the settings page', () => {
+    renderDialog('focused', { mobileLayout: true });
+
+    expect(
+      getLayoutProps(mockYStack, 'trading-view-mobile-indicator-settings'),
+    ).toEqual(expect.objectContaining({ h: 193, maxHeight: 193 }));
+    expect(
+      getLayoutProps(mockStack, 'trading-view-mobile-indicator-settings-body'),
+    ).toEqual(expect.objectContaining({ flex: 1, minHeight: 0 }));
+    expect(
+      getLayoutProps(
+        mockXStack,
+        'trading-view-mobile-indicator-settings-footer',
+      ),
+    ).toEqual(expect.objectContaining({ flexShrink: 0 }));
   });
 });

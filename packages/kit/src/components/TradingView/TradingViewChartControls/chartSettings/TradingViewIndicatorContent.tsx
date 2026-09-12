@@ -3,9 +3,11 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
+  Divider,
   IconButton,
   ScrollView,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useSafeAreaInsets,
@@ -53,6 +55,7 @@ function getIndicatorDialogHeight(windowHeight: number) {
 }
 
 function TradingViewIndicatorContent({
+  mobileLayout = false,
   indicator,
   onToggleLine,
   onLinePeriodChange,
@@ -63,6 +66,7 @@ function TradingViewIndicatorContent({
   onOpacityColorChange,
   onParameterChange,
 }: {
+  mobileLayout?: boolean;
   indicator: ITradingViewSettingsMockIndicator | undefined;
   onToggleLine: (lineId: string, enabled: boolean) => void;
   onLinePeriodChange: (lineId: string, period: number) => void;
@@ -100,7 +104,9 @@ function TradingViewIndicatorContent({
       minHeight={0}
       contentContainerStyle={{ pb: '$5' }}
     >
-      <SettingsGroup title={indicator.title}>
+      {/* The mobile settings page prints the indicator name in its own
+          header, so the group only carries the title on desktop. */}
+      <SettingsGroup title={mobileLayout ? undefined : indicator.title}>
         {parameterRows.map((parameters) => (
           <TradingViewIndicatorParameterRow
             key={parameters[0]?.rowId ?? parameters[0]?.id}
@@ -108,6 +114,7 @@ function TradingViewIndicatorContent({
             onChange={onParameterChange}
           />
         ))}
+        {mobileLayout && parameterRows.length ? <Divider my="$4" /> : null}
         {indicator.lines.map((line) => (
           <TradingViewIndicatorLineRow
             key={line.id}
@@ -158,6 +165,7 @@ function TradingViewIndicatorContent({
 
 export function TradingViewIndicatorSettingsDialog({
   displayMode,
+  mobileLayout = false,
   value,
   maxActiveSubIndicatorCount,
   selectedIndicatorScope,
@@ -181,6 +189,7 @@ export function TradingViewIndicatorSettingsDialog({
   isSubmitting = false,
 }: {
   displayMode: 'focused' | 'full';
+  mobileLayout?: boolean;
   value: ITradingViewIndicatorSettingsValue;
   maxActiveSubIndicatorCount: number | null;
   selectedIndicatorScope: ITradingViewSettingsMockIndicatorScope;
@@ -231,6 +240,68 @@ export function TradingViewIndicatorSettingsDialog({
       )
     : getIndicatorDialogHeight(windowHeight);
   const cancelLabel = intl.formatMessage({ id: ETranslations.global_cancel });
+
+  if (mobileLayout) {
+    const mobileMaxHeight = Math.max(focusedMaxHeight - 160, 160);
+    return (
+      <YStack
+        testID="trading-view-mobile-indicator-settings"
+        h={Math.min(
+          TRADING_VIEW_INDICATOR_FOCUSED_BODY_HEIGHT +
+            TRADING_VIEW_INDICATOR_FOOTER_MIN_HEIGHT,
+          mobileMaxHeight,
+        )}
+        maxHeight={mobileMaxHeight}
+        gap="$4"
+      >
+        <Stack
+          testID="trading-view-mobile-indicator-settings-body"
+          flex={1}
+          minHeight={0}
+          pointerEvents={isSubmitting ? 'none' : 'auto'}
+        >
+          <TradingViewIndicatorContent
+            mobileLayout
+            indicator={selectedIndicator}
+            onToggleLine={onToggleLine}
+            onLinePeriodChange={onLinePeriodChange}
+            onLineStyleChange={onLineStyleChange}
+            onLineSecondaryStyleChange={onLineSecondaryStyleChange}
+            onLineColorChange={onLineColorChange}
+            onOpacityChange={onOpacityChange}
+            onOpacityColorChange={onOpacityColorChange}
+            onParameterChange={onParameterChange}
+          />
+        </Stack>
+        <XStack
+          testID="trading-view-mobile-indicator-settings-footer"
+          gap="$3"
+          flexShrink={0}
+        >
+          <Button
+            testID="trading-view-indicator-settings-mock-reset"
+            flex={1}
+            size="large"
+            disabled={isSubmitting}
+            onPress={onReset}
+          >
+            {intl.formatMessage({ id: ETranslations.global_reset })}
+          </Button>
+          <Button
+            testID="trading-view-indicator-settings-mock-confirm"
+            flex={1}
+            size="large"
+            variant="primary"
+            disabled={isSubmitting}
+            loading={isSubmitting}
+            onPress={onConfirm}
+          >
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
+          </Button>
+        </XStack>
+      </YStack>
+    );
+  }
 
   return (
     <YStack
