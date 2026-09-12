@@ -6,6 +6,7 @@ import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DeriveTypeSelectorTriggerGlobalStandAlone } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -55,7 +56,7 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
       <ListItem
         userSelect="none"
         title={title}
-        avatarProps={{ src: icon, size: '$8' }}
+        renderAvatar={<NetworkAvatarBase logoURI={icon ?? ''} size="$8" />}
       >
         <XStack>
           <SizableText mr="$3">{label}</SizableText>
