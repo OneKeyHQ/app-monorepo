@@ -21,6 +21,7 @@ import {
   type IMarketBannerTokenPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { isMarketIndexQuoteBanner } from '../../../utils/marketBannerUtils';
 import { MarketTestIDs } from '../../testIDs';
 
 type IMarketBannerItemProps = {
@@ -323,9 +324,7 @@ function BannerTokenRow({ token }: { token: IMarketBannerTokenPreview }) {
 function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   const { item, onPress } = props;
   const { isSmallScreen } = props;
-  const isIndexBanner =
-    item.type === EMarketBannerType.Index ||
-    item.type === EMarketBannerType.StockIndex;
+  const isIndexBanner = isMarketIndexQuoteBanner(item);
   const tokens = useMemo(() => {
     const bannerTokens = item.tokens ?? [];
     if (isIndexBanner) {

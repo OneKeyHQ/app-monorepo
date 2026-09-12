@@ -39,6 +39,7 @@ import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hook
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { isMarketIndexQuoteBanner } from '../utils/marketBannerUtils';
 
 import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
 import { PerpsTokenListSection } from './PerpsTokenListSection';
@@ -72,20 +73,13 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { tokenListId, type, assetType } = route.params;
   const isPerps = type === EMarketBannerType.Perps;
   const isMixed = type === EMarketBannerType.StockPerps;
-  const isIndex =
-    type === EMarketBannerType.Index ||
-    type === EMarketBannerType.StockIndex ||
-    assetType === 'index' ||
-    title.includes('指数');
+  const isIndex = isMarketIndexQuoteBanner({ type, assetType, title });
   const isStock =
     type === EMarketBannerType.Stock ||
-    type === EMarketBannerType.Index ||
     type === EMarketBannerType.StockPerps ||
-    type === EMarketBannerType.StockIndex ||
     assetType === 'stock' ||
     assetType === 'etf' ||
-    assetType === 'index' ||
-    title.includes('指数');
+    assetType === 'index';
 
   const intl = useIntl();
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });

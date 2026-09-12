@@ -9,6 +9,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
+import { isMarketIndexQuoteBanner } from '../../../utils/marketBannerUtils';
+
 import {
   fetchMarketBannerListForPlatform,
   fetchMarketBannerStockTokenListForPlatform,
@@ -29,25 +31,20 @@ async function fetchMarketBannerListWithLiveTokens({
       // Index banners expose quote rows in `indices`; they do not have a
       // token-list response. Convert those rows to the common banner preview
       // shape before rendering so the card does not fall back to `--`.
-      if (banner.type === EMarketBannerType.StockIndex) {
+      if (isMarketIndexQuoteBanner(banner)) {
         const indices = banner.indices ?? [];
         return indices.length ? { ...banner, tokens: indices } : banner;
       }
 
       const isStockBanner =
         banner.assetType !== undefined ||
-        banner.type === EMarketBannerType.StockPerps ||
-        banner.title.includes('指数');
+        banner.type === EMarketBannerType.StockPerps;
       if (banner.type === EMarketBannerType.Perps) {
         return banner;
       }
 
       try {
-        if (
-          isStockBanner ||
-          banner.type === EMarketBannerType.Stock ||
-          banner.type === EMarketBannerType.Index
-        ) {
+        if (isStockBanner || banner.type === EMarketBannerType.Stock) {
           const assets = await fetchMarketBannerStockTokenListForPlatform(
             banner.tokenListId,
           );

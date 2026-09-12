@@ -1,9 +1,16 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
-import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
+import {
+  EMarketBannerType,
+  type IMarketBannerItem,
+} from '@onekeyhq/shared/types/marketV2';
 
-import { fetchMarketBannerListForPlatform } from './marketBannerListPlatformApi';
+import {
+  fetchMarketBannerListForPlatform,
+  fetchMarketBannerStockTokenListForPlatform,
+  fetchMarketBannerTokenListForPlatform,
+} from './marketBannerListPlatformApi';
 import { useMarketBannerList } from './useMarketBannerList';
 
 let mockResult: IMarketBannerItem[] | undefined;
@@ -24,16 +31,36 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 jest.mock('./marketBannerListPlatformApi', () => ({
   fetchMarketBannerListForPlatform: jest.fn(),
+  fetchMarketBannerStockTokenListForPlatform: jest.fn(),
+  fetchMarketBannerTokenListForPlatform: jest.fn(),
 }));
+
+const makeBanner = (
+  overrides: Partial<IMarketBannerItem> = {},
+): IMarketBannerItem => ({
+  _id: 'banner',
+  title: 'Banner',
+  rank: 1,
+  mode: 4,
+  payload: '',
+  miniBundlerVersion: '',
+  backgroundColor: 'bg/subdued',
+  tokenListId: 'banner-list',
+  ...overrides,
+});
 
 beforeEach(() => {
   mockResult = undefined;
   mockLoading = undefined;
   mockLocale = 'en-US';
   jest.mocked(fetchMarketBannerListForPlatform).mockReset();
+  jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockReset();
+  jest.mocked(fetchMarketBannerTokenListForPlatform).mockReset();
   jest
     .mocked(fetchMarketBannerListForPlatform)
     .mockRejectedValue(new Error('offline'));
+  jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([]);
+  jest.mocked(fetchMarketBannerTokenListForPlatform).mockResolvedValue([]);
 });
 it('treats the pre-request frame as pending', () => {
   const { result } = renderHook(() => useMarketBannerList());
@@ -96,4 +123,77 @@ it('waits for successful banner data to commit before releasing the native layou
   rerender();
   expect(result.current.isLoading).toBe(false);
   expect(result.current.isFetched).toBe(true);
+});
+
+it.each([EMarketBannerType.Index, EMarketBannerType.StockIndex])(
+  'hydrates %s quotes from the inline indices payload',
+  async (type) => {
+    const indices = [
+      {
+        logo: '',
+        name: 'S&P 500',
+        symbol: '^GSPC',
+        price: '7656.98',
+        priceChange24hPercent: '0.86',
+      },
+    ];
+    jest
+      .mocked(fetchMarketBannerListForPlatform)
+      .mockResolvedValue([makeBanner({ type, indices })]);
+    renderHook(() => useMarketBannerList());
+
+    let hydrated: unknown;
+    await act(async () => {
+      hydrated = await mockRequest();
+    });
+
+    expect(hydrated).toEqual([makeBanner({ type, indices, tokens: indices })]);
+    expect(fetchMarketBannerStockTokenListForPlatform).not.toHaveBeenCalled();
+  },
+);
+
+it('keeps stock-backed index assets on the stock list endpoint', async () => {
+  const stock = {
+    stockId: 'stock-index',
+    name: 'Index Asset',
+    symbol: 'INDEX',
+    logoUrl: '',
+    price: '100',
+    priceChange24hPercent: '1',
+    assetType: 'index' as const,
+    currency: 'USD' as const,
+  };
+  jest
+    .mocked(fetchMarketBannerListForPlatform)
+    .mockResolvedValue([
+      makeBanner({ type: EMarketBannerType.Stock, assetType: 'index' }),
+    ]);
+  jest
+    .mocked(fetchMarketBannerStockTokenListForPlatform)
+    .mockResolvedValue([stock]);
+  renderHook(() => useMarketBannerList());
+
+  let hydrated: unknown;
+  await act(async () => {
+    hydrated = await mockRequest();
+  });
+
+  expect(fetchMarketBannerStockTokenListForPlatform).toHaveBeenCalledWith(
+    'banner-list',
+  );
+  expect(hydrated).toEqual([
+    makeBanner({
+      type: EMarketBannerType.Stock,
+      assetType: 'index',
+      tokens: [
+        {
+          logo: '',
+          name: 'Index Asset',
+          symbol: 'INDEX',
+          price: '100',
+          priceChange24hPercent: '1',
+        },
+      ],
+    }),
+  ]);
 });
