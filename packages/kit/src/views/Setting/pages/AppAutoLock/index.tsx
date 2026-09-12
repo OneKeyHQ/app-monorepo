@@ -21,6 +21,7 @@ import {
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { ListItemSelect } from '../../components/ListItemSelect';
 import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
@@ -37,8 +38,14 @@ const EnableSystemIdleTimeItem = ({
   const intl = useIntl();
   const [{ enableSystemIdleLock }] = usePasswordPersistAtom();
   const [supportSystemIdle] = useSystemIdleLockSupport();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   const switchValue = useMemo(() => {
+    if (isTravelMode) {
+      return false;
+    }
     if (useLocalState) {
       if (
         localStateSelectedValue === ELockDuration.Always ||
@@ -50,6 +57,7 @@ const EnableSystemIdleTimeItem = ({
     }
     return supportSystemIdle ? enableSystemIdleLock : false;
   }, [
+    isTravelMode,
     useLocalState,
     supportSystemIdle,
     enableSystemIdleLock,
@@ -57,11 +65,11 @@ const EnableSystemIdleTimeItem = ({
   ]);
 
   const switchDisabled = useMemo(() => {
-    if (useLocalState) {
+    if (isTravelMode || useLocalState) {
       return true;
     }
     return !supportSystemIdle;
-  }, [useLocalState, supportSystemIdle]);
+  }, [isTravelMode, useLocalState, supportSystemIdle]);
 
   return (
     <YStack>
@@ -78,6 +86,9 @@ const EnableSystemIdleTimeItem = ({
           disabled={switchDisabled}
           value={switchValue}
           onChange={(checked) => {
+            if (switchDisabled) {
+              return;
+            }
             startViewTransition(async () => {
               await backgroundApiProxy.servicePassword.setEnableSystemIdleLock(
                 checked,
@@ -136,6 +147,9 @@ export function AppAutoLockSettingsView({
   const [localStateSelectedValue, setLocalStateSelectedValue] =
     useState<string>('');
   const [passwordSettings] = usePasswordPersistAtom();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   useEffect(() => {
     if (
@@ -160,6 +174,9 @@ export function AppAutoLockSettingsView({
 
   const onChange = useCallback(
     async (value: string) => {
+      if (isTravelMode) {
+        return;
+      }
       if (useLocalState) {
         setLocalStateSelectedValue(value);
         return;
@@ -170,22 +187,25 @@ export function AppAutoLockSettingsView({
           .catch(() => console.log('failed to set app lock duration'));
       });
     },
-    [useLocalState],
+    [isTravelMode, useLocalState],
   );
   const options = useOptions({
     disableCloudSyncDisallowedOptions,
   });
+  const selectedValue = useLocalState
+    ? localStateSelectedValue
+    : String(passwordSettings.appLockDuration);
   return (
     <Stack>
       <Stack py="$2">
         <ListItemSelect
           onChange={onChange}
-          value={
-            useLocalState
-              ? localStateSelectedValue
-              : String(passwordSettings.appLockDuration)
+          value={isTravelMode ? ELockDuration.Never : selectedValue}
+          options={
+            isTravelMode
+              ? options.map((option) => ({ ...option, disabled: true }))
+              : options
           }
-          options={options}
         />
       </Stack>
       <AutoLockDurationDescription />
