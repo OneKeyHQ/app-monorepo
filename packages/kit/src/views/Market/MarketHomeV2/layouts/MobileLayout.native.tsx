@@ -304,6 +304,7 @@ function MobileLayoutComponent({
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,
@@ -318,11 +319,17 @@ function MobileLayoutComponent({
   });
   const tabNames = useMemo(
     () => [
-      watchlistTabName,
+      ...(showWatchlistTab ? [watchlistTabName] : []),
       ...spotTabItems.map((item) => item.tabName),
       ...(showPerpsTab ? [perpsTabName] : []),
     ],
-    [perpsTabName, showPerpsTab, spotTabItems, watchlistTabName],
+    [
+      perpsTabName,
+      showPerpsTab,
+      showWatchlistTab,
+      spotTabItems,
+      watchlistTabName,
+    ],
   );
   const initialIndex = useRef(
     Math.max(0, tabNames.indexOf(selectedTabName)),
@@ -643,14 +650,16 @@ function MobileLayoutComponent({
           </YStack>
         }
       >
-        <YStack key={watchlistTabName} flex={1} bg="$bgApp">
-          <MobileMarketNativeWatchlist
-            dataCacheRef={watchlistDataCacheRef}
-            selectedFilter={watchlistFilter}
-            listContainerProps={listContainerProps}
-            shouldSuppressItemPress={shouldSuppressItemPress}
-          />
-        </YStack>
+        {showWatchlistTab ? (
+          <YStack key={watchlistTabName} flex={1} bg="$bgApp">
+            <MobileMarketNativeWatchlist
+              dataCacheRef={watchlistDataCacheRef}
+              selectedFilter={watchlistFilter}
+              listContainerProps={listContainerProps}
+              shouldSuppressItemPress={shouldSuppressItemPress}
+            />
+          </YStack>
+        ) : null}
         {spotTabItems.map((item) => {
           const isStockCategory = isMarketStockCategoryById(
             filterBarProps.categories,
