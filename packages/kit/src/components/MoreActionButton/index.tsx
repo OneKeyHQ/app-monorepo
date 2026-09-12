@@ -1040,7 +1040,7 @@ function BaseMoreActionGrid({
           titleContent
         )}
       </XStack>
-      <YStack gap={isDesktopMode ? '$1' : '$2'}>
+      <YStack gap={isDesktopMode ? '$2' : '$3'}>
         {rows.map((row, rowIndex) => (
           <XStack
             key={rowIndex}
@@ -1478,7 +1478,7 @@ function MoreActionMenuCard({
     <YStack
       mx={isDesktopMode ? '$0' : '$5'}
       py={isDesktopMode ? '$2' : '$4'}
-      gap={isDesktopMode ? '$2' : '$3'}
+      gap={isDesktopMode ? '$3' : '$4'}
       bg={isDesktopMode ? '$transparent' : '$bg'}
       $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CARD_DARK_STYLE}
       borderRadius={isDesktopMode ? '$0' : '$4'}
