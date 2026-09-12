@@ -244,6 +244,8 @@ export function DesktopLayout({
     return (
       <Tooltip
         placement="top"
+        // Interactive mode for its hover-intent delay, not for interactive content.
+        hovering
         renderTrigger={tabItem}
         renderContent={<SizableText size="$bodySm">{tooltip}</SizableText>}
       />

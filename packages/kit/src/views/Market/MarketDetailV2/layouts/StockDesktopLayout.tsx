@@ -15,7 +15,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
@@ -46,7 +45,6 @@ import {
   StockAnalystGauge,
   parseStockAnalystRatingCounts,
 } from '../components/StockAnalystGauge';
-import { stockFinancialLabels } from '../components/StockFinancials/stockFinancialLabels';
 import { StockFinancials } from '../components/StockFinancials/StockFinancials';
 import {
   type IStockSimpleChartRange,
@@ -70,6 +68,7 @@ import {
   formatRatioValue,
 } from '../utils/statValue';
 import {
+  STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH,
   buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
 } from '../utils/stockPublicDataUtils';
@@ -226,15 +225,14 @@ function StockPageHeader({
   );
 }
 
-// The design shows the move with two decimals ("+$9.46") while the derived and
-// scrubbed figures carry full precision, so clamp for display — but only above
-// one cent, sub-cent moves keep the price formatter's adaptive precision.
+// The design shows the move with two decimals ("+$9.46") while the derived
+// figure carries full precision, so clamp for display — but only above one
+// cent, sub-cent moves keep the price formatter's adaptive precision.
 function roundPriceChangeForDisplay(value: BigNumber) {
   return value.abs().gte(0.01) ? value.decimalPlaces(2) : value;
 }
 
-// Live headline price. Split out of the header so the scrub branch can render a
-// plain figure without ever reaching MarketTokenPrice's cache.
+// Live headline price.
 function StockLivePrice({
   price,
   priceMode,
@@ -279,13 +277,9 @@ function StockLivePrice({
 function StockPriceHeader({
   priceMode,
   onPriceModeChange,
-  hoverPoint,
 }: {
   priceMode: IMarketPriceSource;
   onPriceModeChange: (mode: IMarketPriceSource) => void;
-  // Set while the pointer scrubs the simple chart: the header then reads the
-  // point under the crosshair instead of the live quote.
-  hoverPoint?: IStockPriceLineChartHoverPoint;
 }) {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
@@ -338,32 +332,7 @@ function StockPriceHeader({
     });
   }, [stockDetail, tokenDetail?.stock, selectedTokenVariant]);
 
-  // Scrubbing only redirects the two figures on the price line: the headline
-  // becomes the hovered price and the move beside it is measured from the first
-  // point of the range, both in the places they already occupy. The
-  // market-status badge stays put, and the moment being read is answered by the
-  // label that follows the crosshair inside the plot. The scrub price is
-  // rendered outside MarketTokenPrice on purpose — that component caches the
-  // last price it saw and would poison the live quote.
-  const { color: hoverChangeColor } = formatPriceChangeDisplay(
-    hoverPoint?.changePercent,
-  );
-  const hoverChangeValue = useMemo(() => {
-    if (!hoverPoint?.changeValue) {
-      return undefined;
-    }
-    const value = new BigNumber(hoverPoint.changeValue);
-    return value.isFinite()
-      ? roundPriceChangeForDisplay(value).toFixed()
-      : undefined;
-  }, [hoverPoint?.changeValue]);
-  const changeValueText = hoverPoint
-    ? hoverChangeValue
-    : priceChangeValue?.toFixed();
-  const changePercentText = hoverPoint
-    ? hoverPoint.changePercent
-    : priceChangePercent;
-  const changeColor = hoverPoint ? hoverChangeColor : priceChangeColor;
+  const changeValueText = priceChangeValue?.toFixed();
 
   return (
     <XStack
@@ -378,39 +347,29 @@ function StockPriceHeader({
           Reverse wrapping places the controls above the quote on narrow charts. */}
       <YStack flexGrow={1} flexShrink={1} minWidth={0} gap="$2">
         <XStack alignItems="baseline" flexWrap="wrap" gap="$3.5">
-          {hoverPoint ? (
-            <NumberSizeableText
-              testID="stock-price-hover-value"
-              size="$heading4xl"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-            >
-              {hoverPoint.price}
-            </NumberSizeableText>
-          ) : (
-            <MarketTooltipLabel
-              testID="stock-price-tooltip-trigger"
-              // The row baseline-aligns this figure with the change beside it.
-              alignSelf="baseline"
-              tooltip={intl.formatMessage({
-                id: isSharePrice
-                  ? ETranslations.market_stock_price_underlying_tooltip
-                  : ETranslations.market_token_price_onchain_tooltip,
-              })}
-            >
-              <StockLivePrice
-                price={price}
-                priceMode={priceMode}
-                isSharePrice={isSharePrice}
-              />
-            </MarketTooltipLabel>
-          )}
+          <MarketTooltipLabel
+            testID="stock-price-tooltip-trigger"
+            hovering
+            // The row baseline-aligns this figure with the change beside it.
+            alignSelf="baseline"
+            tooltip={intl.formatMessage({
+              id: isSharePrice
+                ? ETranslations.market_stock_price_underlying_tooltip
+                : ETranslations.market_token_price_onchain_tooltip,
+            })}
+          >
+            <StockLivePrice
+              price={price}
+              priceMode={priceMode}
+              isSharePrice={isSharePrice}
+            />
+          </MarketTooltipLabel>
           <XStack alignItems="baseline" flexShrink={0} gap="$1.5">
             {changeValueText ? (
               <NumberSizeableText
                 testID="stock-price-change-value"
                 size="$bodyLgMedium"
-                color={changeColor}
+                color={priceChangeColor}
                 formatter="price"
                 formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
               >
@@ -419,15 +378,15 @@ function StockPriceHeader({
             ) : null}
             <XStack alignItems="baseline">
               {changeValueText ? (
-                <SizableText size="$bodyLgMedium" color={changeColor}>
+                <SizableText size="$bodyLgMedium" color={priceChangeColor}>
                   (
                 </SizableText>
               ) : null}
               <PriceChangePercentage size="$bodyLgMedium">
-                {changePercentText ?? '--'}
+                {priceChangePercent ?? '--'}
               </PriceChangePercentage>
               {changeValueText ? (
-                <SizableText size="$bodyLgMedium" color={changeColor}>
+                <SizableText size="$bodyLgMedium" color={priceChangeColor}>
                   )
                 </SizableText>
               ) : null}
@@ -564,7 +523,6 @@ export function StockChart({
   priceMode,
   chartMode,
   isChartSwitchDisabled,
-  onHoverChange,
   onChartSwitch,
   isChartFullscreen,
   onEnterChartFullscreen,
@@ -576,7 +534,6 @@ export function StockChart({
   priceMode: IMarketPriceSource;
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
-  onHoverChange: (point: IStockPriceLineChartHoverPoint | undefined) => void;
   onChartSwitch: () => void;
   isChartFullscreen: boolean;
   onEnterChartFullscreen: () => void;
@@ -671,11 +628,7 @@ export function StockChart({
       ) : null}
       <YStack width="100%" flex={1} minHeight={0} position="relative">
         {isSimpleMode ? (
-          <StockSimpleChart
-            range={range}
-            priceMode={priceMode}
-            onHoverChange={onHoverChange}
-          />
+          <StockSimpleChart range={range} priceMode={priceMode} />
         ) : (
           <>
             <Stack flex={1} minWidth={0} overflow="hidden">
@@ -752,7 +705,7 @@ function StockOverviewGrid() {
       },
       {
         label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_24h_volume,
+          id: ETranslations.market_stock_volume__title,
         }),
         tooltip: intl.formatMessage({
           id: ETranslations.market_stock_volume_tooltip,
@@ -1087,14 +1040,6 @@ function StockAnalystRatings() {
   );
 }
 
-// react-native-web does not fire `onTextLayout` reliably, so the toggle is
-// gated on a character count that approximates two lines at this section width
-// instead of measuring the rendered text. Wider glyphs (CJK) can exceed the
-// approximation, so the clamp is only applied when the toggle is offered —
-// short-but-wide text renders unclamped rather than being cut with no way to
-// expand it.
-const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
-
 function StockAbout() {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
@@ -1274,9 +1219,7 @@ function StockOverview({
           </YStack>
           <StockEventsSection />
           <StockAnalystRatings />
-          {stockId ? (
-            <StockFinancials stockId={stockId} labels={stockFinancialLabels} />
-          ) : null}
+          {stockId ? <StockFinancials stockId={stockId} /> : null}
           <StockNewsSection />
           <StockAbout />
         </>
@@ -1326,11 +1269,6 @@ export function StockDesktopLayout({
     hasAccount: hasStockPortfolioAccount,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange } = useStockPriceSource();
-  // Lives here rather than inside the chart so the price header above it can
-  // follow the crosshair; the chart clears it on pointer-out and on unmount.
-  const [chartHoverPoint, setChartHoverPoint] = useState<
-    IStockPriceLineChartHoverPoint | undefined
-  >(undefined);
 
   return (
     <Stack
@@ -1358,7 +1296,6 @@ export function StockDesktopLayout({
             <StockPriceHeader
               priceMode={priceMode}
               onPriceModeChange={handlePriceModeChange}
-              hoverPoint={chartHoverPoint}
             />
             <StockChart
               chartContainerTestID="stock-token-detail-tradingview"
@@ -1374,7 +1311,6 @@ export function StockDesktopLayout({
               priceMode={priceMode}
               chartMode={chartMode}
               isChartSwitchDisabled={isChartSwitchDisabled}
-              onHoverChange={setChartHoverPoint}
               onChartSwitch={onChartSwitch}
               isChartFullscreen={isChartFullscreen}
               onEnterChartFullscreen={onEnterChartFullscreen}

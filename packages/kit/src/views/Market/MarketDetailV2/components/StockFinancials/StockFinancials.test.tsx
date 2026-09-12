@@ -45,6 +45,7 @@ const labels: IStockFinancialLabels = {
   partial: 'Some financial data is unavailable.',
   simplified: 'Simplified subtotals',
   next: 'Next',
+  expensesAndAdjustments: 'Expenses & adjustments',
 };
 
 const annual: IStockFinancials = {
@@ -111,6 +112,20 @@ const quarterly: IStockFinancials = {
     ],
   },
 };
+const conversion = {
+  date: '2025-09-27',
+  fiscalYear: '2025',
+  fiscalPeriod: 'FY',
+  revenue: 1000,
+  costOfRevenue: 600,
+  grossProfit: 400,
+  operatingExpenses: 150,
+  operatingIncome: 250,
+  nonOperatingIncomeExpenses: -20,
+  incomeTaxExpense: 50,
+  taxesAndOther: -50,
+  netIncome: 180,
+};
 const mockRetry = jest.fn();
 let mockResult: {
   stockId: string;
@@ -127,8 +142,12 @@ jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
   __esModule: true,
   default: () => ({ formatDate: () => '--' }),
 }));
+let mockStockDetailContext: {
+  stockId: string;
+  stockDetail: Record<string, unknown>;
+} = { stockId: 'AAPL', stockDetail: { symbol: 'AAPL' } };
 jest.mock('../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({ stockId: 'AAPL', stockDetail: { symbol: 'AAPL' } }),
+  useStockDetail: () => mockStockDetailContext,
 }));
 jest.mock('../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => ({
@@ -144,9 +163,10 @@ jest.mock('../../hooks/useStockSecurityStats', () => ({
   }),
 }));
 jest.mock('../../utils/stockPublicDataUtils', () => ({
+  ...jest.requireActual<typeof import('../../utils/stockPublicDataUtils')>(
+    '../../utils/stockPublicDataUtils',
+  ),
   buildStockInfoFromPublicDetail: () => ({}),
-  formatDirectPercentValue: () => '--',
-  formatStockAnalystConsensus: () => '--',
 }));
 jest.mock('../StockDescriptionRows', () => ({
   StockDescriptionRows: () => null,
@@ -181,10 +201,12 @@ jest.mock('@onekeyhq/components', () => {
     onBlur?: () => void;
     'aria-pressed'?: boolean;
     'aria-label'?: string;
+    numberOfLines?: number;
   };
   const Stack = (props: IProps) => (
     <div
       data-testid={props.testID}
+      data-number-of-lines={props.numberOfLines}
       onMouseEnter={props.onHoverIn}
       onMouseLeave={props.onHoverOut}
       onClick={props.onPress}
@@ -217,12 +239,26 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Stack,
     SizableText: Stack,
     Skeleton: Stack,
+    Theme: Stack,
     Button,
+    getTokenValue: (token: string, category: string) =>
+      category === 'radius' ? 4 : 32,
     useTheme: () => ({
       textSubdued: { val: '#777' },
       borderSubdued: { val: '#eee' },
       bgApp: { val: '#fff' },
+      bg: { val: '#fff' },
+      bgInverse: { val: '#222' },
+      text: { val: '#111' },
+      textInverse: { val: '#fff' },
+      bgHover: { val: '#eee' },
+      neutral3: { val: '#eee' },
+      blue9: { val: '#0090ff' },
+      orange9: { val: '#f76b15' },
+      teal9: { val: '#12a594' },
+      red9: { val: '#e5484d' },
     }),
+    useThemeName: () => 'light',
   };
 });
 
@@ -235,12 +271,36 @@ function renderFinancials() {
 }
 
 beforeEach(() => {
+  mockStockDetailContext = {
+    stockId: 'AAPL',
+    stockDetail: { symbol: 'AAPL' },
+  };
   mockResult = {
     stockId: 'AAPL',
     annual: { data: annual, failed: false },
     quarter: { data: quarterly, failed: false },
   };
   mockRetry.mockClear();
+});
+
+it('uses the bundled financial translations when labels are not overridden', () => {
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <StockFinancials stockId="AAPL" />
+    </IntlProvider>,
+  );
+  expect(
+    screen.getByText(
+      intlMessages[ETranslations.market_stock_financials__title],
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      intlMessages[
+        ETranslations.market_stock_financials_revenue_to_profit__title
+      ],
+    ),
+  ).toBeTruthy();
 });
 
 it('switches each chart independently and displays fiscal quarter data', () => {
@@ -356,12 +416,14 @@ it('renders dated quarterly forecasts when the API omits the fiscal period', () 
   fireEvent.click(screen.getByTestId('stock-financials-earnings-quarter'));
   const chart = screen.getByTestId('stock-financials-earnings-chart');
   expect(chart.querySelectorAll('circle')).toHaveLength(2);
-  expect(chart.querySelector('circle[fill="none"]')).toBeTruthy();
+  expect(chart.querySelector('circle[fill="#fff"]')).toBeTruthy();
   fireEvent.mouseEnter(
     screen.getByTestId('stock-financials-earnings-chart-point-1'),
   );
+  expect(
+    screen.getByTestId('stock-financials-earnings-chart-labels').textContent,
+  ).toContain('2026-09-30');
   const tooltip = screen.getByTestId('stock-financials-earnings-chart-tooltip');
-  expect(tooltip.textContent).toContain('2026-09-30');
   expect(tooltip.textContent).toContain('Actual --');
   expect(tooltip.textContent).toContain('Estimate 1.98');
 });
@@ -401,6 +463,126 @@ it('uses the same compact amount units for axes and hover values in every locale
   );
 });
 
+it('collapses a reconciled waterfall without losing its adjustments or endpoints', () => {
+  const data = { ...annual, revenueToProfitConversion: conversion };
+  const detailed = buildFinancialChart(data, 'conversion', labels);
+  const compact = buildFinancialChart(data, 'conversion', labels, true);
+  expect(detailed.rows).toHaveLength(8);
+  expect(compact.rows.map((row) => row.key)).toEqual([
+    'revenue',
+    'costOfRevenue',
+    'grossProfit',
+    'expensesAndAdjustments',
+    'netIncome',
+  ]);
+  expect(compact.rows[3].range).toMatchObject({
+    start: 400,
+    end: 180,
+    connect: true,
+  });
+  expect(compact.rows[3].values).toEqual([-220]);
+  expect(compact.rows[3].details?.map((item) => item.value)).toEqual([
+    -150, -20, -50,
+  ]);
+  expect(compact.rows[4]).toEqual(detailed.rows[7]);
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <FinancialChart
+        rows={compact.rows}
+        series={compact.series}
+        currency="USD"
+        testID="compact"
+      />
+    </IntlProvider>,
+  );
+  fireEvent.mouseEnter(screen.getByTestId('compact-point-3'));
+  const tooltip = screen.getByTestId('compact-tooltip');
+  expect(tooltip.textContent).toContain('Expenses & adjustments -220 USD');
+  expect(tooltip.textContent).toContain('Op expenses -150 USD');
+  expect(tooltip.textContent).toContain('Non-Op income/expenses -20 USD');
+  expect(tooltip.textContent).toContain('Taxes -50 USD');
+});
+
+it('keeps missing or unreconciled conversion data in the simplified subtotal chart', () => {
+  for (const fields of [{ incomeTaxExpense: null }, { netIncome: 160 }]) {
+    const chart = buildFinancialChart(
+      {
+        ...annual,
+        revenueToProfitConversion: { ...conversion, ...fields },
+      },
+      'conversion',
+      labels,
+      true,
+    );
+    expect(chart.simplified).toBe(true);
+    expect(chart.rows.some((row) => row.key === 'expensesAndAdjustments')).toBe(
+      false,
+    );
+    expect(chart.rows.every((row) => row.range?.connect === false)).toBe(true);
+  }
+});
+
+it('preserves positive adjustments and losses when collapsing the waterfall', () => {
+  for (const fields of [
+    { nonOperatingIncomeExpenses: 250, netIncome: 450, expected: 50 },
+    {
+      operatingExpenses: 450,
+      operatingIncome: -50,
+      netIncome: -120,
+      expected: -520,
+    },
+  ]) {
+    const chart = buildFinancialChart(
+      {
+        ...annual,
+        revenueToProfitConversion: { ...conversion, ...fields },
+      },
+      'conversion',
+      labels,
+      true,
+    );
+    const row = chart.rows[3];
+    expect(chart.simplified).toBe(false);
+    expect(row.values).toEqual([fields.expected]);
+    expect(row.details?.reduce((total, item) => total + item.value, 0)).toBe(
+      fields.expected,
+    );
+    expect(row.range?.end).toBe(fields.netIncome);
+  }
+});
+
+it('renders axis labels as platform text so every script wraps natively', () => {
+  const axisLabels = [
+    'Betriebsfremde Erträge/Aufwendungen',
+    '费用及调整项',
+    'กำไรขั้นต้น',
+  ];
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <FinancialChart
+        rows={axisLabels.map((label, index) => ({
+          key: String(index),
+          label,
+          values: [index + 1],
+        }))}
+        series={[
+          { key: 'revenue', label: 'Revenue', color: 'blue9', kind: 'bar' },
+        ]}
+        testID="labels"
+      />
+    </IntlProvider>,
+  );
+  expect(
+    Array.from(
+      screen.getByTestId('labels-labels').children,
+      (node) => node.textContent,
+    ),
+  ).toEqual(axisLabels);
+  expect(
+    screen.getByTestId('labels').querySelector('svg')?.textContent,
+  ).not.toContain('กำไรขั้นต้น');
+});
+
 it('shows hover values and missing fields without converting them to zero', () => {
   const chart = buildFinancialChart(annual, 'debt', labels);
   render(
@@ -408,10 +590,18 @@ it('shows hover values and missing fields without converting them to zero', () =
       <FinancialChart rows={chart.rows} series={chart.series} testID="chart" />
     </IntlProvider>,
   );
+  expect(screen.queryByTestId('chart-tooltip')).toBeNull();
   fireEvent.mouseEnter(screen.getByTestId('chart-point-0'));
   const tooltip = screen.getByTestId('chart-tooltip');
   expect(tooltip.textContent).toContain('Free cash flow -10');
   expect(tooltip.textContent).toContain('Cash & equivalents --');
+  fireEvent.mouseLeave(screen.getByTestId('chart-point-0'));
+  expect(screen.queryByTestId('chart-tooltip')).toBeNull();
+  fireEvent.focus(screen.getByTestId('chart-point-0'));
+  fireEvent.click(screen.getByTestId('chart-point-0'));
+  expect(screen.getByTestId('chart-tooltip')).toBeTruthy();
+  fireEvent.click(screen.getByTestId('chart-point-0'));
+  expect(screen.queryByTestId('chart-tooltip')).toBeNull();
 });
 
 it('mounts the financial charts in the mobile stock overview', () => {
@@ -422,12 +612,56 @@ it('mounts the financial charts in the mobile stock overview', () => {
   );
   expect(screen.getByTestId('stock-financials')).toBeTruthy();
   expect(screen.getByTestId('stock-financials-performance-chart')).toBeTruthy();
+  expect(
+    screen.queryByText(
+      intlMessages[ETranslations.market_stock_analyst_ratings],
+    ),
+  ).toBeNull();
   fireEvent.click(screen.getByTestId('stock-financials-performance-quarter'));
   expect(
     screen
       .getByTestId('stock-financials-performance-quarter')
       .getAttribute('aria-pressed'),
   ).toBe('true');
+});
+
+it('clamps a long About description on the mobile overview until expanded', () => {
+  mockStockDetailContext = {
+    stockId: 'AAPL',
+    stockDetail: { symbol: 'AAPL', about: { description: 'A'.repeat(220) } },
+  };
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <StockTokenOverview />
+    </IntlProvider>,
+  );
+  const description = screen.getByTestId('stock-overview-about-description');
+  const toggle = screen.getByTestId('stock-overview-about-description-toggle');
+  expect(description.getAttribute('data-number-of-lines')).toBe('4');
+  expect(toggle.textContent).toBe(intlMessages[ETranslations.global_show_more]);
+  fireEvent.click(toggle);
+  expect(description.hasAttribute('data-number-of-lines')).toBe(false);
+  expect(toggle.textContent).toBe(intlMessages[ETranslations.global_show_less]);
+});
+
+it('leaves a short About description unclamped without a toggle', () => {
+  mockStockDetailContext = {
+    stockId: 'AAPL',
+    stockDetail: { symbol: 'AAPL', about: { description: 'Short summary.' } },
+  };
+  render(
+    <IntlProvider locale="en" messages={intlMessages}>
+      <StockTokenOverview />
+    </IntlProvider>,
+  );
+  expect(
+    screen
+      .getByTestId('stock-overview-about-description')
+      .hasAttribute('data-number-of-lines'),
+  ).toBe(false);
+  expect(
+    screen.queryByTestId('stock-overview-about-description-toggle'),
+  ).toBeNull();
 });
 
 it('distinguishes failed requests from successful empty responses', () => {

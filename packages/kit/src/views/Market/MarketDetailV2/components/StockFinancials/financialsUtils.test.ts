@@ -54,7 +54,7 @@ describe('stock financial chart data', () => {
     const actual = getFinancialRows(rows, 'quarter');
     expect(actual.map(getFinancialPeriodLabel)).toEqual(["Q1 '26", "Q2 '26"]);
     expect(rows[0].fiscalPeriod).toBe('Q2');
-    expect(getFinancialPeriodLabel(rows[2])).toBe('FY2025');
+    expect(getFinancialPeriodLabel(rows[2])).toBe('2025');
   });
 
   it('does not mix report currencies or turn null and zero revenue into margins', () => {

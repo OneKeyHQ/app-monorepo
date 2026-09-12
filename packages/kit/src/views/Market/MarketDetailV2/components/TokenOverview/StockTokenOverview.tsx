@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,16 +18,18 @@ import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useStockSecurityStats } from '../../hooks/useStockSecurityStats';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
+  STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH,
   buildStockInfoFromPublicDetail,
-  formatDirectPercentValue,
-  formatStockAnalystConsensus,
 } from '../../utils/stockPublicDataUtils';
 import { StockDescriptionRows } from '../StockDescriptionRows';
-import { stockFinancialLabels } from '../StockFinancials/stockFinancialLabels';
 import { StockFinancials } from '../StockFinancials/StockFinancials';
 import { StockStatSections } from '../StockStatSections';
 
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
+
+// Desktop collapses About to two lines, about 200 Latin characters at its
+// width. The ~335px mobile column needs four lines to show a similar amount.
+const STOCK_OVERVIEW_ABOUT_COLLAPSED_LINES = 4;
 
 export function StockTokenOverview() {
   const intl = useIntl();
@@ -38,6 +42,7 @@ export function StockTokenOverview() {
     : tokenDetail?.stock;
   const { assetAnalysisRows, tradingActivityRows, descriptionRows } =
     useStockSecurityStats(stock);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   if (isStockDetailError && !stock) {
     return (
@@ -68,8 +73,10 @@ export function StockTokenOverview() {
     return <TokenOverviewSkeleton />;
   }
 
-  const ratings = stockDetail?.analystRatings;
   const about = stockDetail?.about;
+  const canExpandDescription =
+    (about?.description?.length ?? 0) >
+    STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH;
 
   return (
     <Stack gap="$2" px="$5" pt="$5" pb="$3">
@@ -101,54 +108,8 @@ export function StockTokenOverview() {
 
       <Divider my="$1" />
 
-      <Stack gap="$3" py="$2">
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.market_stock_analyst_ratings,
-          })}
-        </SizableText>
-        <XStack justifyContent="space-between">
-          <SizableText color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.market_stock_consensus })}
-          </SizableText>
-          <SizableText>
-            {formatStockAnalystConsensus({ intl, analystRatings: ratings })}
-          </SizableText>
-        </XStack>
-        {[
-          {
-            key: 'buy',
-            label: intl.formatMessage({ id: ETranslations.global_buy }),
-            value: ratings?.buy,
-          },
-          {
-            key: 'hold',
-            label: intl.formatMessage({
-              id: ETranslations.market_stock_rating_hold,
-            }),
-            value: ratings?.hold,
-          },
-          {
-            key: 'sell',
-            label: intl.formatMessage({ id: ETranslations.global_sell }),
-            value: ratings?.sell,
-          },
-        ].map((item) => (
-          <XStack key={item.key} justifyContent="space-between">
-            <SizableText color="$textSubdued">{item.label}</SizableText>
-            <SizableText>{formatDirectPercentValue(item.value)}</SizableText>
-          </XStack>
-        ))}
-      </Stack>
-
-      <Divider my="$1" />
-
       {stockId ? (
-        <StockFinancials
-          stockId={stockId}
-          labels={stockFinancialLabels}
-          withHorizontalPadding={false}
-        />
+        <StockFinancials stockId={stockId} withHorizontalPadding={false} />
       ) : null}
 
       <Stack gap="$3" py="$2">
@@ -190,7 +151,34 @@ export function StockTokenOverview() {
           </XStack>
         ))}
         {about?.description ? (
-          <SizableText color="$textSubdued">{about.description}</SizableText>
+          <YStack gap="$2" alignItems="flex-start">
+            <SizableText
+              testID="stock-overview-about-description"
+              color="$textSubdued"
+              numberOfLines={
+                canExpandDescription && !isDescriptionExpanded
+                  ? STOCK_OVERVIEW_ABOUT_COLLAPSED_LINES
+                  : undefined
+              }
+            >
+              {about.description}
+            </SizableText>
+            {canExpandDescription ? (
+              <Button
+                testID="stock-overview-about-description-toggle"
+                size="small"
+                variant="tertiary"
+                alignSelf="flex-start"
+                onPress={() => setIsDescriptionExpanded((value) => !value)}
+              >
+                {intl.formatMessage({
+                  id: isDescriptionExpanded
+                    ? ETranslations.global_show_less
+                    : ETranslations.global_show_more,
+                })}
+              </Button>
+            ) : null}
+          </YStack>
         ) : null}
       </Stack>
     </Stack>
