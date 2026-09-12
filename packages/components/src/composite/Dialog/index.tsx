@@ -45,7 +45,6 @@ import { SheetGrabber } from '../../content/SheetGrabber';
 import {
   EPageType,
   EPortalContainerConstantName,
-  Portal,
   usePageType,
 } from '../../hocs';
 import {
@@ -78,12 +77,13 @@ import {
   DialogTitle,
   SetDialogHeader,
 } from './Header';
-import { renderToContainer } from './renderToContainer';
+import { renderDialogPortal } from './renderDialogPortal';
 
 import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogForm,
   IDialogFormProps,
   IDialogHeaderProps,
   IDialogInstance,
@@ -582,19 +582,41 @@ function BaseDialogContainer(
     [isExist],
   );
 
+  // `Dialog.Form` registers itself onto `formRef` from a lazily loaded module,
+  // so it lands after the rest of the dialog has mounted and lands again on
+  // every remount. Consumers that hold on to the instance (the footer's
+  // `disabledOn` subscription) need to be told, not to re-read a ref they have
+  // no reason to look at again. (OK-62416)
+  const formListenersRef = useRef(new Set<() => void>());
+  const registerForm = useCallback((form: IDialogForm | undefined) => {
+    formRef.current = form;
+    for (const listener of formListenersRef.current) {
+      listener();
+    }
+  }, []);
+  const subscribeFormChange = useCallback((listener: () => void) => {
+    const listeners = formListenersRef.current;
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
         close: handleClose,
         ref: formRef,
         isExist: handleIsExist,
+        registerForm,
+        subscribeFormChange,
       },
       footerRef: {
         notifyUpdate: undefined,
         props: undefined,
       },
     }),
-    [handleClose, handleIsExist],
+    [handleClose, handleIsExist, registerForm, subscribeFormChange],
   );
 
   const handleOpen = useCallback(() => {
@@ -737,9 +759,11 @@ function dialogShow({
   })();
 
   portalRef = {
-    current: portalContainer
-      ? renderToContainer(portalContainer, element, isOverTopAllViews)
-      : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
+    current: renderDialogPortal({
+      element,
+      portalContainer,
+      isOverTopAllViews,
+    }),
   };
   const close = async (extra?: { flag?: string }, times = 0) => {
     if (times > 10) {

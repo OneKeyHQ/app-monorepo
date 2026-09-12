@@ -157,12 +157,21 @@ export type IDialogCancelProps = Omit<
   'onConfirm' | 'onConfirmText' | 'ConfirmButtonProps' | 'showFooter'
 >;
 
-type IDialogForm = ReturnType<typeof useForm>;
+export type IDialogForm = ReturnType<typeof useForm>;
 
 export interface IDialogInstanceRef {
   close: (extra?: { flag?: string }) => Promise<void>;
   ref: MutableRefObject<IDialogForm | undefined>;
   isExist: () => boolean;
+  /**
+   * Announce the form `Dialog.Form` has just mounted onto this dialog. It is
+   * lazy, so it registers after the rest of the dialog has rendered and
+   * registers again whenever it remounts; anything reading `ref` needs to hear
+   * about that rather than keep whatever it saw first.
+   */
+  registerForm?: (form: IDialogForm | undefined) => void;
+  /** Subscribe to `registerForm`. Returns the unsubscribe function. */
+  subscribeFormChange?: (listener: () => void) => () => void;
 }
 
 export interface IDialogInstance {

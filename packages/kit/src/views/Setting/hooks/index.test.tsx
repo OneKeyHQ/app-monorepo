@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { useResetApp } from '.';
+import { inAppStateLockDialogProps, useResetApp } from '.';
 
 import { act, renderHook } from '@testing-library/react';
 
@@ -99,22 +99,34 @@ function getMocks() {
     isAppLocked: jest.requireMock(
       '../../../background/instance/backgroundApiProxy',
     ).__isAppLocked as jest.Mock,
-    platformEnv: jest.requireMock('@onekeyhq/shared/src/platformEnv')
-      .__platformEnv as {
-      isNative: boolean;
-    },
   };
 }
+
+describe('inAppStateLockDialogProps', () => {
+  it('renders lock-screen dialogs inside the lock overlay on every platform', () => {
+    expect(inAppStateLockDialogProps).toMatchObject({
+      isOverTopAllViews: false,
+      portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+    });
+  });
+
+  it('stops the sheet form of a lock-screen dialog from portalling to the body', () => {
+    expect(inAppStateLockDialogProps.sheetProps).toMatchObject({
+      portalProps: { passThrough: true },
+    });
+  });
+});
 
 describe('useResetApp', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    const mocks = getMocks();
-    mocks.isAppLocked.mockResolvedValue(true);
-    mocks.platformEnv.isNative = false;
+    jest.requireMock(
+      '@onekeyhq/shared/src/platformEnv',
+    ).__platformEnv.isNative = false;
+    getMocks().isAppLocked.mockResolvedValue(true);
   });
 
-  it('keeps the desktop lock-screen reset dialog inside its portal', async () => {
+  it('opens the lock-screen reset dialog with the lock overlay props', async () => {
     const { result } = renderHook(() => useResetApp({ inAppStateLock: true }));
 
     await act(async () => {
@@ -122,24 +134,55 @@ describe('useResetApp', () => {
     });
 
     expect(getMocks().dialogShow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isOverTopAllViews: false,
+      expect.objectContaining(inAppStateLockDialogProps),
+    );
+  });
+
+  it('leaves an unlocked reset dialog outside the lock overlay', async () => {
+    const { result } = renderHook(() => useResetApp());
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(getMocks().dialogShow).toHaveBeenCalledWith(
+      expect.not.objectContaining({
         portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
       }),
     );
   });
 
-  it('preserves the native over-top rendering behavior', async () => {
-    getMocks().platformEnv.isNative = true;
-    const { result } = renderHook(() => useResetApp({ inAppStateLock: true }));
+  it('keeps the native top-level overlay for an unlocked reset dialog', async () => {
+    // Settings → Reset opens from a native modal page on iOS; without this the
+    // dialog renders underneath it.
+    jest.requireMock(
+      '@onekeyhq/shared/src/platformEnv',
+    ).__platformEnv.isNative = true;
+    const { result } = renderHook(() => useResetApp());
 
     await act(async () => {
       await result.current();
     });
 
     expect(getMocks().dialogShow).toHaveBeenCalledWith(
+      expect.objectContaining({ isOverTopAllViews: true }),
+    );
+  });
+
+  it('still hands the lock screen its own container on native', async () => {
+    jest.requireMock(
+      '@onekeyhq/shared/src/platformEnv',
+    ).__platformEnv.isNative = true;
+    const { result } = renderHook(() => useResetApp({ inAppStateLock: true }));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    // The lock-screen props must win over the native default above.
+    expect(getMocks().dialogShow).toHaveBeenCalledWith(
       expect.objectContaining({
-        isOverTopAllViews: true,
+        isOverTopAllViews: false,
         portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
       }),
     );
