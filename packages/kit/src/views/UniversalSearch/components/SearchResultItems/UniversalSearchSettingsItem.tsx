@@ -6,6 +6,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { tryNavigateToSettingsTabInModal } from '@onekeyhq/kit/src/views/Setting/pages/Tab/navigateToSettingsTab';
+import { logSettingItemClicked } from '@onekeyhq/kit/src/views/Setting/pages/Tab/settingsAnalytics';
 import { useIsTabNavigator } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useIsTabNavigator';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -49,11 +50,18 @@ export function UniversalSearchSettingsItem({
       source,
       searchText: getSearchInput(),
       type: item.type,
-      // Prefer stable identities (route, then explicit id) over localized
-      // fallbacks so analytics series survive copy changes.
-      itemId: settingRoute ?? id ?? sectionName ?? title,
+      // Explicit ids survive navigation migrations; routes are the stable
+      // fallback for items that do not define one.
+      itemId: id ?? settingRoute ?? sectionName ?? title,
       itemTitle: title,
     });
+    if (sectionName) {
+      logSettingItemClicked({
+        item: { id, settingRoute },
+        category: sectionName,
+        source: 'universalSearch',
+      });
+    }
 
     navigation.pop();
     await timerUtils.wait(300);
@@ -95,7 +103,7 @@ export function UniversalSearchSettingsItem({
 
     await timerUtils.wait(10);
     universalSearchActions.current.addIntoRecentSearchList({
-      id: `settings-${settingRoute ?? id ?? title}`,
+      id: `settings-${id ?? settingRoute ?? title}`,
       text: title,
       type: item.type,
       timestamp: Date.now(),

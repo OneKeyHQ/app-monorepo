@@ -6,7 +6,10 @@ import { renderHook } from '@testing-library/react';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_TAP_MAX_DISTANCE } from '../chartConstants';
-import { getTradingViewNativeSubIndicatorLegendIndicatorAtPoint } from '../utils/subIndicatorRender';
+import {
+  getTradingViewNativeSubIndicatorLegendHitRegions,
+  getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
+} from '../utils/subIndicatorRender';
 
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 
@@ -23,6 +26,9 @@ const mockPanGestures: IMockGestureBuilder[] = [];
 const mockScheduleOnRN = jest.mocked(scheduleOnRN);
 const mockGetSubIndicatorAtPoint = jest.mocked(
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
+);
+const mockGetSubIndicatorLegendHitRegions = jest.mocked(
+  getTradingViewNativeSubIndicatorLegendHitRegions,
 );
 
 function mockCreateGestureBuilder(): IMockGestureBuilder {
@@ -120,6 +126,7 @@ function renderSettingsGesture(
         },
       },
     },
+    timeAxisHeight: 20,
   } as unknown as Parameters<typeof useTradingViewNativeChartGestures>[0];
 
   renderHook(() => useTradingViewNativeChartGestures(props));
@@ -176,6 +183,7 @@ function renderChartGestures() {
         },
       },
     },
+    timeAxisHeight: 20,
   } as unknown as Parameters<typeof useTradingViewNativeChartGestures>[0];
 
   renderHook(() => useTradingViewNativeChartGestures(props));
@@ -205,6 +213,9 @@ describe('useTradingViewNativeChartGestures', () => {
     gesture.handlers.onFinalize?.();
 
     expect(fail).not.toHaveBeenCalled();
+    expect(mockGetSubIndicatorLegendHitRegions).toHaveBeenCalledWith(
+      expect.objectContaining({ timeAxisHeight: 20 }),
+    );
     expect(mockGetSubIndicatorAtPoint).toHaveBeenCalledTimes(1);
     expect(mockScheduleOnRN).toHaveBeenCalledWith(
       onSubIndicatorSettingsPress,
@@ -286,11 +297,11 @@ describe('useTradingViewNativeChartGestures', () => {
       { fail: failTapCrosshair },
     );
     crosshairGesture.handlers.onTouchesDown?.(
-      { changedTouches: [{ x: 100, y: 200 }] },
+      { changedTouches: [{ x: 100, y: 278 }] },
       { fail: failMainChartCrosshair },
     );
     tapCrosshairGesture?.handlers.onTouchesDown?.(
-      { changedTouches: [{ x: 100, y: 200 }] },
+      { changedTouches: [{ x: 100, y: 278 }] },
       { fail: failMainChartTapCrosshair },
     );
 

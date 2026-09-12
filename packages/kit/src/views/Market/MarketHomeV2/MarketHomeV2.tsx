@@ -31,12 +31,16 @@ import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed
 import { markMarketPerf } from '../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
+import {
+  MarketBannerProvider,
+  useMarketBannerState,
+} from './components/MarketBanner/MarketBannerList';
 import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
-import { isMarketStockCategory } from './utils';
+import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
@@ -122,7 +126,7 @@ const useMarketHomeLayoutProps = () => {
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
-      return apiSpotCategories.map((c) => {
+      const mappedCategories = apiSpotCategories.map((c) => {
         const category = {
           id: c.type,
           name: c.name,
@@ -133,15 +137,23 @@ const useMarketHomeLayoutProps = () => {
           isStockCategory: isMarketStockCategory(category),
         };
       });
+
+      return ensureMarketTopCoinsCategory(
+        mappedCategories,
+        intl.formatMessage({ id: ETranslations.market_top_coins }),
+      );
     }
 
     // Fallback before API responds
-    return [
-      {
-        id: 'trending',
-        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-      },
-    ];
+    return ensureMarketTopCoinsCategory(
+      [
+        {
+          id: 'trending',
+          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+        },
+      ],
+      intl.formatMessage({ id: ETranslations.market_top_coins }),
+    );
   }, [apiSpotCategories, intl]);
 
   const stockCategories: IMarketCategoryItem[] = useMemo(
@@ -301,7 +313,8 @@ const useMarketHomeLayoutProps = () => {
   );
 };
 
-function BaseMarketHomeLayout() {
+function MarketHomeLayoutContent() {
+  const { isLoading: isBannerPending } = useMarketBannerState();
   markMarketPerf('market-home-base-layout-render');
   useMarketRenderCommitProbe('MarketHome.BaseLayout');
   const { md, layoutProps, shouldWaitForSpotCategoryReady } =
@@ -309,10 +322,13 @@ function BaseMarketHomeLayout() {
   const isFocused = useRouteIsFocused();
   useRefreshWatchListV2OnFocus(isFocused);
 
-  if (shouldWaitForSpotCategoryReady) {
+  if (
+    shouldWaitForSpotCategoryReady ||
+    (platformEnv.isNative && isBannerPending)
+  ) {
     return (
       <LazyPageContainer eager={platformEnv.isWeb}>
-        {md && !platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
+        {md || platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
       </LazyPageContainer>
     );
   }
@@ -325,6 +341,14 @@ function BaseMarketHomeLayout() {
         <DesktopLayout {...layoutProps} />
       )}
     </LazyPageContainer>
+  );
+}
+
+function BaseMarketHomeLayout() {
+  return (
+    <MarketBannerProvider>
+      <MarketHomeLayoutContent />
+    </MarketBannerProvider>
   );
 }
 
@@ -378,8 +402,12 @@ function BaseMarketHomeWithProvider({
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
   useRefreshWatchListV2OnFocus(isFocused);
-  if (shouldWaitForSpotCategoryReady) {
-    return null;
+  const { isLoading: isBannerPending } = useMarketBannerState();
+  if (
+    shouldWaitForSpotCategoryReady ||
+    (platformEnv.isNative && isBannerPending)
+  ) {
+    return platformEnv.isNative ? <MarketHomeLoadingFallback /> : null;
   }
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
   // and let Freeze control inactive-page performance. Unmounting here causes
@@ -418,11 +446,13 @@ export function MarketHomeWithProvider({
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BaseMarketHomeWithProvider
-          isFocused={isFocused}
-          tabsRef={tabsRef}
-          nestedPager={nestedPager}
-        />
+        <MarketBannerProvider>
+          <BaseMarketHomeWithProvider
+            isFocused={isFocused}
+            tabsRef={tabsRef}
+            nestedPager={nestedPager}
+          />
+        </MarketBannerProvider>
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

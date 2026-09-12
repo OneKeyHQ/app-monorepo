@@ -63,13 +63,13 @@ describe('devicePerformanceTier.native', () => {
     expect(getDeviceCpuTier()).toBe(EDeviceCpuTier.high);
   });
 
-  it('persists a V2 CPU developer override separately', () => {
+  it('persists a V2 CPU developer override separately', async () => {
     getDeviceCpuTierMatchMock.mockReturnValue(null);
 
     const { EDeviceCpuTier, getDevicePerformanceProfile, setDeviceCpuTier } =
       require('./devicePerformanceTier.native') as typeof import('./devicePerformanceTier.native');
 
-    setDeviceCpuTier(EDeviceCpuTier.low);
+    await setDeviceCpuTier(EDeviceCpuTier.low);
 
     expect(storage.get('onekey_device_cpu_tier_override_v2')).toBe(
       EDeviceCpuTier.low,

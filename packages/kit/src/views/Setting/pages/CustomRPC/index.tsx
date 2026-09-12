@@ -42,6 +42,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
 
 import { SettingTestIDs } from '../../testIDs';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 type IEditRpcParams = {
   network: IServerNetwork;
@@ -435,7 +436,7 @@ function CustomRPC() {
         title={intl.formatMessage({ id: ETranslations.custom_rpc_title })}
         headerRight={headerRight}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <ListView
           data={customRpcData.customRpcNetworks}
           estimatedItemSize={60}

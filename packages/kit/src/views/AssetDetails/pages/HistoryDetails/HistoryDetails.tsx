@@ -51,9 +51,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -793,17 +797,40 @@ function HistoryDetails() {
       title = intl.formatMessage({ id: ETranslations.global_receive });
     }
 
+    // Only let the indexer label win when it actually has one: networks the
+    // indexer cannot parse return an empty label, and overwriting with it
+    // wiped out the title derived above.
     if (
-      !historyTx.isLocalCreated ||
-      (decodedTx.status !== EDecodedTxStatus.Pending && label)
+      label &&
+      (!historyTx.isLocalCreated ||
+        decodedTx.status !== EDecodedTxStatus.Pending)
     ) {
       title = label;
     }
 
-    if (!title && decodedTx.actions[0]?.assetTransfer?.isInternalSwap) {
+    const action = decodedTx.actions[0];
+
+    // Same fallbacks the history list item uses, so the row and its details
+    // page never disagree on the action type.
+    if (!title && action?.assetTransfer?.isInternalSwap) {
       title = intl.formatMessage({
         id: ETranslations.global_swap,
       });
+    } else if (!title && action?.assetTransfer?.isInternalStaking) {
+      title =
+        action.assetTransfer.internalStakingLabel ||
+        (historyTx.stakingInfo
+          ? getStakingActionLabel({ stakingInfo: historyTx.stakingInfo })
+          : '');
+    }
+
+    if (!title && (action?.functionCall || action?.unknownAction)) {
+      title =
+        action.functionCall?.functionName ||
+        action.unknownAction?.label ||
+        intl.formatMessage({
+          id: ETranslations.transaction__contract_interaction,
+        });
     }
 
     return title;
@@ -1289,42 +1316,63 @@ function HistoryDetails() {
     historyTx,
   });
 
-  const renderFeeInfo = useCallback(
-    () => (
+  const renderFeeInfo = useCallback(() => {
+    const gasFeeDisplayValues = getHistoryFeeDisplayValues({
+      gasFee: txInfo?.gasFee,
+      gasFeeFiatValue: txInfo?.gasFeeFiatValue,
+    });
+    const gasFeeTextColor = gasFeeDisplayValues.isRefunded
+      ? '$textSuccess'
+      : '$textSubdued';
+
+    return (
       <XStack alignItems="center">
+        {gasFeeDisplayValues.isRefunded ? (
+          <SizableText size="$bodyMd" color={gasFeeTextColor}>
+            +
+          </SizableText>
+        ) : null}
         <NumberSizeableTextWrapper
           formatter="balance"
           size="$bodyMd"
-          color="$textSubdued"
+          color={gasFeeTextColor}
           formatterOptions={{
             tokenSymbol: nativeToken?.symbol,
           }}
         >
-          {txInfo?.gasFee}
+          {gasFeeDisplayValues.gasFee}
         </NumberSizeableTextWrapper>
-        {!isNil(txInfo?.gasFeeFiatValue) ? (
-          <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
+        {!isNil(gasFeeDisplayValues.gasFeeFiatValue) ? (
+          <SizableText size="$bodyMd" color={gasFeeTextColor} ml="$1">
             (
             <NumberSizeableTextWrapper
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
               size="$bodyMd"
-              color="$textSubdued"
+              color={gasFeeTextColor}
             >
-              {txInfo?.gasFeeFiatValue ?? '0'}
+              {gasFeeDisplayValues.gasFeeFiatValue ?? '0'}
             </NumberSizeableTextWrapper>
             )
           </SizableText>
         ) : null}
+        {gasFeeDisplayValues.isRefunded ? (
+          <SizableText size="$bodyMd" color={gasFeeTextColor} ml="$1">
+            ·{' '}
+            {intl.formatMessage({
+              id: ETranslations.sui_rebate_refunded,
+            })}
+          </SizableText>
+        ) : null}
       </XStack>
-    ),
-    [
-      nativeToken?.symbol,
-      settings.currencyInfo.symbol,
-      txInfo?.gasFee,
-      txInfo?.gasFeeFiatValue,
-    ],
-  );
+    );
+  }, [
+    intl,
+    nativeToken?.symbol,
+    settings.currencyInfo.symbol,
+    txInfo?.gasFee,
+    txInfo?.gasFeeFiatValue,
+  ]);
 
   const renderHistoryDetails = useCallback(() => {
     // On the notification path no `historyTx` is passed in, so the detail is

@@ -3,6 +3,7 @@ export * from './notifications';
 export * from './account';
 export * from './addressBooks';
 export * from './appUpdate';
+export * from './batchTxSign';
 export * from './cloudBackup';
 export * from './currency';
 export * from './demo';

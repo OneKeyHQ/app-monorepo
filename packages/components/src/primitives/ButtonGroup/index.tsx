@@ -78,6 +78,7 @@ function BasicButtonGroup({
         type="single"
         disabled={disabled}
         orientation={orientation}
+        flexDirection={orientation === 'horizontal' ? 'row' : 'column'}
         value={undefined}
       >
         {children}

@@ -17,6 +17,7 @@ import {
   ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
+  PRIME_REDEEM_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
 
 interface IAllowSettingItem {
@@ -156,6 +157,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketStockDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketNativeDetail}`]:
       {
         showUrl: true,
@@ -231,6 +237,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.MessageConfirmFromDApp}`]:
       {
         showUrl: true,
@@ -256,6 +267,12 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    // pagePath() strips inner slashes, so this two-segment public URL would
+    // not match getPathFromState. Keep the email path as a literal allowlist key.
+    [PRIME_REDEEM_LANDING_PATH]: {
+      showUrl: true,
+      showParams: true,
+    },
     // eslint-disable-next-line no-nested-ternary
     ...(perpTabShowWeb
       ? {

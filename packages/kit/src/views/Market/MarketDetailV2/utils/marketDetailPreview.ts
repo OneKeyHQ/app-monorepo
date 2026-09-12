@@ -91,3 +91,33 @@ export function buildMarketSearchTokenDetailPreview(
     selectedAt: Date.now(),
   };
 }
+
+export function buildMarketStockDetailPreview({
+  stockId,
+  symbol,
+  name,
+  logoUrl,
+}: {
+  stockId?: unknown;
+  symbol?: unknown;
+  name?: unknown;
+  logoUrl?: unknown;
+}) {
+  if (
+    typeof stockId !== 'string' ||
+    !stockId ||
+    typeof symbol !== 'string' ||
+    !symbol ||
+    typeof name !== 'string' ||
+    !name
+  ) {
+    return undefined;
+  }
+
+  return {
+    stockId,
+    symbol,
+    name,
+    logoUrl: typeof logoUrl === 'string' ? logoUrl : '',
+  };
+}

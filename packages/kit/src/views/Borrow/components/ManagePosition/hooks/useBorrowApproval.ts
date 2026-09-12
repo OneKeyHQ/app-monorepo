@@ -172,6 +172,9 @@ export function useBorrowApproval({
     (action === 'repay' && !!repayAll) ||
     (action === 'withdraw' && !!withdrawAll);
   const [approving, setApproving] = useState(false);
+  const [approvalProgressScopeKey, setApprovalProgressScopeKey] = useState<
+    string | undefined
+  >(undefined);
   const mountedRef = useRef(false);
   const approvalSettlementAbortRef = useRef<AbortController | undefined>(
     undefined,
@@ -271,6 +274,7 @@ export function useBorrowApproval({
     if (!isSameRequest) {
       detachedApprovalRequestRef.current = undefined;
       approvalInFlightRef.current = false;
+      setApprovalProgressScopeKey(undefined);
       stopApprovalSettlement();
       setApprovingSafe(false);
     }
@@ -333,6 +337,7 @@ export function useBorrowApproval({
         return false;
       }
       approvalInFlightRef.current = true;
+      setApprovalProgressScopeKey(request.scopeKey);
       return true;
     },
     [isCurrentApprovalRequest],
@@ -1088,6 +1093,7 @@ export function useBorrowApproval({
   return {
     approveType: effectiveApproveType,
     approving,
+    approvalProgressStarted: approvalProgressScopeKey === approvalScopeKey,
     loadingAllowance: !!loadingAllowance,
     shouldApprove,
     ensureReadyToSubmit,

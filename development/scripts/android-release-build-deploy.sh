@@ -84,7 +84,7 @@ launch_app() {
   sleep 1
 
   echo "   Launching app..."
-  adb -s "$DEVICE_ID" shell am start -W -n "$PACKAGE_NAME/.MainActivity"
+  adb -s "$DEVICE_ID" shell am start -W -n "$PACKAGE_NAME/.MainLauncherActivity"
 
   echo ""
   echo "$(timestamp) ✅ Deployed and launched on $DEVICE_ID"

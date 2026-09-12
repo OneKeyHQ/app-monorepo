@@ -5,6 +5,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import { getSwapMarketPendingHistoryKey } from '../utils/swapMarketHistory';
@@ -24,6 +28,12 @@ export function useSwapMarketHistoryList(protocol?: EProtocolOfExchange) {
     () => getSwapMarketPendingHistoryKey(swapHistoryPendingList, protocol),
     [protocol, swapHistoryPendingList],
   );
+  const historySwrKey = shouldShowSwapLocalData
+    ? swrKeys.swapHistoryPreviewList()
+    : undefined;
+  const hasHistorySnapshot = Boolean(
+    historySwrKey && swrCacheUtils.get(historySwrKey) !== undefined,
+  );
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!shouldShowSwapLocalData) {
@@ -33,7 +43,7 @@ export function useSwapMarketHistoryList(protocol?: EProtocolOfExchange) {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [marketPendingKey, shouldShowSwapLocalData],
-    { watchLoading: true },
+    { watchLoading: true, swrKey: historySwrKey },
   );
   useEffect(() => {
     const handleRefresh = () => {
@@ -51,7 +61,9 @@ export function useSwapMarketHistoryList(protocol?: EProtocolOfExchange) {
 
   return {
     swapTxHistoryList: shouldShowSwapLocalData ? result : [],
-    isLoading: shouldShowSwapLocalData ? isLoading : false,
+    isLoading: shouldShowSwapLocalData
+      ? isLoading && !hasHistorySnapshot
+      : false,
     shouldShowSwapLocalData,
   };
 }

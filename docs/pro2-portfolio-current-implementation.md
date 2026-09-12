@@ -1,34 +1,34 @@
-# Pro 2 Portfolio 当前实现
+# Pro 2 Portfolio current implementation
 
-## 1. 文档范围
+## 1. Scope
 
-本文描述 OneKey App、Portfolio 打包服务和 Pro 2 Firmware 之间的当前数据契约与同步流程，重点覆盖：
+This document describes the current data contract and sync flow between OneKey App, the Portfolio packing service, and Pro 2 firmware. It covers:
 
-- App 生成 Portfolio 展示数据的规则；
-- App 与服务端之间的 JSON 接口；
-- 服务端签包后的硬件上传流程；
-- 金额字符串、Unicode、字体范围和 UTF-8 字节限制；
-- 内容去重、冷却、设备忙碌和失败处理。
+- How the App builds Portfolio display data
+- The JSON interface between the App and the packing service
+- Hardware upload after the service signs the package
+- Amount strings, Unicode, font coverage, and UTF-8 byte limits
+- Content dedup, cooldown, hardware-busy handling, and failure handling
 
-本文以以下实现为依据：
+It is based on:
 
-- App 当前分支中的 `portfolioPayload.ts` 和 Hardware Portfolio Sync 服务；
-- `firmware-pro2` 远端 `dev` 分支的展示字符串协议；
-- `@onekeyfe/hd-core` 当前 `uploadPortfolio()` 实现。
+- `portfolioPayload.ts` and the Hardware Portfolio Sync service on the current App branch
+- The display-string protocol on the remote `firmware-pro2` `dev` branch
+- The current `@onekeyfe/hd-core` `uploadPortfolio()` implementation
 
-服务端源码不在本仓库中。本文中的服务端行为是 App 与 Firmware 对服务端的接口约束，不代表已审计服务端内部实现。
+The packing-service source is not in this repository. Service behavior described here is the interface contract that App and firmware rely on, not an audit of the service internals.
 
-## 2. 核心结论
+## 2. Core contract
 
-Portfolio 金额采用“App 格式化、Firmware 原样显示”的协议：
+Portfolio amounts follow an "App formats, firmware renders as-is" protocol:
 
-- App 决定 Token 选择、顺序、金额格式、法币前缀、标准名称和资产占比；
-- 服务端校验数据、补齐可信 Token 元数据、生成并签名 Portfolio 包；
-- Firmware 将金额和余额作为受长度限制的 UTF-8 展示字符串；
-- Firmware 不解析金额、不添加币种符号、不重新格式化，也不根据金额排序；
-- Firmware 使用独立的 `portfolioPercentage` 绘制环图和进度条。
+- The App chooses tokens, order, amount format, fiat prefix, canonical names, and allocation percentages
+- The service validates the payload, fills trusted token metadata, then builds and signs the Portfolio package
+- Firmware treats amounts and balances as length-limited UTF-8 display strings
+- Firmware does not parse amounts, add currency symbols, reformat values, or sort by amount
+- Firmware draws the ring chart and progress bar from the independent `portfolioPercentage` field
 
-因此以下值都是合法的展示字符串：
+These display strings are all valid:
 
 ```text
 $27,112.11
@@ -37,45 +37,79 @@ $27,112.11
 EUR 1.00
 ```
 
-`0.0₅41` 是 App 的前导零下标压缩表示，不是传统的 `4.1e-6` 指数表示。
+`0.0₅41` is the App's leading-zero subscript compression, not scientific notation such as `4.1e-6`.
 
-## 3. Runtime 范围
+## 3. Runtime
 
-Portfolio 构建、服务端提交和硬件上传由 `kit-bg` 执行。
+Portfolio build, server submit, and hardware upload run in `kit-bg`.
 
-### 3.1 iOS、Android 和浏览器扩展
+### 3.1 iOS, Android, and browser extension
 
-- Runtime 范围：`bg`；
-- `main` 与 `bg` 是隔离的 JS Runtime，不能假设共享 JS 对象或初始化顺序；
-- Portfolio 事件从主业务状态进入后台服务后，在 `bg` 中构建和上传；
-- 硬件 SDK 调用由后台 Hardware Service 管理。
+- Runtime: `bg`
+- `main` and `bg` are isolated JS runtimes; do not assume shared objects or init order
+- Home state enters the background service, then build and upload happen in `bg`
+- Hardware SDK calls are owned by the background Hardware service
 
-### 3.2 Desktop 和 Web
+### 3.2 Desktop and Web
 
-- App 代码运行在单一 JS Runtime；
-- Portfolio 仍通过后台 Service 接口执行，以保持跨平台调用模型一致。
+- App code runs in a single JS runtime
+- Portfolio still goes through the background service interface so the call model stays the same across platforms
 
-## 4. 同步触发流程
+## 4. Sync triggers
 
-当前流程监听 `AllNetworksTokenListSettled` 事件：
+Home `TokenListBlock` is the only producer. There are two modes:
 
-1. 全网络 Token 列表完成计算；
-2. 后台服务对连续事件执行 1 秒防抖；
-3. 检查 Portfolio 调试功能是否开启；
-4. 检查账户是否为硬件钱包；
-5. 根据当前账户、Token、法币和汇率构建 Portfolio；
-6. 计算不包含 `ts` 的内容哈希；
-7. 检查目标设备的重复内容、连接状态、硬件忙碌状态和 20 秒冷却；
-8. 将 Portfolio JSON 提交给服务端签包；
-9. 将服务端返回的包交给 Hardware SDK；
-10. 文件写入完成后发送 `PortfolioUpdate`；
-11. 只有设备返回 `Success` 才记录为上传成功。
+### 4.1 Silent All Networks USB / WebUSB
 
-同步仅面向已连接的硬件钱包。目标键使用硬件 `connectId`，去重和冷却状态按目标设备隔离；软件钱包或缺少连接 ID 的事件不会构建数据，也不会提交服务端。
+After an All Networks token list settles, Home calls `notifyAllNetworksTokenListSettled()`, which runs `syncPortfolio({ syncMode: 'silent' })`.
 
-## 5. App 生成的数据结构
+Silent transfer happens only when all of these hold:
 
-App 构建的根对象固定包含 7 个字段：
+- The current Home wallet is a Protocol V2 hardware wallet
+- The wallet is selected and the device is connected
+- The active transport is USB / WebUSB
+- Content is not a silent duplicate of the last successful upload
+- The hardware channel is free
+- The 60-second USB cooldown has elapsed
+
+Silent BLE (mobile BLE and desktop WebBLE) does not transfer. It keeps the latest pending snapshot and waits for USB or an explicit tap.
+
+Automatic single-network token polling does not talk to the device.
+
+Silent upload does not use `withHardwareProcessing`, does not drive the Home Sync button into `loading`, and calls `uploadPortfolio` without `uiMode` (SDK default `silent`: no `DEVICE_PROGRESS`, `protocolV2UiMode: 'none'`).
+
+### 4.2 Explicit Sync Portfolio
+
+The Home Sync action creates a `portfolioSyncRequest` and refreshes the token list. When the snapshot is ready, Home calls `syncPortfolio({ syncMode: 'interactive' })`.
+
+Interactive sync:
+
+- Runs through the standard hardware processing UI
+- Passes `uiMode: 'progress'` so the SDK can emit transfer progress
+- Ignores the 60-second cooldown and the silent BLE skip
+- Completes the Home button on success, or shows a toast on identity mismatch / unapplied upload
+
+Empty incomplete All Networks snapshots are deferred so default native tokens are not uploaded too early. After all network requests finish, the current snapshot is used even if some accounts never returned.
+
+### 4.3 Shared upload pipeline
+
+Both modes then:
+
+1. Authorize the payload against the wallet device
+2. Build Portfolio JSON from the current account, tokens, fiat, and rates
+3. Hash content with `ts` excluded
+4. Submit JSON to the packing service
+5. Hand the signed Base64 package to the Hardware SDK
+6. Write `vol1:/portfolio/portfolio.okpkg.pending`, then send `PortfolioUpdate`
+7. Record success only when the device returns `Success`
+
+Dedup and cooldown state are keyed by the physical device (`deviceDbId`), not by transport alias. Software wallets and unauthorized device identifiers never build or submit a package.
+
+USB silent cooldown is 60 seconds from `max(lastAttemptAt, lastTransferAt)`. Desktop BLE idle uses a 5-minute cooldown. Interactive sync does not wait for cooldown. While USB silent is in cooldown, the latest snapshot is scheduled for the remaining window rather than dropped.
+
+## 5. App payload shape
+
+The App root object always has these 7 fields:
 
 ```ts
 type IPortfolioPayload = {
@@ -96,7 +130,7 @@ type IPortfolioPayload = {
 };
 ```
 
-App 侧 Token 包含：
+Each App-side token contains:
 
 ```ts
 type IPortfolioPayloadToken = {
@@ -113,48 +147,48 @@ type IPortfolioPayloadToken = {
 };
 ```
 
-服务端提交前会将所有 `iconName` 设置为 `null`。服务端必须根据可信白名单生成最终 `iconName`，并补齐 Firmware 要求的 `color`。
+Before server submit, every `iconName` is set to `null`. The service must emit the final `iconName` from a trusted allowlist and fill the `color` that firmware requires.
 
-## 6. 根字段规则
+## 6. Root field rules
 
-| 字段 | App 规则 |
+| Field | App rule |
 | --- | --- |
-| `v` | 固定为整数 `1` |
-| `ts` | 毫秒时间戳；App 预先按当前时区调整展示语义 |
-| `account.label` | 优先使用索引账户名称或账户名称；否则使用 `Account #N` 或缩短地址 |
-| `account.addressMasked` | 索引账户使用 `Account #N`，否则使用缩短地址 |
-| `totalFiat` | App 格式化后的完整法币展示字符串 |
-| `tokenCount` | `tokens.length`，当前最大为 5 |
-| `tokens` | 保持 App 已确定的顺序 |
-| `otherTokens` | 未进入详细列表的资产汇总，固定排在最后 |
+| `v` | Always integer `1` |
+| `ts` | Millisecond timestamp; App pre-adjusts it for current-timezone display |
+| `account.label` | Indexed-account name or account name; otherwise `Account #N` or a shortened address |
+| `account.addressMasked` | `Account #N` for indexed accounts, otherwise a shortened address |
+| `totalFiat` | Fully formatted fiat display string from the App |
+| `tokenCount` | `tokens.length`, currently capped at 5 |
+| `tokens` | Keep the App-determined order |
+| `otherTokens` | Summary of assets not in the detail list; always last |
 
-`currency` 和 `currencySymbol` 已从当前协议删除。法币展示信息直接包含在 `totalFiat`、`tokens[].fiatValue` 和 `otherTokens.fiat` 中。
+`currency` and `currencySymbol` are removed from the protocol. Fiat display is embedded in `totalFiat`, `tokens[].fiatValue`, and `otherTokens.fiat`.
 
-## 7. Token 选择与顺序
+## 7. Token selection and order
 
-App 使用上游 UI Token 顺序并取前 5 个：
+The App takes the upstream UI token order and keeps the first 5:
 
 ```text
 tokens.slice(0, 5)
 ```
 
-Firmware 不再根据 `fiatValue` 重新排序，设备顺序与 App 传入顺序一致。
+Firmware no longer re-sorts by `fiatValue`. Device order matches the App order.
 
-`otherTokens.count` 的计算方式为：
+`otherTokens.count` is:
 
 ```text
 max(trunc(totalTokenCount) - tokens.length, 0)
 ```
 
-## 8. 金额格式化
+## 8. Amount formatting
 
-### 8.1 首页总资产
+### 8.1 Home total
 
-`totalFiat` 沿用 App 首页总资产规则：使用当前货币单位、本地化分组符和小数符，固定保留两位小数并四舍五入。`0 < value < 0.01` 显示 `< {currency}0.01`，零值显示 `{currency}0.00`。
+`totalFiat` follows Home total-value rules: current currency, localized grouping and decimal separators, two decimal places, rounded. `0 < value < 0.01` renders as `< {currency}0.01`. Zero renders as `{currency}0.00`.
 
-App 按 Pro 2 的 16dp Roobert Regular 字体和 350dp 可用宽度预估完整字符串。完整字符串不超过 47 UTF-8 字节且能够放下时直接下传；否则改为保留 4 位有效数字、使用 ASCII `e` 的科学计数法。Firmware 仍只接收原有 `totalFiat` 单字段，不解析或重新格式化。
+The App estimates the full string against Pro 2 16dp Roobert Regular and 350dp of usable width. If the string is at most 47 UTF-8 bytes and fits, it is sent as-is. Otherwise it switches to 4 significant digits and ASCII `e` scientific notation. Firmware still receives a single `totalFiat` field and does not parse or reformat it.
 
-示例：
+Examples:
 
 ```text
 75.247                              → $75.25
@@ -163,19 +197,19 @@ App 按 Pro 2 的 16dp Roobert Regular 字体和 350dp 可用宽度预估完整�
 0.009                               → < $0.01
 ```
 
-### 8.2 详情法币金额
+### 8.2 Detail fiat amounts
 
-`tokens[].fiatValue` 和 `otherTokens.fiat` 使用 Pro 2 紧凑法币格式：保留两位小数，超过 1,000 后使用 `K/M/B/T/Q`，并在单位边界四舍五入后自动提升。
+`tokens[].fiatValue` and `otherTokens.fiat` use the Pro 2 compact fiat format: two decimal places, then `K/M/B/T/Q` above 1,000, with rounding at unit boundaries.
 
-### 8.3 Token 余额
+### 8.3 Token balance
 
-`tokens[].balance` 使用 App 的 `formatBalance()`：
+`tokens[].balance` uses App `formatBalance()`:
 
-- 大于等于 1 时沿用 App 单位和精度规则；
-- 小于 1 时保留前导零后的 4 位有效小数；
-- 前导零数量大于 4 时使用下标压缩形式。
+- `>= 1` follows App unit and precision rules
+- `< 1` keeps 4 significant fraction digits after leading zeros
+- More than 4 leading zeros uses subscript compression
 
-示例：
+Examples:
 
 ```text
 0.41308123    → 0.4131
@@ -183,15 +217,15 @@ App 按 Pro 2 的 16dp Roobert Regular 字体和 350dp 可用宽度预估完整�
 0.0000041     → 0.0₅41
 ```
 
-### 8.3 Unicode 下标序列化
+### 8.4 Unicode subscript serialization
 
-`formatDisplayNumber()` 对极小数返回结构化片段：
+`formatDisplayNumber()` returns structured fragments for tiny values:
 
 ```ts
 ['0.0', { type: 'sub', value: 5 }, '41']
 ```
 
-Portfolio 在进入 JSON 前将下标数字序列化为真实 Unicode：
+Portfolio serializes subscript digits to real Unicode before JSON:
 
 ```text
 0 → ₀
@@ -206,19 +240,19 @@ Portfolio 在进入 JSON 前将下标数字序列化为真实 Unicode：
 9 → ₉
 ```
 
-多位下标逐位转换，例如：
+Multi-digit subscripts convert digit by digit:
 
 ```text
 12 → ₁₂
 ```
 
-不得把 `{ type: "sub", value: 5 }` 直接转换为普通字符串 `"5"`，否则 `0.0000041` 会被错误转换成 `0.0541`。
+Do not stringify `{ type: "sub", value: 5 }` as `"5"`. That would turn `0.0000041` into `0.0541`.
 
-## 9. 法币符号兼容
+## 9. Fiat symbol compatibility
 
-Portfolio 仅发送 Firmware 字体资源能够显示的字符。
+Portfolio only sends characters that firmware fonts can render.
 
-当前 App 按以下 Firmware 字体区间判断法币符号：
+The App currently accepts symbols in these firmware font ranges:
 
 ```text
 U+0020–U+007E
@@ -228,107 +262,107 @@ U+2000–U+206F
 U+2080–U+2089
 ```
 
-如果法币符号为空，或任意字符不在支持范围内，则使用大写 ISO Currency Code，并在 Code 后增加一个 ASCII 空格：
+If the symbol is empty, or any character is outside those ranges, the App uses the uppercase ISO currency code plus one ASCII space:
 
 ```text
 € → EUR
 ₹ → INR
-未知新符号 → 对应 currency id 的大写形式
+unknown new symbol → uppercase currency id
 ```
 
-最终示例：
+Final examples:
 
 ```text
 EUR 1.00
 < EUR 0.01
 ```
 
-ISO Code 本身也必须位于 Firmware 支持范围内，否则停止构建，避免生成设备无法显示的 Portfolio。
+The ISO code itself must also fall in the firmware range, otherwise build stops so the device never receives an undisplayable Portfolio.
 
-Firmware 字体资源需要包含 `U+2080–U+2089`，才能正确显示 App 发送的下标数字。
+Firmware fonts must include `U+2080–U+2089` to render the App's subscript digits.
 
-## 10. UTF-8 字节限制
+## 10. UTF-8 byte limits
 
-以下单个金额字段必须是非空字符串，且不得超过 47 UTF-8 字节：
+Each of these amount fields must be a non-empty string of at most 47 UTF-8 bytes:
 
 - `totalFiat`
 - `tokens[].balance`
 - `tokens[].fiatValue`
 - `otherTokens.fiat`
 
-校验发生在以下步骤全部完成之后：
+Validation runs after all of:
 
-1. App 数字格式化；
-2. Unicode 下标序列化；
-3. ASCII `<` 规范化；
-4. 法币符号或 ISO Code 选择；
-5. 最终字符串拼接。
+1. App numeric formatting
+2. Unicode subscript serialization
+3. ASCII `<` normalization
+4. Fiat symbol or ISO code selection
+5. Final string concatenation
 
-App 使用 UTF-8 字节长度，不使用 JavaScript UTF-16 `string.length`：
+The App uses UTF-8 byte length, not JavaScript UTF-16 `string.length`:
 
 ```ts
 Buffer.byteLength(value, 'utf8')
 ```
 
-示例：
+Examples:
 
 ```text
-0.0000041 → 9 UTF-8 字节
-0.0₅41    → 8 UTF-8 字节
+0.0000041 → 9 UTF-8 bytes
+0.0₅41    → 8 UTF-8 bytes
 ```
 
-其中 `₅` 占 3 个 UTF-8 字节。
+`₅` is 3 UTF-8 bytes.
 
-`totalFiat` 的完整格式超过限制时，App 改用科学计数法；其他字段超过限制时终止本次 Portfolio 构建。禁止直接截断字节，因为截断可能破坏 UTF-8 字符或改变金额语义。
+If the full `totalFiat` format exceeds the limit, the App switches to scientific notation. If any other field exceeds the limit, this Portfolio build aborts. Do not truncate bytes; truncation can break UTF-8 characters or change amount meaning.
 
-## 11. 法币换算
+## 11. Fiat conversion
 
-Token 的原始法币金额会转换为 App 当前展示法币：
+Raw token fiat amounts are converted to the App display currency:
 
 ```text
-目标金额 = 原始金额 / 原始法币汇率 × 目标法币汇率
+targetAmount = rawAmount / rawRate * targetRate
 ```
 
-以下情况视为不可用：
+Treat the amount as unavailable when:
 
-- 金额为 `null`、`undefined` 或空字符串；
-- 金额不是有限数字；
-- 原始汇率或目标汇率不存在、为零或不是有限数字。
+- The amount is `null`, `undefined`, or an empty string
+- The amount is not a finite number
+- The raw or target rate is missing, zero, or not finite
 
-不可用的 Token 法币金额按零参与 Portfolio 展示和占比计算。
+Unavailable token fiat amounts participate in Portfolio display and allocation as zero.
 
-## 12. 占比计算
+## 12. Allocation percentage
 
-Firmware 不解析展示金额。App 使用格式化前的数值计算：
+Firmware does not parse display amounts. The App computes these from pre-format numbers:
 
 - `tokens[].portfolioPercentage`
 - `otherTokens.portfolioPercentage`
 
-规则：
+Rules:
 
-1. 所有非负有效金额参与计算；
-2. 总额小于等于零时，所有占比为零；
-3. 占比保留两位小数；
-4. 最大金额项吸收舍入误差；
-5. 非零 Portfolio 的全部 Token 与 Other 占比总和为 100。
+1. Every non-negative valid amount participates
+2. If the total is `<= 0`, every percentage is zero
+3. Percentages keep two decimal places
+4. The largest item absorbs rounding error
+5. For a non-zero Portfolio, all token percentages plus Other sum to 100
 
-这使 Firmware 可以安全显示 `< $0.01`、`0.0₅41` 等非数值展示字符串，同时继续准确绘制资产分布。
+That lets firmware safely render non-numeric strings such as `< $0.01` and `0.0₅41` while still drawing allocation correctly.
 
-## 13. Token 元数据
+## 13. Token metadata
 
-### 13.1 原生资产与合约地址
+### 13.1 Native assets and contract addresses
 
-- 全网络聚合资产：`contractAddress = ""`；
-- 大多数网络原生资产：`contractAddress = ""`；
-- Aptos、Sui 原生资产可保留规范化后的地址；
-- 普通合约资产保留规范化后的合约地址；
-- 大小写敏感网络保持原始地址大小写，其他网络使用小写。
+- All Networks aggregate assets: `contractAddress = ""`
+- Most network native assets: `contractAddress = ""`
+- Aptos and Sui natives may keep a normalized address
+- Ordinary contract assets keep the normalized contract address
+- Case-sensitive networks keep original address case; others use lowercase
 
-### 13.2 标准名称与图标
+### 13.2 Canonical names and icons
 
-App 使用同一份可信白名单解析 Token 的 `iconName` 和标准英文名称：
+The App uses one trusted allowlist for `iconName` and canonical English names:
 
-| `iconName` | 标准 `name` |
+| `iconName` | Canonical `name` |
 | --- | --- |
 | `BTC` | `Bitcoin` |
 | `ETH` | `Ethereum` |
@@ -338,14 +372,14 @@ App 使用同一份可信白名单解析 Token 的 `iconName` 和标准英文名
 | `USDT` | `Tether USD` |
 | `USDC` | `USD Coin` |
 
-名称处理规则：
+Name rules:
 
-1. 命中 Native、Contract 或 All Networks 图标白名单时，App 使用上表中的标准 `name`；
-2. 未命中白名单时，App 保留上游 `token.name`，并保持 `iconName = null`；
-3. App 不会仅根据普通合约 Token 的 `symbol` 分配标准名称或图标；
-4. `TRX` 和 `TRON` 聚合 Symbol 都规范化为 `name = "TRON"` 和 `iconName = "TRON"`。
+1. A hit on the native, contract, or All Networks icon allowlist uses the canonical `name` above
+2. A miss keeps the upstream `token.name` and `iconName = null`
+3. The App never assigns a canonical name or icon from a normal contract token `symbol` alone
+4. Aggregate symbols `TRX` and `TRON` both normalize to `name = "TRON"` and `iconName = "TRON"`
 
-本地 Mock Portfolio 保留解析出的 `iconName`。正式提交服务端时，App 将 `iconName` 清空，但保留标准化后的 `name`：
+Local mock Portfolio keeps the resolved `iconName`. Production server submit clears `iconName` but keeps the canonical `name`:
 
 ```ts
 {
@@ -354,21 +388,21 @@ App 使用同一份可信白名单解析 Token 的 `iconName` 和标准英文名
 }
 ```
 
-最终签名包中的 `iconName` 和 `color` 必须由服务端可信规则产生。Firmware 只消费服务端最终结果。
+The signed package `iconName` and `color` must come from trusted server rules. Firmware only consumes the server result.
 
-### 13.3 服务端白名单 Key
+### 13.3 Server allowlist key
 
-服务端使用以下格式构建精确匹配 Key：
+The service builds an exact-match key as:
 
 ```ts
 const key = `${networkId}:${contractAddress}:${name}`;
 ```
 
-App 在生成 Portfolio 时已经完成合约地址规范化：EVM 地址统一为小写，Solana 和 TRON 地址保持大小写。服务端不需要根据 `isNative`、`isAllNetworks` 或 `symbol` 重新推导名称。
+The App already normalizes contract addresses when building Portfolio: EVM addresses are lowercase; Solana and TRON keep case. The service must not re-derive the name from `isNative`, `isAllNetworks`, or `symbol`.
 
-#### Native Token
+#### Native token
 
-| Network | `networkId` | `contractAddress` | `symbol` | `name` | `iconName` | 服务端 Key |
+| Network | `networkId` | `contractAddress` | `symbol` | `name` | `iconName` | Server key |
 | --- | --- | --- | --- | --- | --- | --- |
 | Bitcoin | `btc--0` | `""` | `BTC` | `Bitcoin` | `BTC` | `btc--0::Bitcoin` |
 | Ethereum | `evm--1` | `""` | `ETH` | `Ethereum` | `ETH` | `evm--1::Ethereum` |
@@ -376,9 +410,9 @@ App 在生成 Portfolio 时已经完成合约地址规范化：EVM 地址统一�
 | Solana | `sol--101` | `""` | `SOL` | `Solana` | `SOL` | `sol--101::Solana` |
 | TRON | `tron--0x2b6653dc` | `""` | `TRX` | `TRON` | `TRON` | `tron--0x2b6653dc::TRON` |
 
-#### Contract Token
+#### Contract token
 
-| Network | `networkId` | `contractAddress` | `symbol` | `name` | `iconName` | 服务端 Key |
+| Network | `networkId` | `contractAddress` | `symbol` | `name` | `iconName` | Server key |
 | --- | --- | --- | --- | --- | --- | --- |
 | Ethereum | `evm--1` | `0xdac17f958d2ee523a2206206994597c13d831ec7` | `USDT` | `Tether USD` | `USDT` | `evm--1:0xdac17f958d2ee523a2206206994597c13d831ec7:Tether USD` |
 | Ethereum | `evm--1` | `0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48` | `USDC` | `USD Coin` | `USDC` | `evm--1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48:USD Coin` |
@@ -390,9 +424,9 @@ App 在生成 Portfolio 时已经完成合约地址规范化：EVM 地址统一�
 | Solana | `sol--101` | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` | `USDT` | `Tether USD` | `USDT` | `sol--101:Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB:Tether USD` |
 | TRON | `tron--0x2b6653dc` | `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` | `USDT` | `Tether USD` | `USDT` | `tron--0x2b6653dc:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t:Tether USD` |
 
-#### All Networks 聚合 Token
+#### All Networks aggregate token
 
-| `symbol` | `name` | `iconName` | `networkId` | `contractAddress` | 服务端 Key |
+| `symbol` | `name` | `iconName` | `networkId` | `contractAddress` | Server key |
 | --- | --- | --- | --- | --- | --- |
 | `BTC` | `Bitcoin` | `BTC` | `""` | `""` | `::Bitcoin` |
 | `ETH` | `Ethereum` | `ETH` | `""` | `""` | `::Ethereum` |
@@ -402,9 +436,9 @@ App 在生成 Portfolio 时已经完成合约地址规范化：EVM 地址统一�
 | `USDT` | `Tether USD` | `USDT` | `""` | `""` | `::Tether USD` |
 | `USDC` | `USD Coin` | `USDC` | `""` | `""` | `::USD Coin` |
 
-### 13.4 聚合资产
+### 13.4 Aggregate assets
 
-全网络聚合资产使用：
+All Networks aggregate assets use:
 
 ```json
 {
@@ -415,30 +449,30 @@ App 在生成 Portfolio 时已经完成合约地址规范化：EVM 地址统一�
 }
 ```
 
-当前 Firmware 允许 `isAllNetworks = true` 时 `networkId` 为空。
+Current firmware allows an empty `networkId` when `isAllNetworks = true`.
 
-## 14. App 提交服务端
+## 14. App to packing service
 
-请求地址：
+Endpoint:
 
 ```text
 POST /wallet/v1/hardware/portfolio/pack
 ```
 
-请求体是 Portfolio JSON 对象，不是 PFOL/OKPKG 二进制包。
+The body is the Portfolio JSON object, not a PFOL/OKPKG binary.
 
-App 约定服务端负责：
+The App expects the service to:
 
-- 严格校验 JSON 字段；
-- 保持金额和余额展示字符串原样；
-- 校验每个展示金额的 UTF-8 字节长度；
-- 使用 `networkId:contractAddress:name` 精确匹配可信白名单；
-- 根据命中的白名单配置补齐 `iconName` 和 `color`；
-- 生成 Firmware 接受的资源包；
-- 使用生产密钥体系签名；
-- 返回 Base64 编码的完整包。
+- Strictly validate JSON fields
+- Keep amount and balance display strings unchanged
+- Validate UTF-8 byte length of every display amount
+- Exact-match the trusted allowlist with `networkId:contractAddress:name`
+- Fill `iconName` and `color` from the matched allowlist entry
+- Build a package firmware accepts
+- Sign with the production key set
+- Return the full package as Base64
 
-响应结构：
+Response shape:
 
 ```json
 {
@@ -448,54 +482,56 @@ App 约定服务端负责：
 }
 ```
 
-如果缺少 `packageBase64`、Base64 无法解码或服务端请求失败，App 不会开始硬件上传。
+If `packageBase64` is missing, Base64 cannot be decoded, or the request fails, the App does not start a hardware upload.
 
-## 15. 内容哈希与去重
+## 15. Content hash and dedup
 
-App 使用稳定 JSON 序列化和 SHA-256 计算内容哈希。
+The App hashes stable JSON with SHA-256.
 
-哈希排除 `ts`：
+The hash excludes `ts`:
 
 ```ts
 const { ts, ...content } = portfolio;
 ```
 
-因此仅时间变化、其他内容完全相同的 Portfolio 不会重复上传。
+A Portfolio whose only change is the timestamp is not uploaded again.
 
-去重状态在以下时机才提交：
+Dedup state is committed only when:
 
-- 服务端提交完成；或
-- 硬件设备完成 `PortfolioUpdate`。
+- Server submit finishes, or
+- The device completes `PortfolioUpdate`
 
-设备忙碌、断开或上传失败不会永久写入成功哈希，相同内容可以在条件恢复后重试。
+Hardware-busy, disconnect, or upload failure must not persist a success hash, so the same content can retry when conditions recover.
 
-## 16. Hardware SDK 上传
+Silent sync honors the persisted hash. Explicit sync only dedupes an in-flight identical snapshot; it may upload an unchanged snapshot again.
 
-App 将服务端返回的 Base64 解码为独立 `ArrayBuffer`，然后调用：
+## 16. Hardware SDK upload
+
+The App calls:
 
 ```ts
 uploadPortfolio(connectId, {
-  operationId,
-  packageBytes,
+  packageBase64,
   timeoutMs,
+  uiMode, // omit for silent; 'progress' for explicit Sync
 });
 ```
 
-SDK 执行两阶段流程：
+The SDK runs a two-stage flow:
 
-1. 使用 `FilesystemFileWrite` 将包顺序写入：
+1. Write the package with `FilesystemFileWrite` to:
 
    ```text
    vol1:/portfolio/portfolio.okpkg.pending
    ```
 
-2. 最后一个分块确认后发送：
+2. After the last chunk is confirmed, send:
 
    ```text
    PortfolioUpdate {}
    ```
 
-只有 `PortfolioUpdate` 返回 `Success`，SDK 才返回：
+Only a `PortfolioUpdate` `Success` makes the SDK return:
 
 ```json
 {
@@ -503,85 +539,97 @@ SDK 执行两阶段流程：
 }
 ```
 
-文件写入完成只表示候选包已经暂存，不代表 Portfolio 已应用。
+A finished file write only means the candidate package is staged. It does not mean Portfolio has been applied.
 
-## 17. 状态与失败处理
+Default `uiMode` is silent: no `DEVICE_PROGRESS` and no Protocol V2 UI lifecycle events. `uiMode: 'progress'` emits transfer progress for the explicit Home action. Neither mode emits `REQUEST_PIN` or `REQUEST_BUTTON`, and neither mode unlocks the wallet.
 
-| 状态 | 含义 |
+## 17. Status and failure handling
+
+| Status | Meaning |
 | --- | --- |
-| `disabled` | Portfolio 调试功能未开启，或目标不是已连接的硬件钱包 |
-| `empty` | 当前没有需要同步的正余额资产 |
-| `duplicate` | 内容哈希与已完成或正在处理的内容相同 |
-| `cooldown` | 目标设备仍在 20 秒冷却期 |
-| `hardware-busy` | Hardware Channel 正在执行其他操作 |
-| `uploaded` | 设备已成功执行 `PortfolioUpdate` |
-| `error` | 构建、服务端或硬件步骤失败 |
+| `disabled` | Target is not an authorized connected Protocol V2 hardware wallet |
+| `empty` | No positive-balance assets need syncing |
+| `duplicate` | Content hash matches a completed or in-flight snapshot |
+| `cooldown` | Target is still inside the silent USB 60s window, or desktop BLE 5-minute window |
+| `hardware-busy` | Another hardware operation owns the channel |
+| `disconnected` | Silent sync requires a live connection |
+| `inactive` | Home is no longer showing this wallet |
+| `identity-mismatch` | Live device identity does not match the wallet device |
+| `identity-unavailable` | Identity is missing, for example Bootloader |
+| `device-locked` | Silent upload skipped because the device is locked |
+| `ble-suspended` / `desktop-suspended` | Silent BLE kept a pending snapshot instead of transferring |
+| `uploaded` | Device successfully ran `PortfolioUpdate` |
+| `error` | Build, server, or hardware step failed |
 
-硬件忙碌场景会保留最新事件，并在冷却后重新尝试。
+Hardware-busy keeps the latest snapshot and retries after a short delay. USB silent cooldown schedules the latest snapshot for the remaining 60 seconds. Interactive identity mismatch throws `DeviceNotSame`. Interactive unapplied / locked / unavailable uploads throw a user-visible sync error. Switching away from the wallet returns silent `false` and does not toast on the new wallet.
 
-## 18. 安全与隐私
+## 18. Security and privacy
 
-Portfolio JSON 包含：
+Portfolio JSON includes:
 
-- 账户名称、账户编号或缩短地址回退值；
-- 账户编号或缩短地址；
-- 主要资产的余额和法币价值；
-- Token Symbol、名称、网络和合约地址；
-- Portfolio 生成时间。
+- Account name, account index, or shortened-address fallback
+- Account index or shortened address
+- Primary asset balances and fiat values
+- Token symbol, name, network, and contract address
+- Portfolio generation time
 
-这些数据属于用户资产摘要，应按敏感财务数据处理。
+Treat this as sensitive financial data.
 
-Portfolio 包经过签名但不加密。不要在日志中输出完整 Portfolio、账户持仓或完整地址。
+The package is signed, not encrypted. Do not log the full Portfolio, holdings, or full addresses.
 
-生产环境必须由服务端持有生产签名密钥。App 不持有生产私钥。
+Production signing keys stay on the server. The App does not hold the production private key.
 
-## 19. 验证清单
+## 19. Verification checklist
 
 ### 19.1 App
 
-- [ ] `0.0000041` 输出 `0.0₅41`；
-- [ ] 多位前导零数量逐位转换为 Unicode 下标；
-- [ ] 小额法币使用 ASCII `<`；
-- [ ] 不发送全角 `＜`；
-- [ ] `totalFiat` 优先使用本地化完整金额和两位小数；
-- [ ] `totalFiat` 仅在 16dp/350dp 放不下或超过 47 bytes 时使用 4 位有效数字科学计数法；
-- [ ] Firmware 范围外的法币符号降级为 ISO Code；
-- [ ] 四类金额字段都在最终拼接后校验 47 UTF-8 字节；
-- [ ] 非 `totalFiat` 字段超过限制时停止构建，不截断字符串；
-- [ ] Token 顺序与 UI 顺序一致；
-- [ ] 白名单 Token 使用标准 `name`；
-- [ ] 未命中白名单的 Token 保留原始 `name` 且 `iconName = null`；
-- [ ] 占比总和正确；
-- [ ] 内容哈希排除 `ts`。
+- [ ] `0.0000041` emits `0.0₅41`
+- [ ] Multi-digit leading-zero counts convert to Unicode subscripts digit by digit
+- [ ] Small fiat uses ASCII `<`
+- [ ] Full-width `＜` is never sent
+- [ ] `totalFiat` prefers the localized full amount with two decimals
+- [ ] `totalFiat` uses 4-significant-digit scientific notation only when 16dp/350dp cannot fit or 47 bytes is exceeded
+- [ ] Out-of-range fiat symbols fall back to ISO code
+- [ ] All four amount fields are checked for 47 UTF-8 bytes after final concatenation
+- [ ] Non-`totalFiat` overflow aborts the build instead of truncating
+- [ ] Token order matches UI order
+- [ ] Allowlisted tokens use canonical `name`
+- [ ] Non-allowlisted tokens keep the original `name` and `iconName = null`
+- [ ] Percentages sum correctly
+- [ ] Content hash excludes `ts`
+- [ ] Silent All Networks USB / WebUSB uses the 60-second cooldown and does not show hardware processing UI
+- [ ] Silent BLE keeps a pending snapshot and does not transfer
+- [ ] Explicit Sync ignores cooldown, uses hardware processing UI, and passes `uiMode: 'progress'`
 
-### 19.2 服务端
+### 19.2 Packing service
 
-- [ ] 保持 App 金额展示字符串原样；
-- [ ] 拒绝超过 47 UTF-8 字节的金额字段；
-- [ ] 使用 `networkId:contractAddress:name` 精确匹配白名单；
-- [ ] 补齐合法的 `iconName` 和 `color`；
-- [ ] 返回可被目标 Firmware 验证的签名包。
+- [ ] Keep App amount display strings unchanged
+- [ ] Reject amount fields over 47 UTF-8 bytes
+- [ ] Exact-match the allowlist with `networkId:contractAddress:name`
+- [ ] Fill valid `iconName` and `color`
+- [ ] Return a signed package the target firmware can verify
 
 ### 19.3 Firmware
 
-- [ ] Parser 将金额视为受长度限制的 UTF-8 字符串；
-- [ ] 字体资源包含 `U+2080–U+2089`；
-- [ ] 首页与详情页正确显示 Unicode 下标；
-- [ ] 环图仅使用 `portfolioPercentage`；
-- [ ] Token 保持 App 传入顺序；
-- [ ] `PortfolioUpdate` 成功后再刷新 UI。
+- [ ] Parser treats amounts as length-limited UTF-8 strings
+- [ ] Font resources include `U+2080–U+2089`
+- [ ] Home and detail pages render Unicode subscripts
+- [ ] Ring chart uses only `portfolioPercentage`
+- [ ] Tokens keep App order
+- [ ] UI refreshes only after `PortfolioUpdate` succeeds
 
-## 20. 关键代码位置
+## 20. Key code locations
 
-| 范围 | 文件 |
+| Area | File |
 | --- | --- |
-| Portfolio 类型、格式化、占比和字节校验 | `packages/shared/src/utils/portfolioPayload.ts` |
-| Token 标准名称与图标白名单 | `packages/shared/src/utils/portfolioTokenIcon.ts` |
-| Portfolio 单元测试 | `packages/shared/src/utils/portfolioPayload.test.ts` |
-| 稳定序列化和服务端提交数据构建 | `packages/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/serviceHardwarePortfolioSyncUtils.ts` |
-| 同步状态、去重、冷却和服务端请求 | `packages/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/ServiceHardwarePortfolioSync.ts` |
-| Hardware Service 适配 | `packages/kit-bg/src/services/ServiceHardware/ServiceHardware.ts` |
-| SDK 上传实现 | `node_modules/@onekeyfe/hd-core/src/api/UploadPortfolio.ts` |
-| Firmware 展示字符串协议 | `firmware-pro2/utils/onekey_protocol_cli/portfolio.protocol.md` |
-| Firmware JSON Parser | `firmware-pro2/tasks/task_foreground/pages/standalone/portfolio_data.c` |
+| Portfolio types, formatting, percentages, and byte checks | `packages/shared/src/utils/portfolioPayload.ts` |
+| Canonical token names and icon allowlist | `packages/shared/src/utils/portfolioTokenIcon.ts` |
+| Portfolio unit tests | `packages/shared/src/utils/portfolioPayload.test.ts` |
+| Home silent vs explicit producer | `packages/kit/src/views/Home/components/TokenListBlock/TokenListBlock.tsx` |
+| Stable serialization and cooldown math | `packages/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/serviceHardwarePortfolioSyncUtils.ts` |
+| Sync state, dedup, cooldown, and server request | `packages/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/ServiceHardwarePortfolioSync.ts` |
+| Hardware service adapter | `packages/kit-bg/src/services/ServiceHardware/ServiceHardware.ts` |
+| SDK upload implementation | `node_modules/@onekeyfe/hd-core/src/api/UploadPortfolio.ts` |
+| Firmware display-string protocol | `firmware-pro2/utils/onekey_protocol_cli/portfolio.protocol.md` |
+| Firmware JSON parser | `firmware-pro2/tasks/task_foreground/pages/standalone/portfolio_data.c` |
 | Firmware Portfolio UI | `firmware-pro2/ui/components/portfolio/portfolio.c` |

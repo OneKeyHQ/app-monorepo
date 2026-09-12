@@ -13,16 +13,15 @@ import {
   XStack,
   YStack,
   useInPageDialog,
+  useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IMarketDetailPlatform,
   IMarketDetailPool,
   IMarketDetailTicker,
-  IMarketResponsePool,
 } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -163,10 +162,11 @@ export function MarketDetailPools({
   tickers?: IMarketDetailTicker[];
   detailPlatforms: IMarketDetailPlatform;
 }) {
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
+  const currency = '$';
   const intl = useIntl();
-  const { gtXl } = useMedia();
+  const { gtXl: gtXlMedia } = useMedia();
+  const isOverlayPage = useIsOverlayPage();
+  const gtXl = gtXlMedia && !isOverlayPage;
 
   const { result: pools } = usePromiseResult(
     async () => {
@@ -256,7 +256,7 @@ export function MarketDetailPools({
     }
     return symbols;
   }, [validPools, existingNetworkMap, tickers?.length]);
-  // Identify the selected tab by a stable key (pool localId, or the CEX
+  // Identify the selected network group by a stable key (network and contract, or the CEX
   // sentinel) instead of a positional index. validPools changes asynchronously:
   // it holds every pool while existingNetworks is loading, then drops delisted
   // pools once it resolves. A raw index could fall out of range (silently
@@ -264,7 +264,9 @@ export function MarketDetailPools({
   // the index from the selected key keeps the selection pinned to the same tab,
   // and falls back to the first tab when the selected pool was delisted.
   const tabKeys = useMemo(() => {
-    const keys = validPools.map((i) => i.localId);
+    const keys = validPools.map(
+      (i) => `${i.coingeckoNetworkId}:${i.contract_address}`,
+    );
     if (tickers?.length) {
       keys.push(CEX);
     }
@@ -280,34 +282,29 @@ export function MarketDetailPools({
 
   const isCEXSelected = !validPools[index];
 
-  const listData = useMemo(
-    () => (isCEXSelected ? tickers : validPools[index]) ?? [],
-    [index, isCEXSelected, validPools, tickers],
-  );
-
   const formatListData = isCEXSelected
-    ? (listData as IMarketDetailTicker[]).map((i) => ({
-        ...i,
-        price: i.last,
-        logUrl: i.logo,
-        title: `${i.base} / ${i.target}`,
-        description: i.market.name,
-        plus2PercentDepth: i.depth_data?.['+2%'],
-        minus2PercentDepth: i.depth_data?.['-2%'],
-        volumeUsdH24: i.volume,
+    ? (tickers ?? []).map((item) => ({
+        ...item,
+        price: item.last,
+        logUrl: item.logo,
+        title: `${item.base} / ${item.target}`,
+        description: item.market.name,
+        plus2PercentDepth: item.depth_data?.['+2%'],
+        minus2PercentDepth: item.depth_data?.['-2%'],
+        volumeUsdH24: item.volume,
       }))
-    : (listData as IMarketResponsePool).data.map((i) => ({
-        ...i,
-        logUrl: i.dexLogoUrl,
-        title: i.attributes.name,
-        description: i.dexName,
-        price: Number(i.attributes.baseTokenPriceUsd),
+    : (validPools[index]?.data ?? []).map((item) => ({
+        ...item,
+        logUrl: item.dexLogoUrl,
+        title: item.attributes.name,
+        description: item.dexName,
+        price: Number(item.attributes.baseTokenPriceUsd),
         txTotal: Number(
-          i.attributes.transactions.h24.buys +
-            i.attributes.transactions.h24.sells,
+          item.attributes.transactions.h24.buys +
+            item.attributes.transactions.h24.sells,
         ),
-        volumeUsdH24: Number(i.attributes.volumeUsd.h24),
-        reserveInUsd: Number(i.attributes.reserveInUsd),
+        volumeUsdH24: Number(item.attributes.volumeUsd.h24),
+        reserveInUsd: Number(item.attributes.reserveInUsd),
       }));
   const handleChange = useCallback(
     (selectedIndex: number) => {
@@ -320,7 +317,7 @@ export function MarketDetailPools({
   type IDataSourceItem = IDataSource[0];
 
   const { sortedListData, handleSortTypeChange } = useSortType(
-    formatListData as Record<string, any>[],
+    formatListData,
     index,
   );
 
@@ -362,7 +359,7 @@ export function MarketDetailPools({
     [inPageDialog, intl, isCEXSelected],
   );
 
-  const poolColumns = useMemo(
+  const poolColumns = useMemo<(ITableColumn<IDataSourceItem> | undefined)[]>(
     () => [
       gtXl
         ? {
@@ -411,7 +408,6 @@ export function MarketDetailPools({
               <NumberSizeableText
                 userSelect="none"
                 size="$bodyMd"
-                formatterOptions={{ currency }}
                 formatter="marketCap"
                 textAlign="right"
               >
@@ -476,7 +472,7 @@ export function MarketDetailPools({
     [currency, gtXl, intl],
   );
 
-  const cexColumns = useMemo(
+  const cexColumns = useMemo<(ITableColumn<IDataSourceItem> | undefined)[]>(
     () => [
       {
         title: intl.formatMessage({
@@ -492,16 +488,20 @@ export function MarketDetailPools({
           flexGrow: 2,
           flexBasis: 0,
         },
-        render: (price: string) => (
-          <NumberSizeableText
-            userSelect="none"
-            size="$bodyMd"
-            formatter="price"
-            formatterOptions={{ currency }}
-            textAlign="right"
-          >
-            {price}
-          </NumberSizeableText>
+        render: (price: string, item: IDataSourceItem) => (
+          <XStack gap="$1" justifyContent="flex-end">
+            <NumberSizeableText
+              userSelect="none"
+              size="$bodyMd"
+              formatter="price"
+              textAlign="right"
+            >
+              {price}
+            </NumberSizeableText>
+            <SizableText size="$bodyMd">
+              {'target' in item ? item.target : ''}
+            </SizableText>
+          </XStack>
         ),
       },
       gtXl
@@ -531,7 +531,7 @@ export function MarketDetailPools({
                   {price}
                 </NumberSizeableText>
               ) : (
-                '-'
+                <SizableText size="$bodyMd">-</SizableText>
               ),
           }
         : undefined,
@@ -562,7 +562,7 @@ export function MarketDetailPools({
                   {price}
                 </NumberSizeableText>
               ) : (
-                '-'
+                <SizableText size="$bodyMd">-</SizableText>
               ),
           }
         : undefined,
@@ -580,23 +580,27 @@ export function MarketDetailPools({
           flexGrow: 2,
           flexBasis: 0,
         },
-        render: (volumeUsdH24: string) => (
-          <NumberSizeableText
-            userSelect="none"
-            size="$bodyMd"
-            formatter="marketCap"
-            formatterOptions={{ currency }}
-            textAlign="right"
-          >
-            {volumeUsdH24}
-          </NumberSizeableText>
+        render: (volumeUsdH24: string, item: IDataSourceItem) => (
+          <XStack gap="$1" justifyContent="flex-end">
+            <NumberSizeableText
+              userSelect="none"
+              size="$bodyMd"
+              formatter="marketCap"
+              textAlign="right"
+            >
+              {volumeUsdH24}
+            </NumberSizeableText>
+            <SizableText size="$bodyMd">
+              {'base' in item ? item.base : ''}
+            </SizableText>
+          </XStack>
         ),
       },
     ],
     [currency, gtXl, intl],
   );
 
-  const columns = useMemo(
+  const columns = useMemo<ITableColumn<IDataSourceItem>[]>(
     () => [
       {
         title: intl.formatMessage({
@@ -611,7 +615,10 @@ export function MarketDetailPools({
           flexBasis: 0,
         },
         dataIndex: 'dexDataName',
-        render: (_: any, { logUrl, title, description }: IDataSourceItem) => (
+        render: (
+          _: unknown,
+          { logUrl, title, description }: IDataSourceItem,
+        ) => (
           <HeaderColumn
             logoUrl={logUrl}
             title={title}
@@ -619,7 +626,9 @@ export function MarketDetailPools({
           />
         ),
       },
-      ...(isCEXSelected ? cexColumns : poolColumns),
+      ...(isCEXSelected ? cexColumns : poolColumns).filter(
+        (column): column is ITableColumn<IDataSourceItem> => Boolean(column),
+      ),
       {
         title: '',
         align: 'right',
@@ -654,7 +663,7 @@ export function MarketDetailPools({
       }
       TableEmptyComponent={<MarketDetailPoolsSkeletonRow />}
       onRow={onRow}
-      onHeaderRow={onHeaderRow as any}
+      onHeaderRow={onHeaderRow}
       rowProps={{
         px: '$3',
         mx: '$2',
@@ -662,8 +671,8 @@ export function MarketDetailPools({
       }}
       estimatedItemSize="$12"
       headerRowProps={{ py: '$2', minHeight: 36 }}
-      dataSource={sortedListData as any}
-      columns={columns as any}
+      dataSource={(sortedListData ?? []) as IDataSource}
+      columns={columns}
       extraData={index}
       keyExtractor={(item) => item.localId}
     />

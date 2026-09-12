@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import loggerUtils from '@onekeyhq/shared/src/logger/utils';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   AppUpdate,
@@ -1207,7 +1208,7 @@ class ServiceAppUpdate extends ServiceBase {
     this.downloadAttemptBudget = undefined;
     // Remove a stale record written by an earlier bundle. The gate never reads
     // or writes this MMKV key.
-    appStorage.syncStorage.delete(this.downloadAttemptBudgetStorageKey);
+    await appStorage.syncStorage.delete(this.downloadAttemptBudgetStorageKey);
   }
 
   @backgroundMethod()
@@ -2371,6 +2372,7 @@ class ServiceAppUpdate extends ServiceBase {
    * launch from the post-first-render idle hook). Never throws — cleanup
    * must never crash boot.
    *
+   * - Log archives: removes ZIPs left by the previous launch on every launch.
    * - Bundle: always attempts BundleUpdate.pruneStaleAppVersionBundles()
    *   (native / desktop self-contained: keeps every artifact whose
    *   appVersion == running native binary, deletes the rest, hard-refuses
@@ -2383,11 +2385,23 @@ class ServiceAppUpdate extends ServiceBase {
    *   package survives.
    */
   @backgroundMethod()
-  public async pruneStaleArtifacts(): Promise<void> {
+  public async pruneStaleArtifacts(
+    logArchiveCreatedBefore: number,
+  ): Promise<void> {
     if (this.hasPrunedStaleArtifactsThisLaunch) {
       return;
     }
     this.hasPrunedStaleArtifactsThisLaunch = true;
+
+    try {
+      await loggerUtils.cleanupLogArchives(logArchiveCreatedBefore);
+    } catch (error) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: log archive cleanup failed: ${
+          (error as Error)?.message ?? 'unknown'
+        }`,
+      );
+    }
 
     const appInfo = await appUpdatePersistAtom.get();
     const { status } = appInfo;

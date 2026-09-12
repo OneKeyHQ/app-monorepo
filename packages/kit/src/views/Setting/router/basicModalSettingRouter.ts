@@ -26,6 +26,9 @@ const SettingClearAppCacheModal = LazyLoadPage(
 const SettingProtectionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
 );
+const SettingTravelModeModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/TravelMode'),
+);
 const SettingReceiveRiskSupportedAssetsModal = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Protection/ReceiveRiskSupportedAssets'),
@@ -45,6 +48,10 @@ const SettingCustomNetworkModal = LazyLoadPage(
 
 const SettingSignatureRecordModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
+);
+
+const SettingDAppConnectionListModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/DAppConnection/pages/ConnectionList'),
 );
 
 const FloatingIconModal = LazyLoadPage(
@@ -201,6 +208,11 @@ const DevDrawingOrderStress = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/DevDrawingOrderStress'),
 );
 
+const DevLargeWalletDataCreation = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevLargeWalletDataCreation'),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -239,6 +251,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     rewrite: '/protection',
   },
   {
+    name: EModalSettingRoutes.SettingTravelModeModal,
+    component: SettingTravelModeModal,
+  },
+  {
     name: EModalSettingRoutes.SettingReceiveRiskSupportedAssets,
     component: SettingReceiveRiskSupportedAssetsModal,
   },
@@ -249,6 +265,11 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingSignatureRecordModal,
     component: SettingSignatureRecordModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingDAppConnectionList,
+    component: SettingDAppConnectionListModal,
+    rewrite: '/dapp-connections',
   },
   {
     name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,
@@ -378,6 +399,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDrawingOrderStressModal,
     component: DevDrawingOrderStress,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevLargeWalletDataCreation,
+    component: DevLargeWalletDataCreation,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

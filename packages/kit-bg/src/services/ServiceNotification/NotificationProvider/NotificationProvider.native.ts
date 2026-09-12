@@ -149,7 +149,10 @@ export default class NotificationProvider extends NotificationProviderBase {
       status.ios?.status === IosAuthorizationStatus.PROVISIONAL
     ) {
       permission = ENotificationPermission.granted;
-    } else if (status.status === PermissionStatus.DENIED) {
+    } else if (
+      status.status === PermissionStatus.DENIED &&
+      !status.canAskAgain
+    ) {
       permission = ENotificationPermission.denied;
     }
 

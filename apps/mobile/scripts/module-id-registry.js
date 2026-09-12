@@ -6,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 const {
+  ALLOCATION_VERSION,
+  MODULE_ID_RANGES,
   REGISTRY_EPOCH,
   REGISTRY_PATH,
   REPO_ROOT,
@@ -13,19 +15,26 @@ const {
   assertValidRegistry,
   collectRegistryErrors,
   compareModuleKeys,
-  getMaxModuleId,
+  createModuleIdAllocator,
+  getModuleIdDomain,
+  isModuleIdInDomain,
   isPositiveSafeInteger,
   loadRegistry,
   toModuleKey,
 } = require('../plugins/moduleIdRegistry');
 
 const MOBILE_DIR = path.resolve(__dirname, '..');
-const REGISTRY_REPO_PATH = path.relative(REPO_ROOT, REGISTRY_PATH);
+const REGISTRY_REPO_PATH = path
+  .relative(REPO_ROOT, REGISTRY_PATH)
+  .split(path.sep)
+  .join('/');
 
 function createEmptyRegistry() {
   return {
     schemaVersion: SCHEMA_VERSION,
     registryEpoch: REGISTRY_EPOCH,
+    allocationVersion: ALLOCATION_VERSION,
+    ranges: MODULE_ID_RANGES,
     modules: {},
     tombstones: {},
   };
@@ -43,12 +52,15 @@ function canonicalizeRegistry(registry) {
   return {
     schemaVersion: registry.schemaVersion,
     registryEpoch: registry.registryEpoch,
+    allocationVersion: registry.allocationVersion,
+    ranges: registry.ranges,
     modules: sortRecord(registry.modules),
     tombstones: sortRecord(registry.tombstones),
   };
 }
 
 function writeRegistry(registry, registryPath = REGISTRY_PATH) {
+  assertValidRegistry(registry);
   const canonical = canonicalizeRegistry(registry);
   assertValidRegistry(canonical);
   fs.mkdirSync(path.dirname(registryPath), { recursive: true });
@@ -136,7 +148,7 @@ function updateRegistryFromModuleKeys(registry, moduleKeys) {
   const modules = { ...registry.modules };
   const tombstones = { ...registry.tombstones };
   const reservedIds = [...Object.values(modules), ...Object.values(tombstones)];
-  let nextId = getMaxModuleId(reservedIds);
+  const allocateModuleId = createModuleIdAllocator(reservedIds);
   let added = 0;
   for (const moduleKey of [...moduleKeys].toSorted()) {
     if (Object.hasOwn(tombstones, moduleKey)) {
@@ -145,8 +157,10 @@ function updateRegistryFromModuleKeys(registry, moduleKeys) {
       );
     }
     if (!Object.hasOwn(modules, moduleKey)) {
-      nextId += 1;
-      modules[moduleKey] = nextId;
+      modules[moduleKey] = allocateModuleId(
+        getModuleIdDomain(moduleKey),
+        moduleKey,
+      );
       added += 1;
     }
   }
@@ -157,6 +171,54 @@ function updateRegistryFromModuleKeys(registry, moduleKeys) {
   });
   assertValidRegistry(updatedRegistry);
   return { registry: updatedRegistry, added };
+}
+
+function reallocateRegistry(registry) {
+  const sourceRegistry = {
+    ...registry,
+    allocationVersion: ALLOCATION_VERSION,
+    ranges: MODULE_ID_RANGES,
+    registryEpoch: REGISTRY_EPOCH,
+    schemaVersion: SCHEMA_VERSION,
+  };
+  const sourceErrors = collectRegistryErrors(sourceRegistry, {
+    allowDuplicateIds: true,
+    allowOutOfDomainIds: true,
+  });
+  if (sourceErrors.length > 0) {
+    throw new Error(
+      `Unable to reallocate invalid module ID registry:\n- ${sourceErrors.join(
+        '\n- ',
+      )}`,
+    );
+  }
+
+  const entries = ['modules', 'tombstones']
+    .flatMap((sectionName) =>
+      Object.keys(sourceRegistry[sectionName]).map((moduleKey) => ({
+        moduleKey,
+        sectionName,
+      })),
+    )
+    .toSorted((first, second) =>
+      compareModuleKeys(first.moduleKey, second.moduleKey),
+    );
+  const reallocated = {
+    ...sourceRegistry,
+    modules: {},
+    tombstones: {},
+  };
+  const allocateModuleId = createModuleIdAllocator([]);
+  for (const { moduleKey, sectionName } of entries) {
+    reallocated[sectionName][moduleKey] = allocateModuleId(
+      getModuleIdDomain(moduleKey),
+      moduleKey,
+    );
+  }
+
+  const canonical = canonicalizeRegistry(reallocated);
+  assertValidRegistry(canonical);
+  return canonical;
 }
 
 function checkModuleMaps(registry, moduleMaps, repoRoot = REPO_ROOT) {
@@ -189,6 +251,7 @@ function reconcileRegistries(baseRegistry, currentRegistry) {
   assertValidRegistry(baseRegistry);
   const currentErrors = collectRegistryErrors(currentRegistry, {
     allowDuplicateIds: true,
+    allowOutOfDomainIds: true,
   });
   if (currentErrors.length > 0) {
     throw new Error(
@@ -239,7 +302,11 @@ function reconcileRegistries(baseRegistry, currentRegistry) {
   );
 
   for (const entry of sortedNewEntries) {
-    if (usedIds.has(entry.moduleId)) {
+    const domain = getModuleIdDomain(entry.moduleKey);
+    if (
+      usedIds.has(entry.moduleId) ||
+      !isModuleIdInDomain(entry.moduleId, domain)
+    ) {
       pending.push(entry);
     } else {
       usedIds.add(entry.moduleId);
@@ -251,13 +318,12 @@ function reconcileRegistries(baseRegistry, currentRegistry) {
     modules: { ...currentRegistry.modules },
     tombstones: { ...currentRegistry.tombstones },
   };
-  let nextId = getMaxModuleId(usedIds);
+  const allocateModuleId = createModuleIdAllocator(usedIds);
   for (const entry of pending) {
-    do {
-      nextId += 1;
-    } while (usedIds.has(nextId));
-    reconciled[entry.sectionName][entry.moduleKey] = nextId;
-    usedIds.add(nextId);
+    reconciled[entry.sectionName][entry.moduleKey] = allocateModuleId(
+      getModuleIdDomain(entry.moduleKey),
+      entry.moduleKey,
+    );
   }
 
   const canonical = canonicalizeRegistry(reconciled);
@@ -267,9 +333,11 @@ function reconcileRegistries(baseRegistry, currentRegistry) {
 
 function parseArgs(argv) {
   const command = argv[0];
-  if (!['update', 'check', 'reconcile'].includes(command)) {
+  if (
+    !['update', 'check', 'reconcile', 'resolve-collisions'].includes(command)
+  ) {
     throw new Error(
-      'Usage: module-id-registry.js <update|check|reconcile> [options]',
+      'Usage: module-id-registry.js <update|check|reconcile|resolve-collisions> [options]',
     );
   }
   const mapPaths = [];
@@ -292,11 +360,16 @@ function parseArgs(argv) {
   if (command === 'reconcile' && !base) {
     throw new Error('reconcile requires --base <git ref>.');
   }
-  if (command !== 'reconcile' && base) {
-    throw new Error('--base is only valid with reconcile.');
+  if (!['reconcile', 'resolve-collisions'].includes(command) && base) {
+    throw new Error(
+      '--base is only valid with reconcile or resolve-collisions.',
+    );
   }
-  if (command === 'reconcile' && mapPaths.length > 0) {
-    throw new Error('--map is not valid with reconcile.');
+  if (
+    ['reconcile', 'resolve-collisions'].includes(command) &&
+    mapPaths.length > 0
+  ) {
+    throw new Error('--map is not valid with collision resolution commands.');
   }
   return { base, command, mapPaths };
 }
@@ -335,6 +408,7 @@ function readBaseRegistry(base) {
     contents = execFileSync('git', ['show', `${base}:${REGISTRY_REPO_PATH}`], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (error) {
@@ -353,13 +427,84 @@ function readBaseRegistry(base) {
   }
 }
 
+function findCollisionResolutionBase(currentRegistry) {
+  const candidates = [];
+  try {
+    candidates.push(
+      execFileSync('git', ['rev-parse', '--verify', 'origin/x^{commit}'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }).trim(),
+    );
+  } catch {
+    // Local-only repositories can still resolve against their first-parent history.
+  }
+  try {
+    candidates.push(
+      ...execFileSync(
+        'git',
+        [
+          'rev-list',
+          '--first-parent',
+          '--max-count=100',
+          'HEAD',
+          '--',
+          REGISTRY_REPO_PATH,
+        ],
+        {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      )
+        .trim()
+        .split('\n')
+        .filter(Boolean),
+    );
+  } catch {
+    // The actionable error below also covers unavailable git history.
+  }
+
+  for (const baseRef of new Set(candidates)) {
+    try {
+      const result = reconcileRegistries(
+        readBaseRegistry(baseRef),
+        currentRegistry,
+      );
+      return { baseRef, result };
+    } catch {
+      // Keep searching for the closest valid registry ancestor.
+    }
+  }
+  throw new Error(
+    'Unable to find a valid collision-resolution base automatically. Pass --base <git ref> for a valid registry ancestor.',
+  );
+}
+
 function run(argv = process.argv.slice(2)) {
   const { base, command, mapPaths } = parseArgs(argv);
-  if (command === 'reconcile') {
-    const result = reconcileRegistries(readBaseRegistry(base), loadRegistry());
+  if (['reconcile', 'resolve-collisions'].includes(command)) {
+    const currentRegistry = JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf8'));
+    if (
+      command === 'resolve-collisions' &&
+      collectRegistryErrors(currentRegistry).length === 0
+    ) {
+      console.log(
+        `[module-id:resolve-collisions] ${REGISTRY_REPO_PATH} is valid; no collisions to resolve.`,
+      );
+      return;
+    }
+    const resolution = base
+      ? {
+          baseRef: base,
+          result: reconcileRegistries(readBaseRegistry(base), currentRegistry),
+        }
+      : findCollisionResolutionBase(currentRegistry);
+    const { result } = resolution;
     writeRegistry(result.registry);
     console.log(
-      `[module-id:reconcile] wrote ${REGISTRY_REPO_PATH}; reassigned ${result.reassigned} new collision(s).`,
+      `[module-id:${command}] wrote ${REGISTRY_REPO_PATH}; base ${resolution.baseRef}; reassigned ${result.reassigned} new collision(s).`,
     );
     return;
   }
@@ -431,6 +576,7 @@ module.exports = {
   createEmptyRegistry,
   findDefaultMapPaths,
   parseArgs,
+  reallocateRegistry,
   reconcileRegistries,
   run,
   updateRegistry,

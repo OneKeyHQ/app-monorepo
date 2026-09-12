@@ -35,7 +35,7 @@ const SwapTipsContainer = ({ pageType }: ISwapTipsContainerProps) => {
     effectiveTab: swapTips.effectiveTab,
     swapType: swapTypeSwitch,
   });
-  if (!shouldShowTips && platformEnv.isNative) {
+  if (!shouldShowTips && (platformEnv.isNative || platformEnv.isWebMobile)) {
     return null;
   }
 
@@ -72,8 +72,8 @@ const SwapTipsContainer = ({ pageType }: ISwapTipsContainerProps) => {
       }
     : undefined;
 
-  // On non-native platforms, keep the real Alert in layout on inactive tabs
-  // so wrapped copy and optional actions reserve the active tab's exact height.
+  // On desktop, non-mobile web, and extension, keep the real Alert in layout
+  // so inactive tabs reserve the active tab's exact height.
   return (
     <YStack
       testID={SwapTestIDs.tipsContainer}

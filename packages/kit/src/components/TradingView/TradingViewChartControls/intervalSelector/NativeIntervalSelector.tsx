@@ -27,6 +27,8 @@ import type {
 
 export type { ITradingViewNativeIntervalControlMode } from '../types';
 
+const FULL_WIDTH_MORE_CONTROL_FLEX = 1.2;
+
 interface ITradingViewNativeIntervalSelectorProps {
   compactMobileLayout?: boolean;
   fullWidth?: boolean;
@@ -76,9 +78,10 @@ function IntervalMoreTrigger({
   return (
     <XStack
       testID="trading-view-native-interval-selector-more-select"
-      flex={fullWidth ? 1 : undefined}
+      flex={fullWidth ? FULL_WIDTH_MORE_CONTROL_FLEX : undefined}
+      flexBasis={fullWidth ? 0 : undefined}
       h={compactMobileLayout ? 26 : 30}
-      minWidth={fullWidth ? 42 : undefined}
+      minWidth={fullWidth ? 0 : undefined}
       px={horizontalPadding}
       gap="$1"
       alignItems="center"
@@ -298,7 +301,9 @@ export const TradingViewNativeIntervalSelector = memo(
         {segmentOptions.length ? (
           <SegmentControl
             flex={fullWidth ? segmentOptions.length : undefined}
+            flexBasis={fullWidth ? 0 : undefined}
             flexShrink={shouldShrinkToSiblings ? 1 : undefined}
+            minWidth={fullWidth ? 0 : undefined}
             value={
               visibleSegmentValueSet.has(activeInterval) ? activeInterval : ''
             }
@@ -347,6 +352,7 @@ export const TradingViewNativeIntervalSelector = memo(
             p="$0"
             segmentControlItemStyleProps={{
               flex: fullWidth ? 1 : undefined,
+              flexBasis: fullWidth ? 0 : undefined,
               minWidth: shouldCompressIntervalItems ? 0 : 42,
               px: horizontalPadding,
               py: '$0',

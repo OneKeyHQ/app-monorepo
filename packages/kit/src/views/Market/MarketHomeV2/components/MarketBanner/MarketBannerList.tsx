@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo } from 'react';
+import { createContext, memo, useContext, useState } from 'react';
 
 import {
   ScrollGuard,
@@ -7,16 +7,49 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { MarketTestIDs } from '../../testIDs';
 
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
 import { useMarketBannerList } from './useMarketBannerList';
 import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
-function BannerContainerMobile({ children }: { children: ReactNode }) {
+const MarketBannerContext = createContext<
+  ReturnType<typeof useMarketBannerList> | undefined
+>(undefined);
+
+export function MarketBannerProvider({ children }: { children: ReactNode }) {
+  const value = useMarketBannerList();
+  return (
+    <MarketBannerContext.Provider value={value}>
+      {children}
+    </MarketBannerContext.Provider>
+  );
+}
+
+export function useMarketBannerState() {
+  const state = useContext(MarketBannerContext);
+  if (!state) throw new OneKeyLocalError('MarketBannerProvider is required');
+  return state;
+}
+
+function BannerContainerMobile({
+  children,
+  hidden = false,
+}: {
+  children: ReactNode;
+  hidden?: boolean;
+}) {
   return (
     <ScrollGuard>
       <ScrollView
+        opacity={hidden ? 0 : 1}
+        pointerEvents={hidden ? 'none' : 'auto'}
+        accessibilityElementsHidden={hidden}
+        importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
         horizontal
         bounces={false}
         showsHorizontalScrollIndicator={false}
@@ -32,9 +65,26 @@ function BannerContainerMobile({ children }: { children: ReactNode }) {
   );
 }
 
-function BannerContainerDesktop({ children }: { children: ReactNode }) {
+function BannerContainerDesktop({
+  children,
+  hidden = false,
+}: {
+  children: ReactNode;
+  hidden?: boolean;
+}) {
   return (
-    <XStack pt="$4" pb="$2" px="$5" gap="$3" overflow="scroll">
+    <XStack
+      opacity={hidden ? 0 : 1}
+      pointerEvents={hidden ? 'none' : 'auto'}
+      accessibilityElementsHidden={hidden}
+      importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
+      pt="$4"
+      pb="$2"
+      px="$5"
+      gap="$3"
+      overflow="scroll"
+      testID={MarketTestIDs.bannerList}
+    >
       {children}
     </XStack>
   );
@@ -62,10 +112,19 @@ const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
 function MarketBannerListComponent() {
   const toMarketBannerDetail = useToMarketBannerDetail();
   const { md } = useMedia();
-  const { bannerList, isLoading, isFetched } = useMarketBannerList();
+  const { bannerList, isLoading, isFetched } = useMarketBannerState();
 
   // md = true when screen width <= 767px (small screen)
   const isSmallScreen = md;
+  // Commit only a successful response; a failed request can still recover.
+  // A successful empty response keeps the native header absent until re-entry.
+  const [initialBannerList, setInitialBannerList] = useState(
+    isFetched ? bannerList : undefined,
+  );
+  if (initialBannerList === undefined && isFetched) {
+    setInitialBannerList(bannerList);
+  }
+  if (platformEnv.isNative && !initialBannerList?.length) return null;
 
   // Only show skeleton on initial load (before first fetch completes).
   // Skip skeleton on re-fetch to avoid header height flicker when
@@ -74,11 +133,12 @@ function MarketBannerListComponent() {
     return <MarketBannerListSkeleton isSmallScreen={isSmallScreen} />;
   }
 
-  if (!bannerList || bannerList.length === 0) {
-    return null;
-  }
-
-  const bannerItems = bannerList.map((item) => (
+  const hidden = bannerList.length === 0;
+  if (hidden && !platformEnv.isNative) return null;
+  // Preserve the actual card dimensions (including tablet layouts) if a
+  // reconnect removes the banners, without retaining interactive stale links.
+  const visibleBannerList = hidden ? (initialBannerList ?? []) : bannerList;
+  const bannerItems = visibleBannerList.map((item) => (
     <MarketBannerItem
       key={item._id}
       item={item}
@@ -88,10 +148,21 @@ function MarketBannerListComponent() {
   ));
 
   if (isSmallScreen) {
-    return <BannerContainerMobile>{bannerItems}</BannerContainerMobile>;
+    return (
+      <BannerContainerMobile hidden={hidden}>
+        {bannerItems}
+      </BannerContainerMobile>
+    );
   }
 
-  return <BannerContainerDesktop>{bannerItems}</BannerContainerDesktop>;
+  return (
+    <BannerContainerDesktop hidden={hidden}>
+      {bannerItems}
+    </BannerContainerDesktop>
+  );
 }
 
-export const MarketBannerList = memo(MarketBannerListComponent);
+export const MarketBannerList = memo(function MarketBannerList() {
+  const { scope } = useMarketBannerState();
+  return <MarketBannerListComponent key={scope} />;
+});

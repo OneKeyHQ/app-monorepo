@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { ElementRef, PropsWithChildren, RefObject } from 'react';
 import {
   Suspense,
   forwardRef,
@@ -301,6 +301,38 @@ function TableRow<T>({
 
 const MemoTableRow = memo(TableRow) as typeof TableRow;
 
+function DeferredTableRow({
+  children,
+  height,
+}: PropsWithChildren<{ height: number }>) {
+  const placeholderRef = useRef<ElementRef<typeof Stack> | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const element = placeholderRef.current;
+    if (visible || !element) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: `${height * 2}px 0px` },
+    );
+    observer.observe(element as HTMLElement);
+    return () => observer.disconnect();
+  }, [height, visible]);
+
+  // Keep mounted rows alive so scrolling back preserves their local state.
+  return visible ? children : <Stack ref={placeholderRef} height={height} />;
+}
+
 function TableHeaderRow<T>({
   columns,
   onHeaderRow,
@@ -379,6 +411,7 @@ function BasicTable<T>({
   scrollEnabled = true,
   useFlashList = false,
   showSkeleton = false,
+  deferOffscreenRows = false,
   skeletonCount = 3,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
@@ -418,22 +451,6 @@ function BasicTable<T>({
       listViewRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
   }, []);
-
-  const handleRenderItem = useCallback(
-    ({ item, index }: ListRenderItemInfo<T>) => (
-      <MemoTableRow
-        pressStyle={!showSkeleton}
-        showSkeleton={showSkeleton}
-        scrollAtRef={scrollAtRef}
-        item={item}
-        index={index}
-        columns={columns}
-        onRow={showSkeleton ? undefined : onRow}
-        rowProps={rowProps}
-      />
-    ),
-    [columns, onRow, rowProps, showSkeleton],
-  );
 
   const enableBackToTopButton = showBackToTopButton && isShowBackToTopButton;
 
@@ -481,6 +498,41 @@ function BasicTable<T>({
       rowStyleHeight || DEFAULT_ROW_HEIGHT,
     );
   }, [itemSize, rowProps]);
+
+  const handleRenderItem = useCallback(
+    ({ item, index }: ListRenderItemInfo<T>) => {
+      const row = (
+        <MemoTableRow
+          pressStyle={!showSkeleton}
+          showSkeleton={showSkeleton}
+          scrollAtRef={scrollAtRef}
+          item={item}
+          index={index}
+          columns={columns}
+          onRow={showSkeleton ? undefined : onRow}
+          rowProps={rowProps}
+        />
+      );
+      // A tab-integrated list spans its entire data set rather than the
+      // viewport, so FlatList alone cannot avoid mounting offscreen cells.
+      return platformEnv.isRuntimeBrowser &&
+        deferOffscreenRows &&
+        !showSkeleton &&
+        index >= 10 ? (
+        <DeferredTableRow height={resolvedRowHeight}>{row}</DeferredTableRow>
+      ) : (
+        row
+      );
+    },
+    [
+      columns,
+      deferOffscreenRows,
+      onRow,
+      resolvedRowHeight,
+      rowProps,
+      showSkeleton,
+    ],
+  );
 
   // On native, when tabIntegrated the header row MUST be inside the list
   // (as ListHeaderComponent) so it participates in the collapsible tab scroll.
@@ -689,6 +741,7 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={handleRenderItem}
+          keyExtractor={showSkeleton ? undefined : keyExtractor}
           ListHeaderComponent={listHeaderComponent}
           ListFooterComponent={TableFooterComponent}
           ListEmptyComponent={TableEmptyComponent}
@@ -714,6 +767,7 @@ function BasicTable<T>({
       handleDragBegin,
       onDragEnd,
       keyExtractor,
+      showSkeleton,
       TableFooterComponent,
       TableEmptyComponent,
       extraData,

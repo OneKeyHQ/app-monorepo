@@ -387,6 +387,7 @@ export interface ISwapOrderHash {
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  marketSwapApprovalFlowId?: string;
   protocol: EProtocolOfExchange;
   swapType: ESwapTabSwitchType;
   unSupportReceiveAddressDifferent?: boolean;
@@ -462,17 +463,6 @@ export interface IQuoteRoutePath {
   amount?: string;
   part?: number;
   subRoutes?: IQuoteRouteDataInfo[][];
-}
-
-export interface ISwapTokenMetadata {
-  buyToken: {
-    buyTaxBps: string;
-    sellTaxBps: string;
-  };
-  sellToken: {
-    buyTaxBps: string;
-    sellTaxBps: string;
-  };
 }
 
 export interface IQuoteTip {
@@ -755,12 +745,13 @@ export interface IFetchQuoteResult {
   supportUrl?: string;
   orderSupportUrl?: string;
   isAntiMEV?: boolean;
-  tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   valueDropPercent?: number;
   gasLimit?: number;
   slippage?: number;
   providerDisableBatchTransfer?: boolean;
+  buyTax?: number;
+  sellTax?: number;
 }
 
 export interface IAllowanceResult {
@@ -1079,6 +1070,8 @@ export interface IFetchResponse<T> {
 export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
+  REFUNDED = 'refunded',
+  EXPIRED = 'expired',
   PENDING = 'pending',
   DEPOSIT_SUCCESS = 'depositSuccess',
   CANCELED = 'canceled',
@@ -1245,6 +1238,7 @@ export interface ISpeedSwapConfig {
   supportSpeedSwap?: boolean;
   onlySupportCrossChain: boolean;
   onlySupportSingleChain: boolean;
+  unavailable?: boolean;
 }
 
 export interface IFetchUSMarketStatusResult {

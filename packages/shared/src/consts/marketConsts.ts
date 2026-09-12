@@ -6,6 +6,9 @@ export const NETWORKS_WITHOUT_HOLDERS_SUPPORT = [
   'evm--137', // Polygon
 ];
 
+export const MARKET_TOP_COINS_CATEGORY_ID = 'top_coins';
+export const MARKET_TOP_COINS_LEGACY_CATEGORY_ID = 'cgk-market-cap';
+
 // Check if a network supports holders tab
 export function isHoldersTabSupported(networkId: string): boolean {
   return !NETWORKS_WITHOUT_HOLDERS_SUPPORT.includes(networkId);

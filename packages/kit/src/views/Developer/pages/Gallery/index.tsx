@@ -38,6 +38,10 @@ const HardwareGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Hardware'),
 );
+const DeviceStageDriverGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DeviceStageDriverGallery'),
+);
 const LedgerAppOpsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LedgerAppOps'),
@@ -143,6 +147,11 @@ const AddressInputGallery = LazyLoadPage(
 const PortalGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Portal'),
+);
+
+const Pro2PrimeGiftGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Pro2PrimeGift'),
 );
 
 const AmountInputGallery = LazyLoadPage(
@@ -329,6 +338,10 @@ export const galleryScreenList: {
     component: PortalGallery,
   },
   {
+    name: EGalleryRoutes.ComponentPro2PrimeGift,
+    component: Pro2PrimeGiftGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentToken,
     component: TokenGallery,
   },
@@ -427,6 +440,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentHardware,
     component: HardwareGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentDeviceStageDriver,
+    component: DeviceStageDriverGallery,
   },
   {
     name: EGalleryRoutes.ComponentLedgerAppOps,

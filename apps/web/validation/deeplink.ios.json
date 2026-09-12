@@ -49,9 +49,18 @@
           {
             "/": "/market/",
             "comment": "Trailing-slash variant of the market home universal link"
+          },
+          {
+            "/": "/clip/*",
+            "comment": "Matches App Clip attribution and full-app continuation links"
           }
         ]
       }
+    ]
+  },
+  "appclips": {
+    "apps": [
+      "BVJ3FU5H2K.so.onekey.wallet.Clip"
     ]
   }
 }

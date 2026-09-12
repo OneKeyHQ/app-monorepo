@@ -25,6 +25,7 @@ import {
   EModalSettingRoutes,
   ESettingsTabNames,
 } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { SettingTestIDs } from '../../testIDs';
 
@@ -44,6 +45,7 @@ import {
   TabSettingsListItem,
 } from './ListItem';
 import { SearchView } from './SearchView';
+import { logSettingCategoryOpened } from './settingsAnalytics';
 import {
   getSettingsDisplayIcon,
   getSettingsDisplayTitle,
@@ -52,6 +54,7 @@ import {
   isVisibleSettingsCategory,
   resolveSettingsRootInsets,
 } from './settingsRootLayout';
+import { SETTINGS_PAGE_CONTENT_PADDING_X } from './settingsSurface';
 import { useSettingsLayout } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 import { useSettingsPageStyle } from './useSettingsPageStyle';
@@ -66,6 +69,7 @@ type IMobileHomeEntry =
       type: 'setting';
       key: string;
       config: ISubSettingConfig;
+      category: ESettingsTabNames;
     };
 
 function SettingCategoryListItem({
@@ -76,6 +80,7 @@ function SettingCategoryListItem({
   useMobilePresentation?: boolean;
 }) {
   const navigation = useAppNavigation();
+  const { ignorePress } = config;
   const title = getSettingsDisplayTitle(config, useMobilePresentation);
   const icon = getSettingsDisplayIcon(config, useMobilePresentation);
   const iconProps = useMemo<IIconProps | undefined>(
@@ -101,14 +106,21 @@ function SettingCategoryListItem({
   );
 
   const handlePress = useCallback(async () => {
+    if (ignorePress) {
+      return;
+    }
     // Match the sibling row paths: drop the search keyboard before pushing so
     // it does not linger over the pushed page (Android IME especially).
     await dismissKeyboardWithDelay(100);
+    logSettingCategoryOpened({
+      category: config.name,
+      source: useMobilePresentation ? 'mobileHome' : 'flatRoot',
+    });
     navigation.push(EModalSettingRoutes.SettingListSubModal, {
       title,
       name: config.name,
     });
-  }, [navigation, title, config.name]);
+  }, [config.name, ignorePress, navigation, title, useMobilePresentation]);
 
   // Use custom tab item renderer if provided
   if (config.renderTabItem) {
@@ -127,7 +139,9 @@ function SettingCategoryListItem({
       iconProps={iconProps}
       title={title}
       subtitle={config.subtitle}
-      px={useMobilePresentation ? '$5' : '$7'}
+      {...(useMobilePresentation
+        ? undefined
+        : { px: SETTINGS_PAGE_CONTENT_PADDING_X })}
       titleProps={titleProps}
       onPress={handlePress}
     />
@@ -149,6 +163,8 @@ function MobileSettingsSection({ entries }: { entries: IMobileHomeEntry[] }) {
               item={entry.config}
               preferMobileNaming
               useMobilePresentation
+              analyticsSource="mobileHome"
+              analyticsCategory={entry.category}
             />
           )}
           {index !== entries.length - 1 ? <TabSettingsInsetDivider /> : null}
@@ -160,6 +176,9 @@ function MobileSettingsSection({ entries }: { entries: IMobileHomeEntry[] }) {
 
 export function SettingList() {
   const intl = useIntl();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const { isMobileLayout } = useSettingsLayout();
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const { pageSafeAreaEnabled, scrollBottomInset } = resolveSettingsRootInsets({
@@ -172,9 +191,10 @@ export function SettingList() {
   const { headerBackgroundColor, headerStyle, pageBackgroundColor } =
     useSettingsPageStyle(isMobileLayout);
   const settingsConfig = useSettingsConfig();
-  const filteredSettingsConfig = useMemo(() => {
-    return settingsConfig.filter(isVisibleSettingsCategory);
-  }, [settingsConfig]);
+  const filteredSettingsConfig = useMemo(
+    () => settingsConfig.filter(isVisibleSettingsCategory),
+    [settingsConfig],
+  );
   const { mobileSections, mobileHomeOrphans } = useMemo(() => {
     const categoryMap = new Map(
       filteredSettingsConfig.map((config) => [config.name, config]),
@@ -211,6 +231,7 @@ export function SettingList() {
         type: 'setting',
         key: `setting-${name}-${index}`,
         config: item,
+        category: name,
       }));
     };
 
@@ -268,13 +289,20 @@ export function SettingList() {
       );
     }
   }, [mobileHomeOrphans]);
-  const { onSearch, searchResult, isSearching } = useSearch(settingsConfig);
+  const { onSearch, searchResult, isSearching, searchText } =
+    useSearch(settingsConfig);
   let content: ReactNode;
-  if (isSearching) {
-    content = <SearchView results={searchResult} isSearching={isSearching} />;
+  if (isSearching && !isTravelMode) {
+    content = (
+      <SearchView
+        results={searchResult}
+        isSearching={isSearching}
+        searchQueryLength={searchText.length}
+      />
+    );
   } else if (isMobileLayout) {
     content = (
-      <YStack gap="$5" px="$5" pt="$4">
+      <YStack gap="$5" px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$4">
         {mobileSections.map((section, index) => (
           <MobileSettingsSection key={index} entries={section} />
         ))}
@@ -301,9 +329,14 @@ export function SettingList() {
         title={intl.formatMessage({ id: ETranslations.global_settings })}
       />
       <Page.Body>
-        <XStack px="$5" pb={isMobileLayout ? '$2' : '$4'}>
-          <SearchBar onSearchTextChange={onSearch} />
-        </XStack>
+        {isTravelMode ? null : (
+          <XStack
+            px={SETTINGS_PAGE_CONTENT_PADDING_X}
+            pb={isMobileLayout ? '$2' : '$4'}
+          >
+            <SearchBar onSearchTextChange={onSearch} />
+          </XStack>
+        )}
         <YStack flex={1}>
           <ScrollView
             contentInsetAdjustmentBehavior="automatic"
@@ -315,7 +348,9 @@ export function SettingList() {
             {content}
           </ScrollView>
         </YStack>
-        {isMobileLayout ? null : <SocialButtonGroup />}
+        {isMobileLayout ? null : (
+          <SocialButtonGroup hideChannels={isTravelMode} />
+        )}
       </Page.Body>
     </Page>
   );

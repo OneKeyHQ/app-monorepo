@@ -119,7 +119,8 @@ const SwapProTabListContainer = memo(
       swapProTokenSelect,
     ]);
     const shouldRenderListContent = shouldRenderLists;
-    const shouldRenderPositionsContent = shouldRenderListContent;
+    const shouldRenderPositionsContent =
+      shouldRenderListContent || positionTokenList.length > 0;
     const retryPositions = useCallback(() => {
       void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
         forceRefresh: true,
@@ -176,7 +177,7 @@ const SwapProTabListContainer = memo(
       };
     }, [changeTabToLimitOrderList]);
 
-    // Delay rendering heavy list components after initial render
+    // Defer heavy list components only while initial position data is pending.
     useEffect(() => {
       const timer = setTimeout(() => {
         setShouldRenderLists(true);

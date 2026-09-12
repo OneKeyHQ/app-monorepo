@@ -7,9 +7,10 @@ import platformEnv from '../platformEnv';
 //   onVisibilityStateChange(cb) — subscribe to transitions
 //
 // Platform signals:
-//   Web / desktop renderer → document.visibilitychange + window focus/blur
+//   Web / desktop renderer → document.visibilitychange
 //   Desktop (Electron)     → desktopApi.onAppState (main-process focus)
 //   Mobile (RN)            → AppState 'change' event
+//   Extension UI           → document.visibilitychange + window focus/blur
 //   Extension service worker / unknown → defaults to visible (no signal)
 
 let _visible = true;
@@ -80,27 +81,27 @@ export function onVisibilityStateChange(
     const handleVisibilityStateChange = () => {
       callback(document.visibilityState === 'visible');
     };
-    const windowFocus = () => callback(true);
-    const windowBlur = () => callback(false);
+    const handleWindowFocus = () => callback(true);
+    const handleWindowBlur = () => callback(false);
+    const extensionWindow =
+      platformEnv.isExtension && typeof globalThis.window !== 'undefined'
+        ? globalThis.window
+        : undefined;
     document.addEventListener(
       'visibilitychange',
       handleVisibilityStateChange,
       false,
     );
-    if (typeof globalThis.window !== 'undefined') {
-      globalThis.window.addEventListener('focus', windowFocus);
-      globalThis.window.addEventListener('blur', windowBlur);
-    }
+    extensionWindow?.addEventListener('focus', handleWindowFocus);
+    extensionWindow?.addEventListener('blur', handleWindowBlur);
     return () => {
       document.removeEventListener(
         'visibilitychange',
         handleVisibilityStateChange,
         false,
       );
-      if (typeof globalThis.window !== 'undefined') {
-        globalThis.window.removeEventListener('focus', windowFocus);
-        globalThis.window.removeEventListener('blur', windowBlur);
-      }
+      extensionWindow?.removeEventListener('focus', handleWindowFocus);
+      extensionWindow?.removeEventListener('blur', handleWindowBlur);
     };
   }
   return () => {};

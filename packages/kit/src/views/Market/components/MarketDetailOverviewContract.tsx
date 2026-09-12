@@ -59,7 +59,7 @@ export function MarketDetailOverviewContract({
           size="medium"
           variant="secondary"
           onPress={handleViewMore}
-          $gtMd={{ size: 'small' } as any}
+          $gtMd={{ size: 'small' }}
         >
           {intl.formatMessage({
             id: isShowMore

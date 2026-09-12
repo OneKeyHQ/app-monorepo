@@ -2,11 +2,13 @@
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { getPrimeInfiniPaymentSafeLogParams } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   getOneKeyIdAuthFailureServerParams,
   scrubSensitiveErrorMessageText,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { IOneKeyIdAuthFailureLogSource } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type { IPrimeInfiniPaymentSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -38,6 +40,11 @@ function sanitizeUrlForServerLog(url: string): string {
 }
 
 export type IPrimeCryptoPaymentStage =
+  | 'sessionLoad'
+  | 'paymentRestore'
+  | 'responseValidation'
+  | 'sessionPersistence'
+  | 'polling'
   | 'paymentMethod'
   | 'walletPaymentPage'
   | 'paymentContext'
@@ -67,6 +74,18 @@ export type IPrimeCryptoPaymentStatus =
   | 'recovered';
 
 export type IPrimeCryptoPaymentFlowParams = {
+  flowId?: string;
+  paymentSource?: IPrimeInfiniPaymentSource;
+  failureReason?: string;
+  expectedChain?: string;
+  expectedToken?: string;
+  actualChain?: string;
+  actualToken?: string;
+  remainingMs?: number;
+  sessionAgeMs?: number;
+  sessionMode?: 'quote' | 'tracking';
+  hasPaymentProgress?: boolean;
+  createNewPaymentIntent?: boolean;
   stage: IPrimeCryptoPaymentStage;
   status: IPrimeCryptoPaymentStatus;
   subscriptionPeriod?: ISubscriptionPeriod;
@@ -79,6 +98,15 @@ export type IPrimeCryptoPaymentFlowParams = {
   amountDue?: string;
   reason?: string;
   sendStarted?: boolean;
+  hasBeforeBroadcastAction?: boolean;
+  isDevModeEnabled?: boolean;
+  isAlwaysSignOnlySendTxConfigured?: boolean;
+  isSignOnlyRequested?: boolean;
+  isExternalAccount?: boolean;
+  hasCompletedBeforeBroadcastAction?: boolean;
+  hasAttemptedBroadcast?: boolean;
+  hasBroadcastTxId?: boolean;
+  isWithoutBroadcastTxIdAllowed?: boolean;
   isRetry?: boolean;
   durationMs?: number;
   retryCount?: number;
@@ -132,6 +160,28 @@ export type IOneKeyIdAuthStateRepairParams = {
     | 'incompleteLogoutProjection';
 };
 
+export type IPrimeGiftAnalyticsSource = 'onboarding' | 'deviceDetails';
+
+export type IPrimeGiftStageParams =
+  | {
+      stage: 'login';
+      status: 'start' | 'success' | 'cancel' | 'failed';
+    }
+  | {
+      stage: 'verify';
+      status:
+        | 'start'
+        | 'success'
+        | 'noCode'
+        | 'alreadyClaimed'
+        | 'cancel'
+        | 'failed';
+    }
+  | {
+      stage: 'claim';
+      status: 'submit';
+    };
+
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
@@ -150,8 +200,11 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'approvalPopup'
       | 'primePage'
       | 'walletEdit'
+      | 'accountSelectorAddMenu'
       | 'browserTranslate'
-      | 'historySettings';
+      | 'historySettings'
+      | 'sendAddressInput'
+      | 'signatureConfirm';
     isPrimeActive: boolean;
   }) {
     return {
@@ -217,18 +270,54 @@ export class PrimeSubscriptionScene extends BaseScene {
     isPrimeActiveBeforeRedeem,
     addedDays,
     errorCode,
+    source,
+    entry,
   }: {
-    result: 'success' | 'failed';
+    result: 'success' | 'failed' | 'unknown';
     isPrimeActiveBeforeRedeem: boolean;
     addedDays?: number;
     errorCode?: number;
+    source?: IPrimeGiftAnalyticsSource;
+    entry?: 'primeGift';
   }) {
     return {
       result,
       isPrimeActiveBeforeRedeem,
       addedDays,
       errorCode,
+      ...(source && entry ? { source, entry } : {}),
     };
+  }
+
+  /** Banner became actually visible for an eligible unclaimed gift. */
+  @LogToServer()
+  public primeGiftOfferShown({
+    source,
+  }: {
+    source: IPrimeGiftAnalyticsSource;
+  }) {
+    return { source };
+  }
+
+  /** User tapped a visible Prime gift banner. */
+  @LogToServer()
+  public primeGiftOfferClick({
+    source,
+  }: {
+    source: IPrimeGiftAnalyticsSource;
+  }) {
+    return { source };
+  }
+
+  /**
+   * Controlled gift funnel stages. Never includes serial, email, address,
+   * redemption code, or raw error text.
+   */
+  @LogToServer()
+  public primeGiftStage(
+    params: IPrimeGiftStageParams & { source: IPrimeGiftAnalyticsSource },
+  ) {
+    return params;
   }
 
   /**
@@ -283,15 +372,19 @@ export class PrimeSubscriptionScene extends BaseScene {
 
   @LogToLocal({ level: 'info' })
   @LogToServer()
-  public primeCryptoPaymentFlow(params: IPrimeCryptoPaymentFlowParams) {
-    return params;
+  public primeCryptoPaymentFlow(
+    params: IPrimeCryptoPaymentFlowParams,
+  ): IPrimeCryptoPaymentFlowParams {
+    return getPrimeInfiniPaymentSafeLogParams(params);
   }
 
   @LogToLocal({ level: 'error' })
   public primeCryptoPaymentError(
-    params: IPrimeCryptoPaymentFlowParams & { errorMessage: string },
-  ) {
-    return params;
+    params: IPrimeCryptoPaymentFlowParams,
+  ): IPrimeCryptoPaymentFlowParams {
+    // Free-form error messages can include a server warning or response body.
+    // Classifications and request metadata are sufficient for correlation.
+    return getPrimeInfiniPaymentSafeLogParams(params);
   }
 
   /**

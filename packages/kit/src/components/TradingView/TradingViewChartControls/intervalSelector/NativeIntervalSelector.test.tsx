@@ -82,6 +82,7 @@ jest.mock('@onekeyhq/components', () => ({
     bg,
     children,
     flex,
+    flexBasis,
     flexShrink,
     h,
     justifyContent,
@@ -92,6 +93,7 @@ jest.mock('@onekeyhq/components', () => ({
     bg?: string;
     children?: ReactNode;
     flex?: number;
+    flexBasis?: number;
     flexShrink?: number;
     h?: number;
     justifyContent?: string;
@@ -102,6 +104,7 @@ jest.mock('@onekeyhq/components', () => ({
     <div
       data-bg={bg}
       data-flex={flex}
+      data-flex-basis={flexBasis}
       data-flex-shrink={flexShrink}
       data-height={h}
       data-justify-content={justifyContent}
@@ -239,10 +242,13 @@ describe('TradingViewNativeIntervalSelector', () => {
     expect(mockSegmentControl).toHaveBeenCalledWith(
       expect.objectContaining({
         flex: 6,
+        flexBasis: 0,
         h: 26,
+        minWidth: 0,
         p: '$0',
         segmentControlItemStyleProps: expect.objectContaining({
           flex: 1,
+          flexBasis: 0,
           h: '100%',
           justifyContent: 'center',
           minWidth: 0,
@@ -275,8 +281,14 @@ describe('TradingViewNativeIntervalSelector', () => {
       '26',
     );
     expect(getByText('More').parentElement?.getAttribute('data-flex')).toBe(
-      '1',
+      '1.2',
     );
+    expect(
+      getByText('More').parentElement?.getAttribute('data-flex-basis'),
+    ).toBe('0');
+    expect(
+      getByText('More').parentElement?.getAttribute('data-min-width'),
+    ).toBe('0');
     expect(getByText('More').parentElement?.getAttribute('data-px')).toBe('$0');
     expect(
       getByText('More').parentElement?.getAttribute('data-justify-content'),
