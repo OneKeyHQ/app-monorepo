@@ -393,7 +393,8 @@ function BasePerpTokenSelectorContent() {
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
 
-  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetsByDex, query: filteredQuery }] =
+    usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const [selectorConfig, setSelectorConfig] =
@@ -1022,6 +1023,7 @@ function BasePerpTokenSelectorContent() {
         const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
+          filteredQuery,
         });
         if (activeDynamicTabUserSort && sortField) {
           result = dynamicItems
@@ -1083,6 +1085,7 @@ function BasePerpTokenSelectorContent() {
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    filteredQuery,
     activeDynamicTabUserSort,
     activeFavoritesTabUserSort,
     assetsByDex,
