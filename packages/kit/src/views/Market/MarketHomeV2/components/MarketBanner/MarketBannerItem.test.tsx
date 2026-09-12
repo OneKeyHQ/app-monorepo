@@ -18,6 +18,7 @@ jest.mock('@onekeyhq/components', () => {
     role?: string;
     'aria-label'?: string;
     color?: string;
+    $gtMd?: { h?: number | string };
   }>;
   const Component = ({
     children,
@@ -26,6 +27,7 @@ jest.mock('@onekeyhq/components', () => {
     role,
     'aria-label': accessibilityLabel,
     color,
+    $gtMd,
   }: IProps) =>
     React.createElement(
       'div',
@@ -35,6 +37,7 @@ jest.mock('@onekeyhq/components', () => {
         onClick: onPress,
         role,
         'aria-label': accessibilityLabel,
+        'data-gt-md-height': $gtMd?.h,
       },
       children,
     );
@@ -51,6 +54,11 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
   LeverageBadge: () => null,
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: true },
 }));
 
 const makeToken = (
@@ -185,5 +193,10 @@ describe('Market theme banner', () => {
     render(<MarketBannerItem item={item} />);
     expect(screen.getByText('+1%')).toBeTruthy();
     expect(screen.queryAllByTestId('market-banner-token-row')).toHaveLength(0);
+    expect(
+      screen
+        .getByTestId('market-banner-item')
+        .parentElement?.getAttribute('data-gt-md-height'),
+    ).toBe('118');
   });
 });

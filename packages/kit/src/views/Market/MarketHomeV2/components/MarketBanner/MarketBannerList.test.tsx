@@ -8,6 +8,7 @@ import { MarketBannerList, MarketBannerProvider } from './MarketBannerList';
 import type { useMarketBannerList } from './useMarketBannerList';
 
 let mockState: ReturnType<typeof useMarketBannerList>;
+let mockIsSmallScreen = true;
 jest.mock('./useMarketBannerList', () => ({
   useMarketBannerList: () => mockState,
 }));
@@ -15,7 +16,9 @@ jest.mock('./useToMarketBannerDetail', () => ({
   useToMarketBannerDetail: () => jest.fn(),
 }));
 jest.mock('./MarketBannerItem', () => ({
-  MarketBannerItem: () => <div data-testid="banner" />,
+  MarketBannerItem: ({ item }: { item: { _id: string } }) => (
+    <div data-testid="banner">{item._id}</div>
+  ),
 }));
 jest.mock('./MarketBannerItemSkeleton', () => ({
   MarketBannerItemSkeleton: () => <div data-testid="skeleton" />,
@@ -32,10 +35,12 @@ jest.mock('@onekeyhq/components', () => ({
   }: PropsWithChildren<{ opacity?: number }>) => (
     <div aria-hidden={opacity === 0 ? true : undefined}>{children}</div>
   ),
-  XStack: ({ children }: PropsWithChildren) => (
-    <div data-testid="reserved-space">{children}</div>
+  XStack: ({ children, pt }: PropsWithChildren<{ pt?: string }>) => (
+    <div data-testid="reserved-space" data-padding-top={pt}>
+      {children}
+    </div>
   ),
-  useMedia: () => ({ md: true }),
+  useMedia: () => ({ md: mockIsSmallScreen }),
 }));
 
 function Page() {
@@ -45,13 +50,24 @@ function Page() {
     </MarketBannerProvider>
   );
 }
-const populated = () => ({
-  bannerList: [{ _id: 'banner' }] as ReturnType<
+const populated = (id = 'banner') => ({
+  bannerList: [{ _id: id }] as ReturnType<
     typeof useMarketBannerList
   >['bannerList'],
   isLoading: false,
   isFetched: true,
   scope: 'en-US:false',
+});
+
+beforeEach(() => {
+  mockIsSmallScreen = true;
+});
+
+it('keeps native tablet banner padding aligned with the fixed header height', () => {
+  mockIsSmallScreen = false;
+  mockState = populated();
+  render(<Page />);
+  expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$2');
 });
 
 it('does not insert a banner after the native page has started without one', () => {
@@ -78,6 +94,19 @@ it('keeps the occupied header height when a refresh removes all banners', () => 
     scope: 'en-US:false',
   };
   rerender(<Page />);
+  expect(
+    screen.getByTestId('banner').closest('[aria-hidden=true]'),
+  ).toBeTruthy();
+});
+
+it('retains the latest successful banners when a refresh removes them', () => {
+  mockState = populated('legacy');
+  const { rerender } = render(<Page />);
+  mockState = populated('modern');
+  rerender(<Page />);
+  mockState = { ...populated(), bannerList: [] };
+  rerender(<Page />);
+  expect(screen.getByTestId('banner').textContent).toBe('modern');
   expect(
     screen.getByTestId('banner').closest('[aria-hidden=true]'),
   ).toBeTruthy();
