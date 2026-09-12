@@ -456,18 +456,13 @@ const TradingViewNativeContent = memo(
     );
     const chartComponentRenderNodes = useTradingViewNativeChartComponents({
       chartComponents,
-      dataProviderKey,
-      latestPrice,
       previousClose,
       referenceLineColor:
         themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine],
-      // Only opted-in charts with a real close draw the line; the hook's
-      // first-price fallback would label an arbitrary price "Prev close".
+      // Only opted-in charts draw the line, and the hook itself needs a real
+      // close, so no live price can end up labelled "Prev close".
       showPreviousClose:
-        enablePreviousClose &&
-        previousClose !== undefined &&
-        Number.isFinite(previousClose) &&
-        normalizedChartSettings.options.previousClose,
+        enablePreviousClose && normalizedChartSettings.options.previousClose,
     });
 
     useEffect(() => {
