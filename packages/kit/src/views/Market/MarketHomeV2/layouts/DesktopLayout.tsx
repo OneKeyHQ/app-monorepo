@@ -43,6 +43,7 @@ import {
   isMarketStockCategoryById,
   isTrendingStyleSpotCategory,
   shouldHideSpotExtendedStats,
+  shouldShowSpotNetworkSelector,
 } from '../utils';
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
@@ -309,6 +310,9 @@ export function DesktopLayout({
         currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
         !currentSpotCategoryHasStockData,
       );
+      const showNetworkSelector = shouldShowSpotNetworkSelector(
+        currentSpotCategoryId,
+      );
       const usesTrendingStyle = isTrendingStyleSpotCategory(
         currentSpotCategoryId,
       );
@@ -349,10 +353,12 @@ export function DesktopLayout({
                   onChange={currentFilterBarProps.onTimeRangeChange}
                 />
               )}
-              <CompactNetworkSelector
-                selectedNetworkId={currentFilterBarProps.selectedNetworkId}
-                onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
-              />
+              <XStack display={showNetworkSelector ? 'flex' : 'none'}>
+                <CompactNetworkSelector
+                  selectedNetworkId={currentFilterBarProps.selectedNetworkId}
+                  onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
+                />
+              </XStack>
             </XStack>
           </XStack>
           {/* No padding of its own: each list portals a toolbar band that
