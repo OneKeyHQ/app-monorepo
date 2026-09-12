@@ -14,7 +14,8 @@ import {
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -50,9 +51,9 @@ export function LegacyUniversalSearchInput({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
+    // Universal Search depends on background services unavailable in Travel Mode.
     if (
       !allowInTravelMode &&
-      tabRoute !== ETabRoutes.Home &&
       travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
         'travel-mode'
     ) {
