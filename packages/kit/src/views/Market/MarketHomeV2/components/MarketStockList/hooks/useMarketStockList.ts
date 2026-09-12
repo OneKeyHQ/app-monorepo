@@ -24,11 +24,14 @@ type IMarketStockListState = {
   nextCursor?: string;
   total: number;
   firstPage?: IMarketStockPublicListResponse;
+  loadedPageCount: number;
 };
 
 type IMarketStockListResult = {
   queryKey: string;
   response?: IMarketStockPublicListResponse;
+  firstPage?: IMarketStockPublicListResponse;
+  loadedPageCount?: number;
   failed?: boolean;
 };
 
@@ -49,7 +52,10 @@ export function useMarketStockList({ category }: { category?: string }) {
     queryKey: '',
     items: [],
     total: 0,
+    loadedPageCount: 0,
   });
+  const listStateRef = useRef(listState);
+  listStateRef.current = listState;
 
   const remoteQueryKeyRef = useRef<string | undefined>(undefined);
   const previousQueryKeyRef = useRef(queryKey);
@@ -78,16 +84,51 @@ export function useMarketStockList({ category }: { category?: string }) {
         setIsLoadingMore(false);
       }
       try {
-        const response =
+        const firstPage =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
             limit: MARKET_STOCK_LIST_PAGE_SIZE,
             category,
             sortBy,
             sortType,
           });
-        if (queryKeyRef.current === queryKey)
+        const current = listStateRef.current;
+        const pagesToRefresh =
+          current.queryKey === queryKey
+            ? Math.max(1, current.loadedPageCount)
+            : 1;
+        let response = firstPage;
+        let loadedPageCount = 1;
+
+        while (
+          queryKeyRef.current === queryKey &&
+          response.nextCursor &&
+          loadedPageCount < pagesToRefresh
+        ) {
+          const nextPage =
+            await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
+              cursor: response.nextCursor,
+              limit: MARKET_STOCK_LIST_PAGE_SIZE,
+              category,
+              sortBy,
+              sortType,
+            });
+          response = {
+            items: appendUniqueMarketStocks(response.items, nextPage.items),
+            nextCursor: nextPage.nextCursor,
+            total: nextPage.total,
+          };
+          loadedPageCount += 1;
+        }
+
+        if (queryKeyRef.current === queryKey) {
           remoteQueryKeyRef.current = queryKey;
-        return { queryKey, response };
+        }
+        return {
+          queryKey,
+          response,
+          firstPage,
+          loadedPageCount,
+        };
       } catch {
         return { queryKey, failed: true };
       }
@@ -106,50 +147,14 @@ export function useMarketStockList({ category }: { category?: string }) {
     if (firstPageResult?.queryKey !== queryKey || !firstPageResult.response) {
       return;
     }
-    const nextFirstPage = firstPageResult.response;
-    setListState((current) => {
-      if (current.queryKey !== queryKey || !current.firstPage) {
-        return {
-          queryKey,
-          items: nextFirstPage.items,
-          nextCursor: nextFirstPage.nextCursor,
-          total: nextFirstPage.total,
-          firstPage: nextFirstPage,
-        };
-      }
-
-      const previousFirstPageIds = new Set(
-        current.firstPage.items.map((item) => item.stockId),
-      );
-      const nextFirstPageIds = new Set(
-        nextFirstPage.items.map((item) => item.stockId),
-      );
-      const preservedItems = current.items.filter(
-        (item) =>
-          !previousFirstPageIds.has(item.stockId) &&
-          !nextFirstPageIds.has(item.stockId),
-      );
-      const hasLoadedAdditionalPages =
-        current.items.length > current.firstPage.items.length;
-      const shouldPreserveLoadedPages = Boolean(
-        hasLoadedAdditionalPages && nextFirstPage.nextCursor,
-      );
-      const nextItems = shouldPreserveLoadedPages
-        ? [...nextFirstPage.items, ...preservedItems].slice(
-            0,
-            nextFirstPage.total,
-          )
-        : nextFirstPage.items;
-
-      return {
-        queryKey,
-        items: nextItems,
-        nextCursor: shouldPreserveLoadedPages
-          ? current.nextCursor
-          : nextFirstPage.nextCursor,
-        total: nextFirstPage.total,
-        firstPage: nextFirstPage,
-      };
+    const response = firstPageResult.response;
+    setListState({
+      queryKey,
+      items: response.items,
+      nextCursor: response.nextCursor,
+      total: response.total,
+      firstPage: firstPageResult.firstPage ?? response,
+      loadedPageCount: firstPageResult.loadedPageCount ?? 1,
     });
     setIsLoadMoreError(false);
   }, [firstPageResult, queryKey]);
@@ -157,6 +162,10 @@ export function useMarketStockList({ category }: { category?: string }) {
   const currentResponse =
     firstPageResult?.queryKey === queryKey
       ? firstPageResult.response
+      : undefined;
+  const currentFirstPage =
+    firstPageResult?.queryKey === queryKey
+      ? (firstPageResult.firstPage ?? currentResponse)
       : undefined;
   const hasListState = listState.queryKey === queryKey;
   const hasCurrentData = hasListState || Boolean(currentResponse);
@@ -168,11 +177,12 @@ export function useMarketStockList({ category }: { category?: string }) {
     firstPageResult?.queryKey === queryKey && Boolean(firstPageResult.failed);
   const isAwaitingRemoteFirstPage =
     remoteQueryKeyRef.current !== queryKey ||
-    Boolean(currentResponse && listState.firstPage !== currentResponse);
+    Boolean(currentFirstPage && listState.firstPage !== currentFirstPage);
 
   const loadMore = useCallback(async () => {
     if (
       !nextCursor ||
+      isLoading ||
       isLoadingMore ||
       isAwaitingRemoteFirstPage ||
       (platformEnv.isNative && loadMoreRequestRef.current !== undefined)
@@ -209,6 +219,7 @@ export function useMarketStockList({ category }: { category?: string }) {
           items: appendUniqueMarketStocks(current.items, response.items),
           nextCursor: response.nextCursor,
           total: response.total,
+          loadedPageCount: current.loadedPageCount + 1,
         };
       });
     } catch (_error) {
@@ -226,6 +237,7 @@ export function useMarketStockList({ category }: { category?: string }) {
     }
   }, [
     category,
+    isLoading,
     isLoadingMore,
     isAwaitingRemoteFirstPage,
     nextCursor,
@@ -259,7 +271,8 @@ export function useMarketStockList({ category }: { category?: string }) {
     isError:
       isFirstPageError &&
       (!hasCurrentData || (platformEnv.isNative && items.length === 0)),
-    canLoadMore: Boolean(nextCursor) && !isAwaitingRemoteFirstPage,
+    canLoadMore:
+      Boolean(nextCursor) && !isLoading && !isAwaitingRemoteFirstPage,
     sortBy,
     sortType,
     setSorting,

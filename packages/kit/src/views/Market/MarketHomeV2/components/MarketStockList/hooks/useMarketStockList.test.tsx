@@ -195,20 +195,27 @@ it('keeps pagination enabled after appending the second page', async () => {
 });
 
 it('preserves loaded pages when refreshing the first page', async () => {
+  let isRefreshing = false;
   const secondPageItem = {
     ...response.items[0],
     stockId: 'MSFT',
     symbol: 'MSFT',
     name: 'Microsoft',
   };
-  fetchList.mockImplementation(async (params) =>
-    params?.cursor
+  fetchList.mockImplementation(async (params) => {
+    if (params?.cursor) {
+      return {
+        items: [secondPageItem],
+        total: 2,
+      };
+    }
+    return isRefreshing
       ? {
-          items: [secondPageItem],
-          total: 2,
+          ...response,
+          items: [{ ...response.items[0], price: '201' }],
         }
-      : response,
-  );
+      : response;
+  });
   const { result } = renderHook(() => useMarketStockList({}));
   await waitFor(() => expect(result.current.canLoadMore).toBe(true));
   await act(async () => result.current.loadMore());
@@ -217,10 +224,7 @@ it('preserves loaded pages when refreshing the first page', async () => {
     'MSFT',
   ]);
 
-  fetchList.mockResolvedValue({
-    ...response,
-    items: [{ ...response.items[0], price: '201' }],
-  });
+  isRefreshing = true;
   await act(async () => result.current.refresh());
 
   expect(result.current.items.map((item) => item.stockId)).toEqual([
@@ -231,7 +235,8 @@ it('preserves loaded pages when refreshing the first page', async () => {
   expect(result.current.canLoadMore).toBe(false);
 });
 
-it('keeps the loaded-page cursor when refreshing the first page', async () => {
+it('makes new stocks reachable when a fully loaded list grows', async () => {
+  let isRefreshing = false;
   const secondPageItem = {
     ...response.items[0],
     stockId: 'MSFT',
@@ -242,28 +247,76 @@ it('keeps the loaded-page cursor when refreshing the first page', async () => {
     if (params?.cursor === 'next') {
       return {
         items: [secondPageItem],
-        total: 3,
-        nextCursor: 'third',
+        total: isRefreshing ? 3 : 2,
+        nextCursor: isRefreshing ? 'third' : undefined,
       };
     }
     if (params?.cursor === 'third') {
-      return { items: [], total: 3 };
+      return {
+        items: [
+          {
+            ...response.items[0],
+            stockId: 'NVDA',
+            symbol: 'NVDA',
+            name: 'NVIDIA',
+          },
+        ],
+        total: 3,
+      };
     }
-    return { ...response, total: 3 };
+    return { ...response, total: isRefreshing ? 3 : 2 };
+  });
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  await act(async () => result.current.loadMore());
+  expect(result.current.canLoadMore).toBe(false);
+
+  isRefreshing = true;
+  await act(async () => result.current.refresh());
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  await act(async () => result.current.loadMore());
+
+  expect(
+    fetchList.mock.calls.some(([params]) => params?.cursor === 'third'),
+  ).toBe(true);
+  expect(result.current.items.map((item) => item.stockId)).toEqual([
+    'AAPL',
+    'MSFT',
+    'NVDA',
+  ]);
+});
+
+it('keeps stocks that move from the first page to a refreshed later page', async () => {
+  let isRefreshing = false;
+  const secondPageItem = {
+    ...response.items[0],
+    stockId: 'MSFT',
+    symbol: 'MSFT',
+    name: 'Microsoft',
+  };
+  fetchList.mockImplementation(async (params) => {
+    if (params?.cursor) {
+      return {
+        items: [isRefreshing ? response.items[0] : secondPageItem],
+        total: 2,
+      };
+    }
+    return {
+      ...response,
+      items: isRefreshing ? [secondPageItem] : response.items,
+    };
   });
   const { result } = renderHook(() => useMarketStockList({}));
   await waitFor(() => expect(result.current.canLoadMore).toBe(true));
   await act(async () => result.current.loadMore());
 
+  isRefreshing = true;
   await act(async () => result.current.refresh());
-  await act(async () => result.current.loadMore());
 
-  expect(
-    fetchList.mock.calls.filter(([params]) => params?.cursor === 'next'),
-  ).toHaveLength(1);
-  expect(
-    fetchList.mock.calls.some(([params]) => params?.cursor === 'third'),
-  ).toBe(true);
+  expect(result.current.items.map((item) => item.stockId)).toEqual([
+    'MSFT',
+    'AAPL',
+  ]);
 });
 
 it('drops obsolete loaded rows when a refresh has no next page', async () => {
