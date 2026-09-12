@@ -87,6 +87,8 @@ function MarketStockListImpl({
     isLoading,
     isLoadingMore,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
     isError,
     canLoadMore,
     sortBy,
@@ -135,10 +137,10 @@ function MarketStockListImpl({
   );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+    if (canLoadMore && !isLoadingMore && !isLoadMoreError && !isRefreshError) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadMoreError, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadMoreError, isRefreshError, isLoadingMore, loadMore]);
 
   const webTabIntegrated = Boolean(tabIntegrated && !platformEnv.isNative);
   useEffect(() => {
@@ -233,21 +235,21 @@ function MarketStockListImpl({
   }, [intl, isError, isLoading, refresh]);
 
   const TableFooterComponent = useMemo(() => {
-    if (isLoadingMore) {
+    if (isLoadingMore || isRefreshing) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Spinner size="small" />
         </Stack>
       );
     }
-    if (isLoadMoreError) {
+    if (isLoadMoreError || isRefreshError) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Button
             testID="market-stock-list-load-more-retry"
             size="small"
             variant="tertiary"
-            onPress={() => void loadMore()}
+            onPress={() => void (isRefreshError ? refresh() : loadMore())}
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
@@ -265,6 +267,9 @@ function MarketStockListImpl({
     canLoadMore,
     intl,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
+    refresh,
     isLoadingMore,
     items.length,
     loadMore,

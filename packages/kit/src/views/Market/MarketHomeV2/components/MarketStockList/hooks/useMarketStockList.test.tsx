@@ -2,6 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   swrCacheUtils,
   swrKeys,
@@ -20,8 +21,9 @@ jest.mock('@onekeyhq/components', () => ({
   }),
   useNetInfo: () => ({ isRawInternetReachable: true }),
 }));
+let mockIsFocused = true;
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockIsFocused,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en-US',
@@ -73,6 +75,8 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  mockIsFocused = true;
+  platformEnv.isNative = true;
   fetchList.mockReset();
   swrCacheUtils.clearAll();
   Object.defineProperty(globalThis, 'requestIdleCallback', {
@@ -365,32 +369,136 @@ it('starts one native cursor request for concurrent end-reached events', async (
   expect(calls).toBe(1);
 });
 
-it('discards a native cursor response superseded by first-page refresh', async () => {
-  const nextPage = deferred<IMarketStockPublicListResponse>();
+it.each([true, false])(
+  'discards a superseded cursor response (native=%s)',
+  async (isNative) => {
+    platformEnv.isNative = isNative;
+    const nextPage = deferred<IMarketStockPublicListResponse>();
+    fetchList.mockImplementation(async (params) =>
+      params?.cursor ? nextPage.promise : response,
+    );
+    const { result } = renderHook(() => useMarketStockList({}));
+    await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = result.current.loadMore();
+    });
+    const fresh = {
+      ...response,
+      items: [{ ...response.items[0], stockId: 'FRESH' }],
+    };
+    fetchList.mockResolvedValue(fresh);
+    await act(async () => result.current.refresh());
+    await act(async () => {
+      nextPage.resolve({
+        ...response,
+        items: [{ ...response.items[0], stockId: 'STALE' }],
+      });
+      await pending;
+    });
+    expect(result.current.items.map((item) => item.stockId)).toEqual(['FRESH']);
+    expect(result.current.isLoadingMore).toBe(false);
+  },
+);
+
+it('queues end-reached during refresh without reporting the end of the list', async () => {
+  fetchList.mockResolvedValue(response);
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValueOnce(pending.promise).mockResolvedValue({
+    items: [{ ...response.items[0], stockId: 'MSFT' }],
+    total: 2,
+  });
+  let refreshing: Promise<void> | undefined;
+  act(() => {
+    refreshing = result.current.refresh();
+  });
+  await waitFor(() => expect(result.current.isRefreshing).toBe(true));
+  expect(result.current.canLoadMore).toBe(true);
+  await act(async () => result.current.loadMore());
+  await act(async () => {
+    pending.resolve(response);
+    await refreshing;
+  });
+  await waitFor(() => expect(result.current.items).toHaveLength(2));
+  expect(result.current.items[1].stockId).toBe('MSFT');
+});
+
+it('preserves all rows and exposes retry after a later refresh page fails', async () => {
+  const secondPage = {
+    items: [{ ...response.items[0], stockId: 'MSFT' }],
+    total: 2,
+  };
   fetchList.mockImplementation(async (params) =>
-    params?.cursor ? nextPage.promise : response,
+    params?.cursor ? secondPage : response,
   );
   const { result } = renderHook(() => useMarketStockList({}));
   await waitFor(() => expect(result.current.canLoadMore).toBe(true));
-  let pending: Promise<void> | undefined;
-  act(() => {
-    pending = result.current.loadMore();
-  });
-  const fresh = {
-    ...response,
-    items: [{ ...response.items[0], stockId: 'FRESH' }],
-  };
-  fetchList.mockResolvedValue(fresh);
-  await act(async () => result.current.refresh());
-  await act(async () => {
-    nextPage.resolve({
+  await act(async () => result.current.loadMore());
+  const previousItems = result.current.items;
+  fetchList
+    .mockResolvedValueOnce({
       ...response,
-      items: [{ ...response.items[0], stockId: 'STALE' }],
-    });
-    await pending;
+      items: [{ ...response.items[0], price: '201' }],
+    })
+    .mockRejectedValueOnce(new Error('offline'));
+  await act(async () => result.current.refresh());
+  expect(result.current.items).toBe(previousItems);
+  expect(result.current.isRefreshError).toBe(true);
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor ? secondPage : response,
+  );
+  await act(async () => result.current.refresh());
+  expect(result.current.isRefreshError).toBe(false);
+  expect(result.current.items).toHaveLength(2);
+});
+
+it('does not replay deep persisted pagination on cold start', async () => {
+  const queryKey = JSON.stringify({
+    sortBy: 'default',
+    sortType: 'asc',
+    locale: 'en-US',
   });
-  expect(result.current.items.map((item) => item.stockId)).toEqual(['FRESH']);
-  expect(result.current.isLoadingMore).toBe(false);
+  swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
+    queryKey,
+    response,
+    firstPage: response,
+    loadedPageCount: 15,
+  });
+  fetchList.mockResolvedValue(response);
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  expect(fetchList).toHaveBeenCalledTimes(1);
+});
+
+it('keeps a deep list on focus without refetching every loaded page', async () => {
+  platformEnv.isNative = false;
+  fetchList.mockImplementation(async (params) => {
+    const page = Number(params?.cursor ?? 0);
+    return {
+      items: [{ ...response.items[0], stockId: String(page) }],
+      total: 10,
+      nextCursor: String(page + 1),
+    };
+  });
+  const { result, rerender } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  for (let index = 0; index < 3; index += 1) {
+    await act(async () => result.current.loadMore());
+  }
+  const items = result.current.items;
+  fetchList.mockClear();
+  mockIsFocused = false;
+  rerender();
+  mockIsFocused = true;
+  rerender();
+  await act(async () => undefined);
+  expect(fetchList).not.toHaveBeenCalled();
+  expect(result.current.items).toBe(items);
+  await act(async () => result.current.refresh());
+  expect(fetchList).toHaveBeenCalledTimes(4);
+  expect(result.current.items).toHaveLength(4);
 });
 
 it('keeps the current native category loading while an old cursor request completes', async () => {

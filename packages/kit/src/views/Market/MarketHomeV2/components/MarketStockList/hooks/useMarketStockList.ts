@@ -17,6 +17,7 @@ import type {
 import { appendUniqueMarketStocks } from '../utils';
 
 const MARKET_STOCK_LIST_PAGE_SIZE = 20;
+const MARKET_STOCK_LIST_MAX_AUTO_REFRESH_PAGES = 3;
 
 type IMarketStockListState = {
   queryKey: string;
@@ -42,6 +43,8 @@ export function useMarketStockList({ category }: { category?: string }) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadMoreError, setIsLoadMoreError] = useState(false);
   const loadMoreRequestRef = useRef<object | undefined>(undefined);
+  const refreshRequestRef = useRef<object | undefined>(undefined);
+  const queuedLoadMoreRef = useRef<string | undefined>(undefined);
   const queryKey = useMemo(
     () => JSON.stringify({ category, sortBy, sortType, locale }),
     [category, sortBy, sortType, locale],
@@ -79,10 +82,16 @@ export function useMarketStockList({ category }: { category?: string }) {
     run: refresh,
   } = usePromiseResult<IMarketStockListResult>(
     async () => {
-      if (platformEnv.isNative) {
-        loadMoreRequestRef.current = undefined;
-        setIsLoadingMore(false);
+      const refreshRequest = {};
+      refreshRequestRef.current = refreshRequest;
+      if (
+        loadMoreRequestRef.current &&
+        listStateRef.current.queryKey === queryKey
+      ) {
+        queuedLoadMoreRef.current = queryKey;
       }
+      loadMoreRequestRef.current = undefined;
+      setIsLoadingMore(false);
       try {
         const firstPage =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
@@ -93,7 +102,8 @@ export function useMarketStockList({ category }: { category?: string }) {
           });
         const current = listStateRef.current;
         const pagesToRefresh =
-          current.queryKey === queryKey
+          current.queryKey === queryKey &&
+          remoteQueryKeyRef.current === queryKey
             ? Math.max(1, current.loadedPageCount)
             : 1;
         let response = firstPage;
@@ -101,6 +111,7 @@ export function useMarketStockList({ category }: { category?: string }) {
 
         while (
           queryKeyRef.current === queryKey &&
+          refreshRequestRef.current === refreshRequest &&
           response.nextCursor &&
           loadedPageCount < pagesToRefresh
         ) {
@@ -120,7 +131,10 @@ export function useMarketStockList({ category }: { category?: string }) {
           loadedPageCount += 1;
         }
 
-        if (queryKeyRef.current === queryKey) {
+        if (
+          queryKeyRef.current === queryKey &&
+          refreshRequestRef.current === refreshRequest
+        ) {
           remoteQueryKeyRef.current = queryKey;
         }
         return {
@@ -131,15 +145,28 @@ export function useMarketStockList({ category }: { category?: string }) {
         };
       } catch {
         return { queryKey, failed: true };
+      } finally {
+        if (refreshRequestRef.current === refreshRequest) {
+          refreshRequestRef.current = undefined;
+        }
       }
     },
     [category, queryKey, sortBy, sortType],
     {
       swrKey,
-      swrShouldPersist: (data) => Boolean(data.response && !data.failed),
+      swrShouldPersist: (data) =>
+        Boolean(
+          data.response &&
+          !data.failed &&
+          (data.loadedPageCount ?? 1) <=
+            MARKET_STOCK_LIST_MAX_AUTO_REFRESH_PAGES,
+        ),
       watchLoading: true,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
+      // Keep deep lists intact without replaying every page on route focus.
+      revalidateOnFocus:
+        listState.loadedPageCount <= MARKET_STOCK_LIST_MAX_AUTO_REFRESH_PAGES,
+      revalidateOnReconnect:
+        listState.loadedPageCount <= MARKET_STOCK_LIST_MAX_AUTO_REFRESH_PAGES,
     },
   );
 
@@ -180,18 +207,21 @@ export function useMarketStockList({ category }: { category?: string }) {
     Boolean(currentFirstPage && listState.firstPage !== currentFirstPage);
 
   const loadMore = useCallback(async () => {
+    if (isLoading || refreshRequestRef.current) {
+      queuedLoadMoreRef.current = queryKey;
+      return;
+    }
     if (
       !nextCursor ||
-      isLoading ||
       isLoadingMore ||
       isAwaitingRemoteFirstPage ||
-      (platformEnv.isNative && loadMoreRequestRef.current !== undefined)
+      loadMoreRequestRef.current !== undefined
     ) {
       return;
     }
     const requestQueryKey = queryKey;
     const request = {};
-    if (platformEnv.isNative) loadMoreRequestRef.current = request;
+    loadMoreRequestRef.current = request;
     setIsLoadingMore(true);
     setIsLoadMoreError(false);
     try {
@@ -205,7 +235,7 @@ export function useMarketStockList({ category }: { category?: string }) {
         });
       if (
         queryKeyRef.current !== requestQueryKey ||
-        (platformEnv.isNative && loadMoreRequestRef.current !== request)
+        loadMoreRequestRef.current !== request
       ) {
         return;
       }
@@ -225,12 +255,12 @@ export function useMarketStockList({ category }: { category?: string }) {
     } catch (_error) {
       if (
         queryKeyRef.current === requestQueryKey &&
-        (!platformEnv.isNative || loadMoreRequestRef.current === request)
+        loadMoreRequestRef.current === request
       ) {
         setIsLoadMoreError(true);
       }
     } finally {
-      if (!platformEnv.isNative || loadMoreRequestRef.current === request) {
+      if (loadMoreRequestRef.current === request) {
         loadMoreRequestRef.current = undefined;
         setIsLoadingMore(false);
       }
@@ -244,6 +274,21 @@ export function useMarketStockList({ category }: { category?: string }) {
     queryKey,
     sortBy,
     sortType,
+  ]);
+
+  useEffect(() => {
+    if (isLoading || isAwaitingRemoteFirstPage) return;
+    const queuedQueryKey = queuedLoadMoreRef.current;
+    queuedLoadMoreRef.current = undefined;
+    if (queuedQueryKey === queryKey && !isFirstPageError) {
+      void loadMore();
+    }
+  }, [
+    isLoading,
+    isAwaitingRemoteFirstPage,
+    isFirstPageError,
+    loadMore,
+    queryKey,
   ]);
 
   const setSorting = useCallback(
@@ -268,11 +313,12 @@ export function useMarketStockList({ category }: { category?: string }) {
     isLoading: !hasCurrentData && (!isFirstPageError || Boolean(isLoading)),
     isLoadingMore,
     isLoadMoreError,
+    isRefreshing: Boolean(isLoading) && hasCurrentData,
+    isRefreshError: isFirstPageError && items.length > 0,
     isError:
       isFirstPageError &&
       (!hasCurrentData || (platformEnv.isNative && items.length === 0)),
-    canLoadMore:
-      Boolean(nextCursor) && !isLoading && !isAwaitingRemoteFirstPage,
+    canLoadMore: Boolean(nextCursor) && !isAwaitingRemoteFirstPage,
     sortBy,
     sortType,
     setSorting,
