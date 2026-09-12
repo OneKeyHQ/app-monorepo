@@ -360,3 +360,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `buildAllowList` `pagePath()` runs `removeExtraSlash` (`path.replace(/\/+/g, '')`) then prepends `/`. The rewrite `/prime/redeem` became allowlist key `/primeredeem`, which never matched `getPathFromState`'s real URL, so the path was rewritten to `/`.
 **Fix**: Register the public path as literal `PRIME_REDEEM_LANDING_PATH` (`/prime/redeem`) instead of a `pagePath()` key. Regression test calls real `buildAllowList()` and asserts `/primeredeem` is absent.
 **Catchable by**: NEW — web public URLs with an inner slash cannot use `pagePath()`; allowlist tests must call `buildAllowList()`, not a handwritten path
+
+## Case: Browser search submits on Chinese IME Enter when typing English
+**Date**: 2026-09-08 | **Platforms**: desktop, web, extension
+**Symptom**: In Discovery search, using a Chinese IME to type English and pressing Enter once committed the letters and immediately started a Google search (e.g. query `fou r`).
+**Root Cause**: `useSearchPopover` treated every Enter as submit. IME confirmation Enter was not ignored, and Chromium fires that keydown after `compositionend` with `isComposing` already false.
+**Fix**: Shared IME composition lock ignores composing / keyCode 229 events and holds the lock until after the confirming Enter. Input forwards React composition props through the repository's existing RN-web ESM patch. Discovery inputs disable submit auto-blur; non-native SearchBar defaults to retaining focus while honoring an explicit blurOnSubmit setting.
+**Catchable by**: NEW — web/desktop inputs that submit on Enter must ignore IME composition (including the post-compositionend confirming Enter), retain focus, and test the patched production ESM entry rather than the unpatched CJS entry

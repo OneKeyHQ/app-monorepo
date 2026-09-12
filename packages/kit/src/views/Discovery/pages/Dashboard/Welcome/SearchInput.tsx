@@ -90,6 +90,8 @@ export function SearchInput({ tabId }: { tabId?: string }) {
   const {
     handleInputBlur,
     handleKeyDown,
+    handleCompositionStart,
+    handleCompositionEnd,
     handleSearchBarPress,
     isPopoverOpen,
     isPopoverVisible,
@@ -198,8 +200,12 @@ export function SearchInput({ tabId }: { tabId?: string }) {
                 p: 0,
                 bg: 'transparent',
               }}
-              // @ts-expect-error
+              // RN-web maps onKeyPress to keydown; do not also bind onKeyDown.
               onKeyPress={handleKeyDown}
+              // Ignored IME confirm Enter does not preventDefault; skip RN-web auto-blur.
+              blurOnSubmit={false}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
               testID="search-input"
               placeholder={intl.formatMessage({
                 id: ETranslations.browser_search_dapp_or_enter_url,
