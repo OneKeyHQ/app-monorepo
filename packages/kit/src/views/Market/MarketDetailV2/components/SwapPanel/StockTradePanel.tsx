@@ -885,6 +885,7 @@ function StockTradePanelContentContainer({
         ...supportSpeedSwap,
         actionToken: currentMarketToken,
       }}
+      speedConfigReady={speedConfigReady}
       defaultTokens={filterDefaultTokens}
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
