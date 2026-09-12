@@ -1,10 +1,13 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
@@ -80,6 +83,27 @@ export async function hydrateMarketBannerQuotes(
   return hydratedBanners;
 }
 
+function mergeBannerQuotes(
+  banners: IMarketBannerItem[],
+  previous: IMarketBannerItem[] | undefined,
+): IMarketBannerItem[] {
+  const quotes = new Map(previous?.map((banner) => [banner._id, banner]));
+  return banners.map((banner) => {
+    const cached = quotes.get(banner._id);
+    if (
+      banner.type !== EMarketBannerType.Perps &&
+      !isMarketIndexQuoteBanner(banner) &&
+      cached?.tokens &&
+      cached.tokenListId === banner.tokenListId &&
+      cached.type === banner.type &&
+      cached.assetType === banner.assetType
+    ) {
+      return { ...banner, tokens: cached.tokens };
+    }
+    return banner;
+  });
+}
+
 export function useMarketBannerList(): {
   bannerList: IMarketBannerItem[];
   isLoading: boolean;
@@ -128,6 +152,8 @@ export function useMarketBannerList(): {
       swrKey: platformEnv.isNative
         ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
         : undefined,
+      // Persist the rendered snapshot below, never overwrite it with raw previews.
+      swrShouldPersist: () => false,
       watchLoading: true,
       revalidateOnReconnect: true,
       revalidateOnFocus: true,
@@ -139,32 +165,53 @@ export function useMarketBannerList(): {
     async () => {
       if (!bannerList || enableMockMarketBanner) return undefined;
       return {
-        source: bannerList,
         scope: requestScope,
-        banners: await hydrateMarketBannerQuotes(bannerList),
+        banners: await hydrateMarketBannerQuotes(
+          mergeBannerQuotes(
+            bannerList,
+            committedResultRef.current?.requestScope === requestScope
+              ? committedResultRef.current.bannerList
+              : undefined,
+          ),
+        ),
       };
     },
     [bannerList, enableMockMarketBanner, requestScope],
     { checkIsFocused: !platformEnv.isWeb },
   );
-  const displayedBanners =
-    liveQuotes?.source === bannerList && liveQuotes?.scope === requestScope
-      ? liveQuotes.banners
-      : bannerList;
-  const normalizedBanners = useMemo(
-    () =>
-      (displayedBanners ?? []).map((banner) =>
-        isMarketIndexQuoteBanner(banner) && banner.indices?.length
-          ? {
-              ...banner,
-              type: EMarketBannerType.StockIndex,
-              tokens: banner.indices,
-            }
-          : banner,
-      ),
-    [displayedBanners],
-  );
-  committedResultRef.current = { requestScope, bannerList };
+  const normalizedBanners = useMemo(() => {
+    let previous: IMarketBannerItem[] | undefined;
+    if (liveQuotes?.scope === requestScope) {
+      previous = liveQuotes.banners;
+    } else if (committedResultRef.current?.requestScope === requestScope) {
+      previous = committedResultRef.current.bannerList;
+    }
+    const banners = enableMockMarketBanner
+      ? (bannerList ?? [])
+      : mergeBannerQuotes(bannerList ?? [], previous);
+    return banners.map((banner) =>
+      isMarketIndexQuoteBanner(banner) && banner.indices?.length
+        ? {
+            ...banner,
+            type: EMarketBannerType.StockIndex,
+            tokens: banner.indices,
+          }
+        : banner,
+    );
+  }, [bannerList, liveQuotes, requestScope, enableMockMarketBanner]);
+  committedResultRef.current = {
+    requestScope,
+    bannerList: bannerList === undefined ? undefined : normalizedBanners,
+  };
+
+  useEffect(() => {
+    if (platformEnv.isNative && bannerList !== undefined) {
+      swrCacheUtils.set(
+        swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner)),
+        normalizedBanners,
+      );
+    }
+  }, [bannerList, normalizedBanners, locale, enableMockMarketBanner]);
 
   return {
     scope,

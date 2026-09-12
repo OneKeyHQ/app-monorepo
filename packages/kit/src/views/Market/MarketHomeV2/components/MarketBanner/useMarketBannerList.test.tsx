@@ -268,8 +268,101 @@ it('preserves a committed cache replay when revalidation fails', async () => {
   mockResult = [];
   const { result } = renderHook(() => useMarketBannerList());
   await act(async () => {
-    await expect(mockRequest()).resolves.toBe(mockResult);
+    await expect(mockRequest()).resolves.toEqual(mockResult);
   });
   expect(result.current.isFetched).toBe(true);
   expect(result.current.isLoading).toBe(false);
+});
+
+const quote = {
+  logo: '',
+  name: 'Apple',
+  symbol: 'AAPL',
+  price: '100',
+  priceChange24hPercent: '1',
+};
+
+it('displays hydrated quotes and retains them across a fresh base response', async () => {
+  mockResult = [makeBanner({ type: EMarketBannerType.Stock })];
+  jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+    {
+      ...quote,
+      stockId: 'apple',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+    },
+  ]);
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  mockLiveResult = await mockHydrate();
+  rerender();
+  expect(result.current.bannerList[0].tokens?.[0].price).toBe('100');
+  mockResult = [
+    makeBanner({ type: EMarketBannerType.Stock, title: 'Updated title' }),
+  ];
+  rerender();
+  expect(result.current.bannerList[0].title).toBe('Updated title');
+  expect(result.current.bannerList[0].tokens?.[0].price).toBe('100');
+  jest
+    .mocked(fetchMarketBannerStockTokenListForPlatform)
+    .mockRejectedValue(new Error('offline'));
+  mockLiveResult = await mockHydrate();
+  rerender();
+  expect(result.current.bannerList[0].tokens?.[0].price).toBe('100');
+  jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+    {
+      ...quote,
+      price: '105',
+      stockId: 'apple',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+    },
+  ]);
+  mockLiveResult = await mockHydrate();
+  rerender();
+  expect(result.current.bannerList[0].tokens?.[0].price).toBe('105');
+});
+
+it.each([
+  { tokenListId: 'replacement' },
+  { _id: 'replacement' },
+  { type: EMarketBannerType.Perps },
+  { assetType: 'index' as const },
+])('does not reuse quotes for changed identity %j', async (changes) => {
+  mockResult = [makeBanner({ tokens: [quote] })];
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  mockLiveResult = await mockHydrate();
+  rerender();
+  mockResult = [makeBanner(changes)];
+  rerender();
+  expect(result.current.bannerList[0].tokens).toBeUndefined();
+  mockResult = [];
+  rerender();
+  expect(result.current.bannerList).toEqual([]);
+});
+
+it.each([true, false])(
+  'uses fresh base quotes when optional hydration is skipped (mock=%s)',
+  (mock) => {
+    mockEnabled = mock;
+    const type = mock ? EMarketBannerType.Stock : EMarketBannerType.Perps;
+    mockResult = [makeBanner({ type, tokens: [quote] })];
+    const { result, rerender } = renderHook(() => useMarketBannerList());
+    mockResult = [makeBanner({ type, tokens: [{ ...quote, price: '110' }] })];
+    rerender();
+    expect(result.current.bannerList[0].tokens?.[0].price).toBe('110');
+  },
+);
+
+it('does not carry hydrated prices into a different locale', async () => {
+  mockResult = [makeBanner({ tokens: [quote] })];
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  mockLiveResult = await mockHydrate();
+  rerender();
+  expect(result.current.bannerList[0].tokens?.[0].price).toBe('100');
+  mockLocale = 'zh-CN';
+  mockResult = [makeBanner()];
+  rerender();
+  expect(result.current.bannerList[0].tokens).toBeUndefined();
 });

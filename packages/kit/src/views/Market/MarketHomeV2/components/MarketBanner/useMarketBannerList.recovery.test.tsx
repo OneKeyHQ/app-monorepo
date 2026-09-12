@@ -1,13 +1,23 @@
 /** @jest-environment jsdom */
 import { act, renderHook, waitFor } from '@testing-library/react';
 
-import { fetchMarketBannerListForPlatform } from './marketBannerListPlatformApi';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  fetchMarketBannerListForPlatform,
+  fetchMarketBannerStockTokenListForPlatform,
+} from './marketBannerListPlatformApi';
 import { useMarketBannerList } from './useMarketBannerList';
 
 let mockOnline = true;
+const mockCache = new Map<string, { data: unknown; updatedAt: number }>();
 
 beforeEach(() => {
   mockOnline = true;
+  platformEnv.isNative = false;
+  mockCache.clear();
   jest.mocked(fetchMarketBannerListForPlatform).mockReset();
 });
 
@@ -30,11 +40,21 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isWeb: true },
+  default: { isWeb: true, isNative: false },
 }));
 jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
-  swrCacheUtils: {},
-  swrKeys: {},
+  swrCacheUtils: {
+    getWithTimestamp: (key: string) => mockCache.get(key),
+    set: jest.fn((key: string, data: unknown) => {
+      mockCache.set(key, {
+        data: JSON.parse(JSON.stringify(data)) as unknown,
+        updatedAt: Date.now(),
+      });
+    }),
+  },
+  swrKeys: {
+    marketHomeBanners: (locale: string, mock: boolean) => `${locale}:${mock}`,
+  },
 }));
 jest.mock('./marketBannerListPlatformApi', () => ({
   fetchMarketBannerListForPlatform: jest.fn(),
@@ -109,4 +129,62 @@ it('preserves successful banners on a failed reconnect and accepts a later empty
   });
   await waitFor(() => expect(result.current.bannerList).toEqual([]));
   expect(result.current.isFetched).toBe(true);
+});
+
+it('replays hydrated native quotes on remount while raw refresh and quotes are pending', async () => {
+  platformEnv.isNative = true;
+  const banners = [
+    {
+      _id: 'stock',
+      title: 'Stocks',
+      rank: 1,
+      mode: 4,
+      payload: '',
+      miniBundlerVersion: '',
+      backgroundColor: '',
+      tokenListId: 'stocks',
+      type: EMarketBannerType.Stock,
+    },
+  ];
+  jest.mocked(fetchMarketBannerListForPlatform).mockResolvedValue(banners);
+  jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+    {
+      stockId: 'apple',
+      name: 'Apple',
+      symbol: 'AAPL',
+      logoUrl: '',
+      price: '100',
+      priceChange24hPercent: '1',
+      assetType: 'stock',
+      currency: 'USD',
+    },
+  ]);
+  const first = renderHook(() => useMarketBannerList());
+  await waitFor(() =>
+    expect(first.result.current.bannerList[0]?.tokens?.[0].price).toBe('100'),
+  );
+  expect(swrCacheUtils.set).toHaveBeenLastCalledWith(
+    'en-US:false',
+    first.result.current.bannerList,
+  );
+  first.unmount();
+  jest
+    .mocked(fetchMarketBannerStockTokenListForPlatform)
+    .mockReturnValue(new Promise(() => {}));
+  jest
+    .mocked(fetchMarketBannerListForPlatform)
+    .mockResolvedValue(
+      banners.map((banner) => ({ ...banner, title: 'Refreshed' })),
+    );
+  const second = renderHook(() => useMarketBannerList());
+  expect(second.result.current.bannerList[0].tokens?.[0].price).toBe('100');
+  expect(second.result.current.isLoading).toBe(false);
+  await waitFor(() =>
+    expect(second.result.current.bannerList[0].title).toBe('Refreshed'),
+  );
+  expect(second.result.current.bannerList[0].tokens?.[0].price).toBe('100');
+  expect(swrCacheUtils.set).toHaveBeenLastCalledWith(
+    'en-US:false',
+    second.result.current.bannerList,
+  );
 });
