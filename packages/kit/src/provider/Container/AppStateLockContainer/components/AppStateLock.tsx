@@ -22,8 +22,8 @@ import {
   useKeyboardEventWithoutNavigation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils/getFontSize';
+import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
