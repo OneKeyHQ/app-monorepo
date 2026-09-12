@@ -186,15 +186,19 @@ const useSafeKeyboardAnimationStyle = ({
     useInitialSafeAreaBottomInsetFallback && bottom === 0
       ? INITIAL_BOTTOM_INSET
       : bottom;
+  const androidBottomInset = platformEnv.isNativeAndroid ? safeAreaBottom : 0;
   const keyboardHeightValue = useSharedValue(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
   //   - bottom safe-area inset: always required (static)
   //   - keyboard height: only while the keyboard is shown (dynamic)
-  // They must not stack — once the keyboard is up it already covers the
-  // safe area, so take the larger of the two instead of summing them.
+  // Android keyboard events exclude the bottom system-bar inset, while iOS
+  // keyboard events already include it. Only restore the inset on Android.
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboardHeightValue.value, safeAreaBottom),
+    paddingBottom: Math.max(
+      keyboardHeightValue.value + androidBottomInset,
+      safeAreaBottom,
+    ),
   }));
 
   useKeyboardEventWithoutNavigation({
