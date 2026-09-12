@@ -121,7 +121,7 @@ const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 const MARKET_TAB_ITEM_PRESS_DRAG_GUARD_MS = platformEnv.isNativeIOS ? 700 : 350;
 const MARKET_TAB_ITEM_PRESS_IDLE_GUARD_MS = platformEnv.isNativeIOS ? 180 : 120;
 const MARKET_TAB_BAR_HEIGHT = 44;
-const MARKET_BANNER_HEADER_HEIGHT = 134;
+const MARKET_BANNER_HEADER_HEIGHT = 204;
 
 const STYLES = StyleSheet.create({
   pager: { flex: 1 },
