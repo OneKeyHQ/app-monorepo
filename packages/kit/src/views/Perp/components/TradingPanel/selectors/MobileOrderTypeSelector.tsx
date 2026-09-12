@@ -71,7 +71,11 @@ function MobileOrderTypeSelector({
       <SizableText size="$bodyMdMedium">
         {selectedOption?.label ?? ''}
       </SizableText>
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
+      <Icon
+        name="ChevronTriangleDownSmallSolid"
+        color="$iconSubdued"
+        size="$4"
+      />
     </XStack>
   );
 }

@@ -216,7 +216,7 @@ export default function ScanQrCodeModal() {
     async (value: string) => {
       if (process.env.NODE_ENV !== 'production') {
         if (value) {
-          appStorage.syncStorage.set(
+          await appStorage.syncStorage.set(
             EAppSyncStorageKeys.last_scan_qr_code_text,
             value,
           );

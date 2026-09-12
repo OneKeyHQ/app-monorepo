@@ -6,7 +6,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
-import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import { getSwapTokenBalanceContractAddress } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import {
+  buildSwapDefaultSelectedTokensForNetwork,
+  resolveSwapTokenNetworkLogoURI,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import { buildSwapNetworkReadyKey } from '@onekeyhq/kit/src/views/Swap/utils/swapNetworkCacheUtils';
 import {
   removeSwapNoConnectWalletAlerts,
@@ -23,6 +27,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsLoader';
 import type { ISwapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import { getSwapQuoteTokenTaxPercentages } from '@onekeyhq/kit/src/views/Swap/utils/swapTokenTaxUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
   currencyPersistAtom,
@@ -101,6 +106,7 @@ import {
   contextAtomMethod,
   limitOrderMarketPriceAtom,
   rateDifferenceAtom,
+  sanitizeSwapProSelectTokenSnapshot,
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
@@ -146,6 +152,7 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
+  swapSelectTokenDetailRequestIdAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
@@ -158,7 +165,6 @@ import {
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
-  swapTokenMetadataAtom,
   swapTypeSwitchAtom,
   swapWarningRequestIdAtom,
 } from './atoms';
@@ -734,19 +740,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   // If token is not provided: load from db, if db is empty, use defaultToken
   persistSwapProSelectToken = contextAtomMethod(
     async (get, set, token?: ISwapToken, defaultToken?: ISwapToken) => {
-      // Remove realtime properties before saving to db
-      const getTokenForStorage = (t: ISwapToken): ISwapToken => {
-        const {
-          balanceParsed,
-          price,
-          fiatValue,
-          reservationValue,
-          accountAddress,
-          ...rest
-        } = t;
-        return rest;
-      };
-
       const setSelectedToken = (nextToken: ISwapToken) => {
         const currentToken = get(swapProSelectTokenAtom());
         const isSameToken =
@@ -769,17 +762,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (token) {
         setSelectedToken(token);
         await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
-          getTokenForStorage(token),
+          sanitizeSwapProSelectTokenSnapshot(token),
         );
       } else {
+        const selectedTokenBeforeLoad = get(swapProSelectTokenAtom());
         const savedToken =
           await backgroundApiProxy.simpleDb.swapProSelectToken.getSwapProSelectToken();
+        if (get(swapProSelectTokenAtom()) !== selectedTokenBeforeLoad) {
+          return;
+        }
         if (savedToken) {
           setSelectedToken(savedToken);
         } else if (defaultToken) {
           setSelectedToken(defaultToken);
           await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
-            getTokenForStorage(defaultToken),
+            sanitizeSwapProSelectTokenSnapshot(defaultToken),
           );
         }
       }
@@ -2074,7 +2071,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const networks = get(swapNetworks());
       const swapSupportAllNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
-      const tokenMetadata = get(swapTokenMetadataAtom());
       const quoteLoading =
         get(swapQuoteFetchingAtom()) || get(swapSilenceQuoteLoading());
       const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
@@ -2488,89 +2484,64 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
       }
 
-      if (tokenMetadata?.swapTokenMetadata) {
-        const { buyToken, sellToken } = tokenMetadata.swapTokenMetadata;
-        const buyTokenBuyTaxBN = new BigNumber(
-          buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
-        );
-        const buyTokenSellTaxBN = new BigNumber(
-          buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
-        );
-        const sellTokenBuyTaxBN = new BigNumber(
-          sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
-        );
-        const sellTokenSellTaxBN = new BigNumber(
-          sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
-        );
-        if (buyTokenBuyTaxBN.gt(0) || buyTokenSellTaxBN.gt(0)) {
-          // eslint-disable-next-line onekey/no-app-locale-main-thread
-          const actionLabel = appLocale.intl.formatMessage({
-            id: buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
-              ? ETranslations.swap_page_alert_tax_detected_sell
-              : ETranslations.swap_page_alert_tax_detected_buy,
-          });
+      const { buyTaxPercentage, sellTaxPercentage } =
+        getSwapQuoteTokenTaxPercentages(quoteResult);
+      if (buyTaxPercentage) {
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
+        const actionLabel = appLocale.intl.formatMessage({
+          id: ETranslations.swap_page_alert_tax_detected_buy,
+        });
+        alertsRes = [
+          ...alertsRes,
+          {
+            icon: 'HandCoinsOutline',
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            title: appLocale.intl.formatMessage(
+              {
+                id: ETranslations.swap_page_alert_tax_detected_title,
+              },
+              {
+                percentage: `${buyTaxPercentage}%`,
+                token: toToken?.symbol ?? '',
+                action: actionLabel,
+              },
+            ),
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_tax_detected,
+            }),
+            alertLevel: ESwapAlertLevel.INFO,
+          },
+        ];
+      }
 
-          const showTax = BigNumber.maximum(
-            buyTokenSellTaxBN,
-            buyTokenBuyTaxBN,
-          );
-          alertsRes = [
-            ...alertsRes,
-            {
-              icon: 'HandCoinsOutline',
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              title: appLocale.intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_alert_tax_detected_title,
-                },
-                {
-                  percentage: `${showTax.dividedBy(100).toNumber()}%`,
-                  token: toToken?.symbol ?? '',
-                  action: actionLabel,
-                },
-              ),
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              message: appLocale.intl.formatMessage({
-                id: ETranslations.swap_page_alert_tax_detected,
-              }),
-              alertLevel: ESwapAlertLevel.INFO,
-            },
-          ];
-        }
-        if (sellTokenBuyTaxBN.gt(0) || sellTokenSellTaxBN.gt(0)) {
-          // eslint-disable-next-line onekey/no-app-locale-main-thread
-          const actionLabel = appLocale.intl.formatMessage({
-            id: sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
-              ? ETranslations.swap_page_alert_tax_detected_sell
-              : ETranslations.swap_page_alert_tax_detected_buy,
-          });
-          const showTax = BigNumber.maximum(
-            sellTokenBuyTaxBN,
-            sellTokenSellTaxBN,
-          );
-          alertsRes = [
-            ...alertsRes,
-            {
-              icon: 'HandCoinsOutline',
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              title: appLocale.intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_alert_tax_detected_title,
-                },
-                {
-                  percentage: `${showTax.dividedBy(100).toNumber()}%`,
-                  token: fromToken?.symbol ?? '',
-                  action: actionLabel,
-                },
-              ),
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              message: appLocale.intl.formatMessage({
-                id: ETranslations.swap_page_alert_tax_detected,
-              }),
-              alertLevel: ESwapAlertLevel.INFO,
-            },
-          ];
-        }
+      if (sellTaxPercentage) {
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
+        const actionLabel = appLocale.intl.formatMessage({
+          id: ETranslations.swap_page_alert_tax_detected_sell,
+        });
+        alertsRes = [
+          ...alertsRes,
+          {
+            icon: 'HandCoinsOutline',
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            title: appLocale.intl.formatMessage(
+              {
+                id: ETranslations.swap_page_alert_tax_detected_title,
+              },
+              {
+                percentage: `${sellTaxPercentage}%`,
+                token: fromToken?.symbol ?? '',
+                action: actionLabel,
+              },
+            ),
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_tax_detected,
+            }),
+            alertLevel: ESwapAlertLevel.INFO,
+          },
+        ];
       }
 
       // check limit native should wrapped
@@ -2634,6 +2605,35 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
+      const requestId = get(swapSelectTokenDetailRequestIdAtom())[type] + 1;
+      // Replacing a refresh must not fall back to its previously cached balance.
+      const shouldFetchBalance =
+        fetchBalance || get(swapSelectTokenDetailFetchingAtom())[type];
+      set(swapSelectTokenDetailRequestIdAtom(), (previous) => ({
+        ...previous,
+        [type]: requestId,
+      }));
+      if (shouldFetchBalance) {
+        set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
+          ...previous,
+          [type]: true,
+        }));
+      }
+      const isCurrentRequest = () => {
+        const selectedToken =
+          type === ESwapDirectionType.FROM
+            ? get(swapSelectFromTokenAtom())
+            : get(swapSelectToTokenAtom());
+        return (
+          get(swapSelectTokenDetailRequestIdAtom())[type] === requestId &&
+          get(swapTypeSwitchAtom()) === currentSwapType &&
+          (equalTokenNoCaseSensitive({
+            token1: selectedToken,
+            token2: token,
+          }) ||
+            (!selectedToken && !token))
+        );
+      };
       let accountAddress: string | undefined;
       let accountNetworkId: string | undefined;
       let accountId: string | undefined;
@@ -2675,6 +2675,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       let balanceDisplay: string | undefined;
       let hasAuthoritativeBalance = false;
+      if (!isCurrentRequest()) {
+        if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
+          set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
+            ...previous,
+            [type]: false,
+          }));
+        }
+        return;
+      }
+      set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
+        ...previous,
+        [type]: false,
+      }));
       if (
         (token &&
           accountAddress &&
@@ -2686,7 +2699,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
-          !fetchBalance
+          !shouldFetchBalance
         ) {
           const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
           balanceDisplay = balanceParsedBN.isNaN()
@@ -2705,15 +2718,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             } else {
               set(swapSelectedToTokenBalanceAtom(), '');
             }
+            const contractAddress =
+              await getSwapTokenBalanceContractAddress(token);
+            // A superseded lookup must not cancel the newer detail request.
+            if (!isCurrentRequest()) {
+              return;
+            }
             const detailInfo =
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                 networkId: token.networkId,
                 accountAddress,
                 accountId,
-                contractAddress: token.contractAddress,
+                contractAddress,
                 direction: type,
                 currency: USD_CURRENCY_ID,
               });
+            if (!isCurrentRequest()) {
+              return;
+            }
             if (detailInfo?.[0]) {
               const balanceParsedBN = new BigNumber(
                 detailInfo[0].balanceParsed ?? 0,
@@ -2788,21 +2810,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               balanceDisplay = '0.0';
             }
           } finally {
-            set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
-              ...pre,
-              [type]: false,
-            }));
+            if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
+              set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
+                ...pre,
+                [type]: false,
+              }));
+            }
           }
         }
       }
-      const newToken =
-        type === ESwapDirectionType.FROM
-          ? get(swapSelectFromTokenAtom())
-          : get(swapSelectToTokenAtom());
-      if (
-        equalTokenNoCaseSensitive({ token1: newToken, token2: token }) ||
-        (!token && !newToken)
-      ) {
+      if (isCurrentRequest()) {
         if (type === ESwapDirectionType.FROM) {
           set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
         } else {
@@ -3443,7 +3460,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           toToken: currentToToken,
         });
         if (carryToken) {
-          void this.persistSwapProSelectToken.call(set, carryToken);
+          const networkLogoURI = resolveSwapTokenNetworkLogoURI({
+            swapNetworks: get(swapNetworks()),
+            token: carryToken,
+          });
+          void this.persistSwapProSelectToken.call(
+            set,
+            networkLogoURI && networkLogoURI !== carryToken.networkLogoURI
+              ? { ...carryToken, networkLogoURI }
+              : carryToken,
+          );
         }
       }
       if (

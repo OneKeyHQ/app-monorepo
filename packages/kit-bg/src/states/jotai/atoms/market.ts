@@ -115,3 +115,47 @@ export const {
   name: EAtomNames.marketTradingViewIndicatorSettingsPersistAtom,
   initialValue: createTradingViewNativeIndicatorSettings(),
 });
+
+export type IMarketDetailChartDisplayMode = 'simple' | 'pro';
+
+export interface IMarketDetailChartDisplayModePersistAtom {
+  mode: IMarketDetailChartDisplayMode;
+}
+
+export const {
+  target: marketDetailChartDisplayModePersistAtom,
+  use: useMarketDetailChartDisplayModePersistAtom,
+} = globalAtom<IMarketDetailChartDisplayModePersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailChartDisplayModePersistAtom,
+  initialValue: { mode: 'simple' },
+});
+
+export type IMarketPriceSource = 'share' | 'token';
+
+export interface IMarketPriceSourceAtom {
+  source: IMarketPriceSource;
+}
+
+// Shared by the stock price header and chart. StockDesktopLayout resets this
+// non-persisted value to 'share' when the selected stock changes.
+export const { target: marketPriceSourceAtom, use: useMarketPriceSourceAtom } =
+  globalAtom<IMarketPriceSourceAtom>({
+    persist: false,
+    name: EAtomNames.marketPriceSourceAtom,
+    initialValue: { source: 'share' },
+  });
+
+export interface IMarketDesktopLayout {
+  chartHeight?: number;
+  chartHeightUpdateId?: string;
+}
+
+export const {
+  target: marketDesktopLayoutAtom,
+  use: useMarketDesktopLayoutAtom,
+} = globalAtom<IMarketDesktopLayout>({
+  name: EAtomNames.marketDesktopLayoutAtom,
+  persist: true,
+  initialValue: {},
+});

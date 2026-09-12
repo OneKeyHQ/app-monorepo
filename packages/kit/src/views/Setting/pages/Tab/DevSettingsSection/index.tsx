@@ -772,7 +772,7 @@ const BaseDevSettingsSection = () => {
       const next = prev.includes(sectionKey)
         ? prev.filter((k) => k !== sectionKey)
         : [...prev, sectionKey];
-      appStorage.syncStorage.set(
+      void appStorage.syncStorage.set(
         PINNED_STORAGE_KEY as any,
         JSON.stringify(next),
       );
@@ -796,7 +796,7 @@ const BaseDevSettingsSection = () => {
   const devSettingsSearchHistoryRef = useRef(devSettingsSearchHistory);
   const persistDevSettingsSearchHistory = useCallback((next: string[]) => {
     devSettingsSearchHistoryRef.current = next;
-    appStorage.syncStorage.set(
+    void appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_dev_settings_search_history,
       JSON.stringify(next),
     );
@@ -897,7 +897,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -1746,7 +1746,7 @@ const BaseDevSettingsSection = () => {
                               ) ?? false
                             }
                             onChange={(v) => {
-                              appStorage.syncStorage.set(
+                              void appStorage.syncStorage.set(
                                 EAppSyncStorageKeys.onekey_debug_render_tracker,
                                 v,
                               );
@@ -1787,7 +1787,7 @@ const BaseDevSettingsSection = () => {
                               !isBgApiSerializableCheckingDisabled()
                             }
                             onChange={(v) => {
-                              toggleBgApiSerializableChecking(v);
+                              void toggleBgApiSerializableChecking(v);
                             }}
                           />
                         </ListItem>
@@ -2103,6 +2103,7 @@ const BaseDevSettingsSection = () => {
                         icon="LockOutline"
                         title="Clear Cached Password"
                         subtitle="清除缓存密码"
+                        testID="clear-cached-password"
                         onPress={async () => {
                           await backgroundApiProxy.servicePassword.clearCachedPassword();
                           Toast.success({
@@ -2483,6 +2484,19 @@ const BaseDevSettingsSection = () => {
                           Toast.success({
                             title: 'success',
                           });
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="WalletOutline"
+                        title="Create Real HD Wallets: 10 × 100 / 100 × 100"
+                        subtitle="创建 1,000 或 10,000 个可派生、可签名、可同步的真实账户"
+                        searchKeywords="large data wallet account NativeList performance stress test 大数据 性能 压力测试"
+                        testID="create-large-wallet-account-data"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevLargeWalletDataCreation,
+                          );
                         }}
                       />
 

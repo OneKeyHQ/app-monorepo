@@ -1,3 +1,4 @@
+// cspell:ignore heikin Ashi
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -70,6 +71,12 @@ const OPTION_TRANSLATION_IDS: Record<
 };
 
 const SELECT_OPTION_TRANSLATION_IDS: Record<string, ETranslations> = {
+  auto: ETranslations.global_auto,
+  candlestick: ETranslations.market_candle,
+  heikinAshi: ETranslations.market_heikin_ashi,
+  bars: ETranslations.market_bars,
+  line: ETranslations.market_line,
+  area: ETranslations.market_area,
   solid: ETranslations.market_chart_settings__solid_line,
   dashed: ETranslations.market_chart_settings__dotted_line,
   gradient: ETranslations.market_chart_settings__gradient,
@@ -511,6 +518,41 @@ function SettingsSelect<TValue extends string>({
   );
 }
 
+const CHART_TYPE_PREFERENCES = [
+  'auto',
+  'candlestick',
+  'heikinAshi',
+  'bars',
+  'line',
+  'area',
+] as const satisfies readonly ITradingViewChartSettingsValue['chartType'][];
+
+export function TradingViewChartTypeSettingsRow({
+  value,
+  disabled = false,
+  onChange,
+}: {
+  value: ITradingViewChartSettingsValue['chartType'];
+  disabled?: boolean;
+  onChange: (value: ITradingViewChartSettingsValue['chartType']) => void;
+}) {
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: ETranslations.market_chart_style });
+
+  return (
+    <SettingsRow label={title} testID="trading-view-settings-chart-type-row">
+      <SettingsSelect
+        testID="chart-type"
+        title={title}
+        value={value}
+        options={CHART_TYPE_PREFERENCES}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    </SettingsRow>
+  );
+}
+
 function ChartSettingsNavigation({
   sections,
   selectedSectionId,
@@ -678,6 +720,8 @@ export type ITradingViewChartSettingsProps = {
   usePageFooter?: boolean;
   /** Render the mobile settings as a single vertically scrolling list. */
   mobileLayout?: boolean;
+  /** Show native chart type preferences in the settings content. */
+  showChartType?: boolean;
   /** Hide sections that the consuming chart does not currently implement. */
   hiddenAppearanceSectionIds?: readonly ITradingViewSettingsMockAppearanceSectionId[];
   /** Hide options that the consuming chart does not currently implement. */
@@ -696,6 +740,7 @@ export function TradingViewChartSettings({
   onClose,
   usePageFooter = false,
   mobileLayout = false,
+  showChartType = false,
   hiddenAppearanceSectionIds,
   hiddenOptionIds,
 }: ITradingViewChartSettingsProps) {
@@ -848,6 +893,25 @@ export function TradingViewChartSettings({
 
   const renderCandleSettings = () => (
     <YStack>
+      {showChartType ? (
+        <SettingsGroup
+          title={intl.formatMessage({
+            id: ETranslations.market_chart_settings__chart_display,
+          })}
+        >
+          <TradingViewChartTypeSettingsRow
+            value={settingsValue.chartType}
+            disabled={submitInProgress}
+            onChange={(chartType) => {
+              updateSettingsValue((currentValue) => ({
+                ...currentValue,
+                chartType,
+              }));
+            }}
+          />
+        </SettingsGroup>
+      ) : null}
+
       <SettingsGroup
         title={intl.formatMessage({
           id: ETranslations.market_chart_settings__color_preferences,

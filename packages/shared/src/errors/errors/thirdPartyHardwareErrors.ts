@@ -494,6 +494,21 @@ export class ThirdPartyPassphraseStateMismatch extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.PassphraseStateMismatch;
 }
 
+export class ThirdPartyPassphraseAlwaysOnDevice extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_passphrase_always_on_device,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice;
+}
+
 /** Fallback for unrecognized errors */
 export class ThirdPartyUnknownError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {

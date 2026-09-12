@@ -14,7 +14,7 @@ import { UNRECOVERABLE_DOWNLOAD_ERROR_CODES } from '@onekeyhq/kit/src/components
 // Import the REAL shipped helpers (named exports) so these tests exercise
 // production code instead of re-implemented local copies (OCDS conformance:
 // the test must pin the actual classifier the downloader runs).
-import { USERDATA } from './__e2e__/desktopBundleUpdateE2eHarness';
+import { USERDATA, makeApi } from './__e2e__/desktopBundleUpdateE2eHarness';
 import {
   classifyHttpStatus,
   computeBackoffMs,
@@ -28,7 +28,14 @@ import {
 // the desktop-app singletons at module load, which throw under plain node-jest.
 // (Copied from desktopBundleUpdateE2eHarness.ts JEST_MOCK_BLOCK — jest.mock
 // hoists per-file so it cannot be shared via the helper.)
-jest.mock('electron', () => ({ app: { getPath: () => USERDATA } }));
+jest.mock('electron', () => ({
+  app: {
+    getPath: () => USERDATA,
+    relaunch: jest.fn(),
+    quit: jest.fn(),
+    exit: jest.fn(),
+  },
+}));
 jest.mock('electron-log/main', () => ({
   __esModule: true,
   default: { info() {}, warn() {}, error() {}, transports: {} },
@@ -61,6 +68,87 @@ jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
   clearWindowProgressBar() {},
   updateWindowProgressBar() {},
 }));
+
+describe('DesktopApiBundleUpdate restart lifecycle', () => {
+  const { app: mockApp } = jest.requireMock<{
+    app: {
+      relaunch: jest.Mock<void, []>;
+      quit: jest.Mock<void, []>;
+      exit: jest.Mock<void, [number?]>;
+    };
+  }>('electron');
+  const platformDescriptor = Object.getOwnPropertyDescriptor(
+    process,
+    'platform',
+  );
+  const masDescriptor = Object.getOwnPropertyDescriptor(process, 'mas');
+  const functionsDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    '$desktopMainAppFunctions',
+  );
+
+  afterEach(() => {
+    if (platformDescriptor) {
+      Object.defineProperty(process, 'platform', platformDescriptor);
+    }
+    if (masDescriptor) Object.defineProperty(process, 'mas', masDescriptor);
+    else Reflect.deleteProperty(process, 'mas');
+    if (functionsDescriptor) {
+      Object.defineProperty(
+        globalThis,
+        '$desktopMainAppFunctions',
+        functionsDescriptor,
+      );
+    } else Reflect.deleteProperty(globalThis, '$desktopMainAppFunctions');
+    jest.clearAllMocks();
+  });
+
+  test.each(['darwin', 'win32', 'linux'])(
+    'uses the cleanup-aware quit path only on macOS: %s',
+    async (platform) => {
+      Object.defineProperty(process, 'platform', {
+        configurable: true,
+        value: platform,
+      });
+      Object.defineProperty(process, 'mas', {
+        configurable: true,
+        value: false,
+      });
+      const api = makeApi();
+      await api.restartAppForBundleUpdate();
+
+      expect(mockApp.relaunch).toHaveBeenCalledTimes(1);
+      if (platform === 'darwin') {
+        expect(mockApp.quit).toHaveBeenCalledTimes(1);
+        expect(mockApp.exit).not.toHaveBeenCalled();
+        expect(mockApp.relaunch.mock.invocationCallOrder[0]).toBeLessThan(
+          mockApp.quit.mock.invocationCallOrder[0],
+        );
+      } else {
+        expect(mockApp.exit).toHaveBeenCalledWith(0);
+        expect(mockApp.quit).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  test('keeps MAS bundle updates on the renderer soft-restart path', async () => {
+    Object.defineProperty(process, 'platform', {
+      configurable: true,
+      value: 'darwin',
+    });
+    Object.defineProperty(process, 'mas', { configurable: true, value: true });
+    const softRestartRenderer = jest.fn(async () => undefined);
+    Object.defineProperty(globalThis, '$desktopMainAppFunctions', {
+      configurable: true,
+      value: { softRestartRenderer },
+    });
+    await makeApi().restartAppForBundleUpdate();
+    expect(softRestartRenderer).toHaveBeenCalledTimes(1);
+    expect(mockApp.relaunch).not.toHaveBeenCalled();
+    expect(mockApp.quit).not.toHaveBeenCalled();
+    expect(mockApp.exit).not.toHaveBeenCalled();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // HTTPS enforcement - mirrors downloadBundle (lines 97-102)

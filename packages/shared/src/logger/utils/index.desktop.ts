@@ -22,13 +22,16 @@ const consoleFunc = (msg: string) => {
 
 const getLogFilePath = () => Promise.resolve('');
 
+const removeLogFilePath = async () => {};
+const cleanupLogArchives = async (_createdBefore: number) => {};
+
 const flushPendingRepeat = () => {};
 
-const desktopPlatform = globalThis.desktopApi.platform;
-const desktopSystemVersion = globalThis.desktopApi.systemVersion;
 const getDeviceInfo = () =>
   [
-    `System: ${desktopPlatform} ${desktopSystemVersion}`,
+    `System: ${globalThis.desktopApi?.platform ?? ''} ${
+      globalThis.desktopApi?.systemVersion ?? ''
+    }`,
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,
@@ -40,6 +43,8 @@ const getDeviceInfo = () =>
 const utils: IUtilsType = {
   getDeviceInfo,
   getLogFilePath,
+  removeLogFilePath,
+  cleanupLogArchives,
   consoleFunc,
   flushPendingRepeat,
 };

@@ -13,8 +13,6 @@ import Animated, {
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -105,6 +103,10 @@ interface IOuterTabPagerViewProps {
   earnTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
   pageScrollPosition?: SharedValue<number>;
+  /** Pages currently rendered (active plus whatever a drag has revealed), so a
+      host can show a page's content the moment it becomes visible rather than
+      waiting for the swipe to commit (OK-60300) */
+  onVisiblePagesChange?: (pages: number[]) => void;
 }
 
 // --- Component ---
@@ -120,27 +122,17 @@ function OuterTabPagerViewComponent({
   earnTabsRef,
   earnBorrowPagerRef,
   pageScrollPosition,
+  onVisiblePagesChange,
 }: IOuterTabPagerViewProps) {
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
   const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
-  // OK-59246: pause outer horizontal scrolling while the earn home banner
-  // (a nested horizontal pager) is being dragged, otherwise the outer pager
-  // steals the gesture and switches top tabs
-  const [isEarnBannerDragging, setIsEarnBannerDragging] = useState(false);
-  useEffect(() => {
-    const listener = (payload: { dragging: boolean }) => {
-      setIsEarnBannerDragging(payload.dragging);
-    };
-    appEventBus.on(EAppEventBusNames.EarnHomeBannerDragStateChanged, listener);
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.EarnHomeBannerDragStateChanged,
-        listener,
-      );
-    };
-  }, []);
+  // OK-59246 used to pause this pager while the earn banner was being dragged.
+  // Flipping scrollEnabled on a native pager mid-gesture is itself a hazard
+  // (OK-61515), and it never covered the header's own RNGH tab-switch pan. The
+  // banner now keeps the gesture by looping (so it is never at a content edge)
+  // and the header excludes the banner area, so no lock is needed here.
   const wasUserDragRef = useRef(false);
   const isProgrammaticSwitchRef = useRef(false);
   const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
@@ -161,6 +153,14 @@ function OuterTabPagerViewComponent({
   const visitedPagesRef = useRef<Record<number, boolean>>({
     [initialPage]: true,
   });
+  // Pages mounted only for the duration of a drag. visitedPages is cumulative
+  // and has no cleanup path, so marking both neighbors there would permanently
+  // mount whichever one the swipe never landed on — from Earn that is the
+  // whole Browser tab, WebView containers and restored tabs included, for a
+  // user who may never open it. Kept separate so idle can drop it again.
+  const [dragNeighborPages, setDragNeighborPages] = useState<number[] | null>(
+    null,
+  );
 
   // Ref to avoid stale closure in onPageSelected
   const selectedHeaderTabRef = useRef(selectedHeaderTab);
@@ -203,6 +203,23 @@ function OuterTabPagerViewComponent({
     setVisitedPages(nextVisited);
   }, []);
 
+  // Publishing visible pages from the effect below alone is one commit too
+  // late: the commit that unfreezes a page still carries the host's previous
+  // visibility, so the page mounts while its body is still display:none —
+  // exactly the blank first frame OK-60300 is about, just narrower. Calling
+  // this from the same handler that unfreezes puts both state updates in one
+  // React batch, so the page appears and paints together. The effect stays as
+  // the backstop for paths that do not go through a handler; the host setter
+  // dedupes by content, so the second call is a no-op.
+  const publishVisiblePages = useCallback(
+    (indexes: number[]) => {
+      onVisiblePagesChange?.(
+        Array.from(new Set(indexes)).toSorted((a, b) => a - b),
+      );
+    },
+    [onVisiblePagesChange],
+  );
+
   // --- Atom -> PagerView sync (programmatic switching) ---
   useEffect(() => {
     const index = TAB_TO_INDEX[selectedHeaderTab];
@@ -235,15 +252,32 @@ function OuterTabPagerViewComponent({
       if (state === 'dragging') {
         wasUserDragRef.current = true;
         setTransitioning(true);
+        // 'dragging' arrives before the first onPageScroll offset, so the
+        // direction is still unknown. Mount both neighbors now; the pager has
+        // already started revealing one of them, and waiting for the
+        // runOnJS(onPageScroll) round trip is what left a blank page on screen
+        // for the first frames of the swipe (OK-60300).
+        const active = currentOuterIndexRef.current;
+        const neighborhood = [active - 1, active, active + 1].filter(
+          (index) => index >= 0 && index < INDEX_TO_TAB.length,
+        );
+        setDragNeighborPages(neighborhood);
+        publishVisiblePages(neighborhood);
       } else if (state === 'settling') {
         setTransitioning(true);
       } else if (state === 'idle') {
         wasUserDragRef.current = false;
         setTransitioning(false);
         setVisiblePair(null);
+        // Pin the page the swipe actually landed on before releasing the
+        // transient pair; handlePageScrollJS and onPageSelected normally do
+        // this already, but a canceled drag must not unmount where we are.
+        markPagesVisited([currentOuterIndexRef.current]);
+        setDragNeighborPages(null);
+        publishVisiblePages([currentOuterIndexRef.current]);
       }
     },
-    [setTransitioning, setVisiblePair],
+    [markPagesVisited, publishVisiblePages, setTransitioning, setVisiblePair],
   );
 
   // JS-thread handler for freeze/unfreeze logic during user-gesture swipes.
@@ -267,8 +301,9 @@ function OuterTabPagerViewComponent({
       }
       setVisiblePair([position, nextPosition]);
       markPagesVisited([position, nextPosition]);
+      publishVisiblePages([position, nextPosition]);
     },
-    [markPagesVisited, setVisiblePair],
+    [markPagesVisited, publishVisiblePages, setVisiblePair],
   );
 
   // Worklet-based onPageScroll: updates pageScrollPosition on the UI thread
@@ -315,6 +350,15 @@ function OuterTabPagerViewComponent({
     [markPagesVisited, onPageSelectedBySwipe],
   );
 
+  // A page renders when it has been properly visited, or while a drag is
+  // transiently holding it so the finger never reveals an empty page.
+  const isPageMounted = useCallback(
+    (pageIndex: number) =>
+      Boolean(visitedPages[pageIndex]) ||
+      Boolean(dragNeighborPages?.includes(pageIndex)),
+    [dragNeighborPages, visitedPages],
+  );
+
   // Determine which pages should be rendered
   const shouldFreezePage = useCallback(
     (pageIndex: number) => {
@@ -324,12 +368,33 @@ function OuterTabPagerViewComponent({
             visiblePagePair[0] !== pageIndex && visiblePagePair[1] !== pageIndex
           );
         }
-        return activePageIndex !== pageIndex;
+        // Direction not resolved yet (the 'dragging' window): keep both
+        // neighbors alive so whichever one the finger reveals already has
+        // native views. Only lasts for the drag — idle falls back to the
+        // single active page below.
+        return Math.abs(activePageIndex - pageIndex) > 1;
       }
       return activePageIndex !== pageIndex;
     },
     [activePageIndex, isOuterPageTransitioning, visiblePagePair],
   );
+
+  // Mirror of shouldFreezePage: the set of pages whose content is actually on
+  // screen. Hosts use it to reveal a page's body in step with the swipe.
+  const visiblePagesKey = INDEX_TO_TAB.map((_, index) =>
+    shouldFreezePage(index) ? '0' : '1',
+  ).join('');
+  useEffect(() => {
+    if (!onVisiblePagesChange) {
+      return;
+    }
+    onVisiblePagesChange(
+      visiblePagesKey
+        .split('')
+        .map((flag, index) => (flag === '1' ? index : -1))
+        .filter((index) => index >= 0),
+    );
+  }, [onVisiblePagesChange, visiblePagesKey]);
 
   // --- Freeze/unfreeze resync & programmatic page scroll ---
   //
@@ -377,35 +442,43 @@ function OuterTabPagerViewComponent({
 
   const marketPage = useMemo(
     () =>
-      visitedPages[0] ? (
+      isPageMounted(0) ? (
         <View key="market" style={styles.page}>
-          <Freeze freeze={shouldFreezePage(0)}>{marketContent}</Freeze>
+          {platformEnv.isNativeIOS ? (
+            marketContent
+          ) : (
+            <Freeze freeze={shouldFreezePage(0)}>{marketContent}</Freeze>
+          )}
         </View>
       ) : (
         <View key="market" style={styles.page}>
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, shouldFreezePage, marketContent],
+    [isPageMounted, shouldFreezePage, marketContent],
   );
 
   const earnPage = useMemo(
     () =>
-      visitedPages[1] ? (
+      isPageMounted(1) ? (
         <View key="earn" style={styles.page}>
-          <Freeze freeze={shouldFreezePage(1)}>{earnContent}</Freeze>
+          {platformEnv.isNativeIOS ? (
+            earnContent
+          ) : (
+            <Freeze freeze={shouldFreezePage(1)}>{earnContent}</Freeze>
+          )}
         </View>
       ) : (
         <View key="earn" style={styles.page}>
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, shouldFreezePage, earnContent],
+    [isPageMounted, shouldFreezePage, earnContent],
   );
 
   const browserPage = useMemo(
     () =>
-      visitedPages[2] ? (
+      isPageMounted(2) ? (
         <View key="browser" style={styles.page}>
           {/* Keep Browser out of react-freeze so its React subtree survives
           DApp minimization and outer tab switches. Native attachment still
@@ -418,7 +491,7 @@ function OuterTabPagerViewComponent({
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, browserContent],
+    [isPageMounted, browserContent],
   );
 
   return (
@@ -426,7 +499,7 @@ function OuterTabPagerViewComponent({
       ref={outerPagerRef}
       style={styles.pager}
       initialPage={initialPage}
-      scrollEnabled={showDiscoveryPage && !isEarnBannerDragging}
+      scrollEnabled={showDiscoveryPage}
       overdrag
       overScrollMode="always"
       scrollSensitivity={4}

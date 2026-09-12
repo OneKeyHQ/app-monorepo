@@ -50,6 +50,7 @@ import {
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -139,14 +140,39 @@ function AccountNotificationSettingsProvider({
       ) => IAccountActivityNotificationSettings | undefined,
     ) => {
       setSettings((v) => {
-        const s = buildSettings(v);
+        let currentSettings: IAccountActivityNotificationSettings | undefined;
+        if (v) {
+          currentSettings = {};
+          // A page opened before the removal sync can still hold deleted
+          // accounts. Prune before the updater calculates wallet quota.
+          for (const wallet of wallets.flatMap((item) => [
+            item,
+            ...(item.hiddenWallets ?? []),
+          ])) {
+            const savedWallet = v[wallet.id];
+            if (savedWallet) {
+              const accounts: IAccountActivityNotificationSettings[string]['accounts'] =
+                {};
+              for (const account of wallet.dbAccounts ??
+                wallet.dbIndexedAccounts ??
+                []) {
+                const savedAccount = savedWallet.accounts?.[account.id];
+                if (savedAccount) {
+                  accounts[account.id] = { ...savedAccount };
+                }
+              }
+              currentSettings[wallet.id] = { ...savedWallet, accounts };
+            }
+          }
+        }
+        const s = buildSettings(currentSettings);
         void backgroundApiProxy.serviceNotification.saveAccountActivityNotificationSettings(
           s,
         );
         return s;
       });
     },
-    [],
+    [wallets],
   );
 
   const commitSettings = useCallback(async () => {
@@ -253,6 +279,7 @@ function AccountAccordionItem({
   return (
     <XStack
       key={account.id}
+      testID={`notifications-account-row-${account.id}`}
       gap="$3"
       alignItems="center"
       pl={56}
@@ -425,6 +452,7 @@ function WalletAccordionItem({
       // bg="$bgApp"
     >
       <Accordion.Trigger
+        testID={`notifications-wallet-row-${wallet.id}`}
         unstyled
         flexDirection="row"
         alignItems="center"
@@ -594,6 +622,7 @@ function WalletAccordionItemContainer({
 
         newSettings[wallet.id] = {
           ...newSettings?.[wallet.id],
+          accounts: newSettings?.[wallet.id]?.accounts ?? {},
           enabled: formatSavedEnabledValue(newValue),
         };
         onWalletEnabledChange({
@@ -617,20 +646,21 @@ function WalletAccordionItemContainer({
     return result;
   }, [wallet.dbAccounts, wallet.dbIndexedAccounts]);
 
-  const enabledAccountsCount = useMemo(() => {
-    if (!isWalletEnabled) {
-      return 0;
-    }
-    return Object.values(
-      accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-    ).filter((account) => account.enabled === true).length;
-    // return (
-    //   totalAccountsCount -
-    //   Object.values(
-    //     accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-    //   ).filter((account) => account.enabled === false).length
-    // );
-  }, [isWalletEnabled, accountNotificationSettings, wallet.id]);
+  const enabledAccountsCount = useMemo(
+    () =>
+      (wallet.dbAccounts ?? wallet.dbIndexedAccounts ?? []).reduce(
+        (count, account) =>
+          isAccountEnabledFn({
+            settings: accountNotificationSettings,
+            account,
+            wallet,
+          })
+            ? count + 1
+            : count,
+        0,
+      ),
+    [accountNotificationSettings, wallet],
+  );
 
   return (
     <WalletAccordionItemMemo
@@ -838,7 +868,7 @@ function ManageAccountActivity() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_manage })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <AccountNotificationSettingsProvider wallets={wallets}>
           {isLoading ? (
             <LoadingView show={isLoading} />

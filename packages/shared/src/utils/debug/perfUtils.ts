@@ -41,14 +41,14 @@ function getPerformanceTimerLogConfigMap() {
   }
 }
 
-function updatePerformanceTimerLogConfig(
+async function updatePerformanceTimerLogConfig(
   logName: EPerformanceTimerLogNames,
   value: boolean,
 ) {
   try {
     const configMap = getPerformanceTimerLogConfigMap();
 
-    appStorage.syncStorage.setObject(
+    await appStorage.syncStorage.setObject(
       EAppSyncStorageKeys.onekey_perf_timer_log_config,
       {
         ...configMap,

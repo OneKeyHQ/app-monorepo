@@ -233,7 +233,7 @@ class SystemTimeUtils {
         globalThis.localStorage?.setItem(key, String(value));
         return;
       }
-      appStorage.syncStorage.set(key, value);
+      void appStorage.syncStorage.set(key, value);
     } catch (_error) {
       // Cache persistence is best-effort and should not affect time checks.
     }

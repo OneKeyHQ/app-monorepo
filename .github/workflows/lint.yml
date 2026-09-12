@@ -59,6 +59,9 @@ jobs:
         run: |
           yarn install --immutable
 
+      - name: Check third-party native storage compatibility
+        run: yarn check:third-party-native-storage
+
       - name: Run lint
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
@@ -76,6 +79,8 @@ jobs:
           development/scripts/command-batches.node-test.js
           development/lint/background-api-contract.node-test.js
           apps/cli/esbuild.config.node-test.js
+          apps/mobile/scripts/check-third-party-async-storage.node-test.js
+          apps/mobile/scripts/native-storage-metro-policy.node-test.js
 
       - name: Build CLI
         run: yarn workspace @onekeyfe/cli build

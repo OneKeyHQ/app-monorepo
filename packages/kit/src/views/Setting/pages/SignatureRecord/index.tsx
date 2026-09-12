@@ -9,6 +9,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SettingTestIDs } from '../../testIDs';
+import { SETTINGS_PAGE_CONTENT_PADDING_X } from '../Tab/settingsSurface';
 
 import { ConnectedSites } from './ConnectedSites';
 import { SignatureContext } from './Context';
@@ -19,7 +20,7 @@ const ListHeaderComponent = () => {
   const intl = useIntl();
   const { searchContent, setSearchContent } = useContext(SignatureContext);
   return (
-    <Stack px="$4" w="100%" bg="$bgApp" pt="$2.5">
+    <Stack px={SETTINGS_PAGE_CONTENT_PADDING_X} w="100%" bg="$bgApp" pt="$2.5">
       <SearchBar
         value={searchContent}
         onChangeText={setSearchContent}

@@ -1,8 +1,13 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { TIME_RANGE_TO_API_MAP } from './types';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  ensureMarketTopCoinsCategory,
+  getMarketCategoryTooltipId,
   isMarketStockCategory,
   isMarketStockCategoryById,
+  isTrendingStyleSpotCategory,
   parseValueToNumber,
   shouldHideSpotExtendedStats,
   validateLiquidityInput,
@@ -362,6 +367,19 @@ describe('Spot Category Extended Stats Visibility Tests', () => {
   });
 });
 
+describe('Trending-style Spot Category Tests', () => {
+  test('uses the trending desktop layout for trending and Robinhood meme', () => {
+    expect(isTrendingStyleSpotCategory('trending')).toBe(true);
+    expect(isTrendingStyleSpotCategory('robinhood_meme')).toBe(true);
+  });
+
+  test('keeps other categories on the default desktop layout', () => {
+    expect(isTrendingStyleSpotCategory('x_mentioned')).toBe(false);
+    expect(isTrendingStyleSpotCategory('stocks')).toBe(false);
+    expect(isTrendingStyleSpotCategory(undefined)).toBe(false);
+  });
+});
+
 describe('Market Stock Category Detection Tests', () => {
   test('detects stock category from explicit metadata', () => {
     expect(
@@ -409,8 +427,76 @@ describe('Market Stock Category Detection Tests', () => {
   });
 });
 
+describe('Top Coins Category Fallback Tests', () => {
+  test('appends Top Coins after the spot categories', () => {
+    // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps, and
+    // Perps is appended after every spot category.
+    expect(
+      ensureMarketTopCoinsCategory(
+        [
+          { id: 'trending', name: 'Trending' },
+          { id: 'stocks', name: 'Stocks' },
+        ],
+        'Top Coins',
+      ),
+    ).toEqual([
+      { id: 'trending', name: 'Trending' },
+      { id: 'stocks', name: 'Stocks' },
+      { id: 'top_coins', name: 'Top Coins' },
+    ]);
+  });
+
+  test('preserves the server-provided Top Coins category and name', () => {
+    const categories = [
+      { id: 'trending', name: 'Trending' },
+      { id: 'top_coins', name: 'Top Assets' },
+    ];
+
+    expect(ensureMarketTopCoinsCategory(categories, 'Top Coins')).toBe(
+      categories,
+    );
+  });
+});
+
 describe('Market Home API Defaults', () => {
   test('maps the default one-hour range to the seed-compatible API timeframe', () => {
     expect(TIME_RANGE_TO_API_MAP['1h']).toBe('2');
+  });
+});
+
+describe('Market Category Tooltip Tests', () => {
+  test('maps each documented tab to its own copy', () => {
+    expect(
+      getMarketCategoryTooltipId({ id: 'trending', name: 'Trending' }),
+    ).toBe(ETranslations.market_tab_trending_tooltip);
+    expect(
+      getMarketCategoryTooltipId({ id: 'robinhood_meme', name: 'Robinhood' }),
+    ).toBe(ETranslations.market_tab_robinhood_tooltip);
+    expect(
+      getMarketCategoryTooltipId({ id: 'top_coins', name: 'Top coins' }),
+    ).toBe(ETranslations.market_tab_top_coins_tooltip);
+  });
+
+  test('recognises stocks by the same predicate the module uses, not by id', () => {
+    expect(getMarketCategoryTooltipId({ id: 'equities', name: 'Stocks' })).toBe(
+      ETranslations.market_tab_stocks_tooltip,
+    );
+    expect(
+      getMarketCategoryTooltipId({
+        id: 'whatever',
+        name: 'Whatever',
+        isStockCategory: true,
+      }),
+    ).toBe(ETranslations.market_tab_stocks_tooltip);
+  });
+
+  test('leaves a tab without copy plain', () => {
+    // Favorites and Perps are deliberately absent from the work order.
+    expect(
+      getMarketCategoryTooltipId({ id: 'favorites', name: 'Favorites' }),
+    ).toBeUndefined();
+    expect(
+      getMarketCategoryTooltipId({ id: 'perps', name: 'Perps' }),
+    ).toBeUndefined();
   });
 });

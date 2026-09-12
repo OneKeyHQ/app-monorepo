@@ -43,14 +43,16 @@ describe('TradingViewNativeFullscreenButton', () => {
         chartHeight={300}
         isFullscreen
         onPress={jest.fn()}
+        timeAxisHeight={20}
         visibleSubIndicatorCount={0}
       />,
     );
 
     expect(mockIconButton.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({
-        bottom: 32,
+        bottom: 28,
         icon: 'TradingViewExitFullscreenCustom',
+        left: '$5',
       }),
     );
   });

@@ -1,25 +1,96 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeAddressRiskCheckEntryPoint } from '@onekeyhq/shared/src/logger/scopes/prime/types';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import type { IAddressRiskCheckResult } from '@onekeyhq/shared/types/addressRiskCheck';
 
-let isAddressRiskCheckInFlight = false;
+type IAddressRiskCheckRequest = {
+  networkId: string;
+  address: string;
+  entryPoint: IPrimeAddressRiskCheckEntryPoint;
+};
+
+const addressRiskCheckRequests = new Map<
+  string,
+  Promise<IAddressRiskCheckResult>
+>();
+
+export function executeAddressRiskCheck({
+  networkId,
+  address,
+  entryPoint,
+}: IAddressRiskCheckRequest): Promise<IAddressRiskCheckResult> {
+  const requestKey = `${entryPoint}\n${networkId}\n${address}`;
+  const pendingRequest = addressRiskCheckRequests.get(requestKey);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+
+  const request = (async () => {
+    const result =
+      await backgroundApiProxy.serviceAddressRiskCheck.checkAddressRisk({
+        networkId,
+        address,
+      });
+    defaultLogger.prime.usage.addressRiskCheckSuccess({
+      entryPoint,
+      network: result.networkId,
+      riskLevel: result.level,
+      riskFactorsCount: result.reasons.length,
+      cached: result.cached,
+    });
+    // Best-effort local history write must never hide or delay a successful
+    // risk result.
+    void backgroundApiProxy.simpleDb.addressRiskCheck
+      .addCheck({
+        networkId: result.networkId,
+        address: result.address,
+        level: result.level,
+        checkedAt: result.checkedAt,
+      })
+      .catch(() => {
+        // ignore local persistence failures
+      });
+    return result;
+  })();
+
+  addressRiskCheckRequests.set(requestKey, request);
+  const clearRequest = () => {
+    if (addressRiskCheckRequests.get(requestKey) === request) {
+      addressRiskCheckRequests.delete(requestKey);
+    }
+  };
+  void request.then(clearRequest, clearRequest);
+  return request;
+}
 
 // Shared entry for running a check: calls the server, records the success into
 // local "Recent checks" (failures are never recorded), and navigates to the
-// result page. Used by both the input "Check risk" button and recent-item taps.
+// result page. Used by the standalone input and history entry points.
 export function useCheckAddressRisk() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isRouteFocused = useRouteIsFocused();
+  const isRouteFocusedRef = useRef(isRouteFocused);
+  const isMountedRef = useRef(true);
+  const isCheckingRef = useRef(false);
   const [isChecking, setIsChecking] = useState(false);
+  isRouteFocusedRef.current = isRouteFocused;
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const checkRisk = useCallback(
     async ({
@@ -29,58 +100,48 @@ export function useCheckAddressRisk() {
     }: {
       networkId: string;
       address: string;
-      entryPoint: IPrimeAddressRiskCheckEntryPoint;
+      entryPoint: Exclude<IPrimeAddressRiskCheckEntryPoint, 'sendAddressInput'>;
     }): Promise<IAddressRiskCheckResult | undefined> => {
-      // Module-level guard covers separate hook instances across input/history.
-      if (isAddressRiskCheckInFlight) {
+      if (isCheckingRef.current) {
         return undefined;
       }
-      isAddressRiskCheckInFlight = true;
+      isCheckingRef.current = true;
       setIsChecking(true);
+      const shouldPresentFeedback = () =>
+        isMountedRef.current && isRouteFocusedRef.current;
       try {
-        const result =
-          await backgroundApiProxy.serviceAddressRiskCheck.checkAddressRisk({
-            networkId,
-            address,
-          });
-        defaultLogger.prime.usage.addressRiskCheckSuccess({
+        const result = await executeAddressRiskCheck({
+          networkId,
+          address,
           entryPoint,
-          network: result.networkId,
-          riskLevel: result.level,
-          riskFactorsCount: result.reasons.length,
-          cached: result.cached,
         });
-        // Best-effort local history write — a storage failure must never hide a
-        // successful risk result from the user.
-        try {
-          await backgroundApiProxy.simpleDb.addressRiskCheck.addCheck({
-            networkId: result.networkId,
-            address: result.address,
-            level: result.level,
-            checkedAt: result.checkedAt,
-          });
-        } catch {
-          // ignore local persistence failures
+        if (!shouldPresentFeedback()) {
+          return result;
         }
         navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
           result,
+          showMoreAnalysis: true,
         });
         return result;
       } catch {
         // Network / rate-limit / server errors. Invalid-address is handled
         // inline on the input form before this call.
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred_desc,
-          }),
-        });
+        if (shouldPresentFeedback()) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.address_risk_check_level_failed__title,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.address_risk_check_level_failed__desc,
+            }),
+          });
+        }
         return undefined;
       } finally {
-        setIsChecking(false);
-        isAddressRiskCheckInFlight = false;
+        if (isMountedRef.current) {
+          setIsChecking(false);
+        }
+        isCheckingRef.current = false;
       }
     },
     [intl, navigation],

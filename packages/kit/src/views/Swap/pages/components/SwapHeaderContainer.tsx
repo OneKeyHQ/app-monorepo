@@ -127,6 +127,7 @@ interface ISwapHeaderContainerProps {
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
+  singleSwapBridgeTab?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
 }
@@ -139,6 +140,7 @@ const SwapHeaderContainer = ({
   defaultSwapType,
   showSwapPro,
   hideRightActions,
+  singleSwapBridgeTab,
   marketPresetSettings,
   enterFrom,
 }: ISwapHeaderContainerProps) => {
@@ -219,7 +221,9 @@ const SwapHeaderContainer = ({
     if (
       hadPendingSwapProEntryOnMountRef.current ||
       !defaultSwapType ||
-      (pageType === 'modal' && enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST)
+      (pageType === 'modal' &&
+        (enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST ||
+          (singleSwapBridgeTab && enterFrom === ESwapSource.MARKET)))
     ) {
       return;
     }
@@ -451,6 +455,32 @@ const SwapHeaderContainer = ({
       </CustomTabItem>
     </>
   );
+
+  if (singleSwapBridgeTab) {
+    return (
+      <XStack alignItems="center" gap="$2" px="$5" py="$1">
+        <SizableText size="$headingMd" flex={1}>
+          {swapBridgeLabel}
+        </SizableText>
+        {!hideRightActions ? (
+          // This branch is only reached from the Market detail pages' embedded
+          // swap, so the actions match the stock trade panel sitting in the
+          // same slot: the roomier icon size and spacing rather than `compact`.
+          // `iconSize` has to be a size token — `Icon` resolves its `size`
+          // variant through the token table, and a raw number silently falls
+          // back to the 24px default.
+          <SwapHeaderRightActionContainer
+            pageType={pageType}
+            marketPresetSettings={marketPresetSettings}
+            routeSwapType={defaultSwapType}
+            iconSize="$5"
+            iconColor="$iconStrong"
+            hideKLine
+          />
+        ) : null}
+      </XStack>
+    );
+  }
 
   return (
     <XStack

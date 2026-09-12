@@ -66,13 +66,19 @@ module.exports = async () => {
         '@emurgo/cardano-message-signing-nodejs',
       '\\./adaWebSdk$':
         '<rootDir>/packages/core/src/chains/ada/sdkAda/sdk/adaWebSdk.jest.ts',
+      // jest-expo/web ignores .native.ts, but many suites mock platformEnv as
+      // native and transitively construct native-owned storage singletons.
+      // Resolve the native implementations so those singletons build under
+      // jest; their platformEnv branches still honor each suite's mock.
+      '^(.+)/nativeSyncStorageParts$': '$1/nativeSyncStorageParts.native',
+      '^(.+)/jotaiStorageNativeMMKV$': '$1/jotaiStorageNativeMMKV.native',
       '^lodash-es$': 'lodash',
       // 'react-native-aes-crypto': '<rootDir>/__mocks__/emptyMock.js',
       // 'react-native-reanimated': '<rootDir>/__mocks__/emptyMock.js',
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal)/)',
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal|p-limit|yocto-queue)/)',
     ],
     transform: {
       'node_modules/(@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/.+\\.m?js$':

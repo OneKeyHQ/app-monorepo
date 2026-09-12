@@ -5,6 +5,12 @@ import {
 } from './getTradingViewNativeSource';
 
 describe('TradingViewNative source resolver', () => {
+  it('normalizes stock identities independently from token sources', () => {
+    expect(
+      getTradingViewNativeSourceKey({ kind: 'stock', stockId: ' aapl ' }),
+    ).toBe('stock:AAPL');
+  });
+
   it('prefers a normalized Hyperliquid coin', () => {
     expect(
       getTradingViewNativeSource({

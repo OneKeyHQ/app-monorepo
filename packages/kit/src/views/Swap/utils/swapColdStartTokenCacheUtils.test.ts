@@ -20,6 +20,7 @@ import {
   isSwapSelectedTokensColdStartContextMatched,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   isSwapTokenSupportedBySwapType,
+  resolveSwapTokenNetworkLogoURI,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
@@ -105,6 +106,29 @@ function buildSwapNetwork({
 }
 
 describe('swap cold-start selected token context', () => {
+  it('resolves each token network logo from its own network identity', () => {
+    const swapNetworks = [
+      {
+        networkId: 'evm--1',
+        logoURI: 'https://example.com/eth.png',
+      },
+      {
+        networkId: 'evm--56',
+        logoURI: 'https://example.com/bsc.png',
+      },
+    ] as ISwapNetwork[];
+
+    expect(
+      resolveSwapTokenNetworkLogoURI({
+        swapNetworks,
+        token: {
+          networkId: 'evm--56',
+          networkLogoURI: 'https://example.com/eth.png',
+        } as ISwapToken,
+      }),
+    ).toBe('https://example.com/bsc.png');
+  });
+
   it('preserves swap user input when selected tokens and from amount are present', () => {
     expect(
       shouldPreserveSwapUserInputOnAccountSwitch({

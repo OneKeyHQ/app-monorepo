@@ -1,4 +1,5 @@
 import {
+  isVisibleSubSettingsItem,
   resolveSettingsHeaderBackgroundTokenKey,
   resolveSettingsPageBackgroundTokenKey,
   resolveSettingsSectionPresentation,
@@ -101,6 +102,53 @@ describe('resolveSettingsSectionPresentation', () => {
     },
   ])('uses the $expected surface for $name', ({ input, expected }) => {
     expect(resolveSettingsSectionPresentation(input)).toBe(expected);
+  });
+});
+
+describe('isVisibleSubSettingsItem', () => {
+  it.each([
+    {
+      name: 'hides desktopTab items on the tab navigator',
+      input: {
+        hasDesktopTab: true,
+        isMobileHome: false,
+        isTabNavigator: true,
+        isMobileLayout: false,
+      },
+      expected: false,
+    },
+    {
+      name: 'keeps desktopTab items on extension or narrow web',
+      input: {
+        hasDesktopTab: true,
+        isMobileHome: false,
+        isTabNavigator: false,
+        isMobileLayout: false,
+      },
+      expected: true,
+    },
+    {
+      name: 'hides mobileHome items on the phone category page',
+      input: {
+        hasDesktopTab: false,
+        isMobileHome: true,
+        isTabNavigator: false,
+        isMobileLayout: true,
+      },
+      expected: false,
+    },
+    {
+      name: 'keeps ordinary items on every host',
+      input: {
+        hasDesktopTab: false,
+        isMobileHome: false,
+        isTabNavigator: true,
+        isMobileLayout: false,
+      },
+      expected: true,
+    },
+  ])('$name', ({ input, expected }) => {
+    expect(isVisibleSubSettingsItem(input)).toBe(expected);
   });
 });
 

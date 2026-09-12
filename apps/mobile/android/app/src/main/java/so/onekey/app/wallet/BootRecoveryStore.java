@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * Single source of truth for the Activity-stage boot-failure tracking
  * used by BootRecovery. All SharedPreferences access for the time-windowed
- * counter lives here so that MainActivity / MainApplication / RecoveryActivity
+ * counter lives here so MainLauncherActivity / MainApplication / RecoveryActivity
  * never touch the raw keys directly — adding a new reset path is a single
  * call here, not a hunt across files.
  *
@@ -33,7 +33,7 @@ final class BootRecoveryStore {
     private BootRecoveryStore() {}
 
     /**
-     * Records a new MainActivity.onCreate attempt and returns the post-write
+     * Records a new MainLauncherActivity.onCreate attempt and returns the post-write
      * windowed count. Caller uses the return value to decide whether to
      * route this launch into RecoveryActivity.
      */

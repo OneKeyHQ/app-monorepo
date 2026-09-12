@@ -13,6 +13,7 @@ import {
   useDeviceMetaStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { PrimeGiftOffer } from '@onekeyhq/kit/src/views/Prime/components/PrimeGiftOffer';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
@@ -225,6 +226,9 @@ function DeviceDetailsModalV2Cmp({
                   vendorProfile?.supportsFirmwareVerify,
                 )}
               />
+              {device ? (
+                <PrimeGiftOffer device={device} source="deviceDetails" />
+              ) : null}
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
               {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}
               {showDeviceSupport ? (

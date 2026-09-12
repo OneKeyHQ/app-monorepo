@@ -118,7 +118,7 @@ const ReserveDetailsTabsComponent = ({
             {supplyBadge ? <XStack>{supplyBadge}</XStack> : null}
 
             <ApyChartSection
-              apyValue={supplyData.latestApy}
+              apyValue={details?.supply.apyDetail.apy ?? '0'}
               apyLabel={supplyApyLabel}
               history={supplyData.history}
               isLoading={supplyData.isLoading ?? false}
@@ -156,7 +156,7 @@ const ReserveDetailsTabsComponent = ({
             {borrowBadge ? <XStack>{borrowBadge}</XStack> : null}
 
             <ApyChartSection
-              apyValue={borrowData.latestApy}
+              apyValue={details?.borrow.apyDetail.apy ?? '0'}
               apyLabel={borrowApyLabel}
               history={borrowData.history}
               isLoading={borrowData.isLoading ?? false}
@@ -186,7 +186,7 @@ const ReserveDetailsTabsComponent = ({
               networkId={networkId}
               provider={provider}
               marketAddress={marketAddress}
-              reserveAddress={reserveAddress}
+              reserveAddress={details?.borrow.reserveAddress || reserveAddress}
               utilizationRatio={details?.utilizationRatio}
             />
             <DailyCapsSection details={details} />

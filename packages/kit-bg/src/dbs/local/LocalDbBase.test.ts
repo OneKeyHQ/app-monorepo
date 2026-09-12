@@ -32,6 +32,9 @@ import {
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
+import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
@@ -376,7 +379,7 @@ class TestLocalDb extends LocalDbBase {
         credential: IDBCredentialBase,
       ) => IDBCredentialBase | Promise<IDBCredentialBase>;
       const recordPairIds =
-        recordPairs?.map((pair) => pair[0].id).filter(Boolean) ?? [];
+        recordPairs?.map((pair) => pair[0]?.id).filter(Boolean) ?? [];
       const targetIds = ids.length ? ids : recordPairIds;
       this.credentials = await Promise.all(
         this.credentials.map(async (credential) => {
@@ -395,7 +398,10 @@ class TestLocalDb extends LocalDbBase {
     ids = [],
     recordPairs = [],
   }: ILocalDBTxRemoveRecordsParams<T>): Promise<void> {
-    const targetIds = [...ids, ...recordPairs.map(([record]) => record.id)];
+    const targetIds = [
+      ...ids,
+      ...recordPairs.map(([record]) => record?.id).filter(Boolean),
+    ];
     if (name === ELocalDBStoreNames.Wallet) {
       this.wallets = this.wallets.filter(
         (wallet) => !targetIds.includes(wallet.id),
@@ -780,6 +786,38 @@ describe('LocalDbBase local secret envelope credentials', () => {
 
   afterAll(() => {
     jest.restoreAllMocks();
+  });
+
+  it('verifies the portable control-plane verifier without reading LocalDB in Travel Mode', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const verifyString = await encryptVerifyString({ password });
+    const maskedEnvironment = RuntimeEnvironment.create(
+      getTravelModeRuntimeProfile(true),
+    );
+    const environmentSpy = jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironment')
+      .mockResolvedValue(maskedEnvironment);
+    const verifierSpy = jest
+      .spyOn(travelModeManager, 'getVerifyString')
+      .mockResolvedValue(verifyString);
+    const getContextSpy = jest.spyOn(db, 'getContext');
+    const postVerifySpy = jest.spyOn(db, 'runPostPasswordVerifiedLazyUpgrade');
+
+    try {
+      await expect(
+        db.verifyPassword({ password, skipLazyUpgrade: true }),
+      ).resolves.toBeUndefined();
+
+      expect(verifierSpy).toHaveBeenCalledTimes(1);
+      expect(getContextSpy).not.toHaveBeenCalled();
+      expect(postVerifySpy).not.toHaveBeenCalled();
+    } finally {
+      environmentSpy.mockRestore();
+      verifierSpy.mockRestore();
+      getContextSpy.mockRestore();
+      postVerifySpy.mockRestore();
+    }
   });
 
   it('starts post-password lazy upgrade after getContext verifies the password', async () => {

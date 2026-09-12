@@ -10,6 +10,7 @@ import type { IConnectionStorageType } from '@onekeyhq/shared/types/dappConnecti
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useShouldUpdateConnectedAccount } from '../../Discovery/hooks/useDAppNotifyChanges';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../../Setting/pages/Tab/settingsSurface';
 import ConnectionListItem from '../components/ConnectionList/ConnectionListItem';
 import { DAppConnectionTestIDs } from '../testIDs';
 
@@ -83,7 +84,7 @@ function ConnectionList() {
         })}
         headerRight={() => renderHeaderRight()}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <ListView
           contentContainerStyle={{
             flex: platformEnv.isNative ? undefined : 1,

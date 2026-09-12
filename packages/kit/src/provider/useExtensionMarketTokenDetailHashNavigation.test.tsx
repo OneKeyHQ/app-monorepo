@@ -103,16 +103,66 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins&resolveMarketAsset=true&marketTokenSymbol=BTC',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
       params: {
         network: 'bsc',
         tokenAddress: '0xabc',
+        marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--56-0xabc',
+        marketTokenCategory: 'top_coins',
+        marketTokenSymbol: 'BTC',
+        resolveMarketAsset: true,
+        skipMarketDataFetch: true,
         isNative: false,
         from: 'ExtensionSidePanel',
+        disableTrade: true,
         showFavoriteButton: false,
+      },
+    });
+  });
+
+  it('restores a serialized token preview in the expand-tab runtime', () => {
+    const legacyTokenPreview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'ABC Token',
+      symbol: 'ABC',
+      decimals: 18,
+      price: 1,
+      selectedAt: 1,
+    };
+    const query = new URLSearchParams({
+      legacyTokenPreview: JSON.stringify(legacyTokenPreview),
+    });
+
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        `#/market/token/eth/0xabc?${query.toString()}`,
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        legacyTokenPreview,
+      },
+    });
+  });
+
+  it('ignores a malformed serialized token preview', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token/eth/0xabc?legacyTokenPreview=%7B%22name%22%3A1%7D',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
       },
     });
   });
@@ -120,13 +170,51 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses native market detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/btc--0/?isNative=true',
+        '#/market/token/btc--0/?isNative=true&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketTokenCategory=top_coins',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketNativeDetail,
       params: {
         network: 'btc--0',
         isNative: true,
+        marketTokenId: 'bitcoin',
+        marketTokenCategory: 'top_coins',
+        skipMarketDataFetch: true,
+        disableTrade: true,
+      },
+    });
+  });
+
+  it('parses market stock detail hash with an optional token variant', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/stock/AAPL?network=eth&tokenAddress=0xaapl&from=ExtensionPopup&disableTrade=true&showFavoriteButton=false',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        network: 'eth',
+        tokenAddress: '0xaapl',
+        from: 'ExtensionPopup',
+        disableTrade: true,
+        showFavoriteButton: false,
+      },
+    });
+  });
+
+  it('parses the stock preview from an extension detail hash', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Faapl.png',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/aapl.png',
       },
     });
   });
@@ -171,6 +259,25 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
             network: 'eth',
             tokenAddress: '0xabc',
             isNative: false,
+          },
+        },
+      },
+    );
+  });
+
+  it('navigates to stock detail from current hash on mount', () => {
+    setHash('#/market/stock/AAPL');
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: {
+            stockId: 'AAPL',
           },
         },
       },
@@ -251,6 +358,107 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
       },
     );
   });
+
+  it('refreshes the same stock route when preview metadata changes', () => {
+    setHash(
+      '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Fnew.png',
+    );
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/old.png',
+      },
+    });
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: {
+            stockId: 'AAPL',
+            stockPreviewSymbol: 'AAPL',
+            stockPreviewName: 'Apple Inc.',
+            stockPreviewLogoUrl: 'https://example.com/new.png',
+          },
+        },
+      },
+    );
+  });
+
+  it.each([
+    {
+      query: 'disableTrade=true',
+      currentParams: { disableTrade: false },
+      expectedParams: { disableTrade: true },
+    },
+    {
+      query: 'skipMarketDataFetch=true',
+      currentParams: { skipMarketDataFetch: false },
+      expectedParams: { skipMarketDataFetch: true },
+    },
+    {
+      query: 'marketTokenId=bitcoin',
+      currentParams: {},
+      expectedParams: { marketTokenId: 'bitcoin' },
+    },
+    {
+      query: 'marketVariantId=bitcoin-evm--1-0xabc',
+      currentParams: {},
+      expectedParams: { marketVariantId: 'bitcoin-evm--1-0xabc' },
+    },
+    {
+      query: 'marketTokenCategory=top_coins',
+      currentParams: {},
+      expectedParams: { marketTokenCategory: 'top_coins' },
+    },
+    {
+      query: 'resolveMarketAsset=true',
+      currentParams: {},
+      expectedParams: { resolveMarketAsset: true },
+    },
+    {
+      query: 'marketTokenSymbol=BTC',
+      currentParams: {},
+      expectedParams: { marketTokenSymbol: 'BTC' },
+    },
+  ])(
+    'refreshes the same token route when $query changes',
+    ({ query, currentParams, expectedParams }) => {
+      setHash(`#/market/token/eth/0xabc?${query}`);
+      mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+        name: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          network: 'eth',
+          tokenAddress: '0xabc',
+          ...currentParams,
+        },
+      });
+
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+      expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+        ERootRoutes.Main,
+        {
+          screen: ETabRoutes.Market,
+          params: {
+            screen: ETabMarketRoutes.MarketDetailV2,
+            params: {
+              network: 'eth',
+              tokenAddress: '0xabc',
+              ...expectedParams,
+            },
+          },
+        },
+      );
+    },
+  );
 
   it('restores default favorite visibility when reopening the same token from Market', () => {
     setHash('#/market/token/eth/0xabc');

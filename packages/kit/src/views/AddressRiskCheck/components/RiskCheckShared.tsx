@@ -14,6 +14,7 @@ import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
 import { formatKytRiskFactorCategory } from '@onekeyhq/kit/src/utils/kytRiskFactorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import type { IKytRiskFactor } from '@onekeyhq/shared/types/kyt';
@@ -93,6 +94,11 @@ export function CardRow({
             tooltip={tooltip}
             placement="bottom"
             iconSize="$4"
+            renderContent={
+              <YStack px="$5" pb="$5" pt={platformEnv.isNative ? '$0' : '$5'}>
+                <SizableText size="$bodyLg">{tooltip}</SizableText>
+              </YStack>
+            }
           />
         ) : null}
       </XStack>

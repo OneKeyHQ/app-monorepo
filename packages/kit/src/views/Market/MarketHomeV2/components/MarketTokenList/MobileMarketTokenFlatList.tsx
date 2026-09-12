@@ -51,7 +51,9 @@ function MobileMarketTokenFlatListBase({
   shouldSuppressItemPress,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
-  const toMarketDetailPage = useToDetailPage();
+  const toMarketDetailPage = useToDetailPage({
+    marketTokenCategory: selectedCategory,
+  });
 
   // Data management
   const {

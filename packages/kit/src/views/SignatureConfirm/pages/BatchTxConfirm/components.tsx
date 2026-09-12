@@ -1,0 +1,271 @@
+import { useIntl } from 'react-intl';
+
+import {
+  Icon,
+  Progress,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { formatRecipientLine } from './utils';
+
+export function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <XStack px="$4" py="$3" alignItems="center" gap="$4">
+      <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+        {label}
+      </SizableText>
+      <SizableText size="$bodyMdMedium" textAlign="right">
+        {value}
+      </SizableText>
+    </XStack>
+  );
+}
+
+export function TransactionRow({
+  index,
+  recipient,
+  extraRecipientCount,
+  amountText,
+  fiatText,
+  signed,
+  failed,
+  disabled,
+  onPress,
+}: {
+  index: number;
+  recipient: string;
+  extraRecipientCount: number;
+  // Pre-formatted by the container, including any MINUS_SIGN prefix.
+  amountText: string;
+  fiatText?: string;
+  signed: boolean;
+  failed?: boolean;
+  disabled?: boolean;
+  onPress?: () => void;
+}) {
+  const intl = useIntl();
+  const subtitleColor = failed ? '$textCritical' : '$textSubdued';
+
+  return (
+    <XStack
+      minHeight="$16"
+      px="$3.5"
+      py="$3"
+      alignItems="center"
+      gap="$3"
+      borderWidth={1}
+      borderColor="$borderSubdued"
+      borderRadius="$3"
+      bg={signed ? '$bgSuccessSubdued' : '$bgSubdued'}
+      opacity={disabled ? 0.5 : 1}
+      userSelect="none"
+      cursor={disabled ? undefined : 'pointer'}
+      hoverStyle={disabled ? undefined : { bg: '$bgHover' }}
+      pressStyle={disabled ? undefined : { bg: '$bgActive' }}
+      focusable={!disabled}
+      onPress={disabled ? undefined : onPress}
+    >
+      <Stack
+        width="$9"
+        height="$9"
+        flexShrink={0}
+        alignItems="center"
+        justifyContent="center"
+        borderRadius="$full"
+        bg={signed ? '$bgSuccessSubdued' : '$bgStrong'}
+      >
+        {signed ? (
+          <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
+        ) : (
+          <SizableText size="$bodySmMedium" color={subtitleColor}>
+            {String(index + 1).padStart(2, '0')}
+          </SizableText>
+        )}
+      </Stack>
+
+      <YStack flex={1} minWidth={0}>
+        <XStack alignItems="center" gap="$1.5">
+          <SizableText size="$bodyMdMedium">
+            {intl.formatMessage(
+              { id: ETranslations.batch_psbt_transaction_number__title },
+              { number: index + 1 },
+            )}
+          </SizableText>
+          {signed ? (
+            <SizableText size="$bodySmMedium" color="$textSuccess">
+              {intl.formatMessage({
+                id: ETranslations.batch_psbt_signed__title,
+              })}
+            </SizableText>
+          ) : null}
+          {failed ? (
+            <SizableText size="$bodySmMedium" color="$textCritical">
+              {intl.formatMessage({ id: ETranslations.global_failed })}
+            </SizableText>
+          ) : null}
+        </XStack>
+        <SizableText size="$bodySm" color={subtitleColor} numberOfLines={1}>
+          {formatRecipientLine({ recipient, extraRecipientCount, intl })}
+        </SizableText>
+      </YStack>
+
+      <YStack flexShrink={0} alignItems="flex-end">
+        <SizableText size="$bodyMdMedium">{amountText}</SizableText>
+        {fiatText ? (
+          <SizableText size="$bodySm" color="$textSubdued">
+            {fiatText}
+          </SizableText>
+        ) : null}
+      </YStack>
+
+      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
+export function BatchSigningProgress({
+  totalCount,
+  signedCount,
+  currentTransactionNumber,
+  currentRow,
+}: {
+  totalCount: number;
+  signedCount: number;
+  // 1-based. Derived by the container from batch.currentIndex (falling back
+  // to signedCount+1 only when currentIndex is undefined) — signedCount+1
+  // alone is wrong once items are pre-signed out of order via drill-down.
+  currentTransactionNumber: number;
+  // amountText is pre-formatted by the container, including any MINUS_SIGN
+  // prefix.
+  currentRow?: { title: string; recipient: string; amountText: string };
+}) {
+  const intl = useIntl();
+  const remainingCount = totalCount - signedCount;
+  const isComplete = remainingCount === 0;
+  const progressValue = totalCount > 0 ? (signedCount / totalCount) * 100 : 0;
+  let progressDescription = intl.formatMessage({
+    id: ETranslations.batch_psbt_review_on_hardware_wallet__desc,
+  });
+  if (isComplete) {
+    progressDescription = intl.formatMessage(
+      { id: ETranslations.batch_psbt_signatures_ready__desc },
+      { count: totalCount },
+    );
+  }
+
+  return (
+    <YStack
+      width="100%"
+      maxWidth={480}
+      alignSelf="center"
+      justifyContent="center"
+      gap="$5"
+      py="$8"
+    >
+      <YStack alignItems="center" gap="$2">
+        <Stack
+          width="$12"
+          height="$12"
+          alignItems="center"
+          justifyContent="center"
+          borderRadius="$full"
+          bg={isComplete ? '$bgSuccessSubdued' : '$bgStrong'}
+        >
+          <Icon
+            name={isComplete ? 'CheckRadioSolid' : 'BitcoinOutline'}
+            size="$6"
+            color={isComplete ? '$iconSuccess' : '$icon'}
+          />
+        </Stack>
+        <SizableText size="$headingLg" textAlign="center">
+          {isComplete
+            ? intl.formatMessage({
+                id: ETranslations.batch_psbt_all_transactions_signed__title,
+              })
+            : intl.formatMessage(
+                {
+                  id: ETranslations.batch_psbt_signing_transaction_progress__title,
+                },
+                { current: currentTransactionNumber, total: totalCount },
+              )}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {progressDescription}
+        </SizableText>
+      </YStack>
+
+      <YStack gap="$2">
+        <Progress animated size="medium" value={progressValue} />
+        <XStack alignItems="center">
+          <SizableText flex={1} size="$bodySm" color="$textSubdued">
+            {intl.formatMessage(
+              { id: ETranslations.batch_psbt_signed_count__desc },
+              { count: signedCount },
+            )}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage(
+              { id: ETranslations.batch_psbt_remaining_count__desc },
+              { count: remainingCount },
+            )}
+          </SizableText>
+        </XStack>
+      </YStack>
+
+      {!isComplete && currentRow ? (
+        <YStack
+          px="$4"
+          py="$3.5"
+          gap="$2"
+          borderWidth={1}
+          borderColor="$borderSubdued"
+          borderRadius="$3"
+          bg="$bgSubdued"
+        >
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.batch_psbt_current_transaction__title,
+            })}
+          </SizableText>
+          <XStack alignItems="center" gap="$4">
+            <YStack flex={1} minWidth={0}>
+              <SizableText size="$bodyMdMedium">{currentRow.title}</SizableText>
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {currentRow.recipient}
+              </SizableText>
+            </YStack>
+            <SizableText size="$bodyMdMedium">
+              {currentRow.amountText}
+            </SizableText>
+          </XStack>
+        </YStack>
+      ) : null}
+
+      {!isComplete ? (
+        <XStack
+          px="$4"
+          py="$3"
+          alignItems="center"
+          gap="$3"
+          borderRadius="$3"
+          bg="$bgSubdued"
+        >
+          <Icon name="LaptopOutline" size="$5" color="$iconSubdued" />
+          <SizableText flex={1} size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.batch_psbt_keep_device_connected__desc,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
+    </YStack>
+  );
+}

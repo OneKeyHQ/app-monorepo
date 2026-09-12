@@ -1,9 +1,11 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import {
+  hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
@@ -36,21 +38,22 @@ export function getDeviceStateSnapshotFromEvent({
     typeof currentState.updatedAt === 'number' &&
     typeof event.state.updatedAt === 'number'
   ) {
-    // 'settings-read' events are authoritative hardware read-backs. When the
-    // SDK cache already holds a device-side change the app never observed
-    // (e.g. BLE initialize runs before event listeners attach), the SDK
-    // force-emits them without bumping revision/updatedAt, so an event with
-    // stamps EQUAL to the current state must still be applied. A lower
-    // revision at the same timestamp is still an out-of-order older event
-    // and must not roll the newer snapshot back.
+    // Explicit hardware read-backs may reveal changes already present in the
+    // SDK cache without advancing its metadata.
+    const acceptsEqualMetadata =
+      event.source === 'settings-read' ||
+      hasAuthoritativeDeviceInfoVersionChange({
+        currentState,
+        incomingState: event.state,
+        changedKeys: event.changedKeys,
+        source: event.source,
+      });
     const isStale =
-      event.source === 'settings-read'
-        ? event.state.updatedAt < currentState.updatedAt ||
-          (event.state.updatedAt === currentState.updatedAt &&
-            event.state.revision < currentState.revision)
-        : event.state.updatedAt < currentState.updatedAt ||
-          (event.state.updatedAt === currentState.updatedAt &&
-            event.state.revision <= currentState.revision);
+      event.state.updatedAt < currentState.updatedAt ||
+      (event.state.updatedAt === currentState.updatedAt &&
+        (event.state.revision < currentState.revision ||
+          (event.state.revision === currentState.revision &&
+            !acceptsEqualMetadata)));
     if (isStale) {
       return undefined;
     }
@@ -159,22 +162,57 @@ export function pickNewerDeviceStateSnapshot({
 export function isDeviceManagementWalletUsable(
   walletWithDevice?: IHwQrWalletWithDevice,
 ) {
-  const wallet = walletWithDevice?.wallet;
-  if (!wallet) {
-    return false;
-  }
-  // Hidden-only devices retain an active mocked standard wallet as their
-  // device-management proxy, while deprecated wallets stay hidden.
-  return !wallet.deprecated;
+  return Boolean(walletWithDevice?.wallet && walletWithDevice.device);
 }
 
 export function resolveUsableWalletWithDevice(
   walletWithDevice?: IHwQrWalletWithDevice,
+  allWallets: IHwQrWalletWithDevice[] = [],
 ) {
   if (!isDeviceManagementWalletUsable(walletWithDevice)) {
     return undefined;
   }
-  return walletWithDevice;
+  const isQrWallet = accountUtils.isQrWallet({
+    walletId: walletWithDevice?.wallet.id,
+  });
+  return (
+    allWallets.find(
+      (item) =>
+        !item.wallet.deprecated &&
+        !accountUtils.isHwHiddenWallet({ wallet: item.wallet }) &&
+        accountUtils.isQrWallet({ walletId: item.wallet.id }) === isQrWallet &&
+        deviceUtils.isSamePhysicalDevice(item.device, walletWithDevice?.device),
+    ) ?? walletWithDevice
+  );
+}
+
+export function getDeviceManagementWallets(
+  wallets: IHwQrWalletWithDevice[],
+): IHwQrWalletWithDevice[] {
+  const devices: IHwQrWalletWithDevice[] = [];
+  for (const item of wallets) {
+    if (
+      isDeviceManagementWalletUsable(item) &&
+      !accountUtils.isHwHiddenWallet({ wallet: item.wallet })
+    ) {
+      const representative = resolveUsableWalletWithDevice(item, wallets);
+      if (
+        representative &&
+        !devices.some(
+          (entry) =>
+            accountUtils.isQrWallet({ walletId: entry.wallet.id }) ===
+              accountUtils.isQrWallet({ walletId: representative.wallet.id }) &&
+            deviceUtils.isSamePhysicalDevice(
+              entry.device,
+              representative.device,
+            ),
+        )
+      ) {
+        devices.push(representative);
+      }
+    }
+  }
+  return devices;
 }
 
 export function resolveDeviceWithCurrentType<

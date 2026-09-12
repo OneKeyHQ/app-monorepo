@@ -49,11 +49,13 @@ type IMarketWatchlistTokenListProps = {
     paddingBottom: number;
   };
   hidePerps?: boolean;
+  hideListings?: boolean;
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
   enableWebSocket?: boolean;
   pollingInterval?: number;
   rowBg?: string;
+  centerDesktopPortalContent?: boolean;
 };
 
 function MarketWatchlistTokenList({
@@ -65,11 +67,13 @@ function MarketWatchlistTokenList({
   tabName,
   listContainerProps,
   hidePerps,
+  hideListings,
   hiddenDesktopColumns,
   liveTokenOverride,
   enableWebSocket,
   pollingInterval,
   rowBg,
+  centerDesktopPortalContent,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
   // Get watchlist from atom if not provided externally
@@ -128,6 +132,7 @@ function MarketWatchlistTokenList({
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data, {
     hideNativeToken,
     hidePerps,
+    hideListings,
   });
 
   const filteredResult = useMemo(() => {
@@ -156,6 +161,8 @@ function MarketWatchlistTokenList({
       sortIndex: token.sortIndex,
       isNative: token.isNative,
       perpsCoin: token.perpsCoin,
+      assetId: token.assetId,
+      stockId: token.stockId,
     }),
     [],
   );
@@ -226,6 +233,7 @@ function MarketWatchlistTokenList({
                   await actions.current.removeFromWatchListV2(
                     item.networkId,
                     item.address,
+                    { assetId: item.assetId, stockId: item.stockId },
                   );
                 }
                 Toast.success({
@@ -280,6 +288,7 @@ function MarketWatchlistTokenList({
                     void actions.current.removeFromWatchListV2(
                       item.networkId,
                       item.address,
+                      { assetId: item.assetId, stockId: item.stockId },
                     );
                   }
                 },
@@ -369,6 +378,7 @@ function MarketWatchlistTokenList({
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}
       rowBg={rowBg}
+      centerDesktopPortalContent={centerDesktopPortalContent}
     />
   );
 }

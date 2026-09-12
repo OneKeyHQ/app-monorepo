@@ -97,6 +97,7 @@ class ServiceAllNetwork extends ServiceBase {
     appEventBus.on(EAppEventBusNames.WalletRemove, invalidate);
     appEventBus.on(EAppEventBusNames.WalletUpdate, invalidate);
     appEventBus.on(EAppEventBusNames.WalletClear, invalidate);
+    appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);
   }
 
   private _getAllNetworkAccountsCache = new Map<

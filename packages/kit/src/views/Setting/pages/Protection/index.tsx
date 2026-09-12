@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import {
   Stack,
   Switch,
   Toast,
+  XStack,
   YStack,
   startViewTransition,
   useInModalDialog,
@@ -34,6 +35,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 import { ReceiveRiskSupportedAssetsDialogContent } from './ReceiveRiskSupportedAssets';
 import { promptKytNotificationPermissionIfNeeded } from './showKytNotificationPermissionDialog';
@@ -139,6 +142,28 @@ const SettingProtectionModal = () => {
       }
     },
     [intl, navigation, updateLockTimer],
+  );
+
+  const receiveRiskMonitoringTitle = useMemo(
+    () => (
+      <XStack alignItems="center" gap="$2" flexShrink={1}>
+        <SizableText size="$bodyLgMedium" flexShrink={1}>
+          {intl.formatMessage({
+            id: ETranslations.prime_feature_receive_risk_monitoring__title,
+          })}
+        </SizableText>
+        {!isPrimeSubscriptionActive ? (
+          <Badge badgeSize="sm" badgeType="default">
+            <Badge.Text size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.prime_status_prime,
+              })}
+            </Badge.Text>
+          </Badge>
+        ) : null}
+      </XStack>
+    ),
+    [intl, isPrimeSubscriptionActive],
   );
 
   const handleOpenReceiveRiskSupportedAssets = useCallback(() => {
@@ -289,12 +314,15 @@ const SettingProtectionModal = () => {
             })}
           />
           <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.prime_feature_receive_risk_monitoring__title,
-            })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.prime_feature_receive_risk_monitoring__desc,
-            })}
+            renderItemText={
+              <ListItem.Text
+                flex={1}
+                primary={receiveRiskMonitoringTitle}
+                secondary={intl.formatMessage({
+                  id: ETranslations.prime_feature_receive_risk_monitoring__desc,
+                })}
+              />
+            }
             {...(!isPrimeSubscriptionActive && {
               onPress: () => {
                 defaultLogger.prime.subscription.primeEntryClick({
@@ -311,15 +339,6 @@ const SettingProtectionModal = () => {
               },
             })}
           >
-            {isPrimeSubscriptionActive ? null : (
-              <Badge badgeSize="sm" badgeType="default">
-                <Badge.Text size="$bodySmMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.prime_status_prime,
-                  })}
-                </Badge.Text>
-              </Badge>
-            )}
             {isUpdatingReceiveRiskMonitoring ? (
               <Stack w={38} h="$6" alignItems="center" justifyContent="center">
                 <Spinner size="small" />
@@ -440,6 +459,7 @@ const SettingProtectionModal = () => {
     protectCreateOrRemoveWallet,
     protectCreateTransaction,
     receiveRiskMonitoringMap,
+    receiveRiskMonitoringTitle,
     setSettings,
     tokenRiskReminder,
   ]);
@@ -449,7 +469,9 @@ const SettingProtectionModal = () => {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.settings_protection })}
       />
-      <Page.Body>{renderEnableProtection()}</Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
+        {renderEnableProtection()}
+      </Page.Body>
     </Page>
   );
 };
