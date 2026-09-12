@@ -110,3 +110,37 @@ export function getAuxiliaryLineKind({
   }
   return null;
 }
+
+// Preserve the whole translation when it cannot be split into two lines.
+const BALANCE_SHORTFALL_SEPARATOR = ' \u00b7 ';
+
+export function splitBalanceShortfallLines(message: string): string[] {
+  const parts = message.split(BALANCE_SHORTFALL_SEPARATOR);
+  return parts.length === 2 ? parts : [message];
+}
+
+// Offer funding only for an idle, underfunded repay with a swap target.
+export function shouldShowFundingFooter({
+  canRetryCheck,
+  funding,
+  isBusy,
+  pendingGuardBlocksAction,
+  hasUnderfundedActiveRepay,
+  hasSwapTarget,
+}: {
+  canRetryCheck: boolean;
+  funding: boolean;
+  isBusy: boolean;
+  pendingGuardBlocksAction: boolean;
+  hasUnderfundedActiveRepay: boolean;
+  hasSwapTarget: boolean;
+}): boolean {
+  return (
+    !canRetryCheck &&
+    !funding &&
+    !isBusy &&
+    !pendingGuardBlocksAction &&
+    hasUnderfundedActiveRepay &&
+    hasSwapTarget
+  );
+}

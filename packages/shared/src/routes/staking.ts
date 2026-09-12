@@ -22,6 +22,7 @@ export enum EModalStakingRoutes {
   BorrowTokenSelect = 'BorrowTokenSelect',
   BorrowReserveDetails = 'BorrowReserveDetails',
   BorrowEModeSwitch = 'BorrowEModeSwitch',
+  BorrowEModeCategorySelect = 'BorrowEModeCategorySelect',
   BorrowEModeNeedAction = 'BorrowEModeNeedAction',
   Claim = 'Claim',
   ProtocolDetails = 'ProtocolDetails',
@@ -124,6 +125,16 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
+  };
+  // Pass the scope so the picker can read live status while it is open.
+  [EModalStakingRoutes.BorrowEModeCategorySelect]: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    accountId: string;
+    selectedEModeId: number | null;
+    // The focused picker may have fresher status than the switch page.
+    onSelect: (eModeId: number, observedCurrentEModeId: number | null) => void;
   };
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {
     provider: string;

@@ -33,6 +33,7 @@ import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
 import { BorrowDataGate } from '../components/BorrowDataGate';
 import { BorrowedCard } from '../components/BorrowedCard';
+import { BorrowEModeMetric } from '../components/BorrowEModeMetric';
 import {
   BORROW_MOBILE_ACTION_BAR_SCROLL_INSET,
   BorrowMobileActionBar,
@@ -378,9 +379,20 @@ const BorrowHomeContent = memo(
       [openManagePosition],
     );
 
+    // E-Mode reads its own request and its screen never touches reserves, so it
+    // stays reachable while the cards above it are in their error state.
+    const eModeBar = (
+      <BorrowEModeMetric
+        eModeStatus={eModeStatus}
+        isError={isEModeError}
+        isLoading={isEModeInitialLoading}
+        variant="bar"
+      />
+    );
+
     const renderCards = () => {
       if (isReservesError) {
-        return (
+        const reservesError = (
           <Empty
             testID={BorrowTestIDs.reservesErrorState}
             py="$16"
@@ -399,6 +411,14 @@ const BorrowHomeContent = memo(
               }),
             }}
           />
+        );
+        return isPhone ? (
+          <YStack flex={1} gap="$5">
+            {reservesError}
+            {eModeBar}
+          </YStack>
+        ) : (
+          reservesError
         );
       }
 
@@ -444,6 +464,10 @@ const BorrowHomeContent = memo(
               overviewData={overviewData}
               showPositionTotals={hasPositions}
             />
+            {/* E-Mode is a market-wide setting rather than a headline number,
+                so on phones it closes the page under the positions and the
+                summary instead of interrupting the metrics at the top. */}
+            {eModeBar}
           </YStack>
         );
       }

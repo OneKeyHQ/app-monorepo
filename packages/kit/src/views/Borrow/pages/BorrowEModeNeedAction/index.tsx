@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Alert,
+  Button,
   Divider,
   Icon,
   Page,
@@ -35,12 +36,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import {
-  EModalReceiveRoutes,
-  EModalRoutes,
-  EModalSwapRoutes,
-} from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -61,6 +57,7 @@ import {
   isEModePendingGuardActive,
 } from '../BorrowEModeSwitch/emodeUtils';
 
+import { EModeGetFundsAction } from './EModeGetFundsAction';
 import { EModeShortfallCard } from './EModeShortfallCard';
 import {
   balanceLookupAddress,
@@ -74,6 +71,8 @@ import {
   getPrimaryLineKind,
   isStepConfirming,
   normalizeApproveSubStatusForConfirmation,
+  shouldShowFundingFooter,
+  splitBalanceShortfallLines,
 } from './needActionPresentation';
 import { type IEModeStep } from './needActionSteps';
 import {
@@ -143,8 +142,6 @@ function StepRow({
   categoryLabel,
   approveSubStatus,
   funding,
-  getFundsActionItems,
-  onGetFundsPress,
 }: {
   step: IEModeStep;
   stepNumber: number;
@@ -158,8 +155,6 @@ function StepRow({
   categoryLabel: string;
   approveSubStatus: IEModeApproveSubStatus;
   funding: boolean;
-  getFundsActionItems: (step: IEModeStep) => IActionListItemProps[] | undefined;
-  onGetFundsPress: () => void;
 }) {
   const intl = useIntl();
 
@@ -244,16 +239,18 @@ function StepRow({
     });
   }
 
-  const balanceText =
+  const balanceLines =
     underfunded && walletBalance
-      ? intl.formatMessage(
-          { id: ETranslations.defi_emode_wallet_balance_short },
-          {
-            balance: withSymbol(walletBalance),
-            short: withSymbol(shortfallText ?? ''),
-          },
+      ? splitBalanceShortfallLines(
+          intl.formatMessage(
+            { id: ETranslations.defi_emode_wallet_balance_short },
+            {
+              balance: withSymbol(walletBalance),
+              short: withSymbol(shortfallText ?? ''),
+            },
+          ),
         )
-      : '';
+      : [];
 
   return (
     <XStack gap="$3" p="$3.5" ai="flex-start">
@@ -316,10 +313,8 @@ function StepRow({
           <Stack ml="$5">
             <EModeShortfallCard
               symbol={step.symbol ?? ''}
-              balanceText={balanceText}
+              balanceLines={balanceLines}
               funding={funding}
-              items={getFundsActionItems(step)}
-              onGetFundsPress={onGetFundsPress}
             />
           </Stack>
         ) : null}
@@ -560,7 +555,7 @@ function BorrowEModeNeedActionView() {
 
   // A top-up that failed, was cancelled, or landed too small leaves the step
   // underfunded, and the submitted state would otherwise hold forever: the
-  // footer stays disabled on the shortfall and the card hides Get funds, so the
+  // footer would sit on a disabled confirm with the swap already spent, so the
   // page would offer nothing at all. Releasing the intent reopens the retry.
   // The refresh runs first because a top-up that did cover the shortfall clears
   // the whole card, which beats flashing the warning on the way there.
@@ -572,17 +567,8 @@ function BorrowEModeNeedActionView() {
     disarmFunding();
   }, [fundingResolved, refreshFundingBalances, disarmFunding]);
 
-  const handleGetFundsPress = useCallback(() => {
-    // User-initiated divergence, same rule as Manage positions: never let a
-    // focus recheck on return auto-pop a signature sheet.
-    disarm();
-    // Opening or dismissing the menu is not a funding intent. It also cancels
-    // any stale Swap detour before the user chooses the next action.
-    disarmFunding();
-  }, [disarm, disarmFunding]);
-
-  const getFundsActionItems = useCallback(
-    (step: IEModeStep): IActionListItemProps[] | undefined => {
+  const resolveStepSwapToken = useCallback(
+    (step: IEModeStep): ISwapToken | undefined => {
       if (step.kind !== 'repay' || step.reserveAddress === undefined) {
         return undefined;
       }
@@ -597,64 +583,39 @@ function BorrowEModeNeedActionView() {
       if (!token) {
         return undefined;
       }
-
-      return [
-        {
-          label: intl.formatMessage({ id: ETranslations.global_swap }),
-          icon: 'SwitchHorOutline',
-          onPress: () => {
-            armFunding();
-            const importToToken: ISwapToken = {
-              contractAddress: token.address,
-              symbol: token.symbol,
-              networkId,
-              isNative: !!token.isNative,
-              decimals: token.decimals,
-              name: token.name,
-              logoURI: token.logoURI,
-            };
-            navigation.pushModal(EModalRoutes.SwapModal, {
-              screen: EModalSwapRoutes.SwapMainLand,
-              params: {
-                importNetworkId: networkId,
-                importToToken,
-                swapTabSwitchType: ESwapTabSwitchType.SWAP,
-                swapSource: ESwapSource.EARN,
-                closeModalAfterSwapBroadcast: true,
-                onSwapBroadcast: markFundingBroadcasted,
-              },
-            });
-          },
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.global_receive }),
-          icon: 'ArrowBottomOutline',
-          onPress: () => {
-            navigation.pushModal(EModalRoutes.ReceiveModal, {
-              screen: EModalReceiveRoutes.ReceiveToken,
-              params: {
-                networkId,
-                accountId,
-                walletId: accountUtils.getWalletIdFromAccountId({
-                  accountId,
-                }),
-                token,
-                disableSelector: true,
-              },
-            });
-          },
-        },
-      ];
+      return {
+        contractAddress: token.address,
+        symbol: token.symbol,
+        networkId,
+        isNative: !!token.isNative,
+        decimals: token.decimals,
+        name: token.name,
+        logoURI: token.logoURI,
+      };
     },
-    [
-      accountId,
-      armFunding,
-      displayCheck,
-      intl,
-      markFundingBroadcasted,
-      navigation,
-      networkId,
-    ],
+    [displayCheck, networkId],
+  );
+
+  const handleSwapToFund = useCallback(
+    (importToToken: ISwapToken) => {
+      // User-initiated divergence, same rule as Manage positions: never let a
+      // focus recheck on return auto-pop a signature sheet. Arming here rather
+      // than on a menu open is safe because the press is the funding intent.
+      disarm();
+      armFunding();
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importNetworkId: networkId,
+          importToToken,
+          swapTabSwitchType: ESwapTabSwitchType.SWAP,
+          swapSource: ESwapSource.EARN,
+          closeModalAfterSwapBroadcast: true,
+          onSwapBroadcast: markFundingBroadcasted,
+        },
+      });
+    },
+    [armFunding, disarm, markFundingBroadcasted, navigation, networkId],
   );
 
   let activeActionLabel = '';
@@ -695,6 +656,19 @@ function BorrowEModeNeedActionView() {
   // broadcasts. Keep that recovery path available even while serialized
   // history still reports the original transaction as pending.
   const pendingGuardBlocksAction = pendingGuardActive && !canRetryCheck;
+
+  // Offer Swap beside the blocked action while the active repay needs funds.
+  const activeSwapToken = activeUnderfundedRepay
+    ? resolveStepSwapToken(activeUnderfundedRepay)
+    : undefined;
+  const showFundingFooter = shouldShowFundingFooter({
+    canRetryCheck,
+    funding,
+    isBusy,
+    pendingGuardBlocksAction,
+    hasUnderfundedActiveRepay: !!activeUnderfundedRepay,
+    hasSwapTarget: !!activeSwapToken,
+  });
 
   return (
     <Page scrollEnabled>
@@ -772,8 +746,6 @@ function BorrowEModeNeedActionView() {
                     categoryLabel={categoryLabel}
                     approveSubStatus={approveSubStatus}
                     funding={funding}
-                    getFundsActionItems={getFundsActionItems}
-                    onGetFundsPress={handleGetFundsPress}
                   />
                   {index < steps.length - 1 ? <Divider /> : null}
                 </YStack>
@@ -803,26 +775,57 @@ function BorrowEModeNeedActionView() {
           </YStack>
         ) : null}
       </Page.Body>
-      <Page.Footer
-        onConfirmText={
-          canRetryCheck
-            ? intl.formatMessage({ id: ETranslations.global_retry })
-            : confirmText
-        }
-        confirmButtonProps={{
-          testID: BorrowTestIDs.eModeNeedActionConfirmBtn,
-          loading: isBusy || pendingGuardBlocksAction || isChecking,
-          disabled:
-            isBusy ||
-            pendingGuardBlocksAction ||
-            (!canRetryCheck &&
-              (!check ||
-                checkingActiveBalance ||
-                !!activeUnderfundedRepay ||
-                (activeStep?.kind === 'switch' && !check.canSwitch))),
-        }}
-        onConfirm={canRetryCheck ? refresh : run}
-      />
+      {showFundingFooter && activeSwapToken ? (
+        <Page.Footer
+          confirmButton={
+            <XStack gap="$2.5" flex={1}>
+              <EModeGetFundsAction
+                symbol={activeSwapToken.symbol}
+                loading={isChecking || checkingActiveBalance}
+                onPress={() => handleSwapToFund(activeSwapToken)}
+              />
+              <Button
+                testID={BorrowTestIDs.eModeNeedActionConfirmBtn}
+                disabled
+                flexGrow={1}
+                flexShrink={1}
+                flexBasis={0}
+                textEllipsis
+                $md={
+                  {
+                    size: 'large',
+                  } as IButtonProps
+                }
+              >
+                {intl.formatMessage({
+                  id: ETranslations.insufficient_funds__action,
+                })}
+              </Button>
+            </XStack>
+          }
+        />
+      ) : (
+        <Page.Footer
+          onConfirmText={
+            canRetryCheck
+              ? intl.formatMessage({ id: ETranslations.global_retry })
+              : confirmText
+          }
+          confirmButtonProps={{
+            testID: BorrowTestIDs.eModeNeedActionConfirmBtn,
+            loading: isBusy || pendingGuardBlocksAction || isChecking,
+            disabled:
+              isBusy ||
+              pendingGuardBlocksAction ||
+              (!canRetryCheck &&
+                (!check ||
+                  checkingActiveBalance ||
+                  !!activeUnderfundedRepay ||
+                  (activeStep?.kind === 'switch' && !check.canSwitch))),
+          }}
+          onConfirm={canRetryCheck ? refresh : run}
+        />
+      )}
     </Page>
   );
 }
