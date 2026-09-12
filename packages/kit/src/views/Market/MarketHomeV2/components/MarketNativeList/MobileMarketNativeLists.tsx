@@ -328,6 +328,9 @@ function NativeMarketList({
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
+  const nativeRefreshEnabled = Boolean(
+    onRefresh && !platformEnv.isNativeAndroid,
+  );
   const refreshingRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   useEffect(
@@ -375,7 +378,7 @@ function NativeMarketList({
         }),
         retryMessage: intl.formatMessage({ id: ETranslations.global_retry }),
         canLoadMore,
-        canRefresh: Boolean(onRefresh),
+        canRefresh: nativeRefreshEnabled,
         showEnd,
         contentPaddingBottom,
         emptyContentHeight,
@@ -392,7 +395,7 @@ function NativeMarketList({
       loadMoreError,
       loading,
       loadingMore,
-      onRefresh,
+      nativeRefreshEnabled,
       presentation,
       refreshing,
       rows,
@@ -410,7 +413,7 @@ function NativeMarketList({
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
       onRefresh={
-        onRefresh
+        nativeRefreshEnabled
           ? () => void handleRefresh().catch(() => undefined)
           : undefined
       }
@@ -731,6 +734,10 @@ function MobileMarketNativeTokenListImpl({
         void result.refetch().catch(() => undefined);
         return;
       }
+      if (event.actionKey === 'load-more-retry') {
+        void result.loadMore();
+        return;
+      }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
       if (!item) return;
       if (event.actionKey === 'prewarm-detail') {
@@ -773,6 +780,7 @@ function MobileMarketNativeTokenListImpl({
             : undefined
         }
         loadingMore={result.isLoadingMore}
+        loadMoreError={result.isLoadMoreError}
         canLoadMore={result.canLoadMore}
         contentPaddingBottom={listContainerProps.paddingBottom}
         emptyContentHeight={listContainerProps.emptyContentHeight}
@@ -782,6 +790,7 @@ function MobileMarketNativeTokenListImpl({
           if (
             result.canLoadMore &&
             !result.isLoadingMore &&
+            !result.isLoadMoreError &&
             !result.isProvisionalFirstPageResult
           ) {
             void result.loadMore();
