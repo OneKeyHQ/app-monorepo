@@ -105,8 +105,7 @@ function TradingViewIndicatorContent({
     <ScrollView
       testID="trading-view-indicator-settings-content"
       h={compact ? undefined : TRADING_VIEW_INDICATOR_BODY_HEIGHT}
-      flex={compact && !mobileLayout ? 1 : undefined}
-      flexShrink={mobileLayout ? 1 : undefined}
+      flex={compact ? 1 : undefined}
       minHeight={0}
       showsVerticalScrollIndicator
     >
@@ -266,14 +265,21 @@ export function TradingViewIndicatorSettingsDialog({
   );
 
   if (mobileLayout) {
+    const mobileMaxHeight = Math.max(focusedMaxHeight - 160, 160);
     return (
       <YStack
         testID="trading-view-mobile-indicator-settings"
-        maxHeight={Math.max(focusedMaxHeight - 160, 160)}
+        h={Math.min(
+          TRADING_VIEW_INDICATOR_BODY_HEIGHT +
+            TRADING_VIEW_INDICATOR_FOOTER_HEIGHT,
+          mobileMaxHeight,
+        )}
+        maxHeight={mobileMaxHeight}
         gap="$4"
       >
         <Stack
-          flexShrink={1}
+          testID="trading-view-mobile-indicator-settings-body"
+          flex={1}
           minHeight={0}
           pointerEvents={isSubmitting ? 'none' : 'auto'}
         >
@@ -291,7 +297,11 @@ export function TradingViewIndicatorSettingsDialog({
             onParameterChange={onParameterChange}
           />
         </Stack>
-        <XStack gap="$3" flexShrink={0}>
+        <XStack
+          testID="trading-view-mobile-indicator-settings-footer"
+          gap="$3"
+          flexShrink={0}
+        >
           <Button
             testID="trading-view-indicator-settings-mock-reset"
             flex={1}
