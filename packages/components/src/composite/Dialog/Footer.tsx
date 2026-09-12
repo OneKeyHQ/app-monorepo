@@ -22,6 +22,17 @@ import type { IDialogFooterProps } from './type';
 
 const mdSizeLargeStyle = { size: 'large' } as any;
 
+// `Dialog.Form` is lazy and re-registers a fresh react-hook-form instance on
+// the dialog instance every time it (re)mounts — on a first open that happens
+// after this effect has already run, and again while the open animation
+// settles. Subscribing once to whatever `getForm()` returned at mount therefore
+// leaves `disabledOn` watching a form nobody types into: the confirm button
+// then stays disabled for the whole life of the dialog no matter what the user
+// enters, which left the lock screen's reset dialog impossible to confirm
+// (OK-62416). Re-check the registered instance on a cheap identity poll and
+// move the subscription over whenever it has been replaced.
+const FORM_LOOKUP_INTERVAL_MS = 100;
+
 const useConfirmButtonDisabled = (
   props: IDialogFooterProps['confirmButtonProps'],
 ) => {
@@ -29,17 +40,32 @@ const useConfirmButtonDisabled = (
   const { getForm } = useDialogInstance();
   const [, updateStatus] = useState(0);
   useEffect(() => {
-    const form = getForm();
-    if (form && disabledOn) {
-      const subscription = form.watch(() => {
+    if (!disabledOn) {
+      return;
+    }
+    let watchedForm: ReturnType<typeof getForm>;
+    let subscription: { unsubscribe: () => void } | undefined;
+    const syncSubscription = () => {
+      const form = getForm();
+      if (form === watchedForm) {
+        return;
+      }
+      subscription?.unsubscribe();
+      watchedForm = form;
+      subscription = form?.watch(() => {
         updateStatus((i) => i + 1);
       });
-      return () => {
-        if (subscription) {
-          subscription.unsubscribe();
-        }
-      };
-    }
+      // The instance changed underneath the previous subscription, so its
+      // current value has never been through `disabledOn` — evaluate it now
+      // instead of waiting for a change that `watch` would report.
+      updateStatus((i) => i + 1);
+    };
+    syncSubscription();
+    const timer = setInterval(syncSubscription, FORM_LOOKUP_INTERVAL_MS);
+    return () => {
+      clearInterval(timer);
+      subscription?.unsubscribe();
+    };
   }, [disabledOn, getForm]);
   return typeof disabled !== 'undefined' ? disabled : disabledOn?.({ getForm });
 };

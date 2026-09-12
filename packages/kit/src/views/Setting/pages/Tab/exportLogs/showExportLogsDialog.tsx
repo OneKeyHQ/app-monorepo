@@ -14,7 +14,6 @@ import {
   Button,
   Dialog,
   Icon,
-  Portal,
   Progress,
   SizableText,
   Stack,
@@ -25,7 +24,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { inAppStateLockStyle } from '@onekeyhq/kit/src/views/Setting/hooks';
+import { inAppStateLockDialogProps } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -493,12 +492,6 @@ export function showExportLogsDialog({
     title,
     showFooter: false,
     renderContent: <UploadLogsDialogContent inAppStateLock={inAppStateLock} />,
-    ...(inAppStateLock
-      ? {
-          ...inAppStateLockStyle,
-          isOverTopAllViews: true,
-          portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
-        }
-      : undefined),
+    ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
   });
 }

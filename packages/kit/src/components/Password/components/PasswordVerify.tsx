@@ -16,7 +16,6 @@ import {
   Form,
   IconButton,
   Input,
-  Portal,
   SizableText,
   Stack,
   XStack,
@@ -38,7 +37,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
-import { inAppStateLockStyle } from '../../../views/Setting/hooks';
+import { inAppStateLockDialogProps } from '../../../views/Setting/hooks';
 import { useClearInputValueAfterVerified } from '../hooks/useClearInputValueAfterVerified';
 import { getPasswordKeyboardType } from '../utils';
 
@@ -208,9 +207,7 @@ function PasswordVerify({
           Dialog.confirm({
             icon: 'ErrorOutline',
             tone: 'warning',
-            ...inAppStateLockStyle,
-            isOverTopAllViews: true,
-            portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
+            ...inAppStateLockDialogProps,
             title: intl.formatMessage(
               {
                 id: ETranslations.global_biometric_disabled,
