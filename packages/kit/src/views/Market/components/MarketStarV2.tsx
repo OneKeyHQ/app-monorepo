@@ -12,6 +12,7 @@ import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
@@ -148,6 +149,11 @@ function BasicMarketStarV2({
     tokenSymbol,
     isNative,
   });
+  if (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
+  ) {
+    return null;
+  }
 
   return (
     <IconButton
@@ -218,6 +224,12 @@ function BasicMarketPerpsStarV2({
 } & IStackProps) {
   const intl = useIntl();
   const { onPress, checked } = usePerpsStarV2Checked({ perpsCoin });
+
+  if (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
+  ) {
+    return null;
+  }
 
   return (
     <IconButton

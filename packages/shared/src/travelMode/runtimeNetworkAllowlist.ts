@@ -30,10 +30,14 @@ const TRAVEL_MODE_ALLOWED_REQUESTS = new Set(
       ['utility', 'get', '/utility/v1/perp-config'],
       ['utility', 'get', '/utility/v1/stocks'],
       ['utility', 'get', '/utility/v1/swap-tips'],
+      ['utility', 'get', '/utility/v1/discover/icon'],
       ['utility', 'get', '/utility/v2/market/basic-config'],
+      ['utility', 'get', '/utility/v2/market/chains'],
       ['utility', 'get', '/utility/v2/market/perps/token-list'],
       ['utility', 'get', '/utility/v2/market/token/list'],
       ['utility', 'get', '/utility/v2/market/banner/list'],
+      ['utility', 'get', '/utility/v2/market/banner/token-list'],
+      ['utility', 'get', '/utility/v2/market/banner/perps-token-list'],
       ['swap', 'post', '/swap/v1/check-stable-coins-list'],
       ['utility', 'post', '/utility/v2/market/token/list/batch'],
     ] as const satisfies readonly (readonly [
@@ -42,6 +46,17 @@ const TRAVEL_MODE_ALLOWED_REQUESTS = new Set(
       string,
     ])[]
   ).flatMap(([service, method, path]) =>
+    [ONEKEY_API_HOST, ONEKEY_TEST_API_HOST].map(
+      (host) => `${method} https://${service}.${host}${path}`,
+    ),
+  ),
+);
+
+const TRAVEL_MODE_ALLOWED_REQUEST_PREFIXES = new Set(
+  [
+    ['utility', 'get', '/utility/v2/market/banner/token-list'],
+    ['utility', 'get', '/utility/v2/market/banner/perps-token-list'],
+  ].flatMap(([service, method, path]) =>
     [ONEKEY_API_HOST, ONEKEY_TEST_API_HOST].map(
       (host) => `${method} https://${service}.${host}${path}`,
     ),
@@ -95,5 +110,17 @@ export function isTravelModeNetworkRequestAllowed(
   config: IRuntimeNetworkRequestConfig,
 ): boolean {
   const requestKey = getTravelModeNetworkRequestKey(config);
-  return requestKey ? TRAVEL_MODE_ALLOWED_REQUESTS.has(requestKey) : false;
+  if (!requestKey) {
+    return false;
+  }
+  if (TRAVEL_MODE_ALLOWED_REQUESTS.has(requestKey)) {
+    return true;
+  }
+  return [...TRAVEL_MODE_ALLOWED_REQUEST_PREFIXES].some((prefix) => {
+    if (!requestKey.startsWith(`${prefix}/`)) {
+      return false;
+    }
+    const suffix = requestKey.slice(prefix.length + 1);
+    return suffix.length > 0 && !suffix.includes('/');
+  });
 }

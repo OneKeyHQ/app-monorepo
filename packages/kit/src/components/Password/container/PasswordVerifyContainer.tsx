@@ -731,11 +731,13 @@ const PasswordVerifyContainer = ({
         // Warm up the password encryptor early so the first verification on
         // low-end devices does not race against an unready encryptor. (OK-56875)
         await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
-      } catch (e) {
+      } catch {
         // Do not rethrow: this previously produced an unhandled promise
         // rejection, and the raw error must never surface on the lock screen.
         // The verify flow awaits readiness again before use. (OK-56874)
-        console.error('failed to waitPasswordEncryptorReady with error', e);
+        // Avoid console.error: React Native treats it as a development error
+        // overlay while the WebEmbed view is warming up.
+        defaultLogger.app.webembed.webembedApiNotReady();
       }
     })();
   }, []);
