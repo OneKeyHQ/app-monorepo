@@ -33,6 +33,8 @@ export type IScreenPathConfig = Record<
     exact: boolean;
     initialRouteName?: string;
     screens?: IScreenPathConfig;
+    parse?: Record<string, (value: string) => unknown>;
+    stringify?: Record<string, (value: unknown) => string>;
   }
 >;
 

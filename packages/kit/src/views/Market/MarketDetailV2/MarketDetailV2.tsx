@@ -31,6 +31,7 @@ import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import { parseTokenDetailPreviewParam } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
@@ -76,6 +77,8 @@ function LegacyTokenPreviewInitializer({
   useLayoutEffect(() => {
     if (preview) {
       tokenDetailActions.current.prepareTokenDetailPreview(preview);
+    } else if (!platformEnv.isNative) {
+      tokenDetailActions.current.clearTokenDetail();
     }
   }, [preview, tokenDetailActions]);
 
@@ -153,7 +156,8 @@ function MarketDetail({
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
   const marketTokenCategory = resolvedMarketAssetIdentity
     ? MARKET_TOP_COINS_CATEGORY_ID
-    : routeMarketTokenCategory;
+    : (routeMarketTokenCategory ??
+      (shouldSkipMarketDataFetch ? MARKET_TOP_COINS_CATEGORY_ID : undefined));
   const skipMarketDataFetch = normalizeRouteBooleanParam(
     'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
     false,
@@ -162,8 +166,12 @@ function MarketDetail({
     params.showFavoriteButton,
     true,
   );
-  const tokenDetailPreview =
+  const routeTokenDetailPreview =
     'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
+  const tokenDetailPreview = useMemo(
+    () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
+    [routeTokenDetailPreview],
+  );
   const resolvedTokenDetailPreview = useMemo(
     () =>
       resolvedMarketAssetIdentity && tokenDetailPreview
@@ -175,6 +183,11 @@ function MarketDetail({
           }
         : tokenDetailPreview,
     [resolvedMarketAssetIdentity, tokenDetailPreview],
+  );
+  const hasValidTokenDetailPreview = Boolean(
+    resolvedTokenDetailPreview &&
+    resolvedTokenDetailPreview.address === tokenAddress &&
+    resolvedTokenDetailPreview.networkId === networkId,
   );
 
   // Track market entry analytics
@@ -256,7 +269,8 @@ function MarketDetail({
             isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
-              isTokenVariantPending || isInitialTokenDetailPending
+              !hasValidTokenDetailPreview &&
+              (isTokenVariantPending || isInitialTokenDetailPending)
             }
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}

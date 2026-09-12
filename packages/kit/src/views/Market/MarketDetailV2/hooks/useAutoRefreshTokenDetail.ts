@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -199,7 +199,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
   // Clear cached token detail when switching token or display currency.
   // This prevents showing stale data from the previous price scope.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const prevToken = prevTokenRef.current;
     const isTokenChanged =
       prevToken &&
@@ -208,12 +208,9 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
         prevToken.currencyId !== currencyInfo.id ||
         prevToken.marketTokenId !== data.marketTokenId ||
         prevToken.marketVariantId !== data.marketVariantId);
-
     if (isTokenChanged) {
-      // Only clear display-related atoms when switching tokens.
-      // Do NOT call clearTokenDetail() here — it resets tokenAddressAtom
-      // and networkIdAtom to '', which races with changeActiveToken's
-      // in-flight fetch and causes its stale check to discard the result.
+      // The preview atom remains available for seamless list-to-detail
+      // transitions, but a full detail response must never cross identities.
       tokenDetailActions.setTokenDetail(undefined);
       tokenDetailActions.setTokenDetailWebsocket(undefined);
       tokenDetailActions.setPerpsInfo(undefined);
@@ -239,7 +236,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   // Set tokenAddress/networkId/isNative synchronously on prop change,
   // NOT inside the polling callback. This prevents stale polling responses
   // from writing old token identifiers back into atoms after a token switch.
-  useEffect(() => {
+  useLayoutEffect(() => {
     tokenDetailActions.setTokenAddress(data.tokenAddress);
     tokenDetailActions.setNetworkId(data.networkId);
     tokenDetailActions.setIsNative(data.isNative);

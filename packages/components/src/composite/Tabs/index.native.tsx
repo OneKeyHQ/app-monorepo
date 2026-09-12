@@ -11,6 +11,7 @@ interface IExtendedContainerProps extends CollapsibleProps {
   useNativeHeaderAnimation?: boolean;
   /** Web-only content-visibility optimization; accepted for API parity. */
   disableWebTabContentVisibility?: boolean;
+  isRouteFocused?: boolean;
   /**
    * Web-only: slot between the sticky TabBar and tab content. On native, the
    * equivalent should live inside each tab list's ListHeaderComponent, so the
@@ -29,6 +30,7 @@ const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
       headerContainerStyle,
       renderSubHeader: _renderSubHeader,
       disableWebTabContentVisibility: _disableWebTabContentVisibility,
+      isRouteFocused: _isRouteFocused,
       ...props
     },
     ref,

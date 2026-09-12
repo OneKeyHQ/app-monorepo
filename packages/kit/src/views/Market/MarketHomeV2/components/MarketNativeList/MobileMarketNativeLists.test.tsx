@@ -22,6 +22,7 @@ const mockPortalRender = jest.fn(
   (_name: unknown, _element: unknown): undefined => undefined,
 );
 const mockSetAnchorState = jest.fn();
+const mockApplyPatches = jest.fn();
 const mockActions = {
   current: {
     refreshWatchListV2: jest.fn().mockResolvedValue(undefined),
@@ -34,8 +35,14 @@ const mockListingActions = {
   removeFromWatchListV2: jest.fn().mockResolvedValue(true),
 };
 const mockStockDetail = jest.fn();
+const mockStockRefresh = jest.fn();
+const mockStockLoadMore = jest.fn();
+let mockStockIsRefreshing = false;
+let mockStockIsRevalidatingFirstPage = false;
+let mockStockIsRefreshError = false;
+let mockStockIsLoadMoreError = false;
 const mockTopCoinDetail = jest.fn();
-const mockStockItems = [
+let mockStockItems = [
   {
     stockId: 'AAPL',
     symbol: 'AAPL',
@@ -146,7 +153,7 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
       }, [snapshot.capabilities?.refreshing]);
       React.useImperativeHandle(ref, () => ({
         setRefreshing: setNativeRefreshing,
-        applyPatches: jest.fn(),
+        applyPatches: mockApplyPatches,
         setActionAnchorState: mockSetAnchorState,
       }));
       mockPullToRefresh = () => {
@@ -274,11 +281,14 @@ jest.mock('../MarketStockList/hooks/useMarketStockList', () => ({
     items: mockStockItems,
     isLoading: false,
     isLoadingMore: false,
-    isLoadMoreError: false,
+    isLoadMoreError: mockStockIsLoadMoreError,
+    isRefreshing: mockStockIsRefreshing,
+    isRevalidatingFirstPage: mockStockIsRevalidatingFirstPage,
+    isRefreshError: mockStockIsRefreshError,
     isError: false,
-    canLoadMore: false,
-    loadMore: jest.fn(),
-    refresh: jest.fn(),
+    canLoadMore: !mockStockIsRevalidatingFirstPage,
+    loadMore: mockStockLoadMore,
+    refresh: mockStockRefresh,
   }),
 }));
 jest.mock('../MarketStockList/hooks/useToMarketStockDetailPage', () => ({
@@ -309,6 +319,148 @@ jest.mock('../MarketTopCoinsList/hooks/useMarketTopCoins', () => ({
     refresh: jest.fn(),
   }),
 }));
+
+describe.each([false, true])(
+  'native stock refresh (Android=%s)',
+  (isAndroid) => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockIsNativeAndroid = isAndroid;
+      mockStockIsRefreshing = false;
+      mockStockIsRefreshError = false;
+      mockStockIsLoadMoreError = false;
+    });
+
+    afterEach(() => {
+      mockStockIsRefreshing = false;
+      mockStockIsRefreshError = false;
+      mockStockIsLoadMoreError = false;
+      mockIsNativeAndroid = false;
+    });
+
+    it('shows refresh failure in the native snapshot and retries refresh', async () => {
+      mockStockIsRefreshError = true;
+      render(
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(mockNativeSnapshot?.rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: 'AAPL' }),
+          expect.objectContaining({
+            key: 'market-load-more-retry',
+            actionKey: 'load-more-retry',
+          }),
+        ]),
+      );
+      expect(mockNativeSnapshot?.capabilities?.pullToRefresh).toBe(!isAndroid);
+      await act(async () => mockEndReached?.());
+      expect(mockStockLoadMore).not.toHaveBeenCalled();
+      await act(async () =>
+        mockRowAction?.({
+          actionKey: 'load-more-retry',
+          rowKey: 'market-load-more-retry',
+        }),
+      );
+      expect(mockStockRefresh).toHaveBeenCalledTimes(1);
+      expect(mockStockLoadMore).not.toHaveBeenCalled();
+    });
+
+    it('keeps stock rows with a loading footer during refresh retry', () => {
+      mockStockIsRefreshError = true;
+      mockStockIsRefreshing = true;
+      render(
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      expect(mockNativeSnapshot?.rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: 'AAPL' }),
+          expect.objectContaining({
+            key: 'market-loading-more',
+            variant: 'loading',
+          }),
+        ]),
+      );
+      expect(
+        mockNativeSnapshot?.rows.some((row) => row.key === 'market-end'),
+      ).toBe(false);
+    });
+
+    it('hides the end indicator while cached stock rows await revalidation', () => {
+      mockStockIsRevalidatingFirstPage = true;
+      try {
+        render(
+          <MobileMarketNativeStockList
+            selectedCategoryId="all"
+            listContainerProps={{ paddingBottom: 20 }}
+          />,
+        );
+        expect(
+          mockNativeSnapshot?.rows.some((row) => row.key === 'market-end'),
+        ).toBe(false);
+        expect(
+          mockNativeSnapshot?.rows.some(
+            (row) => row.key === 'market-loading-more',
+          ),
+        ).toBe(false);
+      } finally {
+        mockStockIsRevalidatingFirstPage = false;
+      }
+    });
+
+    it('keeps the native snapshot stable across silent refresh transitions', () => {
+      const list = () => (
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />
+      );
+      const { rerender } = render(list());
+      const before = mockNativeSnapshot;
+      mockStockIsRefreshing = true;
+      rerender(list());
+      expect(mockNativeSnapshot).toBe(before);
+      mockStockIsRefreshing = false;
+      rerender(list());
+      expect(mockNativeSnapshot).toBe(before);
+      const previousItems = mockStockItems;
+      try {
+        mockStockItems = previousItems.map((item) => ({
+          ...item,
+          price: '201',
+        }));
+        rerender(list());
+        expect(mockNativeSnapshot).toBe(before);
+        expect(mockApplyPatches).toHaveBeenCalled();
+      } finally {
+        mockStockItems = previousItems;
+      }
+    });
+
+    it('still retries pagination when only loading the next page failed', async () => {
+      mockStockIsLoadMoreError = true;
+      render(
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      await act(async () =>
+        mockRowAction?.({
+          actionKey: 'load-more-retry',
+          rowKey: 'market-load-more-retry',
+        }),
+      );
+      expect(mockStockLoadMore).toHaveBeenCalledTimes(1);
+      expect(mockStockRefresh).not.toHaveBeenCalled();
+    });
+  },
+);
 
 describe('MobileMarketNativeTokenList refresh', () => {
   beforeEach(() => {

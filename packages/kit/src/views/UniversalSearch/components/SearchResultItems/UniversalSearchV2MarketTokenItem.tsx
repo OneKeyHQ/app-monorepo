@@ -293,6 +293,7 @@ export function UniversalSearchV2MarketTokenItem({
 
   return (
     <Stack
+      testID={`universal-search-market-token-${network}-${address}`}
       flexDirection="row"
       alignItems="center"
       gap="$3"

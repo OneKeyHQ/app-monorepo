@@ -186,6 +186,7 @@ export interface ITabContainerRef {
   getFocusedTab: () => string;
   getCurrentIndex: () => number;
   syncCurrentPage: () => void;
+  restoreScrollPosition?: () => boolean;
 }
 
 export interface ITabContainerProps {
@@ -214,6 +215,7 @@ export interface ITabContainerProps {
    * containers with dynamic content or header heights.
    */
   disableWebTabContentVisibility?: boolean;
+  isRouteFocused?: boolean;
   /** Only used on native Android, ignored on web */
   useNativeHeaderAnimation?: boolean;
   /**
@@ -239,12 +241,14 @@ export function Container({
   initialTabName,
   disableScroll,
   disableWebTabContentVisibility = false,
+  isRouteFocused = true,
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<
     ITabContainerProps,
     | 'disableScroll'
     | 'disableWebTabContentVisibility'
+    | 'isRouteFocused'
     | 'useNativeHeaderAnimation'
     | 'tabPressAnimationEnabled'
     | 'renderSubHeader'
@@ -373,6 +377,77 @@ export function Container({
 
   const [scrollElement, setScrollElement] = useState<Element | null>(null);
   const isSwitchingTabRef = useRef(false);
+  const routeScrollSnapshotRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!isRouteFocused) {
+      const tabName = focusedTab.value;
+      const currentScrollTop = (scrollElement as HTMLElement | null)?.scrollTop;
+      routeScrollSnapshotRef.current[tabName] =
+        typeof currentScrollTop === 'number' && currentScrollTop > 0
+          ? currentScrollTop
+          : (scrollTopRef.current[tabName] ?? currentScrollTop ?? 0);
+    }
+  }, [focusedTab, isRouteFocused, scrollElement]);
+
+  useEffect(() => {
+    const element = scrollElement as HTMLElement | null;
+    if (!element || !isRouteFocused) return;
+
+    const cancelPendingRestore = () => {
+      const tabName = focusedTab.value;
+      if (routeScrollSnapshotRef.current[tabName] === undefined) return;
+      delete routeScrollSnapshotRef.current[tabName];
+      scrollTopRef.current[tabName] = element.scrollTop;
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Home' ||
+        event.key === 'End' ||
+        event.key === 'PageUp' ||
+        event.key === 'PageDown' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown'
+      ) {
+        cancelPendingRestore();
+      }
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target === element) {
+        cancelPendingRestore();
+      }
+    };
+
+    element.addEventListener('wheel', cancelPendingRestore, {
+      passive: true,
+    });
+    element.addEventListener('touchstart', cancelPendingRestore, {
+      passive: true,
+    });
+    element.addEventListener('pointerdown', handlePointerDown);
+    element.addEventListener('keydown', handleKeyDown);
+    return () => {
+      element.removeEventListener('wheel', cancelPendingRestore);
+      element.removeEventListener('touchstart', cancelPendingRestore);
+      element.removeEventListener('pointerdown', handlePointerDown);
+      element.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [focusedTab, isRouteFocused, scrollElement]);
+
+  const restoreScrollPosition = useCallback(() => {
+    const element = scrollElement as HTMLElement | null;
+    const tabName = focusedTab.value;
+    const savedScrollTop =
+      routeScrollSnapshotRef.current[tabName] ?? scrollTopRef.current[tabName];
+    if (!element || typeof savedScrollTop !== 'number') return false;
+    element.scrollTo({ top: savedScrollTop, behavior: 'instant' });
+    const restored = Math.abs(element.scrollTop - savedScrollTop) <= 1;
+    if (restored) {
+      scrollTopRef.current[tabName] = savedScrollTop;
+      delete routeScrollSnapshotRef.current[tabName];
+    }
+    return restored;
+  }, [focusedTab, scrollElement]);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const mutationObserverRef = useRef<MutationObserver | null>(null);
@@ -708,8 +783,9 @@ export function Container({
         );
       },
       syncCurrentPage: syncFocusedTabPosition,
+      restoreScrollPosition,
     }),
-    [focusedTab, onTabPress, syncFocusedTabPosition],
+    [focusedTab, onTabPress, restoreScrollPosition, syncFocusedTabPosition],
   );
 
   // Memoised args for renderHeader/renderTabBar. tabNames identity may
@@ -766,9 +842,18 @@ export function Container({
               if (!isEffectValid.current || !width) {
                 return null;
               }
-              if (!isSwitchingTabRef.current) {
-                scrollTopRef.current[focusedTab.value] =
-                  scrollElement.scrollTop;
+              if (!isSwitchingTabRef.current && isRouteFocused) {
+                const currentScrollTop = scrollElement.scrollTop;
+                const tabName = focusedTab.value;
+                const savedRouteScrollTop =
+                  routeScrollSnapshotRef.current[tabName];
+                if (
+                  currentScrollTop > 0 ||
+                  savedRouteScrollTop === undefined ||
+                  savedRouteScrollTop === 0
+                ) {
+                  scrollTopRef.current[tabName] = currentScrollTop;
+                }
               }
               return (
                 <ContainerChild

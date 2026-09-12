@@ -15,8 +15,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
+import { marketTokenPreviewRouteConfig } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
@@ -50,6 +55,12 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
         prev[route.name] = {
           path: route.rewrite ? route.rewrite : route.name,
           exact: !!route.exact,
+          ...([
+            ETabMarketRoutes.MarketDetailV2,
+            ETabMarketRoutes.MarketNativeDetail,
+          ].some((name) => name === route.name)
+            ? marketTokenPreviewRouteConfig
+            : undefined),
         };
         const config = Array.isArray(route.children)
           ? route.children

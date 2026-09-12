@@ -242,6 +242,8 @@ export function DesktopLayout({
     routeIsNative ? 'native' : routeTokenAddress
   }:${marketTokenId ?? ''}`;
   const isSwapTokenReady =
+    displayTokenDetail?.address?.toLowerCase() === tokenAddress.toLowerCase() &&
+    displayTokenDetail?.networkId === networkId &&
     displayTokenDetail?.decimalsResolved !== false &&
     typeof displayTokenDetail?.decimals === 'number' &&
     Number.isInteger(displayTokenDetail.decimals) &&
@@ -406,6 +408,11 @@ export function DesktopLayout({
           isStockSharePrice
             ? stockId
             : effectiveMarketTradingViewParams?.tokenSymbol
+        }
+        loadingIdentity={
+          isStockSharePrice
+            ? `stock-share:${stockId}`
+            : `${effectiveMarketTradingViewParams?.networkId ?? ''}:${effectiveMarketTradingViewParams?.tokenAddress ?? ''}:${effectiveMarketTradingViewParams?.isNative ? 'native' : 'token'}`
         }
         isNative={
           isStockSharePrice ? false : effectiveMarketTradingViewParams?.isNative
