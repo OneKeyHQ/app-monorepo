@@ -60,7 +60,7 @@ describe('native indicator selector utilities', () => {
     ]);
   });
 
-  it('commits the full selection atomically when supported', () => {
+  it('commits the full selection atomically when supported', async () => {
     const indicators: ITradingViewIndicatorOption[] = [
       { label: 'VOL', value: 'VOL' },
       { label: 'MACD', value: 'MACD' },
@@ -69,7 +69,7 @@ describe('native indicator selector utilities', () => {
     const onSelect = jest.fn();
     const onSelectionConfirm = jest.fn();
 
-    commitNativeIndicatorSelection({
+    await commitNativeIndicatorSelection({
       indicators,
       nextActiveIndicatorValues: new Set(['VOL', 'RSI']),
       onSelect,
@@ -85,14 +85,14 @@ describe('native indicator selector utilities', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it('keeps sub-indicators out of a main-only selection replacement', () => {
+  it('keeps sub-indicators out of a main-only selection replacement', async () => {
     const indicators: ITradingViewIndicatorOption[] = [
       { label: 'MA', value: 'MA' },
       { label: 'VOL', value: 'VOL' },
     ];
     const onSelectionConfirm = jest.fn();
 
-    commitNativeIndicatorSelection({
+    await commitNativeIndicatorSelection({
       indicators,
       nextActiveIndicatorValues: new Set(['MA', 'VOL']),
       onSelect: jest.fn(),
@@ -107,7 +107,7 @@ describe('native indicator selector utilities', () => {
     });
   });
 
-  it('keeps per-indicator updates for legacy callers', () => {
+  it('keeps per-indicator updates for legacy callers', async () => {
     const indicators: ITradingViewIndicatorOption[] = [
       { label: 'VOL', value: 'VOL' },
       { label: 'MACD', value: 'MACD' },
@@ -115,7 +115,7 @@ describe('native indicator selector utilities', () => {
     ];
     const onSelect = jest.fn();
 
-    commitNativeIndicatorSelection({
+    await commitNativeIndicatorSelection({
       indicators,
       nextActiveIndicatorValues: new Set(['VOL', 'RSI']),
       onSelect,
