@@ -243,7 +243,7 @@ export function IndicatorListDialogContent({
     [maxSelectableSubIndicatorCount],
   );
 
-  const handleConfirmPress = useCallback(() => {
+  const commitSelection = useCallback(() => {
     const originalValues = originalActiveIndicatorValuesRef.current;
     const nextValues = activeIndicatorValuesRef.current;
     commitNativeIndicatorSelection({
@@ -253,8 +253,12 @@ export function IndicatorListDialogContent({
       onSelectionConfirm,
       originalActiveIndicatorValues: originalValues,
     });
+  }, [indicators, onSelect, onSelectionConfirm]);
+
+  const handleConfirmPress = useCallback(() => {
+    commitSelection();
     void dialog.close();
-  }, [dialog, indicators, onSelect, onSelectionConfirm]);
+  }, [commitSelection, dialog]);
 
   const confirmText = intl.formatMessage({
     id: ETranslations.global_confirm,
@@ -299,6 +303,7 @@ export function IndicatorListDialogContent({
           justifyContent="flex-start"
           variant="tertiary"
           onPress={async () => {
+            commitSelection();
             await dialog.close();
             onSettingsPress();
           }}
