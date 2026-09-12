@@ -99,6 +99,7 @@ function LegacyMarketBannerItem({
 }: IMarketBannerItemProps) {
   const { title, description, backgroundColor, tokenLogos } = item;
   const isPerps = item.type === EMarketBannerType.Perps;
+  const isIndexBanner = isMarketIndexQuoteBanner(item);
   const bgColor = convertThemeToken(backgroundColor, '$bgSubdued');
   const descriptionColor = convertThemeToken(
     description?.fontColor ?? '',
@@ -119,13 +120,13 @@ function LegacyMarketBannerItem({
       width="$32"
       alignItems="flex-start"
       justifyContent="space-between"
-      onPress={handlePress}
+      onPress={isIndexBanner ? undefined : handlePress}
       transition="quick"
       animateOnly={ANIMATE_ONLY_BORDER_COLOR}
       borderWidth={StyleSheet?.hairlineWidth ?? 1}
       borderColor="$neutral3"
-      hoverStyle={{ borderColor: '$neutral4' }}
-      pressStyle={{ borderColor: '$neutral5' }}
+      hoverStyle={isIndexBanner ? undefined : { borderColor: '$neutral4' }}
+      pressStyle={isIndexBanner ? undefined : { borderColor: '$neutral5' }}
       h={118}
       userSelect="none"
       $gtMd={{
@@ -362,8 +363,8 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   return (
     <YStack
       testID={MarketTestIDs.bannerItem}
-      onPress={handlePress}
-      role="button"
+      onPress={isIndexBanner ? undefined : handlePress}
+      role={isIndexBanner ? undefined : 'button'}
       aria-label={item.title}
       bg={convertThemeToken(item.backgroundColor, '$bgSubdued')}
       borderRadius="$3"
@@ -373,8 +374,8 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
       flexShrink={isSmallScreen ? 1 : 0}
       gap="$5"
       userSelect="none"
-      hoverStyle={{ opacity: 0.8 }}
-      pressStyle={{ opacity: 0.6 }}
+      hoverStyle={isIndexBanner ? undefined : { opacity: 0.8 }}
+      pressStyle={isIndexBanner ? undefined : { opacity: 0.6 }}
     >
       <XStack
         alignItems="center"

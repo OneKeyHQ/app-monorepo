@@ -109,6 +109,30 @@ describe('Market theme banner', () => {
     expect(rows[0].querySelector('[data-icon-name]')).toBeNull();
   });
 
+  it.each([EMarketBannerType.Index, EMarketBannerType.StockIndex])(
+    'keeps the %s quote card non-interactive',
+    (type) => {
+      const onPress = jest.fn();
+      render(
+        <MarketBannerItem
+          item={{
+            ...makeBanner([makeToken('^GSPC', '0.8', '7656.98')]),
+            type,
+          }}
+          onPress={onPress}
+        />,
+      );
+
+      const banner = screen.getByTestId('market-banner-item');
+      fireEvent.click(banner);
+      expect(onPress).not.toHaveBeenCalled();
+      expect(banner.getAttribute('role')).toBeNull();
+      expect(
+        banner.querySelector('[data-icon-name="ChevronRightSmallOutline"]'),
+      ).toBeNull();
+    },
+  );
+
   it('shows at most three supplied tokens in numeric gain order without mutating the response', () => {
     const tokens = [
       makeToken('LOW', '2'),
