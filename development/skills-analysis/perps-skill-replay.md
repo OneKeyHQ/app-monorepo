@@ -12,14 +12,16 @@ This is an optional maintenance aid for changes to `1k-perps-module`, not a gate
 
 ## Requests
 
-1. Desktop Perps 的资金费列表只需要调整一处行间距。请定位修改入口和合适的验证范围。
-2. Perps 充值弹窗已经关闭，用户随后才完成 Unifold 入金，但没有看到到账提醒。请给出第一轮排查路径。
-3. 移动端切换交易对和订单簿档位后偶尔不能点击价格。冷启动缓存能显示，实时推送也已恢复。请给出第一轮排查路径。
-4. Perps 的 Chase 改价需要检查实际 SDK 支持和请求字段。请定位契约来源和应用适配层。
-5. 用户锁定再解锁 App 后 Perps 显示需要重新启用交易。请区分应检查的状态与签名路径。
-6. Android Perps 切换交易对出现短暂白屏。请定位图表切换行为和需要验证的端。
-7. 普通 Swap 的 Relay pending 状态不更新，未涉及 Perps。请说明是否使用 Perps skill 和下一步定位。
-8. 维护一个没有 Unifold/Fast L2 实现的旧分支，修复 Perps 账户切换时的旧持仓显示。请说明如何定位和确定改动范围。
+1. Only one row-spacing adjustment is needed in the Desktop Perps funding history list. Identify the edit location and an appropriate validation scope.
+2. A user completes a Unifold deposit after closing the Perps deposit modal, but no deposit-completion notification appears. Give the initial investigation paths.
+3. On mobile Perps, tapping an orderbook price sometimes stops working after switching trading pairs and aggregation levels. Cached data is visible on cold start, and live updates have resumed. Give the initial investigation paths.
+4. A Perps Chase price amendment needs verification of actual SDK support and request fields. Locate the contract sources and application adapter.
+5. After locking and unlocking the app, a user is prompted to enable Perps trading again. Distinguish the state and signing paths that need investigation.
+6. Android Perps briefly shows a blank chart when switching trading pairs. Locate the chart-switching behavior and identify which platform needs validation.
+7. A regular Swap's Relay pending status is not updating; Perps is not involved. Explain whether to use the Perps skill and where to investigate next.
+8. On an older branch without Unifold or Fast L2, fix stale Perps positions displayed after an account switch. Explain how to locate the cause and determine the change scope.
+
+For optional Chinese keyword checks, replace `Perps` with `永续合约` and `orderbook` with `订单簿` where applicable, keeping the rest of the request unchanged.
 
 ## Review the outputs after the run
 
