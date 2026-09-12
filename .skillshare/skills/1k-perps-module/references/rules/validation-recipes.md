@@ -1,6 +1,6 @@
 # Perps Validation and Review
 
-Use when choosing validation or reviewing a Perps change. Select evidence for the changed behavior; domain references list candidate tests and scenarios. This is not an additional release gate or a mandatory full-module suite.
+Use when choosing validation or reviewing a Perps change. Select evidence for the changed behavior; domain references list candidate tests and scenarios. Use existing repo checks without requiring a full-module suite.
 
 ## Match evidence to the change
 
@@ -8,7 +8,7 @@ Use when choosing validation or reviewing a Perps change. Select evidence for th
 | --- | --- |
 | Copy, spacing, row formatting | Inspect the affected component and verify the relevant layout/locale; follow existing repo checks. No SDK survey, trading exercise or all-platform run just because the file is in Perps. |
 | Pure calculation, parsing, identity or freshness logic | Relevant existing tests; add or adjust cases when behavior changes or a regression needs coverage. |
-| Submit/modify/cancel/signing | Payload/adapter tests plus applicable SDK or API evidence; use an authorized environment for external effects. |
+| Submit/modify/cancel/withdraw/signing | Payload/adapter tests plus applicable SDK or API evidence; use an authorized environment for external effects. |
 | Subscription/cache lifecycle | Targeted tests and the affected switch/reconnect/foreground scenario; check identity and interaction readiness, not just visible ticker updates. |
 | Chart/layout interaction | Affected platform and entry route; confirm actual rendering/readiness, state and interaction. Include another platform when shared behavior is affected. |
 | Provider tracking/account state | Relevant identity, stale response and lifecycle cases from the matching reference. |
@@ -34,6 +34,8 @@ For performance findings, connect a hot write or broad subscription to the affec
 
 ## Report what was established
 
-Summarize the changed behavior, relevant test/command results and runtime evidence. If a significant path could not be verified, identify the specific gap and why it matters. Distinguish a demonstrated correctness defect from missing evidence or an optional improvement; missing evidence is not automatically a release blocker.
+For changes to order submit/modify/cancel or withdrawal payload semantics, or signing behavior, an unverified changed contract is a correctness blocker. Identify the specific field/invariant and missing adapter/SDK or API evidence before marking it ready. Relevant source tracing and targeted payload/schema/mock-signing tests can supply that evidence; production trading, an additional approval step and unrelated platform runs are not required. This condition does not apply to presentation edits or refactors shown to preserve those contracts.
+
+Summarize the changed behavior, relevant test/command results and runtime evidence. If a significant path could not be verified, identify the specific gap and why it matters. Distinguish a demonstrated correctness defect from missing evidence or an optional improvement; other evidence gaps are not automatically release blockers.
 
 Preserve authorization and secret-handling boundaries from the main skill and repo instructions. Reuse authorization already provided; do not use production trading merely to satisfy a recipe.

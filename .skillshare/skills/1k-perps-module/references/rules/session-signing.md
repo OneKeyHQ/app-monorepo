@@ -2,6 +2,8 @@
 
 Use when enable-trading, lock/unlock, agent credentials or signing behavior changes. A label/style edit in a trading guard does not by itself require a credential audit.
 
+The paths and per-call credential behavior below describe the current agent-secret session design. Older branches can construct `WalletHyperliquidProxy` from a private key and retain an `ethers.Wallet`, without `hyperLiquidAgentSecret.ts` or this session layer. Check that branch's `ServiceHyperliquidWallet`, credential/status access and lock/disposal path first; do not infer a missing session or migrate the design merely to match this guide.
+
 ## Locate the affected layer
 
 | Layer | Starting owners |
@@ -16,7 +18,7 @@ Use when enable-trading, lock/unlock, agent credentials or signing behavior chan
 
 Trace the current guard's call path; status also includes approval/account requirements beyond the agent credential. A changed enable-trading button is not enough to conclude that a key was lost.
 
-## Status reads and signing have different outcomes
+## Current status reads and signing have different outcomes
 
 `ServiceAccount.getHyperLiquidAgentCredentialInfo` returns public metadata, but its internal `localDb.getHyperLiquidAgentCredential` read can decrypt a stored secret. It catches a read failure and returns `undefined` for status consumers. Do not describe it as a guaranteed non-decrypting read or infer that status metadata proves signing is ready.
 

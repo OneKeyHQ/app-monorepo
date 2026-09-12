@@ -30,7 +30,7 @@ Keep account, dex/coin, order identity and order type aligned when syncing lines
 
 `onChartOrderIntent` routes to the app's order dialogs and actions. The legacy draft callback is intentionally non-submitting; do not turn it into an exchange submission just because its name resembles a trading action. Preserve confirmation/guard behavior used by the actual intent route.
 
-The `trv_interactionOverlay` message updates parent interaction state. Follow its handling and `MobilePerpMarket` scroll state through overlay release, symbol change and unmount when investigating a stuck page. Fixing an overlay lifecycle should not require unrelated subscription changes.
+The `tradingview_interactionOverlay` message updates parent interaction state. Follow its handling and `MobilePerpMarket` scroll state through overlay release, symbol change and unmount when investigating a stuck page. Fixing an overlay lifecycle should not require unrelated subscription changes.
 
 ## Select validation
 

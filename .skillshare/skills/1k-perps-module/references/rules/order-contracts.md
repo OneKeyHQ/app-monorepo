@@ -8,7 +8,7 @@ Use for order behavior, validation, order-mode controls or execution prices. A r
 - Orchestration: `packages/kit/src/states/jotai/contexts/hyperliquid/actions.ts` (`placeOrderByCoin`, `amendChartOrder`, `chaseOrder`, `cancelChartOrder`).
 - SDK adapter: `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidExchange.ts` (`placeOrderByCoin`, `amendOrderPriceByOid`, `modifyOrder`, `placeScaleOrder`, `twapOrder`, `twapCancel`).
 - Payload helpers: `packages/kit-bg/src/services/ServiceHyperLiquid/utils/coinScopedOrder.ts`, `packages/kit-bg/src/services/ServiceHyperLiquid/utils/orderAmend.ts`.
-- Position actions: `packages/kit/src/views/Perp/components/OrderInfoPanel/` modals and `utils/addPosition.ts`, `utils/positionTpslSnapshot.ts`.
+- Position actions: modals under `packages/kit/src/views/Perp/components/OrderInfoPanel/`; helpers `packages/kit/src/views/Perp/components/OrderInfoPanel/utils/addPosition.ts` and `packages/kit/src/views/Perp/components/OrderInfoPanel/utils/positionTpslSnapshot.ts`.
 - Shared precision/contracts: `packages/shared/src/utils/perpsUtils.ts`, `packages/shared/src/utils/hyperliquidScaleOrderUtils.ts`, `packages/shared/types/hyperliquid/`.
 
 When changing wire semantics, confirm the working branch's SDK, patches and narrowed types using [source index](source-index.md). Product controls may deliberately expose fewer capabilities than the SDK.
@@ -42,7 +42,7 @@ An order or position row may refer to a different coin from the active chart. Us
 - `packages/kit/src/views/Perp/hooks/useTradingPrice.ts` and `usePerpsMidPrice.ts` select live/display sources. Display snapshots, formatted prices and chart priceScale are not interchangeable with payload precision or a fresh execution reference.
 - `packages/kit/src/views/Perp/hooks/useOrderPrice.ts` and `packages/kit/src/views/Perp/utils/tradingReferencePrice.ts` resolve order/sizing prices. For standard BBO limit sizing, the hidden static form price can be stale; use the resolved order price. Do not substitute mid for mark/oracle calculations without tracing the contract.
 - `ServiceHyperliquid.getMarketOrderReferencePrice` uses `packages/kit-bg/src/services/ServiceHyperLiquid/utils/marketOrderReferencePrice.ts`: validate the cached allMids entry or load the requested coin's dex. `ClosePositionModal.tsx` has UI readiness/submit checks; main displaying a price does not establish BG readiness on split-runtime targets.
-- `utils/addPosition.ts` ties sizing to the scoped position and margin data. Keep string/BigNumber precision where preserved upstream; formatted display values should not silently become order inputs.
+- The `addPosition.ts` helper listed above ties sizing to the scoped position and margin data. Keep string/BigNumber precision where preserved upstream; formatted display values should not silently become order inputs.
 
 For book/BBO click eligibility, use [market data](state-subscriptions.md); for account/position identity, use [account state](positions-account-state.md).
 

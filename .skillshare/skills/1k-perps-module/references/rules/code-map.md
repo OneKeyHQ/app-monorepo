@@ -6,7 +6,7 @@ Use this for cross-layer work or when the task's owner is unclear. Topic referen
 
 | Layer | Starting anchors | Responsibility |
 | --- | --- | --- |
-| Entry and layout | `packages/kit/src/views/Perp/pages/`, `packages/kit/src/views/Perp/layouts/`, `packages/kit/src/views/Perp/PerpsProvider.tsx` | Platform layout, navigation, provider lifetime |
+| Entry and layout | `packages/kit/src/views/Perp/pages/`, `packages/kit/src/views/Perp/layouts/`, `packages/kit/src/views/Perp/PerpsProvider.tsx`, `packages/kit/src/views/Perp/PerpsProviderMirror.tsx` | Platform layout, navigation, provider lifetime and context access outside the page tree |
 | UI context | `packages/kit/src/states/jotai/contexts/hyperliquid/atoms.ts`, `packages/kit/src/states/jotai/contexts/hyperliquid/actions.ts` | Selected instrument, scoped UI data, action orchestration |
 | UI effects | `packages/kit/src/views/Perp/components/PerpsGlobalEffects.tsx` | Subscription intent, initialization, UI event synchronization |
 | BG/global state | `packages/kit-bg/src/states/jotai/atoms/perps.ts` | Account readiness, live/display data, persisted settings and tracking |
@@ -15,6 +15,8 @@ Use this for cross-layer work or when the task's owner is unclear. Topic referen
 | Shared contracts | `packages/shared/types/hyperliquid/`, `packages/shared/src/utils/perpsUtils.ts` | Types, precision, identifiers and domain calculations |
 
 Trading intent commonly travels UI -> context action -> background service -> SDK, with results returning through scoped state. Deposit providers and signing have additional owners described in their topic references. UI projections, formatters and interaction state remain legitimate local responsibilities.
+
+For dialogs outside the Perps page tree, inspect `PerpsProviderMirror` and the context store actually supplied to the consumer. For context-scoped atoms, a default/global-store read is not a substitute for reading the intended Perps context. Account-selector context has its own `packages/kit/src/views/Perp/PerpsAccountSelectorProviderMirror.tsx`; check it when the dialog also consumes that context.
 
 ## Runtime scope
 

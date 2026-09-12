@@ -1,6 +1,6 @@
 ---
 name: 1k-perps-module
-description: Use when developing or debugging OneKey Perps/Hyperliquid orders, market data, accounts, deposits, signing, charts, or layouts, or reviewing changes to those surfaces. Excludes generic Swap/Market work.
+description: "Use for OneKey Perps/Hyperliquid development/review: views/Perp, ServiceHyperLiquid, 永续合约, 订单簿, orderbook, TWAP, scale, Chase, Relay/Unifold deposits, signing, charts or layouts. Excludes generic Swap/Market."
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
@@ -35,6 +35,6 @@ Generic Swap/Relay work belongs with `$1k-trade-swap-market`; generic chart brid
 - Preserve account/instrument identity and distinguish display snapshots from data eligible for trading. Do not use another surface's recovery as proof of the affected surface's readiness.
 - Keep secrets and signatures out of diagnostics; retain account binding, signing and risk validation. Production order placement, cancellation, deposits or withdrawals require explicit user authorization for the action and account. Reuse authorization already given in the task.
 
-For cross-layer or runtime questions, use [ownership map](references/rules/code-map.md). For SDK/API uncertainty or dependency changes, use [source index](references/rules/source-index.md). For review or choosing evidence, use [validation recipes](references/rules/validation-recipes.md). Load related state, performance or cross-platform skills when their specialist guidance is needed.
+For cross-layer or runtime questions, use [ownership map](references/rules/code-map.md). For SDK/API uncertainty or dependency changes, use [source index](references/rules/source-index.md). For review or choosing evidence, use [validation recipes](references/rules/validation-recipes.md). For Perps analytics/埋点 changes, use `$1k-analytics`. Load related state, performance or cross-platform skills when their specialist guidance is needed.
 
 Report the result and relevant evidence. In reviews, identify concrete code consequences; a preferred pattern or an unrelated unrun scenario is not itself a blocker. Note material validation gaps without inventing additional approval or CI requirements.
