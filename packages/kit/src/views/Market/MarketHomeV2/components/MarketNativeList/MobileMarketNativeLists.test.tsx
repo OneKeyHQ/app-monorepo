@@ -81,11 +81,16 @@ const mockWatchlistData: IMarketToken[] = [
   },
 ];
 let mockRowAction: ((event: RowActionEvent) => void) | undefined;
+let mockEndReached: (() => void) | undefined;
 let mockNativeSnapshot: NativeListSnapshot | undefined;
 let mockTravelMode = false;
 const mockRefetch = jest.fn();
 const mockRefresh = jest.fn();
+const mockLoadMore = jest.fn();
+let mockCanLoadMore = false;
+let mockIsLoadMoreError = false;
 let mockPullToRefresh: () => void;
+let mockIsNativeAndroid = false;
 const mockData: IMarketToken[] = [];
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockTheme = Object.fromEntries(
@@ -129,9 +134,11 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
         snapshot: NativeListSnapshot;
         onRefresh?: () => void;
         onRowAction?: (event: RowActionEvent) => void;
+        onEndReached?: () => void;
       }
-    >(({ snapshot, onRefresh, onRowAction }, ref) => {
+    >(({ snapshot, onRefresh, onRowAction, onEndReached }, ref) => {
       mockRowAction = onRowAction;
+      mockEndReached = onEndReached;
       mockNativeSnapshot = snapshot;
       const [nativeRefreshing, setNativeRefreshing] = React.useState(false);
       React.useEffect(() => {
@@ -154,12 +161,19 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
     }),
   };
 });
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({ isNativeIOS: true }));
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: {
     getRuntimeEnvironmentSync: () => ({
       profile: { kind: mockTravelMode ? 'travel-mode' : 'standard' },
     }),
+  },
+}));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  get isNativeAndroid() {
+    return mockIsNativeAndroid;
+  },
+  get isNativeIOS() {
+    return !mockIsNativeAndroid;
   },
 }));
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
@@ -168,6 +182,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
 }));
 jest.mock('react-native', () => ({
   Dimensions: { get: () => ({ width: 402, height: 874 }) },
+  PixelRatio: { get: () => 3 },
   StyleSheet: { create: (styles: Record<string, unknown>) => styles },
 }));
 jest.mock('@onekeyhq/components', () => ({
@@ -187,7 +202,9 @@ jest.mock('../MarketTokenList/hooks/useMarketTokenList', () => ({
     data: mockData,
     isLoading: false,
     isLoadingMore: false,
-    canLoadMore: false,
+    isLoadMoreError: mockIsLoadMoreError,
+    canLoadMore: mockCanLoadMore,
+    loadMore: mockLoadMore,
     refresh: mockRefresh,
     refetch: mockRefetch,
   }),
@@ -294,7 +311,26 @@ jest.mock('../MarketTopCoinsList/hooks/useMarketTopCoins', () => ({
 }));
 
 describe('MobileMarketNativeTokenList refresh', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    mockIsNativeAndroid = false;
+    mockCanLoadMore = false;
+    mockIsLoadMoreError = false;
+    jest.clearAllMocks();
+  });
+
+  it('keeps pull-to-refresh disabled on Android Market lists', async () => {
+    mockIsNativeAndroid = true;
+    render(
+      <MobileMarketNativeTokenList
+        networkId="evm--1"
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+
+    expect(mockNativeSnapshot?.capabilities?.pullToRefresh).toBe(false);
+    await act(async () => mockPullToRefresh());
+    expect(mockRefetch).not.toHaveBeenCalled();
+  });
 
   it('retries an error row through the uncached native request', async () => {
     mockRefetch.mockResolvedValue(undefined);
@@ -311,6 +347,28 @@ describe('MobileMarketNativeTokenList refresh', () => {
 
     expect(mockRefetch).toHaveBeenCalledTimes(1);
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it('pauses native auto-pagination after a failure and retries from the footer', async () => {
+    mockCanLoadMore = true;
+    mockIsLoadMoreError = true;
+    render(
+      <MobileMarketNativeTokenList
+        networkId="evm--1"
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+
+    await act(async () => mockEndReached?.());
+    expect(mockLoadMore).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mockRowAction?.({
+        actionKey: 'load-more-retry',
+        rowKey: 'market-load-more-retry',
+      });
+    });
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
 
   it.each([false, true])(
