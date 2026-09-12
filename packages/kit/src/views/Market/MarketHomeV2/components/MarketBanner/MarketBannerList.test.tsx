@@ -90,3 +90,27 @@ it('reevaluates banner visibility when the locale has cached banners', () => {
   rerender(<Page />);
   expect(screen.getByTestId('banner')).toBeTruthy();
 });
+
+it('shows the first successful banners after an initial request failure', () => {
+  mockState = { ...populated(), bannerList: [], isFetched: false };
+  const { rerender } = render(<Page />);
+  expect(screen.queryByTestId('banner')).toBeNull();
+  mockState = populated();
+  rerender(<Page />);
+  expect(screen.getByTestId('banner')).toBeTruthy();
+  mockState = { ...populated(), bannerList: [] };
+  rerender(<Page />);
+  expect(
+    screen.getByTestId('banner').closest('[aria-hidden=true]'),
+  ).toBeTruthy();
+});
+
+it('locks an empty header only after a successful retry returns no banners', () => {
+  mockState = { ...populated(), bannerList: [], isFetched: false };
+  const { rerender } = render(<Page />);
+  mockState = { ...populated(), bannerList: [] };
+  rerender(<Page />);
+  mockState = populated();
+  rerender(<Page />);
+  expect(screen.queryByTestId('banner')).toBeNull();
+});

@@ -116,6 +116,20 @@ jest.mock('../utils/tokenListHelpers', () => {
     getMarketTokenNetworkLogoUri,
     getNetworkLogoUri: (networkId: string) =>
       networkId === 'evm--1' ? 'network-logo' : '',
+    marketTokenKey: (item: {
+      assetId?: string;
+      stockId?: string;
+      perpsCoin?: string;
+      networkId: string;
+      address?: string;
+      isNative?: boolean;
+    }) => {
+      if (item.assetId) return `asset:${item.assetId}`;
+      if (item.stockId) return `stock:${item.stockId}`;
+      return item.perpsCoin
+        ? `perps:${item.perpsCoin}`
+        : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
+    },
     transformApiItemToToken: jest.fn(
       (item: ITokenItem, options: ITransformOptions) => {
         const tokenNetworkId = item.networkId || options.chainId;
@@ -190,6 +204,10 @@ describe('useMarketTokenList initial data', () => {
   const mockTransformApiItemToToken = jest.mocked(transformApiItemToToken);
 
   beforeEach(() => {
+    Object.defineProperty(globalThis, 'requestIdleCallback', {
+      configurable: true,
+      value: (callback: () => void) => setTimeout(callback, 0),
+    });
     Object.defineProperty(globalThis, 'cancelIdleCallback', {
       configurable: true,
       value: jest.fn(),
@@ -479,6 +497,64 @@ describe('useMarketTokenList initial data', () => {
     });
   });
 
+  it('deduplicates overlapping native ranking pages without losing page progress', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    mockFetchMarketTokenList.mockImplementation(async ({ page }) =>
+      page === 1
+        ? {
+            list: [
+              {
+                address: '0xDuplicate',
+                name: 'Page One',
+                symbol: 'ONE',
+                decimals: 18,
+              },
+            ],
+            total: 2,
+          }
+        : {
+            list: [
+              {
+                address: '0xduplicate',
+                name: 'Moved Ranking',
+                symbol: 'ONE',
+                decimals: 18,
+              },
+              {
+                address: '0xunique',
+                name: 'Page Two',
+                symbol: 'TWO',
+                decimals: 18,
+              },
+            ],
+            total: 2,
+          },
+    );
+
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pageSize: 1,
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      return null;
+    }
+
+    render(<Probe />);
+    await waitFor(() => expect(latestResult?.canLoadMore).toBe(true));
+    await act(async () => latestResult?.loadMore());
+    await waitFor(() => {
+      expect(latestResult?.data.map((item) => item.id)).toEqual([
+        '0xDuplicate',
+        '0xunique',
+      ]);
+      expect(latestResult?.currentPage).toBe(2);
+    });
+  });
+
   it('refreshes every loaded page without resetting pagination when config resolves later', async () => {
     let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
 
@@ -581,5 +657,232 @@ describe('useMarketTokenList initial data', () => {
         undefined,
       );
     });
+  });
+  it('ends native network-switch loading on failure and recovers through refetch', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    mockFetchMarketTokenList.mockRejectedValue(new Error('offline'));
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      return null;
+    }
+    render(<Probe />);
+    await waitFor(() => expect(latestResult?.isError).toBe(true));
+    expect(latestResult?.isLoading).toBe(false);
+    expect(latestResult?.isNetworkSwitching).toBe(false);
+    expect(latestResult?.data).toEqual([]);
+    mockFetchMarketTokenList.mockImplementation(async (_params, options) => {
+      if (!options?.forceRemote) {
+        return Promise.reject(new Error('cached offline failure'));
+      }
+      return createResponse('0xremote', 'Remote Token', 'REMOTE');
+    });
+    await act(async () => latestResult?.refetch());
+    expect(latestResult?.isError).toBe(false);
+    expect(latestResult?.data[0]?.id).toBe('0xremote');
+  });
+
+  it('ends native cold-start loading when the network is initialized after mount', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    mockFetchMarketTokenList.mockRejectedValue(new Error('offline'));
+    function Probe({ networkId }: { networkId: string }) {
+      latestResult = useMarketTokenList({
+        networkId,
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      return null;
+    }
+    const { rerender } = render(<Probe networkId="" />);
+    await act(async () => latestResult?.refetch());
+    expect(mockFetchMarketTokenList).not.toHaveBeenCalled();
+    rerender(<Probe networkId="evm--1" />);
+    await waitFor(() => expect(latestResult?.isError).toBe(true));
+    expect(latestResult?.isLoading).toBe(false);
+    expect(latestResult?.isNetworkSwitching).toBe(false);
+    expect(latestResult?.data).toEqual([]);
+    mockFetchMarketTokenList.mockResolvedValue(
+      createResponse('0xremote', 'Remote Token', 'REMOTE'),
+    );
+    await act(async () => latestResult?.refetch());
+    expect(latestResult?.isError).toBe(false);
+    expect(latestResult?.isLoading).toBe(false);
+    expect(latestResult?.data[0]?.id).toBe('0xremote');
+  });
+
+  it('keeps native rows when an offline refresh uses the last successful response', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    mockFetchMarketTokenList.mockResolvedValue(
+      createResponse('0xremote', 'Remote Token', 'REMOTE'),
+    );
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      return null;
+    }
+    render(<Probe />);
+    await waitFor(() => expect(latestResult?.data[0]?.id).toBe('0xremote'));
+    mockFetchMarketTokenList.mockRejectedValue(new Error('offline'));
+    await act(async () => latestResult?.refetch());
+    expect(latestResult?.isError).toBe(true);
+    expect(latestResult?.data[0]?.id).toBe('0xremote');
+    expect(latestResult?.isLoading).toBe(false);
+  });
+
+  it('starts only one native page request for concurrent end-reached events', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    const nextPage = createDeferred<IMarketTokenListResponse>();
+    mockFetchMarketTokenList.mockImplementation(async ({ page }) =>
+      page === 1
+        ? { ...createResponse('first', 'First', 'FIRST'), total: 4 }
+        : nextPage.promise,
+    );
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        pageSize: 1,
+        type: 'trending',
+      });
+      return null;
+    }
+    render(<Probe />);
+    await waitFor(() =>
+      expect(latestResult?.isProvisionalFirstPageResult).toBe(false),
+    );
+    let requests: Promise<void>[] = [];
+    act(() => {
+      if (latestResult) {
+        requests = [latestResult.loadMore(), latestResult.loadMore()];
+      }
+    });
+    const nextPageCalls = mockFetchMarketTokenList.mock.calls.filter(
+      ([params]) => params.page === 2,
+    ).length;
+    await act(async () => {
+      nextPage.resolve({
+        ...createResponse('second', 'Second', 'SECOND'),
+        total: 4,
+      });
+      await Promise.all(requests);
+    });
+    expect(nextPageCalls).toBe(1);
+    expect(latestResult?.data.map((item) => item.id)).toEqual([
+      'first',
+      'second',
+    ]);
+  });
+
+  it('does not append an old native page after a refreshed first page', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    const nextPage = createDeferred<IMarketTokenListResponse>();
+    mockFetchMarketTokenList.mockImplementation(async ({ page }) =>
+      page === 1
+        ? { ...createResponse('first', 'First', 'FIRST'), total: 4 }
+        : nextPage.promise,
+    );
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        pageSize: 1,
+        type: 'trending',
+      });
+      return null;
+    }
+    render(<Probe />);
+    await waitFor(() =>
+      expect(latestResult?.isProvisionalFirstPageResult).toBe(false),
+    );
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = latestResult?.loadMore();
+    });
+    expect(latestResult?.isLoadingMore).toBe(true);
+    mockFetchMarketTokenList.mockResolvedValue({
+      ...createResponse('fresh', 'Fresh', 'FRESH'),
+      total: 4,
+    });
+    await act(async () => latestResult?.refetch());
+    await act(async () => {
+      nextPage.resolve({
+        ...createResponse('stale', 'Stale', 'STALE'),
+        total: 4,
+      });
+      await pending;
+    });
+    expect(latestResult?.data.map((item) => item.id)).toEqual(['fresh']);
+    expect(latestResult?.currentPage).toBe(1);
+    expect(latestResult?.isLoadingMore).toBe(false);
+  });
+
+  it('keeps current native pagination loading when an old category finishes', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    const oldPage = createDeferred<IMarketTokenListResponse>();
+    const newPage = createDeferred<IMarketTokenListResponse>();
+    mockFetchMarketTokenList.mockImplementation(async ({ page, category }) => {
+      if (page !== 1)
+        return category === 'old' ? oldPage.promise : newPage.promise;
+      return { ...createResponse(category || '', 'Token', 'TOKEN'), total: 4 };
+    });
+    function Probe({ category }: { category: string }) {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        pageSize: 1,
+        type: 'trending',
+        category,
+      });
+      return null;
+    }
+    const view = render(<Probe category="old" />);
+    await waitFor(() =>
+      expect(latestResult?.isProvisionalFirstPageResult).toBe(false),
+    );
+    let oldRequest: Promise<void> | undefined;
+    act(() => {
+      oldRequest = latestResult?.loadMore();
+    });
+    view.rerender(<Probe category="new" />);
+    await waitFor(() =>
+      expect(latestResult?.isProvisionalFirstPageResult).toBe(false),
+    );
+    let newRequest: Promise<void> | undefined;
+    act(() => {
+      newRequest = latestResult?.loadMore();
+    });
+    await act(async () => {
+      oldPage.resolve(createResponse('stale', 'Stale', 'STALE'));
+      await oldRequest;
+    });
+    const loadingAfterOldCompletion = latestResult?.isLoadingMore;
+    await act(async () => {
+      newPage.resolve(createResponse('current', 'Current', 'CURRENT'));
+      await newRequest;
+    });
+    expect(loadingAfterOldCompletion).toBe(true);
+    expect(latestResult?.data.map((item) => item.id)).toEqual([
+      'new',
+      'current',
+    ]);
+    expect(latestResult?.isLoadingMore).toBe(false);
   });
 });

@@ -122,6 +122,7 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import type { IMarketPerpsInfo } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -163,6 +164,7 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
 import {
   createFetchUserAbstractionRawWithCache,
   invalidateUserAbstractionRawCache,
@@ -170,8 +172,8 @@ import {
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
 import {
-  fetchFundingPageWithRetry,
   fetchPerpFundingHistoryPages,
+  fetchRecentUserFundingHistory,
 } from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
 import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
@@ -1677,6 +1679,46 @@ export default class ServiceHyperliquid extends ServiceBase {
     return meta;
   }
 
+  // Top Coins detail data comes from the self-maintained asset API, which
+  // carries no perps field. Resolve the Hyperliquid counterpart from the
+  // main-DEX universe so the market page can still offer a perps entry.
+  @backgroundMethod()
+  async resolveMarketPerpsInfoBySymbol({
+    symbol,
+  }: {
+    symbol: string;
+  }): Promise<IMarketPerpsInfo | undefined> {
+    const coin = symbol?.trim().toUpperCase();
+    if (!coin) {
+      return undefined;
+    }
+    const findMainDexAsset = (universesByDex: IPerpsUniverse[][]) =>
+      universesByDex[0]?.find((item) => !item.isDelisted && item.name === coin);
+
+    const cached = await this.getTradingUniverse();
+    let { universesByDex } = cached;
+    if (
+      shouldRefreshMarketPerpsUniverse({
+        universesByDex,
+        updatedAt: cached.updatedAt,
+      })
+    ) {
+      try {
+        await this.refreshTradingMeta();
+        ({ universesByDex } = await this.getTradingUniverse());
+      } catch (error) {
+        // A stale universe still answers most symbols, and the caller reads a
+        // miss as "no perps entry" — losing that to a network blip would be
+        // worse than the staleness this was guarding against.
+        defaultLogger.app.error.log(
+          `Failed to refresh perps trading meta for market: ${String(error)}`,
+        );
+      }
+    }
+    const asset = findMainDexAsset(universesByDex);
+    return asset ? { hlTicker: asset.name } : undefined;
+  }
+
   @backgroundMethod()
   async getPerpMarketOverview({
     coin,
@@ -1794,6 +1836,35 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._getUserFundingHistoryMemo(user);
   }
 
+  @backgroundMethod()
+  async getFundingHistoryPaymentTokens({ coins }: { coins: string[] }) {
+    const { infoClient } = hyperLiquidApiClients;
+    const dexNames = [
+      ...new Set(coins.map((coin) => parseDexCoin(coin).dexLabel ?? '')),
+    ];
+    const [spotMeta, dexMetas] = await Promise.all([
+      infoClient.spotMeta(),
+      Promise.all(dexNames.map((dex) => infoClient.meta({ dex }))),
+    ]);
+    const tokensByDex = new Map<string, string>();
+    dexMetas.forEach((meta, index) => {
+      const token = spotMeta.tokens.find(
+        (item) => item.index === meta.collateralToken,
+      );
+      if (!token?.name) {
+        throw new OneKeyLocalError(
+          'Funding payment token metadata is unavailable',
+        );
+      }
+      tokensByDex.set(dexNames[index], token.name);
+    });
+    const paymentTokens: Partial<Record<string, string>> = {};
+    coins.forEach((coin) => {
+      paymentTokens[coin] = tokensByDex.get(parseDexCoin(coin).dexLabel ?? '');
+    });
+    return paymentTokens;
+  }
+
   private _fundingHistoryRequestsInFlight = new Set<IHex>();
 
   private _getUserFundingHistoryMemo = cacheUtils.memoizee(
@@ -1801,24 +1872,9 @@ export default class ServiceHyperliquid extends ServiceBase {
       const { infoClient } = hyperLiquidApiClients;
       this._fundingHistoryRequestsInFlight.add(user);
       try {
-        return await fetchPerpFundingHistoryPages({
-          startTime: 0,
-          endTime: Date.now(),
-          fetchPage: (page) =>
-            fetchFundingPageWithRetry(() =>
-              infoClient.userFunding({ user, ...page }),
-            ),
-          getRecordKey: (record) =>
-            [
-              record.time,
-              record.hash,
-              record.delta.coin,
-              record.delta.szi,
-              record.delta.usdc,
-              record.delta.fundingRate,
-              record.delta.nSamples ?? '',
-            ].join(':'),
-        });
+        return await fetchRecentUserFundingHistory(() =>
+          infoClient.userFunding({ user }),
+        );
       } finally {
         this._fundingHistoryRequestsInFlight.delete(user);
       }

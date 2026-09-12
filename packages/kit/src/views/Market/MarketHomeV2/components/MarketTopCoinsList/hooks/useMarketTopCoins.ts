@@ -1,4 +1,5 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,6 +9,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
@@ -123,6 +126,12 @@ export function useMarketTopCoinNavigation({
 
   const handleItemPress = useCallback(
     async (item: IMarketAssetListItem) => {
+      if (
+        travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode'
+      ) {
+        return;
+      }
       if (isNavigatingRef.current) {
         return;
       }
@@ -149,17 +158,31 @@ export function useMarketTopCoinNavigation({
 }
 
 export function useMarketTopCoins(
-  options: IUseMarketTopCoinNavigationOptions = {},
+  options: IUseMarketTopCoinNavigationOptions & {
+    dataCacheRef?: RefObject<IMarketAssetListItem[] | undefined>;
+  } = {},
 ) {
   const handleItemPress = useMarketTopCoinNavigation(options);
-  const { result, isLoading } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceMarket.fetchMarketAssetList({
-        currency: 'usd',
-        limit: 100,
-        page: 1,
-        type: MARKET_TOP_COINS_CATEGORY_ID,
-      }),
+  const {
+    result,
+    isLoading,
+    run: refresh,
+  } = usePromiseResult(
+    async () => {
+      try {
+        const response =
+          await backgroundApiProxy.serviceMarket.fetchMarketAssetList({
+            currency: 'usd',
+            limit: 100,
+            page: 1,
+            type: MARKET_TOP_COINS_CATEGORY_ID,
+          });
+        return { response, failed: false };
+      } catch (error) {
+        if (!platformEnv.isNative) throw error;
+        return { response: undefined, failed: true };
+      }
+    },
     [],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
@@ -167,11 +190,21 @@ export function useMarketTopCoins(
       watchLoading: true,
     },
   );
-  const data = result?.list ?? EMPTY_MARKET_ASSET_LIST;
+  const localDataCacheRef = useRef<IMarketAssetListItem[] | undefined>(
+    undefined,
+  );
+  const dataCacheRef = options.dataCacheRef ?? localDataCacheRef;
+  useEffect(() => {
+    if (result?.response) dataCacheRef.current = result.response.list;
+  }, [dataCacheRef, result]);
+  const data =
+    result?.response?.list ?? dataCacheRef.current ?? EMPTY_MARKET_ASSET_LIST;
 
   return {
     data,
     handleItemPress,
     isLoading,
+    isError: Boolean(result?.failed),
+    refresh,
   };
 }

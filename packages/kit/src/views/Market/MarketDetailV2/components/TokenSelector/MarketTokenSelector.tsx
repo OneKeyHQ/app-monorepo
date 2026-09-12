@@ -9,6 +9,7 @@ import {
   Popover,
   SearchBar,
   SizableText,
+  Toast,
   XStack,
   YStack,
   usePopoverContext,
@@ -44,6 +45,7 @@ import type {
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
+import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketStockSelectorList } from './MarketStockSelectorList';
@@ -76,6 +78,7 @@ function convertTopCoinToSelectorToken(
   return {
     id: `market_asset_${item.assetId}`,
     marketAssetId: item.assetId,
+    assetId: item.assetId,
     name: item.symbol.toUpperCase(),
     symbol: item.symbol.toUpperCase(),
     address: '',
@@ -146,7 +149,9 @@ function BaseMarketTokenSelectorContent({
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
-  const toMarketStockDetailPage = useToMarketStockDetailPage();
+  const toMarketStockDetailPage = useToMarketStockDetailPage({
+    replaceCurrentDetail: true,
+  });
   const {
     data: topCoins,
     handleItemPress: handleTopCoinPress,
@@ -276,33 +281,75 @@ function BaseMarketTokenSelectorContent({
     [setSelectorConfig],
   );
 
+  const navigationRequestIdRef = useRef(0);
   const navigateToTokenDetail = useCallback(
     (token: {
       address: string;
       networkId: string;
+      assetId?: string;
+      stockId?: string;
+      stock?: IMarketToken['stock'];
+      name?: string;
+      symbol?: string;
+      tokenImageUri?: string;
       isNative?: boolean;
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
     }) => {
+      navigationRequestIdRef.current += 1;
+      const requestId = navigationRequestIdRef.current;
       if (token.perpsCoin) {
         void closePopover?.();
         navigateToPerps(token.perpsCoin);
         return;
       }
 
-      navigateToMarketTokenDetail(token, {
+      const stockId = resolveMarketStockId({
+        stockId: token.stockId,
+        stock: token.tokenDetailPreview?.stock ?? token.stock,
+        name: token.tokenDetailPreview?.name ?? token.name,
+        symbol: token.tokenDetailPreview?.symbol ?? token.symbol,
+      });
+      if (stockId) {
+        void closePopover?.();
+        void toMarketStockDetailPage({
+          stockId,
+          symbol: token.tokenDetailPreview?.symbol ?? token.symbol ?? stockId,
+          name: token.tokenDetailPreview?.name ?? token.name ?? stockId,
+          logoUrl:
+            token.tokenDetailPreview?.tokenImageUri ??
+            token.tokenImageUri ??
+            '',
+          tokenAddress: token.address,
+          networkId: token.networkId,
+          isNative: token.isNative,
+        });
+        return;
+      }
+
+      void navigateToMarketTokenDetail(token, {
+        isCurrentRequest: () => requestId === navigationRequestIdRef.current,
+        onError: () =>
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          }),
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
+        resolveMarketAsset: startListSelect || Boolean(searchValueDebounce),
         tokenDetailPreview: token.tokenDetailPreview,
         marketTokenCategory:
           startListSelect || searchValueDebounce ? undefined : selectedCategory,
       });
     },
     [
+      intl,
       tokenDetailActions,
       closePopover,
       navigateToPerps,
+      toMarketStockDetailPage,
       searchValueDebounce,
       selectedCategory,
       showFavoriteButton,
@@ -317,6 +364,7 @@ function BaseMarketTokenSelectorContent({
           ? topCoinsById.get(item.marketAssetId)
           : undefined;
         if (topCoin) {
+          navigationRequestIdRef.current += 1;
           void closePopover?.();
           void handleTopCoinPress(topCoin);
           return;
@@ -340,6 +388,7 @@ function BaseMarketTokenSelectorContent({
 
   const handleSelectStock = useCallback(
     (stock: IMarketStockPublicItem) => {
+      navigationRequestIdRef.current += 1;
       void closePopover?.();
       void toMarketStockDetailPage(stock);
     },
@@ -351,6 +400,7 @@ function BaseMarketTokenSelectorContent({
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
+            testID="market-token-selector-search"
             containerProps={{
               borderRadius: '$2',
               mx: '$2',

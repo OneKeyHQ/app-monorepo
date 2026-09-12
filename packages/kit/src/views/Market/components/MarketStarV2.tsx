@@ -12,7 +12,8 @@ import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 import { MarketTestIDs } from '../testIDs';
@@ -22,12 +23,16 @@ import { useWatchListV2Action } from './watchListHooksV2';
 import type { IMarketStarV2Props } from './MarketStarV2.types';
 
 export const useStarV2Checked = ({
+  assetId,
+  stockId,
   chainId,
   contractAddress,
   from,
   tokenSymbol,
   isNative = false,
 }: {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   from: EWatchlistFrom;
@@ -44,16 +49,14 @@ export const useStarV2Checked = ({
     if (!isMounted || watchListData.length === 0) {
       return false;
     }
-    return !!watchListData?.find((item) =>
-      equalTokenNoCaseSensitive({
-        token1: { networkId: chainId, contractAddress },
-        token2: {
-          networkId: item.chainId,
-          contractAddress: item.contractAddress,
-        },
-      }),
-    );
-  }, [watchListData, isMounted, chainId, contractAddress]);
+    const key = getMarketWatchlistKey({
+      chainId,
+      contractAddress,
+      assetId,
+      stockId,
+    });
+    return watchListData.some((item) => getMarketWatchlistKey(item) === key);
+  }, [watchListData, isMounted, chainId, contractAddress, assetId, stockId]);
 
   const handlePress = useCallback(async () => {
     if (!isMounted || isMutatingRef.current) {
@@ -66,6 +69,7 @@ export const useStarV2Checked = ({
         const removed = await actions.removeFromWatchListV2(
           chainId,
           contractAddress,
+          { assetId, stockId },
         );
         if (!removed) {
           return;
@@ -78,7 +82,13 @@ export const useStarV2Checked = ({
         });
       } else {
         const added = await actions.addIntoWatchListV2([
-          { chainId, contractAddress, isNative },
+          {
+            chainId: assetId || stockId ? '' : chainId,
+            contractAddress: assetId || stockId ? '' : contractAddress,
+            isNative,
+            assetId,
+            stockId,
+          },
         ]);
         if (!added) {
           return;
@@ -96,6 +106,8 @@ export const useStarV2Checked = ({
     }
   }, [
     actions,
+    assetId,
+    stockId,
     chainId,
     checked,
     contractAddress,
@@ -116,6 +128,8 @@ export const useStarV2Checked = ({
 };
 
 function BasicMarketStarV2({
+  assetId,
+  stockId,
   chainId,
   contractAddress,
   size,
@@ -127,12 +141,19 @@ function BasicMarketStarV2({
 }: IMarketStarV2Props) {
   const intl = useIntl();
   const { onPress, checked, disabled } = useStarV2Checked({
+    assetId,
+    stockId,
     chainId,
     contractAddress,
     from,
     tokenSymbol,
     isNative,
   });
+  if (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
+  ) {
+    return null;
+  }
 
   return (
     <IconButton
@@ -203,6 +224,12 @@ function BasicMarketPerpsStarV2({
 } & IStackProps) {
   const intl = useIntl();
   const { onPress, checked } = usePerpsStarV2Checked({ perpsCoin });
+
+  if (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
+  ) {
+    return null;
+  }
 
   return (
     <IconButton

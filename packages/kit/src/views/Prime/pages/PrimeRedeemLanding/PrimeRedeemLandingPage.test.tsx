@@ -12,9 +12,13 @@ import {
 
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IPrimeRedemptionParams,
-  IPrimeRedemptionResult,
+import {
+  EOneKeyIdAccountStatus,
+  EOneKeyIdIdentityType,
+  EOneKeyIdOAuthProvider,
+  type IOneKeyIdAccount,
+  type IPrimeRedemptionParams,
+  type IPrimeRedemptionResult,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeTestIDs } from '../../testIDs';
@@ -47,6 +51,7 @@ let mockIsLoggedIn = false;
 let mockGtMd = true;
 const mockUser: {
   displayEmail?: string;
+  onekeyAccount?: IOneKeyIdAccount;
   onekeyUserId?: string;
   primeSubscription?: { isActive: boolean };
 } = {
@@ -358,6 +363,7 @@ describe('PrimeRedeemLandingPage', () => {
     mockGtMd = true;
     mockRouteParams = undefined;
     mockUser.displayEmail = 'user@example.com';
+    mockUser.onekeyAccount = undefined;
     mockUser.onekeyUserId = 'user-a';
     mockUser.primeSubscription = undefined;
     mockLoginOneKeyId.mockResolvedValue(undefined);
@@ -380,6 +386,25 @@ describe('PrimeRedeemLandingPage', () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
       ),
     ).toBe(true);
+  }
+
+  function buildOneKeyAccount(
+    providers: EOneKeyIdOAuthProvider[],
+  ): IOneKeyIdAccount {
+    return {
+      identities: providers.map((oauthProvider) => ({
+        identityType: EOneKeyIdIdentityType.OAuth,
+        oauthProvider,
+      })),
+      onekeyUserId: 'user-a',
+      status: EOneKeyIdAccountStatus.Active,
+    };
+  }
+
+  function getIconNames(element: HTMLElement) {
+    return [...element.querySelectorAll('[data-icon-name]')].map((icon) =>
+      icon.getAttribute('data-icon-name'),
+    );
   }
 
   it('shows the redeem form and opens OneKey ID login from the primary button', async () => {
@@ -472,6 +497,7 @@ describe('PrimeRedeemLandingPage', () => {
   });
 
   it('prefills the code from the route and redeems', async () => {
+    mockGtMd = false;
     mockIsLoggedIn = true;
     mockRouteParams = { code: '  OKP-PJ37L-DYXWR  ' };
     mockRedeemPrimeCode.mockResolvedValue({
@@ -504,8 +530,40 @@ describe('PrimeRedeemLandingPage', () => {
       expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
     });
     expect(
+      screen.getByText(
+        `${ETranslations.prime_redemption_received_days__msg}:30`,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        `${ETranslations.prime_membership_valid_until__desc}:formatted:1800000000000`,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByLabelText(
+          `${ETranslations.redemption_success_title} ${ETranslations.prime_redemption_received_days__msg}:30 ${ETranslations.prime_membership_valid_until__desc}:formatted:1800000000000`,
+        )
+        .getAttribute('aria-live'),
+    ).toBe('polite');
+    expect(
+      screen.queryByText(ETranslations.prime_onekeyid_continue_description),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId(PrimeTestIDs.redemptionBenefitsToggle),
+    ).toBeNull();
+    expect(
       screen.getAllByText(ETranslations.global_download_onekey_wallet),
     ).toHaveLength(1);
+    expect(
+      screen
+        .getByTestId('page-footer')
+        .contains(screen.getByTestId(PrimeTestIDs.redemptionDownloadBtn)),
+    ).toBe(true);
+    expect(screen.getByText('u***@example.com')).toBeTruthy();
+    expect(screen.queryByText(ETranslations.redemption_done_button)).toBeNull();
+    fireEvent.click(screen.getByTestId(PrimeTestIDs.redemptionDownloadBtn));
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(DOWNLOAD_URL);
     expect(mockRedeemPrimeCode).toHaveBeenCalledWith({
       code: 'OKP-PJ37L-DYXWR',
       expectedOneKeyUserId: 'user-a',
@@ -619,6 +677,27 @@ describe('PrimeRedeemLandingPage', () => {
     expect(mockConfirmLogoutOptions?.reason).toBe(
       'PrimeRedeemLanding Logout Button',
     );
+  });
+
+  it('swaps the chip icon for Google and Apple accounts that share an email', () => {
+    mockIsLoggedIn = true;
+    mockUser.onekeyAccount = buildOneKeyAccount([
+      EOneKeyIdOAuthProvider.Google,
+    ]);
+    const { rerender } = render(<PrimeRedeemLandingPage />);
+
+    expect(
+      getIconNames(screen.getByTestId(PrimeTestIDs.redemptionAccountChip)),
+    ).toEqual(['GoogleIllus', 'ChevronDownSmallOutline']);
+    expect(screen.getByText('user@example.com')).toBeTruthy();
+
+    mockUser.onekeyAccount = buildOneKeyAccount([EOneKeyIdOAuthProvider.Apple]);
+    rerender(<PrimeRedeemLandingPage />);
+
+    expect(
+      getIconNames(screen.getByTestId(PrimeTestIDs.redemptionAccountChip)),
+    ).toEqual(['AppleBrand', 'ChevronDownSmallOutline']);
+    expect(screen.getByText('user@example.com')).toBeTruthy();
   });
 
   it('preserves the typed code after logout and shows the login action', () => {

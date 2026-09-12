@@ -20,6 +20,7 @@ describe('getPrimeRedemptionErrorPresentation', () => {
     ).toEqual({
       errorCode: 90_506,
       isExpiredSession: false,
+      isLocalPreflightFailure: false,
       message: 'translated-message',
     });
   });
@@ -36,6 +37,7 @@ describe('getPrimeRedemptionErrorPresentation', () => {
     ).toEqual({
       errorCode: undefined,
       isExpiredSession: true,
+      isLocalPreflightFailure: false,
       message: '用户认证失败，请重试登录。',
     });
   });
@@ -53,6 +55,7 @@ describe('getPrimeRedemptionErrorPresentation', () => {
     ).toEqual({
       errorCode: undefined,
       isExpiredSession: false,
+      isLocalPreflightFailure: false,
       message: 'server-message',
     });
   });
@@ -66,6 +69,7 @@ describe('getPrimeRedemptionErrorPresentation', () => {
     ).toEqual({
       errorCode: undefined,
       isExpiredSession: false,
+      isLocalPreflightFailure: false,
       message: 'fallback',
     });
   });
@@ -89,6 +93,7 @@ describe('getPrimeRedemptionErrorPresentation', () => {
     ).toEqual({
       errorCode: 90_506,
       isExpiredSession: false,
+      isLocalPreflightFailure: false,
       message: 'translated-message',
     });
   });

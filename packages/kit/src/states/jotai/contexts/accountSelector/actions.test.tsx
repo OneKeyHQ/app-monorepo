@@ -19,6 +19,7 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
+  EFinalizeWalletSetupSteps,
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -1033,6 +1034,35 @@ describe('useAccountSelectorActions', () => {
         expect.objectContaining({ isMockedStandardHwWallet: true }),
       );
       expect(mockCreateHWHiddenWalletService).toHaveBeenCalledTimes(1);
+    });
+
+    it('announces the saved hardware wallet before generating network accounts', async () => {
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      mockCreateHWWalletService.mockResolvedValueOnce({
+        wallet: { ...standardWallet, isMocked: false },
+        device: currentDevice,
+        indexedAccount: standardIndexedAccount,
+        isOverrideWallet: false,
+      });
+      mockAddDefaultNetworkAccountsService.mockImplementationOnce(async () => {
+        expect(emitSpy).toHaveBeenCalledWith(
+          EAppEventBusNames.FinalizeWalletSetupStep,
+          {
+            step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+            walletId: standardWallet.id,
+            dbDeviceId: currentDevice.id,
+          },
+        );
+        return { addedAccounts: [], failedAccounts: [] };
+      });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.createHWWalletWithoutHidden(createParams);
+      });
+      expect(mockAddDefaultNetworkAccountsService).toHaveBeenCalledTimes(1);
     });
 
     it('marks the stale wallet deprecated after standard wallet creation', async () => {

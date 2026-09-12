@@ -1,7 +1,6 @@
 // cspell:ignore financials
 import { useState } from 'react';
 
-import { useIntl } from 'react-intl';
 import Svg, {
   Circle,
   G,
@@ -22,8 +21,10 @@ import {
 import {
   getFinancialDomain,
   getFinancialPercentDomain,
+  getFinancialPerformanceDomain,
   isFinancialNumber,
 } from './financialsUtils';
+import { formatFinancialValue } from './financialValueFormat';
 
 export type IFinancialChartSeries = {
   key: string;
@@ -60,17 +61,19 @@ export function FinancialChart({
   testID: string;
 }) {
   const theme = useTheme();
-  const intl = useIntl();
   const [width, setWidth] = useState(640);
   const [selected, setSelected] = useState<string>();
   const textColor = theme.textSubdued.val;
   const borderColor = theme.borderSubdued.val;
-  const plotWidth = Math.max(1, width - LEFT - RIGHT);
+  const right = width < 400 ? 64 : RIGHT;
+  const plotWidth = Math.max(1, width - LEFT - right);
   const columnWidth = plotWidth / Math.max(1, rows.length);
   const selectedIndex = rows.findIndex((row) => row.key === selected);
   const selectedRow = rows[selectedIndex];
   const lineIndex = series.findIndex((item) => item.kind === 'line');
-  const domain = getFinancialDomain(
+  const domain = (
+    lineIndex >= 0 ? getFinancialPerformanceDomain : getFinancialDomain
+  )(
     rows.flatMap((row) =>
       row.range
         ? [row.range.start, row.range.end]
@@ -87,18 +90,8 @@ export function FinancialChart({
     );
   };
   const x = (index: number) => LEFT + columnWidth * (index + 0.5);
-  const formatValue = (
-    value: number | null,
-    percent = false,
-    compact = false,
-  ) =>
-    isFinancialNumber(value)
-      ? intl.formatNumber(percent ? value / 100 : value, {
-          style: percent ? 'percent' : 'decimal',
-          notation: compact ? 'compact' : 'standard',
-          maximumFractionDigits: percent ? 1 : 2,
-        })
-      : '--';
+  const formatValue = (value: number | null, percent = false) =>
+    formatFinancialValue(value, { percent });
   const barSeries = series.filter((item) => item.kind === 'bar');
   const barWidth = Math.min(
     32,
@@ -142,18 +135,20 @@ export function FinancialChart({
               <G key={tick}>
                 <Line
                   x1={LEFT}
-                  x2={width - RIGHT}
+                  x2={width - right}
                   y1={tickY}
                   y2={tickY}
                   stroke={borderColor}
                 />
                 <SvgText
-                  x={width - RIGHT + 8}
+                  x={width - right + 8}
                   y={tickY + 4}
                   fontSize={11}
                   fill={textColor}
                 >
-                  {formatValue(amount, false, true)}
+                  {formatFinancialValue(amount, {
+                    maxCharacters: width < 400 ? 7 : 8,
+                  })}
                 </SvgText>
                 {lineIndex >= 0 ? (
                   <SvgText
@@ -171,7 +166,7 @@ export function FinancialChart({
           })}
           <Line
             x1={LEFT}
-            x2={width - RIGHT}
+            x2={width - right}
             y1={y(0)}
             y2={y(0)}
             stroke={textColor}

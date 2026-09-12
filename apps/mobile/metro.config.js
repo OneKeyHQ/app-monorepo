@@ -196,6 +196,12 @@ const aptosScriptComposerNativeStub = path.resolve(
   monorepoRoot,
   'node_modules/@aptos-labs/script-composer-pack/dist/react-native.js',
 );
+// The OneKey pager package publishes a `browser` entry, which Metro otherwise
+// prefers even for native bundles. Pin native resolution to its native entry.
+const nativePagerViewEntry = path.resolve(
+  monorepoRoot,
+  'node_modules/react-native-pager-view/lib/module/index.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -219,6 +225,15 @@ const ledgerCjsByPackage = new Map(
 );
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === 'react-native-pager-view'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: nativePagerViewEntry,
+    };
+  }
   if (
     (platform === 'ios' || platform === 'android') &&
     moduleName === '@aptos-labs/script-composer-pack'

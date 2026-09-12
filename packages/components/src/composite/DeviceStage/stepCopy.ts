@@ -112,16 +112,25 @@ export const ERROR_TEXT: Record<
  * The authenticity flow's failure copy, the live dialog's own keys (the
  * design drops the old error-code suffixes). `action` picks the card's
  * exits: 'support' is terminal; 'retry' offers Retry and Support but never
- * bypasses authenticity verification.
+ * bypasses authenticity verification; 'retryOnly' is the vanished device
+ * (Retry, nothing else applies); 'retryOrContinue' is our side failing
+ * (Retry, or Continue anyway behind the NOTE beat — the one bypass, and
+ * only where the device cannot be what stopped the check).
  * The icon fronts the card where the staged steps front the replica.
  */
+export type IAuthFailureAction =
+  | 'support'
+  | 'retry'
+  | 'retryOnly'
+  | 'retryOrContinue';
+
 export const AUTH_FAILURE_TEXT: Record<
   IAuthFailureReason,
   {
     title: ETranslations;
     sub: ETranslations;
     icon: IKeyOfIcons;
-    action: 'support' | 'retry';
+    action: IAuthFailureAction;
   }
 > = {
   unofficialDevice: {
@@ -146,7 +155,7 @@ export const AUTH_FAILURE_TEXT: Record<
     title: ETranslations.global_network_error,
     sub: ETranslations.global_network_error_help_text,
     icon: 'GlobusSolid',
-    action: 'retry',
+    action: 'retryOrContinue',
   },
   unknown: {
     title: ETranslations.send_verification_failure,
@@ -158,9 +167,24 @@ export const AUTH_FAILURE_TEXT: Record<
     title: ETranslations.device_auth_temporarily_unavailable,
     sub: ETranslations.device_auth_temporarily_unavailable_help_text,
     icon: 'ServerSolid',
-    action: 'retry',
+    action: 'retryOrContinue',
+  },
+  disconnected: {
+    title: ETranslations.hardware_third_party_device_disconnected,
+    sub: ETranslations.device_stage_disconnected__desc,
+    icon: 'ErrorSolid',
+    action: 'retryOnly',
   },
 };
+
+/** The NOTE beat before Continue anyway: no icon, the warning line in
+ * critical, "I understand" over "Back" (the design's 10-2 frame). */
+export const AUTH_NOTE_TEXT = {
+  title: ETranslations.device_stage_auth_note__title,
+  sub: ETranslations.device_auth_continue_anyway_warning_message,
+  confirm: ETranslations.global_i_understand,
+  back: ETranslations.global_back,
+} as const;
 
 /**
  * Wallet grammar: an instruction-first title, one informative line
@@ -382,6 +406,19 @@ export const DEVICE_BADGE_STEPS: ReadonlySet<IDeviceStageStep> =
     'authSuccess',
   ]);
 
+/**
+ * The capsule arrivals that buzz. Every card arrival speaks; the capsule
+ * waits stay silent (attention released, not demanded — see
+ * fireStepHaptic in the engine). `done` is the burst's ✓ beat, news
+ * rather than a wait; `confirm` keeps the buzz it had as a card. The
+ * vendor track's capsule asks (confirmOnDevice, openApp, unlockDevice)
+ * stay silent as before — untouched by confirm's move, not decided
+ * against; isDeviceStageAnsweredStep in shared is the classification
+ * that would unify them.
+ */
+export const CAPSULE_HAPTIC_STEPS: ReadonlySet<IDeviceStageStep> =
+  new Set<IDeviceStageStep>(['done', 'confirm']);
+
 /** A step's second line: its own informative line, empty when none. */
 export function resolveStepSub(
   intl: IntlShape,
@@ -465,7 +502,10 @@ export const STEP_POSE: Record<
   passphraseOnApp: 'card',
   showQr: 'card',
   scanQr: 'card',
-  confirm: 'card',
+  // The device-side confirm rests as the capsule (2026-09-11) — the
+  // vendor track's confirmOnDevice grammar. Its card stays wired but
+  // parked: see CONFIRM_PAYLOAD_HIDDEN in kit-bg's DeviceStageBurst.
+  confirm: 'capsule',
   genuineCheck: 'card',
   authVerifying: 'card',
   authSuccess: 'card',
@@ -493,17 +533,17 @@ export const STEP_POSE: Record<
 /**
  * The staged steps — the ones that keep the replica on stage. The full
  * stage crops the device to screen-and-keys for the device-side asks;
- * the compact list wears the confirm miniature instead — confirm's own
- * shrink, and the authenticity flow, which keeps the whole device in
- * view while the card talks. The engine derives its port map (and the
- * miniature's scale) from these two lists, so membership is stated once.
+ * the compact list wears the miniature instead — the authenticity flow,
+ * which keeps the whole device in view while the card talks. The engine
+ * derives its port map (and the miniature's scale) from these two
+ * lists, so membership is stated once. Only card-posed steps belong
+ * here: the stage arrangement exists on the card alone.
  */
 export const FULL_STAGED_STEPS: IDeviceStageStep[] = [
   'enterPin',
   'enterPassphrase',
 ];
 export const COMPACT_STAGED_STEPS: IDeviceStageStep[] = [
-  'confirm',
   'genuineCheck',
   'authVerifying',
   'authSuccess',

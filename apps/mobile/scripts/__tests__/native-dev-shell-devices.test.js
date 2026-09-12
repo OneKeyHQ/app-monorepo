@@ -209,6 +209,7 @@ describe('iOS simulator selection', () => {
           release: releasePreparationLock,
         })),
         deviceId: 'PHYSICAL-DEVICE',
+        fileSystem: { existsSync: () => true },
         launchAppCommand,
         loadVendorManifestCommand: jest.fn(() => ({
           fingerprint: 'a'.repeat(64),
@@ -333,6 +334,7 @@ describe('iOS simulator selection', () => {
           release: releasePreparationLock,
         })),
         deviceId: 'PHYSICAL-DEVICE',
+        fileSystem: { existsSync: () => true },
         loadVendorManifestCommand: jest.fn(() => ({
           fingerprint: 'a'.repeat(64),
         })),
@@ -466,19 +468,47 @@ describe('iOS simulator selection', () => {
     );
   });
 
-  it('rejects DevSession-only overrides for physical devices', async () => {
+  it('rejects missing Pods before preparing vendor or starting Metro', async () => {
+    const acquireNamedLockCommand = jest.fn();
+    const prepareVendorCommand = jest.fn();
+    const spawnMetroCommand = jest.fn();
     await expect(
       launchIosPhysicalDeviceDevelopment({
+        acquireNamedLockCommand,
         deviceId: 'PHYSICAL-DEVICE',
-        metroUrl: 'http://192.168.1.2:8081',
+        fileSystem: { existsSync: () => false },
+        prepareVendorCommand,
         shell: 'auto',
-        spawnCommand: jest.fn(),
+        spawnMetroCommand,
         vendor: 'auto',
       }),
-    ).rejects.toThrow(
-      'does not support DevSession shell, vendor, or --metro-url overrides',
-    );
+    ).rejects.toThrow('yarn app:ios:pod-install');
+    expect(acquireNamedLockCommand).not.toHaveBeenCalled();
+    expect(prepareVendorCommand).not.toHaveBeenCalled();
+    expect(spawnMetroCommand).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { metroUrl: 'http://192.168.1.2:8081' },
+    { shell: 'remote' },
+    { shell: 'local' },
+    { vendor: 'remote' },
+  ])(
+    'rejects DevSession-only overrides for physical devices: %j',
+    async (overrides) => {
+      await expect(
+        launchIosPhysicalDeviceDevelopment({
+          deviceId: 'PHYSICAL-DEVICE',
+          shell: 'auto',
+          spawnCommand: jest.fn(),
+          vendor: 'auto',
+          ...overrides,
+        }),
+      ).rejects.toThrow(
+        'does not support DevSession shell, vendor, or --metro-url overrides',
+      );
+    },
+  );
 
   it('keeps the physical-device command on the prepared DevVendor path', () => {
     const rootPackage = require('../../../../package.json');
