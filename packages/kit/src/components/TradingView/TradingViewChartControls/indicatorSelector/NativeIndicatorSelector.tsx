@@ -9,6 +9,7 @@ import {
   ScrollView,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
   useDialogInstance,
@@ -202,6 +203,8 @@ export function IndicatorListDialogContent({
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [activeIndicatorValues, setActiveIndicatorValues] = useState(
     () =>
       new Set(
@@ -220,6 +223,7 @@ export function IndicatorListDialogContent({
   const handleIndicatorPress = useCallback(
     (indicator: ITradingViewIndicatorOption) => {
       if (
+        submittingRef.current ||
         !canToggleTradingViewNativeIndicatorOn({
           indicatorValue: indicator.value,
           activeIndicatorValues: activeIndicatorValuesRef.current,
@@ -255,10 +259,30 @@ export function IndicatorListDialogContent({
     });
   }, [indicators, onSelect, onSelectionConfirm]);
 
-  const handleConfirmPress = useCallback(async () => {
-    await commitSelection();
-    await dialog.close();
-  }, [commitSelection, dialog]);
+  const handleSelectionSubmit = useCallback(
+    async (onSuccess?: () => void) => {
+      if (submittingRef.current) {
+        return;
+      }
+      submittingRef.current = true;
+      setIsSubmitting(true);
+      try {
+        await commitSelection();
+        await dialog.close();
+        onSuccess?.();
+      } catch (_error) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+      } finally {
+        submittingRef.current = false;
+        setIsSubmitting(false);
+      }
+    },
+    [commitSelection, dialog, intl],
+  );
 
   const confirmText = intl.formatMessage({
     id: ETranslations.global_confirm,
@@ -273,6 +297,7 @@ export function IndicatorListDialogContent({
       testID="trading-view-native-indicators-reset-layout-button"
       variant="secondary"
       size="large"
+      disabled={isSubmitting}
       onPress={() => {
         onResetLayout();
         void dialog.close();
@@ -288,7 +313,9 @@ export function IndicatorListDialogContent({
       testID="trading-view-native-indicators-confirm-button"
       variant="primary"
       size="large"
-      onPress={handleConfirmPress}
+      disabled={isSubmitting}
+      onPressLoadingEnabled
+      onPress={() => handleSelectionSubmit()}
     >
       {confirmText}
     </Button>
@@ -302,11 +329,9 @@ export function IndicatorListDialogContent({
           icon="SettingsOutline"
           justifyContent="flex-start"
           variant="tertiary"
-          onPress={async () => {
-            await commitSelection();
-            await dialog.close();
-            onSettingsPress();
-          }}
+          disabled={isSubmitting}
+          onPressLoadingEnabled
+          onPress={() => handleSelectionSubmit(onSettingsPress)}
         >
           {intl.formatMessage({ id: ETranslations.global_settings })}
         </Button>

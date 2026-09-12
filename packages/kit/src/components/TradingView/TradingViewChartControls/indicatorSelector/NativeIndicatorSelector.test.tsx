@@ -10,22 +10,32 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { IndicatorListDialogContent } from './NativeIndicatorSelector';
 
 const mockClose = jest.fn(() => Promise.resolve());
+const mockToastError = jest.fn<void, [unknown]>();
 
 jest.mock('@onekeyhq/components', () => {
   function MockStack({
     children,
     onPress,
     testID,
+    disabled,
   }: {
     children?: ReactNode;
     onPress?: () => void;
     testID?: string;
+    disabled?: boolean;
   }) {
     return onPress ? (
-      <button type="button" data-testid={testID} onClick={onPress}>
+      <button
+        type="button"
+        data-testid={testID}
+        onClick={onPress}
+        disabled={disabled}
+      >
         {children}
       </button>
     ) : (
@@ -41,6 +51,7 @@ jest.mock('@onekeyhq/components', () => {
     Stack: MockContainer,
     YStack: MockContainer,
     ScrollView: MockContainer,
+    Toast: { error: (options: unknown) => mockToastError(options) },
     SizableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
     ),
@@ -61,6 +72,7 @@ describe('mobile indicator settings navigation', () => {
   beforeEach(() => {
     mockClose.mockReset();
     mockClose.mockResolvedValue(undefined);
+    mockToastError.mockClear();
   });
 
   it('waits for pending main and sub selections to be committed before closing, then opens settings after close', async () => {
@@ -134,4 +146,78 @@ describe('mobile indicator settings navigation', () => {
     expect(onSelectionConfirm).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it.each(['confirm', 'settings'] as const)(
+    'reports a failed %s submission, preserves the selection, and allows retry',
+    async (action) => {
+      let rejectCommit: ((error: Error) => void) | undefined;
+      const onSelectionConfirm = jest.fn(() => Promise.resolve());
+      onSelectionConfirm.mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectCommit = reject;
+          }),
+      );
+      const onSettingsPress = jest.fn();
+      const onResetLayout = jest.fn();
+      render(
+        <IndicatorListDialogContent
+          indicators={indicators}
+          resetLayout={{ enabled: true, label: 'Reset layout' }}
+          onSelect={jest.fn()}
+          onSelectionConfirm={onSelectionConfirm}
+          onResetLayout={onResetLayout}
+          onSettingsPress={onSettingsPress}
+        />,
+      );
+      fireEvent.click(
+        screen.getByTestId('trading-view-native-indicator-item-MA'),
+      );
+      fireEvent.click(
+        screen.getByTestId('trading-view-native-indicator-item-RSI'),
+      );
+      const button = screen.getByTestId(
+        `trading-view-native-indicators-${action}-button`,
+      ) as HTMLButtonElement;
+      fireEvent.click(button);
+      expect(button.disabled).toBe(true);
+      fireEvent.click(
+        screen.getByTestId('trading-view-native-indicators-confirm-button'),
+      );
+      fireEvent.click(
+        screen.getByTestId('trading-view-native-indicators-settings-button'),
+      );
+      fireEvent.click(
+        screen.getByTestId(
+          'trading-view-native-indicators-reset-layout-button',
+        ),
+      );
+      fireEvent.click(
+        screen.getByTestId('trading-view-native-indicator-item-MA'),
+      );
+      expect(onSelectionConfirm).toHaveBeenCalledTimes(1);
+      expect(onResetLayout).not.toHaveBeenCalled();
+
+      await act(async () => rejectCommit?.(new Error('Persistence failed')));
+      expect(mockToastError).toHaveBeenCalledWith({
+        title: ETranslations.global_an_error_occurred,
+      });
+      expect(button.disabled).toBe(false);
+      expect(mockClose).not.toHaveBeenCalled();
+      expect(onSettingsPress).not.toHaveBeenCalled();
+
+      fireEvent.click(button);
+      await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
+      expect(onSelectionConfirm).toHaveBeenCalledTimes(2);
+      expect(onSelectionConfirm).toHaveBeenLastCalledWith({
+        activeIndicatorValues: new Set(['MA', 'RSI']),
+        replaceMainIndicators: true,
+        replaceSubIndicators: true,
+      });
+      expect(onSettingsPress).toHaveBeenCalledTimes(
+        action === 'settings' ? 1 : 0,
+      );
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+    },
+  );
 });

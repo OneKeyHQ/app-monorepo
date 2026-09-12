@@ -140,7 +140,7 @@ export function commitNativeIndicatorSelection({
     selection: ITradingViewNativeIndicatorSelection,
   ) => void | Promise<void>;
   originalActiveIndicatorValues: ReadonlySet<string>;
-}) {
+}): void | Promise<void> {
   const selectionUpdates = getNativeIndicatorSelectionUpdates({
     indicators,
     originalActiveIndicatorValues,
