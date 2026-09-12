@@ -10,12 +10,20 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { IndicatorListDialogContent } from './NativeIndicatorSelector';
 
 const mockClose = jest.fn(() => Promise.resolve());
 const mockToastError = jest.fn<void, [unknown]>();
+const mockLogError = jest.fn<void, [string]>();
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: { error: { log: (message: string) => mockLogError(message) } },
+  },
+}));
 
 jest.mock('@onekeyhq/components', () => {
   function MockStack({
@@ -23,11 +31,13 @@ jest.mock('@onekeyhq/components', () => {
     onPress,
     testID,
     disabled,
+    loading,
   }: {
     children?: ReactNode;
     onPress?: () => void;
     testID?: string;
     disabled?: boolean;
+    loading?: boolean;
   }) {
     return onPress ? (
       <button
@@ -35,6 +45,7 @@ jest.mock('@onekeyhq/components', () => {
         data-testid={testID}
         onClick={onPress}
         disabled={disabled}
+        aria-busy={loading}
       >
         {children}
       </button>
@@ -73,6 +84,7 @@ describe('mobile indicator settings navigation', () => {
     mockClose.mockReset();
     mockClose.mockResolvedValue(undefined);
     mockToastError.mockClear();
+    mockLogError.mockClear();
   });
 
   it('waits for pending main and sub selections to be committed before closing, then opens settings after close', async () => {
@@ -181,6 +193,7 @@ describe('mobile indicator settings navigation', () => {
       ) as HTMLButtonElement;
       fireEvent.click(button);
       expect(button.disabled).toBe(true);
+      expect(button.getAttribute('aria-busy')).toBe('true');
       fireEvent.click(
         screen.getByTestId('trading-view-native-indicators-confirm-button'),
       );
@@ -203,6 +216,10 @@ describe('mobile indicator settings navigation', () => {
         title: ETranslations.global_an_error_occurred,
       });
       expect(button.disabled).toBe(false);
+      expect(button.getAttribute('aria-busy')).toBe('false');
+      expect(mockLogError).toHaveBeenCalledWith(
+        expect.stringContaining('persist failed:'),
+      );
       expect(mockClose).not.toHaveBeenCalled();
       expect(onSettingsPress).not.toHaveBeenCalled();
 
@@ -218,6 +235,79 @@ describe('mobile indicator settings navigation', () => {
         action === 'settings' ? 1 : 0,
       );
       expect(mockToastError).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['MA', 'RSI'])(
+    'persists a corrective selection after a failed optimistic %s write is reverted',
+    async (indicator) => {
+      const onSelectionConfirm = jest.fn(() => Promise.resolve());
+      onSelectionConfirm.mockRejectedValueOnce(new Error('Storage failed'));
+      render(
+        <IndicatorListDialogContent
+          indicators={indicators}
+          onSelect={jest.fn()}
+          onSelectionConfirm={onSelectionConfirm}
+          onResetLayout={jest.fn()}
+        />,
+      );
+      const pill = screen.getByTestId(
+        `trading-view-native-indicator-item-${indicator}`,
+      );
+      const confirm = screen.getByTestId(
+        'trading-view-native-indicators-confirm-button',
+      );
+      fireEvent.click(pill);
+      fireEvent.click(confirm);
+      await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(1));
+      fireEvent.click(pill);
+      fireEvent.click(confirm);
+      await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
+      expect(onSelectionConfirm).toHaveBeenCalledTimes(2);
+      expect(onSelectionConfirm).toHaveBeenLastCalledWith({
+        activeIndicatorValues: new Set(),
+        replaceMainIndicators: indicator === 'MA',
+        replaceSubIndicators: indicator === 'RSI',
+      });
+    },
+  );
+
+  it.each(['close', 'navigate'])(
+    'records a %s failure separately and does not repeat a successful write when retried',
+    async (phase) => {
+      const onSelectionConfirm = jest.fn(() => Promise.resolve());
+      const onSettingsPress = jest.fn();
+      if (phase === 'close') {
+        mockClose.mockRejectedValueOnce(new Error('Close failed'));
+      } else {
+        onSettingsPress.mockImplementationOnce(() => {
+          throw new OneKeyLocalError('Navigation failed');
+        });
+      }
+      render(
+        <IndicatorListDialogContent
+          indicators={indicators}
+          onSelect={jest.fn()}
+          onSelectionConfirm={onSelectionConfirm}
+          onResetLayout={jest.fn()}
+          onSettingsPress={onSettingsPress}
+        />,
+      );
+      fireEvent.click(
+        screen.getByTestId('trading-view-native-indicator-item-MA'),
+      );
+      const settings = screen.getByTestId(
+        'trading-view-native-indicators-settings-button',
+      );
+      fireEvent.click(settings);
+      await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(1));
+      expect(mockLogError).toHaveBeenCalledWith(
+        expect.stringContaining(`${phase} failed:`),
+      );
+      fireEvent.click(settings);
+      await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(2));
+      expect(onSelectionConfirm).toHaveBeenCalledTimes(1);
+      expect(onSettingsPress).toHaveBeenCalledTimes(phase === 'close' ? 1 : 2);
     },
   );
 });

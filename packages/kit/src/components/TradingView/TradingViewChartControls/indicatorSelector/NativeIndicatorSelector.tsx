@@ -14,7 +14,10 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
   HEADER_ICON_BUTTON_STYLE_PROPS,
@@ -36,6 +39,8 @@ import type {
 } from '../types';
 
 const INDICATOR_GRID_COLUMN_COUNT = 4;
+
+type IIndicatorSubmitAction = 'confirm' | 'settings';
 
 function buildIndicatorItemTestID(value: string): string {
   return `trading-view-native-indicator-item-${value
@@ -203,7 +208,9 @@ export function IndicatorListDialogContent({
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] =
+    useState<IIndicatorSubmitAction>();
+  const isSubmitting = submittingAction !== undefined;
   const submittingRef = useRef(false);
   const [activeIndicatorValues, setActiveIndicatorValues] = useState(
     () =>
@@ -214,6 +221,9 @@ export function IndicatorListDialogContent({
       ),
   );
   const originalActiveIndicatorValuesRef = useRef(activeIndicatorValues);
+  const pendingSelectionRef = useRef<
+    ITradingViewNativeIndicatorSelection | undefined
+  >(undefined);
   const activeIndicatorValuesRef = useRef(activeIndicatorValues);
   const { mainIndicators, subIndicators } = useMemo(
     () => getIndicatorSections(indicators),
@@ -247,30 +257,50 @@ export function IndicatorListDialogContent({
     [maxSelectableSubIndicatorCount],
   );
 
-  const commitSelection = useCallback(() => {
+  const commitSelection = useCallback(async () => {
     const originalValues = originalActiveIndicatorValuesRef.current;
     const nextValues = activeIndicatorValuesRef.current;
-    return commitNativeIndicatorSelection({
+    await commitNativeIndicatorSelection({
       indicators,
       nextActiveIndicatorValues: nextValues,
       onSelect,
-      onSelectionConfirm,
+      onSelectionConfirm: onSelectionConfirm
+        ? async (selection) => {
+            // A rejected write may already have updated the atom in memory.
+            pendingSelectionRef.current = selection;
+            await onSelectionConfirm(selection);
+            pendingSelectionRef.current = undefined;
+          }
+        : undefined,
       originalActiveIndicatorValues: originalValues,
+      pendingSelection: pendingSelectionRef.current,
     });
+    originalActiveIndicatorValuesRef.current = new Set(nextValues);
   }, [indicators, onSelect, onSelectionConfirm]);
 
   const handleSelectionSubmit = useCallback(
-    async (onSuccess?: () => void) => {
+    async (action: IIndicatorSubmitAction) => {
       if (submittingRef.current) {
         return;
       }
       submittingRef.current = true;
-      setIsSubmitting(true);
+      setSubmittingAction(action);
+      let phase = 'persist';
       try {
         await commitSelection();
+        phase = 'close';
         await dialog.close();
-        onSuccess?.();
-      } catch (_error) {
+        if (action === 'settings') {
+          phase = 'navigate';
+          onSettingsPress?.();
+        }
+      } catch (error) {
+        const { name, className, message, code } = toPlainErrorObject(error);
+        defaultLogger.app.error.log(
+          `[NativeIndicatorSelector] ${phase} failed: ${stringUtils.stableStringify(
+            { name, className, message: message ?? String(error), code },
+          )}`,
+        );
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,
@@ -278,10 +308,10 @@ export function IndicatorListDialogContent({
         });
       } finally {
         submittingRef.current = false;
-        setIsSubmitting(false);
+        setSubmittingAction(undefined);
       }
     },
-    [commitSelection, dialog, intl],
+    [commitSelection, dialog, intl, onSettingsPress],
   );
 
   const confirmText = intl.formatMessage({
@@ -314,8 +344,8 @@ export function IndicatorListDialogContent({
       variant="primary"
       size="large"
       disabled={isSubmitting}
-      onPressLoadingEnabled
-      onPress={() => handleSelectionSubmit()}
+      loading={submittingAction === 'confirm'}
+      onPress={() => handleSelectionSubmit('confirm')}
     >
       {confirmText}
     </Button>
@@ -330,8 +360,8 @@ export function IndicatorListDialogContent({
           justifyContent="flex-start"
           variant="tertiary"
           disabled={isSubmitting}
-          onPressLoadingEnabled
-          onPress={() => handleSelectionSubmit(onSettingsPress)}
+          loading={submittingAction === 'settings'}
+          onPress={() => handleSelectionSubmit('settings')}
         >
           {intl.formatMessage({ id: ETranslations.global_settings })}
         </Button>

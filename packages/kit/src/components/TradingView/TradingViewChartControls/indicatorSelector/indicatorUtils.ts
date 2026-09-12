@@ -132,6 +132,7 @@ export function commitNativeIndicatorSelection({
   onSelect,
   onSelectionConfirm,
   originalActiveIndicatorValues,
+  pendingSelection,
 }: {
   indicators: ITradingViewIndicatorOption[];
   nextActiveIndicatorValues: ReadonlySet<string>;
@@ -140,24 +141,35 @@ export function commitNativeIndicatorSelection({
     selection: ITradingViewNativeIndicatorSelection,
   ) => void | Promise<void>;
   originalActiveIndicatorValues: ReadonlySet<string>;
+  pendingSelection?: Pick<
+    ITradingViewNativeIndicatorSelection,
+    'replaceMainIndicators' | 'replaceSubIndicators'
+  >;
 }): void | Promise<void> {
   const selectionUpdates = getNativeIndicatorSelectionUpdates({
     indicators,
     originalActiveIndicatorValues,
     nextActiveIndicatorValues,
   });
-  if (selectionUpdates.length === 0) {
+  // Retry scopes from an unacknowledged write even when their edits were undone.
+  const replaceMainIndicators =
+    !!pendingSelection?.replaceMainIndicators ||
+    selectionUpdates.some(([indicatorId]) =>
+      isTradingViewNativeIndicator(indicatorId),
+    );
+  const replaceSubIndicators =
+    !!pendingSelection?.replaceSubIndicators ||
+    selectionUpdates.some(([indicatorId]) =>
+      isTradingViewNativeSubIndicator(indicatorId),
+    );
+  if (!replaceMainIndicators && !replaceSubIndicators) {
     return;
   }
   if (onSelectionConfirm) {
     return onSelectionConfirm({
       activeIndicatorValues: new Set(nextActiveIndicatorValues),
-      replaceMainIndicators: selectionUpdates.some(([indicatorId]) =>
-        isTradingViewNativeIndicator(indicatorId),
-      ),
-      replaceSubIndicators: selectionUpdates.some(([indicatorId]) =>
-        isTradingViewNativeSubIndicator(indicatorId),
-      ),
+      replaceMainIndicators,
+      replaceSubIndicators,
     });
   }
   selectionUpdates.forEach(([indicatorName, desiredActive]) => {
