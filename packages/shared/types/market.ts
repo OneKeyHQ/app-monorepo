@@ -66,6 +66,19 @@ export interface IMarketDetailPlatformNetwork {
   tokenAddress?: string;
 }
 
+/**
+ * Identity of the wallet asset a caller launched Market from. Market data
+ * only knows a token per CoinGecko platform, so when the market service has
+ * not mapped that platform the trade actions rebuild the platform entry
+ * from this instead of guessing another chain. `tokenAddress` is the empty
+ * string for the native token.
+ */
+export interface IMarketPreferredToken {
+  networkId: string;
+  tokenAddress: string;
+  isNative?: boolean;
+}
+
 export interface IMarketDetailPlatform {
   [key: string]: IMarketDetailPlatformNetwork;
 }

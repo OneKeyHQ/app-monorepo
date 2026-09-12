@@ -24,8 +24,13 @@ import { AssetDetailsTestIDs } from '../../testIDs';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
 
-function TokenDetailsFooter(props: { networkId: string }) {
-  const { networkId } = props;
+function TokenDetailsFooter(props: {
+  networkId: string;
+  tokenAddress: string;
+  isNative?: boolean;
+  isAggregateToken?: boolean;
+}) {
+  const { networkId, tokenAddress, isNative, isAggregateToken } = props;
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { tokenMetadata } = useTokenDetailsContext();
@@ -67,8 +72,19 @@ function TokenDetailsFooter(props: { networkId: string }) {
         userSelect="none"
         onPress={() => {
           if (tokenMetadata?.coingeckoId) {
+            // Only hand Market a concrete on-chain identity. An aggregate
+            // (all-networks) row has no single network or address, and a
+            // non-native token without an address would send Swap a token
+            // it cannot resolve; those fall back to market data as before.
+            const hasConcreteIdentity =
+              !isAggregateToken &&
+              !networkUtils.isAllNetwork({ networkId }) &&
+              (isNative || Boolean(tokenAddress));
             navigation.push(EModalAssetDetailRoutes.MarketDetail, {
               token: tokenMetadata.coingeckoId,
+              preferredToken: hasConcreteIdentity
+                ? { networkId, tokenAddress, isNative }
+                : undefined,
             });
           }
         }}

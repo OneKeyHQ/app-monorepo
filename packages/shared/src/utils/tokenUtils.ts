@@ -143,6 +143,25 @@ function networkFieldsContainKeyword(
   );
 }
 
+// TRUE only when the keyword names the network itself ("eth" → Ethereum's
+// code). Includes-hits (`networkFieldsContainKeyword`) are too loose to act as
+// a qualifier for a keyword that already hits the token: Cyber's code "cyeth"
+// contains "eth", but "eth" is a symbol search there, not a chain scope.
+function networkFieldsEqualKeyword(
+  network: IServerNetwork | undefined,
+  kw: string,
+): boolean {
+  if (!network) return false;
+  return (
+    network.name?.toLowerCase() === kw ||
+    network.code?.toLowerCase() === kw ||
+    network.shortname?.toLowerCase() === kw ||
+    network.shortcode?.toLowerCase() === kw ||
+    getTokenNetworkAliasMap()[network.id]?.some((alias) => alias === kw) ||
+    false
+  );
+}
+
 const tokenSearchKeywordAliasMap: Record<string, string[]> = {
   eth: ['ether'],
 };
@@ -261,7 +280,12 @@ function computeSearchStrength(
         hasPureNetworkKeyword: false,
       };
     if (hitToken) anyTokenHit = true;
-    if (hitNetwork) anyNetworkHit = true;
+    // A keyword that also hits the token only counts as a network qualifier
+    // when it names the network exactly; a substring hit on the chain code
+    // must not lift an empty ETH@Cyber above held ETH on other chains.
+    if (hitNetwork && (!hitToken || networkFieldsEqualKeyword(network, kw))) {
+      anyNetworkHit = true;
+    }
     if (hitNetwork && !hitToken) hasPureNetworkKeyword = true;
   }
 
@@ -308,16 +332,55 @@ export function getFilteredTokenBySearchKey({
   let mergedTokens = tokens;
 
   if (searchAll && searchTokenList) {
-    const aggregateTokens = Object.values(aggregateTokenListMap ?? {}).flatMap(
-      (token) => token.tokens,
+    // Only an aggregate that has a row in `tokens` can stand in for its
+    // members (grouped row or flattened subs). The selector folds aggregate
+    // rows from the enabled-network fan-out alone, so a backend hit whose
+    // aggregate is absent — the account holds none of it on an enabled
+    // network — must stay as a plain row or it disappears from the results.
+    const presentAggregateKeys = new Set(
+      tokens
+        .filter((token) => token.isAggregateToken)
+        .map((token) => token.$key),
+    );
+    const aggregateTokens: IAccountToken[] = [];
+    // Members of ABSENT aggregates keep their backend hits as plain rows;
+    // remember their config `order` so those rows rank the way the server
+    // lists the members (Robinhood first for USDG) instead of backend order.
+    const buildMemberKey = (token: IAccountToken) =>
+      `${token.address}_${token.networkId ?? ''}`;
+    const absentMemberOrderByKey = new Map<string, number>();
+    Object.entries(aggregateTokenListMap ?? {}).forEach(
+      ([aggregateKey, aggregate]) => {
+        if (presentAggregateKeys.has(aggregateKey)) {
+          aggregateTokens.push(...aggregate.tokens);
+          return;
+        }
+        aggregate.tokens.forEach((member) => {
+          if (!isNil(member.order)) {
+            absentMemberOrderByKey.set(buildMemberKey(member), member.order);
+          }
+        });
+      },
     );
 
-    const filteredSearchTokenList = searchTokenList.filter(
-      (token) =>
-        !aggregateTokens.find(
-          (t) => t.address === token.address && t.networkId === token.networkId,
-        ),
-    );
+    const filteredSearchTokenList = searchTokenList
+      .filter(
+        (token) =>
+          !aggregateTokens.find(
+            (t) =>
+              t.address === token.address && t.networkId === token.networkId,
+          ),
+      )
+      .map((token, index) => ({
+        token,
+        index,
+        order:
+          absentMemberOrderByKey.get(buildMemberKey(token)) ??
+          Number.MAX_SAFE_INTEGER,
+      }))
+      // Config-ordered member hits first, everything else keeps backend order.
+      .toSorted((a, b) => a.order - b.order || a.index - b.index)
+      .map(({ token }) => token);
 
     mergedTokens = mergedTokens.concat(filteredSearchTokenList);
     mergedTokens = uniqBy(
@@ -463,16 +526,23 @@ export function getFilteredTokenBySearchKey({
 
   if (tokenFiatMap) {
     results.sort((a, b) => {
-      if (a.strength !== b.strength) return a.strength - b.strength;
-      // Exact symbol hits ("usdt" → USDT) outrank includes hits (aUSDT) even
-      // when the includes hit carries more fiat value.
+      // An exact symbol hit ("eth" → ETH, "usdt" → USDT) is the token the
+      // user typed, so it outranks every includes hit (aUSDT) and every
+      // network-only hit regardless of match strength or fiat: otherwise
+      // "eth" buries ETH on other chains under every held token whose only
+      // match is the Ethereum network name.
       if (a.exactSymbolHit !== b.exactSymbolHit) {
         return a.exactSymbolHit ? -1 : 1;
       }
-      const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? -1);
-      const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? -1);
-      return (fb.isNaN() ? new BigNumber(-1) : fb).comparedTo(
-        fa.isNaN() ? new BigNumber(-1) : fa,
+      if (a.strength !== b.strength) return a.strength - b.strength;
+      // A row without a fiat record (network disabled under All Networks, or
+      // a backend hit) renders as zero, so it must rank as zero too — ranking
+      // it below the zero-record rows would push a disabled network's member
+      // behind every enabled one regardless of config order.
+      const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? 0);
+      const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? 0);
+      return (fb.isNaN() ? new BigNumber(0) : fb).comparedTo(
+        fa.isNaN() ? new BigNumber(0) : fa,
       );
     });
   }
@@ -1551,7 +1621,19 @@ export function buildAggregateTokenListData(params: {
         ],
       };
     } else {
-      newAggregateTokenListMap[aggregateTokenListMapKey].tokens.push(token);
+      // Later members must carry the same config metadata as the first one:
+      // the token selector folds every network into one accumulated map, and
+      // `sortTokensByOrder` would otherwise leave members without `order` in
+      // response-arrival order.
+      newAggregateTokenListMap[aggregateTokenListMapKey].tokens.push({
+        ...token,
+        accountId,
+        networkId,
+        order: aggregateToken.order,
+        commonSymbol: aggregateToken.commonSymbol,
+        networkName,
+        logoURI: aggregateToken.logoURI,
+      });
     }
 
     newAggregateTokenMap[aggregateTokenListMapKey] = {

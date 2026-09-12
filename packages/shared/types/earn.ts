@@ -157,6 +157,12 @@ export interface IEarnAvailableAssetBadge {
 export interface IEarnAvailableAsset {
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   apr: string;
   aprWithoutFee: string;
@@ -181,6 +187,12 @@ export interface IEarnAvailableAssetV2 {
   networkId: string;
   provider: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   vault?: string;
   ptAddress?: string;
   enableBatch?: boolean;

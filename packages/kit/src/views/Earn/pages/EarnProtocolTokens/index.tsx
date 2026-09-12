@@ -25,6 +25,7 @@ import type {
   ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -260,7 +261,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
                 numberOfLines={1}
                 flexShrink={1}
               >
-                {row.symbol}
+                {earnUtils.getDisplaySymbol(row)}
               </SizableText>
               {/* Sunset protocols (lido/babylon) come back as WithdrawOnly and
                   are deliberately kept in the aggregation (OK-59305), but this
