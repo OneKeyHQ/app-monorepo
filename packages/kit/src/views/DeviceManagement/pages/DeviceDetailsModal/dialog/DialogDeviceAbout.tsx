@@ -12,13 +12,13 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 const VERSION_PLACEHOLDER = '--';
@@ -92,7 +92,13 @@ function SpecItem({ title, value, hasCopy }: ISpecItemProps) {
   );
 }
 
-function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
+function DialogDeviceSpecsContent({
+  data,
+  state: resolvedState,
+}: {
+  data: IHwQrWalletWithDevice;
+  state?: IOneKeyDeviceState;
+}) {
   const intl = useIntl();
   const { device } = data;
   const defaultDeviceInfo = useMemo(
@@ -118,15 +124,7 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
       );
       const state = vendorProfile.isThirdParty
         ? undefined
-        : await backgroundApiProxy.serviceHardware
-            .getDeviceState({
-              connectId: device.connectId,
-              params: {
-                scope: 'firmware',
-              },
-              silentMode: true,
-            })
-            .catch(() => device.deviceStateInfo);
+        : (resolvedState ?? device.deviceStateInfo);
 
       let versions;
       if (vendorProfile.isThirdParty) {
@@ -214,7 +212,7 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
           : null,
       };
     },
-    [device, defaultDeviceInfo],
+    [device, defaultDeviceInfo, resolvedState],
     {
       initResult: defaultDeviceInfo,
     },
@@ -275,14 +273,14 @@ export function useDialogDeviceAbout() {
   const intl = useIntl();
 
   const show = useCallback(
-    (data: IHwQrWalletWithDevice) => {
+    (data: IHwQrWalletWithDevice, state?: IOneKeyDeviceState) => {
       Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.global_about_device,
         }),
         icon: 'InfoCircleOutline',
         showFooter: false,
-        renderContent: <DialogDeviceSpecsContent data={data} />,
+        renderContent: <DialogDeviceSpecsContent data={data} state={state} />,
       });
     },
     [intl],
