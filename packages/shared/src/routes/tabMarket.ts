@@ -68,5 +68,6 @@ export type ITabMarketParamList = {
     tokenListId: string;
     title: string;
     type?: EMarketBannerType;
+    assetType?: string;
   };
 };
