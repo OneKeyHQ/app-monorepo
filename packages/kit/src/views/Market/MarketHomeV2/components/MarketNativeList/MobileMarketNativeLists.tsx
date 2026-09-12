@@ -40,6 +40,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -106,6 +107,9 @@ type IMarketListingFavorite = {
 };
 
 function useMarketListingFavorites() {
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const actions = useWatchListV2Action();
   const [{ data: watchlist, isMounted }] = useMarketWatchListV2Atom();
   const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(
@@ -118,6 +122,9 @@ function useMarketListingFavorites() {
   );
   const getFavoriteState = useCallback(
     (listing: IMarketListingFavorite) => {
+      if (isTravelMode) {
+        return undefined;
+      }
       const key = getMarketWatchlistKey({
         chainId: '',
         contractAddress: '',
@@ -129,10 +136,13 @@ function useMarketListingFavorites() {
         disabled: !isMounted || pendingKeys.has(key),
       };
     },
-    [favoriteKeys, isMounted, pendingKeys],
+    [favoriteKeys, isMounted, isTravelMode, pendingKeys],
   );
   const toggleFavorite = useCallback(
     async (listing: IMarketListingFavorite) => {
+      if (isTravelMode) {
+        return;
+      }
       const identity = {
         chainId: '',
         contractAddress: '',
@@ -171,7 +181,7 @@ function useMarketListingFavorites() {
         setPendingKeys(new Set(pendingKeysRef.current));
       }
     },
-    [actions, favoriteKeys, isMounted],
+    [actions, favoriteKeys, isMounted, isTravelMode],
   );
   return useMemo(
     () => ({ getFavoriteState, toggleFavorite }),
@@ -1089,15 +1099,17 @@ function MobileMarketNativeStockListImpl({
         return buildStockMarketRow({
           item,
           presentation,
-          favorite: {
-            ...favorite,
-            accessibilityLabel: intl.formatMessage({
-              id: favorite.checked
-                ? ETranslations.market_remove_from_favorites
-                : ETranslations.market_add_to_favorites,
-            }),
-            testID: MarketTestIDs.stockStarButton(item.stockId),
-          },
+          favorite: favorite
+            ? {
+                ...favorite,
+                accessibilityLabel: intl.formatMessage({
+                  id: favorite.checked
+                    ? ETranslations.market_remove_from_favorites
+                    : ETranslations.market_add_to_favorites,
+                }),
+                testID: MarketTestIDs.stockStarButton(item.stockId),
+              }
+            : undefined,
         });
       }),
     [favorites, intl, presentation, result.items],
@@ -1205,15 +1217,17 @@ function MobileMarketNativeTopCoinsListImpl({
         return buildTopCoinMarketRow({
           item,
           presentation,
-          favorite: {
-            ...favorite,
-            accessibilityLabel: intl.formatMessage({
-              id: favorite.checked
-                ? ETranslations.market_remove_from_favorites
-                : ETranslations.market_add_to_favorites,
-            }),
-            testID: MarketTestIDs.topCoinsStarButton(item.assetId),
-          },
+          favorite: favorite
+            ? {
+                ...favorite,
+                accessibilityLabel: intl.formatMessage({
+                  id: favorite.checked
+                    ? ETranslations.market_remove_from_favorites
+                    : ETranslations.market_add_to_favorites,
+                }),
+                testID: MarketTestIDs.topCoinsStarButton(item.assetId),
+              }
+            : undefined,
         });
       }),
     [data, favorites, intl, presentation],

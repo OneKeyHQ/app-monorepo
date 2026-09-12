@@ -182,16 +182,42 @@ export function getFinancialDomain(values: (number | null)[]) {
   return { min: min < 0 ? min - span * 0.1 : 0, max: max + span * 0.1 };
 }
 
+// Domains always contain four equal intervals, matching the five rendered ticks.
+function getFinancialTickStep(value: number) {
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const multiplier =
+    [1, 2, 2.5, 4, 5, 10].find((candidate) => candidate * magnitude >= value) ??
+    10;
+  return magnitude * multiplier;
+}
+
+export function getFinancialPerformanceDomain(values: (number | null)[]) {
+  const numbers = values.filter(isFinancialNumber);
+  // Keep the existing padded scale for very small datasets. With one or two
+  // points, a rounded four-step scale can make the top tick less useful than
+  // the original 10% breathing room.
+  if (numbers.length <= 2) return getFinancialDomain(values);
+  const min = Math.min(0, ...numbers);
+  const max = Math.max(0, ...numbers);
+  let step = getFinancialTickStep((max - min || 1) / 4);
+  let lower = Math.floor(min / step) * step;
+  while (lower + step * 4 < max) {
+    step = getFinancialTickStep(step * 1.01);
+    lower = Math.floor(min / step) * step;
+  }
+  return { min: lower, max: lower + step * 4 };
+}
+
 export function getFinancialPercentDomain(values: (number | null)[]) {
   const numbers = values.filter(isFinancialNumber);
   if (!numbers.length) return { min: -1, max: 1 };
   const min = Math.min(...numbers);
   const max = Math.max(...numbers);
-  const center = (min + max) / 2;
-  // A minimum percentage-point span keeps constant/zero margins legible and
-  // prevents distinct ticks from rounding to the same one-decimal label.
-  const halfSpan = Math.max(2, max - min) * 0.6;
-  return { min: center - halfSpan, max: center + halfSpan };
+  // Give percentage changes breathing room rather than stretching their
+  // observed minimum and maximum across the full height of the bar chart.
+  const step = getFinancialTickStep(Math.max(2, (max - min) * 2) / 4);
+  const upper = Math.ceil((max === min ? max + step : max) / step) * step;
+  return { min: upper - step * 4, max: upper };
 }
 
 type IFinancialFetcher = (params: {

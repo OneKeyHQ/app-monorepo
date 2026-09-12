@@ -28,6 +28,7 @@ import {
   OneKeyServerApiError,
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   markOneKeyIdFailureServerLogged,
   wasOneKeyIdFailureServerLogged,
@@ -69,6 +70,12 @@ import type {
   IKeylessOAuthSessionRollbackHandle,
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import type {
+  IPrimeGiftClaimParams,
+  IPrimeGiftClaimResult,
+  IPrimeGiftEligibility,
+  IPrimeGiftPreparedRedemption,
+} from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type {
   IOneKeyIdAccount,
   IOneKeyIdOAuthBindResponse,
   IOneKeyIdOAuthLoginResponse,
@@ -92,7 +99,9 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import {
+  primeGiftEligibilityPersistAtom,
   primeLoginDialogAtom,
   primePersistAtom,
   primePersistAtomInitialValue,
@@ -210,7 +219,11 @@ function validatePrimeRedemptionResponse(
     Number(redemption.primeExpiresAt) < 1_000_000_000_000 ||
     Number.isNaN(new Date(Number(redemption.primeExpiresAt)).getTime())
   ) {
-    throw new OneKeyLocalError('Invalid Prime redemption response');
+    throw new OneKeyLocalError(
+      appLocale.intl.formatMessage({
+        id: ETranslations.prime_redemption_invalid_response__msg,
+      }),
+    );
   }
   return {
     addedDays: Number(redemption.daysAdded),
@@ -477,6 +490,186 @@ type IOneKeyIdAuthSnapshot = {
 };
 
 class ServicePrime extends ServiceBase {
+  private primeGiftMutex = new Semaphore(1);
+
+  private primeGiftEligibilityRequests = new Map<string, number>();
+
+  @backgroundMethod()
+  async apiGetPrimeGiftUserId(): Promise<string | undefined> {
+    try {
+      const client = await this.getPrimeClient();
+      const response = await client.get<
+        IPrimeApiClientResponse<IPrimeServerUserInfo>
+      >('/prime/v1/user/info');
+      const info = this.getPrimeApiResponseData({
+        response,
+        fallbackMessage: appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_user_info_failed__msg,
+        }),
+      });
+      return typeof info.userId === 'string'
+        ? info.userId.trim() || undefined
+        : undefined;
+    } catch (error) {
+      // The claim page handles this automatic login check; mute before the
+      // error crosses the background proxy and schedules a global toast.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  private async getPrimeGiftUser() {
+    const user = await primePersistAtom.get();
+    if (!user.isLoggedIn) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.id_login_expired_description,
+        }),
+        key: ETranslations.id_login_expired_description,
+        autoToast: false,
+      });
+    }
+    return user;
+  }
+
+  @backgroundMethod()
+  async apiPreparePrimeGiftRedemption({
+    device,
+    serialNo,
+    expectedOneKeyUserId,
+  }: IPrimeGiftClaimParams): Promise<IPrimeGiftPreparedRedemption> {
+    return this.primeGiftMutex.runExclusive(async () => {
+      await this.getPrimeGiftUser();
+      const verification =
+        await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
+          { device, serialNo },
+        );
+      return {
+        serialNo,
+        onekeyUserId: expectedOneKeyUserId,
+        code: verification.code,
+        verification: {
+          hasCode: Boolean(verification.code?.trim()),
+          status: verification.status,
+        },
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async apiGetPrimeGiftEligibility({
+    serialNo,
+  }: {
+    serialNo: string;
+  }): Promise<IPrimeGiftEligibility> {
+    const request = (this.primeGiftEligibilityRequests.get(serialNo) ?? 0) + 1;
+    this.primeGiftEligibilityRequests.set(serialNo, request);
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const response = await client.post<
+      IApiClientResponse<IPrimeGiftEligibility>
+    >('/wallet/v1/hardware/prime-gift/eligibility', { sno: serialNo });
+    const eligibility = this.getPrimeApiResponseData({
+      response,
+      fallbackMessage: appLocale.intl.formatMessage({
+        id: ETranslations.prime_gift_eligibility_failed__msg,
+      }),
+    });
+    if (
+      typeof eligibility.eligible !== 'boolean' ||
+      typeof eligibility.hasUnclaimedGift !== 'boolean' ||
+      !Number.isSafeInteger(eligibility.giftDays) ||
+      eligibility.giftDays < 0 ||
+      (eligibility.giftMonths !== undefined &&
+        eligibility.giftMonths !== null &&
+        eligibility.giftMonths !== '' &&
+        (!Number.isSafeInteger(eligibility.giftMonths) ||
+          eligibility.giftMonths < 0))
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_eligibility_failed__msg,
+        }),
+      );
+    }
+    await primeGiftEligibilityPersistAtom.set((cached) => {
+      // A slower previous request must not overwrite a newer device response.
+      if (this.primeGiftEligibilityRequests.get(serialNo) !== request) {
+        return cached;
+      }
+      return {
+        ...cached,
+        [serialNo]: {
+          sno: eligibility.sno,
+          eligible: eligibility.eligible,
+          hasUnclaimedGift: eligibility.hasUnclaimedGift,
+          giftDays: eligibility.giftDays,
+          giftMonths: eligibility.giftMonths,
+        },
+      };
+    });
+    return eligibility;
+  }
+
+  @backgroundMethod()
+  async apiResetPrimeGift({ serialNo }: { serialNo: string }): Promise<void> {
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_developer_mode_required__msg,
+        }),
+      );
+    }
+    if (!serialNo.trim()) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_serial_required__msg,
+        }),
+      );
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const response = await client.post<IApiClientResponse<unknown>>(
+      '/wallet/v1/hardware/prime-gift/reset',
+      { sno: serialNo },
+    );
+    if (response.data.code !== 0) {
+      throw this.buildPrimeApiResponseError({
+        response,
+        fallbackMessage: appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_reset_failed__msg,
+        }),
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async apiClaimPrimeGift({
+    code,
+    serialNo,
+    expectedOneKeyUserId,
+  }: IPrimeRedemptionParams & {
+    serialNo: string;
+  }): Promise<IPrimeGiftClaimResult> {
+    return this.primeGiftMutex.runExclusive(async () => {
+      const user = await this.getPrimeGiftUser();
+      const redemption = await this.redeemPrimeCode({
+        code,
+        expectedOneKeyUserId,
+      });
+      const result = {
+        ...redemption,
+        serialNo,
+        onekeyUserId: expectedOneKeyUserId,
+        email: user.displayEmail ?? user.email,
+      };
+      appEventBus.emit(EAppEventBusNames.PrimeGiftRedeemed, { serialNo });
+      void this.apiFetchPrimeUserInfo({ forceRefresh: true }).catch(
+        () => undefined,
+      );
+      return result;
+    });
+  }
+
   private primeUserInfoFetchGeneration = 0;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -5337,6 +5530,21 @@ class ServicePrime extends ServiceBase {
   async apiRedeemPrimeCode({
     code,
     expectedOneKeyUserId,
+    primeGiftSerialNo,
+  }: IPrimeRedemptionParams): Promise<IPrimeRedemptionResult> {
+    if (primeGiftSerialNo !== undefined) {
+      return this.apiClaimPrimeGift({
+        code,
+        expectedOneKeyUserId,
+        serialNo: primeGiftSerialNo,
+      });
+    }
+    return this.redeemPrimeCode({ code, expectedOneKeyUserId });
+  }
+
+  private async redeemPrimeCode({
+    code,
+    expectedOneKeyUserId,
   }: IPrimeRedemptionParams): Promise<IPrimeRedemptionResult> {
     const redemptionCode = isString(code) ? code.trim() : '';
     if (!redemptionCode) {
@@ -5344,6 +5552,7 @@ class ServicePrime extends ServiceBase {
         message: appLocale.intl.formatMessage({
           id: ETranslations.redemption_invalid_code_error,
         }),
+        key: ETranslations.redemption_invalid_code_error,
         autoToast: false,
       });
     }

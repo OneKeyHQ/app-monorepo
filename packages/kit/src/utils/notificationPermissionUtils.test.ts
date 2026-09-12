@@ -2,6 +2,7 @@ import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
 import {
   canSendOsNotificationTest,
+  enableNotificationsBestEffort,
   getOsNotificationPermissionSafe,
   isNotificationFullyEnabled,
   isOsNotificationPermissionPending,
@@ -9,7 +10,13 @@ import {
   resolveOsNotificationPermissionAction,
 } from './notificationPermissionUtils';
 
+import type { IAppNavigation } from '../hooks/useAppNavigation';
+
 const mockFetchServerNotificationSettingsWithCache: jest.Mock<
+  Promise<unknown>,
+  unknown[]
+> = jest.fn();
+const mockUpdateServerNotificationSettings: jest.Mock<
   Promise<unknown>,
   unknown[]
 > = jest.fn();
@@ -57,6 +64,8 @@ jest.mock('../background/instance/backgroundApiProxy', () => ({
     serviceNotification: {
       fetchServerNotificationSettingsWithCache: (...args: unknown[]) =>
         mockFetchServerNotificationSettingsWithCache(...args),
+      updateServerNotificationSettings: (...args: unknown[]) =>
+        mockUpdateServerNotificationSettings(...args),
       getPermission: (...args: unknown[]) => mockGetPermission(...args),
       getPermissionWithoutLog: (...args: unknown[]) =>
         mockGetPermissionWithoutLog(...args),
@@ -344,5 +353,73 @@ describe('isNotificationFullyEnabled', () => {
     });
 
     await expect(isNotificationFullyEnabled()).resolves.toBe(true);
+  });
+});
+
+describe('notification setup on the Prime gift success page', () => {
+  const pushModal = jest.fn();
+  const navigation = { pushModal } as unknown as IAppNavigation;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isNativeIOS = true;
+    mockFetchServerNotificationSettingsWithCache.mockResolvedValue({
+      pushEnabled: false,
+      accountActivityPushEnabled: true,
+    });
+    mockGetPermission.mockResolvedValue(undetermined);
+    mockRequestPermission.mockResolvedValue(denied);
+    mockUpdateServerNotificationSettings.mockResolvedValue({
+      pushEnabled: true,
+      accountActivityPushEnabled: true,
+    });
+  });
+
+  it('preserves notification settings and stays on the success page after an OS denial', async () => {
+    await enableNotificationsBestEffort({
+      navigation,
+      stayOnCurrentPage: true,
+    });
+    expect(mockUpdateServerNotificationSettings).toHaveBeenCalledWith({
+      pushEnabled: true,
+      accountActivityPushEnabled: true,
+    });
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+    expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
+  });
+
+  it('keeps an optional notification failure from failing the gift flow', async () => {
+    mockRequestPermission.mockRejectedValueOnce(
+      new Error('permission provider unavailable'),
+    );
+    await expect(
+      enableNotificationsBestEffort({ navigation, stayOnCurrentPage: true }),
+    ).resolves.toBeUndefined();
+    expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
+  });
+
+  it('defers missing server settings without overwriting defaults or leaving success', async () => {
+    mockFetchServerNotificationSettingsWithCache.mockResolvedValue({});
+    await enableNotificationsBestEffort({
+      navigation,
+      stayOnCurrentPage: true,
+    });
+    expect(mockUpdateServerNotificationSettings).not.toHaveBeenCalled();
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
+  });
+
+  it('abandons notification setup when the recipient is no longer current', async () => {
+    await enableNotificationsBestEffort({
+      navigation,
+      stayOnCurrentPage: true,
+      shouldContinue: () => false,
+    });
+    expect(mockUpdateServerNotificationSettings).not.toHaveBeenCalled();
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
   });
 });
