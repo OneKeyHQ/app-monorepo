@@ -28,7 +28,9 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { PrimeGiftOffer } from '@onekeyhq/kit/src/views/Prime/components/PrimeGiftOffer';
 import type {
+  IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -52,9 +54,8 @@ import {
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -67,10 +68,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useDeviceStageBurst } from '../../../hooks/useDeviceStageBurst';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import { waitForDeviceStageExit } from '../../../provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import {
   flushPendingExistingWalletSwitchToast,
@@ -92,13 +96,12 @@ import {
   getHardwareCommunicationTypeString,
   trackHardwareWalletConnection,
 } from '../utils';
+import {
+  enterWalletAfterOnboarding,
+  registerOnboardingCompletion,
+} from '../utils/enterWalletAfterOnboarding';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
-
-// Tail-cutoff for the bind-status prefetch in `handleLetsGo`. Short enough
-// that an unhealthy referral backend never strands the user on this page;
-// long enough that a healthy backend with a mild blip still gets through.
-const REFERRAL_CHECK_TIMEOUT_MS = 1500;
 
 const POPUP_LAYERED_SHADOW =
   'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)';
@@ -265,6 +268,8 @@ function FinalizeWalletSetupPage({
 
   const created = useRef(false);
   const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
+  const prefetchedGiftSerialNoRef = useRef<string | undefined>(undefined);
+  const [creatingGiftWalletId, setCreatingGiftWalletId] = useState<string>();
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const deviceData = route?.params?.deviceData;
@@ -296,7 +301,6 @@ function FinalizeWalletSetupPage({
   const referralCheckPromiseRef = useRef<
     Promise<ICheckWalletBindStatusResponse | undefined>
   >(Promise.resolve(undefined));
-
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
@@ -333,62 +337,10 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
-  // Ready state waits for the user's Let's-go press instead of auto-closing.
-  // The 600ms delay gives the page-dismiss animation time to finish before
-  // the auto-connect dapp modal appears on top of the next (Main) screen.
-  // Before closing, check referral bind status; if the wallet is still
-  // eligible to bind a referral code, show the onboarding invite code dialog
-  // and defer the close flow to its onDone callback.
-  const handleLetsGo = useCallback(async () => {
-    if (closePageCalled.current) return;
-
-    const createdWallet = createdWalletRef.current;
-
-    const proceedToWallet = () => {
-      closePage();
-      flushPendingExistingWalletSwitchToast();
-      void (async () => {
-        await timerUtils.wait(600);
-        void openKeylessAutoConnectDappModal();
-      })();
-    };
-
-    if (createdWallet) {
-      try {
-        // Await the prefetched promise. If it already resolved while the
-        // user was lingering on the success page, this returns immediately
-        // (instant Enter wallet). The tail-cutoff only kicks in when the
-        // backend is genuinely unhealthy — in which case skipping the
-        // dialog is the right call; the user can still bind from Settings.
-        const checkResp = await createTimeoutPromise<
-          ICheckWalletBindStatusResponse | undefined
-        >({
-          asyncFunc: () => referralCheckPromiseRef.current,
-          timeout: REFERRAL_CHECK_TIMEOUT_MS,
-          timeoutResult: undefined,
-        });
-
-        if (checkResp) {
-          const isBound =
-            checkResp.data || checkResp.reason === 'already_bound';
-          const isExpired = checkResp.reason === 'exceeded_bind_window';
-
-          if (!isBound && !isExpired) {
-            showInviteCodeDialogRef.current?.({
-              wallet: createdWallet,
-              onDone: proceedToWallet,
-            });
-            return;
-          }
-        }
-      } catch {
-        // Server unreachable / unexpected error — skip dialog, fall through
-        // to the original close flow so onboarding still completes.
-      }
-    }
-
-    proceedToWallet();
-  }, [closePage, openKeylessAutoConnectDappModal]);
+  const handleLetsGo = useCallback(
+    () => enterWalletAfterOnboarding(route.key),
+    [route.key],
+  );
 
   const processNextStep = useCallback(() => {
     while (stepQueue.current.length > 0) {
@@ -410,11 +362,20 @@ function FinalizeWalletSetupPage({
   );
 
   const actions = useAccountSelectorActions();
+  const {
+    activeAccount: { wallet: activeWallet },
+  } = useActiveAccount({ num: 0 });
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { connectDevice, createHWWallet } = useDeviceConnect();
+  const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
+    // The stage hold is opened inside the hardware branch below, and only
+    // there: a software wallet (new mnemonic, import, keyless restore) has
+    // no device, and a hold taken here regardless painted the connecting
+    // replica over its password prompt 120ms later. endBurst() in the
+    // finally is a no-op for a run that never held.
     try {
       let hdWalletCreatedResult:
         | {
@@ -521,6 +482,16 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        // The wallet-creation run is one conversation with the device
+        // across several hardware calls (wallet, passphrase, accounts) with
+        // app work between them. Legacy showed a checking dialog per call,
+        // which is what flickered through the onboarding animation; one
+        // hold spans it.
+        await ensureBurst({
+          connectId: deviceData.device?.connectId ?? undefined,
+          deviceType: deviceData.device?.deviceType ?? undefined,
+          deviceName: deviceData.device?.name ?? undefined,
+        });
         const { wallets: walletsBeforeCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
@@ -753,6 +724,12 @@ function FinalizeWalletSetupPage({
             isFirmwareVerified,
           });
         }
+        // The device conversation is over: release the hold and let the
+        // stage leave before the page turns to its ready state, so the
+        // processing capsule never overlaps the Enter-wallet button
+        // (OK-62092). The finally's endBurst is a no-op after this.
+        await endBurst();
+        await waitForDeviceStageExit();
         const { wallets: walletsAfterCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
@@ -786,8 +763,12 @@ function FinalizeWalletSetupPage({
             : ETranslations.global_unknown_error,
         ) as ETranslations,
       });
+    } finally {
+      await endBurst();
     }
   }, [
+    ensureBurst,
+    endBurst,
     mnemonic,
     deviceData,
     isFirmwareVerified,
@@ -818,6 +799,13 @@ function FinalizeWalletSetupPage({
     const fn = (
       event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupStep],
     ) => {
+      if (
+        event.step === EFinalizeWalletSetupSteps.GeneratingAccounts &&
+        event.walletId &&
+        event.dbDeviceId
+      ) {
+        setCreatingGiftWalletId(event.walletId);
+      }
       goNextStep(event.step);
     };
 
@@ -852,6 +840,8 @@ function FinalizeWalletSetupPage({
     referralCheckPromiseRef.current = Promise.resolve(undefined);
     setIsWalletCreationReadyForReferralCheck(false);
     setIsWalletCreationRecordHandled(false);
+    setCreatingGiftWalletId(undefined);
+    prefetchedGiftSerialNoRef.current = undefined;
     // Reset the dedup guard so a retry triggered after a late, post-success
     // error (e.g. a hardware-connect event firing after a non-hardware
     // wallet was already created) can re-enter the create-wallet branch
@@ -968,6 +958,60 @@ function FinalizeWalletSetupPage({
   const orbSize = 160;
   const isReadyActionVisible = isReady && isWalletCreationRecordHandled;
 
+  useEffect(() => {
+    if (!isReadyActionVisible) return undefined;
+    return registerOnboardingCompletion(route.key, {
+      getCreatedWallet: () => createdWalletRef.current,
+      getReferralCheck: () => referralCheckPromiseRef.current,
+      getInviteDialog: () => showInviteCodeDialogRef.current,
+      isClosed: () => closePageCalled.current,
+      closePage,
+      openKeylessAutoConnectDappModal,
+    });
+  }, [
+    isReadyActionVisible,
+    route.key,
+    closePage,
+    openKeylessAutoConnectDappModal,
+  ]);
+
+  const giftWalletId =
+    isReadyActionVisible && activeWallet?.associatedDevice
+      ? activeWallet.id
+      : creatingGiftWalletId;
+  const reservePrimeGiftSpace = gtMd && Boolean(deviceData || giftWalletId);
+  const [giftWalletDevice, setGiftWalletDevice] = useState<{
+    walletId: string;
+    device: IDBDevice;
+  }>();
+  useEffect(() => {
+    if (!giftWalletId) return undefined;
+    let cancelled = false;
+    // The wallet and device are saved before account generation begins.
+    // Resolve the serial from DB while the remaining setup runs independently.
+    void backgroundApiProxy.serviceAccount
+      .getWalletDevice({ walletId: giftWalletId })
+      .then((device) => {
+        if (cancelled) return;
+        setGiftWalletDevice({ walletId: giftWalletId, device });
+        const serialNo = deviceUtils.getDeviceSerialNoFromDbDevice(device);
+        if (serialNo && prefetchedGiftSerialNoRef.current !== serialNo) {
+          prefetchedGiftSerialNoRef.current = serialNo;
+          void backgroundApiProxy.servicePrime
+            .apiGetPrimeGiftEligibility({ serialNo })
+            .catch(() => undefined);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [giftWalletId]);
+  const primeGiftDevice =
+    giftWalletDevice && giftWalletDevice.walletId === giftWalletId
+      ? giftWalletDevice.device
+      : undefined;
+
   const [isExtensionTopRightVisible, setIsExtensionTopRightVisible] =
     useState(false);
   useEffect(() => {
@@ -1022,6 +1066,9 @@ function FinalizeWalletSetupPage({
     }),
   };
 
+  const desktopEnterWalletButtonProps = reservePrimeGiftSpace
+    ? { w: 400 }
+    : { minWidth: 240 };
   const enterWalletButton = (
     <Button
       testID={OnboardingTestIDs.finalizeSetupEnterWalletBtn}
@@ -1032,7 +1079,7 @@ function FinalizeWalletSetupPage({
       transition="quick"
       animateOnly={['opacity']}
       enterStyle={{ opacity: 0 }}
-      {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
+      {...(gtMd ? desktopEnterWalletButtonProps : { w: '100%' as const })}
     >
       {intl.formatMessage({ id: ETranslations.enter_wallet })}
     </Button>
@@ -1134,7 +1181,12 @@ function FinalizeWalletSetupPage({
         {setupError ? (
           <YStack flex={1} justifyContent="center" alignItems="center">
             <YStack maxWidth={400} width="100%" minHeight={400} gap="$7">
-              <SizableText fontSize={48}>💆‍♀️</SizableText>
+              {/* The size variant's 24pt line box clipped the 48pt emoji to
+                  a band on iOS (OK-62173); the line height must grow with
+                  the glyph. */}
+              <SizableText fontSize={48} lineHeight={60}>
+                💆‍♀️
+              </SizableText>
               <SizableText size="$heading4xl" fontWeight={600}>
                 {intl.formatMessage({
                   id: ETranslations.failed_to_create_wallet,
@@ -1213,6 +1265,23 @@ function FinalizeWalletSetupPage({
                 </YStack>
               </YStack>
               <StepTextSwap text={stepText} />
+              {/* Reserve the banner's 88px height for desktop hardware setup so async gift
+                  eligibility results do not shift the vertically centered content. */}
+              {reservePrimeGiftSpace ||
+              (isReadyActionVisible && primeGiftDevice) ? (
+                <YStack
+                  {...(gtMd ? { w: 400, h: 88 } : { w: '100%' as const })}
+                >
+                  {isReadyActionVisible && primeGiftDevice ? (
+                    <PrimeGiftOffer
+                      device={primeGiftDevice}
+                      source="onboarding"
+                      onboardingRouteKey={route.key}
+                      skipInitialRefresh
+                    />
+                  ) : null}
+                </YStack>
+              ) : null}
               {gtMd ? (
                 <YStack mt="$4" minHeight={48} {...enterWalletTransitionProps}>
                   {enterWalletButton}

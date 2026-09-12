@@ -387,6 +387,7 @@ export interface ISwapOrderHash {
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
+  marketSwapApprovalFlowId?: string;
   protocol: EProtocolOfExchange;
   swapType: ESwapTabSwitchType;
   unSupportReceiveAddressDifferent?: boolean;
@@ -1069,6 +1070,8 @@ export interface IFetchResponse<T> {
 export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
+  REFUNDED = 'refunded',
+  EXPIRED = 'expired',
   PENDING = 'pending',
   DEPOSIT_SUCCESS = 'depositSuccess',
   CANCELED = 'canceled',

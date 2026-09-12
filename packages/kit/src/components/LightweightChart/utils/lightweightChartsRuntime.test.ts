@@ -1,9 +1,19 @@
+import { runInNewContext } from 'vm';
+
 import type { UTCTimestamp } from 'lightweight-charts';
 
 jest.mock('./lightweightChartsStandalone.text-js', () => {
   const fs = jest.requireActual<typeof import('fs')>('fs');
   return fs.readFileSync(
     'packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js',
+    'utf8',
+  );
+});
+
+jest.mock('./formatChartPrice.text-js', () => {
+  const fs = jest.requireActual<typeof import('fs')>('fs');
+  return fs.readFileSync(
+    'packages/kit/src/components/LightweightChart/utils/formatChartPrice.text-js',
     'utf8',
   );
 });
@@ -95,6 +105,65 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
     expect(html).toContain('getTimeScaleOptions(nextConfig)');
   });
 
+  it('creates a dashed reference line in the native chart template', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      referenceLine: {
+        price: 0,
+        color: '#555555',
+        lineWidth: 1,
+        lineStyle: 'dashed',
+        axisLabelVisible: false,
+      },
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"referenceLine":{"price":0');
+    expect(html).toContain("lineStyle === 'dashed'");
+    expect(html).toContain('window.series.createPriceLine');
+  });
+
+  it('creates a signed histogram series in the native chart template', () => {
+    const html = generateChartHTML({
+      data: [
+        { time: 1 as UTCTimestamp, value: 2, color: '#00aa00' },
+        { time: 2 as UTCTimestamp, value: -3, color: '#ee0000' },
+      ],
+      lineWidth: 2,
+      seriesType: 'histogram',
+      histogramOptions: {
+        positiveColor: '#00aa00',
+        negativeColor: '#ee0000',
+        base: 0,
+        barWidthRatio: 0.5,
+        maxBarWidth: 24,
+      },
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#00aa00',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"seriesType":"histogram"');
+    expect(html).toContain('"color":"#00aa00"');
+    expect(html).toContain('"color":"#ee0000"');
+    expect(html).toContain('createHistogramSeriesPaneView()');
+    expect(html).toContain('barWidthRatio: 0.5');
+    expect(html).toContain('maxBarWidth: 24');
+    expect(html).toContain('value === options.base) return');
+    expect(html).toContain('getHistogramSeriesOptions(nextConfig)');
+  });
+
   it('preserves native adaptive tick labels when no time zone is provided', () => {
     const html = generateChartHTML({
       data: [{ time: 1 as UTCTimestamp, value: 1 }],
@@ -181,6 +250,12 @@ describe('resolveSerializablePriceFormatterType', () => {
         priceFormatter: (value) => `$${value.toFixed(2)}`,
       }),
     ).toBe('usd');
+    expect(
+      resolveSerializablePriceFormatterType({
+        seriesType: 'histogram',
+        priceFormatter: (value) => `$${value.toFixed(2)}`,
+      }),
+    ).toBe('usd');
   });
 });
 
@@ -207,4 +282,35 @@ describe('resolveSerializablePriceFormatterTickStep', () => {
       }),
     ).toBeUndefined();
   });
+});
+
+it('embeds and selects compact prices in the native chart', () => {
+  const html = generateChartHTML({
+    data: [],
+    lineWidth: 2,
+    compactPriceMaxCharacters: 7,
+    priceScaleMinimumWidth: 88,
+    theme: {
+      bgColor: '#000000',
+      textSubduedColor: '#999999',
+      lineColor: '#8D8FE8',
+      topColor: 'transparent',
+      bottomColor: 'transparent',
+    },
+  });
+  expect(html).toContain('"compactPriceMaxCharacters":7');
+  expect(html).not.toContain('[bytecode]');
+  expect(html).toContain('"priceScaleMinimumWidth":88');
+  const start = html.indexOf('var compactPriceFormatter =');
+  const end = html.indexOf('function getNormalizedLineWidth', start);
+  expect(start).toBeGreaterThan(0);
+  expect(end).toBeGreaterThan(start);
+  expect(
+    runInNewContext(`${html.slice(start, end)};
+    getPriceFormatter({compactPriceMaxCharacters: 7})(-1e-30)`),
+  ).toBe('-$0.0₂₉1');
+  expect(
+    runInNewContext(`${html.slice(start, end)};
+    getPriceFormatter({compactPriceMaxCharacters: 7})(-1.23456789e-30)`),
+  ).toBe('-$0.0₂₉...');
 });

@@ -48,6 +48,7 @@ import {
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
 import {
   openUrlExternal,
@@ -76,6 +77,7 @@ import {
   ResetPinListItem,
   SplitViewListItem,
   ThemeListItem,
+  TravelModeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
@@ -127,6 +129,8 @@ interface ISubSettingConfigBase {
   mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
+  searchable?: boolean;
+  ignorePress?: boolean;
   /**
    * Phone layouts promote this item to the settings home cards; its own
    * category page hides it there.
@@ -173,6 +177,7 @@ export type ISettingsConfig = (
       name: ESettingsTabNames;
       testID?: string;
       isHidden?: boolean;
+      ignorePress?: boolean;
       /**
        * Synthetic category derived from an item's `desktopTab` annotation.
        * Rendered only by the tab navigator; list layouts must skip it.
@@ -230,6 +235,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(() => {
+    const isTravelMode =
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode';
     const clearPendingTransactionsItem: ISubSettingConfig = {
       id: 'clear-pending-transactions',
       icon: 'ClockTimeHistoryOutline',
@@ -713,7 +721,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         'allowlist',
                       ],
                       settingRoute: EModalSettingRoutes.SettingProtectModal,
+                      ignorePress: isTravelMode,
                       onPress: (navigation) => {
+                        if (isTravelMode) {
+                          return;
+                        }
                         navigation?.push(
                           EModalSettingRoutes.SettingProtectModal,
                         );
@@ -782,6 +794,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                           EModalSettingRoutes.SettingFloatingIconModal,
                         );
                       },
+                    }
+                  : undefined,
+              ],
+              [
+                platformEnv.isNative
+                  ? {
+                      id: 'travel-mode',
+                      icon: 'LuggagePackageOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.travel_mode__title,
+                      }),
+                      searchable: false,
+                      testID: SettingTestIDs.travelModeItem,
+                      renderElement: <TravelModeListItem />,
                     }
                   : undefined,
               ],
@@ -1053,9 +1079,48 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         Component: SubSearchSettings,
       },
     ];
+    const hiddenTravelModeItemIds = new Set([
+      'notifications',
+      'onekey-transfer',
+      'manual-backup',
+      'address-book',
+      'account-derivation',
+      'passcode',
+      'add-network',
+      'custom-rpc',
+    ]);
+    const filteredConfig = isTravelMode
+      ? config.map((category) =>
+          category
+            ? {
+                ...category,
+                isHidden:
+                  category.isHidden ||
+                  category.name === ESettingsTabNames.About,
+                ignorePress:
+                  category.ignorePress ||
+                  [
+                    ESettingsTabNames.Backup,
+                    ESettingsTabNames.Network,
+                    ESettingsTabNames.AppData,
+                  ].includes(category.name),
+                configs: category.configs
+                  .map((group) =>
+                    group.filter(
+                      (item) =>
+                        !item ||
+                        !item.id ||
+                        !hiddenTravelModeItemIds.has(item.id),
+                    ),
+                  )
+                  .filter((group) => group.length > 0),
+              }
+            : category,
+        )
+      : config;
     // Desktop link tabs are derived from the annotated items so their
     // platform gating and copy never fork from the source item.
-    const linkTabCategories: ISettingsConfig = config.flatMap(
+    const linkTabCategories: ISettingsConfig = filteredConfig.flatMap(
       (category) =>
         category?.configs
           .flat()
@@ -1079,7 +1144,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [],
           })) ?? [],
     );
-    return [...config, ...linkTabCategories].toSorted((a, b) => {
+    return [...filteredConfig, ...linkTabCategories].toSorted((a, b) => {
       const aOrder = a
         ? (SETTINGS_CONFIG_ORDER.get(a.name) ?? SETTINGS_CONFIG_ORDER.size)
         : SETTINGS_CONFIG_ORDER.size + 1;

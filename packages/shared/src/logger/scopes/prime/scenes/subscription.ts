@@ -98,6 +98,15 @@ export type IPrimeCryptoPaymentFlowParams = {
   amountDue?: string;
   reason?: string;
   sendStarted?: boolean;
+  hasBeforeBroadcastAction?: boolean;
+  isDevModeEnabled?: boolean;
+  isAlwaysSignOnlySendTxConfigured?: boolean;
+  isSignOnlyRequested?: boolean;
+  isExternalAccount?: boolean;
+  hasCompletedBeforeBroadcastAction?: boolean;
+  hasAttemptedBroadcast?: boolean;
+  hasBroadcastTxId?: boolean;
+  isWithoutBroadcastTxIdAllowed?: boolean;
   isRetry?: boolean;
   durationMs?: number;
   retryCount?: number;
@@ -151,6 +160,28 @@ export type IOneKeyIdAuthStateRepairParams = {
     | 'incompleteLogoutProjection';
 };
 
+export type IPrimeGiftAnalyticsSource = 'onboarding' | 'deviceDetails';
+
+export type IPrimeGiftStageParams =
+  | {
+      stage: 'login';
+      status: 'start' | 'success' | 'cancel' | 'failed';
+    }
+  | {
+      stage: 'verify';
+      status:
+        | 'start'
+        | 'success'
+        | 'noCode'
+        | 'alreadyClaimed'
+        | 'cancel'
+        | 'failed';
+    }
+  | {
+      stage: 'claim';
+      status: 'submit';
+    };
+
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
@@ -169,9 +200,11 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'approvalPopup'
       | 'primePage'
       | 'walletEdit'
+      | 'accountSelectorAddMenu'
       | 'browserTranslate'
       | 'historySettings'
-      | 'sendAddressInput';
+      | 'sendAddressInput'
+      | 'signatureConfirm';
     isPrimeActive: boolean;
   }) {
     return {
@@ -237,18 +270,54 @@ export class PrimeSubscriptionScene extends BaseScene {
     isPrimeActiveBeforeRedeem,
     addedDays,
     errorCode,
+    source,
+    entry,
   }: {
-    result: 'success' | 'failed';
+    result: 'success' | 'failed' | 'unknown';
     isPrimeActiveBeforeRedeem: boolean;
     addedDays?: number;
     errorCode?: number;
+    source?: IPrimeGiftAnalyticsSource;
+    entry?: 'primeGift';
   }) {
     return {
       result,
       isPrimeActiveBeforeRedeem,
       addedDays,
       errorCode,
+      ...(source && entry ? { source, entry } : {}),
     };
+  }
+
+  /** Banner became actually visible for an eligible unclaimed gift. */
+  @LogToServer()
+  public primeGiftOfferShown({
+    source,
+  }: {
+    source: IPrimeGiftAnalyticsSource;
+  }) {
+    return { source };
+  }
+
+  /** User tapped a visible Prime gift banner. */
+  @LogToServer()
+  public primeGiftOfferClick({
+    source,
+  }: {
+    source: IPrimeGiftAnalyticsSource;
+  }) {
+    return { source };
+  }
+
+  /**
+   * Controlled gift funnel stages. Never includes serial, email, address,
+   * redemption code, or raw error text.
+   */
+  @LogToServer()
+  public primeGiftStage(
+    params: IPrimeGiftStageParams & { source: IPrimeGiftAnalyticsSource },
+  ) {
+    return params;
   }
 
   /**

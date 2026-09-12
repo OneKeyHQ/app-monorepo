@@ -4,6 +4,7 @@ import {
   createTradingViewNativeSkiaFontForText,
   createTradingViewNativeSkiaPicture,
   createTradingViewNativeSkiaResources,
+  getTradingViewNativeSkiaLegendText,
   getTradingViewNativeSkiaPaintStyleSignature,
 } from './chartSkiaRenderer';
 
@@ -178,6 +179,7 @@ function createScene(
   overrides: Partial<ITradingViewNativeChartScene> = {},
 ): ITradingViewNativeChartScene {
   return {
+    autoPriceRange: null,
     commands: [],
     crosshairPointIndex: null,
     customPaintStyles: {},
@@ -274,6 +276,69 @@ describe('TradingViewNative Skia scene renderer', () => {
     expect(font).toEqual(expect.objectContaining({ fontFamily: 'System' }));
     expect(mockMatchFamilyStyleCharacter).toHaveBeenCalledTimes(4);
     expect(mockFontDisposeByFamily.System).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { locale: 'hi-IN', text: 'खरीद 100 TOKEN', family: 'Noto Sans Devanagari' },
+    { locale: 'bn-BD', text: 'কেনা 100 TOKEN', family: 'Noto Sans Bengali' },
+    { locale: 'th-TH', text: 'ซื้อ 100 TOKEN', family: 'Noto Sans Thai' },
+  ])(
+    'includes $locale trade text in font fallback with Latin candle labels',
+    ({ locale, text, family }) => {
+      const requiredText = getTradingViewNativeSkiaLegendText({
+        candleLabels: { open: 'O', high: 'H', low: 'L', close: 'C' },
+        chartComponents: [
+          {
+            id: 'trades',
+            type: 'tradeMarks',
+            props: {
+              marks: [{ id: 'buy', label: 'B', text: `${text}\n`, time: 1 }],
+            },
+          },
+        ],
+      });
+      mockFontGlyphsByFamily.System = '…';
+      mockFontGlyphsByFamily[family] = `${text}…`;
+      for (const character of text) {
+        mockFallbackFontFamilyByRequest[`${locale}:${character}`] = family;
+      }
+      const font = createTradingViewNativeSkiaFontForText({
+        fontFamily: 'System',
+        fontSize: 11,
+        locale,
+        requiredText,
+      });
+      expect(requiredText).not.toContain('\n');
+      expect(requiredText).toContain('…');
+      expect(font).toEqual(expect.objectContaining({ fontFamily: family }));
+    },
+  );
+
+  it('keeps required legend glyphs stable across reordered trades', () => {
+    const candleLabels = { open: 'O', high: 'H', low: 'L', close: 'C' };
+    const marks = [
+      { id: 'buy', label: 'B' as const, text: 'Buy 100 TOKEN', time: 1 },
+      { id: 'sell', label: 'S' as const, text: 'Sell 10 TOKEN', time: 2 },
+    ];
+    expect(
+      getTradingViewNativeSkiaLegendText({
+        candleLabels,
+        chartComponents: [
+          { id: 'trades', type: 'tradeMarks', props: { marks } },
+        ],
+      }),
+    ).toBe(
+      getTradingViewNativeSkiaLegendText({
+        candleLabels,
+        chartComponents: [
+          {
+            id: 'trades',
+            type: 'tradeMarks',
+            props: { marks: marks.toReversed() },
+          },
+        ],
+      }),
+    );
   });
 
   it('scans system fonts when the native fallback API is unavailable', () => {

@@ -4,14 +4,10 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  isBorrowRepayAllAmount,
-  shouldDowngradeAaveNativeRepayAll,
-} from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { isSamePositiveAmount, resolveRepayAllAmountValue } from '../utils';
+import { isManagePositionRepayAll, isSamePositiveAmount } from '../utils';
 
 import type { IManagePositionProps, IManagePositionState } from '../types';
 
@@ -104,56 +100,23 @@ export function useManagePositionState(props: IManagePositionProps): {
     });
   }, [props.action, amountValue, maxAmountValue]);
 
-  const repayAllAmountValue = useMemo(
+  const isRepayAll = useMemo(
     () =>
-      resolveRepayAllAmountValue({
+      isManagePositionRepayAll({
         action: props.action,
+        amount: amountValue,
+        debtBalance: props.debtBalance,
         maxAmountValue,
         repayAllBalance: props.repayAllBalance,
       }),
-    [props.action, maxAmountValue, props.repayAllBalance],
-  );
-
-  const shouldDowngradeRepayAll = useMemo(
-    () =>
-      shouldDowngradeAaveNativeRepayAll({
-        action: props.action,
-        networkId: props.networkId,
-        providerName: props.providerName,
-        reserveAddress: props.borrowReserveAddress,
-      }),
     [
       props.action,
-      props.borrowReserveAddress,
-      props.networkId,
-      props.providerName,
+      props.debtBalance,
+      props.repayAllBalance,
+      amountValue,
+      maxAmountValue,
     ],
   );
-
-  const isRepayAll = useMemo(() => {
-    if (props.action !== 'repay') return false;
-    if (shouldDowngradeRepayAll) return false;
-    if (
-      props.repayAllBalance === undefined &&
-      props.debtBalance !== undefined
-    ) {
-      return isBorrowRepayAllAmount({
-        amount: amountValue,
-        debtBalance: props.debtBalance,
-      });
-    }
-    return isSamePositiveAmount({
-      amount: amountValue,
-      targetAmount: repayAllAmountValue,
-    });
-  }, [
-    props.action,
-    props.debtBalance,
-    props.repayAllBalance,
-    amountValue,
-    repayAllAmountValue,
-    shouldDowngradeRepayAll,
-  ]);
 
   const state: Omit<
     IManagePositionState,

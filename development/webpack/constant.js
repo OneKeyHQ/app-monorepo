@@ -25,19 +25,13 @@ exports.ANALYSE_MODULE = !!ANALYSE_MODULE;
 
 exports.EXT_CHANNEL = EXT_CHANNEL;
 
-function getBuildTargetBrowser() {
-  let buildTargetBrowser = exports.EXT_CHANNEL;
-  const argv = process.argv[process.argv.length - 1];
-  if (argv === '--firefox') {
-    buildTargetBrowser = 'firefox';
-  } else if (argv === '--chrome') {
-    buildTargetBrowser = 'chrome';
-  } else if (argv === '--edge') {
-    buildTargetBrowser = 'edge';
-  } else {
-    buildTargetBrowser = 'chrome';
-  }
-  return buildTargetBrowser;
-}
-
-exports.TARGET_BROWSER = getBuildTargetBrowser();
+// Kept in sync with development/rspack/constant.ts, which is where extension
+// channels actually live now -- #12498 moved the extension off webpack, so this
+// file is only reached through apps/web/webpack.config.kill-switch.js. There
+// TARGET_BROWSER merely feeds createResolveExtensions, which is itself gated on
+// EXT_CHANNEL being set, and the web build never sets it.
+//
+// What used to be here could not work: --firefox/--chrome/--edge were matched
+// against the last argv entry only, and the trailing `else` overwrote the
+// result with 'chrome' unconditionally, so EXT_CHANNEL was never read at all.
+exports.TARGET_BROWSER = EXT_CHANNEL || 'chrome';

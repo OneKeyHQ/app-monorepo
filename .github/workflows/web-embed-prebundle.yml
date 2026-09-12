@@ -5,6 +5,19 @@ on:
   push:
     branches:
       - x
+    paths:
+      - '.env.version'
+      - '.github/workflows/web-embed-prebundle.yml'
+      - 'apps/web-embed/**'
+      - 'development/**'
+      - 'package.json'
+      - 'packages/components/**'
+      - 'packages/core/**'
+      - 'packages/kit/**'
+      - 'packages/kit-bg/**'
+      - 'packages/shared/**'
+      - 'patches/**'
+      - 'yarn.lock'
   schedule:
     - cron: '30 18 * * 0'
   workflow_dispatch:
@@ -24,7 +37,9 @@ env:
 jobs:
   resolve:
     name: Resolve public OCI prebundle
-    if: github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'
+    if: >-
+      github.repository == 'OneKeyHQ/app-monorepo' &&
+      (github.ref == 'refs/heads/x' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
       packages: read
@@ -41,7 +56,15 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
+          cache: yarn
           check-latest: true
+          registry-url: https://npm.pkg.github.com
+          scope: '@onekeyhq'
+
+      - name: Install dependency graph
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn install --immutable --mode=skip-build
 
       - name: Verify OCI configuration
         run: |
@@ -128,6 +151,21 @@ jobs:
           yarn workspace @onekeyhq/web-embed prebundle:package
           --source-commit "$GITHUB_SHA"
 
+      - name: Verify resolved release tag
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const release = JSON.parse(fs.readFileSync(
+            'apps/web-embed/out-dir-bundle/web-embed-prebundle-release/web-embed-prebundle-release.json',
+            'utf8',
+          ));
+          if (release.tagName !== process.env.RELEASE_TAG) {
+            throw new Error(`Packaged tag ${release.tagName} does not match resolved tag ${process.env.RELEASE_TAG}.`);
+          }
+          NODE
+
       - name: Upload release assets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -142,7 +180,10 @@ jobs:
     needs:
       - resolve
       - build
-    if: needs.build.result == 'success' && needs.resolve.outputs.exists != 'true'
+    if: >-
+      github.ref == 'refs/heads/x' &&
+      needs.build.result == 'success' &&
+      needs.resolve.outputs.exists != 'true'
     permissions:
       attestations: write
       contents: read

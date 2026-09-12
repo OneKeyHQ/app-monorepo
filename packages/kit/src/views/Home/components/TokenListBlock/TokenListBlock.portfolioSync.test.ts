@@ -1,7 +1,67 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { runInNewContext } from 'vm';
+
+import { transformSync } from '@swc/core';
+
+function createPortfolioRequestHarness() {
+  const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
+  const transition = source.slice(
+    source.indexOf('const transitionPortfolioSyncRequest ='),
+    source.indexOf('const syncTokenFilterToOverview ='),
+  );
+  const requestRef: {
+    current: { id: number; targetKey: string; phase: string } | undefined;
+  } = { current: { id: 1, targetKey: 'device-1', phase: 'refreshing' } };
+  const setPhase = jest.fn();
+  const module = {
+    exports: {} as { transition: (id: number, phase: string) => boolean },
+  };
+  // Execute the production callback without mounting the unrelated token list,
+  // wallet services and network polling.
+  runInNewContext(
+    transformSync(
+      `${transition}\nmodule.exports = { transition: transitionPortfolioSyncRequest };`,
+      {
+        jsc: { parser: { syntax: 'typescript' }, target: 'es2022' },
+      },
+    ).code,
+    {
+      module,
+      useCallback: (callback: unknown) => callback,
+      portfolioSyncRequestRef: requestRef,
+      setPortfolioSyncRequestPhase: setPhase,
+      clearPortfolioSyncFallbackTimer: jest.fn(),
+    },
+  );
+  return {
+    requestRef,
+    setPhase,
+    transition: module.exports.transition,
+  };
+}
 
 describe('TokenListBlock portfolio sync producer', () => {
+  it('claims communication only once when two refreshes finish for the same tap', () => {
+    const harness = createPortfolioRequestHarness();
+    expect(harness.transition(1, 'communicating')).toBe(true);
+    expect(harness.transition(1, 'communicating')).toBe(false);
+    expect(harness.transition(1, 'settled')).toBe(false);
+    expect(harness.requestRef.current?.phase).toBe('communicating');
+  });
+
+  it('does not let a stale refresh claim a newer request', () => {
+    const harness = createPortfolioRequestHarness();
+    expect(harness.transition(1, 'communicating')).toBe(true);
+    harness.requestRef.current = {
+      id: 2,
+      targetKey: 'device-1',
+      phase: 'refreshing',
+    };
+    expect(harness.transition(1, 'communicating')).toBe(false);
+    expect(harness.transition(2, 'communicating')).toBe(true);
+  });
+
   it('checks the Protocol V2 device type before building the cross-runtime payload', () => {
     const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
     const buttonSource = readFileSync(
@@ -34,6 +94,7 @@ describe('TokenListBlock portfolio sync producer', () => {
     );
     expect(source).toContain('assetStatusCurrency &&');
     expect(source).toContain('if (!snapshot || isStaleOwnerRequest())');
+    expect(source).toContain('clearRetainedResultOnAcceptedRun: true');
     expect(source).toContain('totalFiatCurrency: assetStatusCurrency');
     expect(gateIndex).toBeGreaterThan(0);
     expect(gateIndex).toBeLessThan(buildIndex);
@@ -102,8 +163,8 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toMatch(
       /if \(phase !== 'settled'\) \{\s+clearPortfolioSyncFallbackTimer\(\);/,
     );
-    expect(source).toContain(
-      'if (portfolioSyncRequest && !skipPortfolioSyncRequestFinish)',
+    expect(source).toMatch(
+      /portfolioSyncRequest &&\s+!skipPortfolioSyncRequestFinish &&\s+\(ownsPortfolioSyncCommunication \|\|/,
     );
     expect(source).toContain(
       'if (portfolioSyncRequest && !keepPortfolioSyncRequest)',
@@ -190,6 +251,9 @@ describe('TokenListBlock portfolio sync producer', () => {
     );
 
     expect(source).toContain("let portfolioTotalFiat = '0';");
+    expect(source).toContain(
+      'let portfolioTotalFiatCurrency: string | undefined;',
+    );
     expect(captureRequestIndex).toBeGreaterThan(singleNetworkRunIndex);
     expect(captureRequestIndex).toBeLessThan(missingAccountGuardIndex);
     expect(rawTotalIndex).toBeGreaterThan(0);
@@ -201,8 +265,42 @@ describe('TokenListBlock portfolio sync producer', () => {
       'activePortfolioSyncRequest?.id === portfolioSyncRequest.id',
     );
     expect(source).toContain('totalFiat: portfolioTotalFiat');
+    expect(source).toContain(
+      'portfolioTotalFiatCurrency = getWalletAssetStatusCurrency(resp);',
+    );
+    expect(source).toContain(
+      'portfolioTotalFiatCurrency = getWalletAssetStatusCurrency([r]);',
+    );
+    expect(source).toContain('totalFiatCurrency: portfolioTotalFiatCurrency');
+    expect(source).not.toContain('totalFiatCurrency: currencyInfo.id');
     expect(source).not.toContain(
       'totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r)',
     );
+  });
+
+  it('commits the authoritative snapshot before running asset status analytics', () => {
+    const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
+    const producerStart = source.indexOf(
+      'const updateAllNetworksTokenList = useCallback',
+    );
+    const producerSource = source.slice(producerStart);
+    const worthIndex = producerSource.indexOf('updateAccountWorth({');
+    const commitIndex = producerSource.indexOf(
+      'commitAuthoritativeIngest(snapshot);',
+    );
+    const readyStateIndex = producerSource.indexOf(
+      'updateTokenListState({',
+      commitIndex,
+    );
+    const analyticsIndex = producerSource.indexOf(
+      'getWalletAssetStatusAnalytics',
+      commitIndex,
+    );
+
+    expect(producerStart).toBeGreaterThan(0);
+    expect(worthIndex).toBeGreaterThan(0);
+    expect(commitIndex).toBeGreaterThan(worthIndex);
+    expect(readyStateIndex).toBeGreaterThan(commitIndex);
+    expect(analyticsIndex).toBeGreaterThan(readyStateIndex);
   });
 });

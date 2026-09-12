@@ -1,3 +1,4 @@
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type {
   IMarketBasicConfigNetwork,
@@ -6,6 +7,14 @@ import type {
 
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
+
+export function marketTokenKey(item: IMarketToken) {
+  if (item.assetId) return `asset:${item.assetId}`;
+  if (item.stockId) return `stock:${item.stockId}`;
+  return item.perpsCoin
+    ? `perps:${item.perpsCoin}`
+    : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
+}
 
 // Helper function to check if token is native and get normalized address for matching
 // Only uses fallback address length check when isNative field is not present (undefined)
@@ -27,6 +36,44 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   mc: 'marketCap',
   v24hUSD: 'turnover',
 };
+
+function getFiniteNumericSortValue(value: unknown) {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim() === '')
+  ) {
+    return undefined;
+  }
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
+}
+
+export function sortMarketTokenListData<T>({
+  data,
+  field,
+  order,
+}: {
+  data: T[];
+  field?: keyof T;
+  order?: 'asc' | 'desc';
+}) {
+  if (!field || !order) {
+    return data;
+  }
+
+  return [...data].toSorted((a, b) => {
+    const aValue = getFiniteNumericSortValue(a[field]);
+    const bValue = getFiniteNumericSortValue(b[field]);
+    if (aValue === undefined) {
+      return bValue === undefined ? 0 : 1;
+    }
+    if (bValue === undefined) {
+      return -1;
+    }
+    return order === 'asc' ? aValue - bValue : bValue - aValue;
+  });
+}
 
 export function normalizeStockMetadataValue(
   value?: string | number | null,
@@ -336,6 +383,7 @@ export function transformApiItemToToken(
     isNative: item.isNative,
     communityRecognized: item.communityRecognized,
     stock: item.stock,
+    stockId: resolveMarketStockId(item),
     walletInfo: {
       buy: buyCount,
       sell: sellCount,

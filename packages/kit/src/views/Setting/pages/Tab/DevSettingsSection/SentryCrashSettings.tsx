@@ -33,6 +33,7 @@ export function SentryCrashSettings() {
       <SectionPressItem
         icon="SendOutline"
         key="SentryCrashTest3"
+        testID="sentry-native-crash"
         title="Sentry Native Crash"
         onPress={() => {
           nativeCrash();

@@ -53,6 +53,8 @@ on:
     secrets:
       COVALENT_KEY:
         required: false
+      JPUSH_KEY:
+        required: false
       SENTRY_TOKEN:
         required: false
       SENTRY_DSN_REACT_NATIVE:
@@ -370,13 +372,19 @@ jobs:
       - name: Build Bundle
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
+          JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNION_BUILD: 'true'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
-        run: 'yarn app:build-bundle:${{ matrix.platform }}'
+        run: |
+          if [ -z "$JPUSH_KEY" ]; then
+            echo "::error::JPUSH_KEY is required to build native bundles"
+            exit 1
+          fi
+          yarn app:build-bundle:${{ matrix.platform }}
 
       - name: Validate split-bundle integrity
         # Hard gate: fails the job if any segment ships un-rewritten Metro

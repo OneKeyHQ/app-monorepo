@@ -34,6 +34,7 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
       name: e.name,
       constructorName: e.constructorName,
       className: e.className,
+      $isHardwareError: e.$isHardwareError,
       key: e.key,
       code: e.code,
       message: e.message,
@@ -268,8 +269,27 @@ function logCurrentCallStack(name?: string) {
   }
 }
 
+/**
+ * Detects an axios request cancellation, including cancel errors that crossed
+ * the main <-> background RPC boundary. Those are rebuilt as plain Errors on
+ * the receiving runtime, so `instanceof CanceledError` / `axios.isCancel`
+ * miss them; only the serialized `name` / `code` survive.
+ */
+export function isRequestCanceledError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const e = error as { name?: string; code?: string; __CANCEL__?: boolean };
+  return (
+    e.__CANCEL__ === true ||
+    e.name === 'CanceledError' ||
+    e.code === 'ERR_CANCELED'
+  );
+}
+
 const errorUtils = {
   autoPrintErrorIgnore,
+  isRequestCanceledError,
   normalizeErrorProps,
   safeConsoleLogError,
   toPlainErrorObject,

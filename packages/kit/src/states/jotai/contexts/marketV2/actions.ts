@@ -9,6 +9,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import {
   equalTokenNoCaseSensitive,
@@ -28,6 +29,7 @@ import {
   contextAtomMethod,
   isNativeAtom,
   marketWatchListV2Atom,
+  marketWatchListV2RefreshRequestIdAtom,
   networkIdAtom,
   perpsInfoAtom,
   showWatchlistOnlyAtom,
@@ -35,20 +37,31 @@ import {
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
+  tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
 
 export const homeResettingFlags: Record<string, number> = {};
 
-const uniqByFn = (i: IMarketWatchListItemV2) =>
-  i.perpsCoin
-    ? `perps:${i.perpsCoin}`
-    : `${i.chainId}:${
-        normalizeTokenContractAddress({
-          networkId: i.chainId,
-          contractAddress: i.contractAddress,
-        }) || ''
-      }`;
+const uniqByFn = getMarketWatchlistKey;
+
+let watchQueue: Promise<unknown> = Promise.resolve();
+const watchOps = new Map<string, [boolean, Promise<unknown>]>();
+
+function runOp<T>(keys: string[], add: boolean, mutation: () => Promise<T>) {
+  const op = watchQueue
+    .then(mutation, mutation)
+    .finally(() => keys.forEach((key) => watchOps.delete(key)));
+  keys.forEach((key) => watchOps.set(key, [add, op]));
+  watchQueue = op.catch(() => undefined);
+  return op;
+}
+
+async function waitOp(key: string, add: boolean) {
+  const op = watchOps.get(key)!;
+  await (op[0] === add ? op[1] : op[1].catch(() => undefined));
+  return op[0] === add;
+}
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
 
@@ -71,7 +84,7 @@ function isSameMarketTokenDetail({
       contractAddress: tokenAddress,
     },
     token2: {
-      networkId,
+      networkId: tokenDetail.networkId || '',
       contractAddress: tokenDetail.address || '',
     },
   });
@@ -85,7 +98,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  setTokenDetailLoading = contextAtomMethod((_, set, payload: boolean) => {
+  setTokenDetailLoading = contextAtomMethod((get, set, payload: boolean) => {
+    if (!payload) {
+      set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
+    }
     set(tokenDetailLoadingAtom(), payload);
   });
 
@@ -102,7 +118,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   prepareTokenDetailPreview = contextAtomMethod(
-    (_, set, payload: IMarketTokenDetailPreview | undefined) => {
+    (get, set, payload: IMarketTokenDetailPreview | undefined) => {
+      set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
       set(tokenDetailAtom(), undefined);
       set(tokenDetailPreviewAtom(), payload);
       set(tokenDetailLoadingAtom(), false);
@@ -150,7 +167,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  clearTokenDetail = contextAtomMethod((_, set) => {
+  clearTokenDetail = contextAtomMethod((get, set) => {
+    set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
     set(tokenDetailAtom(), undefined);
     set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailLoadingAtom(), false);
@@ -252,6 +270,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           : undefined;
       // Set atom values directly — `this.xxx.call(set)` doesn't work
       // because `this` is not the class instance inside contextAtomMethod.
+      const requestId = get(tokenDetailRequestIdAtom()) + 1;
+      set(tokenDetailRequestIdAtom(), requestId);
       set(tokenDetailAtom(), undefined);
       set(tokenDetailPreviewAtom(), nextPreview);
       set(tokenDetailWebsocketAtom(), undefined);
@@ -261,6 +281,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(isNativeAtom(), isNative);
 
       let isStale = false;
+      const isCurrentRequest = () =>
+        get(tokenDetailRequestIdAtom()) === requestId;
       try {
         set(tokenDetailLoadingAtom(), true);
         const response =
@@ -272,7 +294,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Stale check: discard if user already switched to a different token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+        if (
+          !isCurrentRequest() ||
+          currentAddress !== tokenAddress ||
+          currentNetworkId !== networkId
+        ) {
           isStale = true;
           return;
         }
@@ -288,7 +314,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
           return;
         }
-        set(tokenDetailAtom(), responseData.data.token);
+        set(tokenDetailAtom(), {
+          ...responseData.data.token,
+          networkId,
+        });
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
@@ -296,7 +325,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         console.error('Failed to fetch token detail:', error);
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+        if (
+          !isCurrentRequest() ||
+          currentAddress !== tokenAddress ||
+          currentNetworkId !== networkId
+        ) {
           isStale = true;
         } else {
           set(tokenDetailAtom(), undefined);
@@ -336,7 +369,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   fetchTokenDetail = contextAtomMethod(
     async (get, set, tokenAddress: string, networkId: string) => {
+      const requestId = get(tokenDetailRequestIdAtom()) + 1;
+      set(tokenDetailRequestIdAtom(), requestId);
       let isStale = false;
+      const isCurrentRequest = () =>
+        get(tokenDetailRequestIdAtom()) === requestId;
       try {
         set(tokenDetailLoadingAtom(), true);
 
@@ -351,6 +388,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // the data validity check so that early returns don't clobber loading.
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
+        if (!isCurrentRequest()) {
+          isStale = true;
+          return;
+        }
         if (currentAddress !== tokenAddress && currentAddress !== '') {
           isStale = true;
           return;
@@ -391,7 +432,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         }
 
         // Extract token, websocket and perpsInfo from response format
-        const tokenData = responseData.data.token;
+        const tokenData = {
+          ...responseData.data.token,
+          networkId,
+        };
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
@@ -430,7 +474,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Only clear atoms if we're still on the same token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (
+        if (!isCurrentRequest()) {
+          isStale = true;
+        } else if (
           (currentAddress === tokenAddress || currentAddress === '') &&
           (currentNetworkId === networkId || currentNetworkId === '')
         ) {
@@ -458,10 +504,28 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
+  invalidateWatchListV2Refresh = contextAtomMethod((get, set) => {
+    set(
+      marketWatchListV2RefreshRequestIdAtom(),
+      get(marketWatchListV2RefreshRequestIdAtom()) + 1,
+    );
+  });
+
   // ------------------------------------------------------------
-  refreshWatchListV2 = contextAtomMethod(async (_get, set) => {
+  refreshWatchListV2 = contextAtomMethod(async (get, set) => {
+    if (watchOps.size) {
+      return;
+    }
+    const requestId = get(marketWatchListV2RefreshRequestIdAtom()) + 1;
+    set(marketWatchListV2RefreshRequestIdAtom(), requestId);
     const data =
       await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+    if (
+      watchOps.size ||
+      get(marketWatchListV2RefreshRequestIdAtom()) !== requestId
+    ) {
+      return;
+    }
     return this.flushWatchListV2Atom.call(set, data.data);
   });
 
@@ -494,26 +558,54 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             contractAddress: item.contractAddress,
           }) || '',
       }));
+      for (const item of params) {
+        const key = uniqByFn(item);
+        while (watchOps.has(key)) {
+          if (await waitOp(key, true)) {
+            params = params.filter((i) => uniqByFn(i) !== key);
+            break;
+          }
+        }
+      }
+      if (!params.length) {
+        return;
+      }
+
       const prev = get(marketWatchListV2Atom());
       if (!prev.isMounted) {
         return;
       }
-
-      // Immediately update local state with proper sorting
-      const sortedNewData = sortUtils.buildSortedList({
+      this.invalidateWatchListV2Refresh.call(set);
+      const prevKeys = new Set(prev.data.map(uniqByFn));
+      const newKeys = new Set(
+        params.filter((item) => !prevKeys.has(uniqByFn(item))).map(uniqByFn),
+      );
+      const keys = params.map(uniqByFn);
+      const data = sortUtils.buildSortedList({
         oldList: prev.data,
         saveItems: params,
         uniqByFn,
       });
-      set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
+      set(marketWatchListV2Atom(), { ...prev, data });
 
-      // Asynchronously call API without waiting for result
-      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-        watchList: params,
-        callerName: 'jotaiContextActions_addIntoWatchListV2',
+      await runOp(keys, true, async () => {
+        try {
+          await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+            watchList: params,
+            callerName: 'jotaiContextActions_addIntoWatchListV2',
+          });
+        } catch (error) {
+          const current = get(marketWatchListV2Atom());
+          set(marketWatchListV2Atom(), {
+            ...current,
+            data: current.data.filter((item) => !newKeys.has(uniqByFn(item))),
+          });
+          throw error;
+        }
       });
-      await this.refreshWatchListV2.call(set);
-      // Record MARKET task completion for rookie guide
+      if (!watchOps.size) {
+        await this.refreshWatchListV2.call(set).catch(() => undefined);
+      }
       void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
         ERookieTaskType.MARKET,
       );
@@ -521,41 +613,64 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   removeFromWatchListV2 = contextAtomMethod(
-    async (get, set, chainId: string, contractAddress: string) => {
+    async (
+      get,
+      set,
+      chainId: string,
+      contractAddress: string,
+      listing?: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
+    ) => {
       // eslint-disable-next-line no-param-reassign
       contractAddress =
         normalizeTokenContractAddress({
           networkId: chainId,
           contractAddress,
         }) || '';
+      const identity = { chainId, contractAddress, ...listing };
+      const key = uniqByFn(identity);
+      while (watchOps.has(key)) {
+        if (await waitOp(key, false)) {
+          return;
+        }
+      }
+
       const prev = get(marketWatchListV2Atom());
       if (!prev.isMounted) {
         return;
       }
 
+      this.invalidateWatchListV2Refresh.call(set);
       // Immediately update local state using proper token matching
       const newData = prev.data.filter(
         (item) =>
-          !equalTokenNoCaseSensitive({
-            token1: { networkId: chainId, contractAddress },
-            token2: {
-              networkId: item.chainId,
-              contractAddress: item.contractAddress,
-            },
-          }),
+          getMarketWatchlistKey(item) !== getMarketWatchlistKey(identity),
       );
+
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      // Asynchronously call API without waiting for result
-      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-        items: [{ chainId, contractAddress }],
-        callerName: 'jotaiContextActions_removeFromWatchListV2',
+      await runOp([key], false, async () => {
+        try {
+          await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+            items: [identity],
+            callerName: 'jotaiContextActions_removeFromWatchListV2',
+          });
+        } catch (error) {
+          const current = get(marketWatchListV2Atom());
+          const data = sortUtils.buildSortedList({
+            oldList: current.data,
+            saveItems: prev.data.filter((item) => !newData.includes(item)),
+            uniqByFn,
+          });
+          set(marketWatchListV2Atom(), { ...current, data });
+          throw error;
+        }
       });
-      await this.refreshWatchListV2.call(set);
+      if (!watchOps.size) {
+        await this.refreshWatchListV2.call(set).catch(() => undefined);
+      }
     },
   );
 
-  // Perps watchlist: check if a perps coin is in the watchlist
   isPerpsInWatchListV2 = contextAtomMethod((get, _set, perpsCoin: string) => {
     const prev = get(marketWatchListV2Atom());
     return !!prev.data?.find((i) => i.perpsCoin === perpsCoin);
@@ -575,6 +690,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         perpsCoin,
       };
 
+      this.invalidateWatchListV2Refresh.call(set);
       const sortedNewData = sortUtils.buildSortedList({
         oldList: prev.data,
         saveItems: [item],
@@ -582,10 +698,15 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
-      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-        watchList: [item],
-        callerName: 'jotaiContextActions_addPerpsIntoWatchListV2',
-      });
+      try {
+        await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+          watchList: [item],
+          callerName: 'jotaiContextActions_addPerpsIntoWatchListV2',
+        });
+      } catch (error) {
+        await this.refreshWatchListV2.call(set);
+        throw error;
+      }
       await this.refreshWatchListV2.call(set);
 
       // Sync to Perps TokenSelector favorites
@@ -604,13 +725,19 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      this.invalidateWatchListV2Refresh.call(set);
       const newData = prev.data.filter((item) => item.perpsCoin !== perpsCoin);
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-        items: [{ chainId: '', contractAddress: '', perpsCoin }],
-        callerName: 'jotaiContextActions_removePerpsFromWatchListV2',
-      });
+      try {
+        await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+          items: [{ chainId: '', contractAddress: '', perpsCoin }],
+          callerName: 'jotaiContextActions_removePerpsFromWatchListV2',
+        });
+      } catch (error) {
+        await this.refreshWatchListV2.call(set);
+        throw error;
+      }
       await this.refreshWatchListV2.call(set);
 
       // Sync to Perps TokenSelector favorites
@@ -628,24 +755,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
       const firstItem = prev?.data?.[0];
-      if (firstItem) {
-        if (payload.perpsCoin && firstItem.perpsCoin) {
-          if (payload.perpsCoin === firstItem.perpsCoin) return;
-        } else if (
-          equalTokenNoCaseSensitive({
-            token1: {
-              networkId: firstItem.chainId,
-              contractAddress: firstItem.contractAddress,
-            },
-            token2: {
-              networkId: payload.chainId,
-              contractAddress: payload.contractAddress,
-            },
-          })
-        ) {
-          return;
-        }
-      }
+      if (
+        firstItem &&
+        getMarketWatchlistKey(firstItem) === getMarketWatchlistKey(payload)
+      )
+        return;
       await this.sortWatchListV2Items.call(set, {
         target: payload,
         prev: undefined,
@@ -698,6 +812,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         }),
       ];
 
+      this.invalidateWatchListV2Refresh.call(set);
       const newList = sortUtils.buildSortedList({
         oldList: oldItemsResult.data,
         saveItems: watchList,
@@ -725,6 +840,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       return;
     }
 
+    this.invalidateWatchListV2Refresh.call(set);
     // Immediately update local state
     set(marketWatchListV2Atom(), { ...prev, data: [] });
 

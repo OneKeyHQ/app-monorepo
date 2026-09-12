@@ -64,6 +64,8 @@ export const collectLogDigest = async (
   };
 };
 
+export const disposeLogDigest = async (_digest: ILogDigest) => {};
+
 export const exportLogs = async (fileBaseName?: string) => {
   const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();

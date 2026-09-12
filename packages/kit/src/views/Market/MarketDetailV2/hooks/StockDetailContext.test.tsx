@@ -106,6 +106,45 @@ describe('StockDetailProvider', () => {
     focusControl.__resetFocus();
   });
 
+  it('exposes a matching route preview before the stock detail request settles', () => {
+    const stockPreview = {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: 'https://example.com/aapl.png',
+    };
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="aapl" initialStockPreview={stockPreview}>
+        {children}
+      </StockDetailProvider>
+    );
+
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.stockDetail).toBeUndefined();
+    expect(result.current.stockPreview).toEqual(stockPreview);
+  });
+
+  it('ignores a route preview that belongs to another stock', () => {
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="MSFT"
+        initialStockPreview={{
+          stockId: 'AAPL',
+          symbol: 'AAPL',
+          name: 'Apple Inc.',
+          logoUrl: 'https://example.com/aapl.png',
+        }}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.stockPreview).toBeUndefined();
+  });
+
   it('loads stock resources by stockId and selects the backend default token', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
       stockId: 'AAPL',
@@ -167,6 +206,32 @@ describe('StockDetailProvider', () => {
     expect(serviceMarketV2.fetchMarketStockTokenVariants.mock.calls).toEqual([
       [{ stockId: 'AAPL' }],
     ]);
+  });
+
+  it('releases initial layout loading when every token variant is paused', async () => {
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [
+        {
+          tokenId: 'aapl-paused',
+          issuer: 'ondo',
+          networkId: 'evm--1',
+          contractAddress: '0xpaused',
+          currency: 'USD',
+          status: 'paused',
+          tradingEnabled: false,
+        },
+      ],
+    });
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+    expect(result.current.isTokenVariantPending).toBe(true);
+    await waitFor(() =>
+      expect(result.current.isTokenVariantPending).toBe(false),
+    );
+    expect(result.current.selectedTokenVariant).toBeUndefined();
   });
 
   it('falls back to the first tradable token when the backend default is disabled', async () => {

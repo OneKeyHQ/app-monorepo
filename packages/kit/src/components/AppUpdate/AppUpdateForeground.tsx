@@ -46,6 +46,7 @@ import { useDownloadPackage } from './useDownloadPackage';
 // component-local `cancelled` flag which only protects against in-flight
 // awaits after unmount.
 let didRunFirstLaunchDispatch = false;
+const LOG_ARCHIVE_CLEANUP_CUTOFF_MS = Date.now();
 // Auto-ready install handling should fire at most once per app session even if
 // the persist atom hydrates after the first-launch dispatch useEffect has
 // already consumed didRunFirstLaunchDispatch. Tracked separately so the
@@ -514,7 +515,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       onRun: () => {
         if (cancelled) return;
         void backgroundApiProxy.serviceAppUpdate
-          .pruneStaleArtifacts()
+          .pruneStaleArtifacts(LOG_ARCHIVE_CLEANUP_CUTOFF_MS)
           .catch(() => {
             // pruneStaleArtifacts already swallows internally; this is a
             // belt-and-braces guard so a rejected proxy call can never

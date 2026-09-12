@@ -6,7 +6,14 @@ import type {
   IXStackProps,
   SizeTokens,
 } from '@onekeyhq/components';
-import { Badge, Icon, Image, Tooltip, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  Image,
+  Stack,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -63,7 +70,7 @@ export const NetworkAvatarBase = ({
       src={logoURI}
       bg="$bgApp"
       borderRadius="$full"
-      source={{ uri: logoURI }}
+      placeholder={<Stack width="100%" height="100%" />}
       fallback={
         <Icon
           size={size as FontSizeTokens}

@@ -1,0 +1,18 @@
+diff --git a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
+index 149e4c5979dd7a3d4f6e162d01ea7f4ff63a535f..819f1b2cb9fc946d9d948dd340d9134ace19289a 100644
+--- a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
++++ b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
+@@ -92,5 +92,5 @@ Pod::Spec.new do |spec|
+-      hermes_compiler_path = File.dirname(Pod::Executable.execute_command('node', ['-p',
+-        "require.resolve(\"hermes-compiler\", {paths: [\"#{react_native_path}\"]})", __dir__]).strip
+-      # OneKey patch: Keep the podspec checksum independent of the checkout path.
+-      hermes_compiler_path = "$(PODS_ROOT)/#{Pathname.new(hermes_compiler_path).relative_path_from(Pathname.new(Pod::Config.instance.project_pods_root))}"
+-      )
++      # Keep the podspec checksum independent of the checkout path.
++      hermes_compiler_path = Pathname.new(
++        File.dirname(Pod::Executable.execute_command('node', ['-p',
++          "require.resolve(\"hermes-compiler\", {paths: [\"#{react_native_path}\"]})", __dir__]).strip)
++      ).relative_path_from(Pathname.new(Pod::Config.instance.project_pods_root))
+@@ -99 +99 @@ Pod::Spec.new do |spec|
+-        'HERMES_CLI_PATH' => "#{hermes_compiler_path}/hermesc/osx-bin/hermesc"
++        'HERMES_CLI_PATH' => "$(PODS_ROOT)/#{hermes_compiler_path}/hermesc/osx-bin/hermesc"

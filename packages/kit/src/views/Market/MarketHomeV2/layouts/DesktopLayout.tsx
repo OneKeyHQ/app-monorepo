@@ -8,12 +8,24 @@ import {
   useState,
 } from 'react';
 
-import { Tabs, XStack, YStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  SizableText,
+  Tabs,
+  Tooltip,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import type { ITabBarItemProps } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
+} from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
@@ -26,7 +38,9 @@ import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  getMarketCategoryTooltipId,
   isMarketStockCategoryById,
+  isTrendingStyleSpotCategory,
   shouldHideSpotExtendedStats,
   shouldShowSpotNetworkSelector,
 } from '../utils';
@@ -39,7 +53,6 @@ import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { IMarketCategoryItem } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
-const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
 const LazyMarketWatchlistTokenList = lazy(async () => {
@@ -88,8 +101,10 @@ export function DesktopLayout({
   useMarketRenderCommitProbe('MarketHome.DesktopLayout', {
     selectedNetworkId,
   });
+  const intl = useIntl();
   const {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,
@@ -200,6 +215,42 @@ export function DesktopLayout({
   const stockDataCategoryMapRef = useRef(stockDataCategoryMap);
   stockDataCategoryMapRef.current = stockDataCategoryMap;
 
+  // Keyed by tab name because that is all TabBar hands back to `renderItem`.
+  const tabTooltips = useMemo(() => {
+    const tooltips: Record<string, string> = {};
+    for (const item of spotTabItems) {
+      const category = filterBarProps.categories?.find(
+        (each) => each.id === item.categoryId,
+      );
+      const tooltipId = category
+        ? getMarketCategoryTooltipId(category)
+        : undefined;
+      if (tooltipId) {
+        tooltips[item.tabName] = intl.formatMessage({ id: tooltipId });
+      }
+    }
+    return tooltips;
+  }, [filterBarProps.categories, intl, spotTabItems]);
+  const tabTooltipsRef = useRef(tabTooltips);
+  tabTooltipsRef.current = tabTooltips;
+
+  // Read through a ref so the callback stays stable: TabBar takes it as a
+  // prop, and a new identity each render would remount every tab item.
+  const renderTabBarItem = useCallback((itemProps: ITabBarItemProps) => {
+    const tooltip = tabTooltipsRef.current[itemProps.name];
+    const tabItem = <Tabs.TabBarItem {...itemProps} />;
+    if (!tooltip) {
+      return tabItem;
+    }
+    return (
+      <Tooltip
+        placement="top"
+        renderTrigger={tabItem}
+        renderContent={<SizableText size="$bodySm">{tooltip}</SizableText>}
+      />
+    );
+  }, []);
+
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
@@ -226,8 +277,10 @@ export function DesktopLayout({
         currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
         !currentSpotCategoryHasStockData,
       );
-      const isTrendingCategory = currentSpotCategoryId === 'trending';
       const showNetworkSelector = shouldShowSpotNetworkSelector(
+        currentSpotCategoryId,
+      );
+      const usesTrendingStyle = isTrendingStyleSpotCategory(
         currentSpotCategoryId,
       );
       // Wrap TabBar + portal target in a single sticky container.
@@ -245,7 +298,13 @@ export function DesktopLayout({
                 {...tabBarProps}
                 onTabPress={handleTabPress}
                 divider={false}
-                containerStyle={{ position: 'relative' as any }}
+                // The design marks the active tab by weight alone — no
+                // underline — so the label steps up to `$headingMd` while the
+                // inactive ones stay on the bar's `$bodyLgMedium`.
+                hideActiveIndicator
+                focusedTextSize="$headingMd"
+                renderItem={renderTabBarItem}
+                containerStyle={MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE}
               />
             </XStack>
             {/* Keep controls mounted so network data remains ready across tabs. */}
@@ -255,7 +314,7 @@ export function DesktopLayout({
               alignItems="center"
               pr="$5"
             >
-              {isTrendingCategory ? null : (
+              {usesTrendingStyle ? null : (
                 <TimeRangeDropdown
                   value={currentFilterBarProps.timeRange}
                   onChange={currentFilterBarProps.onTimeRangeChange}
@@ -269,14 +328,21 @@ export function DesktopLayout({
               </XStack>
             </XStack>
           </XStack>
+          {/* No padding of its own: each list portals a toolbar band that
+              already carries the design's spacing above the header. */}
           <div
             ref={portalRefCallback}
-            style={{ paddingTop: DESKTOP_STICKY_HEADER_TOP_GAP }}
+            data-testid="market-sticky-header-portal"
           />
         </YStack>
       );
     },
-    [ensureTabActivated, getSpotCategoryIdByTabName, portalRefCallback],
+    [
+      ensureTabActivated,
+      getSpotCategoryIdByTabName,
+      portalRefCallback,
+      renderTabBarItem,
+    ],
   );
 
   const onTabChangeHandler = useCallback(
@@ -317,21 +383,25 @@ export function DesktopLayout({
   }
 
   const tabElements = [
-    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
-        {hasActivated(watchlistTabName) ? (
-          <Suspense fallback={<MarketListLoadingFallback />}>
-            <LazyMarketWatchlistTokenList
-              tabIntegrated
-              tabName={watchlistTabName}
-              listContainerProps={listContainerProps}
-              enableWebSocket={activeTabName === watchlistTabName}
-              centerDesktopPortalContent
-            />
-          </Suspense>
-        ) : null}
-      </YStack>
-    </Tabs.Tab>,
+    ...(showWatchlistTab
+      ? [
+          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+              {hasActivated(watchlistTabName) ? (
+                <Suspense fallback={<MarketListLoadingFallback />}>
+                  <LazyMarketWatchlistTokenList
+                    tabIntegrated
+                    tabName={watchlistTabName}
+                    listContainerProps={listContainerProps}
+                    enableWebSocket={activeTabName === watchlistTabName}
+                    centerDesktopPortalContent
+                  />
+                </Suspense>
+              ) : null}
+            </YStack>
+          </Tabs.Tab>,
+        ]
+      : []),
     ...spotTabItems.map((item) => {
       const isStockCategory = isMarketStockCategoryById(
         filterBarProps.categories,
@@ -361,7 +431,9 @@ export function DesktopLayout({
             />
           );
         } else {
-          const isTrendingCategory = item.categoryId === 'trending';
+          const usesTrendingStyle = isTrendingStyleSpotCategory(
+            item.categoryId,
+          );
           tabContent = (
             <MarketNormalTokenList
               networkId={selectedNetworkId}
@@ -376,10 +448,10 @@ export function DesktopLayout({
               onStockDataChange={handleStockDataChange}
               enableWebSocket={activeTabName === item.tabName}
               centerDesktopPortalContent
-              desktopColumnVariant={isTrendingCategory ? 'trending' : 'default'}
-              useApiDefaultSort={isTrendingCategory && platformEnv.isDesktop}
+              desktopColumnVariant={usesTrendingStyle ? 'trending' : 'default'}
+              useApiDefaultSort={usesTrendingStyle}
               toolbar={
-                isTrendingCategory ? (
+                usesTrendingStyle ? (
                   <TrendingDesktopToolbar
                     timeRange={filterBarProps.timeRange}
                     onTimeRangeChange={filterBarProps.onTimeRangeChange}
