@@ -1509,6 +1509,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           },
           {
             debugMethodName: 'portfolio.syncPortfolio',
+            // SDK calls release their sessions. A follow-up cancel would
+            // disconnect the idle BLE link and force the next sync to reconnect.
+            skipDeviceCancel: true,
             onCancel: onUserClose,
             deviceParams: { dbDevice: device },
           },

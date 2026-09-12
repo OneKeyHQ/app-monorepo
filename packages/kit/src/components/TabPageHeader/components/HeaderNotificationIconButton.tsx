@@ -10,7 +10,6 @@ import {
 } from '@onekeyhq/components';
 import { HeaderNotificationButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
-import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,7 +32,6 @@ export function HeaderNotificationIconButton({
 }: IHeaderNotificationIconButtonProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const toOnBoardingPage = useToOnBoardingPage();
   const isTravelMode = shouldRedirectOnboardingToTravelMode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
 
@@ -54,13 +52,12 @@ export function HeaderNotificationIconButton({
 
   const handleNotificationPress = useCallback(() => {
     if (isTravelMode) {
-      void toOnBoardingPage();
       return;
     }
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
     });
-  }, [isTravelMode, navigation, toOnBoardingPage]);
+  }, [isTravelMode, navigation]);
 
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
 
@@ -110,6 +107,7 @@ export function HeaderNotificationIconButton({
       showBadge={notificationBadge.show}
       badgeCount={notificationBadge.count}
       onPress={handleNotificationPress}
+      disabled={isTravelMode}
       testID={testID ?? 'dex-notification-button'}
     />
   );

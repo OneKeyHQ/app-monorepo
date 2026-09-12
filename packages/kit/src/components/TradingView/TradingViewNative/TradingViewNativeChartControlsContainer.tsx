@@ -55,7 +55,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   onIndicatorSettingsPress: () => void;
   onIndicatorSelectionConfirm: (
     selection: ITradingViewNativeIndicatorSelection,
-  ) => void;
+  ) => void | Promise<void>;
   onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
   onCalendarPanelSubmit?: ITradingViewChartControlsProps['onCalendarPanelSubmit'];
   onFullscreenChange?: (isFullscreen: boolean) => void;
@@ -157,6 +157,7 @@ export const TradingViewNativeChartControlsContainer = memo(
             onSelect={handleIndicatorSelect}
             onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
+            onSettingsPress={onIndicatorSettingsPress}
           />
         ),
       });

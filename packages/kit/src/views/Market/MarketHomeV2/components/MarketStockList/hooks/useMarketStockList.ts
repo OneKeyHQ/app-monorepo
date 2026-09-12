@@ -46,6 +46,7 @@ export function useMarketStockList({ category }: { category?: string }) {
   );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadMoreError, setIsLoadMoreError] = useState(false);
+  const loadMoreRequestRef = useRef<object | undefined>(undefined);
   const queryKey = useMemo(
     () => JSON.stringify({ category, sortBy, sortType, locale }),
     [category, sortBy, sortType, locale],
@@ -80,6 +81,10 @@ export function useMarketStockList({ category }: { category?: string }) {
     run: refresh,
   } = usePromiseResult<IMarketStockListResult>(
     async () => {
+      if (platformEnv.isNative) {
+        loadMoreRequestRef.current = undefined;
+        setIsLoadingMore(false);
+      }
       try {
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
@@ -136,10 +141,17 @@ export function useMarketStockList({ category }: { category?: string }) {
     Boolean(currentResponse && listState.firstPage !== currentResponse);
 
   const loadMore = useCallback(async () => {
-    if (!nextCursor || isLoadingMore || isAwaitingRemoteFirstPage) {
+    if (
+      !nextCursor ||
+      isLoadingMore ||
+      isAwaitingRemoteFirstPage ||
+      (platformEnv.isNative && loadMoreRequestRef.current !== undefined)
+    ) {
       return;
     }
     const requestQueryKey = queryKey;
+    const request = {};
+    if (platformEnv.isNative) loadMoreRequestRef.current = request;
     setIsLoadingMore(true);
     setIsLoadMoreError(false);
     try {
@@ -151,7 +163,10 @@ export function useMarketStockList({ category }: { category?: string }) {
           sortBy,
           sortType,
         });
-      if (queryKeyRef.current !== requestQueryKey) {
+      if (
+        queryKeyRef.current !== requestQueryKey ||
+        (platformEnv.isNative && loadMoreRequestRef.current !== request)
+      ) {
         return;
       }
       setListState((current) => {
@@ -167,11 +182,17 @@ export function useMarketStockList({ category }: { category?: string }) {
         };
       });
     } catch (_error) {
-      if (queryKeyRef.current === requestQueryKey) {
+      if (
+        queryKeyRef.current === requestQueryKey &&
+        (!platformEnv.isNative || loadMoreRequestRef.current === request)
+      ) {
         setIsLoadMoreError(true);
       }
     } finally {
-      setIsLoadingMore(false);
+      if (!platformEnv.isNative || loadMoreRequestRef.current === request) {
+        loadMoreRequestRef.current = undefined;
+        setIsLoadingMore(false);
+      }
     }
   }, [
     category,
@@ -205,7 +226,9 @@ export function useMarketStockList({ category }: { category?: string }) {
     isLoading: !hasCurrentData && (!isFirstPageError || Boolean(isLoading)),
     isLoadingMore,
     isLoadMoreError,
-    isError: isFirstPageError && !hasCurrentData,
+    isError:
+      isFirstPageError &&
+      (!hasCurrentData || (platformEnv.isNative && items.length === 0)),
     canLoadMore: Boolean(nextCursor) && !isAwaitingRemoteFirstPage,
     sortBy,
     sortType,

@@ -10,6 +10,7 @@ import {
   isTrendingStyleSpotCategory,
   parseValueToNumber,
   shouldHideSpotExtendedStats,
+  shouldShowSpotNetworkSelector,
   validateLiquidityInput,
   validateMaximumMinLiquidity,
 } from './utils';
@@ -364,6 +365,17 @@ describe('Spot Category Extended Stats Visibility Tests', () => {
       'holders',
       'tokenAge',
     ]);
+  });
+});
+
+describe('Spot Category Network Selector Visibility Tests', () => {
+  test('hides the network selector for Robinhood Meme', () => {
+    expect(shouldShowSpotNetworkSelector('robinhood_meme')).toBe(false);
+  });
+
+  test('keeps the network selector for filterable spot categories', () => {
+    expect(shouldShowSpotNetworkSelector('trending')).toBe(true);
+    expect(shouldShowSpotNetworkSelector('x_mentioned')).toBe(true);
   });
 });
 

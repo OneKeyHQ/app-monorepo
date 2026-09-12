@@ -48,6 +48,8 @@ export const OnboardingTestIDs = {
   iCloudBackupViewOlderBackupsBtn:
     'onboarding-icloud-backup-view-older-backups-btn',
   iCloudBackupKeylessWalletHint: 'onboarding-icloud-backup-keyless-wallet-hint',
+  iCloudBackupKeylessWalletDialogTitle:
+    'onboarding-icloud-backup-keyless-wallet-dialog-title',
   iCloudBackupKeylessWalletDialog:
     'onboarding-icloud-backup-keyless-wallet-dialog',
   iCloudBackupDevDownloadDataBtn:
@@ -140,6 +142,8 @@ export const OnboardingTestIDs = {
   connectYourDeviceAdvancedMenuBtn:
     'onboarding-connect-your-device-advanced-menu-btn',
   connectYourDeviceConnectBtn: 'onboarding-connect-your-device-connect-btn',
+  connectYourDeviceItem: (key: string) =>
+    `onboarding-connect-your-device-item-${key}`,
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',

@@ -593,14 +593,7 @@ describe('native-dev-shell', () => {
         wait,
       }),
     ).resolves.toBeUndefined();
-    expect(iosOutput).toHaveBeenCalledWith('xcrun', [
-      'simctl',
-      'spawn',
-      'SIMULATOR-A',
-      '/bin/kill',
-      '-0',
-      '4321',
-    ]);
+    expect(iosOutput).toHaveBeenCalledWith('/bin/kill', ['-0', '4321']);
     expect(wait).toHaveBeenCalledTimes(15);
     expect(wait).toHaveBeenCalledWith(1000);
   });

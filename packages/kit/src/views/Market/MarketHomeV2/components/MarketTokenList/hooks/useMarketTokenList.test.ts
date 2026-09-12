@@ -28,4 +28,14 @@ describe('getMarketTokenListApiNetworkId', () => {
       }),
     ).toBe('');
   });
+
+  it('removes the network filter for Robinhood Meme', () => {
+    expect(
+      getMarketTokenListApiNetworkId({
+        networkId: 'evm--1',
+        isAllNetworks: false,
+        type: 'robinhood_meme',
+      }),
+    ).toBe('');
+  });
 });

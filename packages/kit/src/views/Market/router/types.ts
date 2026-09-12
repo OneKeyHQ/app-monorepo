@@ -5,6 +5,7 @@ export enum EModalMarketRoutes {
   MarketBannerDetail = 'MarketBannerDetail',
   MobileTokenSelector = 'MobileTokenSelector',
   MarketChartSettings = 'MarketChartSettings',
+  MarketIndicatorSettings = 'MarketIndicatorSettings',
 }
 
 export type IModalMarketParamList = {
@@ -12,6 +13,9 @@ export type IModalMarketParamList = {
     tokenAddress?: string;
     network?: string;
     stockId?: string;
+    stockPreviewSymbol?: string;
+    stockPreviewName?: string;
+    stockPreviewLogoUrl?: string;
     isNative?: boolean;
     showFavoriteButton?: boolean;
   };
@@ -26,4 +30,7 @@ export type IModalMarketParamList = {
       }
     | undefined;
   [EModalMarketRoutes.MarketChartSettings]: undefined;
+  [EModalMarketRoutes.MarketIndicatorSettings]: {
+    storageNamespace: 'market' | 'swap';
+  };
 };

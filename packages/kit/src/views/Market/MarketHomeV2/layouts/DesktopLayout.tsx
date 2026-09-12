@@ -42,6 +42,7 @@ import {
   isMarketStockCategoryById,
   isTrendingStyleSpotCategory,
   shouldHideSpotExtendedStats,
+  shouldShowSpotNetworkSelector,
 } from '../utils';
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
@@ -103,6 +104,7 @@ export function DesktopLayout({
   const intl = useIntl();
   const {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,
@@ -275,6 +277,9 @@ export function DesktopLayout({
         currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
         !currentSpotCategoryHasStockData,
       );
+      const showNetworkSelector = shouldShowSpotNetworkSelector(
+        currentSpotCategoryId,
+      );
       const usesTrendingStyle = isTrendingStyleSpotCategory(
         currentSpotCategoryId,
       );
@@ -315,10 +320,12 @@ export function DesktopLayout({
                   onChange={currentFilterBarProps.onTimeRangeChange}
                 />
               )}
-              <CompactNetworkSelector
-                selectedNetworkId={currentFilterBarProps.selectedNetworkId}
-                onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
-              />
+              <XStack display={showNetworkSelector ? 'flex' : 'none'}>
+                <CompactNetworkSelector
+                  selectedNetworkId={currentFilterBarProps.selectedNetworkId}
+                  onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
+                />
+              </XStack>
             </XStack>
           </XStack>
           {/* No padding of its own: each list portals a toolbar band that
@@ -376,21 +383,25 @@ export function DesktopLayout({
   }
 
   const tabElements = [
-    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
-        {hasActivated(watchlistTabName) ? (
-          <Suspense fallback={<MarketListLoadingFallback />}>
-            <LazyMarketWatchlistTokenList
-              tabIntegrated
-              tabName={watchlistTabName}
-              listContainerProps={listContainerProps}
-              enableWebSocket={activeTabName === watchlistTabName}
-              centerDesktopPortalContent
-            />
-          </Suspense>
-        ) : null}
-      </YStack>
-    </Tabs.Tab>,
+    ...(showWatchlistTab
+      ? [
+          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+              {hasActivated(watchlistTabName) ? (
+                <Suspense fallback={<MarketListLoadingFallback />}>
+                  <LazyMarketWatchlistTokenList
+                    tabIntegrated
+                    tabName={watchlistTabName}
+                    listContainerProps={listContainerProps}
+                    enableWebSocket={activeTabName === watchlistTabName}
+                    centerDesktopPortalContent
+                  />
+                </Suspense>
+              ) : null}
+            </YStack>
+          </Tabs.Tab>,
+        ]
+      : []),
     ...spotTabItems.map((item) => {
       const isStockCategory = isMarketStockCategoryById(
         filterBarProps.categories,

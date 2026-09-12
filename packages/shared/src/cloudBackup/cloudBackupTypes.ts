@@ -64,6 +64,11 @@ export type IBackupDataEncryptedPayload = Omit<
   privateDataEncrypted: string; // base64 string
 };
 
+export type IBackupDataExportArchive = {
+  archiveBase64: string;
+  password: string;
+};
+
 export type IBackupDataManifestItem = Omit<
   IPrimeTransferPublicData,
   'walletDetails'

@@ -2,7 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { act, renderHook } from '@testing-library/react';
+import { createElement, useEffect } from 'react';
+
+import { act, render, renderHook } from '@testing-library/react';
 
 import { useTradingViewSubIndicatorCount } from './useTradingViewSubIndicatorCount';
 
@@ -27,6 +29,51 @@ function useTestSubIndicatorCount({
     stabilizationDelayMs: STABILIZATION_DELAY_MS,
     onCountSettled,
   });
+}
+
+function SubIndicatorCountReporter({
+  count,
+  layoutRestored,
+  onCountChange,
+}: {
+  count: number | null;
+  layoutRestored?: boolean;
+  onCountChange: ReturnType<typeof useTradingViewSubIndicatorCount>[1];
+}) {
+  useEffect(() => {
+    onCountChange(count, { layoutRestored });
+  }, [count, layoutRestored, onCountChange]);
+
+  return null;
+}
+
+function ChartLayout({
+  isNative,
+  reportedCount,
+  layoutRestored,
+}: {
+  isNative: boolean;
+  reportedCount: number | null;
+  layoutRestored?: boolean;
+}) {
+  const chartKey = isNative ? 'native:token:market' : 'v2:token:market';
+  const [count, onCountChange] = useTestSubIndicatorCount({
+    chartKey,
+    initialCount: isNative ? 0 : DEFAULT_COUNT,
+    stabilizeInitialCount: !isNative,
+  });
+
+  return createElement(
+    'div',
+    null,
+    createElement('output', { 'data-testid': 'sub-indicator-count' }, count),
+    createElement(SubIndicatorCountReporter, {
+      key: chartKey,
+      count: reportedCount,
+      layoutRestored,
+      onCountChange,
+    }),
+  );
 }
 
 describe('useTradingViewSubIndicatorCount', () => {
@@ -186,6 +233,50 @@ describe('useTradingViewSubIndicatorCount', () => {
 
     expect(result.current[0]).toBe(0);
   });
+
+  it.each([false, true])(
+    'restores native counts after switching from TradingView with layoutRestored=%s',
+    (layoutRestored) => {
+      const { getByTestId, rerender } = render(
+        createElement(ChartLayout, { isNative: true, reportedCount: 3 }),
+      );
+
+      expect(getByTestId('sub-indicator-count').textContent).toBe('3');
+
+      rerender(
+        createElement(ChartLayout, { isNative: false, reportedCount: null }),
+      );
+      rerender(
+        createElement(ChartLayout, {
+          isNative: false,
+          reportedCount: 2,
+          layoutRestored,
+        }),
+      );
+
+      expect(getByTestId('sub-indicator-count').textContent).toBe(
+        layoutRestored ? '2' : String(DEFAULT_COUNT),
+      );
+
+      rerender(
+        createElement(ChartLayout, { isNative: true, reportedCount: 3 }),
+      );
+
+      expect(getByTestId('sub-indicator-count').textContent).toBe('3');
+
+      act(() => {
+        jest.advanceTimersByTime(STABILIZATION_DELAY_MS);
+      });
+
+      expect(getByTestId('sub-indicator-count').textContent).toBe('3');
+
+      rerender(
+        createElement(ChartLayout, { isNative: true, reportedCount: 4 }),
+      );
+
+      expect(getByTestId('sub-indicator-count').textContent).toBe('4');
+    },
+  );
 
   it('preserves restored counts above the mobile indicator selection cap', () => {
     const { result } = renderHook(() =>

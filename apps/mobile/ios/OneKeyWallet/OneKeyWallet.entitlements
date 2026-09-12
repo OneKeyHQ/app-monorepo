@@ -10,6 +10,8 @@
 	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
+		<string>appclips:app.onekey.so</string>
+		<string>appclips:app.onekeytest.com</string>
 		<string>applinks:app.onekey.so</string>
 		<string>applinks:app.onekeytest.com</string>
 		<string>applinks:stocks.onekey.so</string>
@@ -17,6 +19,14 @@
 		<string>applinks:perps.onekey.so</string>
 		<string>applinks:perps.onekeytest.com</string>
 		<string>applinks:swap.onekey.so</string>
+	</array>
+	<key>com.apple.developer.associated-appclip-app-identifiers</key>
+	<array>
+		<string>$(AppIdentifierPrefix)so.onekey.wallet.Clip</string>
+	</array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.so.onekey.wallet</string>
 	</array>
 	<key>com.apple.developer.icloud-container-environment</key>
 	<string>Production</string>

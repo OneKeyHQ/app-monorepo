@@ -11,6 +11,8 @@ import {
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import {
   useMarketTradingViewChartSettingsPersistAtom,
   useMarketTradingViewIndicatorSettingsPersistAtom,
@@ -18,6 +20,7 @@ import {
   useSwapTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -52,6 +55,7 @@ import {
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
+import { mergeMobileIndicatorSettings } from './mobileIndicatorSettingsUtils';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
@@ -207,6 +211,7 @@ const TradingViewNativeContent = memo(
     onPriceUpdate,
   }: ITradingViewNativeContentProps) => {
     const intl = useIntl();
+    const navigation = useAppNavigation();
     const themeColors = useTradingViewSettingsThemeColors();
     const [storedChartSettings, setStoredChartSettings] = chartSettingsState;
     const [indicatorSettings, setIndicatorSettings] = indicatorSettingsState;
@@ -624,7 +629,7 @@ const TradingViewNativeContent = memo(
         replaceMainIndicators,
         replaceSubIndicators,
       }: ITradingViewNativeIndicatorSelection) => {
-        void setIndicatorSettings((currentSettings) =>
+        return setIndicatorSettings((currentSettings) =>
           reconcileTradingViewNativeIndicatorActiveState({
             activeIndicatorValues: selectedIndicatorValues,
             replaceMainIndicators,
@@ -637,12 +642,24 @@ const TradingViewNativeContent = memo(
     );
     const handleIndicatorSettingsPress = useCallback(
       (indicator?: ITradingViewNativeAnyIndicator) => {
+        if (nativeControlsLayoutMode !== 'desktop' && !indicator) {
+          navigation.pushModal(EModalRoutes.MarketModal, {
+            screen: EModalMarketRoutes.MarketIndicatorSettings,
+            params: { storageNamespace: storageNamespace ?? 'market' },
+          });
+          return;
+        }
         showTradingViewNativeIndicatorSettingsDialog({
           displayMode:
             nativeControlsLayoutMode === 'desktop' ? 'full' : 'focused',
           initialIndicatorId: indicator,
           intl,
-          onConfirm: setIndicatorSettings,
+          onConfirm: (nextValue) =>
+            nativeControlsLayoutMode !== 'desktop' && indicator
+              ? setIndicatorSettings((current) =>
+                  mergeMobileIndicatorSettings(current, nextValue, indicator),
+                )
+              : setIndicatorSettings(nextValue),
           value: indicatorSettingsValue,
         });
       },
@@ -650,7 +667,9 @@ const TradingViewNativeContent = memo(
         indicatorSettingsValue,
         intl,
         nativeControlsLayoutMode,
+        navigation,
         setIndicatorSettings,
+        storageNamespace,
       ],
     );
 
@@ -674,6 +693,7 @@ const TradingViewNativeContent = memo(
           const targetInterval = getTradingViewNativeKLineIntervalForTimeRange({
             chartWidth,
             currentInterval: intervalConfig.activeInterval,
+            intervals: intervalConfig.intervals,
             from: target.from,
             to: target.to,
           });
@@ -700,6 +720,7 @@ const TradingViewNativeContent = memo(
         getVisibleTimeRange,
         handleViewportTargetChange,
         intervalConfig.activeInterval,
+        intervalConfig.intervals,
       ],
     );
 

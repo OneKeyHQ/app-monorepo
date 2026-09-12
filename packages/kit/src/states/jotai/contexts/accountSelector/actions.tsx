@@ -1791,6 +1791,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         if (generatingAccountsFn) {
           appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
             step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+            walletId: wallet.id,
+            dbDeviceId: wallet.associatedDevice,
           });
 
           await Promise.all([

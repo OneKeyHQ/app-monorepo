@@ -10,6 +10,7 @@ import {
   usePerpsTradesHistoryRefreshHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  PERPS_FUNDING_HISTORY_URL,
   PERPS_HISTORY_FILLS_URL,
   PERPS_TWAP_HISTORY_URL,
 } from '@onekeyhq/shared/src/consts/perp';
@@ -197,7 +198,7 @@ export function usePerpUserFundingHistory({
   useEffect(() => {
     if (!isActive || !isCurrentAccountResult || query.isLoading) return;
 
-    // History is fetched in full. Refresh long-lived views hourly, resetting
+    // Refresh the recent history snapshot hourly in long-lived views, resetting
     // the timer after focus/manual requests so refreshes do not accumulate.
     const timer = setTimeout(
       () => {
@@ -261,4 +262,8 @@ export function usePerpTradesHistoryViewAllUrl() {
 
 export function usePerpTwapHistoryViewAllUrl() {
   return usePerpViewAllUrl(PERPS_TWAP_HISTORY_URL);
+}
+
+export function usePerpFundingHistoryViewAllUrl() {
+  return usePerpViewAllUrl(PERPS_FUNDING_HISTORY_URL);
 }

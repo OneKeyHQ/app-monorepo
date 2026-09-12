@@ -6,6 +6,11 @@ import { useMarketBannerList } from './useMarketBannerList';
 
 let mockOnline = true;
 
+beforeEach(() => {
+  mockOnline = true;
+  jest.mocked(fetchMarketBannerListForPlatform).mockReset();
+});
+
 jest.mock('@onekeyhq/components', () => ({
   ...jest.requireActual<
     typeof import('../../../../../../../components/src/hooks/useDeferredPromise')
@@ -57,4 +62,49 @@ it('settles a failed banner request and retries successfully on reconnect', asyn
   await waitFor(() => expect(result.current.isFetched).toBe(true));
   expect(fetchBanners).toHaveBeenCalledTimes(2);
   expect(result.current.isLoading).toBe(false);
+});
+
+it('preserves successful banners on a failed reconnect and accepts a later empty response', async () => {
+  const banners = [
+    {
+      _id: 'banner-1',
+      title: 'Market',
+      rank: 1,
+      mode: 1,
+      payload: '',
+      miniBundlerVersion: '',
+      backgroundColor: '',
+      tokenListId: 'market',
+    },
+  ];
+  const fetchBanners = jest.mocked(fetchMarketBannerListForPlatform);
+  fetchBanners.mockResolvedValueOnce(banners);
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  await waitFor(() => expect(result.current.bannerList).toEqual(banners));
+
+  fetchBanners.mockRejectedValueOnce(new Error('offline'));
+  act(() => {
+    mockOnline = false;
+    rerender();
+  });
+  act(() => {
+    mockOnline = true;
+    rerender();
+  });
+  await waitFor(() => expect(fetchBanners).toHaveBeenCalledTimes(2));
+  expect(result.current.bannerList).toEqual(banners);
+  expect(result.current.isFetched).toBe(true);
+  expect(result.current.isLoading).toBe(false);
+
+  fetchBanners.mockResolvedValueOnce([]);
+  act(() => {
+    mockOnline = false;
+    rerender();
+  });
+  act(() => {
+    mockOnline = true;
+    rerender();
+  });
+  await waitFor(() => expect(result.current.bannerList).toEqual([]));
+  expect(result.current.isFetched).toBe(true);
 });
