@@ -56,6 +56,7 @@ import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { calcCellAlign, getColumnStyle } from '../utils';
 import {
   PERP_DESKTOP_EMPTY_STATE_TOP_INSET,
+  PERP_DESKTOP_TABLE_ROW_HORIZONTAL_PADDING,
   PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
   PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
   getPerpDesktopTableFixedSectionWidth,
@@ -489,7 +490,7 @@ export function CommonTableListView<T>({
     () =>
       scrollableColumns.reduce(
         (sum, col) => sum + (col.width || col.minWidth || 0),
-        0,
+        PERP_DESKTOP_TABLE_ROW_HORIZONTAL_PADDING,
       ),
     [scrollableColumns],
   );
@@ -908,7 +909,8 @@ export function CommonTableListView<T>({
     >
       {/* Content sizing must mirror the body scroller below, otherwise the
           header stops at scrollableMinWidth while the body stretches and the
-          columns drift apart. */}
+          columns drift apart. A zero flex basis prevents long cell text from
+          widening either scroller beyond the configured columns. */}
       <ScrollView
         ref={headerScrollViewRef}
         testID="perp-desktop-table-header"
@@ -919,6 +921,7 @@ export function CommonTableListView<T>({
         contentContainerStyle={{
           minWidth: scrollableMinWidth,
           flexGrow: 1,
+          flexBasis: 0,
         }}
       >
         <XStack
@@ -965,6 +968,7 @@ export function CommonTableListView<T>({
         contentContainerStyle={{
           minWidth: scrollableMinWidth,
           flexGrow: 1,
+          flexBasis: 0,
         }}
       >
         <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">

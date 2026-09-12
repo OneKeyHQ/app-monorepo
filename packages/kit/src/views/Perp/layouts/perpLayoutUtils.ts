@@ -143,6 +143,7 @@ export function getResponsivePerpDesktopLayout(
 export function getVerticalOrderBookLayout(
   containerHeight: number,
   maxLevelsPerSide: number,
+  fixedRows = false,
 ) {
   const availableHeight =
     containerHeight - ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT;
@@ -171,6 +172,13 @@ export function getVerticalOrderBookLayout(
     ORDER_BOOK_VERTICAL_LEVELS_MIN,
     Math.min(Math.floor((fittedRows - 1) / 2), maxLevelsPerSide),
   );
+  if (fixedRows) {
+    return {
+      levelsPerSide,
+      extraBidLevels: 0,
+      rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT,
+    };
+  }
   // Symmetric sides always leave 0-1 spare rows; give a spare row to the bid
   // side before stretching so the leftover stays under one row height.
   const extraBidLevels =
