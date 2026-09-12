@@ -34,7 +34,16 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
       return { result: mockLiveResult };
     }
     mockRequest = request;
-    return { result: mockResult, isLoading: mockLoading };
+    return {
+      result:
+        mockResult === undefined
+          ? undefined
+          : {
+              scope: `${mockLocale}:${Boolean(mockEnabled)}`,
+              banners: mockResult,
+            },
+      isLoading: mockLoading,
+    };
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
@@ -228,7 +237,8 @@ it('releases the page with base data while optional quotes are still pending', a
     .mockReturnValue(new Promise(() => {}));
   const { result, rerender } = renderHook(() => useMarketBannerList());
   await act(async () => {
-    mockResult = (await mockRequest()) as IMarketBannerItem[];
+    mockResult = ((await mockRequest()) as { banners: IMarketBannerItem[] })
+      .banners;
   });
   rerender();
   void mockHydrate();
@@ -268,7 +278,10 @@ it('preserves a committed cache replay when revalidation fails', async () => {
   mockResult = [];
   const { result } = renderHook(() => useMarketBannerList());
   await act(async () => {
-    await expect(mockRequest()).resolves.toEqual(mockResult);
+    await expect(mockRequest()).resolves.toEqual({
+      scope: 'en-US:false',
+      banners: mockResult,
+    });
   });
   expect(result.current.isFetched).toBe(true);
   expect(result.current.isLoading).toBe(false);

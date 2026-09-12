@@ -127,26 +127,31 @@ export function useMarketBannerList(): {
       }
     | undefined
   >(undefined);
-  const { result: bannerList } = usePromiseResult<
-    IMarketBannerItem[] | undefined
+  const { result: scopedResult } = usePromiseResult<
+    | { scope: string; banners: IMarketBannerItem[] }
+    | IMarketBannerItem[]
+    | undefined
   >(
     async () => {
       try {
-        return await fetchMarketBannerListForPlatform({
+        const banners = await fetchMarketBannerListForPlatform({
           enableMockMarketBanner,
         });
+        return { scope, banners };
       } catch {
         // Successful data must commit before the native layout fixes its header height.
         if (currentScopeRef.current === requestScope)
           setSettledScope(requestScope);
         // Optional refresh failures preserve committed data, including native cache replay.
-        return committedResultRef.current?.requestScope === requestScope
-          ? committedResultRef.current.bannerList
-          : undefined;
+        const previous = committedResultRef.current;
+        if (previous?.requestScope === requestScope && previous.bannerList) {
+          return { scope, banners: previous.bannerList };
+        }
+        return undefined;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enableMockMarketBanner, locale, requestScope], // Used to trigger refetch when dev setting changes
+    [enableMockMarketBanner, locale, requestScope, scope], // Used to trigger refetch when dev setting changes
     {
       checkIsFocused: !platformEnv.isWeb,
       swrKey: platformEnv.isNative
@@ -160,6 +165,15 @@ export function useMarketBannerList(): {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
+
+  // Native SWR replays arrays from a locale/mode-specific key. Network
+  // results carry their producing scope because hooks without a cache key retain old data.
+  let bannerList: IMarketBannerItem[] | undefined;
+  if (Array.isArray(scopedResult)) {
+    if (platformEnv.isNative) bannerList = scopedResult;
+  } else if (scopedResult?.scope === scope) {
+    bannerList = scopedResult.banners;
+  }
 
   const { result: liveQuotes } = usePromiseResult(
     async () => {
@@ -199,10 +213,12 @@ export function useMarketBannerList(): {
         : banner,
     );
   }, [bannerList, liveQuotes, requestScope, enableMockMarketBanner]);
-  committedResultRef.current = {
-    requestScope,
-    bannerList: bannerList === undefined ? undefined : normalizedBanners,
-  };
+  if (bannerList !== undefined) {
+    committedResultRef.current = {
+      requestScope,
+      bannerList: normalizedBanners,
+    };
+  }
 
   useEffect(() => {
     if (platformEnv.isNative && bannerList !== undefined) {

@@ -12,10 +12,14 @@ import {
 import { useMarketBannerList } from './useMarketBannerList';
 
 let mockOnline = true;
+let mockLocale = 'en-US';
+let mockEnabled = false;
 const mockCache = new Map<string, { data: unknown; updatedAt: number }>();
 
 beforeEach(() => {
   mockOnline = true;
+  mockLocale = 'en-US';
+  mockEnabled = false;
   platformEnv.isNative = false;
   mockCache.clear();
   jest.mocked(fetchMarketBannerListForPlatform).mockReset();
@@ -33,10 +37,12 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
-  useLocaleVariant: () => 'en-US',
+  useLocaleVariant: () => mockLocale,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: false }],
+  useDevSettingsPersistAtom: () => [
+    { enabled: mockEnabled, settings: { enableMockMarketBanner: mockEnabled } },
+  ],
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -188,3 +194,62 @@ it('replays hydrated native quotes on remount while raw refresh and quotes are p
     second.result.current.bannerList,
   );
 });
+
+it.each(['locale', 'mock'])(
+  'rejects stale base data when switching %s and the new request fails',
+  async (setting) => {
+    const oldBanners = [
+      {
+        _id: 'old',
+        title: 'English',
+        rank: 1,
+        mode: 4,
+        payload: '',
+        miniBundlerVersion: '',
+        backgroundColor: '',
+        tokenListId: 'old',
+        type: EMarketBannerType.Perps,
+      },
+    ];
+    const fetchBanners = jest.mocked(fetchMarketBannerListForPlatform);
+    fetchBanners.mockResolvedValueOnce(oldBanners);
+    const { result, rerender } = renderHook(() => useMarketBannerList());
+    await waitFor(() => expect(result.current.bannerList).toEqual(oldBanners));
+    let rejectNew: (reason: Error) => void = () => {};
+    fetchBanners.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        rejectNew = reject;
+      }),
+    );
+    act(() => {
+      if (setting === 'locale') mockLocale = 'zh-CN';
+      else mockEnabled = true;
+      rerender();
+    });
+    expect(result.current.bannerList).toEqual([]);
+    expect(result.current.isFetched).toBe(false);
+    expect(result.current.isLoading).toBe(true);
+    await waitFor(() => expect(fetchBanners).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      rejectNew(new Error('new scope offline'));
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bannerList).toEqual([]);
+    expect(result.current.isFetched).toBe(false);
+    const newBanners = oldBanners.map((banner) => ({
+      ...banner,
+      title: 'New scope',
+    }));
+    fetchBanners.mockResolvedValueOnce(newBanners);
+    act(() => {
+      mockOnline = false;
+      rerender();
+    });
+    act(() => {
+      mockOnline = true;
+      rerender();
+    });
+    await waitFor(() => expect(result.current.bannerList).toEqual(newBanners));
+    expect(result.current.isFetched).toBe(true);
+  },
+);
