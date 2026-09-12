@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Window size="{{window.width}},{{window.height}}" caption="0,0,0,64" roundcorner="{{window.radius}},{{window.radius}}" gdiplustext="true">
+  <Font id="0" name="{{font.family}}" size="{{font.bodySize}}" default="true" />
+  <Font id="1" name="Segoe UI" size="24" />
+  <Font id="2" name="Segoe UI Semibold" size="16" />
+  <Font id="3" name="Segoe UI Semibold" size="13" />
+  <Container name="page-root">
+    <LightBackdrop float="0,0,1,1" canvascolor="{{color.canvas}}" bluecolor="{{color.blueTint}}" greencolor="{{color.greenTint}}" />
+    <VerticalLayout float="0,0,1,1">
+      <HorizontalLayout height="64" inset="24,15,22,15" childvalign="vcenter">
+        <BrandMark width="28" height="28" brandcolor="{{color.brand}}" />
+        <Label text="OneKey" font="2" textcolor="{{color.textPrimary}}" width="82" height="28" padding="9,0,0,0" />
+        <Label name="version" text="{{runtime.version}}" textcolor="{{color.textSecondary}}" height="28" />
+        <CaptionButton name="minbtn" kind="minimize" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.textPrimary}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" />
+        <Control width="6" />
+        <CaptionButton name="closebtn" kind="close" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.danger}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" />
+      </HorizontalLayout>
+      <VerticalLayout inset="125,48,125,28">
+        <HorizontalLayout height="82"><Control /><BrandMark width="82" height="82" brandcolor="{{color.brand}}" /><Control /></HorizontalLayout>
+        <Control height="18" />
+        <Label text="{{string.install.title}}" font="1" textcolor="{{color.textPrimary}}" height="42" align="center" />
+        <Label name="status" text="{{runtime.status}}" textcolor="{{color.textSecondary}}" height="32" align="center" />
+        <Control height="46" />
+        <GlassPanel height="120" padding="20,0,20,0" bkcolor="{{color.heroSurface}}" bordercolor="{{color.border}}" bordersize="1" borderround="15,15" inset="24,20,24,8">
+          <HorizontalLayout height="26">
+            <Label text="{{string.install.progressLabel}}" textcolor="{{color.textPrimary}}" padding="10,0,0,0" />
+            <Label name="progress-value" text="{{runtime.progress}}%" font="3" textcolor="{{color.textPrimary}}" width="54" padding="0,0,10,0" align="right" />
+          </HorizontalLayout>
+          <AnimatedProgress name="progress" height="28" value="{{runtime.progress}}" trackcolor="{{color.progressTrack}}" startcolor="{{color.progressStart}}" endcolor="{{color.brand}}" />
+          <HorizontalLayout height="32">
+            <Label text="{{string.install.safeHint}}" textcolor="{{color.textSecondary}}" padding="10,0,0,0" />
+            <Button name="cancel" text="{{string.install.cancel}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="64" height="28" borderround="8,8" />
+          </HorizontalLayout>
+        </GlassPanel>
+        <Control />
+      </VerticalLayout>
+    </VerticalLayout>
+  </Container>
+</Window>

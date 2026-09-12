@@ -1,0 +1,19 @@
+{
+  "confirmExit.title":"OneKey 설치를 종료할까요?","confirmExit.description":"설치가 아직 진행 중입니다. 지금 종료하면 완료되지 않을 수 있습니다.","confirmExit.stay":"설치 계속","confirmExit.confirm":"설치 종료",
+  "window.close": "닫기", "window.minimize": "최소화",
+  "install.title": "OneKey 설치 중", "install.subtitle": "애플리케이션 구성 요소를 준비하는 중…", "install.status": "업데이트를 준비하는 중…", "install.cancel": "취소", "install.version": "버전 {version}",
+  "finish.title": "설치 완료", "finish.subtitle": "OneKey를 사용할 준비가 되었습니다", "finish.launch": "OneKey 열기",
+  "feature.eyebrow": "새로운 기능  ·  ONEKEY 6.6", "feature.action": "자세히 보기  ↗", "feature.security.title": "한눈에 보는 보안", "feature.security.description": "기기, 계정 및 자산 보호 상태를 한 화면에서 확인하세요.", "feature.crossPlatform.title": "더 매끄러운 기기 간 사용", "feature.crossPlatform.description": "데스크톱과 모바일에서 일관된 경험으로 작업을 자연스럽게 이어갑니다.", "feature.release.title": "이번 릴리스 살펴보기", "feature.release.description": "설치 중 최신 개선 사항을 확인하고 완료 후 바로 시작하세요.",
+  "install.progressLabel": "설치 진행률", "install.safeHint": "데이터와 설정이 유지됩니다",
+  "welcome.title": "OneKey 설치", "welcome.subtitle": "디지털 자산을 안전하고 명확하게 관리하세요", "welcome.start": "빠른 설치","welcome.install":"설치","welcome.scopeLabel":"사용 범위:","welcome.pathLabel":"설치 경로:","scope.recommended":"권장","welcome.moreOptions":"추가 옵션","welcome.lessOptions":"옵션 숨기기", "welcome.terms": "계속하면 {a terms}이용 약관{/a}  및 {a privacy}개인정보 처리방침{/a} 에 동의하게 됩니다", "welcome.change": "변경",
+  "scope.title": "OneKey 사용 범위 선택", "scope.subtitle": "OneKey를 다시 설치할 때 나중에 변경할 수 있습니다.", "scope.current.title": "나만 사용", "scope.current.description": "관리자 권한 필요 없음", "scope.all.title": "이 PC의 모든 사용자", "scope.all.description": "관리자 권한 필요",
+  "upgradeScope.title": "업데이트할 OneKey 설치 선택", "upgradeScope.subtitle": "이 PC에서 두 개의 설치를 찾았습니다.", "upgradeScope.current.title": "내 설치 업데이트", "upgradeScope.all.title": "모든 사용자용 설치 업데이트", "upgradeScope.pathLabel": "설치 위치",
+  "options.title": "설치 위치 선택", "options.subtitle": "권장 위치를 사용하거나 다른 폴더를 선택하세요.", "options.pathLabel": "설치 위치", "options.browse": "찾아보기", "options.install": "지금 설치",
+  "upgrade.title": "OneKey 업데이트", "upgrade.subtitle": "이전 설치 설정이 유지됩니다.", "upgrade.pathLabel": "업데이트 위치", "upgrade.install": "지금 업데이트",
+  "uninstall.title": "OneKey 제거 중",
+  "uninstall.confirmTitle": "OneKey를 제거할까요?",
+  "uninstall.confirmSubtitle": "이 컴퓨터에서 앱이 제거됩니다. 지갑 데이터는 삭제되지 않습니다.",
+  "uninstall.confirm": "제거",
+  "uninstall.cancel": "취소", "uninstall.subtitle": "애플리케이션 파일을 안전하게 제거하고 있습니다. 이 창을 닫지 마세요.", "uninstall.status": "애플리케이션 파일을 정리하는 중…", "uninstall.finishTitle": "OneKey가 제거되었습니다", "uninstall.finishSubtitle": "애플리케이션 파일을 안전하게 제거했습니다. OneKey를 이용해 주셔서 감사합니다.", "uninstall.close": "완료", "uninstallError.title": "제거가 완료되지 않았습니다", "uninstallError.subtitle": "OneKey와 데이터가 더 이상 제거되지 않았습니다. 지금 다시 시도하거나 나중에 제거하세요.", "uninstallError.retry": "제거 다시 시도",
+  "error.title": "설치가 완료되지 않았습니다", "error.subtitle": "기존 데이터는 안전합니다. 지금 다시 시도하거나 나중에 설치하세요.", "error.retry": "다시 시도", "finish.safeHint": "보안 검증 완료"
+}

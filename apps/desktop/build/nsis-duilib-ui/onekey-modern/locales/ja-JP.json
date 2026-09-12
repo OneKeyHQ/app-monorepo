@@ -1,0 +1,19 @@
+{
+  "confirmExit.title":"OneKey セットアップを終了しますか？","confirmExit.description":"インストールはまだ進行中です。今終了すると、完了しない可能性があります。","confirmExit.stay":"インストールを続行","confirmExit.confirm":"インストールを終了",
+  "window.close": "閉じる", "window.minimize": "最小化",
+  "install.title": "OneKey をインストールしています", "install.subtitle": "アプリケーションのコンポーネントを準備しています…", "install.status": "アップデートを準備しています…", "install.cancel": "キャンセル", "install.version": "バージョン {version}",
+  "finish.title": "インストール完了", "finish.subtitle": "OneKey を使用できます", "finish.launch": "OneKey を開く",
+  "feature.eyebrow": "新機能  ·  ONEKEY 6.6", "feature.action": "詳細を見る  ↗", "feature.security.title": "セキュリティを一目で確認", "feature.security.description": "デバイス、アカウント、資産の保護状況をひとつの画面で確認できます。", "feature.crossPlatform.title": "よりスムーズなデバイス連携", "feature.crossPlatform.description": "デスクトップとモバイルで一貫した操作を実現します。", "feature.release.title": "今回のリリースを見る", "feature.release.description": "セットアップ中に最新の改善点を確認し、完了後すぐに利用できます。",
+  "install.progressLabel": "インストールの進行状況", "install.safeHint": "データと設定は保持されます",
+  "welcome.title": "OneKey をインストール", "welcome.subtitle": "デジタル資産を安全かつ分かりやすく管理", "welcome.start": "クイックインストール","welcome.install":"インストール","welcome.scopeLabel":"利用範囲：","welcome.pathLabel":"インストール先：","scope.recommended":"推奨","welcome.moreOptions":"その他のオプション","welcome.lessOptions":"オプションを閉じる", "welcome.terms": "続行すると、{a terms}利用規約{/a} と{a privacy}プライバシーポリシー{/a} に同意したものとみなされます", "welcome.change": "変更",
+  "scope.title": "OneKey を使用するユーザーを選択", "scope.subtitle": "OneKey を再インストールすると後から変更できます。", "scope.current.title": "自分のみ", "scope.current.description": "管理者権限は不要です", "scope.all.title": "この PC のすべてのユーザー", "scope.all.description": "管理者権限が必要です",
+  "upgradeScope.title": "更新する OneKey を選択", "upgradeScope.subtitle": "この PC で 2 つのインストールが見つかりました。", "upgradeScope.current.title": "自分用の OneKey を更新", "upgradeScope.all.title": "全ユーザー用の OneKey を更新", "upgradeScope.pathLabel": "インストール先",
+  "options.title": "インストール先を選択", "options.subtitle": "推奨の場所を使用するか、別のフォルダーを選択してください。", "options.pathLabel": "インストール先", "options.browse": "参照", "options.install": "今すぐインストール",
+  "upgrade.title": "OneKey を更新", "upgrade.subtitle": "以前のインストール設定は保持されます。", "upgrade.pathLabel": "更新先", "upgrade.install": "今すぐ更新",
+  "uninstall.title": "OneKey をアンインストールしています",
+  "uninstall.confirmTitle": "OneKey をアンインストールしますか？",
+  "uninstall.confirmSubtitle": "このコンピューターからアプリを削除します。ウォレットデータは削除されません。",
+  "uninstall.confirm": "アンインストール",
+  "uninstall.cancel": "キャンセル", "uninstall.subtitle": "アプリケーションファイルを安全に削除しています。このウィンドウを閉じないでください。", "uninstall.status": "アプリケーションファイルを整理しています…", "uninstall.finishTitle": "OneKey をアンインストールしました", "uninstall.finishSubtitle": "アプリケーションファイルを安全に削除しました。OneKey をご利用いただきありがとうございます。", "uninstall.close": "完了", "uninstallError.title": "アンインストールが完了しませんでした", "uninstallError.subtitle": "OneKey とデータはこれ以上削除されていません。再試行するか、後でもう一度実行してください。", "uninstallError.retry": "アンインストールを再試行",
+  "error.title": "インストールが完了しませんでした", "error.subtitle": "既存のデータは保持されています。再試行するか、後でもう一度インストールしてください。", "error.retry": "再試行", "finish.safeHint": "セキュリティ検証が完了しました"
+}
