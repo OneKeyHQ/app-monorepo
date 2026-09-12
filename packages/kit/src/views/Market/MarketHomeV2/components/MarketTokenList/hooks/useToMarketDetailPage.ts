@@ -294,49 +294,31 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         }
         closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
-        if (stockId) {
-          tokenDetailActions.current.clearTokenDetail();
-        } else {
-          preparePreviewTokenDetail(resolvedItem);
+        if (platformEnv.isNative) {
+          if (stockId) {
+            tokenDetailActions.current.clearTokenDetail();
+          } else {
+            preparePreviewTokenDetail(resolvedItem);
+          }
         }
 
         const targetTab = platformEnv.isNative
           ? ETabRoutes.Discovery
           : ETabRoutes.Market;
 
-        if (platformEnv.isNative) {
-          await marketDetailShellPreloadPromise;
-          if (navigationGenerationRef.current !== navigationGeneration) {
-            return;
-          }
-          // Navigate directly to the nested detail route to avoid briefly
-          // revealing the Discovery root page before entering Market detail.
-          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-            screen: targetTab,
-            params: {
-              screen: detailRouteName,
-              params,
-            },
-          });
-        } else {
-          // First switch to the appropriate tab to highlight it
-          navigation.switchTab(targetTab);
-
-          // Then navigate to detail page using rootNavigationRef
-          // because the current navigation context is from modal, not from the target tab
-          setTimeout(() => {
-            if (navigationGenerationRef.current !== navigationGeneration) {
-              return;
-            }
-            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-              screen: targetTab,
-              params: {
-                screen: detailRouteName,
-                params,
-              },
-            });
-          }, 500);
+        await marketDetailShellPreloadPromise;
+        if (navigationGenerationRef.current !== navigationGeneration) {
+          return;
         }
+        // Select the tab and detail together. Desktop preview state is initialized
+        // by the destination route, never by the still-visible previous detail.
+        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+          screen: targetTab,
+          params: {
+            screen: detailRouteName,
+            params,
+          },
+        });
       } else {
         if (stockId) {
           tokenDetailActions.current.clearTokenDetail();

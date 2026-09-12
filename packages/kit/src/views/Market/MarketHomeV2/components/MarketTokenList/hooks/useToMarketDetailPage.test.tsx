@@ -352,15 +352,14 @@ describe('useToDetailPage', () => {
     );
   });
 
-  it('only runs the latest delayed desktop navigation', async () => {
+  it('only runs the latest desktop navigation while preloading', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false });
     const navigateSpy = jest.spyOn(rootNavigationRef.current!, 'navigate');
     const { result } = renderHook(() =>
       useToDetailPage({ switchToMarketTabFirst: true }),
     );
     await act(async () => {
-      await result.current(tokenItem);
-      await result.current(stockItem);
+      await Promise.all([result.current(tokenItem), result.current(stockItem)]);
     });
     act(() => {
       jest.advanceTimersByTime(500);
@@ -375,6 +374,58 @@ describe('useToDetailPage', () => {
         }),
       }),
     );
+  });
+
+  it('carries desktop search preview into the destination without changing the visible detail', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: false });
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      symbol: 'ABC',
+      name: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    const { result } = renderHook(() =>
+      useToDetailPage({
+        switchToMarketTabFirst: true,
+        resolveMarketAsset: true,
+      }),
+    );
+    const ready = deferred<void>();
+    jest
+      .mocked(preloadMarketDetailV2Page)
+      .mockImplementationOnce(() => ready.promise);
+    const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+    let navigation: Promise<void> | undefined;
+    act(() => {
+      navigation = result.current({
+        ...tokenItem,
+        tokenDetailPreview: preview,
+      });
+    });
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => {
+      ready.resolve();
+      await navigation;
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          screen: 'MarketDetailV2',
+          params: expect.objectContaining({
+            legacyTokenPreview: preview,
+            resolveMarketAsset: true,
+          }),
+        }),
+      }),
+    );
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
   });
 
   it('navigates stock items with stockId instead of chain identity', async () => {

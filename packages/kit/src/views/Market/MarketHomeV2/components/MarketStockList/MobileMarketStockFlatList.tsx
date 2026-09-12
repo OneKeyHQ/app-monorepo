@@ -141,7 +141,7 @@ function MobileMarketStockFlatListImpl({
   }, [canLoadMore, isLoadMoreError, isRefreshError, isLoadingMore, loadMore]);
 
   const ListFooterComponent = useMemo(() => {
-    if (isLoadingMore || isRefreshing) {
+    if (isLoadingMore || (isRefreshing && isRefreshError)) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Spinner size="small" />

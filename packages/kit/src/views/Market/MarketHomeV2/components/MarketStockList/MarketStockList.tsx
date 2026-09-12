@@ -235,7 +235,7 @@ function MarketStockListImpl({
   }, [intl, isError, isLoading, refresh]);
 
   const TableFooterComponent = useMemo(() => {
-    if (isLoadingMore || isRefreshing) {
+    if (isLoadingMore || (isRefreshing && isRefreshError)) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Spinner size="small" />

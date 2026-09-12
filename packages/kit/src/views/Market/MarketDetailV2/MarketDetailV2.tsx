@@ -76,6 +76,8 @@ function LegacyTokenPreviewInitializer({
   useLayoutEffect(() => {
     if (preview) {
       tokenDetailActions.current.prepareTokenDetailPreview(preview);
+    } else if (!platformEnv.isNative) {
+      tokenDetailActions.current.clearTokenDetail();
     }
   }, [preview, tokenDetailActions]);
 
@@ -259,9 +261,7 @@ function MarketDetail({
           testID={MarketTestIDs.detailPage}
         >
           <MarketDetailResponsiveLayout
-            isLayoutPending={
-              shouldSkipMarketDataFetch && !hasValidTokenDetailPreview
-            }
+            isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
               !hasValidTokenDetailPreview &&

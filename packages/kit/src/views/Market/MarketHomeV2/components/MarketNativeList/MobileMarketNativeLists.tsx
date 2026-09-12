@@ -1168,7 +1168,9 @@ function MobileMarketNativeStockListImpl({
       listRef={listRef}
       rows={rows}
       loading={result.isLoading}
-      loadingMore={result.isLoadingMore || result.isRefreshing}
+      loadingMore={
+        result.isLoadingMore || (result.isRefreshing && result.isRefreshError)
+      }
       loadMoreError={result.isLoadMoreError || result.isRefreshError}
       errorMessage={
         result.isError

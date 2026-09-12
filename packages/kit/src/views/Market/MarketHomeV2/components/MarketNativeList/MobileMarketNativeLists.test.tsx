@@ -22,6 +22,7 @@ const mockPortalRender = jest.fn(
   (_name: unknown, _element: unknown): undefined => undefined,
 );
 const mockSetAnchorState = jest.fn();
+const mockApplyPatches = jest.fn();
 const mockActions = {
   current: {
     refreshWatchListV2: jest.fn().mockResolvedValue(undefined),
@@ -40,7 +41,7 @@ let mockStockIsRefreshing = false;
 let mockStockIsRefreshError = false;
 let mockStockIsLoadMoreError = false;
 const mockTopCoinDetail = jest.fn();
-const mockStockItems = [
+let mockStockItems = [
   {
     stockId: 'AAPL',
     symbol: 'AAPL',
@@ -151,7 +152,7 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
       }, [snapshot.capabilities?.refreshing]);
       React.useImperativeHandle(ref, () => ({
         setRefreshing: setNativeRefreshing,
-        applyPatches: jest.fn(),
+        applyPatches: mockApplyPatches,
         setActionAnchorState: mockSetAnchorState,
       }));
       mockPullToRefresh = () => {
@@ -365,7 +366,8 @@ describe.each([false, true])(
       expect(mockStockLoadMore).not.toHaveBeenCalled();
     });
 
-    it('keeps stock rows with a loading footer during refresh', () => {
+    it('keeps stock rows with a loading footer during refresh retry', () => {
+      mockStockIsRefreshError = true;
       mockStockIsRefreshing = true;
       render(
         <MobileMarketNativeStockList
@@ -385,6 +387,35 @@ describe.each([false, true])(
       expect(
         mockNativeSnapshot?.rows.some((row) => row.key === 'market-end'),
       ).toBe(false);
+    });
+
+    it('keeps the native snapshot stable across silent refresh transitions', () => {
+      const list = () => (
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />
+      );
+      const { rerender } = render(list());
+      const before = mockNativeSnapshot;
+      mockStockIsRefreshing = true;
+      rerender(list());
+      expect(mockNativeSnapshot).toBe(before);
+      mockStockIsRefreshing = false;
+      rerender(list());
+      expect(mockNativeSnapshot).toBe(before);
+      const previousItems = mockStockItems;
+      try {
+        mockStockItems = previousItems.map((item) => ({
+          ...item,
+          price: '201',
+        }));
+        rerender(list());
+        expect(mockNativeSnapshot).toBe(before);
+        expect(mockApplyPatches).toHaveBeenCalled();
+      } finally {
+        mockStockItems = previousItems;
+      }
     });
 
     it('still retries pagination when only loading the next page failed', async () => {

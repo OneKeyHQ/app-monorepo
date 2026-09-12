@@ -427,6 +427,64 @@ it('queues end-reached during refresh without reporting the end of the list', as
   expect(result.current.items[1].stockId).toBe('MSFT');
 });
 
+it('never reports the end of the list while committing refreshed rows', async () => {
+  fetchList.mockResolvedValue(response);
+  const states: boolean[] = [];
+  const { result } = renderHook(() => {
+    const value = useMarketStockList({});
+    states.push(value.canLoadMore);
+    return value;
+  });
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  states.length = 0;
+  fetchList.mockResolvedValue({
+    ...response,
+    items: [{ ...response.items[0], price: '201' }],
+  });
+  await act(async () => result.current.refresh());
+  expect(result.current.items[0].price).toBe('201');
+  expect(states.length).toBeGreaterThan(0);
+  expect(states.every(Boolean)).toBe(true);
+});
+
+it('coalesces concurrent refreshes and reuses only fresh successful results', async () => {
+  platformEnv.isNative = false;
+  fetchList.mockResolvedValue(response);
+  const { result, rerender } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  fetchList.mockClear();
+  mockIsFocused = false;
+  rerender();
+  mockIsFocused = true;
+  rerender();
+  await act(async () => undefined);
+  expect(fetchList).not.toHaveBeenCalled();
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+  let first: Promise<void> | undefined;
+  let second: Promise<void> | undefined;
+  act(() => {
+    first = result.current.refresh();
+    second = result.current.refresh();
+  });
+  await waitFor(() => expect(fetchList).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    pending.resolve(response);
+    await Promise.all([first, second]);
+  });
+  const now = Date.now();
+  const clock = jest.spyOn(Date, 'now').mockReturnValue(now + 31_000);
+  try {
+    mockIsFocused = false;
+    rerender();
+    mockIsFocused = true;
+    rerender();
+    await waitFor(() => expect(fetchList).toHaveBeenCalledTimes(2));
+  } finally {
+    clock.mockRestore();
+  }
+});
+
 it('preserves all rows and exposes retry after a later refresh page fails', async () => {
   const secondPage = {
     items: [{ ...response.items[0], stockId: 'MSFT' }],

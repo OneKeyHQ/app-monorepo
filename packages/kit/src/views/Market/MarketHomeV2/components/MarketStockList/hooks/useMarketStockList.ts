@@ -18,6 +18,7 @@ import { appendUniqueMarketStocks } from '../utils';
 
 const MARKET_STOCK_LIST_PAGE_SIZE = 20;
 const MARKET_STOCK_LIST_MAX_PERSISTED_PAGES = 3;
+const MARKET_STOCK_LIST_REFRESH_INTERVAL_MS = 30_000;
 
 type IMarketStockListState = {
   queryKey: string;
@@ -45,6 +46,21 @@ export function useMarketStockList({ category }: { category?: string }) {
   const loadMoreRequestRef = useRef<object | undefined>(undefined);
   const refreshRequestRef = useRef<object | undefined>(undefined);
   const queuedLoadMoreRef = useRef<string | undefined>(undefined);
+  const inFlightRefreshRef = useRef<
+    | {
+        queryKey: string;
+        promise: Promise<IMarketStockListResult>;
+      }
+    | undefined
+  >(undefined);
+  const lastRefreshRef = useRef<
+    | {
+        result: IMarketStockListResult;
+        completedAt: number;
+      }
+    | undefined
+  >(undefined);
+  const forceRefreshRef = useRef(false);
   const queryKey = useMemo(
     () => JSON.stringify({ category, sortBy, sortType, locale }),
     [category, sortBy, sortType, locale],
@@ -79,77 +95,112 @@ export function useMarketStockList({ category }: { category?: string }) {
   const {
     result: firstPageResult,
     isLoading,
-    run: refresh,
+    run: runRefresh,
   } = usePromiseResult<IMarketStockListResult>(
-    async () => {
-      const refreshRequest = {};
-      refreshRequestRef.current = refreshRequest;
+    () => {
+      const force = forceRefreshRef.current;
+      forceRefreshRef.current = false;
+      const inFlight = inFlightRefreshRef.current;
+      if (inFlight?.queryKey === queryKey) return inFlight.promise;
+      const lastRefresh = lastRefreshRef.current;
       if (
-        loadMoreRequestRef.current &&
-        listStateRef.current.queryKey === queryKey
+        !force &&
+        remoteQueryKeyRef.current === queryKey &&
+        lastRefresh?.result.queryKey === queryKey &&
+        lastRefresh.result.loadedPageCount ===
+          listStateRef.current.loadedPageCount &&
+        Date.now() - lastRefresh.completedAt <
+          MARKET_STOCK_LIST_REFRESH_INTERVAL_MS
       ) {
-        queuedLoadMoreRef.current = queryKey;
+        return Promise.resolve(lastRefresh.result);
       }
-      loadMoreRequestRef.current = undefined;
-      setIsLoadingMore(false);
-      try {
-        const firstPage =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
-            limit: MARKET_STOCK_LIST_PAGE_SIZE,
-            category,
-            sortBy,
-            sortType,
-          });
-        const current = listStateRef.current;
-        const pagesToRefresh =
-          current.queryKey === queryKey &&
-          remoteQueryKeyRef.current === queryKey
-            ? Math.max(1, current.loadedPageCount)
-            : 1;
-        let response = firstPage;
-        let loadedPageCount = 1;
-
-        while (
-          queryKeyRef.current === queryKey &&
-          refreshRequestRef.current === refreshRequest &&
-          response.nextCursor &&
-          loadedPageCount < pagesToRefresh
+      const promise = (async (): Promise<IMarketStockListResult> => {
+        const refreshRequest = {};
+        refreshRequestRef.current = refreshRequest;
+        if (
+          loadMoreRequestRef.current &&
+          listStateRef.current.queryKey === queryKey
         ) {
-          const nextPage =
+          queuedLoadMoreRef.current = queryKey;
+        }
+        loadMoreRequestRef.current = undefined;
+        setIsLoadingMore(false);
+        try {
+          const firstPage =
             await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
-              cursor: response.nextCursor,
               limit: MARKET_STOCK_LIST_PAGE_SIZE,
               category,
               sortBy,
               sortType,
             });
-          response = {
-            items: appendUniqueMarketStocks(response.items, nextPage.items),
-            nextCursor: nextPage.nextCursor,
-            total: nextPage.total,
-          };
-          loadedPageCount += 1;
-        }
+          const current = listStateRef.current;
+          const pagesToRefresh =
+            current.queryKey === queryKey &&
+            remoteQueryKeyRef.current === queryKey
+              ? Math.max(1, current.loadedPageCount)
+              : 1;
+          let response = firstPage;
+          let loadedPageCount = 1;
 
-        if (
-          queryKeyRef.current === queryKey &&
-          refreshRequestRef.current === refreshRequest
-        ) {
-          remoteQueryKeyRef.current = queryKey;
+          while (
+            queryKeyRef.current === queryKey &&
+            refreshRequestRef.current === refreshRequest &&
+            response.nextCursor &&
+            loadedPageCount < pagesToRefresh
+          ) {
+            const nextPage =
+              await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
+                cursor: response.nextCursor,
+                limit: MARKET_STOCK_LIST_PAGE_SIZE,
+                category,
+                sortBy,
+                sortType,
+              });
+            response = {
+              items: appendUniqueMarketStocks(response.items, nextPage.items),
+              nextCursor: nextPage.nextCursor,
+              total: nextPage.total,
+            };
+            loadedPageCount += 1;
+          }
+
+          if (
+            queryKeyRef.current === queryKey &&
+            refreshRequestRef.current === refreshRequest
+          ) {
+            remoteQueryKeyRef.current = queryKey;
+          }
+          const result = {
+            queryKey,
+            response,
+            firstPage,
+            loadedPageCount,
+          };
+          if (
+            queryKeyRef.current === queryKey &&
+            refreshRequestRef.current === refreshRequest
+          ) {
+            lastRefreshRef.current = { result, completedAt: Date.now() };
+          }
+          return result;
+        } catch {
+          if (refreshRequestRef.current === refreshRequest) {
+            lastRefreshRef.current = undefined;
+          }
+          return { queryKey, failed: true };
+        } finally {
+          if (refreshRequestRef.current === refreshRequest) {
+            refreshRequestRef.current = undefined;
+          }
         }
-        return {
-          queryKey,
-          response,
-          firstPage,
-          loadedPageCount,
-        };
-      } catch {
-        return { queryKey, failed: true };
-      } finally {
-        if (refreshRequestRef.current === refreshRequest) {
-          refreshRequestRef.current = undefined;
+      })();
+      inFlightRefreshRef.current = { queryKey, promise };
+      void promise.finally(() => {
+        if (inFlightRefreshRef.current?.promise === promise) {
+          inFlightRefreshRef.current = undefined;
         }
-      }
+      });
+      return promise;
     },
     [category, queryKey, sortBy, sortType],
     {
@@ -165,6 +216,11 @@ export function useMarketStockList({ category }: { category?: string }) {
       revalidateOnReconnect: true,
     },
   );
+
+  const refresh = useCallback(() => {
+    forceRefreshRef.current = true;
+    return runRefresh();
+  }, [runRefresh]);
 
   useEffect(() => {
     if (firstPageResult?.queryKey !== queryKey || !firstPageResult.response) {
@@ -190,17 +246,37 @@ export function useMarketStockList({ category }: { category?: string }) {
     firstPageResult?.queryKey === queryKey
       ? (firstPageResult.firstPage ?? currentResponse)
       : undefined;
-  const hasListState = listState.queryKey === queryKey;
+  // Publish rows and pagination together, before the persistence effect runs.
+  const currentListState =
+    currentResponse &&
+    currentFirstPage &&
+    (listState.queryKey !== queryKey ||
+      listState.firstPage !== currentFirstPage)
+      ? {
+          queryKey,
+          items: currentResponse.items,
+          nextCursor: currentResponse.nextCursor,
+          total: currentResponse.total,
+          firstPage: currentFirstPage,
+          loadedPageCount: firstPageResult?.loadedPageCount ?? 1,
+        }
+      : listState;
+  listStateRef.current = currentListState;
+  const hasListState = currentListState.queryKey === queryKey;
   const hasCurrentData = hasListState || Boolean(currentResponse);
-  const items = hasListState ? listState.items : (currentResponse?.items ?? []);
+  const items = hasListState
+    ? currentListState.items
+    : (currentResponse?.items ?? []);
   const nextCursor = hasListState
-    ? listState.nextCursor
+    ? currentListState.nextCursor
     : currentResponse?.nextCursor;
   const isFirstPageError =
     firstPageResult?.queryKey === queryKey && Boolean(firstPageResult.failed);
   const isAwaitingRemoteFirstPage =
     remoteQueryKeyRef.current !== queryKey ||
-    Boolean(currentFirstPage && listState.firstPage !== currentFirstPage);
+    Boolean(
+      currentFirstPage && currentListState.firstPage !== currentFirstPage,
+    );
 
   const loadMore = useCallback(async () => {
     if (isLoading || refreshRequestRef.current) {
@@ -305,7 +381,9 @@ export function useMarketStockList({ category }: { category?: string }) {
 
   return {
     items,
-    total: hasListState ? listState.total : (currentResponse?.total ?? 0),
+    total: hasListState
+      ? currentListState.total
+      : (currentResponse?.total ?? 0),
     isLoading: !hasCurrentData && (!isFirstPageError || Boolean(isLoading)),
     isLoadingMore,
     isLoadMoreError,
