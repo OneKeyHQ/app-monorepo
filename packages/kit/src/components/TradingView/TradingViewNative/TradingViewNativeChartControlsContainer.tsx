@@ -157,6 +157,7 @@ export const TradingViewNativeChartControlsContainer = memo(
             onSelect={handleIndicatorSelect}
             onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
+            onSettingsPress={onIndicatorSettingsPress}
           />
         ),
       });

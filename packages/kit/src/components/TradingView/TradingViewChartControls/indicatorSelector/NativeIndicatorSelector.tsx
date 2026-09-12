@@ -188,6 +188,7 @@ export function IndicatorListDialogContent({
   onSelect,
   onSelectionConfirm,
   onResetLayout,
+  onSettingsPress,
 }: {
   indicators: ITradingViewIndicatorOption[];
   resetLayout?: ITradingViewNativeChartControlsConfigData['resetLayout'];
@@ -197,6 +198,7 @@ export function IndicatorListDialogContent({
     selection: ITradingViewNativeIndicatorSelection,
   ) => void;
   onResetLayout: () => void;
+  onSettingsPress?: () => void;
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
@@ -290,6 +292,20 @@ export function IndicatorListDialogContent({
 
   return (
     <YStack gap="$6" pb="$2">
+      {onSettingsPress ? (
+        <Button
+          testID="trading-view-native-indicators-settings-button"
+          icon="SettingsOutline"
+          justifyContent="flex-start"
+          variant="tertiary"
+          onPress={async () => {
+            await dialog.close();
+            onSettingsPress();
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_settings })}
+        </Button>
+      ) : null}
       <ScrollView maxHeight={320} showsVerticalScrollIndicator={false}>
         <YStack gap="$6">
           <IndicatorSection
