@@ -47,7 +47,6 @@ import type {
   IMarketStockPublicChartRequest,
   IMarketStockPublicChartResponse,
   IMarketStockPublicDetail,
-  IMarketStockPublicItem,
   IMarketStockPublicListRequest,
   IMarketStockPublicListResponse,
   IMarketStockPublicSearchRequest,
@@ -1056,25 +1055,36 @@ class ServiceMarketV2 extends ServiceBase {
     }
   }
 
+  private memoizedFetchMarketBannerList = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        message: string;
+        data: IMarketBannerListResponse;
+      }>('/utility/v2/market/banner/list');
+      const { data } = response.data;
+      return data.data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
   @backgroundMethod()
   async fetchMarketBannerList(): Promise<IMarketBannerItem[]> {
     const devSettings = await devSettingsPersistAtom.get();
     if (devSettings.enabled && devSettings.settings?.enableMockMarketBanner) {
       return MOCK_MARKET_BANNER_LIST;
     }
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketBannerListResponse;
-    }>('/utility/v2/market/banner/list');
-    const { data } = response.data;
-    return data.data;
+    return this.memoizedFetchMarketBannerList();
   }
 
   @backgroundMethod()
   async clearMarketBannerCache(): Promise<void> {
-    // Kept for callers that clear market caches after account or network changes.
+    // memoizee's clear() is synchronous, returns void
+    void this.memoizedFetchMarketBannerList.clear();
   }
 
   @backgroundMethod()
@@ -1090,20 +1100,6 @@ class ServiceMarketV2 extends ServiceBase {
     );
     const { data } = response.data;
     return data.list;
-  }
-
-  @backgroundMethod()
-  async fetchMarketBannerStockTokenList({ id }: { id: string }) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data:
-        | IMarketStockPublicItem[]
-        | { list?: IMarketStockPublicItem[]; items?: IMarketStockPublicItem[] };
-    }>(`/utility/v2/market/banner/stock-token-list/${encodeURIComponent(id)}`);
-    const data = response.data.data;
-    return Array.isArray(data) ? data : (data.list ?? data.items ?? []);
   }
 
   @backgroundMethod()

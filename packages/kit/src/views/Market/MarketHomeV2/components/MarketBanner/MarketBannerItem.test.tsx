@@ -18,8 +18,6 @@ jest.mock('@onekeyhq/components', () => {
     role?: string;
     'aria-label'?: string;
     color?: string;
-    name?: string;
-    fallback?: import('react').ReactNode;
   }>;
   const Component = ({
     children,
@@ -28,7 +26,6 @@ jest.mock('@onekeyhq/components', () => {
     role,
     'aria-label': accessibilityLabel,
     color,
-    fallback,
   }: IProps) =>
     React.createElement(
       'div',
@@ -39,7 +36,7 @@ jest.mock('@onekeyhq/components', () => {
         role,
         'aria-label': accessibilityLabel,
       },
-      fallback ?? children,
+      children,
     );
   return {
     Stack: Component,
@@ -47,10 +44,8 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Component,
     SizableText: Component,
     NumberSizeableText: Component,
-    Image: ({ fallback }: { fallback?: import('react').ReactNode }) =>
-      fallback ?? null,
-    Icon: ({ name }: { name?: string }) =>
-      React.createElement('span', { 'data-icon-name': name }),
+    Image: () => null,
+    Icon: () => null,
   };
 });
 
@@ -86,29 +81,6 @@ const makeBanner = (
 });
 
 describe('Market theme banner', () => {
-  it('renders index quotes using the Figma labels, order, and unitless prices', () => {
-    render(
-      <MarketBannerItem
-        item={{
-          ...makeBanner([
-            makeToken('^DJI', '1', '52573.29'),
-            makeToken('^GSPC', '0.8', '7656.98'),
-            makeToken('^IXIC', '0.9', '26333.04'),
-          ]),
-          type: EMarketBannerType.StockIndex,
-        }}
-      />,
-    );
-
-    const rows = screen.getAllByTestId('market-banner-token-row');
-    expect(rows.map((row) => row.textContent)).toEqual([
-      'S&P 5007656.980.8',
-      'NASDAQ26333.040.9',
-      'Dow Jones52573.291',
-    ]);
-    expect(rows[0].querySelector('[data-icon-name]')).toBeNull();
-  });
-
   it('shows at most three supplied tokens in numeric gain order without mutating the response', () => {
     const tokens = [
       makeToken('LOW', '2'),
@@ -183,12 +155,14 @@ describe('Market theme banner', () => {
   );
 
   it.each([EMarketBannerType.Ticker, EMarketBannerType.Perps])(
-    'opens the original %s list from anywhere in the card',
+    'only opens the original %s list from its title',
     (type) => {
       const onPress = jest.fn();
       const item = { ...makeBanner([makeToken('TOKEN', '1', '2')]), type };
       render(<MarketBannerItem item={item} onPress={onPress} />);
       fireEvent.click(screen.getByTestId('market-banner-token-row'));
+      expect(onPress).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: item.title }));
       expect(onPress).toHaveBeenCalledTimes(1);
       expect(onPress).toHaveBeenCalledWith(item);
     },

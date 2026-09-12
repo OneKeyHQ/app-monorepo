@@ -12,9 +12,7 @@ import type { IMarketAssetListData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBannerItem,
   IMarketBannerListResponse,
-  IMarketBannerTokenListItem,
   IMarketBasicConfigResponse,
-  IMarketStockPublicItem,
   IMarketTokenBatchListResponse,
   IMarketTokenBatchRequestParams,
   IMarketTokenListItem,
@@ -520,37 +518,9 @@ const fetchMarketBannerListLight = memoizee(
   },
 );
 
-const fetchMarketBannerTokenListLight = async (
-  tokenListId: string,
-): Promise<IMarketBannerTokenListItem[]> => {
-  const client = await getUtilityClient();
-  const response = await client.get<
-    IApiClientResponse<{ list: IMarketBannerTokenListItem[] }>
-  >(`/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`, {
-    params: { currency: 'usd' },
-  });
-  return response.data.data.list;
-};
-
-const fetchMarketBannerStockTokenListLight = async (
-  id: string,
-): Promise<IMarketStockPublicItem[]> => {
-  const client = await getUtilityClient();
-  const response = await client.get<
-    IApiClientResponse<{
-      list?: IMarketStockPublicItem[];
-      items?: IMarketStockPublicItem[];
-    }>
-  >(`/utility/v2/market/banner/stock-token-list/${encodeURIComponent(id)}`);
-  const data = response.data.data;
-  return Array.isArray(data) ? data : (data.list ?? data.items ?? []);
-};
-
 export {
   fetchMarketAssetListLight,
   fetchMarketBannerListLight,
-  fetchMarketBannerTokenListLight,
-  fetchMarketBannerStockTokenListLight,
   fetchMarketBasicConfigLight,
   fetchMarketTokenListBatchLight,
   fetchMarketTokenListLight,

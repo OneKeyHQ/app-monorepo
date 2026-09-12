@@ -21,7 +21,6 @@ export function useToMarketBannerDetail() {
         tokenListId: item.tokenListId,
         title: item.title,
         type: item.type,
-        assetType: item.assetType,
       };
 
       // Push to page (works on all platforms including native via Discovery routes)

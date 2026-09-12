@@ -4,11 +4,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketBannerListSortAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type {
-  IMarketBannerIndexPreview,
-  IMarketStockPublicItem,
-  IMarketTokenListItem,
-} from '@onekeyhq/shared/types/marketV2';
 
 import {
   buildMarketNetworkLogoUriMap,
@@ -30,58 +25,11 @@ function isBannerDetailSortBy(
 type IUseMarketBannerDetailParams = {
   tokenListId: string;
   isPerps: boolean;
-  isStock?: boolean;
-  isIndex?: boolean;
 };
-
-function mapStockBannerItemToToken(
-  item: IMarketStockPublicItem,
-): IMarketTokenListItem {
-  return {
-    address: item.stockId,
-    name: item.name,
-    symbol: item.symbol,
-    decimals: 0,
-    logoUrl: item.logoUrl,
-    price: item.price,
-    priceChange24hPercent: item.priceChange24hPercent,
-    marketCap: item.marketCap,
-    stockId: item.stockId,
-    stock: {
-      stockId: item.stockId,
-      subtitle: item.name,
-      source: item.assetType,
-      sourceLogoUri: item.logoUrl,
-      marketCap: item.marketCap,
-      assetAnalysis: { volume24h: item.volume24h },
-    },
-  };
-}
-
-function mapIndexBannerItemToToken(
-  item: IMarketBannerIndexPreview,
-): IMarketTokenListItem {
-  return {
-    address: item.symbol,
-    name: item.name,
-    symbol: item.symbol,
-    decimals: 0,
-    logoUrl: item.logo,
-    price: item.price ?? undefined,
-    priceChange24hPercent: item.priceChange24hPercent ?? undefined,
-    stock: {
-      subtitle: item.name,
-      source: 'index',
-      sourceLogoUri: item.logo,
-    },
-  };
-}
 
 export function useMarketBannerDetail({
   tokenListId,
   isPerps,
-  isStock = false,
-  isIndex = false,
 }: IUseMarketBannerDetailParams) {
   const { networkList } = useMarketBasicConfig();
   const networkLogoUriMap = useMemo(
@@ -95,24 +43,13 @@ export function useMarketBannerDetail({
   const { result: tickerResult, isLoading: tickerIsLoading } = usePromiseResult(
     async () => {
       if (isPerps) return null;
-      if (isIndex) {
-        const banners =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketBannerList();
-        const banner = banners.find((item) => item.tokenListId === tokenListId);
-        return (banner?.indices ?? []).map(mapIndexBannerItemToToken);
-      }
-      if (isStock) {
-        const data =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketBannerStockTokenList(
-            { id: tokenListId },
-          );
-        return data.map(mapStockBannerItemToToken);
-      }
-      return backgroundApiProxy.serviceMarketV2.fetchMarketBannerTokenList({
-        tokenListId,
-      });
+      const data =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketBannerTokenList({
+          tokenListId,
+        });
+      return data;
     },
-    [tokenListId, isPerps, isStock, isIndex],
+    [tokenListId, isPerps],
     {
       watchLoading: true,
     },

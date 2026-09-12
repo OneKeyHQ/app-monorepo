@@ -1,14 +1,6 @@
-import type {
-  IMarketBannerItem,
-  IMarketBannerTokenListItem,
-  IMarketStockPublicItem,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
-import {
-  fetchMarketBannerListLight,
-  fetchMarketBannerStockTokenListLight,
-  fetchMarketBannerTokenListLight,
-} from '../../../utils/marketLightApi';
+import { fetchMarketBannerListLight } from '../../../utils/marketLightApi';
 
 type IFetchMarketBannerListForPlatformOptions = {
   enableMockMarketBanner?: boolean;
@@ -27,18 +19,4 @@ const fetchMarketBannerListForPlatform = async ({
   return backgroundApiProxy.serviceMarketV2.fetchMarketBannerList();
 };
 
-const fetchMarketBannerTokenListForPlatform = (
-  tokenListId: string,
-): Promise<IMarketBannerTokenListItem[]> =>
-  fetchMarketBannerTokenListLight(tokenListId);
-
-const fetchMarketBannerStockTokenListForPlatform = (
-  id: string,
-): Promise<IMarketStockPublicItem[]> =>
-  fetchMarketBannerStockTokenListLight(id);
-
-export {
-  fetchMarketBannerListForPlatform,
-  fetchMarketBannerStockTokenListForPlatform,
-  fetchMarketBannerTokenListForPlatform,
-};
+export { fetchMarketBannerListForPlatform };

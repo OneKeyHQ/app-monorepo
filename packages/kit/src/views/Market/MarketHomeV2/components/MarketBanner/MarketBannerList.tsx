@@ -17,8 +17,6 @@ import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
 import { useMarketBannerList } from './useMarketBannerList';
 import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
-export const MARKET_BANNER_LIST_MOBILE_HEIGHT = 204;
-
 const MarketBannerContext = createContext<
   ReturnType<typeof useMarketBannerList> | undefined
 >(undefined);
@@ -48,7 +46,6 @@ function BannerContainerMobile({
   return (
     <ScrollGuard>
       <ScrollView
-        h={MARKET_BANNER_LIST_MOBILE_HEIGHT}
         opacity={hidden ? 0 : 1}
         pointerEvents={hidden ? 'none' : 'auto'}
         accessibilityElementsHidden={hidden}
