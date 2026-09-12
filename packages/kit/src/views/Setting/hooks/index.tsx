@@ -99,6 +99,11 @@ export function useResetApp(
       }
     }
     Dialog.show({
+      // Settings → Reset is reached from a native modal page on iOS, which is
+      // added to the window stack after the app's own overlay container: the
+      // dialog has to opt into a fresh top-level overlay or it renders beneath
+      // that page. Only the lock-screen branch below replaces this.
+      isOverTopAllViews: platformEnv.isNative,
       ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
       title: intl.formatMessage({ id: ETranslations.global_reset }),
       icon: 'ErrorOutline',

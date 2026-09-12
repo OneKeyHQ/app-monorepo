@@ -15,6 +15,7 @@ import {
   Heading,
   Image,
   Keyboard,
+  NATIVE_HIT_SLOP,
   Stack,
   ThemeableStack,
   updateHeightWhenKeyboardHide,
@@ -22,7 +23,6 @@ import {
   useKeyboardEventWithoutNavigation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils/getFontSize';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
@@ -63,19 +63,11 @@ function diagLog(msg: string) {
   webAuth.log(msg);
 }
 
-// `flex: 1` is static and belongs in a plain style, NOT in the animated one.
-// Declaring a layout prop inside `useAnimatedStyle` hands this view's layout to
-// Reanimated's UI-thread path: on iOS the view is then painted from the
-// worklet's values while React Native keeps hit-testing against the layout it
-// last committed, so everything below the passcode input was drawn roughly 35pt
-// away from its own touch target. The lock screen's "Forgot passcode?" button
-// looked completely dead because of it — taps on it landed on whatever the
-// shadow tree still believed was there. Keep only the value that actually
-// animates in the worklet. (OK-62416)
 const useSafeKeyboardAnimationStyle = platformEnv.isNative
   ? () => {
       const keyboardHeightValue = useSharedValue(0);
       const animatedStyles = useAnimatedStyle(() => ({
+        flex: 1,
         bottom: keyboardHeightValue.value,
       }));
       useKeyboardEventWithoutNavigation({
@@ -93,9 +85,7 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
       });
       return animatedStyles;
     }
-  : () => undefined;
-
-const lockScreenFillStyle = { flex: 1 } as const;
+  : () => ({ flex: 1 });
 
 const AppStateLock = ({
   passwordVerifyContainer,
@@ -205,9 +195,7 @@ const AppStateLock = ({
         onPress={Keyboard.dismiss}
         {...props}
       >
-        <Animated.View
-          style={[lockScreenFillStyle, safeKeyboardAnimationStyle]}
-        >
+        <Animated.View style={safeKeyboardAnimationStyle}>
           <Stack
             flex={1}
             justifyContent="center"

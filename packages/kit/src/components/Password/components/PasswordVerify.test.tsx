@@ -180,7 +180,10 @@ function renderVerify(props?: { inAppStateLock?: boolean }) {
 
 describe('PasswordVerify biometric-changed warning', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    // `flush()` advances the clock from inside `act(async …)`. Faking
+    // `queueMicrotask` too would drain React's own act bookkeeping early and
+    // burn its one-shot "act without await" warning on a false positive.
+    jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
     jest.clearAllMocks();
   });
 
@@ -215,6 +218,8 @@ describe('PasswordVerify biometric-changed warning', () => {
       unknown
     >;
     expect(props.sheetProps).toBeUndefined();
-    expect(props.isOverTopAllViews).toBeUndefined();
+    // It keeps the top-level overlay it used before the lock-screen props
+    // existed, so it still clears a native modal page on iOS.
+    expect(props.isOverTopAllViews).toBe(true);
   });
 });

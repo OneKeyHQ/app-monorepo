@@ -4,7 +4,7 @@
 /* eslint-disable react-perf/jsx-no-new-object-as-prop, react/jsx-no-constructed-context-values, react-perf/jsx-no-new-function-as-prop */
 
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
@@ -49,10 +49,13 @@ type IResetForm = UseFormReturn<{ text: string }>;
 
 type IHarnessState = { mounted: boolean; formKey: number };
 
+type ISubscriptionSpy = { unsubscribe: jest.Mock };
+
 type IHarnessController = {
   setState?: (updater: (state: IHarnessState) => IHarnessState) => void;
   latestForm?: IResetForm;
   registerForm: (form: IResetForm) => void;
+  subscriptions: Map<IResetForm, ISubscriptionSpy[]>;
 };
 
 const confirmButtonProps: IDialogFooterProps['confirmButtonProps'] = {
@@ -70,6 +73,29 @@ const confirmButtonProps: IDialogFooterProps['confirmButtonProps'] = {
  */
 function LateForm({ controller }: { controller: IHarnessController }) {
   const form = useForm<{ text: string }>({ defaultValues: { text: '' } });
+  // Make the footer's subscription observable, so teardown can be asserted
+  // rather than inferred. Patch during render: the footer subscribes from an
+  // effect that runs after `registerForm` below.
+  useMemo(() => {
+    const spies: ISubscriptionSpy[] = [];
+    controller.subscriptions.set(form, spies);
+    const originalWatch = form.watch.bind(form) as (
+      ...args: unknown[]
+    ) => unknown;
+    form.watch = ((...args: unknown[]) => {
+      const result = originalWatch(...args) as
+        | { unsubscribe?: () => void }
+        | undefined;
+      if (typeof result?.unsubscribe !== 'function') {
+        return result;
+      }
+      const spy: ISubscriptionSpy = {
+        unsubscribe: jest.fn(result.unsubscribe.bind(result)),
+      };
+      spies.push(spy);
+      return spy;
+    }) as IResetForm['watch'];
+  }, [controller, form]);
   useEffect(() => {
     controller.latestForm = form;
     controller.registerForm(form);
@@ -109,6 +135,7 @@ function renderFooter() {
   const formRef: { current: IResetForm | undefined } = { current: undefined };
   const listeners = new Set<() => void>();
   const controller: IHarnessController = {
+    subscriptions: new Map<IResetForm, ISubscriptionSpy[]>(),
     registerForm: (form: IResetForm) => {
       formRef.current = form;
       for (const listener of listeners) {
@@ -132,7 +159,9 @@ function renderFooter() {
     footerRef: { notifyUpdate: undefined, props: undefined },
   } as unknown as IDialogContextType;
 
-  render(<Harness controller={controller} contextValue={contextValue} />);
+  const { unmount } = render(
+    <Harness controller={controller} contextValue={contextValue} />,
+  );
 
   return {
     confirmButton: () => screen.getByTestId('confirm') as HTMLButtonElement,
@@ -145,6 +174,10 @@ function renderFooter() {
         controller.setState?.((s) => ({ ...s, formKey: s.formKey + 1 }));
       }),
     getForm: () => controller.latestForm as IResetForm,
+    subscriptionsOf: (form: IResetForm) =>
+      controller.subscriptions.get(form) ?? [],
+    formChangeListenerCount: () => listeners.size,
+    unmount,
   };
 }
 
@@ -182,6 +215,38 @@ describe('Dialog footer confirm button', () => {
       secondForm.setValue('text', 'RESET');
     });
     expect(confirmButton().disabled).toBe(false);
+  });
+
+  it('drops the replaced form’s subscription instead of leaking it', () => {
+    const { mountForm, remountForm, getForm, subscriptionsOf } = renderFooter();
+    mountForm();
+    const firstForm = getForm();
+    expect(subscriptionsOf(firstForm)).toHaveLength(1);
+
+    remountForm();
+
+    expect(subscriptionsOf(firstForm)[0].unsubscribe).toHaveBeenCalled();
+    expect(getForm()).not.toBe(firstForm);
+    expect(subscriptionsOf(getForm())).toHaveLength(1);
+    expect(subscriptionsOf(getForm())[0].unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it('drops its subscriptions when the footer unmounts', () => {
+    const {
+      mountForm,
+      getForm,
+      subscriptionsOf,
+      formChangeListenerCount,
+      unmount,
+    } = renderFooter();
+    mountForm();
+    const form = getForm();
+    expect(formChangeListenerCount()).toBe(1);
+
+    unmount();
+
+    expect(subscriptionsOf(form)[0].unsubscribe).toHaveBeenCalled();
+    expect(formChangeListenerCount()).toBe(0);
   });
 
   it('re-disables the button when the value stops matching', () => {
