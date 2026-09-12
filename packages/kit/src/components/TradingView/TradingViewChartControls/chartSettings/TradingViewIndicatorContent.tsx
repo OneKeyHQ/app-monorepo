@@ -2,6 +2,8 @@ import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
+  Button,
+  Divider,
   Icon,
   ScrollView,
   SizableText,
@@ -54,6 +56,7 @@ const TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN = 16;
 
 function TradingViewIndicatorContent({
   compact,
+  mobileLayout = false,
   indicator,
   onToggleLine,
   onLinePeriodChange,
@@ -65,6 +68,7 @@ function TradingViewIndicatorContent({
   onParameterChange,
 }: {
   compact: boolean;
+  mobileLayout?: boolean;
   indicator: ITradingViewSettingsMockIndicator | undefined;
   onToggleLine: (lineId: string, enabled: boolean) => void;
   onLinePeriodChange: (lineId: string, period: number) => void;
@@ -94,6 +98,8 @@ function TradingViewIndicatorContent({
   const parameterRows = groupTradingViewIndicatorParameters(
     indicator.parameters,
   );
+  const contentPaddingTop = mobileLayout ? 0 : 20;
+  const contentPaddingHorizontal = mobileLayout ? 0 : 16;
 
   return (
     <ScrollView
@@ -104,22 +110,24 @@ function TradingViewIndicatorContent({
       showsVerticalScrollIndicator
     >
       <YStack
-        pt={compact ? 20 : 31}
+        pt={compact ? contentPaddingTop : 31}
         pb={34}
-        px={compact ? 16 : undefined}
+        px={compact ? contentPaddingHorizontal : undefined}
         pl={compact ? undefined : 31}
         pr={compact ? undefined : 33}
         bg={TRADING_VIEW_CHART_BG}
       >
-        <SizableText
-          mb={22}
-          fontSize={16}
-          lineHeight={20}
-          fontWeight="700"
-          color={TRADING_VIEW_CHART_TEXT}
-        >
-          {indicator.title}
-        </SizableText>
+        {mobileLayout ? null : (
+          <SizableText
+            mb={22}
+            fontSize={16}
+            lineHeight={20}
+            fontWeight="700"
+            color={TRADING_VIEW_CHART_TEXT}
+          >
+            {indicator.title}
+          </SizableText>
+        )}
         {parameterRows.map((parameters) => (
           <TradingViewIndicatorParameterRow
             key={parameters[0]?.rowId ?? parameters[0]?.id}
@@ -128,6 +136,7 @@ function TradingViewIndicatorContent({
             onChange={onParameterChange}
           />
         ))}
+        {mobileLayout && parameterRows.length ? <Divider my="$4" /> : null}
         {indicator.lines.map((line, index) => (
           <TradingViewIndicatorLineRow
             key={line.id}
@@ -186,6 +195,7 @@ function TradingViewIndicatorContent({
 
 export function TradingViewIndicatorSettingsDialog({
   displayMode,
+  mobileLayout = false,
   value,
   maxActiveSubIndicatorCount,
   selectedIndicatorScope,
@@ -209,6 +219,7 @@ export function TradingViewIndicatorSettingsDialog({
   isSubmitting = false,
 }: {
   displayMode: 'focused' | 'full';
+  mobileLayout?: boolean;
   value: ITradingViewIndicatorSettingsValue;
   maxActiveSubIndicatorCount: number | null;
   selectedIndicatorScope: ITradingViewSettingsMockIndicatorScope;
@@ -252,6 +263,69 @@ export function TradingViewIndicatorSettingsDialog({
       TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN,
     0,
   );
+
+  if (mobileLayout) {
+    const mobileMaxHeight = Math.max(focusedMaxHeight - 160, 160);
+    return (
+      <YStack
+        testID="trading-view-mobile-indicator-settings"
+        h={Math.min(
+          TRADING_VIEW_INDICATOR_BODY_HEIGHT +
+            TRADING_VIEW_INDICATOR_FOOTER_HEIGHT,
+          mobileMaxHeight,
+        )}
+        maxHeight={mobileMaxHeight}
+        gap="$4"
+      >
+        <Stack
+          testID="trading-view-mobile-indicator-settings-body"
+          flex={1}
+          minHeight={0}
+          pointerEvents={isSubmitting ? 'none' : 'auto'}
+        >
+          <TradingViewIndicatorContent
+            compact
+            mobileLayout
+            indicator={selectedIndicator}
+            onToggleLine={onToggleLine}
+            onLinePeriodChange={onLinePeriodChange}
+            onLineStyleChange={onLineStyleChange}
+            onLineSecondaryStyleChange={onLineSecondaryStyleChange}
+            onLineColorChange={onLineColorChange}
+            onOpacityChange={onOpacityChange}
+            onOpacityColorChange={onOpacityColorChange}
+            onParameterChange={onParameterChange}
+          />
+        </Stack>
+        <XStack
+          testID="trading-view-mobile-indicator-settings-footer"
+          gap="$3"
+          flexShrink={0}
+        >
+          <Button
+            testID="trading-view-indicator-settings-mock-reset"
+            flex={1}
+            size="large"
+            disabled={isSubmitting}
+            onPress={onReset}
+          >
+            {intl.formatMessage({ id: ETranslations.global_reset })}
+          </Button>
+          <Button
+            testID="trading-view-indicator-settings-mock-confirm"
+            flex={1}
+            size="large"
+            variant="primary"
+            disabled={isSubmitting}
+            loading={isSubmitting}
+            onPress={onConfirm}
+          >
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
+          </Button>
+        </XStack>
+      </YStack>
+    );
+  }
 
   return (
     <YStack
