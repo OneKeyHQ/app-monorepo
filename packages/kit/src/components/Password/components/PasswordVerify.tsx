@@ -60,6 +60,11 @@ interface IPasswordVerifyProps {
   alertText?: string;
   confirmBtnDisabled?: boolean;
   pageMode?: boolean;
+  // True only while this verify UI is the app-state lock screen. The
+  // lock-screen dialog props target a portal container that only the lock
+  // screen hosts, so a prompt rendered anywhere else must not use them — it
+  // would have nowhere to render.
+  inAppStateLock?: boolean;
 }
 
 export interface IPasswordVerifyForm {
@@ -69,6 +74,7 @@ export interface IPasswordVerifyForm {
 
 function PasswordVerify({
   pageMode,
+  inAppStateLock,
   isEnable,
   alertText,
   confirmBtnDisabled,
@@ -207,7 +213,7 @@ function PasswordVerify({
           Dialog.confirm({
             icon: 'ErrorOutline',
             tone: 'warning',
-            ...inAppStateLockDialogProps,
+            ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
             title: intl.formatMessage(
               {
                 id: ETranslations.global_biometric_disabled,
@@ -235,7 +241,7 @@ function PasswordVerify({
       console.error(error);
     }
     return false;
-  }, [authTitle, intl]);
+  }, [authTitle, inAppStateLock, intl]);
 
   useLayoutEffect(() => {
     void (async () => {

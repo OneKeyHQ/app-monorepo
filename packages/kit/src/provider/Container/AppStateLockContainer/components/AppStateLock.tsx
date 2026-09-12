@@ -23,6 +23,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
+import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils/getFontSize';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
@@ -62,11 +63,19 @@ function diagLog(msg: string) {
   webAuth.log(msg);
 }
 
+// `flex: 1` is static and belongs in a plain style, NOT in the animated one.
+// Declaring a layout prop inside `useAnimatedStyle` hands this view's layout to
+// Reanimated's UI-thread path: on iOS the view is then painted from the
+// worklet's values while React Native keeps hit-testing against the layout it
+// last committed, so everything below the passcode input was drawn roughly 35pt
+// away from its own touch target. The lock screen's "Forgot passcode?" button
+// looked completely dead because of it — taps on it landed on whatever the
+// shadow tree still believed was there. Keep only the value that actually
+// animates in the worklet. (OK-62416)
 const useSafeKeyboardAnimationStyle = platformEnv.isNative
   ? () => {
       const keyboardHeightValue = useSharedValue(0);
       const animatedStyles = useAnimatedStyle(() => ({
-        flex: 1,
         bottom: keyboardHeightValue.value,
       }));
       useKeyboardEventWithoutNavigation({
@@ -84,7 +93,9 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
       });
       return animatedStyles;
     }
-  : () => ({ flex: 1 });
+  : () => undefined;
+
+const lockScreenFillStyle = { flex: 1 } as const;
 
 const AppStateLock = ({
   passwordVerifyContainer,
@@ -194,7 +205,9 @@ const AppStateLock = ({
         onPress={Keyboard.dismiss}
         {...props}
       >
-        <Animated.View style={safeKeyboardAnimationStyle}>
+        <Animated.View
+          style={[lockScreenFillStyle, safeKeyboardAnimationStyle]}
+        >
           <Stack
             flex={1}
             justifyContent="center"
@@ -242,6 +255,14 @@ const AppStateLock = ({
               <Button
                 size="small"
                 variant="tertiary"
+                // A `tertiary` Button is only its label plus 4pt of padding and
+                // its negative margins pull the frame above the glyphs, so on a
+                // phone the real touch target is a ~26pt band sitting slightly
+                // higher than the text the user aims at — well under the 44pt
+                // Apple asks for. Taps on the visible label missed it, which is
+                // what "Forgot passcode? does nothing" was on iOS. IconButton
+                // already pads small buttons the same way. (OK-62416)
+                hitSlop={NATIVE_HIT_SLOP}
                 onPress={resetApp}
                 testID="app-state-lock.tsx-btn"
               >

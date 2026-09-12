@@ -1,16 +1,19 @@
 /**
  * @jest-environment jsdom
  */
-/* eslint-disable react-perf/jsx-no-new-object-as-prop, react/jsx-no-constructed-context-values */
+/* eslint-disable react-perf/jsx-no-new-object-as-prop, react/jsx-no-constructed-context-values, react-perf/jsx-no-new-function-as-prop */
 
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
+import { useForm } from 'react-hook-form';
 
 import { DialogContext } from './context';
 import { Footer } from './Footer';
 
 import type { IDialogContextType, IDialogFooterProps } from './type';
+import type { UseFormReturn } from 'react-hook-form';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -42,32 +45,15 @@ jest.mock('../../primitives', () => ({
   ),
 }));
 
-// Stands in for the react-hook-form instance `Dialog.Form` registers: only the
-// two members `disabledOn` and the footer subscription actually touch.
-function createFakeForm(initialText = '') {
-  const listeners = new Set<() => void>();
-  let text = initialText;
-  return {
-    getValues: () => ({ text }),
-    setText(next: string) {
-      text = next;
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-    watch(listener: () => void) {
-      listeners.add(listener);
-      return {
-        unsubscribe: () => {
-          listeners.delete(listener);
-        },
-      };
-    },
-    listenerCount: () => listeners.size,
-  };
-}
+type IResetForm = UseFormReturn<{ text: string }>;
 
-type IFakeForm = ReturnType<typeof createFakeForm>;
+type IHarnessState = { mounted: boolean; formKey: number };
+
+type IHarnessController = {
+  setState?: (updater: (state: IHarnessState) => IHarnessState) => void;
+  latestForm?: IResetForm;
+  registerForm: (form: IResetForm) => void;
+};
 
 const confirmButtonProps: IDialogFooterProps['confirmButtonProps'] = {
   testID: 'confirm',
@@ -77,18 +63,37 @@ const confirmButtonProps: IDialogFooterProps['confirmButtonProps'] = {
   },
 };
 
-function renderFooter() {
-  const formRef: { current: IFakeForm | undefined } = { current: undefined };
-  const contextValue = {
-    dialogInstance: {
-      close: jest.fn(),
-      ref: formRef,
-      isExist: () => true,
-    },
-    footerRef: { notifyUpdate: undefined, props: undefined },
-  } as unknown as IDialogContextType;
-  const { unmount } = render(
+/**
+ * Stands in for the lazily loaded `Dialog.Form`: it only exists once the
+ * harness mounts it, and it announces itself through the same `registerForm`
+ * channel the real one uses.
+ */
+function LateForm({ controller }: { controller: IHarnessController }) {
+  const form = useForm<{ text: string }>({ defaultValues: { text: '' } });
+  useEffect(() => {
+    controller.latestForm = form;
+    controller.registerForm(form);
+  }, [controller, form]);
+  return null;
+}
+
+function Harness({
+  controller,
+  contextValue,
+}: {
+  controller: IHarnessController;
+  contextValue: IDialogContextType;
+}) {
+  const [state, setState] = useState<IHarnessState>({
+    mounted: false,
+    formKey: 0,
+  });
+  controller.setState = setState;
+  return (
     <DialogContext.Provider value={contextValue}>
+      {state.mounted ? (
+        <LateForm key={state.formKey} controller={controller} />
+      ) : null}
       <Footer
         showFooter
         showConfirmButton
@@ -96,72 +101,101 @@ function renderFooter() {
         onConfirmText="confirm"
         confirmButtonProps={confirmButtonProps}
       />
-    </DialogContext.Provider>,
+    </DialogContext.Provider>
   );
-  const confirmButton = () =>
-    screen.getByTestId('confirm') as HTMLButtonElement;
-  return { formRef, confirmButton, unmount };
+}
+
+function renderFooter() {
+  const formRef: { current: IResetForm | undefined } = { current: undefined };
+  const listeners = new Set<() => void>();
+  const controller: IHarnessController = {
+    registerForm: (form: IResetForm) => {
+      formRef.current = form;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+  };
+  const contextValue = {
+    dialogInstance: {
+      close: jest.fn(),
+      ref: formRef,
+      isExist: () => true,
+      registerForm: controller.registerForm,
+      subscribeFormChange: (listener: () => void) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    },
+    footerRef: { notifyUpdate: undefined, props: undefined },
+  } as unknown as IDialogContextType;
+
+  render(<Harness controller={controller} contextValue={contextValue} />);
+
+  return {
+    confirmButton: () => screen.getByTestId('confirm') as HTMLButtonElement,
+    mountForm: () =>
+      act(() => {
+        controller.setState?.((s) => ({ ...s, mounted: true }));
+      }),
+    remountForm: () =>
+      act(() => {
+        controller.setState?.((s) => ({ ...s, formKey: s.formKey + 1 }));
+      }),
+    getForm: () => controller.latestForm as IResetForm,
+  };
 }
 
 describe('Dialog footer confirm button', () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  it('picks up a form registered after the footer mounted', () => {
-    const { formRef, confirmButton } = renderFooter();
+  it('follows a form that registers after the footer mounted', () => {
+    const { confirmButton, mountForm, getForm } = renderFooter();
     expect(confirmButton().disabled).toBe(true);
 
-    // `Dialog.Form` is lazy — it can only register once its module resolved.
-    const form = createFakeForm('RESET');
-    act(() => {
-      formRef.current = form;
-      jest.advanceTimersByTime(200);
-    });
-
-    expect(confirmButton().disabled).toBe(false);
-  });
-
-  it('follows the form when the dialog registers a new instance', () => {
-    const { formRef, confirmButton } = renderFooter();
-    const firstForm = createFakeForm();
-    act(() => {
-      formRef.current = firstForm;
-      jest.advanceTimersByTime(200);
-    });
+    mountForm();
     expect(confirmButton().disabled).toBe(true);
 
-    // The lazy form remounts while the dialog opens, replacing the instance the
-    // footer had already subscribed to (OK-62416).
-    const secondForm = createFakeForm();
     act(() => {
-      formRef.current = secondForm;
-      jest.advanceTimersByTime(200);
-    });
-    expect(firstForm.listenerCount()).toBe(0);
-
-    act(() => {
-      secondForm.setText('RESET');
+      getForm().setValue('text', 'RESET');
     });
     expect(confirmButton().disabled).toBe(false);
   });
 
-  it('drops its subscription when the footer unmounts', () => {
-    const { formRef, unmount } = renderFooter();
-    const form = createFakeForm();
+  it('follows the replacement when the form remounts', () => {
+    const { confirmButton, mountForm, remountForm, getForm } = renderFooter();
+    mountForm();
+    const firstForm = getForm();
+
+    remountForm();
+    const secondForm = getForm();
+    expect(secondForm).not.toBe(firstForm);
+
+    // The instance the footer first saw must no longer drive the button…
     act(() => {
-      formRef.current = form;
-      jest.advanceTimersByTime(200);
+      firstForm.setValue('text', 'RESET');
     });
-    expect(form.listenerCount()).toBe(1);
+    expect(confirmButton().disabled).toBe(true);
+
+    // …and the one the dialog actually renders must.
+    act(() => {
+      secondForm.setValue('text', 'RESET');
+    });
+    expect(confirmButton().disabled).toBe(false);
+  });
+
+  it('re-disables the button when the value stops matching', () => {
+    const { confirmButton, mountForm, getForm } = renderFooter();
+    mountForm();
 
     act(() => {
-      unmount();
+      getForm().setValue('text', 'RESET');
     });
-    expect(form.listenerCount()).toBe(0);
+    expect(confirmButton().disabled).toBe(false);
+
+    act(() => {
+      getForm().setValue('text', 'RESE');
+    });
+    expect(confirmButton().disabled).toBe(true);
   });
 });

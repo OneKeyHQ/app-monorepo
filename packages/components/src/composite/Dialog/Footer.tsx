@@ -22,51 +22,45 @@ import type { IDialogFooterProps } from './type';
 
 const mdSizeLargeStyle = { size: 'large' } as any;
 
-// `Dialog.Form` is lazy and re-registers a fresh react-hook-form instance on
-// the dialog instance every time it (re)mounts — on a first open that happens
-// after this effect has already run, and again while the open animation
-// settles. Subscribing once to whatever `getForm()` returned at mount therefore
-// leaves `disabledOn` watching a form nobody types into: the confirm button
-// then stays disabled for the whole life of the dialog no matter what the user
-// enters, which left the lock screen's reset dialog impossible to confirm
-// (OK-62416). Re-check the registered instance on a cheap identity poll and
-// move the subscription over whenever it has been replaced.
-const FORM_LOOKUP_INTERVAL_MS = 100;
-
+// `Dialog.Form` is lazy: it registers its form after the rest of the dialog has
+// mounted, and registers a fresh one whenever it remounts. Subscribing once to
+// whatever `getForm()` happened to return at mount therefore left `disabledOn`
+// watching a form nobody types into, and the confirm button stayed disabled for
+// the life of the dialog no matter what the user entered — the lock screen's
+// reset dialog could not be confirmed at all (OK-62416). Follow the dialog's
+// own registration announcement instead of assuming a single, early form.
 const useConfirmButtonDisabled = (
   props: IDialogFooterProps['confirmButtonProps'],
 ) => {
   const { disabledOn, disabled } = props || {};
   const { getForm } = useDialogInstance();
+  const { dialogInstance } = useContext(DialogContext);
+  const subscribeFormChange = dialogInstance?.subscribeFormChange;
   const [, updateStatus] = useState(0);
   useEffect(() => {
     if (!disabledOn) {
       return;
     }
-    let watchedForm: ReturnType<typeof getForm>;
     let subscription: { unsubscribe: () => void } | undefined;
-    const syncSubscription = () => {
-      const form = getForm();
-      if (form === watchedForm) {
-        return;
-      }
+    const watchCurrentForm = () => {
       subscription?.unsubscribe();
-      watchedForm = form;
-      subscription = form?.watch(() => {
+      subscription = getForm()?.watch(() => {
         updateStatus((i) => i + 1);
       });
-      // The instance changed underneath the previous subscription, so its
-      // current value has never been through `disabledOn` — evaluate it now
-      // instead of waiting for a change that `watch` would report.
-      updateStatus((i) => i + 1);
     };
-    syncSubscription();
-    const timer = setInterval(syncSubscription, FORM_LOOKUP_INTERVAL_MS);
+    watchCurrentForm();
+    const unsubscribeFormChange = subscribeFormChange?.(() => {
+      watchCurrentForm();
+      // The form this button reads is a different object now, so its value has
+      // never been through `disabledOn` — re-evaluate rather than wait for a
+      // change `watch` would report.
+      updateStatus((i) => i + 1);
+    });
     return () => {
-      clearInterval(timer);
+      unsubscribeFormChange?.();
       subscription?.unsubscribe();
     };
-  }, [disabledOn, getForm]);
+  }, [disabledOn, getForm, subscribeFormChange]);
   return typeof disabled !== 'undefined' ? disabled : disabledOn?.({ getForm });
 };
 
