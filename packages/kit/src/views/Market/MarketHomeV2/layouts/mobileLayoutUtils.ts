@@ -15,6 +15,34 @@ export function getMarketMobileBannerHeaderHeight(
     : MARKET_MOBILE_BANNER_LEGACY_HEIGHT;
 }
 
+export type IMarketBannerHeaderHeightState = {
+  scope: string;
+  height: number;
+};
+
+export function resolveMarketBannerHeaderHeight({
+  current,
+  scope,
+  isFetched,
+  bannerList,
+}: {
+  current: IMarketBannerHeaderHeightState;
+  scope: string;
+  isFetched: boolean;
+  bannerList: readonly { tokens?: unknown }[];
+}): IMarketBannerHeaderHeightState {
+  if (isFetched && bannerList.length > 0) {
+    const height = getMarketMobileBannerHeaderHeight(bannerList);
+    return current.scope === scope && current.height === height
+      ? current
+      : { scope, height };
+  }
+  if (current.scope !== scope) {
+    return { scope, height: MARKET_MOBILE_BANNER_LEGACY_HEIGHT };
+  }
+  return current;
+}
+
 export type IMarketBannerHeaderDecision = {
   scope: string;
   isDecided: boolean;

@@ -6,6 +6,7 @@ import {
   getMarketRecommendContainerPaddingTop,
   getMarketWebSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
+  resolveMarketBannerHeaderHeight,
 } from './mobileLayoutUtils';
 
 describe('getMarketMobileBannerHeaderHeight', () => {
@@ -17,6 +18,31 @@ describe('getMarketMobileBannerHeaderHeight', () => {
     expect(
       getMarketMobileBannerHeaderHeight([{ tokens: [] }, { tokens: [] }]),
     ).toBe(204);
+  });
+});
+
+describe('resolveMarketBannerHeaderHeight', () => {
+  it('updates a legacy height when a successful refresh becomes modern', () => {
+    expect(
+      resolveMarketBannerHeaderHeight({
+        current: { scope: 'en-US:false', height: 134 },
+        scope: 'en-US:false',
+        isFetched: true,
+        bannerList: [{ tokens: [] }],
+      }),
+    ).toEqual({ scope: 'en-US:false', height: 204 });
+  });
+
+  it('preserves the occupied height when a refresh returns no banners', () => {
+    const current = { scope: 'en-US:false', height: 204 };
+    expect(
+      resolveMarketBannerHeaderHeight({
+        current,
+        scope: 'en-US:false',
+        isFetched: true,
+        bannerList: [],
+      }),
+    ).toBe(current);
   });
 });
 

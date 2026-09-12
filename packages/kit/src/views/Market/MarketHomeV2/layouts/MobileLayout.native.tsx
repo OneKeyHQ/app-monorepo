@@ -70,6 +70,7 @@ import {
   getMarketMobileBannerHeaderHeight,
   getMarketMobileSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
+  resolveMarketBannerHeaderHeight,
 } from './mobileLayoutUtils';
 
 import type { IMarketPerpsDataCache } from '../components/MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -422,21 +423,12 @@ function MobileLayoutComponent({
     scope: bannerScope,
     height: getMarketMobileBannerHeaderHeight(bannerList),
   });
-  if (bannerHeaderHeightRef.current.scope !== bannerScope) {
-    bannerHeaderHeightRef.current = {
-      scope: bannerScope,
-      height: getMarketMobileBannerHeaderHeight([]),
-    };
-  }
-  if (
-    isBannerFetched &&
-    bannerList.length > 0 &&
-    (bannerDecisionRef.current.scope !== bannerScope ||
-      !bannerDecisionRef.current.isDecided)
-  ) {
-    bannerHeaderHeightRef.current.height =
-      getMarketMobileBannerHeaderHeight(bannerList);
-  }
+  bannerHeaderHeightRef.current = resolveMarketBannerHeaderHeight({
+    current: bannerHeaderHeightRef.current,
+    scope: bannerScope,
+    isFetched: isBannerFetched,
+    bannerList,
+  });
   bannerDecisionRef.current = resolveMarketBannerHeaderDecision({
     current: bannerDecisionRef.current,
     scope: bannerScope,
