@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -22,6 +22,7 @@ import {
   BITREFILL_BRIDGE_SCRIPT,
   isBitrefillEmbedUrl,
 } from '../../utils/bitrefillUtils';
+import { applyCurrentThrottleStateToWebview } from '../../utils/browserOffRouteThrottle';
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
@@ -204,6 +205,11 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       // @ts-expect-error
       ref.__domReady = true;
     }
+    // The ref-publish call site cannot cover every case: a tab frozen by
+    // react-freeze never runs the imperative handle, and a guest that reloads
+    // or navigates while off-route comes back with a fresh, unpatched document.
+    // dom-ready is the signal that is guaranteed for both.
+    applyCurrentThrottleStateToWebview(id);
     // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
     // events from embed.bitrefill.com are re-emitted as $private JSBridge
     // requests reaching useDiscoveryMessageHandler.
@@ -242,6 +248,13 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
                 });
               }
               webviewRefs[id] = ref;
+              // A WebView mounted while the user is away from the browser
+              // route would otherwise start out un-throttled. This publish can
+              // land after the guest is already dom-ready, in which case the
+              // dom-ready callback has run with no ref to work with — so this
+              // is the only chance for that ordering. The reverse ordering is
+              // covered from onDomReady.
+              applyCurrentThrottleStateToWebview(id);
             }
           }}
           allowpopups
@@ -317,4 +330,9 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   );
 }
 
-export default WebContent;
+// The parent shell re-renders whenever the shared tab map changes. Without a
+// memo boundary here that rebuilt the whole webview subtree — including the
+// useMemo'd <WebView> element — on every tab-state write. All props are stable
+// (`customReceiveHandler` is a no-dependency useCallback), so this bails out
+// unless the tab's own url/id or its active state actually changes.
+export default memo(WebContent);
