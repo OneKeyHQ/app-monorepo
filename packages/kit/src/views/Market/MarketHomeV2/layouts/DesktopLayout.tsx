@@ -103,6 +103,7 @@ export function DesktopLayout({
   const intl = useIntl();
   const {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,
@@ -378,21 +379,25 @@ export function DesktopLayout({
   }
 
   const tabElements = [
-    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
-        {hasActivated(watchlistTabName) ? (
-          <Suspense fallback={<MarketListLoadingFallback />}>
-            <LazyMarketWatchlistTokenList
-              tabIntegrated
-              tabName={watchlistTabName}
-              listContainerProps={listContainerProps}
-              enableWebSocket={activeTabName === watchlistTabName}
-              centerDesktopPortalContent
-            />
-          </Suspense>
-        ) : null}
-      </YStack>
-    </Tabs.Tab>,
+    ...(showWatchlistTab
+      ? [
+          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+              {hasActivated(watchlistTabName) ? (
+                <Suspense fallback={<MarketListLoadingFallback />}>
+                  <LazyMarketWatchlistTokenList
+                    tabIntegrated
+                    tabName={watchlistTabName}
+                    listContainerProps={listContainerProps}
+                    enableWebSocket={activeTabName === watchlistTabName}
+                    centerDesktopPortalContent
+                  />
+                </Suspense>
+              ) : null}
+            </YStack>
+          </Tabs.Tab>,
+        ]
+      : []),
     ...spotTabItems.map((item) => {
       const isStockCategory = isMarketStockCategoryById(
         filterBarProps.categories,

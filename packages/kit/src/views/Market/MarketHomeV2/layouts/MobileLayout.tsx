@@ -260,6 +260,7 @@ function MobileLayoutComponent({
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,
@@ -433,12 +434,16 @@ function MobileLayoutComponent({
   );
 
   const tabElements = [
-    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <MobileMarketWatchlistFlatList
-        selectedFilter={watchlistFilter}
-        listContainerProps={listContainerProps}
-      />
-    </Tabs.Tab>,
+    ...(showWatchlistTab
+      ? [
+          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+            <MobileMarketWatchlistFlatList
+              selectedFilter={watchlistFilter}
+              listContainerProps={listContainerProps}
+            />
+          </Tabs.Tab>,
+        ]
+      : []),
     ...spotTabItems.map((item) => {
       const isStockCategory = isMarketStockCategoryById(
         filterBarProps.categories,
