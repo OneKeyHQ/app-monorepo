@@ -787,6 +787,44 @@ describe('useMarketTokenList initial data', () => {
     ]);
   });
 
+  it('holds a failed native page until an explicit load-more retry', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    mockFetchMarketTokenList
+      .mockResolvedValueOnce({
+        ...createResponse('first', 'First', 'FIRST'),
+        total: 2,
+      })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({
+        ...createResponse('second', 'Second', 'SECOND'),
+        total: 2,
+      });
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        pageSize: 1,
+        type: 'trending',
+      });
+      return null;
+    }
+    render(<Probe />);
+    await waitFor(() => expect(latestResult?.canLoadMore).toBe(true));
+
+    await act(async () => latestResult?.loadMore());
+    expect(latestResult?.isLoadMoreError).toBe(true);
+    expect(latestResult?.canLoadMore).toBe(true);
+
+    await act(async () => latestResult?.loadMore());
+    expect(latestResult?.isLoadMoreError).toBe(false);
+    expect(latestResult?.data.map((item) => item.id)).toEqual([
+      'first',
+      'second',
+    ]);
+  });
+
   it('does not append an old native page after a refreshed first page', async () => {
     mutablePlatformEnv.isNative = true;
     mutablePlatformEnv.isWeb = false;

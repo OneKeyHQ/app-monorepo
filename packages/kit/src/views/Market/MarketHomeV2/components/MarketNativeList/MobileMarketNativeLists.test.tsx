@@ -81,10 +81,14 @@ const mockWatchlistData: IMarketToken[] = [
   },
 ];
 let mockRowAction: ((event: RowActionEvent) => void) | undefined;
+let mockEndReached: (() => void) | undefined;
 let mockNativeSnapshot: NativeListSnapshot | undefined;
 let mockTravelMode = false;
 const mockRefetch = jest.fn();
 const mockRefresh = jest.fn();
+const mockLoadMore = jest.fn();
+let mockCanLoadMore = false;
+let mockIsLoadMoreError = false;
 let mockPullToRefresh: () => void;
 let mockIsNativeAndroid = false;
 const mockData: IMarketToken[] = [];
@@ -130,9 +134,11 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
         snapshot: NativeListSnapshot;
         onRefresh?: () => void;
         onRowAction?: (event: RowActionEvent) => void;
+        onEndReached?: () => void;
       }
-    >(({ snapshot, onRefresh, onRowAction }, ref) => {
+    >(({ snapshot, onRefresh, onRowAction, onEndReached }, ref) => {
       mockRowAction = onRowAction;
+      mockEndReached = onEndReached;
       mockNativeSnapshot = snapshot;
       const [nativeRefreshing, setNativeRefreshing] = React.useState(false);
       React.useEffect(() => {
@@ -196,7 +202,9 @@ jest.mock('../MarketTokenList/hooks/useMarketTokenList', () => ({
     data: mockData,
     isLoading: false,
     isLoadingMore: false,
-    canLoadMore: false,
+    isLoadMoreError: mockIsLoadMoreError,
+    canLoadMore: mockCanLoadMore,
+    loadMore: mockLoadMore,
     refresh: mockRefresh,
     refetch: mockRefetch,
   }),
@@ -305,6 +313,8 @@ jest.mock('../MarketTopCoinsList/hooks/useMarketTopCoins', () => ({
 describe('MobileMarketNativeTokenList refresh', () => {
   beforeEach(() => {
     mockIsNativeAndroid = false;
+    mockCanLoadMore = false;
+    mockIsLoadMoreError = false;
     jest.clearAllMocks();
   });
 
@@ -337,6 +347,28 @@ describe('MobileMarketNativeTokenList refresh', () => {
 
     expect(mockRefetch).toHaveBeenCalledTimes(1);
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it('pauses native auto-pagination after a failure and retries from the footer', async () => {
+    mockCanLoadMore = true;
+    mockIsLoadMoreError = true;
+    render(
+      <MobileMarketNativeTokenList
+        networkId="evm--1"
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+
+    await act(async () => mockEndReached?.());
+    expect(mockLoadMore).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mockRowAction?.({
+        actionKey: 'load-more-retry',
+        rowKey: 'market-load-more-retry',
+      });
+    });
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
 
   it.each([false, true])(

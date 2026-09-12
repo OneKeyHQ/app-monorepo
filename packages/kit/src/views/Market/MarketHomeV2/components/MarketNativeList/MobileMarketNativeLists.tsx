@@ -734,6 +734,10 @@ function MobileMarketNativeTokenListImpl({
         void result.refetch().catch(() => undefined);
         return;
       }
+      if (event.actionKey === 'load-more-retry') {
+        void result.loadMore();
+        return;
+      }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
       if (!item) return;
       if (event.actionKey === 'prewarm-detail') {
@@ -776,6 +780,7 @@ function MobileMarketNativeTokenListImpl({
             : undefined
         }
         loadingMore={result.isLoadingMore}
+        loadMoreError={result.isLoadMoreError}
         canLoadMore={result.canLoadMore}
         contentPaddingBottom={listContainerProps.paddingBottom}
         emptyContentHeight={listContainerProps.emptyContentHeight}
@@ -785,6 +790,7 @@ function MobileMarketNativeTokenListImpl({
           if (
             result.canLoadMore &&
             !result.isLoadingMore &&
+            !result.isLoadMoreError &&
             !result.isProvisionalFirstPageResult
           ) {
             void result.loadMore();
