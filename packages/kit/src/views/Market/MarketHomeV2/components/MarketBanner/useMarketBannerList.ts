@@ -96,17 +96,29 @@ export function useMarketBannerList(): {
   const currentScopeRef = useRef(requestScope);
   currentScopeRef.current = requestScope;
   const [settledScope, setSettledScope] = useState<typeof requestScope>();
-  const { result: bannerList } = usePromiseResult<IMarketBannerItem[]>(
+  const committedResultRef = useRef<
+    | {
+        requestScope: typeof requestScope;
+        bannerList: IMarketBannerItem[] | undefined;
+      }
+    | undefined
+  >(undefined);
+  const { result: bannerList } = usePromiseResult<
+    IMarketBannerItem[] | undefined
+  >(
     async () => {
       try {
         return await fetchMarketBannerListForPlatform({
           enableMockMarketBanner,
         });
-      } catch (error) {
+      } catch {
         // Successful data must commit before the native layout fixes its header height.
         if (currentScopeRef.current === requestScope)
           setSettledScope(requestScope);
-        throw error;
+        // Optional refresh failures preserve committed data, including native cache replay.
+        return committedResultRef.current?.requestScope === requestScope
+          ? committedResultRef.current.bannerList
+          : undefined;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,8 +129,6 @@ export function useMarketBannerList(): {
         ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
         : undefined,
       watchLoading: true,
-      // Optional banners must not turn a failed request into a page error.
-      undefinedResultIfError: true,
       revalidateOnReconnect: true,
       revalidateOnFocus: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
@@ -154,6 +164,7 @@ export function useMarketBannerList(): {
       ),
     [displayedBanners],
   );
+  committedResultRef.current = { requestScope, bannerList };
 
   return {
     scope,
