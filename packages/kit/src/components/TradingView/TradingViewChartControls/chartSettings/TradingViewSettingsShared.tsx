@@ -332,7 +332,6 @@ export function TradingViewChartColorPicker({
     <Popover
       title=""
       showHeader={false}
-      usingSheet={false}
       open={isOpen}
       onOpenChange={setIsOpen}
       placement={popoverPlacement}
@@ -380,6 +379,7 @@ export function TradingViewChartColorPicker({
       }
       renderContent={
         <TradingViewChartColorPalette
+          testID={testID ? `${testID}-palette` : undefined}
           placement={placement}
           align={align}
           offset={bare ? 32 : 38}
@@ -396,6 +396,7 @@ export function TradingViewChartColorPicker({
 }
 
 export function TradingViewChartColorPalette({
+  testID = 'trading-view-indicator-color-palette',
   placement,
   align,
   offset = 38,
@@ -403,6 +404,7 @@ export function TradingViewChartColorPalette({
   selectedColor,
   onSelect,
 }: {
+  testID?: string;
   placement: 'bottom' | 'top';
   align: 'left' | 'right';
   offset?: number;
@@ -412,6 +414,7 @@ export function TradingViewChartColorPalette({
 }) {
   return (
     <YStack
+      testID={testID}
       position={inPopover ? 'relative' : 'absolute'}
       top={!inPopover && placement === 'bottom' ? offset : undefined}
       bottom={!inPopover && placement === 'top' ? offset : undefined}
@@ -432,6 +435,7 @@ export function TradingViewChartColorPalette({
             return (
               <Stack
                 key={color}
+                testID={`trading-view-indicator-color-option-${color}`}
                 w={18}
                 h={18}
                 position="relative"

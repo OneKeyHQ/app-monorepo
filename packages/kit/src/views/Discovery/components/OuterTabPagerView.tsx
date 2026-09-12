@@ -444,7 +444,11 @@ function OuterTabPagerViewComponent({
     () =>
       isPageMounted(0) ? (
         <View key="market" style={styles.page}>
-          <Freeze freeze={shouldFreezePage(0)}>{marketContent}</Freeze>
+          {platformEnv.isNativeIOS ? (
+            marketContent
+          ) : (
+            <Freeze freeze={shouldFreezePage(0)}>{marketContent}</Freeze>
+          )}
         </View>
       ) : (
         <View key="market" style={styles.page}>
@@ -458,7 +462,11 @@ function OuterTabPagerViewComponent({
     () =>
       isPageMounted(1) ? (
         <View key="earn" style={styles.page}>
-          <Freeze freeze={shouldFreezePage(1)}>{earnContent}</Freeze>
+          {platformEnv.isNativeIOS ? (
+            earnContent
+          ) : (
+            <Freeze freeze={shouldFreezePage(1)}>{earnContent}</Freeze>
+          )}
         </View>
       ) : (
         <View key="earn" style={styles.page}>
