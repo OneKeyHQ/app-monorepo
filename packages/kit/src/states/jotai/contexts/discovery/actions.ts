@@ -40,7 +40,6 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { onVisibilityStateChange } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -1252,25 +1251,15 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       { dApp, webSite, isNewWindow, tabId }: IMatchDAppItemType,
     ) => {
       if (webSite) {
-        const isTravelMode =
-          travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
-          'travel-mode';
         let favicon: string | undefined;
-        if (isTravelMode) {
-          try {
-            favicon =
-              await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
-                webSite.url,
-              );
-          } catch {
-            // A favicon is optional; opening the website must remain available
-            // when Travel Mode blocks non-essential Discovery work.
-          }
-        } else {
+        try {
           favicon =
             await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
               webSite.url,
             );
+        } catch {
+          // A favicon is optional; opening the website must remain available
+          // when the icon service is unavailable in any runtime mode.
         }
         return this.gotoSite.call(set, {
           id: tabId,
