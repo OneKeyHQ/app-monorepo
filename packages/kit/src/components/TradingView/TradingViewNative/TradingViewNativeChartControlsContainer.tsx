@@ -55,7 +55,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   onIndicatorSettingsPress: () => void;
   onIndicatorSelectionConfirm: (
     selection: ITradingViewNativeIndicatorSelection,
-  ) => void;
+  ) => void | Promise<void>;
   onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
   onCalendarPanelSubmit?: ITradingViewChartControlsProps['onCalendarPanelSubmit'];
   onFullscreenChange?: (isFullscreen: boolean) => void;

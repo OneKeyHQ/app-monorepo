@@ -196,7 +196,7 @@ export function IndicatorListDialogContent({
   onSelect: (indicatorName: string, desiredActive: boolean) => void;
   onSelectionConfirm?: (
     selection: ITradingViewNativeIndicatorSelection,
-  ) => void;
+  ) => void | Promise<void>;
   onResetLayout: () => void;
   onSettingsPress?: () => void;
 }) {
@@ -246,7 +246,7 @@ export function IndicatorListDialogContent({
   const commitSelection = useCallback(() => {
     const originalValues = originalActiveIndicatorValuesRef.current;
     const nextValues = activeIndicatorValuesRef.current;
-    commitNativeIndicatorSelection({
+    return commitNativeIndicatorSelection({
       indicators,
       nextActiveIndicatorValues: nextValues,
       onSelect,
@@ -255,9 +255,9 @@ export function IndicatorListDialogContent({
     });
   }, [indicators, onSelect, onSelectionConfirm]);
 
-  const handleConfirmPress = useCallback(() => {
-    commitSelection();
-    void dialog.close();
+  const handleConfirmPress = useCallback(async () => {
+    await commitSelection();
+    await dialog.close();
   }, [commitSelection, dialog]);
 
   const confirmText = intl.formatMessage({
@@ -303,7 +303,7 @@ export function IndicatorListDialogContent({
           justifyContent="flex-start"
           variant="tertiary"
           onPress={async () => {
-            commitSelection();
+            await commitSelection();
             await dialog.close();
             onSettingsPress();
           }}

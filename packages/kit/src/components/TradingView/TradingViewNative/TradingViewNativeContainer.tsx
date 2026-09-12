@@ -629,7 +629,7 @@ const TradingViewNativeContent = memo(
         replaceMainIndicators,
         replaceSubIndicators,
       }: ITradingViewNativeIndicatorSelection) => {
-        void setIndicatorSettings((currentSettings) =>
+        return setIndicatorSettings((currentSettings) =>
           reconcileTradingViewNativeIndicatorActiveState({
             activeIndicatorValues: selectedIndicatorValues,
             replaceMainIndicators,

@@ -98,6 +98,7 @@ let mockInitialIndicatorSettings:
 let mockPersistedIndicatorSettings:
   | ITradingViewNativeIndicatorSettings
   | undefined;
+let mockIndicatorSettingsPersistence: Promise<void> | undefined;
 let mockRealtimePointListener:
   | ((point: IMarketTokenKLineDataPoint) => void)
   | undefined;
@@ -243,6 +244,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
             mockPersistedSwapIndicatorSettings = resolvedSettings;
             return resolvedSettings;
           });
+          return mockIndicatorSettingsPersistence;
         },
         [],
       );
@@ -285,6 +287,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
             mockPersistedIndicatorSettings = resolvedSettings;
             return resolvedSettings;
           });
+          return mockIndicatorSettingsPersistence;
         },
         [],
       );
@@ -347,6 +350,7 @@ describe('TradingViewNativeContainer', () => {
     mockPersistedSwapIndicatorSettings = undefined;
     mockInitialIndicatorSettings = undefined;
     mockPersistedIndicatorSettings = undefined;
+    mockIndicatorSettingsPersistence = undefined;
   });
 
   afterEach(() => {
@@ -1031,6 +1035,46 @@ describe('TradingViewNativeContainer', () => {
     ).toEqual(TRADING_VIEW_NATIVE_SUB_INDICATORS);
     expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
+
+  it.each(['market', 'swap'] as const)(
+    'returns the %s indicator persistence promise so navigation can wait for the background write',
+    async (storageNamespace) => {
+      let finishPersistence: (() => void) | undefined;
+      mockIndicatorSettingsPersistence = new Promise<void>((resolve) => {
+        finishPersistence = resolve;
+      });
+      render(
+        <TradingViewNativeContainer
+          source={{
+            kind: 'market',
+            networkId: 'evm--1',
+            tokenAddress: '0xabc',
+            symbol: 'TOKEN',
+            realtime: 'disabled',
+          }}
+          storageNamespace={storageNamespace}
+        />,
+      );
+      const controlsProps =
+        mockTradingViewNativeChartControlsContainer.mock.calls.at(-1)?.[0] as {
+          onIndicatorSelectionConfirm: (selection: {
+            activeIndicatorValues: ReadonlySet<string>;
+            replaceMainIndicators: boolean;
+            replaceSubIndicators: boolean;
+          }) => void | Promise<void>;
+        };
+      act(() => {
+        expect(
+          controlsProps.onIndicatorSelectionConfirm({
+            activeIndicatorValues: new Set(['MA', 'RSI']),
+            replaceMainIndicators: true,
+            replaceSubIndicators: true,
+          }),
+        ).toBe(mockIndicatorSettingsPersistence);
+      });
+      await act(async () => finishPersistence?.());
+    },
+  );
 
   it('only removes the explicitly deselected indicator above the selection cap', () => {
     const activeSubIndicatorIds = new Set([

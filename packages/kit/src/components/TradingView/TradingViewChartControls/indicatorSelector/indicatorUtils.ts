@@ -138,7 +138,7 @@ export function commitNativeIndicatorSelection({
   onSelect: (indicatorName: string, desiredActive: boolean) => void;
   onSelectionConfirm?: (
     selection: ITradingViewNativeIndicatorSelection,
-  ) => void;
+  ) => void | Promise<void>;
   originalActiveIndicatorValues: ReadonlySet<string>;
 }) {
   const selectionUpdates = getNativeIndicatorSelectionUpdates({
@@ -150,7 +150,7 @@ export function commitNativeIndicatorSelection({
     return;
   }
   if (onSelectionConfirm) {
-    onSelectionConfirm({
+    return onSelectionConfirm({
       activeIndicatorValues: new Set(nextActiveIndicatorValues),
       replaceMainIndicators: selectionUpdates.some(([indicatorId]) =>
         isTradingViewNativeIndicator(indicatorId),
@@ -159,7 +159,6 @@ export function commitNativeIndicatorSelection({
         isTradingViewNativeSubIndicator(indicatorId),
       ),
     });
-    return;
   }
   selectionUpdates.forEach(([indicatorName, desiredActive]) => {
     onSelect(indicatorName, desiredActive);

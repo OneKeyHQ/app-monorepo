@@ -63,8 +63,9 @@ describe('mobile indicator settings navigation', () => {
     mockClose.mockResolvedValue(undefined);
   });
 
-  it('commits pending main and sub selections before closing, then opens settings after close', async () => {
+  it('waits for pending main and sub selections to be committed before closing, then opens settings after close', async () => {
     const events: string[] = [];
+    let finishCommit: (() => void) | undefined;
     let finishClose: (() => void) | undefined;
     mockClose.mockImplementation(() => {
       events.push('close');
@@ -72,7 +73,12 @@ describe('mobile indicator settings navigation', () => {
         finishClose = resolve;
       });
     });
-    const onSelectionConfirm = jest.fn(() => events.push('commit'));
+    const onSelectionConfirm = jest.fn(() => {
+      events.push('commit');
+      return new Promise<void>((resolve) => {
+        finishCommit = resolve;
+      });
+    });
     const onSettingsPress = jest.fn(() => events.push('settings'));
     const onSelect = jest.fn();
     render(
@@ -101,6 +107,8 @@ describe('mobile indicator settings navigation', () => {
       replaceSubIndicators: true,
     });
     expect(onSelect).not.toHaveBeenCalled();
+    expect(events).toEqual(['commit']);
+    await act(async () => finishCommit?.());
     expect(events).toEqual(['commit', 'close']);
     await act(async () => finishClose?.());
     expect(events).toEqual(['commit', 'close', 'settings']);
