@@ -453,8 +453,6 @@ export function DesktopLayout({
     effectiveMarketTradingViewParams,
     marketTradingViewParams?.decimal,
     networkId,
-    tokenAddress,
-    isNative,
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
     stockId,

@@ -379,12 +379,74 @@ export function Container({
   const isSwitchingTabRef = useRef(false);
   const routeScrollSnapshotRef = useRef<Record<string, number>>({});
 
+  useEffect(() => {
+    if (!isRouteFocused) {
+      const tabName = focusedTab.value;
+      const currentScrollTop = (scrollElement as HTMLElement | null)?.scrollTop;
+      routeScrollSnapshotRef.current[tabName] =
+        typeof currentScrollTop === 'number' && currentScrollTop > 0
+          ? currentScrollTop
+          : (scrollTopRef.current[tabName] ?? currentScrollTop ?? 0);
+    }
+  }, [focusedTab, isRouteFocused, scrollElement]);
+
+  useEffect(() => {
+    const element = scrollElement as HTMLElement | null;
+    if (!element || !isRouteFocused) return;
+
+    const cancelPendingRestore = () => {
+      const tabName = focusedTab.value;
+      if (routeScrollSnapshotRef.current[tabName] === undefined) return;
+      delete routeScrollSnapshotRef.current[tabName];
+      scrollTopRef.current[tabName] = element.scrollTop;
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Home' ||
+        event.key === 'End' ||
+        event.key === 'PageUp' ||
+        event.key === 'PageDown' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown'
+      ) {
+        cancelPendingRestore();
+      }
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target === element) {
+        cancelPendingRestore();
+      }
+    };
+
+    element.addEventListener('wheel', cancelPendingRestore, {
+      passive: true,
+    });
+    element.addEventListener('touchstart', cancelPendingRestore, {
+      passive: true,
+    });
+    element.addEventListener('pointerdown', handlePointerDown);
+    element.addEventListener('keydown', handleKeyDown);
+    return () => {
+      element.removeEventListener('wheel', cancelPendingRestore);
+      element.removeEventListener('touchstart', cancelPendingRestore);
+      element.removeEventListener('pointerdown', handlePointerDown);
+      element.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [focusedTab, isRouteFocused, scrollElement]);
+
   const restoreScrollPosition = useCallback(() => {
     const element = scrollElement as HTMLElement | null;
-    const savedScrollTop = scrollTopRef.current[focusedTab.value];
+    const tabName = focusedTab.value;
+    const savedScrollTop =
+      routeScrollSnapshotRef.current[tabName] ?? scrollTopRef.current[tabName];
     if (!element || typeof savedScrollTop !== 'number') return false;
     element.scrollTo({ top: savedScrollTop, behavior: 'instant' });
-    return Math.abs(element.scrollTop - savedScrollTop) <= 1;
+    const restored = Math.abs(element.scrollTop - savedScrollTop) <= 1;
+    if (restored) {
+      scrollTopRef.current[tabName] = savedScrollTop;
+      delete routeScrollSnapshotRef.current[tabName];
+    }
+    return restored;
   }, [focusedTab, scrollElement]);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
@@ -783,12 +845,14 @@ export function Container({
               if (!isSwitchingTabRef.current && isRouteFocused) {
                 const currentScrollTop = scrollElement.scrollTop;
                 const tabName = focusedTab.value;
+                const savedRouteScrollTop =
+                  routeScrollSnapshotRef.current[tabName];
                 if (
                   currentScrollTop > 0 ||
-                  (routeScrollSnapshotRef.current[tabName] === undefined &&
-                    scrollTopRef.current[tabName] === undefined)
+                  savedRouteScrollTop === undefined ||
+                  savedRouteScrollTop === 0
                 ) {
-                  scrollTopRef.current[focusedTab.value] = currentScrollTop;
+                  scrollTopRef.current[tabName] = currentScrollTop;
                 }
               }
               return (

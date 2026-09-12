@@ -97,10 +97,7 @@ export function useMarketStockList({ category }: { category?: string }) {
       swrKey,
       swrShouldPersist: (data) => Boolean(data.response && !data.failed),
       watchLoading: true,
-      // Desktop stock lists stay mounted while detail routes are pushed. A
-      // focus revalidation replaces the paginated first page and collapses
-      // the shared scroll container on return from detail.
-      revalidateOnFocus: platformEnv.isNative,
+      revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
@@ -109,12 +106,37 @@ export function useMarketStockList({ category }: { category?: string }) {
     if (firstPageResult?.queryKey !== queryKey || !firstPageResult.response) {
       return;
     }
-    setListState({
-      queryKey,
-      items: firstPageResult.response.items,
-      nextCursor: firstPageResult.response.nextCursor,
-      total: firstPageResult.response.total,
-      firstPage: firstPageResult.response,
+    const nextFirstPage = firstPageResult.response;
+    setListState((current) => {
+      if (current.queryKey !== queryKey || !current.firstPage) {
+        return {
+          queryKey,
+          items: nextFirstPage.items,
+          nextCursor: nextFirstPage.nextCursor,
+          total: nextFirstPage.total,
+          firstPage: nextFirstPage,
+        };
+      }
+
+      const previousFirstPageIds = new Set(
+        current.firstPage.items.map((item) => item.stockId),
+      );
+      const nextFirstPageIds = new Set(
+        nextFirstPage.items.map((item) => item.stockId),
+      );
+      const preservedItems = current.items.filter(
+        (item) =>
+          !previousFirstPageIds.has(item.stockId) &&
+          !nextFirstPageIds.has(item.stockId),
+      );
+
+      return {
+        queryKey,
+        items: [...nextFirstPage.items, ...preservedItems],
+        nextCursor: nextFirstPage.nextCursor,
+        total: nextFirstPage.total,
+        firstPage: nextFirstPage,
+      };
     });
     setIsLoadMoreError(false);
   }, [firstPageResult, queryKey]);

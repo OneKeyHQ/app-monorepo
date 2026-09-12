@@ -194,6 +194,42 @@ it('keeps pagination enabled after appending the second page', async () => {
   expect(result.current.canLoadMore).toBe(false);
 });
 
+it('preserves loaded pages when refreshing the first page', async () => {
+  const secondPageItem = {
+    ...response.items[0],
+    stockId: 'MSFT',
+    symbol: 'MSFT',
+    name: 'Microsoft',
+  };
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor
+      ? {
+          items: [secondPageItem],
+          total: 2,
+        }
+      : response,
+  );
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  await act(async () => result.current.loadMore());
+  expect(result.current.items.map((item) => item.stockId)).toEqual([
+    'AAPL',
+    'MSFT',
+  ]);
+
+  fetchList.mockResolvedValue({
+    ...response,
+    items: [{ ...response.items[0], price: '201' }],
+  });
+  await act(async () => result.current.refresh());
+
+  expect(result.current.items.map((item) => item.stockId)).toEqual([
+    'AAPL',
+    'MSFT',
+  ]);
+  expect(result.current.items[0]?.price).toBe('201');
+});
+
 it('starts one native cursor request for concurrent end-reached events', async () => {
   const nextPage = deferred<IMarketStockPublicListResponse>();
   fetchList.mockImplementation(async (params) =>
