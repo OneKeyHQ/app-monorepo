@@ -73,6 +73,7 @@ const TAB_ROUTE_MAPPING: Record<string, string> = {
 // Mapping from route file enum to EModalRoutes name (for modal routes)
 const MODAL_ROUTE_MAPPING: Record<string, string> = {
   EPrimePages: 'PrimeModal',
+  EPrimeGiftPages: 'PrimeGiftModal',
   EModalSettingRoutes: 'SettingModal',
   EModalStakingRoutes: 'StakingModal',
   EModalSwapRoutes: 'SwapModal',

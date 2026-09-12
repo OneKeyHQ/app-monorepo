@@ -324,7 +324,7 @@ export function NetworkSectionListV2({
       capabilities: {
         sectionIndex: {
           enabled: !searchText,
-          centeredInWindow: platformEnv.isNative,
+          centeredInWindow: platformEnv.isNative || platformEnv.isDesktop,
         },
       },
       selection: { mode: 'none', selectedKeys: [] },

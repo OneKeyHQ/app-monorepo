@@ -21,6 +21,7 @@ import {
 import {
   getFinancialDomain,
   getFinancialPercentDomain,
+  getFinancialPerformanceDomain,
   isFinancialNumber,
 } from './financialsUtils';
 import { formatFinancialValue } from './financialValueFormat';
@@ -70,7 +71,9 @@ export function FinancialChart({
   const selectedIndex = rows.findIndex((row) => row.key === selected);
   const selectedRow = rows[selectedIndex];
   const lineIndex = series.findIndex((item) => item.kind === 'line');
-  const domain = getFinancialDomain(
+  const domain = (
+    lineIndex >= 0 ? getFinancialPerformanceDomain : getFinancialDomain
+  )(
     rows.flatMap((row) =>
       row.range
         ? [row.range.start, row.range.end]
