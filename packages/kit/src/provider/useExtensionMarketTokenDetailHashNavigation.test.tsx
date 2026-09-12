@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { Dialog, rootNavigationRef } from '@onekeyhq/components';
 import {
   ERootRoutes,
   ETabMarketRoutes,
@@ -22,10 +22,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
+  Dialog: {
+    show: jest.fn(() => ({ close: jest.fn().mockResolvedValue(undefined) })),
+  },
   rootNavigationRef: {
     current: undefined,
   },
 }));
+
+jest.mock('react-intl', () => {
+  const intl = { formatMessage: ({ id }: { id: string }) => id };
+  return { useIntl: () => intl };
+});
 
 jest.mock('@onekeyhq/shared/src/utils/marketTokenPreviewRoute', () => ({
   readExtensionTokenPreview: jest.fn().mockResolvedValue(undefined),
@@ -259,6 +267,104 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     ).toBe('0xsecond');
   });
 
+  it('clears the previous preview when a new ordinary handoff cannot be read', async () => {
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        marketTokenPreviewId: 'old',
+        legacyTokenPreview: { selectedAt: 1 },
+      },
+    });
+    setHash('#/market/token/eth/0xabc?marketTokenPreviewId=new');
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params.params,
+    ).toEqual({
+      network: 'eth',
+      tokenAddress: '0xabc',
+      marketTokenPreviewId: 'new',
+      legacyTokenPreview: undefined,
+    });
+    expect(Dialog.show).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed no-fetch handoff and retries without accepting the previous route', async () => {
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        skipMarketDataFetch: true,
+        marketTokenPreviewId: 'old',
+        legacyTokenPreview: { selectedAt: 1 },
+      },
+    });
+    setHash(
+      '#/market/token/eth/0xabc?skipMarketDataFetch=true&marketTokenPreviewId=new',
+    );
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(mockRootNavigationRef.current?.navigate).not.toHaveBeenCalled();
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      name: 'ABC',
+      symbol: 'ABC',
+      decimals: 18,
+      selectedAt: 2,
+    };
+    jest.mocked(readExtensionTokenPreview).mockResolvedValue(preview);
+    const retry = jest.mocked(Dialog.show).mock.calls[0][0].onConfirm;
+    await act(async () => {
+      await retry?.({
+        close: jest.fn().mockResolvedValue(undefined),
+        getForm: jest.fn(),
+        isExist: jest.fn(),
+        preventClose: jest.fn(),
+      });
+    });
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params.params
+        .legacyTokenPreview,
+    ).toEqual(preview);
+  });
+
+  it('does not retry an error dialog after the user navigates to another token', async () => {
+    setHash(
+      '#/market/token/eth/0xabc?skipMarketDataFetch=true&marketTokenPreviewId=failed',
+    );
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    const retry = jest.mocked(Dialog.show).mock.calls[0][0].onConfirm;
+    await act(async () => {
+      triggerHashChange('#/market/token/eth/0xother');
+    });
+    const reads = jest.mocked(readExtensionTokenPreview).mock.calls.length;
+    await act(async () => {
+      await retry?.({
+        close: jest.fn().mockResolvedValue(undefined),
+        getForm: jest.fn(),
+        isExist: jest.fn(),
+        preventClose: jest.fn(),
+      });
+    });
+    expect(readExtensionTokenPreview).toHaveBeenCalledTimes(reads);
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params.params
+        .tokenAddress,
+    ).toBe('0xother');
+  });
+
   it('ignores a malformed serialized token preview', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
@@ -288,6 +394,39 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         skipMarketDataFetch: true,
         disableTrade: true,
       },
+    });
+  });
+
+  it('reads a native handoff with the identity encoded by the producer', async () => {
+    const preview = {
+      address: '',
+      networkId: 'evm--1',
+      isNative: true,
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    jest.mocked(readExtensionTokenPreview).mockResolvedValue(preview);
+    setHash(
+      '#/market/token/eth/?isNative=true&marketTokenPreviewId=native&skipMarketDataFetch=true',
+    );
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(readExtensionTokenPreview).toHaveBeenCalledWith('native', {
+      network: 'eth',
+      tokenAddress: '',
+      isNative: true,
+    });
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params,
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketNativeDetail,
+      params: expect.objectContaining({
+        legacyTokenPreview: preview,
+        isNative: true,
+      }),
     });
   });
 

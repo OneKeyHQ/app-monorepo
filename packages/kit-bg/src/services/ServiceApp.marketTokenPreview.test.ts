@@ -70,10 +70,75 @@ it('stores metadata before opening a no-fetch detail and sends only its handle',
   expect(extUtils.openExpandTab).toHaveBeenCalledWith({
     path: '/market/token/eth/0xabc',
     params: {
+      isNative: false,
       skipMarketDataFetch: true,
       disableTrade: true,
       marketTokenPreviewId: 'transfer-id',
     },
+  });
+});
+
+it('uses the same native identity in storage and the URL when the flag is omitted', async () => {
+  jest.mocked(storeExtensionTokenPreview).mockResolvedValue('native-transfer');
+  const service = new ServiceApp({ backgroundApi: {} });
+  await service.openExtensionMarketTokenDetail({
+    ...params,
+    tokenAddress: '',
+    tokenDetailPreview: { ...preview, address: '', isNative: true },
+  });
+  expect(storeExtensionTokenPreview).toHaveBeenCalledWith(
+    { network: 'eth', tokenAddress: '', isNative: true },
+    expect.any(Object),
+  );
+  expect(extUtils.openExpandTab).toHaveBeenCalledWith({
+    path: '/market/token/eth/',
+    params: expect.objectContaining({
+      isNative: true,
+      marketTokenPreviewId: 'native-transfer',
+    }),
+  });
+});
+
+it('opens an ordinary detail without a preview when storage is unavailable', async () => {
+  jest.mocked(storeExtensionTokenPreview).mockResolvedValue(undefined);
+  const service = new ServiceApp({ backgroundApi: {} });
+  await service.openExtensionMarketTokenDetail({
+    ...params,
+    skipMarketDataFetch: false,
+  });
+  expect(extUtils.openExpandTab).toHaveBeenCalledWith({
+    path: '/market/token/eth/0xabc',
+    params: { isNative: false, disableTrade: true },
+  });
+});
+
+it('rejects an explicitly non-native empty address before writing a handoff', async () => {
+  const service = new ServiceApp({ backgroundApi: {} });
+  await expect(
+    service.openExtensionMarketTokenDetail({
+      ...params,
+      tokenAddress: '',
+      isNative: false,
+    }),
+  ).rejects.toThrow('Invalid market token identity');
+  expect(storeExtensionTokenPreview).not.toHaveBeenCalled();
+  expect(extUtils.openExpandTab).not.toHaveBeenCalled();
+});
+
+it('encodes identity segments without changing the stored identity', async () => {
+  jest.mocked(storeExtensionTokenPreview).mockResolvedValue('encoded-transfer');
+  const service = new ServiceApp({ backgroundApi: {} });
+  await service.openExtensionMarketTokenDetail({
+    ...params,
+    tokenAddress: 'asset/with?separator#',
+  });
+  expect(storeExtensionTokenPreview).toHaveBeenCalledWith(
+    { network: 'eth', tokenAddress: 'asset/with?separator#', isNative: false },
+    preview,
+  );
+  expect(extUtils.openExpandTab).toHaveBeenCalledWith({
+    path: '/market/token/eth/asset%2Fwith%3Fseparator%23',
+    params: expect.any(Object),
   });
 });
 

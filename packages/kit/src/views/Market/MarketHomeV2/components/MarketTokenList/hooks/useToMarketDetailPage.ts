@@ -288,11 +288,22 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             from: tokenParams.from || enterSource,
           });
         } else {
-          await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
-            ...tokenParams,
-            from: tokenParams.from || enterSource,
-            tokenDetailPreview: navigationPreview,
-          });
+          try {
+            await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
+              ...tokenParams,
+              from: tokenParams.from || enterSource,
+              tokenDetailPreview: navigationPreview,
+            });
+          } catch {
+            if (navigationGenerationRef.current !== navigationGeneration)
+              return;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+            return;
+          }
         }
         if (navigationGenerationRef.current !== navigationGeneration) {
           return;

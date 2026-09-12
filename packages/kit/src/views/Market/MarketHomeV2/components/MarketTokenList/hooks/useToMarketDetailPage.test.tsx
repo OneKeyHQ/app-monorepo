@@ -185,6 +185,24 @@ describe('useToDetailPage', () => {
     expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
   });
 
+  it('reports a failed extension handoff without closing the popup', async () => {
+    openExtensionMarketTokenDetailMock.mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    );
+    const { result } = renderHook(() => useToDetailPage());
+    await act(async () => {
+      await expect(
+        result.current({
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'ABC',
+        }),
+      ).resolves.toBeUndefined();
+    });
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(globalThis.close).not.toHaveBeenCalled();
+  });
+
   it('ignores asset detail presses before resolving a variant in Travel Mode', async () => {
     mockTravelMode = true;
     const fetchMarketAssetDetail = jest.spyOn(

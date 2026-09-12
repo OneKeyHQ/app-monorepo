@@ -51,37 +51,67 @@ type IExtensionPreviewTransfer = IExtensionPreviewIdentity & {
   expiresAt: number;
 };
 
+// Persist identity only. A restored handoff must never replay snapshot prices
+// as live data, especially on routes that cannot use the market data endpoint.
+function getExtensionPreviewIdentity(
+  preview: IMarketTokenDetailPreview,
+): IMarketTokenDetailPreview {
+  return {
+    address: preview.address,
+    networkId: preview.networkId,
+    isNative: preview.isNative,
+    name: preview.name,
+    symbol: preview.symbol,
+    decimals: preview.decimals,
+    tokenImageUri: preview.tokenImageUri,
+    tokenImageUris: preview.tokenImageUris,
+    selectedAt: preview.selectedAt,
+  };
+}
+
 // Session storage belongs to trusted extension contexts and survives bg worker
 // suspension. URLs contain only an unguessable handle, never display metadata.
 export async function storeExtensionTokenPreview(
   identity: IExtensionPreviewIdentity,
   preview: IMarketTokenDetailPreview,
 ): Promise<string | undefined> {
-  const storage = globalThis.chrome?.storage?.session;
-  if (!globalThis.chrome?.runtime?.id || !storage) return undefined;
-  const now = Date.now();
-  const entries = await storage.get(null);
-  const ownedEntries = Object.entries(entries).filter(([key]) =>
-    key.startsWith(EXTENSION_PREVIEW_PREFIX),
-  ) as [string, IExtensionPreviewTransfer][];
-  const liveEntries = ownedEntries
-    .filter(([, value]) => value?.expiresAt > now)
-    .toSorted((a, b) => b[1].expiresAt - a[1].expiresAt);
-  const keep = new Set(
-    liveEntries.slice(0, EXTENSION_PREVIEW_LIMIT - 1).map(([key]) => key),
-  );
-  const expiredKeys = ownedEntries
-    .filter(([key]) => !keep.has(key))
-    .map(([key]) => key);
-  if (expiredKeys.length) await storage.remove(expiredKeys);
-  const id = globalThis.crypto.randomUUID();
-  const transfer: IExtensionPreviewTransfer = {
-    ...identity,
-    preview,
-    expiresAt: now + EXTENSION_PREVIEW_TTL_MS,
-  };
-  await storage.set({ [`${EXTENSION_PREVIEW_PREFIX}${id}`]: transfer });
-  return id;
+  try {
+    const storage = globalThis.chrome?.storage?.session;
+    if (
+      !globalThis.chrome?.runtime?.id ||
+      !storage ||
+      !globalThis.crypto?.randomUUID
+    )
+      return undefined;
+    const now = Date.now();
+    const entries = await storage.get(null);
+    const ownedEntries = Object.entries(entries).filter(([key]) =>
+      key.startsWith(EXTENSION_PREVIEW_PREFIX),
+    ) as [string, IExtensionPreviewTransfer][];
+    const liveEntries = ownedEntries
+      .filter(([, value]) => value?.expiresAt > now)
+      .toSorted((a, b) => b[1].expiresAt - a[1].expiresAt);
+    const keep = new Set(
+      liveEntries.slice(0, EXTENSION_PREVIEW_LIMIT - 1).map(([key]) => key),
+    );
+    const expiredKeys = ownedEntries
+      .filter(([key]) => !keep.has(key))
+      .map(([key]) => key);
+    if (expiredKeys.length) await storage.remove(expiredKeys);
+    const id = globalThis.crypto.randomUUID();
+    const transfer: IExtensionPreviewTransfer = {
+      ...identity,
+      preview: getExtensionPreviewIdentity({
+        ...preview,
+        isNative: identity.isNative,
+      }),
+      expiresAt: now + EXTENSION_PREVIEW_TTL_MS,
+    };
+    await storage.set({ [`${EXTENSION_PREVIEW_PREFIX}${id}`]: transfer });
+    return id;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function readExtensionTokenPreview(
@@ -108,7 +138,11 @@ export async function readExtensionTokenPreview(
       transfer.isNative !== identity.isNative
     )
       return undefined;
-    return parseTokenDetailPreviewParam(transfer.preview);
+    const preview = parseTokenDetailPreviewParam(transfer.preview);
+    // Also sanitize records created by an earlier extension version.
+    return preview
+      ? getExtensionPreviewIdentity({ ...preview, isNative: identity.isNative })
+      : undefined;
   } catch {
     return undefined;
   }

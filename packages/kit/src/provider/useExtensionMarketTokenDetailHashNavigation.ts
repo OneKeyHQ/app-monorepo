@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Dialog, rootNavigationRef } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -241,10 +244,11 @@ function isCurrentMarketTokenDetailTarget(
 
   if (
     params.marketTokenId !== target.params.marketTokenId ||
+    (target.params.marketTokenPreviewId !== undefined &&
+      params.marketTokenPreviewId !== target.params.marketTokenPreviewId) ||
     (target.params.legacyTokenPreview &&
-      (params.marketTokenPreviewId !== target.params.marketTokenPreviewId ||
-        params.legacyTokenPreview?.selectedAt !==
-          target.params.legacyTokenPreview.selectedAt)) ||
+      params.legacyTokenPreview?.selectedAt !==
+        target.params.legacyTokenPreview.selectedAt) ||
     params.marketVariantId !== target.params.marketVariantId ||
     params.marketTokenCategory !== target.params.marketTokenCategory ||
     params.marketTokenSymbol !== target.params.marketTokenSymbol ||
@@ -270,6 +274,10 @@ function isCurrentMarketTokenDetailTarget(
 export const useExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
     ? () => {
+        const intl = useIntl();
+        const errorDialogRef = useRef<
+          ReturnType<typeof Dialog.show> | undefined
+        >(undefined);
         const handledHashRef = useRef<string | undefined>(undefined);
         const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
           undefined,
@@ -327,69 +335,109 @@ export const useExtensionMarketTokenDetailHashNavigation =
           [],
         );
 
-        const startNavigationFromHash = useCallback(() => {
-          clearRetryTimer();
+        const startNavigationFromHash = useCallback(
+          function startNavigation() {
+            clearRetryTimer();
+            void errorDialogRef.current?.close();
+            errorDialogRef.current = undefined;
 
-          const runId = retryRunIdRef.current + 1;
-          retryRunIdRef.current = runId;
+            const runId = retryRunIdRef.current + 1;
+            retryRunIdRef.current = runId;
 
-          const hash = globalThis.location?.hash ?? '';
-          const target = getMarketTokenDetailNavigationTargetFromHash(hash);
-          if (!target) {
-            handledHashRef.current = undefined;
-            return;
-          }
-
-          let retryIndex = 0;
-
-          const run = () => {
-            if (retryRunIdRef.current !== runId || !target) {
+            const hash = globalThis.location?.hash ?? '';
+            const target = getMarketTokenDetailNavigationTargetFromHash(hash);
+            if (!target) {
+              handledHashRef.current = undefined;
               return;
             }
 
-            const done = navigateFromHash(hash, target);
-            if (done || retryIndex >= NAVIGATION_RETRY_DELAYS.length) {
-              retryTimerRef.current = undefined;
-              return;
-            }
+            let retryIndex = 0;
 
-            retryTimerRef.current = setTimeout(
-              run,
-              NAVIGATION_RETRY_DELAYS[retryIndex],
-            );
-            retryIndex += 1;
-          };
-
-          if (
-            target.screen !== ETabMarketRoutes.MarketStockDetail &&
-            target.params.marketTokenPreviewId
-          ) {
-            const tokenTarget = target;
-            void readExtensionTokenPreview(target.params.marketTokenPreviewId, {
-              network: target.params.network,
-              tokenAddress:
-                'tokenAddress' in target.params
-                  ? target.params.tokenAddress
-                  : '',
-              isNative: normalizeRouteBooleanParam(
-                target.params.isNative,
-                target.screen === ETabMarketRoutes.MarketNativeDetail,
-              ),
-            }).then((preview) => {
-              if (
-                retryRunIdRef.current !== runId ||
-                globalThis.location?.hash !== hash
-              )
+            const run = () => {
+              if (retryRunIdRef.current !== runId || !target) {
                 return;
-              if (preview) {
-                tokenTarget.params.legacyTokenPreview = preview;
               }
+
+              const done = navigateFromHash(hash, target);
+              if (done || retryIndex >= NAVIGATION_RETRY_DELAYS.length) {
+                retryTimerRef.current = undefined;
+                return;
+              }
+
+              retryTimerRef.current = setTimeout(
+                run,
+                NAVIGATION_RETRY_DELAYS[retryIndex],
+              );
+              retryIndex += 1;
+            };
+
+            if (
+              target.screen !== ETabMarketRoutes.MarketStockDetail &&
+              target.params.marketTokenPreviewId
+            ) {
+              const tokenTarget = target;
+              void readExtensionTokenPreview(
+                target.params.marketTokenPreviewId,
+                {
+                  network: target.params.network,
+                  tokenAddress:
+                    'tokenAddress' in target.params
+                      ? target.params.tokenAddress
+                      : '',
+                  isNative: normalizeRouteBooleanParam(
+                    target.params.isNative,
+                    target.screen === ETabMarketRoutes.MarketNativeDetail,
+                  ),
+                },
+              ).then((preview) => {
+                if (
+                  retryRunIdRef.current !== runId ||
+                  globalThis.location?.hash !== hash
+                )
+                  return;
+                if (preview) {
+                  tokenTarget.params.legacyTokenPreview = preview;
+                } else if (
+                  normalizeRouteBooleanParam(
+                    tokenTarget.params.skipMarketDataFetch,
+                    false,
+                  )
+                ) {
+                  // Do not silently accept the old route or open an empty no-fetch
+                  // detail. Retrying performs a new lookup, not a layout remount.
+                  errorDialogRef.current = Dialog.show({
+                    title: intl.formatMessage({
+                      id: ETranslations.global_an_error_occurred,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.global_unknown_error_retry_message,
+                    }),
+                    onConfirmText: intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    }),
+                    onConfirm: async ({ close }) => {
+                      await close();
+                      if (
+                        globalThis.location?.hash === hash &&
+                        retryRunIdRef.current === runId
+                      )
+                        startNavigation();
+                    },
+                  });
+                  return;
+                } else {
+                  // Explicitly clear the previous handoff when updating the same
+                  // route; navigation may merge params rather than replace them.
+                  tokenTarget.params.legacyTokenPreview = undefined;
+                }
+                run();
+              });
+            } else {
               run();
-            });
-          } else {
-            run();
-          }
-        }, [clearRetryTimer, navigateFromHash]);
+            }
+          },
+          [clearRetryTimer, intl, navigateFromHash],
+        );
 
         useEffect(() => {
           startNavigationFromHash();
@@ -397,6 +445,8 @@ export const useExtensionMarketTokenDetailHashNavigation =
           return () => {
             retryRunIdRef.current += 1;
             clearRetryTimer();
+            void errorDialogRef.current?.close();
+            errorDialogRef.current = undefined;
             globalThis.removeEventListener(
               'hashchange',
               startNavigationFromHash,
