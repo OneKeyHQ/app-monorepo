@@ -96,40 +96,31 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     void preloadMarketDetailV2Page();
   }, []);
 
-  const preparePreviewTokenDetail = useCallback(
-    (item: IMarketToken) => {
-      if (item.tokenDetailPreview) {
-        prewarmMarketTokenImages(item.tokenDetailPreview);
-        tokenDetailActions.current.prepareTokenDetailPreview(
-          item.tokenDetailPreview,
-        );
-        return;
-      }
+  const buildPreviewTokenDetail = useCallback((item: IMarketToken) => {
+    if (item.tokenDetailPreview) {
+      return item.tokenDetailPreview;
+    }
 
-      const previewAddress = item.address ?? item.tokenAddress;
+    const previewAddress = item.address ?? item.tokenAddress;
 
-      if (
-        (!previewAddress && !item.isNative) ||
-        !item.name ||
-        typeof item.decimals !== 'number'
-      ) {
-        tokenDetailActions.current.clearTokenDetail();
-        return;
-      }
+    if (
+      (!previewAddress && !item.isNative) ||
+      !item.name ||
+      typeof item.decimals !== 'number'
+    ) {
+      return undefined;
+    }
 
-      const tokenDetailPreview = buildMarketTokenDetailPreview({
-        ...(item as IMarketHomeToken),
-        address: previewAddress,
-        networkId: item.networkId,
-        symbol: item.symbol,
-        isNative: item.isNative,
-      });
+    const tokenDetailPreview = buildMarketTokenDetailPreview({
+      ...(item as IMarketHomeToken),
+      address: previewAddress,
+      networkId: item.networkId,
+      symbol: item.symbol,
+      isNative: item.isNative,
+    });
 
-      prewarmMarketTokenImages(tokenDetailPreview);
-      tokenDetailActions.current.prepareTokenDetailPreview(tokenDetailPreview);
-    },
-    [tokenDetailActions],
-  );
+    return tokenDetailPreview;
+  }, []);
 
   const toMarketDetailPage = useCallback(
     async (selectedItem: IMarketToken) => {
@@ -242,12 +233,23 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               : undefined),
           }
         : undefined;
+      const navigationPreview = stockId
+        ? undefined
+        : buildPreviewTokenDetail(resolvedItem);
+      if (navigationPreview) {
+        prewarmMarketTokenImages(navigationPreview);
+      }
+      // Native keeps its existing eager initialization; other UIs initialize
+      // shared preview state only after the destination route takes ownership.
+      const routePreview = platformEnv.isNative
+        ? resolvedItem.tokenDetailPreview
+        : navigationPreview;
       const params =
         stockParams ??
-        (resolvedItem.tokenDetailPreview
+        (routePreview
           ? {
               ...tokenParams,
-              legacyTokenPreview: resolvedItem.tokenDetailPreview,
+              legacyTokenPreview: routePreview,
             }
           : tokenParams);
       const detailRouteName = stockId
@@ -286,7 +288,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
             ...tokenParams,
             from: tokenParams.from || enterSource,
-            tokenDetailPreview: resolvedItem.tokenDetailPreview,
+            tokenDetailPreview: navigationPreview,
           });
         }
         if (navigationGenerationRef.current !== navigationGeneration) {
@@ -295,10 +297,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
         if (platformEnv.isNative) {
-          if (stockId) {
+          if (!navigationPreview) {
             tokenDetailActions.current.clearTokenDetail();
           } else {
-            preparePreviewTokenDetail(resolvedItem);
+            tokenDetailActions.current.prepareTokenDetailPreview(
+              navigationPreview,
+            );
           }
         }
 
@@ -320,10 +324,14 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           },
         });
       } else {
-        if (stockId) {
-          tokenDetailActions.current.clearTokenDetail();
-        } else {
-          preparePreviewTokenDetail(resolvedItem);
+        if (platformEnv.isNative) {
+          if (navigationPreview) {
+            tokenDetailActions.current.prepareTokenDetailPreview(
+              navigationPreview,
+            );
+          } else {
+            tokenDetailActions.current.clearTokenDetail();
+          }
         }
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
@@ -361,7 +369,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       currentRouteName,
       intl,
       navigation,
-      preparePreviewTokenDetail,
+      buildPreviewTokenDetail,
       options?.switchToMarketTabFirst,
       options?.from,
       options?.marketTokenCategory,

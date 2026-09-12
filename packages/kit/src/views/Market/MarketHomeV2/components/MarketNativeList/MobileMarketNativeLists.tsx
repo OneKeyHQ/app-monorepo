@@ -1178,6 +1178,7 @@ function MobileMarketNativeStockListImpl({
           : undefined
       }
       canLoadMore={result.canLoadMore}
+      showEnd={!result.isRevalidatingFirstPage}
       contentPaddingBottom={listContainerProps.paddingBottom}
       emptyContentHeight={listContainerProps.emptyContentHeight}
       testID={MarketTestIDs.stockList}

@@ -57,6 +57,7 @@ function MobileMarketStockFlatListImpl({
     isRefreshing,
     isRefreshError,
     canLoadMore,
+    isRevalidatingFirstPage,
     loadMore,
     refresh,
   } = useMarketStockList({
@@ -162,12 +163,13 @@ function MobileMarketStockFlatListImpl({
         </Stack>
       );
     }
-    if (!canLoadMore && items.length > 0) {
+    if (!canLoadMore && items.length > 0 && !isRevalidatingFirstPage) {
       return <ListEndIndicator />;
     }
     return null;
   }, [
     canLoadMore,
+    isRevalidatingFirstPage,
     intl,
     isLoadMoreError,
     isRefreshing,

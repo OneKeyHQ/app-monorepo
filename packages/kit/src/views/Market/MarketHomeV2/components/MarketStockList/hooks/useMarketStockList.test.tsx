@@ -110,11 +110,40 @@ it('replays cached rows immediately but waits for remote page one before paginat
   expect(result.current.items).toEqual(response.items);
   expect(result.current.isLoading).toBe(false);
   expect(result.current.canLoadMore).toBe(false);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
   await act(async () => result.current.loadMore());
   expect(fetchList.mock.calls.every(([params]) => !params?.cursor)).toBe(true);
   await waitFor(() => expect(fetchList).toHaveBeenCalled());
   await act(async () => pending.resolve(response));
   await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  expect(result.current.isRevalidatingFirstPage).toBe(false);
+});
+
+it('does not declare cached categories complete until their remote page arrives', async () => {
+  seed('tech');
+  seed('energy');
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+  const { result, rerender } = renderHook(
+    ({ category }) => useMarketStockList({ category }),
+    { initialProps: { category: 'tech' } },
+  );
+  rerender({ category: 'energy' });
+  expect(result.current.items).toEqual(response.items);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+  expect(result.current.canLoadMore).toBe(false);
+  await waitFor(() =>
+    expect(fetchList).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'energy' }),
+    ),
+  );
+  await act(async () =>
+    pending.resolve({ ...response, nextCursor: undefined }),
+  );
+  await waitFor(() =>
+    expect(result.current.isRevalidatingFirstPage).toBe(false),
+  );
+  expect(result.current.canLoadMore).toBe(false);
 });
 
 it('does not show previous-category rows while a new category is pending', async () => {

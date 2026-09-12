@@ -428,6 +428,37 @@ describe('useToDetailPage', () => {
     expect(mockClearTokenDetail).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])(
+    'initializes a generated list preview at the platform owner (native=%s)',
+    async (isNative) => {
+      Object.assign(platformEnv, { isExtensionUiPopup: false, isNative });
+      const { result } = renderHook(() => useToDetailPage());
+      await act(async () => {
+        await result.current({ ...tokenItem, name: 'ABC Token', decimals: 18 });
+      });
+      const preview = expect.objectContaining({
+        name: 'ABC Token',
+        decimals: 18,
+        networkId: tokenItem.networkId,
+        address: tokenItem.tokenAddress,
+      });
+      if (isNative) {
+        expect(mockPrepareTokenDetailPreview).toHaveBeenCalledTimes(1);
+        expect(mockPrepareTokenDetailPreview).toHaveBeenCalledWith(preview);
+        expect(mockNavigationPush.mock.calls[0][1]).not.toHaveProperty(
+          'legacyTokenPreview',
+        );
+      } else {
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          expect.objectContaining({ legacyTokenPreview: preview }),
+        );
+        expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+      }
+      expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    },
+  );
+
   it('navigates stock items with stockId instead of chain identity', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
@@ -775,10 +806,7 @@ describe('useToDetailPage', () => {
       marketTokenSymbol: 'BTC',
       legacyTokenPreview: tokenDetailPreview,
     });
-    expect(mockPrepareTokenDetailPreview).toHaveBeenLastCalledWith({
-      ...tokenDetailPreview,
-      address: 'native',
-    });
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
@@ -874,8 +902,11 @@ describe('useToDetailPage', () => {
       });
     });
 
-    expect(mockPrepareTokenDetailPreview).toHaveBeenCalledWith(
-      tokenDetailPreview,
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    expect(mockNavigationPush).toHaveBeenCalledWith(
+      'MarketDetailV2',
+      expect.objectContaining({ legacyTokenPreview: tokenDetailPreview }),
     );
     mockedPlatformEnv.isExtensionUiPopup = true;
   });

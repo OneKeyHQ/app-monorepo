@@ -38,6 +38,7 @@ const mockStockDetail = jest.fn();
 const mockStockRefresh = jest.fn();
 const mockStockLoadMore = jest.fn();
 let mockStockIsRefreshing = false;
+let mockStockIsRevalidatingFirstPage = false;
 let mockStockIsRefreshError = false;
 let mockStockIsLoadMoreError = false;
 const mockTopCoinDetail = jest.fn();
@@ -282,9 +283,10 @@ jest.mock('../MarketStockList/hooks/useMarketStockList', () => ({
     isLoadingMore: false,
     isLoadMoreError: mockStockIsLoadMoreError,
     isRefreshing: mockStockIsRefreshing,
+    isRevalidatingFirstPage: mockStockIsRevalidatingFirstPage,
     isRefreshError: mockStockIsRefreshError,
     isError: false,
-    canLoadMore: true,
+    canLoadMore: !mockStockIsRevalidatingFirstPage,
     loadMore: mockStockLoadMore,
     refresh: mockStockRefresh,
   }),
@@ -387,6 +389,28 @@ describe.each([false, true])(
       expect(
         mockNativeSnapshot?.rows.some((row) => row.key === 'market-end'),
       ).toBe(false);
+    });
+
+    it('hides the end indicator while cached stock rows await revalidation', () => {
+      mockStockIsRevalidatingFirstPage = true;
+      try {
+        render(
+          <MobileMarketNativeStockList
+            selectedCategoryId="all"
+            listContainerProps={{ paddingBottom: 20 }}
+          />,
+        );
+        expect(
+          mockNativeSnapshot?.rows.some((row) => row.key === 'market-end'),
+        ).toBe(false);
+        expect(
+          mockNativeSnapshot?.rows.some(
+            (row) => row.key === 'market-loading-more',
+          ),
+        ).toBe(false);
+      } finally {
+        mockStockIsRevalidatingFirstPage = false;
+      }
     });
 
     it('keeps the native snapshot stable across silent refresh transitions', () => {

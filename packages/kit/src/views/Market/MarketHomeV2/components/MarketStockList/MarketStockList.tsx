@@ -91,6 +91,7 @@ function MarketStockListImpl({
     isRefreshError,
     isError,
     canLoadMore,
+    isRevalidatingFirstPage,
     sortBy,
     sortType,
     setSorting,
@@ -259,12 +260,13 @@ function MarketStockListImpl({
     if (canLoadMore && webTabIntegrated) {
       return <div ref={endSentinelRef} style={{ height: 1 }} />;
     }
-    if (items.length > 0 && !canLoadMore) {
+    if (items.length > 0 && !canLoadMore && !isRevalidatingFirstPage) {
       return <ListEndIndicator />;
     }
     return null;
   }, [
     canLoadMore,
+    isRevalidatingFirstPage,
     intl,
     isLoadMoreError,
     isRefreshing,

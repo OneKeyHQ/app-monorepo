@@ -393,6 +393,7 @@ export function useMarketStockList({ category }: { category?: string }) {
       isFirstPageError &&
       (!hasCurrentData || (platformEnv.isNative && items.length === 0)),
     canLoadMore: Boolean(nextCursor) && !isAwaitingRemoteFirstPage,
+    isRevalidatingFirstPage: isAwaitingRemoteFirstPage && items.length > 0,
     sortBy,
     sortType,
     setSorting,
