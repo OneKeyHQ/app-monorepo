@@ -407,7 +407,11 @@ export function DesktopLayout({
             ? stockId
             : effectiveMarketTradingViewParams?.tokenSymbol
         }
-        loadingIdentity={`${networkId}:${tokenAddress}:${isNative ? 'native' : 'token'}`}
+        loadingIdentity={
+          isStockSharePrice
+            ? `stock-share:${stockId}`
+            : `${effectiveMarketTradingViewParams?.networkId ?? ''}:${effectiveMarketTradingViewParams?.tokenAddress ?? ''}:${effectiveMarketTradingViewParams?.isNative ? 'native' : 'token'}`
+        }
         isNative={
           isStockSharePrice ? false : effectiveMarketTradingViewParams?.isNative
         }
