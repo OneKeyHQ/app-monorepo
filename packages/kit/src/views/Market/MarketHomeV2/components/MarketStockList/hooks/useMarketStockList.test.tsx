@@ -61,8 +61,8 @@ const response: IMarketStockPublicListResponse = {
 function seed(category?: string) {
   const queryKey = JSON.stringify({
     category,
-    sortBy: 'default',
-    sortType: 'asc',
+    sortBy: 'volume24h',
+    sortType: 'desc',
     locale: 'en-US',
   });
   swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), { queryKey, response });
@@ -165,8 +165,8 @@ it('ends loading on failure and does not persist a failed page', async () => {
   await waitFor(() => expect(result.current.isError).toBe(true));
   expect(result.current.isLoading).toBe(false);
   const queryKey = JSON.stringify({
-    sortBy: 'default',
-    sortType: 'asc',
+    sortBy: 'volume24h',
+    sortType: 'desc',
     locale: 'en-US',
   });
   expect(swrCacheUtils.get(swrKeys.marketHomeStocks(queryKey))).toBeUndefined();
@@ -379,6 +379,40 @@ it('drops obsolete loaded rows when a refresh has no next page', async () => {
   expect(result.current.canLoadMore).toBe(false);
 });
 
+it('starts with volume descending and restores it after clearing another column', async () => {
+  fetchList.mockResolvedValue(response);
+  const { result } = renderHook(() => useMarketStockList({ category: 'tech' }));
+  await waitFor(() =>
+    expect(fetchList).toHaveBeenCalledWith({
+      limit: 20,
+      category: 'tech',
+      sortBy: 'volume24h',
+      sortType: 'desc',
+    }),
+  );
+  act(() => result.current.setSorting('marketCap', 'asc'));
+  await waitFor(() =>
+    expect(fetchList).toHaveBeenCalledWith({
+      limit: 20,
+      category: 'tech',
+      sortBy: 'marketCap',
+      sortType: 'asc',
+    }),
+  );
+  act(() => result.current.setSorting('marketCap', undefined));
+  expect(result.current.sortBy).toBe('volume24h');
+  expect(result.current.sortType).toBe('desc');
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  await act(async () => result.current.loadMore());
+  expect(fetchList).toHaveBeenLastCalledWith({
+    cursor: 'next',
+    limit: 20,
+    category: 'tech',
+    sortBy: 'volume24h',
+    sortType: 'desc',
+  });
+});
+
 it('starts one native cursor request for concurrent end-reached events', async () => {
   const nextPage = deferred<IMarketStockPublicListResponse>();
   fetchList.mockImplementation(async (params) =>
@@ -545,8 +579,8 @@ it('preserves all rows and exposes retry after a later refresh page fails', asyn
 
 it('does not replay deep persisted pagination on cold start', async () => {
   const queryKey = JSON.stringify({
-    sortBy: 'default',
-    sortType: 'asc',
+    sortBy: 'volume24h',
+    sortType: 'desc',
     locale: 'en-US',
   });
   swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
