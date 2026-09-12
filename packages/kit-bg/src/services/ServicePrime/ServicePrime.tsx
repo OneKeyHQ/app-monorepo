@@ -525,6 +525,7 @@ class ServicePrime extends ServiceBase {
         message: appLocale.intl.formatMessage({
           id: ETranslations.id_login_expired_description,
         }),
+        key: ETranslations.id_login_expired_description,
         autoToast: false,
       });
     }
@@ -5551,6 +5552,7 @@ class ServicePrime extends ServiceBase {
         message: appLocale.intl.formatMessage({
           id: ETranslations.redemption_invalid_code_error,
         }),
+        key: ETranslations.redemption_invalid_code_error,
         autoToast: false,
       });
     }
