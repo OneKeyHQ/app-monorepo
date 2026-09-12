@@ -16,7 +16,9 @@ jest.mock('./useToMarketBannerDetail', () => ({
   useToMarketBannerDetail: () => jest.fn(),
 }));
 jest.mock('./MarketBannerItem', () => ({
-  MarketBannerItem: () => <div data-testid="banner" />,
+  MarketBannerItem: ({ item }: { item: { _id: string } }) => (
+    <div data-testid="banner">{item._id}</div>
+  ),
 }));
 jest.mock('./MarketBannerItemSkeleton', () => ({
   MarketBannerItemSkeleton: () => <div data-testid="skeleton" />,
@@ -48,8 +50,8 @@ function Page() {
     </MarketBannerProvider>
   );
 }
-const populated = () => ({
-  bannerList: [{ _id: 'banner' }] as ReturnType<
+const populated = (id = 'banner') => ({
+  bannerList: [{ _id: id }] as ReturnType<
     typeof useMarketBannerList
   >['bannerList'],
   isLoading: false,
@@ -92,6 +94,19 @@ it('keeps the occupied header height when a refresh removes all banners', () => 
     scope: 'en-US:false',
   };
   rerender(<Page />);
+  expect(
+    screen.getByTestId('banner').closest('[aria-hidden=true]'),
+  ).toBeTruthy();
+});
+
+it('retains the latest successful banners when a refresh removes them', () => {
+  mockState = populated('legacy');
+  const { rerender } = render(<Page />);
+  mockState = populated('modern');
+  rerender(<Page />);
+  mockState = { ...populated(), bannerList: [] };
+  rerender(<Page />);
+  expect(screen.getByTestId('banner').textContent).toBe('modern');
   expect(
     screen.getByTestId('banner').closest('[aria-hidden=true]'),
   ).toBeTruthy();
