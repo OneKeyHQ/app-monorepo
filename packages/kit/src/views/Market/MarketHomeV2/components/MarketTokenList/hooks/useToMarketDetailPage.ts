@@ -295,7 +295,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
         if (stockId) {
-          tokenDetailActions.current.clearTokenDetail();
+          tokenDetailActions.current.prepareStockTokenDetail({
+            tokenAddress: resolvedItem.tokenAddress,
+            networkId: resolvedItem.networkId,
+            isNative: resolvedItem.isNative,
+          });
         } else {
           preparePreviewTokenDetail(resolvedItem);
         }
@@ -339,7 +343,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         }
       } else {
         if (stockId) {
-          tokenDetailActions.current.clearTokenDetail();
+          tokenDetailActions.current.prepareStockTokenDetail({
+            tokenAddress: resolvedItem.tokenAddress,
+            networkId: resolvedItem.networkId,
+            isNative: resolvedItem.isNative,
+          });
         } else {
           preparePreviewTokenDetail(resolvedItem);
         }

@@ -127,6 +127,7 @@ import type { ReactElement } from 'react';
 import { act, render } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IBorrowReserveItem,
@@ -281,6 +282,7 @@ describe('CollateralSwitchCell settlement guard', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   const getSwitch = (view: ReturnType<typeof render>) =>
@@ -303,6 +305,53 @@ describe('CollateralSwitchCell settlement guard', () => {
       onCancel: () => void;
     };
   }
+
+  it('uses a press-based switch without a competing row handler on iOS', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+
+    expect(getSwitch(view).props.native).toBe(false);
+    expect(getSwitch(view).props.accessibilityRole).toBe('switch');
+    expect(getSwitch(view).props.accessibilityState).toEqual({
+      checked: true,
+      disabled: false,
+    });
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('stops desktop row propagation without cancelling the switch event', () => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+    const [rowHandler] = view.UNSAFE_root.findAll(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    const stopPropagation = jest.fn();
+    const preventDefault = jest.fn();
+
+    const onPress = rowHandler?.props.onPress as
+      | ((event: {
+          stopPropagation: () => void;
+          preventDefault: () => void;
+        }) => void)
+      | undefined;
+    onPress?.({ stopPropagation, preventDefault });
+
+    expect(getSwitch(view).props.native).toBe(true);
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
 
   it('uses the top-level account id and preserves eModeId=0 when enabling', async () => {
     borrowContext.earnAccount.data.accountId = 'top-level-account';
@@ -374,7 +423,7 @@ describe('CollateralSwitchCell settlement guard', () => {
   it('keeps an unsupported Aave native position visible but disables collateral changes', () => {
     borrowContext.market = {
       ...borrowContext.market,
-      networkId: 'evm--42161',
+      networkId: 'evm--10',
     };
 
     const view = render(

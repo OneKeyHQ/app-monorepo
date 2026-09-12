@@ -18,12 +18,14 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
 }));
 const navigateMock = jest.fn();
 const clearTokenDetailMock = jest.fn();
+const prepareStockTokenDetailMock = jest.fn();
 const changeActiveTokenMock = jest.fn();
 const prepareTokenDetailPreviewMock = jest.fn();
 
 const tokenDetailActions = {
   current: {
     clearTokenDetail: clearTokenDetailMock,
+    prepareStockTokenDetail: prepareStockTokenDetailMock,
     changeActiveToken: changeActiveTokenMock,
     prepareTokenDetailPreview: prepareTokenDetailPreviewMock,
   },
@@ -135,7 +137,12 @@ describe('navigateToMarketTokenDetail', () => {
     });
     jest.runAllTimers();
 
-    expect(clearTokenDetailMock).toHaveBeenCalledTimes(1);
+    expect(prepareStockTokenDetailMock).toHaveBeenCalledWith({
+      tokenAddress: '0xaapl',
+      networkId: 'evm--1',
+      isNative: undefined,
+    });
+    expect(clearTokenDetailMock).not.toHaveBeenCalled();
     expect(changeActiveTokenMock).not.toHaveBeenCalled();
     expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith('main', {
@@ -187,7 +194,12 @@ describe('navigateToMarketTokenDetail', () => {
           },
         },
       });
-      expect(clearTokenDetailMock).toHaveBeenCalledTimes(1);
+      expect(prepareStockTokenDetailMock).toHaveBeenCalledWith({
+        tokenAddress: '0xnvda',
+        networkId: 'evm--1',
+        isNative: undefined,
+      });
+      expect(clearTokenDetailMock).not.toHaveBeenCalled();
       expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
       expect(changeActiveTokenMock).not.toHaveBeenCalled();
       expect(mockFetchAssetDetail).not.toHaveBeenCalled();
@@ -301,7 +313,12 @@ describe('navigateToMarketTokenDetail', () => {
 
     jest.runAllTimers();
 
-    expect(clearTokenDetailMock).toHaveBeenCalledTimes(1);
+    expect(prepareStockTokenDetailMock).toHaveBeenCalledWith({
+      tokenAddress: '0xaapl',
+      networkId: 'evm--1',
+      isNative: undefined,
+    });
+    expect(clearTokenDetailMock).not.toHaveBeenCalled();
     expect(changeActiveTokenMock).not.toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith('main', {
       screen: 'Market',

@@ -16,10 +16,13 @@ import {
   ProviderJotaiContextMarketV2,
   marketV2StorageReadyAtom,
   marketWatchListV2Atom,
+  networkIdAtom,
   perpsInfoAtom,
+  tokenAddressAtom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
+  tokenDetailRequestIdAtom,
 } from './atoms';
 import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
 
@@ -175,6 +178,74 @@ function createWrapper() {
 
   return { store, Wrapper };
 }
+
+describe('stock navigation identity', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('preserves loaded state when re-entering the same stock variant', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const target = { networkId: 'sol--101', tokenAddress: 'AAPLx' };
+    const tokenDetail = {
+      address: target.tokenAddress,
+      networkId: target.networkId,
+      name: 'Apple xStock',
+      symbol: 'AAPLx',
+      decimals: 8,
+      logoUrl: '',
+      price: '318',
+    };
+
+    act(() => {
+      result.current.prepareStockTokenDetail(target);
+      result.current.setTokenDetail(tokenDetail);
+      result.current.setTokenDetailLoading(true);
+    });
+    const requestId = store.get(tokenDetailRequestIdAtom());
+
+    act(() => result.current.prepareStockTokenDetail(target));
+
+    expect(store.get(tokenDetailAtom())).toEqual(tokenDetail);
+    expect(store.get(tokenAddressAtom())).toBe(target.tokenAddress);
+    expect(store.get(networkIdAtom())).toBe(target.networkId);
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(true);
+  });
+
+  it('switches to a different stock variant atomically', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const previous = { networkId: 'sol--101', tokenAddress: 'AAPLx' };
+    const next = { networkId: 'evm--56', tokenAddress: 'AAPLon' };
+
+    act(() => {
+      result.current.prepareStockTokenDetail(previous);
+      result.current.setTokenDetail({
+        address: previous.tokenAddress,
+        networkId: previous.networkId,
+        name: 'Apple xStock',
+        symbol: 'AAPLx',
+        decimals: 8,
+        logoUrl: '',
+        price: '318',
+      });
+      result.current.setTokenDetailLoading(true);
+    });
+    const requestId = store.get(tokenDetailRequestIdAtom());
+
+    act(() => result.current.prepareStockTokenDetail(next));
+
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenAddressAtom())).toBe(next.tokenAddress);
+    expect(store.get(networkIdAtom())).toBe(next.networkId);
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId + 1);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+});
 
 describe('market native chart price updates', () => {
   const tokenDetail = {

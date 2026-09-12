@@ -18,7 +18,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: () => ({ replace: mockReplace }),
 }));
 
-const mockClearTokenDetail = jest.fn();
+const mockPrepareStockTokenDetail = jest.fn();
 const mockOpenExtensionMarketStockDetail = jest.fn(() => Promise.resolve());
 const mockPreloadMarketDetailV2Page = jest.fn(() => Promise.resolve());
 
@@ -41,7 +41,7 @@ jest.mock('@onekeyhq/components', () => ({
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: () => ({
-    current: { clearTokenDetail: mockClearTokenDetail },
+    current: { prepareStockTokenDetail: mockPrepareStockTokenDetail },
   }),
 }));
 
@@ -148,7 +148,11 @@ describe('useToMarketStockDetailPage', () => {
       await result.current(stockPreview);
     });
 
-    expect(mockClearTokenDetail).toHaveBeenCalledTimes(1);
+    expect(mockPrepareStockTokenDetail).toHaveBeenCalledWith({
+      tokenAddress: '',
+      networkId: '',
+      isNative: undefined,
+    });
     expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
@@ -160,6 +164,28 @@ describe('useToMarketStockDetailPage', () => {
           stockPreviewLogoUrl: 'https://example.com/aapl.png',
         },
       },
+    });
+  });
+
+  it('preserves the resolved stock variant identity for navigation', async () => {
+    const { result } = renderHook(() => useToMarketStockDetailPage());
+
+    await act(async () => {
+      await result.current({
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        logoUrl: 'https://example.com/aapl.png',
+        tokenAddress: '0xstock',
+        networkId: 'evm--1',
+        isNative: false,
+      });
+    });
+
+    expect(mockPrepareStockTokenDetail).toHaveBeenCalledWith({
+      tokenAddress: '0xstock',
+      networkId: 'evm--1',
+      isNative: false,
     });
   });
 

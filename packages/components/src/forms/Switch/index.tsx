@@ -80,6 +80,7 @@ export function Switch({
   const nativeProps = useMemo(
     () => ({
       disabled,
+      testID,
       // The off-track fill is $neutral4, the design's stamp for the toggle.
       // On iOS 26 this deliberately paints over the Liquid Glass off-track:
       // the glass sampling a dark surface (the device stage's near-black
@@ -109,6 +110,7 @@ export function Switch({
     }),
     [
       disabled,
+      testID,
       nativeScale,
       theme.neutral4.val,
       theme.bgAccent.val,

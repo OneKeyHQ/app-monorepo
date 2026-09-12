@@ -77,6 +77,7 @@ export type IStockTradePanelContentProps = {
     actionOtherToken?: ISwapToken;
     onlySupportCrossChain?: boolean;
   };
+  speedConfigReady?: boolean;
   defaultTokens: IToken[];
   balance?: BigNumber;
   balanceToken?: IToken;
@@ -128,6 +129,7 @@ export function StockTradePanelContent(props: IStockTradePanelContentProps) {
     onForceRefreshQuote,
     balanceLoading,
     supportSpeedSwap,
+    speedConfigReady = true,
     defaultTokens,
     balance,
     balanceToken,
@@ -457,12 +459,18 @@ export function StockTradePanelContent(props: IStockTradePanelContentProps) {
 
   const noAccount =
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
-  const shouldUseSwapFallbackAction = shouldJumpToMarketTradeFallback({
-    supportSpeedSwap: supportSpeedSwap.enabled,
-    isAccountNetworkSupported: supportSpeedSwap.isAccountNetworkSupported,
-    isWrapped,
-    isRefreshQuote,
-  });
+  // ActionButton enables its fallback action even when its generic disabled
+  // flag is set. Keep it out of transient stock loading states only.
+  const shouldUseSwapFallbackAction =
+    speedConfigReady &&
+    !isLoading &&
+    !quoteLoading &&
+    shouldJumpToMarketTradeFallback({
+      supportSpeedSwap: supportSpeedSwap.enabled,
+      isAccountNetworkSupported: supportSpeedSwap.isAccountNetworkSupported,
+      isWrapped,
+      isRefreshQuote,
+    });
   const handleStockPreSwap = () => {
     logSwapAction({
       tradeType,

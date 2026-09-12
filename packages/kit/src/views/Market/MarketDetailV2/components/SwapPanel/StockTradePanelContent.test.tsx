@@ -461,6 +461,40 @@ describe('StockTradePanelContent', () => {
     );
   });
 
+  it('keeps the full Swap fallback available after an unavailable quote', () => {
+    const props = createProps();
+    props.supportSpeedSwap.enabled = false;
+    props.isActionDisabled = true;
+
+    render(<StockTradePanelContent {...props} />);
+
+    expect(swapActionsStateMock).not.toHaveBeenCalled();
+    expect(actionButtonMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ disabled: true }),
+    );
+  });
+
+  it.each([false, true])(
+    'keeps a neutral action while stock execution is not ready (speed config ready: %p)',
+    (speedConfigReady) => {
+      const props = createProps();
+      props.speedConfigReady = speedConfigReady;
+      props.supportSpeedSwap.enabled = false;
+      props.quoteLoading = true;
+      props.isActionDisabled = true;
+
+      render(<StockTradePanelContent {...props} />);
+
+      expect(actionButtonMock).not.toHaveBeenCalled();
+      expect(swapActionsStateMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          disabled: true,
+          forceQuoteActionLoading: true,
+        }),
+      );
+    },
+  );
+
   it('disables stock trading until a token variant identity is available', () => {
     const props = createProps();
     expect(props.currentMarketToken).toBeDefined();

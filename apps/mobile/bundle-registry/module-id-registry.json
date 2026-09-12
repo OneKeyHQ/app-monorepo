@@ -20889,6 +20889,7 @@
     "packages/kit/src/views/Borrow/pages/ReserveDetails/index.native.tsx": 12972,
     "packages/kit/src/views/Borrow/pages/borrowHistoryList.utils.ts": 16077,
     "packages/kit/src/views/Borrow/pages/modal/BorrowTokenSelectModal.tsx": 7891,
+    "packages/kit/src/views/Borrow/pages/modal/borrowTokenSelect.utils.ts": 5467,
     "packages/kit/src/views/Borrow/testIDs.ts": 20319,
     "packages/kit/src/views/BulkCopyAddresses/pages/BulkCopyAddresses.tsx": 10190,
     "packages/kit/src/views/BulkCopyAddresses/pages/ExportAddresses.tsx": 20887,
