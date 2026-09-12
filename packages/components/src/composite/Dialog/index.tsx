@@ -45,6 +45,7 @@ import { SheetGrabber } from '../../content/SheetGrabber';
 import {
   EPageType,
   EPortalContainerConstantName,
+  Portal,
   usePageType,
 } from '../../hocs';
 import {
@@ -77,7 +78,7 @@ import {
   DialogTitle,
   SetDialogHeader,
 } from './Header';
-import { renderDialogPortal } from './renderDialogPortal';
+import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
@@ -759,11 +760,9 @@ function dialogShow({
   })();
 
   portalRef = {
-    current: renderDialogPortal({
-      element,
-      portalContainer,
-      isOverTopAllViews,
-    }),
+    current: portalContainer
+      ? renderToContainer(portalContainer, element, isOverTopAllViews)
+      : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   const close = async (extra?: { flag?: string }, times = 0) => {
     if (times > 10) {

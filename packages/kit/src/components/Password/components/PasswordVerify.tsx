@@ -213,10 +213,11 @@ function PasswordVerify({
           Dialog.confirm({
             icon: 'ErrorOutline',
             tone: 'warning',
-            // Off the lock screen this prompt can be raised over a native
-            // modal page, so it keeps the top-level overlay it has always
-            // used; only the lock screen swaps it for the lock container.
-            isOverTopAllViews: true,
+            // Off the lock screen this takes the default portal, which is
+            // where the passcode prompt that raises it already lives
+            // (PasswordVerifyPromptMount passes no container on native), so
+            // the warning stacks above it as the later child. Only the lock
+            // screen needs a container of its own.
             ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
             title: intl.formatMessage(
               {

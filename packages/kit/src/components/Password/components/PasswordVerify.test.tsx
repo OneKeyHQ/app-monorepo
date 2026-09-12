@@ -218,8 +218,9 @@ describe('PasswordVerify biometric-changed warning', () => {
       unknown
     >;
     expect(props.sheetProps).toBeUndefined();
-    // It keeps the top-level overlay it used before the lock-screen props
-    // existed, so it still clears a native modal page on iOS.
-    expect(props.isOverTopAllViews).toBe(true);
+    // The default portal, where the passcode prompt that raises it already
+    // is — no window overlay of its own, which on iOS would also put it
+    // above the lock screen and the toast layer.
+    expect(props.isOverTopAllViews).toBeUndefined();
   });
 });

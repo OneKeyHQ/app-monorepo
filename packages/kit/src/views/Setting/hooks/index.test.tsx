@@ -152,9 +152,10 @@ describe('useResetApp', () => {
     );
   });
 
-  it('keeps the native top-level overlay for an unlocked reset dialog', async () => {
-    // Settings → Reset opens from a native modal page on iOS; without this the
-    // dialog renders underneath it.
+  it('claims no overlay behavior on the unlocked path, on native either', async () => {
+    // `dialogShow` only reads `isOverTopAllViews` alongside a
+    // `portalContainer`, and the unlocked path names none — so passing it
+    // would be an inert prop asserting stacking this dialog does not get.
     jest.requireMock(
       '@onekeyhq/shared/src/platformEnv',
     ).__platformEnv.isNative = true;
@@ -164,9 +165,12 @@ describe('useResetApp', () => {
       await result.current();
     });
 
-    expect(getMocks().dialogShow).toHaveBeenCalledWith(
-      expect.objectContaining({ isOverTopAllViews: true }),
-    );
+    const props = getMocks().dialogShow.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(props.portalContainer).toBeUndefined();
+    expect(props.isOverTopAllViews).toBeUndefined();
   });
 
   it('still hands the lock screen its own container on native', async () => {
