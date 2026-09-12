@@ -1,6 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import type { ReactElement, ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   ESwitchSize,
@@ -12,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 import type {
@@ -28,6 +29,8 @@ import { BorrowTestIDs } from '../testIDs';
 
 import { BorrowPositionCard } from './BorrowPositionCard';
 import { isUnsupportedAaveNativeReserve } from './borrowRepayPosition.utils';
+import { CollateralBadge } from './BorrowTableList/CollateralBadge';
+import { getCollateralCellState } from './collateralControls.utils';
 import { CollateralSwitchCell } from './CollateralSwitchCell';
 
 import type { IBorrowPositionCardAction } from './BorrowPositionCard';
@@ -50,40 +53,115 @@ function buildDisabledByReserve<T extends { reserveAddress: string }>(
   return map;
 }
 
-function PositionCardSkeleton() {
+// Keep a position closer to its actions than to the next card.
+const POSITION_CARD_GAP = '$4';
+
+function PositionCardSkeleton(): ReactElement {
   return (
-    <YStack bg="$bgSubdued" borderRadius="$3" p="$4" gap="$3">
-      <XStack ai="center" gap="$3">
-        <Skeleton w="$8" h="$8" borderRadius="$full" />
+    <YStack
+      bg="$bgSubdued"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      borderRadius="$3"
+      borderCurve="continuous"
+      p="$3"
+      gap="$2"
+    >
+      <XStack ai="center" jc="space-between" gap="$3">
+        <Skeleton w={110} h="$5" borderRadius="$2" />
+        <Skeleton w={120} h="$6" borderRadius="$2" />
+      </XStack>
+      <XStack ai="center" gap="$3" py="$2">
+        <Skeleton w="$10" h="$10" borderRadius="$full" />
         <YStack flex={1} gap="$1">
           <Skeleton w={80} h="$4" borderRadius="$2" />
         </YStack>
-        <YStack ai="flex-end" gap="$1">
-          <Skeleton w={70} h="$4" borderRadius="$2" />
-          <Skeleton w={50} h="$3" borderRadius="$2" />
-        </YStack>
+        <XStack ai="center" gap="$2">
+          <YStack ai="flex-end" gap="$1">
+            <Skeleton w={70} h="$5" borderRadius="$2" />
+            <Skeleton w={50} h="$4" borderRadius="$2" />
+          </YStack>
+          <Skeleton w="$5" h="$5" borderRadius="$2" />
+        </XStack>
       </XStack>
-      <Skeleton w={140} h="$4" borderRadius="$2" />
-      <Skeleton w="100%" h="$8" borderRadius="$2" />
     </YStack>
   );
+}
+
+// Scope expansion to the account and market, including native reserves with
+// an empty address. Normalized addresses keep casing-only refreshes stable.
+function getPositionKey({
+  kind,
+  accountId,
+  networkId,
+  marketAddress,
+  reserveKey,
+}: {
+  kind: 'supplied' | 'borrowed';
+  accountId: string;
+  networkId: string;
+  marketAddress: string;
+  reserveKey: string;
+}): string {
+  return [
+    kind,
+    accountId,
+    networkId,
+    marketAddress.toLowerCase(),
+    reserveKey,
+  ].join('-');
 }
 
 export function BorrowMobilePositions({
   eModeStatus,
 }: {
   eModeStatus?: IBorrowEModeStatus | null;
-}) {
+}): ReactElement {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { reserves, market, borrowDataStatus, earnAccount } =
     useBorrowContext();
+  // One card at a time: tapping another position replaces the open one.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  const toggleExpanded = useCallback((key: string) => {
+    setExpandedKey((current) => (current === key ? null : key));
+  }, []);
 
   const accountId = earnAccount.data?.account?.id || '';
   const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
   const networkId = market?.networkId ?? '';
+  const marketAddress = market?.marketAddress ?? '';
+  const normalizedMarketAddress = marketAddress.toLowerCase();
   const eModeId = eModeStatus?.eModeId;
   const hasCollateralControls = Boolean(market && accountId);
+
+  // Collapse the open card when the user moves to a different account, network
+  // or market, so the next scope does not inherit the previous one's expansion.
+  //
+  // Compare against the last scope that actually resolved rather than reacting
+  // to every change of these values. A blank accountId is a loading frame, not
+  // a different account: BorrowDataGate publishes data: null whenever the
+  // derive scope resets or an in-flight market switch is cancelled, and this
+  // component stays mounted throughout because the position entries come from
+  // reserves alone. Treating that as a scope change would collapse the card on
+  // a background event the user never triggered, and it would not come back —
+  // exactly the failure this reset exists to prevent, in the other direction.
+  // X -> '' -> X is therefore a no-op here, while X -> '' -> Y still collapses.
+  const lastResolvedScopeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!accountId || !networkId || !normalizedMarketAddress) {
+      return;
+    }
+    const resolvedScope = [accountId, networkId, normalizedMarketAddress].join(
+      '|',
+    );
+    const previousScope = lastResolvedScopeRef.current;
+    lastResolvedScopeRef.current = resolvedScope;
+    if (previousScope !== null && previousScope !== resolvedScope) {
+      setExpandedKey(null);
+    }
+  }, [accountId, networkId, normalizedMarketAddress]);
 
   const labels = useMemo(
     () => ({
@@ -97,9 +175,10 @@ export function BorrowMobilePositions({
       withdraw: intl.formatMessage({ id: ETranslations.global_withdraw }),
       borrow: intl.formatMessage({ id: ETranslations.global_borrow }),
       repay: intl.formatMessage({ id: ETranslations.defi_repay }),
-      supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
-      borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       collateral: intl.formatMessage({ id: ETranslations.defi_collateral }),
+      collateralNotAvailable: intl.formatMessage({
+        id: ETranslations.global_not_available,
+      }),
     }),
     [intl],
   );
@@ -153,7 +232,7 @@ export function BorrowMobilePositions({
 
   if (isBorrowReservesPending(borrowDataStatus)) {
     return (
-      <YStack gap="$3">
+      <YStack gap={POSITION_CARD_GAP}>
         <PositionCardSkeleton />
         <PositionCardSkeleton />
       </YStack>
@@ -161,7 +240,7 @@ export function BorrowMobilePositions({
   }
 
   return (
-    <YStack gap="$3">
+    <YStack gap={POSITION_CARD_GAP}>
       {entries.map((entry) => {
         const reserveKey = earnUtils.normalizeBorrowAddress({
           networkId,
@@ -173,104 +252,149 @@ export function BorrowMobilePositions({
           reserveAddress: entry.asset.reserveAddress,
         });
 
+        const positionKey = getPositionKey({
+          kind: entry.kind,
+          accountId,
+          networkId,
+          marketAddress,
+          reserveKey,
+        });
+        const amount =
+          entry.kind === 'supplied'
+            ? entry.asset.suppliedAmount
+            : entry.asset.borrowedAmount;
+        let actions: IBorrowPositionCardAction[];
+        let collateral: ReactNode = null;
+
         if (entry.kind === 'supplied') {
           const suppliedAsset = entry.asset;
-          const actions: IBorrowPositionCardAction[] = [
-            {
-              key: 'supply',
-              label: labels.supply,
-              disabled:
-                isNativeActionUnsupported ||
-                supplyDisabledByReserve.get(reserveKey) === true,
-              onPress: () =>
-                openManagePosition(suppliedAsset, EManagePositionType.Supply),
-            },
+          const collateralState = getCollateralCellState(suppliedAsset);
+          actions = [
             {
               key: 'withdraw',
               label: labels.withdraw,
+              variant: 'secondary',
+              testID: BorrowTestIDs.positionCardAction(
+                'supplied',
+                suppliedAsset.reserveAddress,
+                'withdraw',
+              ),
               disabled:
                 isNativeActionUnsupported ||
                 suppliedAsset.withdrawButton?.disabled === true,
               onPress: () =>
                 openManagePosition(suppliedAsset, EManagePositionType.Withdraw),
             },
-          ];
-
-          return (
-            <BorrowPositionCard
-              key={`supplied-${suppliedAsset.reserveAddress}`}
-              testID={BorrowTestIDs.positionCard(
+            {
+              key: 'supply',
+              label: labels.supply,
+              variant: 'primary',
+              testID: BorrowTestIDs.positionCardAction(
                 'supplied',
                 suppliedAsset.reserveAddress,
-              )}
-              token={suppliedAsset.token}
-              tokenAmount={suppliedAsset.suppliedAmount.title}
-              fiatValue={suppliedAsset.suppliedAmount.description}
-              apyDetail={suppliedAsset.apyDetail}
-              apyLabel={labels.supplyApy}
-              statusLabel={labels.supplied}
-              statusBadgeType="success"
-              platformBonusApy={suppliedAsset.platformBonusApy}
-              collateral={
-                hasCollateralControls &&
-                suppliedAsset.usageAsCollateral !== undefined ? (
-                  <>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {labels.collateral}
-                    </SizableText>
-                    <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
-                      <CollateralSwitchCell
-                        item={suppliedAsset}
-                        eModeId={eModeId}
-                        size={ESwitchSize.extraSmall}
-                      />
-                    </Stack>
-                  </>
-                ) : null
-              }
-              actions={actions}
-            />
-          );
-        }
+                'supply',
+              ),
+              disabled:
+                isNativeActionUnsupported ||
+                supplyDisabledByReserve.get(reserveKey) === true,
+              onPress: () =>
+                openManagePosition(suppliedAsset, EManagePositionType.Supply),
+            },
+          ];
 
-        const borrowedAsset = entry.asset;
-        const actions: IBorrowPositionCardAction[] = [
-          {
-            key: 'borrow',
-            label: labels.borrow,
-            disabled:
-              isNativeActionUnsupported ||
-              borrowDisabledByReserve.get(reserveKey) === true,
-            onPress: () =>
-              openManagePosition(borrowedAsset, EManagePositionType.Borrow),
-          },
-          {
-            key: 'repay',
-            label: labels.repay,
-            disabled:
-              isNativeActionUnsupported ||
-              borrowedAsset.repayButton?.disabled === true,
-            onPress: () =>
-              openManagePosition(borrowedAsset, EManagePositionType.Repay),
-          },
-        ];
+          if (hasCollateralControls && collateralState !== 'hidden') {
+            collateral = (
+              <>
+                <SizableText size="$bodySm" color="$text" numberOfLines={1}>
+                  {labels.collateral}
+                </SizableText>
+                {collateralState === 'unavailable' ? (
+                  // Match the unavailable mark used by the desktop table.
+                  <Stack
+                    testID={BorrowTestIDs.positionCardCollateralUnavailable(
+                      suppliedAsset.reserveAddress,
+                    )}
+                    accessible
+                    accessibilityRole="text"
+                    accessibilityLabel={[
+                      suppliedAsset.token.symbol,
+                      labels.collateral,
+                      labels.collateralNotAvailable,
+                    ].join(', ')}
+                  >
+                    <CollateralBadge
+                      canBeCollateral={false}
+                      unavailableBg="$bgStrong"
+                    />
+                  </Stack>
+                ) : (
+                  <CollateralSwitchCell
+                    item={suppliedAsset}
+                    eModeId={eModeId}
+                    size={ESwitchSize.small}
+                  />
+                )}
+              </>
+            );
+          }
+        } else {
+          const borrowedAsset = entry.asset;
+          actions = [
+            {
+              key: 'repay',
+              label: labels.repay,
+              variant: 'secondary',
+              testID: BorrowTestIDs.positionCardAction(
+                'borrowed',
+                borrowedAsset.reserveAddress,
+                'repay',
+              ),
+              disabled:
+                isNativeActionUnsupported ||
+                borrowedAsset.repayButton?.disabled === true,
+              onPress: () =>
+                openManagePosition(borrowedAsset, EManagePositionType.Repay),
+            },
+            {
+              key: 'borrow',
+              label: labels.borrow,
+              variant: 'primary',
+              testID: BorrowTestIDs.positionCardAction(
+                'borrowed',
+                borrowedAsset.reserveAddress,
+                'borrow',
+              ),
+              disabled:
+                isNativeActionUnsupported ||
+                borrowDisabledByReserve.get(reserveKey) === true,
+              onPress: () =>
+                openManagePosition(borrowedAsset, EManagePositionType.Borrow),
+            },
+          ];
+        }
 
         return (
           <BorrowPositionCard
-            key={`borrowed-${borrowedAsset.reserveAddress}`}
+            key={positionKey}
             testID={BorrowTestIDs.positionCard(
-              'borrowed',
-              borrowedAsset.reserveAddress,
+              entry.kind,
+              entry.asset.reserveAddress,
             )}
-            token={borrowedAsset.token}
-            tokenAmount={borrowedAsset.borrowedAmount.title}
-            fiatValue={borrowedAsset.borrowedAmount.description}
-            apyDetail={borrowedAsset.apyDetail}
-            apyLabel={labels.borrowApy}
-            statusLabel={labels.borrowed}
-            statusBadgeType="critical"
-            platformBonusApy={borrowedAsset.platformBonusApy}
+            actionsTestID={BorrowTestIDs.positionCardActions(
+              entry.kind,
+              entry.asset.reserveAddress,
+            )}
+            token={entry.asset.token}
+            tokenAmount={amount.title}
+            fiatValue={amount.description}
+            apyDetail={entry.asset.apyDetail}
+            statusLabel={labels[entry.kind]}
+            statusBadgeType={entry.kind === 'supplied' ? 'success' : 'critical'}
+            platformBonusApy={entry.asset.platformBonusApy}
+            collateral={collateral}
             actions={actions}
+            isExpanded={expandedKey === positionKey}
+            onToggleExpand={() => toggleExpanded(positionKey)}
           />
         );
       })}

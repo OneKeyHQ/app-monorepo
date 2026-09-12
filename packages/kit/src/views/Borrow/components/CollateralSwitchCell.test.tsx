@@ -304,6 +304,73 @@ describe('CollateralSwitchCell settlement guard', () => {
     };
   }
 
+  // The cell sits inside a pressable card on phones and a pressable table row
+  // on desktop; both navigate. The wrapper is what keeps a collateral toggle
+  // from also firing that, so the swallow is load-bearing, not decoration.
+  it('swallows the press so the surrounding card or row never fires', () => {
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
+    );
+    const wrapper = view.UNSAFE_getByProps({ position: 'relative' });
+    const preventDefault = jest.fn();
+    const stopPropagation = jest.fn();
+
+    (
+      wrapper.props as {
+        onPress: (e: {
+          preventDefault: () => void;
+          stopPropagation: () => void;
+        }) => void;
+      }
+    ).onPress({ preventDefault, stopPropagation });
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+  });
+
+  // A padded halo pulled back with a negative margin lands outside this view's
+  // parent, where Android never hit-tests and hitSlop is ignored, while on web
+  // it swallowed the desktop row press and overhung the next column. Nothing to
+  // buy either: the web track is 38x24, at the WCAG 2.5.8 floor, and native
+  // hands off to the platform control, which is larger.
+  it('keeps the press target on the track instead of a padded halo', () => {
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
+    );
+    const wrapper = view.UNSAFE_getByProps({ position: 'relative' });
+
+    // Every spelling, not just the shorthand the halo happened to use: a
+    // longhand px/py/margin would reintroduce the same overhang.
+    const spacing = [
+      'm',
+      'margin',
+      'mx',
+      'my',
+      'ml',
+      'mr',
+      'mt',
+      'mb',
+      'marginHorizontal',
+      'marginVertical',
+      'p',
+      'padding',
+      'px',
+      'py',
+      'pl',
+      'pr',
+      'pt',
+      'pb',
+      'paddingHorizontal',
+      'paddingVertical',
+      'hitSlop',
+    ] as const;
+    const set = spacing.filter(
+      (key) => (wrapper.props as Record<string, unknown>)[key] !== undefined,
+    );
+
+    expect(set).toEqual([]);
+  });
+
   it('uses the top-level account id and preserves eModeId=0 when enabling', async () => {
     borrowContext.earnAccount.data.accountId = 'top-level-account';
     const view = render(
