@@ -4,8 +4,9 @@ export function parseTokenDetailPreviewParam(
   value: unknown,
 ): IMarketTokenDetailPreview | undefined {
   try {
-    const preview: unknown =
-      typeof value === 'string' ? JSON.parse(value) : value;
+    // Only in-memory route objects may seed the preview. URL strings are not
+    // trusted token metadata, even when they contain well-formed JSON.
+    const preview = value;
     if (!preview || typeof preview !== 'object' || Array.isArray(preview))
       return undefined;
     const candidate = preview as Partial<IMarketTokenDetailPreview>;
@@ -26,12 +27,11 @@ export function parseTokenDetailPreviewParam(
   }
 }
 
+// URL/hash navigation must fetch authoritative metadata instead of restoring
+// display identity from caller-controlled query parameters.
 export const marketTokenPreviewRouteConfig = {
-  parse: { legacyTokenPreview: parseTokenDetailPreviewParam },
+  parse: { legacyTokenPreview: (_value: string): undefined => undefined },
   stringify: {
-    legacyTokenPreview: (value: unknown): string => {
-      const preview = parseTokenDetailPreviewParam(value);
-      return preview ? JSON.stringify(preview) : '';
-    },
+    legacyTokenPreview: (_value: unknown): string => '',
   },
 };

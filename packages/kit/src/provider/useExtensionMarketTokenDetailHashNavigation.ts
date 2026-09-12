@@ -9,7 +9,6 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
-import { parseTokenDetailPreviewParam } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 
 type IMarketTokenDetailNavigationTarget =
   | {
@@ -91,9 +90,6 @@ export function getMarketTokenDetailNavigationTargetFromHash(
       searchParams.get('marketTokenCategory') || undefined;
     const marketTokenSymbol =
       searchParams.get('marketTokenSymbol') || undefined;
-    const legacyTokenPreview = parseTokenDetailPreviewParam(
-      searchParams.get('legacyTokenPreview'),
-    );
     const from = searchParams.get('from');
 
     if (segments[1] === 'stock') {
@@ -152,7 +148,6 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ...(showFavoriteButton === undefined
             ? undefined
             : { showFavoriteButton }),
-          ...(legacyTokenPreview ? { legacyTokenPreview } : undefined),
         },
       };
     }
@@ -178,7 +173,6 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         ...(showFavoriteButton === undefined
           ? undefined
           : { showFavoriteButton }),
-        ...(legacyTokenPreview ? { legacyTokenPreview } : undefined),
       },
     };
   } catch {

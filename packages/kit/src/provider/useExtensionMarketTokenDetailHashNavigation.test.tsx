@@ -124,7 +124,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
   });
 
-  it('restores a serialized token preview in the expand-tab runtime', () => {
+  it('ignores a serialized token preview in the expand-tab hash', () => {
     const legacyTokenPreview = {
       address: '0xabc',
       networkId: 'evm--1',
@@ -148,7 +148,6 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
       params: {
         network: 'eth',
         tokenAddress: '0xabc',
-        legacyTokenPreview,
       },
     });
   });
