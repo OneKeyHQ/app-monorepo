@@ -132,8 +132,10 @@ export function PrimeRedemptionFormView({
 }
 
 export function PrimeRedemptionSuccessView({
+  compact = false,
   redemptionResult,
 }: {
+  compact?: boolean;
   redemptionResult: IPrimeRedemptionResult;
 }) {
   const intl = useIntl();
@@ -159,6 +161,7 @@ export function PrimeRedemptionSuccessView({
   return (
     <YStack
       alignItems="center"
+      width={compact ? '100%' : undefined}
       accessible
       accessibilityLiveRegion="polite"
       accessibilityLabel={`${successTitle} ${receivedDaysMessage} ${validUntilMessage}`}
@@ -170,14 +173,27 @@ export function PrimeRedemptionSuccessView({
         autoPlay
         loop={false}
       />
-      <SizableText size="$headingXl" textAlign="center" mt="$-2">
-        {successTitle}
-      </SizableText>
-      <PrimeRedemptionSuccessSummary
-        primeIconName={primeIconName}
-        receivedDaysMessage={receivedDaysMessage}
-        validUntilMessage={validUntilMessage}
-      />
+      {compact ? (
+        <YStack alignItems="center" width="100%" mt="$-2" gap="$1.5">
+          <SizableText size="$headingXl" textAlign="center">
+            {receivedDaysMessage}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+            {validUntilMessage}
+          </SizableText>
+        </YStack>
+      ) : (
+        <>
+          <SizableText size="$headingXl" textAlign="center" mt="$-2">
+            {successTitle}
+          </SizableText>
+          <PrimeRedemptionSuccessSummary
+            primeIconName={primeIconName}
+            receivedDaysMessage={receivedDaysMessage}
+            validUntilMessage={validUntilMessage}
+          />
+        </>
+      )}
     </YStack>
   );
 }
