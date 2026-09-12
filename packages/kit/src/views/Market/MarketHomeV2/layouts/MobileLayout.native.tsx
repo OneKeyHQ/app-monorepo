@@ -604,9 +604,8 @@ function MobileLayoutComponent({
 
   const handleNativeTabPress = useCallback(
     (event: CollapsiblePagerViewOnNativeTabPressEvent) => {
-      const { key, position } = event.nativeEvent;
-      const tabName = tabNames[position] === key ? key : tabNames[position];
-      if (tabName) handleTabPress(tabName);
+      const { key } = event.nativeEvent;
+      if (tabNames.includes(key)) handleTabPress(key);
     },
     [handleTabPress, tabNames],
   );
