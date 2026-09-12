@@ -211,6 +211,10 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     ) : (
       symbolText
     );
+  const fallbackIcon =
+    stock?.source === 'index' || symbol.trim().startsWith('^')
+      ? 'ChartColumnarOutline'
+      : 'CryptoCoinOutline';
 
   return (
     <XStack alignItems="center" gap={gap} userSelect="none">
@@ -218,7 +222,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         tokenImageUri={getTokenImageUri()}
         tokenImageUris={tokenLogoURIs}
         networkImageUri={effectiveNetworkLogoUri}
-        fallbackIcon="CryptoCoinOutline"
+        fallbackIcon={fallbackIcon}
         size={tokenSize}
       />
 

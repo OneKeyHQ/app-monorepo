@@ -33,6 +33,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import {
+  MARKET_BANNER_LIST_MOBILE_HEIGHT,
   MarketBannerList,
   useMarketBannerState,
 } from '../components/MarketBanner/MarketBannerList';
@@ -121,7 +122,6 @@ const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 const MARKET_TAB_ITEM_PRESS_DRAG_GUARD_MS = platformEnv.isNativeIOS ? 700 : 350;
 const MARKET_TAB_ITEM_PRESS_IDLE_GUARD_MS = platformEnv.isNativeIOS ? 180 : 120;
 const MARKET_TAB_BAR_HEIGHT = 44;
-const MARKET_BANNER_HEADER_HEIGHT = 134;
 
 const STYLES = StyleSheet.create({
   pager: { flex: 1 },
@@ -425,7 +425,7 @@ function MobileLayoutComponent({
     bannerCount: bannerList.length,
   });
   const headerHeight = bannerDecisionRef.current.hasBanners
-    ? MARKET_BANNER_HEADER_HEIGHT
+    ? MARKET_BANNER_LIST_MOBILE_HEIGHT
     : 1;
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(
     MARKET_TAB_BAR_HEIGHT + getMarketMobileSecondaryHeaderHeight(),

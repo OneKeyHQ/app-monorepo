@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
+// cspell:ignore GSPC IXIC DJIA
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -179,10 +181,77 @@ function normalizeMarketValue(value?: string | null) {
   return normalized && Number.isFinite(Number(normalized)) ? normalized : '--';
 }
 
+function isMarketIndexToken(token: IMarketBannerTokenPreview) {
+  return token.symbol.trim().startsWith('^');
+}
+
+const MARKET_INDEX_DISPLAY_CONFIG: Record<
+  string,
+  { label: string; order: number }
+> = {
+  GSPC: { label: 'S&P 500', order: 0 },
+  SPX: { label: 'S&P 500', order: 0 },
+  IXIC: { label: 'NASDAQ', order: 1 },
+  COMP: { label: 'NASDAQ', order: 1 },
+  DJI: { label: 'Dow Jones', order: 2 },
+  DJIA: { label: 'Dow Jones', order: 2 },
+};
+
+function getMarketIndexDisplayConfig(token: IMarketBannerTokenPreview) {
+  const symbol = token.symbol.trim().toUpperCase().replace(/^\^/, '');
+  return MARKET_INDEX_DISPLAY_CONFIG[symbol];
+}
+
+function BannerIndexColumn({ token }: { token: IMarketBannerTokenPreview }) {
+  const price = normalizeMarketValue(token.price);
+  const change = normalizeMarketValue(token.priceChange24hPercent);
+  const numericChange = Number(change);
+  let changeColor: '$textSubdued' | '$textSuccess' | '$textCritical' | '$text' =
+    '$textSubdued';
+  if (Number.isFinite(numericChange)) {
+    changeColor = '$text';
+    if (numericChange > 0) changeColor = '$textSuccess';
+    if (numericChange < 0) changeColor = '$textCritical';
+  }
+  const displayConfig = getMarketIndexDisplayConfig(token);
+
+  return (
+    <YStack
+      flex={1}
+      minWidth={0}
+      gap="$1"
+      testID={MarketTestIDs.bannerTokenRow}
+    >
+      <SizableText size="$headingSm" numberOfLines={1}>
+        {displayConfig?.label || token.name || token.symbol}
+      </SizableText>
+      <NumberSizeableText
+        size="$bodyMd"
+        formatter="price"
+        numberOfLines={1}
+        testID={MarketTestIDs.bannerTokenPrice}
+      >
+        {price}
+      </NumberSizeableText>
+      <NumberSizeableText
+        size="$bodyMdMedium"
+        formatter="priceChange"
+        formatterOptions={{ showPlusMinusSigns: numericChange > 0 }}
+        color={changeColor}
+        numberOfLines={1}
+        testID={MarketTestIDs.bannerTokenChange}
+      >
+        {change}
+      </NumberSizeableText>
+    </YStack>
+  );
+}
+
 function BannerTokenRow({ token }: { token: IMarketBannerTokenPreview }) {
   const price = normalizeMarketValue(token.price);
   const change = normalizeMarketValue(token.priceChange24hPercent);
   const numericChange = Number(change);
+  const isIndex = isMarketIndexToken(token);
   let changeColor: '$textSubdued' | '$textSuccess' | '$textCritical' | '$text' =
     '$textSubdued';
   if (Number.isFinite(numericChange)) {
@@ -211,7 +280,11 @@ function BannerTokenRow({ token }: { token: IMarketBannerTokenPreview }) {
             alignItems="center"
             justifyContent="center"
           >
-            <Icon size="$4" name="CryptoCoinOutline" color="$iconSubdued" />
+            <Icon
+              size="$4"
+              name={isIndex ? 'ChartColumnarOutline' : 'CryptoCoinOutline'}
+              color="$iconSubdued"
+            />
           </Stack>
         }
       />
@@ -249,24 +322,39 @@ function BannerTokenRow({ token }: { token: IMarketBannerTokenPreview }) {
 
 function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   const { item, onPress } = props;
-  const tokens = useMemo(
-    () =>
-      (item.tokens ?? [])
+  const { isSmallScreen } = props;
+  const isIndexBanner =
+    item.type === EMarketBannerType.Index ||
+    item.type === EMarketBannerType.StockIndex;
+  const tokens = useMemo(() => {
+    const bannerTokens = item.tokens ?? [];
+    if (isIndexBanner) {
+      return bannerTokens
         .toSorted((left, right) => {
-          const leftChange = Number(
-            normalizeMarketValue(left.priceChange24hPercent),
+          const leftOrder = getMarketIndexDisplayConfig(left)?.order;
+          const rightOrder = getMarketIndexDisplayConfig(right)?.order;
+          return (
+            (leftOrder ?? Number.MAX_SAFE_INTEGER) -
+            (rightOrder ?? Number.MAX_SAFE_INTEGER)
           );
-          const rightChange = Number(
-            normalizeMarketValue(right.priceChange24hPercent),
-          );
-          if (!Number.isFinite(leftChange))
-            return Number.isFinite(rightChange) ? 1 : 0;
-          if (!Number.isFinite(rightChange)) return -1;
-          return rightChange - leftChange;
         })
-        .slice(0, 3),
-    [item.tokens],
-  );
+        .slice(0, 3);
+    }
+    return bannerTokens
+      .toSorted((left, right) => {
+        const leftChange = Number(
+          normalizeMarketValue(left.priceChange24hPercent),
+        );
+        const rightChange = Number(
+          normalizeMarketValue(right.priceChange24hPercent),
+        );
+        if (!Number.isFinite(leftChange))
+          return Number.isFinite(rightChange) ? 1 : 0;
+        if (!Number.isFinite(rightChange)) return -1;
+        return rightChange - leftChange;
+      })
+      .slice(0, 3);
+  }, [isIndexBanner, item.tokens]);
   const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
 
   // Older API deployments do not provide token previews yet.
@@ -275,26 +363,26 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   return (
     <YStack
       testID={MarketTestIDs.bannerItem}
+      onPress={handlePress}
+      role="button"
+      aria-label={item.title}
       bg={convertThemeToken(item.backgroundColor, '$bgSubdued')}
       borderRadius="$3"
       px="$4"
       py="$5"
-      width={336}
-      flexShrink={0}
+      width={isSmallScreen ? '100%' : 336}
+      flexShrink={isSmallScreen ? 1 : 0}
       gap="$5"
       userSelect="none"
+      hoverStyle={{ opacity: 0.8 }}
+      pressStyle={{ opacity: 0.6 }}
     >
       <XStack
         alignItems="center"
         gap="$2"
         h="$6"
-        onPress={handlePress}
-        role="button"
-        aria-label={item.title}
         testID={MarketTestIDs.bannerTitle}
         borderRadius="$1"
-        hoverStyle={{ opacity: 0.8 }}
-        pressStyle={{ opacity: 0.6 }}
       >
         <SizableText
           size="$headingSm"
@@ -307,22 +395,39 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
         {item.type === EMarketBannerType.Perps ? (
           <LeverageBadge leverage={10} />
         ) : null}
-        <Icon
-          name="ChevronRightSmallOutline"
-          size="$4"
-          color="$iconSubdued"
-          flexShrink={0}
-        />
-      </XStack>
-      <YStack gap="$4" minHeight={104}>
-        {tokens.length ? (
-          tokens.map((token, index) => (
-            <BannerTokenRow key={`${token.symbol}-${index}`} token={token} />
-          ))
-        ) : (
-          <SizableText color="$textSubdued">--</SizableText>
+        {isIndexBanner ? null : (
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$4"
+            color="$iconSubdued"
+            flexShrink={0}
+          />
         )}
-      </YStack>
+      </XStack>
+      {isIndexBanner ? (
+        <XStack gap="$3" minHeight={104} alignItems="flex-start">
+          {tokens.length ? (
+            tokens.map((token, index) => (
+              <BannerIndexColumn
+                key={`${token.symbol}-${index}`}
+                token={token}
+              />
+            ))
+          ) : (
+            <SizableText color="$textSubdued">--</SizableText>
+          )}
+        </XStack>
+      ) : (
+        <YStack gap="$4" minHeight={104}>
+          {tokens.length ? (
+            tokens.map((token, index) => (
+              <BannerTokenRow key={`${token.symbol}-${index}`} token={token} />
+            ))
+          ) : (
+            <SizableText color="$textSubdued">--</SizableText>
+          )}
+        </YStack>
+      )}
     </YStack>
   );
 }

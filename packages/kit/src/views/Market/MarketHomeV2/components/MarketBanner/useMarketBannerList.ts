@@ -6,9 +6,88 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
-import { fetchMarketBannerListForPlatform } from './marketBannerListPlatformApi';
+import {
+  fetchMarketBannerListForPlatform,
+  fetchMarketBannerStockTokenListForPlatform,
+  fetchMarketBannerTokenListForPlatform,
+} from './marketBannerListPlatformApi';
+
+async function fetchMarketBannerListWithLiveTokens({
+  enableMockMarketBanner,
+}: {
+  enableMockMarketBanner?: boolean;
+}): Promise<IMarketBannerItem[]> {
+  const banners = await fetchMarketBannerListForPlatform({
+    enableMockMarketBanner,
+  });
+
+  const hydratedBanners = await Promise.all(
+    banners.map(async (banner) => {
+      // Index banners expose quote rows in `indices`; they do not have a
+      // token-list response. Convert those rows to the common banner preview
+      // shape before rendering so the card does not fall back to `--`.
+      if (banner.type === EMarketBannerType.StockIndex) {
+        const indices = banner.indices ?? [];
+        return indices.length ? { ...banner, tokens: indices } : banner;
+      }
+
+      const isStockBanner =
+        banner.assetType !== undefined ||
+        banner.type === EMarketBannerType.StockPerps ||
+        banner.title.includes('指数');
+      if (banner.type === EMarketBannerType.Perps) {
+        return banner;
+      }
+
+      try {
+        if (
+          isStockBanner ||
+          banner.type === EMarketBannerType.Stock ||
+          banner.type === EMarketBannerType.Index
+        ) {
+          const assets = await fetchMarketBannerStockTokenListForPlatform(
+            banner.tokenListId,
+          );
+          if (!assets.length) return banner;
+          return {
+            ...banner,
+            tokens: assets.map((asset) => ({
+              logo: asset.logoUrl,
+              name: asset.name,
+              symbol: asset.symbol,
+              price: asset.price,
+              priceChange24hPercent: asset.priceChange24hPercent,
+            })),
+          };
+        }
+
+        if (!banner.tokenListId) return banner;
+        const tokens = await fetchMarketBannerTokenListForPlatform(
+          banner.tokenListId,
+        );
+        if (!tokens.length) return banner;
+
+        return {
+          ...banner,
+          tokens: tokens.map((token) => ({
+            logo: token.logoUrl ?? token.logoUrls?.[0] ?? '',
+            name: token.name,
+            symbol: token.symbol,
+            price: token.price,
+            priceChange24hPercent: token.priceChange24hPercent,
+          })),
+        };
+      } catch {
+        return banner;
+      }
+    }),
+  );
+
+  return hydratedBanners;
+}
 
 export function useMarketBannerList(): {
   bannerList: IMarketBannerItem[];
@@ -29,7 +108,7 @@ export function useMarketBannerList(): {
   const { result: bannerList } = usePromiseResult<IMarketBannerItem[]>(
     async () => {
       try {
-        return await fetchMarketBannerListForPlatform({
+        return await fetchMarketBannerListWithLiveTokens({
           enableMockMarketBanner,
         });
       } catch (error) {
