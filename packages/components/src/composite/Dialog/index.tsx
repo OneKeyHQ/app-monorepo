@@ -78,6 +78,7 @@ import {
   DialogTitle,
   SetDialogHeader,
 } from './Header';
+import { HeaderDragZone } from './HeaderDragZone';
 import { renderToContainer } from './renderToContainer';
 
 import type {
@@ -221,6 +222,10 @@ const useSafeKeyboardAnimationStyle = ({
   return animatedStyles;
 };
 
+// Without a title the header drag zone is only the grabber strip; keep it
+// tall enough to catch a finger.
+const HEADER_DRAG_ZONE_MIN_HEIGHT = 24;
+
 /**
  * Renders a responsive dialog component that adapts between a sheet (for medium and larger screens) and a modal dialog (for smaller screens or web), supporting customizable content, footer actions, and platform-specific behaviors.
  *
@@ -253,6 +258,7 @@ function DialogFrame({
   sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
+  sheetDragArea = 'sheet',
   disableSystemClose = false,
   showHeader = true,
   trapFocus,
@@ -334,18 +340,46 @@ function DialogFrame({
 
   const media = useMedia();
 
+  // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
+  // so a scrollable body scrolls natively with no hand-off to the sheet, and
+  // the grabber + title row (HeaderDragZone) carry a pan of their own that
+  // moves the sheet body and lets go of it past its thresholds.
+  const isHeaderDragOnly =
+    media.md && sheetDragArea === 'header' && !disableDrag;
+  const headerDragY = useSharedValue(0);
+  useEffect(() => {
+    if (open) {
+      headerDragY.value = 0;
+    }
+  }, [open, headerDragY]);
+  const dismissFromHeaderDrag = useCallback(() => {
+    handleOpenChange(false);
+  }, [handleOpenChange]);
+  const headerDragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: headerDragY.value }],
+  }));
+
   const zIndex = useOverlayZIndex(open, title);
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
     useInitialSafeAreaBottomInsetFallback,
   });
+  const dialogHeader = showHeader ? (
+    <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
+  ) : null;
   const renderDialogContent = (
     <Animated.View style={safeKeyboardAnimationStyle}>
-      {showHeader ? (
-        <DialogHeader
-          trackID={trackID}
-          onClose={handleHeaderCloseButtonPress}
-        />
-      ) : null}
+      {isHeaderDragOnly ? (
+        <HeaderDragZone
+          dragY={headerDragY}
+          onDismiss={dismissFromHeaderDrag}
+          minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
+        >
+          <SheetGrabber />
+          {dialogHeader}
+        </HeaderDragZone>
+      ) : (
+        dialogHeader
+      )}
       {/* extra children */}
       <Content
         testID={testID}
@@ -385,7 +419,7 @@ function DialogFrame({
   if (media.md) {
     return (
       <Sheet
-        disableDrag={disableDrag}
+        disableDrag={disableDrag || isHeaderDragOnly}
         open={open}
         position={position}
         onPositionChange={setPosition}
@@ -422,7 +456,14 @@ function DialogFrame({
           // safe-area inset region (applied as paddingBottom on the wrapper,
           // below the footer) doesn't reveal the default `$bg` as a seam when a
           // dialog overrides its content background (e.g. Prime feature intro).
-          bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
+          // In header-drag mode the frame stays put and transparent while the
+          // body below carries the surface and moves with the drag, so the
+          // pull reads as the sheet moving rather than content sliding in it.
+          bg={
+            isHeaderDragOnly
+              ? 'transparent'
+              : ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
+          }
           borderCurve="continuous"
           disableHideBottomOverflow
           // Fix width issue for portrait iPad mini - ensure proper dialog width
@@ -437,10 +478,26 @@ function DialogFrame({
               onMountAutoFocus={onOpenAutoFocus}
               loop
             >
-              <Stack>
-                {!disableDrag ? <SheetGrabber /> : null}
-                {renderDialogContent}
-              </Stack>
+              {isHeaderDragOnly ? (
+                <Animated.View style={headerDragStyle}>
+                  <Stack
+                    bg={
+                      (contentContainerProps as { bg?: IColorTokens })?.bg ??
+                      '$bg'
+                    }
+                    borderTopLeftRadius="$6"
+                    borderTopRightRadius="$6"
+                    borderCurve="continuous"
+                  >
+                    {renderDialogContent}
+                  </Stack>
+                </Animated.View>
+              ) : (
+                <Stack>
+                  {!disableDrag ? <SheetGrabber /> : null}
+                  {renderDialogContent}
+                </Stack>
+              )}
             </FocusScope>
           </DialogSheetContext.Provider>
         </Sheet.Frame>

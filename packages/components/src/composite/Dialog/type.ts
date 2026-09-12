@@ -98,6 +98,12 @@ interface IBasicDialogProps extends TMDialogProps {
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
+  // Where a swipe can drag the phone sheet away. 'sheet' (default) is the
+  // whole sheet, which is what Tamagui does; 'header' limits it to the grabber and the
+  // title row, so a scrollable body never competes with the sheet for the
+  // vertical drag (OK-61140). No effect on the floating dialog or with
+  // disableDrag.
+  sheetDragArea?: 'sheet' | 'header';
   // When true, system-level close paths (Android hardware back, Escape) do
   // not trigger onClose. Use for blocking dialogs (force-update, etc.) that
   // already opt out of dismissOnOverlayPress + disableDrag.

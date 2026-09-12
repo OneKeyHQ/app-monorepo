@@ -22,6 +22,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -330,6 +331,16 @@ function getLinkTitle({
   return getHostname(getLinkUrl(link));
 }
 
+/** Whether the intro payload has anything the Protocol tab could show. */
+export function hasProtocolIntroContent(
+  protocolInfo: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[] | undefined,
+): boolean {
+  const items = Array.isArray(protocolInfo)
+    ? protocolInfo
+    : protocolInfo?.items;
+  return (items ?? []).some(hasProtocolIntroItemContent);
+}
+
 function hasProtocolIntroItemContent(item: IEarnProtocolIntroItem) {
   return Boolean(
     hasText(getItemTitle(item)) ||
@@ -577,6 +588,26 @@ function ExpandableDescription({ text }: { text: IEarnProtocolIntroText }) {
         </SizableText>
       </YStack>
     </YStack>
+  );
+}
+
+// A link opened from inside one of the intro dialogs. On the phone the page
+// it opens lands on top of the sheet, which is still sitting there when the
+// user comes back (OK-62885), so the sheet goes first. On desktop the link
+// opens a browser tab and the dialog stays where it was. Outside a dialog the
+// close is a no-op.
+function useOpenLinkFromDialog() {
+  const dialog = useDialogInstance();
+  return useCallback(
+    async (url: string) => {
+      if (platformEnv.isNative) {
+        // Awaited: presenting the browser while the sheet is still on its
+        // way out would overlap the two transitions.
+        await dialog.close();
+      }
+      openUrlExternal(url);
+    },
+    [dialog],
   );
 }
 
@@ -933,11 +964,12 @@ function MemberAvatar({ member }: { member: IEarnProtocolIntroTeamMember }) {
 
 function MemberSocialIcon({ link }: { link: IEarnProtocolIntroSocialLink }) {
   const url = getLinkUrl(link);
+  const openLink = useOpenLinkFromDialog();
   const handlePress = useCallback(() => {
     if (url) {
-      openUrlExternal(url);
+      void openLink(url);
     }
-  }, [url]);
+  }, [openLink, url]);
 
   if (!url || link.disabled) {
     return null;
@@ -1377,11 +1409,12 @@ function AuditAccordionItem({
     getText(audit.button?.title) ||
     intl.formatMessage({ id: ETranslations.global_view });
   const hasContent = hasScopeText || shouldShowButton;
+  const openLink = useOpenLinkFromDialog();
   const handleOpen = useCallback(() => {
     if (url && !isButtonDisabled) {
-      openUrlExternal(url);
+      void openLink(url);
     }
-  }, [isButtonDisabled, url]);
+  }, [isButtonDisabled, openLink, url]);
 
   return (
     <Accordion.Item value={String(index)}>
@@ -1613,6 +1646,10 @@ function ProtocolIntroSectionComponent({
         },
         showCancelButton: false,
         disableDrag: platformEnv.isRuntimeBrowser,
+        // These bodies scroll; only the grabber and the title drag the sheet
+        // away, so the list never fights the sheet for a vertical swipe
+        // (OK-61140).
+        sheetDragArea: 'header',
       });
     },
     [intl],

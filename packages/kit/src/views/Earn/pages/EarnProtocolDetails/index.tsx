@@ -1,6 +1,14 @@
-import { Fragment, memo, useCallback, useMemo, useState } from 'react';
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
+import Svg, { Line } from 'react-native-svg';
 
 import {
   Badge,
@@ -19,6 +27,7 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
   useShare,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -35,6 +44,10 @@ import {
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -88,7 +101,10 @@ import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
-import { ProtocolIntroSection } from './components/ProtocolIntroSection';
+import {
+  ProtocolIntroSection,
+  hasProtocolIntroContent,
+} from './components/ProtocolIntroSection';
 import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { YieldBreakdownSheet } from './components/YieldBreakdownSheet';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
@@ -106,6 +122,7 @@ import {
 } from './mobile/yieldSegments.utils';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent } from 'react-native';
 
 function ManagersSection({
   managers,
@@ -132,6 +149,45 @@ function ManagersSection({
       ))}
     </XStack>
   ) : null;
+}
+
+// Android's Text ignores textDecorationStyle, so the dotted rule under the
+// APY figure came out as a solid underline there (OK-62943). Android draws
+// the rule as an SVG line under the figure instead; iOS and web keep the text
+// decoration that already matches the design.
+const APY_UNDERLINE_PROPS = platformEnv.isNativeAndroid
+  ? {}
+  : ({
+      textDecorationLine: 'underline',
+      textDecorationStyle: 'dotted',
+      textDecorationColor: '$borderStrong',
+    } as const);
+
+function ApyDottedRule() {
+  const theme = useTheme();
+  const [width, setWidth] = useState(0);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width),
+    [],
+  );
+  return (
+    <Stack w="100%" h={3} onLayout={handleLayout}>
+      {width > 0 ? (
+        <Svg width={width} height={3}>
+          <Line
+            x1={1}
+            y1={1.5}
+            x2={width - 1}
+            y2={1.5}
+            stroke={theme.borderStrong.val}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeDasharray="0.1 4"
+          />
+        </Svg>
+      ) : null}
+    </Stack>
+  );
 }
 
 const ProtocolHeader = ({
@@ -241,7 +297,11 @@ const ProtocolHeader = ({
           </XStack>
           {formattedMaturityDate ? (
             <>
-              <Divider vertical h="$6" flexShrink={0} />
+              {/* A filled 1pt line, not a vertical Divider: iOS never painted
+                  the hairline right border the Divider draws on its zero-width
+                  Separator, so the line was missing, and at hairline width
+                  even $border all but vanished next to the text (OK-62886). */}
+              <Stack w={1} h="$6" bg="$border" flexShrink={0} />
               <SizableText
                 size="$bodyLgMedium"
                 numberOfLines={1}
@@ -272,26 +332,27 @@ const ProtocolHeader = ({
               <XStack ai="baseline" alignSelf="flex-start" cursor="pointer">
                 {headlineApyParts ? (
                   <>
-                    <SizableText
-                      size="$heading2xl"
-                      color="$textSuccess"
-                      textDecorationLine="underline"
-                      textDecorationStyle="dotted"
-                      textDecorationColor="$borderStrong"
-                    >
-                      {headlineApyParts.base}
-                    </SizableText>
-                    {headlineApyParts.bonus ? (
-                      <SizableText
-                        size="$heading2xl"
-                        color={headlineApyParts.bonusColor}
-                        textDecorationLine="underline"
-                        textDecorationStyle="dotted"
-                        textDecorationColor="$borderStrong"
-                      >
-                        {headlineApyParts.bonus}
-                      </SizableText>
-                    ) : null}
+                    <YStack>
+                      <XStack ai="baseline">
+                        <SizableText
+                          size="$heading2xl"
+                          color="$textSuccess"
+                          {...APY_UNDERLINE_PROPS}
+                        >
+                          {headlineApyParts.base}
+                        </SizableText>
+                        {headlineApyParts.bonus ? (
+                          <SizableText
+                            size="$heading2xl"
+                            color={headlineApyParts.bonusColor}
+                            {...APY_UNDERLINE_PROPS}
+                          >
+                            {headlineApyParts.bonus}
+                          </SizableText>
+                        ) : null}
+                      </XStack>
+                      {platformEnv.isNativeAndroid ? <ApyDottedRule /> : null}
+                    </YStack>
                     {headlineApyParts.unit ? (
                       <SizableText size="$heading2xl" color="$textSuccess">
                         {` ${headlineApyParts.unit}`}
@@ -688,7 +749,11 @@ function GridSection({
                 description={cell.description}
                 descriptionComponent={
                   cell?.items ? (
-                    <YStack gap="$2">
+                    // flexShrink/minWidth down this chain let a long token
+                    // name ("Morpho-cbBTC-USDC-wrapper") wrap inside its
+                    // column instead of running under the next cell
+                    // (OK-62923).
+                    <YStack gap="$2" flexShrink={1} minWidth={0}>
                       {(cell?.items ?? []).map((item, itemIndex) => (
                         <XStack
                           key={
@@ -698,6 +763,8 @@ function GridSection({
                           }
                           ai="center"
                           gap="$1.5"
+                          flexShrink={1}
+                          minWidth={0}
                         >
                           <Token
                             size="xs"
@@ -706,7 +773,11 @@ function GridSection({
                             tokenImageUri={item.logoURI}
                           />
                           {item.title?.text ? (
-                            <EarnText text={item.title} size="$bodyLgMedium" />
+                            <EarnText
+                              text={item.title}
+                              size="$bodyLgMedium"
+                              flexShrink={1}
+                            />
                           ) : null}
                         </XStack>
                       ))}
@@ -937,9 +1008,11 @@ const DetailsPartComponent = ({
                   </YStack>
                 }
                 protocolContent={
-                  <ProtocolIntroSection
-                    protocolInfo={detailInfo.protocolInfo}
-                  />
+                  hasProtocolIntroContent(detailInfo.protocolInfo) ? (
+                    <ProtocolIntroSection
+                      protocolInfo={detailInfo.protocolInfo}
+                    />
+                  ) : undefined
                 }
               />
               <FAQSection faqs={detailInfo.faqs} tokenInfo={tokenInfo} />
@@ -1198,6 +1271,30 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const handleStakeWithdrawSuccess = useCallback(() => {
     void refreshData();
   }, [refreshData]);
+
+  // Claim, stake and withdraw refresh the page the moment their transaction
+  // is broadcast, before the chain or the provider has seen it, so the numbers
+  // came back unchanged until the page was reopened (OK-62888). Refresh again
+  // when the local history marks a pending transaction confirmed. Phone
+  // layout only: the wide layout shows no account rows on this page.
+  useEffect(() => {
+    if (!isMobileLayout) {
+      return undefined;
+    }
+    const handleHistoryTxStatusChanged = () => {
+      void refreshData();
+    };
+    appEventBus.on(
+      EAppEventBusNames.HistoryTxStatusChanged,
+      handleHistoryTxStatusChanged,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.HistoryTxStatusChanged,
+        handleHistoryTxStatusChanged,
+      );
+    };
+  }, [isMobileLayout, refreshData]);
 
   // Use custom hook for breadcrumb management
   const { breadcrumbProps } = useProtocolDetailBreadcrumb({

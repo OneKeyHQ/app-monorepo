@@ -17,6 +17,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -378,11 +379,16 @@ function BasicListaCheckActionIcon({
   protocolInfo,
   token,
   trigger,
+  onSuccess,
 }: {
   actionIcon: IEarnListaCheckActionIcon;
   protocolInfo?: IProtocolInfo;
   token?: IEarnToken;
   trigger?: IActionTrigger;
+  // Fires once the server has accepted the signature: the reward amount and
+  // its Claim button only exist in the next detail response, so the caller
+  // has to refetch (OK-62942). The positions page does the same.
+  onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const signMessage = useEarnSignMessage();
@@ -399,8 +405,10 @@ function BasicListaCheckActionIcon({
       provider: protocolInfo.provider,
       symbol: token?.symbol,
       request: { origin: 'https://lista.org/', scope: 'ethereum' },
-    }).finally(() => setLoading(false));
-  }, [protocolInfo, signMessage, token]);
+    })
+      .then(() => onSuccess?.())
+      .finally(() => setLoading(false));
+  }, [protocolInfo, signMessage, token, onSuccess]);
 
   if (trigger) {
     return trigger({
@@ -562,6 +570,7 @@ function BasicEarnActionIcon({
   onActionSuccess?: () => void;
 }) {
   const [cancelLoading, setCancelLoading] = useState(false);
+  const { copyText } = useClipboard();
   const handleUniversalWithdraw = useUniversalWithdraw({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: protocolInfo?.networkId || tokenInfo?.networkId || '',
@@ -604,10 +613,16 @@ function BasicEarnActionIcon({
   }
   let onPress: undefined | IIconButtonProps['onPress'];
   let icon: IKeyOfIcons | undefined;
+  let disabled: boolean | undefined;
   switch (actionIcon?.type) {
     case 'link':
       icon = 'OpenOutline';
       onPress = () => openUrlExternal(actionIcon.data.link);
+      break;
+    case 'copy':
+      icon = 'Copy3Outline';
+      disabled = actionIcon.disabled;
+      onPress = () => copyText(actionIcon.data.text);
       break;
     case 'portfolio':
       return (
@@ -625,6 +640,7 @@ function BasicEarnActionIcon({
           protocolInfo={protocolInfo}
           token={token}
           trigger={trigger}
+          onSuccess={onActionSuccess}
         />
       );
     case EStakingActionType.CancelWithdrawal:
@@ -725,6 +741,7 @@ function BasicEarnActionIcon({
       size="small"
       icon={icon}
       onPress={onPress}
+      disabled={disabled}
       color="$iconSubdued"
       variant="tertiary"
     />

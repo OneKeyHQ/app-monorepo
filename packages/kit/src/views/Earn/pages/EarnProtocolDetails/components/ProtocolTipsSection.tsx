@@ -13,6 +13,7 @@ import {
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
 
 // Same caps the protocol intro dialog uses, so every Earn dialog scrolls at the
@@ -111,6 +112,11 @@ export function ProtocolTipsSection({
       title: protocolTipsHeader,
       showFooter: false,
       renderContent: <ProtocolTipsDialogContent tips={tips} />,
+      disableDrag: platformEnv.isRuntimeBrowser,
+      // The body scrolls; only the grabber and the title drag the sheet away,
+      // so scrolling the tips never moves the sheet itself (OK-62949, the
+      // same conflict as OK-61140).
+      sheetDragArea: 'header',
     });
   }, [protocolTipsHeader, tips]);
 
