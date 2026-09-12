@@ -2,6 +2,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import {
   EPasswordMode,
@@ -9,6 +10,7 @@ import {
 } from '@onekeyhq/shared/types/password';
 import type { EPasswordPromptType } from '@onekeyhq/shared/types/password';
 
+import { runtimePersistenceAdapter } from '../../../runtime/RuntimeEnvironmentAdapter';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
@@ -56,6 +58,8 @@ export type IPasswordPromptPromiseTriggerAtom = {
         idNumber: number;
         type: EPasswordPromptType;
         dialogProps?: IDialogShowProps;
+        enforcePasswordErrorProtection?: boolean;
+        manualPasswordOnly?: boolean;
         skipPostVerifyBackgroundTasks?: boolean;
         kdfParams?: IPbkdf2KdfParams;
       }
@@ -126,6 +130,9 @@ export const { target: passwordModeAtom, use: usePasswordModeAtom } =
 
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
   globalAtomComputed<Promise<boolean | undefined>>(async (get) => {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      return false;
+    }
     const platformSupport = platformEnv.isExtension || platformEnv.isDesktop;
     const { appLockDuration } = get(passwordPersistAtom.atom());
     return (
@@ -138,7 +145,12 @@ export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
 export const { target: appIsLocked, use: useAppIsLockedAtom } =
   globalAtomComputed<boolean>((get) => {
     const { isMigrationModalOpen, isProcessing } = get(v4migrationAtom.atom());
-    if (isMigrationModalOpen || isProcessing) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode' ||
+      isMigrationModalOpen ||
+      isProcessing
+    ) {
       return false;
     }
     const { isPasswordSet, appLockDuration } = get(passwordPersistAtom.atom());

@@ -8,6 +8,7 @@ jest.mock(
 );
 
 const dogeAssetDetail: IMarketAssetDetailData = {
+  about: '',
   asset: {
     assetId: 'doge',
     name: 'Dogecoin',

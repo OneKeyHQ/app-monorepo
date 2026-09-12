@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Alert, YStack } from '@onekeyhq/components';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -58,6 +59,8 @@ export function PerpTips() {
   }, [intl, parseQRCode, perpConfigCommon?.perpBannerConfig]);
 
   if (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode' ||
     !perpConfigCommon?.perpBannerConfig ||
     perpConfigCommon?.perpBannerClosedIds?.includes(
       perpConfigCommon?.perpBannerConfig?.id,

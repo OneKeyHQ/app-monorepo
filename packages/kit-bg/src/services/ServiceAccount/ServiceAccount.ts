@@ -3832,6 +3832,7 @@ class ServiceAccount extends ServiceBase {
           const postUnlockDbDevice =
             await this.backgroundApi.serviceHardware.getDeviceByConnectId({
               connectId,
+              featuresDeviceId: dbDevice.deviceId,
             });
           if (postUnlockDbDevice?.deviceStateInfo) {
             seededDbDevice = {
@@ -3895,6 +3896,7 @@ class ServiceAccount extends ServiceBase {
             const latestDbDevice =
               await this.backgroundApi.serviceHardware.getDeviceByConnectId({
                 connectId,
+                featuresDeviceId: dbDevice.deviceId,
               });
             const latestUnlockedAttachPin =
               latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
@@ -5495,7 +5497,8 @@ class ServiceAccount extends ServiceBase {
     walletId,
     skipBackupWalletRemove,
     isRemoveToMocked,
-  }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
+    removeSameDeviceWallets,
+  }: IDBRemoveWalletParams & { removeSameDeviceWallets?: boolean }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
     }
@@ -5505,26 +5508,51 @@ class ServiceAccount extends ServiceBase {
       );
     }
 
-    let wallet = await this.getWalletSafe({ walletId });
-    assertWalletCanUseGenericRemoval(wallet);
-
-    const shouldSkipUnavailableHardwareCheck =
-      accountUtils.isHwWallet({ walletId }) &&
-      accountUtils.isWalletDeprecatedOrMocked(wallet);
-    if (!shouldSkipUnavailableHardwareCheck) {
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+    let relatedWalletIds: string[] | undefined;
+    if (removeSameDeviceWallets) {
+      if (!accountUtils.isHwWallet({ walletId }) || isRemoveToMocked) {
+        throw new OneKeyLocalError('Only hardware wallets can forget a device');
+      }
+      const wallets = await this.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: true,
+        filterQrWallet: true,
       });
+      const device = wallets[walletId]?.device;
+      if (!device) {
+        throw new OneKeyLocalError('Hardware wallet device not found');
+      }
+      relatedWalletIds = Object.values(wallets)
+        .filter((item) => deviceUtils.isSamePhysicalDevice(item.device, device))
+        .map((item) => item.wallet.id)
+        .filter((id) => id !== walletId);
     }
 
-    wallet = await this.getWalletSafe({ walletId });
-    assertWalletCanUseGenericRemoval(wallet);
+    const walletIds = [walletId, ...(relatedWalletIds ?? [])];
+    // Complete every device/password check before starting the DB transaction.
+    for (const id of walletIds) {
+      const wallet = await this.getWalletSafe({ walletId: id });
+      assertWalletCanUseGenericRemoval(wallet);
+      const shouldSkipUnavailableHardwareCheck =
+        accountUtils.isHwWallet({ walletId: id }) &&
+        accountUtils.isWalletDeprecatedOrMocked(wallet);
+      if (!shouldSkipUnavailableHardwareCheck) {
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+          walletId: id,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        });
+      }
+    }
+    for (const id of walletIds) {
+      assertWalletCanUseGenericRemoval(
+        await this.getWalletSafe({ walletId: id }),
+      );
+    }
 
     return this.removeWalletCore({
       walletId,
       skipBackupWalletRemove,
       isRemoveToMocked,
+      relatedWalletIds,
     });
   }
 
@@ -5665,7 +5693,8 @@ class ServiceAccount extends ServiceBase {
     walletId,
     skipBackupWalletRemove,
     isRemoveToMocked,
-  }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>): Promise<void> {
+    relatedWalletIds,
+  }: IDBRemoveWalletParams & { relatedWalletIds?: string[] }): Promise<void> {
     const isBotWallet = accountUtils.isBotWallet({ walletId });
     // OK-53558: capture bot wallet metadata before localDb.removeWallet so we
     // can push a deletion tombstone with the original payload after removal.
@@ -5673,10 +5702,10 @@ class ServiceAccount extends ServiceBase {
       ? await simpleDb.botWallet.getMetadata(walletId)
       : undefined;
 
-    const result = await localDb.removeWallet({
-      walletId,
-      isRemoveToMocked,
-    });
+    const walletIds = [walletId, ...(relatedWalletIds ?? [])];
+    const result = relatedWalletIds?.length
+      ? await localDb.removeWallets({ walletIds, isRemoveToMocked })
+      : await localDb.removeWallet({ walletId, isRemoveToMocked });
     if (isBotWallet) {
       await this.cleanupRemovedBotWalletCloudSyncState({
         walletId,
@@ -5691,19 +5720,31 @@ class ServiceAccount extends ServiceBase {
       await timerUtils.wait(1500);
     }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
-      walletId,
-    });
+    for (const id of walletIds) {
+      try {
+        await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove(
+          {
+            walletId: id,
+          },
+        );
+      } catch (error) {
+        // Wallet deletion has committed; continue the remaining cleanup.
+        console.error(
+          'Failed to cleanup DApp connections after wallet removal:',
+          error,
+        );
+      }
 
-    // Cleanup orphaned HyperLiquid agent credentials
-    void this.cleanupOrphanedHyperLiquidAgentCredentials({
-      walletId,
-    });
-
-    if (!skipBackupWalletRemove) {
-      void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
-        walletId,
+      // Cleanup orphaned HyperLiquid agent credentials
+      void this.cleanupOrphanedHyperLiquidAgentCredentials({
+        walletId: id,
       });
+
+      if (!skipBackupWalletRemove) {
+        void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
+          walletId: id,
+        });
+      }
     }
     return result;
   }
@@ -6093,6 +6134,9 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
     customReceiveAddressPath?: string;
+    /** DeviceStage confirm channel: the address the person expects, shown
+     * on the confirm card to check against the device screen. */
+    expectedAddress?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -6159,6 +6203,21 @@ class ServiceAccount extends ServiceBase {
         hideCheckingDeviceLoading: isThirdPartyVendor,
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
+        stageConfirmContent: params.expectedAddress
+          ? {
+              details: [
+                {
+                  label: appLocale.intl.formatMessage({
+                    id: ETranslations.global_address,
+                  }),
+                  value: params.expectedAddress,
+                  highlightEnds: true,
+                },
+              ],
+            }
+          : // Blank registration, not undefined: within a grace-window burst
+            // an undefined would leave the previous call's card standing.
+            {},
       },
     );
   }
@@ -7302,6 +7361,8 @@ class ServiceAccount extends ServiceBase {
           deviceParams: {
             dbDevice: device,
           },
+          debugMethodName:
+            'serviceAccount.generateWalletsMissingMetaWithUserInteraction',
         },
       );
     }

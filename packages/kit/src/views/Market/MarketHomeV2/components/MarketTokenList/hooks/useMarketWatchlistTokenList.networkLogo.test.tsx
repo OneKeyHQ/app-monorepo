@@ -27,6 +27,7 @@ const mockWatchlistApiResult = {
       decimals: 18,
       networkId: 'evm--143',
       isNative: false,
+      stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' },
     },
   ],
 };
@@ -117,6 +118,8 @@ describe('useMarketWatchlistTokenList network logos', () => {
 
     expect(committedLengths[0]).toBe(1);
     expect(latestData).toHaveLength(1);
+    expect(latestData[0]?.stockId).toBeUndefined();
+    expect(latestData[0]?.stock?.stockId).toBe('AAPL');
     expect(latestData[0]?.networkLogoUri).toBe('https://example.com/monad.png');
   });
 
@@ -126,16 +129,18 @@ describe('useMarketWatchlistTokenList network logos', () => {
     let latestIsLoading = false;
 
     function Probe() {
-      latestIsLoading = useMarketWatchlistTokenList({
-        watchlist: [
-          {
-            chainId: '',
-            contractAddress: '',
-            perpsCoin: 'BTC',
-          },
-        ],
-        pollingInterval: 0,
-      }).isLoading;
+      latestIsLoading = Boolean(
+        useMarketWatchlistTokenList({
+          watchlist: [
+            {
+              chainId: '',
+              contractAddress: '',
+              perpsCoin: 'BTC',
+            },
+          ],
+          pollingInterval: 0,
+        }).isLoading,
+      );
       return null;
     }
 

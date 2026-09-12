@@ -238,6 +238,7 @@ function DialogFrame({
   onConfirmText,
   onCancel,
   onOpen,
+  onOpenAutoFocus,
   onCancelText,
   tone,
   confirmButtonProps,
@@ -425,14 +426,19 @@ function DialogFrame({
           width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
-          <FocusScope trapped={open ? effectiveTrapFocus : undefined} loop>
-            <DialogSheetContext.Provider value>
+          <DialogSheetContext.Provider value>
+            <FocusScope
+              enabled={open}
+              trapped={open ? effectiveTrapFocus : undefined}
+              onMountAutoFocus={onOpenAutoFocus}
+              loop
+            >
               <Stack>
                 {!disableDrag ? <SheetGrabber /> : null}
                 {renderDialogContent}
               </Stack>
-            </DialogSheetContext.Provider>
-          </FocusScope>
+            </FocusScope>
+          </DialogSheetContext.Provider>
         </Sheet.Frame>
       </Sheet>
     );
@@ -503,6 +509,9 @@ function DialogFrame({
               width={MAX_CONTENT_WIDTH}
               p="$0"
               {...floatingPanelProps}
+              onOpenAutoFocus={
+                onOpenAutoFocus ?? floatingPanelProps?.onOpenAutoFocus
+              }
               zIndex={floatingPanelProps?.zIndex || zIndex}
             >
               {renderDialogContent}

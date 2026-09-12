@@ -116,10 +116,11 @@ export function useImportAddressForm({
     control,
   });
 
-  const [validateResult, setValidateResult] = useState<
-    IGeneralInputValidation | undefined
-  >();
-  const isValidating = useRef<boolean>(false);
+  const [validation, setValidation] = useState<{
+    input: string;
+    networkId: string;
+    result: IGeneralInputValidation;
+  }>();
   const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'publicKeyValue' });
   const addressValue = useFormWatch({ control, name: 'addressValue' });
@@ -128,32 +129,57 @@ export function useImportAddressForm({
   const inputTextDebounced = useDebounce(inputText.trim(), 600);
   const accountNameDebounced = useDebounce(accountName?.trim() || '', 600);
 
-  const validateFn = useCallback(async () => {
-    if (accountNameDebounced) {
-      try {
-        await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate({
-          name: accountNameDebounced,
-          walletId: WALLET_TYPE_WATCHING,
-        });
-        form.clearErrors('accountName');
-      } catch (error) {
-        form.setError('accountName', {
-          message: (error as Error)?.message,
-        });
-      }
-    } else {
-      form.clearErrors('accountName');
-    }
+  useEffect(() => {
+    form.setValue('deriveType', undefined);
+  }, [form, inputText, networkIdText]);
 
-    if (inputTextDebounced && networkIdText) {
-      const input =
-        await backgroundApiProxy.servicePassword.encodeSensitiveText({
-          text: inputTextDebounced,
-        });
+  const validateResult =
+    validation?.input === inputText.trim() &&
+    validation?.networkId === networkIdText
+      ? validation?.result
+      : undefined;
+
+  useEffect(() => {
+    let cancelled = false;
+    const validate = async () => {
+      if ((accountName?.trim() || '') !== accountNameDebounced) return;
+      if (accountNameDebounced) {
+        try {
+          await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate(
+            {
+              name: accountNameDebounced,
+              walletId: WALLET_TYPE_WATCHING,
+            },
+          );
+          if (cancelled) return;
+          form.clearErrors('accountName');
+        } catch (error) {
+          if (cancelled) return;
+          form.setError('accountName', {
+            message: (error as Error)?.message,
+          });
+        }
+      } else {
+        form.clearErrors('accountName');
+      }
+
+      if (
+        !inputTextDebounced ||
+        !networkIdText ||
+        inputText.trim() !== inputTextDebounced
+      ) {
+        if (!cancelled) setValidation(undefined);
+        return;
+      }
       try {
         if (!networksResp.publicKeyExportEnabled.has(networkIdText)) {
           throw new OneKeyLocalError(`Network not supported: ${networkIdText}`);
         }
+        const input =
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: inputTextDebounced,
+          });
+        if (cancelled) return;
         const result =
           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
             {
@@ -162,58 +188,33 @@ export function useImportAddressForm({
               validateXpub: true,
             },
           );
-        setValidateResult(result);
+        if (!cancelled)
+          setValidation({
+            input: inputTextDebounced,
+            networkId: networkIdText,
+            result,
+          });
       } catch (_error) {
-        setValidateResult({
-          isValid: false,
-        });
+        if (!cancelled)
+          setValidation({
+            input: inputTextDebounced,
+            networkId: networkIdText,
+            result: { isValid: false },
+          });
       }
-    } else {
-      setValidateResult(undefined);
-    }
+    };
+    void validate();
+    return () => {
+      cancelled = true;
+    };
   }, [
+    accountName,
     accountNameDebounced,
+    inputText,
     inputTextDebounced,
     networkIdText,
     form,
     networksResp.publicKeyExportEnabled,
-  ]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        isValidating.current = true;
-        await validateFn();
-      } finally {
-        isValidating.current = false;
-      }
-    })();
-  }, [validateFn]);
-
-  const isEnable = useMemo(() => {
-    const errorsCount = Object.keys(formErrors).reduce((count, name) => {
-      if (method === EImportMethod.PublicKey) {
-        return name !== 'addressValue' ? count + 1 : count;
-      }
-      if (method === EImportMethod.Address) {
-        return name !== 'publicKeyValue' ? count + 1 : count;
-      }
-      return count;
-    }, 0);
-    if (errorsCount > 0) {
-      return false;
-    }
-    if (method === EImportMethod.Address) {
-      return !addressValue.pending && !!addressValue.resolved && formIsValid;
-    }
-    return validateResult?.isValid ?? false;
-  }, [
-    method,
-    addressValue.pending,
-    addressValue.resolved,
-    validateResult,
-    formIsValid,
-    formErrors,
   ]);
 
   const isKeyExportEnabled = useMemo(
@@ -230,9 +231,37 @@ export function useImportAddressForm({
     [method, isKeyExportEnabled],
   );
 
+  const isEnable = useMemo(() => {
+    const inactiveFieldName = isPublicKeyImport
+      ? 'addressValue'
+      : 'publicKeyValue';
+    if (Object.keys(formErrors).some((name) => name !== inactiveFieldName)) {
+      return false;
+    }
+    if (!isPublicKeyImport) {
+      return !addressValue.pending && !!addressValue.resolved && formIsValid;
+    }
+    return validateResult?.isValid ?? false;
+  }, [
+    isPublicKeyImport,
+    addressValue.pending,
+    addressValue.resolved,
+    validateResult,
+    formIsValid,
+    formErrors,
+  ]);
+
   onSubmitRef.current = useCallback(
     async (formContext: UseFormReturn<IFormValues>) => {
       const values = formContext.getValues();
+      if (
+        isPublicKeyImport &&
+        (!isEnable ||
+          validation?.input !== values.publicKeyValue.trim() ||
+          validation?.networkId !== values.networkId)
+      ) {
+        return;
+      }
       const data: {
         name?: string;
         input: string;
@@ -281,7 +310,15 @@ export function useImportAddressForm({
 
       onWalletAdded?.();
     },
-    [actions, intl, isPublicKeyImport, isSoftwareWalletOnlyUser, onWalletAdded],
+    [
+      actions,
+      intl,
+      isEnable,
+      isPublicKeyImport,
+      isSoftwareWalletOnlyUser,
+      onWalletAdded,
+      validation,
+    ],
   );
 
   return {

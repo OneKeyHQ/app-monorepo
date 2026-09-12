@@ -187,6 +187,7 @@ export interface IMarketStockTradingActivity {
 }
 
 export interface IMarketStockInfo {
+  stockId?: string;
   title?: string;
   subtitle: string;
   source?: string;
@@ -197,6 +198,10 @@ export interface IMarketStockInfo {
   // Whether trading in the underlying stock is temporarily halted (per-stock signal)
   isPaused?: boolean;
   pausedUpdatedAt?: string;
+  // When the underlying market next opens. The timestamp is authoritative;
+  // the minute count is a snapshot that ages with the response.
+  nextOpenTime?: string;
+  nextOpenMinutes?: number;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
@@ -306,6 +311,7 @@ export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields 
   chainId?: string;
   communityRecognized?: boolean;
   isNative?: boolean;
+  stockId?: string;
   stock?: IMarketStockInfo;
 }
 
@@ -719,6 +725,14 @@ export interface IMarketBannerDescription {
   fontColor: string;
 }
 
+export interface IMarketBannerTokenPreview {
+  logo: string;
+  name: string;
+  symbol: string;
+  price?: string | null;
+  priceChange24hPercent?: string | null;
+}
+
 export interface IMarketBannerItem {
   _id: string;
   title: string;
@@ -730,6 +744,7 @@ export interface IMarketBannerItem {
   tokenListId: string;
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
+  tokens?: IMarketBannerTokenPreview[];
   type?: EMarketBannerType;
 }
 
@@ -749,6 +764,18 @@ export interface IMarketBannerTokenListResponse {
 
 export type IMarketStockAssetType = 'stock' | 'etf' | 'index';
 
+/**
+ * The tokens issued against a stock, as the list endpoint returns them — a
+ * summary, unlike the detail endpoint's richer `IMarketStockTokenVariant`.
+ */
+export interface IMarketStockListVariant {
+  tokenId: string;
+  issuer: string;
+  symbol?: string;
+  name?: string;
+  logoUrl?: string;
+}
+
 export interface IMarketStockPublicItem {
   stockId: string;
   symbol: string;
@@ -764,7 +791,13 @@ export interface IMarketStockPublicItem {
   quoteUpdatedAt?: string;
   sparkline?: number[];
   sparklineUpdatedAt?: string;
+  variants?: IMarketStockListVariant[];
 }
+
+export type IMarketStockDetailPreview = Pick<
+  IMarketStockPublicItem,
+  'stockId' | 'symbol' | 'name' | 'logoUrl'
+>;
 
 export type IMarketStockPublicListSortBy =
   | 'default'
@@ -782,6 +815,7 @@ export interface IMarketStockPublicListRequest {
 
 export interface IMarketStockPublicSearchRequest {
   query: string;
+  cursor?: string;
   limit?: number;
 }
 
@@ -841,7 +875,39 @@ export interface IMarketStockPublicDetail extends IMarketStockPublicItem {
   } & Record<string, unknown>;
 }
 
-export type IMarketStockPublicChartPeriod = '1h' | '1d' | '1w' | '1y' | 'all';
+export type IMarketStockPublicChartPeriod =
+  | '1h'
+  | '1d'
+  | '1w'
+  | '1m'
+  | '1y'
+  | 'all';
+
+export type IMarketStockPublicChartInterval =
+  | '1min'
+  | '5min'
+  | '15min'
+  | '30min'
+  | '1hour'
+  | '4hour'
+  | '1day'
+  | '1week'
+  | '1month';
+
+export type IMarketStockPublicChartRequest = { stockId: string } & (
+  | {
+      period?: IMarketStockPublicChartPeriod;
+      interval?: undefined;
+      from?: undefined;
+      to?: undefined;
+    }
+  | {
+      period?: undefined;
+      interval: IMarketStockPublicChartInterval;
+      from: number;
+      to: number;
+    }
+);
 
 export interface IMarketStockPublicChartPoint {
   o: number;
@@ -854,7 +920,8 @@ export interface IMarketStockPublicChartPoint {
 
 export interface IMarketStockPublicChartResponse {
   stockId: string;
-  period: IMarketStockPublicChartPeriod;
+  period?: IMarketStockPublicChartPeriod;
+  interval?: IMarketStockPublicChartInterval;
   currency: 'USD';
   points: IMarketStockPublicChartPoint[];
 }

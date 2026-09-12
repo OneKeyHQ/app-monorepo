@@ -1190,7 +1190,9 @@ function SwapKLineContentBody({
         key={tradingViewNativeSourceKey}
         testID={`${SwapTestIDs.kLineChart}-native`}
         source={tradingViewNativeSource}
-        nativeControlsLayoutMode={gtMd ? 'desktop' : 'mobile'}
+        storageNamespace="swap"
+        nativeChartDisplayMode="compact"
+        nativeControlsLayoutMode="mobile"
         onDataStateChange={state.handleChartDataStateChange}
         onIntervalChange={state.handleChartIntervalChange}
         onPriceUpdate={state.handleChartPriceUpdate}

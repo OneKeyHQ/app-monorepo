@@ -11,10 +11,32 @@ import {
   SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS,
   buildSwapOrderLongPendingWarningPayload,
   getSwapHistoryLongPendingWarningDelayMs,
+  isSwapHistoryTerminalStatus,
   shouldShowSwapHistoryLongPendingWarning,
 } from './swapHistoryUtils';
 
 const now = 1_000_000_000;
+
+describe('swap history status classification', () => {
+  it.each([
+    ESwapTxHistoryStatus.SUCCESS,
+    ESwapTxHistoryStatus.PARTIALLY_FILLED,
+    ESwapTxHistoryStatus.FAILED,
+    ESwapTxHistoryStatus.REFUNDED,
+    ESwapTxHistoryStatus.EXPIRED,
+    ESwapTxHistoryStatus.CANCELED,
+  ])('classifies %s as terminal', (status) => {
+    expect(isSwapHistoryTerminalStatus(status)).toBe(true);
+  });
+
+  it.each([
+    ESwapTxHistoryStatus.PENDING,
+    ESwapTxHistoryStatus.DEPOSIT_SUCCESS,
+    ESwapTxHistoryStatus.CANCELING,
+  ])('classifies %s as non-terminal', (status) => {
+    expect(isSwapHistoryTerminalStatus(status)).toBe(false);
+  });
+});
 
 const token: ISwapToken = {
   networkId: 'evm--1',

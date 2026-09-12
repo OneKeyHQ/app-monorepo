@@ -427,11 +427,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
           skipWebDevicePrompt: true,
           allowEmptyConnectId,
           forceProtocolDetection,
-          ...(forceProtocolDetection
+          ...(forceProtocolDetection ||
+          hardwareTransportType === EHardwareTransportType.DesktopWebBle
             ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
             : {}),
         },
         silentMode: true,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
         hardwareTransportType,
       });
       features = projectLegacyDeviceFeaturesFromState(state);
@@ -823,7 +825,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? { connectId, transportType: resolvedTransportType }
         : await this.backgroundApi.serviceHardware.resolveHardwareTransport({
             connectId,
-            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+            hardwareCallContext:
+              EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
     }
     const originalConnectId = resolvedTransport?.connectId ?? connectId;
@@ -881,8 +884,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
-        forceProtocolDetection:
-          currentTransportType === EHardwareTransportType.DesktopWebBle,
         hardwareTransportType: currentTransportType,
       });
     let features: IOneKeyDeviceFeatures =
@@ -895,8 +896,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
           connectId: isBootloaderMode ? updatingConnectId : originalConnectId,
           params: {
             allowEmptyConnectId: true,
-            forceProtocolDetection:
-              currentTransportType === EHardwareTransportType.DesktopWebBle,
             ...(currentTransportType === EHardwareTransportType.DesktopWebBle
               ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
               : {}),
@@ -2295,15 +2294,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
       updateFlow: 'v1',
       releaseResult: params.releaseResult,
     });
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
-    const dbDevice = await localDb.getDeviceByQuery({
-      connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
-    });
-    if (!dbDevice) {
-      // throw new OneKeyLocalError('device not found');
-    }
+    // The guard goes up BEFORE the stage is silenced: an ask already queued
+    // behind the silence would otherwise pass the stage's gate in the gap
+    // and repaint over the update page until the drain below ended. The
+    // retry path orders these the same way; the finally covers a failed
+    // silence too.
     await firmwareUpdateWorkflowRunningAtom.set(true);
     try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+      const dbDevice = await localDb.getDeviceByQuery({
+        connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
+      });
+      if (!dbDevice) {
+        // throw new OneKeyLocalError('device not found');
+      }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           try {
@@ -2314,7 +2318,32 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // Lock transport type during firmware update to prevent auto-switching
             // This prevents the system from switching to BLE when USB device is temporarily
             // unavailable during device reboot
-            const currentTransportType = await this.getActiveTransportType();
+            let currentTransportType = await this.getActiveTransportType();
+            if (platformEnv.isDesktop) {
+              // Release information may have been read over BLE before USB was connected.
+              const resolvedTransport =
+                await this.backgroundApi.serviceHardware.resolveHardwareTransport(
+                  {
+                    connectId:
+                      params.releaseResult.originalConnectId ??
+                      params.releaseResult.updatingConnectId,
+                    hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+                  },
+                );
+              currentTransportType = resolvedTransport.transportType;
+              params.releaseResult.updatingConnectId =
+                deviceUtils.getUpdatingConnectId({
+                  connectId: resolvedTransport.connectId,
+                  currentTransportType,
+                });
+              if (
+                currentTransportType === EHardwareTransportType.DesktopWebBle
+              ) {
+                throw new OneKeyLocalError(
+                  'Desktop firmware updates require a USB transport',
+                );
+              }
+            }
             this.recordUpdateWorkflowTransportType(
               workflowId,
               currentTransportType,
@@ -2488,6 +2517,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async clearHardwareUiStateBeforeStartUpdateWorkflow() {
+    // The stage leaves with the legacy state: the update page narrates
+    // the update from here, and a burst still in flight takes nothing
+    // down until its own end. The device's asks during the update (PIN,
+    // the install confirm) still play on the stage (OK-62087). An air-gap
+    // scan the stage was hosting leaves with it, rejected, rather than
+    // waiting invisibly for its expiry.
+    await this.backgroundApi.serviceHardwareUI.silenceDeviceStageForFirmwareWorkflow();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.FIRMWARE_TIP,
       connectId: '',
@@ -2801,8 +2837,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
       updateFlow: 'v2',
       releaseResult: params.releaseResult,
     });
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    // Guard first, then silence — see startUpdateWorkflow. A silence that
+    // fails must not leave the guard up: nothing below would run to drop it.
+    // Unless a newer start has already taken the workflow over — the guard
+    // is shared, and dropping it here would uncover THAT workflow's page.
     await firmwareUpdateWorkflowRunningAtom.set(true);
+    try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    } catch (error) {
+      if (this.isUpdateWorkflowCurrent(workflowId)) {
+        await firmwareUpdateWorkflowRunningAtom.set(false);
+      }
+      throw error;
+    }
 
     void (async () => {
       try {
@@ -2999,10 +3046,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
       this.recordUpdateWorkflowRetry(task.workflowId);
     }
 
-    // Re-block lock screen before resuming hardware communication
+    // Re-block lock screen before resuming hardware communication. Guard
+    // first, then silence (see startUpdateWorkflow) — and a silence that
+    // fails must not leave the guard, and with it the blocked lock screen,
+    // up for the rest of the session. Dropped only while this workflow is
+    // still the current one: a newer start owns the shared guard by then.
     await firmwareUpdateWorkflowRunningAtom.set(true);
-
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    } catch (error) {
+      if (this.isUpdateWorkflowCurrent(task.workflowId)) {
+        await firmwareUpdateWorkflowRunningAtom.set(false);
+      }
+      throw error;
+    }
     await firmwareUpdateRetryAtom.set(undefined);
 
     await this.waitDeviceRestart({

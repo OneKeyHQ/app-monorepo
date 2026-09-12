@@ -26,6 +26,9 @@ const SettingClearAppCacheModal = LazyLoadPage(
 const SettingProtectionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
 );
+const SettingTravelModeModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/TravelMode'),
+);
 const SettingReceiveRiskSupportedAssetsModal = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Protection/ReceiveRiskSupportedAssets'),
@@ -205,6 +208,11 @@ const DevDrawingOrderStress = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/DevDrawingOrderStress'),
 );
 
+const DevLargeWalletDataCreation = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevLargeWalletDataCreation'),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -241,6 +249,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
     rewrite: '/protection',
+  },
+  {
+    name: EModalSettingRoutes.SettingTravelModeModal,
+    component: SettingTravelModeModal,
   },
   {
     name: EModalSettingRoutes.SettingReceiveRiskSupportedAssets,
@@ -387,6 +399,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDrawingOrderStressModal,
     component: DevDrawingOrderStress,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevLargeWalletDataCreation,
+    component: DevLargeWalletDataCreation,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

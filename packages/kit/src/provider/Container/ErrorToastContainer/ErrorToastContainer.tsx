@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Toast, globalNetInfo } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 
 import { getErrorAction } from './ErrorToasts';
@@ -37,7 +40,23 @@ const getDeduplicationId = (
   return { id: undefined, forceDeduplicate: false };
 };
 
+// These errors may cross from a runtime without loaded locale messages.
+const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
+  ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
+  ETranslations.hardware_device_passphrase_state_error,
+  ETranslations.hardware_device_pin_state_error,
+  ETranslations.update_update_in_official_web_tool_desc_copy,
+  // The Bluetooth readiness family is raised in the background runtime
+  // (the Android pre-check), whose fallback title is the bare class name
+  // (OK-62113).
+  ETranslations.hardware_bluetooth_need_turned_on_error,
+  ETranslations.hardware_bluetooth_requires_permission_error,
+  ETranslations.hardware_device_ble_location_disabled,
+]);
+
 export function ErrorToastContainer() {
+  const intl = useIntl();
+
   useEffect(
     () =>
       subscribeNativeStorageContractViolations((violation) => {
@@ -87,8 +106,20 @@ export function ErrorToastContainer() {
         i18nKey: p.i18nKey,
       });
 
+      const canLocalizeError =
+        p.i18nKey &&
+        (MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
+          (p.i18nKey === ETranslations.wallet_action_failed &&
+            typeof p.i18nInfo?.message === 'string'));
+      const title = canLocalizeError
+        ? intl.formatMessage(
+            { id: p.i18nKey, defaultMessage: p.title },
+            p.i18nInfo,
+          )
+        : p.title;
+
       Toast[p.method]({
-        title: p.title,
+        title,
         message: p.message,
         // icon is string in event bus (shared can't import IKeyOfIcons from components)
         icon: p.icon as any,
@@ -101,7 +132,7 @@ export function ErrorToastContainer() {
     return () => {
       appEventBus.off(EAppEventBusNames.ShowToast, fn);
     };
-  }, []);
+  }, [intl]);
 
   return null;
 }

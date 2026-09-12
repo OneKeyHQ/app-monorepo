@@ -49,6 +49,7 @@ import {
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import {
   getSwapBalanceDisplayEntryFromGlobalSnapshot,
@@ -198,6 +199,9 @@ const SwapInputContainer = ({
   });
   const tokenSelectorDisplayToken =
     direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken;
+  const selectedTokenImageRecyclingKey = platformEnv.isDesktop
+    ? getTokenIdentityKey(tokenSelectorDisplayToken) || undefined
+    : undefined;
   const balanceDisplayToken = token?.symbol ? token : tokenSelectorDisplayToken;
   const isInitialTokenSelectionPending =
     direction === ESwapDirectionType.FROM
@@ -239,12 +243,14 @@ const SwapInputContainer = ({
       justifyContent: 'flex-end' as const,
       loading: showTokenSelectorSkeleton,
       selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
+      selectedTokenImageRecyclingKey,
       selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
       onPress: handleSelectToken,
     }),
     [
       direction,
       handleSelectToken,
+      selectedTokenImageRecyclingKey,
       showTokenSelectorSkeleton,
       tokenSelectorDisplayToken?.logoURI,
       tokenSelectorDisplayToken?.symbol,

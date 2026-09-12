@@ -144,7 +144,10 @@ export function MarketRecommendList({
         isNative: token.isNative,
       }));
 
-      actions.addIntoWatchListV2(items);
+      const added = await actions.addIntoWatchListV2(items);
+      if (!added) {
+        return;
+      }
 
       // Log analytics for each token added to watchlist from recommend list
       selectedTokens.forEach((token) => {

@@ -49,6 +49,7 @@ type IMarketWatchlistTokenListProps = {
     paddingBottom: number;
   };
   hidePerps?: boolean;
+  hideListings?: boolean;
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
   enableWebSocket?: boolean;
@@ -66,6 +67,7 @@ function MarketWatchlistTokenList({
   tabName,
   listContainerProps,
   hidePerps,
+  hideListings,
   hiddenDesktopColumns,
   liveTokenOverride,
   enableWebSocket,
@@ -130,6 +132,7 @@ function MarketWatchlistTokenList({
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data, {
     hideNativeToken,
     hidePerps,
+    hideListings,
   });
 
   const filteredResult = useMemo(() => {
@@ -164,6 +167,8 @@ function MarketWatchlistTokenList({
       sortIndex: token.sortIndex,
       isNative: token.isNative,
       perpsCoin: token.perpsCoin,
+      assetId: token.assetId,
+      stockId: token.stockId,
     }),
     [],
   );
@@ -234,6 +239,7 @@ function MarketWatchlistTokenList({
                   await actions.current.removeFromWatchListV2(
                     item.networkId,
                     item.address,
+                    { assetId: item.assetId, stockId: item.stockId },
                   );
                 }
                 Toast.success({
@@ -288,6 +294,7 @@ function MarketWatchlistTokenList({
                     void actions.current.removeFromWatchListV2(
                       item.networkId,
                       item.address,
+                      { assetId: item.assetId, stockId: item.stockId },
                     );
                   }
                 },

@@ -1,25 +1,25 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { EPageType, Spinner, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   ISwapInitParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
 
 import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit';
+
+import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
 
 type IEmbeddedSwapProps = {
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
   swapInitParams?: ISwapInitParams;
+  initialInputAmountDraft?: ISwapInputAmountDraft;
+  onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
 };
 
 const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
@@ -33,29 +33,64 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
   </Stack>,
 );
 
-function MarketEmbeddedSwapContent({ swapToken }: { swapToken: ISwapToken }) {
-  const { defaultTokens } = useSpeedSwapInit(swapToken.networkId, true);
-  const defaultFromToken = useMemo(
+function MarketEmbeddedSwapLoading() {
+  return (
+    <Stack height={520} alignItems="center" justifyContent="center">
+      <Spinner size="large" />
+    </Stack>
+  );
+}
+
+function getDraftToken(token?: ISwapToken): ISwapToken | undefined {
+  return token
+    ? {
+        ...token,
+        accountAddress: undefined,
+        balanceParsed: undefined,
+        fiatValue: undefined,
+        price: undefined,
+        reservationValue: undefined,
+      }
+    : undefined;
+}
+
+function MarketEmbeddedSwapContent({
+  swapToken,
+  inputDraft,
+  onInputDraftChange,
+}: {
+  swapToken: ISwapToken;
+  inputDraft?: ISwapInputAmountDraft;
+  onInputDraftChange: (draft: ISwapInputAmountDraft) => void;
+}) {
+  // The content mounts only after the route token is execution-ready. Keep
+  // that first complete token as the visual and initialization seed so detail
+  // polling cannot replace its image source or reinitialize the embedded pair.
+  const [swapTokenSeed] = useState(swapToken);
+  // Consume the route's draft once per mount; live input must not reinitialize Swap.
+  const [initialInputAmountDraft] = useState(inputDraft);
+  const { defaultTokens, speedConfigReady } = useSpeedSwapInit(
+    swapTokenSeed.networkId,
+    true,
+  );
+  const swapInitParams = useMemo<ISwapInitParams | undefined>(
     () =>
-      defaultTokens.find(
-        (token) =>
-          !equalTokenNoCaseSensitive({
-            token1: token,
-            token2: swapToken,
-          }),
-      ),
-    [defaultTokens, swapToken],
+      buildMarketEmbeddedSwapInitParams({
+        defaultTokens,
+        inputDraft: initialInputAmountDraft,
+        swapToken: swapTokenSeed,
+      }),
+    [defaultTokens, initialInputAmountDraft, swapTokenSeed],
   );
-  const swapInitParams = useMemo<ISwapInitParams>(
-    () => ({
-      importFromToken: defaultFromToken,
-      importNetworkId: defaultFromToken?.networkId ?? swapToken.networkId,
-      importToToken: swapToken,
-      swapSource: ESwapSource.MARKET,
-      swapTabSwitchType: ESwapTabSwitchType.SWAP,
-    }),
-    [defaultFromToken, swapToken],
-  );
+
+  const [initialParams, setInitialParams] = useState<ISwapInitParams>();
+  if (speedConfigReady && swapInitParams && !initialParams) {
+    setInitialParams(swapInitParams);
+  }
+
+  if (!initialParams) {
+    return <MarketEmbeddedSwapLoading />;
+  }
 
   return (
     <Stack
@@ -67,23 +102,64 @@ function MarketEmbeddedSwapContent({ swapToken }: { swapToken: ISwapToken }) {
       <LazyEmbeddedSwap
         pageType={EPageType.modal}
         singleSwapBridgeHeader
-        swapInitParams={swapInitParams}
+        swapInitParams={initialParams}
+        initialInputAmountDraft={initialInputAmountDraft}
+        onInputDraftChange={onInputDraftChange}
       />
     </Stack>
   );
 }
 
-export function MarketEmbeddedSwap({ swapToken }: { swapToken: ISwapToken }) {
-  const swapTargetKey = `${swapToken.networkId}:${
-    swapToken.isNative ? 'native' : swapToken.contractAddress
-  }`;
+function MarketEmbeddedSwapDraft({
+  swapToken,
+  disabled,
+}: {
+  swapToken: ISwapToken;
+  disabled?: boolean;
+}) {
+  const inputDraftRef = useRef<ISwapInputAmountDraft | undefined>(undefined);
+  const onInputDraftChange = useCallback((draft: ISwapInputAmountDraft) => {
+    inputDraftRef.current = {
+      fromToken: getDraftToken(draft.fromToken),
+      toToken: getDraftToken(draft.toToken),
+      fromTokenAmount: draft.fromTokenAmount.isInput
+        ? draft.fromTokenAmount
+        : { value: '', isInput: false },
+      toTokenAmount: draft.toTokenAmount.isInput
+        ? draft.toTokenAmount
+        : { value: '', isInput: false },
+    };
+  }, []);
 
+  // Keep only the draft while inactive, since other routes share the modal store.
+  return disabled ? null : (
+    <MarketEmbeddedSwapContent
+      swapToken={swapToken}
+      inputDraft={inputDraftRef.current}
+      onInputDraftChange={onInputDraftChange}
+    />
+  );
+}
+
+export function MarketEmbeddedSwap({
+  swapToken,
+  inputDraftKey,
+  disabled,
+}: {
+  swapToken: ISwapToken;
+  inputDraftKey: string;
+  disabled?: boolean;
+}) {
   return (
     <AccountSelectorProviderMirror
       config={{ sceneName: EAccountSelectorSceneName.swap }}
       enabledNum={[0, 1]}
     >
-      <MarketEmbeddedSwapContent key={swapTargetKey} swapToken={swapToken} />
+      <MarketEmbeddedSwapDraft
+        key={inputDraftKey}
+        swapToken={swapToken}
+        disabled={disabled}
+      />
     </AccountSelectorProviderMirror>
   );
 }
