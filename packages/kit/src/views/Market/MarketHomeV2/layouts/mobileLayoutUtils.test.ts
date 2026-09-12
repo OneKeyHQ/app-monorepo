@@ -1,11 +1,24 @@
 import {
   getMarketEmptyWatchlistContainerProps,
+  getMarketMobileBannerHeaderHeight,
   getMarketMobileSecondaryHeaderHeight,
   getMarketNativeCompactListStyle,
   getMarketRecommendContainerPaddingTop,
   getMarketWebSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
 } from './mobileLayoutUtils';
+
+describe('getMarketMobileBannerHeaderHeight', () => {
+  it('uses the legacy height when every banner omits token previews', () => {
+    expect(getMarketMobileBannerHeaderHeight([{}, {}])).toBe(134);
+  });
+
+  it('uses the modern height when every banner renders token previews', () => {
+    expect(
+      getMarketMobileBannerHeaderHeight([{ tokens: [] }, { tokens: [] }]),
+    ).toBe(204);
+  });
+});
 
 describe('resolveMarketBannerHeaderDecision', () => {
   it('waits for recovery after an initial failure before locking banner height', () => {
