@@ -1,4 +1,25 @@
-import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockPublicItem,
+  IMarketStockPublicListSortBy,
+} from '@onekeyhq/shared/types/marketV2';
+
+const MARKET_STOCK_SORT_BY_COLUMN: Partial<
+  Record<
+    keyof IMarketStockPublicItem,
+    Exclude<IMarketStockPublicListSortBy, 'default' | 'symbol'>
+  >
+> = {
+  price: 'price',
+  priceChange24hPercent: 'priceChange24hPercent',
+  marketCap: 'marketCap',
+  volume24h: 'volume24h',
+};
+
+export function getMarketStockSortByColumn(columnName: string) {
+  return MARKET_STOCK_SORT_BY_COLUMN[
+    columnName as keyof IMarketStockPublicItem
+  ];
+}
 
 export function parseMarketStockNumber(
   value?: string | number | null,
