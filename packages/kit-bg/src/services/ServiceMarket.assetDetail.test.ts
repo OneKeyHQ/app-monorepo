@@ -81,3 +81,19 @@ it('preserves normal callers error handling', async () => {
     service.fetchMarketAssetDetail({ assetId: 'bitcoin' }),
   ).rejects.toMatchObject({ autoToast: true });
 });
+
+it('pins compact modal quotes to USD without changing other callers currency', async () => {
+  const { service, get } = createService();
+  get.mockResolvedValue({
+    data: { data: { stats: { currentPrice: '50000' } } },
+  });
+  await service.fetchMarketTokenDetail('bitcoin', true, 'usd');
+  expect(get).toHaveBeenLastCalledWith('/utility/v1/market/detail', {
+    params: { id: 'bitcoin', explorer_platforms: true },
+    headers: { 'x-onekey-request-currency': 'usd' },
+  });
+  await service.fetchMarketTokenDetail('bitcoin');
+  expect(get).toHaveBeenLastCalledWith('/utility/v1/market/detail', {
+    params: { id: 'bitcoin', explorer_platforms: true },
+  });
+});
