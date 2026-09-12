@@ -17,7 +17,7 @@ import type {
 import { appendUniqueMarketStocks } from '../utils';
 
 const MARKET_STOCK_LIST_PAGE_SIZE = 20;
-const MARKET_STOCK_LIST_MAX_AUTO_REFRESH_PAGES = 3;
+const MARKET_STOCK_LIST_MAX_PERSISTED_PAGES = 3;
 
 type IMarketStockListState = {
   queryKey: string;
@@ -158,15 +158,11 @@ export function useMarketStockList({ category }: { category?: string }) {
         Boolean(
           data.response &&
           !data.failed &&
-          (data.loadedPageCount ?? 1) <=
-            MARKET_STOCK_LIST_MAX_AUTO_REFRESH_PAGES,
+          (data.loadedPageCount ?? 1) <= MARKET_STOCK_LIST_MAX_PERSISTED_PAGES,
         ),
       watchLoading: true,
-      // Keep deep lists intact without replaying every page on route focus.
-      revalidateOnFocus:
-        listState.loadedPageCount <= MARKET_STOCK_LIST_MAX_AUTO_REFRESH_PAGES,
-      revalidateOnReconnect:
-        listState.loadedPageCount <= MARKET_STOCK_LIST_MAX_AUTO_REFRESH_PAGES,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
 

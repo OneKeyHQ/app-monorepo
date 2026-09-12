@@ -11,6 +11,7 @@ import type { IMarketStockPublicListResponse } from '@onekeyhq/shared/types/mark
 
 import { useMarketStockList } from './useMarketStockList';
 
+let mockIsInternetReachable = true;
 jest.mock('@onekeyhq/components', () => ({
   getCurrentVisibilityState: () => true,
   onVisibilityStateChange: () => () => undefined,
@@ -19,7 +20,7 @@ jest.mock('@onekeyhq/components', () => ({
     reset: jest.fn(),
     resolve: jest.fn(),
   }),
-  useNetInfo: () => ({ isRawInternetReachable: true }),
+  useNetInfo: () => ({ isRawInternetReachable: mockIsInternetReachable }),
 }));
 let mockIsFocused = true;
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
@@ -75,6 +76,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  mockIsInternetReachable = true;
   mockIsFocused = true;
   platformEnv.isNative = true;
   fetchList.mockReset();
@@ -472,34 +474,66 @@ it('does not replay deep persisted pagination on cold start', async () => {
   expect(fetchList).toHaveBeenCalledTimes(1);
 });
 
-it('keeps a deep list on focus without refetching every loaded page', async () => {
-  platformEnv.isNative = false;
-  fetchList.mockImplementation(async (params) => {
-    const page = Number(params?.cursor ?? 0);
-    return {
-      items: [{ ...response.items[0], stockId: String(page) }],
-      total: 10,
-      nextCursor: String(page + 1),
-    };
-  });
-  const { result, rerender } = renderHook(() => useMarketStockList({}));
-  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
-  for (let index = 0; index < 3; index += 1) {
+it.each([
+  { isNative: false, trigger: 'focus' },
+  { isNative: true, trigger: 'focus' },
+  { isNative: false, trigger: 'reconnect' },
+  { isNative: true, trigger: 'reconnect' },
+])(
+  'refreshes deep lists atomically on $trigger (native=$isNative)',
+  async ({ isNative, trigger }) => {
+    platformEnv.isNative = isNative;
+    let price = '200';
+    const lastPage = deferred<IMarketStockPublicListResponse>();
+    let holdLastPage = false;
+    fetchList.mockImplementation(async (params) => {
+      const page = Number(params?.cursor ?? 0);
+      if (holdLastPage && page === 3) return lastPage.promise;
+      return {
+        items: [{ ...response.items[0], stockId: String(page), price }],
+        total: 10,
+        nextCursor: String(page + 1),
+      };
+    });
+    const { result, rerender } = renderHook(() => useMarketStockList({}));
+    await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+    for (let index = 0; index < 3; index += 1) {
+      await act(async () => result.current.loadMore());
+    }
+    const items = result.current.items;
+    fetchList.mockClear();
+    price = '201';
+    holdLastPage = true;
+    if (trigger === 'focus') mockIsFocused = false;
+    else mockIsInternetReachable = false;
+    rerender();
+    if (trigger === 'focus') mockIsFocused = true;
+    else mockIsInternetReachable = true;
+    rerender();
+    await waitFor(() => expect(fetchList).toHaveBeenCalledTimes(4));
+    expect(result.current.items).toBe(items);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isRefreshing).toBe(true);
+    await act(async () =>
+      lastPage.resolve({
+        items: [{ ...response.items[0], stockId: '3', price }],
+        total: 10,
+        nextCursor: '4',
+      }),
+    );
+    await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+    expect(result.current.items).toHaveLength(4);
+    expect(result.current.items.every((item) => item.price === '201')).toBe(
+      true,
+    );
+    expect(result.current.canLoadMore).toBe(true);
     await act(async () => result.current.loadMore());
-  }
-  const items = result.current.items;
-  fetchList.mockClear();
-  mockIsFocused = false;
-  rerender();
-  mockIsFocused = true;
-  rerender();
-  await act(async () => undefined);
-  expect(fetchList).not.toHaveBeenCalled();
-  expect(result.current.items).toBe(items);
-  await act(async () => result.current.refresh());
-  expect(fetchList).toHaveBeenCalledTimes(4);
-  expect(result.current.items).toHaveLength(4);
-});
+    expect(fetchList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cursor: '4' }),
+    );
+    expect(result.current.items).toHaveLength(5);
+  },
+);
 
 it('keeps the current native category loading while an old cursor request completes', async () => {
   const oldPage = deferred<IMarketStockPublicListResponse>();
