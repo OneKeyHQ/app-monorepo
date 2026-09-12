@@ -3,52 +3,215 @@ import StoreKit
 import SwiftUI
 import UIKit
 
+private enum AppClipMarketFilterSheet: Equatable {
+  case network
+  case timeRange
+}
+
 struct AppClipRootView: View {
   @ObservedObject var model: AppClipModel
   @State private var selectedCandleID: AppClipCandle.ID?
+  @State private var activeMarketFilterSheet: AppClipMarketFilterSheet?
+  @State private var networkSearchText = ""
+  @FocusState private var isNetworkSearchFocused: Bool
   private let overlayPresenter = AppInstallOverlayPresenter.shared
 
   var body: some View {
-    Group {
-      switch model.screen {
-      case .market:
-        marketList
-      case .detail(let asset):
-        marketDetail(asset)
-      case .web(let url):
-        webExperience(url)
+    ZStack {
+      Group {
+        switch model.screen {
+        case .market:
+          marketList
+        case .detail(let detail):
+          marketDetail(detail)
+        case .web(let url):
+          webExperience(url)
+        }
+      }
+      if let activeMarketFilterSheet {
+        marketFilterOverlay(activeMarketFilterSheet)
+          .transition(.opacity)
+          .zIndex(1)
       }
     }
     .background(Color.appClipBackground.ignoresSafeArea())
+    .onAppear {
+      model.start()
+    }
   }
 
   private var marketList: some View {
     VStack(spacing: 0) {
       marketHeader
-      Group {
-        if model.assets.isEmpty {
-          marketEmptyState
-        } else {
-          ScrollView {
-            LazyVStack(spacing: 0) {
-              ForEach(model.assets) { asset in
-                Button {
-                  selectedCandleID = nil
-                  model.select(asset)
-                } label: {
-                  MarketAssetRow(asset: asset)
+      marketTabBar
+      TabView(
+        selection: Binding(
+          get: { model.selectedMarketTab },
+          set: { model.selectMarketTab($0) }
+        )
+      ) {
+        stockPage
+          .tag(AppClipMarketTab.stocks)
+        perpsPage
+          .tag(AppClipMarketTab.perps)
+        trendingPage
+          .tag(AppClipMarketTab.trending)
+      }
+      .tabViewStyle(.page(indexDisplayMode: .never))
+      .indexViewStyle(.page(backgroundDisplayMode: .never))
+      installFooter(asset: nil)
+    }
+  }
+
+  private var marketTabBar: some View {
+    HStack(spacing: 8) {
+      marketTabButton(.stocks, title: String(localized: "market.tab.stocks"))
+      marketTabButton(.perps, title: String(localized: "market.tab.perps"))
+      marketTabButton(.trending, title: String(localized: "market.tab.trending"))
+      Spacer(minLength: 0)
+    }
+    .frame(height: 44)
+    .padding(.horizontal, 20)
+  }
+
+  private func marketTabButton(_ tab: AppClipMarketTab, title: String) -> some View {
+    let isSelected = model.selectedMarketTab == tab
+    return Button {
+      model.selectMarketTab(tab)
+    } label: {
+      Text(title)
+        .font(.system(size: 16, weight: .medium))
+        .foregroundColor(isSelected ? .primary : .appClipSecondaryText)
+        .padding(.horizontal, 4)
+        .frame(height: 44)
+        .overlay(alignment: .bottom) {
+          Rectangle()
+            .fill(isSelected ? Color.primary : .clear)
+            .frame(height: 2)
+        }
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier("app-clip-market-tab-\(tab.rawValue)")
+  }
+
+  private var stockPage: some View {
+    let state = model.stockState
+    return VStack(spacing: 0) {
+      marketCategorySelector(
+        categories: resolvedStockCategories,
+        selectedId: model.selectedStockCategoryId,
+        accessibilityPrefix: "app-clip-stock-category",
+        action: model.selectStockCategory
+      )
+      marketColumnHeader
+      ScrollView {
+        LazyVStack(spacing: 0) {
+          if state.items.isEmpty {
+            marketPageState(
+              isLoading: state.isLoading,
+              didLoad: state.didLoad,
+              failed: state.failed
+            ) {
+              Task { await model.refreshMarkets(force: true) }
+            }
+          } else {
+            ForEach(state.items) { stock in
+              Button {
+                selectedCandleID = nil
+                model.select(stock)
+              } label: {
+                MarketStockRow(stock: stock)
+              }
+              .buttonStyle(AppClipMarketRowButtonStyle())
+              .accessibilityIdentifier("app-clip-stock-\(stock.id)")
+              .onAppear {
+                if stock.id == state.items.last?.id {
+                  model.loadMoreStocks()
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("app-clip-market-\(asset.id)")
               }
             }
-          }
-          .refreshable {
-            await model.refreshMarkets()
+            stockLoadMoreState(state)
           }
         }
       }
-      installFooter(asset: nil)
+      .refreshable {
+        await model.refreshMarkets(force: true)
+      }
+    }
+  }
+
+  private var perpsPage: some View {
+    let state = model.perpsState
+    return VStack(spacing: 0) {
+      marketCategorySelector(
+        categories: resolvedPerpsCategories,
+        selectedId: model.selectedPerpsCategoryId,
+        accessibilityPrefix: "app-clip-perps-category",
+        action: model.selectPerpsCategory
+      )
+      marketColumnHeader
+      ScrollView {
+        LazyVStack(spacing: 0) {
+          if state.items.isEmpty {
+            marketPageState(
+              isLoading: state.isLoading,
+              didLoad: state.didLoad,
+              failed: state.failed
+            ) {
+              Task { await model.refreshMarkets(force: true) }
+            }
+          } else {
+            ForEach(state.items) { perp in
+              Button {
+                selectedCandleID = nil
+                model.select(perp)
+              } label: {
+                MarketPerpsRow(perp: perp)
+              }
+              .buttonStyle(AppClipMarketRowButtonStyle())
+              .accessibilityIdentifier("app-clip-perps-\(perp.id)")
+            }
+          }
+        }
+      }
+      .refreshable {
+        await model.refreshMarkets(force: true)
+      }
+    }
+  }
+
+  private var trendingPage: some View {
+    let state = model.trendingState
+    return VStack(spacing: 0) {
+      trendingFilterBar
+      marketColumnHeader
+      ScrollView {
+        LazyVStack(spacing: 0) {
+          if state.items.isEmpty {
+            marketPageState(
+              isLoading: state.isLoading,
+              didLoad: state.didLoad,
+              failed: state.failed
+            ) {
+              Task { await model.refreshMarkets(force: true) }
+            }
+          } else {
+            ForEach(state.items) { asset in
+              Button {
+                selectedCandleID = nil
+                model.select(asset)
+              } label: {
+                MarketAssetRow(asset: asset)
+              }
+              .buttonStyle(AppClipMarketRowButtonStyle())
+              .accessibilityIdentifier("app-clip-market-\(asset.id)")
+            }
+          }
+        }
+      }
+      .refreshable {
+        await model.refreshMarkets(force: true)
+      }
     }
   }
 
@@ -69,29 +232,477 @@ struct AppClipRootView: View {
     .padding(.bottom, 18)
   }
 
-  private var marketEmptyState: some View {
+  private func marketPageState(
+    isLoading: Bool,
+    didLoad: Bool,
+    failed: Bool,
+    retry: @escaping () -> Void
+  ) -> some View {
     VStack(spacing: 14) {
-      if model.isRefreshing {
+      if isLoading || (!didLoad && !failed) {
         ProgressView()
         Text(String(localized: "market.refreshing"))
           .font(.subheadline)
           .foregroundColor(.appClipSecondaryText)
       } else {
-        Image(systemName: "wifi.exclamationmark")
+        Image(
+          systemName: failed && model.isNetworkAvailable == false
+            ? "wifi.exclamationmark"
+            : "chart.line.downtrend.xyaxis"
+        )
           .font(.system(size: 28, weight: .medium))
           .foregroundColor(.appClipSecondaryText)
-        Text(String(localized: "market.unavailable"))
+        Text(
+          failed
+            ? String(
+              localized: model.isNetworkAvailable == false
+                ? "market.no_network"
+                : "market.unavailable"
+            )
+            : String(localized: "market.no_results")
+        )
           .font(.subheadline)
           .foregroundColor(.appClipSecondaryText)
-        retryButton {
-          Task { await model.refreshMarkets() }
-        }
+        retryButton(action: retry)
       }
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .frame(maxWidth: .infinity)
+    .frame(minHeight: 260)
   }
 
-  private func marketDetail(_ asset: AppClipMarketAsset) -> some View {
+  @ViewBuilder
+  private func stockLoadMoreState(
+    _ state: AppClipMarketListState<AppClipMarketStock>
+  ) -> some View {
+    if state.isLoadingMore {
+      ProgressView()
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+    } else if state.loadMoreFailed {
+      retryButton {
+        model.loadMoreStocks()
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 52)
+    } else if state.nextCursor == nil, !state.items.isEmpty {
+      Text(String(localized: "market.end"))
+        .font(.system(size: 12))
+        .foregroundColor(.appClipSecondaryText)
+        .frame(maxWidth: .infinity)
+        .frame(height: 36)
+    }
+  }
+
+  private var resolvedStockCategories: [AppClipMarketCategory] {
+    model.stockCategories.isEmpty
+      ? [AppClipMarketCategory(id: "all", name: String(localized: "global.all"))]
+      : model.stockCategories
+  }
+
+  private var resolvedPerpsCategories: [AppClipMarketCategory] {
+    model.perpsCategories.isEmpty
+      ? [AppClipMarketCategory(id: "crypto", name: String(localized: "market.crypto"))]
+      : model.perpsCategories
+  }
+
+  private func marketCategorySelector(
+    categories: [AppClipMarketCategory],
+    selectedId: String,
+    accessibilityPrefix: String,
+    action: @escaping (String) -> Void
+  ) -> some View {
+    ScrollViewReader { proxy in
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 8) {
+          ForEach(categories) { category in
+            Button {
+              action(category.id)
+              withAnimation(.easeOut(duration: 0.2)) {
+                proxy.scrollTo(category.id, anchor: .center)
+              }
+            } label: {
+              Text(category.name)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(
+                  category.id == selectedId ? .primary : .appClipSecondaryText
+                )
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+                .background(
+                  category.id == selectedId ? Color.appClipActive : .clear
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .id(category.id)
+            .accessibilityIdentifier("\(accessibilityPrefix)-\(category.id)")
+          }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+      }
+    }
+    .frame(height: 42)
+  }
+
+  private var marketColumnHeader: some View {
+    HStack(spacing: 8) {
+      Text(String(localized: "market.column.name_turnover"))
+        .frame(maxWidth: .infinity, alignment: .leading)
+      Text(String(localized: "market.column.price"))
+        .frame(maxWidth: .infinity, alignment: .trailing)
+      Text(String(localized: "market.column.change"))
+        .frame(width: 80, alignment: .trailing)
+    }
+    .font(.system(size: 12, weight: .medium))
+    .foregroundColor(.appClipSecondaryText)
+    .padding(.horizontal, 20)
+    .frame(height: 32)
+  }
+
+  private var trendingFilterBar: some View {
+    HStack {
+      Button {
+        presentMarketFilterSheet(.network)
+      } label: {
+        HStack(spacing: 4) {
+          if let network = selectedNetwork, let logoURL = network.logoURL {
+            RemoteImage(urls: [logoURL], fallbackSystemName: "link.circle.fill")
+              .frame(width: 18, height: 18)
+              .clipShape(Circle())
+          } else {
+            Image(systemName: "circle.grid.2x2.fill")
+              .font(.system(size: 16))
+          }
+          Text(selectedNetwork?.name ?? String(localized: "global.all"))
+            .font(.system(size: 14, weight: .medium))
+          Image(systemName: "chevron.down")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(.appClipSecondaryText)
+        }
+        .foregroundColor(.primary)
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("app-clip-market-network")
+
+      Spacer()
+
+      Button {
+        presentMarketFilterSheet(.timeRange)
+      } label: {
+        HStack(spacing: 4) {
+          Text(model.selectedTimeRange.rawValue)
+            .font(.system(size: 14, weight: .medium))
+          Image(systemName: "chevron.down")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(.appClipSecondaryText)
+        }
+        .foregroundColor(.primary)
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("app-clip-market-time-range")
+    }
+    .padding(.horizontal, 20)
+    .frame(height: 42)
+  }
+
+  private var selectedNetwork: AppClipMarketNetwork? {
+    model.networks.first { $0.id == model.selectedNetworkId }
+  }
+
+  private var filteredNetworks: [AppClipMarketNetwork] {
+    let query = networkSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !query.isEmpty else {
+      return model.networks
+    }
+    return model.networks.filter { network in
+      network.name.range(
+        of: query,
+        options: [.caseInsensitive, .diacriticInsensitive]
+      ) != nil
+        || network.id.range(
+          of: query,
+          options: [.caseInsensitive, .diacriticInsensitive]
+        ) != nil
+    }
+  }
+
+  private var showsAllNetworksSearchResult: Bool {
+    let query = networkSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    return query.isEmpty
+      || String(localized: "global.all_networks").range(
+        of: query,
+        options: [.caseInsensitive, .diacriticInsensitive]
+      ) != nil
+  }
+
+  private func presentMarketFilterSheet(_ sheet: AppClipMarketFilterSheet) {
+    networkSearchText = ""
+    isNetworkSearchFocused = false
+    withAnimation(.easeOut(duration: 0.2)) {
+      activeMarketFilterSheet = sheet
+    }
+  }
+
+  private func dismissMarketFilterSheet() {
+    isNetworkSearchFocused = false
+    withAnimation(.easeOut(duration: 0.2)) {
+      activeMarketFilterSheet = nil
+    }
+  }
+
+  private func marketFilterOverlay(_ sheet: AppClipMarketFilterSheet) -> some View {
+    GeometryReader { proxy in
+      let keyboardIsReducingAvailableHeight = proxy.safeAreaInsets.bottom > 100
+      let bottomMargin = keyboardIsReducingAvailableHeight
+        ? 20
+        : max(proxy.safeAreaInsets.bottom, 20)
+      let topMargin = max(proxy.safeAreaInsets.top, 20)
+      let maximumCardHeight = max(proxy.size.height - bottomMargin - topMargin - 20, 0)
+
+      ZStack(alignment: .bottom) {
+        Button {
+          dismissMarketFilterSheet()
+        } label: {
+          Color.black.opacity(0.72)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "global.close"))
+        .accessibilityIdentifier("app-clip-market-filter-dismiss")
+
+        Group {
+          switch sheet {
+          case .network:
+            marketFilterCard(
+              accessibilityIdentifier: "app-clip-market-network-sheet"
+            ) {
+              networkFilterSheet
+            }
+            .frame(height: min(networkFilterSheetHeight, maximumCardHeight))
+          case .timeRange:
+            marketFilterCard(
+              accessibilityIdentifier: "app-clip-market-time-range-sheet"
+            ) {
+              timeRangeFilterSheet
+            }
+          }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, bottomMargin)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+    }
+    .ignoresSafeArea(.container, edges: .all)
+  }
+
+  private func marketFilterCard<Content: View>(
+    accessibilityIdentifier: String,
+    @ViewBuilder content: () -> Content
+  ) -> some View {
+    content()
+      .frame(maxWidth: .infinity)
+      .background(Color.appClipPanel)
+      .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+      .shadow(color: Color.black.opacity(0.18), radius: 18, y: 8)
+      .accessibilityElement(children: .contain)
+      .accessibilityAddTraits(.isModal)
+      .accessibilityIdentifier(accessibilityIdentifier)
+  }
+
+  private var networkFilterSheetHeight: CGFloat {
+    let rowCount = model.networks.count + 1
+    let contentMaximumHeight: CGFloat = isNetworkSearchFocused ? 320 : 420
+    let contentHeight = min(contentMaximumHeight, 92 + CGFloat(rowCount * 48))
+    return 72 + contentHeight
+  }
+
+  private var networkFilterSheet: some View {
+    VStack(spacing: 0) {
+      HStack(spacing: 8) {
+        Text(String(localized: "global.select_network"))
+          .font(.system(size: 20, weight: .semibold))
+          .foregroundColor(.primary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        Button {
+          dismissMarketFilterSheet()
+        } label: {
+          Image(systemName: "xmark")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.appClipSecondaryText)
+            .frame(width: 32, height: 32)
+            .background(Color.appClipActive)
+            .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "global.close"))
+        .accessibilityIdentifier("app-clip-market-network-close")
+      }
+      .padding(.horizontal, 20)
+      .frame(height: 72)
+
+      VStack(spacing: 0) {
+        HStack(spacing: 8) {
+          Image(systemName: "magnifyingglass")
+            .font(.system(size: 17, weight: .medium))
+            .foregroundColor(.appClipSecondaryText)
+          TextField(
+            String(localized: "global.search"),
+            text: $networkSearchText
+          )
+          .font(.system(size: 16))
+          .foregroundColor(.primary)
+          .textInputAutocapitalization(.never)
+          .autocorrectionDisabled()
+          .submitLabel(.search)
+          .focused($isNetworkSearchFocused)
+          .accessibilityIdentifier("app-clip-market-network-search")
+          if !networkSearchText.isEmpty {
+            Button {
+              networkSearchText = ""
+            } label: {
+              Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundColor(.appClipSecondaryText)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("app-clip-market-network-search-clear")
+          }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 40)
+        .background(Color.appClipActive)
+        .clipShape(Capsule())
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+
+        ScrollViewReader { proxy in
+          ScrollView(showsIndicators: false) {
+            LazyVStack(spacing: 0) {
+              if showsAllNetworksSearchResult {
+                networkFilterRow(
+                  id: "all",
+                  name: String(localized: "global.all_networks"),
+                  logoURL: nil,
+                  isSelected: model.selectedNetworkId.isEmpty
+                ) {
+                  model.selectNetwork("")
+                  dismissMarketFilterSheet()
+                }
+              }
+              ForEach(filteredNetworks) { network in
+                networkFilterRow(
+                  id: network.id,
+                  name: network.name,
+                  logoURL: network.logoURL,
+                  isSelected: model.selectedNetworkId == network.id
+                ) {
+                  model.selectNetwork(network.id)
+                  dismissMarketFilterSheet()
+                }
+              }
+              if !showsAllNetworksSearchResult, filteredNetworks.isEmpty {
+                Text(String(localized: "market.no_results"))
+                  .font(.system(size: 14))
+                  .foregroundColor(.appClipSecondaryText)
+                  .frame(maxWidth: .infinity)
+                  .frame(height: 96)
+                  .accessibilityIdentifier("app-clip-market-network-no-results")
+              }
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 12)
+          }
+          .scrollDismissesKeyboard(.interactively)
+          .onAppear {
+            guard networkSearchText.isEmpty, !model.selectedNetworkId.isEmpty else {
+              return
+            }
+            proxy.scrollTo(model.selectedNetworkId, anchor: .center)
+          }
+        }
+      }
+      .frame(maxHeight: .infinity)
+    }
+  }
+
+  private func networkFilterRow(
+    id: String,
+    name: String,
+    logoURL: URL?,
+    isSelected: Bool,
+    action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      HStack(spacing: 12) {
+        Group {
+          if let logoURL {
+            RemoteImage(urls: [logoURL], fallbackSystemName: "link.circle.fill")
+              .clipShape(Circle())
+          } else {
+            Image(systemName: "circle.grid.2x2.fill")
+              .font(.system(size: 28))
+              .foregroundColor(.primary)
+          }
+        }
+        .frame(width: 32, height: 32)
+        Text(name)
+          .font(.system(size: 16, weight: .medium))
+          .foregroundColor(.primary)
+          .lineLimit(1)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        if isSelected {
+          Image(systemName: "checkmark.circle.fill")
+            .font(.system(size: 24, weight: .semibold))
+            .foregroundColor(.primary)
+            .accessibilityHidden(true)
+        }
+      }
+      .padding(.horizontal, 12)
+      .frame(height: 48)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(AppClipMarketRowButtonStyle())
+    .id(id)
+    .accessibilityValue(isSelected ? String(localized: "global.selected") : "")
+    .accessibilityIdentifier("app-clip-market-network-option-\(id)")
+  }
+
+  private var timeRangeFilterSheet: some View {
+    VStack(spacing: 4) {
+      ForEach(AppClipMarketTimeRange.allCases) { timeRange in
+        let isSelected = model.selectedTimeRange == timeRange
+        Button {
+          model.selectTimeRange(timeRange)
+          dismissMarketFilterSheet()
+        } label: {
+          Text(timeRange.rawValue)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(isSelected ? .primary : .appClipSecondaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(isSelected ? Color.appClipActive : .clear)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(isSelected ? String(localized: "global.selected") : "")
+        .accessibilityIdentifier(
+          "app-clip-market-time-range-option-\(timeRange.rawValue)"
+        )
+      }
+    }
+    .padding(8)
+  }
+
+  @ViewBuilder
+  private func marketDetail(_ detail: AppClipMarketDetail) -> some View {
+    unifiedMarketDetail(detail)
+  }
+
+  private func unifiedMarketDetail(_ detail: AppClipMarketDetail) -> some View {
     VStack(spacing: 0) {
       HStack(spacing: 12) {
         Button {
@@ -107,24 +718,23 @@ struct AppClipRootView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("app-clip-market-back")
-        TokenLogo(asset: asset)
+        marketDetailLogo(detail)
           .frame(width: 44, height: 44)
-          .accessibilityIdentifier("app-clip-detail-token-logo")
         Spacer()
       }
       .frame(height: 64)
       .padding(.horizontal, 20)
 
       VStack(alignment: .leading, spacing: 5) {
-        Text(asset.symbol)
+        Text(marketDetailTitle(detail))
           .font(.system(size: 32, weight: .bold))
           .foregroundColor(.primary)
           .lineLimit(1)
-        Text("\(asset.detailSubtitle) · Spot")
+        Text(marketDetailSubtitle(detail))
           .font(.system(size: 14, weight: .medium))
           .foregroundColor(.appClipSecondaryText)
           .lineLimit(1)
-        Text(formattedPrice(selectedCandle?.c ?? asset.price))
+        Text(formattedPrice(selectedCandle?.c ?? marketDetailSnapshotPrice(detail)))
           .font(.system(size: 40, weight: .bold))
           .foregroundColor(.primary)
           .monospacedDigit()
@@ -133,8 +743,8 @@ struct AppClipRootView: View {
           .padding(.top, 5)
           .accessibilityIdentifier("app-clip-detail-price")
         HStack(spacing: 6) {
-          Text(formattedPercentage(asset.priceChangePercent))
-            .foregroundColor(changeColor(asset.priceChangePercent))
+          Text(formattedPercentage(marketDetailChange(detail)))
+            .foregroundColor(changeColor(marketDetailChange(detail)))
           Text("24h")
             .foregroundColor(.appClipSecondaryText)
         }
@@ -145,15 +755,16 @@ struct AppClipRootView: View {
       .padding(.top, 4)
       .padding(.bottom, 6)
 
-      chartState(asset: asset)
+      chartState(detail: detail)
         .frame(minHeight: 260)
         .layoutPriority(1)
+        .accessibilityIdentifier("app-clip-detail-chart")
 
       HStack(spacing: 8) {
-        ForEach(["1m", "15m", "1H", "4H"], id: \.self) { interval in
+        ForEach(marketDetailPeriods(detail), id: \.self) { interval in
           Button {
             selectedCandleID = nil
-            Task { await model.selectInterval(interval, asset: asset) }
+            Task { await model.selectDetailInterval(interval, detail: detail) }
           } label: {
             Text(interval)
               .font(.system(size: 14, weight: .semibold))
@@ -168,7 +779,7 @@ struct AppClipRootView: View {
               .clipShape(Capsule())
           }
           .buttonStyle(.plain)
-          .accessibilityIdentifier("app-clip-interval-\(interval)")
+          .accessibilityIdentifier("app-clip-detail-period-\(interval)")
         }
       }
       .padding(.horizontal, 12)
@@ -182,13 +793,99 @@ struct AppClipRootView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 6)
 
-      installFooter(asset: asset, usesDetailStyle: true)
+      installFooter(asset: marketDetailTokenAsset(detail), usesDetailStyle: true)
     }
     .background(Color.appClipBackground.ignoresSafeArea())
   }
 
   @ViewBuilder
-  private func chartState(asset: AppClipMarketAsset) -> some View {
+  private func marketDetailLogo(_ detail: AppClipMarketDetail) -> some View {
+    switch detail {
+    case .token(let asset):
+      TokenLogo(asset: asset)
+    case .stock(let stock):
+      RemoteImage(
+        urls: stock.logoURL.map { [$0] } ?? [],
+        fallbackSystemName: "chart.line.uptrend.xyaxis.circle.fill"
+      )
+      .clipShape(Circle())
+    case .perp(let perp):
+      RemoteImage(
+        urls: perp.logoURL.map { [$0] } ?? [],
+        fallbackSystemName: "chart.line.uptrend.xyaxis.circle.fill"
+      )
+      .clipShape(Circle())
+    }
+  }
+
+  private func marketDetailTitle(_ detail: AppClipMarketDetail) -> String {
+    switch detail {
+    case .token(let asset):
+      return asset.symbol
+    case .stock(let stock):
+      return stock.symbol
+    case .perp(let perp):
+      return perp.displayName
+    }
+  }
+
+  private func marketDetailSubtitle(_ detail: AppClipMarketDetail) -> String {
+    switch detail {
+    case .token(let asset):
+      return "\(asset.detailSubtitle) · Spot"
+    case .stock(let stock):
+      return stock.name
+    case .perp(let perp):
+      let label = String(localized: "market.tab.perps")
+      guard let leverage = formattedLeverage(perp.maxLeverage) else {
+        return label
+      }
+      return "\(label) · \(leverage)"
+    }
+  }
+
+  private func marketDetailSnapshotPrice(_ detail: AppClipMarketDetail) -> Double? {
+    switch detail {
+    case .token(let asset):
+      return asset.price
+    case .stock(let stock):
+      return stock.price
+    case .perp(let perp):
+      return perp.markPrice
+    }
+  }
+
+  private func marketDetailChange(_ detail: AppClipMarketDetail) -> Double? {
+    switch detail {
+    case .token(let asset):
+      return asset.priceChangePercent
+    case .stock(let stock):
+      return stock.priceChangePercent
+    case .perp(let perp):
+      return perp.priceChangePercent
+    }
+  }
+
+  private func marketDetailPeriods(_ detail: AppClipMarketDetail) -> [String] {
+    switch detail {
+    case .stock:
+      return ["1H", "1D", "1W", "1M", "1Y", "All"]
+    case .token, .perp:
+      return ["1m", "15m", "1H", "4H"]
+    }
+  }
+
+  private func marketDetailTokenAsset(
+    _ detail: AppClipMarketDetail
+  ) -> AppClipMarketAsset? {
+    guard case .token(let asset) = detail else {
+      return nil
+    }
+    return asset
+  }
+
+  @ViewBuilder
+  private func chartState(detail: AppClipMarketDetail) -> some View {
     if model.isLoadingCandles && model.candles.isEmpty {
       ProgressView()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -201,7 +898,7 @@ struct AppClipRootView: View {
           .font(.subheadline)
           .foregroundColor(.appClipSecondaryText)
         retryButton {
-          model.retryCandles(asset: asset)
+          model.retryDetailCandles(detail: detail)
         }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -303,11 +1000,19 @@ struct AppClipRootView: View {
       if let time {
         return String(format: String(localized: "market.update_failed"), time)
       }
-      return String(localized: "market.unavailable")
+      return String(
+        localized: model.isNetworkAvailable == false
+          ? "market.no_network"
+          : "market.unavailable"
+      )
     }
-    return model.isRefreshing && model.assets.isEmpty
-      ? String(localized: "market.refreshing")
-      : String(localized: "market.realtime")
+    if !model.activeDidLoad || (model.isRefreshing && model.activeIsEmpty) {
+      return String(localized: "market.refreshing")
+    }
+    if model.activeIsEmpty {
+      return String(localized: "market.no_results")
+    }
+    return String(localized: "market.realtime")
   }
 
   private static let statusTimeFormatter: DateFormatter = {
@@ -316,6 +1021,99 @@ struct AppClipRootView: View {
     formatter.timeStyle = .short
     return formatter
   }()
+}
+
+private struct MarketStockRow: View {
+  let stock: AppClipMarketStock
+
+  var body: some View {
+    HStack(spacing: 0) {
+      HStack(spacing: 14) {
+        RemoteImage(
+          urls: stock.logoURL.map { [$0] } ?? [],
+          fallbackSystemName: "chart.line.uptrend.xyaxis.circle.fill"
+        )
+        .frame(width: 40, height: 40)
+        .clipShape(Circle())
+        VStack(alignment: .leading, spacing: 0) {
+          Text(stock.symbol)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundColor(.primary)
+            .lineLimit(1)
+          Text(stock.name)
+            .font(.system(size: 14))
+            .foregroundColor(.appClipSecondaryText)
+            .lineLimit(1)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      HStack(spacing: 8) {
+        Text(formattedPrice(stock.price))
+          .font(.system(size: 16, weight: .medium))
+          .foregroundColor(.primary)
+          .monospacedDigit()
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+        PriceChangeBadge(change: stock.priceChangePercent)
+      }
+    }
+    .padding(.horizontal, 20)
+    .frame(height: 72)
+    .contentShape(Rectangle())
+    .accessibilityElement(children: .combine)
+  }
+}
+
+private struct MarketPerpsRow: View {
+  let perp: AppClipMarketPerp
+
+  var body: some View {
+    HStack(spacing: 0) {
+      HStack(spacing: 8) {
+        RemoteImage(
+          urls: perp.logoURL.map { [$0] } ?? [],
+          fallbackSystemName: "chart.line.uptrend.xyaxis.circle.fill"
+        )
+        .frame(width: 32, height: 32)
+        .clipShape(Circle())
+        VStack(alignment: .leading, spacing: 0) {
+          HStack(spacing: 4) {
+            Text(perp.displayName)
+              .font(.system(size: 16, weight: .medium))
+              .foregroundColor(.primary)
+              .lineLimit(1)
+            if let leverage = formattedLeverage(perp.maxLeverage) {
+              Text(leverage)
+                .font(.system(size: 10))
+                .foregroundColor(.appClipInfoText)
+                .padding(.horizontal, 4)
+                .frame(height: 16)
+                .background(Color.appClipInfo)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
+          }
+          Text(formattedMarketAmount(perp.volume))
+            .font(.system(size: 12))
+            .foregroundColor(.appClipSecondaryText)
+            .lineLimit(1)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      HStack(spacing: 8) {
+        Text(formattedPrice(perp.markPrice))
+          .font(.system(size: 16, weight: .medium))
+          .foregroundColor(.primary)
+          .monospacedDigit()
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+        PriceChangeBadge(change: perp.priceChangePercent)
+      }
+    }
+    .padding(.horizontal, 16)
+    .frame(height: 64)
+    .contentShape(Rectangle())
+    .accessibilityElement(children: .combine)
+  }
 }
 
 private struct MarketAssetRow: View {
@@ -351,7 +1149,7 @@ private struct MarketAssetRow: View {
     }
     .contentShape(Rectangle())
     .padding(.horizontal, 20)
-    .padding(.vertical, 12)
+    .frame(height: 72)
   }
 }
 
@@ -365,7 +1163,7 @@ private struct TokenLogo: View {
       .overlay(alignment: .bottomTrailing) {
         if let networkLogoURL = asset.networkLogoURL {
           RemoteImage(urls: [networkLogoURL], fallbackSystemName: "link.circle.fill")
-            .frame(width: 14, height: 14)
+            .frame(width: 16, height: 16)
             .clipShape(Circle())
             .overlay(Circle().stroke(Color.appClipBackground, lineWidth: 2))
             .offset(x: 2, y: 2)
@@ -374,43 +1172,155 @@ private struct TokenLogo: View {
   }
 }
 
+private final class AppClipImageMemoryCache: @unchecked Sendable {
+  private let cache = NSCache<NSURL, UIImage>()
+
+  init() {
+    cache.countLimit = 160
+    cache.totalCostLimit = 24 * 1_024 * 1_024
+  }
+
+  func image(for url: URL) -> UIImage? {
+    cache.object(forKey: url as NSURL)
+  }
+
+  func insert(_ image: UIImage, for url: URL) {
+    let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+    cache.setObject(image, forKey: url as NSURL, cost: cost)
+  }
+}
+
+private actor AppClipImagePipeline {
+  static let shared = AppClipImagePipeline()
+
+  nonisolated let memoryCache = AppClipImageMemoryCache()
+  private let session: URLSession
+  private var inFlight: [URL: Task<UIImage, Error>] = [:]
+
+  init() {
+    let configuration = URLSessionConfiguration.default
+    configuration.requestCachePolicy = .returnCacheDataElseLoad
+    configuration.urlCache = URLCache(
+      memoryCapacity: 8 * 1_024 * 1_024,
+      diskCapacity: 32 * 1_024 * 1_024,
+      diskPath: "OneKeyAppClipImages"
+    )
+    configuration.httpMaximumConnectionsPerHost = 4
+    session = URLSession(configuration: configuration)
+  }
+
+  nonisolated func cachedImage(for url: URL) -> UIImage? {
+    memoryCache.image(for: url)
+  }
+
+  func image(for url: URL) async throws -> UIImage {
+    if let cached = memoryCache.image(for: url) {
+      return cached
+    }
+    if let task = inFlight[url] {
+      return try await task.value
+    }
+    let session = session
+    let task = Task<UIImage, Error> {
+      var request = URLRequest(url: url)
+      request.timeoutInterval = 10
+      request.cachePolicy = .returnCacheDataElseLoad
+      let (data, response) = try await session.data(for: request)
+      guard
+        let response = response as? HTTPURLResponse,
+        (200..<300).contains(response.statusCode),
+        data.count <= 8 * 1_024 * 1_024,
+        let image = UIImage(data: data)
+      else {
+        throw URLError(.cannotDecodeContentData)
+      }
+      return image
+    }
+    inFlight[url] = task
+    defer {
+      inFlight[url] = nil
+    }
+    let image = try await task.value
+    memoryCache.insert(image, for: url)
+    return image
+  }
+}
+
 private struct RemoteImage: View {
   let urls: [URL]
   let fallbackSystemName: String
-  @State private var currentIndex = 0
+  @State private var loadedImage: UIImage?
+  @State private var loadedURL: URL?
+  @State private var isLoading = false
 
   var body: some View {
     content
-      .onChange(of: urls) { _ in
-        currentIndex = 0
+      .task(id: urls) {
+        await loadImage()
       }
   }
 
   @ViewBuilder
   private var content: some View {
-    if urls.indices.contains(currentIndex) {
-      AsyncImage(url: urls[currentIndex]) { phase in
-        switch phase {
-        case .empty:
-          Color.appClipSurface.overlay(ProgressView().controlSize(.mini))
-        case .success(let image):
-          image.resizable().scaledToFill()
-        case .failure:
-          fallback
-            .onAppear {
-              guard currentIndex + 1 < urls.count else {
-                return
-              }
-              DispatchQueue.main.async {
-                currentIndex += 1
-              }
-            }
-        @unknown default:
-          fallback
-        }
-      }
+    if let image = visibleImage {
+      Image(uiImage: image)
+        .resizable()
+        .scaledToFill()
+    } else if isLoading {
+      Color.appClipSurface.overlay(ProgressView().controlSize(.mini))
     } else {
       fallback
+    }
+  }
+
+  private var visibleImage: UIImage? {
+    if let loadedURL, urls.contains(loadedURL), let loadedImage {
+      return loadedImage
+    }
+    for url in urls {
+      if let cached = AppClipImagePipeline.shared.cachedImage(for: url) {
+        return cached
+      }
+    }
+    return nil
+  }
+
+  @MainActor
+  private func loadImage() async {
+    let requestURLs = urls
+    if let cached = requestURLs.compactMap({ url in
+      AppClipImagePipeline.shared.cachedImage(for: url).map { (url, $0) }
+    }).first {
+      loadedURL = cached.0
+      loadedImage = cached.1
+      isLoading = false
+      return
+    }
+    loadedURL = nil
+    loadedImage = nil
+    guard !requestURLs.isEmpty else {
+      isLoading = false
+      return
+    }
+    isLoading = true
+    for url in requestURLs {
+      do {
+        let image = try await AppClipImagePipeline.shared.image(for: url)
+        guard !Task.isCancelled, urls == requestURLs else {
+          return
+        }
+        loadedURL = url
+        loadedImage = image
+        isLoading = false
+        return
+      } catch {
+        guard !Task.isCancelled, urls == requestURLs else {
+          return
+        }
+      }
+    }
+    if urls == requestURLs {
+      isLoading = false
     }
   }
 
@@ -450,6 +1360,19 @@ private struct PriceChangeBadge: View {
       return .appClipNegative
     }
     return .appClipNeutralStrong
+  }
+}
+
+private struct AppClipMarketRowButtonStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .frame(maxWidth: .infinity)
+      .contentShape(Rectangle())
+      .background(
+        RoundedRectangle(cornerRadius: 12, style: .circular)
+          .fill(configuration.isPressed ? Color.appClipActive : .clear)
+      )
+      .clipShape(RoundedRectangle(cornerRadius: 12, style: .circular))
   }
 }
 
@@ -871,6 +1794,16 @@ private func formattedPercentage(_ value: Double?) -> String {
   return String(format: "%+.2f%%", value)
 }
 
+private func formattedLeverage(_ value: Double?) -> String? {
+  guard let value, value.isFinite, value > 0 else {
+    return nil
+  }
+  if value.rounded() == value {
+    return "\(Int(value))x"
+  }
+  return "\(value.formatted(.number.precision(.fractionLength(0...1))))x"
+}
+
 private func formattedMarketAmount(_ value: Double?) -> String {
   guard let value, value.isFinite, value > 0 else {
     return "--"
@@ -985,7 +1918,11 @@ private func chartSelectionAccessibilityLabel(_ candle: AppClipCandle) -> String
 
 extension Color {
   fileprivate static let appClipBackground = adaptive(light: 0xFFFFFF, dark: 0x000000)
+  fileprivate static let appClipPanel = adaptive(light: 0xFCFCFC, dark: 0x1A1A1A)
   fileprivate static let appClipSurface = adaptive(light: 0xF0F0F0, dark: 0x222222)
+  fileprivate static let appClipActive = adaptive(light: 0xECECEC, dark: 0x262626)
+  fileprivate static let appClipInfo = adaptive(light: 0xE9F1FF, dark: 0x172947)
+  fileprivate static let appClipInfoText = adaptive(light: 0x315D9A, dark: 0x8AB4F8)
   fileprivate static let appClipFooter = adaptive(light: 0xFCFCFC, dark: 0x111111)
   fileprivate static let appClipChart = adaptive(light: 0xFFFFFF, dark: 0x000000)
   fileprivate static let appClipSeparator = adaptive(light: 0xE8E8E8, dark: 0x2A2A2A)
