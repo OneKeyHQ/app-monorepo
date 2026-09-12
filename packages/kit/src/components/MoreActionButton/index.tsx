@@ -67,6 +67,7 @@ import {
   EFullScreenPushRoutes,
 } from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -181,14 +182,21 @@ function pickDesktopThemeStyle<TDark, TLight>(
   return isDarkTheme ? darkStyle : lightStyle;
 }
 
-function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
+function MoreActionContentHeaderItem({
+  onPress,
+  ignorePress,
+  ...props
+}: IIconButtonProps & { ignorePress?: boolean }) {
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
+      if (ignorePress) {
+        return;
+      }
       await closePopover?.();
       onPress?.(event);
     },
-    [closePopover, onPress],
+    [closePopover, ignorePress, onPress],
   );
   return (
     <IconButton
@@ -208,10 +216,16 @@ function MoreActionContentHeader({
 }) {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   const handleCustomerSupport = useCallback(() => {
+    if (isTravelMode) {
+      return;
+    }
     void showIntercom();
-  }, []);
+  }, [isTravelMode]);
 
   const {
     activeAccount: { account, network },
@@ -388,6 +402,9 @@ function MoreActionContentHeader({
             title={item.title}
             icon={item.icon as IKeyOfIcons}
             onPress={item.onPress}
+            ignorePress={
+              isTravelMode && item.trackID === 'wallet-customer-support'
+            }
             trackID={item.trackID}
           />
         ))}
@@ -404,6 +421,9 @@ function MoreActionAboutCard({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const version = useMemo(() => {
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
   }, []);
@@ -417,6 +437,9 @@ function MoreActionAboutCard({
   );
 
   const handleAbout = useCallback(async () => {
+    if (isTravelMode) {
+      return;
+    }
     defaultLogger.ui.button.click({
       trackId: 'wallet-about',
     });
@@ -431,7 +454,7 @@ function MoreActionAboutCard({
         name: ESettingsTabNames.About,
       },
     });
-  }, [closePopover, navigation]);
+  }, [closePopover, isTravelMode, navigation]);
 
   return (
     <XStack
@@ -483,6 +506,7 @@ interface IMoreActionContentGridItemProps {
   testID?: string;
   trackID: string;
   onPress: () => void;
+  ignorePress?: boolean;
   showRedDot?: boolean;
   showBadges?: boolean;
   badges?: number;
@@ -495,6 +519,7 @@ function MoreActionContentGridItem({
   title,
   icon,
   onPress,
+  ignorePress,
   testID,
   trackID,
   showRedDot,
@@ -512,12 +537,15 @@ function MoreActionContentGridItem({
   const { closePopover } = usePopoverContext();
 
   const handlePress = useCallback(async () => {
+    if (ignorePress) {
+      return;
+    }
     defaultLogger.ui.button.click({
       trackId: trackID,
     });
     await closePopover?.();
     onPress();
-  }, [closePopover, onPress, trackID]);
+  }, [closePopover, ignorePress, onPress, trackID]);
 
   const { user, isPrimeActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
@@ -684,6 +712,9 @@ function MoreActionOneKeyId() {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const { closePopover } = usePopoverContext();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const rowHoverStyle = isDesktopMode
     ? MORE_ACTION_DESKTOP_ROW_HOVER_STYLE
     : MORE_ACTION_ITEM_HOVER_STYLE;
@@ -723,6 +754,9 @@ function MoreActionOneKeyId() {
   }, [closePopover, navigation]);
 
   const handlePress = useCallback(async () => {
+    if (isTravelMode && !isLoggedIn) {
+      return;
+    }
     defaultLogger.ui.button.click({
       trackId: 'wallet-onekey-id',
     });
@@ -734,7 +768,13 @@ function MoreActionOneKeyId() {
         toOneKeyIdPageOnLoginSuccess: false,
       });
     }
-  }, [isLoggedIn, handleNavigateToOneKeyId, closePopover, loginOneKeyId]);
+  }, [
+    isTravelMode,
+    isLoggedIn,
+    handleNavigateToOneKeyId,
+    closePopover,
+    loginOneKeyId,
+  ]);
 
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
@@ -931,6 +971,16 @@ function UpdateReminders() {
   ) : null;
 }
 
+const TRAVEL_MODE_IGNORED_MORE_ACTIONS = new Set([
+  'wallet-customer-support',
+  'wallet-lock-now',
+  'wallet-backup',
+  'wallet-address-book',
+  'wallet-network',
+  'wallet-referral',
+  'wallet-redeem',
+]);
+
 function BaseMoreActionGrid({
   title,
   items,
@@ -943,9 +993,22 @@ function BaseMoreActionGrid({
   const { isPrimeAvailable } = usePrimeAvailable();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isDarkTheme = useThemeVariant() === 'dark';
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const rows = useMemo(
-    () => buildMoreActionGridLayout(items, isPrimeAvailable),
-    [isPrimeAvailable, items],
+    () =>
+      buildMoreActionGridLayout(
+        isTravelMode
+          ? items.map((item) =>
+              TRAVEL_MODE_IGNORED_MORE_ACTIONS.has(item.trackID)
+                ? { ...item, ignorePress: true }
+                : item,
+            )
+          : items,
+        isPrimeAvailable,
+      ),
+    [isPrimeAvailable, isTravelMode, items],
   );
   const titleContent = (
     <SizableText
@@ -1009,6 +1072,9 @@ function MoreActionGeneralGrid() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onLock = useOnLock();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   const handleSettings = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -1017,8 +1083,11 @@ function MoreActionGeneralGrid() {
   }, [navigation]);
 
   const handleLock = useCallback(async () => {
+    if (isTravelMode) {
+      return;
+    }
     await onLock();
-  }, [onLock]);
+  }, [isTravelMode, onLock]);
 
   const {
     activeAccount: { account, network },
@@ -1080,11 +1149,12 @@ function MoreActionGeneralGrid() {
             title: intl.formatMessage({ id: ETranslations.settings_lock_now }),
             icon: 'LockOutline' as const,
             onPress: handleLock,
+            ignorePress: isTravelMode,
             trackID: 'wallet-lock-now',
           }
         : undefined,
     ].filter(Boolean);
-  }, [handleLock, handlePrime, handleScan, handleSettings, intl]);
+  }, [handleLock, handlePrime, handleScan, handleSettings, intl, isTravelMode]);
   return (
     <BaseMoreActionGrid
       title={intl.formatMessage({ id: ETranslations.global_general })}
@@ -1571,6 +1641,9 @@ function MoreActionFixedFooter({ isDesktopMode }: { isDesktopMode: boolean }) {
 
 function BaseMoreActionContent({ fixedFooter }: { fixedFooter: boolean }) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const body = (
     <>
       {platformEnv.isWebDappMode ? null : <UpdateReminders />}
@@ -1583,7 +1656,7 @@ function BaseMoreActionContent({ fixedFooter }: { fixedFooter: boolean }) {
         pt={platformEnv.isWebDappMode && !isDesktopMode ? '$4' : undefined}
         pb={isDesktopMode ? '$0' : '$5'}
       >
-        {isDesktopMode ? null : <MoreActionDevice />}
+        {isDesktopMode || isTravelMode ? null : <MoreActionDevice />}
         <MoreActionMenuCard isDesktopMode={isDesktopMode} />
         {fixedFooter ? null : (
           <MoreActionAboutCard isDesktopMode={isDesktopMode} />

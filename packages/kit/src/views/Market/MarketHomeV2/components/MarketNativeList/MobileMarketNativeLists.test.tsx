@@ -82,6 +82,7 @@ const mockWatchlistData: IMarketToken[] = [
 ];
 let mockRowAction: ((event: RowActionEvent) => void) | undefined;
 let mockNativeSnapshot: NativeListSnapshot | undefined;
+let mockTravelMode = false;
 const mockRefetch = jest.fn();
 const mockRefresh = jest.fn();
 let mockPullToRefresh: () => void;
@@ -154,6 +155,13 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
   };
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({ isNativeIOS: true }));
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({
+      profile: { kind: mockTravelMode ? 'travel-mode' : 'standard' },
+    }),
+  },
+}));
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'dark',
@@ -194,7 +202,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useMarketWatchListV2Atom: () => [
-    { isMounted: true, data: mockWatchlistData },
+    {
+      isMounted: true,
+      data: mockWatchlistData.map((item) => ({
+        chainId: item.networkId,
+        contractAddress: item.address,
+        assetId: item.assetId,
+        stockId: item.stockId,
+        isNative: item.isNative,
+      })),
+    },
   ],
   useWatchListV2Actions: () => mockActions,
 }));
@@ -444,6 +461,45 @@ it.each([{ assetId: 'bitcoin' }, { stockId: 'AAPL' }])(
 );
 
 describe('native market listing favorites', () => {
+  it.each(['stock', 'top-coin'] as const)(
+    'hides %s favorites and ignores stale native actions in Travel Mode',
+    async (listingType) => {
+      jest.clearAllMocks();
+      mockTravelMode = true;
+      try {
+        render(
+          listingType === 'stock' ? (
+            <MobileMarketNativeStockList
+              selectedCategoryId="all"
+              listContainerProps={{ paddingBottom: 20 }}
+            />
+          ) : (
+            <MobileMarketNativeTopCoinsList
+              dataCacheRef={{ current: undefined }}
+              listContainerProps={{ paddingBottom: 20 }}
+            />
+          ),
+        );
+        const rowKey = listingType === 'stock' ? 'AAPL' : 'bitcoin';
+        expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+          key: rowKey,
+          leadingAction: undefined,
+        });
+
+        await act(async () => {
+          mockRowAction?.({ rowKey, actionKey: 'toggle-favorite' });
+        });
+
+        expect(mockListingActions.addIntoWatchListV2).not.toHaveBeenCalled();
+        expect(mockListingActions.removeFromWatchListV2).not.toHaveBeenCalled();
+        expect(mockStockDetail).not.toHaveBeenCalled();
+        expect(mockTopCoinDetail).not.toHaveBeenCalled();
+      } finally {
+        mockTravelMode = false;
+      }
+    },
+  );
+
   it('adds a stock favorite without opening its detail row', async () => {
     const previous = [...mockWatchlistData];
     let resolveFavorite: (value: boolean) => void = () => undefined;

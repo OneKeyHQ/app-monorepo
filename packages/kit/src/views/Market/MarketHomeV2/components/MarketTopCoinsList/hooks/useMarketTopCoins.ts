@@ -10,6 +10,7 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
@@ -125,6 +126,12 @@ export function useMarketTopCoinNavigation({
 
   const handleItemPress = useCallback(
     async (item: IMarketAssetListItem) => {
+      if (
+        travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode'
+      ) {
+        return;
+      }
       if (isNavigatingRef.current) {
         return;
       }
