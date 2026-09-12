@@ -150,6 +150,8 @@ const MarketStockSelectorList = memo(
     return (
       <YStack height={STOCK_SELECTOR_TABLE_HEIGHT}>
         <Table<IMarketStockPublicItem>
+          // Reset scroll for a new search, but preserve it when appending pages.
+          key={normalizedQuery}
           columns={columns}
           dataSource={items}
           keyExtractor={(item) => item.stockId}
