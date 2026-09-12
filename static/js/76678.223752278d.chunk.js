@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[76678],{994149(e,s,o){o.d(s,{},{default:{markBootSuccess(){globalThis.desktopApi?.markBootSuccess?.()},setConsecutiveBootFailCount(e){globalThis.desktopApi?.setConsecutiveBootFailCount?.(e)},getAndClearRecoveryAction:async()=>""}})}}]);
+//# sourceMappingURL=76678.223752278d.chunk.js.map

@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[77291],{160006(e,i,r){var t=r(43462);let SimpleDbEntityReceiveArrivalConfig=class SimpleDbEntityReceiveArrivalConfig extends t.t{constructor(...e){super(...e),this.entityName="receiveArrivalConfig",this.enableCache=!0}};r.d(i,{SimpleDbEntityReceiveArrivalConfig:()=>SimpleDbEntityReceiveArrivalConfig})}}]);
+//# sourceMappingURL=77291.c6f627e2ed.chunk.js.map

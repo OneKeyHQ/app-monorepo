@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[7804],{796279(t,a,e){e.r(a);var r=e(514047),l=e(927092);let marketDetail=async(t,a)=>{let e=a?.urlResult;if(e?.data?.urlParamList){let t=e?.data?.origin;if([r.rq,r.$U,r.km].includes(t)&&e?.data?.pathname.startsWith("/market/tokens/")){let a=e?.data?.pathname.split("/market/tokens/").pop();return{type:l.Wb.MARKET_DETAIL,data:{origin:t,coinGeckoId:a}}}}return null};e.d(a,{},{default:marketDetail})}}]);
+//# sourceMappingURL=7804.7245a53716.chunk.js.map
