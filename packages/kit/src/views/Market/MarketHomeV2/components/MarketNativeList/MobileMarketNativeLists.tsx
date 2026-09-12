@@ -318,6 +318,9 @@ function NativeMarketList({
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
+  const nativeRefreshEnabled = Boolean(
+    onRefresh && !platformEnv.isNativeAndroid,
+  );
   const refreshingRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   useEffect(
@@ -365,7 +368,7 @@ function NativeMarketList({
         }),
         retryMessage: intl.formatMessage({ id: ETranslations.global_retry }),
         canLoadMore,
-        canRefresh: Boolean(onRefresh),
+        canRefresh: nativeRefreshEnabled,
         showEnd,
         contentPaddingBottom,
         emptyContentHeight,
@@ -382,7 +385,7 @@ function NativeMarketList({
       loadMoreError,
       loading,
       loadingMore,
-      onRefresh,
+      nativeRefreshEnabled,
       presentation,
       refreshing,
       rows,
@@ -400,7 +403,7 @@ function NativeMarketList({
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
       onRefresh={
-        onRefresh
+        nativeRefreshEnabled
           ? () => void handleRefresh().catch(() => undefined)
           : undefined
       }

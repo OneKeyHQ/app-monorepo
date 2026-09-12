@@ -85,6 +85,7 @@ let mockNativeSnapshot: NativeListSnapshot | undefined;
 const mockRefetch = jest.fn();
 const mockRefresh = jest.fn();
 let mockPullToRefresh: () => void;
+let mockIsNativeAndroid = false;
 const mockData: IMarketToken[] = [];
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockTheme = Object.fromEntries(
@@ -153,13 +154,21 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
     }),
   };
 });
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({ isNativeIOS: true }));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  get isNativeAndroid() {
+    return mockIsNativeAndroid;
+  },
+  get isNativeIOS() {
+    return !mockIsNativeAndroid;
+  },
+}));
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'dark',
 }));
 jest.mock('react-native', () => ({
   Dimensions: { get: () => ({ width: 402, height: 874 }) },
+  PixelRatio: { get: () => 3 },
   StyleSheet: { create: (styles: Record<string, unknown>) => styles },
 }));
 jest.mock('@onekeyhq/components', () => ({
@@ -277,7 +286,24 @@ jest.mock('../MarketTopCoinsList/hooks/useMarketTopCoins', () => ({
 }));
 
 describe('MobileMarketNativeTokenList refresh', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    mockIsNativeAndroid = false;
+    jest.clearAllMocks();
+  });
+
+  it('keeps pull-to-refresh disabled on Android Market lists', async () => {
+    mockIsNativeAndroid = true;
+    render(
+      <MobileMarketNativeTokenList
+        networkId="evm--1"
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+
+    expect(mockNativeSnapshot?.capabilities?.pullToRefresh).toBe(false);
+    await act(async () => mockPullToRefresh());
+    expect(mockRefetch).not.toHaveBeenCalled();
+  });
 
   it('retries an error row through the uncached native request', async () => {
     mockRefetch.mockResolvedValue(undefined);
