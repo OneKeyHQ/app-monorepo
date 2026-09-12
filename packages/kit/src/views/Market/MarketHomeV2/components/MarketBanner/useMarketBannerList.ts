@@ -45,7 +45,6 @@ export async function hydrateMarketBannerQuotes(
           const assets = await fetchMarketBannerStockTokenListForPlatform(
             banner.tokenListId,
           );
-          if (!assets.length) return banner;
           return {
             ...banner,
             tokens: assets.map((asset) => ({
@@ -62,7 +61,6 @@ export async function hydrateMarketBannerQuotes(
         const tokens = await fetchMarketBannerTokenListForPlatform(
           banner.tokenListId,
         );
-        if (!tokens.length) return banner;
 
         return {
           ...banner,
@@ -86,6 +84,7 @@ export async function hydrateMarketBannerQuotes(
 function mergeBannerQuotes(
   banners: IMarketBannerItem[],
   previous: IMarketBannerItem[] | undefined,
+  preferQuotes = false,
 ): IMarketBannerItem[] {
   const quotes = new Map(previous?.map((banner) => [banner._id, banner]));
   return banners.map((banner) => {
@@ -93,6 +92,7 @@ function mergeBannerQuotes(
     if (
       banner.type !== EMarketBannerType.Perps &&
       !isMarketIndexQuoteBanner(banner) &&
+      (preferQuotes || banner.tokens === undefined) &&
       cached?.tokens &&
       cached.tokenListId === banner.tokenListId &&
       cached.type === banner.type &&
@@ -179,6 +179,7 @@ export function useMarketBannerList(): {
     async () => {
       if (!bannerList || enableMockMarketBanner) return undefined;
       return {
+        source: bannerList,
         scope: requestScope,
         banners: await hydrateMarketBannerQuotes(
           mergeBannerQuotes(
@@ -195,14 +196,17 @@ export function useMarketBannerList(): {
   );
   const normalizedBanners = useMemo(() => {
     let previous: IMarketBannerItem[] | undefined;
-    if (liveQuotes?.scope === requestScope) {
+    // Only hydration for this response may replace its explicit quote rows.
+    const hasCurrentQuotes =
+      liveQuotes?.scope === requestScope && liveQuotes.source === bannerList;
+    if (hasCurrentQuotes) {
       previous = liveQuotes.banners;
     } else if (committedResultRef.current?.requestScope === requestScope) {
       previous = committedResultRef.current.bannerList;
     }
     const banners = enableMockMarketBanner
       ? (bannerList ?? [])
-      : mergeBannerQuotes(bannerList ?? [], previous);
+      : mergeBannerQuotes(bannerList ?? [], previous, hasCurrentQuotes);
     return banners.map((banner) =>
       isMarketIndexQuoteBanner(banner) && banner.indices?.length
         ? {

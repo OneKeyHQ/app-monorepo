@@ -108,7 +108,11 @@ it('preserves successful banners on a failed reconnect and accepts a later empty
   const fetchBanners = jest.mocked(fetchMarketBannerListForPlatform);
   fetchBanners.mockResolvedValueOnce(banners);
   const { result, rerender } = renderHook(() => useMarketBannerList());
-  await waitFor(() => expect(result.current.bannerList).toEqual(banners));
+  await waitFor(() =>
+    expect(result.current.bannerList).toEqual(
+      banners.map((banner) => ({ ...banner, tokens: [] })),
+    ),
+  );
 
   fetchBanners.mockRejectedValueOnce(new Error('offline'));
   act(() => {
@@ -120,7 +124,9 @@ it('preserves successful banners on a failed reconnect and accepts a later empty
     rerender();
   });
   await waitFor(() => expect(fetchBanners).toHaveBeenCalledTimes(2));
-  expect(result.current.bannerList).toEqual(banners);
+  expect(result.current.bannerList).toEqual(
+    banners.map((banner) => ({ ...banner, tokens: [] })),
+  );
   expect(result.current.isFetched).toBe(true);
   expect(result.current.isLoading).toBe(false);
 

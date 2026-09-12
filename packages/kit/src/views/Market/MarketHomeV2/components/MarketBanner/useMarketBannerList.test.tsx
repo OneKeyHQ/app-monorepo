@@ -369,6 +369,9 @@ it.each([true, false])(
 );
 
 it('does not carry hydrated prices into a different locale', async () => {
+  jest
+    .mocked(fetchMarketBannerTokenListForPlatform)
+    .mockRejectedValue(new Error('offline'));
   mockResult = [makeBanner({ tokens: [quote] })];
   const { result, rerender } = renderHook(() => useMarketBannerList());
   mockLiveResult = await mockHydrate();
@@ -379,3 +382,72 @@ it('does not carry hydrated prices into a different locale', async () => {
   rerender();
   expect(result.current.bannerList[0].tokens).toBeUndefined();
 });
+
+it.each([EMarketBannerType.Stock, EMarketBannerType.Ticker])(
+  'clears successful empty %s quotes and does not restore removed rows',
+  async (type) => {
+    mockResult = [makeBanner({ type, tokens: [quote] })];
+    const { result, rerender } = renderHook(() => useMarketBannerList());
+    expect(result.current.bannerList[0].tokens).toEqual([quote]);
+    mockLiveResult = await mockHydrate();
+    rerender();
+    expect(result.current.bannerList[0].tokens).toEqual([]);
+    mockResult = [makeBanner({ type })];
+    rerender();
+    expect(result.current.bannerList[0].tokens).toEqual([]);
+    jest
+      .mocked(fetchMarketBannerStockTokenListForPlatform)
+      .mockRejectedValue(new Error('offline'));
+    jest
+      .mocked(fetchMarketBannerTokenListForPlatform)
+      .mockRejectedValue(new Error('offline'));
+    mockLiveResult = await mockHydrate();
+    rerender();
+    expect(result.current.bannerList[0].tokens).toEqual([]);
+  },
+);
+
+it.each([{ tokens: [{ ...quote, price: '105' }] }, { tokens: [] }])(
+  'prefers explicit fresh base quotes %j over cached hydration',
+  async ({ tokens }) => {
+    mockResult = [makeBanner({ type: EMarketBannerType.Stock })];
+    jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+      {
+        ...quote,
+        stockId: 'apple',
+        logoUrl: '',
+        assetType: 'stock',
+        currency: 'USD',
+      },
+    ]);
+    const { result, rerender } = renderHook(() => useMarketBannerList());
+    mockLiveResult = await mockHydrate();
+    rerender();
+    expect(result.current.bannerList[0].tokens?.[0].price).toBe('100');
+    mockResult = [makeBanner({ type: EMarketBannerType.Stock, tokens })];
+    rerender();
+    expect(result.current.bannerList[0].tokens).toEqual(tokens);
+    jest
+      .mocked(fetchMarketBannerStockTokenListForPlatform)
+      .mockRejectedValue(new Error('offline'));
+    mockLiveResult = await mockHydrate();
+    rerender();
+    expect(result.current.bannerList[0].tokens).toEqual(tokens);
+    mockResult = [makeBanner({ type: EMarketBannerType.Stock })];
+    rerender();
+    expect(result.current.bannerList[0].tokens).toEqual(tokens);
+    jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+      {
+        ...quote,
+        price: '110',
+        stockId: 'apple',
+        logoUrl: '',
+        assetType: 'stock',
+        currency: 'USD',
+      },
+    ]);
+    mockLiveResult = await mockHydrate();
+    rerender();
+    expect(result.current.bannerList[0].tokens?.[0].price).toBe('110');
+  },
+);
