@@ -46,6 +46,12 @@ import { PreferenceCapsule } from './PreferenceCapsule';
 
 /** Classic-family PINs cap at nine digits (the production keypad's cap). */
 const MAX_PIN_LENGTH = 9;
+/** ...and run at least four (OK-62090): the pad refuses a shorter confirm
+ * in the same refusal grammar as the empty one. */
+const MIN_PIN_LENGTH = 4;
+
+/** Why a confirm was refused — each speaks its own line in the strip. */
+type IPinRefusal = 'empty' | 'short';
 
 /**
  * Key values double as the wire encoding: the grid position pressed, laid
@@ -150,6 +156,10 @@ export interface IPinPadProps {
   /** The Trezor matrix shape: nine positions, no 0 key — the slot
    * between delete and confirm renders empty. */
   noZeroKey?: boolean;
+  /** The shortest PIN Confirm accepts. OneKey's own floor is four digits
+   * (OK-62090); a vendor pad passes its own — a Trezor PIN may be a
+   * single position. */
+  minLength?: number;
 }
 
 export function PinPad({
@@ -158,6 +168,7 @@ export function PinPad({
   error,
   resetSignal,
   noZeroKey,
+  minLength = MIN_PIN_LENGTH,
 }: IPinPadProps) {
   const intl = useIntl();
   const [value, setValue] = useState('');
@@ -166,19 +177,19 @@ export function PinPad({
   // The failure line lives until the person starts correcting: the first
   // new digit retires it, so "wrong" and "new entry" never coexist.
   const [errorRetired, setErrorRetired] = useState(false);
-  // The local refusal: confirm pressed on an empty entry.
-  const [emptyPrompt, setEmptyPrompt] = useState(false);
+  // The local refusal: confirm pressed on an empty or too-short entry.
+  const [refusal, setRefusal] = useState<IPinRefusal | undefined>();
   useEffect(() => {
     if (error) {
       setValue('');
       setErrorRetired(false);
-      setEmptyPrompt(false);
+      setRefusal(undefined);
     }
   }, [error]);
   useEffect(() => {
     setValue('');
     setErrorRetired(false);
-    setEmptyPrompt(false);
+    setRefusal(undefined);
   }, [resetSignal]);
 
   const shakeX = useSharedValue(0);
@@ -208,10 +219,12 @@ export function PinPad({
         return;
       }
       if (key === 'confirm') {
-        // An empty confirm is refused like any refusal — prompt plus
-        // shake. The ratified call: better usability than a disabled key.
-        if (!valueRef.current.length) {
-          setEmptyPrompt(true);
+        // An empty or too-short confirm is refused like any refusal —
+        // prompt plus shake. The ratified call: better usability than a
+        // disabled key.
+        const entered = valueRef.current.length;
+        if (entered < minLength) {
+          setRefusal(entered ? 'short' : 'empty');
           shake();
           return;
         }
@@ -219,7 +232,7 @@ export function PinPad({
         return;
       }
       setErrorRetired(true);
-      setEmptyPrompt(false);
+      setRefusal(undefined);
       // Full is full: refuse the tenth digit with the same shake the
       // refusal beat uses, instead of silently swallowing the press.
       if (valueRef.current.length >= MAX_PIN_LENGTH) {
@@ -228,7 +241,7 @@ export function PinPad({
       }
       setValue((v) => (v.length >= MAX_PIN_LENGTH ? v : v + key));
     },
-    [onSubmit, shake],
+    [minLength, onSubmit, shake],
   );
 
   const dots = useMemo(
@@ -236,12 +249,15 @@ export function PinPad({
     [value.length],
   );
   const externalError = error && !errorRetired ? error : undefined;
-  // Refusing an empty confirm: a prompt in place of a disabled key.
+  // Refusing a confirm: a prompt in place of a disabled key.
   const shownError =
     externalError ??
-    (emptyPrompt
+    (refusal
       ? intl.formatMessage({
-          id: ETranslations.device_stage_enter_pin_first__msg,
+          id:
+            refusal === 'short'
+              ? ETranslations.device_stage_pin_too_short__msg
+              : ETranslations.device_stage_enter_pin_first__msg,
         })
       : undefined);
   return (
@@ -367,8 +383,8 @@ export interface IPassphraseFormProps {
   initialKeepAccessible?: boolean;
   /**
    * Protocol V2 entry: UTF-8 measured in bytes, NFKD-normalized before it
-   * is handed out, no character rule to show. Off, the printable-ASCII
-   * rule and its bullets apply. The driver decides it from the request.
+   * is handed out. Off, the printable-ASCII validation applies. The
+   * driver decides it from the request.
    */
   allowProtocolV2Utf8?: boolean;
   /** One-line inline failure under the rules, mirroring the PIN pad's. */
@@ -508,45 +524,40 @@ export function PassphraseForm({
         {/* The character rules as bullets; each dot box matches one text
             line, so the dot centers on the first line and the text owns
             any wrap. */}
-        {/* The two bullets state the ASCII rule; a protocol V2 device has
-            no character rule to state, so they stay off there — the
-            shipped dialog dropped its own description the same way. */}
-        {allowProtocolV2Utf8 ? null : (
-          <YStack gap="$1">
-            <XStack gap="$1" alignItems="flex-start">
-              <Stack p="$2">
-                <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
-              </Stack>
-              <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  { id: ETranslations.device_stage_allowed_characters__desc },
-                  {
-                    link: (chunks: ReactNode[]) => (
-                      <Anchor
-                        key="link"
-                        href="https://www.ascii-code.com/"
-                        size="$bodyMd"
-                        color="$textSubdued"
-                      >
-                        {chunks}
-                      </Anchor>
-                    ),
-                  },
-                )}
-              </SizableText>
-            </XStack>
-            <XStack gap="$1" alignItems="flex-start">
-              <Stack p="$2">
-                <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
-              </Stack>
-              <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.passphrase_character_limit,
-                })}
-              </SizableText>
-            </XStack>
-          </YStack>
-        )}
+        <YStack gap="$1">
+          <XStack gap="$1" alignItems="flex-start">
+            <Stack p="$2">
+              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+            </Stack>
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                { id: ETranslations.device_stage_allowed_characters__desc },
+                {
+                  link: (chunks: ReactNode[]) => (
+                    <Anchor
+                      key="link"
+                      href="https://www.ascii-code.com/"
+                      size="$bodyMd"
+                      color="$textSubdued"
+                    >
+                      {chunks}
+                    </Anchor>
+                  ),
+                },
+              )}
+            </SizableText>
+          </XStack>
+          <XStack gap="$1" alignItems="flex-start">
+            <Stack p="$2">
+              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+            </Stack>
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.passphrase_character_limit,
+              })}
+            </SizableText>
+          </XStack>
+        </YStack>
         {shownError ? (
           <SizableText size="$bodyMd" color="$textCritical">
             {shownError}

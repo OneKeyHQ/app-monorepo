@@ -17,15 +17,16 @@ import {
   Image as ReactNativeImage,
   StyleSheet,
   View,
+  type ViewProps,
 } from 'react-native';
 
-import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  usePropsAndStyle,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 
-import {
-  buildOptimizedImageSource,
-  hasCustomSourceIdentity,
-} from './optimization';
+import { hasCustomSourceIdentity } from './optimization';
 
 import type {
   IImageCachePolicy,
@@ -39,6 +40,12 @@ const CACHE_POLICIES: Record<IImageCachePolicy, OneKeyImageCachePolicy> = {
   'memory-disk': OneKeyImageCachePolicy.MEMORY_DISK,
   none: OneKeyImageCachePolicy.NONE,
 };
+
+const LOADING_STRATEGIES = {
+  none: OneKeyImageLoadingStrategy.NONE,
+  skeleton: OneKeyImageLoadingStrategy.SKELETON,
+  static: OneKeyImageLoadingStrategy.STATIC,
+} as const;
 
 const getRandomRetryDelay = () => Math.floor(Math.random() * 3) * 1000;
 
@@ -175,6 +182,7 @@ function normalizeSource(
 }
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
+  const theme = useTheme();
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
     if (props?.size) {
@@ -216,8 +224,8 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     resizeMode,
     contentFit,
     cachePolicy,
+    loadingStrategy = 'static',
     recyclingKey,
-    resizeWidth,
     retryTimes = 1,
     canRetry = true,
     blurRadius: _blurRadius,
@@ -240,39 +248,8 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     () => normalizeSource(rawSource, style.width, style.height),
     [rawSource, style.height, style.width],
   );
-  const optimizedSourceResult = useMemo(
-    () =>
-      buildOptimizedImageSource({
-        source: rawSource,
-        resolvedSource: normalizedSource,
-        resizeWidth,
-        width: [style.width, sizeProps?.width, props.width, props.w],
-        height: [style.height, sizeProps?.height, props.height, props.h],
-      }),
-    [
-      normalizedSource,
-      props.h,
-      props.height,
-      props.w,
-      props.width,
-      rawSource,
-      resizeWidth,
-      sizeProps?.height,
-      sizeProps?.width,
-      style.height,
-      style.width,
-    ],
-  );
-  const [rawSourceFallbackUri, setRawSourceFallbackUri] = useState<
-    string | undefined
-  >();
-  const shouldUseRawSourceFallback =
-    optimizedSourceResult.optimized &&
-    Boolean(optimizedSourceResult.rawUri) &&
-    rawSourceFallbackUri === optimizedSourceResult.rawUri;
-  const activeSource = shouldUseRawSourceFallback
-    ? optimizedSourceResult.rawSource
-    : optimizedSourceResult.source;
+  // Native owns rendition selection and the optimized-to-original fallback.
+  const activeSource = normalizedSource;
   const [retryNonce, setRetryNonce] = useState(0);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -338,27 +315,23 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   );
   const handleError = useCallback(
     (event: OneKeyImageErrorEvent) => {
-      if (
-        optimizedSourceResult.optimized &&
-        optimizedSourceResult.rawUri &&
-        !shouldUseRawSourceFallback
-      ) {
-        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
-        return;
-      }
       if (scheduleRetry()) {
         return;
       }
       onError?.(event);
     },
-    [
-      onError,
-      optimizedSourceResult.optimized,
-      optimizedSourceResult.rawUri,
-      scheduleRetry,
-      shouldUseRawSourceFallback,
-    ],
+    [onError, scheduleRetry],
   );
+
+  // Fabric clears removed props with null, which Nitro's optional string
+  // converter rejects. Unmount the iOS image before clearing its source URI.
+  if (Platform.OS === 'ios' && !activeSource?.uri?.trim()) {
+    return (
+      <View {...(viewProps as ViewProps)} style={style}>
+        {fallbackOverlay}
+      </View>
+    );
+  }
 
   return (
     <OneKeyImage
@@ -369,14 +342,11 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       fallback={fallbackOverlay}
       contentFit={getContentFit({ contentFit, resizeMode })}
       cachePolicy={cachePolicy ? CACHE_POLICIES[cachePolicy] : undefined}
+      placeholderColor={theme.bgStrong.val}
       recyclingKey={effectiveRecyclingKey}
       autoplay={autoplay}
-      optimizeTos={
-        !hasCustomSourceIdentity(rawSource) &&
-        !optimizedSourceResult.optimized &&
-        !shouldUseRawSourceFallback
-      }
-      loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
+      optimizeTos={!hasCustomSourceIdentity(rawSource)}
+      loadingStrategy={LOADING_STRATEGIES[loadingStrategy]}
       onError={handleError}
       onLoad={onLoad ? handleLoad : undefined}
       onLoadEnd={onLoadEnd}

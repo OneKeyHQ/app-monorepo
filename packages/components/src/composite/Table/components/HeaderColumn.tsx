@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { Tooltip } from '../../../actions/Tooltip';
+import { DashText } from '../../../content/DashText';
 import { SizableText } from '../../../primitives';
 import { useSortIcon } from '../hooks';
 import { getNextSortOrder } from '../utils';
@@ -26,6 +28,7 @@ function HeaderColumn<T>({
 }: IHeaderColumnProps<T>) {
   const {
     title,
+    titleTooltip,
     renderTitle,
     dataIndex,
     columnWidth = 40,
@@ -44,6 +47,10 @@ function HeaderColumn<T>({
       setSortOrder(undefined);
     }
   }, [dataIndex, selectedColumnName]);
+
+  useEffect(() => {
+    setSortOrder(events?.initialSortOrder);
+  }, [events?.initialSortOrder]);
 
   const handleColumnPress = useCallback(() => {
     events?.onPress?.();
@@ -73,7 +80,7 @@ function HeaderColumn<T>({
   const cursor = enableSortType ? 'pointer' : undefined;
   const showSortIcon = enableSortType && !renderTitle;
   const currentSortOrder =
-    dataIndex === selectedColumnName ? sortOrder : undefined;
+    dataIndex === selectedColumnName ? sortOrder : events?.initialSortOrder;
 
   const { renderSortIcon: renderInlineSortIcon } = useSortIcon({
     showSortIcon: enableSortType && !!renderTitle,
@@ -89,11 +96,36 @@ function HeaderColumn<T>({
     return undefined;
   }, [align]);
 
+  const tooltipTrigger = useMemo(
+    () => (
+      <DashText
+        color="$textSubdued"
+        size="$bodySmMedium"
+        textAlign={textAlign}
+        dashThickness={0.5}
+        dashSpacing={0}
+        dashColor="$neutral8"
+        // Decoration, not layout: the header keeps the height of a plain
+        // title so a dashed one sits on the same line as the rest.
+        dashOverlay
+        cursor={cursor}
+        {...titleProps}
+      >
+        {typeof title === 'string' ? title : ''}
+      </DashText>
+    ),
+    [cursor, textAlign, title, titleProps],
+  );
+  const tooltipContent = useMemo(
+    () => <SizableText size="$bodySm">{titleTooltip}</SizableText>,
+    [titleTooltip],
+  );
+
   let titleContent;
   if (renderTitle) {
     titleContent = renderTitle(renderInlineSortIcon());
   } else if (typeof title === 'string') {
-    titleContent = (
+    const titleText = (
       <SizableText
         color="$textSubdued"
         size="$bodySmMedium"
@@ -102,6 +134,18 @@ function HeaderColumn<T>({
       >
         {title}
       </SizableText>
+    );
+    titleContent = titleTooltip ? (
+      <Tooltip
+        placement="top"
+        // The trigger consumes the press, so it performs the sort itself
+        // rather than leaving the click to bubble to the column.
+        onPress={handleColumnPress}
+        renderTrigger={tooltipTrigger}
+        renderContent={tooltipContent}
+      />
+    ) : (
+      titleText
     );
   } else {
     titleContent = title;

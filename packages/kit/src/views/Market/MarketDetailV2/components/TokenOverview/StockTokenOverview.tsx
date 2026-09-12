@@ -16,12 +16,13 @@ import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useStockSecurityStats } from '../../hooks/useStockSecurityStats';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
-  STOCK_ABOUT_IPO_DATE_LABEL,
   buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
-  getStockAnalystConsensus,
+  formatStockAnalystConsensus,
 } from '../../utils/stockPublicDataUtils';
 import { StockDescriptionRows } from '../StockDescriptionRows';
+import { stockFinancialLabels } from '../StockFinancials/stockFinancialLabels';
+import { StockFinancials } from '../StockFinancials/StockFinancials';
 import { StockStatSections } from '../StockStatSections';
 
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
@@ -30,7 +31,7 @@ export function StockTokenOverview() {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail, isStockToken } = useTokenDetail();
-  const { stockDetail, isStockDetailError, retryStockDetail } =
+  const { stockId, stockDetail, isStockDetailError, retryStockDetail } =
     useStockDetail();
   const stock = stockDetail
     ? buildStockInfoFromPublicDetail(stockDetail, tokenDetail?.stock)
@@ -101,10 +102,18 @@ export function StockTokenOverview() {
       <Divider my="$1" />
 
       <Stack gap="$3" py="$2">
-        <SizableText size="$bodyLgMedium">Analyst Ratings</SizableText>
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage({
+            id: ETranslations.market_stock_analyst_ratings,
+          })}
+        </SizableText>
         <XStack justifyContent="space-between">
-          <SizableText color="$textSubdued">Consensus</SizableText>
-          <SizableText>{getStockAnalystConsensus(ratings)}</SizableText>
+          <SizableText color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.market_stock_consensus })}
+          </SizableText>
+          <SizableText>
+            {formatStockAnalystConsensus({ intl, analystRatings: ratings })}
+          </SizableText>
         </XStack>
         {[
           {
@@ -112,7 +121,13 @@ export function StockTokenOverview() {
             label: intl.formatMessage({ id: ETranslations.global_buy }),
             value: ratings?.buy,
           },
-          { key: 'hold', label: 'Hold', value: ratings?.hold },
+          {
+            key: 'hold',
+            label: intl.formatMessage({
+              id: ETranslations.market_stock_rating_hold,
+            }),
+            value: ratings?.hold,
+          },
           {
             key: 'sell',
             label: intl.formatMessage({ id: ETranslations.global_sell }),
@@ -128,16 +143,42 @@ export function StockTokenOverview() {
 
       <Divider my="$1" />
 
+      {stockId ? (
+        <StockFinancials
+          stockId={stockId}
+          labels={stockFinancialLabels}
+          withHorizontalPadding={false}
+        />
+      ) : null}
+
       <Stack gap="$3" py="$2">
         <SizableText size="$bodyLgMedium">
-          About {stockDetail?.symbol ?? tokenDetail?.symbol}
+          {intl.formatMessage(
+            { id: ETranslations.market_about_title },
+            { ticker: stockDetail?.symbol ?? tokenDetail?.symbol },
+          )}
         </SizableText>
         {[
-          { label: 'CEO', value: about?.ceo },
-          { label: 'Employees', value: about?.employees },
-          { label: 'Exchange', value: about?.exchange },
           {
-            label: STOCK_ABOUT_IPO_DATE_LABEL,
+            label: intl.formatMessage({
+              id: ETranslations.market_stock_about_ceo,
+            }),
+            value: about?.ceo,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.market_stock_about_employees,
+            }),
+            value: about?.employees,
+          },
+          {
+            label: intl.formatMessage({ id: ETranslations.exchange__title }),
+            value: about?.exchange,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.market_stock_about_ipo_date,
+            }),
             value: about?.ipoDate
               ? formatDate(about.ipoDate, { hideTimeForever: true })
               : '--',

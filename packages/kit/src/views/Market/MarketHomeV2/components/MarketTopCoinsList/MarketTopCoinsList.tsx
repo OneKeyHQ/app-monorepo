@@ -1,8 +1,9 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -10,21 +11,34 @@ import {
   Table,
   XStack,
   YStack,
-  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { PriceChangePercentage } from '../../../components/PriceChangePercentage';
 import SparklineChart from '../../../components/SparklineChart';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import {
+  MARKET_LIST_NAME_COLUMN_WIDTH,
+  MARKET_LIST_STAR_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '../../../marketDesktopLayoutConstants';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MARKET_FIXED_24H_RANGE, MARKET_FIXED_7D_RANGE } from '../../utils';
+import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
+import {
+  MARKET_CELL_LOGO_GAP,
+  MARKET_CELL_SUBTITLE_LINE_HEIGHT,
+  MARKET_CELL_SUBTITLE_SIZE,
+} from '../MarketListCell';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
+import { MarketTopCoinStar } from './MarketTopCoinStar';
 
 type IMarketTopCoinsListProps = {
   tabIntegrated?: boolean;
@@ -55,6 +69,11 @@ const TOP_COINS_SORTABLE_COLUMN_KEYS = [
   'marketCap',
   'volume24h',
 ] as const;
+const TOP_COINS_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  priceChange24hPercent: 112,
+  priceChange7dPercent: 112,
+  sparkline24h: 148,
+} as const;
 
 type ITopCoinsSortableColumn = (typeof TOP_COINS_SORTABLE_COLUMN_KEYS)[number];
 
@@ -95,7 +114,7 @@ function MarketValue({
 }
 
 function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
-  const { gt2xl } = useMedia();
+  const intl = useIntl();
   const themeVariant = useThemeVariant();
 
   return useMemo(() => {
@@ -106,31 +125,56 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
     } as const;
     const columns: (ITableColumn<IMarketAssetListItem> | undefined)[] = [
       {
-        title: '#',
+        title: (
+          <SizableText
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            textAlign="center"
+            size="$bodySmMedium"
+            color="$textSubdued"
+          >
+            #
+          </SizableText>
+        ),
         dataIndex: 'star',
-        columnWidth: 48,
-        columnProps: { flexShrink: 0, px: '$2' },
-        render: () => (
-          <Icon name="StarOutline" size="$5" color="$iconSubdued" />
+        // No right padding: the column's trailing space IS the design's 6px gap
+        // to the name group, so the next column starts its logo flush.
+        columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
+        columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
+        render: (_: unknown, record: IMarketAssetListItem) => (
+          <Stack
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <MarketTopCoinStar token={record} />
+          </Stack>
         ),
         renderSkeleton: () => (
           <Skeleton width={24} height={24} borderRadius="$full" />
         ),
       },
       {
-        title: 'Name',
+        title: intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
-        columnWidth: 220,
-        columnProps: { flexShrink: 0, px: '$2' },
+        columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
+        // No left padding: the star column already spends the shared star-to-
+        // logo distance, so the logo starts on this column's edge.
+        columnProps: { flexShrink: 0, pl: 0, pr: '$2' },
         render: (_: unknown, record: IMarketAssetListItem) => (
-          <XStack alignItems="center" gap={14} minWidth={0}>
+          <XStack
+            width="100%"
+            minWidth={0}
+            overflow="hidden"
+            alignItems="center"
+            gap={MARKET_CELL_LOGO_GAP}
+          >
             <Token
               size="lg"
               borderRadius="$full"
               tokenImageUri={record.logoUrl}
               fallbackIcon="CryptoCoinOutline"
             />
-            <XStack alignItems="center" gap="$2" minWidth={0}>
+            <YStack flex={1} minWidth={0} justifyContent="center">
               <SizableText
                 size="$bodyLgMedium"
                 numberOfLines={1}
@@ -138,7 +182,20 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
               >
                 {record.symbol.toUpperCase()}
               </SizableText>
-            </XStack>
+              {/* The stock list's resting company line, without its hover
+                  reveal: top coins carry no variant group to swap in. */}
+              {record.name ? (
+                <SizableText
+                  height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+                  size={MARKET_CELL_SUBTITLE_SIZE}
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {record.name}
+                </SizableText>
+              ) : null}
+            </YStack>
           </XStack>
         ),
         renderSkeleton: () => (
@@ -152,7 +209,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         ),
       },
       {
-        title: 'Price',
+        title: intl.formatMessage({ id: ETranslations.global_price }),
         dataIndex: 'price',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -161,7 +218,10 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: '24h Change',
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
         dataIndex: 'priceChange24hPercent',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -171,21 +231,22 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         ),
         renderSkeleton: () => <Skeleton width={64} height={16} />,
       },
-      gt2xl
-        ? {
-            title: '7d Change',
-            dataIndex: 'priceChange7dPercent',
-            columnProps: metricColumnProps,
-            render: (value: string) => (
-              <PriceChangePercentage size="$bodyLgMedium">
-                {value}
-              </PriceChangePercentage>
-            ),
-            renderSkeleton: () => <Skeleton width={64} height={16} />,
-          }
-        : undefined,
       {
-        title: 'Mcap',
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: MARKET_FIXED_7D_RANGE },
+        ),
+        dataIndex: 'priceChange7dPercent',
+        columnProps: metricColumnProps,
+        render: (value: string) => (
+          <PriceChangePercentage size="$bodyLgMedium">
+            {value}
+          </PriceChangePercentage>
+        ),
+        renderSkeleton: () => <Skeleton width={64} height={16} />,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.market_mcap_short }),
         dataIndex: 'marketCap',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -194,7 +255,10 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: '24h Volume',
+        title: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
         dataIndex: 'volume24h',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -202,54 +266,54 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         ),
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
-      gt2xl
-        ? {
-            title: '24h price range',
-            dataIndex: 'sparkline24h',
-            columnProps: {
-              ...metricColumnProps,
-              minWidth: TOP_COINS_SPARKLINE_WIDTH,
-            },
-            render: (
-              sparkline: IMarketAssetListItem['sparkline24h'],
-              record: IMarketAssetListItem,
-            ) => {
-              if (!sparkline || sparkline.length < 2) {
-                return <MissingValue />;
-              }
-              const isNegative = Number(record.priceChange24hPercent) < 0;
-              const themeColors =
-                TOP_COINS_SPARKLINE_COLORS[
-                  themeVariant === 'dark' ? 'dark' : 'light'
-                ];
-              const [lineColor, gradientColor] = isNegative
-                ? themeColors.negative
-                : themeColors.positive;
-
-              return (
-                <SparklineChart
-                  data={sparkline.slice(-24)}
-                  width={TOP_COINS_SPARKLINE_WIDTH}
-                  height={TOP_COINS_SPARKLINE_HEIGHT}
-                  lineColor={lineColor}
-                  linearGradientColor={gradientColor}
-                />
-              );
-            },
-            renderSkeleton: () => (
-              <Skeleton
-                width={TOP_COINS_SPARKLINE_WIDTH}
-                height={TOP_COINS_SPARKLINE_HEIGHT}
-              />
-            ),
+      {
+        title: intl.formatMessage({
+          id: ETranslations.market_24h_price_range,
+        }),
+        dataIndex: 'sparkline24h',
+        columnProps: {
+          ...metricColumnProps,
+          minWidth: TOP_COINS_SPARKLINE_WIDTH,
+        },
+        render: (
+          sparkline: IMarketAssetListItem['sparkline24h'],
+          record: IMarketAssetListItem,
+        ) => {
+          if (!sparkline || sparkline.length < 2) {
+            return <MissingValue />;
           }
-        : undefined,
+          const isNegative = Number(record.priceChange24hPercent) < 0;
+          const themeColors =
+            TOP_COINS_SPARKLINE_COLORS[
+              themeVariant === 'dark' ? 'dark' : 'light'
+            ];
+          const [lineColor, gradientColor] = isNegative
+            ? themeColors.negative
+            : themeColors.positive;
+
+          return (
+            <SparklineChart
+              data={sparkline.slice(-24)}
+              width={TOP_COINS_SPARKLINE_WIDTH}
+              height={TOP_COINS_SPARKLINE_HEIGHT}
+              lineColor={lineColor}
+              linearGradientColor={gradientColor}
+            />
+          );
+        },
+        renderSkeleton: () => (
+          <Skeleton
+            width={TOP_COINS_SPARKLINE_WIDTH}
+            height={TOP_COINS_SPARKLINE_HEIGHT}
+          />
+        ),
+      },
     ];
 
     return columns.filter(
       (column): column is ITableColumn<IMarketAssetListItem> => Boolean(column),
     );
-  }, [gt2xl, themeVariant]);
+  }, [intl, themeVariant]);
 }
 
 export function MarketTopCoinsList({
@@ -258,7 +322,14 @@ export function MarketTopCoinsList({
   listContainerProps,
 }: IMarketTopCoinsListProps) {
   const { data, handleItemPress, isLoading } = useMarketTopCoins();
-  const columns = useTopCoinsColumns();
+  const baseColumns = useTopCoinsColumns();
+  const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
+    useMarketDesktopResponsiveColumns({
+      columns: baseColumns,
+      enabled: !platformEnv.isNative,
+      firstColumnCount: 2,
+      metricColumnMinimumWidths: TOP_COINS_METRIC_COLUMN_MINIMUM_WIDTHS,
+    });
   const stickyHeaderContext = useContext(DesktopStickyHeaderContext);
   const tabBarHeight = useScrollContentTabBarOffset();
   const [sortState, setSortState] = useState<
@@ -286,6 +357,14 @@ export function MarketTopCoinsList({
       return order === 'asc' ? difference : -difference;
     });
   }, [data, sortState]);
+  useEffect(() => {
+    if (
+      sortState &&
+      !columns.some((column) => column.dataIndex === sortState.column)
+    ) {
+      setSortState(undefined);
+    }
+  }, [columns, sortState]);
 
   const onHeaderRow = useCallback(
     (column: ITableColumn<IMarketAssetListItem>) => {
@@ -331,27 +410,25 @@ export function MarketTopCoinsList({
     listContainerProps?.paddingBottom ?? tabBarHeight;
 
   return (
-    <Stack flex={1} width="100%" testID="market-top-coins-list">
+    <Stack
+      flex={1}
+      width="100%"
+      testID="market-top-coins-list"
+      onLayout={handleResponsiveContainerLayout}
+    >
       {useDesktopPortal && portalTarget ? (
         <StickyHeaderPortal target={portalTarget}>
-          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} bg="$bgApp" px="$3">
-            <Table.HeaderRow
-              columns={columns}
-              headerRowProps={{ height: 36 }}
-              onHeaderRow={onHeaderRow}
-            />
-          </YStack>
+          {/* No toolbar on this page: the shared header falls back to the
+              design's table inset. */}
+          <MarketDesktopStickyHeader<IMarketAssetListItem>
+            columns={columns}
+            onHeaderRow={onHeaderRow}
+          />
         </StickyHeaderPortal>
       ) : null}
-      <Stack
-        flex={1}
-        style={{ paddingTop: 4, overflowX: 'auto', overflowY: 'hidden' }}
-      >
+      <Stack flex={1} style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         <Table<IMarketAssetListItem>
-          contentContainerStyle={{
-            paddingTop: 4,
-            paddingBottom: contentPaddingBottom,
-          }}
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           columns={columns}
           dataSource={sortedData}
           estimatedItemSize={TOP_COINS_DESKTOP_ROW_HEIGHT}
@@ -362,7 +439,7 @@ export function MarketTopCoinsList({
           rowProps={{ height: TOP_COINS_DESKTOP_ROW_HEIGHT }}
           scrollEnabled={!webTabIntegrated}
           showHeader={!useDesktopPortal}
-          showSkeleton={isLoading && data.length === 0}
+          showSkeleton={isLoading ? data.length === 0 : false}
           skeletonCount={12}
           tabIntegrated={tabIntegrated}
         />

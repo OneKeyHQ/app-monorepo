@@ -59,6 +59,7 @@ export enum EAtomNames {
   notificationStatusAtom = 'notificationStatusAtom',
   // prime
   primePersistAtom = 'primePersistAtom',
+  primeGiftEligibilityPersistAtom = 'primeGiftEligibilityPersistAtom',
   primeCloudSyncPersistAtom = 'primeCloudSyncPersistAtom',
   primeMasterPasswordPersistAtom = 'primeMasterPasswordPersistAtom',
   primeServerMasterPasswordStatusAtom = 'primeServerMasterPasswordStatusAtom',
@@ -138,7 +139,10 @@ export enum EAtomNames {
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
+  swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
+  swapTradingViewIndicatorSettingsPersistAtom = 'swapTradingViewIndicatorSettingsPersistAtom',
   // market
+  marketDesktopLayoutAtom = 'marketDesktopLayoutAtom',
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
@@ -166,6 +170,9 @@ export const atomsConfig: Partial<
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },
+  [EAtomNames.primeGiftEligibilityPersistAtom]: {
+    mergeInitialValue: false,
+  },
   // Nested force-target arrays must replace, not lodash-merge. merge({},
   // {targets:['boot']}, {targets:[]}) keeps ['boot'], so the Pro2 switches
   // cannot turn off (and look like they "don't toggle").
@@ -178,6 +185,9 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.marketTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.swapTradingViewIndicatorSettingsPersistAtom]: {
     mergeInitialValue: false,
   },
   // These Perps states are written as complete snapshots. Lodash merge keeps

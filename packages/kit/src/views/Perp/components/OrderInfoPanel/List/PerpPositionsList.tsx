@@ -23,6 +23,7 @@ import {
   usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
@@ -42,6 +43,7 @@ import { MobilePositionsListHeader } from '../Components/MobilePositionsListHead
 import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
 import { type IPositionRowItem, PositionRow } from '../Components/PositionsRow';
 import { calcCellAlign, getColumnStyle } from '../utils';
+import { PERP_DESKTOP_EMPTY_STATE_TOP_INSET } from '../utils/tableLayout';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -65,6 +67,17 @@ function PerpPositionsList({
   disableListScroll,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
+  const [actionMeasurement, setActionMeasurement] = useState({
+    locale: '',
+    width: 160,
+  });
+  const actionColumnWidth =
+    actionMeasurement.locale === intl.locale ? actionMeasurement.width : 160;
+  const actionLabels = [
+    ETranslations.add_position__action,
+    ETranslations.perp_position_market,
+    ETranslations.perp_position_limit,
+  ].map((id) => intl.formatMessage({ id }));
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
@@ -219,7 +232,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_close,
         }),
-        minWidth: 160,
+        width: actionColumnWidth,
         align: 'right',
         flex: 1,
         fixed: positionsLength > 0,
@@ -230,7 +243,13 @@ function PerpPositionsList({
           }),
       },
     ];
-  }, [accountScopedAddress, canMutateScopedPositions, intl, positionsLength]);
+  }, [
+    accountScopedAddress,
+    canMutateScopedPositions,
+    intl,
+    positionsLength,
+    actionColumnWidth,
+  ]);
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -437,7 +456,12 @@ function PerpPositionsList({
             </XStack>
           </ScrollView>
         </XStack>
-        <YStack flex={1} width="100%" minHeight={0}>
+        <YStack
+          flex={1}
+          width="100%"
+          minHeight={0}
+          pt={PERP_DESKTOP_EMPTY_STATE_TOP_INSET}
+        >
           <PerpPositionsEmptyState />
         </YStack>
       </YStack>
@@ -446,6 +470,44 @@ function PerpPositionsList({
 
   return (
     <YStack flex={1} onLayout={(event) => handleTraceLayout('root', event)}>
+      {!isMobile && platformEnv.isRuntimeBrowser ? (
+        <YStack
+          key={intl.locale}
+          position="absolute"
+          opacity={0}
+          pointerEvents="none"
+          aria-hidden
+          alignItems="flex-start"
+          $platform-web={{ width: 'max-content' }}
+          onLayout={(event) => {
+            const width = Math.ceil(event.nativeEvent.layout.width);
+            if (width > 0) {
+              setActionMeasurement((previous) =>
+                previous.locale === intl.locale && previous.width === width
+                  ? previous
+                  : { locale: intl.locale, width },
+              );
+            }
+          }}
+        >
+          {/* Measure the widest hover weight so actions never outgrow the fixed column. */}
+          <XStack gap="$2">
+            {actionLabels.map((label, index) => (
+              <SizableText
+                key={index}
+                size="$bodySmMedium"
+                fontWeight={600}
+                flexShrink={0}
+              >
+                {label}
+              </SizableText>
+            ))}
+          </XStack>
+          <SizableText size="$bodySmMedium" fontWeight={600}>
+            {intl.formatMessage({ id: ETranslations.perp_position_close })}
+          </SizableText>
+        </YStack>
+      ) : null}
       <CommonTableListView
         onPullToRefresh={async () => {
           await actions.current.refreshAllPerpsData();

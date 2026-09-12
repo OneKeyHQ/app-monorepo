@@ -64,19 +64,24 @@ describe('web-embed-prebundle', () => {
     expect(getReleaseTag()).toBe(`web-embed-prebundle-v1-${inputKey}`);
   });
 
-  it('filters x pushes to declared build inputs', () => {
+  it('filters x pushes to possible dependency graph inputs', () => {
     const workflow = fs.readFileSync(
       path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
       'utf8',
     );
 
     expect(workflow).toContain('push:\n    branches:\n      - x\n    paths:');
-    for (const inputPath of INPUT_PATHS) {
-      const triggerPath = fs
-        .statSync(path.join(repoRoot, inputPath))
-        .isDirectory()
-        ? `${inputPath}/**`
-        : inputPath;
+    for (const triggerPath of [
+      'apps/web-embed/**',
+      'development/**',
+      'packages/components/**',
+      'packages/core/**',
+      'packages/kit/**',
+      'packages/kit-bg/**',
+      'packages/shared/**',
+      'patches/**',
+      'yarn.lock',
+    ]) {
       expect(workflow).toContain(`- '${triggerPath}'`);
     }
     expect(workflow).toContain("cron: '30 18 * * 0'");
@@ -186,7 +191,7 @@ describe('web-embed-prebundle', () => {
     fs.writeFileSync(dynamicEnvPath, 'GITHUB_SHA=first\nSENTRY_TOKEN=first\n');
 
     expect(INPUT_PATHS).not.toContain('.env.expo');
-    expect(INPUT_PATHS).toContain('.github/workflows/web-embed-prebundle.yml');
+    expect(INPUT_PATHS).not.toContain('apps/web-embed/package.json');
     const inputKey = getInputKey(options);
 
     fs.writeFileSync(
@@ -223,6 +228,32 @@ describe('web-embed-prebundle', () => {
     expect(getInputKey(options)).toBe(inputKey);
 
     fs.writeFileSync(sourcePath, 'changed source');
+    expect(getInputKey(options)).not.toBe(inputKey);
+  });
+
+  it('hashes browser fallbacks that replace imported Node built-ins', () => {
+    const inputPath = path.join(temporaryDirectory, 'input.js');
+    const fallbackPath = path.join(temporaryDirectory, 'crypto-fallback.js');
+    fs.writeFileSync(inputPath, "require('crypto');\n");
+    fs.writeFileSync(fallbackPath, 'module.exports = "first";\n');
+    fs.writeFileSync(path.join(temporaryDirectory, 'yarn.lock'), '');
+    const options = {
+      inputPaths: ['input.js'],
+      resolveOptions: {
+        alias: {},
+        aliasFields: ['browser', 'module', 'main'],
+        extensions: ['.js'],
+        fallback: { crypto: fallbackPath },
+        fullySpecified: false,
+        mainFields: ['browser', 'module', 'main'],
+        symlinks: true,
+      },
+      root: temporaryDirectory,
+      traceDependencies: true,
+    };
+    const inputKey = getInputKey(options);
+
+    fs.writeFileSync(fallbackPath, 'module.exports = "second";\n');
     expect(getInputKey(options)).not.toBe(inputKey);
   });
 

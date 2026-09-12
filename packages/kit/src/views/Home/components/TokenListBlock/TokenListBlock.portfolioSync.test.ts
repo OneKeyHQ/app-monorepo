@@ -1,7 +1,67 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { runInNewContext } from 'vm';
+
+import { transformSync } from '@swc/core';
+
+function createPortfolioRequestHarness() {
+  const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
+  const transition = source.slice(
+    source.indexOf('const transitionPortfolioSyncRequest ='),
+    source.indexOf('const syncTokenFilterToOverview ='),
+  );
+  const requestRef: {
+    current: { id: number; targetKey: string; phase: string } | undefined;
+  } = { current: { id: 1, targetKey: 'device-1', phase: 'refreshing' } };
+  const setPhase = jest.fn();
+  const module = {
+    exports: {} as { transition: (id: number, phase: string) => boolean },
+  };
+  // Execute the production callback without mounting the unrelated token list,
+  // wallet services and network polling.
+  runInNewContext(
+    transformSync(
+      `${transition}\nmodule.exports = { transition: transitionPortfolioSyncRequest };`,
+      {
+        jsc: { parser: { syntax: 'typescript' }, target: 'es2022' },
+      },
+    ).code,
+    {
+      module,
+      useCallback: (callback: unknown) => callback,
+      portfolioSyncRequestRef: requestRef,
+      setPortfolioSyncRequestPhase: setPhase,
+      clearPortfolioSyncFallbackTimer: jest.fn(),
+    },
+  );
+  return {
+    requestRef,
+    setPhase,
+    transition: module.exports.transition,
+  };
+}
 
 describe('TokenListBlock portfolio sync producer', () => {
+  it('claims communication only once when two refreshes finish for the same tap', () => {
+    const harness = createPortfolioRequestHarness();
+    expect(harness.transition(1, 'communicating')).toBe(true);
+    expect(harness.transition(1, 'communicating')).toBe(false);
+    expect(harness.transition(1, 'settled')).toBe(false);
+    expect(harness.requestRef.current?.phase).toBe('communicating');
+  });
+
+  it('does not let a stale refresh claim a newer request', () => {
+    const harness = createPortfolioRequestHarness();
+    expect(harness.transition(1, 'communicating')).toBe(true);
+    harness.requestRef.current = {
+      id: 2,
+      targetKey: 'device-1',
+      phase: 'refreshing',
+    };
+    expect(harness.transition(1, 'communicating')).toBe(false);
+    expect(harness.transition(2, 'communicating')).toBe(true);
+  });
+
   it('checks the Protocol V2 device type before building the cross-runtime payload', () => {
     const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
     const buttonSource = readFileSync(
@@ -103,8 +163,8 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toMatch(
       /if \(phase !== 'settled'\) \{\s+clearPortfolioSyncFallbackTimer\(\);/,
     );
-    expect(source).toContain(
-      'if (portfolioSyncRequest && !skipPortfolioSyncRequestFinish)',
+    expect(source).toMatch(
+      /portfolioSyncRequest &&\s+!skipPortfolioSyncRequestFinish &&\s+\(ownsPortfolioSyncCommunication \|\|/,
     );
     expect(source).toContain(
       'if (portfolioSyncRequest && !keepPortfolioSyncRequest)',

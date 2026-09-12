@@ -8,6 +8,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const { getMobileShellCacheRoot } = require('./dev-cache-paths');
+const {
+  cacheLocalShellBuild,
+  getBuildDigest,
+  getIosSigningCacheOptions,
+  readLocalShellCache,
+} = require('./local-dev-shell-cache');
 const { withCacheLock } = require('./metro-dev-prebundle');
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
@@ -54,8 +61,7 @@ function getSidecarFile(artifactFile) {
 }
 
 function getCacheRoot(env = process.env) {
-  const baseDirectory = env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
-  return path.join(baseDirectory, 'onekey/mobile-dev-shell/v3');
+  return path.join(getMobileShellCacheRoot(env), 'v3');
 }
 
 function assertCompatibility(compatibility) {
@@ -65,7 +71,6 @@ function assertCompatibility(compatibility) {
       `platform=${compatibility?.platform || ''}`,
       `architecture=${compatibility?.architecture || ''}`,
       `native-contract=${compatibility?.nativeContractKey || ''}`,
-      `web-embed=${compatibility?.webEmbedInputKey || ''}`,
     ],
   );
   if (
@@ -75,7 +80,6 @@ function assertCompatibility(compatibility) {
     !/^[0-9a-f]{64}$/.test(compatibility?.nativeContractKey || '') ||
     !/^[0-9a-f]{64}$/.test(compatibility?.shellCompatibilityKey || '') ||
     !/^[0-9a-f]{64}$/.test(compatibility?.shellInputKey || '') ||
-    !/^[0-9a-f]{64}$/.test(compatibility?.webEmbedInputKey || '') ||
     compatibility?.shellCompatibilityKey !== expectedShellCompatibilityKey ||
     !/^mobile-dev-shell-contract-v3-[a-z0-9-]+-[a-z0-9-]+-[0-9a-f]{64}$/.test(
       compatibility?.compatibilityTag || '',
@@ -138,6 +142,10 @@ function parseBearerChallenge(value) {
   return parameters;
 }
 
+function isRetryableHttpStatus(status) {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
 function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== 'function') {
     throw new Error(
@@ -192,9 +200,11 @@ function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
       signal: AbortSignal.timeout(15_000),
     });
     if (!tokenResponse.ok) {
-      throw new Error(
+      const error = new Error(
         `[mobileDevShellResource] OCI token request failed: HTTP ${tokenResponse.status}.`,
       );
+      error.retryable = isRetryableHttpStatus(tokenResponse.status);
+      throw error;
     }
     const tokenBytes = await readResponseBody({
       fileName: 'OCI token',
@@ -303,6 +313,7 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
       `[mobileDevShellResource] Shell locator unavailable: HTTP ${response.status}.`,
     );
     if (response.status === 404) error.code = 'SHELL_LOCATOR_NOT_FOUND';
+    error.retryable = isRetryableHttpStatus(response.status);
     throw error;
   }
   const manifestBytes = await readResponseBody({
@@ -333,7 +344,51 @@ async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
   };
 }
 
-function isRetryableDownloadError(error) {
+async function resolveExactMobileDevShell({
+  compatibility: inputCompatibility,
+  fetchImpl,
+  maxAttempts = SHELL_DOWNLOAD_MAX_ATTEMPTS,
+  retryDelayMs = 250,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  const compatibility = assertCompatibility(inputCompatibility);
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const resolved = await resolveOciShell({
+        compatibility,
+        fetchImpl,
+        locator: 'exact',
+        tag: compatibility.exactTag,
+      });
+      return {
+        exists: true,
+        ociDigest: resolved.ociDigest,
+        sourceCommit: resolved.sourceCommit,
+        tag: compatibility.exactTag,
+      };
+    } catch (error) {
+      if (error?.code === 'SHELL_LOCATOR_NOT_FOUND') {
+        return {
+          exists: false,
+          ociDigest: null,
+          sourceCommit: null,
+          tag: compatibility.exactTag,
+        };
+      }
+      if (attempt === maxAttempts || !isRetryableOciError(error)) {
+        throw error;
+      }
+      console.error(
+        `[mobileDevShellResource] Retrying exact shell lookup after a transient failure (${String(attempt)}/${String(maxAttempts)}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await wait(retryDelayMs * attempt);
+    }
+  }
+  throw new Error('[mobileDevShellResource] Exact shell lookup exhausted.');
+}
+
+function isRetryableOciError(error) {
   const retryableCodes = new Set([
     'EAI_AGAIN',
     'ECONNRESET',
@@ -347,7 +402,11 @@ function isRetryableDownloadError(error) {
   ]);
   let current = error;
   while (current) {
-    if (current.retryable === true || retryableCodes.has(current.code)) {
+    if (
+      current.retryable === true ||
+      ['AbortError', 'TimeoutError'].includes(current.name) ||
+      retryableCodes.has(current.code)
+    ) {
       return true;
     }
     current = current.cause;
@@ -418,7 +477,7 @@ async function downloadLayerToFile({
       return;
     } catch (error) {
       await fs.promises.rm(filePath, { force: true });
-      if (attempt === maxAttempts || !isRetryableDownloadError(error)) {
+      if (attempt === maxAttempts || !isRetryableOciError(error)) {
         throw error;
       }
       console.error(
@@ -485,7 +544,7 @@ async function verifyArtifactManifest({
     (locator === 'exact' &&
       manifest.shellInputKey !== compatibility.shellInputKey) ||
     manifest.shellArtifactKey !== expectedArtifactKey ||
-    manifest.webEmbed?.inputKey !== compatibility.webEmbedInputKey ||
+    !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.inputKey || '') ||
     !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.outputTreeDigest || '') ||
     (!hasRemoteWebEmbed && !hasLocalWebEmbed) ||
     manifest.artifact?.file !== compatibility.artifactFile ||
@@ -935,7 +994,11 @@ async function restoreMobileDevShell({
       userNotice: null,
     };
   } catch (error) {
-    if (error?.code !== 'SHELL_LOCATOR_NOT_FOUND') throw error;
+    if (
+      error?.code !== 'SHELL_LOCATOR_NOT_FOUND' ||
+      compatibility.requireExactInput
+    )
+      throw error;
     const restored = await restoreLocator({
       attestationVerifier,
       cacheRoot,
@@ -1003,11 +1066,84 @@ function assertDeviceId(deviceId) {
   return deviceId;
 }
 
+class IosSimulatorEntitlementsError extends Error {
+  constructor() {
+    super(
+      '[mobileDevShellResource] iOS Simulator shell is missing embedded entitlements; rebuild it with Xcode simulator signing enabled.',
+    );
+    this.name = 'IosSimulatorEntitlementsError';
+  }
+}
+
+function assertIosSimulatorEntitlements(
+  appDirectory,
+  spawnCommand = spawnSync,
+) {
+  const args = ['otool', '-l', path.join(appDirectory, 'OneKeyWallet')];
+  const result = spawnCommand('xcrun', args, { encoding: 'utf8' });
+  assertCommandSucceeded('xcrun', args, result);
+  // Simulator permissions live in Mach-O sections, not the ad-hoc signature.
+  if (
+    !/sectname __entitlements\s+segname __TEXT\b/u.test(result.stdout || '')
+  ) {
+    throw new IosSimulatorEntitlementsError();
+  }
+}
+
+function signAndVerifyIosSimulatorApp(appDirectory, spawnCommand = spawnSync) {
+  assertIosSimulatorEntitlements(appDirectory, spawnCommand);
+  const hasValidSignature = (target) => {
+    const args = ['--verify', '--deep', '--strict', target];
+    const result = spawnCommand('codesign', args, { encoding: 'utf8' });
+    if (result.error || result.signal)
+      assertCommandSucceeded('codesign', args, result);
+    return result.status === 0;
+  };
+  const signAndVerify = (target) => {
+    runChecked(
+      'codesign',
+      ['--force', '--deep', '--sign', '-', target],
+      {},
+      spawnCommand,
+    );
+    runChecked(
+      'codesign',
+      ['--verify', '--deep', '--strict', target],
+      {},
+      spawnCommand,
+    );
+  };
+  let resigned = false;
+  // Repair vendor frameworks explicitly: deep signing can skip unsigned embedded code.
+  const frameworksDirectory = path.join(appDirectory, 'Frameworks');
+  if (fs.existsSync(frameworksDirectory)) {
+    const frameworks = fs
+      .readdirSync(frameworksDirectory)
+      .filter(
+        (framework) =>
+          framework.endsWith('.framework') || framework.endsWith('.dylib'),
+      );
+    for (const framework of frameworks) {
+      const frameworkPath = path.join(frameworksDirectory, framework);
+      if (!hasValidSignature(frameworkPath)) {
+        signAndVerify(frameworkPath);
+        resigned = true;
+      }
+    }
+  }
+  if (resigned || !hasValidSignature(appDirectory)) {
+    signAndVerify(appDirectory);
+    resigned = true;
+  }
+  return { resigned };
+}
+
 async function installMobileDevShell({
   artifactPath,
   deviceId,
   platform,
   spawnCommand = spawnSync,
+  signingCacheRoot,
 }) {
   const targetDeviceId = assertDeviceId(deviceId);
   if (platform === 'android') {
@@ -1064,7 +1200,18 @@ async function installMobileDevShell({
     path.join(os.tmpdir(), 'onekey-ios-dev-shell-'),
   );
   try {
-    runChecked('ditto', ['-x', '-k', artifactPath, temporaryDirectory]);
+    const buildDigest = getBuildDigest('ios');
+    const signingCacheOptions = await getIosSigningCacheOptions({
+      artifactPath,
+      cacheRoot: signingCacheRoot,
+    });
+    const cached = await readLocalShellCache(signingCacheOptions);
+    runChecked(
+      'ditto',
+      ['-x', '-k', cached?.artifactPath || artifactPath, temporaryDirectory],
+      {},
+      spawnCommand,
+    );
     const appDirectories = (
       await fs.promises.readdir(temporaryDirectory, {
         withFileTypes: true,
@@ -1077,12 +1224,45 @@ async function installMobileDevShell({
         '[mobileDevShellResource] iOS Simulator archive must contain one app.',
       );
     }
-    runChecked('xcrun', [
-      'simctl',
-      'install',
-      targetDeviceId,
+    // Keep the trusted original unchanged; cache a verified derivative only when repaired.
+    const { resigned } = signAndVerifyIosSimulatorApp(
       appDirectories[0],
-    ]);
+      spawnCommand,
+    );
+    if (resigned) {
+      const signedArtifactPath = path.join(
+        temporaryDirectory,
+        'signed-shell.zip',
+      );
+      runChecked(
+        'ditto',
+        [
+          '-c',
+          '-k',
+          '--sequesterRsrc',
+          '--keepParent',
+          appDirectories[0],
+          signedArtifactPath,
+        ],
+        {},
+        spawnCommand,
+      );
+      await cacheLocalShellBuild({
+        ...signingCacheOptions,
+        artifactPath: signedArtifactPath,
+        buildDigest,
+      });
+    }
+    runChecked(
+      'xcrun',
+      ['simctl', 'install', targetDeviceId, appDirectories[0]],
+      {},
+      spawnCommand,
+    );
+    let signing = 'verified-archive';
+    if (cached) signing = 'signed-cache';
+    if (resigned) signing = 'local-sign';
+    return { signing };
   } finally {
     await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
   }
@@ -1128,15 +1308,19 @@ async function main() {
 module.exports = {
   ATTESTATION_FILE,
   MAX_CACHED_SHELLS,
+  IosSimulatorEntitlementsError,
   assertDeviceId,
+  assertIosSimulatorEntitlements,
   createMobileShellCacheLease,
   downloadLayerToFile,
   getCacheRoot,
   getGhAttestationVerifyArgs,
   getSidecarFile,
   installMobileDevShell,
+  resolveExactMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
+  signAndVerifyIosSimulatorApp,
   touchAndPruneMobileShellCache,
   verifyArtifactManifest,
   verifyOciManifest,

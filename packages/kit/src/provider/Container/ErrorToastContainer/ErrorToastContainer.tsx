@@ -46,6 +46,12 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
   ETranslations.hardware_device_passphrase_state_error,
   ETranslations.hardware_device_pin_state_error,
   ETranslations.update_update_in_official_web_tool_desc_copy,
+  // The Bluetooth readiness family is raised in the background runtime
+  // (the Android pre-check), whose fallback title is the bare class name
+  // (OK-62113).
+  ETranslations.hardware_bluetooth_need_turned_on_error,
+  ETranslations.hardware_bluetooth_requires_permission_error,
+  ETranslations.hardware_device_ble_location_disabled,
 ]);
 
 export function ErrorToastContainer() {

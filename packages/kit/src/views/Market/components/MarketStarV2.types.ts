@@ -3,6 +3,8 @@ import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 
 export type IMarketStarV2Props = {
   size?: IIconButtonProps['size'];
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   from: EWatchlistFrom;

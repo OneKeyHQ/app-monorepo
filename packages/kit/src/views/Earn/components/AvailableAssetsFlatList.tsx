@@ -18,7 +18,6 @@ import {
   useEarnAtom,
   useEarnLoadingStatesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -56,7 +55,6 @@ function AvailableAssetsSectionSkeleton() {
 export function AvailableAssetItem({
   asset,
   categoryType,
-  totalLiquidityLabel,
   tvlValue,
   tvlLabel,
   testID,
@@ -64,7 +62,6 @@ export function AvailableAssetItem({
 }: {
   asset: IEarnAvailableAsset;
   categoryType: EAvailableAssetsTypeEnum;
-  totalLiquidityLabel: string;
   /** Walkthrough r3: summed provider TVL rendered under APY (Tokens home) */
   tvlValue?: number;
   tvlLabel?: string;
@@ -106,7 +103,10 @@ export function AvailableAssetItem({
           </XStack>
         }
       />
-      {/* Fixed rate: right side uses APY/APR as title and Liquidity as subtitle (OK-58879) */}
+      {/* Fixed rate: right side uses APY/APR as title and the liquidity amount
+          as subtitle (OK-58879). The "Total liquidity" caption was dropped:
+          the label wrapped in longer locales and the column reads fine as a
+          bare amount. */}
       {/* No flex here (OK-59904): ListItem.Text above already claims flex={1},
           so a second flex={1} splits the row in half and wraps long APR ranges
           such as "14.33% - 17.38% APR". The column sizes to its content. */}
@@ -114,7 +114,7 @@ export function AvailableAssetItem({
         <AprText asset={asset} />
         {showLiquidity ? (
           <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {`${totalLiquidityLabel} ${asset.liquidity ?? ''}`}
+            {asset.liquidity}
           </SizableText>
         ) : null}
         {showTvl ? (
@@ -169,14 +169,6 @@ function AvailableAssetsFlatListComponent() {
     };
     return merged;
   }, [availableAssetsByType]);
-  const totalLiquidityLabel = useMemo(
-    () =>
-      intl.formatMessage({
-        id: ETranslations.dexmarket_details_liquidity_change_total,
-      }),
-    [intl],
-  );
-
   const handleAssetPress = useCallback(
     (asset: IEarnAvailableAsset, categoryType: EAvailableAssetsTypeEnum) => {
       void navigateToAsset(asset, categoryType);
@@ -250,7 +242,6 @@ function AvailableAssetsFlatListComponent() {
                   key={`${type}-${asset.symbol}`}
                   asset={asset}
                   categoryType={type}
-                  totalLiquidityLabel={totalLiquidityLabel}
                   testID={EarnTestIDs.flatAssetItem(type, asset.symbol)}
                   onPress={() => handleAssetPress(asset, type)}
                 />

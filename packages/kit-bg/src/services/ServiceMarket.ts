@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
@@ -116,22 +117,40 @@ class ServiceMarket extends ServiceBase {
     assetId,
     variantId,
     currency = 'usd',
+    autoHandleError,
   }: {
     assetId: string;
     variantId?: string;
     currency?: string;
+    autoHandleError?: boolean;
   }) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: IMarketAssetDetailData;
-    }>('/utility/v1/market/asset/detail', {
-      params: {
-        assetId,
-        variantId,
-        currency,
-      },
-    });
-    return response.data.data;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code?: number;
+        data: IMarketAssetDetailData;
+      }>('/utility/v1/market/asset/detail', {
+        params: {
+          assetId,
+          variantId,
+          currency,
+        },
+        ...(autoHandleError === false ? { autoHandleError: false } : {}),
+      });
+      if (
+        autoHandleError === false &&
+        ((response.data.code !== undefined && response.data.code !== 0) ||
+          !response.data.data)
+      ) {
+        throw new OneKeyLocalError('Market asset detail request failed');
+      }
+      return response.data.data;
+    } catch (error) {
+      if (autoHandleError === false) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -202,7 +221,11 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketTokenDetail(coingeckoId: string, explorerPlatforms = true) {
+  async fetchMarketTokenDetail(
+    coingeckoId: string,
+    explorerPlatforms = true,
+    requestCurrency?: string,
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketTokenDetail;
@@ -211,6 +234,9 @@ class ServiceMarket extends ServiceBase {
         id: coingeckoId,
         explorer_platforms: explorerPlatforms,
       },
+      ...(requestCurrency
+        ? { headers: { 'x-onekey-request-currency': requestCurrency } }
+        : {}),
     });
     const { data } = response.data;
     if (data.tickers) {

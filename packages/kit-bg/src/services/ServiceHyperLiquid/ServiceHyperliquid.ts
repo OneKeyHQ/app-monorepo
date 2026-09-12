@@ -103,6 +103,7 @@ import type {
   IPerpsUniverse,
   IRecentTrade,
   ISpotMetaAndAssetCtxsResponse,
+  ISpotToken,
   ISpotUniverse,
   ITwapHistoryParameters,
   ITwapHistoryRecord,
@@ -121,6 +122,7 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import type { IMarketPerpsInfo } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -162,13 +164,17 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
 import {
   createFetchUserAbstractionRawWithCache,
   invalidateUserAbstractionRawCache,
 } from './userAbstractionCache';
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
-import { fetchPerpFundingHistoryPages } from './utils/fundingHistory';
+import {
+  fetchPerpFundingHistoryPages,
+  fetchRecentUserFundingHistory,
+} from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
 import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
 import {
@@ -227,6 +233,17 @@ type IChangeActiveAssetResult = {
   assetId: number | undefined;
   universe: IPerpsUniverse | undefined;
   margin: IMarginTable | undefined;
+};
+
+type ITradingUniverseSnapshot = {
+  universesByDex: IPerpsUniverse[][];
+  marginTablesMapByDex: Array<IMarginTableMap | undefined>;
+  updatedAt?: number;
+};
+
+type ISpotMetaSnapshot = {
+  tokens: ISpotToken[];
+  universes: ISpotUniverse[];
 };
 
 const HIDE_SELECT_ACCOUNT_LOADING_DELAY_MS = timerUtils.getTimeDurationMs({
@@ -318,6 +335,10 @@ function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
 
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
+  private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
+
+  private runtimeSpotMeta: ISpotMetaSnapshot | undefined;
+
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
@@ -570,6 +591,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   // on every modal push.
   private _initialSymbolSelectClaimed = false;
 
+  // A context-less caller picks the market before the Perp page mounts, so the
+  // switch event it emits has no listener yet and the cold-start restore would
+  // replay the previous session's instrument over the user's choice.
+  private _pendingInitialTradeInstrument:
+    | { coin: string; mode: ITradingMode }
+    | undefined;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
@@ -582,6 +610,62 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     this._initialSymbolSelectClaimed = true;
     return true;
+  }
+
+  // Ignored once the latch is taken: from then on the Perp page is live and
+  // switches through the event bus, so a value recorded here could only
+  // override a market the user picked afterwards. That makes "first mount
+  // only" a property of the store rather than a rule every caller upholds.
+  @backgroundMethod()
+  async setPendingInitialTradeInstrument(params: {
+    coin: string;
+    mode: ITradingMode;
+  }): Promise<void> {
+    if (!params.coin || this._initialSymbolSelectClaimed) {
+      return;
+    }
+    this._pendingInitialTradeInstrument = {
+      coin: params.coin,
+      mode: params.mode,
+    };
+  }
+
+  // Three sequential proxy hops used to sit between the first Perp frame and
+  // the symbol it should show. Each is cheap when the background is idle and
+  // ~220ms when it is not, which is exactly the cold start the user waits on.
+  // The universe read stays behind `claimed` so a non-claiming run does no more
+  // work than before.
+  @backgroundMethod()
+  async prepareInitialSymbolSelect(): Promise<{
+    claimed: boolean;
+    pendingInitialTradeInstrument:
+      | { coin: string; mode: ITradingMode }
+      | undefined;
+    instrumentTarget: Awaited<
+      ReturnType<ServiceHyperliquid['getActiveTradeInstrumentTarget']>
+    >;
+    tradingUniverse:
+      | Awaited<ReturnType<ServiceHyperliquid['getTradingUniverse']>>
+      | undefined;
+  }> {
+    const claimed = await this.tryClaimInitialSymbolSelect();
+    // Taking it here rather than in the setter keeps the two halves of "first
+    // mount only" next to each other; a call that lost the race is already
+    // a no-op by the line above.
+    const pendingInitialTradeInstrument = claimed
+      ? this._pendingInitialTradeInstrument
+      : undefined;
+    this._pendingInitialTradeInstrument = undefined;
+    const instrumentTarget = await this.getActiveTradeInstrumentTarget();
+    const tradingUniverse = claimed
+      ? await this.getTradingUniverse()
+      : undefined;
+    return {
+      claimed,
+      pendingInitialTradeInstrument,
+      instrumentTarget,
+      tradingUniverse,
+    };
   }
 
   private get exchangeService(): ServiceHyperliquidExchange {
@@ -1511,6 +1595,11 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
         prevMarginTablesMapByDex,
       );
+      this.runtimeTradingUniverse = {
+        universesByDex: universes,
+        marginTablesMapByDex: marginTablesMapList,
+        updatedAt: Date.now(),
+      };
       await this.backgroundApi.simpleDb.perp.setTradingUniverse({
         universes,
         marginTablesMapList,
@@ -1524,15 +1613,18 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async getTradingUniverse() {
-    return this.backgroundApi.simpleDb.perp.getTradingUniverse();
+    const persisted =
+      await this.backgroundApi.simpleDb.perp.getTradingUniverse();
+    return persisted.universesByDex.length > 0
+      ? persisted
+      : (this.runtimeTradingUniverse ?? persisted);
   }
 
   @backgroundMethod()
   async getSymbolsMetaMap({ coins }: { coins: string[] }) {
     const { universesByDex, marginTablesMapByDex } =
       await this.getTradingUniverse();
-    const { universes: spotUniverses } =
-      await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const { universes: spotUniverses } = await this.getSpotMeta();
     const map: Partial<{
       [coin: string]: {
         coin: string;
@@ -1585,6 +1677,46 @@ export default class ServiceHyperliquid extends ServiceBase {
     const map = await this.getSymbolsMetaMap({ coins: [coin] });
     const meta = map[coin];
     return meta;
+  }
+
+  // Top Coins detail data comes from the self-maintained asset API, which
+  // carries no perps field. Resolve the Hyperliquid counterpart from the
+  // main-DEX universe so the market page can still offer a perps entry.
+  @backgroundMethod()
+  async resolveMarketPerpsInfoBySymbol({
+    symbol,
+  }: {
+    symbol: string;
+  }): Promise<IMarketPerpsInfo | undefined> {
+    const coin = symbol?.trim().toUpperCase();
+    if (!coin) {
+      return undefined;
+    }
+    const findMainDexAsset = (universesByDex: IPerpsUniverse[][]) =>
+      universesByDex[0]?.find((item) => !item.isDelisted && item.name === coin);
+
+    const cached = await this.getTradingUniverse();
+    let { universesByDex } = cached;
+    if (
+      shouldRefreshMarketPerpsUniverse({
+        universesByDex,
+        updatedAt: cached.updatedAt,
+      })
+    ) {
+      try {
+        await this.refreshTradingMeta();
+        ({ universesByDex } = await this.getTradingUniverse());
+      } catch (error) {
+        // A stale universe still answers most symbols, and the caller reads a
+        // miss as "no perps entry" — losing that to a network blip would be
+        // worse than the staleness this was guarding against.
+        defaultLogger.app.error.log(
+          `Failed to refresh perps trading meta for market: ${String(error)}`,
+        );
+      }
+    }
+    const asset = findMainDexAsset(universesByDex);
+    return asset ? { hlTicker: asset.name } : undefined;
   }
 
   @backgroundMethod()
@@ -1692,29 +1824,68 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async getUserFundingHistory({
     accountAddress,
+    force = false,
   }: {
     accountAddress: IHex;
+    force?: boolean;
   }): Promise<IUserFunding[]> {
-    const { infoClient } = hyperLiquidApiClients;
     const user = accountAddress.toLowerCase() as IHex;
-    const endTime = Date.now();
-
-    return fetchPerpFundingHistoryPages({
-      startTime: 0,
-      endTime,
-      fetchPage: (page) => infoClient.userFunding({ user, ...page }),
-      getRecordKey: (record) =>
-        [
-          record.time,
-          record.hash,
-          record.delta.coin,
-          record.delta.szi,
-          record.delta.usdc,
-          record.delta.fundingRate,
-          record.delta.nSamples ?? '',
-        ].join(':'),
-    });
+    if (force && !this._fundingHistoryRequestsInFlight.has(user)) {
+      void this._getUserFundingHistoryMemo.delete(user);
+    }
+    return this._getUserFundingHistoryMemo(user);
   }
+
+  @backgroundMethod()
+  async getFundingHistoryPaymentTokens({ coins }: { coins: string[] }) {
+    const { infoClient } = hyperLiquidApiClients;
+    const dexNames = [
+      ...new Set(coins.map((coin) => parseDexCoin(coin).dexLabel ?? '')),
+    ];
+    const [spotMeta, dexMetas] = await Promise.all([
+      infoClient.spotMeta(),
+      Promise.all(dexNames.map((dex) => infoClient.meta({ dex }))),
+    ]);
+    const tokensByDex = new Map<string, string>();
+    dexMetas.forEach((meta, index) => {
+      const token = spotMeta.tokens.find(
+        (item) => item.index === meta.collateralToken,
+      );
+      if (!token?.name) {
+        throw new OneKeyLocalError(
+          'Funding payment token metadata is unavailable',
+        );
+      }
+      tokensByDex.set(dexNames[index], token.name);
+    });
+    const paymentTokens: Partial<Record<string, string>> = {};
+    coins.forEach((coin) => {
+      paymentTokens[coin] = tokensByDex.get(parseDexCoin(coin).dexLabel ?? '');
+    });
+    return paymentTokens;
+  }
+
+  private _fundingHistoryRequestsInFlight = new Set<IHex>();
+
+  private _getUserFundingHistoryMemo = cacheUtils.memoizee(
+    async (user: IHex): Promise<IUserFunding[]> => {
+      const { infoClient } = hyperLiquidApiClients;
+      this._fundingHistoryRequestsInFlight.add(user);
+      try {
+        return await fetchRecentUserFundingHistory(() =>
+          infoClient.userFunding({ user }),
+        );
+      } finally {
+        this._fundingHistoryRequestsInFlight.delete(user);
+      }
+    },
+    {
+      // Share in-flight requests and completed history across UI consumers.
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      max: 3,
+    },
+  );
 
   @backgroundMethod()
   async getPerpRecentTrades({
@@ -2439,6 +2610,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   ) {
     const spotMeta = this._buildSpotMetaFromResponse(result);
     if (spotMeta) {
+      this.runtimeSpotMeta = spotMeta;
       await this.backgroundApi.simpleDb.perp.setSpotMeta(spotMeta);
       this._rebuildSpotMappings(spotMeta.universes);
     }
@@ -2494,7 +2666,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Service may restart without refreshSpotMeta — rebuild from SimpleDb on first access
   private async _ensureSpotMappings() {
     if (Object.keys(this._spotMappings.pairToBaseName).length > 0) return;
-    const { universes } = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const { universes } = await this.getSpotMeta();
     if (universes.length > 0) {
       this._rebuildSpotMappings(universes);
     }
@@ -2532,7 +2704,10 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async getSpotMeta() {
-    return this.backgroundApi.simpleDb.perp.getSpotMeta();
+    const persisted = await this.backgroundApi.simpleDb.perp.getSpotMeta();
+    return persisted.tokens.length > 0 || persisted.universes.length > 0
+      ? persisted
+      : (this.runtimeSpotMeta ?? persisted);
   }
 
   @backgroundMethod()
