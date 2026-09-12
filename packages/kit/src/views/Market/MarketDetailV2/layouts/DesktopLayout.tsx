@@ -242,6 +242,8 @@ export function DesktopLayout({
     routeIsNative ? 'native' : routeTokenAddress
   }:${marketTokenId ?? ''}`;
   const isSwapTokenReady =
+    displayTokenDetail?.address?.toLowerCase() === tokenAddress.toLowerCase() &&
+    displayTokenDetail?.networkId === networkId &&
     displayTokenDetail?.decimalsResolved !== false &&
     typeof displayTokenDetail?.decimals === 'number' &&
     Number.isInteger(displayTokenDetail.decimals) &&

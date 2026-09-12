@@ -145,7 +145,6 @@ export function DesktopLayout({
     useSyncedMarketTab(selectedTabName);
   useFocusEffect(
     useCallback(() => {
-      const restore = tabsRef.current?.restoreScrollPosition;
       const frameIds: number[] = [];
       const timeoutIds: ReturnType<typeof setTimeout>[] = [];
       let restored = false;
@@ -155,7 +154,7 @@ export function DesktopLayout({
             if (restored) return;
             frameIds.push(
               requestAnimationFrame(() => {
-                if (restore?.()) {
+                if (tabsRef.current?.restoreScrollPosition?.()) {
                   restored = true;
                   timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
                 }

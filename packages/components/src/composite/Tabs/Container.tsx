@@ -384,7 +384,7 @@ export function Container({
     const savedScrollTop = scrollTopRef.current[focusedTab.value];
     if (!element || typeof savedScrollTop !== 'number') return false;
     element.scrollTo({ top: savedScrollTop, behavior: 'instant' });
-    return true;
+    return Math.abs(element.scrollTop - savedScrollTop) <= 1;
   }, [focusedTab, scrollElement]);
 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
