@@ -35,7 +35,6 @@ import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketL
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketTopCoinsList } from '../components/MarketTopCoinsList/MarketTopCoinsList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
-import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   getMarketCategoryTooltipId,
@@ -280,9 +279,6 @@ export function DesktopLayout({
       const showNetworkSelector = shouldShowSpotNetworkSelector(
         currentSpotCategoryId,
       );
-      const usesTrendingStyle = isTrendingStyleSpotCategory(
-        currentSpotCategoryId,
-      );
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -314,12 +310,10 @@ export function DesktopLayout({
               alignItems="center"
               pr="$5"
             >
-              {usesTrendingStyle ? null : (
-                <TimeRangeDropdown
-                  value={currentFilterBarProps.timeRange}
-                  onChange={currentFilterBarProps.onTimeRangeChange}
-                />
-              )}
+              <TimeRangeDropdown
+                value={currentFilterBarProps.timeRange}
+                onChange={currentFilterBarProps.onTimeRangeChange}
+              />
               <XStack display={showNetworkSelector ? 'flex' : 'none'}>
                 <CompactNetworkSelector
                   selectedNetworkId={currentFilterBarProps.selectedNetworkId}
@@ -450,14 +444,6 @@ export function DesktopLayout({
               centerDesktopPortalContent
               desktopColumnVariant={usesTrendingStyle ? 'trending' : 'default'}
               useApiDefaultSort={usesTrendingStyle}
-              toolbar={
-                usesTrendingStyle ? (
-                  <TrendingDesktopToolbar
-                    timeRange={filterBarProps.timeRange}
-                    onTimeRangeChange={filterBarProps.onTimeRangeChange}
-                  />
-                ) : undefined
-              }
             />
           );
         }

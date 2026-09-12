@@ -183,6 +183,36 @@ describe('MarketStockSelectorList', () => {
     expect(mockOnItemPress).toHaveBeenCalledWith(mockStock);
   });
 
+  it('resets scroll for new queries and preserves it for pagination', () => {
+    const { rerender } = render(
+      <MarketStockSelectorList onItemPress={mockOnItemPress} query="" />,
+    );
+    let table = screen.getByTestId('stock-table');
+    table.scrollTop = 180;
+
+    for (const query of ['mu', 'aapl', '']) {
+      rerender(
+        <MarketStockSelectorList onItemPress={mockOnItemPress} query={query} />,
+      );
+      const nextTable = screen.getByTestId('stock-table');
+      expect(nextTable).not.toBe(table);
+      expect(nextTable.scrollTop).toBe(0);
+      table = nextTable;
+      table.scrollTop = 180;
+    }
+
+    mockSelectorListResult.items = [
+      mockStock,
+      { ...mockStock, stockId: 'MU', symbol: 'MU' },
+    ];
+    rerender(
+      <MarketStockSelectorList onItemPress={mockOnItemPress} query=" " />,
+    );
+    expect(screen.getByTestId('stock-table')).toBe(table);
+    expect(table.scrollTop).toBe(180);
+    expect(screen.getByTestId('stock-row-MU')).toBeTruthy();
+  });
+
   it('triggers selector pagination when the table reaches the end', () => {
     mockSelectorListResult.canLoadMore = true;
     render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
