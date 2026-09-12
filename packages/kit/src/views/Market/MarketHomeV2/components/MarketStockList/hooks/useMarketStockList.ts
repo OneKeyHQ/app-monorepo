@@ -129,11 +129,24 @@ export function useMarketStockList({ category }: { category?: string }) {
           !previousFirstPageIds.has(item.stockId) &&
           !nextFirstPageIds.has(item.stockId),
       );
+      const hasLoadedAdditionalPages =
+        current.items.length > current.firstPage.items.length;
+      const shouldPreserveLoadedPages = Boolean(
+        hasLoadedAdditionalPages && nextFirstPage.nextCursor,
+      );
+      const nextItems = shouldPreserveLoadedPages
+        ? [...nextFirstPage.items, ...preservedItems].slice(
+            0,
+            nextFirstPage.total,
+          )
+        : nextFirstPage.items;
 
       return {
         queryKey,
-        items: [...nextFirstPage.items, ...preservedItems],
-        nextCursor: nextFirstPage.nextCursor,
+        items: nextItems,
+        nextCursor: shouldPreserveLoadedPages
+          ? current.nextCursor
+          : nextFirstPage.nextCursor,
         total: nextFirstPage.total,
         firstPage: nextFirstPage,
       };

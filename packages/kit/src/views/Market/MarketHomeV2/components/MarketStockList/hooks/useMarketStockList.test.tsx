@@ -228,6 +228,67 @@ it('preserves loaded pages when refreshing the first page', async () => {
     'MSFT',
   ]);
   expect(result.current.items[0]?.price).toBe('201');
+  expect(result.current.canLoadMore).toBe(false);
+});
+
+it('keeps the loaded-page cursor when refreshing the first page', async () => {
+  const secondPageItem = {
+    ...response.items[0],
+    stockId: 'MSFT',
+    symbol: 'MSFT',
+    name: 'Microsoft',
+  };
+  fetchList.mockImplementation(async (params) => {
+    if (params?.cursor === 'next') {
+      return {
+        items: [secondPageItem],
+        total: 3,
+        nextCursor: 'third',
+      };
+    }
+    if (params?.cursor === 'third') {
+      return { items: [], total: 3 };
+    }
+    return { ...response, total: 3 };
+  });
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  await act(async () => result.current.loadMore());
+
+  await act(async () => result.current.refresh());
+  await act(async () => result.current.loadMore());
+
+  expect(
+    fetchList.mock.calls.filter(([params]) => params?.cursor === 'next'),
+  ).toHaveLength(1);
+  expect(
+    fetchList.mock.calls.some(([params]) => params?.cursor === 'third'),
+  ).toBe(true);
+});
+
+it('drops obsolete loaded rows when a refresh has no next page', async () => {
+  const secondPageItem = {
+    ...response.items[0],
+    stockId: 'MSFT',
+    symbol: 'MSFT',
+    name: 'Microsoft',
+  };
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor ? { items: [secondPageItem], total: 2 } : response,
+  );
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  await act(async () => result.current.loadMore());
+
+  fetchList.mockResolvedValue({
+    items: [{ ...response.items[0], price: '202' }],
+    total: 1,
+  });
+  await act(async () => result.current.refresh());
+
+  expect(result.current.items.map((item) => item.stockId)).toEqual(['AAPL']);
+  expect(result.current.items[0]?.price).toBe('202');
+  expect(result.current.canLoadMore).toBe(false);
 });
 
 it('starts one native cursor request for concurrent end-reached events', async () => {
