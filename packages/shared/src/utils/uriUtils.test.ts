@@ -1,3 +1,4 @@
+import { EOneKeyDeepLinkPath } from '../consts/deeplinkConsts';
 import platformEnv from '../platformEnv';
 
 import uriUtils, {
@@ -23,6 +24,14 @@ describe('buildUrl', () => {
       query: { code: 'abc', page: undefined } as any,
     });
     expect(url).toBe('onekey-wallet://invited_by_friend?code=abc');
+  });
+
+  test('builds the Infini subscription custom-scheme URL without query params', () => {
+    expect(
+      uriUtils.buildDeepLinkUrl({
+        path: EOneKeyDeepLinkPath.prime_subscription,
+      }),
+    ).toBe('onekey-wallet://prime_subscription');
   });
 });
 

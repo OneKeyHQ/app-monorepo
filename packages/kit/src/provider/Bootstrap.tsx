@@ -109,6 +109,15 @@ const LazyExtensionMarketTokenDetailHashNavigation =
       })
     : null;
 
+const LazyExtPrimeSubscriptionHandoffOnMount =
+  platformEnv.isExtensionUiExpandTab
+    ? lazy(async () => {
+        const { ExtPrimeSubscriptionHandoffOnMount } =
+          await import('../routes/config/deeplink/ExtPrimeSubscriptionHandoffOnMount');
+        return { default: ExtPrimeSubscriptionHandoffOnMount };
+      })
+    : null;
+
 // useAppUpdateInfo no longer accepts `autoCheck` — first-launch dispatch
 // and AppState 'active' resume listener now live in <AppUpdateForeground />,
 // mounted once below in Bootstrap's render output. Existing callers in
@@ -1052,6 +1061,11 @@ export function Bootstrap() {
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>
           <LazyExtensionMarketTokenDetailHashNavigation />
+        </Suspense>
+      ) : null}
+      {LazyExtPrimeSubscriptionHandoffOnMount ? (
+        <Suspense fallback={null}>
+          <LazyExtPrimeSubscriptionHandoffOnMount />
         </Suspense>
       ) : null}
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}

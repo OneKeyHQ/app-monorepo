@@ -55,6 +55,7 @@ export type IPrimeParamList = {
   [EPrimePages.PrimeDashboard]: {
     networkId?: string;
     fromFeature?: EPrimeFeatures;
+    fromDeepLink?: boolean;
   };
   [EPrimePages.PrimeDeviceLimit]: {
     isExceedDeviceLimit?: boolean;

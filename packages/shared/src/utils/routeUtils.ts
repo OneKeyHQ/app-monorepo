@@ -18,6 +18,7 @@ import {
   ETabSwapRoutes,
   ETestModalPages,
   PRIME_REDEEM_LANDING_PATH,
+  PRIME_SUBSCRIPTION_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
 
 interface IAllowSettingItem {
@@ -267,8 +268,12 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
-    // pagePath() strips inner slashes, so this two-segment public URL would
-    // not match getPathFromState. Keep the email path as a literal allowlist key.
+    // pagePath() strips inner slashes, so these two-segment public URLs would
+    // not match getPathFromState. Keep the email paths as literal allowlist keys.
+    [PRIME_SUBSCRIPTION_LANDING_PATH]: {
+      showUrl: true,
+      showParams: false,
+    },
     [PRIME_REDEEM_LANDING_PATH]: {
       showUrl: true,
       showParams: true,

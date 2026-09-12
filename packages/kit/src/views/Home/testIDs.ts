@@ -50,6 +50,10 @@ export const HomeTestIDs = {
     'home-redeem-bitcoin-voucher-open-app-fallback-btn',
   redeemBitcoinVoucherDownloadFallbackBtn:
     'home-redeem-bitcoin-voucher-download-fallback-btn',
+  primeSubscriptionOpenAppFallbackBtn:
+    'home-prime-subscription-open-app-fallback-btn',
+  primeSubscriptionDownloadFallbackBtn:
+    'home-prime-subscription-download-fallback-btn',
 
   // Zero-gas continue confirmation
   walletActionsZeroGasContinueBtn: 'home-wallet-actions-zero-gas-continue-btn',

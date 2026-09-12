@@ -84,6 +84,13 @@ export const PROVIDER_API_PRIVATE_KEYLESS_METHOD = [
   'wallet_keylessDisconnectSite',
 ];
 
+// First-party web landings only (app.onekey.so / app.onekeytest.com / 1key.so).
+// Do not add these to PROVIDER_API_PRIVATE_WHITE_LIST_METHOD — those methods
+// are callable from any origin.
+export const PROVIDER_API_PRIVATE_FIRST_PARTY_WEB_METHOD = [
+  'wallet_openPrimeSubscription',
+];
+
 // white list method which can be called from any origin
 //      so these method should NOT return sensitive data
 export function isProviderApiPrivateAllowedMethod(method?: string) {
@@ -92,6 +99,12 @@ export function isProviderApiPrivateAllowedMethod(method?: string) {
 
 export function isProviderApiPrivateKeylessMethod(method?: string) {
   return method && PROVIDER_API_PRIVATE_KEYLESS_METHOD.includes(method || '');
+}
+
+export function isProviderApiPrivateFirstPartyWebMethod(method?: string) {
+  return (
+    !!method && PROVIDER_API_PRIVATE_FIRST_PARTY_WEB_METHOD.includes(method)
+  );
 }
 
 // Dev servers run on arbitrary ports (e.g. http://localhost:3000), but the
@@ -119,6 +132,25 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
       origin?.endsWith('.onekeytest.com') ||
       isDevLocalhostOrigin(origin) ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
+  );
+}
+
+export function isProviderApiPrivateOriginDenied({
+  method,
+  origin,
+}: {
+  method?: string;
+  origin?: string;
+}) {
+  if (
+    isProviderApiPrivateKeylessMethod(method) ||
+    isProviderApiPrivateFirstPartyWebMethod(method)
+  ) {
+    return !isProviderApiPrivateAllowedKeylessOrigin(origin);
+  }
+  return (
+    !isProviderApiPrivateAllowedOrigin(origin) &&
+    !isProviderApiPrivateAllowedMethod(method)
   );
 }
 

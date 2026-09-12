@@ -13,6 +13,10 @@ import {
   getOneKeyWebUrl,
 } from '@onekeyhq/shared/src/config/appConfig';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import {
+  PRIME_SUBSCRIPTION_EXT_HANDOFF_QUERY,
+  PRIME_SUBSCRIPTION_EXT_HANDOFF_VALUE,
+} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -47,7 +51,10 @@ import type {
   IRookieShareData,
 } from '@onekeyhq/shared/types/rookieGuide';
 
-import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
+import {
+  isProviderApiPrivateAllowedKeylessOrigin,
+  isWebEmbedApiAllowedOrigin,
+} from '../apis/backgroundApiPermissions';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -701,6 +708,28 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async getLastFocusUrl() {
     return Promise.resolve(this.lastFocusUrl);
+  }
+
+  @providerApiMethod()
+  async wallet_openPrimeSubscription(request: IJsBridgeMessagePayload) {
+    if (!platformEnv.isExtension) {
+      throw new OneKeyLocalError(
+        'wallet_openPrimeSubscription is only available in the extension',
+      );
+    }
+    if (!isProviderApiPrivateAllowedKeylessOrigin(request.origin)) {
+      throw new OneKeyLocalError(
+        `[${request.origin ?? ''}] is not allowed to call wallet_openPrimeSubscription`,
+      );
+    }
+    await this.backgroundApi.serviceApp.openExtensionExpandTab({
+      path: '/',
+      params: {
+        [PRIME_SUBSCRIPTION_EXT_HANDOFF_QUERY]:
+          PRIME_SUBSCRIPTION_EXT_HANDOFF_VALUE,
+      },
+    });
+    return { success: true };
   }
 
   @providerApiMethod()
