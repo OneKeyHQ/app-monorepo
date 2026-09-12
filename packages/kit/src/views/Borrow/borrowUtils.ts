@@ -33,6 +33,18 @@ export const BorrowNavigation = {
     });
   },
 
+  popToBorrowHome(navigation: IAppNavigation) {
+    if (platformEnv.isNative) {
+      void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
+      return;
+    }
+
+    // Reserve details are pushed on top of BorrowHome on desktop. Pop the
+    // detail route so the existing BorrowProvider and selected market remain
+    // mounted instead of creating a second, empty BorrowHome instance.
+    navigation.pop();
+  },
+
   // Navigate from deep link (when user clicks a borrow share link)
   async pushToBorrowReserveDetailsFromDeeplink(
     navigation: IAppNavigation,
