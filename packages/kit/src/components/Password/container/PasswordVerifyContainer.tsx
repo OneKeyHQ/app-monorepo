@@ -24,6 +24,7 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   BIOLOGY_AUTH_ATTEMPTS_FACE,
@@ -731,14 +732,20 @@ const PasswordVerifyContainer = ({
         // Warm up the password encryptor early so the first verification on
         // low-end devices does not race against an unready encryptor. (OK-56875)
         await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
-      } catch {
+      } catch (e) {
         // Do not rethrow: this previously produced an unhandled promise
         // rejection, and the raw error must never surface on the lock screen.
         // The verify flow awaits readiness again before use. (OK-56874)
-        // Avoid console.error here: React Native treats it as a development error overlay in
-        // development builds after a restart when the WebEmbed view is still
-        // warming up. The WebEmbed proxy already records the timeout.
-        defaultLogger.app.webembed.webembedApiNotReady();
+        if (
+          travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+          'travel-mode'
+        ) {
+          // Avoid console.error in Travel Mode: React Native treats it as a
+          // development error overlay while the WebEmbed view is warming up.
+          defaultLogger.app.webembed.webembedApiNotReady();
+        } else {
+          console.error('failed to waitPasswordEncryptorReady with error', e);
+        }
       }
     })();
   }, []);
