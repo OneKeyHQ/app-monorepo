@@ -6,6 +6,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  DEFAULT_MARKET_STOCK_SORT_BY,
+  DEFAULT_MARKET_STOCK_SORT_TYPE,
+} from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -52,6 +56,7 @@ import type {
   IMarketStockPublicSearchRequest,
   IMarketStockTokenVariantsResponse,
   IMarketTokenBatchListResponse,
+  IMarketTokenBatchRequestParams,
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
   IMarketTokenKLineResponse,
@@ -559,15 +564,7 @@ class ServiceMarketV2 extends ServiceBase {
     tokenAddressList,
     requestLocale,
     skipCache = false,
-  }: {
-    tokenAddressList: {
-      contractAddress: string;
-      chainId: string;
-      isNative: boolean;
-    }[];
-    requestLocale?: string;
-    skipCache?: boolean;
-  }) {
+  }: IMarketTokenBatchRequestParams) {
     // Clean expired cache entries periodically
     this._cleanExpiredMarketTokenBatchCache();
 
@@ -1132,8 +1129,8 @@ class ServiceMarketV2 extends ServiceBase {
         cursor: params.cursor,
         limit: params.limit ?? 20,
         category: params.category,
-        sortBy: params.sortBy ?? 'default',
-        sortType: params.sortType ?? 'asc',
+        sortBy: params.sortBy ?? DEFAULT_MARKET_STOCK_SORT_BY,
+        sortType: params.sortType ?? DEFAULT_MARKET_STOCK_SORT_TYPE,
       },
       headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
