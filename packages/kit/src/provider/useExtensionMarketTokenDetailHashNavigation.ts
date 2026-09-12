@@ -9,7 +9,7 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import { parseTokenDetailPreviewParam } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 
 type IMarketTokenDetailNavigationTarget =
   | {
@@ -51,31 +51,6 @@ function normalizeRouteBooleanParam(
 
 function parseOptionalRouteBooleanParam(value: string | null) {
   return value === null ? undefined : value === 'true';
-}
-
-function parseTokenDetailPreviewParam(
-  value: string | null,
-): IMarketTokenDetailPreview | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  try {
-    const preview = JSON.parse(value) as Partial<IMarketTokenDetailPreview>;
-    if (
-      typeof preview.address !== 'string' ||
-      typeof preview.networkId !== 'string' ||
-      typeof preview.name !== 'string' ||
-      typeof preview.symbol !== 'string' ||
-      typeof preview.decimals !== 'number' ||
-      typeof preview.selectedAt !== 'number'
-    ) {
-      return undefined;
-    }
-    return preview as IMarketTokenDetailPreview;
-  } catch {
-    return undefined;
-  }
 }
 
 export function getMarketTokenDetailNavigationTargetFromHash(
@@ -272,8 +247,6 @@ function isCurrentMarketTokenDetailTarget(
     params.marketTokenSymbol !== target.params.marketTokenSymbol ||
     normalizeRouteBooleanParam(params.resolveMarketAsset, false) !==
       normalizeRouteBooleanParam(target.params.resolveMarketAsset, false) ||
-    params.legacyTokenPreview?.selectedAt !==
-      target.params.legacyTokenPreview?.selectedAt ||
     normalizeRouteBooleanParam(params.skipMarketDataFetch, false) !==
       normalizeRouteBooleanParam(target.params.skipMarketDataFetch, false)
   ) {

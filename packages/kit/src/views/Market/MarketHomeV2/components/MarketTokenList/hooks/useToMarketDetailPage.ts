@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -80,13 +80,16 @@ interface IUseToDetailPageOptions {
   resolveMarketAsset?: boolean;
 }
 
+// All entry rows navigate the same UI router. A newer selection must also
+// supersede pending navigation started by a different hook instance.
+const navigationGenerationRef = { current: 0 };
+
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const currentRouteName = useRoute().name;
   const tokenDetailActions = useTokenDetailActions();
-  const navigationGenerationRef = useRef(0);
   const splitViewType = useSplitViewType();
   const media = useMedia();
   const preloadLayout =

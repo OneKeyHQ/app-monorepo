@@ -352,6 +352,37 @@ describe('useToDetailPage', () => {
     );
   });
 
+  it('only runs the latest selection across separate search row hooks', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false });
+    const first = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    const second = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    const pending = deferred<void>();
+    jest
+      .mocked(preloadMarketDetailV2Page)
+      .mockImplementationOnce(() => pending.promise);
+    const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+    const firstNavigation = first.result.current(tokenItem);
+    await act(async () => {
+      await second.result.current(stockItem);
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pending.resolve();
+      await firstNavigation;
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({ screen: 'MarketStockDetail' }),
+      }),
+    );
+  });
+
   it('only runs the latest desktop navigation while preloading', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false });
     const navigateSpy = jest.spyOn(rootNavigationRef.current!, 'navigate');

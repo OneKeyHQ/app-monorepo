@@ -330,6 +330,24 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['', '?legacyTokenPreview=%5Bobject%20Object%5D'])(
+    'does not navigate again when the active preview is absent from the hash: %s',
+    (query) => {
+      setHash(`#/market/token/eth/0xabc${query}`);
+      mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+        name: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          network: 'eth',
+          tokenAddress: '0xabc',
+          legacyTokenPreview: { selectedAt: 1 },
+        },
+      });
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+      act(() => jest.runOnlyPendingTimers());
+      expect(mockRootNavigationRef.current?.navigate).not.toHaveBeenCalled();
+    },
+  );
+
   it('refreshes the same token route when favorite visibility changes', () => {
     setHash('#/market/token/eth/0xabc?showFavoriteButton=false');
     mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
