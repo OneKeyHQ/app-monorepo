@@ -217,21 +217,30 @@ export function useMarketBannerList(): {
         : banner,
     );
   }, [bannerList, liveQuotes, requestScope, enableMockMarketBanner]);
-  if (bannerList !== undefined) {
-    committedResultRef.current = {
-      requestScope,
-      bannerList: normalizedBanners,
-    };
-  }
-
   useEffect(() => {
-    if (platformEnv.isNative && bannerList !== undefined) {
-      swrCacheUtils.set(
-        swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner)),
-        normalizedBanners,
-      );
+    // A native cache-key switch can discard a render that still sees the old
+    // array. Only committed renders may update the fallback or persisted data.
+    if (bannerList !== undefined) {
+      committedResultRef.current = {
+        requestScope,
+        bannerList: normalizedBanners,
+      };
+      if (platformEnv.isNative) {
+        swrCacheUtils.set(
+          swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner)),
+          normalizedBanners,
+        );
+      }
+    } else if (committedResultRef.current?.requestScope === requestScope) {
+      committedResultRef.current = undefined;
     }
-  }, [bannerList, normalizedBanners, locale, enableMockMarketBanner]);
+  }, [
+    bannerList,
+    normalizedBanners,
+    requestScope,
+    locale,
+    enableMockMarketBanner,
+  ]);
 
   return {
     scope,

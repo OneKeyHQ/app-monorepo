@@ -259,3 +259,59 @@ it.each(['locale', 'mock'])(
     expect(result.current.isFetched).toBe(true);
   },
 );
+
+it.each(['locale', 'mock'])(
+  'does not persist a foreign native cache after switching %s during a pending fetch',
+  async (setting) => {
+    platformEnv.isNative = true;
+    const cached = [
+      {
+        _id: 'cached',
+        title: 'English cache',
+        rank: 1,
+        mode: 4,
+        payload: '',
+        miniBundlerVersion: '',
+        backgroundColor: '',
+        tokenListId: 'cached',
+        type: EMarketBannerType.Perps,
+      },
+    ];
+    mockCache.set('en-US:false', { data: cached, updatedAt: Date.now() });
+    const fetchBanners = jest.mocked(fetchMarketBannerListForPlatform);
+    let resolveOld: (value: typeof cached) => void = () => {};
+    fetchBanners.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveOld = resolve;
+      }),
+    );
+    const { result, rerender, unmount } = renderHook(() =>
+      useMarketBannerList(),
+    );
+    expect(result.current.bannerList).toEqual(cached);
+    await waitFor(() => expect(fetchBanners).toHaveBeenCalledTimes(1));
+    fetchBanners.mockRejectedValueOnce(new Error('new scope offline'));
+    act(() => {
+      if (setting === 'locale') mockLocale = 'zh-CN';
+      else mockEnabled = true;
+      rerender();
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bannerList).toEqual([]);
+    expect(result.current.isFetched).toBe(false);
+    const newKey = setting === 'locale' ? 'zh-CN:false' : 'en-US:true';
+    expect(mockCache.has(newKey)).toBe(false);
+    await act(async () => {
+      resolveOld(cached);
+    });
+    expect(result.current.bannerList).toEqual([]);
+    expect(mockCache.has(newKey)).toBe(false);
+    unmount();
+    fetchBanners.mockRejectedValueOnce(new Error('still offline'));
+    const next = renderHook(() => useMarketBannerList());
+    expect(next.result.current.bannerList).toEqual([]);
+    await waitFor(() => expect(next.result.current.isLoading).toBe(false));
+    expect(next.result.current.isFetched).toBe(false);
+    expect(mockCache.has(newKey)).toBe(false);
+  },
+);

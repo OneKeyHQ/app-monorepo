@@ -19,6 +19,7 @@ import {
 let mockResult: IMarketBannerItem[] | undefined;
 let mockLoading: boolean | undefined;
 let mockLocale = 'en-US';
+let mockResultScope = 'en-US:false';
 let mockRequest: () => Promise<unknown>;
 let mockHydrate: () => Promise<unknown>;
 let mockEnabled = false;
@@ -39,7 +40,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
         mockResult === undefined
           ? undefined
           : {
-              scope: `${mockLocale}:${Boolean(mockEnabled)}`,
+              scope: mockResultScope,
               banners: mockResult,
             },
       isLoading: mockLoading,
@@ -80,6 +81,7 @@ beforeEach(() => {
   mockResult = undefined;
   mockLoading = undefined;
   mockLocale = 'en-US';
+  mockResultScope = 'en-US:false';
   jest.mocked(fetchMarketBannerListForPlatform).mockReset();
   jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockReset();
   jest.mocked(fetchMarketBannerTokenListForPlatform).mockReset();
@@ -247,6 +249,7 @@ it('releases the page with base data while optional quotes are still pending', a
 });
 it('skips remote quotes in mock mode', async () => {
   mockEnabled = true;
+  mockResultScope = 'en-US:true';
   mockResult = [makeBanner({ type: EMarketBannerType.Stock })];
   renderHook(() => useMarketBannerList());
   await mockHydrate();
@@ -269,6 +272,7 @@ it('ignores quotes completed for a previous language', async () => {
   const { result, rerender } = renderHook(() => useMarketBannerList());
   mockLiveResult = await mockHydrate();
   mockLocale = 'zh-CN';
+  mockResultScope = 'zh-CN:false';
   mockResult = [makeBanner({ title: '中文' })];
   rerender();
   expect(result.current.bannerList[0].title).toBe('中文');
@@ -359,6 +363,7 @@ it.each([true, false])(
   'uses fresh base quotes when optional hydration is skipped (mock=%s)',
   (mock) => {
     mockEnabled = mock;
+    mockResultScope = `en-US:${mock}`;
     const type = mock ? EMarketBannerType.Stock : EMarketBannerType.Perps;
     mockResult = [makeBanner({ type, tokens: [quote] })];
     const { result, rerender } = renderHook(() => useMarketBannerList());
@@ -378,6 +383,7 @@ it('does not carry hydrated prices into a different locale', async () => {
   rerender();
   expect(result.current.bannerList[0].tokens?.[0].price).toBe('100');
   mockLocale = 'zh-CN';
+  mockResultScope = 'zh-CN:false';
   mockResult = [makeBanner()];
   rerender();
   expect(result.current.bannerList[0].tokens).toBeUndefined();
@@ -449,5 +455,32 @@ it.each([{ tokens: [{ ...quote, price: '105' }] }, { tokens: [] }])(
     mockLiveResult = await mockHydrate();
     rerender();
     expect(result.current.bannerList[0].tokens?.[0].price).toBe('110');
+  },
+);
+
+it.each(['locale', 'mock'])(
+  'rejects retained result tags after a %s change',
+  async (setting) => {
+    mockResult = [makeBanner({ title: 'Old response', tokens: [quote] })];
+    const { result, rerender } = renderHook(() => useMarketBannerList());
+    const oldRequest = mockRequest;
+    expect(result.current.bannerList[0].title).toBe('Old response');
+    if (setting === 'locale') mockLocale = 'zh-CN';
+    else mockEnabled = true;
+    rerender();
+    expect(result.current.bannerList).toEqual([]);
+    expect(result.current.isFetched).toBe(false);
+    expect(result.current.isLoading).toBe(true);
+    await act(async () => {
+      await oldRequest();
+    });
+    expect(result.current.bannerList).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+    await act(async () => {
+      await expect(mockRequest()).resolves.toBeUndefined();
+    });
+    expect(result.current.bannerList).toEqual([]);
+    expect(result.current.isFetched).toBe(false);
+    expect(result.current.isLoading).toBe(false);
   },
 );
