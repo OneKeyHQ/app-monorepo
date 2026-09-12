@@ -18,6 +18,8 @@ jest.mock('@onekeyhq/components', () => {
     role?: string;
     'aria-label'?: string;
     color?: string;
+    name?: string;
+    fallback?: import('react').ReactNode;
   }>;
   const Component = ({
     children,
@@ -26,6 +28,7 @@ jest.mock('@onekeyhq/components', () => {
     role,
     'aria-label': accessibilityLabel,
     color,
+    fallback,
   }: IProps) =>
     React.createElement(
       'div',
@@ -36,7 +39,7 @@ jest.mock('@onekeyhq/components', () => {
         role,
         'aria-label': accessibilityLabel,
       },
-      children,
+      fallback ?? children,
     );
   return {
     Stack: Component,
@@ -44,8 +47,10 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Component,
     SizableText: Component,
     NumberSizeableText: Component,
-    Image: () => null,
-    Icon: () => null,
+    Image: ({ fallback }: { fallback?: import('react').ReactNode }) =>
+      fallback ?? null,
+    Icon: ({ name }: { name?: string }) =>
+      React.createElement('span', { 'data-icon-name': name }),
   };
 });
 
@@ -81,6 +86,53 @@ const makeBanner = (
 });
 
 describe('Market theme banner', () => {
+  it('renders index quotes using the Figma labels, order, and unitless prices', () => {
+    render(
+      <MarketBannerItem
+        item={{
+          ...makeBanner([
+            makeToken('^DJI', '1', '52573.29'),
+            makeToken('^GSPC', '0.8', '7656.98'),
+            makeToken('^IXIC', '0.9', '26333.04'),
+          ]),
+          type: EMarketBannerType.StockIndex,
+        }}
+      />,
+    );
+
+    const rows = screen.getAllByTestId('market-banner-token-row');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'S&P 5007656.980.8',
+      'NASDAQ26333.040.9',
+      'Dow Jones52573.291',
+    ]);
+    expect(rows[0].querySelector('[data-icon-name]')).toBeNull();
+  });
+
+  it.each([EMarketBannerType.Index, EMarketBannerType.StockIndex])(
+    'keeps the %s quote card non-interactive',
+    (type) => {
+      const onPress = jest.fn();
+      render(
+        <MarketBannerItem
+          item={{
+            ...makeBanner([makeToken('^GSPC', '0.8', '7656.98')]),
+            type,
+          }}
+          onPress={onPress}
+        />,
+      );
+
+      const banner = screen.getByTestId('market-banner-item');
+      fireEvent.click(banner);
+      expect(onPress).not.toHaveBeenCalled();
+      expect(banner.getAttribute('role')).toBeNull();
+      expect(
+        banner.querySelector('[data-icon-name="ChevronRightSmallOutline"]'),
+      ).toBeNull();
+    },
+  );
+
   it('shows at most three supplied tokens in numeric gain order without mutating the response', () => {
     const tokens = [
       makeToken('LOW', '2'),
@@ -155,14 +207,12 @@ describe('Market theme banner', () => {
   );
 
   it.each([EMarketBannerType.Ticker, EMarketBannerType.Perps])(
-    'only opens the original %s list from its title',
+    'opens the original %s list from anywhere in the card',
     (type) => {
       const onPress = jest.fn();
       const item = { ...makeBanner([makeToken('TOKEN', '1', '2')]), type };
       render(<MarketBannerItem item={item} onPress={onPress} />);
       fireEvent.click(screen.getByTestId('market-banner-token-row'));
-      expect(onPress).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByRole('button', { name: item.title }));
       expect(onPress).toHaveBeenCalledTimes(1);
       expect(onPress).toHaveBeenCalledWith(item);
     },
@@ -186,4 +236,36 @@ describe('Market theme banner', () => {
     expect(screen.getByText('+1%')).toBeTruthy();
     expect(screen.queryAllByTestId('market-banner-token-row')).toHaveLength(0);
   });
+});
+
+it.each(['指数报价', 'Index Quotes'])(
+  'classifies untyped index payloads independently of title: %s',
+  (title) => {
+    const onPress = jest.fn();
+    render(
+      <MarketBannerItem
+        item={{
+          ...makeBanner([makeToken('^GSPC', '1', '100')]),
+          title,
+          type: undefined,
+          indices: [makeToken('^GSPC', '1', '100')],
+        }}
+        onPress={onPress}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('market-banner-item'));
+    expect(onPress).not.toHaveBeenCalled();
+    expect(screen.getByText('S&P 500')).toBeTruthy();
+  },
+);
+it('does not infer index semantics from a translated title alone', () => {
+  const onPress = jest.fn();
+  render(
+    <MarketBannerItem
+      item={{ ...makeBanner([]), title: '指数主题', type: undefined }}
+      onPress={onPress}
+    />,
+  );
+  fireEvent.click(screen.getByTestId('market-banner-item'));
+  expect(onPress).toHaveBeenCalledTimes(1);
 });

@@ -12,7 +12,9 @@ import type { IMarketAssetListData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBannerItem,
   IMarketBannerListResponse,
+  IMarketBannerTokenListItem,
   IMarketBasicConfigResponse,
+  IMarketStockPublicItem,
   IMarketTokenBatchListResponse,
   IMarketTokenBatchRequestParams,
   IMarketTokenListItem,
@@ -499,13 +501,15 @@ const fetchMarketBasicConfigLight = memoizee(
   },
 );
 
-const fetchMarketBannerListLight = memoizee(
-  async (): Promise<IMarketBannerItem[]> => {
+const fetchMarketBannerListCached = memoizee(
+  async (locale: string): Promise<IMarketBannerItem[]> => {
     markMarketPerf('market-light-api-banner-list-start');
     const client = await getUtilityClient();
     const response = await client.get<
       IApiClientResponse<IMarketBannerListResponse>
-    >('/utility/v2/market/banner/list');
+    >('/utility/v2/market/banner/list', {
+      headers: { 'x-onekey-request-locale': locale },
+    });
     const data = response.data.data.data;
     markMarketPerf('market-light-api-banner-list-end', {
       count: data.length,
@@ -513,14 +517,60 @@ const fetchMarketBannerListLight = memoizee(
     return data;
   },
   {
-    maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
     promise: true,
   },
 );
 
+const fetchMarketBannerTokenListCached = memoizee(
+  async (
+    tokenListId: string,
+    locale: string,
+  ): Promise<IMarketBannerTokenListItem[]> => {
+    const client = await getUtilityClient();
+    const response = await client.get<
+      IApiClientResponse<{ list: IMarketBannerTokenListItem[] }>
+    >(
+      `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
+      {
+        params: { currency: 'usd' },
+        headers: { 'x-onekey-request-locale': locale },
+      },
+    );
+    return response.data.data.list;
+  },
+  { maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }), promise: true },
+);
+
+const fetchMarketBannerStockTokenListCached = memoizee(
+  async (id: string, locale: string): Promise<IMarketStockPublicItem[]> => {
+    const client = await getUtilityClient();
+    const response = await client.get<
+      IApiClientResponse<{
+        list?: IMarketStockPublicItem[];
+        items?: IMarketStockPublicItem[];
+      }>
+    >(`/utility/v2/market/banner/stock-token-list/${encodeURIComponent(id)}`, {
+      headers: { 'x-onekey-request-locale': locale },
+    });
+    const data = response.data.data;
+    return Array.isArray(data) ? data : (data.list ?? data.items ?? []);
+  },
+  { maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }), promise: true },
+);
+
+const fetchMarketBannerListLight = () =>
+  fetchMarketBannerListCached(resolveMarketTokenBatchLocale());
+const fetchMarketBannerTokenListLight = (id: string) =>
+  fetchMarketBannerTokenListCached(id, resolveMarketTokenBatchLocale());
+const fetchMarketBannerStockTokenListLight = (id: string) =>
+  fetchMarketBannerStockTokenListCached(id, resolveMarketTokenBatchLocale());
+
 export {
   fetchMarketAssetListLight,
   fetchMarketBannerListLight,
+  fetchMarketBannerTokenListLight,
+  fetchMarketBannerStockTokenListLight,
   fetchMarketBasicConfigLight,
   fetchMarketTokenListBatchLight,
   fetchMarketTokenListLight,

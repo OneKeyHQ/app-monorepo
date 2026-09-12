@@ -10,6 +10,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -38,6 +39,7 @@ import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hook
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { isMarketIndexQuoteBanner } from '../utils/marketBannerUtils';
 
 import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
 import { PerpsTokenListSection } from './PerpsTokenListSection';
@@ -68,8 +70,16 @@ const BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS = ['liquidity'] as const;
 
 function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
-  const { tokenListId, type } = route.params;
+  const { tokenListId, type, assetType } = route.params;
   const isPerps = type === EMarketBannerType.Perps;
+  const isMixed = type === EMarketBannerType.StockPerps;
+  const isIndex = isMarketIndexQuoteBanner({ type, assetType });
+  const isStock =
+    type === EMarketBannerType.Stock ||
+    type === EMarketBannerType.StockPerps ||
+    assetType === 'stock' ||
+    assetType === 'etf' ||
+    assetType === 'index';
 
   const intl = useIntl();
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
@@ -85,7 +95,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     listResult,
     mobileData,
     tickerIsLoading,
-  } = useMarketBannerDetail({ tokenListId, isPerps });
+  } = useMarketBannerDetail({ tokenListId, isPerps, isStock, isIndex });
 
   const renderHeaderLeft = useCallback(
     () => <NavBackButton onPress={handleBackPress} />,
@@ -124,6 +134,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     },
     [toDetailPage],
   );
+  const handleIndexItemPress = useCallback(() => undefined, []);
+  const onItemPress = isIndex ? handleIndexItemPress : handleItemPress;
 
   const renderPageHeader = useMemo(() => {
     if (isWebDesktop) {
@@ -201,22 +213,34 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     // Narrow layouts use the compact list to avoid the desktop table's
     // intrinsic width overflowing the viewport.
     if (!gtMd) {
-      return (
+      const stockList = (
         <BannerDetailTokenFlatList
           data={mobileData}
           isLoading={tickerIsLoading}
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={handleChangeSortPress}
-          onItemPress={handleItemPress}
+          onItemPress={onItemPress}
         />
+      );
+      if (!isMixed) return stockList;
+      return (
+        <YStack flex={1} gap="$6">
+          {stockList}
+          <PerpsTokenListSection
+            tokenListId={tokenListId}
+            changeSortType={changeSortType}
+            change24hColumnTitle={change24hColumnTitle}
+            onChangeSortPress={handleChangeSortPress}
+          />
+        </YStack>
       );
     }
 
     const tokenList = (
       <MarketTokenListBase
         result={listResult}
-        onItemPress={handleItemPress}
+        onItemPress={onItemPress}
         hideTokenAge
         clientSort
         watchlistFrom={EWatchlistFrom.BannerList}
@@ -226,10 +250,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         hiddenDesktopColumns={BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS}
       />
     );
-    if (platformEnv.isNative) {
-      return tokenList;
-    }
-    return (
+    const stockList = platformEnv.isNative ? (
+      tokenList
+    ) : (
       <Stack
         flex={1}
         className="normal-scrollbar"
@@ -240,11 +263,24 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         </Stack>
       </Stack>
     );
+    if (!isMixed) return stockList;
+    return (
+      <YStack flex={1} gap="$6">
+        {stockList}
+        <PerpsTokenListSection
+          tokenListId={tokenListId}
+          changeSortType={changeSortType}
+          change24hColumnTitle={change24hColumnTitle}
+          onChangeSortPress={handleChangeSortPress}
+        />
+      </YStack>
+    );
   }, [
     isPerps,
+    isMixed,
     tokenListId,
     listResult,
-    handleItemPress,
+    onItemPress,
     gtMd,
     tickerIsLoading,
     mobileData,

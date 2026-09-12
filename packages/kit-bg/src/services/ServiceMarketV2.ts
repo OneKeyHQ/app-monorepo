@@ -51,6 +51,7 @@ import type {
   IMarketStockPublicChartRequest,
   IMarketStockPublicChartResponse,
   IMarketStockPublicDetail,
+  IMarketStockPublicItem,
   IMarketStockPublicListRequest,
   IMarketStockPublicListResponse,
   IMarketStockPublicSearchRequest,
@@ -1059,21 +1060,25 @@ class ServiceMarketV2 extends ServiceBase {
     }
   }
 
-  private memoizedFetchMarketBannerList = memoizee(
-    async () => {
+  private memoizedFetchMarketBannerData = memoizee(
+    async (path: string, locale: string) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<{
-        code: number;
-        message: string;
-        data: IMarketBannerListResponse;
-      }>('/utility/v2/market/banner/list');
-      const { data } = response.data;
-      return data.data;
+        data:
+          | IMarketBannerListResponse
+          | IMarketBannerTokenListResponse
+          | IMarketStockPublicItem[]
+          | {
+              list?: IMarketStockPublicItem[];
+              items?: IMarketStockPublicItem[];
+            };
+      }>(path, {
+        params: { currency: 'usd' },
+        headers: { 'x-onekey-request-locale': locale },
+      });
+      return response.data.data;
     },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-      promise: true,
-    },
+    { maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }), promise: true },
   );
 
   @backgroundMethod()
@@ -1082,28 +1087,36 @@ class ServiceMarketV2 extends ServiceBase {
     if (devSettings.enabled && devSettings.settings?.enableMockMarketBanner) {
       return MOCK_MARKET_BANNER_LIST;
     }
-    return this.memoizedFetchMarketBannerList();
+    const data = (await this.memoizedFetchMarketBannerData(
+      '/utility/v2/market/banner/list',
+      await this._getMarketTokenBatchCacheLocale(),
+    )) as IMarketBannerListResponse;
+    return data.data;
   }
 
   @backgroundMethod()
   async clearMarketBannerCache(): Promise<void> {
-    // memoizee's clear() is synchronous, returns void
-    void this.memoizedFetchMarketBannerList.clear();
+    this.memoizedFetchMarketBannerData.clear();
   }
 
   @backgroundMethod()
   async fetchMarketBannerTokenList({ tokenListId }: { tokenListId: string }) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketBannerTokenListResponse;
-    }>(
+    const data = (await this.memoizedFetchMarketBannerData(
       `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
-      { params: { currency: 'usd' } },
-    );
-    const { data } = response.data;
+      await this._getMarketTokenBatchCacheLocale(),
+    )) as IMarketBannerTokenListResponse;
     return data.list;
+  }
+
+  @backgroundMethod()
+  async fetchMarketBannerStockTokenList({ id }: { id: string }) {
+    const data = (await this.memoizedFetchMarketBannerData(
+      `/utility/v2/market/banner/stock-token-list/${encodeURIComponent(id)}`,
+      await this._getMarketTokenBatchCacheLocale(),
+    )) as
+      | IMarketStockPublicItem[]
+      | { list?: IMarketStockPublicItem[]; items?: IMarketStockPublicItem[] };
+    return Array.isArray(data) ? data : (data.list ?? data.items ?? []);
   }
 
   @backgroundMethod()

@@ -81,27 +81,30 @@ describe('isTravelModeNetworkRequestAllowed', () => {
     ).toBe(false);
   });
 
-  it('allows only the dynamic banner token list paths', () => {
-    expect(
-      isTravelModeNetworkRequestAllowed({
-        baseURL: 'https://utility.onekeycn.com',
-        method: 'get',
-        url: '/utility/v2/market/banner/token-list/banner-1',
-      }),
-    ).toBe(true);
-    expect(
-      isTravelModeNetworkRequestAllowed({
-        baseURL: 'https://utility.onekeycn.com',
-        method: 'get',
-        url: '/utility/v2/market/banner/token-list',
-      }),
-    ).toBe(true);
-    expect(
-      isTravelModeNetworkRequestAllowed({
-        baseURL: 'https://utility.onekeycn.com',
-        method: 'get',
-        url: '/utility/v2/market/banner/token-list/banner-1/private',
-      }),
-    ).toBe(false);
-  });
+  it.each(['token-list', 'stock-token-list'])(
+    'allows only the dynamic banner %s paths',
+    (endpoint) => {
+      expect(
+        isTravelModeNetworkRequestAllowed({
+          baseURL: 'https://utility.onekeycn.com',
+          method: 'get',
+          url: `/utility/v2/market/banner/${endpoint}/banner-1`,
+        }),
+      ).toBe(true);
+      expect(
+        isTravelModeNetworkRequestAllowed({
+          baseURL: 'https://utility.onekeycn.com',
+          method: 'get',
+          url: `/utility/v2/market/banner/${endpoint}`,
+        }),
+      ).toBe(true);
+      expect(
+        isTravelModeNetworkRequestAllowed({
+          baseURL: 'https://utility.onekeycn.com',
+          method: 'get',
+          url: `/utility/v2/market/banner/${endpoint}/banner-1/private`,
+        }),
+      ).toBe(false);
+    },
+  );
 });

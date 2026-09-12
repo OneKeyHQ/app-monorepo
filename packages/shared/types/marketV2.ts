@@ -718,6 +718,11 @@ export interface IMarketAccountPortfolioResponse {
 export enum EMarketBannerType {
   Ticker = 'ticker',
   Perps = 'perps',
+  Stock = 'stock',
+  Index = 'index',
+  Mixed = 'mixed',
+  StockPerps = 'stock_perps',
+  StockIndex = 'stock_index',
 }
 
 export interface IMarketBannerDescription {
@@ -733,6 +738,10 @@ export interface IMarketBannerTokenPreview {
   priceChange24hPercent?: string | null;
 }
 
+export interface IMarketBannerIndexPreview extends IMarketBannerTokenPreview {
+  sparkline?: number[];
+}
+
 export interface IMarketBannerItem {
   _id: string;
   title: string;
@@ -745,7 +754,9 @@ export interface IMarketBannerItem {
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
   tokens?: IMarketBannerTokenPreview[];
+  indices?: IMarketBannerIndexPreview[];
   type?: EMarketBannerType;
+  assetType?: IMarketStockAssetType;
 }
 
 export interface IMarketBannerListResponse {
