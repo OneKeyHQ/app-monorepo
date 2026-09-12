@@ -6,6 +6,11 @@ import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { WrongPassword } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  RuntimeEnvironment,
+  getTravelModeRuntimeProfile,
+  travelModeManager,
+} from '@onekeyhq/shared/src/travelMode';
+import {
   EPasswordMode,
   EPasswordVerifyStatus,
 } from '@onekeyhq/shared/types/password';
@@ -650,62 +655,127 @@ describe('ServicePassword', () => {
     }
   });
 
-  it('keeps manual locking functional in Travel Mode', async () => {
-    jest
-      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
-      .mockReturnValue(true);
-    jotaiDefaultStore.set(passwordPersistAtom.atom(), {
-      ...passwordAtomInitialValue,
-      isPasswordSet: true,
-    });
-    const servicePassword = Object.create(
-      ServicePassword.prototype,
-    ) as ServicePassword;
-    servicePassword.backgroundApi = {
-      serviceV4Migration: {
-        isAtMigrationPage: jest.fn(async () => false),
-      },
-    } as unknown as ServicePassword['backgroundApi'];
-    jest.spyOn(servicePassword, 'clearCachedPassword').mockResolvedValue();
-    jest
-      .spyOn(servicePassword, 'refreshHyperLiquidAgentPasswordStatus')
-      .mockResolvedValue({
-        isPasswordSet: false,
-        requiresPasswordSetupOrVerify: false,
+  it.each([true, false])(
+    'ignores lockApp with manual=%s in Travel Mode',
+    async (manual) => {
+      jest
+        .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
+        .mockReturnValue(
+          RuntimeEnvironment.create(getTravelModeRuntimeProfile(true)),
+        );
+      jest
+        .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+        .mockReturnValue(true);
+      jotaiDefaultStore.set(passwordPersistAtom.atom(), {
+        ...passwordAtomInitialValue,
+        isPasswordSet: true,
       });
+      const servicePassword = Object.create(
+        ServicePassword.prototype,
+      ) as ServicePassword;
+      servicePassword.backgroundApi = {
+        serviceV4Migration: {
+          isAtMigrationPage: jest.fn(async () => false),
+        },
+      } as unknown as ServicePassword['backgroundApi'];
+      const clearCachedPassword = jest
+        .spyOn(servicePassword, 'clearCachedPassword')
+        .mockResolvedValue();
+      const clearAgentSecretSession = jest.spyOn(
+        localDb,
+        'clearHyperLiquidAgentSecretSession',
+      );
+      const setAgentSecretSessionUnlocked = jest.spyOn(
+        localDb,
+        'setHyperLiquidAgentSecretSessionUnlocked',
+      );
+      jest
+        .spyOn(servicePassword, 'refreshHyperLiquidAgentPasswordStatus')
+        .mockResolvedValue({
+          isPasswordSet: false,
+          requiresPasswordSetupOrVerify: false,
+        });
+      jest
+        .spyOn(firmwareUpdateWorkflowRunningAtom, 'get')
+        .mockResolvedValue(false);
+
+      const passwordState = jotaiDefaultStore.get(passwordAtom.atom());
+      const passwordSettings = jotaiDefaultStore.get(
+        passwordPersistAtom.atom(),
+      );
+
+      await servicePassword.lockApp({ manual });
+
+      expect(
+        jotaiDefaultStore.get(passwordPersistManualLockStateAtom.atom()),
+      ).toEqual({ manualLocking: false });
+      expect(jotaiDefaultStore.get(passwordAtom.atom())).toEqual(passwordState);
+      expect(jotaiDefaultStore.get(passwordPersistAtom.atom())).toEqual(
+        passwordSettings,
+      );
+      expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(false);
+      expect(clearCachedPassword).toHaveBeenCalled();
+      expect(clearAgentSecretSession).not.toHaveBeenCalled();
+      expect(setAgentSecretSessionUnlocked).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ignores lock settings changes in Travel Mode without updating password state', async () => {
     jest
-      .spyOn(firmwareUpdateWorkflowRunningAtom, 'get')
-      .mockResolvedValue(false);
-
-    await servicePassword.lockApp({ manual: true });
-
-    expect(
-      jotaiDefaultStore.get(passwordPersistManualLockStateAtom.atom()),
-    ).toEqual({ manualLocking: true });
-    expect(jotaiDefaultStore.get(appIsLocked.atom())).toBe(true);
-  });
-
-  it('applies the existing auto-lock duration in Travel Mode', async () => {
-    jest
-      .spyOn(runtimePersistenceAdapter, 'isUnavailable')
-      .mockReturnValue(true);
-    jotaiDefaultStore.set(passwordPersistAtom.atom(), {
+      .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
+      .mockReturnValue(
+        RuntimeEnvironment.create(getTravelModeRuntimeProfile(true)),
+      );
+    const passwordSettings = {
       ...passwordAtomInitialValue,
-      appLockDuration: 5,
       isPasswordSet: true,
-    });
-    jest.spyOn(settingsLastActivityAtom, 'get').mockResolvedValue({
-      time: Date.now() - 6 * 60 * 1000,
-    });
+      appLockDuration: Number(ELockDuration.Minute5),
+      enableSystemIdleLock: true,
+    };
+    jotaiDefaultStore.set(passwordPersistAtom.atom(), passwordSettings);
+    const passwordState = jotaiDefaultStore.get(passwordAtom.atom());
     const servicePassword = Object.create(
       ServicePassword.prototype,
     ) as ServicePassword;
-    const lockApp = jest
-      .spyOn(servicePassword, 'lockApp')
-      .mockResolvedValue(undefined);
 
-    await servicePassword.checkLockStatus();
+    await servicePassword.setAppLockDuration(Number(ELockDuration.Never));
+    await servicePassword.setEnableSystemIdleLock(false);
 
-    expect(lockApp).toHaveBeenCalledWith({ manual: false });
+    expect(jotaiDefaultStore.get(passwordPersistAtom.atom())).toEqual(
+      passwordSettings,
+    );
+    expect(jotaiDefaultStore.get(passwordAtom.atom())).toEqual(passwordState);
   });
+
+  it.each([ELockDuration.Always, ELockDuration.Minute5, ELockDuration.Never])(
+    'ignores auto-lock duration %s in Travel Mode',
+    async (duration) => {
+      jest
+        .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
+        .mockReturnValue(
+          RuntimeEnvironment.create(getTravelModeRuntimeProfile(true)),
+        );
+      jest
+        .spyOn(runtimePersistenceAdapter, 'isUnavailable')
+        .mockReturnValue(true);
+      jotaiDefaultStore.set(passwordPersistAtom.atom(), {
+        ...passwordAtomInitialValue,
+        appLockDuration: Number(duration),
+        isPasswordSet: true,
+      });
+      jest.spyOn(settingsLastActivityAtom, 'get').mockResolvedValue({
+        time: Date.now() - 6 * 60 * 1000,
+      });
+      const servicePassword = Object.create(
+        ServicePassword.prototype,
+      ) as ServicePassword;
+      const lockApp = jest
+        .spyOn(servicePassword, 'lockApp')
+        .mockResolvedValue(undefined);
+
+      await servicePassword.checkLockStatus();
+
+      expect(lockApp).not.toHaveBeenCalled();
+    },
+  );
 });

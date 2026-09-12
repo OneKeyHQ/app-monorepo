@@ -32,6 +32,7 @@ import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IUniversalSearchBatchResult,
@@ -174,6 +175,9 @@ export function UniversalSearch({
   source: EUniversalSearchSource;
 }) {
   const intl = useIntl();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const { activeAccount } = useActiveAccount({ num: 0 });
   // Home raw list + full fiat map snapshot (PULLed from the BG VM, refreshed on
   // each home structure frame). Keeps the search cache hint alive (do
@@ -221,9 +225,9 @@ export function UniversalSearch({
   const shouldIncludeSettings = allowedSearchTypeSet.has(
     EUniversalSearchType.Settings,
   );
-  const shouldIncludeMarketTrending = allowedSearchTypeSet.has(
-    EUniversalSearchType.V2MarketToken,
-  );
+  const shouldIncludeMarketTrending =
+    !isTravelMode &&
+    allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
 
   const tabTitles = useMemo(() => {
     return [
@@ -963,8 +967,23 @@ export function UniversalSearch({
   }, [activeTab, isInAllTab, sections, isFocusInMarketTab]);
 
   const renderResult = useCallback(() => {
+    const noResultsComponent = (
+      <Empty
+        illustration="QuestionMark"
+        title={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.global_search_no_results_desc,
+        })}
+      />
+    );
+
     switch (searchStatus) {
       case ESearchStatus.init:
+        if (isTravelMode) {
+          return noResultsComponent;
+        }
         return (
           <SectionList
             stickySectionHeadersEnabled
@@ -1016,17 +1035,7 @@ export function UniversalSearch({
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
               renderSectionFooter={renderSectionFooter}
-              ListEmptyComponent={
-                <Empty
-                  illustration="QuestionMark"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_no_results,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.global_search_no_results_desc,
-                  })}
-                />
-              }
+              ListEmptyComponent={noResultsComponent}
               renderItem={renderItem}
               keyExtractor={keyExtractor}
               estimatedItemSize="$16"
@@ -1040,6 +1049,7 @@ export function UniversalSearch({
     }
   }, [
     searchStatus,
+    isTravelMode,
     renderSectionHeader,
     renderRecommendSectionHeader,
     recommendSections,
