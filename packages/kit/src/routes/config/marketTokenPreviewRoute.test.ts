@@ -63,6 +63,12 @@ describe('market preview URL boundary', () => {
       config,
     );
     expect(path).not.toContain('object+Object');
+    expect(path).toBe('/market/token/eth/0xabc?legacyTokenPreview=');
+    expect(
+      new URLSearchParams(path.split('?')[1]).get('legacyTokenPreview'),
+    ).toBe('');
+    expect(path).not.toContain('ABC');
+    expect(decodeURIComponent(path)).not.toContain(preview.name);
     const state = getStateFromPath(path, config);
     expect(state?.routes[0].params).toEqual(
       expect.objectContaining({ legacyTokenPreview: undefined }),

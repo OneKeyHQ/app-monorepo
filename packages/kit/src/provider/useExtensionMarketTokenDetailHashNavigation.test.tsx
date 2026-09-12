@@ -7,6 +7,7 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { readExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 
 import {
   getMarketTokenDetailNavigationTargetFromHash,
@@ -24,6 +25,10 @@ jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
     current: undefined,
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/marketTokenPreviewRoute', () => ({
+  readExtensionTokenPreview: jest.fn().mockResolvedValue(undefined),
 }));
 
 const mockRootNavigationRef = rootNavigationRef as unknown as {
@@ -54,6 +59,10 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    jest
+      .mocked(readExtensionTokenPreview)
+      .mockReset()
+      .mockResolvedValue(undefined);
     hashChangeHandler = undefined;
     originalAddEventListener = globalThis.addEventListener;
     originalRemoveEventListener = globalThis.removeEventListener;
@@ -150,6 +159,104 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         tokenAddress: '0xabc',
       },
     });
+  });
+
+  it('restores a trusted session preview before navigating a no-fetch detail', async () => {
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      name: 'ABC',
+      symbol: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    jest.mocked(readExtensionTokenPreview).mockResolvedValue(preview);
+    setHash(
+      '#/market/token/eth/0xabc?skipMarketDataFetch=true&marketTokenPreviewId=transfer',
+    );
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(readExtensionTokenPreview).toHaveBeenCalledWith('transfer', {
+      network: 'eth',
+      tokenAddress: '0xabc',
+      isNative: false,
+    });
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: {
+            network: 'eth',
+            tokenAddress: '0xabc',
+            skipMarketDataFetch: true,
+            marketTokenPreviewId: 'transfer',
+            legacyTokenPreview: preview,
+          },
+        },
+      },
+    );
+  });
+
+  it('adopts a new trusted handoff for the active token only once', async () => {
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      name: 'ABC',
+      symbol: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    jest.mocked(readExtensionTokenPreview).mockResolvedValue(preview);
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        marketTokenPreviewId: 'old',
+        legacyTokenPreview: preview,
+      },
+    });
+    setHash('#/market/token/eth/0xabc?marketTokenPreviewId=new');
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        marketTokenPreviewId: 'new',
+        legacyTokenPreview: preview,
+      },
+    });
+    await act(async () =>
+      triggerHashChange(
+        '#/market/token/eth/0xabc?marketTokenPreviewId=new&legacyTokenPreview=',
+      ),
+    );
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a slow session lookup navigate after the hash changed', async () => {
+    let resolve: (value: undefined) => void = () => undefined;
+    jest.mocked(readExtensionTokenPreview).mockReturnValue(
+      new Promise((done) => {
+        resolve = done;
+      }),
+    );
+    setHash('#/market/token/eth/0xfirst?marketTokenPreviewId=transfer');
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    act(() => triggerHashChange('#/market/token/eth/0xsecond'));
+    await act(async () => resolve(undefined));
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params.params
+        .tokenAddress,
+    ).toBe('0xsecond');
   });
 
   it('ignores a malformed serialized token preview', () => {

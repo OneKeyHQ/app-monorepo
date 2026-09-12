@@ -28,6 +28,7 @@ import appStorage, {
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { storeExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -469,7 +470,14 @@ class ServiceApp extends ServiceBase {
       routeParams.disableTrade = disableTrade;
     }
     if (tokenDetailPreview) {
-      routeParams.legacyTokenPreview = JSON.stringify(tokenDetailPreview);
+      const previewId = await storeExtensionTokenPreview(
+        { network, tokenAddress, isNative: Boolean(isNative) },
+        tokenDetailPreview,
+      );
+      if (!previewId && skipMarketDataFetch) {
+        throw new OneKeyLocalError('Unable to transfer market token preview');
+      }
+      if (previewId) routeParams.marketTokenPreviewId = previewId;
     }
 
     return extUtils.openExpandTab({

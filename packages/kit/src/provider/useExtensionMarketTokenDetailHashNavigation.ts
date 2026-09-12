@@ -9,6 +9,7 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import { readExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 
 type IMarketTokenDetailNavigationTarget =
   | {
@@ -91,6 +92,8 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const marketTokenSymbol =
       searchParams.get('marketTokenSymbol') || undefined;
     const from = searchParams.get('from');
+    const marketTokenPreviewId =
+      searchParams.get('marketTokenPreviewId') || undefined;
 
     if (segments[1] === 'stock') {
       const stockId = decodeURIComponent(segments[2]);
@@ -133,6 +136,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         params: {
           network,
           isNative: true,
+          ...(marketTokenPreviewId ? { marketTokenPreviewId } : undefined),
           ...(marketTokenId ? { marketTokenId } : undefined),
           ...(marketVariantId ? { marketVariantId } : undefined),
           ...(marketTokenCategory ? { marketTokenCategory } : undefined),
@@ -157,6 +161,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
       params: {
         network,
         tokenAddress,
+        ...(marketTokenPreviewId ? { marketTokenPreviewId } : undefined),
         ...(marketTokenId ? { marketTokenId } : undefined),
         ...(marketVariantId ? { marketVariantId } : undefined),
         ...(marketTokenCategory ? { marketTokenCategory } : undefined),
@@ -236,6 +241,10 @@ function isCurrentMarketTokenDetailTarget(
 
   if (
     params.marketTokenId !== target.params.marketTokenId ||
+    (target.params.legacyTokenPreview &&
+      (params.marketTokenPreviewId !== target.params.marketTokenPreviewId ||
+        params.legacyTokenPreview?.selectedAt !==
+          target.params.legacyTokenPreview.selectedAt)) ||
     params.marketVariantId !== target.params.marketVariantId ||
     params.marketTokenCategory !== target.params.marketTokenCategory ||
     params.marketTokenSymbol !== target.params.marketTokenSymbol ||
@@ -274,47 +283,55 @@ export const useExtensionMarketTokenDetailHashNavigation =
           }
         }, []);
 
-        const navigateFromHash = useCallback((expectedHash: string) => {
-          const currentHash = globalThis.location?.hash ?? '';
-          if (currentHash !== expectedHash) {
-            return true;
-          }
+        const navigateFromHash = useCallback(
+          (
+            expectedHash: string,
+            preparedTarget: IMarketTokenDetailNavigationTarget,
+          ) => {
+            const currentHash = globalThis.location?.hash ?? '';
+            if (currentHash !== expectedHash) {
+              return true;
+            }
 
-          const target =
-            getMarketTokenDetailNavigationTargetFromHash(currentHash);
-          if (!target) {
-            handledHashRef.current = undefined;
-            return true;
-          }
+            const target = preparedTarget;
+            if (!target) {
+              handledHashRef.current = undefined;
+              return true;
+            }
 
-          const isCurrentTarget = isCurrentMarketTokenDetailTarget(target);
-          if (handledHashRef.current === currentHash && isCurrentTarget) {
-            return true;
-          }
+            const isCurrentTarget = isCurrentMarketTokenDetailTarget(target);
+            if (handledHashRef.current === currentHash && isCurrentTarget) {
+              return true;
+            }
 
-          const navigation = rootNavigationRef.current;
-          if (!navigation) {
+            const navigation = rootNavigationRef.current;
+            if (!navigation) {
+              return false;
+            }
+
+            if (isCurrentTarget) {
+              handledHashRef.current = currentHash;
+              return true;
+            }
+
+            navigation.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Market,
+              params: {
+                screen: target.screen,
+                params: target.params,
+              },
+            });
+
             return false;
-          }
-
-          if (isCurrentTarget) {
-            handledHashRef.current = currentHash;
-            return true;
-          }
-
-          navigation.navigate(ERootRoutes.Main, {
-            screen: ETabRoutes.Market,
-            params: {
-              screen: target.screen,
-              params: target.params,
-            },
-          });
-
-          return false;
-        }, []);
+          },
+          [],
+        );
 
         const startNavigationFromHash = useCallback(() => {
           clearRetryTimer();
+
+          const runId = retryRunIdRef.current + 1;
+          retryRunIdRef.current = runId;
 
           const hash = globalThis.location?.hash ?? '';
           const target = getMarketTokenDetailNavigationTargetFromHash(hash);
@@ -323,16 +340,14 @@ export const useExtensionMarketTokenDetailHashNavigation =
             return;
           }
 
-          const runId = retryRunIdRef.current + 1;
-          retryRunIdRef.current = runId;
           let retryIndex = 0;
 
           const run = () => {
-            if (retryRunIdRef.current !== runId) {
+            if (retryRunIdRef.current !== runId || !target) {
               return;
             }
 
-            const done = navigateFromHash(hash);
+            const done = navigateFromHash(hash, target);
             if (done || retryIndex >= NAVIGATION_RETRY_DELAYS.length) {
               retryTimerRef.current = undefined;
               return;
@@ -345,7 +360,35 @@ export const useExtensionMarketTokenDetailHashNavigation =
             retryIndex += 1;
           };
 
-          run();
+          if (
+            target.screen !== ETabMarketRoutes.MarketStockDetail &&
+            target.params.marketTokenPreviewId
+          ) {
+            const tokenTarget = target;
+            void readExtensionTokenPreview(target.params.marketTokenPreviewId, {
+              network: target.params.network,
+              tokenAddress:
+                'tokenAddress' in target.params
+                  ? target.params.tokenAddress
+                  : '',
+              isNative: normalizeRouteBooleanParam(
+                target.params.isNative,
+                target.screen === ETabMarketRoutes.MarketNativeDetail,
+              ),
+            }).then((preview) => {
+              if (
+                retryRunIdRef.current !== runId ||
+                globalThis.location?.hash !== hash
+              )
+                return;
+              if (preview) {
+                tokenTarget.params.legacyTokenPreview = preview;
+              }
+              run();
+            });
+          } else {
+            run();
+          }
         }, [clearRetryTimer, navigateFromHash]);
 
         useEffect(() => {
