@@ -153,7 +153,8 @@ function MarketDetail({
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
   const marketTokenCategory = resolvedMarketAssetIdentity
     ? MARKET_TOP_COINS_CATEGORY_ID
-    : routeMarketTokenCategory;
+    : (routeMarketTokenCategory ??
+      (shouldResolveMarketAsset ? MARKET_TOP_COINS_CATEGORY_ID : undefined));
   const skipMarketDataFetch = normalizeRouteBooleanParam(
     'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
     false,
