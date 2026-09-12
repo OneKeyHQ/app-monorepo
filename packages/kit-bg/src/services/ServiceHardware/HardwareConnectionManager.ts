@@ -97,6 +97,7 @@ export class HardwareConnectionManager {
 
   private async requestBluetoothPermission(): Promise<boolean> {
     try {
+      await this.backgroundApi.serviceHardwareUI.deviceStageYieldToDialog();
       // use servicePromise to wait for user to grant permission
       const permissionResult = await new Promise<boolean>((resolve, reject) => {
         const promiseId = this.backgroundApi.servicePromise.createCallback({
