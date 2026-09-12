@@ -36,6 +36,10 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import {
+  type IPsbtTaprootAddressDerivation,
+  resolvePsbtTaprootOwnedOutputs,
+} from './resolvePsbtTaprootOwnedOutputs';
 import { appendClaimedAddressPaths } from './sdkBtc/findAddressUtils';
 
 import type VaultBtc from './Vault';
@@ -230,6 +234,10 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       fallbackPubkeyHex: string;
     }) => string;
     resolvePathByAddress: (address: string | undefined) => string;
+    resolveOwnedAddressDerivation: (params: {
+      address: string | undefined;
+      fallbackPubkeyHex: string | undefined;
+    }) => IPsbtTaprootAddressDerivation | undefined;
   }> {
     const vault = this.vault as VaultBtc;
     const { btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
@@ -284,7 +292,49 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const resolvePathByAddress = (address: string | undefined): string =>
       (address ? addressToPath[address]?.fullPath : undefined) ?? fallbackPath;
 
-    return { resolvePubkeyHexByAddress, resolvePathByAddress };
+    const resolveOwnedAddressDerivation = ({
+      address,
+      fallbackPubkeyHex,
+    }: {
+      address: string | undefined;
+      fallbackPubkeyHex: string | undefined;
+    }): IPsbtTaprootAddressDerivation | undefined => {
+      if (!address) {
+        return undefined;
+      }
+
+      if (address === dbAccount.address) {
+        if (!fallbackPubkeyHex) {
+          return undefined;
+        }
+
+        return {
+          fullPath: fallbackPath,
+          pubkey: fallbackPubkeyHex,
+        };
+      }
+
+      const addressPath = addressToPath[address];
+      if (!addressPath) {
+        return undefined;
+      }
+
+      const derivedPubkey = derivedPublicKeys[addressPath.relPath];
+      if (!derivedPubkey) {
+        return undefined;
+      }
+
+      return {
+        fullPath: addressPath.fullPath,
+        pubkey: derivedPubkey,
+      };
+    };
+
+    return {
+      resolvePubkeyHexByAddress,
+      resolvePathByAddress,
+      resolveOwnedAddressDerivation,
+    };
   }
 
   async signPsbt(params: ISignTransactionParams): Promise<ISignedTxPro> {
@@ -338,16 +388,19 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     // spends from the account's main address. Inputs from fresh or claimed
     // (find-address) addresses would otherwise be fed the wrong derivation
     // path and the device would produce an invalid signature.
-    const { resolvePubkeyHexByAddress, resolvePathByAddress } =
-      await this.resolvePsbtAddressDerivation({
-        unsignedTx,
-        dbAccount,
-        btcNetwork,
-        addresses: [
-          ...inputsToSign.map((input) => input.address),
-          ...psbt.txOutputs.map((output) => output.address),
-        ],
-      });
+    const {
+      resolvePubkeyHexByAddress,
+      resolvePathByAddress,
+      resolveOwnedAddressDerivation,
+    } = await this.resolvePsbtAddressDerivation({
+      unsignedTx,
+      dbAccount,
+      btcNetwork,
+      addresses: [
+        ...inputsToSign.map((input) => input.address),
+        ...psbt.txOutputs.map((output) => output.address),
+      ],
+    });
 
     const resolveTapBip32Derivation = ({
       address,
@@ -380,26 +433,33 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       });
     }
 
-    for (let i = 0, len = psbt.txOutputs.length; i < len; i += 1) {
-      const output = psbt.txOutputs[i];
-      try {
-        // If the address is the change address
-        if (output.address === dbAccount.address && len > 1) {
-          const outputPubkeyHex = resolvePubkeyHexByAddress({
-            address: output.address,
-            fallbackPubkeyHex: checkIsDefined(dbAccount.pub),
-          });
-          psbt.updateOutput(i, {
-            tapInternalKey: Buffer.from(outputPubkeyHex, 'hex').subarray(1, 33),
-            tapBip32Derivation: resolveTapBip32Derivation({
-              address: output.address,
-              fallbackPubkeyHex: checkIsDefined(dbAccount.pub),
-            }),
-          });
-        }
-      } catch (err) {
-        //
-      }
+    const ownedOutputs = resolvePsbtTaprootOwnedOutputs({
+      outputAddresses: psbt.txOutputs.map((output) => output.address),
+      encodedOutputs: (unsignedTx.encodedTx as IEncodedTxBtc).outputs,
+      accountAddress: dbAccount.address,
+      resolveAddressDerivation: (address) =>
+        resolveOwnedAddressDerivation({
+          address,
+          fallbackPubkeyHex: dbAccount.pub,
+        }),
+    });
+
+    for (const ownedOutput of ownedOutputs) {
+      const taprootPubkey = Buffer.from(ownedOutput.pubkey, 'hex').subarray(
+        1,
+        33,
+      );
+      psbt.updateOutput(ownedOutput.index, {
+        tapInternalKey: taprootPubkey,
+        tapBip32Derivation: [
+          {
+            masterFingerprint: Buffer.from(fingerprint, 'hex'),
+            pubkey: taprootPubkey,
+            path: ownedOutput.fullPath,
+            leafHashes: [],
+          },
+        ],
+      });
     }
 
     const response = await convertDeviceResponse(() =>
