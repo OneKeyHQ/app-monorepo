@@ -2,6 +2,7 @@
 
 import { act, render, waitFor } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   swrCacheUtils,
@@ -791,16 +792,23 @@ describe('useMarketTokenList initial data', () => {
     mutablePlatformEnv.isNative = true;
     mutablePlatformEnv.isWeb = false;
     let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
-    mockFetchMarketTokenList
-      .mockResolvedValueOnce({
-        ...createResponse('first', 'First', 'FIRST'),
-        total: 2,
-      })
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce({
+    let loadMoreAttempt = 0;
+    mockFetchMarketTokenList.mockImplementation(async ({ page }) => {
+      if (page === 1) {
+        return {
+          ...createResponse('first', 'First', 'FIRST'),
+          total: 2,
+        };
+      }
+      loadMoreAttempt += 1;
+      if (loadMoreAttempt === 1) {
+        throw new OneKeyLocalError('offline');
+      }
+      return {
         ...createResponse('second', 'Second', 'SECOND'),
         total: 2,
-      });
+      };
+    });
     function Probe() {
       latestResult = useMarketTokenList({
         networkId: 'evm--1',
