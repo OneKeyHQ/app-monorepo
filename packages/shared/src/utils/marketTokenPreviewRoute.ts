@@ -1,3 +1,5 @@
+import networkUtils from './networkUtils';
+
 import type { IMarketTokenDetailPreview } from '../../types/marketV2';
 
 export function parseTokenDetailPreviewParam(
@@ -54,12 +56,35 @@ type IExtensionPreviewTransfer = IExtensionPreviewIdentity & {
 // Persist identity only. A restored handoff must never replay snapshot prices
 // as live data, especially on routes that cannot use the market data endpoint.
 function getExtensionPreviewIdentity(
-  preview: IMarketTokenDetailPreview,
-): IMarketTokenDetailPreview {
+  value: unknown,
+  identity: IExtensionPreviewIdentity,
+): IMarketTokenDetailPreview | undefined {
+  const preview = parseTokenDetailPreviewParam(value);
+  if (!preview) return undefined;
+  const networkId =
+    networkUtils.getNetworkIdFromShortCode({ shortCode: identity.network }) ??
+    identity.network;
+  const previewNetworkId =
+    networkUtils.getNetworkIdFromShortCode({ shortCode: preview.networkId }) ??
+    preview.networkId;
+  const isSameAddress = networkUtils.isEvmNetwork({ networkId })
+    ? preview.address.toLowerCase() === identity.tokenAddress.toLowerCase()
+    : preview.address === identity.tokenAddress;
+  const previewIsNative = preview.isNative ?? preview.address.length === 0;
+  if (
+    !networkId ||
+    previewNetworkId !== networkId ||
+    !isSameAddress ||
+    previewIsNative !== identity.isNative
+  )
+    return undefined;
+
+  // Canonicalize only after proving equivalence. Never relabel metadata from
+  // another token with the requested route identity.
   return {
-    address: preview.address,
-    networkId: preview.networkId,
-    isNative: preview.isNative,
+    address: identity.tokenAddress,
+    networkId,
+    isNative: identity.isNative,
     name: preview.name,
     symbol: preview.symbol,
     decimals: preview.decimals,
@@ -83,6 +108,8 @@ export async function storeExtensionTokenPreview(
       !globalThis.crypto?.randomUUID
     )
       return undefined;
+    const validatedPreview = getExtensionPreviewIdentity(preview, identity);
+    if (!validatedPreview) return undefined;
     const now = Date.now();
     const entries = await storage.get(null);
     const ownedEntries = Object.entries(entries).filter(([key]) =>
@@ -101,10 +128,7 @@ export async function storeExtensionTokenPreview(
     const id = globalThis.crypto.randomUUID();
     const transfer: IExtensionPreviewTransfer = {
       ...identity,
-      preview: getExtensionPreviewIdentity({
-        ...preview,
-        isNative: identity.isNative,
-      }),
+      preview: validatedPreview,
       expiresAt: now + EXTENSION_PREVIEW_TTL_MS,
     };
     await storage.set({ [`${EXTENSION_PREVIEW_PREFIX}${id}`]: transfer });
@@ -138,11 +162,9 @@ export async function readExtensionTokenPreview(
       transfer.isNative !== identity.isNative
     )
       return undefined;
-    const preview = parseTokenDetailPreviewParam(transfer.preview);
-    // Also sanitize records created by an earlier extension version.
-    return preview
-      ? getExtensionPreviewIdentity({ ...preview, isNative: identity.isNative })
-      : undefined;
+    // Validate the payload too, including records from earlier versions that
+    // only bound the outer envelope to the requested route.
+    return getExtensionPreviewIdentity(transfer.preview, identity);
   } catch {
     return undefined;
   }

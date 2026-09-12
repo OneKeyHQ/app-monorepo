@@ -164,3 +164,69 @@ it('normalizes the preview native flag to the same identity as the route', async
     isNative: true,
   });
 });
+
+it.each([{ address: '0xother' }, { networkId: 'evm--56' }, { isNative: true }])(
+  'rejects mismatched preview %j before writing storage',
+  async (mismatch) => {
+    const setSpy = jest.spyOn(globalThis.chrome.storage.session, 'set');
+    expect(
+      await storeExtensionTokenPreview(identity, { ...preview, ...mismatch }),
+    ).toBeUndefined();
+    expect(setSpy).not.toHaveBeenCalled();
+  },
+);
+
+it.each([{ address: '0xother' }, { networkId: 'evm--56' }, { isNative: true }])(
+  'rejects an old stored record with matching envelope but mismatched preview %j',
+  async (mismatch) => {
+    const id = '00000000-0000-4000-8000-000000000000';
+    records[`market-token-preview:${id}`] = {
+      ...identity,
+      preview: { ...preview, ...mismatch },
+      expiresAt: Date.now() + 60_000,
+    };
+    expect(await readExtensionTokenPreview(id, identity)).toBeUndefined();
+  },
+);
+
+it.each(['eth', 'evm--1'])(
+  'accepts equivalent network %s and EVM address casing',
+  async (network) => {
+    const routeIdentity = { ...identity, network };
+    const id = await storeExtensionTokenPreview(routeIdentity, {
+      ...preview,
+      address: '0xAbC',
+    });
+    expect(id).toBeDefined();
+    expect(await readExtensionTokenPreview(id!, routeIdentity)).toEqual(
+      preview,
+    );
+  },
+);
+
+it('preserves case-sensitive addresses and synthetic network identities', async () => {
+  for (const network of ['sol--101', 'coingecko']) {
+    const routeIdentity = { network, tokenAddress: 'AssetA', isNative: false };
+    const matching = { ...preview, networkId: network, address: 'AssetA' };
+    expect(
+      await storeExtensionTokenPreview(routeIdentity, {
+        ...matching,
+        address: 'asseta',
+      }),
+    ).toBeUndefined();
+    const id = await storeExtensionTokenPreview(routeIdentity, matching);
+    expect(id).toBeDefined();
+    expect(await readExtensionTokenPreview(id!, routeIdentity)).toEqual(
+      matching,
+    );
+  }
+});
+
+it('rejects a native route carrying an explicitly non-native preview', async () => {
+  expect(
+    await storeExtensionTokenPreview(
+      { ...identity, tokenAddress: '', isNative: true },
+      { ...preview, address: '', isNative: false },
+    ),
+  ).toBeUndefined();
+});
