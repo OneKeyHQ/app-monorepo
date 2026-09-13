@@ -698,6 +698,21 @@ function dialogShow({
   isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
+  if (platformEnv.isDev && portalContainer && isOverTopAllViews === true) {
+    // No dialog needs both, and `renderToContainer.ios` does not survive it:
+    // it mounts `element` twice — once wrapped in a fresh `OverlayContainer`,
+    // once into `portalContainer` — and returns only the second manager, so
+    // the first window is never torn down. That stray window is also created
+    // at dialog-open time, and iOS stacks window overlays in the order they
+    // were added, so once the app-state lock screen has added its own (at lock
+    // time, not app start) a dialog opened afterwards lands on top of the
+    // passcode screen. Pick one: name a container, or ask to be over
+    // everything. (OK-62416)
+    console.error(
+      '[Dialog.show] `portalContainer` and `isOverTopAllViews: true` must not be combined: on iOS this mounts the dialog twice, leaks the first window overlay, and can stack it above the app-state lock screen. Pass one or the other.',
+      { portalContainer },
+    );
+  }
   void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();
