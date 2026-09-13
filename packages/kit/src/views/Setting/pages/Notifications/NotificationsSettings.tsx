@@ -124,9 +124,6 @@ export default function NotificationsSettings() {
     settingsState.identityKey === notificationSettingsIdentityKey
       ? settingsState.settings
       : cachedSettingsForIdentity;
-  const [isSettingsLoaded, setIsSettingsLoaded] = useState(
-    cachedSettingsForIdentity !== undefined,
-  );
   const [devAppSettings] = useDevSettingsPersistAtom();
   const [appSettings] = useSettingsPersistAtom();
   const [, setNotificationsData] = useNotificationsAtom();
@@ -181,7 +178,6 @@ export default function NotificationsSettings() {
         identityKey: notificationSettingsIdentityKey,
         settings: result,
       });
-      setIsSettingsLoaded(true);
       prevSettings.current = result;
     },
     [notificationSettingsIdentityKey],
@@ -226,7 +222,6 @@ export default function NotificationsSettings() {
           identityKey: notificationSettingsIdentityKey,
           settings: prevSettings.current,
         });
-        setIsSettingsLoaded(true);
       }
       throw e;
     }
@@ -245,9 +240,6 @@ export default function NotificationsSettings() {
 
   const updateSettings = useCallback(
     (partSettings: INotificationPushSettings) => {
-      if (!isSettingsLoaded) {
-        return;
-      }
       settingsMutationVersionRef.current += 1;
       setSettingsState((v) => {
         if (v.identityKey !== notificationSettingsIdentityKey || !v.settings) {
@@ -269,7 +261,7 @@ export default function NotificationsSettings() {
         };
       });
     },
-    [isSettingsLoaded, notificationSettingsIdentityKey, updateSettingsToServer],
+    [notificationSettingsIdentityKey, updateSettingsToServer],
   );
 
   useEffect(() => {
@@ -281,7 +273,6 @@ export default function NotificationsSettings() {
       identityKey: notificationSettingsIdentityKey,
       settings: cachedSettings,
     });
-    setIsSettingsLoaded(cachedSettings !== undefined);
     prevSettings.current = cachedSettings;
     pendingSettings.current = undefined;
     void reloadSettings();
@@ -323,7 +314,6 @@ export default function NotificationsSettings() {
             <Switch
               testID="setting-switch"
               size="small"
-              disabled={!isSettingsLoaded}
               value={!!settings?.pushEnabled}
               onChange={async (checked) => {
                 void updateSettings({
