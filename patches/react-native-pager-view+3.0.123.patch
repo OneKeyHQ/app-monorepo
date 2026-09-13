@@ -173,7 +173,7 @@ index b835bfe..d860012 100644
  @end
  
 diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
-index 84eab17..4995973 100644
+index 84eab17..a4aa0c4 100644
 --- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
 @@ -9,10 +9,33 @@
@@ -228,16 +228,19 @@ index 84eab17..4995973 100644
      _originalInsets = [NSMapTable weakToStrongObjectsMapTable];
      _appliedTopInsets = [NSMapTable weakToStrongObjectsMapTable];
      _originalIndicatorInsets = [NSMapTable weakToStrongObjectsMapTable];
-@@ -1086,6 +1113,16 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1086,6 +1113,19 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
        !_pagerScrollView.dragging && !_pagerScrollView.decelerating) {
      [self finishPagerScrollEmittingSelection:NO];
    }
 +  // OneKey patch: a detached pager can return without a new Fabric transaction.
 +  // Wait until the current mount has finished before inspecting its new lists.
-+  if (self.window != nil && _needsScrollObserverReattachAfterMount) {
++  if (self.window != nil &&
++      (_needsScrollObserverReattachAfterMount || _releasedPageScrollStates.count > 0)) {
 +    NSUInteger generation = _generation;
 +    dispatch_async(dispatch_get_main_queue(), ^{
-+      if (self->_generation == generation && self->_needsScrollObserverReattachAfterMount) {
++      if (self->_generation == generation &&
++          (self->_needsScrollObserverReattachAfterMount || self->_releasedPageScrollStates.count > 0)) {
++        self->_needsScrollObserverReattachAfterMount = YES;
 +        [self attachScrollObserverForCurrentPage];
 +      }
 +    });
@@ -245,7 +248,7 @@ index 84eab17..4995973 100644
  }
  
  - (void)dealloc
-@@ -1209,6 +1246,117 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1209,6 +1249,130 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
  
  #pragma mark - Smooth shared header ownership
  
@@ -306,7 +309,11 @@ index 84eab17..4995973 100644
 +          state.componentView = componentView;
 +        }
 +        _releasedPageScrollStates[pageKey] = state;
-+        _pageOffsets[pageKey] = @(scrollView.contentOffset.y + scrollView.contentInset.top);
++        // Retained pages may be visually aligned to the expanded header while
++        // their saved offsets still hold the user's independent list position.
++        if (scrollView == _observedScrollView || _pageOffsets[pageKey] == nil) {
++          _pageOffsets[pageKey] = @(scrollView.contentOffset.y + scrollView.contentInset.top);
++        }
 +        break;
 +      }
 +      _needsScrollObserverReattachAfterMount = YES;
@@ -324,15 +331,16 @@ index 84eab17..4995973 100644
 +  if (_isBeingRecycled || self.window == nil || _transitioning || _isPagerDragging ||
 +      _currentIndex < 0 || _currentIndex >= _pageControllers.count) return;
 +  // OneKey patch: a release must recover even when the changed parent is above
-+  // the page subtree. Keep the flag until a usable list can actually attach.
++  // the page subtree. Missing lists keep their identity for a later insertion.
 +  if (_needsScrollObserverReattachAfterMount) {
 +    [self attachScrollObserverForCurrentPage];
 +    return;
 +  }
 +  UIView *page = _pageControllers[_currentIndex].view;
 +  BOOL headerIsAttached = [_sharedHeaderHostView isDescendantOfView:self];
-+  if (_observedScrollView != nil && [_observedScrollView isDescendantOfView:page] &&
-+      headerIsAttached) return;
++  BOOL currentListIsAttached = _observedScrollView != nil &&
++    [_observedScrollView isDescendantOfView:page] && headerIsAttached;
++  if (currentListIsAttached && _releasedPageScrollStates.count == 0) return;
 +  if (!headerIsAttached) {
 +    [self attachScrollObserverForCurrentPage];
 +    return;
@@ -348,22 +356,30 @@ index 84eab17..4995973 100644
 +  }
 +  if (changedParentTags.empty()) return;
 +
-+  NSMutableArray<UIView *> *pendingViews = [NSMutableArray arrayWithObject:page];
-+  while (pendingViews.count > 0) {
-+    UIView *view = pendingViews.lastObject;
-+    [pendingViews removeLastObject];
-+    if (changedParentTags.find(view.tag) != changedParentTags.end()) {
-+      [self attachScrollObserverForCurrentPage];
-+      return;
++  // A missing list can return in a later transaction. Inspect only the current
++  // page needing an observer and pages whose released identities are retained.
++  for (NSInteger index = 0; index < _pageControllers.count; index++) {
++    BOOL hasReleasedList = _releasedPageScrollStates[[self pageKeyForIndex:index]] != nil;
++    if (!hasReleasedList && (index != _currentIndex || currentListIsAttached)) continue;
++    NSMutableArray<UIView *> *pendingViews =
++      [NSMutableArray arrayWithObject:_pageControllers[index].view];
++    while (pendingViews.count > 0) {
++      UIView *view = pendingViews.lastObject;
++      [pendingViews removeLastObject];
++      if (changedParentTags.find(view.tag) != changedParentTags.end()) {
++        if (hasReleasedList) _needsScrollObserverReattachAfterMount = YES;
++        [self attachScrollObserverForCurrentPage];
++        return;
++      }
++      [pendingViews addObjectsFromArray:view.subviews];
 +    }
-+    [pendingViews addObjectsFromArray:view.subviews];
 +  }
 +}
 +
  - (void)restoreSharedHeadersToContainer
  {
    _sharedHeaderScrollView = nil;
-@@ -1494,6 +1642,8 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1494,6 +1658,8 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
  {
    _isBeingRecycled = YES;
    _generation++;
@@ -372,14 +388,20 @@ index 84eab17..4995973 100644
    [self detachSharedHeaderPressCancellationGesture];
    [self detachScrollObserver];
    [self restoreSharedHeadersToContainer];
-@@ -1766,16 +1916,29 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1766,16 +1932,38 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
  
  - (void)attachScrollObserverForCurrentPage
  {
-+  // OneKey patch: transition/window callbacks also complete deferred recovery.
++  [self attachScrollObserverForCurrentPageAfterTransition:NO];
++}
++
++// OneKey patch: selection completion restores list state synchronously, before
++// the transition flags are cleared on the next run loop. Other callers wait.
++- (void)attachScrollObserverForCurrentPageAfterTransition:(BOOL)selectionSettled
++{
 +  if (_isBeingRecycled) return;
 +  if (_needsScrollObserverReattachAfterMount) {
-+    if (self.window == nil || _transitioning || _isPagerDragging) return;
++    if (self.window == nil || ((_transitioning || _isPagerDragging) && !selectionSettled)) return;
 +    [self prepareAdjacentPageInsets];
 +  }
    [self restoreDetachedScrollInsets];
@@ -391,6 +413,9 @@ index 84eab17..4995973 100644
 +  if (candidate == nil) {
 +    [self detachScrollObserver];
 +    [self restoreSharedHeadersToContainer];
++    // Stop retrying on unrelated commits without discarding a surviving list's
++    // identity or offset. A relevant insertion resumes recovery in did-mount.
++    _needsScrollObserverReattachAfterMount = NO;
 +    return;
 +  }
    // Legacy mode keeps the historical pager-first dependency. Smooth mode
@@ -403,7 +428,7 @@ index 84eab17..4995973 100644
      [self attachSharedHeadersToScrollView:candidate];
      [self updateSharedHeaderPressCancellationGesture];
      return;
-@@ -1799,6 +1962,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1799,6 +1987,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
                   context:RNCCollapsiblePagerContentOffsetContext];
    [candidate.panGestureRecognizer addTarget:self action:@selector(observedListPanChanged:)];
    _observingContentOffset = YES;
@@ -411,7 +436,7 @@ index 84eab17..4995973 100644
    _currentLogicalOffset = candidate.contentOffset.y + candidate.contentInset.top;
    [self attachSharedHeadersToScrollView:candidate];
    [self updateSharedHeaderPressCancellationGesture];
-@@ -2028,6 +2192,39 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2028,6 +2217,39 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
    }
  }
  
@@ -451,7 +476,7 @@ index 84eab17..4995973 100644
  - (void)restoreDetachedScrollInsets
  {
    for (UIScrollView *scrollView in _originalInsets.keyEnumerator.allObjects) {
-@@ -2039,32 +2236,8 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2039,32 +2261,8 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
        }
      }
      if (belongsToPage) continue;
@@ -486,7 +511,7 @@ index 84eab17..4995973 100644
    }
  }
  
-@@ -2072,6 +2245,17 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2072,6 +2270,17 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
                        pageIndex:(NSInteger)pageIndex
                          restore:(BOOL)restore
  {
@@ -504,3 +529,39 @@ index 84eab17..4995973 100644
    NSValue *storedOriginal = [_originalInsets objectForKey:scrollView];
    UIEdgeInsets original = storedOriginal == nil
      ? scrollView.contentInset
+@@ -2276,7 +2485,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+         self->_currentIndex = index;
+         self->_destinationIndex = index;
+         [self->_nativeTabBarView setProgress:index];
+-        [self attachScrollObserverForCurrentPage];
++        [self attachScrollObserverForCurrentPageAfterTransition:YES];
+         [self emitPageSelected:index];
+         [self emitDiagnostics:@"page-selected"];
+       } else if (self->_pendingGoToIndex < 0) {
+@@ -2313,7 +2522,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+       self->_currentIndex = index;
+       self->_destinationIndex = index;
+       [self->_nativeTabBarView setProgress:index];
+-      [self attachScrollObserverForCurrentPage];
++      [self attachScrollObserverForCurrentPageAfterTransition:YES];
+       [self emitPageSelected:index];
+       [self emitDiagnostics:@"page-selected"];
+     } else {
+@@ -2453,7 +2662,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+       0
+     ) animated:NO];
+     [_nativeTabBarView setProgress:index];
+-    [self attachScrollObserverForCurrentPage];
++    [self attachScrollObserverForCurrentPageAfterTransition:YES];
+     if (emitSelection &&
+         (_pendingGoToIndex < 0 || _pendingGoToIndex == index)) {
+       [self emitPageSelected:index];
+@@ -2504,7 +2713,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+       _currentIndex = index;
+       _destinationIndex = index;
+       [_nativeTabBarView setProgress:index];
+-      [self attachScrollObserverForCurrentPage];
++      [self attachScrollObserverForCurrentPageAfterTransition:YES];
+       // A newer tab tap remains authoritative while its queued command runs.
+       if (emitSelection &&
+           (_pendingGoToIndex < 0 || _pendingGoToIndex == index)) {
