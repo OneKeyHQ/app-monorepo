@@ -29,7 +29,7 @@ jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   TMDialog: {},
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
-  const platformEnv = { isDev: true, isNative: false };
+  const platformEnv = { isDev: true, isNative: true, isNativeIOS: true };
   return { __esModule: true, __platformEnv: platformEnv, default: platformEnv };
 });
 jest.mock('@onekeyhq/shared/src/locale', () => ({ ETranslations: {} }));
@@ -101,12 +101,23 @@ function getErrorSpy() {
   return jest.spyOn(console, 'error').mockImplementation(() => {});
 }
 
+function setPlatform(platform: Record<string, boolean>) {
+  Object.assign(
+    jest.requireMock('@onekeyhq/shared/src/platformEnv').__platformEnv,
+    platform,
+  );
+}
+
 describe('Dialog.show overlay targeting guard', () => {
+  beforeEach(() => {
+    setPlatform({ isDev: true, isNative: true, isNativeIOS: true });
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('reports a dialog that asks for a container and the top of all views', () => {
+  it('reports a dialog that asks for a container and the top of all views on iOS', () => {
     const errorSpy = getErrorSpy();
 
     Dialog.show({
@@ -116,6 +127,27 @@ describe('Dialog.show overlay targeting guard', () => {
 
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0][0]).toContain('must not be combined');
+  });
+
+  it('stays quiet off iOS, where the same pair is a documented feature', () => {
+    const errorSpy = getErrorSpy();
+
+    // Web renders once and portals to `document.body` — the only shape in
+    // which that documented behavior exists, and what `useInPageDialog`
+    // relies on. Android drops the flag before it reaches Portal.Render.
+    setPlatform({ isNative: false, isNativeIOS: false });
+    Dialog.show({
+      portalContainer: LOCK_CONTAINER,
+      isOverTopAllViews: true,
+    });
+
+    setPlatform({ isNative: true, isNativeIOS: false });
+    Dialog.show({
+      portalContainer: LOCK_CONTAINER,
+      isOverTopAllViews: true,
+    });
+
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it('stays quiet for a container-scoped dialog', () => {
@@ -143,8 +175,7 @@ describe('Dialog.show overlay targeting guard', () => {
 
   it('says nothing in production builds', () => {
     const errorSpy = getErrorSpy();
-    jest.requireMock('@onekeyhq/shared/src/platformEnv').__platformEnv.isDev =
-      false;
+    setPlatform({ isDev: false });
 
     Dialog.show({
       portalContainer: LOCK_CONTAINER,
@@ -152,7 +183,5 @@ describe('Dialog.show overlay targeting guard', () => {
     });
 
     expect(errorSpy).not.toHaveBeenCalled();
-    jest.requireMock('@onekeyhq/shared/src/platformEnv').__platformEnv.isDev =
-      true;
   });
 });
