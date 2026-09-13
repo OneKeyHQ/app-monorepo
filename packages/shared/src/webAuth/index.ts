@@ -49,18 +49,28 @@ const isCMA = async () => {
   return isAvailable;
 };
 
+// Both platform probes are comparatively slow and their answer cannot change
+// within a runtime, so resolve them once and hand every later caller the same
+// promise. Without this, each call re-runs the probes and any component reading
+// the result through a suspending atom blanks for the duration.
+let isSupportWebAuthPromise: Promise<boolean> | undefined;
+
 export const isSupportWebAuth = async () => {
-  let isSupport = false;
-  if (!platformEnv.isE2E && isContextSupportWebAuth) {
-    const isUvPaaAvailable =
-      await isUserVerifyingPlatformAuthenticatorAvailable();
-    const isConditionalMediationAvailable = await isCMA();
-    isSupport = isUvPaaAvailable && isConditionalMediationAvailable;
+  if (!isSupportWebAuthPromise) {
+    isSupportWebAuthPromise = (async () => {
+      let isSupport = false;
+      if (!platformEnv.isE2E && isContextSupportWebAuth) {
+        const isUvPaaAvailable =
+          await isUserVerifyingPlatformAuthenticatorAvailable();
+        const isConditionalMediationAvailable = await isCMA();
+        isSupport = isUvPaaAvailable && isConditionalMediationAvailable;
+      }
+
+      return isSupport && !!navigator?.credentials;
+    })();
   }
 
-  const finalSupport = isSupport && !!navigator?.credentials;
-
-  return finalSupport;
+  return isSupportWebAuthPromise;
 };
 
 export const verifiedWebAuth = async (
