@@ -380,7 +380,12 @@ export function useSwapStockChannel(
       if (!nextStockToken || nextStockToken === currentToken) {
         return;
       }
-      stockTokenMetadataLocaleRef.current = localeRef.current;
+      // Controlled Market tokens carry execution metadata only. Do not mark
+      // persisted stock labels as current-locale until localized stock detail
+      // has actually contributed metadata.
+      if (tokenDetail.stock) {
+        stockTokenMetadataLocaleRef.current = localeRef.current;
+      }
       setStockTokenState(nextStockToken);
       setStockSelectedToken(nextStockToken);
       stockTokenSnapshotRef.current = nextStockToken;
