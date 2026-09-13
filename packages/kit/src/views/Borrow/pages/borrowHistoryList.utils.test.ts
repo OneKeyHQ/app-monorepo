@@ -1,17 +1,22 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import {
   buildBorrowHistoryListItemKey,
   getBorrowHistoryActionForLocalTx,
 } from './borrowHistoryList.utils';
 
-function createLocalTx(tags: string[]): IAccountHistoryTx {
+function createLocalTx(
+  tags: string[],
+  replacedType?: EReplaceTxType,
+): IAccountHistoryTx {
   return {
     decodedTx: {
       txid: '0xset-collateral',
       networkId: 'evm--1',
     },
     stakingInfo: { tags },
+    replacedType,
   } as unknown as IAccountHistoryTx;
 }
 
@@ -109,5 +114,30 @@ describe('borrowHistoryList utils', () => {
         marketAddress: '0xmarket',
       }),
     ).toBeUndefined();
+  });
+
+  it('does not render a cancellation replacement as a collateral action', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: createLocalTx(['borrow:aave:setCollateral'], EReplaceTxType.Cancel),
+        provider: 'aave',
+        networkId: 'evm--1',
+        marketAddress: '0xmarket',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps a speed-up replacement visible when it carries collateral metadata', () => {
+    expect(
+      getBorrowHistoryActionForLocalTx({
+        tx: createLocalTx(
+          ['borrow:aave:setCollateral'],
+          EReplaceTxType.SpeedUp,
+        ),
+        provider: 'aave',
+        networkId: 'evm--1',
+        marketAddress: '0xmarket',
+      }),
+    ).toBe('setCollateral');
   });
 });

@@ -1,5 +1,6 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IBorrowHistory } from '@onekeyhq/shared/types/staking';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import {
   type IBorrowAction,
@@ -27,6 +28,12 @@ export function getBorrowHistoryActionForLocalTx({
   networkId: string;
   marketAddress: string;
 }): IBorrowAction | undefined {
+  // Keep cancellation metadata on the local transaction for pending-state
+  // guards, but do not render the replacement itself as a borrow action.
+  if (tx.replacedType === EReplaceTxType.Cancel) {
+    return undefined;
+  }
+
   const providerName = provider.toLowerCase();
   const parsedTags = (tx.stakingInfo?.tags ?? [])
     .map((tag) => parseBorrowTag(tag))
