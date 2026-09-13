@@ -168,17 +168,21 @@ export default function NotificationsSettings() {
       ) {
         return;
       }
-      const nextSettings = result ?? {};
+      // Updates replace the complete config, so an empty snapshot must never
+      // unlock controls or replace the last known-good cache.
+      if (!result || Object.keys(result).length === 0) {
+        return;
+      }
       cachedNotificationSettings = {
         identityKey: notificationSettingsIdentityKey,
-        settings: nextSettings,
+        settings: result,
       };
       setSettingsState({
         identityKey: notificationSettingsIdentityKey,
-        settings: nextSettings,
+        settings: result,
       });
       setIsSettingsLoaded(true);
-      prevSettings.current = nextSettings;
+      prevSettings.current = result;
     },
     [notificationSettingsIdentityKey],
   );
