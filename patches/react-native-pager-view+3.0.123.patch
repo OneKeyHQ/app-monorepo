@@ -173,10 +173,20 @@ index b835bfe..e65b662 100644
  @end
  
 diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
-index 84eab17..57b6e7f 100644
+index 84eab17..ca70732 100644
 --- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
-@@ -1209,6 +1209,47 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -9,6 +9,9 @@
+ #import "React/RCTSurfaceTouchHandler.h"
+ #import "React/RCTTouchHandler.h"
+ 
++// OneKey patch: deduplicate structural mutation parents before scanning the page.
++#include <unordered_set>
++
+ using namespace facebook::react;
+ 
+ static void *RNCCollapsiblePagerContentOffsetContext = &RNCCollapsiblePagerContentOffsetContext;
+@@ -1209,6 +1212,58 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
  
  #pragma mark - Smooth shared header ownership
  
@@ -209,22 +219,33 @@ index 84eab17..57b6e7f 100644
 +    [self attachScrollObserverForCurrentPage];
 +    return;
 +  }
-+  // Property-only updates cannot replace a list. An empty page should only be
-+  // searched again when its descendants are inserted or removed.
++  // Property-only updates cannot replace a list. Collect changed parents first
++  // so a burst of unrelated mutations scans the current page at most once.
++  std::unordered_set<NSInteger> changedParentTags;
 +  for (const auto &mutation : transaction.getMutations()) {
 +    if ((mutation.type == ShadowViewMutation::Insert ||
-+         mutation.type == ShadowViewMutation::Remove) &&
-+        mutation.parentTag > 0 && [page viewWithTag:mutation.parentTag] != nil) {
++         mutation.type == ShadowViewMutation::Remove) && mutation.parentTag > 0) {
++      changedParentTags.insert(mutation.parentTag);
++    }
++  }
++  if (changedParentTags.empty()) return;
++
++  NSMutableArray<UIView *> *pendingViews = [NSMutableArray arrayWithObject:page];
++  while (pendingViews.count > 0) {
++    UIView *view = pendingViews.lastObject;
++    [pendingViews removeLastObject];
++    if (changedParentTags.find(view.tag) != changedParentTags.end()) {
 +      [self attachScrollObserverForCurrentPage];
 +      return;
 +    }
++    [pendingViews addObjectsFromArray:view.subviews];
 +  }
 +}
 +
  - (void)restoreSharedHeadersToContainer
  {
    _sharedHeaderScrollView = nil;
-@@ -1769,7 +1810,13 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1769,7 +1824,13 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
    [self restoreDetachedScrollInsets];
    if (_currentIndex < 0 || _currentIndex >= _pageControllers.count) return;
    UIScrollView *candidate = [self findVerticalScrollViewInView:_pageControllers[_currentIndex].view];
