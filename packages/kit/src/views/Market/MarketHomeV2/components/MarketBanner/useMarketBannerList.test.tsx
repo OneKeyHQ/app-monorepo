@@ -484,3 +484,24 @@ it.each(['locale', 'mock'])(
     expect(result.current.isLoading).toBe(false);
   },
 );
+
+it.each([EMarketBannerType.Mixed, EMarketBannerType.StockPerps])(
+  'hydrates composite %s banners through the stock endpoint',
+  async (type) => {
+    jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+      {
+        ...quote,
+        stockId: 'apple',
+        logoUrl: '',
+        assetType: 'stock',
+        currency: 'USD',
+      },
+    ]);
+    const hydrated = await hydrateMarketBannerQuotes([makeBanner({ type })]);
+    expect(fetchMarketBannerStockTokenListForPlatform).toHaveBeenCalledWith(
+      'banner-list',
+    );
+    expect(fetchMarketBannerTokenListForPlatform).not.toHaveBeenCalled();
+    expect(hydrated[0].tokens?.[0].price).toBe('100');
+  },
+);

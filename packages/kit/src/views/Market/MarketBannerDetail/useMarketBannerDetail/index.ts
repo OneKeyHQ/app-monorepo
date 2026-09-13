@@ -37,7 +37,7 @@ function mapStockBannerItemToToken(
   item: IMarketStockPublicItem,
 ): IMarketTokenListItem {
   return {
-    address: item.stockId,
+    address: '',
     name: item.name,
     symbol: item.symbol,
     decimals: 0,

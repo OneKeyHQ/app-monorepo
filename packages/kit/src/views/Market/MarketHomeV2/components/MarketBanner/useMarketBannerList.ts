@@ -12,7 +12,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
-import { isMarketIndexQuoteBanner } from '../../../utils/marketBannerUtils';
+import {
+  isMarketIndexQuoteBanner,
+  isMarketMixedBanner,
+} from '../../../utils/marketBannerUtils';
 
 import {
   fetchMarketBannerListForPlatform,
@@ -34,8 +37,7 @@ export async function hydrateMarketBannerQuotes(
       }
 
       const isStockBanner =
-        banner.assetType !== undefined ||
-        banner.type === EMarketBannerType.StockPerps;
+        banner.assetType !== undefined || isMarketMixedBanner(banner.type);
       if (banner.type === EMarketBannerType.Perps) {
         return banner;
       }

@@ -15,3 +15,9 @@ export function isMarketIndexQuoteBanner({
     (type === undefined && assetType === undefined && Boolean(indices?.length))
   );
 }
+
+export function isMarketMixedBanner(type?: EMarketBannerType): boolean {
+  return (
+    type === EMarketBannerType.StockPerps || type === EMarketBannerType.Mixed
+  );
+}

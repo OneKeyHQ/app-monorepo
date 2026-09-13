@@ -39,7 +39,10 @@ import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hook
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import { isMarketIndexQuoteBanner } from '../utils/marketBannerUtils';
+import {
+  isMarketIndexQuoteBanner,
+  isMarketMixedBanner,
+} from '../utils/marketBannerUtils';
 
 import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
 import { PerpsTokenListSection } from './PerpsTokenListSection';
@@ -72,11 +75,11 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
   const { tokenListId, type, assetType } = route.params;
   const isPerps = type === EMarketBannerType.Perps;
-  const isMixed = type === EMarketBannerType.StockPerps;
+  const isMixed = isMarketMixedBanner(type);
   const isIndex = isMarketIndexQuoteBanner({ type, assetType });
   const isStock =
     type === EMarketBannerType.Stock ||
-    type === EMarketBannerType.StockPerps ||
+    isMixed ||
     assetType === 'stock' ||
     assetType === 'etf' ||
     assetType === 'index';
