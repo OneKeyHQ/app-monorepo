@@ -164,9 +164,17 @@ export function DesktopLayout({
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
+    isLoading: isTokenDetailLoading,
   } = useTokenDetail();
   const { tokenDetail: displayTokenDetail } = useMarketDetailDisplayData();
-  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
+  const {
+    isStockRoute,
+    isTokenVariantPending,
+    isTokenVariantsError,
+    isTokenVariantsLoading,
+    selectedTokenVariant,
+    stockId,
+  } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
@@ -290,13 +298,23 @@ export function DesktopLayout({
     typeof displayTokenDetail?.decimals === 'number' &&
     Number.isInteger(displayTokenDetail.decimals) &&
     displayTokenDetail.decimals >= 0;
-  const isTradeLoading = shouldUseStockDesktopLayout && !isSwapTokenReady;
+  const isTradeReadinessPending =
+    !isTokenVariantsError &&
+    (isTokenVariantPending ||
+      isTokenVariantsLoading ||
+      (Boolean(selectedTokenVariant) && isTokenDetailLoading));
+  const isTradeLoading =
+    shouldUseStockDesktopLayout && !isSwapTokenReady && isTradeReadinessPending;
   // Stock's embedded Swap owns transient token/config loading and renders its
   // own skeletons. Only terminal route/ownership state should remove the
   // trade panel; generic token layouts still wait for a resolved token before
   // mounting Swap.
   const shouldDisableTrade =
-    disableTrade || (!shouldUseStockDesktopLayout && !isSwapTokenReady);
+    disableTrade ||
+    (!shouldUseStockDesktopLayout && !isSwapTokenReady) ||
+    (shouldUseStockDesktopLayout &&
+      !isSwapTokenReady &&
+      !isTradeReadinessPending);
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
