@@ -137,7 +137,12 @@ export function BorrowPositionCard({
             {collateral}
           </XStack>
         ) : null}
-        <XStack flex={1} gap="$2" jc="flex-end">
+        <XStack
+          flex={1}
+          gap="$2"
+          jc="flex-end"
+          ml={collateral ? '$2' : undefined}
+        >
           {actions.map((action) => (
             <Button
               key={action.key}

@@ -17,6 +17,7 @@ jest.mock('react-intl', () => ({
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
 const mockClearTokenDetail = jest.fn();
+const mockPrepareStockTokenDetail = jest.fn();
 const mockPrepareTokenDetailPreview = jest.fn();
 let mockCurrentRouteName = 'MarketDetailV2';
 let mockSplitViewType = 'UNKNOWN';
@@ -97,6 +98,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: jest.fn(() => ({
     current: {
       clearTokenDetail: mockClearTokenDetail,
+      prepareStockTokenDetail: mockPrepareStockTokenDetail,
       prepareTokenDetailPreview: mockPrepareTokenDetailPreview,
     },
   })),
