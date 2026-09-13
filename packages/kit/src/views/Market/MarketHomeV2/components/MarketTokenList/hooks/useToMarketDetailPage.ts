@@ -310,7 +310,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         }
         closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
-        if (platformEnv.isNative) {
+        if (stockId) {
+          tokenDetailActions.current.prepareStockTokenDetail({
+            tokenAddress: resolvedItem.tokenAddress,
+            networkId: resolvedItem.networkId,
+            isNative: resolvedItem.isNative,
+          });
+        } else if (platformEnv.isNative) {
           if (!navigationPreview) {
             tokenDetailActions.current.clearTokenDetail();
           } else {
@@ -338,7 +344,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           },
         });
       } else {
-        if (platformEnv.isNative) {
+        if (stockId) {
+          tokenDetailActions.current.prepareStockTokenDetail({
+            tokenAddress: resolvedItem.tokenAddress,
+            networkId: resolvedItem.networkId,
+            isNative: resolvedItem.isNative,
+          });
+        } else if (platformEnv.isNative) {
           if (navigationPreview) {
             tokenDetailActions.current.prepareTokenDetailPreview(
               navigationPreview,

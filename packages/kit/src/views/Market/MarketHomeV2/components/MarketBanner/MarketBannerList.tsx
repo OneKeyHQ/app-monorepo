@@ -10,6 +10,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
 import { MarketTestIDs } from '../../testIDs';
 
 import { MarketBannerItem } from './MarketBannerItem';
@@ -37,15 +38,18 @@ export function useMarketBannerState() {
 }
 
 function BannerContainerMobile({
+  height,
   children,
   hidden = false,
 }: {
   children: ReactNode;
+  height?: number;
   hidden?: boolean;
 }) {
   return (
     <ScrollGuard>
       <ScrollView
+        h={height}
         opacity={hidden ? 0 : 1}
         pointerEvents={hidden ? 'none' : 'auto'}
         accessibilityElementsHidden={hidden}
@@ -153,7 +157,10 @@ function MarketBannerListComponent() {
 
   if (isSmallScreen) {
     return (
-      <BannerContainerMobile hidden={hidden}>
+      <BannerContainerMobile
+        height={getMarketMobileBannerHeaderHeight(visibleBannerList)}
+        hidden={hidden}
+      >
         {bannerItems}
       </BannerContainerMobile>
     );

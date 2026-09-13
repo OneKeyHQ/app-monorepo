@@ -86,7 +86,11 @@ export function useToMarketStockDetailPage(
         isStockRoute: true,
         layout: preloadLayout,
       });
-      tokenDetailActions.current.clearTokenDetail();
+      tokenDetailActions.current.prepareStockTokenDetail({
+        tokenAddress: stockTokenParams?.tokenAddress ?? '',
+        networkId: stockPreview?.networkId ?? '',
+        isNative: stockTokenParams?.isNative,
+      });
 
       if (
         splitViewType !== ESplitViewType.UNKNOWN &&
