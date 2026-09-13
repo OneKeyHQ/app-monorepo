@@ -1116,6 +1116,38 @@ describe('useSwapActions', () => {
     });
   });
 
+  it('clears the stale pay token while a Stock pair changes network', async () => {
+    const solanaStockToken = {
+      ...appleStockToken,
+      networkId: 'sol--101',
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+      storeInstance.set(swapStockExecutionTokensAtom(), {
+        syncId: 1,
+        fromToken: usdcToken,
+        toToken: stockTokenA,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.selectStockExecutionTokens({
+        toToken: solanaStockToken,
+        clearFromToken: true,
+        syncId: 2,
+      });
+    });
+
+    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
+    expect(store.get(swapSelectToTokenAtom())).toEqual(solanaStockToken);
+    expect(store.get(swapStockExecutionTokensAtom())).toBeUndefined();
+  });
+
   it('does not clear the Stock selected owner on a pay-token-only execution sync', async () => {
     const { result } = renderHook(
       () => {

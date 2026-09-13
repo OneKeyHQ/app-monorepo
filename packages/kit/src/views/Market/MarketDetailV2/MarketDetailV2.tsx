@@ -69,18 +69,28 @@ function normalizeRouteBooleanParam(
 
 function LegacyTokenPreviewInitializer({
   preview,
+  stockTarget,
 }: {
   preview?: IMarketTokenDetailPreview;
+  stockTarget?: {
+    tokenAddress: string;
+    networkId: string;
+    isNative?: boolean;
+  };
 }) {
   const tokenDetailActions = useTokenDetailActions();
 
   useLayoutEffect(() => {
-    if (preview) {
+    if (stockTarget) {
+      // Stock navigation may intentionally retain an existing detail/request
+      // for the same variant. The action clears only when the identity changes.
+      tokenDetailActions.current.prepareStockTokenDetail(stockTarget);
+    } else if (preview) {
       tokenDetailActions.current.prepareTokenDetailPreview(preview);
     } else if (!platformEnv.isNative) {
       tokenDetailActions.current.clearTokenDetail();
     }
-  }, [preview, tokenDetailActions]);
+  }, [preview, stockTarget, tokenDetailActions]);
 
   return null;
 }
@@ -189,6 +199,17 @@ function MarketDetail({
     resolvedTokenDetailPreview.address === tokenAddress &&
     resolvedTokenDetailPreview.networkId === networkId,
   );
+  const stockTokenDetailTarget = useMemo(
+    () =>
+      isStockRoute
+        ? {
+            tokenAddress,
+            networkId,
+            isNative: isNativeBoolean,
+          }
+        : undefined,
+    [isNativeBoolean, isStockRoute, networkId, tokenAddress],
+  );
 
   // Track market entry analytics
   useMarketEnterAnalytics();
@@ -253,7 +274,10 @@ function MarketDetail({
 
   return (
     <BtcMetadataProvider>
-      <LegacyTokenPreviewInitializer preview={resolvedTokenDetailPreview} />
+      <LegacyTokenPreviewInitializer
+        preview={resolvedTokenDetailPreview}
+        stockTarget={stockTokenDetailTarget}
+      />
       <Page>
         {isChartFullscreen && !platformEnv.isNative ? (
           <Page.Header headerShown={false} />
