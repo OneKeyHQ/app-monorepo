@@ -174,10 +174,10 @@ index b835bfe..e65b662 100644
  @end
  
 diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
-index 84eab17..591de7c 100644
+index 84eab17..57b6e7f 100644
 --- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
-@@ -1209,6 +1209,32 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1209,6 +1209,47 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
  
  #pragma mark - Smooth shared header ownership
  
@@ -203,10 +203,40 @@ index 84eab17..591de7c 100644
 +  if (_isBeingRecycled || self.window == nil || _transitioning || _isPagerDragging ||
 +      _currentIndex < 0 || _currentIndex >= _pageControllers.count) return;
 +  UIView *page = _pageControllers[_currentIndex].view;
-+  if (_observedScrollView != nil && [_observedScrollView isDescendantOfView:page]) return;
-+  [self attachScrollObserverForCurrentPage];
++  BOOL headerIsAttached = [_sharedHeaderHostView isDescendantOfView:self];
++  if (_observedScrollView != nil && [_observedScrollView isDescendantOfView:page] &&
++      headerIsAttached) return;
++  if (!headerIsAttached) {
++    [self attachScrollObserverForCurrentPage];
++    return;
++  }
++  // Property-only updates cannot replace a list. An empty page should only be
++  // searched again when its descendants are inserted or removed.
++  for (const auto &mutation : transaction.getMutations()) {
++    if ((mutation.type == ShadowViewMutation::Insert ||
++         mutation.type == ShadowViewMutation::Remove) &&
++        mutation.parentTag > 0 && [page viewWithTag:mutation.parentTag] != nil) {
++      [self attachScrollObserverForCurrentPage];
++      return;
++    }
++  }
 +}
 +
  - (void)restoreSharedHeadersToContainer
  {
    _sharedHeaderScrollView = nil;
+@@ -1769,7 +1810,13 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+   [self restoreDetachedScrollInsets];
+   if (_currentIndex < 0 || _currentIndex >= _pageControllers.count) return;
+   UIScrollView *candidate = [self findVerticalScrollViewInView:_pageControllers[_currentIndex].view];
+-  if (candidate == nil) return;
++  // OneKey patch: a replacement can temporarily have no scroll container.
++  // if (candidate == nil) return;
++  if (candidate == nil) {
++    [self detachScrollObserver];
++    [self restoreSharedHeadersToContainer];
++    return;
++  }
+   // Legacy mode keeps the historical pager-first dependency. Smooth mode
+   // arbitrates header touches by axis so the vertical list can begin directly.
+   if (_pagerScrollView != nil && !_nativeSmoothHeaderScrollEnabled && !_needsPropsReapply) {
