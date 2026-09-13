@@ -80,13 +80,17 @@ const PasswordVerifyContainer = ({
   kdfParams,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
-  const [{ authType, isEnable, isSupport: biologyAuthIsSupport }] =
+  const [{ authType, isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions({
     skipPostVerifyBackgroundTasks,
   });
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
+  // Derived here rather than inside passwordBiologyAuthInfoAtom: keeping it in
+  // that async atom made the atom depend on settingsPersistAtom, so every
+  // unrelated settings write re-suspended everything reading it.
+  const isEnable = biologyAuthIsSupport && isBiologyAuthSwitchOn;
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(true);
   const [passwordMode] = usePasswordModeAtom();

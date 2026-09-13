@@ -4,8 +4,6 @@ import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 import { runtimePersistenceAdapter } from '../../../runtime/RuntimeEnvironmentAdapter';
 import { globalAtomComputed } from '../utils';
 
-import { settingsPersistAtom } from './settings';
-
 import type { AuthenticationType } from 'expo-local-authentication';
 
 export * from './passwordLock';
@@ -39,6 +37,10 @@ export const {
   return { isSupport };
 });
 
+// Same rule as passwordWebAuthInfoAtom above: this read awaits a dynamic import
+// and two platform probes, so it must not depend on an atom that changes at
+// runtime. `isEnable` was the only reason it read settingsPersistAtom, and its
+// single consumer already has both halves on hand.
 export const {
   target: passwordBiologyAuthInfoAtom,
   use: usePasswordBiologyAuthInfoAtom,
@@ -46,21 +48,17 @@ export const {
   Promise<{
     authType: AuthenticationType[];
     isSupport: boolean;
-    isEnable: boolean;
   }>
->(async (get) => {
+>(async () => {
   if (runtimePersistenceAdapter.isUnavailable()) {
     return {
       authType: [],
       isSupport: false,
-      isEnable: false,
     };
   }
   const { biologyAuthUtils } =
     await import('../../../services/ServicePassword/biologyAuthUtils');
   const authType = await biologyAuthUtils.getBiologyAuthType();
   const isSupport = await biologyAuthUtils.isSupportBiologyAuth();
-  const isEnable =
-    isSupport && get(settingsPersistAtom.atom()).isBiologyAuthSwitchOn;
-  return { authType, isSupport, isEnable };
+  return { authType, isSupport };
 });
