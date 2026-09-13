@@ -39,6 +39,7 @@ import {
   resolveSwapBalanceDisplayCacheEntry,
   updateSwapBalanceDisplayCache,
 } from '../utils/swapBalanceDisplayCacheUtils';
+import { calcSwapProSliderAvailableBalance } from '../utils/swapProAmountSliderUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
 import {
@@ -88,6 +89,24 @@ function getStockInputTokenIdentityKey(token?: Partial<ISwapToken>) {
   return `${token.networkId}:${token.contractAddress ?? ''}:${
     token.isNative ? 'native' : 'token'
   }`;
+}
+
+export function calcSwapStockPercentageAmount({
+  balanceParsed,
+  isNative,
+  reserveGas,
+  stage,
+}: {
+  balanceParsed?: string;
+  isNative?: boolean;
+  reserveGas?: string | number;
+  stage: number;
+}): BigNumber {
+  return calcSwapProSliderAvailableBalance({
+    balanceParsed,
+    isNative,
+    reserveGas,
+  }).multipliedBy(stage / 100);
 }
 
 function useStockInputTokenBalance({
@@ -768,14 +787,12 @@ export function useSwapStockAmountInputState({
       if (authoritativeStockInputToken) {
         syncStockTokenDetail(authoritativeStockInputToken);
       }
-      const balanceBN = new BigNumber(resolvedInputTokenBalance);
-      let amount = balanceBN.multipliedBy(stage / 100);
-      if (inputToken?.isNative) {
-        const reserveGasBN = new BigNumber(reserveGas ?? '');
-        if (reserveGasBN.isFinite() && reserveGasBN.gt(0)) {
-          amount = BigNumber.max(0, amount.minus(reserveGasBN));
-        }
-      }
+      const amount = calcSwapStockPercentageAmount({
+        balanceParsed: resolvedInputTokenBalance,
+        isNative: inputToken?.isNative,
+        reserveGas,
+        stage,
+      });
       setInputAmount(amount);
     },
     [
