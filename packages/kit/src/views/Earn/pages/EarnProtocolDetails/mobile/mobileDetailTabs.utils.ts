@@ -1,13 +1,19 @@
 export type IMobileDetailTabKey = 'portfolio' | 'info' | 'protocol';
 
+// Portfolio needs a position and Protocol needs intro data (Lista sends none,
+// OK-62925); Info is always there.
 export function resolveVisibleTabKeys({
   hasPortfolio,
+  hasProtocol,
 }: {
   hasPortfolio: boolean;
+  hasProtocol: boolean;
 }): IMobileDetailTabKey[] {
-  return hasPortfolio
-    ? ['portfolio', 'info', 'protocol']
-    : ['info', 'protocol'];
+  return [
+    ...(hasPortfolio ? (['portfolio'] as const) : []),
+    'info',
+    ...(hasProtocol ? (['protocol'] as const) : []),
+  ];
 }
 
 export function resolveDefaultTabKey({

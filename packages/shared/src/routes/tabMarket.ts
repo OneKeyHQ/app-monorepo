@@ -23,6 +23,7 @@ export type IMarketTokenDetailRouteParams = {
   resolveMarketAsset?: boolean;
   skipMarketDataFetch?: boolean;
   legacyTokenPreview?: IMarketTokenDetailPreview;
+  marketTokenPreviewId?: string;
   stockId?: never;
   isNative?: boolean;
   from?: EEnterWay;
@@ -59,6 +60,7 @@ export type ITabMarketParamList = {
     resolveMarketAsset?: boolean;
     skipMarketDataFetch?: boolean;
     legacyTokenPreview?: IMarketTokenDetailPreview;
+    marketTokenPreviewId?: string;
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;

@@ -185,6 +185,24 @@ describe('useToDetailPage', () => {
     expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
   });
 
+  it('reports a failed extension handoff without closing the popup', async () => {
+    openExtensionMarketTokenDetailMock.mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    );
+    const { result } = renderHook(() => useToDetailPage());
+    await act(async () => {
+      await expect(
+        result.current({
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'ABC',
+        }),
+      ).resolves.toBeUndefined();
+    });
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(globalThis.close).not.toHaveBeenCalled();
+  });
+
   it('ignores asset detail presses before resolving a variant in Travel Mode', async () => {
     mockTravelMode = true;
     const fetchMarketAssetDetail = jest.spyOn(
@@ -352,15 +370,45 @@ describe('useToDetailPage', () => {
     );
   });
 
-  it('only runs the latest delayed desktop navigation', async () => {
+  it('only runs the latest selection across separate search row hooks', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false });
+    const first = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    const second = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    const pending = deferred<void>();
+    jest
+      .mocked(preloadMarketDetailV2Page)
+      .mockImplementationOnce(() => pending.promise);
+    const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+    const firstNavigation = first.result.current(tokenItem);
+    await act(async () => {
+      await second.result.current(stockItem);
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pending.resolve();
+      await firstNavigation;
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({ screen: 'MarketStockDetail' }),
+      }),
+    );
+  });
+
+  it('only runs the latest desktop navigation while preloading', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false });
     const navigateSpy = jest.spyOn(rootNavigationRef.current!, 'navigate');
     const { result } = renderHook(() =>
       useToDetailPage({ switchToMarketTabFirst: true }),
     );
     await act(async () => {
-      await result.current(tokenItem);
-      await result.current(stockItem);
+      await Promise.all([result.current(tokenItem), result.current(stockItem)]);
     });
     act(() => {
       jest.advanceTimersByTime(500);
@@ -376,6 +424,89 @@ describe('useToDetailPage', () => {
       }),
     );
   });
+
+  it('carries desktop search preview into the destination without changing the visible detail', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: false });
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      symbol: 'ABC',
+      name: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    const { result } = renderHook(() =>
+      useToDetailPage({
+        switchToMarketTabFirst: true,
+        resolveMarketAsset: true,
+      }),
+    );
+    const ready = deferred<void>();
+    jest
+      .mocked(preloadMarketDetailV2Page)
+      .mockImplementationOnce(() => ready.promise);
+    const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+    let navigation: Promise<void> | undefined;
+    act(() => {
+      navigation = result.current({
+        ...tokenItem,
+        tokenDetailPreview: preview,
+      });
+    });
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => {
+      ready.resolve();
+      await navigation;
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          screen: 'MarketDetailV2',
+          params: expect.objectContaining({
+            legacyTokenPreview: preview,
+            resolveMarketAsset: true,
+          }),
+        }),
+      }),
+    );
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'initializes a generated list preview at the platform owner (native=%s)',
+    async (isNative) => {
+      Object.assign(platformEnv, { isExtensionUiPopup: false, isNative });
+      const { result } = renderHook(() => useToDetailPage());
+      await act(async () => {
+        await result.current({ ...tokenItem, name: 'ABC Token', decimals: 18 });
+      });
+      const preview = expect.objectContaining({
+        name: 'ABC Token',
+        decimals: 18,
+        networkId: tokenItem.networkId,
+        address: tokenItem.tokenAddress,
+      });
+      if (isNative) {
+        expect(mockPrepareTokenDetailPreview).toHaveBeenCalledTimes(1);
+        expect(mockPrepareTokenDetailPreview).toHaveBeenCalledWith(preview);
+        expect(mockNavigationPush.mock.calls[0][1]).not.toHaveProperty(
+          'legacyTokenPreview',
+        );
+      } else {
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          expect.objectContaining({ legacyTokenPreview: preview }),
+        );
+        expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+      }
+      expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    },
+  );
 
   it('navigates stock items with stockId instead of chain identity', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
@@ -724,10 +855,7 @@ describe('useToDetailPage', () => {
       marketTokenSymbol: 'BTC',
       legacyTokenPreview: tokenDetailPreview,
     });
-    expect(mockPrepareTokenDetailPreview).toHaveBeenLastCalledWith({
-      ...tokenDetailPreview,
-      address: 'native',
-    });
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
@@ -823,8 +951,11 @@ describe('useToDetailPage', () => {
       });
     });
 
-    expect(mockPrepareTokenDetailPreview).toHaveBeenCalledWith(
-      tokenDetailPreview,
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    expect(mockNavigationPush).toHaveBeenCalledWith(
+      'MarketDetailV2',
+      expect.objectContaining({ legacyTokenPreview: tokenDetailPreview }),
     );
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
