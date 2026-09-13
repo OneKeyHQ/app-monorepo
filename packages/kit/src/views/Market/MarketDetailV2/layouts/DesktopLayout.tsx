@@ -307,9 +307,7 @@ export function DesktopLayout({
     !isTerminalStockTradeUnavailable &&
     (isTokenVariantPending ||
       (Boolean(selectedTokenVariant) &&
-        (isTokenDetailRequestPending ||
-          isTokenDetailLoading ||
-          !stockDisplayMatchesVariant)));
+        (isTokenDetailRequestPending || isTokenDetailLoading)));
   const isTradeLoading =
     shouldUseStockDesktopLayout && !isSwapTokenReady && isTradeReadinessPending;
   // Stock's embedded Swap owns transient token/config loading and renders its

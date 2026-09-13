@@ -450,6 +450,7 @@ describe('DesktopLayout', () => {
     mockTokenDetailLoading = false;
     mockDisplayTokenDetail = {
       ...mockDisplayTokenDetail,
+      address: '0xmissing',
       decimalsResolved: false,
     };
 
