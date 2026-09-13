@@ -672,6 +672,7 @@ type ISharedListProps = {
   listContainerProps: {
     emptyContentPaddingTop?: number;
     emptyContentHeight?: number;
+    emptyScrollContentMinHeight?: number;
     paddingBottom: number;
   };
   shouldSuppressItemPress?: () => boolean;
@@ -1035,6 +1036,7 @@ function MobileMarketNativeWatchlistImpl({
         testID="market-favorites-empty-scroll"
         contentContainerStyle={{
           paddingTop: listContainerProps.emptyContentPaddingTop ?? 16,
+          minHeight: listContainerProps.emptyScrollContentMinHeight,
         }}
       >
         <Stack alignItems="center">
