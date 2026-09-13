@@ -727,9 +727,41 @@ function mergePrivateSendLocalDecodedTxFields({
 // empty one. Replacing the local record with such an on-chain record drops the
 // semantics the app already knew when it built the tx (Earn claim/redeem,
 // internal swap), leaving both the history row and its details page with an
-// empty title. Carry those local fields over, but only when the indexer gave us
-// nothing to show.
-function mergeLocalTxDisplayFields({
+// empty title. Carry those local display fields over, but only when the indexer
+// gave us nothing to show. Replacement linkage is local-only, so it is carried
+// independently of the display-label branch below.
+function getLocalReplacementFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): Pick<
+  IAccountHistoryTx,
+  'replacedPrevId' | 'replacedNextId' | 'replacedType' | 'replacedMethod'
+> {
+  // Replacement linkage is local-only metadata. The indexer response can
+  // replace the local record after confirmation, so carry it forward when the
+  // response does not provide an equivalent field. In particular, a cancel
+  // replacement must remain distinguishable from the staking metadata it
+  // inherits for pending-state guards.
+  return {
+    ...(isNil(onChainHistoryTx.replacedPrevId) && !isNil(localTx.replacedPrevId)
+      ? { replacedPrevId: localTx.replacedPrevId }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedNextId) && !isNil(localTx.replacedNextId)
+      ? { replacedNextId: localTx.replacedNextId }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedType) && !isNil(localTx.replacedType)
+      ? { replacedType: localTx.replacedType }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedMethod) && !isNil(localTx.replacedMethod)
+      ? { replacedMethod: localTx.replacedMethod }
+      : {}),
+  };
+}
+
+export function mergeLocalTxDisplayFields({
   localTx,
   onChainHistoryTx,
 }: {
@@ -737,10 +769,18 @@ function mergeLocalTxDisplayFields({
   onChainHistoryTx: IAccountHistoryTx;
 }): IAccountHistoryTx {
   const localStakingInfo = localTx.stakingInfo;
+  const localReplacementFields = getLocalReplacementFields({
+    localTx,
+    onChainHistoryTx,
+  });
   if (onChainHistoryTx.decodedTx.payload?.label) {
-    return localStakingInfo && !onChainHistoryTx.stakingInfo
-      ? { ...onChainHistoryTx, stakingInfo: localStakingInfo }
-      : onChainHistoryTx;
+    return {
+      ...onChainHistoryTx,
+      ...localReplacementFields,
+      ...(localStakingInfo && !onChainHistoryTx.stakingInfo
+        ? { stakingInfo: localStakingInfo }
+        : {}),
+    };
   }
 
   const localTransfer = localTx.decodedTx.actions?.[0]?.assetTransfer;
@@ -752,7 +792,7 @@ function mergeLocalTxDisplayFields({
   );
   const isInternalSwap = localTransfer?.isInternalSwap;
   if (!isInternalStaking && !isInternalSwap) {
-    return onChainHistoryTx;
+    return { ...onChainHistoryTx, ...localReplacementFields };
   }
 
   // Keep local staking metadata even when the indexer already supplied a
@@ -811,6 +851,7 @@ function mergeLocalTxDisplayFields({
 
   return {
     ...onChainHistoryTx,
+    ...localReplacementFields,
     ...preserveLocalStakingInfo,
     decodedTx: {
       ...onChainHistoryTx.decodedTx,
