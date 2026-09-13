@@ -156,7 +156,7 @@ index 6b20a94..1387eda 100644
        }
  
 diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h
-index b835bfe..e65b662 100644
+index b835bfe..d860012 100644
 --- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h
 +++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h
 @@ -1,8 +1,11 @@
@@ -166,14 +166,14 @@ index b835bfe..e65b662 100644
  NS_ASSUME_NONNULL_BEGIN
  
 -@interface RNCCollapsiblePagerViewComponentView : RCTViewComponentView
-+// OneKey patch: observe descendant list replacements after Fabric commits.
++// OneKey patch: release lists before Fabric recycles them and recover after mounting.
 +// @interface RNCCollapsiblePagerViewComponentView : RCTViewComponentView
 +@interface RNCCollapsiblePagerViewComponentView : RCTViewComponentView <RCTMountingTransactionObserving>
  
  @end
  
 diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
-index 84eab17..ca70732 100644
+index 84eab17..1ad55c7 100644
 --- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
 @@ -9,6 +9,9 @@
@@ -186,7 +186,7 @@ index 84eab17..ca70732 100644
  using namespace facebook::react;
  
  static void *RNCCollapsiblePagerContentOffsetContext = &RNCCollapsiblePagerContentOffsetContext;
-@@ -1209,6 +1212,58 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1209,6 +1212,86 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
  
  #pragma mark - Smooth shared header ownership
  
@@ -202,6 +202,34 @@ index 84eab17..ca70732 100644
 +  }
 +  CGPoint headerPoint = [_sharedHeaderHostView convertPoint:point fromView:self];
 +  return [_sharedHeaderHostView hitTest:headerPoint withEvent:event] ?: hitView;
++}
++
++// OneKey patch: Fabric can recycle a removed list as a descendant of our header
++// within the same transaction. Release native ownership before that reuse can
++// form a cycle; did-mount recovery runs too late to prevent it.
++- (void)mountingTransactionWillMount:(const MountingTransaction &)transaction
++                withSurfaceTelemetry:(const SurfaceTelemetry &)surfaceTelemetry
++{
++  if (_isBeingRecycled || _originalInsets.count == 0) return;
++  std::unordered_set<NSInteger> removedTags;
++  for (const auto &mutation : transaction.getMutations()) {
++    if ((mutation.type == ShadowViewMutation::Remove ||
++         mutation.type == ShadowViewMutation::Delete) && mutation.oldChildShadowView.tag > 0) {
++      removedTags.insert(mutation.oldChildShadowView.tag);
++    }
++  }
++  if (removedTags.empty()) return;
++
++  // Inspect only the managed scroll views' ancestor chains, including wrappers
++  // above the pager. Row removals and unrelated commits keep ownership intact.
++  for (UIScrollView *scrollView in _originalInsets.keyEnumerator.allObjects) {
++    for (UIView *ancestor = scrollView; ancestor != nil; ancestor = ancestor.superview) {
++      if (removedTags.find(ancestor.tag) != removedTags.end()) {
++        [self restoreScrollViewState:scrollView];
++        break;
++      }
++    }
++  }
 +}
 +
 +// OneKey patch: a loading list can be replaced without changing the pager's
@@ -245,7 +273,7 @@ index 84eab17..ca70732 100644
  - (void)restoreSharedHeadersToContainer
  {
    _sharedHeaderScrollView = nil;
-@@ -1769,7 +1824,13 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1769,7 +1852,13 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
    [self restoreDetachedScrollInsets];
    if (_currentIndex < 0 || _currentIndex >= _pageControllers.count) return;
    UIScrollView *candidate = [self findVerticalScrollViewInView:_pageControllers[_currentIndex].view];
@@ -260,3 +288,78 @@ index 84eab17..ca70732 100644
    // Legacy mode keeps the historical pager-first dependency. Smooth mode
    // arbitrates header touches by axis so the vertical list can begin directly.
    if (_pagerScrollView != nil && !_nativeSmoothHeaderScrollEnabled && !_needsPropsReapply) {
+@@ -2028,6 +2117,39 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+   }
+ }
+ 
++// OneKey patch: release observers, headers and saved state while the scroll view
++// still represents the old list, before Fabric applies its next owner's props.
++- (void)restoreScrollViewState:(UIScrollView *)scrollView
++{
++  if (scrollView == _observedScrollView) {
++    [self detachScrollObserver];
++    _pageOffsets[self.currentPageKey] = @(_headerOffset);
++  }
++  if (scrollView == _sharedHeaderScrollView) {
++    [self restoreSharedHeadersToContainer];
++  }
++  CGFloat logicalOffset = scrollView.contentOffset.y + scrollView.contentInset.top;
++  UIEdgeInsets original = [_originalInsets objectForKey:scrollView].UIEdgeInsetsValue;
++  NSNumber *appliedTop = [_appliedTopInsets objectForKey:scrollView];
++  if (appliedTop != nil && scrollView.refreshControl != nil) {
++    original.top += MAX(0, scrollView.contentInset.top - appliedTop.doubleValue);
++  }
++  scrollView.contentInset = original;
++  scrollView.verticalScrollIndicatorInsets =
++    [_originalIndicatorInsets objectForKey:scrollView].UIEdgeInsetsValue;
++  scrollView.alwaysBounceVertical =
++    [_originalAlwaysBounceVertical objectForKey:scrollView].boolValue;
++  scrollView.contentInsetAdjustmentBehavior = (UIScrollViewContentInsetAdjustmentBehavior)
++    [_originalInsetAdjustmentBehavior objectForKey:scrollView].integerValue;
++  [scrollView setContentOffset:CGPointMake(scrollView.contentOffset.x, logicalOffset - original.top)
++                     animated:NO];
++  [_originalInsets removeObjectForKey:scrollView];
++  [_appliedTopInsets removeObjectForKey:scrollView];
++  [_originalIndicatorInsets removeObjectForKey:scrollView];
++  [_originalAlwaysBounceVertical removeObjectForKey:scrollView];
++  [_originalInsetAdjustmentBehavior removeObjectForKey:scrollView];
++}
++
+ - (void)restoreDetachedScrollInsets
+ {
+   for (UIScrollView *scrollView in _originalInsets.keyEnumerator.allObjects) {
+@@ -2039,32 +2161,8 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+       }
+     }
+     if (belongsToPage) continue;
+-    if (scrollView == _observedScrollView) {
+-      [self detachScrollObserver];
+-      _pageOffsets[self.currentPageKey] = @(_headerOffset);
+-    }
+-    // Fabric can reuse an empty RN ScrollView in another screen. Release all
+-    // pager-owned insets before that view is used as a search or dialog list.
+-    CGFloat logicalOffset = scrollView.contentOffset.y + scrollView.contentInset.top;
+-    UIEdgeInsets original = [_originalInsets objectForKey:scrollView].UIEdgeInsetsValue;
+-    NSNumber *appliedTop = [_appliedTopInsets objectForKey:scrollView];
+-    if (appliedTop != nil && scrollView.refreshControl != nil) {
+-      original.top += MAX(0, scrollView.contentInset.top - appliedTop.doubleValue);
+-    }
+-    scrollView.contentInset = original;
+-    scrollView.verticalScrollIndicatorInsets =
+-      [_originalIndicatorInsets objectForKey:scrollView].UIEdgeInsetsValue;
+-    scrollView.alwaysBounceVertical =
+-      [_originalAlwaysBounceVertical objectForKey:scrollView].boolValue;
+-    scrollView.contentInsetAdjustmentBehavior = (UIScrollViewContentInsetAdjustmentBehavior)
+-      [_originalInsetAdjustmentBehavior objectForKey:scrollView].integerValue;
+-    [scrollView setContentOffset:CGPointMake(scrollView.contentOffset.x, logicalOffset - original.top)
+-                       animated:NO];
+-    [_originalInsets removeObjectForKey:scrollView];
+-    [_appliedTopInsets removeObjectForKey:scrollView];
+-    [_originalIndicatorInsets removeObjectForKey:scrollView];
+-    [_originalAlwaysBounceVertical removeObjectForKey:scrollView];
+-    [_originalInsetAdjustmentBehavior removeObjectForKey:scrollView];
++    // OneKey patch: share the full release path with pre-mount recycling.
++    [self restoreScrollViewState:scrollView];
+   }
+ }
+ 
