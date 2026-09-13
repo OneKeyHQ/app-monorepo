@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_BORDER_COLOR } from '@onekeyhq/components/src/utils/animationConstants';
 import { LeverageBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EMarketBannerType,
   type IMarketBannerItem,
@@ -136,7 +137,7 @@ function LegacyMarketBannerItem({
         minWidth: 180,
         maxWidth: 256,
         width: 'auto',
-        h: 'auto',
+        h: platformEnv.isNative ? 118 : 'auto',
         minHeight: 96,
         p: '$4',
         gap: '$3',

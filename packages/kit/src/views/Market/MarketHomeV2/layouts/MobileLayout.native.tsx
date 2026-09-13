@@ -33,7 +33,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import {
-  MARKET_BANNER_LIST_MOBILE_HEIGHT,
   MarketBannerList,
   useMarketBannerState,
 } from '../components/MarketBanner/MarketBannerList';
@@ -68,8 +67,10 @@ import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 import { shouldHandleMarketPagerPageSelected } from './marketTabSelectionGuards';
 import {
   MARKET_MOBILE_COLUMN_HEADER_HEIGHT,
+  getMarketMobileBannerHeaderHeight,
   getMarketMobileSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
+  resolveMarketBannerHeaderHeight,
 } from './mobileLayoutUtils';
 
 import type { IMarketPerpsDataCache } from '../components/MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -418,6 +419,16 @@ function MobileLayoutComponent({
     isDecided: false,
     hasBanners: false,
   });
+  const bannerHeaderHeightRef = useRef({
+    scope: bannerScope,
+    height: getMarketMobileBannerHeaderHeight(bannerList),
+  });
+  bannerHeaderHeightRef.current = resolveMarketBannerHeaderHeight({
+    current: bannerHeaderHeightRef.current,
+    scope: bannerScope,
+    isFetched: isBannerFetched,
+    bannerList,
+  });
   bannerDecisionRef.current = resolveMarketBannerHeaderDecision({
     current: bannerDecisionRef.current,
     scope: bannerScope,
@@ -425,7 +436,7 @@ function MobileLayoutComponent({
     bannerCount: bannerList.length,
   });
   const headerHeight = bannerDecisionRef.current.hasBanners
-    ? MARKET_BANNER_LIST_MOBILE_HEIGHT
+    ? bannerHeaderHeightRef.current.height
     : 1;
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(
     MARKET_TAB_BAR_HEIGHT + getMarketMobileSecondaryHeaderHeight(),
