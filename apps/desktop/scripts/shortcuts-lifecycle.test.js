@@ -55,6 +55,7 @@ function loadShortcuts() {
       }),
     },
   };
+  app.quit = jest.fn();
   const context = vm.createContext({
     exports: {},
     require: (name) => {
@@ -64,6 +65,14 @@ function loadShortcuts() {
     app,
     browserWindow,
     getSafelyBrowserWindow: () => browserWindow,
+    getSafelyMainWindow: () => browserWindow,
+    destroyTrayManager: jest.fn(),
+    store: {
+      getConsecutiveBootFailCount: () => 0,
+      resetConsecutiveBootFailCount: jest.fn(),
+    },
+    systemIdleInterval: undefined,
+    disposeContextMenu: jest.fn(),
     ipcMessageKeys: { APP_STATE: 'state', APP_SHORTCUT: 'shortcut' },
     logger,
     mainWindow: browserWindow,
@@ -76,6 +85,9 @@ function loadShortcuts() {
     disposeNobleBleSupport: () => Promise.resolve(),
     trezorBleSupports: new Set(),
     setTimeout: jest.fn(),
+    clearTimeout: jest.fn(),
+    clearInterval: jest.fn(),
+    setImmediate: jest.fn(),
   });
   const evaluate = (source) =>
     vm.runInContext(
@@ -98,12 +110,14 @@ function loadShortcuts() {
     'closed',
     'enter-full-screen',
   ]);
+  const foundWindowEvents = new Set();
   let hasQuitHandler = false;
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
       const target = node.expression.getText(appSource);
       const event = node.arguments[0]?.text;
       if (target === 'browserWindow.on' && windowEvents.has(event)) {
+        foundWindowEvents.add(event);
         evaluate(node.getText(appSource));
       } else if (
         target === 'app.on' &&
@@ -117,6 +131,8 @@ function loadShortcuts() {
     ts.forEachChild(node, visit);
   };
   visit(appSource);
+  assert.deepEqual(foundWindowEvents, windowEvents);
+  assert.equal(hasQuitHandler, true);
   return { app, browserWindow, registered, state, ...context.exports };
 }
 
@@ -150,6 +166,16 @@ describe('desktop shortcut lifecycle', () => {
       await Promise.resolve();
       browserWindow.emit(event);
       expect(registered.size).toBe(0);
+    },
+  );
+
+  test.each(['focus', 'enter-full-screen'])(
+    '%s keeps shortcuts working on a focused visible window',
+    async (event) => {
+      const { browserWindow, registered } = loadShortcuts();
+      browserWindow.emit(event);
+      await Promise.resolve();
+      expect(registered.size).toBe(3);
     },
   );
 
