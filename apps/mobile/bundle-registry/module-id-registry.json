@@ -21780,6 +21780,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/layouts/TopCoinsDesktopLayout.tsx": 4660,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDesktopChartContainer.tsx": 19053,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDetailProChartControls.tsx": 12639,
+    "packages/kit/src/views/Market/MarketDetailV2/layouts/components/MarketStockTradeTarget.tsx": 21857,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/StockEventsSection.tsx": 11308,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/StockNewsSection.tsx": 13007,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/TokenDetailChart.tsx": 11062,
