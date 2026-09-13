@@ -21970,6 +21970,7 @@
     "packages/kit/src/views/Market/router/types.ts": 2754,
     "packages/kit/src/views/Market/testIDs.ts": 14131,
     "packages/kit/src/views/Market/utils/legacyMarketNetwork.ts": 17261,
+    "packages/kit/src/views/Market/utils/marketBannerUtils.ts": 21399,
     "packages/kit/src/views/Market/utils/marketHomeTokenListSeed.ts": 18601,
     "packages/kit/src/views/Market/utils/marketListingWatchlistIdentity.ts": 6406,
     "packages/kit/src/views/Market/utils/marketPerf.ts": 24120,
