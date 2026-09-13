@@ -290,24 +290,13 @@ export function DesktopLayout({
     typeof displayTokenDetail?.decimals === 'number' &&
     Number.isInteger(displayTokenDetail.decimals) &&
     displayTokenDetail.decimals >= 0;
-  const stockTradeScopeRef = useRef(stockId);
-  const hasRenderedStockTradeRef = useRef(false);
-  if (stockTradeScopeRef.current !== stockId) {
-    stockTradeScopeRef.current = stockId;
-    hasRenderedStockTradeRef.current = false;
-  }
-  if (shouldUseStockDesktopLayout && isSwapTokenReady) {
-    hasRenderedStockTradeRef.current = true;
-  }
-  // Keep a mounted trade panel alive while a sibling chain variant is
-  // resolving its metadata. The shared Swap channel then replaces only the
-  // token-dependent controls with skeletons; the initial cold start still
-  // waits for a complete execution token.
+  const isTradeLoading = shouldUseStockDesktopLayout && !isSwapTokenReady;
+  // Stock's embedded Swap owns transient token/config loading and renders its
+  // own skeletons. Only terminal route/ownership state should remove the
+  // trade panel; generic token layouts still wait for a resolved token before
+  // mounting Swap.
   const shouldDisableTrade =
-    disableTrade ||
-    (shouldUseStockDesktopLayout
-      ? !hasRenderedStockTradeRef.current && !isSwapTokenReady
-      : !isSwapTokenReady);
+    disableTrade || (!shouldUseStockDesktopLayout && !isSwapTokenReady);
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -535,6 +524,7 @@ export function DesktopLayout({
             !effectiveMarketTradingViewParams && !isStockSharePrice,
           )}
           disableTrade={shouldDisableTrade}
+          isTradeLoading={isTradeLoading}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}

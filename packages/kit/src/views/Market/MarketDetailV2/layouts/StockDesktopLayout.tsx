@@ -1301,6 +1301,7 @@ export function StockDesktopLayout({
   chartMode,
   isChartSwitchDisabled,
   disableTrade,
+  isTradeLoading,
   showFavoriteButton,
   isChartFullscreen,
   chartFullscreenZIndex,
@@ -1313,6 +1314,7 @@ export function StockDesktopLayout({
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   disableTrade?: boolean;
+  isTradeLoading?: boolean;
   showFavoriteButton: boolean;
   isChartFullscreen: boolean;
   chartFullscreenZIndex: number;
@@ -1403,6 +1405,7 @@ export function StockDesktopLayout({
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}
             disabled={disableTrade}
+            isTradeLoading={isTradeLoading}
             embeddedStockTrade
             stockTradeToken={swapToken}
             stockTradePortfolioData={stockPortfolioData}

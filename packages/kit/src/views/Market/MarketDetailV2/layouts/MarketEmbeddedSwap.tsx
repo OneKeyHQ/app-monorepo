@@ -51,7 +51,12 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
 
 function MarketEmbeddedSwapLoading() {
   return (
-    <YStack width="100%" minHeight={520} gap="$4">
+    <YStack
+      testID="market-embedded-swap-trade-loading"
+      width="100%"
+      minHeight={520}
+      gap="$4"
+    >
       <Skeleton h="$10" w="$44" borderRadius="$full" />
       <XStack h="$13" alignItems="center" justifyContent="space-between">
         <XStack alignItems="center" gap="$2">
@@ -213,6 +218,7 @@ function MarketEmbeddedSwapContent({
 function MarketEmbeddedSwapDraft({
   swapToken,
   disabled,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -222,6 +228,7 @@ function MarketEmbeddedSwapDraft({
 }: {
   swapToken: ISwapToken;
   disabled?: boolean;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -243,9 +250,20 @@ function MarketEmbeddedSwapDraft({
     };
   }, []);
 
+  const hasRenderedContentRef = useRef(false);
+
   // Disabled desktop routes render their own unavailable state (or no trade
-  // panel). Do not present a perpetual loading skeleton for a terminal state.
-  return disabled ? null : (
+  // panel). Transient stock identity loading keeps the panel shell visible;
+  // once the shell has mounted, the stock channel owns partial skeletons.
+  if (disabled) {
+    return null;
+  }
+  if (isTradeLoading && !hasRenderedContentRef.current) {
+    return <MarketEmbeddedSwapLoading />;
+  }
+  hasRenderedContentRef.current = true;
+
+  return (
     <MarketEmbeddedSwapContent
       swapToken={swapToken}
       inputDraft={inputDraftRef.current}
@@ -264,6 +282,7 @@ export function MarketEmbeddedSwap({
   swapToken,
   inputDraftKey,
   disabled,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -274,6 +293,7 @@ export function MarketEmbeddedSwap({
   swapToken: ISwapToken;
   inputDraftKey: string;
   disabled?: boolean;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -290,6 +310,7 @@ export function MarketEmbeddedSwap({
         key={inputDraftKey}
         swapToken={swapToken}
         disabled={disabled}
+        isTradeLoading={isTradeLoading}
         embeddedStockTrade={embeddedStockTrade}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={stockTradeHeader}

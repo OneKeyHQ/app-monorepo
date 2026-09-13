@@ -17,6 +17,13 @@ const mockNativeChartUnmount = jest.fn();
 let mockMarketPriceSource: 'share' | 'token' = 'share';
 let mockTokenAddress = '0xaapl';
 let mockTokenSymbol = 'AAPL';
+let mockDisplayTokenDetail = {
+  address: '0xaapl',
+  networkId: 'evm--1',
+  symbol: 'AAPL',
+  decimals: 18,
+  decimalsResolved: true,
+};
 let mockStockDetailState = {
   isStockRoute: true,
   stockId: 'AAPL',
@@ -133,12 +140,7 @@ jest.mock('../hooks/StockDetailContext', () => ({
 
 jest.mock('../hooks/useMarketDetailDisplayData', () => ({
   useMarketDetailDisplayData: jest.fn(() => ({
-    tokenDetail: {
-      address: '0xaapl',
-      networkId: 'evm--1',
-      symbol: mockTokenSymbol,
-      decimals: 18,
-    },
+    tokenDetail: mockDisplayTokenDetail,
   })),
 }));
 
@@ -219,6 +221,13 @@ describe('DesktopLayout', () => {
     mockMarketPriceSource = 'share';
     mockTokenAddress = '0xaapl';
     mockTokenSymbol = 'AAPL';
+    mockDisplayTokenDetail = {
+      address: '0xaapl',
+      networkId: 'evm--1',
+      symbol: 'AAPL',
+      decimals: 18,
+      decimalsResolved: true,
+    };
     mockStockDetailState = {
       isStockRoute: true,
       stockId: 'AAPL',
@@ -253,6 +262,44 @@ describe('DesktopLayout', () => {
 
     expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ disableTrade: true }),
+    );
+  });
+
+  it('keeps the stock trade panel enabled while token metadata is loading', () => {
+    const props = {
+      isChartFullscreen: false,
+      isTradingViewNative: false,
+      onChartSwitch: jest.fn(),
+      onChartFullscreenChange: jest.fn(),
+      isNative: false,
+      networkId: 'evm--1',
+      tokenAddress: '0xaapl',
+    } as const;
+    const { rerender } = render(<DesktopLayout {...props} />);
+
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      stockId: 'MSFT',
+      selectedTokenVariant: {
+        networkId: 'evm--1',
+        contractAddress: '0xmsft',
+        symbol: 'MSFT',
+        decimals: 18,
+      },
+    };
+    mockTokenAddress = '0xmsft';
+    mockTokenSymbol = 'MSFT';
+    mockDisplayTokenDetail = {
+      address: '0xmsft',
+      networkId: 'evm--1',
+      symbol: 'MSFT',
+      decimals: 0,
+      decimalsResolved: false,
+    };
+    rerender(<DesktopLayout {...props} tokenAddress="0xmsft" />);
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: false, isTradeLoading: true }),
     );
   });
 
