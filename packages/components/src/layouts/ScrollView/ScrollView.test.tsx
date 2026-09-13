@@ -1,40 +1,23 @@
 /** @jest-environment jsdom */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { render, screen } from '@testing-library/react';
+import { ScrollView as ReactNativeWebScrollView } from 'react-native';
+
+// jest-expo supplies a React Native mock; use the configured RNW mapping here.
+jest.unmock('react-native');
 
 const mockPlatformEnv = {
   isNative: false,
 };
 const CALLER_DATA_SET = { owner: 'caller' };
-
-jest.mock('react-native', () => {
-  const React = jest.requireActual('react') as typeof import('react');
-  const MockScrollView = React.forwardRef<
-    HTMLDivElement,
-    {
-      children?: React.ReactNode;
-      dataSet?: Record<string, string>;
-      testID?: string;
-    }
-  >(({ children, dataSet, testID }, ref) =>
-    React.createElement(
-      'div',
-      {
-        ref,
-        'data-onekey-scroll-view-scrollbar': dataSet?.onekeyScrollViewScrollbar,
-        'data-owner': dataSet?.owner,
-        'data-testid': testID,
-      },
-      children,
-    ),
-  );
-
-  MockScrollView.displayName = 'MockScrollView';
-
-  return {
-    ScrollView: MockScrollView,
-  };
-});
+const SCROLLBAR_ATTRIBUTE = 'data-onekey-scroll-view-scrollbar';
+const WEB_STYLES = readFileSync(
+  resolve(__dirname, '../../../../shared/src/web/index.css'),
+  'utf8',
+);
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -67,9 +50,7 @@ describe('ScrollView scroll indicators', () => {
     );
 
     expect(
-      screen
-        .getByTestId('scroll-view')
-        .getAttribute('data-onekey-scroll-view-scrollbar'),
+      screen.getByTestId('scroll-view').getAttribute(SCROLLBAR_ATTRIBUTE),
     ).toBe('visible');
   });
 
@@ -83,9 +64,7 @@ describe('ScrollView scroll indicators', () => {
     );
 
     expect(
-      screen
-        .getByTestId('scroll-view')
-        .getAttribute('data-onekey-scroll-view-scrollbar'),
+      screen.getByTestId('scroll-view').getAttribute(SCROLLBAR_ATTRIBUTE),
     ).toBe('visible');
   });
 
@@ -93,17 +72,13 @@ describe('ScrollView scroll indicators', () => {
     const { rerender } = render(<ScrollView testID="scroll-view" />);
 
     expect(
-      screen
-        .getByTestId('scroll-view')
-        .getAttribute('data-onekey-scroll-view-scrollbar'),
+      screen.getByTestId('scroll-view').getAttribute(SCROLLBAR_ATTRIBUTE),
     ).toBe('hidden');
 
     rerender(<ScrollView showsVerticalScrollIndicator testID="scroll-view" />);
 
     expect(
-      screen
-        .getByTestId('scroll-view')
-        .getAttribute('data-onekey-scroll-view-scrollbar'),
+      screen.getByTestId('scroll-view').getAttribute(SCROLLBAR_ATTRIBUTE),
     ).toBe('visible');
   });
 
@@ -117,9 +92,7 @@ describe('ScrollView scroll indicators', () => {
     );
 
     expect(
-      screen
-        .getByTestId('scroll-view')
-        .getAttribute('data-onekey-scroll-view-scrollbar'),
+      screen.getByTestId('scroll-view').getAttribute(SCROLLBAR_ATTRIBUTE),
     ).toBe('hidden');
   });
 
@@ -137,15 +110,68 @@ describe('ScrollView scroll indicators', () => {
     );
   });
 
+  it('does not let React Native Web hide the opposite indicator', () => {
+    render(
+      <>
+        <ReactNativeWebScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          showsVerticalScrollIndicator={false}
+          testID="rnw-hidden-scroll-view"
+        />
+        <ReactNativeWebScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          showsVerticalScrollIndicator
+          testID="rnw-visible-scroll-view"
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          showsVerticalScrollIndicator={false}
+          testID="scroll-view"
+        />
+      </>,
+    );
+
+    const rnwHiddenClassNames = new Set(
+      screen.getByTestId('rnw-hidden-scroll-view').className.split(' '),
+    );
+    const rnwVisibleClassNames = new Set(
+      screen.getByTestId('rnw-visible-scroll-view').className.split(' '),
+    );
+    const scrollViewClassNames = new Set(
+      screen.getByTestId('scroll-view').className.split(' '),
+    );
+    const rnwHiddenOnlyClassNames = [...rnwHiddenClassNames].filter(
+      (className) => !rnwVisibleClassNames.has(className),
+    );
+
+    expect(rnwHiddenOnlyClassNames).not.toHaveLength(0);
+    expect(
+      rnwHiddenOnlyClassNames.some((className) =>
+        scrollViewClassNames.has(className),
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps the DOM attribute and web selectors in sync', () => {
+    render(<ScrollView showsVerticalScrollIndicator testID="scroll-view" />);
+
+    expect(
+      document.querySelector(`[${SCROLLBAR_ATTRIBUTE}="visible"]`),
+    ).not.toBeNull();
+    expect(WEB_STYLES).toContain(`[${SCROLLBAR_ATTRIBUTE}='visible']`);
+    expect(WEB_STYLES).toContain(`[${SCROLLBAR_ATTRIBUTE}='hidden']`);
+  });
+
   it('does not add web scrollbar data on native', () => {
     mockPlatformEnv.isNative = true;
 
     render(<ScrollView showsVerticalScrollIndicator testID="scroll-view" />);
 
     expect(
-      screen
-        .getByTestId('scroll-view')
-        .getAttribute('data-onekey-scroll-view-scrollbar'),
+      screen.getByTestId('scroll-view').getAttribute(SCROLLBAR_ATTRIBUTE),
     ).toBeNull();
   });
 });
