@@ -19,6 +19,12 @@ type IAppModule = typeof import('./App');
 ).__ONEKEY_RUNTIME_KIND__ = 'main';
 
 require('@onekeyhq/shared/src/polyfills');
+const { prepareNativePromiseRejectionTracker } =
+  require('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native') as typeof import('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native');
+prepareNativePromiseRejectionTracker();
+const { finishMobileLockdown } =
+  require('./src/security/finishMobileLockdown') as typeof import('./src/security/finishMobileLockdown');
+finishMobileLockdown('main');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
 markRuntimePolyfillsReady();
@@ -71,6 +77,16 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
       const { getNativeSplitBundleLoader } =
         require('./src/splitBundle/nativeBridge') as typeof import('./src/splitBundle/nativeBridge');
       installProdBundleLoader(getNativeSplitBundleLoader());
+    }
+    if (process.env.ONEKEY_MOBILE_LOCKDOWN_E2E) {
+      const { runMobileLockdownReleaseCheck } =
+        require('./src/security/mobileLockdownReleaseCheck') as typeof import('./src/security/mobileLockdownReleaseCheck');
+      const { getNativeSplitBundleLoader } =
+        require('./src/splitBundle/nativeBridge') as typeof import('./src/splitBundle/nativeBridge');
+      void runMobileLockdownReleaseCheck('main', getNativeSplitBundleLoader());
+      const { requestMobileLockdownWebEmbedMount } =
+        require('./src/security/mobileLockdownWebEmbedReleaseCheck') as typeof import('./src/security/mobileLockdownWebEmbedReleaseCheck');
+      void requestMobileLockdownWebEmbedMount();
     }
     const { NativeLogger: _NL2, LogLevel: _LL2 } =
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');

@@ -1,0 +1,10 @@
+[
+  {
+    "effectiveValue": false,
+    "field": "globals",
+    "generatedValue": true,
+    "name": "process",
+    "resource": "electron-check-biometric-auth-changed",
+    "type": "global"
+  }
+]

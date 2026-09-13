@@ -1,0 +1,65 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/components": {
+      "globals": {
+        "desktopApi.addIpcEventListener": true,
+        "desktopApiProxy": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "chrome.storage.local.get": true,
+        "chrome.storage.local.remove": true,
+        "chrome.storage.local.set": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "chrome": true,
+        "desktopApi": true,
+        "desktopApiProxy": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "chrome": true,
+        "desktopApi": true,
+        "desktopApiProxy": true
+      }
+    },
+    "@onekeyhq/kit>lightweight-charts": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "browser.windows.getLastFocused": true,
+        "chrome": true,
+        "desktopApi": true,
+        "desktopApiProxy": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-web-device/dist/index.js": {
+      "globals": {
+        "desktopApi": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "external:../../node_modules/react-virtualized/dist/es/Grid/utils/maxElementSize.js": {
+      "globals": {
+        "chrome": true
+      }
+    }
+  }
+}

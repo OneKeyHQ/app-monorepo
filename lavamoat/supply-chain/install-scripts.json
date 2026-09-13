@@ -1,0 +1,494 @@
+{
+  "version": 1,
+  "gitDependencies": [
+    {
+      "resolution": "@reown/appkit-ethers5-react-native@https://github.com/OneKeyHQ/app-modules.git#commit=9d96daccc13625e5b3c8b236f9357956b049b884",
+      "checksum": "10/153b7783394a95395c603b0567accac2c6a316988d79b6011d026edce1230aa693a9a812ed49f2e75d4b7430c60613ac0d5fbc59007d48f9f3eae329a02ffe60",
+      "reason": "Existing pinned source dependency; preserve the reviewed commit and packed artifact checksum."
+    },
+    {
+      "resolution": "@reown/appkit-scaffold-react-native@https://github.com/OneKeyHQ/app-modules.git#commit=ef39e1c6682f8b50dc019a851f6e2211392d353a",
+      "checksum": "10/2fa4d7c618def687eaf064321e0cd93f8006276cacfaa381dfcde5e7257b86ed667567b67a7dbbf09024a1fdc3307639e5f063c0c4d3212eced5241cacdb41ed",
+      "reason": "Existing pinned source dependency; preserve the reviewed commit and packed artifact checksum."
+    },
+    {
+      "resolution": "@reown/appkit-scaffold-utils-react-native@https://github.com/OneKeyHQ/app-modules.git#commit=aa31ef69e5058bb822c40f0a706ee9bdd191b005",
+      "checksum": "10/a653ab141ba389acd9e4a28360c6bb779df7c56e0ece38d9c9297ff96f818ec2102b9b7085505d1b722e753d183a064993ea0cefd28675868aac64c4a7674e76",
+      "reason": "Existing pinned source dependency; preserve the reviewed commit and packed artifact checksum."
+    },
+    {
+      "resolution": "avsc@https://github.com/Irys-xyz/avsc.git#commit=a730cc8018b79e114b6a3381bbb57760a24c6cef",
+      "checksum": "10/49c1796264ea46bbcad6740bc6bc5c9925a92eb35b0795cbef608e7e7c1cb385abbe88f8eba36a4a734fccaa80813d2cb5d33abbbb1ccdd968a00ec7b3a23a1e",
+      "reason": "Existing pinned source dependency; preserve the reviewed commit and packed artifact checksum."
+    },
+    {
+      "resolution": "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c",
+      "checksum": "10/f101f871f043f355968154d826d5ccb83547089367959bf005b443b9825f4ee2bdfcdedb4d2552bc27a17937bf7ae6d843f897f4ab872331efae717d5de2fa9b",
+      "reason": "Existing pinned source dependency; preserve the reviewed commit and packed artifact checksum."
+    },
+    {
+      "resolution": "jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git#commit=33eca9ebd18aba2ed6810f26f00add94211d9156",
+      "checksum": "10/3f5f6a0089d428f3c9d3c1a139d0b686e8468b8c205ae67e97e3f07226ec789e7b12cc08001a2809c8fcb907c4065fd1f4ea9bee04f9490141cab407c41d2830",
+      "reason": "Existing pinned source dependency; preserve the reviewed commit and packed artifact checksum."
+    }
+  ],
+  "packages": [
+    {
+      "resolution": "@onekeyfe/electron-mac-icloud@npm:1.2.6",
+      "version": "1.2.6",
+      "scripts": {
+        "install": "node -e \"if(process.platform === 'darwin') { require('child_process').execSync('node-gyp rebuild', {stdio: 'inherit'}) }\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/e136cddc0aac866ae3edca87e84e5c4b48ccbb776d1da60fb66286297a25303521a1c8fcfce548b783b2d4cf82de428b2c69cc7d850e7926417824af8b0cf370",
+      "allow": true,
+      "reason": "Builds the macOS iCloud native addon required by Desktop; platform-guarded node-gyp rebuild."
+    },
+    {
+      "resolution": "@reown/appkit@npm:1.8.9",
+      "version": "1.8.9",
+      "scripts": {
+        "postinstall": "node scripts/appkit-version-check.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/031d9f1a78f51b9c2b07ee90731378da532df27186ec244de77cc43a4f0cd829bd58928670f71d4fff8b36a9ae89d72a0debfcbcde9435296d0004122c0c03ba",
+      "allow": false,
+      "reason": "Only prints dependency version guidance; unnecessary for application or native builds."
+    },
+    {
+      "resolution": "@sentry/cli@npm:2.38.2",
+      "version": "2.38.2",
+      "scripts": {
+        "postinstall": "node ./scripts/install.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/4595c35461c8a10c32edb38d55b556eef7af1aea20bacc8169dbff68c1b913142ec79d9e65027891e9741d32b2039c4cac331eea17930abf5dcdac8797c9008e",
+      "allow": false,
+      "reason": "The CLI resolves its locked optional platform binary directly; disable the fallback installer, including its cache path that does not validate checksums before execution."
+    },
+    {
+      "resolution": "@sentry/cli@npm:3.2.2",
+      "version": "3.2.2",
+      "scripts": {
+        "postinstall": "node ./scripts/install.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/9991ff1077779ae6f559180b5bef636b826af71ce48fa273e3273dc19fb039cda29333613850fadecebf6ad0e7fefa645ee407531666c899326fc368404c9fb2",
+      "allow": false,
+      "reason": "The CLI resolves its locked optional platform binary directly; disable the fallback installer, including its cache path that does not validate checksums before execution."
+    },
+    {
+      "resolution": "@serialport/bindings-cpp@npm:12.0.1",
+      "version": "12.0.1",
+      "scripts": {
+        "install": "node-gyp-build"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/095ab46c39458fe3c1698a991907e0f9da268c306b66c9810fe34b6f5c6040b41be51d1a4dfc3a315aee3e12dcc01d47fcc7767574eb97aa5149e5d0d489a8aa",
+      "allow": true,
+      "reason": "Loads or builds the published serial port native binding used by hardware transport."
+    },
+    {
+      "resolution": "@shopify/react-native-skia@npm:2.6.2",
+      "version": "2.6.2",
+      "scripts": {
+        "postinstall": "node scripts/install-libs.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/cdcdb6058ec21d836f874a0a37b385448d06d4faadc8b5b134c1f37826bba04cf6aedbc9dea2d42cb79f0b1bfe7a692571f374c378614dfb84ae120366d1887b",
+      "allow": true,
+      "reason": "Copies already installed, lockfile-pinned Apple frameworks and Android libraries into the native build layout; no network download."
+    },
+    {
+      "resolution": "@stoprocent/bluetooth-hci-socket@npm:2.2.5",
+      "version": "2.2.5",
+      "scripts": {
+        "install": "node-gyp-build"
+      },
+      "implicitNodeGyp": false,
+      "checksum": null,
+      "allow": true,
+      "reason": "Loads or builds the published Bluetooth HCI native binding for supported Desktop platforms.",
+      "fileHashes": {
+        "FUNDING.yml": "91c72bf5413187255f0bbe296e3ffdbb94727baa20acac4ee458d68e3b0b39ce",
+        "LICENSE": "ed51aa04c897ddff4c8017c734324abaa8b2b9462afbfbaca2f2f5998634a088",
+        "README.md": "93c9aef27b0e0218ec0e777ce733a35343267ccdd041bfe0194c6e1a27055bcd",
+        "binding.gyp": "e1efba87682f1761cb40acdee89200c404a25d26182a6c91edd33529a3a062b0",
+        "examples/le-advertisement-test.js": "2ed35006117e695045002fad0454f036ba3aecb011bfdbc610c4249c0c14463e",
+        "examples/le-connection-test.js": "e8499fed6ed1dfaeb6480e5407d82da4682d5f02ade0f45b14f67513fbb70664",
+        "examples/le-scan-test.js": "11f4c05822a1dce2a74fd877e10a4c68a723d1df8a043ff36e6898dae9c82f5c",
+        "examples/list-devices-test.js": "36c405d23293e793ea5155802ad6650ae84628774e58d98ff0c25346ea61633c",
+        "examples/mgmt-test.js": "5caa06fe441cc3f3faa5be5b3618b744f82ae529732d7a5e55cc39578de47087",
+        "include/BluetoothHciL2Socket.h": "6aed5268584e5f6f4ab0816e4b9b87bd728fe11699f58436d43e0ac20218c7f1",
+        "include/BluetoothHciSocket.h": "d89964aa0681059f431b06846b0aa5633494bacf3ea1fea8fbd5a496e3dbb925",
+        "include/BluetoothStructs.h": "883938a14008a1b014650813150ff47660f8e5f345d726c4e357d9a44acd1bf5",
+        "index.d.ts": "63e0ab99a3b765a76bea5c0bf85f7e1d67a0cb8c34b1889ff12a8a97c153d3e2",
+        "index.js": "9f9c5d6184eb0050f090421af067a2a35ea7127a10f79db1d4cfbd6af8de846b",
+        "lib/native.js": "a30c5fc9c56be7d364c3b3822e294c34c351cea837dfb8c061805c2acd8d1b07",
+        "lib/uart.js": "5e57d8ec2e184545121395f954c52e5ac5e132deabbfd1384bb95477de6c3a22",
+        "lib/uart/hci-serial-parser.js": "cfeca6b23b78239e45552f15b428f5bfcc85abb01450dba88355a1acdc427549",
+        "lib/unsupported.js": "6d9996331d693c940da693041f27cd734621e711fd4f632fd01bbdb4f48ceaf8",
+        "lib/usb.js": "468fcadc5713ce47dc7e5908909589f6247058e898d7796dd1a8373251ac1199",
+        "package.json": "6a0580f4fc073a5ad5aa014eb078f158b0bbe1a95e009071ffc5dd4df192388c",
+        "patches/@vweevers+docker-pull+1.1.1.patch": "06e40769eb116ab864474f23e2f719b29c35a6ca5bf2aca99c1aa165bb7479ef",
+        "patches/docker-run+3.1.0.patch": "20c642a4d9da2a6f9e7bc6661f5403f3d3162ab6d379a7b80b0657b8968135f1",
+        "patches/prebuildify-cross+5.1.0.patch": "614349d7a0bd5f8cd6792e75a106f72c9f21f5143331c1c765090f6696fc64be",
+        "prebuilds/android-arm/@stoprocent+bluetooth-hci-socket.armv7.node": "910ba9800a9710460130278f0154b5908053c8575c4e19e816064faf605714d6",
+        "prebuilds/android-arm64/@stoprocent+bluetooth-hci-socket.armv8.node": "90aa802e55eb37bbb1e6d3c2e07a6e55760e1e05a0e1d519376c71e1ee4a95f9",
+        "prebuilds/darwin-x64+arm64/@stoprocent+bluetooth-hci-socket.node": "bcb7db99cd5d11ded838b0f010c37e1eb8b0f8836bd5075951c89b9bed7990e9",
+        "prebuilds/linux-arm/@stoprocent+bluetooth-hci-socket.armv6.node": "3183f87430495b51abe473c7d1f41d882f9f76ca910f1827f62882cf2260adf0",
+        "prebuilds/linux-arm/@stoprocent+bluetooth-hci-socket.armv7.node": "45d19f8a18279ec57fa14d9f504523b6bc3ae7516db6cbff4e8c769dbd0032e3",
+        "prebuilds/linux-arm64/@stoprocent+bluetooth-hci-socket.armv8.node": "93a030682830fd1493e38eed20bfa4372c9850e4622a1e1a770613b1119e4229",
+        "prebuilds/linux-x64/@stoprocent+bluetooth-hci-socket.glibc.node": "2e77622136a3ebada61c275868bf320d84002ff12aab6708be1568219f6a4706",
+        "prebuilds/linux-x64/@stoprocent+bluetooth-hci-socket.musl.node": "becbaf12723fa5b39b22d297bc387ab3d082e97e9fd062d857a43adb96856115",
+        "prebuilds/win32-ia32/@stoprocent+bluetooth-hci-socket.node": "c7c4291c947403d02db94cec71f8fd737e275c6d6e2401028b3a576bbd818616",
+        "prebuilds/win32-x64/@stoprocent+bluetooth-hci-socket.node": "49dc5ff483f3d46476961777c68969c79cd3a6867369ec6d7336108c5f62310b",
+        "src/BluetoothHciL2Socket.cpp": "f6b8c8adb7b62734d51d140c4483a0a6ede5d63d8d25e6c98c79afca9df24d23",
+        "src/BluetoothHciSocket.cpp": "45aeb890150e4b2281367f507489dee9befedd062f5a5ba5c9ec1e30a67aca57"
+      },
+      "archiveSha512": "66628636508cd75881edc08d402e0603f99dff6896cf3271a3f67d22816f6e09e0cb1f37040b4040f87700e2395f49b4562c59bd9b1b690cfbdb03375e38f270"
+    },
+    {
+      "resolution": "@stoprocent/noble@npm:2.3.16",
+      "version": "2.3.16",
+      "scripts": {
+        "install": "node-gyp-build"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/59e9a3c5abeb9fbc3efbbb3bf12ca282810e8aeaf8ca6a5921cb01dc4d027436c0fc99a63cee126ec461c2ab1cfef629acdfb03e419d42ee8b74d98d4a47b163",
+      "allow": true,
+      "reason": "Loads or builds the published BLE native binding used by Desktop hardware transport."
+    },
+    {
+      "resolution": "@swc/core@npm:1.7.6",
+      "version": "1.7.6",
+      "scripts": {
+        "postinstall": "node postinstall.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/09a089e3d9db118a6d6c4ead90364ae2ce8581a893e4c4c95db135431abf74c1d8d58558c27e557d2d7822bb3c25a114f4ed5cdd8465465d84733416a2c49d87",
+      "allow": false,
+      "reason": "Platform binaries are installed through locked optional dependencies; skip the fallback npm installer and verify native transforms in CI."
+    },
+    {
+      "resolution": "bigint-buffer@npm:1.1.5",
+      "version": "1.1.5",
+      "scripts": {
+        "install": "npm run rebuild || echo \"Couldn't build bindings. Non-native version used.\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/be70c7ad00f5e1a4739251755ef35fe8f183ec34782353cfde0820dcc7c84eefa647c12d75c003650a19c333a0528fde2d4fb9d0c41c724c27cd6b0245d20987",
+      "allow": true,
+      "reason": "Preserves existing optional native integer conversion; its installer explicitly retains the JavaScript fallback on compilation failure."
+    },
+    {
+      "resolution": "blake-hash@npm:2.0.0",
+      "version": "2.0.0",
+      "scripts": {
+        "install": "node-gyp-build || exit 0"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/91cb584c2c98bfeb94f2fe01ab1663577fd8a69c330b03ea071ce53eda8e3e28293da891e3eacd78a95ad1275325cf7055e39294535c0474f297ada373083fd2",
+      "allow": true,
+      "reason": "Preserves the existing optional native hash binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "bufferutil@npm:4.0.8",
+      "version": "4.0.8",
+      "scripts": {
+        "install": "node-gyp-build"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/d9337badc960a19d5a031db5de47159d7d8a11b6bab399bdfbf464ffa9ecd2972fef19bb61a7d2827e0c55f912c20713e12343386b86cb013f2b99c2324ab6a3",
+      "allow": true,
+      "reason": "Preserves the existing optional WebSocket native acceleration; node-gyp-build uses packaged prebuilds when available."
+    },
+    {
+      "resolution": "core-js-pure@npm:3.34.0",
+      "version": "3.34.0",
+      "scripts": {
+        "postinstall": "node -e \"try{require('./postinstall')}catch(e){}\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/d0f9487663e329651abdae508119c46dd4eed91cc746dd1e1b2c389440281133e17dd4ee3c45541761216b6cd75879ee1050a6276dde34df0381980956d28f94",
+      "allow": false,
+      "reason": "Only prints an installation/support message; no runtime setup is required."
+    },
+    {
+      "resolution": "core-js@npm:2.6.12",
+      "version": "2.6.12",
+      "scripts": {
+        "postinstall": "node -e \"try{require('./postinstall')}catch(e){}\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/7c624eb00a59c74c769d5d80f751f3bf1fc6201205b6562f27286ad5e00bbca1483f2f7eb0c2854b86f526ef5c7dc958b45f2ff536f8a31b8e9cb1a13a96efca",
+      "allow": false,
+      "reason": "Only prints an installation/support message; no runtime setup is required."
+    },
+    {
+      "resolution": "core-js@npm:3.49.0",
+      "version": "3.49.0",
+      "scripts": {
+        "postinstall": "node -e \"try{require('./postinstall')}catch(e){}\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/31d018f9830b0240ae40869e380595f2d06a8800709ad63299a42a438ba0c8d5805045fa02a20a78f42761d83103b0b71eca982955f5e890fb7cf6b2fe6a9ab1",
+      "allow": false,
+      "reason": "Only prints an installation/support message; no runtime setup is required."
+    },
+    {
+      "resolution": "detox@npm:20.46.3",
+      "version": "20.46.3",
+      "scripts": {
+        "postinstall": "node scripts/postinstall.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/2b160510fd926c353766c7892abcf7d09ed6d95efc77c477216bce3e7138a692fa3b03f7c06a8a5bae061f1ed22d937546823fb7e96b879eb9ebd98f2149c90a",
+      "allow": true,
+      "reason": "Builds local iOS test frameworks on macOS and adjusts the Android Gradle test configuration."
+    },
+    {
+      "resolution": "dtrace-provider@npm:0.8.8",
+      "version": "0.8.8",
+      "scripts": {
+        "install": "node-gyp rebuild || node suppress-error.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/ab558f3bd04a91362a14ce4aeeaf4fac885d8762391612410c032bcf7bd0deed003c8faaf43f906c4ed87ff814893fb6dcc79e0c952d7967b325722b471b3775",
+      "allow": false,
+      "reason": "Optional host diagnostics instrumentation is not required by the application."
+    },
+    {
+      "resolution": "electron-check-biometric-auth-changed@npm:1.0.0",
+      "version": "1.0.0",
+      "scripts": {
+        "install": "node -e \"if(process.platform === 'darwin') { require('child_process').execSync('node-gyp rebuild', {stdio: 'inherit'}) }\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/f354e80c6b996c152d61484ef9e9be23ecb2fa23cd1f69dd2d1da745c8647efaf733262004af03d7345981848752a3620ddc94a7a69a4254c7098f22e43bde90",
+      "allow": true,
+      "reason": "Builds the macOS biometric state native addon required by Desktop; platform-guarded node-gyp rebuild."
+    },
+    {
+      "resolution": "es5-ext@npm:0.10.64",
+      "version": "0.10.64",
+      "scripts": {
+        "postinstall": " node -e \"try{require('./_postinstall')}catch(e){}\" || exit 0"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/0c5d8657708b1695ddc4b06f4e0b9fbdda4d2fe46d037b6bedb49a7d1931e542ec9eecf4824d59e1d357e93229deab014bb4b86485db2d41b1d68e54439689ce",
+      "allow": false,
+      "reason": "Only prints an installation message; no runtime setup is required."
+    },
+    {
+      "resolution": "esbuild@npm:0.14.54",
+      "version": "0.14.54",
+      "scripts": {
+        "postinstall": "node install.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/d244f9e9bd0c56f1b64665a563aeeda9d5b6346a1ef68aebcb9b60be7f6cb8c4a552bbb0cafbc2ac1c774e46944253238c1bea9ace337df0c5aa1a65d591dddc",
+      "allow": false,
+      "reason": "Locked optional platform packages support the CLI and API directly; disable the installer to prevent independent npm installs and unchecked fallback archive downloads."
+    },
+    {
+      "resolution": "esbuild@npm:0.25.12",
+      "version": "0.25.12",
+      "scripts": {
+        "postinstall": "node install.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/bc9c03d64e96a0632a926662c9d29decafb13a40e5c91790f632f02939bc568edc9abe0ee5d8055085a2819a00139eb12e223cfb8126dbf89bbc569f125d91fd",
+      "allow": false,
+      "reason": "Locked optional platform packages support the CLI and API directly; disable the installer to prevent independent npm installs and unchecked fallback archive downloads."
+    },
+    {
+      "resolution": "esbuild@npm:0.27.2",
+      "version": "0.27.2",
+      "scripts": {
+        "postinstall": "node install.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/7f1229328b0efc63c4184a61a7eb303df1e99818cc1d9e309fb92600703008e69821e8e984e9e9f54a627da14e0960d561db3a93029482ef96dc82dd267a60c2",
+      "allow": false,
+      "reason": "Locked optional platform packages support the CLI and API directly; disable the installer to prevent independent npm installs and unchecked fallback archive downloads."
+    },
+    {
+      "resolution": "esbuild@npm:0.27.7",
+      "version": "0.27.7",
+      "scripts": {
+        "postinstall": "node install.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/262b16c4a33cb70e9f054759a7ce420541649315eef7b064172c795021ccce322e56c3f5fd52e8842873f1c23745f3ab62311a24860950bd5406ba77b36b8529",
+      "allow": false,
+      "reason": "Locked optional platform packages support the CLI and API directly; disable the installer to prevent independent npm installs and unchecked fallback archive downloads."
+    },
+    {
+      "resolution": "esbuild@npm:0.28.1",
+      "version": "0.28.1",
+      "scripts": {
+        "postinstall": "node install.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/aaa4a922644afffac45e735c99caf343f881e2d36abcc6b6fb53c230bd69940504a5bb6b0041bdd1a690e748ebc681d3308a7d178987c523d74c63c2c280bac8",
+      "allow": false,
+      "reason": "Locked optional platform packages support the CLI and API directly; disable the installer to prevent independent npm installs and unchecked fallback archive downloads."
+    },
+    {
+      "resolution": "esbuild@npm:0.28.2",
+      "version": "0.28.2",
+      "scripts": {
+        "postinstall": "node install.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/c21a050b308c6f4b99e1a6ed458661d49b83b424b05c5e0851072f7b01fc2999910754454f6833599175d6c94102d99e400849dd67cfcbeef4f0aec7dfa504a6",
+      "allow": false,
+      "reason": "Locked optional platform packages support the CLI and API directly; disable the installer to prevent independent npm installs and unchecked fallback archive downloads."
+    },
+    {
+      "resolution": "keccak@npm:1.4.0",
+      "version": "1.4.0",
+      "scripts": {
+        "install": "npm run rebuild || echo \"Keccak bindings compilation fail. Pure JS implementation will be used.\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/9d1c0ec9849330e95111d95a964720498e4041f5464563156e7b5df9881f979eebdd5d07e27aae5db6c3f17479a1f84a3084ebc5334a4ad9e4a9eed2141ffdb1",
+      "allow": true,
+      "reason": "Preserves the existing optional native hash binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "keccak@npm:2.1.0",
+      "version": "2.1.0",
+      "scripts": {
+        "install": "npm run rebuild || echo \"Keccak bindings compilation fail. Pure JS implementation will be used.\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/e9a0263081eca5b533bdd68c52e6634081557a79ba4545dde0c0f2bdc16dd656ebab2e21a167c347ef04eae2188fecd6d399a186e289344d5baf797890d28e45",
+      "allow": true,
+      "reason": "Preserves the existing optional native hash binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "keccak@npm:3.0.4",
+      "version": "3.0.4",
+      "scripts": {
+        "install": "node-gyp-build || exit 0"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/45478bb0a57e44d0108646499b8360914b0fbc8b0e088f1076659cb34faaa9eb829c40f6dd9dadb3460bb86cc33153c41fed37fe5ce09465a60e71e78c23fa55",
+      "allow": true,
+      "reason": "Preserves the existing optional native hash binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "protobufjs@npm:6.11.4",
+      "version": "6.11.4",
+      "scripts": {
+        "postinstall": "node scripts/postinstall"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/6b7fd7540d74350d65c38f69f398c9995ae019da070e79d9cd464a458c6d19b40b07c9a026be4e10704c824a344b603307745863310c50026ebd661ce4da0663",
+      "allow": false,
+      "reason": "Creates an optional CLI directory and prints version guidance; runtime generated codecs do not need this hook."
+    },
+    {
+      "resolution": "react-native-video@npm:7.0.0-beta.11",
+      "version": "7.0.0-beta.11",
+      "scripts": {
+        "postinstall": "bun run build || exit 0;"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/28780af0919d0f3779bd262e4f3978df8fb867c0511d26b6c7f6342e1652985af7b446bfc1985e4c329d8341fd8c49ed49816a4365bf68f69c7ff8b99349976b",
+      "allow": false,
+      "reason": "The published package already includes lib/ and native sources; rebuilding with Bun is unnecessary."
+    },
+    {
+      "resolution": "realm@npm:20.2.0",
+      "version": "20.2.0",
+      "scripts": {
+        "install": "prebuild-install --runtime napi || echo 'Failed to download prebuild for Realm'",
+        "postinstall": "node ./scripts/submit-analytics.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/935715ba628ecc33c827aea6ce4e47fe5855e51458e92f9acf88f00ef1fd16aeef798c5c45f57661fd87386641515d9c9326e5c2533af6e44746b3549f011e2b",
+      "allow": false,
+      "reason": "Mobile builds Realm through CocoaPods/Gradle; skip the Node prebuild installer and install-time analytics."
+    },
+    {
+      "resolution": "secp256k1@npm:3.8.1",
+      "version": "3.8.1",
+      "scripts": {
+        "install": "npm run rebuild || echo \"Secp256k1 bindings compilation fail. Pure JS implementation will be used.\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/dfe9621aea56268878ed384cbf8aac55ad7d3a887816d6e130d202ad679a25546f0079b22ab462f605c30668733e6b7676e4e77c63542d6fc45a7a5ad9ebb3f4",
+      "allow": true,
+      "reason": "Preserves the existing optional native elliptic curve binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "secp256k1@npm:4.0.4",
+      "version": "4.0.4",
+      "scripts": {
+        "install": "node-gyp-build || exit 0"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/45000f348c853df7c1e2b67c48efb062ae78c0620ab1a5cfb02fa20d3aad39c641f4e7a18b3de3b54a7c0cc1e0addeb8ecd9d88bc332e92df17a92b60c36122a",
+      "allow": true,
+      "reason": "Preserves the existing optional native elliptic curve binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "secp256k1@npm:5.0.1",
+      "version": "5.0.1",
+      "scripts": {
+        "install": "node-gyp-build || exit 0"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/63fbd35624be4fd9cf3d39e5f79c5471b4a8aea6944453b2bea7b100bb1c77a25c55e6e08e2210cdabdf478c4c62d34c408b34214f2afd9367e19a52a3a4236c",
+      "allow": true,
+      "reason": "Preserves the existing optional native elliptic curve binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "tiny-secp256k1@npm:1.1.6",
+      "version": "1.1.6",
+      "scripts": {
+        "install": "npm run build || echo \"secp256k1 bindings compilation fail. Pure JS implementation will be used.\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/e25b45ba3e95a332d21556617f2049f7ef065c737dd979e197856f35ef0bd9ee5608872f0068e5cddf0b50919b43b8eaca86bdea560f623e63ec5c560934ca9b",
+      "allow": true,
+      "reason": "Preserves the existing optional native elliptic curve binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "tiny-secp256k1@npm:1.1.7",
+      "version": "1.1.7",
+      "scripts": {
+        "install": "npm run build || echo \"secp256k1 bindings compilation fail. Pure JS implementation will be used.\""
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/588393c36df18b2819787fc91616e1fcb930509307eecc460ad45c7011f99f900eea28493a36eb203c3933ae76f737e6a1b978fa0b8a391fcc5dd7b64d57c572",
+      "allow": true,
+      "reason": "Preserves the existing optional native elliptic curve binding and its JavaScript fallback; no cryptographic implementation changes."
+    },
+    {
+      "resolution": "usb@npm:2.16.0",
+      "version": "2.16.0",
+      "scripts": {
+        "install": "node-gyp-build"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/610a1a06e788c68d53dc839327cfd61ff97d2e42055c424beefeb35675513ced0d3c9d66a21fcc41e343dfe4089cfc44130310d6054cc6f9a0f2bc5262b171aa",
+      "allow": true,
+      "reason": "Loads or builds the published USB native binding used by hardware transport."
+    },
+    {
+      "resolution": "utf-8-validate@npm:5.0.10",
+      "version": "5.0.10",
+      "scripts": {
+        "install": "node-gyp-build"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/b89cbc13b4badad04828349ebb7aa2ab1edcb02b46ab12ce0ba5b2d6886d684ad4e93347819e3c8d36224c8742422d2dca69f5cc16c72ae4d7eeecc0c5cb544b",
+      "allow": true,
+      "reason": "Preserves the existing optional WebSocket validation acceleration; node-gyp-build uses packaged prebuilds when available."
+    }
+  ]
+}

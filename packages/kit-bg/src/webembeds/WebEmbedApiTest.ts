@@ -12,6 +12,16 @@ class WebEmbedApiTest {
     return Promise.resolve(globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS);
   }
 
+  getRuntimeSecurityState() {
+    return Promise.resolve({
+      hardenType: typeof globalThis.harden,
+      objectFrozen: Object.isFrozen(Object.prototype),
+      arrayFrozen: Object.isFrozen(Array.prototype),
+      functionFrozen: Object.isFrozen(Function.prototype),
+      promiseFrozen: Object.isFrozen(Promise.prototype),
+    });
+  }
+
   trackEvent() {
     defaultLogger.app.page.testWebEmbed();
   }

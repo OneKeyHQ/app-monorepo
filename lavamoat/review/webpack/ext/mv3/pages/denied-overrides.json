@@ -1,0 +1,38 @@
+[
+  {
+    "category": "extension-desktop-bridge",
+    "effectiveValue": false,
+    "field": "globals",
+    "generatedValue": true,
+    "name": "chrome",
+    "resource": "@onekeyhq/kit>lightweight-charts",
+    "type": "global"
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "effectiveValue": false,
+    "field": "globals",
+    "generatedValue": true,
+    "name": "chrome",
+    "resource": "external:../../node_modules/@onekeyfe/hd-core/dist/index.js",
+    "type": "global"
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "effectiveValue": false,
+    "field": "globals",
+    "generatedValue": true,
+    "name": "chrome",
+    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "type": "global"
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "effectiveValue": false,
+    "field": "globals",
+    "generatedValue": true,
+    "name": "chrome",
+    "resource": "external:../../node_modules/react-virtualized/dist/es/Grid/utils/maxElementSize.js",
+    "type": "global"
+  }
+]

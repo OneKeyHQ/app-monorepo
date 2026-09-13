@@ -1,0 +1,5 @@
+{
+  "@babel/traverse": {
+    "@babel/traverse>debug": true
+  }
+}

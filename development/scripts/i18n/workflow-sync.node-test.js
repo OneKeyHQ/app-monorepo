@@ -6,6 +6,7 @@ const { test } = require('node:test');
 
 const { applyPlan } = require('./workflow-apply');
 const {
+  ENUM_PATH,
   LOCALES_PATH,
   ROOT,
   generatedHashes,
@@ -39,6 +40,38 @@ test('the real locale generator supports an isolated output root without touchin
     loadCatalog(ctx.root).values.en_US['global.existing'],
     ctx.old.en_US,
   );
+});
+
+test('the local generator removes repeated enum keys without changing canonical locale values', (t) => {
+  const ctx = fixture(t);
+  const enumPath = path.join(ctx.root, ENUM_PATH);
+  fs.writeFileSync(
+    enumPath,
+    "export enum ETranslations {\n global_existing = 'global.existing',\n global_existing = 'global.existing',\n}\n",
+  );
+  const before = loadCatalog(ctx.root);
+  const localeHashes = Object.fromEntries(
+    Object.entries(generatedHashes(ctx.root)).filter(([file]) =>
+      file.startsWith(`${LOCALES_PATH}/`),
+    ),
+  );
+  execFileSync(process.execPath, [
+    path.join(ROOT, 'development/scripts/i18n/build-locale-json-map.js'),
+    '--output-root',
+    ctx.root,
+  ]);
+  const members = [
+    ...fs.readFileSync(enumPath, 'utf8').matchAll(/\s+(\w+) = '([^']+)',/g),
+  ];
+  assert.equal(members.length, before.members.size);
+  assert.deepEqual(
+    members.map(([, member, key]) => [member, key]),
+    [...before.members],
+  );
+  assert.deepEqual(loadCatalog(ctx.root).values, before.values);
+  const after = generatedHashes(ctx.root);
+  for (const [file, hash] of Object.entries(localeHashes))
+    assert.equal(after[file], hash);
 });
 
 async function start(ctx, api, overrides = {}) {

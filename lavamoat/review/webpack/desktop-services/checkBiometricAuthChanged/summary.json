@@ -1,0 +1,45 @@
+{
+  "categoryCounts": {
+    "code-execution": {
+      "entries": 0,
+      "resources": 0
+    },
+    "crypto-random": {
+      "entries": 0,
+      "resources": 0
+    },
+    "dom-injection-navigation": {
+      "entries": 0,
+      "resources": 0
+    },
+    "extension-desktop-bridge": {
+      "entries": 0,
+      "resources": 0
+    },
+    "hardware-device": {
+      "entries": 0,
+      "resources": 0
+    },
+    "network": {
+      "entries": 0,
+      "resources": 0
+    },
+    "node-system": {
+      "entries": 0,
+      "resources": 0
+    },
+    "storage-privacy": {
+      "entries": 0,
+      "resources": 0
+    }
+  },
+  "deniedOverrides": 1,
+  "generatedResources": 1,
+  "highRiskEntries": 0,
+  "highRiskResources": 0,
+  "packageEdgesToRiskyResources": 0,
+  "reviewMode": "effective-policy",
+  "sourceOverride": "lavamoat/webpack/desktop-services/checkBiometricAuthChanged/policy-override.json",
+  "sourcePolicy": "lavamoat/webpack/desktop-services/checkBiometricAuthChanged/policy.json",
+  "totalResources": 1
+}

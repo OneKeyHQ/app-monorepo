@@ -1,0 +1,157 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/components": {
+      "globals": {
+        "desktopApi.addIpcEventListener": true,
+        "desktopApiProxy.system.executeMenuCommand": true,
+        "desktopApiProxy.system.getApplicationMenu": true,
+        "desktopApiProxy.system.getMenuItemIcon": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "chrome.runtime.getURL": true,
+        "chrome.runtime.id": true,
+        "chrome.storage.local.get": true,
+        "chrome.storage.local.remove": true,
+        "chrome.storage.local.set": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "chrome.action.getUserSettings": true,
+        "chrome.identity": true,
+        "chrome.idle.onStateChanged.addListener": true,
+        "chrome.idle.onStateChanged.removeListener": true,
+        "chrome.idle.setDetectionInterval": true,
+        "chrome.tabs.onActivated.addListener": true,
+        "chrome.tabs.onActivated.removeListener": true,
+        "chrome.tabs.onUpdated.addListener": true,
+        "chrome.tabs.onUpdated.removeListener": true,
+        "chrome.tabs.query": true,
+        "chrome.windows.getCurrent": true,
+        "chrome.windows.onCreated.addListener": true,
+        "chrome.windows.onCreated.removeListener": true,
+        "chrome.windows.update": true,
+        "desktopApi": true,
+        "desktopApiProxy.appUpdate.getPreviousUpdateBuildNumber": true,
+        "desktopApiProxy.appUpdate.useTestUpdateFeedUrl": true,
+        "desktopApiProxy.bluetooth.openBluetoothSettings": true,
+        "desktopApiProxy.bluetooth.openPrivacySettings": true,
+        "desktopApiProxy.bundleUpdate.getNativeAppVersion": true,
+        "desktopApiProxy.dev.callDevOnlyApi": true,
+        "desktopApiProxy.dev.changeDevTools": true,
+        "desktopApiProxy.dev.getNetworkThrottle": true,
+        "desktopApiProxy.dev.openLoggerFile": true,
+        "desktopApiProxy.inAppPurchase.canMakePayments": true,
+        "desktopApiProxy.inAppPurchase.getProducts": true,
+        "desktopApiProxy.inAppPurchase.testDelay": true,
+        "desktopApiProxy.inAppPurchase.testError": true,
+        "desktopApiProxy.notification.getNotificationPermission": true,
+        "desktopApiProxy.notification.openPermissionSettings": true,
+        "desktopApiProxy.notification.setBadge": true,
+        "desktopApiProxy.notification.showNotification": true,
+        "desktopApiProxy.security.canPromptTouchID": true,
+        "desktopApiProxy.security.checkBiometricAuthChanged": true,
+        "desktopApiProxy.security.promptTouchID": true,
+        "desktopApiProxy.storage.secureDelItemAsync": true,
+        "desktopApiProxy.storage.secureGetItemAsync": true,
+        "desktopApiProxy.storage.secureSetItemAsync": true,
+        "desktopApiProxy.storage.storeClear": true,
+        "desktopApiProxy.storage.storeDelItemAsync": true,
+        "desktopApiProxy.storage.storeGetItemAsync": true,
+        "desktopApiProxy.storage.storeSetItemAsync": true,
+        "desktopApiProxy.system.changeLanguage": true,
+        "desktopApiProxy.system.disableShortcuts": true,
+        "desktopApiProxy.system.focus": true,
+        "desktopApiProxy.system.getAppName": true,
+        "desktopApiProxy.system.getBundleInfo": true,
+        "desktopApiProxy.system.getEnvPath": true,
+        "desktopApiProxy.system.getMediaAccessStatus": true,
+        "desktopApiProxy.system.getSystemInfo": true,
+        "desktopApiProxy.system.openLoggerFile": true,
+        "desktopApiProxy.system.openPreferences": true,
+        "desktopApiProxy.system.openPrivacyPanel": true,
+        "desktopApiProxy.system.quitApp": true,
+        "desktopApiProxy.system.reload": true,
+        "desktopApiProxy.system.reloadBridgeProcess": true,
+        "desktopApiProxy.system.restore": true,
+        "desktopApiProxy.system.shareImageFile": true,
+        "desktopApiProxy.system.toggleMaximizeWindow": true,
+        "desktopApiProxy.webview.clearWebViewCache": true,
+        "desktopApiProxy.webview.setAllowedPhishingUrls": true
+      }
+    },
+    "@onekeyhq/kit>lightweight-charts": {
+      "globals": {
+        "chrome.runtime.id": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "browser": "write",
+        "chrome": "write",
+        "desktopApi.arch": true,
+        "desktopApi.channel": true,
+        "desktopApi.deskChannel": true,
+        "desktopApi.isFocused": true,
+        "desktopApi.isMas": true,
+        "desktopApi.markBootSuccess": true,
+        "desktopApi.onAppState": true,
+        "desktopApi.platform": true,
+        "desktopApi.setConsecutiveBootFailCount": true,
+        "desktopApiProxy.dev.getNetworkThrottle": true,
+        "desktopApiProxy.system.changeTheme": true,
+        "desktopApiProxy.system.getSystemInfo": true,
+        "desktopApiProxy.system.openPreferences": true,
+        "desktopApiProxy.system.reload": true,
+        "desktopApiProxy.system.reloadBridgeProcess": true
+      }
+    },
+    "@onekeyhq/shared>webextension-polyfill": {
+      "globals": {
+        "browser": true,
+        "chrome": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/contentScript.js": {
+      "globals": {
+        "chrome.runtime.getURL": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js": {
+      "globals": {
+        "chrome.runtime.connect": true,
+        "chrome.runtime.lastError": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/JsBridgeExtBackground.js": {
+      "globals": {
+        "chrome.runtime.onConnect.addListener": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "chrome.runtime.id": true,
+        "chrome.runtime.onConnect.hasListeners": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-web-device/dist/index.js": {
+      "globals": {
+        "desktopApi": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "chrome.runtime.id": true,
+        "chrome.runtime.onConnect.hasListeners": true
+      }
+    },
+    "external:../../node_modules/react-virtualized/dist/es/Grid/utils/maxElementSize.js": {
+      "globals": {
+        "chrome.runtime.id": true
+      }
+    }
+  }
+}

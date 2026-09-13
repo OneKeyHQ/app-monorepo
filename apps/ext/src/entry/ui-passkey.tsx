@@ -13,6 +13,11 @@ function initPasskeyBridgeEarly() {
 }
 
 function setupPasskeyRuntimeLate() {
+  const { updateInterceptorRequestHelper } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@onekeyhq/kit-bg/src/init/updateInterceptorRequestHelper') as typeof import('@onekeyhq/kit-bg/src/init/updateInterceptorRequestHelper');
+  updateInterceptorRequestHelper();
+
   const { closeWindow } =
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('../closePasskeyWIndow') as typeof import('../closePasskeyWIndow');

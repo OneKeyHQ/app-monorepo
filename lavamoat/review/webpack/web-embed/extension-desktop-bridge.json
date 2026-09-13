@@ -1,0 +1,19 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "chrome.storage.local.get": true,
+        "chrome.storage.local.remove": true,
+        "chrome.storage.local.set": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "chrome": true,
+        "desktopApi": true,
+        "desktopApiProxy": true
+      }
+    }
+  }
+}

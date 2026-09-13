@@ -18,6 +18,7 @@ import {
   Stack,
   useKeyboardHeight,
 } from '@onekeyhq/components';
+import { IOS_WEB_EMBED_ORIGIN } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -106,6 +107,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       allowsBackForwardNavigationGestures,
       allowFileAccessFromFileURLs,
       allowFileAccess,
+      oneKeyWebEmbedAssets,
       allowingReadAccessToURL,
       onError,
       onHttpError,
@@ -301,9 +303,14 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           onScroll={onScroll}
           allowFileAccessFromFileURLs={allowFileAccessFromFileURLs}
           allowFileAccess={allowFileAccess}
+          oneKeyWebEmbedAssets={oneKeyWebEmbedAssets}
           // allowUniversalAccessFromFileURLs
           // *** Note that static HTML will require setting originWhitelist to ["*"].
-          originWhitelist={['*']}
+          originWhitelist={
+            oneKeyWebEmbedAssets && platformEnv.isNativeIOS
+              ? [IOS_WEB_EMBED_ORIGIN]
+              : ['*']
+          }
           mediaPermissionWhitelist={mediaPermissionWhitelist}
           userAgent={isDesktopMode ? desktopUserAgent : undefined}
           // https://github.com/react-native-webview/react-native-webview/issues/1779

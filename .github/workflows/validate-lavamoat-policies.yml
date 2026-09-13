@@ -1,0 +1,330 @@
+name: validate-lavamoat-policies
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - onekey
+      - x
+      - hotfix/*
+      - release/*
+  push:
+    branches:
+      - onekey
+      - x
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Keep validation read-only. packages:read is required for yarn install from
+# npm.pkg.github.com via NODE_AUTH_TOKEN.
+permissions:
+  contents: read
+  packages: read
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  validate:
+    name: validate-lavamoat-policies
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: yarn install --immutable
+
+      - name: Install Chromium for protected runtime validation
+        run: yarn exec playwright-core install --with-deps chromium
+
+      - name: Allow the installed browsers to create their namespace sandboxes
+        run: |
+          node --test development/lavamoat/prepare-linux-browser-sandbox.test.cjs
+          node development/lavamoat/prepare-linux-browser-sandbox.cjs "$RUNNER_TEMP/lavamoat-browser-apparmor"
+          for profile in onekey-lavamoat-ci-chromium onekey-lavamoat-ci-electron; do
+            test ! -e "/etc/apparmor.d/$profile"
+            test ! -L "/etc/apparmor.d/$profile"
+            sudo install -o root -g root -m 0644 -- "$RUNNER_TEMP/lavamoat-browser-apparmor/$profile" "/etc/apparmor.d/$profile"
+            sudo apparmor_parser -r "/etc/apparmor.d/$profile"
+          done
+
+      - name: Validate LavaMoat tooling
+        env:
+          DEBUG: pw:browser
+        run: xvfb-run -a yarn lavamoat:test-tooling
+
+      - name: Set up Java for native WebEmbed policy tests
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Validate Mobile lockdown integration
+        run: >-
+          yarn jest --runInBand --coverage=false --runTestsByPath
+          apps/mobile/plugins/__tests__/mobileLockdown.test.js
+          apps/mobile/plugins/__tests__/devVendor.test.js
+          apps/mobile/scripts/__tests__/check-mobile-lockdown-runtime.test.js
+          apps/mobile/scripts/__tests__/native-dev-shell.test.js
+          apps/mobile/scripts/__tests__/mobile-lockdown-release.test.js
+          apps/mobile/scripts/__tests__/prepare-lockdown-web-embed.test.js
+          packages/shared/src/polyfills/polyfillBootstrapContract.test.ts
+          packages/shared/src/errors/nativePromiseRejectionTracker.test.js
+          packages/shared/src/modules3rdParty/sentry/index.native.test.ts
+          apps/mobile/scripts/__tests__/mobile-lockdown-web-embed-readiness.test.js
+          apps/mobile/scripts/__tests__/mobile-lockdown-web-embed-trace.test.js
+          apps/mobile/scripts/__tests__/web-embed-asset-loader.test.js
+
+      - name: Compile Mobile lockdown fixtures with Hermes
+        env:
+          NODE_ENV: production
+          TAMAGUI_TARGET: native
+        run: |
+          env -u ONEKEY_MOBILE_LOCKDOWN node apps/mobile/scripts/check-mobile-lockdown.js
+          ONEKEY_MOBILE_LOCKDOWN=true node apps/mobile/scripts/check-mobile-lockdown.js
+          ONEKEY_MOBILE_LOCKDOWN=false node apps/mobile/scripts/check-mobile-lockdown.js
+
+      - name: Generate all LavaMoat policies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:policy:all
+
+      - name: Validate LavaMoat policy artifacts
+        run: yarn lavamoat:validate-artifacts
+
+      - name: Validate generated file scope
+        run: yarn lavamoat:validate-generated-scope
+
+      - name: Summarize LavaMoat policy review
+        run: cat lavamoat/review/README.review.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check working tree
+        id: check-working-tree
+        run: |
+          if ! node development/lavamoat/check-policy-diff.cjs --output lavamoat-policy-diff-all.patch; then
+            if [ -f lavamoat-policy-diff-all.patch ]; then
+              git diff --stat -- lavamoat
+              git ls-files --others --exclude-standard -- lavamoat
+              wc -c lavamoat-policy-diff-all.patch
+            else
+              echo "No LavaMoat policy diff patch was produced."
+            fi
+            echo "::error::LavaMoat policy files are not up to date."
+            exit 1
+          fi
+
+      - name: Build LavaMoat protected Web target
+        timeout-minutes: 30
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:web
+
+      - name: Build LavaMoat protected Desktop Renderer target
+        timeout-minutes: 30
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-renderer
+
+      - name: Build LavaMoat protected Web Embed target
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          WEB_EMBED_SKIP_POSTBUILD: 'true'
+        run: yarn lavamoat:build:web-embed
+
+      - name: Build LavaMoat protected cli
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:cli
+
+      - name: Build LavaMoat protected desktop-main
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-main
+
+      - name: Build LavaMoat protected desktop-preload
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-preload
+
+      - name: Build LavaMoat protected desktop-services-index
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-services-index
+
+      - name: Build LavaMoat protected desktop-services-enum
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-services-enum
+
+      - name: Build LavaMoat protected desktop-services-windowsHello
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-services-windowsHello
+
+      - name: Build LavaMoat protected desktop-services-checkBiometricAuthChanged
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-services-checkBiometricAuthChanged
+
+      - name: Build LavaMoat protected node-build
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:node-build
+
+      - name: Build LavaMoat protected ext-pages
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:ext-pages
+
+      - name: Build LavaMoat protected ext-background
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:ext-background
+
+      - name: Build LavaMoat protected ext-content-script
+        timeout-minutes: 30
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:ext-content-script
+
+      - name: Finalize protected extension artifacts
+        run: yarn workspace @onekeyhq/ext lavamoat:finalize
+
+      - name: Verify protected extension startup and DApp bridge
+        id: extension-smoke
+        timeout-minutes: 5
+        run: xvfb-run -a yarn workspace @onekeyhq/ext test:lavamoat --output "${{ runner.temp }}/lavamoat-extension-smoke"
+
+      - name: Upload protected extension evidence
+        if: ${{ always() && steps.extension-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-extension-smoke
+          path: ${{ runner.temp }}/lavamoat-extension-smoke
+          if-no-files-found: ignore
+
+      - name: Build protected Desktop production entrypoints
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: yarn workspace @onekeyhq/desktop build:main
+
+      - name: Verify protected preload isolation and IPC
+        id: preload-smoke
+        run: xvfb-run -a yarn workspace @onekeyhq/desktop test:preload:lavamoat --production-output --output "${{ runner.temp }}/lavamoat-preload-smoke"
+
+      - name: Upload protected preload evidence
+        if: ${{ always() && steps.preload-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-preload-smoke
+          path: ${{ runner.temp }}/lavamoat-preload-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected Desktop startup and Preferences
+        id: desktop-smoke
+        timeout-minutes: 5
+        run: |
+          xvfb-run -a yarn workspace @onekeyhq/desktop test:lavamoat --production-output --mock-health --output "${{ runner.temp }}/lavamoat-desktop-smoke/diagnostic"
+          xvfb-run -a yarn workspace @onekeyhq/desktop test:lavamoat --production-output --mock-health --no-navigation-gate --output "${{ runner.temp }}/lavamoat-desktop-smoke/normal"
+
+      - name: Upload protected Desktop startup evidence
+        if: ${{ always() && steps.desktop-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-desktop-smoke
+          path: ${{ runner.temp }}/lavamoat-desktop-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected CLI schema and offline commands
+        id: cli-smoke
+        timeout-minutes: 5
+        run: |
+          yarn workspace @onekeyfe/cli build
+          yarn workspace @onekeyfe/cli test:lavamoat --production-output --output "${{ runner.temp }}/lavamoat-cli-smoke"
+
+      - name: Upload protected CLI evidence
+        if: ${{ always() && steps.cli-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-cli-smoke
+          path: ${{ runner.temp }}/lavamoat-cli-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected Desktop utility processes
+        id: services-smoke
+        timeout-minutes: 5
+        run: xvfb-run -a yarn workspace @onekeyhq/desktop test:services:lavamoat --production-output --output "${{ runner.temp }}/lavamoat-services-smoke"
+
+      - name: Upload protected Desktop utility evidence
+        if: ${{ always() && steps.services-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-services-smoke
+          path: ${{ runner.temp }}/lavamoat-services-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected Web Embed navigation and lazy API dispatch
+        id: web-embed-smoke
+        timeout-minutes: 10
+        run: |
+          yarn lavamoat:smoke:web-embed --output "${{ runner.temp }}/lavamoat-web-embed-smoke/http"
+          yarn lavamoat:smoke:web-embed --file-ota --output "${{ runner.temp }}/lavamoat-web-embed-smoke/file-ota"
+
+      - name: Upload protected Web Embed evidence
+        if: ${{ always() && steps.web-embed-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-web-embed-smoke
+          path: ${{ runner.temp }}/lavamoat-web-embed-smoke
+          if-no-files-found: ignore
+
+      - name: Verify protected Web startup and deep links
+        id: web-smoke
+        run: yarn lavamoat:smoke:web --output "${{ runner.temp }}/lavamoat-web-smoke"
+
+      - name: Upload protected Web startup evidence
+        if: ${{ always() && steps.web-smoke.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-web-smoke
+          path: ${{ runner.temp }}/lavamoat-web-smoke
+          if-no-files-found: ignore
+
+      - name: Upload policy diff on failure
+        if: ${{ failure() && steps.check-working-tree.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-policy-diff-all
+          path: lavamoat-policy-diff-all.patch
+          if-no-files-found: ignore

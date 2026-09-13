@@ -81,6 +81,7 @@ yalc.lock
 
 stats.json
 stats.html
+lavamoat/**/policy-debug.json
 .java-version
 .eslintcache
 tsconfig.tsbuildinfo

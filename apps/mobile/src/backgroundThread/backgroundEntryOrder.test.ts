@@ -28,6 +28,18 @@ jest.mock('@onekeyhq/shared/src/polyfills', () => {
   return {};
 });
 
+jest.mock('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker', () => ({
+  prepareNativePromiseRejectionTracker: jest.fn(() => {
+    mockLoadOrder.push('promise-rejection-tracker-ready');
+  }),
+}));
+
+jest.mock('../security/finishMobileLockdown', () => ({
+  finishMobileLockdown: jest.fn((runtime: 'main' | 'background') => {
+    mockLoadOrder.push(`lockdown-${runtime}`);
+  }),
+}));
+
 jest.mock('@onekeyhq/shared/src/polyfills/runtimeCapabilities', () => ({
   markRuntimePolyfillsReady: jest.fn(() => {
     mockLoadOrder.push('polyfills-ready');
@@ -126,6 +138,8 @@ describe('background entry initialization order', () => {
 
     expect(mockLoadOrder).toEqual([
       'polyfills',
+      'promise-rejection-tracker-ready',
+      'lockdown-background',
       'polyfills-ready',
       'sentry',
       'handler',
@@ -139,6 +153,8 @@ describe('background entry initialization order', () => {
     await mockBusinessLoaded;
     expect(mockLoadOrder).toEqual([
       'polyfills',
+      'promise-rejection-tracker-ready',
+      'lockdown-background',
       'polyfills-ready',
       'sentry',
       'handler',

@@ -98,8 +98,12 @@ export async function getEndpointDomainWhitelist() {
 
 export async function checkIsOneKeyDomain(url: string) {
   try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return false;
+    }
     const whitelist = await getEndpointDomainWhitelist();
-    return whitelist.includes(new URL(url).host);
+    return whitelist.includes(parsedUrl.host);
   } catch (e) {
     errorUtils.autoPrintErrorIgnore(e);
     return false;

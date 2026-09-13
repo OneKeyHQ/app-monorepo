@@ -21,6 +21,7 @@ const {
   getAndroidLocalBuildEnvironment,
   getAndroidPrivateSessionRenewalArgs,
   getContractManifest,
+  getMetroCommandArgs,
   getNativeRuntimeBundleUrl,
   getShellArtifactTag,
   getShellCompatibility,
@@ -29,6 +30,7 @@ const {
   parseArgs,
   parseIosSimulators,
   parseMetroBaseUrl,
+  parseMetroBindHost,
   parseMetroPort,
   prewarmNativeRuntimeBundles,
   prepareWebEmbedForDevSession,
@@ -159,16 +161,43 @@ describe('native-dev-shell', () => {
         'http://10.0.2.2:8081',
         '--metro-port',
         '8082',
+        '--metro-bind-host',
+        '127.0.0.1',
       ]),
     ).toMatchObject({
       command: 'launch',
       device: 'emulator-5554',
       metroPort: '8082',
+      metroBindHost: '127.0.0.1',
       metroUrl: 'http://10.0.2.2:8081',
       platform: 'android',
       shell: 'remote',
       vendor: 'local',
     });
+  });
+
+  it('supports explicit loopback binding without changing the physical-device default', () => {
+    expect(parseMetroBindHost()).toBe('0.0.0.0');
+    expect(
+      getMetroCommandArgs({ metroPort: 8084, metroBindHost: '127.0.0.1' }),
+    ).toEqual([
+      'workspace',
+      '@onekeyhq/mobile',
+      'native-bundle',
+      '--port',
+      '8084',
+      '--host',
+      '127.0.0.1',
+    ]);
+    expect(getMetroCommandArgs({ metroPort: 8084 }).at(-1)).toBe('0.0.0.0');
+    for (const value of ['', 'localhost', '::', '192.168.1.1', '--port=8081']) {
+      expect(() => parseMetroBindHost(value)).toThrow(
+        '--metro-bind-host must be',
+      );
+      expect(() =>
+        parseArgs(['launch', '--platform', 'ios', '--metro-bind-host', value]),
+      ).toThrow();
+    }
   });
 
   it('keeps worktree and device identity in a unique runtime session ID', () => {

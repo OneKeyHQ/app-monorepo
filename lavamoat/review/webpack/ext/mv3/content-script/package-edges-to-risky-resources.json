@@ -1,0 +1,52 @@
+{
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedProviderReceiveHandler.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectJsBridge.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
+  },
+  "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/background.js": {
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/JsBridgeExtBackground.js": true
+  },
+  "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/contentScript.js": {
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js": true
+  },
+  "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/index.js": {
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/bridgeSetup/contentScript.js": true
+  },
+  "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/index.js": {
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js": true,
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/JsBridgeExtBackground.js": true
+  },
+  "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/JsBridgeExtOffscreen.js": {
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js": true
+  },
+  "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/JsBridgeExtUi.js": {
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/dist/extensionMessagePort.js": true
+  },
+  "external:../../node_modules/@onekeyfe/extension-bridge-hosted/node_modules/uuid/dist/esm-browser/v4.js": {
+    "external:../../node_modules/@onekeyfe/extension-bridge-hosted/node_modules/uuid/dist/esm-browser/rng.js": true
+  }
+}

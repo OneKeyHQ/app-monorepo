@@ -12,6 +12,11 @@ function initOffscreenBridgeEarly() {
 function setupOffscreenRuntimeLate(
   offscreenBridge: ReturnType<typeof initOffscreenBridgeEarly>,
 ) {
+  const { updateInterceptorRequestHelper } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@onekeyhq/kit-bg/src/init/updateInterceptorRequestHelper') as typeof import('@onekeyhq/kit-bg/src/init/updateInterceptorRequestHelper');
+  updateInterceptorRequestHelper();
+
   const { startKeepAlivePolling } =
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('../background/keepAlive') as typeof import('../background/keepAlive');

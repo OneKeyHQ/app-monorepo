@@ -39,3 +39,6 @@ resources/icons/Assets.car
 resources/icons/OneKeyLogo.icns
 
 package-lock.json
+
+# Opt-in protected Node artifacts are built independently of the default shell.
+app/dist-lavamoat/

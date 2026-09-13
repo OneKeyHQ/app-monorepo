@@ -1,5 +1,9 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  ANDROID_WEB_EMBED_ORIGIN,
+  IOS_WEB_EMBED_ORIGIN,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -28,6 +32,16 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
   // - web:      new URL().origin return    "file://"
   'null',
   'file://',
+
+  // Only explicit modern-engine candidates enable these bundled native origins.
+  ...(platformEnv.isNativeAndroid &&
+  process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER
+    ? [ANDROID_WEB_EMBED_ORIGIN]
+    : []),
+  ...(platformEnv.isNativeIOS &&
+  process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER
+    ? [IOS_WEB_EMBED_ORIGIN]
+    : []),
 
   ...(platformEnv.isDev
     ? [

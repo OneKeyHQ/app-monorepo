@@ -1,0 +1,16 @@
+diff --git a/node_modules/lavamoat-core/src/endowmentsToolkit.js b/node_modules/lavamoat-core/src/endowmentsToolkit.js
+index c6ca339..3eac95d 100644
+--- a/node_modules/lavamoat-core/src/endowmentsToolkit.js
++++ b/node_modules/lavamoat-core/src/endowmentsToolkit.js
+@@ -711,7 +711,10 @@ function instrumentDynamicValueAtPath(pathParts, sourceRef, targetRef) {
+         parent = leaf
+         leaf = leaf[pathParts[i]]
+       }
+-      if (typeof leaf === 'function') {
++      // OneKey patch: never bind top-level replacements to the privileged root.
++      // Backport the receiver-confinement condition from upstream core 18.0.6.
++      // if (typeof leaf === 'function') {
++      if (typeof leaf === 'function' && pathParts.length > 1) {
+         leaf = leaf.bind(parent) // TODO: consider the risks, should not differ from unwrapping
+       }
+       return leaf

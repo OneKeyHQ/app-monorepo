@@ -1,0 +1,92 @@
+{
+  "resources": {
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>node-fetch": {
+      "globals": {
+        "fetch": true,
+        "Headers": true,
+        "Request": true,
+        "Response": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>react-native-web": {
+      "globals": {
+        "devicePixelRatio": true,
+        "screen.height": true,
+        "screen.width": true
+      }
+    },
+    "@onekeyhq/shared>posthog-js": {
+      "globals": {
+        "AbortController": true,
+        "addEventListener": true,
+        "devicePixelRatio": true,
+        "fetch": true,
+        "getComputedStyle": true,
+        "history": true,
+        "innerHeight": true,
+        "innerWidth": true,
+        "location.host": true,
+        "location.hostname": true,
+        "location.href": true,
+        "location.pathname": true,
+        "location.protocol": true,
+        "location.search": true,
+        "onpagehide": true,
+        "removeEventListener": true,
+        "screen.height": true,
+        "screen.width": true,
+        "scrollX": true,
+        "scrollY": true,
+        "sessionStorage.getItem": true,
+        "sessionStorage.removeItem": true,
+        "sessionStorage.setItem": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm/globalThis.browser.js": {
+      "globals": {
+        "clearTimeout": true,
+        "onpagehide": true,
+        "setTimeout": true,
+        "WebSocket": true
+      }
+    },
+    "external:../../node_modules/react-virtualized/dist/es/vendor/detectElementResize.js": {
+      "globals": {
+        "cancelAnimationFrame": true,
+        "document.createElement": true,
+        "getComputedStyle": true,
+        "requestAnimationFrame": true
+      }
+    },
+    "external:../../node_modules/sonner/dist/index.mjs": {
+      "globals": {
+        "DocumentFragment": true,
+        "DOMParser": true,
+        "Element": true,
+        "HTMLFormElement": true,
+        "HTMLTemplateElement": true,
+        "NamedNodeMap": true,
+        "Node": true,
+        "NodeFilter.SHOW_COMMENT": true,
+        "NodeFilter.SHOW_ELEMENT": true,
+        "NodeFilter.SHOW_PROCESSING_INSTRUCTION": true,
+        "NodeFilter.SHOW_TEXT": true,
+        "trustedTypes.createPolicy": true,
+        "trustedTypes.getAttributeType": true
+      }
+    },
+    "external:../../node_modules/worker-loader/dist/runtime/inline.js": {
+      "globals": {
+        "Blob": true,
+        "URL.createObjectURL": true,
+        "URL.revokeObjectURL": true,
+        "Worker": true
+      }
+    }
+  }
+}

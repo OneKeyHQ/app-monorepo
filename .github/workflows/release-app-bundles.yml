@@ -267,12 +267,12 @@ jobs:
             echo "uploaded=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Verify injected Web-embed Chromium 67 compatibility
+      - name: Verify injected Web-embed Chromium 80 compatibility
         run: |
           if [ -f ./apps/web-embed/scripts/check-browser-compat.js ]; then
             node ./apps/web-embed/scripts/check-browser-compat.js
           else
-            echo "::notice::Skipping the Chromium 67 compatibility check for a legacy checkout."
+            echo "::notice::Skipping the Chromium 80 compatibility check for a legacy checkout."
           fi
 
       - name: Upload Web-embed Sourcemap Diagnostic Artifact

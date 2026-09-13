@@ -2,6 +2,13 @@ const path = require('path');
 
 const babelTools = require('../../development/babelTools');
 
+const {
+  getMobileLockdownE2ERunId,
+  getMobileLockdownWebEmbedCandidateEnabled,
+  isMobileLockdownEnabled,
+  mobileLockdownE2EGate,
+} = require('./plugins/mobileLockdown');
+
 console.log('process.env.TAMAGUI_TARGET: ', process.env.TAMAGUI_TARGET);
 if (process.env.TAMAGUI_TARGET !== 'native') {
   process.env.TAMAGUI_TARGET = 'native';
@@ -16,6 +23,12 @@ module.exports = function (api) {
   return babelTools.normalizeConfig({
     platform: babelTools.developmentConsts.platforms.app,
     config: {
+      // These Metro polyfills execute before require() is available. Babel
+      // helpers would break startup and can invalidate SES's security assumptions.
+      ignore: [
+        /[\\/]ses[\\/]dist[\\/]ses(?:-hermes)?\.cjs$/,
+        /[\\/]react-native-lockdown[\\/]src[\\/]repair\.js$/,
+      ],
       presets: [
         [
           'babel-preset-expo',
@@ -34,6 +47,20 @@ module.exports = function (api) {
         },
       ],
       plugins: [
+        [mobileLockdownE2EGate, { runId: getMobileLockdownE2ERunId() }],
+        [
+          'transform-define',
+          {
+            'process.env.ONEKEY_MOBILE_LOCKDOWN': String(
+              isMobileLockdownEnabled(),
+            ),
+            'process.env.ONEKEY_MOBILE_WEB_EMBED_ASSET_LOADER':
+              getMobileLockdownWebEmbedCandidateEnabled(),
+            'process.env.ONEKEY_MOBILE_LOCKDOWN_E2E':
+              getMobileLockdownE2ERunId(),
+          },
+          'mobile-lockdown-mode',
+        ],
         // Strip jest.mock() calls when bundling for react-native-harness
         process.env.RN_HARNESS === 'true' &&
           require.resolve('./babel-plugin-jest-compat.js'),

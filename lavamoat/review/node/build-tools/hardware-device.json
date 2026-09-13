@@ -1,0 +1,10 @@
+{
+  "description": "USB、HID、Bluetooth、摄像头、地理位置等设备访问能力",
+  "resources": {
+    "@babel/traverse>debug": {
+      "globals": {
+        "navigator": true
+      }
+    }
+  }
+}

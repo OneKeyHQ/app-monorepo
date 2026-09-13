@@ -1,0 +1,39 @@
+{
+  "resources": {
+    "@onekeyhq/core>near-api-js>node-fetch": {
+      "globals": {
+        "fetch": true,
+        "Headers": true,
+        "Request": true,
+        "Response": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+      "globals": {
+        "location.origin": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "chrome": false,
+        "chrome.runtime.id": true,
+        "chrome.runtime.onConnect.hasListeners": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "chrome": false,
+        "chrome.runtime.id": true,
+        "chrome.runtime.onConnect.hasListeners": true
+      }
+    },
+    "external:../../node_modules/engine.io-client/build/esm/globalThis.browser.js": {
+      "globals": {
+        "clearTimeout": true,
+        "onpagehide": true,
+        "setTimeout": true,
+        "WebSocket": true
+      }
+    }
+  }
+}

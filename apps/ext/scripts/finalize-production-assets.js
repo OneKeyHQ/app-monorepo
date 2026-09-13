@@ -65,9 +65,25 @@ function copyDirectory(sourceRoot, destinationRoot) {
 
 function main() {
   const outputFolder = `${getBrowser()}_v3`;
-  const stagingRoot = path.join(buildRoot, '.rspack', outputFolder);
-  const finalRoot = path.join(buildRoot, outputFolder);
-  const temporaryRoot = path.join(buildRoot, `.finalize-${outputFolder}`);
+  const isLavaMoat = process.argv.includes('--lavamoat');
+  const productionOutput = process.argv.includes('--production-output');
+  if (productionOutput && !isLavaMoat) {
+    throw new Error('--production-output requires --lavamoat.');
+  }
+  const stagingRoot = path.join(
+    buildRoot,
+    isLavaMoat ? '.lavamoat' : '.rspack',
+    outputFolder,
+  );
+  const finalRoot = path.join(
+    buildRoot,
+    ...(isLavaMoat && !productionOutput ? ['lavamoat'] : []),
+    outputFolder,
+  );
+  const temporaryRoot = path.join(
+    buildRoot,
+    `.finalize-${isLavaMoat ? 'lavamoat-' : ''}${outputFolder}`,
+  );
 
   removeDirectory(temporaryRoot);
   fs.mkdirSync(temporaryRoot, { recursive: true });
@@ -76,12 +92,13 @@ function main() {
     for (const compilerName of compilerNames) {
       const compilerRoot = path.join(stagingRoot, compilerName);
       if (!fs.existsSync(compilerRoot)) {
-        throw new Error(`Missing Rspack compiler output: ${compilerRoot}`);
+        throw new Error(`Missing extension compiler output: ${compilerRoot}`);
       }
       copyDirectory(compilerRoot, temporaryRoot);
     }
 
     removeDirectory(finalRoot);
+    fs.mkdirSync(path.dirname(finalRoot), { recursive: true });
     fs.renameSync(temporaryRoot, finalRoot);
 
     if (process.env.EXT_KEEP_RSPACK_STAGING !== '1') {

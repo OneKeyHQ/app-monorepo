@@ -57,6 +57,7 @@
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@gorhom/bottom-sheet": "5.2.14",
+    "@lavamoat/react-native-lockdown": "1.0.0",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native/metro-config": "0.86.2",
     "@rozenite/expo-atlas-plugin": "1.0.0-alpha.16",

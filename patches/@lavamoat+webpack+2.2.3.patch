@@ -1,0 +1,220 @@
+diff --git a/node_modules/@lavamoat/webpack/src/buildtime/aa.js b/node_modules/@lavamoat/webpack/src/buildtime/aa.js
+index 4276dad..dbe82cf 100644
+--- a/node_modules/@lavamoat/webpack/src/buildtime/aa.js
++++ b/node_modules/@lavamoat/webpack/src/buildtime/aa.js
+@@ -117,8 +117,21 @@ exports.generateIdentifierLookup = ({
+     return mapping
+   }
+ 
+-  const usedIdentifiers = Object.keys(policy.resources || {})
+-  usedIdentifiers.unshift(ROOT_IDENTIFIER)
++  // OneKey patch: omitted zero-permission resources still need unique owners.
++  // Include edge-only targets so translating policy never collapses identities.
++  const pathLookup = pathsToIdentifiers()
++  // const usedIdentifiers = Object.keys(policy.resources || {})
++  // usedIdentifiers.unshift(ROOT_IDENTIFIER)
++  const usedIdentifiers = [
++    ROOT_IDENTIFIER,
++    ...Array.from(new Set([
++      ...Object.keys(policy.resources || {}),
++      ...Object.values(pathLookup).map(({ aa }) => aa),
++      ...Object.values(policy.resources || {}).flatMap((resource) =>
++        Object.keys(resource.packages || {})
++      ),
++    ])).filter((id) => id !== ROOT_IDENTIFIER).sort(),
++  ]
+   const usedIdentifiersIndex = Object.fromEntries(
+     usedIdentifiers.map((id, index) => [id, index])
+   )
+@@ -130,13 +143,21 @@ exports.generateIdentifierLookup = ({
+     translate = (i) => i
+   } else {
+     // Why is this a string? There was way too much confusion involved when it was not. If the 2 extra characters are ever worth the hassle, feel free to change it back to numbers.
+-    translate = (i) => `${usedIdentifiersIndex[i]}`
++    // OneKey patch: an unknown owner must never become the shared "undefined" ID.
++    // translate = (i) => `${usedIdentifiersIndex[i]}`
++    translate = (i) => {
++      if (!Object.hasOwn(usedIdentifiersIndex, i)) {
++        throw new Error(`LavaMoatPlugin: Unknown resource identifier: ${i}`)
++      }
++      return `${usedIdentifiersIndex[i]}`
++    }
+   }
+ 
+   // TODO: consider taking the list of paths used by webpack and running the entire AA algorithm only on that instead of relying on AA running through everything first.
+   // It might give us identifiers that are more stable and would surely be much faster.
+ 
+-  const pathLookup = pathsToIdentifiers()
++  // OneKey patch: resolve paths before allocating the complete identifier table.
++  // const pathLookup = pathsToIdentifiers()
+   const identifiersWithKnownPaths = new Set(
+     Object.values(pathLookup).map((pl) => pl.aa)
+   )
+diff --git a/node_modules/@lavamoat/webpack/src/buildtime/policyGenerator.js b/node_modules/@lavamoat/webpack/src/buildtime/policyGenerator.js
+index d6a5247..1531385 100644
+--- a/node_modules/@lavamoat/webpack/src/buildtime/policyGenerator.js
++++ b/node_modules/@lavamoat/webpack/src/buildtime/policyGenerator.js
+@@ -8,7 +8,9 @@ const { getPackageNameForModulePath } = require('@lavamoat/aa')
+ const { writeFileSync, mkdirSync } = require('node:fs')
+ const path = require('node:path')
+ 
+-const { isExcludedUnsafe } = require('./exclude')
++// OneKey patch: generation must match enforcement's inline-loader protection.
++// const { isExcludedUnsafe } = require('./exclude')
++const { isExcluded } = require('./exclude')
+ const diag = require('./diagnostics')
+ 
+ /**
+@@ -81,6 +83,35 @@ module.exports = {
+       debugMode: false,
+     })
+ 
++    // OneKey patch: loader requests are module identities, not filesystem paths.
++    // Use webpack's resolved resource for package ownership without parsing or
++    // trusting matchResource, which can name a virtual file in another package.
++    /** @param {Module} module */
++    const getModulePath = (module) =>
++      'resource' in module && typeof module.resource === 'string'
++        ? module.resource
++        : 'userRequest' in module
++          ? /** @type {NormalModule} */ (module).userRequest
++          : module.context || '<unknown>'
++
++    /** @type {Map<string, string>} */
++    const resolvedModulePaths = new Map()
++    /** @param {Module | null} module */
++    const rememberModulePath = (module) => {
++      if (module && 'userRequest' in module && typeof module.userRequest === 'string') {
++        resolvedModulePaths.set(module.userRequest, getModulePath(module))
++      }
++    }
++    // Include excluded modules and pre-optimization connections: the inspector
++    // still resolves their identities when constructing dependency permissions.
++    for (const { module, connections } of modulesToInspect) {
++      rememberModulePath(module)
++      for (const connection of connections) {
++        rememberModulePath(connection.module)
++        rememberModulePath(connection.resolvedModule)
++      }
++    }
++
+     /** @type {Record<string, ReexportMetaRecord>} } */
+     const meta = {}
+     const REEXPORT_WARNING_KEY = 'webpack-optimization'
+@@ -97,9 +128,9 @@ module.exports = {
+        * @returns {string}
+        */
+       const getModuleSpecifierRepresentation = (m) =>
+-        'userRequest' in m
+-          ? /** @type {NormalModule} */ (m).userRequest
+-          : m.context || '<unknown>'
++        // OneKey patch: preserve the same resolved package ownership for reexports.
++        // 'userRequest' in m ? m.userRequest : m.context || '<unknown>'
++        getModulePath(m)
+ 
+       const a = getPackageNameForModulePath(
+         canonicalNameMap,
+@@ -128,13 +159,24 @@ module.exports = {
+       // Specifically what happened to surface this issue: `connections` in webpack contain a module entry that's identified by the path to its index.mjs entrypoint while the index.js entrypoint is actually used in the bundle, so inspector doesn't have a cached entry for this one and without the fallback handler would return <unknown:/...>
+       // There should be no security implications of this, since the package is already resolved clearly and this is only a part of policy generation, not runtime.
+       moduleToPackageFallback: (specifier) =>
+-        getPackageNameForModulePath(canonicalNameMap, specifier),
++        // OneKey patch: keep specifier identity while resolving loader requests.
++        // getPackageNameForModulePath(canonicalNameMap, specifier),
++        getPackageNameForModulePath(
++          canonicalNameMap,
++          resolvedModulePaths.get(specifier) || specifier
++        ),
+     })
+ 
+     for (const { module, connections } of modulesToInspect) {
+-      // Skip modules the user intentionally excludes.
+-      // This is policy generation so we don't need to protect ourselves from an attack where the module has a loader defined in the specifier.
+-      if (isExcludedUnsafe(module)) continue
++      // OneKey patch: inline requests remain wrapped at runtime, so their
++      // generated JavaScript and dependencies must also be inspected here.
++      // if (isExcludedUnsafe(module)) continue
++      if (
++        'loaders' in module &&
++        Array.isArray(module.loaders) &&
++        typeof module.rawRequest === 'string' &&
++        isExcluded(module)
++      ) continue
+ 
+       if (module.userRequest === undefined) {
+         diag.rawDebug(1, `LavaMoatPlugin: Module ${module} has no userRequest`)
+@@ -144,12 +186,21 @@ module.exports = {
+ 
+       const packageName = getPackageNameForModulePath(
+         canonicalNameMap,
+-        module.userRequest
++        // OneKey patch: never treat a loader chain or matchResource as a path.
++        // module.userRequest
++        getModulePath(module)
+       )
+       const moduleRecord = new LavamoatModuleRecord({
+         // Knowing the actual specifier is not relevant here, they're used as unique identifiers that match between here and dependencies
+         specifier: module.userRequest,
+-        file: module.userRequest,
++        // OneKey patch: loaders produce JavaScript even for .css/.tsx resources.
++        // Core filters by file extension; preserve module identity separately.
++        // file: module.userRequest,
++        file: module.type?.startsWith('javascript/') &&
++          path.extname(module.userRequest) &&
++          !/\.(?:[cm]?js|ts)$/.test(module.userRequest)
++          ? `${module.userRequest}.js`
++          : module.userRequest,
+         type: isBuiltin(module.userRequest) ? 'builtin' : 'js',
+         packageName,
+         content: module.originalSource()?.source()?.toString(),
+diff --git a/node_modules/@lavamoat/webpack/src/buildtime/types.ts b/node_modules/@lavamoat/webpack/src/buildtime/types.ts
+index f223fc7..52dd553 100644
+--- a/node_modules/@lavamoat/webpack/src/buildtime/types.ts
++++ b/node_modules/@lavamoat/webpack/src/buildtime/types.ts
+@@ -1,3 +1,4 @@
++import type { Resolver } from '@lavamoat/aa'
+ import type { LavaMoatPolicy } from '@lavamoat/types'
+ import type { LavaMoatScuttleOpts } from 'lavamoat-core'
+ import type { LockdownOptions } from 'ses'
+@@ -12,6 +13,8 @@ export interface CompleteLavaMoatPluginOptions {
+   generatePolicy?: boolean
+   generatePolicyOnly?: boolean
+   rootDir?: string
++  // OneKey patch: match canonical naming to an explicitly configured Node target.
++  canonicalNameMapResolve?: Resolver
+   policyLocation: string
+   emitPolicySnapshot?: boolean
+   readableResourceIds?: boolean
+diff --git a/node_modules/@lavamoat/webpack/src/plugin.js b/node_modules/@lavamoat/webpack/src/plugin.js
+index 62fe34d..7b35869 100644
+--- a/node_modules/@lavamoat/webpack/src/plugin.js
++++ b/node_modules/@lavamoat/webpack/src/plugin.js
+@@ -218,9 +218,26 @@ class LavaMoatPlugin {
+       loadCanonicalNameMap({
+         rootDir: STORE.options.rootDir || compiler.context,
+         includeDevDeps: true, // even the most proper projects end up including devDeps in their bundles :(
+-        resolve: browserResolve,
++        // OneKey patch: Node targets use their explicit non-browser resolver.
++        // resolve: browserResolve,
++        resolve: STORE.options.canonicalNameMapResolve ?? browserResolve,
+       })
+-        .then((map) => {
++        // OneKey patch: load the production map before publishing canonical names.
++        // .then((map) => {
++        .then(async (map) => {
++          // OneKey patch: prefer production dependency paths for shared packages.
++          // Host-specific development tools must not rename runtime compartments.
++          // Keep the full map and its rootDir metadata for bundled dev-only modules.
++          const productionMap = await loadCanonicalNameMap({
++            rootDir: STORE.options.rootDir || compiler.context,
++            includeDevDeps: false,
++            // OneKey patch: use the same resolver for both dependency maps.
++            // resolve: browserResolve,
++            resolve: STORE.options.canonicalNameMapResolve ?? browserResolve,
++          })
++          for (const [packageDir, canonicalName] of productionMap) {
++            map.set(packageDir, canonicalName)
++          }
+           STORE.canonicalNameMap = map
+           PROGRESS.report('canonicalNameMap')
+           callback()

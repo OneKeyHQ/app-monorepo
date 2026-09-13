@@ -120,7 +120,7 @@ function uploadSourcemaps() {
 function finalizeProductionAssets({ stripOnly = false } = {}) {
   if (process.env.SENTRY_UPLOAD_BY_CLI === 'true' && !stripOnly) {
     throw new Error(
-      'SENTRY_UPLOAD_BY_CLI=true requires the external owner to run Rspack directly and invoke this finalizer with --strip-only before packaging.',
+      'SENTRY_UPLOAD_BY_CLI=true requires the external owner to compile the renderer separately and invoke this finalizer with --strip-only before packaging.',
     );
   }
 

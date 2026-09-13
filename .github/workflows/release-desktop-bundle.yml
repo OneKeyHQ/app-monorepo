@@ -207,6 +207,8 @@ jobs:
         run: |
           yarn install --immutable
 
+      # OTA updates only the renderer; protected main/preload/services ship in
+      # a full desktop binary release. Keep web-build here for bundle metadata.
       - name: Build Bundle
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -389,7 +391,7 @@ jobs:
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
-          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
+          artifact-build-source: "${{ inputs.build_source || 'daily-build' }}"
           artifact-branch: '${{ env.BRANCH }}'
           artifact-commit: '${{ env.COMMIT }}'
 
