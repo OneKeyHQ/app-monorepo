@@ -386,6 +386,7 @@ function RawPopover({
   const keepChildrenMounted = Boolean(props.keepChildrenMounted);
   const shouldUseWebKeepMountedTransition =
     keepChildrenMounted && !platformEnv.isNative;
+  const hasInitializedWebKeepMountedRef = useRef(false);
   const shouldAnimateContent = !keepChildrenMounted;
   const zIndex = useOverlayZIndex(isOpen);
   const content = (
@@ -437,12 +438,19 @@ function RawPopover({
       popperElement.style.removeProperty('transform');
       popperElement.style.removeProperty('visibility');
     }
-    contentElement.style.transition = isOpen
-      ? WEB_KEEP_MOUNTED_TRANSITION
-      : `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
+    const isInitialClosedMount =
+      !hasInitializedWebKeepMountedRef.current && !isOpen;
+    let transition = `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
+    if (isInitialClosedMount) {
+      transition = 'none';
+    } else if (isOpen) {
+      transition = WEB_KEEP_MOUNTED_TRANSITION;
+    }
+    contentElement.style.transition = transition;
     contentElement.style.opacity = isOpen ? '1' : '0';
     contentElement.style.transform = `scale(${isOpen ? 1 : 0.95})`;
     contentElement.style.visibility = isOpen ? 'visible' : 'hidden';
+    hasInitializedWebKeepMountedRef.current = true;
   }, [isOpen, shouldUseWebKeepMountedTransition]);
   const scrollViewStyle = useMemo(
     () => ({ maxHeight: maxScrollViewHeight }),
