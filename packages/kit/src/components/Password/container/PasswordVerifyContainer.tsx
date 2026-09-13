@@ -765,6 +765,7 @@ const PasswordVerifyContainer = ({
   return (
     <Stack>
       <PasswordVerify
+        inAppStateLock={isLock}
         pageMode={pageMode}
         passwordMode={passwordMode}
         alertText={alertText}
