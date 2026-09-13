@@ -47,6 +47,7 @@ import {
   resolveStockExecutionTokensToSync,
   resolveStockPayTokenState,
   shouldResetStockTradeReceiveAmount,
+  shouldSyncControlledStockTokenMetadata,
 } from './swapStockChannelUtils';
 import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
@@ -369,29 +370,6 @@ export function useSwapStockChannel(
     ],
   );
 
-  // Market can switch a stock variant in place while the embedded Swap stays
-  // mounted. Follow the new execution pair and clear the previous network's
-  // pay-token override so the pay-token hook resolves the correct scoped
-  // USDC/USDT list and selector state.
-  useEffect(() => {
-    const nextStockToken = controlledStockToken ?? stockPair.stockToken;
-    if (
-      !nextStockToken ||
-      getTokenIdentityKey(nextStockToken) === currentStockTokenKey
-    ) {
-      return;
-    }
-    setPayTokenState(undefined);
-    payTokenSnapshotRef.current = undefined;
-    manualStockPayTokenKeyRef.current = '';
-    selectStockSwapToken(nextStockToken, { resetReceiveAmount: true });
-  }, [
-    controlledStockToken,
-    currentStockTokenKey,
-    selectStockSwapToken,
-    stockPair.stockToken,
-  ]);
-
   const syncStockTokenDetail = useCallback(
     (tokenDetail: ISwapToken) => {
       const currentToken = stockTokenSnapshotRef.current ?? currentStockToken;
@@ -412,6 +390,42 @@ export function useSwapStockChannel(
     },
     [currentStockToken, setStockSelectedToken, syncStockExecutionTokens],
   );
+
+  // Market can switch a stock variant in place while the embedded Swap stays
+  // mounted. Follow the new execution pair and clear the previous network's
+  // pay-token override so the pay-token hook resolves the correct scoped
+  // USDC/USDT list and selector state. A resolved metadata update for the same
+  // controlled token must also reach the execution channel without resetting
+  // the user's receive amount.
+  useEffect(() => {
+    const nextStockToken = controlledStockToken ?? stockPair.stockToken;
+    if (!nextStockToken) {
+      return;
+    }
+    if (getTokenIdentityKey(nextStockToken) === currentStockTokenKey) {
+      if (
+        controlledStockToken &&
+        shouldSyncControlledStockTokenMetadata({
+          controlledStockToken,
+          currentStockToken,
+        })
+      ) {
+        syncStockTokenDetail(controlledStockToken);
+      }
+      return;
+    }
+    setPayTokenState(undefined);
+    payTokenSnapshotRef.current = undefined;
+    manualStockPayTokenKeyRef.current = '';
+    selectStockSwapToken(nextStockToken, { resetReceiveAmount: true });
+  }, [
+    controlledStockToken,
+    currentStockToken,
+    currentStockTokenKey,
+    selectStockSwapToken,
+    stockPair.stockToken,
+    syncStockTokenDetail,
+  ]);
 
   useEffect(() => {
     const detail = stockTokenDetail;
