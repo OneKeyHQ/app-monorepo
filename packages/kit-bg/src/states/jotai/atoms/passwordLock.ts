@@ -2,6 +2,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import {
   EPasswordMode,
@@ -144,7 +145,12 @@ export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
 export const { target: appIsLocked, use: useAppIsLockedAtom } =
   globalAtomComputed<boolean>((get) => {
     const { isMigrationModalOpen, isProcessing } = get(v4migrationAtom.atom());
-    if (isMigrationModalOpen || isProcessing) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode' ||
+      isMigrationModalOpen ||
+      isProcessing
+    ) {
       return false;
     }
     const { isPasswordSet, appLockDuration } = get(passwordPersistAtom.atom());

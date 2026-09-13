@@ -87,8 +87,11 @@ const END_GRACE_MS = 250;
  * transactions, messages alike — keeping the surface clean; the device
  * screen is the one read of what is being confirmed. The whole confirm
  * channel stays wired (business registrations, the builders, the atom
- * fields, the component's card and its stories), so flipping this single
- * gate re-lights the card unchanged; the gate only keeps the payload out
+ * fields, the component's parked card). Since 2026-09-11 the component
+ * also rests confirm as the capsule, which has no seat for a payload, so
+ * re-lighting the card is this flip plus the pose: `STEP_POSE.confirm`
+ * back to 'card' and confirm back on `COMPACT_STAGED_STEPS`, both in
+ * components' DeviceStage/stepCopy. The gate only keeps the payload out
  * of the atom, at the one point every content path converges.
  */
 const CONFIRM_PAYLOAD_HIDDEN = true;

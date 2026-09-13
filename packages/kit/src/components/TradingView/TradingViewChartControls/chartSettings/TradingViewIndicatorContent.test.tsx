@@ -26,12 +26,14 @@ const mockXStack = jest.fn(
 const mockYStack = jest.fn(
   ({ children }: IMockLayoutProps) => children ?? null,
 );
+const mockStack = jest.fn(({ children }: IMockLayoutProps) => children ?? null);
 
 jest.mock('@onekeyhq/components', () => ({
+  Button: ({ children }: IMockLayoutProps) => children ?? null,
   Icon: () => null,
   ScrollView: (props: IMockLayoutProps) => mockScrollView(props),
   SizableText: ({ children }: IMockLayoutProps) => children ?? null,
-  Stack: ({ children }: IMockLayoutProps) => children ?? null,
+  Stack: (props: IMockLayoutProps) => mockStack(props),
   XStack: (props: IMockLayoutProps) => mockXStack(props),
   YStack: (props: IMockLayoutProps) => mockYStack(props),
   useSafeAreaInsets: () => ({ bottom: 21, left: 0, right: 0, top: 0 }),
@@ -61,9 +63,14 @@ function getLayoutProps(
   mockComponent: jest.Mock,
   testID: string,
 ): IMockLayoutProps | undefined {
-  return mockComponent.mock.calls
+  const matchingProps = mockComponent.mock.calls
     .map(([props]) => props as IMockLayoutProps)
     .find((props) => props.testID === testID);
+  if (!matchingProps) {
+    return undefined;
+  }
+  const { children: _children, ...layoutProps } = matchingProps;
+  return layoutProps;
 }
 
 describe('TradingView indicator settings layout', () => {
@@ -71,71 +78,96 @@ describe('TradingView indicator settings layout', () => {
     jest.clearAllMocks();
   });
 
-  it('lets the focused body shrink and scroll within a short viewport', () => {
-    const value = createTradingViewIndicatorSettingsValue();
-    const selectedIndicator = value.indicators[0];
+  it.each([false, true])(
+    'lets the focused body shrink and scroll within a short viewport (mobileLayout=%s)',
+    (mobileLayout) => {
+      const value = createTradingViewIndicatorSettingsValue();
+      const selectedIndicator = value.indicators[0];
 
-    render(
-      <TradingViewIndicatorSettingsDialog
-        displayMode="focused"
-        value={value}
-        maxActiveSubIndicatorCount={null}
-        selectedIndicatorScope={selectedIndicator.scope}
-        selectedIndicatorId={selectedIndicator.id}
-        visibleIndicators={value.indicators}
-        selectedIndicator={selectedIndicator}
-        onScopeChange={jest.fn()}
-        onSelectIndicator={jest.fn()}
-        onToggleIndicator={jest.fn()}
-        onToggleLine={jest.fn()}
-        onLinePeriodChange={jest.fn()}
-        onLineStyleChange={jest.fn()}
-        onLineSecondaryStyleChange={jest.fn()}
-        onLineColorChange={jest.fn()}
-        onOpacityChange={jest.fn()}
-        onOpacityColorChange={jest.fn()}
-        onParameterChange={jest.fn()}
-        onReset={jest.fn()}
-        onConfirm={jest.fn()}
-      />,
-    );
+      render(
+        <TradingViewIndicatorSettingsDialog
+          displayMode="focused"
+          mobileLayout={mobileLayout}
+          value={value}
+          maxActiveSubIndicatorCount={null}
+          selectedIndicatorScope={selectedIndicator.scope}
+          selectedIndicatorId={selectedIndicator.id}
+          visibleIndicators={value.indicators}
+          selectedIndicator={selectedIndicator}
+          onScopeChange={jest.fn()}
+          onSelectIndicator={jest.fn()}
+          onToggleIndicator={jest.fn()}
+          onToggleLine={jest.fn()}
+          onLinePeriodChange={jest.fn()}
+          onLineStyleChange={jest.fn()}
+          onLineSecondaryStyleChange={jest.fn()}
+          onLineColorChange={jest.fn()}
+          onOpacityChange={jest.fn()}
+          onOpacityColorChange={jest.fn()}
+          onParameterChange={jest.fn()}
+          onReset={jest.fn()}
+          onConfirm={jest.fn()}
+        />,
+      );
 
-    expect(
-      getLayoutProps(mockYStack, 'trading-view-indicator-settings-dialog'),
-    ).toEqual(
-      expect.objectContaining({
-        h: 353,
-        maxHeight: 353,
-      }),
-    );
-    expect(
-      getLayoutProps(mockXStack, 'trading-view-indicator-settings-body'),
-    ).toEqual(
-      expect.objectContaining({
-        flex: 1,
-        h: undefined,
-        minHeight: 0,
-      }),
-    );
-    expect(
-      getLayoutProps(mockScrollView, 'trading-view-indicator-settings-content'),
-    ).toEqual(
-      expect.objectContaining({
-        flex: 1,
-        h: undefined,
-        minHeight: 0,
-      }),
-    );
+      expect(
+        getLayoutProps(
+          mockYStack,
+          mobileLayout
+            ? 'trading-view-mobile-indicator-settings'
+            : 'trading-view-indicator-settings-dialog',
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          h: mobileLayout ? 193 : 353,
+          maxHeight: mobileLayout ? 193 : 353,
+        }),
+      );
+      expect(
+        getLayoutProps(
+          mobileLayout ? mockStack : mockXStack,
+          mobileLayout
+            ? 'trading-view-mobile-indicator-settings-body'
+            : 'trading-view-indicator-settings-body',
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          flex: 1,
+          minHeight: 0,
+        }),
+      );
+      expect(
+        getLayoutProps(
+          mockScrollView,
+          'trading-view-indicator-settings-content',
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          flex: 1,
+          h: undefined,
+          minHeight: 0,
+        }),
+      );
 
-    const fixedRows = mockXStack.mock.calls
-      .map(([props]) => props as IMockLayoutProps)
-      .filter((props) => props.h === 49 || props.h === 62);
-    expect(fixedRows).toHaveLength(2);
-    expect(fixedRows).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ flexShrink: 0, h: 49 }),
-        expect.objectContaining({ flexShrink: 0, h: 62 }),
-      ]),
-    );
-  });
+      if (mobileLayout) {
+        expect(
+          getLayoutProps(
+            mockXStack,
+            'trading-view-mobile-indicator-settings-footer',
+          ),
+        ).toEqual(expect.objectContaining({ flexShrink: 0 }));
+        return;
+      }
+      const fixedRows = mockXStack.mock.calls
+        .map(([props]) => props as IMockLayoutProps)
+        .filter((props) => props.h === 49 || props.h === 62);
+      expect(fixedRows).toHaveLength(2);
+      expect(fixedRows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ flexShrink: 0, h: 49 }),
+          expect.objectContaining({ flexShrink: 0, h: 62 }),
+        ]),
+      );
+    },
+  );
 });

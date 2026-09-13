@@ -76,6 +76,7 @@ import { PassphraseIntro } from './PassphraseIntro';
 import { QrPresent, QrScanFrame } from './QrPanels';
 import { ShimmerTitle } from './ShimmerTitle';
 import {
+  CAPSULE_HAPTIC_STEPS,
   COMPACT_STAGED_STEPS,
   DEVICE_BADGE_STEPS,
   ERROR_TEXT,
@@ -115,11 +116,11 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * and the per-step flow riding the container's clock through `onAim`.
  *
  * The pose table (./stepCopy's STEP_POSE): `off` is hidden — the stage
- * is simply not there, and entrances appear at their pose; `connecting`
- * and `processing` are capsule-class — waiting beats worn as the
- * flow-spec pill (device thumbnail, sweeping live title, the device's
- * name under it); every other step is card-class, its height hugging
- * that step's own content.
+ * is simply not there, and entrances appear at their pose; `connecting`,
+ * `processing` and `confirm` are capsule-class — the waiting beats and
+ * the device-side confirm, worn as the flow-spec pill (device thumbnail,
+ * sweeping live title, the device's name under it); every other step is
+ * card-class, its height hugging that step's own content.
  *
  * The replica is ONE standing device across every pose — the capsule's
  * thumbnail is the same instance worn small, its scenes a troupe parked
@@ -128,12 +129,13 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * glass plays the handover between scenes — off, then a wake from
  * black — with arrivals from a hidden device granted instant entry.
  * Inside the stage arrangement the words are StepText swapping in place
- * and the confirm move re-arranges on the arrangement clock; a change
- * of arrangement runs the container's two-phase swap, landing content
- * and height target together on the empty beat; confirm's payload card
- * rides the words' beat. The panels are the scenes' twin troupe (see
- * CARD_ARRANGEMENTS): parked built in their seats, so no crossing or
- * pose flip ever builds native views mid-animation.
+ * and a port move (full stage to miniature and back) re-arranges on
+ * the arrangement clock; a change of arrangement runs the container's
+ * two-phase swap, landing content and height target together on the
+ * empty beat; the stage tail's cards ride the words' beat. The panels
+ * are the scenes' twin troupe (see CARD_ARRANGEMENTS): parked built in
+ * their seats, so no crossing or pose flip ever builds native views
+ * mid-animation.
  *
  * The stage is modal, and undimmed for asks and waits: while it is there
  * the app behind takes no touch — the person stays with the device — and
@@ -281,9 +283,9 @@ const FOG_LOCATIONS = [0, 0.58, 0.87] as const;
 
 /**
  * Which arrangement a card step gives the standing replica: the full
- * stage for the device-side asks, the miniature for confirm and the
- * authenticity flow, nothing for the app-side inputs, the air-gap pair
- * and the endings. Built off the two staged-step lists so membership is
+ * stage for the device-side asks, the miniature for the authenticity
+ * flow, nothing for the app-side inputs, the air-gap pair and the
+ * endings. Built off the two staged-step lists so membership is
  * stated once (see ./stepCopy).
  */
 type IReplicaArrangement = 'full' | 'compact';
@@ -296,8 +298,8 @@ const REPLICA_ARRANGEMENT = Object.fromEntries([
  * The staged row, to the design: the replica stands `top` under the
  * content's top edge; on the full stage the words begin `fullHeight`
  * under it — inside the port's fogged foot, the device running on
- * behind them — while the confirm miniature's row ends `bottom` under
- * the scaled device and the words sit clear below.
+ * behind them — while the miniature's row ends `bottom` under the
+ * scaled device and the words sit clear below.
  */
 const STAGE_ROW = {
   top: 16,
@@ -311,7 +313,7 @@ const REPLICA_TOP = CARD.padTop + STAGE_ROW.top;
  * default is REPLICA_WIDTH, the OK-62091 call). The design states its
  * numbers at STAGE_DESIGN_WIDTH; the full stage — its port and the
  * words' tuck into the foot — keeps its proportion of the device, while
- * the capsule thumbnail and the confirm miniature keep their own
+ * the capsule thumbnail and the compact miniature keep their own
  * absolute widths, so the width only grows or shrinks the full stage.
  */
 function replicaMetricsFor(replicaWidth: number) {
@@ -464,8 +466,12 @@ function useStageTailFlag(want: boolean, liveOnShow: boolean): boolean {
  * haptics setting, and is a no-op off the phones.
  */
 function fireStepHaptic(step: IDeviceStageStep) {
-  // `done` is the one capsule arrival that carries news rather than a
-  // wait — the burst's ✓ beat — so it buzzes like the outcome cards.
+  // Every card arrival speaks; of the capsule arrivals only the ones
+  // the vocabulary names (CAPSULE_HAPTIC_STEPS).
+  if (STEP_POSE[step] !== 'card' && !CAPSULE_HAPTIC_STEPS.has(step)) {
+    return;
+  }
+  // `done` is the burst's ✓ beat, so it buzzes like the outcome cards.
   if (step === 'authSuccess' || step === 'done') {
     Haptics.success();
     return;
@@ -568,10 +574,11 @@ export function DeviceStage({
   // large main-thread composite, and paying it mid-flight is the stutter.
   // (A shouldRasterizeIOS freeze was tried first and made it worse: the
   // raster's own on/off each cost a full offscreen pass.) So the pose
-  // flight defers the screen handover the way the confirm shrink always
-  // has — the scene holds until the geometry has landed (see sceneStep
-  // below). Render-phase state write on purpose: the hold must ship in
-  // the same commit that starts the springs.
+  // flight defers the screen handover the way the in-stage port move
+  // (the miniature shrink) always has — the scene holds until the
+  // geometry has landed (see sceneStep below). Render-phase state write
+  // on purpose: the hold must ship in the same commit that starts the
+  // springs.
   const [poseInFlight, setPoseInFlight] = useState(false);
   const prevPoseForFlightRef = useRef(pose);
   if (prevPoseForFlightRef.current !== pose) {
@@ -590,10 +597,9 @@ export function DeviceStage({
   // down; a refused entry keeps the step, so inline retry keeps typing.
   // ...and the arrival buzz rides the same step edge — this commit is
   // the one whose layout effect aims the springs, so the buzz and the
-  // first moving frame share the beat. Every card arrival speaks (news
-  // steps buzz their news through the grammar); of the capsule steps
-  // only `done`'s ✓ does — returning to a wait, and the leave, stay
-  // silent. The very first step is the opening state, not a transition.
+  // first moving frame share the beat (which arrivals speak is
+  // fireStepHaptic's). The very first step is the opening state, not a
+  // transition.
   const prevStepEdgeRef = useRef(step);
   useEffect(() => {
     const prev = prevStepEdgeRef.current;
@@ -604,9 +610,7 @@ export function DeviceStage({
     if (prev === 'passphraseOnApp' || prev === 'pairingCode') {
       Keyboard.dismiss();
     }
-    if (STEP_POSE[step] === 'card' || step === 'done') {
-      fireStepHaptic(step);
-    }
+    fireStepHaptic(step);
   }, [step]);
   // The system-keyboard steps own their lift: the shell already rides the
   // keyboard (MorphOverlay), so the Android window must not pan on top of
@@ -877,8 +881,8 @@ export function DeviceStage({
     (shownPanel?.tail ?? 0);
 
   // What the replica plays, on the stage's own lag: while the geometry
-  // is moving — a pose flight, or the confirm arrangement's port move —
-  // the scene holds until it has landed; a change on a resting box hands
+  // is moving — a pose flight, or an in-stage port move — the scene
+  // holds until it has landed; a change on a resting box hands
   // over right away. The capsule side always plays connecting — the
   // thumbnail IS the connecting-state device.
   const [sceneStep, setSceneStep] = useState(shownStep);
@@ -1011,8 +1015,8 @@ export function DeviceStage({
       // the arrangement it left in may not be the one it returns to.
       // Like the flow twins below, the pair lands the new arrangement in
       // one piece on a crossing or a pose arrival (otherwise a stale
-      // confirm miniature grows to full size under the reveal); only a
-      // live stage move — the confirm shrink and back, on show — runs on
+      // miniature grows to full size under the reveal); only a live
+      // stage move — the miniature shrink and back, on show — runs on
       // the clock.
       if (shownPort) {
         if (facts.landInPlace) {
@@ -1326,12 +1330,10 @@ export function DeviceStage({
       Boolean(authChecklist?.length),
     stageTailLive,
   );
-  // Confirm's payload card rides the same beat: on show together with
-  // the confirm words, never a delayed second landing — the tail's
-  // height re-aim already carries it, so entering confirm grows the box
-  // straight to its full size in one move. Any of the three content
-  // shapes summons it; the count pill rides its beat, it never calls
-  // the card up alone.
+  // Confirm's payload card, parked: confirm rests as the capsule, so
+  // the stage seat never speaks for it and this never lights. Kept
+  // wired with the rest of the confirm channel — see
+  // CONFIRM_PAYLOAD_HIDDEN in kit-bg's DeviceStageBurst.
   const confirmCardShown = useStageTailFlag(
     stageWordsStep === 'confirm' &&
       Boolean(confirmDetails?.length || confirmMessage || confirmDescription),
@@ -2105,7 +2107,7 @@ export function DeviceStage({
 
   // The standing set: ONE device across every pose, never rebuilt, only
   // re-seated — thumbnail-small beside the capsule's words, the full
-  // stage or the confirm miniature on the card. Its scenes live parked
+  // stage or the compact miniature on the card. Its scenes live parked
   // on its one glass (the troupe grant): a crossing flips which is lit
   // and nothing ever builds; only the visible scene's clock runs, from
   // 0. The fog paints the port fade over the opaque face, and rests

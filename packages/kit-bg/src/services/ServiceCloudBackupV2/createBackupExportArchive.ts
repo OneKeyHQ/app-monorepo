@@ -2,6 +2,8 @@ import type { IBackupDataExportArchive } from '@onekeyhq/shared/src/cloudBackup/
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
+import type { IZipJsNativeModule } from './zipJsTypes';
+
 export async function createBackupExportArchive(
   data: IPrimeTransferData,
 ): Promise<IBackupDataExportArchive> {
@@ -11,7 +13,7 @@ export async function createBackupExportArchive(
     await import('web-streams-polyfill/dist/polyfill.js');
   }
   const { ZipWriter, Uint8ArrayWriter, Uint8ArrayReader } =
-    await import('@zip.js/zip.js/index-native.js');
+    (await import('@zip.js/zip.js/index-native.js')) as unknown as IZipJsNativeModule;
   const password = stringUtils.randomString(32, {
     chars: stringUtils.randomStringCharsSet.base58,
   });

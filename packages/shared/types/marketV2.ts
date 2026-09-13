@@ -488,6 +488,16 @@ export interface IMarketTokenBatchListResponse {
   list: IMarketTokenListItem[];
 }
 
+export interface IMarketTokenBatchRequestParams {
+  tokenAddressList: {
+    contractAddress: string;
+    chainId: string;
+    isNative: boolean;
+  }[];
+  requestLocale?: string;
+  skipCache?: boolean;
+}
+
 export interface IMarketTokenSecurityItem {
   value: boolean | number | string;
   content: string;
@@ -793,6 +803,8 @@ export type IMarketStockPublicListSortBy =
   | 'default'
   | 'price'
   | 'priceChange24hPercent'
+  | 'marketCap'
+  | 'volume24h'
   | 'symbol';
 
 export interface IMarketStockPublicListRequest {
@@ -805,6 +817,7 @@ export interface IMarketStockPublicListRequest {
 
 export interface IMarketStockPublicSearchRequest {
   query: string;
+  cursor?: string;
   limit?: number;
 }
 

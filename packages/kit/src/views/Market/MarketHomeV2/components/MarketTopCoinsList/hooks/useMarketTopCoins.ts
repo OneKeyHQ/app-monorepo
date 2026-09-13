@@ -10,11 +10,14 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { useToDetailPage } from '../../MarketTokenList/hooks/useToMarketDetailPage';
+
+import { fetchMarketTopCoinsForPlatform } from './marketTopCoinsPlatformApi';
 
 const EMPTY_MARKET_ASSET_LIST: IMarketAssetListItem[] = [];
 
@@ -125,6 +128,12 @@ export function useMarketTopCoinNavigation({
 
   const handleItemPress = useCallback(
     async (item: IMarketAssetListItem) => {
+      if (
+        travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode'
+      ) {
+        return;
+      }
       if (isNavigatingRef.current) {
         return;
       }
@@ -163,13 +172,7 @@ export function useMarketTopCoins(
   } = usePromiseResult(
     async () => {
       try {
-        const response =
-          await backgroundApiProxy.serviceMarket.fetchMarketAssetList({
-            currency: 'usd',
-            limit: 100,
-            page: 1,
-            type: MARKET_TOP_COINS_CATEGORY_ID,
-          });
+        const response = await fetchMarketTopCoinsForPlatform();
         return { response, failed: false };
       } catch (error) {
         if (!platformEnv.isNative) throw error;

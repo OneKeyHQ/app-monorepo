@@ -42,7 +42,9 @@ interface IUseChartConfigProps {
   crosshairVertLineStyle?: number;
   patternColor?: string;
   pulseLastPointColor?: string;
+  priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
+  compactPriceMaxCharacters?: number;
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -80,7 +82,9 @@ export function useChartConfig({
   crosshairVertLineStyle,
   patternColor,
   pulseLastPointColor,
+  priceScaleMinimumWidth,
   priceFormatter,
+  compactPriceMaxCharacters,
   priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
@@ -161,8 +165,10 @@ export function useChartConfig({
       secondaryLineData: chartSecondaryLineData,
       secondaryLineColor,
       secondaryLineWidth,
+      priceScaleMinimumWidth,
       priceFormatter,
       priceFormatterType,
+      compactPriceMaxCharacters,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
@@ -201,8 +207,10 @@ export function useChartConfig({
       crosshairVertLineStyle,
       patternColor,
       pulseLastPointColor,
+      priceScaleMinimumWidth,
       priceFormatter,
       priceFormatterType,
+      compactPriceMaxCharacters,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,

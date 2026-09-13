@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { ThemeProvider } from '@react-navigation/native';
 
+import { Theme } from '../../../content/Theme';
 import { useTheme } from '../../../hooks';
 import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
@@ -19,6 +20,7 @@ export interface IModalRootNavigatorConfig<RouteName extends string> {
   onUnmounted?: () => void;
   rewrite?: string;
   exact?: boolean;
+  theme?: 'light' | 'dark';
 }
 
 interface IModalNavigatorProps<RouteName extends string> {
@@ -41,19 +43,27 @@ export function RootModalNavigator<RouteName extends string>({
 
   const modalComponents = useMemo(
     () =>
-      config.map(({ name, children, onMounted, onUnmounted }) => ({
-        name,
-        // eslint-disable-next-line react/no-unstable-nested-components
-        children: () => (
-          <ModalFlowNavigator
-            config={children}
-            pageType={pageType}
-            name={name}
-            onMounted={onMounted}
-            onUnmounted={onUnmounted}
-          />
-        ),
-      })),
+      config.map(
+        ({ name, children, onMounted, onUnmounted, theme: flowTheme }) => ({
+          name,
+          // eslint-disable-next-line react/no-unstable-nested-components
+          children: () => {
+            const navigator = (
+              <ModalFlowNavigator
+                config={children}
+                pageType={pageType}
+                name={name}
+                onMounted={onMounted}
+                onUnmounted={onUnmounted}
+              />
+            );
+            if (!flowTheme) {
+              return navigator;
+            }
+            return <Theme name={flowTheme}>{navigator}</Theme>;
+          },
+        }),
+      ),
     [config, pageType],
   );
 

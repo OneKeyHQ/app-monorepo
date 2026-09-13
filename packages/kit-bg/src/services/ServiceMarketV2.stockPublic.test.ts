@@ -393,6 +393,32 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(result.items[0]).not.toHaveProperty('contractAddress');
   });
 
+  it('sorts the stock list by 24h volume descending by default', async () => {
+    const service = createService();
+    mockGet.mockResolvedValueOnce({
+      data: {
+        data: {
+          items: [],
+          total: 0,
+        },
+      },
+    });
+
+    await service.fetchMarketStockList();
+
+    expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks', {
+      params: {
+        cursor: undefined,
+        limit: 20,
+        category: undefined,
+        sortBy: 'volume24h',
+        sortType: 'desc',
+      },
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    });
+  });
+
   it('searches stocks through the stock search endpoint', async () => {
     const service = createService();
     mockGet.mockResolvedValueOnce({
@@ -415,6 +441,31 @@ describe('ServiceMarketV2 public stock APIs', () => {
       autoHandleError: false,
     });
     expect(result.items[0]?.stockId).toBe('AAPL');
+  });
+
+  it('passes the search cursor when loading the next page', async () => {
+    const service = createService();
+    mockGet.mockResolvedValueOnce({
+      data: {
+        data: {
+          items: [],
+          total: 1,
+          nextCursor: 'next',
+        },
+      },
+    });
+
+    await service.searchMarketStocks({
+      query: 'aapl',
+      cursor: 'next',
+      limit: 20,
+    });
+
+    expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks/search', {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      params: { query: 'aapl', limit: 20, cursor: 'next' },
+      autoHandleError: false,
+    });
   });
 
   it('loads stock detail and token variants by stockId', async () => {

@@ -46,6 +46,8 @@ export function buildMarketEmbeddedSwapInitParams({
     importNetworkId: importFromToken.networkId,
     importToToken,
     swapSource: ESwapSource.MARKET,
-    swapTabSwitchType: ESwapTabSwitchType.SWAP,
+    swapTabSwitchType: importToToken.isStock
+      ? ESwapTabSwitchType.STOCK
+      : ESwapTabSwitchType.SWAP,
   };
 }

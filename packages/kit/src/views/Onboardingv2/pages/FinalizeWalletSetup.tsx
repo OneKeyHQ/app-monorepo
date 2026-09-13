@@ -35,7 +35,6 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
@@ -980,6 +979,7 @@ function FinalizeWalletSetupPage({
     isReadyActionVisible && activeWallet?.associatedDevice
       ? activeWallet.id
       : creatingGiftWalletId;
+  const reservePrimeGiftSpace = gtMd && Boolean(deviceData || giftWalletId);
   const [giftWalletDevice, setGiftWalletDevice] = useState<{
     walletId: string;
     device: IDBDevice;
@@ -1011,17 +1011,6 @@ function FinalizeWalletSetupPage({
     giftWalletDevice && giftWalletDevice.walletId === giftWalletId
       ? giftWalletDevice.device
       : undefined;
-  const [giftEligibilityBySerialNo] = usePrimeGiftEligibilityPersistAtom();
-  const giftSerialNo =
-    deviceUtils.getDeviceSerialNoFromDbDevice(primeGiftDevice);
-  const giftEligibility = giftSerialNo
-    ? giftEligibilityBySerialNo[giftSerialNo]
-    : undefined;
-  const isPrimeGiftOfferVisible = Boolean(
-    giftSerialNo &&
-    giftEligibility?.eligible &&
-    giftEligibility.hasUnclaimedGift,
-  );
 
   const [isExtensionTopRightVisible, setIsExtensionTopRightVisible] =
     useState(false);
@@ -1077,8 +1066,9 @@ function FinalizeWalletSetupPage({
     }),
   };
 
-  const readyActionWidth = gtMd ? 'auto' : '100%';
-  const readyActionMinWidth = gtMd ? 400 : undefined;
+  const desktopEnterWalletButtonProps = reservePrimeGiftSpace
+    ? { w: 400 }
+    : { minWidth: 240 };
   const enterWalletButton = (
     <Button
       testID={OnboardingTestIDs.finalizeSetupEnterWalletBtn}
@@ -1089,9 +1079,7 @@ function FinalizeWalletSetupPage({
       transition="quick"
       animateOnly={['opacity']}
       enterStyle={{ opacity: 0 }}
-      {...(gtMd
-        ? { minWidth: isPrimeGiftOfferVisible ? 400 : 240 }
-        : { w: '100%' as const })}
+      {...(gtMd ? desktopEnterWalletButtonProps : { w: '100%' as const })}
     >
       {intl.formatMessage({ id: ETranslations.enter_wallet })}
     </Button>
@@ -1277,18 +1265,21 @@ function FinalizeWalletSetupPage({
                 </YStack>
               </YStack>
               <StepTextSwap text={stepText} />
-              {isReadyActionVisible && primeGiftDevice ? (
+              {/* Reserve the banner's 88px height for desktop hardware setup so async gift
+                  eligibility results do not shift the vertically centered content. */}
+              {reservePrimeGiftSpace ||
+              (isReadyActionVisible && primeGiftDevice) ? (
                 <YStack
-                  w={readyActionWidth}
-                  minWidth={readyActionMinWidth}
-                  gap="$3"
+                  {...(gtMd ? { w: 400, h: 88 } : { w: '100%' as const })}
                 >
-                  <PrimeGiftOffer
-                    device={primeGiftDevice}
-                    source="onboarding"
-                    onboardingRouteKey={route.key}
-                    skipInitialRefresh
-                  />
+                  {isReadyActionVisible && primeGiftDevice ? (
+                    <PrimeGiftOffer
+                      device={primeGiftDevice}
+                      source="onboarding"
+                      onboardingRouteKey={route.key}
+                      skipInitialRefresh
+                    />
+                  ) : null}
                 </YStack>
               ) : null}
               {gtMd ? (

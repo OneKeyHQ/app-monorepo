@@ -1,0 +1,39 @@
+function formatChartPrice(price, maxCharacters) {
+  if (!Number.isFinite(price)) return '--';
+  var limit = Number.isFinite(maxCharacters)
+    ? Math.max(4, Math.floor(maxCharacters))
+    : 8;
+  var value = Number(Math.abs(price).toPrecision(15));
+  var prefix = price < 0 ? '-$' : '$';
+  var scale = [
+    { exponent: 9, suffix: 'B' },
+    { exponent: 6, suffix: 'M' },
+    { exponent: 3, suffix: 'K' },
+  ].find(function (item) {
+    return value >= 10 ** item.exponent;
+  });
+  var unit = scale ? scale.suffix : '';
+  var parts = value.toExponential().split('e');
+  var digits = parts[0].replace('.', '');
+  var exponent = Number(parts[1]) - (scale ? scale.exponent : 0);
+  var decimalPosition = exponent + 1;
+  var body;
+  if (decimalPosition <= 0) {
+    body = '0.' + '0'.repeat(-decimalPosition) + digits;
+  } else {
+    body = decimalPosition >= digits.length
+      ? digits + '0'.repeat(decimalPosition - digits.length)
+      : digits.slice(0, decimalPosition) + '.' + digits.slice(decimalPosition);
+  }
+  var zeroCount = -exponent - 1;
+  if (value > 0 && !unit && zeroCount >= 2 && body.length > limit) {
+    var zeros = String(zeroCount).replace(/[0-9]/g, function (digit) {
+      return '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit));
+    });
+    body = '0.0' + zeros + digits;
+  }
+  if (body.length <= limit) return prefix + body + unit;
+  var end = Math.max(1, limit - 2);
+  while (/[₀₁₂₃₄₅₆₇₈₉]/.test(body.charAt(end))) end += 1;
+  return prefix + body.slice(0, end) + '...' + unit;
+}

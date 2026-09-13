@@ -36,7 +36,7 @@ import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
 import { ModalPerpStack } from '../../views/Perp/router';
-import { PrimeRouter } from '../../views/Prime/router';
+import { PrimeGiftRouter, PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ReferFriendsRouter } from '../../views/ReferFriends/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
@@ -119,6 +119,11 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     onUnmounted() {
       void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
     },
+  },
+  {
+    name: EModalRoutes.PrimeGiftModal,
+    children: PrimeGiftRouter,
+    theme: 'dark',
   },
   {
     name: EModalRoutes.FirmwareUpdateModal,

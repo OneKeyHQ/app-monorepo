@@ -38,6 +38,19 @@ const mockTableProps = jest.fn();
 const mockUseMarketStockColumns = jest.fn(
   (_options?: { compact?: boolean; showSparkline?: boolean }) => mockColumns,
 );
+const mockSelectorListResult = {
+  items: [mockStock],
+  isLoading: false,
+  isError: false,
+  isLoadingMore: false,
+  isLoadMoreError: false,
+  canLoadMore: false,
+  loadMore: jest.fn(),
+  refresh: jest.fn(),
+};
+const mockUseMarketStockSelectorList = jest.fn(
+  (_options?: { query?: string }) => mockSelectorListResult,
+);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -50,7 +63,9 @@ jest.mock('@onekeyhq/components', () => ({
     <button type="button">{children}</button>
   ),
   Empty: () => null,
+  ListEndIndicator: () => null,
   Spinner: () => null,
+  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Table: ({
     columns,
     dataSource,
@@ -58,6 +73,9 @@ jest.mock('@onekeyhq/components', () => ({
     headerRowProps,
     onRow,
     rowProps,
+    onEndReached,
+    onEndReachedThreshold,
+    TableFooterComponent,
   }: {
     columns: ITableColumn<IMarketStockPublicItem>[];
     dataSource: IMarketStockPublicItem[];
@@ -68,6 +86,9 @@ jest.mock('@onekeyhq/components', () => ({
       index: number,
     ) => { onPress?: () => void } | undefined;
     rowProps: { height: number; minHeight: number };
+    onEndReached: () => void;
+    onEndReachedThreshold: number;
+    TableFooterComponent: ReactNode;
   }) => {
     mockTableProps({
       columns,
@@ -75,6 +96,9 @@ jest.mock('@onekeyhq/components', () => ({
       estimatedItemSize,
       headerRowProps,
       rowProps,
+      onEndReached,
+      onEndReachedThreshold,
+      TableFooterComponent,
     });
     return (
       <div data-testid="stock-table">
@@ -99,14 +123,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {},
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({
-    result: { items: [mockStock] },
-    isLoading: false,
-    run: jest.fn(),
-  }),
-}));
-
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns',
   () => ({
@@ -116,18 +132,31 @@ jest.mock(
     }) => mockUseMarketStockColumns(options),
   }),
 );
+jest.mock('./useMarketStockSelectorList', () => ({
+  useMarketStockSelectorList: (options: { query?: string }) => {
+    mockUseMarketStockSelectorList(options);
+    return mockSelectorListResult;
+  },
+}));
 
 describe('MarketStockSelectorList', () => {
   beforeEach(() => {
     mockOnItemPress.mockReset();
     mockTableProps.mockClear();
     mockUseMarketStockColumns.mockClear();
+    mockUseMarketStockSelectorList.mockClear();
+    mockSelectorListResult.canLoadMore = false;
+    mockSelectorListResult.items = [mockStock];
+    mockSelectorListResult.isLoadMoreError = false;
+    mockSelectorListResult.isLoadingMore = false;
+    mockSelectorListResult.loadMore.mockClear();
   });
 
   it('uses the Market Stocks columns and preserves the selected stock preview', () => {
     render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
 
     expect(screen.getByTestId('stock-table')).toBeTruthy();
+    expect(mockUseMarketStockSelectorList).toHaveBeenCalledWith({ query: '' });
     expect(mockUseMarketStockColumns).toHaveBeenCalledWith({
       compact: true,
       showSparkline: false,
@@ -145,9 +174,33 @@ describe('MarketStockSelectorList', () => {
         minHeight: 56,
         borderRadius: '$0',
       },
+      onEndReached: expect.any(Function),
+      onEndReachedThreshold: 0.2,
+      TableFooterComponent: expect.anything(),
     });
 
     fireEvent.click(screen.getByTestId('stock-row-AAPL'));
     expect(mockOnItemPress).toHaveBeenCalledWith(mockStock);
+  });
+
+  it('triggers selector pagination when the table reaches the end', () => {
+    mockSelectorListResult.canLoadMore = true;
+    render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
+
+    const tableProps = mockTableProps.mock.calls[0]?.[0] as {
+      onEndReached: () => void;
+    };
+    tableProps.onEndReached();
+
+    expect(mockSelectorListResult.loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the table mounted when an empty page has a continuation cursor', () => {
+    mockSelectorListResult.items = [];
+    mockSelectorListResult.canLoadMore = true;
+    render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
+
+    expect(screen.getByTestId('stock-table')).toBeTruthy();
+    expect(mockTableProps).toHaveBeenCalled();
   });
 });

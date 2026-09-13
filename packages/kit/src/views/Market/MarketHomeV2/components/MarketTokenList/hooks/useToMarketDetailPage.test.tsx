@@ -20,6 +20,15 @@ const mockClearTokenDetail = jest.fn();
 const mockPrepareTokenDetailPreview = jest.fn();
 let mockCurrentRouteName = 'MarketDetailV2';
 let mockSplitViewType = 'UNKNOWN';
+let mockTravelMode = false;
+
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({
+      profile: { kind: mockTravelMode ? 'travel-mode' : 'standard' },
+    }),
+  },
+}));
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({ name: mockCurrentRouteName })),
@@ -126,6 +135,7 @@ describe('useToDetailPage', () => {
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
     mockSplitViewType = 'UNKNOWN';
+    mockTravelMode = false;
     (
       platformEnv as typeof platformEnv & {
         isExtensionUiPopup: boolean;
@@ -172,6 +182,32 @@ describe('useToDetailPage', () => {
     });
     expect(Toast.error).toHaveBeenCalledTimes(1);
     expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+  });
+
+  it('ignores asset detail presses before resolving a variant in Travel Mode', async () => {
+    mockTravelMode = true;
+    const fetchMarketAssetDetail = jest.spyOn(
+      backgroundApiProxy.serviceMarket,
+      'fetchMarketAssetDetail',
+    );
+    const { result } = renderHook(() => useToDetailPage());
+    const preloadCalls = jest.mocked(preloadMarketDetailV2Page).mock.calls
+      .length;
+
+    await act(async () => {
+      await result.current({
+        assetId: 'bitcoin',
+        networkId: '',
+        tokenAddress: '',
+        symbol: 'BTC',
+      });
+    });
+
+    expect(fetchMarketAssetDetail).not.toHaveBeenCalled();
+    expect(preloadMarketDetailV2Page).toHaveBeenCalledTimes(preloadCalls);
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(mockNavigationReplace).not.toHaveBeenCalled();
     expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
   });
 

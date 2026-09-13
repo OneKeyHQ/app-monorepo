@@ -49,6 +49,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
   StockMarketStatusBadge,
@@ -923,6 +924,7 @@ function StockActionGate({
       <Button
         testID={SwapTestIDs.swapButton}
         onPress={handleConnectWalletPress}
+        disabled={shouldRedirectOnboardingToTravelMode()}
         size={isDesktopModalPage ? 'medium' : 'large'}
         variant="primary"
         borderRadius="$full"

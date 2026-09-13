@@ -15,6 +15,8 @@ import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTrans
 import { createBackupExportArchive } from './createBackupExportArchive';
 import ServiceCloudBackupV2 from './ServiceCloudBackupV2';
 
+import type { IZipJsNativeModule } from './zipJsTypes';
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const passthroughDecorator =
     () =>
@@ -59,7 +61,7 @@ const data: IPrimeTransferData = {
 
 async function readArchive(archiveBase64: string, password?: string) {
   const { ZipReader, Uint8ArrayReader, Uint8ArrayWriter } =
-    await import('@zip.js/zip.js/index-native.js');
+    (await import('@zip.js/zip.js/index-native.js')) as unknown as IZipJsNativeModule;
   const reader = new ZipReader(
     new Uint8ArrayReader(Buffer.from(archiveBase64, 'base64')),
     { useWebWorkers: false, useCompressionStream: false },
