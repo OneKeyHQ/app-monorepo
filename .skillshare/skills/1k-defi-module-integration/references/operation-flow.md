@@ -56,11 +56,11 @@ After a successful position change, refresh the exact owner. Cancel or failure
 must not claim a successful refresh. Delays, quotas, and other policy values
 must come from current code/config rather than this skill.
 
-For local replacement history, carry `replacedType`/replacement links and the
-operation metadata through indexer merges. Preserve the linkage so pending
-guards can identify the replacement chain, but exclude a Cancel replacement
-from the original staking/collateral pending and display classification. A
-SpeedUp row should retain the metadata needed for the original pending guard.
+For local replacement history, carry replacement type/links and operation
+metadata through remote merges. Preserve the linkage so pending guards can
+identify the replacement chain, but exclude a cancellation replacement from
+the original operation's pending and display classification. An acceleration
+replacement should retain the metadata needed for the original pending guard.
 
 ## Swap Handoff
 

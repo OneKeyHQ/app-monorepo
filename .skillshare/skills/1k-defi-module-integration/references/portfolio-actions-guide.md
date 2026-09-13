@@ -25,12 +25,11 @@ must not be coerced into one Boolean or filtered into the same empty state.
 Scope collateral capability and pending locks by provider, network, market,
 reserve, and account; a native reserve may legitimately use an empty address.
 
-The mobile `IStakeEarnDetail.mobilePortfolio` read model owns the claimable,
-pending, and distributed reward rows. A distributed row opens the shared
-Staking `HistoryList` with `accountId`, `networkId`, `symbol`, `provider`, and
-`protocolVault`; a redeem control requires both `item.redeemable` and
-`capabilities.redeem`. Keep that contract separate from the wide-layout
-portfolio model.
+On mobile, treat the server-defined portfolio/reward read model as the owner of
+claimable, pending, and distributed stages. Preserve account and product scope
+when opening shared history or an action, and require both the row-level and
+protocol-level capability before rendering a redeem/action control. Keep this
+contract separate from any wider-layout portfolio projection.
 
 ## Identity And Grouping
 

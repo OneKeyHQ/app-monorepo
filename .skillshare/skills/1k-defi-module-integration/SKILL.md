@@ -5,8 +5,9 @@ description: Navigate and implement OneKey App Earn, Borrow, Staking, and DeFi P
 
 # Earn / DeFi
 
-Use this skill as a map to the owning surface and service contract. Derive
-product behavior from current code, server data, and the real runtime.
+Use this skill to preserve DeFi ownership and operation boundaries. Start from
+current code, server data, and the real runtime; do not treat the skill as a
+path catalog or an implementation snapshot.
 
 ## Operation And Refresh Boundary
 
@@ -26,10 +27,9 @@ separate from operation locks and carry replacement identity through
 local/remote reconciliation.
 
 For Earn/Borrow refreshes, distinguish cached, empty, loading, error, and
-settled states. Preserve a complete visible snapshot during refresh, keep
-dynamic rows mounted while their height transitions, and invalidate recycled
-lists explicitly when expanded content changes. Close a selector/modal at the
-user action boundary, then load the new market/reserve asynchronously.
+settled states. Preserve a complete visible snapshot during refresh and make
+identity changes invalidate the old result. Close a selector/modal at the user
+action boundary, then load the new market/reserve asynchronously.
 
 ## Quick Start
 
@@ -39,30 +39,20 @@ user action boundary, then load the new market/reserve asynchronously.
 4. Reuse a nearby pattern only when its protocol and operation semantics match;
    then verify the changed path and a relevant sibling.
 
-## Find The Owner
+## Choose The Reference
 
-| Task | Start here | Read next |
-| --- | --- | --- |
-| Earn home, list, recommendation, or detail | Earn view/state and its service request | [Architecture](references/app-architecture.md), [Code map](references/code-map.md) |
-| Borrow, staking, claim, withdraw, repay, or status | Operation owner and current service contract | [Operation flow](references/operation-flow.md) |
-| Approval, collateral, or pending/history mismatch | Exact account/network/provider/market/reserve owner and merge path | [Operation flow](references/operation-flow.md), [Portfolio actions](references/portfolio-actions-guide.md) |
-| Portfolio position or action | Position data, supported action, transaction builder | [Portfolio actions](references/portfolio-actions-guide.md) |
-| Market asset → Earn detail handoff | Market response plus existing Earn route helper | [Architecture](references/app-architecture.md), [Code map](references/code-map.md) |
-| Native route, modal, event, or account switch | Discovery host and runtime owner | [Architecture](references/app-architecture.md) |
-| External protocol website | Discovery/browser until an App-owned RPC begins | [Architecture](references/app-architecture.md) |
-| Funding handoff to Swap | DeFi prefill before quote; Swap execution afterward | `$1k-trade-swap-market` |
+Locate the current owner in the live source before editing, then load only the
+reference that matches the failure class:
 
-## Load Detail As Needed
-
-- [Architecture](references/app-architecture.md) explains surfaces, hosts,
-  runtimes, and cross-module boundaries.
-- [Code map](references/code-map.md) gives stable directories and search anchors.
-- [Operation flow](references/operation-flow.md) covers operation identity,
-  setup, transaction, status, and refresh.
-- [Portfolio actions](references/portfolio-actions-guide.md) covers how visible
-  positions, supported actions, and transaction building join.
-- [Validation](references/validation.md) helps choose focused tests and runtime
-  evidence for the changed layer.
+- [Architecture](references/app-architecture.md) for surface ownership, hosts,
+  runtime boundaries, and cross-module handoffs.
+- [Operation flow](references/operation-flow.md) for setup, status, async
+  identity, replacement, and refresh behavior.
+- [Portfolio actions](references/portfolio-actions-guide.md) for position
+  read-model and capability/build contracts.
+- [Validation](references/validation.md) for focused checks and platform proof.
+- For a funding handoff, stop DeFi ownership when Swap begins quoting and use
+  `$1k-trade-swap-market` for the remainder.
 
 ## Finish
 

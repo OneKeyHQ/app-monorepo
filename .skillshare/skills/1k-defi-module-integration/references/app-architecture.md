@@ -30,11 +30,11 @@ request, and event invalidation by the identity that can change (account,
 network, provider, market/reserve, or action), and verify every consumer that
 depends on the capability map—not only the home screen.
 
-For dynamic native rows, the data owner and the recycled-list owner are
-separate. Keep content mounted while measuring/animating variable height,
-invalidate list data when expansion changes, and isolate pointer/focus behavior
-for collapsed content. A successful request or static element is not proof that
-the visible route settled correctly.
+For dynamic rows, keep the data owner and presentation owner separate. Preserve
+the last complete visible snapshot while measuring or refreshing, and make
+expanded/collapsed state settle before declaring the route ready. A successful
+request or static element is not proof that the visible route settled
+correctly.
 
 ## Platform Hosts
 
@@ -46,17 +46,14 @@ the visible route settled correctly.
   typed route params or the protocol payload; do not depend on Home-only
   providers unless that stack proves it mounts the matching mirror.
 
-Market-to-Earn links are a cross-surface handoff: Market owns the source asset
-and analytics context, while Earn resolves the returned protocol/product. Pass
-the server-derived symbol and protocol identity (including native/wrapped
-mapping) to the existing Earn detail route; hide the link only when the current
-response has no usable protocol.
+Cross-surface Market-to-Earn links keep source context at the entry and let Earn
+resolve the returned protocol/product. Pass server-derived asset and protocol
+identity, including native/wrapped mapping, through the existing detail
+handoff; hide the link only when the current response has no usable protocol.
 
-Borrow navigation is host-dependent: Desktop/Web reserve details return to the
-Earn route in `{ mode: 'borrow' }`, while native uses the Discovery/Borrow host.
-Use the existing mode-aware navigation helpers instead of assuming a Borrow
-home route is directly below the current stack, especially for share/deep-link
-entries.
+Borrow navigation is host-dependent. Use the existing host- and mode-aware
+navigation helpers instead of assuming a Borrow home route is directly below
+the current stack, especially for share or deep-link entries.
 
 ## Runtime Ownership
 

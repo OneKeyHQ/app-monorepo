@@ -26,23 +26,22 @@ of conditionals spread through UI components.
 An embedded Market surface may adapt the entry pair and Market-only display
 slots, but the shared Swap channel remains the owner of quote polling, refresh,
 review/build, fallback navigation, and execution. Document each extension's
-source and lifecycle; do not pass a second `isLoading`/`isDisabled` model that
-can suppress a valid Swap fallback. Keep the K-line/detail shell separate from
-the trade ticket without copying ticket state.
+source and lifecycle; do not pass a second loading/disabled model that can
+suppress a valid Swap fallback. Keep the detail shell separate from the trade
+surface without copying ticket state.
 
-Stock identity includes the selected variant and network. Scope pay-token
-candidate lists, manual preferences, balances, and selector contents to that
-network; reject a late result from the previous variant. For native pay tokens,
-define `availableBalance = max(rawBalance - reserveGas, 0)` once, then apply
-percentage presets to that available balance. Do not subtract the full reserve
-again from a 25% or 50% slice.
+Stock/order identity includes the selected asset/variant and network. Scope
+pay-token candidate lists, manual preferences, balances, and selector contents
+to that identity; reject late results from a previous identity. For native pay
+tokens, subtract the network's gas reserve from the raw balance once, then
+apply percentage presets to the resulting available balance. Do not subtract
+the full reserve again from a partial slice.
 
-The stock channel's readiness is staged (stock identity/metadata, market
-availability, pay-token candidates, then quote readiness). A closed market is
-not automatically a missing quote when the provider still supports an
-on-chain/liquidity path; use the current channel status and provider contract.
-Keep the stock execution marker (`isStock`) and the complete variant identity
-on the from/to tokens through review, build, and history.
+Readiness may be staged (asset metadata, market availability, pay-token
+candidates, then quote readiness). A closed market is not automatically a
+missing quote when the provider still supports an on-chain or liquidity path;
+use the current channel status and provider contract. Carry the complete
+execution identity through review, build, and history.
 
 ## Quote Selection
 
@@ -70,9 +69,9 @@ slippage, limits, risk text, and setup requirements. Confirmation must not
 read changing page atoms. After send/order submission, create the correct
 pending/history identity before relying on status polling.
 
-If an embedded Market flow enters approval or confirmation, keep it alive by a
-flow identity tied to the mounted Market detail, not only the currently focused
-modal/tab. Close the originating review layer before opening a fallback
+If an embedded flow enters approval or confirmation, keep it alive by a flow
+identity tied to the mounted trade context, not only the currently focused
+modal or tab. Close the originating review layer before opening a fallback
 confirmation layer; never leave two competing dialogs to own the same submit.
 
 ## History, Replay, And Repair
