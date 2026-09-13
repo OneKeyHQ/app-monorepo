@@ -293,7 +293,8 @@ actor AppClipMarketService {
   func fetchStocks(
     baseURL: URL,
     category: String?,
-    cursor: String? = nil
+    cursor: String? = nil,
+    limit: Int = 20
   ) async throws -> AppClipMarketStockPage {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("utility/v1/stocks"),
@@ -301,7 +302,7 @@ actor AppClipMarketService {
     )
     components?.queryItems = [
       URLQueryItem(name: "cursor", value: cursor),
-      URLQueryItem(name: "limit", value: "20"),
+      URLQueryItem(name: "limit", value: String(limit)),
       URLQueryItem(name: "category", value: category),
       URLQueryItem(name: "sortBy", value: "volume24h"),
       URLQueryItem(name: "sortType", value: "desc"),
@@ -336,7 +337,8 @@ actor AppClipMarketService {
     )
     components?.queryItems = [
       URLQueryItem(name: "category", value: category),
-      URLQueryItem(name: "assetTypeVersion", value: "1"),
+      // Keep aligned with PERPS_ASSET_TYPE_VERSION in the shared Hyperliquid contract.
+      URLQueryItem(name: "assetTypeVersion", value: "3"),
     ]
     guard let endpoint = components?.url else {
       throw URLError(.badURL)
@@ -459,15 +461,21 @@ actor AppClipMarketService {
     guard ["1h", "1d", "1w", "1m", "1y", "all"].contains(normalizedPeriod) else {
       throw URLError(.badURL)
     }
-    var components = URLComponents(
-      url: baseURL
-        .appendingPathComponent("utility/v1/stocks")
-        .appendingPathComponent(stockID)
-        .appendingPathComponent("chart"),
-      resolvingAgainstBaseURL: false
-    )
-    components?.queryItems = [URLQueryItem(name: "period", value: normalizedPeriod)]
-    guard let endpoint = components?.url else {
+    guard
+      !stockID.isEmpty,
+      let encodedStockID = stockID.addingPercentEncoding(
+        withAllowedCharacters: Self.pathSegmentAllowed
+      ),
+      var components = URLComponents(
+        url: baseURL.appendingPathComponent("utility/v1/stocks"),
+        resolvingAgainstBaseURL: false
+      )
+    else {
+      throw URLError(.badURL)
+    }
+    components.percentEncodedPath += "/\(encodedStockID)/chart"
+    components.queryItems = [URLQueryItem(name: "period", value: normalizedPeriod)]
+    guard let endpoint = components.url else {
       throw URLError(.badURL)
     }
     let payload = try await requestPayload(KlinePayload.self, endpoint: endpoint)
@@ -583,6 +591,10 @@ actor AppClipMarketService {
   private static var buildNumber: String {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
   }
+
+  private static let pathSegmentAllowed = CharacterSet(
+    charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+  )
 
   private static func allowedLogoURL(_ value: String) -> URL? {
     guard

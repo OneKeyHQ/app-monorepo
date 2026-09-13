@@ -745,7 +745,7 @@ struct AppClipRootView: View {
         HStack(spacing: 6) {
           Text(formattedPercentage(marketDetailChange(detail)))
             .foregroundColor(changeColor(marketDetailChange(detail)))
-          Text("24h")
+          Text(marketDetailChangePeriodLabel(detail))
             .foregroundColor(.appClipSecondaryText)
         }
         .font(.system(size: 18, weight: .semibold))
@@ -863,6 +863,15 @@ struct AppClipRootView: View {
       return stock.priceChangePercent
     case .perp(let perp):
       return perp.priceChangePercent
+    }
+  }
+
+  private func marketDetailChangePeriodLabel(_ detail: AppClipMarketDetail) -> String {
+    switch detail {
+    case .token:
+      return model.selectedTimeRange.rawValue
+    case .stock, .perp:
+      return "24h"
     }
   }
 

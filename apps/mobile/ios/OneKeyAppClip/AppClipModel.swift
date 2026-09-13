@@ -195,12 +195,13 @@ final class AppClipModel: ObservableObject {
   private var minLiquidity = 5_000.0
   private var configurationLastUpdated: Date?
   private var hasStarted = false
+  private var hasHandledInvocation = false
   private var retryAfterNetworkRecovery = false
   private let networkMonitor = NWPathMonitor()
   private let networkMonitorQueue = DispatchQueue(label: "so.onekey.appclip.network")
 
   func start() {
-    guard !hasStarted else {
+    guard hasHandledInvocation, !hasStarted else {
       return
     }
     hasStarted = true
@@ -223,6 +224,9 @@ final class AppClipModel: ObservableObject {
   }
 
   func appDidBecomeActive() {
+    guard hasHandledInvocation else {
+      return
+    }
     if !hasStarted {
       start()
       return
@@ -244,8 +248,17 @@ final class AppClipModel: ObservableObject {
       return
     }
     let wasStarted = hasStarted
+    let wasShowingWeb: Bool
+    if case .web = screen {
+      wasShowingWeb = true
+    } else {
+      wasShowingWeb = false
+    }
     let environmentChanged = apiBaseURL != invocation.apiBaseURL
-    invalidateMarketRequests()
+    hasHandledInvocation = true
+    if environmentChanged {
+      invalidateMarketRequests()
+    }
     candleRequestID = UUID()
     attribution = invocation.attribution
     apiBaseURL = invocation.apiBaseURL
@@ -253,6 +266,13 @@ final class AppClipModel: ObservableObject {
     if environmentChanged {
       resetMarketData()
     }
+    let needsInitialMarketLoad =
+      wasShowingWeb
+      && !isLoadingConfiguration
+      && configurationLastUpdated == nil
+      && stockStates.isEmpty
+      && perpsStates.isEmpty
+      && trendingStates.isEmpty
     AppClipAttributionStore.save(attribution)
     switch invocation.experience {
     case .market:
@@ -266,8 +286,12 @@ final class AppClipModel: ObservableObject {
     let reportRecord = invocation.attribution
     let reportBaseURL = invocation.apiBaseURL
     Task {
-      if case .market = invocation.experience, wasStarted {
-        await refreshAllMarketPages(force: true)
+      if
+        case .market = invocation.experience,
+        wasStarted,
+        environmentChanged || needsInitialMarketLoad
+      {
+        await refreshAllMarketPages(force: environmentChanged)
       }
       await report(
         action: "open",
@@ -538,12 +562,13 @@ final class AppClipModel: ObservableObject {
     let categoryId = selectedStockCategoryId
     let key = categoryId
     var state = stockStates[key] ?? AppClipMarketListState()
-    guard force || !state.isLoading else {
+    guard force || (!state.isLoading && !state.isLoadingMore) else {
       return
     }
     let requestID = UUID()
     let requestEnvironmentID = environmentID
     let requestBaseURL = apiBaseURL
+    let requestLimit = force ? 20 : max(20, state.items.count)
     stockRequestIDs[key] = requestID
     stockLoadMoreRequestIDs[key] = UUID()
     state.isLoading = true
@@ -554,7 +579,8 @@ final class AppClipModel: ObservableObject {
     do {
       let page = try await marketService.fetchStocks(
         baseURL: requestBaseURL,
-        category: categoryId == "all" ? nil : categoryId
+        category: categoryId == "all" ? nil : categoryId,
+        limit: requestLimit
       )
       guard
         environmentID == requestEnvironmentID,
