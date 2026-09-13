@@ -279,8 +279,13 @@ export function DesktopLayout({
         displayTokenDetail?.address ||
         ''
       }`;
+  const isSwapTokenIdentityReady = shouldUseStockDesktopLayout
+    ? stockDisplayMatchesVariant
+    : displayTokenDetail?.address?.toLowerCase() ===
+        tokenAddress.toLowerCase() &&
+      displayTokenDetail?.networkId === networkId;
   const isSwapTokenReady =
-    Boolean(stockDisplayMatchesVariant) &&
+    Boolean(isSwapTokenIdentityReady) &&
     displayTokenDetail?.decimalsResolved !== false &&
     typeof displayTokenDetail?.decimals === 'number' &&
     Number.isInteger(displayTokenDetail.decimals) &&
@@ -291,7 +296,7 @@ export function DesktopLayout({
     stockTradeScopeRef.current = stockId;
     hasRenderedStockTradeRef.current = false;
   }
-  if (isSwapTokenReady) {
+  if (shouldUseStockDesktopLayout && isSwapTokenReady) {
     hasRenderedStockTradeRef.current = true;
   }
   // Keep a mounted trade panel alive while a sibling chain variant is
@@ -299,7 +304,10 @@ export function DesktopLayout({
   // token-dependent controls with skeletons; the initial cold start still
   // waits for a complete execution token.
   const shouldDisableTrade =
-    disableTrade || (!hasRenderedStockTradeRef.current && !isSwapTokenReady);
+    disableTrade ||
+    (shouldUseStockDesktopLayout
+      ? !hasRenderedStockTradeRef.current && !isSwapTokenReady
+      : !isSwapTokenReady);
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -459,6 +467,11 @@ export function DesktopLayout({
           isStockSharePrice
             ? stockId
             : effectiveMarketTradingViewParams?.tokenSymbol
+        }
+        loadingIdentity={
+          isStockSharePrice
+            ? `stock-share:${stockId}`
+            : `${effectiveMarketTradingViewParams?.networkId ?? ''}:${effectiveMarketTradingViewParams?.tokenAddress ?? ''}:${effectiveMarketTradingViewParams?.isNative ? 'native' : 'token'}`
         }
         isNative={
           isStockSharePrice ? false : effectiveMarketTradingViewParams?.isNative
