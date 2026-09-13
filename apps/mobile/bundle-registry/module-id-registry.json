@@ -16134,6 +16134,7 @@
     "packages/components/src/composite/Dialog/DialogScrollView.tsx": 7723,
     "packages/components/src/composite/Dialog/Footer.tsx": 21475,
     "packages/components/src/composite/Dialog/Header.tsx": 18308,
+    "packages/components/src/composite/Dialog/HeaderDragZone.native.tsx": 22260,
     "packages/components/src/composite/Dialog/context.ts": 18423,
     "packages/components/src/composite/Dialog/dialogInstances.ts": 13401,
     "packages/components/src/composite/Dialog/hooks.ts": 12466,
