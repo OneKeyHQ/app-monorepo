@@ -71,16 +71,10 @@ export const MARKET_LIST_FIRST_COLUMN_WIDTH =
 export const MARKET_LIST_NAME_COLUMN_WIDTH =
   MARKET_LIST_FIRST_COLUMN_WIDTH - MARKET_LIST_STAR_COLUMN_WIDTH;
 
-// The desktop list-page toolbar band. Stocks is the calibrated reference: a
-// 32px category button sitting on 16px above and 20px below. Fixing the height
-// rather than restating that padding keeps the band identical on pages whose
-// toolbar content is taller (Trending's 40px filter row), so switching tabs
-// never shifts the table underneath.
+// Keep a fixed band height on desktop pages with a toolbar so switching tabs
+// does not shift the table. Stocks is the calibrated reference: a 32px category
+// button with 16px above and 20px below.
 export const MARKET_DESKTOP_TOOLBAR_BAND_HEIGHT = 68;
-
-// The calibrated category button: `px="$2.5" py="$1.5"` around a `$bodyMdMedium`
-// label. Every toolbar row matches it so the band reads 16 / 32 / 20.
-export const MARKET_LIST_TOOLBAR_ITEM_HEIGHT = 32;
 
 export const MARKET_DESKTOP_TOOLBAR_BAND_STYLE = {
   height: MARKET_DESKTOP_TOOLBAR_BAND_HEIGHT,
