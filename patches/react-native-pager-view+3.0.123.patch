@@ -142,6 +142,20 @@ index 8edb3ab..b52cdb3 100644
      pressCancelled = false
      nativeGestureStarted = false
      nestedNativeGestureStarted = false
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerViewManager.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerViewManager.kt
+index 6b20a94..1387eda 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerViewManager.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerViewManager.kt
+@@ -43,7 +43,8 @@ class CollapsiblePagerViewManager : ViewGroupManager<CollapsiblePagerHost>(),
+     )
+     host.pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+       override fun onPageScrolled(position: Int, offset: Float, offsetPixels: Int) {
+-        host.updateNativeTabProgress(position, offset)
++        // OneKey patch: snap the indicator on selection; scroll progress can pull it back after a tab press.
++        // host.updateNativeTabProgress(position, offset)
+         dispatch(reactContext, host, PageScrollEvent(host.id, position, offset))
+       }
+ 
 diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h
 index b835bfe..e65b662 100644
 --- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h
