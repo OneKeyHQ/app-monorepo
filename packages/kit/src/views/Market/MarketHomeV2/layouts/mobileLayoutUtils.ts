@@ -8,8 +8,7 @@ const MARKET_MOBILE_BANNER_LEGACY_HEIGHT = 134;
 export function getMarketMobileBannerHeaderHeight(
   bannerList: readonly { tokens?: unknown }[],
 ) {
-  const isModernBannerList =
-    bannerList.length > 0 && bannerList.every((item) => Boolean(item.tokens));
+  const isModernBannerList = bannerList.some((item) => Boolean(item.tokens));
   return isModernBannerList
     ? MARKET_MOBILE_BANNER_MODERN_HEIGHT
     : MARKET_MOBILE_BANNER_LEGACY_HEIGHT;
