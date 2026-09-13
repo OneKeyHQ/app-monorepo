@@ -48,6 +48,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -1275,8 +1276,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // Claim, stake and withdraw refresh the page the moment their transaction
   // is broadcast, before the chain or the provider has seen it, so the numbers
   // came back unchanged until the page was reopened (OK-62888). Refresh again
-  // when the local history marks a pending transaction confirmed. Phone
-  // layout only: the wide layout shows no account rows on this page.
+  // once the local history marks a pending transaction confirmed. The history
+  // poller reports a normal confirmation through LocalPendingTxConfirmed
+  // (fetchAccountHistory); HistoryTxStatusChanged covers the other ways a
+  // pending entry settles (a swap clearing it, a replacement transaction).
+  // Phone layout only: the wide layout shows no account rows on this page.
   useEffect(() => {
     if (!isMobileLayout) {
       return undefined;
@@ -1284,17 +1288,32 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     const handleHistoryTxStatusChanged = () => {
       void refreshData();
     };
+    const handleLocalPendingTxConfirmed = (
+      payload: IAppEventBusPayload[EAppEventBusNames.LocalPendingTxConfirmed],
+    ) => {
+      if (payload.networkId === networkId) {
+        void refreshData();
+      }
+    };
     appEventBus.on(
       EAppEventBusNames.HistoryTxStatusChanged,
       handleHistoryTxStatusChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.LocalPendingTxConfirmed,
+      handleLocalPendingTxConfirmed,
     );
     return () => {
       appEventBus.off(
         EAppEventBusNames.HistoryTxStatusChanged,
         handleHistoryTxStatusChanged,
       );
+      appEventBus.off(
+        EAppEventBusNames.LocalPendingTxConfirmed,
+        handleLocalPendingTxConfirmed,
+      );
     };
-  }, [isMobileLayout, refreshData]);
+  }, [isMobileLayout, networkId, refreshData]);
 
   // Use custom hook for breadcrumb management
   const { breadcrumbProps } = useProtocolDetailBreadcrumb({
