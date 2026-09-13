@@ -243,10 +243,9 @@ function MarketEmbeddedSwapDraft({
     };
   }, []);
 
-  // Keep only the draft while inactive, since other routes share the modal store.
-  return disabled ? (
-    <MarketEmbeddedSwapLoading />
-  ) : (
+  // Disabled desktop routes render their own unavailable state (or no trade
+  // panel). Do not present a perpetual loading skeleton for a terminal state.
+  return disabled ? null : (
     <MarketEmbeddedSwapContent
       swapToken={swapToken}
       inputDraft={inputDraftRef.current}

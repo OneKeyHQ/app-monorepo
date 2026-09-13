@@ -260,23 +260,36 @@ export function useSwapStockChannel(
   const syncStockExecutionTokens = useCallback(
     async ({
       nextTradeSide = tradeSide,
-      stockToken = stockTokenSnapshotRef.current ?? currentStockToken,
-      payToken: nextPayToken = payTokenSnapshotRef.current ??
-        stockOwnedPayToken,
+      stockToken: nextStockToken = stockTokenSnapshotRef.current ??
+        currentStockToken,
+      payToken,
     }: {
       nextTradeSide?: ESwapStockTradeSide;
       stockToken?: ISwapToken;
       payToken?: ISwapToken;
     } = {}) => {
+      const candidatePayToken =
+        payToken ?? payTokenSnapshotRef.current ?? stockOwnedPayToken;
+      // Pay tokens are scoped to the stock network. During a controlled
+      // variant switch the callback still closes over the previous render's
+      // pay token; never publish that token alongside a stock on another
+      // network. The pay-token hook will sync the new network on its next
+      // ready transition.
+      const nextPayToken =
+        nextStockToken?.networkId &&
+        candidatePayToken?.networkId &&
+        nextStockToken.networkId !== candidatePayToken.networkId
+          ? undefined
+          : candidatePayToken;
       // The stock channel token is authoritatively the stock side of the trade.
       // Stock metadata (token.stock) loads asynchronously and may be missing at
       // selection time, which left isStock unset and made the history list label
       // the trade as "Swap" instead of Buy/Sell. Flag it here so the recorded
       // execution tokens carry isStock end-to-end.
       const flaggedStockToken =
-        stockToken && !stockToken.isStock
-          ? { ...stockToken, isStock: true }
-          : stockToken;
+        nextStockToken && !nextStockToken.isStock
+          ? { ...nextStockToken, isStock: true }
+          : nextStockToken;
       const nextFromToken =
         nextTradeSide === ESwapStockTradeSide.Buy
           ? nextPayToken
@@ -289,6 +302,10 @@ export function useSwapStockChannel(
       await selectStockExecutionTokens({
         fromToken: nextFromToken,
         toToken: nextToToken,
+        clearFromToken:
+          nextTradeSide === ESwapStockTradeSide.Buy && !nextPayToken,
+        clearToToken:
+          nextTradeSide === ESwapStockTradeSide.Sell && !nextPayToken,
         syncId: nextStockExecutionTokenSyncId(),
       });
     },
