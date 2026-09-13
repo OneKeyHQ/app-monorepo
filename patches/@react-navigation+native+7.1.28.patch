@@ -21,17 +21,17 @@ index 474db5e..4b47a93 100644
 +      const currentIndexHtml = globalThis.location.href.split('.html')?.[0];
 +      const currentIndexHtmlWithoutSlash = currentIndexHtml.split('/')?.pop();
 +      if (currentIndexHtmlWithoutSlash) {
-+        const currentPath = path.includes('#') ? path.split('#').pop() : path;
++        const currentPath = path.includes('#') ? path.split('#')[1] : path;
 +        return `/${currentIndexHtmlWithoutSlash}.html#${currentPath}`;
 +      }
 +    }
 +
-+    let lastHash = path.includes('#') ? path.split('#').pop() : '';
-+    lastHash = lastHash === '/' ? '' : lastHash;
++    let routeHash = path.includes('#') ? path.split('#')[1] : '';
++    routeHash = routeHash === '/' ? '' : routeHash;
 +
 +    const indexHtmlFile = path.split('.html')?.[0];
 +    if (indexHtmlFile) {
-+      return lastHash ? `${indexHtmlFile}.html#${lastHash}` : `${indexHtmlFile}.html`;
++      return routeHash ? `${indexHtmlFile}.html#${routeHash}` : `${indexHtmlFile}.html`;
 +    }
 +    return path;
 +  }
@@ -87,17 +87,17 @@ index 1568263..2adaaec 100644
 +      const currentIndexHtml = globalThis.location.href.split('.html')?.[0];
 +      const currentIndexHtmlWithoutSlash = currentIndexHtml.split('/')?.pop();
 +      if (currentIndexHtmlWithoutSlash) {
-+        const currentPath = path.includes('#') ? path.split('#').pop() : path;
++        const currentPath = path.includes('#') ? path.split('#')[1] : path;
 +        return `/${currentIndexHtmlWithoutSlash}.html#${currentPath}`;
 +      }
 +    }
 +
-+    let lastHash = path.includes('#') ? path.split('#').pop() : '';
-+    lastHash = lastHash === '/' ? '' : lastHash;
++    let routeHash = path.includes('#') ? path.split('#')[1] : '';
++    routeHash = routeHash === '/' ? '' : routeHash;
 +
 +    const indexHtmlFile = path.split('.html')?.[0];
 +    if (indexHtmlFile) {
-+      return lastHash ? `${indexHtmlFile}.html#${lastHash}` : `${indexHtmlFile}.html`;
++      return routeHash ? `${indexHtmlFile}.html#${routeHash}` : `${indexHtmlFile}.html`;
 +    }
 +    return path;
 +  }
