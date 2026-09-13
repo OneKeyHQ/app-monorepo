@@ -160,6 +160,24 @@ describe('useAutoRefreshTokenDetail', () => {
     expect(mockFetchAssetTokenDetail).not.toHaveBeenCalled();
   });
 
+  it('clears identity-bound detail state when the requested token changes', () => {
+    const { rerender } = renderHook(
+      ({ tokenAddress }) =>
+        useAutoRefreshTokenDetail({
+          tokenAddress,
+          networkId: 'evm--1',
+          isNative: false,
+        }),
+      { initialProps: { tokenAddress: '0xabc' } },
+    );
+
+    rerender({ tokenAddress: '0xdef' });
+
+    expect(mockSetTokenDetail).toHaveBeenCalledWith(undefined);
+    expect(mockSetTokenDetailWebsocket).toHaveBeenCalledWith(undefined);
+    expect(mockSetPerpsInfo).toHaveBeenCalledWith(undefined);
+  });
+
   it('does not forward the display currency to the USD Asset detail owner', async () => {
     mockCurrencyId = 'cny';
     mockFetchAssetTokenDetail.mockResolvedValue({ asset: { assetId: 'doge' } });
