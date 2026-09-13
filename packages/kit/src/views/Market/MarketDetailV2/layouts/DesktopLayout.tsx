@@ -133,6 +133,7 @@ export interface IDesktopLayoutProps {
   isNative: boolean;
   networkId: string;
   tokenAddress: string;
+  isTokenDetailRequestPending?: boolean;
   marketTokenId?: string;
   marketAssetDetail?: IMarketAssetDetailData;
   isMarketAssetDetailLoading?: boolean;
@@ -149,6 +150,7 @@ export function DesktopLayout({
   isNative: routeIsNative,
   networkId: routeNetworkId,
   tokenAddress: routeTokenAddress,
+  isTokenDetailRequestPending,
   marketTokenId,
   marketAssetDetail,
   isMarketAssetDetailLoading,
@@ -307,7 +309,9 @@ export function DesktopLayout({
     !isTerminalStockTradeUnavailable &&
     (isTokenVariantPending ||
       (Boolean(selectedTokenVariant) &&
-        (!isSwapTokenReady || isTokenDetailLoading)));
+        (isTokenDetailRequestPending ||
+          isTokenDetailLoading ||
+          !stockDisplayMatchesVariant)));
   const isTradeLoading =
     shouldUseStockDesktopLayout && !isSwapTokenReady && isTradeReadinessPending;
   // Stock's embedded Swap owns transient token/config loading and renders its

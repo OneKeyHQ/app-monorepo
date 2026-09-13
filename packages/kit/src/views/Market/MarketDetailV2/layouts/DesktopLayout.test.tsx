@@ -453,6 +453,30 @@ describe('DesktopLayout', () => {
     );
   });
 
+  it('does not show an endless skeleton after selected stock metadata settles invalid', () => {
+    mockTokenDetailLoading = false;
+    mockDisplayTokenDetail = {
+      ...mockDisplayTokenDetail,
+      decimalsResolved: false,
+    };
+
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: false, isTradeLoading: false }),
+    );
+  });
+
   it('keeps the stock trade panel mounted during a variant switch before token loading starts', () => {
     const props = {
       isChartFullscreen: false,
@@ -477,14 +501,20 @@ describe('DesktopLayout', () => {
     mockTokenAddress = '0xaapl-base';
     mockTokenDetailLoading = false;
     mockDisplayTokenDetail = {
-      address: '0xaapl',
-      networkId: 'evm--1',
+      address: '0xaapl-base',
+      networkId: 'evm--8453',
       symbol: 'AAPL',
-      decimals: 18,
-      decimalsResolved: true,
+      decimals: 0,
+      decimalsResolved: false,
     };
 
-    rerender(<DesktopLayout {...props} tokenAddress="0xaapl-base" />);
+    rerender(
+      <DesktopLayout
+        {...props}
+        tokenAddress="0xaapl-base"
+        isTokenDetailRequestPending
+      />,
+    );
 
     expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ disableTrade: false, isTradeLoading: true }),
