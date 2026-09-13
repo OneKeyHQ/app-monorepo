@@ -386,6 +386,44 @@ describe('DesktopLayout', () => {
     );
   });
 
+  it('keeps the stock trade panel mounted during a variant switch before token loading starts', () => {
+    const props = {
+      isChartFullscreen: false,
+      isTradingViewNative: false,
+      onChartSwitch: jest.fn(),
+      onChartFullscreenChange: jest.fn(),
+      isNative: false,
+      networkId: 'evm--1',
+      tokenAddress: '0xaapl',
+    } as const;
+    const { rerender } = render(<DesktopLayout {...props} />);
+
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      selectedTokenVariant: {
+        networkId: 'evm--8453',
+        contractAddress: '0xaapl-base',
+        symbol: 'AAPL',
+        decimals: 18,
+      },
+    };
+    mockTokenAddress = '0xaapl-base';
+    mockTokenDetailLoading = false;
+    mockDisplayTokenDetail = {
+      address: '0xaapl',
+      networkId: 'evm--1',
+      symbol: 'AAPL',
+      decimals: 18,
+      decimalsResolved: true,
+    };
+
+    rerender(<DesktopLayout {...props} tokenAddress="0xaapl-base" />);
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: false, isTradeLoading: true }),
+    );
+  });
+
   it('waits for the addressless market symbol before mounting native candles', () => {
     mockStockDetailState = { ...mockStockDetailState, isStockRoute: false };
     mockTokenAddress = '';

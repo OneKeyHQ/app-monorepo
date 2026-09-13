@@ -298,11 +298,18 @@ export function DesktopLayout({
     typeof displayTokenDetail?.decimals === 'number' &&
     Number.isInteger(displayTokenDetail.decimals) &&
     displayTokenDetail.decimals >= 0;
+  const isTerminalStockTradeUnavailable =
+    shouldUseStockDesktopLayout &&
+    (isTokenVariantsError ||
+      (!isTokenVariantPending &&
+        !isTokenVariantsLoading &&
+        !selectedTokenVariant));
   const isTradeReadinessPending =
-    !isTokenVariantsError &&
+    !isTerminalStockTradeUnavailable &&
     (isTokenVariantPending ||
       isTokenVariantsLoading ||
-      (Boolean(selectedTokenVariant) && isTokenDetailLoading));
+      (Boolean(selectedTokenVariant) &&
+        (!isSwapTokenReady || isTokenDetailLoading)));
   const isTradeLoading =
     shouldUseStockDesktopLayout && !isSwapTokenReady && isTradeReadinessPending;
   // Stock's embedded Swap owns transient token/config loading and renders its
@@ -312,9 +319,7 @@ export function DesktopLayout({
   const shouldDisableTrade =
     disableTrade ||
     (!shouldUseStockDesktopLayout && !isSwapTokenReady) ||
-    (shouldUseStockDesktopLayout &&
-      !isSwapTokenReady &&
-      !isTradeReadinessPending);
+    isTerminalStockTradeUnavailable;
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
