@@ -45,6 +45,9 @@ yarn agent:check --profile commit
 - History lifecycle: verify provider-specific terminal states preserve the
   right source/replacement/refund identity, stop polling/replacement actions,
   and refresh balances only for statuses that change them.
+- Native/shared bundle changes: when a route or module crosses runtime bundles,
+  run the owning registration and startup-graph checks in addition to focused
+  tests; desktop-only rendering is not sufficient proof.
 
 ## Platform Proof
 
