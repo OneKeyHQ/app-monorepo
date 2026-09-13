@@ -34,7 +34,6 @@ type IStockDetailContextValue = {
   isStockDetailError: boolean;
   retryStockDetail: () => Promise<void>;
   tokenVariants: IMarketStockTokenVariant[];
-  hasCurrentTokenVariants: boolean;
   isTokenVariantsLoading: boolean;
   isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
@@ -54,7 +53,6 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
   isStockDetailError: false,
   retryStockDetail: async () => undefined,
   tokenVariants: [],
-  hasCurrentTokenVariants: false,
   isTokenVariantsLoading: false,
   isTokenVariantPending: false,
   isTokenVariantsError: false,
@@ -287,7 +285,6 @@ export function StockDetailProvider({
       ),
       retryStockDetail,
       tokenVariants,
-      hasCurrentTokenVariants,
       isTokenVariantPending: Boolean(
         normalizedStockId &&
         (!hasCurrentTokenVariants ||

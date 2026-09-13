@@ -28,7 +28,6 @@ let mockDisplayTokenDetail = {
 let mockStockDetailState: {
   isStockRoute: boolean;
   stockId: string;
-  hasCurrentTokenVariants: boolean;
   isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
   isTokenVariantsLoading: boolean;
@@ -41,7 +40,6 @@ let mockStockDetailState: {
 } = {
   isStockRoute: true,
   stockId: 'AAPL',
-  hasCurrentTokenVariants: true,
   isTokenVariantPending: false,
   isTokenVariantsError: false,
   isTokenVariantsLoading: false,
@@ -251,7 +249,6 @@ describe('DesktopLayout', () => {
     mockStockDetailState = {
       isStockRoute: true,
       stockId: 'AAPL',
-      hasCurrentTokenVariants: true,
       isTokenVariantPending: false,
       isTokenVariantsError: false,
       isTokenVariantsLoading: false,
@@ -332,7 +329,6 @@ describe('DesktopLayout', () => {
     mockStockDetailState = {
       ...mockStockDetailState,
       selectedTokenVariant: undefined,
-      hasCurrentTokenVariants: true,
       isTokenVariantPending: false,
       isTokenVariantsError: false,
       isTokenVariantsLoading: false,
@@ -363,7 +359,6 @@ describe('DesktopLayout', () => {
     mockStockDetailState = {
       ...mockStockDetailState,
       selectedTokenVariant: undefined,
-      hasCurrentTokenVariants: true,
       isTokenVariantPending: false,
       isTokenVariantsError: false,
       isTokenVariantsLoading: true,
@@ -394,7 +389,6 @@ describe('DesktopLayout', () => {
     mockStockDetailState = {
       ...mockStockDetailState,
       selectedTokenVariant: undefined,
-      hasCurrentTokenVariants: true,
       isTokenVariantPending: false,
       isTokenVariantsError: true,
       isTokenVariantsLoading: false,
@@ -425,7 +419,6 @@ describe('DesktopLayout', () => {
   it('keeps a cached selected stock variant enabled during a variant refresh error', () => {
     mockStockDetailState = {
       ...mockStockDetailState,
-      hasCurrentTokenVariants: true,
       isTokenVariantPending: false,
       isTokenVariantsError: true,
       isTokenVariantsLoading: false,

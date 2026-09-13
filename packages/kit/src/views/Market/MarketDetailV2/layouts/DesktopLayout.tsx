@@ -171,7 +171,6 @@ export function DesktopLayout({
   const { tokenDetail: displayTokenDetail } = useMarketDetailDisplayData();
   const {
     isStockRoute,
-    hasCurrentTokenVariants,
     isTokenVariantPending,
     isTokenVariantsError,
     selectedTokenVariant,
@@ -303,8 +302,7 @@ export function DesktopLayout({
   const isTerminalStockTradeUnavailable =
     shouldUseStockDesktopLayout &&
     !selectedTokenVariant &&
-    (isTokenVariantsError ||
-      (hasCurrentTokenVariants && !isTokenVariantPending));
+    (isTokenVariantsError || !isTokenVariantPending);
   const isTradeReadinessPending =
     !isTerminalStockTradeUnavailable &&
     (isTokenVariantPending ||
