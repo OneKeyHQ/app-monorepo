@@ -85,6 +85,7 @@ import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogForm,
   IDialogFormProps,
   IDialogHeaderProps,
   IDialogInstance,
@@ -639,19 +640,41 @@ function BaseDialogContainer(
     [isExist],
   );
 
+  // `Dialog.Form` registers itself onto `formRef` from a lazily loaded module,
+  // so it lands after the rest of the dialog has mounted and lands again on
+  // every remount. Consumers that hold on to the instance (the footer's
+  // `disabledOn` subscription) need to be told, not to re-read a ref they have
+  // no reason to look at again. (OK-62416)
+  const formListenersRef = useRef(new Set<() => void>());
+  const registerForm = useCallback((form: IDialogForm | undefined) => {
+    formRef.current = form;
+    for (const listener of formListenersRef.current) {
+      listener();
+    }
+  }, []);
+  const subscribeFormChange = useCallback((listener: () => void) => {
+    const listeners = formListenersRef.current;
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
         close: handleClose,
         ref: formRef,
         isExist: handleIsExist,
+        registerForm,
+        subscribeFormChange,
       },
       footerRef: {
         notifyUpdate: undefined,
         props: undefined,
       },
     }),
-    [handleClose, handleIsExist],
+    [handleClose, handleIsExist, registerForm, subscribeFormChange],
   );
 
   const handleOpen = useCallback(() => {
@@ -732,6 +755,28 @@ function dialogShow({
   isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
+  if (
+    platformEnv.isDev &&
+    platformEnv.isNativeIOS &&
+    portalContainer &&
+    isOverTopAllViews === true
+  ) {
+    // iOS only, because only `renderToContainer.ios` fails on this shape: it
+    // mounts `element` twice — once wrapped in a fresh `OverlayContainer`,
+    // once into `portalContainer` — and returns only the second manager, so
+    // the first window is never torn down. That stray window is also created
+    // at dialog-open time, and iOS stacks window overlays in the order they
+    // were added, so once the app-state lock screen has added its own (at lock
+    // time, not app start) a dialog opened afterwards lands on top of the
+    // passcode screen. Elsewhere the pair is fine and documented: web renders
+    // once and portals to `document.body` (the only shape in which that
+    // feature exists, and what `useInPageDialog` relies on), and Android
+    // ignores the flag outright. (OK-62416)
+    console.error(
+      '[Dialog.show] on iOS, `portalContainer` and `isOverTopAllViews: true` must not be combined: it mounts the dialog twice, leaks the first window overlay, and can stack it above the app-state lock screen. Pass one or the other.',
+      { portalContainer },
+    );
+  }
   void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();
