@@ -23,6 +23,7 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
   tokenDetailRequestIdAtom,
+  tokenDetailWebsocketAtom,
 } from './atoms';
 import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
 
@@ -178,6 +179,99 @@ function createWrapper() {
 
   return { store, Wrapper };
 }
+
+describe('token detail refresh failures', () => {
+  const detail = {
+    address: '0xabc',
+    networkId: 'evm--1',
+    name: 'Test token',
+    symbol: 'TEST',
+    decimals: 18,
+    logoUrl: '',
+    price: '1',
+  };
+  const websocket = { txs: true, kline: true };
+  const perpsInfo = { hlTicker: 'TEST' };
+
+  beforeEach(() => {
+    mockFetchMarketTokenDetailByTokenAddress.mockReset();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('keeps loaded content and chart configuration through failure and recovery', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      result.current.setTokenAddress(detail.address);
+      result.current.setNetworkId(detail.networkId);
+    });
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: detail, websocket, perpsInfo },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    const loadedDetail = store.get(tokenDetailAtom());
+    const refresh = createDeferred<unknown>();
+    mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+      refresh.promise,
+    );
+    let request: Promise<unknown> | undefined;
+    act(() => {
+      request = result.current.fetchTokenDetail(
+        detail.address,
+        detail.networkId,
+      );
+    });
+    expect(store.get(tokenDetailAtom())).toBe(loadedDetail);
+    await act(async () => {
+      refresh.reject(new Error('offline'));
+      await expect(request).rejects.toThrow('offline');
+    });
+    expect(store.get(tokenDetailAtom())).toBe(loadedDetail);
+    expect(store.get(tokenDetailWebsocketAtom())).toEqual(websocket);
+    expect(store.get(perpsInfoAtom())).toEqual(perpsInfo);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: { ...detail, price: '2' }, websocket, perpsInfo },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    expect(store.get(tokenDetailAtom())?.price).toBe('2');
+  });
+
+  it('does not keep another token when the new token request fails', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), detail);
+    store.set(tokenDetailWebsocketAtom(), websocket);
+    store.set(perpsInfoAtom(), perpsInfo);
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      result.current.setTokenAddress('0xdef');
+      result.current.setNetworkId(detail.networkId);
+    });
+    mockFetchMarketTokenDetailByTokenAddress.mockRejectedValueOnce(
+      new Error('offline'),
+    );
+    await act(async () => {
+      await expect(
+        result.current.fetchTokenDetail('0xdef', detail.networkId),
+      ).rejects.toThrow('offline');
+    });
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailWebsocketAtom())).toBeUndefined();
+    expect(store.get(perpsInfoAtom())).toBeUndefined();
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+});
 
 describe('stock navigation identity', () => {
   beforeEach(() => jest.clearAllMocks());

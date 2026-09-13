@@ -13191,6 +13191,7 @@
     "node_modules/react-native-nitro-modules/src/worklets/installWorkletsSupport.ts": 59939,
     "node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.js": 61326,
     "node_modules/react-native-pager-view/lib/module/CollapsiblePagerViewNativeComponent.ts": 45696,
+    "node_modules/react-native-pager-view/lib/module/NativeScroller.js": 47468,
     "node_modules/react-native-pager-view/lib/module/PagerView.js": 31796,
     "node_modules/react-native-pager-view/lib/module/PagerViewNativeComponent.ts": 47603,
     "node_modules/react-native-pager-view/lib/module/index.js": 53530,

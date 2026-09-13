@@ -128,8 +128,11 @@ export const { target: passwordModeAtom, use: usePasswordModeAtom } =
     return passwordMode;
   });
 
+// Nothing here is awaited, so declaring the read `async` only made the value a
+// pending promise on every passwordPersistAtom write, suspending every reader
+// for a tick. Keep it synchronous.
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
-  globalAtomComputed<Promise<boolean | undefined>>(async (get) => {
+  globalAtomComputed<boolean | undefined>((get) => {
     if (runtimePersistenceAdapter.isUnavailable()) {
       return false;
     }

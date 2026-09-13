@@ -532,10 +532,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           (currentAddress === tokenAddress || currentAddress === '') &&
           (currentNetworkId === networkId || currentNetworkId === '')
         ) {
-          set(tokenDetailAtom(), undefined);
-          set(tokenDetailPreviewAtom(), undefined);
-          set(tokenDetailWebsocketAtom(), undefined);
-          set(perpsInfoAtom(), undefined);
+          // A failed refresh must not unmount the current quotes and chart.
+          // Never retain details belonging to a different token or network.
+          if (
+            !isSameMarketTokenDetail({
+              tokenDetail: get(tokenDetailAtom()),
+              tokenAddress,
+              networkId,
+            })
+          ) {
+            set(tokenDetailAtom(), undefined);
+            set(tokenDetailPreviewAtom(), undefined);
+            set(tokenDetailWebsocketAtom(), undefined);
+            set(perpsInfoAtom(), undefined);
+          }
         } else {
           isStale = true;
         }
