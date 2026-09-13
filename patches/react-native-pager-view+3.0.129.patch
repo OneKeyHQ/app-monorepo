@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
-index b7c6014..9b6d368 100644
+index b7c6014..befbdd0 100644
 --- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
 @@ -11,12 +11,35 @@
@@ -344,7 +344,7 @@ index b7c6014..9b6d368 100644
    }
  }
  
-@@ -2279,6 +2451,17 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2279,6 +2451,21 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
                        pageIndex:(NSInteger)pageIndex
                          restore:(BOOL)restore
  {
@@ -352,7 +352,11 @@ index b7c6014..9b6d368 100644
 +  // only header collapse, even if Fabric reused the same native scroll object.
 +  NSString *pageKey = [self pageKeyForIndex:pageIndex];
 +  RNCCollapsiblePagerReleasedScrollState *released = _releasedPageScrollStates[pageKey];
-+  if (released != nil) {
++  // OneKey patch: upstream debounces generic UICollectionView fallbacks before
++  // accepting them. Keep the released identity until that candidate is observed.
++  BOOL isUnacceptedCollectionView =
++    [scrollView isKindOfClass:UICollectionView.class] && scrollView != _observedScrollView;
++  if (released != nil && !isUnacceptedCollectionView) {
 +    UIView *componentView = RNCScrollComponentView(scrollView);
 +    BOOL sameList = released.scrollView == scrollView && componentView != nil &&
 +      released.componentView == componentView && released.componentTag == componentView.tag;
@@ -362,7 +366,7 @@ index b7c6014..9b6d368 100644
    NSValue *storedOriginal = [_originalInsets objectForKey:scrollView];
    UIEdgeInsets original = storedOriginal == nil
      ? scrollView.contentInset
-@@ -2483,7 +2666,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2483,7 +2670,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
          self->_currentIndex = index;
          self->_destinationIndex = index;
          [self->_nativeTabBarView setProgress:index];
@@ -371,7 +375,7 @@ index b7c6014..9b6d368 100644
          [self emitPageSelected:index];
          [self emitDiagnostics:@"page-selected"];
        } else if (self->_pendingGoToIndex < 0) {
-@@ -2520,7 +2703,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2520,7 +2707,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
        self->_currentIndex = index;
        self->_destinationIndex = index;
        [self->_nativeTabBarView setProgress:index];
@@ -380,7 +384,7 @@ index b7c6014..9b6d368 100644
        [self emitPageSelected:index];
        [self emitDiagnostics:@"page-selected"];
      } else {
-@@ -2660,7 +2843,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2660,7 +2847,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
        0
      ) animated:NO];
      [_nativeTabBarView setProgress:index];
@@ -389,7 +393,7 @@ index b7c6014..9b6d368 100644
      if (emitSelection &&
          (_pendingGoToIndex < 0 || _pendingGoToIndex == index)) {
        [self emitPageSelected:index];
-@@ -2711,7 +2894,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2711,7 +2898,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
        _currentIndex = index;
        _destinationIndex = index;
        [_nativeTabBarView setProgress:index];
