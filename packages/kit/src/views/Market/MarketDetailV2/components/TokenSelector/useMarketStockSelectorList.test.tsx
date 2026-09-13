@@ -1,13 +1,52 @@
 /** @jest-environment jsdom */
 
-import { act, renderHook, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketStockPublicListResponse } from '@onekeyhq/shared/types/marketV2';
 
+import { MarketStockSelectorList } from './MarketStockSelectorList';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns',
+  () => ({ useMarketStockColumns: () => [] }),
+);
+
 jest.mock('@onekeyhq/components', () => ({
+  YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Spinner: () => <div data-testid="loading" />,
+  Empty: () => <div data-testid="empty" />,
+  ListEndIndicator: () => null,
+  Table: ({
+    dataSource,
+    onEndReached,
+  }: {
+    dataSource: IMarketStockPublicListResponse['items'];
+    onEndReached: () => void;
+  }) => (
+    <div data-testid="stock-table">
+      {dataSource.map((item) => (
+        <div key={item.stockId}>{item.symbol}</div>
+      ))}
+      <button type="button" onClick={onEndReached}>
+        Load more
+      </button>
+    </div>
+  ),
   getCurrentVisibilityState: () => true,
   onVisibilityStateChange: () => () => undefined,
   useDeferredPromise: () => ({
@@ -144,4 +183,81 @@ it('starts only one request for concurrent end-reached events', async () => {
     resolveNextPage(secondPage);
     await Promise.all(requests);
   });
+});
+
+it.each([
+  ['', 'mu'],
+  ['mu', 'aapl'],
+  ['mu', ''],
+])(
+  'replaces the table through loading when query changes from %s to %s',
+  async (initialQuery, nextQuery) => {
+    fetchList.mockResolvedValue(firstPage);
+    searchStocks.mockResolvedValue(firstPage);
+    const onItemPress = jest.fn();
+    const { rerender } = render(
+      <MarketStockSelectorList
+        query={initialQuery}
+        onItemPress={onItemPress}
+      />,
+    );
+    const previousTable = await screen.findByTestId('stock-table');
+
+    let resolveFirstPage: (
+      response: IMarketStockPublicListResponse,
+    ) => void = () => undefined;
+    const pendingPage = new Promise<IMarketStockPublicListResponse>(
+      (resolve) => {
+        resolveFirstPage = resolve;
+      },
+    );
+    fetchList.mockReturnValue(pendingPage);
+    searchStocks.mockReturnValue(pendingPage);
+    rerender(
+      <MarketStockSelectorList query={nextQuery} onItemPress={onItemPress} />,
+    );
+
+    expect(screen.queryByTestId('stock-table')).toBeNull();
+    expect(screen.getByTestId('loading')).toBeTruthy();
+    expect(previousTable.isConnected).toBe(false);
+
+    await act(async () => {
+      resolveFirstPage({ items: [createStock('MU')], total: 1 });
+      await pendingPage;
+    });
+    const nextTable = await screen.findByTestId('stock-table');
+    expect(nextTable).not.toBe(previousTable);
+    expect(nextTable.textContent).toContain('MU');
+    expect(nextTable.textContent).not.toContain('AAPL');
+  },
+);
+
+it('keeps the same table during pagination with the real selector hook', async () => {
+  let resolvePage: (response: IMarketStockPublicListResponse) => void = () =>
+    undefined;
+  const pendingPage = new Promise<IMarketStockPublicListResponse>((resolve) => {
+    resolvePage = resolve;
+  });
+  searchStocks.mockImplementation(async (params) =>
+    params.cursor ? pendingPage : firstPage,
+  );
+  render(<MarketStockSelectorList query="aapl" onItemPress={jest.fn()} />);
+  const table = await screen.findByTestId('stock-table');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+  await waitFor(() =>
+    expect(searchStocks).toHaveBeenCalledWith({
+      query: 'aapl',
+      cursor: 'next',
+      limit: 20,
+    }),
+  );
+  expect(screen.getByTestId('stock-table')).toBe(table);
+
+  await act(async () => {
+    resolvePage(secondPage);
+    await pendingPage;
+  });
+  await waitFor(() => expect(table.textContent).toContain('MSFT'));
+  expect(screen.getByTestId('stock-table')).toBe(table);
 });

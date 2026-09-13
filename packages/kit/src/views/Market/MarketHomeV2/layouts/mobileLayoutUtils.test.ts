@@ -1,11 +1,50 @@
 import {
   getMarketEmptyWatchlistContainerProps,
+  getMarketMobileBannerHeaderHeight,
   getMarketMobileSecondaryHeaderHeight,
   getMarketNativeCompactListStyle,
   getMarketRecommendContainerPaddingTop,
   getMarketWebSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
+  resolveMarketBannerHeaderHeight,
 } from './mobileLayoutUtils';
+
+describe('getMarketMobileBannerHeaderHeight', () => {
+  it('uses the legacy height when every banner omits token previews', () => {
+    expect(getMarketMobileBannerHeaderHeight([{}, {}])).toBe(134);
+  });
+
+  it('uses the modern height when every banner renders token previews', () => {
+    expect(
+      getMarketMobileBannerHeaderHeight([{ tokens: [] }, { tokens: [] }]),
+    ).toBe(204);
+  });
+});
+
+describe('resolveMarketBannerHeaderHeight', () => {
+  it('updates a legacy height when a successful refresh becomes modern', () => {
+    expect(
+      resolveMarketBannerHeaderHeight({
+        current: { scope: 'en-US:false', height: 134 },
+        scope: 'en-US:false',
+        isFetched: true,
+        bannerList: [{ tokens: [] }],
+      }),
+    ).toEqual({ scope: 'en-US:false', height: 204 });
+  });
+
+  it('preserves the occupied height when a refresh returns no banners', () => {
+    const current = { scope: 'en-US:false', height: 204 };
+    expect(
+      resolveMarketBannerHeaderHeight({
+        current,
+        scope: 'en-US:false',
+        isFetched: true,
+        bannerList: [],
+      }),
+    ).toBe(current);
+  });
+});
 
 describe('resolveMarketBannerHeaderDecision', () => {
   it('waits for recovery after an initial failure before locking banner height', () => {

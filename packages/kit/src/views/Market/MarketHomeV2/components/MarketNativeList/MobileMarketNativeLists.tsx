@@ -672,6 +672,7 @@ type ISharedListProps = {
   listContainerProps: {
     emptyContentPaddingTop?: number;
     emptyContentHeight?: number;
+    emptyScrollContentMinHeight?: number;
     paddingBottom: number;
   };
   shouldSuppressItemPress?: () => boolean;
@@ -1035,6 +1036,7 @@ function MobileMarketNativeWatchlistImpl({
         testID="market-favorites-empty-scroll"
         contentContainerStyle={{
           paddingTop: listContainerProps.emptyContentPaddingTop ?? 16,
+          minHeight: listContainerProps.emptyScrollContentMinHeight,
         }}
       >
         <Stack alignItems="center">
@@ -1131,7 +1133,7 @@ function MobileMarketNativeStockListImpl({
         return;
       }
       if (event.actionKey === 'load-more-retry') {
-        void result.loadMore();
+        void (result.isRefreshError ? result.refresh() : result.loadMore());
         return;
       }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
@@ -1168,14 +1170,17 @@ function MobileMarketNativeStockListImpl({
       listRef={listRef}
       rows={rows}
       loading={result.isLoading}
-      loadingMore={result.isLoadingMore}
-      loadMoreError={result.isLoadMoreError}
+      loadingMore={
+        result.isLoadingMore || (result.isRefreshing && result.isRefreshError)
+      }
+      loadMoreError={result.isLoadMoreError || result.isRefreshError}
       errorMessage={
         result.isError
           ? intl.formatMessage({ id: ETranslations.global_no_data })
           : undefined
       }
       canLoadMore={result.canLoadMore}
+      showEnd={!result.isRevalidatingFirstPage}
       contentPaddingBottom={listContainerProps.paddingBottom}
       emptyContentHeight={listContainerProps.emptyContentHeight}
       testID={MarketTestIDs.stockList}
@@ -1184,7 +1189,8 @@ function MobileMarketNativeStockListImpl({
         if (
           result.canLoadMore &&
           !result.isLoadingMore &&
-          !result.isLoadMoreError
+          !result.isLoadMoreError &&
+          !result.isRefreshError
         ) {
           void result.loadMore();
         }

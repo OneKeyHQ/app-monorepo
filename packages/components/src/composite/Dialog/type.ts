@@ -98,6 +98,12 @@ interface IBasicDialogProps extends TMDialogProps {
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
+  // Where a swipe can drag the phone sheet away. 'sheet' (default) is the
+  // whole sheet, which is what Tamagui does; 'header' limits it to the grabber and the
+  // title row, so a scrollable body never competes with the sheet for the
+  // vertical drag (OK-61140). No effect on the floating dialog or with
+  // disableDrag.
+  sheetDragArea?: 'sheet' | 'header';
   // When true, system-level close paths (Android hardware back, Escape) do
   // not trigger onClose. Use for blocking dialogs (force-update, etc.) that
   // already opt out of dismissOnOverlayPress + disableDrag.
@@ -157,12 +163,21 @@ export type IDialogCancelProps = Omit<
   'onConfirm' | 'onConfirmText' | 'ConfirmButtonProps' | 'showFooter'
 >;
 
-type IDialogForm = ReturnType<typeof useForm>;
+export type IDialogForm = ReturnType<typeof useForm>;
 
 export interface IDialogInstanceRef {
   close: (extra?: { flag?: string }) => Promise<void>;
   ref: MutableRefObject<IDialogForm | undefined>;
   isExist: () => boolean;
+  /**
+   * Announce the form `Dialog.Form` has just mounted onto this dialog. It is
+   * lazy, so it registers after the rest of the dialog has rendered and
+   * registers again whenever it remounts; anything reading `ref` needs to hear
+   * about that rather than keep whatever it saw first.
+   */
+  registerForm?: (form: IDialogForm | undefined) => void;
+  /** Subscribe to `registerForm`. Returns the unsubscribe function. */
+  subscribeFormChange?: (listener: () => void) => () => void;
 }
 
 export interface IDialogInstance {
