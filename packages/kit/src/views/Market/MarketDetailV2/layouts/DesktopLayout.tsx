@@ -300,14 +300,13 @@ export function DesktopLayout({
     displayTokenDetail.decimals >= 0;
   const isTerminalStockTradeUnavailable =
     shouldUseStockDesktopLayout &&
-    (isTokenVariantsError ||
+    ((!selectedTokenVariant && isTokenVariantsError) ||
       (!isTokenVariantPending &&
         !isTokenVariantsLoading &&
         !selectedTokenVariant));
   const isTradeReadinessPending =
     !isTerminalStockTradeUnavailable &&
     (isTokenVariantPending ||
-      isTokenVariantsLoading ||
       (Boolean(selectedTokenVariant) &&
         (!isSwapTokenReady || isTokenDetailLoading)));
   const isTradeLoading =

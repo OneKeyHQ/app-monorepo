@@ -285,4 +285,80 @@ describe('MarketDetailEmbeddedSwap', () => {
     expect(view.getByTestId('market-embedded-swap-trade-ready')).toBeTruthy();
     expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
   });
+
+  it('does not seed a mounted stock Swap with unresolved variant metadata', () => {
+    const view = render(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        inputDraftKey="stock:MSFT"
+        stockTradeToken={{ ...marketToken, isStock: true }}
+      />,
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importToToken: expect.objectContaining({
+          contractAddress: '0xtoken',
+          decimals: 18,
+        }),
+      }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
+      expect.objectContaining({ contractAddress: '0xtoken', decimals: 18 }),
+    );
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{
+          ...marketToken,
+          contractAddress: '0xnext',
+          decimals: 0,
+          isStock: true,
+        }}
+        inputDraftKey="stock:MSFT"
+        isTradeLoading
+        stockTradeToken={{
+          ...marketToken,
+          contractAddress: '0xnext',
+          decimals: 0,
+          isStock: true,
+        }}
+      />,
+    );
+
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importToToken: expect.objectContaining({
+          contractAddress: '0xtoken',
+          decimals: 18,
+        }),
+      }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
+      expect.objectContaining({ contractAddress: '0xtoken', decimals: 18 }),
+    );
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, contractAddress: '0xnext', isStock: true }}
+        inputDraftKey="stock:MSFT"
+        stockTradeToken={{
+          ...marketToken,
+          contractAddress: '0xnext',
+          isStock: true,
+        }}
+      />,
+    );
+
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importToToken: expect.objectContaining({
+          contractAddress: '0xnext',
+          decimals: 18,
+        }),
+      }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
+      expect.objectContaining({ contractAddress: '0xnext', decimals: 18 }),
+    );
+  });
 });

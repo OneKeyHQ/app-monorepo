@@ -105,6 +105,7 @@ function MarketEmbeddedSwapContent({
   swapToken,
   inputDraft,
   onInputDraftChange,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -115,6 +116,7 @@ function MarketEmbeddedSwapContent({
   swapToken: ISwapToken;
   inputDraft?: ISwapInputAmountDraft;
   onInputDraftChange: (draft: ISwapInputAmountDraft) => void;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -127,15 +129,44 @@ function MarketEmbeddedSwapContent({
   // quote/input state to enter the normal loading skeleton rather than
   // remounting the whole trade panel.
   const [swapTokenSeed, setSwapTokenSeed] = useState(swapToken);
+  const [stockTradeTokenSeed, setStockTradeTokenSeed] =
+    useState(stockTradeToken);
   const swapTokenIdentity = `${swapToken.networkId}:${swapToken.contractAddress}`;
   const swapTokenSeedIdentity = `${swapTokenSeed.networkId}:${swapTokenSeed.contractAddress}`;
   const swapTokenReadySignature = `${swapTokenIdentity}:${swapToken.decimals}:${swapToken.symbol}`;
   const swapTokenSeedReadySignature = `${swapTokenSeedIdentity}:${swapTokenSeed.decimals}:${swapTokenSeed.symbol}`;
   useEffect(() => {
-    if (swapTokenReadySignature !== swapTokenSeedReadySignature) {
+    if (
+      !isTradeLoading &&
+      swapTokenReadySignature !== swapTokenSeedReadySignature
+    ) {
       setSwapTokenSeed(swapToken);
     }
-  }, [swapToken, swapTokenReadySignature, swapTokenSeedReadySignature]);
+  }, [
+    isTradeLoading,
+    swapToken,
+    swapTokenReadySignature,
+    swapTokenSeedReadySignature,
+  ]);
+  const stockTradeTokenReadySignature = stockTradeToken
+    ? `${stockTradeToken.networkId}:${stockTradeToken.contractAddress}:${stockTradeToken.decimals}:${stockTradeToken.symbol}`
+    : '';
+  const stockTradeTokenSeedReadySignature = stockTradeTokenSeed
+    ? `${stockTradeTokenSeed.networkId}:${stockTradeTokenSeed.contractAddress}:${stockTradeTokenSeed.decimals}:${stockTradeTokenSeed.symbol}`
+    : '';
+  useEffect(() => {
+    if (
+      !isTradeLoading &&
+      stockTradeTokenReadySignature !== stockTradeTokenSeedReadySignature
+    ) {
+      setStockTradeTokenSeed(stockTradeToken);
+    }
+  }, [
+    isTradeLoading,
+    stockTradeToken,
+    stockTradeTokenReadySignature,
+    stockTradeTokenSeedReadySignature,
+  ]);
   // Consume the route's draft once per mount; live input must not reinitialize Swap.
   const [initialInputAmountDraft] = useState(inputDraft);
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
@@ -182,9 +213,9 @@ function MarketEmbeddedSwapContent({
 
   const resolvedStockTradeHeader =
     stockTradeHeader ??
-    (stockTradeToken ? (
+    (stockTradeTokenSeed ? (
       <MarketStockTradeTarget
-        token={stockTradeToken}
+        token={stockTradeTokenSeed}
         portfolioData={stockTradePortfolioData}
         resolvedVariantKeys={stockTradeResolvedVariantKeys}
       />
@@ -205,7 +236,7 @@ function MarketEmbeddedSwapContent({
         stockSpeedConfig={stockSpeedConfig}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={resolvedStockTradeHeader}
-        stockTradeToken={stockTradeToken}
+        stockTradeToken={stockTradeTokenSeed}
         stockTradePortfolioData={stockTradePortfolioData}
         stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
         initialInputAmountDraft={initialInputAmountDraft}
@@ -268,6 +299,7 @@ function MarketEmbeddedSwapDraft({
       swapToken={swapToken}
       inputDraft={inputDraftRef.current}
       onInputDraftChange={onInputDraftChange}
+      isTradeLoading={isTradeLoading}
       embeddedStockTrade={embeddedStockTrade}
       stockTradeConfig={stockTradeConfig}
       stockTradeHeader={stockTradeHeader}
