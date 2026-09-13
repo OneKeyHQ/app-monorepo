@@ -26,6 +26,7 @@ let mockDefaultTokens = [mockPaymentToken];
 jest.mock('@onekeyhq/components', () => {
   return {
     EPageType: { modal: 'modal' },
+    Skeleton: () => null,
     Spinner: () => null,
     Stack: ({
       children,
@@ -34,6 +35,12 @@ jest.mock('@onekeyhq/components', () => {
       children?: React.ReactNode;
       testID?: string;
     }) => <div data-testid={testID}>{children}</div>,
+    XStack: ({ children }: { children?: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    YStack: ({ children }: { children?: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
   };
 });
 
@@ -43,6 +50,10 @@ jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   }: {
     children?: React.ReactNode;
   }) => <>{children}</>,
+}));
+
+jest.mock('../layouts/components/MarketStockTradeTarget', () => ({
+  MarketStockTradeTarget: () => null,
 }));
 
 jest.mock('@onekeyhq/shared/src/lazyLoad', () => {
@@ -75,11 +86,21 @@ jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
   ),
 }));
 
-jest.mock('@onekeyhq/shared/types', () => ({
-  EAccountSelectorSceneName: { swap: 'swap' },
-}));
+jest.mock('@onekeyhq/shared/types', () => {
+  const actual = jest.requireActual<typeof import('@onekeyhq/shared/types')>(
+    '@onekeyhq/shared/types',
+  );
+  return {
+    ...actual,
+    EAccountSelectorSceneName: {
+      ...actual.EAccountSelectorSceneName,
+      swap: 'swap',
+    },
+  };
+});
 
 jest.mock('@onekeyhq/shared/types/swap/types', () => ({
+  ESwapSlippageSegmentKey: { AUTO: 'Auto', CUSTOM: 'Custom' },
   ESwapSource: { MARKET: 'market' },
   ESwapTabSwitchType: { SWAP: 'swap', STOCK: 'stock' },
 }));
@@ -122,7 +143,7 @@ describe('MarketDetailEmbeddedSwap', () => {
     );
   });
 
-  it('waits for configuration and consumes the payment seed only once', () => {
+  it('waits for configuration and refreshes the payment seed without remounting', () => {
     mockConfigReady = false;
     mockDefaultTokens = [];
     const view = render(
@@ -134,14 +155,20 @@ describe('MarketDetailEmbeddedSwap', () => {
     view.rerender(
       <MarketDetailEmbeddedSwap swapToken={marketToken} testID="swap" />,
     );
-    const seed = mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams;
-    mockDefaultTokens = [
-      { ...mockPaymentToken, symbol: 'OTHER', contractAddress: '0xother' },
-    ];
+    const updatedPaymentToken = {
+      ...mockPaymentToken,
+      symbol: 'OTHER',
+      contractAddress: '0xother',
+    };
+    mockDefaultTokens = [updatedPaymentToken];
     view.rerender(
       <MarketDetailEmbeddedSwap swapToken={marketToken} testID="swap" />,
     );
-    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toBe(seed);
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importFromToken: updatedPaymentToken,
+      }),
+    );
     expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
   });
 
