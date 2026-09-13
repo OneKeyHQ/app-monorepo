@@ -24130,6 +24130,7 @@
     "packages/shared/src/utils/lwwMaterializedView.ts": 10307,
     "packages/shared/src/utils/marketKLineUtils.ts": 3449,
     "packages/shared/src/utils/marketPresetFeeUtils.ts": 5779,
+    "packages/shared/src/utils/marketTokenPreviewRoute.ts": 10166,
     "packages/shared/src/utils/marketWatchlistIdentity.ts": 24482,
     "packages/shared/src/utils/marketWsUtils.ts": 22983,
     "packages/shared/src/utils/messageUtils.ts": 23985,
