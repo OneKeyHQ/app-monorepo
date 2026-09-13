@@ -699,6 +699,11 @@ function MobileLayoutComponent({
         0,
         pagerHeight - stickyHeaderHeight - contentPaddingBottom,
       ),
+      // Android ScrollView only intercepts drags when its content exceeds the
+      // viewport. The native pager extends that viewport by the header height.
+      emptyScrollContentMinHeight: platformEnv.isNativeAndroid
+        ? pagerHeight + headerHeight + 1
+        : undefined,
     }),
     [contentPaddingBottom, headerHeight, pagerHeight, stickyHeaderHeight],
   );
