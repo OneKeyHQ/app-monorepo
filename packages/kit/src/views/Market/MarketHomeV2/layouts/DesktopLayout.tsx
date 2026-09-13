@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -35,13 +36,13 @@ import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketL
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketTopCoinsList } from '../components/MarketTopCoinsList/MarketTopCoinsList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
-import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   getMarketCategoryTooltipId,
   isMarketStockCategoryById,
   isTrendingStyleSpotCategory,
   shouldHideSpotExtendedStats,
+  shouldShowSpotNetworkSelector,
 } from '../utils';
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
@@ -117,6 +118,7 @@ export function DesktopLayout({
   });
 
   const isFocused = useIsFirstFocus();
+  const isRouteFocused = useIsFocused();
 
   const containerProps = useMemo(
     () => ({
@@ -141,6 +143,37 @@ export function DesktopLayout({
 
   const { activeTabName, setActiveTabName, tabsRef } =
     useSyncedMarketTab(selectedTabName);
+  useFocusEffect(
+    useCallback(() => {
+      const frameIds: number[] = [];
+      const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+      let restored = false;
+      const scheduleRestore = (delay: number) => {
+        timeoutIds.push(
+          setTimeout(() => {
+            if (restored) return;
+            frameIds.push(
+              requestAnimationFrame(() => {
+                if (tabsRef.current?.restoreScrollPosition?.()) {
+                  restored = true;
+                  timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
+                }
+              }),
+            );
+          }, delay),
+        );
+      };
+      scheduleRestore(0);
+      scheduleRestore(100);
+      scheduleRestore(300);
+      scheduleRestore(800);
+      scheduleRestore(1500);
+      return () => {
+        frameIds.forEach((frameId) => cancelAnimationFrame(frameId));
+        timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
+      };
+    }, [tabsRef]),
+  );
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
@@ -276,7 +309,7 @@ export function DesktopLayout({
         currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
         !currentSpotCategoryHasStockData,
       );
-      const usesTrendingStyle = isTrendingStyleSpotCategory(
+      const showNetworkSelector = shouldShowSpotNetworkSelector(
         currentSpotCategoryId,
       );
       // Wrap TabBar + portal target in a single sticky container.
@@ -310,16 +343,16 @@ export function DesktopLayout({
               alignItems="center"
               pr="$5"
             >
-              {usesTrendingStyle ? null : (
-                <TimeRangeDropdown
-                  value={currentFilterBarProps.timeRange}
-                  onChange={currentFilterBarProps.onTimeRangeChange}
-                />
-              )}
-              <CompactNetworkSelector
-                selectedNetworkId={currentFilterBarProps.selectedNetworkId}
-                onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
+              <TimeRangeDropdown
+                value={currentFilterBarProps.timeRange}
+                onChange={currentFilterBarProps.onTimeRangeChange}
               />
+              <XStack display={showNetworkSelector ? 'flex' : 'none'}>
+                <CompactNetworkSelector
+                  selectedNetworkId={currentFilterBarProps.selectedNetworkId}
+                  onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
+                />
+              </XStack>
             </XStack>
           </XStack>
           {/* No padding of its own: each list portals a toolbar band that
@@ -444,14 +477,6 @@ export function DesktopLayout({
               centerDesktopPortalContent
               desktopColumnVariant={usesTrendingStyle ? 'trending' : 'default'}
               useApiDefaultSort={usesTrendingStyle}
-              toolbar={
-                usesTrendingStyle ? (
-                  <TrendingDesktopToolbar
-                    timeRange={filterBarProps.timeRange}
-                    onTimeRangeChange={filterBarProps.onTimeRangeChange}
-                  />
-                ) : undefined
-              }
             />
           );
         }
@@ -499,6 +524,7 @@ export function DesktopLayout({
           ref={tabsRef as any}
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}
+          isRouteFocused={isRouteFocused}
           onTabChange={onTabChangeHandler}
           {...containerProps}
         >

@@ -955,6 +955,8 @@ export function MobileLayout({
     isStockToken,
   ]);
   const isSwapTokenReady =
+    tokenDetail?.address?.toLowerCase() === tokenAddress.toLowerCase() &&
+    tokenDetail?.networkId === networkId &&
     tokenDetail?.decimalsResolved !== false &&
     typeof tokenDetail?.decimals === 'number' &&
     Number.isInteger(tokenDetail.decimals) &&

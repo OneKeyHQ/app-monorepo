@@ -55,7 +55,6 @@ import {
   StockSimpleChart,
   TOKEN_SIMPLE_CHART_RANGES,
 } from '../components/StockSimpleChart';
-import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
 import { useStockDetail } from '../hooks/StockDetailContext';
@@ -86,6 +85,7 @@ import {
 } from './components/marketSimpleChartConstants';
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
+import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import {
   STOCK_DETAIL_COLUMN_GAP,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
@@ -1265,6 +1265,7 @@ function StockOverview({
 export function StockDesktopLayout({
   marketTradingView,
   swapToken,
+  swapInputDraftKey,
   chartMode,
   isChartSwitchDisabled,
   disableTrade,
@@ -1276,6 +1277,7 @@ export function StockDesktopLayout({
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
+  swapInputDraftKey: string;
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   disableTrade?: boolean;
@@ -1287,9 +1289,10 @@ export function StockDesktopLayout({
   // control row hands its trailing slots to this page's stable overlay.
   onEnterChartFullscreen: () => void;
 }) {
+  const { selectedTokenVariant, stockDetail } = useStockDetail();
   const {
     portfolioData: stockPortfolioData,
-    resolvedVariantKeys: resolvedStockVariantKeys,
+    resolvedVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
   } = useStockPortfolioData();
@@ -1362,15 +1365,20 @@ export function StockDesktopLayout({
           testID="stock-token-detail-trade"
           width={STOCK_DETAIL_TRADE_PANEL_WIDTH}
           pt="$6"
-          px={STOCK_DETAIL_HORIZONTAL_GUTTER}
           flexShrink={0}
         >
-          <SwapPanel
+          <MarketEmbeddedSwap
             swapToken={swapToken}
-            disableTrade={disableTrade}
-            portfolioData={stockPortfolioData}
-            resolvedVariantKeys={resolvedStockVariantKeys}
-            stockDetailDesktopLayout
+            inputDraftKey={swapInputDraftKey}
+            disabled={disableTrade}
+            embeddedStockTrade
+            stockTradeToken={swapToken}
+            stockTradePortfolioData={stockPortfolioData}
+            stockTradeResolvedVariantKeys={resolvedVariantKeys}
+            stockTradeConfig={{
+              tokenToAssetRatio: selectedTokenVariant?.tokenToAssetRatio,
+              underlyingSymbol: stockDetail?.symbol,
+            }}
           />
         </Stack>
       </XStack>

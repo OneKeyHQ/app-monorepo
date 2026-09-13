@@ -104,12 +104,17 @@ function TabPage({
   onContentLayout: (height: number) => void;
   children: React.ReactNode;
 }) {
-  const style = useAnimatedStyle(
-    () => ({
-      transform: [{ translateX: (index - progress.value) * pageWidth }],
-    }),
-    [index, pageWidth],
-  );
+  const style = useAnimatedStyle(() => {
+    const offset = index - progress.value;
+    return {
+      transform: [{ translateX: offset * pageWidth }],
+      // A page that has fully left the viewport is hidden outright: Android
+      // rounds the translation to whole pixels on its own, which left a
+      // sliver of the next page's left edge inside the clipped container
+      // (OK-62948). It shows again the moment a drag brings it back.
+      opacity: Math.abs(offset) >= 1 ? 0 : 1,
+    };
+  }, [index, pageWidth]);
   return (
     // Every page stays mounted so it can slide in, but only the active one is
     // a page as far as touches and screen readers are concerned: the others
@@ -142,7 +147,7 @@ export function MobileDetailTabs({
   hasPortfolio: boolean;
   portfolioContent?: React.ReactNode;
   infoContent: React.ReactNode;
-  protocolContent: React.ReactNode;
+  protocolContent?: React.ReactNode;
 }) {
   const intl = useIntl();
   const [selectedKey, setSelectedKey] = useState<
@@ -152,10 +157,17 @@ export function MobileDetailTabs({
   // The portfolio tab only exists once the account response says there is a
   // position, so visibility is data-driven and can change under a mounted page.
   const showPortfolio = hasPortfolio && Boolean(portfolioContent);
+  // Likewise the protocol tab: a provider without intro data (Lista) gets no
+  // tab rather than an empty page (OK-62925).
+  const showProtocol = Boolean(protocolContent);
 
   const visibleKeys = useMemo(
-    () => resolveVisibleTabKeys({ hasPortfolio: showPortfolio }),
-    [showPortfolio],
+    () =>
+      resolveVisibleTabKeys({
+        hasPortfolio: showPortfolio,
+        hasProtocol: showProtocol,
+      }),
+    [showPortfolio, showProtocol],
   );
 
   const activeKey = useMemo(
@@ -173,7 +185,7 @@ export function MobileDetailTabs({
   const contents: Record<IMobileDetailTabKey, React.ReactNode> = {
     portfolio: portfolioContent ?? null,
     info: infoContent,
-    protocol: protocolContent,
+    protocol: protocolContent ?? null,
   };
 
   // Continuous page index: 1 is Info sitting in place, 1.4 is Info dragged

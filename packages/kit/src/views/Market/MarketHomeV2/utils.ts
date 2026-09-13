@@ -1,6 +1,9 @@
 // Shared utility functions for MarketHomeV2 components
 
-import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import {
+  MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID,
+  MARKET_TOP_COINS_CATEGORY_ID,
+} from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IMarketCategoryItem, IMarketTimeRangeValue } from './types';
@@ -152,6 +155,9 @@ export const shouldHideSpotExtendedStats = (
   const normalizedCategory = selectedCategory || 'trending';
   return !SPOT_CATEGORIES_WITH_FULL_STATS.has(normalizedCategory);
 };
+
+export const shouldShowSpotNetworkSelector = (categoryId?: string): boolean =>
+  categoryId !== MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID;
 
 export const isTrendingStyleSpotCategory = (
   categoryId: string | undefined,
