@@ -191,6 +191,8 @@ final class AppClipModel: ObservableObject {
   private var perpsRequestIDs: [String: UUID] = [:]
   private var trendingRequestIDs: [String: UUID] = [:]
   private var candleRequestID = UUID()
+  private var candleRequestDetail: AppClipMarketDetail?
+  private var candleRequestInterval: String?
   private var environmentID = UUID()
   private var minLiquidity = 5_000.0
   private var configurationLastUpdated: Date?
@@ -234,13 +236,12 @@ final class AppClipModel: ObservableObject {
     guard shouldRefreshMarketContent, !isLoadingConfiguration else {
       return
     }
+    refreshVisibleDetail()
     guard !isRefreshing else {
       return
     }
     if lastUpdated.map({ Date().timeIntervalSince($0) >= 15 }) ?? true {
       Task { await refreshMarkets() }
-    } else {
-      refreshVisibleDetail()
     }
   }
 
@@ -880,7 +881,7 @@ final class AppClipModel: ObservableObject {
       return
     }
     selectedInterval = interval
-    let candleRequest = prepareCandleRequest()
+    let candleRequest = prepareCandleRequest(for: detail, interval: interval)
     await loadDetailCandles(
       detail: detail,
       interval: interval,
@@ -895,7 +896,7 @@ final class AppClipModel: ObservableObject {
       return
     }
     let interval = selectedInterval
-    let candleRequest = prepareCandleRequest()
+    let candleRequest = prepareCandleRequest(for: detail, interval: interval)
     Task {
       await loadDetailCandles(
         detail: detail,
@@ -968,7 +969,7 @@ final class AppClipModel: ObservableObject {
     AppClipAttributionStore.save(attribution)
     let reportRecord = attribution
     let reportBaseURL = apiBaseURL
-    let candleRequest = prepareCandleRequest()
+    let candleRequest = prepareCandleRequest(for: detail, interval: initialInterval)
     Task {
       await loadDetailCandles(
         detail: detail,
@@ -1028,7 +1029,14 @@ final class AppClipModel: ObservableObject {
       screen = .detail(detail)
     }
     let interval = selectedInterval
-    let candleRequest = prepareCandleRequest(clearsExistingCandles: false)
+    guard !hasPendingCandleRequest(for: detail, interval: interval) else {
+      return
+    }
+    let candleRequest = prepareCandleRequest(
+      for: detail,
+      interval: interval,
+      clearsExistingCandles: false
+    )
     Task {
       await loadDetailCandles(
         detail: detail,
@@ -1040,11 +1048,29 @@ final class AppClipModel: ObservableObject {
     }
   }
 
+  private func hasPendingCandleRequest(
+    for detail: AppClipMarketDetail,
+    interval: String
+  ) -> Bool {
+    guard
+      isLoadingCandles,
+      candleRequestInterval == interval,
+      let candleRequestDetail
+    else {
+      return false
+    }
+    return hasSameDetailIdentity(detail, candleRequestDetail)
+  }
+
   private func prepareCandleRequest(
+    for detail: AppClipMarketDetail,
+    interval: String,
     clearsExistingCandles: Bool = true
   ) -> (id: UUID, environmentID: UUID, baseURL: URL) {
     let requestID = UUID()
     candleRequestID = requestID
+    candleRequestDetail = detail
+    candleRequestInterval = interval
     isLoadingCandles = true
     candleLoadFailed = false
     if clearsExistingCandles {
@@ -1063,6 +1089,8 @@ final class AppClipModel: ObservableObject {
     defer {
       if candleRequestID == requestID {
         isLoadingCandles = false
+        candleRequestDetail = nil
+        candleRequestInterval = nil
       }
     }
     do {
@@ -1150,7 +1178,14 @@ final class AppClipModel: ObservableObject {
     guard case .detail(let currentDetail) = screen else {
       return false
     }
-    switch (detail, currentDetail) {
+    return hasSameDetailIdentity(detail, currentDetail)
+  }
+
+  private func hasSameDetailIdentity(
+    _ first: AppClipMarketDetail,
+    _ second: AppClipMarketDetail
+  ) -> Bool {
+    switch (first, second) {
     case (.token(let requested), .token(let current)):
       return requested.id == current.id
     case (.stock(let requested), .stock(let current)):
