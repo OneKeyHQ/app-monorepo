@@ -9,7 +9,6 @@ import {
   Divider,
   Page,
   SizableText,
-  Spinner,
   Stack,
   Switch,
   XStack,
@@ -42,6 +41,8 @@ import {
   useNotificationHelperCta,
 } from '../../components/NotificationsTestButton';
 import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
+let cachedNotificationSettings: INotificationPushSettings | undefined;
 
 function NotificationsSettingsHelper() {
   const intl = useIntl();
@@ -80,17 +81,23 @@ export default function NotificationsSettings() {
   const intl = useIntl();
   const [settings, setSettings] = useState<
     INotificationPushSettings | undefined
-  >();
+  >(cachedNotificationSettings ?? {});
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(
+    cachedNotificationSettings !== undefined,
+  );
   const [devAppSettings] = useDevSettingsPersistAtom();
   const [appSettings] = useSettingsPersistAtom();
   const [, setNotificationsData] = useNotificationsAtom();
   const navigation = useAppNavigation();
 
-  const prevSettings = useRef<INotificationPushSettings>(undefined);
+  const prevSettings = useRef<INotificationPushSettings | undefined>(
+    cachedNotificationSettings,
+  );
   const [shouldShowDevPanel, setShouldShowDevPanel] = useState(false);
   const pendingSettings = useRef<INotificationPushSettings | undefined>(
     undefined,
   );
+  const settingsMutationVersionRef = useRef(0);
 
   const { result: pushClient } = usePromiseResult(() => {
     noop(devAppSettings.enabled);
@@ -99,10 +106,19 @@ export default function NotificationsSettings() {
 
   const reloadSettings = useCallback(
     async (updated?: INotificationPushSettings) => {
+      const requestMutationVersion = settingsMutationVersionRef.current;
       const result =
         updated ||
         (await backgroundApiProxy.serviceNotification.fetchServerNotificationSettings());
+      if (
+        !updated &&
+        requestMutationVersion !== settingsMutationVersionRef.current
+      ) {
+        return;
+      }
+      cachedNotificationSettings = result;
       setSettings(result);
+      setIsSettingsLoaded(result !== undefined);
       prevSettings.current = result;
     },
     [],
@@ -135,7 +151,9 @@ export default function NotificationsSettings() {
     } catch (e) {
       isUpdating.current = false;
       if (prevSettings.current) {
+        cachedNotificationSettings = prevSettings.current;
         setSettings(prevSettings.current);
+        setIsSettingsLoaded(true);
       }
       throw e;
     }
@@ -154,17 +172,25 @@ export default function NotificationsSettings() {
 
   const updateSettings = useCallback(
     (partSettings: INotificationPushSettings) => {
+      if (!isSettingsLoaded) {
+        return;
+      }
+      settingsMutationVersionRef.current += 1;
       setSettings((v) => {
+        if (!v) {
+          return v;
+        }
         const newValue = {
           ...v,
           ...partSettings,
         };
+        cachedNotificationSettings = newValue;
         pendingSettings.current = newValue;
         updateSettingsToServer();
         return newValue;
       });
     },
-    [updateSettingsToServer],
+    [isSettingsLoaded, updateSettingsToServer],
   );
 
   useEffect(() => {
@@ -187,11 +213,7 @@ export default function NotificationsSettings() {
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
       />
       <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
-        {!settings ? (
-          <Stack pt={240} justifyContent="center" alignItems="center">
-            <Spinner size="large" />
-          </Stack>
-        ) : (
+        {settings ? (
           <>
             {/* Allow notifications - Master switch */}
             <ListItem>
@@ -210,6 +232,7 @@ export default function NotificationsSettings() {
               <Switch
                 testID="setting-switch"
                 size="small"
+                disabled={!isSettingsLoaded}
                 value={!!settings?.pushEnabled}
                 onChange={async (checked) => {
                   void updateSettings({
@@ -400,7 +423,7 @@ export default function NotificationsSettings() {
               </>
             ) : null}
           </>
-        )}
+        ) : null}
 
         <MultipleClickStack
           h="$12"
