@@ -12,9 +12,11 @@ export type IHeaderDragZoneProps = {
   children: React.ReactNode;
 };
 
-// Web: callers disable the header drag in the browser, and the gesture
-// handler has no web build to load here, so the zone is a plain container.
-// The native file carries the pan.
+// Web/desktop/ext: every caller passes disableDrag in the browser, so
+// isHeaderDragOnly is never true here and this zone is a plain container.
+// Keeping the pan in the native file also keeps the gesture-handler barrel
+// out of the web bundle, and out of Dialog.focus.test.tsx, which runs jsdom
+// with node export conditions.
 export function HeaderDragZone({ minHeight, children }: IHeaderDragZoneProps) {
   return <Stack minHeight={minHeight}>{children}</Stack>;
 }
