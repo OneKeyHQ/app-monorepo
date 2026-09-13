@@ -98,6 +98,8 @@ import {
   type IFetchQuoteResult,
   type ISwapAlertState,
   type ISwapNetwork,
+  type ISwapStockSpeedConfig,
+  type ISwapStockTradeConfig,
   type ISwapToken,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
@@ -126,6 +128,7 @@ import {
   buildSwapRecentTokenPairsFromHistory,
   getSwapMarketPendingHistoryKey,
 } from '../../utils/swapMarketHistory';
+import { calculateSwapStockEstimatedShares } from '../../utils/swapStockReviewUtils';
 import {
   getStockQuoteTradeControl,
   isQuoteRequestForStockTrade,
@@ -197,6 +200,12 @@ interface ISwapStockDesktopContainerProps {
     states: ISwapAlertState[];
     quoteId: string;
   };
+  /** Keep the shared stock ticket while omitting Swap's page-level shell. */
+  embedded?: boolean;
+  stockSpeedConfig?: ISwapStockSpeedConfig;
+  stockTradeConfig?: ISwapStockTradeConfig;
+  stockTradeHeader?: ReactNode;
+  stockTradeToken?: ISwapToken;
 }
 
 type IStockMarketTokenDetail = IMarketTokenDetail | undefined;
@@ -562,11 +571,15 @@ function StockEstimatedReceive({
   quoteLoading,
   quoteEventFetching,
   stockChannel,
+  showEstimatedShares,
+  stockTradeConfig,
 }: {
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   stockChannel: IUseSwapStockChannelReturn;
+  showEstimatedShares?: boolean;
+  stockTradeConfig?: ISwapStockTradeConfig;
 }) {
   const intl = useIntl();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -606,6 +619,7 @@ function StockEstimatedReceive({
     isSellSide,
     isReceiveTokenPopoverOpen,
     onReceiveTokenPress,
+    quoteMatchesStockTrade,
     rateDifference,
     receiveAmount,
     receiveFiatValue,
@@ -619,6 +633,25 @@ function StockEstimatedReceive({
     stockChannel,
   });
   const receiveTokenSymbol = receiveToken?.symbol ?? '';
+  const estimatedStockTokenAmount =
+    stockChannel.tradeSide === ESwapStockTradeSide.Buy
+      ? quoteResult?.toAmount
+      : quoteResult?.fromAmount;
+  const estimatedShares = calculateSwapStockEstimatedShares({
+    stockTokenAmount: quoteMatchesStockTrade
+      ? estimatedStockTokenAmount
+      : undefined,
+    tokenToAssetRatio:
+      stockTradeConfig?.tokenToAssetRatio ??
+      stockChannel.activeStockTokenDetail?.stock?.tokenToAssetRatio ??
+      stockChannel.currentStockToken?.stock?.tokenToAssetRatio,
+  });
+  const stockUnderlyingSymbol =
+    stockTradeConfig?.underlyingSymbol ??
+    stockChannel.activeStockTokenDetail?.stock?.underlyingAssetTicker ??
+    stockChannel.currentStockToken?.symbol ??
+    '';
+  const shouldShowEstimatedShares = Boolean(showEstimatedShares);
   const hasReceiveAmount = Boolean(receiveAmount && receiveTokenSymbol);
   const shouldShowReceiveToken = Boolean(
     hasReceiveAmount || (isSellSide && receiveTokenSymbol),
@@ -629,6 +662,27 @@ function StockEstimatedReceive({
         ? ETranslations.promode_limit_sell_for
         : ETranslations.private_send_estimated_received,
   });
+  let estimatedSharesContent: ReactNode = (
+    <SizableText size="$bodyMdMedium">--</SizableText>
+  );
+  if (isLoading) {
+    estimatedSharesContent = <Skeleton h="$5" w="$20" />;
+  } else if (estimatedShares) {
+    estimatedSharesContent = (
+      <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+        <NumberSizeableText
+          size="$bodyMdMedium"
+          formatter="balance"
+          numberOfLines={1}
+        >
+          {estimatedShares}
+        </NumberSizeableText>
+        <SizableText size="$bodyMdMedium" numberOfLines={1}>
+          {stockUnderlyingSymbol}
+        </SizableText>
+      </XStack>
+    );
+  }
   const receiveTokenDisplay = shouldShowReceiveToken ? (
     <XStack
       h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
@@ -718,7 +772,7 @@ function StockEstimatedReceive({
           <StockPayTokenPopoverContent
             tokens={stockChannel.payTokens}
             currentSelectToken={stockChannel.payToken}
-            disableNativeToken={stockChannel.disableNativePayToken}
+            disableNativeToken={false}
             disableCurrentToken={false}
             onTokenPress={onReceiveTokenPress}
           />
@@ -730,74 +784,92 @@ function StockEstimatedReceive({
   }
 
   return (
-    <XStack
-      testID={SwapTestIDs.stockEstimatedReceive}
-      h={48}
-      alignItems="center"
-      justifyContent="space-between"
-      gap="$2"
-    >
-      <XStack alignItems="center" gap="$1" flexShrink={0} h="$5">
-        <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
-        <SizableText size="$bodyMd" color="$text">
-          {labelText}
-        </SizableText>
-      </XStack>
-      <YStack
-        h={STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT}
-        flex={1}
-        maxWidth={360}
-        alignItems="flex-end"
-        minWidth={0}
+    <YStack gap="$4">
+      <XStack
+        testID={SwapTestIDs.stockEstimatedReceive}
+        h={stockTradeConfig ? 40 : 48}
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$2"
       >
-        {isLoading ? (
-          <>
-            <XStack
-              h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
-              alignItems="center"
-              justifyContent="flex-end"
-            >
-              <Skeleton h="$5" w="$20" />
-            </XStack>
-            <XStack
-              h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
-              alignItems="center"
-              justifyContent="flex-end"
-            >
-              <Skeleton h="$5" w="$16" />
-            </XStack>
-          </>
-        ) : (
-          <>
-            {receiveTokenContent}
-            <XStack
-              h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
-              alignItems="center"
-              justifyContent="flex-end"
-              gap="$1"
-              pr="$1"
-            >
-              <NumberSizeableText
-                size="$bodyMd"
-                color="$textSubdued"
-                formatter="value"
-                formatterOptions={{
-                  currency: currencySymbol,
-                }}
-                numberOfLines={1}
+        <XStack alignItems="center" gap="$1" flexShrink={0} h="$5">
+          {stockTradeConfig ? null : (
+            <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
+          )}
+          <SizableText size="$bodyMd" color="$text">
+            {labelText}
+          </SizableText>
+        </XStack>
+        <YStack
+          h={STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT}
+          flex={1}
+          maxWidth={360}
+          alignItems="flex-end"
+          minWidth={0}
+        >
+          {isLoading ? (
+            <>
+              <XStack
+                h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
+                alignItems="center"
+                justifyContent="flex-end"
               >
-                {receiveFiatValue || '0'}
-              </NumberSizeableText>
-              <SwapRateDifferenceText
-                loading={isLoading}
-                rateDifference={rateDifference}
-                size="$bodyMd"
-              />
-            </XStack>
-          </>
-        )}
-      </YStack>
-    </XStack>
+                <Skeleton h="$5" w="$20" />
+              </XStack>
+              <XStack
+                h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
+                alignItems="center"
+                justifyContent="flex-end"
+              >
+                <Skeleton h="$5" w="$16" />
+              </XStack>
+            </>
+          ) : (
+            <>
+              {receiveTokenContent}
+              <XStack
+                h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
+                alignItems="center"
+                justifyContent="flex-end"
+                gap="$1"
+                pr="$1"
+              >
+                <NumberSizeableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  formatter="value"
+                  formatterOptions={{
+                    currency: currencySymbol,
+                  }}
+                  numberOfLines={1}
+                >
+                  {receiveFiatValue || '0'}
+                </NumberSizeableText>
+                <SwapRateDifferenceText
+                  loading={isLoading}
+                  rateDifference={rateDifference}
+                  size="$bodyMd"
+                />
+              </XStack>
+            </>
+          )}
+        </YStack>
+      </XStack>
+      {shouldShowEstimatedShares ? (
+        <XStack
+          testID="stock-trade-estimated-shares"
+          minHeight={40}
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$2"
+        >
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({ id: ETranslations.market_est_shares })}
+          </SizableText>
+          {estimatedSharesContent}
+        </XStack>
+      ) : null}
+    </YStack>
   );
 }
 
@@ -1194,9 +1266,9 @@ function StockAmountInput({
         <SwapInputActions
           fromToken={inputToken}
           accountInfo={swapFromAddressInfo.accountInfo}
-          showPercentageInput={
-            showPercentageInputDebounce && balanceActionsReady
-          }
+          showPercentageInput={Boolean(
+            showPercentageInputDebounce && balanceActionsReady,
+          )}
           showActionBuy={showActionBuy}
           onSelectStage={onSelectPercentageStage}
         />
@@ -1260,7 +1332,9 @@ function StockAmountInput({
                     <StockPayTokenPopoverContent
                       tokens={payTokens}
                       currentSelectToken={payToken}
-                      disableNativeToken={disableNativePayToken}
+                      disableNativeToken={
+                        isBuySide ? disableNativePayToken : false
+                      }
                       onTokenPress={selectPayToken}
                     />
                   ),
@@ -1297,6 +1371,9 @@ function StockTradeTicket({
   recentTokenPairs,
   onSelectRecentTokenPairs,
   compact,
+  showTradeSideSwitch = true,
+  stockTradeConfig,
+  stockTradeHeader,
 }: Omit<
   ISwapStockDesktopContainerProps,
   'headerContent' | 'supportNetworksList'
@@ -1307,6 +1384,9 @@ function StockTradeTicket({
   recentTokenPairs: ISwapRecentTokenPair[];
   onSelectRecentTokenPairs: (params: ISwapRecentTokenPair) => void;
   compact?: boolean;
+  showTradeSideSwitch?: boolean;
+  stockTradeConfig?: ISwapStockTradeConfig;
+  stockTradeHeader?: ReactNode;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
   const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
@@ -1359,7 +1439,13 @@ function StockTradeTicket({
   return (
     <>
       <YStack gap={compact ? '$3' : '$4'}>
-        <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />
+        {showTradeSideSwitch ? (
+          <StockTradeSideSwitch
+            value={tradeSide}
+            onChange={onTradeSideChange}
+          />
+        ) : null}
+        {stockTradeHeader}
         <StockAmountInput
           fetchLoading={fetchLoading}
           amountInputState={amountInputState}
@@ -1371,6 +1457,8 @@ function StockTradeTicket({
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           stockChannel={stockChannel}
+          showEstimatedShares={Boolean(stockTradeConfig)}
+          stockTradeConfig={stockTradeConfig}
         />
         {renderActionGateOutsideTicket ? null : stockActionGate}
         <SwapStockTradeAlert
@@ -1389,12 +1477,14 @@ function StockTradeTicket({
             quoteResult={quoteResult}
           />
         ) : null}
-        <SwapRecentTokenPairsGroup
-          onSelectTokenPairs={onSelectRecentTokenPairs}
-          tokenPairs={recentTokenPairs}
-          fromTokenAmount={amountInputState.inputValue}
-          visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
-        />
+        {showTradeSideSwitch ? (
+          <SwapRecentTokenPairsGroup
+            onSelectTokenPairs={onSelectRecentTokenPairs}
+            tokenPairs={recentTokenPairs}
+            fromTokenAmount={amountInputState.inputValue}
+            visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
+          />
+        ) : null}
       </YStack>
       {renderActionGateOutsideTicket ? stockActionGate : null}
     </>
@@ -2312,12 +2402,21 @@ function SwapStockDesktopContent({
   quoteLoading,
   quoteEventFetching,
   alerts,
+  embedded,
+  stockTradeConfig,
+  stockTradeHeader,
 }: ISwapStockDesktopContainerProps) {
   const intl = useIntl();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
+  let contentTopPadding: '$0' | '$5' | undefined;
+  if (embedded) {
+    contentTopPadding = '$0';
+  } else if (!headerContent) {
+    contentTopPadding = '$5';
+  }
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -2340,46 +2439,62 @@ function SwapStockDesktopContent({
 
   return (
     <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-      <SwapTipsContainer pageType={pageType} />
-      <YStack
-        width="100%"
-        alignItems="center"
-        pb="$5"
-        pt={headerContent ? undefined : '$5'}
-      >
-        {headerContent ? (
+      {embedded ? null : <SwapTipsContainer pageType={pageType} />}
+      <YStack width="100%" alignItems="center" pb="$5" pt={contentTopPadding}>
+        {!embedded && headerContent ? (
           <YStack {...STOCK_DESKTOP_HEADER_SLOT_PROPS}>{headerContent}</YStack>
         ) : null}
-        <YStack width="100%" maxWidth={STOCK_DESKTOP_CONTENT_MAX_WIDTH}>
+        <YStack
+          width="100%"
+          maxWidth={embedded ? undefined : STOCK_DESKTOP_CONTENT_MAX_WIDTH}
+        >
           <XStack width="100%" gap="$1" px="$5" alignItems="flex-start">
-            <YStack p="$5" flexBasis="50%" minWidth={0} gap="$12">
+            <YStack
+              p={embedded ? '$0' : '$5'}
+              flexBasis={embedded ? '100%' : '50%'}
+              minWidth={0}
+              gap="$12"
+            >
               <YStack
                 width="100%"
                 minWidth={0}
-                minHeight={466}
-                p="$6"
-                borderWidth={1}
+                minHeight={embedded ? undefined : 466}
+                p={embedded ? '$0' : '$6'}
+                borderWidth={embedded ? 0 : 1}
                 borderColor="$borderSubdued"
-                borderRadius="$6"
+                borderRadius={embedded ? '$0' : '$6'}
                 bg="$bgApp"
-                elevationAndroid="$1"
-                $platform-web={{
-                  boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
-                }}
-                style={{
-                  shadowColor: 'rgba(0, 0, 0, 0.08)',
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 1,
-                  shadowRadius: 24,
-                }}
-                gap="$5"
+                elevationAndroid={embedded ? undefined : '$1'}
+                $platform-web={
+                  embedded
+                    ? undefined
+                    : { boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)' }
+                }
+                style={
+                  embedded
+                    ? undefined
+                    : {
+                        shadowColor: 'rgba(0, 0, 0, 0.08)',
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: 1,
+                        shadowRadius: 24,
+                      }
+                }
+                gap={embedded ? '$4' : '$5'}
               >
                 <XStack alignItems="center" justifyContent="space-between">
-                  <SizableText size="$headingLg" color="$text">
-                    {intl.formatMessage({
-                      id: ETranslations.perps_token_selector_stocks,
-                    })}
-                  </SizableText>
+                  {embedded ? (
+                    <StockTradeSideSwitch
+                      value={stockChannel.tradeSide}
+                      onChange={handleTradeSideChange}
+                    />
+                  ) : (
+                    <SizableText size="$headingLg" color="$text">
+                      {intl.formatMessage({
+                        id: ETranslations.perps_token_selector_stocks,
+                      })}
+                    </SizableText>
+                  )}
                   <SwapStockHeaderRightActionContainer storeName={storeName} />
                 </XStack>
                 <StockTradeTicket
@@ -2401,16 +2516,23 @@ function SwapStockDesktopContent({
                   onTradeSideChange={handleTradeSideChange}
                   recentTokenPairs={stockRecentTokenPairs}
                   onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
+                  showTradeSideSwitch={!embedded}
+                  stockTradeConfig={stockTradeConfig}
+                  stockTradeHeader={stockTradeHeader}
                 />
-                <SwapPendingHistoryListComponent
-                  protocol={EProtocolOfExchange.STOCK}
-                />
+                {embedded ? null : (
+                  <SwapPendingHistoryListComponent
+                    protocol={EProtocolOfExchange.STOCK}
+                  />
+                )}
               </YStack>
-              <SwapFAQ variant="stock" />
+              {embedded ? null : <SwapFAQ variant="stock" />}
             </YStack>
-            <YStack p="$5" flexBasis="50%" minWidth={0}>
-              <StockMarketContextPanel storeName={storeName} />
-            </YStack>
+            {embedded ? null : (
+              <YStack p="$5" flexBasis="50%" minWidth={0}>
+                <StockMarketContextPanel storeName={storeName} />
+              </YStack>
+            )}
           </XStack>
         </YStack>
       </YStack>
@@ -2421,14 +2543,39 @@ function SwapStockDesktopContent({
 export function SwapStockDesktopContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
+  const { stockSpeedConfig, stockTradeToken } = props;
   return (
-    <SwapStockTradeProvider>
+    <SwapStockTradeProvider
+      stockSpeedConfig={stockSpeedConfig}
+      stockTradeToken={stockTradeToken}
+    >
       <SwapStockDesktopContent {...props} />
     </SwapStockTradeProvider>
   );
 }
 
 function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
+  const {
+    embedded,
+    pageType,
+    storeName,
+    onSelectToken,
+    fetchLoading,
+    onSelectPercentageStage,
+    onBalanceMaxPress,
+    onPreSwap,
+    onToAnotherAddressModal,
+    onOpenProviderList,
+    refreshAction,
+    quoteResult,
+    quoteLoading,
+    quoteEventFetching,
+    alerts,
+    onTokenPress,
+    supportNetworksList,
+    stockTradeConfig,
+    stockTradeHeader,
+  } = props;
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
@@ -2468,51 +2615,55 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       contentContainerStyle={{ paddingBottom: tabBarHeight }}
       bottomOffset={bottomOffset}
     >
-      <SwapTipsContainer pageType={props.pageType} />
+      {embedded ? null : <SwapTipsContainer pageType={pageType} />}
       <YStack
         testID={SwapTestIDs.stockMobileContainer}
         // pt $1 + the header pill's py $1 puts the stock symbol at the same
         // vertical offset as Pro mode's (pt $2 -> symbol at 8px), so the
         // instrument name does not jump when switching tabs (OK-57348).
-        pt="$1"
+        pt={embedded ? '$0' : '$1'}
         px="$5"
         pb="$5"
         gap="$2"
         flex={1}
       >
-        <StockMarketTokenHeader
-          storeName={props.storeName}
-          channelStage={stockChannel.channelStage}
-          proAligned
-        />
+        {embedded ? null : (
+          <StockMarketTokenHeader
+            storeName={storeName}
+            channelStage={stockChannel.channelStage}
+            proAligned
+          />
+        )}
         <StockTradeTicket
-          onSelectToken={props.onSelectToken}
-          fetchLoading={props.fetchLoading}
-          storeName={props.storeName}
-          onSelectPercentageStage={props.onSelectPercentageStage}
-          onBalanceMaxPress={props.onBalanceMaxPress}
-          onPreSwap={props.onPreSwap}
-          onToAnotherAddressModal={props.onToAnotherAddressModal}
-          onOpenProviderList={props.onOpenProviderList}
-          refreshAction={props.refreshAction}
-          quoteResult={props.quoteResult}
-          quoteLoading={props.quoteLoading}
-          quoteEventFetching={props.quoteEventFetching}
-          alerts={props.alerts}
+          onSelectToken={onSelectToken}
+          fetchLoading={fetchLoading}
+          storeName={storeName}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
           stockChannel={stockChannel}
           tradeSide={stockChannel.tradeSide}
           onTradeSideChange={handleTradeSideChange}
           recentTokenPairs={stockRecentTokenPairs}
           onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
           compact
+          stockTradeConfig={stockTradeConfig}
+          stockTradeHeader={stockTradeHeader}
         />
-        {isDesktopModalPage ? null : (
+        {embedded || isDesktopModalPage ? null : (
           <YStack mt="$2">
             <StockMobilePositionsSection
-              onTokenPress={props.onTokenPress}
-              supportNetworksList={props.supportNetworksList}
-              supportNetworksReady={!props.fetchLoading}
-              storeName={props.storeName}
+              onTokenPress={onTokenPress}
+              supportNetworksList={supportNetworksList}
+              supportNetworksReady={!fetchLoading}
+              storeName={storeName}
             />
           </YStack>
         )}
@@ -2524,8 +2675,12 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
 export function SwapStockMobileContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
+  const { stockSpeedConfig, stockTradeToken } = props;
   return (
-    <SwapStockTradeProvider>
+    <SwapStockTradeProvider
+      stockSpeedConfig={stockSpeedConfig}
+      stockTradeToken={stockTradeToken}
+    >
       <SwapStockMobileContent {...props} />
     </SwapStockTradeProvider>
   );

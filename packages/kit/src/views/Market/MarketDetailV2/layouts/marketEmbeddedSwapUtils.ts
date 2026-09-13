@@ -18,9 +18,15 @@ export function buildMarketEmbeddedSwapInitParams({
   inputDraft?: ISwapInputAmountDraft;
   swapToken: ISwapToken;
 }): ISwapInitParams | undefined {
-  const importToToken = inputDraft?.toToken ?? swapToken;
+  // The stock variant is controlled by Market's selectedTokenVariant. Keep
+  // the user's amount draft, but always use the latest variant token when the
+  // selection changes while the embedded Swap remains mounted.
+  const importToToken = swapToken.isStock
+    ? swapToken
+    : (inputDraft?.toToken ?? swapToken);
   const draftFromToken =
     inputDraft?.fromToken &&
+    inputDraft.fromToken.networkId === importToToken.networkId &&
     !equalTokenNoCaseSensitive({
       token1: inputDraft.fromToken,
       token2: importToToken,

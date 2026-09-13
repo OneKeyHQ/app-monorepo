@@ -1,4 +1,5 @@
 import Foundation
+import Network
 
 struct AppClipInvocation {
   enum Experience {
@@ -114,19 +115,53 @@ struct AppClipInvocation {
   }
 }
 
+enum AppClipMarketTab: Int, CaseIterable, Identifiable {
+  case stocks
+  case perps
+  case trending
+
+  var id: Int { rawValue }
+}
+
+struct AppClipMarketListState<Item: Equatable>: Equatable {
+  var items: [Item] = []
+  var nextCursor: String?
+  var isLoading = false
+  var isLoadingMore = false
+  var didLoad = false
+  var failed = false
+  var loadMoreFailed = false
+  var lastUpdated: Date?
+}
+
+enum AppClipMarketDetail: Equatable {
+  case token(AppClipMarketAsset)
+  case stock(AppClipMarketStock)
+  case perp(AppClipMarketPerp)
+}
+
 @MainActor
 final class AppClipModel: ObservableObject {
   enum Screen {
     case market
-    case detail(AppClipMarketAsset)
+    case detail(AppClipMarketDetail)
     case web(URL)
   }
 
-  @Published private(set) var assets: [AppClipMarketAsset] = []
   @Published var screen: Screen = .market
-  @Published private(set) var isRefreshing = false
-  @Published private(set) var marketRefreshFailed = false
-  @Published private(set) var lastUpdated: Date?
+  @Published private(set) var selectedMarketTab = AppClipMarketTab.stocks
+  @Published private(set) var stockCategories: [AppClipMarketCategory] = []
+  @Published private(set) var perpsCategories: [AppClipMarketCategory] = []
+  @Published private(set) var networks: [AppClipMarketNetwork] = []
+  @Published private(set) var selectedStockCategoryId = "all"
+  @Published private(set) var selectedPerpsCategoryId = "crypto"
+  @Published private(set) var selectedNetworkId = ""
+  @Published private(set) var selectedTimeRange = AppClipMarketTimeRange.oneHour
+  @Published private(set) var isNetworkAvailable: Bool?
+  @Published private var stockStates: [String: AppClipMarketListState<AppClipMarketStock>] = [:]
+  @Published private var perpsStates: [String: AppClipMarketListState<AppClipMarketPerp>] = [:]
+  @Published private var trendingStates: [String: AppClipMarketListState<AppClipMarketAsset>] = [:]
+  @Published private var isLoadingConfiguration = false
   @Published private(set) var candles: [AppClipCandle] = []
   @Published private(set) var selectedInterval = "1m"
   @Published private(set) var isLoadingCandles = false
@@ -150,24 +185,42 @@ final class AppClipModel: ObservableObject {
   private let marketService = AppClipMarketService()
   private let attributionService = AppClipAttributionService()
   private var refreshTask: Task<Void, Never>?
-  private var marketRequestID = UUID()
+  private var configurationRequestID = UUID()
+  private var stockRequestIDs: [String: UUID] = [:]
+  private var stockLoadMoreRequestIDs: [String: UUID] = [:]
+  private var perpsRequestIDs: [String: UUID] = [:]
+  private var trendingRequestIDs: [String: UUID] = [:]
   private var candleRequestID = UUID()
+  private var candleRequestDetail: AppClipMarketDetail?
+  private var candleRequestInterval: String?
+  private var environmentID = UUID()
+  private var minLiquidity = 5_000.0
+  private var configurationLastUpdated: Date?
   private var hasStarted = false
   private var hasHandledInvocation = false
+  private var retryAfterNetworkRecovery = false
+  private let networkMonitor = NWPathMonitor()
+  private let networkMonitorQueue = DispatchQueue(label: "so.onekey.appclip.network")
 
   func start() {
     guard hasHandledInvocation, !hasStarted else {
       return
     }
     hasStarted = true
-    Task { await refreshMarkets() }
+    startNetworkMonitoring()
+    if shouldRefreshMarketContent {
+      Task { await refreshAllMarketPages() }
+    }
     refreshTask = Task { [weak self] in
       while !Task.isCancelled {
         try? await Task.sleep(nanoseconds: 60_000_000_000)
         guard !Task.isCancelled else {
           return
         }
-        await self?.refreshMarkets()
+        guard let self, self.shouldRefreshMarketContent else {
+          continue
+        }
+        await self.refreshMarkets()
       }
     }
   }
@@ -176,14 +229,19 @@ final class AppClipModel: ObservableObject {
     guard hasHandledInvocation else {
       return
     }
-    start()
+    if !hasStarted {
+      start()
+      return
+    }
+    guard shouldRefreshMarketContent, !isLoadingConfiguration else {
+      return
+    }
+    refreshVisibleDetail()
     guard !isRefreshing else {
       return
     }
     if lastUpdated.map({ Date().timeIntervalSince($0) >= 15 }) ?? true {
       Task { await refreshMarkets() }
-    } else {
-      refreshVisibleDetail()
     }
   }
 
@@ -191,12 +249,32 @@ final class AppClipModel: ObservableObject {
     guard let invocation = AppClipInvocation(url: url) else {
       return
     }
+    let wasStarted = hasStarted
+    let wasShowingWeb: Bool
+    if case .web = screen {
+      wasShowingWeb = true
+    } else {
+      wasShowingWeb = false
+    }
+    let environmentChanged = apiBaseURL != invocation.apiBaseURL
     hasHandledInvocation = true
-    marketRequestID = UUID()
+    if environmentChanged {
+      invalidateMarketRequests()
+    }
     candleRequestID = UUID()
     attribution = invocation.attribution
     apiBaseURL = invocation.apiBaseURL
     appLinkHost = invocation.appLinkHost
+    if environmentChanged {
+      resetMarketData()
+    }
+    let needsInitialMarketLoad =
+      wasShowingWeb
+      && !isLoadingConfiguration
+      && configurationLastUpdated == nil
+      && stockStates.isEmpty
+      && perpsStates.isEmpty
+      && trendingStates.isEmpty
     AppClipAttributionStore.save(attribution)
     switch invocation.experience {
     case .market:
@@ -210,7 +288,13 @@ final class AppClipModel: ObservableObject {
     let reportRecord = invocation.attribution
     let reportBaseURL = invocation.apiBaseURL
     Task {
-      await refreshMarkets(force: true)
+      if
+        case .market = invocation.experience,
+        wasStarted,
+        environmentChanged || needsInitialMarketLoad
+      {
+        await refreshAllMarketPages(force: environmentChanged)
+      }
       await report(
         action: "open",
         record: reportRecord,
@@ -220,99 +304,605 @@ final class AppClipModel: ObservableObject {
   }
 
   func refreshMarkets(force: Bool = false) async {
-    guard force || !isRefreshing else {
+    if configurationLastUpdated.map({ Date().timeIntervalSince($0) >= 3_600 }) ?? true {
+      await refreshConfiguration(force: force)
+    }
+    switch selectedMarketTab {
+    case .stocks:
+      await refreshStocks(force: force)
+    case .perps:
+      await refreshPerps(force: force)
+    case .trending:
+      await refreshTrending(force: force)
+    }
+  }
+
+  func selectMarketTab(_ tab: AppClipMarketTab) {
+    guard selectedMarketTab != tab else {
+      return
+    }
+    selectedMarketTab = tab
+    let shouldRefresh =
+      !activeDidLoad
+      || marketRefreshFailed
+      || (lastUpdated.map { Date().timeIntervalSince($0) >= 15 } ?? true)
+    guard !isRefreshing, shouldRefresh else {
+      return
+    }
+    Task {
+      guard selectedMarketTab == tab else {
+        return
+      }
+      await refreshMarkets()
+    }
+  }
+
+  func selectStockCategory(_ categoryId: String) {
+    guard selectedStockCategoryId != categoryId else {
+      return
+    }
+    selectedStockCategoryId = categoryId
+    let state = stockStates[categoryId] ?? AppClipMarketListState()
+    guard (!state.didLoad || state.failed), !state.isLoading else {
+      return
+    }
+    Task { await refreshStocks() }
+  }
+
+  func selectPerpsCategory(_ categoryId: String) {
+    guard selectedPerpsCategoryId != categoryId else {
+      return
+    }
+    selectedPerpsCategoryId = categoryId
+    let state = perpsStates[categoryId] ?? AppClipMarketListState()
+    guard (!state.didLoad || state.failed), !state.isLoading else {
+      return
+    }
+    Task { await refreshPerps() }
+  }
+
+  func selectNetwork(_ networkId: String) {
+    guard selectedNetworkId != networkId else {
+      return
+    }
+    selectedNetworkId = networkId
+    refreshSelectedTrendingFilterIfNeeded()
+  }
+
+  func selectTimeRange(_ timeRange: AppClipMarketTimeRange) {
+    guard selectedTimeRange != timeRange else {
+      return
+    }
+    selectedTimeRange = timeRange
+    refreshSelectedTrendingFilterIfNeeded()
+  }
+
+  func loadMoreStocks() {
+    let categoryId = selectedStockCategoryId
+    let key = categoryId
+    guard
+      var state = stockStates[key],
+      let cursor = state.nextCursor,
+      !state.isLoading,
+      !state.isLoadingMore
+    else {
       return
     }
     let requestID = UUID()
+    let requestEnvironmentID = environmentID
     let requestBaseURL = apiBaseURL
-    marketRequestID = requestID
-    isRefreshing = true
+    stockLoadMoreRequestIDs[key] = requestID
+    state.isLoadingMore = true
+    state.loadMoreFailed = false
+    stockStates[key] = state
+    Task {
+      do {
+        let page = try await marketService.fetchStocks(
+          baseURL: requestBaseURL,
+          category: categoryId == "all" ? nil : categoryId,
+          cursor: cursor
+        )
+        guard
+          environmentID == requestEnvironmentID,
+          apiBaseURL == requestBaseURL,
+          stockLoadMoreRequestIDs[key] == requestID,
+          var current = stockStates[key]
+        else {
+          return
+        }
+        var knownIds = Set(current.items.map(\.id))
+        current.items.append(contentsOf: page.items.filter { knownIds.insert($0.id).inserted })
+        current.nextCursor = page.nextCursor
+        current.isLoadingMore = false
+        current.loadMoreFailed = false
+        current.lastUpdated = Date()
+        stockStates[key] = current
+        retryMarketRefreshAfterNetworkRecoveryIfNeeded()
+      } catch {
+        guard
+          environmentID == requestEnvironmentID,
+          apiBaseURL == requestBaseURL,
+          stockLoadMoreRequestIDs[key] == requestID,
+          var current = stockStates[key]
+        else {
+          return
+        }
+        current.isLoadingMore = false
+        current.loadMoreFailed = true
+        stockStates[key] = current
+        retryMarketRefreshAfterNetworkRecoveryIfNeeded()
+      }
+    }
+  }
+
+  var stockState: AppClipMarketListState<AppClipMarketStock> {
+    stockStates[selectedStockCategoryId] ?? AppClipMarketListState()
+  }
+
+  var perpsState: AppClipMarketListState<AppClipMarketPerp> {
+    perpsStates[selectedPerpsCategoryId] ?? AppClipMarketListState()
+  }
+
+  var trendingState: AppClipMarketListState<AppClipMarketAsset> {
+    trendingStates[trendingKey] ?? AppClipMarketListState()
+  }
+
+  var assets: [AppClipMarketAsset] {
+    trendingState.items
+  }
+
+  var isRefreshing: Bool {
+    switch selectedMarketTab {
+    case .stocks:
+      return stockState.isLoading
+    case .perps:
+      return perpsState.isLoading
+    case .trending:
+      return trendingState.isLoading
+    }
+  }
+
+  var marketRefreshFailed: Bool {
+    switch selectedMarketTab {
+    case .stocks:
+      return stockState.failed
+    case .perps:
+      return perpsState.failed
+    case .trending:
+      return trendingState.failed
+    }
+  }
+
+  var activeDidLoad: Bool {
+    switch selectedMarketTab {
+    case .stocks:
+      return stockState.didLoad
+    case .perps:
+      return perpsState.didLoad
+    case .trending:
+      return trendingState.didLoad
+    }
+  }
+
+  var activeIsEmpty: Bool {
+    switch selectedMarketTab {
+    case .stocks:
+      return stockState.items.isEmpty
+    case .perps:
+      return perpsState.items.isEmpty
+    case .trending:
+      return trendingState.items.isEmpty
+    }
+  }
+
+  var lastUpdated: Date? {
+    switch selectedMarketTab {
+    case .stocks:
+      return stockState.lastUpdated
+    case .perps:
+      return perpsState.lastUpdated
+    case .trending:
+      return trendingState.lastUpdated
+    }
+  }
+
+  private var trendingKey: String {
+    "\(selectedNetworkId)|\(selectedTimeRange.rawValue)"
+  }
+
+  private var shouldRefreshMarketContent: Bool {
+    if case .web = screen {
+      return false
+    }
+    return true
+  }
+
+  private func refreshAllMarketPages(force: Bool = false) async {
+    let requestEnvironmentID = environmentID
+    await refreshConfiguration(force: force)
+    guard environmentID == requestEnvironmentID else {
+      return
+    }
+    async let stocks: Void = refreshStocks(force: force)
+    async let perps: Void = refreshPerps(force: force)
+    async let trending: Void = refreshTrending(force: force)
+    _ = await (stocks, perps, trending)
+  }
+
+  private func refreshConfiguration(force: Bool = false) async {
+    guard force || !isLoadingConfiguration else {
+      return
+    }
+    let requestID = UUID()
+    let requestEnvironmentID = environmentID
+    let requestBaseURL = apiBaseURL
+    configurationRequestID = requestID
+    isLoadingConfiguration = true
     defer {
-      if marketRequestID == requestID {
-        isRefreshing = false
+      if configurationRequestID == requestID {
+        isLoadingConfiguration = false
       }
     }
     do {
-      let result = try await marketService.fetchMarketAssets(baseURL: requestBaseURL)
-      guard marketRequestID == requestID, apiBaseURL == requestBaseURL else {
+      let configuration = try await marketService.fetchConfiguration(baseURL: requestBaseURL)
+      guard
+        environmentID == requestEnvironmentID,
+        apiBaseURL == requestBaseURL,
+        configurationRequestID == requestID
+      else {
         return
       }
-      guard !result.isEmpty else {
-        throw URLError(.zeroByteResource)
-      }
-      assets = result
-      refreshVisibleDetail(
-        with: result.first(where: { asset in
-          guard case .detail(let currentAsset) = screen else {
-            return false
-          }
-          return asset.id == currentAsset.id
-        })
-      )
-      lastUpdated = Date()
-      marketRefreshFailed = false
+      networks = configuration.networks
+      stockCategories = configuration.stockCategories
+      perpsCategories = configuration.perpsCategories
+      minLiquidity = configuration.minLiquidity
+      configurationLastUpdated = Date()
+      synchronizeSelectedFilters()
     } catch {
-      guard marketRequestID == requestID, apiBaseURL == requestBaseURL else {
+      guard
+        environmentID == requestEnvironmentID,
+        apiBaseURL == requestBaseURL,
+        configurationRequestID == requestID
+      else {
         return
       }
-      marketRefreshFailed = true
-      refreshVisibleDetail()
     }
+  }
+
+  private func refreshStocks(force: Bool = false) async {
+    let categoryId = selectedStockCategoryId
+    let key = categoryId
+    var state = stockStates[key] ?? AppClipMarketListState()
+    guard force || (!state.isLoading && !state.isLoadingMore) else {
+      return
+    }
+    let requestID = UUID()
+    let requestEnvironmentID = environmentID
+    let requestBaseURL = apiBaseURL
+    let requestLimit = max(20, state.items.count)
+    stockRequestIDs[key] = requestID
+    stockLoadMoreRequestIDs[key] = UUID()
+    state.isLoading = true
+    state.failed = false
+    state.isLoadingMore = false
+    state.loadMoreFailed = false
+    stockStates[key] = state
+    do {
+      let page = try await marketService.fetchStocks(
+        baseURL: requestBaseURL,
+        category: categoryId == "all" ? nil : categoryId,
+        limit: requestLimit
+      )
+      guard
+        environmentID == requestEnvironmentID,
+        apiBaseURL == requestBaseURL,
+        stockRequestIDs[key] == requestID
+      else {
+        return
+      }
+      var current = stockStates[key] ?? AppClipMarketListState()
+      current.items = page.items
+      current.nextCursor = page.nextCursor
+      current.isLoading = false
+      current.didLoad = true
+      current.failed = false
+      current.lastUpdated = Date()
+      stockStates[key] = current
+      if case .detail(.stock(let visibleStock)) = screen {
+        let refreshedStock = page.items.first(where: { $0.id == visibleStock.id }) ?? visibleStock
+        refreshVisibleDetail(with: .stock(refreshedStock))
+      }
+      retryMarketRefreshAfterNetworkRecoveryIfNeeded()
+    } catch {
+      guard
+        environmentID == requestEnvironmentID,
+        apiBaseURL == requestBaseURL,
+        stockRequestIDs[key] == requestID
+      else {
+        return
+      }
+      var current = stockStates[key] ?? AppClipMarketListState()
+      current.isLoading = false
+      current.failed = true
+      stockStates[key] = current
+      retryMarketRefreshAfterNetworkRecoveryIfNeeded()
+    }
+  }
+
+  private func refreshPerps(force: Bool = false) async {
+    let categoryId = selectedPerpsCategoryId
+    let key = categoryId
+    var state = perpsStates[key] ?? AppClipMarketListState()
+    guard force || !state.isLoading else {
+      return
+    }
+    let requestID = UUID()
+    let requestEnvironmentID = environmentID
+    let requestBaseURL = apiBaseURL
+    perpsRequestIDs[key] = requestID
+    state.isLoading = true
+    state.failed = false
+    perpsStates[key] = state
+    do {
+      let items = try await marketService.fetchPerps(
+        baseURL: requestBaseURL,
+        category: categoryId
+      )
+      guard
+        environmentID == requestEnvironmentID,
+        apiBaseURL == requestBaseURL,
+        perpsRequestIDs[key] == requestID
+      else {
+        return
+      }
+      var current = perpsStates[key] ?? AppClipMarketListState()
+      current.items = items
+      current.isLoading = false
+      current.didLoad = true
+      current.failed = false
+      current.lastUpdated = Date()
+      perpsStates[key] = current
+      if case .detail(.perp(let visiblePerp)) = screen {
+        let refreshedPerp = items.first(where: { $0.id == visiblePerp.id }) ?? visiblePerp
+        refreshVisibleDetail(with: .perp(refreshedPerp))
+      }
+      retryMarketRefreshAfterNetworkRecoveryIfNeeded()
+    } catch {
+      guard
+        environmentID == requestEnvironmentID,
+        apiBaseURL == requestBaseURL,
+        perpsRequestIDs[key] == requestID
+      else {
+        return
+      }
+      var current = perpsStates[key] ?? AppClipMarketListState()
+      current.isLoading = false
+      current.failed = true
+      perpsStates[key] = current
+      retryMarketRefreshAfterNetworkRecoveryIfNeeded()
+    }
+  }
+
+  private func refreshTrending(force: Bool = false) async {
+    let key = trendingKey
+    let networkId = selectedNetworkId
+    let timeRange = selectedTimeRange
+    let requestNetworks = networks
+    let requestMinLiquidity = minLiquidity
+    var state = trendingStates[key] ?? AppClipMarketListState()
+    guard force || !state.isLoading else {
+      return
+    }
+    let requestID = UUID()
+    let requestEnvironmentID = environmentID
+    let requestBaseURL = apiBaseURL
+    trendingRequestIDs[key] = requestID
+    state.isLoading = true
+    state.failed = false
+    trendingStates[key] = state
+    do {
+      let items = try await marketService.fetchMarketAssets(
+        baseURL: requestBaseURL,
+        networkId: networkId,
+        timeRange: timeRange,
+        minLiquidity: requestMinLiquidity,
+        networks: requestNetworks
+      )
+      guard
+        environmentID == requestEnvironmentID,
+        apiBaseURL == requestBaseURL,
+        trendingRequestIDs[key] == requestID
+      else {
+        return
+      }
+      var current = trendingStates[key] ?? AppClipMarketListState()
+      current.items = items
+      current.isLoading = false
+      current.didLoad = true
+      current.failed = false
+      current.lastUpdated = Date()
+      trendingStates[key] = current
+      if case .detail(.token(let visibleAsset)) = screen {
+        let refreshedAsset = items.first(where: { $0.id == visibleAsset.id }) ?? visibleAsset
+        refreshVisibleDetail(with: .token(refreshedAsset))
+      }
+      retryMarketRefreshAfterNetworkRecoveryIfNeeded()
+    } catch {
+      guard
+        environmentID == requestEnvironmentID,
+        apiBaseURL == requestBaseURL,
+        trendingRequestIDs[key] == requestID
+      else {
+        return
+      }
+      var current = trendingStates[key] ?? AppClipMarketListState()
+      current.isLoading = false
+      current.failed = true
+      trendingStates[key] = current
+      retryMarketRefreshAfterNetworkRecoveryIfNeeded()
+    }
+  }
+
+  private func synchronizeSelectedFilters() {
+    if
+      !stockCategories.isEmpty,
+      !stockCategories.contains(where: { $0.id == selectedStockCategoryId })
+    {
+      selectedStockCategoryId =
+        stockCategories.first(where: { $0.id == "all" })?.id ?? stockCategories[0].id
+    }
+    if
+      !perpsCategories.isEmpty,
+      !perpsCategories.contains(where: { $0.id == selectedPerpsCategoryId })
+    {
+      selectedPerpsCategoryId =
+        perpsCategories.first(where: { $0.id == "crypto" })?.id ?? perpsCategories[0].id
+    }
+    if
+      !selectedNetworkId.isEmpty,
+      !networks.contains(where: { $0.id == selectedNetworkId })
+    {
+      selectedNetworkId = ""
+    }
+  }
+
+  private func refreshSelectedTrendingFilterIfNeeded() {
+    let state = trendingStates[trendingKey] ?? AppClipMarketListState()
+    guard (!state.didLoad || state.failed), !state.isLoading else {
+      return
+    }
+    Task { await refreshTrending() }
+  }
+
+  private func startNetworkMonitoring() {
+    networkMonitor.pathUpdateHandler = { [weak self] path in
+      let isAvailable = path.status == .satisfied
+      Task { @MainActor [weak self] in
+        self?.handleNetworkStatus(isAvailable)
+      }
+    }
+    networkMonitor.start(queue: networkMonitorQueue)
+  }
+
+  private func handleNetworkStatus(_ isAvailable: Bool) {
+    let previousStatus = isNetworkAvailable
+    isNetworkAvailable = isAvailable
+    guard
+      previousStatus == false,
+      isAvailable,
+      shouldRefreshMarketContent,
+      marketRefreshFailed || !activeDidLoad || activeIsEmpty
+    else {
+      return
+    }
+    guard !isLoadingConfiguration, !isRefreshing else {
+      retryAfterNetworkRecovery = true
+      return
+    }
+    Task { await refreshMarkets(force: true) }
+  }
+
+  private func retryMarketRefreshAfterNetworkRecoveryIfNeeded() {
+    guard retryAfterNetworkRecovery, !isRefreshing else {
+      return
+    }
+    retryAfterNetworkRecovery = false
+    guard
+      shouldRefreshMarketContent,
+      marketRefreshFailed || !activeDidLoad || activeIsEmpty
+    else {
+      return
+    }
+    Task { await refreshMarkets(force: true) }
+  }
+
+  private func invalidateMarketRequests() {
+    environmentID = UUID()
+    configurationRequestID = UUID()
+    stockRequestIDs.removeAll()
+    stockLoadMoreRequestIDs.removeAll()
+    perpsRequestIDs.removeAll()
+    trendingRequestIDs.removeAll()
+    retryAfterNetworkRecovery = false
+    isLoadingConfiguration = false
+    stockStates = stockStates.mapValues { state in
+      var state = state
+      state.isLoading = false
+      state.isLoadingMore = false
+      return state
+    }
+    perpsStates = perpsStates.mapValues { state in
+      var state = state
+      state.isLoading = false
+      return state
+    }
+    trendingStates = trendingStates.mapValues { state in
+      var state = state
+      state.isLoading = false
+      return state
+    }
+  }
+
+  private func resetMarketData() {
+    stockCategories = []
+    perpsCategories = []
+    networks = []
+    selectedStockCategoryId = "all"
+    selectedPerpsCategoryId = "crypto"
+    selectedNetworkId = ""
+    selectedTimeRange = .oneHour
+    stockStates = [:]
+    perpsStates = [:]
+    trendingStates = [:]
+    minLiquidity = 5_000
+    configurationLastUpdated = nil
   }
 
   func select(_ asset: AppClipMarketAsset) {
-    let initialInterval = "1m"
-    screen = .detail(asset)
-    candles = []
-    selectedInterval = initialInterval
-    candleLoadFailed = false
-    isCloseOnlySeries = false
     setSelectedAsset(asset)
-    attribution.lastAction = "market_select"
-    attribution.updatedAt = Date()
-    AppClipAttributionStore.save(attribution)
-    let reportRecord = attribution
-    let reportBaseURL = apiBaseURL
-    let candleRequest = prepareCandleRequest()
-    Task {
-      await loadCandles(
-        asset: asset,
-        interval: initialInterval,
-        requestID: candleRequest.id,
-        baseURL: candleRequest.baseURL
-      )
-    }
-    Task {
-      await report(
-        action: "market_select",
-        record: reportRecord,
-        baseURL: reportBaseURL
-      )
-    }
+    showDetail(.token(asset), initialInterval: "1m")
   }
 
-  func selectInterval(_ interval: String, asset: AppClipMarketAsset) async {
+  func select(_ stock: AppClipMarketStock) {
+    clearSelectedAsset()
+    showDetail(.stock(stock), initialInterval: "1D")
+  }
+
+  func select(_ perp: AppClipMarketPerp) {
+    clearSelectedAsset()
+    showDetail(.perp(perp), initialInterval: "1H")
+  }
+
+  func selectDetailInterval(_ interval: String, detail: AppClipMarketDetail) async {
+    guard isSameDetail(detail, as: screen) else {
+      return
+    }
     guard interval != selectedInterval || candles.isEmpty else {
       return
     }
     selectedInterval = interval
-    let candleRequest = prepareCandleRequest()
-    await loadCandles(
-      asset: asset,
+    let candleRequest = prepareCandleRequest(for: detail, interval: interval)
+    await loadDetailCandles(
+      detail: detail,
       interval: interval,
       requestID: candleRequest.id,
+      requestEnvironmentID: candleRequest.environmentID,
       baseURL: candleRequest.baseURL
     )
   }
 
-  func retryCandles(asset: AppClipMarketAsset) {
+  func retryDetailCandles(detail: AppClipMarketDetail) {
+    guard isSameDetail(detail, as: screen) else {
+      return
+    }
     let interval = selectedInterval
-    let candleRequest = prepareCandleRequest()
+    let candleRequest = prepareCandleRequest(for: detail, interval: interval)
     Task {
-      await loadCandles(
-        asset: asset,
+      await loadDetailCandles(
+        detail: detail,
         interval: interval,
         requestID: candleRequest.id,
+        requestEnvironmentID: candleRequest.environmentID,
         baseURL: candleRequest.baseURL
       )
     }
@@ -358,6 +948,46 @@ final class AppClipModel: ObservableObject {
     attribution.selectedSymbol = asset.symbol
   }
 
+  private func clearSelectedAsset() {
+    attribution.selectedAddress = nil
+    attribution.selectedIsNative = nil
+    attribution.selectedNetwork = nil
+    attribution.selectedSymbol = nil
+  }
+
+  private func showDetail(
+    _ detail: AppClipMarketDetail,
+    initialInterval: String
+  ) {
+    screen = .detail(detail)
+    candles = []
+    selectedInterval = initialInterval
+    candleLoadFailed = false
+    isCloseOnlySeries = false
+    attribution.lastAction = "market_select"
+    attribution.updatedAt = Date()
+    AppClipAttributionStore.save(attribution)
+    let reportRecord = attribution
+    let reportBaseURL = apiBaseURL
+    let candleRequest = prepareCandleRequest(for: detail, interval: initialInterval)
+    Task {
+      await loadDetailCandles(
+        detail: detail,
+        interval: initialInterval,
+        requestID: candleRequest.id,
+        requestEnvironmentID: candleRequest.environmentID,
+        baseURL: candleRequest.baseURL
+      )
+    }
+    Task {
+      await report(
+        action: "market_select",
+        record: reportRecord,
+        baseURL: reportBaseURL
+      )
+    }
+  }
+
   private func fullAppURL(asset: AppClipMarketAsset?) -> URL? {
     var components = URLComponents()
     components.scheme = "https"
@@ -387,61 +1017,113 @@ final class AppClipModel: ObservableObject {
     return components.url
   }
 
-  private func refreshVisibleDetail(with refreshedAsset: AppClipMarketAsset? = nil) {
-    guard case .detail(let currentAsset) = screen else {
+  private func refreshVisibleDetail(with refreshedDetail: AppClipMarketDetail? = nil) {
+    guard case .detail(let currentDetail) = screen else {
       return
     }
-    let asset = refreshedAsset ?? currentAsset
-    if asset != currentAsset {
-      screen = .detail(asset)
+    let detail = refreshedDetail ?? currentDetail
+    guard isSameDetail(detail, as: screen) else {
+      return
+    }
+    if detail != currentDetail {
+      screen = .detail(detail)
     }
     let interval = selectedInterval
-    let candleRequest = prepareCandleRequest(clearsExistingCandles: false)
+    guard !hasPendingCandleRequest(for: detail, interval: interval) else {
+      return
+    }
+    let candleRequest = prepareCandleRequest(
+      for: detail,
+      interval: interval,
+      clearsExistingCandles: false
+    )
     Task {
-      await loadCandles(
-        asset: asset,
+      await loadDetailCandles(
+        detail: detail,
         interval: interval,
         requestID: candleRequest.id,
+        requestEnvironmentID: candleRequest.environmentID,
         baseURL: candleRequest.baseURL
       )
     }
   }
 
+  private func hasPendingCandleRequest(
+    for detail: AppClipMarketDetail,
+    interval: String
+  ) -> Bool {
+    guard
+      isLoadingCandles,
+      candleRequestInterval == interval,
+      let candleRequestDetail
+    else {
+      return false
+    }
+    return hasSameDetailIdentity(detail, candleRequestDetail)
+  }
+
   private func prepareCandleRequest(
+    for detail: AppClipMarketDetail,
+    interval: String,
     clearsExistingCandles: Bool = true
-  ) -> (id: UUID, baseURL: URL) {
+  ) -> (id: UUID, environmentID: UUID, baseURL: URL) {
     let requestID = UUID()
     candleRequestID = requestID
+    candleRequestDetail = detail
+    candleRequestInterval = interval
     isLoadingCandles = true
     candleLoadFailed = false
     if clearsExistingCandles {
       candles = []
     }
-    return (requestID, apiBaseURL)
+    return (requestID, environmentID, apiBaseURL)
   }
 
-  private func loadCandles(
-    asset: AppClipMarketAsset,
+  private func loadDetailCandles(
+    detail: AppClipMarketDetail,
     interval: String,
     requestID: UUID,
+    requestEnvironmentID: UUID,
     baseURL: URL
   ) async {
     defer {
       if candleRequestID == requestID {
         isLoadingCandles = false
+        candleRequestDetail = nil
+        candleRequestInterval = nil
       }
     }
     do {
-      let result = try await marketService.fetchCandles(
-        asset: asset,
-        interval: interval,
-        baseURL: baseURL
-      )
+      let result: AppClipKlineResult
+      switch detail {
+      case .token(let asset):
+        result = try await marketService.fetchCandles(
+          asset: asset,
+          interval: interval,
+          baseURL: baseURL
+        )
+      case .stock(let stock):
+        result = try await marketService.fetchStockCandles(
+          stockID: stock.id,
+          period: interval.lowercased(),
+          baseURL: baseURL
+        )
+      case .perp(let perp):
+        let timeTo = Int(Date().timeIntervalSince1970)
+        let timeFrom = timeTo - Self.perpCandleTimeSpan(for: interval)
+        result = try await marketService.fetchPerpCandles(
+          coin: perp.id,
+          interval: interval.lowercased(),
+          timeFrom: timeFrom,
+          timeTo: timeTo
+        )
+      }
       guard
         isCurrentCandleRequest(
           requestID: requestID,
+          requestEnvironmentID: requestEnvironmentID,
           baseURL: baseURL,
-          assetID: asset.id,
+          detail: detail,
           interval: interval
         )
       else {
@@ -457,8 +1139,9 @@ final class AppClipModel: ObservableObject {
       guard
         isCurrentCandleRequest(
           requestID: requestID,
+          requestEnvironmentID: requestEnvironmentID,
           baseURL: baseURL,
-          assetID: asset.id,
+          detail: detail,
           interval: interval
         )
       else {
@@ -471,19 +1154,62 @@ final class AppClipModel: ObservableObject {
 
   private func isCurrentCandleRequest(
     requestID: UUID,
+    requestEnvironmentID: UUID,
     baseURL: URL,
-    assetID: AppClipMarketAsset.ID,
+    detail: AppClipMarketDetail,
     interval: String
   ) -> Bool {
     guard
       candleRequestID == requestID,
+      environmentID == requestEnvironmentID,
       apiBaseURL == baseURL,
       selectedInterval == interval,
-      case .detail(let currentAsset) = screen
+      isSameDetail(detail, as: screen)
     else {
       return false
     }
-    return currentAsset.id == assetID
+    return true
+  }
+
+  private func isSameDetail(
+    _ detail: AppClipMarketDetail,
+    as screen: Screen
+  ) -> Bool {
+    guard case .detail(let currentDetail) = screen else {
+      return false
+    }
+    return hasSameDetailIdentity(detail, currentDetail)
+  }
+
+  private func hasSameDetailIdentity(
+    _ first: AppClipMarketDetail,
+    _ second: AppClipMarketDetail
+  ) -> Bool {
+    switch (first, second) {
+    case (.token(let requested), .token(let current)):
+      return requested.id == current.id
+    case (.stock(let requested), .stock(let current)):
+      return requested.id == current.id
+    case (.perp(let requested), .perp(let current)):
+      return requested.id == current.id
+    default:
+      return false
+    }
+  }
+
+  private static func perpCandleTimeSpan(for interval: String) -> Int {
+    switch interval.lowercased() {
+    case "1m":
+      return 2 * 24 * 60 * 60
+    case "15m":
+      return 7 * 24 * 60 * 60
+    case "1h":
+      return 30 * 24 * 60 * 60
+    case "4h":
+      return 90 * 24 * 60 * 60
+    default:
+      return 7 * 24 * 60 * 60
+    }
   }
 
   private func report(
