@@ -1076,18 +1076,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       {
         fromToken,
         toToken,
+        clearFromToken = false,
+        clearToToken = false,
         syncId,
       }: {
         fromToken?: ISwapToken;
         toToken?: ISwapToken;
+        clearFromToken?: boolean;
+        clearToToken?: boolean;
         syncId: number;
       },
     ) => {
       set(swapStockExecutionTokenSyncIdAtom(), syncId);
-      if (fromToken) {
+      if (clearFromToken) {
+        set(swapSelectFromTokenAtom(), undefined);
+      } else if (fromToken) {
         set(swapSelectFromTokenAtom(), fromToken);
       }
-      if (toToken) {
+      if (clearToToken) {
+        set(swapSelectToTokenAtom(), undefined);
+      } else if (toToken) {
         set(swapSelectToTokenAtom(), toToken);
       }
       let stockSelectedToken: ISwapToken | undefined;

@@ -3,6 +3,10 @@ import type { PropsWithChildren } from 'react';
 
 import { render, screen } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
+
 import { MarketBannerList, MarketBannerProvider } from './MarketBannerList';
 
 import type { useMarketBannerList } from './useMarketBannerList';
@@ -32,8 +36,15 @@ jest.mock('@onekeyhq/components', () => ({
   ScrollView: ({
     children,
     opacity,
-  }: PropsWithChildren<{ opacity?: number }>) => (
-    <div aria-hidden={opacity === 0 ? true : undefined}>{children}</div>
+    h,
+  }: PropsWithChildren<{ opacity?: number; h?: number }>) => (
+    <div
+      data-testid="mobile-banner-container"
+      data-height={h}
+      aria-hidden={opacity === 0 ? true : undefined}
+    >
+      {children}
+    </div>
   ),
   XStack: ({ children, pt }: PropsWithChildren<{ pt?: string }>) => (
     <div data-testid="reserved-space" data-padding-top={pt}>
@@ -61,6 +72,7 @@ const populated = (id = 'banner') => ({
 
 beforeEach(() => {
   mockIsSmallScreen = true;
+  platformEnv.isNative = true;
 });
 
 it('keeps native tablet banner padding aligned with the fixed header height', () => {
@@ -143,3 +155,43 @@ it('locks an empty header only after a successful retry returns no banners', () 
   rerender(<Page />);
   expect(screen.queryByTestId('banner')).toBeNull();
 });
+
+it.each([true, false])(
+  'matches the header height for legacy, modern and mixed cards (native=%s)',
+  (native) => {
+    platformEnv.isNative = native;
+    mockState = populated('legacy');
+    const { rerender } = render(<Page />);
+    const expectHeight = (height: number) => {
+      expect(getMarketMobileBannerHeaderHeight(mockState.bannerList)).toBe(
+        height,
+      );
+      expect(screen.getByTestId('mobile-banner-container').dataset.height).toBe(
+        String(height),
+      );
+    };
+    expectHeight(134);
+    mockState = {
+      ...populated(),
+      bannerList: [{ ...populated('modern').bannerList[0], tokens: [] }],
+    };
+    rerender(<Page />);
+    expectHeight(204);
+    mockState = {
+      ...mockState,
+      bannerList: [...mockState.bannerList, ...populated('legacy').bannerList],
+    };
+    rerender(<Page />);
+    expectHeight(204);
+    if (native) {
+      mockState = { ...mockState, bannerList: [] };
+      rerender(<Page />);
+      expect(screen.getByTestId('mobile-banner-container').dataset.height).toBe(
+        '204',
+      );
+    }
+    mockState = populated('legacy');
+    rerender(<Page />);
+    expectHeight(134);
+  },
+);

@@ -12,6 +12,7 @@ import {
   MarketTokenPrice,
 } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
@@ -255,8 +256,15 @@ export function InformationPanel() {
             holders: formattedHolders,
           }}
         />
-        {networkId && address && securityData ? (
-          <XStack gap="$1" ai="center" width="100%" jc="space-between">
+        {/* Reserve the native risk row before its separate request settles. */}
+        {networkId && address && (platformEnv.isNative || securityData) ? (
+          <XStack
+            testID="market-detail-security-row"
+            gap="$1"
+            ai="center"
+            width="100%"
+            jc="space-between"
+          >
             <SizableText
               pointerEvents="none"
               size="$bodySm"
@@ -264,7 +272,13 @@ export function InformationPanel() {
             >
               {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
             </SizableText>
-            <TokenSecurityAlert />
+            {securityData ? (
+              <TokenSecurityAlert />
+            ) : (
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                --
+              </SizableText>
+            )}
           </XStack>
         ) : null}
       </YStack>

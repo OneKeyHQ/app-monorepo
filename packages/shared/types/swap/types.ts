@@ -1241,6 +1241,17 @@ export interface ISpeedSwapConfig {
   unavailable?: boolean;
 }
 
+export type ISwapStockSpeedConfig = {
+  networkId: string;
+  config: ISpeedSwapConfig;
+};
+
+/** Optional Market-only metadata injected into the shared stock ticket. */
+export type ISwapStockTradeConfig = {
+  tokenToAssetRatio?: string;
+  underlyingSymbol?: string;
+};
+
 export interface IFetchUSMarketStatusResult {
   open: boolean;
   session: 'PRE_MARKET' | 'REGULAR' | 'POST_MARKET' | 'OVERNIGHT' | 'CLOSED';
