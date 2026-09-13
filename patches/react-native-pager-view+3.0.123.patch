@@ -1,0 +1,54 @@
+diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h
+index b835bfe..e65b662 100644
+--- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h
++++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.h
+@@ -1,8 +1,11 @@
+ #import <React/RCTViewComponentView.h>
++#import <React/RCTMountingTransactionObserving.h>
+ 
+ NS_ASSUME_NONNULL_BEGIN
+ 
+-@interface RNCCollapsiblePagerViewComponentView : RCTViewComponentView
++// OneKey patch: observe descendant list replacements after Fabric commits.
++// @interface RNCCollapsiblePagerViewComponentView : RCTViewComponentView
++@interface RNCCollapsiblePagerViewComponentView : RCTViewComponentView <RCTMountingTransactionObserving>
+ 
+ @end
+ 
+diff --git a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
+index 84eab17..591de7c 100644
+--- a/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
++++ b/node_modules/react-native-pager-view/ios/RNCCollapsiblePagerViewComponentView.mm
+@@ -1209,6 +1209,32 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+ 
+ #pragma mark - Smooth shared header ownership
+ 
++// OneKey patch: RN ScrollView hit testing visits only its React content container,
++// so explicitly include the native shared header attached beside that container.
++- (UIView *)betterHitTest:(CGPoint)point withEvent:(UIEvent *)event
++{
++  UIView *hitView = [super betterHitTest:point withEvent:event];
++  if (hitView == nil || !_nativeSmoothHeaderScrollEnabled ||
++      ![self pointInside:point withEvent:event] ||
++      ![_sharedHeaderHostView isDescendantOfView:self]) {
++    return hitView;
++  }
++  CGPoint headerPoint = [_sharedHeaderHostView convertPoint:point fromView:self];
++  return [_sharedHeaderHostView hitTest:headerPoint withEvent:event] ?: hitView;
++}
++
++// OneKey patch: a loading list can be replaced without changing the pager's
++// bounds or page slots. Reattach after the new scroll view has finished mounting.
++- (void)mountingTransactionDidMount:(const MountingTransaction &)transaction
++               withSurfaceTelemetry:(const SurfaceTelemetry &)surfaceTelemetry
++{
++  if (_isBeingRecycled || self.window == nil || _transitioning || _isPagerDragging ||
++      _currentIndex < 0 || _currentIndex >= _pageControllers.count) return;
++  UIView *page = _pageControllers[_currentIndex].view;
++  if (_observedScrollView != nil && [_observedScrollView isDescendantOfView:page]) return;
++  [self attachScrollObserverForCurrentPage];
++}
++
+ - (void)restoreSharedHeadersToContainer
+ {
+   _sharedHeaderScrollView = nil;
