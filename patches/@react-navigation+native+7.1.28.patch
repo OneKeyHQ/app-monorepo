@@ -1,5 +1,5 @@
 diff --git a/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js b/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
-index 474db5e..4b47a93 100644
+index 474db5e..73d7254 100644
 --- a/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
 +++ b/node_modules/@react-navigation/native/lib/module/createMemoryHistory.js
 @@ -1,6 +1,38 @@
@@ -66,7 +66,7 @@ index 474db5e..4b47a93 100644
      // `history.go(n)` is asynchronous, there are couple of things to keep in mind:
      // - it won't do anything if we can't go `n` steps, the `popstate` event won't fire.
 diff --git a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
-index 1568263..2adaaec 100644
+index 1568263..88ea4de 100644
 --- a/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
 +++ b/node_modules/@react-navigation/native/src/createMemoryHistory.tsx
 @@ -10,6 +10,37 @@ type HistoryRecord = {
