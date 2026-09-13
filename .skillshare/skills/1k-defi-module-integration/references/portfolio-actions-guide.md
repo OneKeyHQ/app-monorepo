@@ -12,6 +12,26 @@ missing action on an existing portfolio position.
 An action is renderable only when these contracts can be joined without
 guessing. A position remains visible when no action is executable.
 
+On Earn protocol detail, treat account-scoped portfolio data as a read model,
+not global persisted truth. Scope it by account, indexed account, network,
+provider, symbol, and vault; re-fetch when a derived address or account scope
+changes. Server-declared action rows may remain visible but disabled when a
+capability is unavailable; do not hide them solely because one optional
+capability flag is false.
+
+Keep capability states distinct: unsupported (`false`), supported-but-not
+currently actionable (for example zero balance or pending setup), and enabled
+must not be coerced into one Boolean or filtered into the same empty state.
+Scope collateral capability and pending locks by provider, network, market,
+reserve, and account; a native reserve may legitimately use an empty address.
+
+The mobile `IStakeEarnDetail.mobilePortfolio` read model owns the claimable,
+pending, and distributed reward rows. A distributed row opens the shared
+Staking `HistoryList` with `accountId`, `networkId`, `symbol`, `provider`, and
+`protocolVault`; a redeem control requires both `item.redeemable` and
+`capabilities.redeem`. Keep that contract separate from the wide-layout
+portfolio model.
+
 ## Identity And Grouping
 
 Match on the full stable identity required by the current contract, such as
@@ -32,6 +52,12 @@ data is ambiguous, fail closed for the action rather than guessing.
 AssetDetails modal pages do not automatically inherit Home account context.
 Carry `accountId` and `indexedAccountId` through typed params or the protocol
 payload when the action requires them.
+
+For a Market asset that links into Earn, pass the protocol/product identity and
+server-derived symbol through the existing route helper. Preserve native versus
+wrapped mapping (for example an asset may display as native while the Earn
+product resolves to its wrapped symbol); never infer a vault or claim token
+from the provider name alone.
 
 Normalize transport variants such as serialized transaction, approval, or
 permit fields at the background/service boundary. UI and confirmation code

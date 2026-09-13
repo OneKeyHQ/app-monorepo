@@ -42,5 +42,28 @@ proof.
 - cancel/failure or missing-data behavior
 - account/network change while a request is in flight, when applicable
 - refresh/pending/history agreement after success
+- approval dialog reopen after a seeded allowance changes on chain; prove the
+  exact account/network/asset/spender is re-read before enabling the action
+- SpeedUp and Cancel replacement through pending → indexer merge → history;
+  prove replacement linkage lets guards identify the original operation while
+  display/action classification does not show Cancel as its pending action
+- capability `false` versus supported-but-disabled versus enabled for a
+  collateral/action row; verify provider/network/market/reserve/account scope
+  and the native-reserve empty-address case are preserved
+- cached, empty, loading, error, and retry states for Earn/Borrow; verify a
+  complete snapshot is retained during refresh and that account/network scope
+  changes invalidate the old result
+- native expandable Earn detail rows and a Market → Earn direct-detail handoff
+  on the owning host, including the missing-protocol/disabled-action path
+- mobile Earn detail reads must be scoped to `accountId`, `indexedAccountId`,
+  network, provider, symbol, and vault; change the derived address and prove a
+  new request replaces the old read model rather than reusing memory from the
+  previous account
+- mobile `claimable`/`pending`/`distributed` rows; verify distributed opens the
+  scoped Staking `HistoryList`, and redeem requires both row and protocol
+  capability gates
+- when a new native module or route is introduced, update the mobile module-ID
+  registry and run the relevant Union Build/startup-graph check in addition to
+  focused tests
 
 Report checks actually run and any unavailable runtime or service evidence.

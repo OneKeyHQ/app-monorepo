@@ -34,6 +34,18 @@ yarn agent:check --profile commit
   reconnect, the same identities must return and repair may resume.
 - New channel: prove happy path, one provider failure/stale response, one
   terminal status, and restart/replay behavior.
+- Embedded Market/Stock: from the real Market detail entry, switch to another
+  stock variant and network while the ticket is mounted; prove the shared Swap
+  ticket keeps the input/review lifecycle, the old pay token cannot leak, and
+  the new quote belongs to the new identity. Also exercise config unavailable,
+  terminal unsupported, and full-Swap fallback paths separately.
+- Native percentage input: with a native pay token and a gas reserve, verify
+  25/50/100% use the same available-balance semantics as Max, not a second
+  reserve subtraction.
+- Terminal order/history states: verify success, failure, cancel, expiry, and
+  refund/source/replacement IDs stop polling and render the correct detail
+  rows without duplicating a transaction ID; verify only a balance-changing
+  refund transition triggers balance refresh.
 
 ## Platform Proof
 
@@ -47,3 +59,7 @@ A settled screenshot, rendered element, or passing utility test is not enough
 when the bug concerns first-frame state, quote identity, build/send, pending,
 persistence, or status repair. Report checks actually run and unavailable
 runtime or provider evidence.
+
+For a new shared Market/Swap module on native, update and check the module-ID
+registry and run the owning Union Build/startup-graph checks. A registry diff or
+desktop-only render is not proof that the split main/background bundles load.

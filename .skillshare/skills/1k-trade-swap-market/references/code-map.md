@@ -10,11 +10,16 @@ Use directory-level orientation, then confirm current symbols with `rg`.
 | Swap Jotai state/actions        | `packages/kit/src/states/jotai/contexts/swap/`                      |
 | Quote/build/status service      | `packages/kit-bg/src/services/ServiceSwap.ts` and background API    |
 | Persistent Swap history         | Swap SimpleDB entity and shared history types/utils                 |
+| Swap status/history semantics   | `packages/kit-bg/src/services/utils/swapHistoryStatusUtils.ts`, `packages/kit-bg/src/services/ServiceHistory.ts`, and `packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts` |
 | Routes and shared contracts     | `packages/shared/src/routes/swap.ts`, `packages/shared/types/swap/` |
 | Wallet/Home/Send/Earn handoffs  | source view/component plus Swap route initialization                |
 | Market speed-trade and data     | `packages/kit/src/views/Market/`, market background service         |
 | Receive-only filtering          | Receive page, AssetSelector, shared token-selector filter utils     |
 | TradingView/K-line              | TradingView component tree and market data/message handlers         |
+| Embedded Market token trade     | `packages/kit/src/views/Market/MarketDetailV2/layouts/MarketEmbeddedSwap.tsx` and `packages/kit/src/views/Market/MarketDetailV2/components/MarketDetailEmbeddedSwap.tsx` |
+| Embedded Market stock trade     | `packages/kit/src/views/Market/MarketDetailV2/layouts/components/MarketStockTradeTarget.tsx`, `packages/kit/src/views/Swap/pages/components/SwapMainLand.tsx`, `packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.tsx` (exports both desktop/mobile containers), and `packages/kit/src/views/Swap/pages/components/SwapStockTradeProvider.tsx` |
+| Stock identity/pay-token scope  | `packages/kit/src/views/Swap/hooks/useSwapStockChannel.ts`, `packages/kit/src/views/Swap/hooks/useSwapStockPayTokens.ts`, `packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.ts`, and `prepareStockTokenDetail` in `packages/kit/src/states/jotai/contexts/marketV2/actions.ts` |
+| Native bundle ownership         | `apps/mobile/bundle-registry/module-id-registry.json` plus the Union Build/module-id tooling |
 
 ## Useful Searches
 
@@ -27,6 +32,10 @@ rg -n "importFromToken|importToToken|swapSource|swapType|tabSwitch" \
   packages/kit packages/shared
 rg -n "history|pending|replay|repair|SimpleDbEntitySwap" \
   packages/kit packages/kit-bg packages/shared
+rg -n "MarketEmbeddedSwap|embeddedStockTrade|stockSpeedConfig|stockTradeConfig|prepareStockTokenDetail" \
+  packages/kit packages/shared
+rg -n "network.*scope|pay.?token|fallback|quoteLoading|isActionDisabled|reserveGas" \
+  packages/kit/src/views/Swap packages/kit/src/views/Market
 rg -n "ReceiveSelector|TokenSelector|hideDeFi|showDeFi" \
   packages/kit packages/shared
 rg --files packages/kit packages/kit-bg packages/shared | \
@@ -36,6 +45,12 @@ rg --files packages/kit packages/kit-bg packages/shared | \
 When a provider or server field controls behavior, inspect the current DTO,
 adapter, and representative runtime payload. Store stable meaning in types and
 tests; do not freeze one observed response in the skill.
+
+Focused anchors for the embedded Market/Stock boundary include
+`packages/kit/src/views/Market/MarketDetailV2/layouts/MarketEmbeddedSwap.test.ts`,
+`packages/kit/src/views/Swap/hooks/useSwapStockTradeInputs.test.ts`,
+`packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.utils.test.ts`,
+and `packages/kit/src/views/Swap/utils/swapReviewState.test.ts`.
 
 ## Package Boundaries
 

@@ -23,6 +23,30 @@ but they must declare how they use or intentionally diverge from each stage.
 Route params are one-shot inputs. After consumption, current manual selection
 and channel-owned state win over later source/account synchronization.
 
+## Embedded Market / Stock Trade
+
+The current embedded path is `MarketEmbeddedSwap -> SwapMainLand ->
+SwapStockDesktopContainer` (desktop) or its exported
+`SwapStockMobileContainer` (native), both defined in
+`packages/kit/src/views/Swap/pages/components/SwapStockDesktopContainer.tsx`,
+with the internal `StockTradeTicket` as the shared trade surface. `MarketEmbeddedSwap` may
+keep the Market detail/K-line shell and supply typed extensions such as the
+selected stock variant, speed config, portfolio sizing data, and header slots;
+it must not own a parallel quote/review/action state machine. The regular Swap
+page keeps its own page-level shell, while both surfaces share the channel and
+execution lifecycle.
+
+For an in-place variant switch, key the Market route/draft transition by
+network, address/native marker, `marketTokenId`, and variant identity. The
+execution channel still matches results by its token identity (network plus
+address/native marker). Keep the mounted ticket so the shared channel can show
+a partial refresh state, and clear pay-token selection/preferences that belong
+to the previous network before resolving the new candidates. A valid fallback
+pair may keep the first frame usable, but it does not authorize quote/build/send
+until the new identity and readiness are settled. Terminal unsupported state
+must render fallback/unavailable UI rather than an indefinite loading
+placeholder.
+
 ## State Boundaries
 
 Keep these owners distinct:

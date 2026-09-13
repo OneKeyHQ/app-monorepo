@@ -8,6 +8,29 @@ description: Navigate and implement OneKey App Earn, Borrow, Staking, and DeFi P
 Use this skill as a map to the owning surface and service contract. Derive
 product behavior from current code, server data, and the real runtime.
 
+## Operation And Refresh Boundary
+
+Keep the full operation scope—account, network, provider, market/reserve,
+position, token/symbol, action, and request id—through setup, business
+transaction, status, and refresh. A seeded approval/allowance or cached
+position is a display/input hint, not proof of current chain state: reconcile
+chain allowance when an approval-sensitive dialog mounts. Preserve native versus
+wrapped assets and server-derived symbols instead of inferring them from a
+provider name.
+
+Treat pending/history metadata as a contract. SpeedUp replacements inherit the
+metadata needed by pending guards; replacement linkage remains available for
+those guards, while Cancel replacements must not render as the original
+collateral/staking action after an indexer merge. Keep display filtering
+separate from operation locks and carry replacement identity through
+local/remote reconciliation.
+
+For Earn/Borrow refreshes, distinguish cached, empty, loading, error, and
+settled states. Preserve a complete visible snapshot during refresh, keep
+dynamic rows mounted while their height transitions, and invalidate recycled
+lists explicitly when expanded content changes. Close a selector/modal at the
+user action boundary, then load the new market/reserve asynchronously.
+
 ## Quick Start
 
 1. Reproduce the real entry and affected platform.
@@ -22,7 +45,9 @@ product behavior from current code, server data, and the real runtime.
 | --- | --- | --- |
 | Earn home, list, recommendation, or detail | Earn view/state and its service request | [Architecture](references/app-architecture.md), [Code map](references/code-map.md) |
 | Borrow, staking, claim, withdraw, repay, or status | Operation owner and current service contract | [Operation flow](references/operation-flow.md) |
+| Approval, collateral, or pending/history mismatch | Exact account/network/provider/market/reserve owner and merge path | [Operation flow](references/operation-flow.md), [Portfolio actions](references/portfolio-actions-guide.md) |
 | Portfolio position or action | Position data, supported action, transaction builder | [Portfolio actions](references/portfolio-actions-guide.md) |
+| Market asset → Earn detail handoff | Market response plus existing Earn route helper | [Architecture](references/app-architecture.md), [Code map](references/code-map.md) |
 | Native route, modal, event, or account switch | Discovery host and runtime owner | [Architecture](references/app-architecture.md) |
 | External protocol website | Discovery/browser until an App-owned RPC begins | [Architecture](references/app-architecture.md) |
 | Funding handoff to Swap | DeFi prefill before quote; Swap execution afterward | `$1k-trade-swap-market` |
