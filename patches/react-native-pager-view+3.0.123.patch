@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerHost.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerHost.kt
-index 8edb3ab..b52cdb3 100644
+index 8edb3ab..0b2fd4e 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerHost.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerHost.kt
 @@ -9,6 +9,7 @@ import android.view.ViewConfiguration
@@ -21,32 +21,31 @@ index 8edb3ab..b52cdb3 100644
    private var nativeGestureStarted = false
    private var pressCancelled = false
    private val pageContentLayoutListener = ViewTreeObserver.OnPreDrawListener {
-@@ -503,7 +506,13 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
-     return false
+@@ -518,6 +521,23 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
+     return null
    }
  
--  private fun findVerticalRecyclerView(view: View): RecyclerView? {
-+  private fun findVerticalRecyclerView(view: View): RecyclerView? =
-+    findVerticalScrollableView(view) as? RecyclerView
-+
-+  // OneKey patch: use the outer vertical scroll owner for header gestures.
-+  // private fun findVerticalRecyclerView(view: View): RecyclerView? {
++  // OneKey patch: keep header gesture targets independent of RecyclerView inset/offset lookup.
 +  private fun findVerticalScrollableView(view: View): View? {
 +    if (view is ScrollView) return view
-     if (view is RecyclerView) {
-       val manager = view.layoutManager
-       if (manager !is LinearLayoutManager || manager.orientation == RecyclerView.VERTICAL) {
-@@ -512,7 +521,8 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
-     }
-     if (view is ViewGroup) {
-       for (index in 0 until view.childCount) {
--        findVerticalRecyclerView(view.getChildAt(index))?.let { return it }
-+        // findVerticalRecyclerView(view.getChildAt(index))?.let { return it }
++    if (view is RecyclerView) {
++      val manager = view.layoutManager
++      if (manager !is LinearLayoutManager || manager.orientation == RecyclerView.VERTICAL) {
++        return view
++      }
++    }
++    if (view is ViewGroup) {
++      for (index in 0 until view.childCount) {
 +        findVerticalScrollableView(view.getChildAt(index))?.let { return it }
-       }
-     }
-     return null
-@@ -736,26 +746,31 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
++      }
++    }
++    return null
++  }
++
+   private fun recyclerViewForPage(index: Int): RecyclerView? {
+     if (index !in 0 until adapter.itemCount) return null
+     return findVerticalRecyclerView(adapter.pageAt(index))
+@@ -736,26 +756,31 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
      )
    }
  
@@ -89,7 +88,7 @@ index 8edb3ab..b52cdb3 100644
    }
  
    private fun finishHeaderGesture(event: MotionEvent) {
-@@ -776,7 +791,7 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
+@@ -776,7 +801,7 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
      headerTouchRegion = "none"
      headerGestureOwner = HeaderGestureOwner.NONE
      headerHasHorizontalChild = false
@@ -98,7 +97,7 @@ index 8edb3ab..b52cdb3 100644
      pressCancelled = false
    }
  
-@@ -789,7 +804,7 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
+@@ -789,7 +814,7 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
          headerDownEvent?.recycle()
          headerDownEvent = null
          headerGestureOwner = HeaderGestureOwner.NONE
@@ -107,7 +106,7 @@ index 8edb3ab..b52cdb3 100644
          pressCancelled = false
          nativeGestureStarted = false
          nestedNativeGestureStarted = false
-@@ -832,10 +847,10 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
+@@ -832,10 +857,10 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
          return when (headerGestureOwner) {
            HeaderGestureOwner.LIST -> {
              cancelHeaderPress(event, "list")
@@ -122,7 +121,7 @@ index 8edb3ab..b52cdb3 100644
                true
              } else {
                headerGestureOwner = HeaderGestureOwner.HEADER_GUARD
-@@ -855,8 +870,8 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
+@@ -855,8 +880,8 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
          if (!headerTouchActive) return super.dispatchTouchEvent(event)
          val handled = when (headerGestureOwner) {
@@ -133,7 +132,7 @@ index 8edb3ab..b52cdb3 100644
            } ?: true
            HeaderGestureOwner.HEADER_GUARD -> true
            else -> super.dispatchTouchEvent(event)
-@@ -978,7 +993,7 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
+@@ -978,7 +1003,7 @@ class CollapsiblePagerHost(context: Context) : NestedScrollableHost(context), Ne
      headerDownEvent?.recycle()
      headerDownEvent = null
      headerTouchActive = false
