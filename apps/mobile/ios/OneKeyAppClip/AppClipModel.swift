@@ -237,9 +237,10 @@ final class AppClipModel: ObservableObject {
     guard !isRefreshing else {
       return
     }
-    refreshVisibleDetail()
     if lastUpdated.map({ Date().timeIntervalSince($0) >= 15 }) ?? true {
       Task { await refreshMarkets() }
+    } else {
+      refreshVisibleDetail()
     }
   }
 
@@ -320,10 +321,19 @@ final class AppClipModel: ObservableObject {
       return
     }
     selectedMarketTab = tab
-    guard !activeDidLoad, !isRefreshing else {
+    let shouldRefresh =
+      !activeDidLoad
+      || marketRefreshFailed
+      || (lastUpdated.map { Date().timeIntervalSince($0) >= 15 } ?? true)
+    guard !isRefreshing, shouldRefresh else {
       return
     }
-    Task { await refreshMarkets() }
+    Task {
+      guard selectedMarketTab == tab else {
+        return
+      }
+      await refreshMarkets()
+    }
   }
 
   func selectStockCategory(_ categoryId: String) {
@@ -568,7 +578,7 @@ final class AppClipModel: ObservableObject {
     let requestID = UUID()
     let requestEnvironmentID = environmentID
     let requestBaseURL = apiBaseURL
-    let requestLimit = force ? 20 : max(20, state.items.count)
+    let requestLimit = max(20, state.items.count)
     stockRequestIDs[key] = requestID
     stockLoadMoreRequestIDs[key] = UUID()
     state.isLoading = true
@@ -597,6 +607,10 @@ final class AppClipModel: ObservableObject {
       current.failed = false
       current.lastUpdated = Date()
       stockStates[key] = current
+      if case .detail(.stock(let visibleStock)) = screen {
+        let refreshedStock = page.items.first(where: { $0.id == visibleStock.id }) ?? visibleStock
+        refreshVisibleDetail(with: .stock(refreshedStock))
+      }
       retryMarketRefreshAfterNetworkRecoveryIfNeeded()
     } catch {
       guard
@@ -647,6 +661,10 @@ final class AppClipModel: ObservableObject {
       current.failed = false
       current.lastUpdated = Date()
       perpsStates[key] = current
+      if case .detail(.perp(let visiblePerp)) = screen {
+        let refreshedPerp = items.first(where: { $0.id == visiblePerp.id }) ?? visiblePerp
+        refreshVisibleDetail(with: .perp(refreshedPerp))
+      }
       retryMarketRefreshAfterNetworkRecoveryIfNeeded()
     } catch {
       guard
@@ -703,14 +721,10 @@ final class AppClipModel: ObservableObject {
       current.failed = false
       current.lastUpdated = Date()
       trendingStates[key] = current
-      refreshVisibleDetail(
-        with: items.first(where: { asset in
-          guard case .detail(.token(let currentAsset)) = screen else {
-            return false
-          }
-          return asset.id == currentAsset.id
-        })
-      )
+      if case .detail(.token(let visibleAsset)) = screen {
+        let refreshedAsset = items.first(where: { $0.id == visibleAsset.id }) ?? visibleAsset
+        refreshVisibleDetail(with: .token(refreshedAsset))
+      }
       retryMarketRefreshAfterNetworkRecoveryIfNeeded()
     } catch {
       guard
@@ -1002,18 +1016,16 @@ final class AppClipModel: ObservableObject {
     return components.url
   }
 
-  private func refreshVisibleDetail(with refreshedAsset: AppClipMarketAsset? = nil) {
+  private func refreshVisibleDetail(with refreshedDetail: AppClipMarketDetail? = nil) {
     guard case .detail(let currentDetail) = screen else {
       return
     }
-    let detail: AppClipMarketDetail
-    if case .token(let currentAsset) = currentDetail, let refreshedAsset {
-      detail = .token(refreshedAsset)
-      if refreshedAsset != currentAsset {
-        screen = .detail(detail)
-      }
-    } else {
-      detail = currentDetail
+    let detail = refreshedDetail ?? currentDetail
+    guard isSameDetail(detail, as: screen) else {
+      return
+    }
+    if detail != currentDetail {
+      screen = .detail(detail)
     }
     let interval = selectedInterval
     let candleRequest = prepareCandleRequest(clearsExistingCandles: false)
