@@ -57,7 +57,11 @@ let isSupportWebAuthPromise: Promise<boolean> | undefined;
 
 export const isSupportWebAuth = async () => {
   if (!isSupportWebAuthPromise) {
-    isSupportWebAuthPromise = (async () => {
+    // Only a RESOLVED probe is worth keeping. Caching a rejection would turn a
+    // one-off probe failure into a permanent one for the rest of the runtime
+    // and take registration/verification down with it, so drop the slot and let
+    // the next caller probe again.
+    const pending: Promise<boolean> = (async () => {
       let isSupport = false;
       if (!platformEnv.isE2E && isContextSupportWebAuth) {
         const isUvPaaAvailable =
@@ -67,7 +71,13 @@ export const isSupportWebAuth = async () => {
       }
 
       return isSupport && !!navigator?.credentials;
-    })();
+    })().catch((error: unknown) => {
+      if (isSupportWebAuthPromise === pending) {
+        isSupportWebAuthPromise = undefined;
+      }
+      throw error;
+    });
+    isSupportWebAuthPromise = pending;
   }
 
   return isSupportWebAuthPromise;
