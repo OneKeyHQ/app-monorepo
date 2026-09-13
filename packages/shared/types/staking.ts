@@ -872,6 +872,18 @@ export interface IEarnLinkActionIcon {
   text?: IEarnText;
 }
 
+/** Puts data.text on the clipboard, e.g. a contract address the cell shows
+ * shortened (OK-62922). */
+export interface IEarnCopyActionIcon {
+  type: 'copy';
+  data: {
+    text: string;
+  };
+  icon?: IEarnIcon;
+  disabled?: boolean;
+  text?: IEarnText;
+}
+
 export interface IEarnDepositActionIcon {
   type: 'deposit';
   disabled: boolean;
@@ -1146,6 +1158,7 @@ export interface IBorrowOnekeyBonusAction {
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
+  | IEarnCopyActionIcon
   | IEarnClaimActionIcon
   | IEarnHistoryActionIcon
   | IEarnPortfolioActionIcon
