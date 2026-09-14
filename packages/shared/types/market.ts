@@ -1,4 +1,8 @@
-import type { IMarketStockInfo, IMarketTokenKLineResponse } from './marketV2';
+import type {
+  IMarketStockInfo,
+  IMarketStockListVariant,
+  IMarketTokenKLineResponse,
+} from './marketV2';
 
 export interface IMarketCategory {
   categoryId: string;
@@ -336,6 +340,9 @@ export interface IMarketListingWatchlistQuote {
   priceChange24hPercent?: string;
   marketCap?: string;
   volume24h?: string;
+  // Stock listings only: the tokens issued against the stock, when the detail
+  // API includes them. Drives the Stocks-style hover reveal in the watchlist.
+  variants?: IMarketStockListVariant[];
 }
 
 export interface IMarketWatchListDataV2 {

@@ -101,3 +101,38 @@ it('retains an unavailable listing so it can still be removed', async () => {
     }),
   ]);
 });
+it('carries stock variants through for the company-name hover reveal', async () => {
+  const variants = [
+    { tokenId: 'sol-aaplx', issuer: 'xStocks', logoUrl: '' },
+    { tokenId: 'eth-aapl', issuer: 'Ondo', logoUrl: '' },
+  ];
+  mockQuote.mockImplementation(async (identity) => {
+    const id = identity as { assetId?: string; stockId?: string };
+    if (id.stockId) {
+      return {
+        name: 'Apple Inc.',
+        symbol: 'AAPL',
+        logoUrl: '',
+        variants,
+      };
+    }
+    return { name: 'Bitcoin', symbol: 'BTC', logoUrl: '' };
+  });
+  const watchlist = [
+    { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+    { assetId: 'bitcoin', chainId: '', contractAddress: '', sortIndex: 1 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  // Rows render from the watchlist before the quotes resolve, so wait on the
+  // quote-derived names rather than on the row count.
+  await waitFor(() =>
+    expect(result.current.data.map((item) => item.name)).toEqual([
+      'Apple Inc.',
+      'Bitcoin',
+    ]),
+  );
+  expect(result.current.data[0].stockVariants).toEqual(variants);
+  expect(result.current.data[1].stockVariants).toBeUndefined();
+});
