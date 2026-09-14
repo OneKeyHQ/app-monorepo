@@ -7,6 +7,7 @@
     "**/*.css"
   ],
   "dependencies": {
+    "@onekeyfe/react-native-native-sheet": "3.0.129",
     "@onekeyfe/react-native-scroll-guard": "3.0.129",
     "@onekeyfe/react-native-segment-slider": "3.0.129",
     "@onekeyfe/react-native-tab-view": "3.0.129",

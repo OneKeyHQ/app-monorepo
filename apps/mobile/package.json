@@ -93,6 +93,7 @@
     "@onekeyfe/react-native-lite-card": "3.0.129",
     "@onekeyfe/react-native-native-list": "3.0.129",
     "@onekeyfe/react-native-native-logger": "3.0.129",
+    "@onekeyfe/react-native-native-sheet": "3.0.129",
     "@onekeyfe/react-native-network-throttle": "3.0.129",
     "@onekeyfe/react-native-perf-memory": "3.0.129",
     "@onekeyfe/react-native-perf-stats": "3.0.129",

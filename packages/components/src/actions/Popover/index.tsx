@@ -88,6 +88,8 @@ export interface IPopoverProps extends TMPopoverProps {
   description?: string;
   showHeader?: boolean;
   usingSheet?: boolean;
+  /** Uses the platform-native sheet presentation on iOS and Android. */
+  nativeSheet?: boolean;
   renderTrigger: ReactNode;
   openPopover?: () => void;
   closePopover?: () => void;
@@ -267,6 +269,7 @@ function RawPopover({
   closePopover,
   placement: placementProp,
   usingSheet = true,
+  nativeSheet: _nativeSheet,
   allowFlip = true,
   showHeader = true,
   ...props

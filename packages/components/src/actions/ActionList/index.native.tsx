@@ -2,11 +2,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import {
-  Dimensions,
-  type GestureResponderEvent,
-  I18nManager,
-} from 'react-native';
+import { Dimensions, I18nManager } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -111,7 +107,7 @@ export function ActionListSkeletonItem() {
     <XStack
       flex={1}
       mx="$2"
-      height="$8"
+      height="$11"
       position="relative"
       borderRadius="$2"
       overflow="hidden"
@@ -157,16 +153,12 @@ export function ActionListItem(
     !shouldKeepExtraInteractive,
   );
 
-  const handlePress = useCallback(
-    async (event: GestureResponderEvent) => {
-      event.stopPropagation();
-      await onPress?.(onClose);
-      if (!onPress?.length) {
-        onClose?.();
-      }
-    },
-    [onClose, onPress],
-  );
+  const handlePress = useCallback(async () => {
+    await onPress?.(onClose);
+    if (!onPress?.length) {
+      onClose?.();
+    }
+  }, [onClose, onPress]);
 
   const keys = useMemo(() => {
     if (shortcutKeys) {
@@ -284,8 +276,8 @@ export interface IActionListProps extends Omit<
     handleActionListOpen: () => void;
   }) => React.ReactNode;
   /**
-   * Starts loading when the list opens. Native applies the resolved content
-   * after the entry animation so fit-mode height stays stable while sliding.
+   * Starts loading when the list opens. Native measures the resolved initial
+   * content before presentation, then keeps the outer sheet height stable.
    */
   renderItemsAsync?: IActionListRenderItemsAsync;
   /**
@@ -468,10 +460,13 @@ function BasicActionList({
     handleActionListOpen,
   ]);
 
+  const shouldOpenPopover =
+    isOpen && (!renderItemsAsync || Boolean(asyncItems));
+
   return (
     <LazyPopover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
-      open={isOpen}
+      open={shouldOpenPopover}
       onOpenChange={handleOpenStatusChange}
       renderContent={renderContentMemo}
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}

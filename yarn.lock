@@ -9758,6 +9758,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-native-sheet@npm:3.0.129":
+  version: 3.0.129
+  resolution: "@onekeyfe/react-native-native-sheet@npm:3.0.129"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/4247eaa636085bdfb2328d2833da1dc29f8470f1a5e8354b690450ff034b682055c5c976c1bcd5025d1381efe6a62fadf8bbdf647390546550165b0cc7449137
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-network-throttle@npm:3.0.129":
   version: 3.0.129
   resolution: "@onekeyfe/react-native-network-throttle@npm:3.0.129"
@@ -10180,6 +10190,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
+    "@onekeyfe/react-native-native-sheet": "npm:3.0.129"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.129"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.129"
     "@onekeyfe/react-native-tab-view": "npm:3.0.129"
@@ -10331,6 +10342,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyfe/react-native-native-list": "npm:3.0.129"
+    "@onekeyfe/react-native-native-sheet": "npm:3.0.129"
     "@onekeyfe/react-native-text": "npm:3.0.129"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
@@ -10380,6 +10392,7 @@ __metadata:
     "@onekeyfe/react-native-lite-card": "npm:3.0.129"
     "@onekeyfe/react-native-native-list": "npm:3.0.129"
     "@onekeyfe/react-native-native-logger": "npm:3.0.129"
+    "@onekeyfe/react-native-native-sheet": "npm:3.0.129"
     "@onekeyfe/react-native-network-throttle": "npm:3.0.129"
     "@onekeyfe/react-native-perf-memory": "npm:3.0.129"
     "@onekeyfe/react-native-perf-stats": "npm:3.0.129"
