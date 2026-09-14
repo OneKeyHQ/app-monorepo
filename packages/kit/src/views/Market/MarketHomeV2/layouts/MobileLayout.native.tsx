@@ -495,7 +495,7 @@ function MobileLayoutComponent({
               leading: `${intl.formatMessage({
                 id: ETranslations.global_name,
               })} / ${intl.formatMessage({
-                id: ETranslations.dexmarket_turnover,
+                id: ETranslations.market_stock_volume__title,
               })}`,
               middle: intl.formatMessage({
                 id: ETranslations.global_price,
