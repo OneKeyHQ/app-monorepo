@@ -174,6 +174,7 @@ function setup() {
         importedAccount,
       }: {
         importedAccount: IPrimeTransferAccount;
+        onError: (params: { stage: string; error: unknown }) => void;
       }) => ({ addedAccounts: [{ id: importedAccount.id }] }),
     ),
     restoreWatchingAccountByInput: jest.fn(
@@ -181,6 +182,7 @@ function setup() {
         watchingAccount,
       }: {
         watchingAccount: IPrimeTransferAccount;
+        onError: (params: { stage: string; error: unknown }) => void;
       }) => ({ addedAccounts: [{ id: watchingAccount.id }] }),
     ),
     createHDWalletWithRevealableSeed: jest.fn(
@@ -615,5 +617,125 @@ describe('per-item import failures', () => {
         }),
       }),
     );
+  });
+});
+
+describe('errors reported by account restore helpers', () => {
+  it('counts a fully failed private restore once and continues to the next account', async () => {
+    const { serviceAccount: a, run } = setup();
+    const fail = async ({
+      onError,
+    }: Parameters<typeof a.restoreImportedAccountByInput>[0]) => {
+      onError({
+        stage: 'addImportedAccountWithCredential',
+        error: new Error('sensitive SDK input'),
+      });
+      return { addedAccounts: [] };
+    };
+    a.restoreImportedAccountByInput
+      .mockImplementationOnce(fail)
+      .mockImplementationOnce(fail);
+    const result = await run(
+      data({
+        importedAccounts: [selectedAccount('bad'), selectedAccount('next')],
+      }),
+    );
+    expect(result.errorsInfo).toHaveLength(1);
+    expect(result.errorsInfo[0].accountId).toBe('bad');
+    expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(3);
+    expect(
+      JSON.stringify(
+        jest.mocked(defaultLogger.prime.transfer.importError).mock.calls,
+      ),
+    ).not.toContain('sensitive SDK input');
+  });
+
+  it('retains a successful private-key fallback after a candidate error', async () => {
+    const { serviceAccount: a, run } = setup();
+    a.restoreImportedAccountByInput.mockImplementationOnce(
+      async ({ onError }) => {
+        onError({
+          stage: 'addImportedAccountWithCredential',
+          error: new Error('unsupported candidate'),
+        });
+        return { addedAccounts: [] };
+      },
+    );
+    const result = await run(
+      data({ importedAccounts: [selectedAccount('fallback')] }),
+    );
+    expect(result.errorsInfo).toHaveLength(0);
+    expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(2);
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'addImportedAccountWithCredential',
+        itemIndex: 0,
+      }),
+    );
+  });
+
+  it('retains address fallback after a watching public-key error', async () => {
+    const { serviceAccount: a, run } = setup();
+    a.restoreWatchingAccountByInput.mockImplementationOnce(
+      async ({ onError }) => {
+        onError({
+          stage: 'addWatchingAccount',
+          error: new Error('invalid pub'),
+        });
+        return { addedAccounts: [] };
+      },
+    );
+    const result = await run(
+      data({
+        watchingAccounts: [
+          selectedAccount('fallback', { pub: 'invalid pub' }),
+          selectedAccount('next'),
+        ],
+      }),
+    );
+    expect(result.errorsInfo).toHaveLength(0);
+    expect(a.restoreWatchingAccountByInput).toHaveBeenCalledTimes(3);
+  });
+
+  it('counts a fully failed watching restore and continues', async () => {
+    const { serviceAccount: a, run } = setup();
+    a.restoreWatchingAccountByInput.mockImplementationOnce(
+      async ({ onError }) => {
+        onError({
+          stage: 'addWatchingAccount',
+          error: new Error('invalid address'),
+        });
+        return { addedAccounts: [] };
+      },
+    );
+    const result = await run(
+      data({
+        watchingAccounts: [selectedAccount('bad'), selectedAccount('next')],
+      }),
+    );
+    expect(result.errorsInfo).toHaveLength(1);
+    expect(result.errorsInfo[0].accountId).toBe('bad');
+    expect(a.restoreWatchingAccountByInput).toHaveBeenCalledTimes(2);
+  });
+
+  it('propagates a fatal error reported from inside a restore helper', async () => {
+    const { serviceAccount: a, run } = setup();
+    const error = {
+      className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
+    };
+    a.restoreImportedAccountByInput.mockImplementationOnce(
+      async ({ onError }) => {
+        onError({ stage: 'addImportedAccountWithCredential', error });
+        return { addedAccounts: [] };
+      },
+    );
+    await expect(
+      run(
+        data({
+          importedAccounts: [selectedAccount('fatal'), selectedAccount('next')],
+        }),
+      ),
+    ).rejects.toBe(error);
+    expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(1);
   });
 });

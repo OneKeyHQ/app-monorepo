@@ -3570,6 +3570,26 @@ class ServicePrimeTransfer extends ServiceBase {
               }),
           );
           networkIdForLog = networkId;
+          let restoreFailure: { error: unknown } | undefined;
+          const onRestoreError = ({
+            stage,
+            error,
+          }: {
+            stage: string;
+            error: unknown;
+          }) => {
+            this.recordImportItemError(
+              {
+                stage,
+                targetType: 'importedAccount',
+                accountId: importedAccount.id,
+                itemIndex,
+                networkId,
+              },
+              error,
+            );
+            restoreFailure = { error };
+          };
           if (!networkId) {
             throw new OneKeyLocalError('NetworkId is required');
           }
@@ -3659,6 +3679,7 @@ class ServicePrimeTransfer extends ServiceBase {
               },
               async () =>
                 serviceAccount.restoreImportedAccountByInput({
+                  onError: onRestoreError,
                   importedAccount,
                   input: exportedPrivateKey,
                   privateKey,
@@ -3706,6 +3727,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 },
                 async () =>
                   serviceAccount.restoreImportedAccountByInput({
+                    onError: onRestoreError,
                     importedAccount,
                     input: exportedPrivateKey,
                     privateKey,
@@ -3722,6 +3744,22 @@ class ServicePrimeTransfer extends ServiceBase {
             exportedPrivateKey = '';
             privateKey = '';
             restoreDeriveTypes = undefined;
+          }
+          // An unsuccessful candidate may still recover through another input or
+          // derivation. Count the item as failed only after all fallbacks finish.
+          if (!addedAccountsUsed?.length && restoreFailure) {
+            errorsInfo.push(
+              this.recordImportItemError(
+                {
+                  stage: 'importPrivateKeyAccount',
+                  targetType: 'importedAccount',
+                  accountId: importedAccount.id,
+                  itemIndex,
+                  networkId,
+                },
+                restoreFailure.error,
+              ),
+            );
           }
           if (addedAccountsUsed?.length && addedAccountsUsed?.[0]?.id) {
             try {
@@ -3848,6 +3886,26 @@ class ServicePrimeTransfer extends ServiceBase {
               }),
           );
           networkIdForLog = networkId;
+          let restoreFailure: { error: unknown } | undefined;
+          const onRestoreError = ({
+            stage,
+            error,
+          }: {
+            stage: string;
+            error: unknown;
+          }) => {
+            this.recordImportItemError(
+              {
+                stage,
+                targetType: 'watchingAccount',
+                accountId: watchingAccount.id,
+                itemIndex,
+                networkId,
+              },
+              error,
+            );
+            restoreFailure = { error };
+          };
           if (!networkId) {
             throw new OneKeyLocalError('NetworkId is required');
           }
@@ -3880,6 +3938,7 @@ class ServicePrimeTransfer extends ServiceBase {
               },
               async () =>
                 serviceAccount.restoreWatchingAccountByInput({
+                  onError: onRestoreError,
                   watchingAccount,
                   input: watchingAccountPub,
                   networkId,
@@ -3908,6 +3967,7 @@ class ServicePrimeTransfer extends ServiceBase {
               },
               async () =>
                 serviceAccount.restoreWatchingAccountByInput({
+                  onError: onRestoreError,
                   watchingAccount,
                   input: watchingAccountXpub,
                   networkId,
@@ -3936,6 +3996,7 @@ class ServicePrimeTransfer extends ServiceBase {
               },
               async () =>
                 serviceAccount.restoreWatchingAccountByInput({
+                  onError: onRestoreError,
                   watchingAccount,
                   input: watchingAccountXpubSegwit,
                   networkId,
@@ -3964,6 +4025,7 @@ class ServicePrimeTransfer extends ServiceBase {
               },
               async () =>
                 serviceAccount.restoreWatchingAccountByInput({
+                  onError: onRestoreError,
                   watchingAccount,
                   input: watchingAccountAddress,
                   networkId,
@@ -3975,6 +4037,22 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+          }
+          // An unsuccessful candidate may still recover through another input or
+          // derivation. Count the item as failed only after all fallbacks finish.
+          if (!addedAccounts?.length && restoreFailure) {
+            errorsInfo.push(
+              this.recordImportItemError(
+                {
+                  stage: 'importWatchingAccount',
+                  targetType: 'watchingAccount',
+                  accountId: watchingAccount.id,
+                  itemIndex,
+                  networkId,
+                },
+                restoreFailure.error,
+              ),
+            );
           }
           if (addedAccounts?.length) {
             await this.updateImportProgress({ source: 'direct' });
