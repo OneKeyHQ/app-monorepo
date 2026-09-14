@@ -77,6 +77,8 @@ export interface IDialogHeaderContextType {
 interface IBasicDialogProps extends TMDialogProps {
   /* If true, the content will be rendered later and fit content height. */
   isAsync?: boolean;
+  /** Uses the platform-native sheet presentation on iOS and Android. */
+  nativeSheet?: boolean;
   onOpen?: () => void;
   /** Controls initial focus for both the floating panel and sheet on web. */
   onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];

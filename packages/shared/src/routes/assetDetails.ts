@@ -9,6 +9,7 @@ import type {
   IProtocolSummary,
   IResolvedDeFiPositionAction,
 } from '../../types/defi';
+import type { IMarketPreferredToken } from '../../types/market';
 import type { ISendTxOnSuccessData, IUtxoAddressInfo } from '../../types/tx';
 
 export enum EModalAssetDetailRoutes {
@@ -63,6 +64,14 @@ export type IModalAssetDetailsParamList = {
   };
   [EModalAssetDetailRoutes.MarketDetail]: {
     token: string;
+    /**
+     * The wallet asset the caller launched Market from. Lets the trade
+     * actions resolve the network and contract address even when market
+     * data has not mapped that platform; entries that only know the
+     * CoinGecko id omit it. The legacy route forwards this identity to
+     * the V2 detail page.
+     */
+    preferredToken?: IMarketPreferredToken;
   };
   [EModalAssetDetailRoutes.MarketChart]: {
     isNative: boolean;
