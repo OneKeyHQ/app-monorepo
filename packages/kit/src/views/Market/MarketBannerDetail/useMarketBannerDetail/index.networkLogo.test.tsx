@@ -9,6 +9,8 @@ import type {
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { getStockPeRatioValue } from '../../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
+
 const mockNetworkList = [
   {
     networkId: 'evm--143',
@@ -79,32 +81,39 @@ describe('useMarketBannerDetail network logos', () => {
   });
 });
 
-it('keeps stock identity without exposing it as a contract address', async () => {
-  mockFetchStocks.mockResolvedValue([
-    {
-      stockId: 'AAPL',
-      name: 'Apple',
-      symbol: 'AAPL',
-      logoUrl: '',
-      price: '100',
-      priceChange24hPercent: '1',
-      assetType: 'stock',
-      currency: 'USD',
-    },
-  ]);
-  const { result, rerender } = renderHook(() =>
-    useMarketBannerDetail({
-      tokenListId: 'stocks',
-      isPerps: false,
-      isStock: true,
-    }),
-  );
-  const response = await mockRequest();
-  expect(response).toEqual([
-    expect.objectContaining({ address: '', stockId: 'AAPL' }),
-  ]);
-  mockTickerResult = response as typeof mockTickerResult;
-  rerender();
-  expect(result.current.mobileData[0].address).toBe('');
-  expect(result.current.mobileData[0].stock?.stockId).toBe('AAPL');
-});
+it.each(['27.46', '0', '-3.5', undefined])(
+  'preserves stock identity and P/E (%s) through API mapping',
+  async (peRatio) => {
+    mockFetchStocks.mockResolvedValue([
+      {
+        stockId: 'AAPL',
+        name: 'Apple',
+        symbol: 'AAPL',
+        logoUrl: '',
+        price: '100',
+        priceChange24hPercent: '1',
+        assetType: 'stock',
+        currency: 'USD',
+        peRatio,
+      },
+    ]);
+    const { result, rerender } = renderHook(() =>
+      useMarketBannerDetail({
+        tokenListId: 'stocks',
+        isPerps: false,
+        isStock: true,
+      }),
+    );
+    const response = await mockRequest();
+    expect(response).toEqual([
+      expect.objectContaining({ address: '', stockId: 'AAPL' }),
+    ]);
+    mockTickerResult = response as typeof mockTickerResult;
+    rerender();
+    expect(result.current.mobileData[0].address).toBe('');
+    expect(result.current.mobileData[0].stock?.stockId).toBe('AAPL');
+    expect(getStockPeRatioValue(result.current.listResult.data[0])).toBe(
+      peRatio,
+    );
+  },
+);

@@ -4,7 +4,7 @@ import { runInNewContext } from 'vm';
 import { formatChartPrice } from './formatChartPrice';
 
 describe('chart axis prices', () => {
-  it('compresses only when there are multiple leading decimal zeros', () => {
+  it('compresses deep decimals and prevents truncating all significant digits', () => {
     expect(formatChartPrice(0.000_000_12)).toBe('$0.0₆12');
     expect(formatChartPrice(0.000_001_2)).toBe('$0.0₅12');
     expect(formatChartPrice(0.000_001_2, 20)).toBe('$0.0000012');
@@ -12,6 +12,15 @@ describe('chart axis prices', () => {
     expect(formatChartPrice(0.123_456_789)).toBe('$0.1234...');
     expect(formatChartPrice(0.999_999_99)).toBe('$0.9999...');
     expect(formatChartPrice(0.012_345_678_9)).toBe('$0.0123...');
+  });
+  it.each([7, 8])('preserves small tick values at width %i', (limit) => {
+    for (const price of [0.000_123_456, 0.000_012_345_6]) {
+      expect(formatChartPrice(price, limit)).toContain('1');
+    }
+    const labels = [0.000_001_5, 0.000_002_5, 0.000_003_5].map((price) =>
+      formatChartPrice(price, limit),
+    );
+    expect(new Set(labels).size).toBe(3);
   });
   it('removes floating-point tick noise without flattening real small prices', () => {
     for (let tick = 1; tick <= 9; tick += 1) {
@@ -55,6 +64,9 @@ describe('chart axis prices', () => {
       0.123_456_789,
       0.999_999_99,
       0.012_345_678_9,
+      0.000_123_456,
+      0.000_012_345_6,
+      0.000_001_5,
       0.000_000_123,
       -1e-30,
       1_234_567,
