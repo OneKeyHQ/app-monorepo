@@ -574,45 +574,52 @@ check_one_worktree() {
   git -C "$wt" rev-parse --verify origin/x^{commit} >/dev/null 2>&1 || \
     die "origin/x is missing for $wt. Fetch origin x before running check."
 
-  candidate_output="$(collect_candidate_paths "$wt")"
   dirty_output="$(collect_dirty_files "$wt" || true)"
-  head_oid="$(git -C "$wt" rev-parse HEAD)"
+  head_oid="$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null || true)"
 
-  while IFS= read -r rel_path; do
-    [[ -n "$rel_path" ]] || continue
-    candidate_count=$((candidate_count + 1))
-    head_blob="$(blob_or_absent "$wt" HEAD "$rel_path")"
-    x_blob="$(blob_or_absent "$wt" origin/x "$rel_path")"
-    if [[ "$head_blob" == "$x_blob" ]]; then
-      matched_count=$((matched_count + 1))
-      matched_lines="${matched_lines}- ${rel_path}"$'\n'
-    else
-      unmatched_count=$((unmatched_count + 1))
-      unmatched_lines="${unmatched_lines}- ${rel_path}"$'\n'
-    fi
-  done <<< "$candidate_output"
-
-  if git -C "$wt" merge-base --is-ancestor HEAD origin/x; then
-    result="MERGED_TO_ORIGIN_X_BY_ANCESTOR"
-    merge_evidence="HEAD is an ancestor of origin/x"
-  elif [[ $candidate_count -eq 0 ]]; then
-    result="NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE"
-    merge_evidence="no branch-side committed code delta"
-  elif [[ "${WT_PR_LABELS[$idx]}" == MERGED\ #* && -n "${WT_PR_HEAD_OIDS[$idx]}" && "${WT_PR_HEAD_OIDS[$idx]}" == "$head_oid" && $unmatched_count -eq 0 ]]; then
-    result="MERGED_TO_ORIGIN_X_BY_PR"
-    merge_evidence="${WT_PR_LABELS[$idx]} head matches current HEAD and all branch-side blobs match origin/x"
-  elif [[ $unmatched_count -eq 0 ]]; then
-    result="MERGED_TO_ORIGIN_X_BY_CODE"
-    merge_evidence="all branch-side candidate blobs match origin/x"
-  elif [[ "${WT_PR_LABELS[$idx]}" == MERGED\ #* ||
-    "${WT_PR_LABELS[$idx]}" == NONE ||
-    "${WT_PR_LABELS[$idx]}" == UNAVAILABLE\ \(* ]] && \
-    squashed_commit="$(find_squashed_patch_match "$wt" 2>/dev/null)"; then
-    result="MERGED_TO_ORIGIN_X_BY_PATCH_ID"
-    merge_evidence="matching squash commit ${squashed_commit:0:12} (patch-id mode: ${PATCH_ID_MODE})"
-  else
+  if [[ -z "$head_oid" ]]; then
+    candidate_output=""
     result="NEEDS_MANUAL_REVIEW"
-    merge_evidence="branch-side files differ from origin/x after later changes"
+    merge_evidence="worktree has no committed HEAD"
+  else
+    candidate_output="$(collect_candidate_paths "$wt")"
+
+    while IFS= read -r rel_path; do
+      [[ -n "$rel_path" ]] || continue
+      candidate_count=$((candidate_count + 1))
+      head_blob="$(blob_or_absent "$wt" HEAD "$rel_path")"
+      x_blob="$(blob_or_absent "$wt" origin/x "$rel_path")"
+      if [[ "$head_blob" == "$x_blob" ]]; then
+        matched_count=$((matched_count + 1))
+        matched_lines="${matched_lines}- ${rel_path}"$'\n'
+      else
+        unmatched_count=$((unmatched_count + 1))
+        unmatched_lines="${unmatched_lines}- ${rel_path}"$'\n'
+      fi
+    done <<< "$candidate_output"
+
+    if git -C "$wt" merge-base --is-ancestor HEAD origin/x; then
+      result="MERGED_TO_ORIGIN_X_BY_ANCESTOR"
+      merge_evidence="HEAD is an ancestor of origin/x"
+    elif [[ $candidate_count -eq 0 ]]; then
+      result="NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE"
+      merge_evidence="no branch-side committed code delta"
+    elif [[ "${WT_PR_LABELS[$idx]}" == MERGED\ #* && -n "${WT_PR_HEAD_OIDS[$idx]}" && "${WT_PR_HEAD_OIDS[$idx]}" == "$head_oid" && $unmatched_count -eq 0 ]]; then
+      result="MERGED_TO_ORIGIN_X_BY_PR"
+      merge_evidence="${WT_PR_LABELS[$idx]} head matches current HEAD and all branch-side blobs match origin/x"
+    elif [[ $unmatched_count -eq 0 ]]; then
+      result="MERGED_TO_ORIGIN_X_BY_CODE"
+      merge_evidence="all branch-side candidate blobs match origin/x"
+    elif [[ "${WT_PR_LABELS[$idx]}" == MERGED\ #* ||
+      "${WT_PR_LABELS[$idx]}" == NONE ||
+      "${WT_PR_LABELS[$idx]}" == UNAVAILABLE\ \(* ]] && \
+      squashed_commit="$(find_squashed_patch_match "$wt" 2>/dev/null)"; then
+      result="MERGED_TO_ORIGIN_X_BY_PATCH_ID"
+      merge_evidence="matching squash commit ${squashed_commit:0:12} (patch-id mode: ${PATCH_ID_MODE})"
+    else
+      result="NEEDS_MANUAL_REVIEW"
+      merge_evidence="branch-side files differ from origin/x after later changes"
+    fi
   fi
 
   DETAIL_OUTPUT=""

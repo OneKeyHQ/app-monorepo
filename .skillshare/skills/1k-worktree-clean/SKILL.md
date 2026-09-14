@@ -122,6 +122,7 @@ rtk proxy rm -rf <path>
 - `MERGED_TO_ORIGIN_X_BY_PATCH_ID`: the branch's aggregate patch matches a non-merge commit in `origin/x`, covering squash merges. This local check also runs when PR lookup is unavailable; `--verbatim` is used when supported, otherwise the script falls back to `--stable`.
 - `MERGED_TO_ORIGIN_X_BY_CODE`: every branch-side candidate file now matches `origin/x`.
 - `NEEDS_MANUAL_REVIEW`: later edits or conflict resolution prevent the script from proving equivalence.
+- Worktrees without a committed `HEAD` are reported as `NEEDS_MANUAL_REVIEW` and do not abort the full audit.
 - `NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE`: the worktree has no committed branch-only code delta relative to the common base with `origin/x`. If it is also `clean` and is neither the main worktree nor the current worktree, treat it as a removable cleanup candidate.
 - `Working tree: dirty`: show the dirty files and state that current local edits still need separate review.
 
