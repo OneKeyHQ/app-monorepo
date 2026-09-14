@@ -561,10 +561,7 @@ actor AppClipMarketService {
     request.setValue("OneKey App Clip", forHTTPHeaderField: "X-Onekey-Request-Platform-Name")
     request.setValue("OneKey Wallet App Clip", forHTTPHeaderField: "X-Onekey-Request-Device-Name")
     request.setValue("usd", forHTTPHeaderField: "X-Onekey-Request-Currency")
-    request.setValue(
-      Locale.current.identifier.lowercased(),
-      forHTTPHeaderField: "X-Onekey-Request-Locale"
-    )
+    request.setValue(Self.requestLocale, forHTTPHeaderField: "X-Onekey-Request-Locale")
     request.setValue(Self.version, forHTTPHeaderField: "X-Onekey-Request-Version")
     request.setValue(Self.buildNumber, forHTTPHeaderField: "X-Onekey-Request-Build-Number")
     let requestId = UUID().uuidString
@@ -590,6 +587,11 @@ actor AppClipMarketService {
 
   private static var buildNumber: String {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+  }
+
+  private static var requestLocale: String {
+    let localization = Bundle.main.preferredLocalizations.first?.lowercased() ?? "en"
+    return localization.hasPrefix("zh-hans") ? "zh-cn" : "en-us"
   }
 
   private static let pathSegmentAllowed = CharacterSet(
