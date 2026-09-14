@@ -17,10 +17,13 @@ import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
+import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
 import { buildDefaultFileBaseName } from './utils';
+
+const IP_TABLE_CONNECTION_INFO_TIMEOUT_MS = 300;
 
 const getShareModule = async () => {
   if (!platformEnv.isNative) return null;
@@ -28,8 +31,37 @@ const getShareModule = async () => {
     .default;
 };
 
+const logIpTableConnectionInfo = async () => {
+  try {
+    const connectionInfo = await Promise.race([
+      backgroundApiProxy.serviceIpTable.getConnectionInfo(),
+      waitAsync(IP_TABLE_CONNECTION_INFO_TIMEOUT_MS).then(() => null),
+    ]);
+    if (!connectionInfo) {
+      defaultLogger.ipTable.request.warn({
+        info: `[IpTable] Skipped connection info after ${IP_TABLE_CONNECTION_INFO_TIMEOUT_MS}ms timeout`,
+      });
+      return;
+    }
+    defaultLogger.ipTable.request.info({
+      info: `[IpTable] Connection info: type=${connectionInfo.type}, domain=${
+        connectionInfo.domain
+      }, ip=${connectionInfo.ip ?? 'N/A'}, sniSupported=${String(
+        connectionInfo.sniSupported,
+      )}`,
+    });
+  } catch (error) {
+    defaultLogger.ipTable.request.warn({
+      info: `[IpTable] Failed to get connection info: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
+    });
+  }
+};
+
 const prepareNativeLogExport = async () => {
   defaultLogger.setting.device.logDeviceInfo();
+  await logIpTableConnectionInfo();
   await prepareLoggerExport();
   // Flush the shared native logger explicitly instead of relying on a delay.
   // Both native JS runtimes write to this same native logger instance.

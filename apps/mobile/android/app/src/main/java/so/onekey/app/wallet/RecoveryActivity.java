@@ -187,6 +187,9 @@ public class RecoveryActivity extends AppCompatActivity {
                 zipFiles(logDir, logFiles, zipFile);
 
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
                     setRecoveryButtonsEnabled(true);
                     Uri uri = OnekeyFileProvider.getUriForFile(this, zipFile);
                     Intent shareIntent = new Intent(Intent.ACTION_SEND);
@@ -197,11 +200,17 @@ public class RecoveryActivity extends AppCompatActivity {
                 });
             } catch (NoLogsException e) {
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
                     setRecoveryButtonsEnabled(true);
                     showError(sNoLogs);
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
                     setRecoveryButtonsEnabled(true);
                     showError(sExportError + ": " + e.getMessage());
                 });
