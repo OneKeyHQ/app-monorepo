@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  ActionList,
+  Icon,
+  SizableText,
+  XStack,
+  runAfterActionListClose,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type {
@@ -12,7 +18,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -166,10 +171,11 @@ export function AccountRenameButton({
     nativeSheet,
   });
   const handleShowAccountRenameDialog = useCallback(
-    (_close: () => void) => {
-      showAccountRenameDialog();
-    },
-    [showAccountRenameDialog],
+    (close: () => void) =>
+      runAfterActionListClose(close, showAccountRenameDialog, {
+        waitForAnimation: nativeSheet,
+      }),
+    [nativeSheet, showAccountRenameDialog],
   );
 
   return (
@@ -177,11 +183,7 @@ export function AccountRenameButton({
       icon="PencilOutline"
       label={intl.formatMessage({ id: ETranslations.global_rename })}
       onClose={onClose}
-      onPress={
-        platformEnv.isNative
-          ? handleShowAccountRenameDialog
-          : showAccountRenameDialog
-      }
+      onPress={handleShowAccountRenameDialog}
     />
   );
 }

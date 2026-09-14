@@ -2,7 +2,11 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Toast } from '@onekeyhq/components';
+import {
+  ActionList,
+  Toast,
+  runAfterActionListClose,
+} from '@onekeyhq/components';
 import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -75,46 +79,53 @@ export function WalletRemoveButton({
       destructive
       label={label}
       onClose={onClose}
-      onPress={() => {
-        if (wallet && isIdentityManagedKeyless) {
-          void runIdentityExit(
-            {
-              type: 'removeKeyless',
-              expectedWalletId: wallet.id,
-              scene: 'accountSelector',
-            },
-            {
-              confirmButtonTestID: AccountManagerTestIDs.walletRemoveConfirm,
-              onCompletedReceipt: () => {
-                defaultLogger.account.wallet.deleteWallet();
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.feedback_change_saved,
-                  }),
-                });
-              },
-            },
-          );
-          return;
-        }
+      onPress={(close) =>
+        runAfterActionListClose(
+          close,
+          () => {
+            if (wallet && isIdentityManagedKeyless) {
+              void runIdentityExit(
+                {
+                  type: 'removeKeyless',
+                  expectedWalletId: wallet.id,
+                  scene: 'accountSelector',
+                },
+                {
+                  confirmButtonTestID:
+                    AccountManagerTestIDs.walletRemoveConfirm,
+                  onCompletedReceipt: () => {
+                    defaultLogger.account.wallet.deleteWallet();
+                    Toast.success({
+                      title: intl.formatMessage({
+                        id: ETranslations.feedback_change_saved,
+                      }),
+                    });
+                  },
+                },
+              );
+              return;
+            }
 
-        const { title, description, isHwOrQr } = getTitleAndDescription({
-          wallet,
-          isRemoveToMocked,
-          intl,
-        });
-        showWalletRemoveDialog({
-          nativeSheet,
-          config,
-          title,
-          description,
-          // No checkbox for hw/qr wallets.
-          showCheckBox: !isHwOrQr,
-          defaultChecked: false,
-          wallet,
-          isRemoveToMocked,
-        });
-      }}
+            const { title, description, isHwOrQr } = getTitleAndDescription({
+              wallet,
+              isRemoveToMocked,
+              intl,
+            });
+            showWalletRemoveDialog({
+              nativeSheet,
+              config,
+              title,
+              description,
+              // No checkbox for hw/qr wallets.
+              showCheckBox: !isHwOrQr,
+              defaultChecked: false,
+              wallet,
+              isRemoveToMocked,
+            });
+          },
+          { waitForAnimation: nativeSheet },
+        )
+      }
     />
   );
 }

@@ -430,7 +430,7 @@ function DialogFrame({
   );
 
   const dialogSheetBody = (
-    <DialogSheetContext.Provider value>
+    <DialogSheetContext.Provider value={!useNativeSheetPresentation}>
       <FocusScope
         enabled={open}
         trapped={open ? effectiveTrapFocus : undefined}

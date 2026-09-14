@@ -50,6 +50,7 @@ import {
   runPopoverCloseSideEffects,
   runPopoverOpenSideEffects,
 } from './popoverSideEffects';
+import { shouldUseNativeSheetPresentation } from './sheetPresentation';
 import {
   type IStableContentHeightMeasurement,
   createStableContentHeightScheduler,
@@ -291,6 +292,13 @@ function RawPopover({
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
+  const { gtMd } = useMedia();
+  const useNativeSheet = shouldUseNativeSheetPresentation({
+    usingSheet,
+    nativeSheet,
+    isGtMd: Boolean(gtMd),
+    isNativeIOSPad: Boolean(platformEnv.isNativeIOSPad),
+  });
   const [sheetHeaderHeight, setSheetHeaderHeight] = useState<
     number | undefined
   >();
@@ -391,7 +399,7 @@ function RawPopover({
       : undefined;
   const hasOpenedNativeSheetRef = useRef(false);
   const nativeSheetOpen = Boolean(
-    nativeSheet &&
+    useNativeSheet &&
     isOpen &&
     (!isFitSheet ||
       hasOpenedNativeSheetRef.current ||
@@ -450,12 +458,12 @@ function RawPopover({
   );
 
   const handleBackPress = useCallback(() => {
-    if (!isOpen || (usingSheet && nativeSheet)) {
+    if (!isOpen || useNativeSheet) {
       return false;
     }
     void handleClosePopover();
     return true;
-  }, [handleClosePopover, isOpen, nativeSheet, usingSheet]);
+  }, [handleClosePopover, isOpen, useNativeSheet]);
 
   useDismissKeyboard(isOpen);
   useBackHandler(handleBackPress);
@@ -502,7 +510,6 @@ function RawPopover({
     }),
     [handleClosePopover, isOpen],
   );
-  const { gtMd } = useMedia();
   const keepChildrenMounted = Boolean(props.keepChildrenMounted);
   const shouldUseWebKeepMountedTransition =
     keepChildrenMounted && !platformEnv.isNative;
@@ -629,7 +636,7 @@ function RawPopover({
         </TMPopover.Content>
       )}
       {/* sheet */}
-      {usingSheet && nativeSheet ? (
+      {useNativeSheet ? (
         <NativeSheetPresentation
           open={nativeSheetOpen}
           height={nativeFitSheetHeight}
@@ -707,7 +714,7 @@ function RawPopover({
           </YStack>
         </NativeSheetPresentation>
       ) : null}
-      {usingSheet && !nativeSheet ? (
+      {usingSheet && !useNativeSheet ? (
         <>
           {shouldUseExternalNativeBackdrop ? (
             <Stack
