@@ -1,8 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import {
-  ORPHAN_ELIGIBLE_ERROR_CODES,
-  HardwareErrorCode as ThirdPartyHwErrorCode,
-} from '@onekeyfe/hwk-adapter-core/errors';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
 import { clearHdCredentialDecryptCache } from '@onekeyhq/core/src/secret';
@@ -18,12 +14,9 @@ import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceError,
   convertDeviceResponse,
-  isHardwareErrorByCode,
-  isHardwareInterruptErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -66,6 +59,7 @@ import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetwork
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
+import { shouldAbortAccountCreation } from './accountCreationErrors';
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   type IThirdPartyAllNetworkAddressParams,
@@ -1577,43 +1571,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       throw error;
     }
 
-    // **** hardware terminated errors ****
-    // Some high priority errors need to interrupt the process
-    if (accountUtils.isHwWallet({ walletId })) {
-      if (isHardwareInterruptErrorByCode({ error })) {
-        throw error;
-      }
-      // Unplug device?
-      if (
-        isHardwareErrorByCode({
-          error,
-          code: [
-            // OneKey HW (legacy enum)
-            HardwareErrorCode.DeviceNotFound,
-            HardwareErrorCode.PinCancelled,
-            HardwareErrorCode.ActionCancelled,
-            HardwareErrorCode.CallQueueActionCancelled,
-            HardwareErrorCode.DeviceInterruptedFromOutside,
-            HardwareErrorCode.DeviceInterruptedFromUser,
-            // Third-party HW batch-abort codes from SDK.
-            ...ORPHAN_ELIGIBLE_ERROR_CODES,
-          ],
-        })
-      ) {
-        throw error;
-      }
-    }
-    // **** password cancel
-    if (
-      errorUtils.isErrorByClassName({
-        error,
-        className: [
-          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-          EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
-          EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
-        ],
-      })
-    ) {
+    if (shouldAbortAccountCreation(error)) {
       throw error;
     }
   }

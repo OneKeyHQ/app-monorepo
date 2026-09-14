@@ -1,3 +1,5 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import {
   decryptRevealableSeed,
   decryptStringAsync,
@@ -14,8 +16,11 @@ import type {
 
 import localDb from '../../dbs/local/localDb';
 import { primeTransferAtom } from '../../states/jotai/atoms/prime';
+import ServiceCloudBackupV2 from '../ServiceCloudBackupV2/ServiceCloudBackupV2';
 
 import ServicePrimeTransfer from './ServicePrimeTransfer';
+
+import type ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const passthrough =
@@ -194,7 +199,15 @@ function setup() {
   const serviceNetwork = {
     getDeriveTypeByDBAccount: jest.fn(async () => ({ deriveType: 'BIP86' })),
   };
-  const batch = jest.fn(async () => undefined);
+  const batch = jest.fn(
+    async (): Promise<
+      Awaited<
+        ReturnType<
+          ServiceBatchCreateAccount['startBatchCreateAccountsFlowForAllNetwork']
+        >
+      >
+    > => ({ addedAccounts: [], failedAccounts: [] }),
+  );
   const service = new ServicePrimeTransfer({
     backgroundApi: {
       serviceAccount,
@@ -738,4 +751,202 @@ describe('errors reported by account restore helpers', () => {
     ).rejects.toBe(error);
     expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(1);
   });
+});
+
+describe('task abort boundaries', () => {
+  const fatalErrors = [
+    { className: EOneKeyErrorClassNames.IncorrectPassword },
+    { className: EOneKeyErrorClassNames.WrongPassword },
+    { className: EOneKeyErrorClassNames.PasswordPromptDialogCancel },
+    { className: EOneKeyErrorClassNames.SecureQRCodeDialogCancel },
+    { className: EOneKeyErrorClassNames.OneKeyAbortError },
+    { className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable },
+    { className: EOneKeyErrorClassNames.LocalDbOpenError },
+    {
+      className: EOneKeyErrorClassNames.OneKeyHardwareError,
+      payload: { code: HardwareErrorCode.ActionCancelled },
+    },
+    {
+      className: EOneKeyErrorClassNames.OneKeyHardwareError,
+      payload: { code: HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission },
+    },
+  ];
+
+  it.each(['private', 'watching', 'hd'] as const)(
+    'does not retry later items after a %s password, cancellation or device abort',
+    async (target) => {
+      for (const error of fatalErrors) {
+        const { run, batch, serviceAccount: a } = setup();
+        if (target === 'hd') batch.mockRejectedValueOnce(error);
+        if (target === 'private')
+          a.restoreImportedAccountByInput.mockImplementationOnce(
+            async ({ onError }) => {
+              onError({ stage: 'addImportedAccountWithCredential', error });
+              return { addedAccounts: [] };
+            },
+          );
+        if (target === 'watching')
+          a.restoreWatchingAccountByInput.mockImplementationOnce(
+            async ({ onError }) => {
+              onError({ stage: 'addWatchingAccount', error });
+              return { addedAccounts: [] };
+            },
+          );
+        await expect(
+          run(
+            data({
+              wallets:
+                target === 'hd'
+                  ? [selectedWallet('first'), selectedWallet('next')]
+                  : [],
+              importedAccounts:
+                target === 'watching'
+                  ? []
+                  : [selectedAccount('first'), selectedAccount('next')],
+              watchingAccounts: [
+                selectedAccount('first-watch'),
+                selectedAccount('next-watch'),
+              ],
+            }),
+          ),
+        ).rejects.toBe(error);
+        if (target === 'hd') {
+          expect(batch).toHaveBeenCalledTimes(1);
+          expect(a.createHDWalletWithRevealableSeed).toHaveBeenCalledTimes(1);
+          expect(a.restoreImportedAccountByInput).not.toHaveBeenCalled();
+        }
+        if (target === 'private') {
+          expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(1);
+        }
+        if (target !== 'watching') {
+          expect(a.restoreWatchingAccountByInput).not.toHaveBeenCalled();
+        } else {
+          expect(a.restoreWatchingAccountByInput).toHaveBeenCalledTimes(1);
+        }
+      }
+    },
+  );
+
+  it('rejects an unprepared password before starting or creating any account', async () => {
+    const { service, serviceAccount: a } = setup();
+    await expect(
+      service.startImport({
+        selectedTransferData: data({
+          importedAccounts: [
+            { id: 'missing', item: account('missing') },
+            selectedAccount('valid'),
+          ],
+        }),
+        password: '',
+      }),
+    ).rejects.toThrow('Password is required');
+    expect(service.currentImportTaskUUID).toBeUndefined();
+    expect(a.getPrivateKeyOfImportedAccountCredential).not.toHaveBeenCalled();
+    expect(a.restoreImportedAccountByInput).not.toHaveBeenCalled();
+  });
+
+  it('collects failed HD networks and keeps subsequent indexes and accounts', async () => {
+    const { run, batch, serviceAccount: a } = setup();
+    batch.mockResolvedValueOnce({
+      addedAccounts: [{ networkId: 'evm--1', deriveType: 'default' }],
+      failedAccounts: [
+        {
+          networkId: 'btc--0',
+          deriveType: 'BIP86',
+          error: new OneKeyLocalError('synthetic invalid path'),
+        },
+      ],
+    });
+    const result = await run(
+      data({
+        wallets: [selectedWallet('hd')],
+        importedAccounts: [selectedAccount('next')],
+      }),
+    );
+    expect(batch).toHaveBeenCalledTimes(2);
+    expect(batch).toHaveBeenCalledWith(
+      expect.objectContaining({ autoHandleExitError: true }),
+    );
+    expect(result.errorsInfo).toEqual([
+      expect.objectContaining({
+        category: 'batchCreateHDAccountsForNetwork',
+        networkInfo: 'btc--0',
+      }),
+    ]);
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'batchCreateHDAccountsForNetwork',
+        networkId: 'btc--0',
+        deriveType: 'BIP86',
+        pathIndex: 0,
+      }),
+    );
+    expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('cloud restore password preparation', () => {
+  it.each(['private', 'hd'] as const)(
+    'requests a password once when the first %s credential is missing',
+    async (target) => {
+      const { service, serviceAccount: a } = setup();
+      const selected = data({
+        wallets:
+          target === 'hd'
+            ? [
+                { id: 'missing-hd', item: wallet('missing-hd') },
+                selectedWallet('valid-hd'),
+              ]
+            : [],
+        importedAccounts:
+          target === 'private'
+            ? [
+                { id: 'missing-private', item: account('missing-private') },
+                selectedAccount('valid-private'),
+              ]
+            : [],
+      });
+      const promptPasswordVerify = jest.fn(async () => ({
+        password: 'synthetic password',
+      }));
+      const cloud = new ServiceCloudBackupV2({
+        backgroundApi: {
+          servicePrimeTransfer: service,
+          servicePassword: { promptPasswordVerify },
+        },
+      });
+      jest.spyOn(cloud, 'restorePreparePrivateData').mockResolvedValue({
+        wallets: {},
+        importedAccounts: {},
+        watchingAccounts: {},
+        credentials: {},
+      });
+      jest
+        .spyOn(service, 'getSelectedTransferData')
+        .mockResolvedValue(selected);
+      jest.spyOn(service, 'initImportProgress').mockResolvedValue();
+      const startImport = jest.spyOn(service, 'startImport');
+      const result = await cloud.restore({
+        payload: {
+          appVersion: 'test',
+          publicData: undefined,
+          isEmptyData: false,
+          isWatchingOnly: false,
+          privateDataEncrypted: 'synthetic wrapped backup',
+        },
+        password: 'synthetic backup password',
+      });
+      expect(promptPasswordVerify).toHaveBeenCalledTimes(1);
+      expect(startImport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          password: 'synthetic password',
+          localPassword: 'synthetic password',
+        }),
+      );
+      expect(result.errorsInfo).toHaveLength(1);
+      if (target === 'hd')
+        expect(a.createHDWalletWithRevealableSeed).toHaveBeenCalledTimes(1);
+      else expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(1);
+    },
+  );
 });

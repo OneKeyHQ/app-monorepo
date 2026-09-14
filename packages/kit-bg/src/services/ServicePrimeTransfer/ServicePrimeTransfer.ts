@@ -108,6 +108,7 @@ import {
   encryptStringAsyncWithFormat,
 } from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
+import { shouldAbortAccountCreation } from '../ServiceBatchCreateAccount/accountCreationErrors';
 import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup';
 
 import e2eeClientToClientApi, {
@@ -355,6 +356,7 @@ class ServicePrimeTransfer extends ServiceBase {
       itemIndex: params.itemIndex,
       pathIndex: params.pathIndex,
       networkId: params.networkId,
+      deriveType: params.deriveType,
       error: this.getErrorMessage(error),
       code:
         typeof code === 'number' && Number.isFinite(code) ? code : undefined,
@@ -366,17 +368,7 @@ class ServicePrimeTransfer extends ServiceBase {
     error: unknown,
   ) {
     this.logImportError(params, error);
-    // Cancellation and unavailable local storage need the caller's recovery
-    // flow, rather than skipping every remaining item with the same failure.
-    if (
-      [
-        EOneKeyErrorClassNames.PrimeTransferImportCancelledError,
-        EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-        EOneKeyErrorClassNames.OneKeyAbortError,
-        EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
-        EOneKeyErrorClassNames.LocalDbOpenError,
-      ].some((className) => errorUtils.isErrorByClassName({ error, className }))
-    ) {
+    if (shouldAbortAccountCreation(error)) {
       throw error;
     }
     return {
@@ -3128,6 +3120,17 @@ class ServicePrimeTransfer extends ServiceBase {
     if (this.currentImportTaskUUID) {
       return { success: false, errorsInfo: [], skipped: true };
     }
+    // Require task-level password preparation before any item can prompt or
+    // mutate storage. Missing credentials alone remain per-item failures.
+    const hasPrivateCredentials =
+      Boolean(decryptedCredentialsHex) ||
+      [
+        ...selectedTransferData.wallets,
+        ...selectedTransferData.importedAccounts,
+      ].some((item) => Boolean(item.credential || item.credentialDecrypted));
+    if (hasPrivateCredentials && !password) {
+      throw new OneKeyLocalError('Password is required');
+    }
     this.batchCreateHdAccountsParams = [];
     this.currentImportFlow = isFromCloudBackupRestore
       ? 'cloudBackupRestore'
@@ -3447,7 +3450,7 @@ class ServicePrimeTransfer extends ServiceBase {
                       excludedIndexes: {},
                       saveToDb: true,
                       showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
-                      autoHandleExitError: false,
+                      autoHandleExitError: true,
                       applyRestoreSyncPolicy: true,
                     };
                   // params.customNetworks = [];
@@ -3455,7 +3458,7 @@ class ServicePrimeTransfer extends ServiceBase {
                   if (devSettings.enabled) {
                     this.batchCreateHdAccountsParams.push(params);
                   }
-                  await this.withImportTaskLog(
+                  const batchResult = await this.withImportTaskLog(
                     {
                       stage: 'batchCreateHDAccountsForIndex',
                       targetType: 'hdAccount',
@@ -3469,6 +3472,22 @@ class ServicePrimeTransfer extends ServiceBase {
                         params,
                       ),
                   );
+                  for (const failed of batchResult?.failedAccounts || []) {
+                    errorsInfo.push(
+                      this.recordImportItemError(
+                        {
+                          stage: 'batchCreateHDAccountsForNetwork',
+                          targetType: 'hdAccount',
+                          walletId: wallet.id,
+                          itemIndex,
+                          pathIndex: index,
+                          networkId: failed.networkId,
+                          deriveType: failed.deriveType,
+                        },
+                        failed.error,
+                      ),
+                    );
+                  }
                 }
               } catch (e) {
                 errorsInfo.push(

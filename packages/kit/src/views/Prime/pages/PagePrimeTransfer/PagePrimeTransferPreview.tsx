@@ -542,13 +542,24 @@ export default function PagePrimeTransferPreview() {
 
     try {
       setIsImporting(true);
-      const firstWalletCredential =
-        selectedTransferData?.wallets?.[0]?.credential;
+      const firstWalletCredential = selectedTransferData.wallets.find(
+        (item) => item.credential,
+      )?.credential;
       const firstImportedAccountCredential =
-        selectedTransferData?.importedAccounts?.[0]?.credential;
+        selectedTransferData.importedAccounts.find(
+          (item) => item.credential,
+        )?.credential;
 
       let localPassword = '';
-      if (firstWalletCredential || firstImportedAccountCredential) {
+      if (
+        firstWalletCredential ||
+        firstImportedAccountCredential ||
+        transferData?.privateData?.decryptedCredentialsHex ||
+        [
+          ...selectedTransferData.wallets,
+          ...selectedTransferData.importedAccounts,
+        ].some((item) => item.credentialDecrypted)
+      ) {
         const { password } =
           await backgroundApiProxy.servicePassword.promptPasswordVerify();
         localPassword = password;

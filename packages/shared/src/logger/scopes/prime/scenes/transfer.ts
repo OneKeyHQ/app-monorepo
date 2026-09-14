@@ -13,6 +13,7 @@ export class PrimeTransferScene extends BaseScene {
       itemIndex?: number;
       pathIndex?: number;
       networkId?: string;
+      deriveType?: string;
       error: string;
       code?: number;
     },
