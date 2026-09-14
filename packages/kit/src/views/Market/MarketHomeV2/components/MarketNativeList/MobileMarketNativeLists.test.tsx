@@ -306,7 +306,8 @@ jest.mock('../MarketTokenList/hooks/useMarketWatchlistTokenList', () => ({
 jest.mock('../MarketTokenList/hooks/useWatchlistFilteredGroups', () => ({
   useWatchlistFilteredGroups: () => ({
     all: mockWatchlistData,
-    spot: mockWatchlistData,
+    crypto: mockWatchlistData,
+    stocks: [],
     perps: [],
   }),
 }));
