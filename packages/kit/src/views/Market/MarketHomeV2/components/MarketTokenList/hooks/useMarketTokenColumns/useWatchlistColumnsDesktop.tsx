@@ -38,7 +38,7 @@ import {
   MarketCellPrimary,
   MarketIdentityCell,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
-import { MarketTokenAgeAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
+import { TokenContractAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
 import { MarketVariantLogoGroup } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketVariantLogoGroup';
 import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -55,7 +55,6 @@ import {
   renderLightweightTokenIdentity,
   shouldUseLightweightCell,
 } from './lightweightCells';
-import { getTokenAgeLabel } from './tokenAgeLabel';
 
 import type { IMarketToken } from '../../MarketTokenData';
 import type { IntlShape } from 'react-intl';
@@ -172,17 +171,41 @@ function ListingSubtitle({ children }: { children: string }) {
   );
 }
 
+function ListingSymbol({ children }: { children: string }) {
+  return (
+    <SizableText
+      size={MARKET_CELL_PRIMARY_SIZE}
+      numberOfLines={1}
+      ellipsizeMode="tail"
+    >
+      {children}
+    </SizableText>
+  );
+}
+
+function ListingLogo({ uri }: { uri: string }) {
+  return (
+    <Token
+      size="lg"
+      borderRadius="$full"
+      tokenImageUri={uri}
+      fallbackIcon="CryptoCoinOutline"
+    />
+  );
+}
+
 /**
- * Listing rows mirror the Stocks and Top Coins tables: the 24px symbol line
- * sits directly on the 20px subtitle line with no gap between them.
+ * The Stocks and Top Coins first-column frame, which spot token rows share so
+ * every non-perps row reads the same: the 24px symbol line sits directly on the
+ * 20px subtitle line with no gap between them.
  */
 function ListingIdentityCell({
-  logoUri,
-  symbol,
+  logo,
+  primary,
   subtitle,
 }: {
-  logoUri: string;
-  symbol: string;
+  logo: ReactNode;
+  primary: ReactNode;
   subtitle: ReactNode;
 }) {
   return (
@@ -193,20 +216,9 @@ function ListingIdentityCell({
       alignItems="center"
       gap={MARKET_CELL_LOGO_GAP}
     >
-      <Token
-        size="lg"
-        borderRadius="$full"
-        tokenImageUri={logoUri}
-        fallbackIcon="CryptoCoinOutline"
-      />
+      {logo}
       <YStack flex={1} minWidth={0} justifyContent="center">
-        <SizableText
-          size={MARKET_CELL_PRIMARY_SIZE}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {symbol}
-        </SizableText>
+        {primary}
         {subtitle}
       </YStack>
     </XStack>
@@ -224,8 +236,8 @@ export function WatchlistStockIdentity({
   const variants = record.stockVariants;
   return (
     <ListingIdentityCell
-      logoUri={record.tokenImageUri}
-      symbol={record.symbol}
+      logo={<ListingLogo uri={record.tokenImageUri} />}
+      primary={<ListingSymbol>{record.symbol}</ListingSymbol>}
       subtitle={
         <MarketHoverRevealLine
           lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
@@ -262,8 +274,8 @@ export function WatchlistStockIdentity({
 export function WatchlistAssetIdentity({ record }: { record: IMarketToken }) {
   return (
     <ListingIdentityCell
-      logoUri={record.tokenImageUri}
-      symbol={record.symbol.toUpperCase()}
+      logo={<ListingLogo uri={record.tokenImageUri} />}
+      primary={<ListingSymbol>{record.symbol.toUpperCase()}</ListingSymbol>}
       subtitle={
         record.name ? <ListingSubtitle>{record.name}</ListingSubtitle> : null
       }
@@ -310,18 +322,54 @@ export function WatchlistPerpsIdentity({ record }: { record: IMarketToken }) {
   );
 }
 
-/** Trending-table first column: symbol with badges over the age/address line. */
+/**
+ * A spot token's subtitle reads like the listing rows beside it: the full name
+ * at rest, the copyable contract address sliding in on hover. The name shows
+ * even when it repeats the symbol, so every row keeps the same shape; only a
+ * token with no name lets the address take the line.
+ */
+export function WatchlistTokenSubtitle({
+  name,
+  address,
+  copyFrom,
+}: {
+  name: string;
+  address: string;
+  copyFrom: ECopyFrom;
+}) {
+  const displayName = name.trim();
+  const addressLine = address ? (
+    <TokenContractAddressLine
+      address={address}
+      copyFrom={copyFrom}
+      lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      size={MARKET_CELL_SUBTITLE_SIZE}
+    />
+  ) : undefined;
+
+  if (!displayName) {
+    return addressLine ?? null;
+  }
+
+  return (
+    <MarketHoverRevealLine
+      lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      resting={<ListingSubtitle>{displayName}</ListingSubtitle>}
+      revealed={addressLine}
+    />
+  );
+}
+
+/** Spot token first column: symbol with badges over the name/address line. */
 export function WatchlistTokenIdentity({
   record,
-  intl,
   copyFrom,
 }: {
   record: IMarketToken;
-  intl: IntlShape;
   copyFrom: ECopyFrom;
 }) {
   return (
-    <MarketIdentityCell
+    <ListingIdentityCell
       logo={
         <Token
           size="lg"
@@ -339,10 +387,10 @@ export function WatchlistTokenIdentity({
           {record.communityRecognized ? <CommunityRecognizedBadge /> : null}
         </XStack>
       }
-      secondary={
-        <MarketTokenAgeAddressLine
+      subtitle={
+        <WatchlistTokenSubtitle
+          name={record.name}
           address={record.address}
-          ageLabel={getTokenAgeLabel(intl, record.firstTradeTime)}
           copyFrom={copyFrom}
         />
       }
@@ -351,10 +399,12 @@ export function WatchlistTokenIdentity({
 }
 
 /**
- * Desktop columns for the Favorites table. The first column mirrors each
- * row's sibling list (Trending, Top Coins, Stocks, Perps) and the metric
- * columns are the fixed `Price / 24h change / MCap / 24h volume` set from the
- * design. The watchlist is ordered by drag, so no header sorts.
+ * Desktop columns for the Favorites table. Every non-perps row shares the
+ * Stocks / Top Coins first-column frame (symbol over a name subtitle, with a
+ * hover reveal where there is something to reveal), perps rows mirror the
+ * Perps table, and the metric columns are the fixed
+ * `Price / 24h change / MCap / 24h volume` set from the design. The watchlist
+ * is ordered by drag, so no header sorts.
  */
 export function useWatchlistColumnsDesktop({
   networkId,
@@ -451,11 +501,7 @@ export function useWatchlistColumnsDesktop({
               return <WatchlistAssetIdentity record={record} />;
             default:
               return (
-                <WatchlistTokenIdentity
-                  record={record}
-                  intl={intl}
-                  copyFrom={copyFrom}
-                />
+                <WatchlistTokenIdentity record={record} copyFrom={copyFrom} />
               );
           }
         },

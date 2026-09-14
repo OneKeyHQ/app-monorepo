@@ -9,7 +9,7 @@ import {
   MarketStarV2,
 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import { MarketHoverRevealLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
-import { MarketTokenAgeAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
+import { TokenContractAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
 import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,6 +20,7 @@ import {
   WatchlistPerpsIdentity,
   WatchlistStockIdentity,
   WatchlistTokenIdentity,
+  WatchlistTokenSubtitle,
   getMarketWatchlistRowKind,
   useWatchlistColumnsDesktop,
 } from './useWatchlistColumnsDesktop';
@@ -59,8 +60,6 @@ jest.mock(
   () => ({ MarketVariantLogoGroup: () => null }),
 );
 
-const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000;
-
 const spotToken: IMarketToken = {
   id: 'token',
   name: 'Cash Cat',
@@ -80,7 +79,6 @@ const spotToken: IMarketToken = {
   networkLogoUri: '',
   networkId: 'evm--1',
   chainId: 'evm--1',
-  firstTradeTime: Date.now() - TWO_MONTHS_MS,
 };
 
 const stockListing: IMarketToken = {
@@ -92,7 +90,6 @@ const stockListing: IMarketToken = {
   address: '',
   networkId: '',
   chainId: '',
-  firstTradeTime: undefined,
   marketCap: Number.NaN,
   stockVariants: [
     { tokenId: 'sol-aaplx', issuer: 'xStocks', logoUrl: '' },
@@ -109,7 +106,6 @@ const assetListing: IMarketToken = {
   address: '',
   networkId: '',
   chainId: '',
-  firstTradeTime: undefined,
 };
 
 const perpsRow: IMarketToken = {
@@ -123,7 +119,6 @@ const perpsRow: IMarketToken = {
   maxLeverage: 20,
   perpsSubtitle: 'Ethereum',
   marketCap: 0,
-  firstTradeTime: undefined,
 };
 
 type IColumnOptions = Parameters<typeof useWatchlistColumnsDesktop>[0];
@@ -259,22 +254,57 @@ describe('useWatchlistColumnsDesktop', () => {
 
   test('asset listings upper-case the symbol over the full name', () => {
     const identity = expand<{
-      symbol: string;
+      primary: ReactElement<{ children: string }>;
       subtitle: ReactElement<{ children: string }>;
     }>(renderCell('name', assetListing));
 
-    expect(identity.props.symbol).toBe('ETH');
+    expect(identity.props.primary.props.children).toBe('ETH');
     expect(identity.props.subtitle.props.children).toBe('Ethereum');
   });
 
-  test('spot tokens get the trending age/address line', () => {
-    const identity = expand<{
-      secondary: ReactElement<{ address: string; ageLabel?: string }>;
-    }>(renderCell('name', spotToken));
+  describe('spot token subtitle', () => {
+    const subtitleOf = (record: IMarketToken) =>
+      expand<{ subtitle: ReactElement }>(renderCell('name', record)).props
+        .subtitle;
 
-    expect(identity.props.secondary.type).toBe(MarketTokenAgeAddressLine);
-    expect(identity.props.secondary.props.address).toBe(spotToken.address);
-    expect(identity.props.secondary.props.ageLabel).toBeDefined();
+    test('shows the full name and reveals the address on hover', () => {
+      const subtitle = subtitleOf(spotToken);
+      expect(subtitle.type).toBe(WatchlistTokenSubtitle);
+
+      const line = expand<{
+        resting: ReactElement<{ children: string }>;
+        revealed?: ReactElement<{ address: string }>;
+      }>(subtitle);
+      expect(line.type).toBe(MarketHoverRevealLine);
+      expect(line.props.resting.props.children).toBe('Cash Cat');
+      expect(line.props.revealed?.type).toBe(TokenContractAddressLine);
+      expect(line.props.revealed?.props.address).toBe(spotToken.address);
+    });
+
+    test('still shows a name that repeats the symbol', () => {
+      const line = expand<{ resting: ReactElement<{ children: string }> }>(
+        subtitleOf({ ...spotToken, name: 'CASHCAT' }),
+      );
+      expect(line.type).toBe(MarketHoverRevealLine);
+      expect(line.props.resting.props.children).toBe('CASHCAT');
+    });
+
+    test('lets the address take the line when the token has no name', () => {
+      const line = expand<{ address: string }>(
+        subtitleOf({ ...spotToken, name: '  ' }),
+      );
+      expect(line.type).toBe(TokenContractAddressLine);
+      expect(line.props.address).toBe(spotToken.address);
+    });
+
+    test('keeps the name alone when there is no address to reveal', () => {
+      const line = expand<{
+        resting: ReactElement<{ children: string }>;
+        revealed?: ReactElement;
+      }>(subtitleOf({ ...spotToken, address: '', isNative: true }));
+      expect(line.props.resting.props.children).toBe('Cash Cat');
+      expect(line.props.revealed).toBeUndefined();
+    });
   });
 
   test('formats present metrics and colors the change', () => {

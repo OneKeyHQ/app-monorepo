@@ -7,6 +7,7 @@ import {
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -41,9 +42,14 @@ const ADDRESS_TEXT_PROPS = {
 export function TokenContractAddressLine({
   address,
   copyFrom = ECopyFrom.Homepage,
+  lineHeight = TOKEN_SECONDARY_LINE_HEIGHT,
+  size = ADDRESS_TEXT_PROPS.size,
 }: {
   address: string;
   copyFrom?: ECopyFrom;
+  /** The line box it slides into; a subtitle-sized line needs the taller box. */
+  lineHeight?: number;
+  size?: ISizableTextProps['size'];
 }) {
   const { copyText } = useClipboard();
 
@@ -61,13 +67,8 @@ export function TokenContractAddressLine({
   );
 
   return (
-    <XStack
-      height={TOKEN_SECONDARY_LINE_HEIGHT}
-      alignItems="center"
-      gap="$0.5"
-      minWidth={0}
-    >
-      <MarketCellSecondary {...ADDRESS_TEXT_PROPS}>
+    <XStack height={lineHeight} alignItems="center" gap="$0.5" minWidth={0}>
+      <MarketCellSecondary size={size} color={ADDRESS_TEXT_PROPS.color}>
         {accountUtils.shortenAddress({
           address,
           leadingLength: 6,
