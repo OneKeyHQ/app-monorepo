@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_BORDER_COLOR } from '@onekeyhq/components/src/utils/animationConstants';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import { LeverageBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -405,7 +406,7 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
         )}
       </XStack>
       {isIndexBanner ? (
-        <XStack gap="$3" minHeight={104} alignItems="flex-start">
+        <XStack gap="$3" minHeight={s(104)} alignItems="flex-start">
           {tokens.length ? (
             tokens.map((token, index) => (
               <BannerIndexColumn
@@ -418,7 +419,7 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
           )}
         </XStack>
       ) : (
-        <YStack gap="$4" minHeight={104}>
+        <YStack gap="$4" minHeight={s(104)}>
           {tokens.length ? (
             tokens.map((token, index) => (
               <BannerTokenRow key={`${token.symbol}-${index}`} token={token} />

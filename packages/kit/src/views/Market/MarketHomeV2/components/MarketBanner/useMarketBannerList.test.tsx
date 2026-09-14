@@ -299,6 +299,53 @@ const quote = {
   priceChange24hPercent: '1',
 };
 
+it('keeps banner artwork throughout successive quote refreshes', async () => {
+  const preview = { ...quote, logo: 'https://example.com/banner-apple.png' };
+  mockResult = [
+    makeBanner({ type: EMarketBannerType.Stock, tokens: [preview] }),
+  ];
+  jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+    {
+      ...quote,
+      stockId: 'apple',
+      logoUrl: 'https://example.com/stock-apple.png',
+      assetType: 'stock',
+      currency: 'USD',
+      price: '110',
+    },
+  ]);
+  const { result, rerender } = renderHook(() => useMarketBannerList());
+  for (let refresh = 0; refresh < 2; refresh += 1) {
+    mockResult = [
+      makeBanner({ type: EMarketBannerType.Stock, tokens: [{ ...preview }] }),
+    ];
+    rerender();
+    expect(result.current.bannerList[0].tokens?.[0].logo).toBe(preview.logo);
+    mockLiveResult = await mockHydrate();
+    rerender();
+    expect(result.current.bannerList[0].tokens?.[0]).toMatchObject({
+      logo: preview.logo,
+      price: '110',
+    });
+  }
+});
+
+it('uses stock artwork for newly added assets without a banner preview', async () => {
+  jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+    {
+      ...quote,
+      stockId: 'apple',
+      logoUrl: 'https://example.com/new-apple.png',
+      assetType: 'stock',
+      currency: 'USD',
+    },
+  ]);
+  const banners = await hydrateMarketBannerQuotes([
+    makeBanner({ type: EMarketBannerType.Stock, tokens: [] }),
+  ]);
+  expect(banners[0].tokens?.[0].logo).toBe('https://example.com/new-apple.png');
+});
+
 it('displays hydrated quotes and retains them across a fresh base response', async () => {
   mockResult = [makeBanner({ type: EMarketBannerType.Stock })];
   jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
