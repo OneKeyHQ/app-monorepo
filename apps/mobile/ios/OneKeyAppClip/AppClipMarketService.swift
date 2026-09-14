@@ -296,6 +296,32 @@ actor AppClipMarketService {
     cursor: String? = nil,
     limit: Int = 20
   ) async throws -> AppClipMarketStockPage {
+    do {
+      return try await fetchStockPage(
+        baseURL: baseURL,
+        category: category,
+        cursor: cursor,
+        limit: limit
+      )
+    } catch {
+      guard let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL) else {
+        throw error
+      }
+      return try await fetchStockPage(
+        baseURL: fallbackBaseURL,
+        category: category,
+        cursor: cursor,
+        limit: limit
+      )
+    }
+  }
+
+  private func fetchStockPage(
+    baseURL: URL,
+    category: String?,
+    cursor: String?,
+    limit: Int
+  ) async throws -> AppClipMarketStockPage {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("utility/v1/stocks"),
       resolvingAgainstBaseURL: false
@@ -457,6 +483,29 @@ actor AppClipMarketService {
     period: String,
     baseURL: URL
   ) async throws -> AppClipKlineResult {
+    do {
+      return try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: baseURL
+      )
+    } catch {
+      guard let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL) else {
+        throw error
+      }
+      return try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: fallbackBaseURL
+      )
+    }
+  }
+
+  private func fetchStockCandles(
+    stockID: String,
+    period: String,
+    requestBaseURL: URL
+  ) async throws -> AppClipKlineResult {
     let normalizedPeriod = period.lowercased()
     guard ["1h", "1d", "1w", "1m", "1y", "all"].contains(normalizedPeriod) else {
       throw URLError(.badURL)
@@ -467,7 +516,7 @@ actor AppClipMarketService {
         withAllowedCharacters: Self.pathSegmentAllowed
       ),
       var components = URLComponents(
-        url: baseURL.appendingPathComponent("utility/v1/stocks"),
+        url: requestBaseURL.appendingPathComponent("utility/v1/stocks"),
         resolvingAgainstBaseURL: false
       )
     else {
@@ -561,10 +610,7 @@ actor AppClipMarketService {
     request.setValue("OneKey App Clip", forHTTPHeaderField: "X-Onekey-Request-Platform-Name")
     request.setValue("OneKey Wallet App Clip", forHTTPHeaderField: "X-Onekey-Request-Device-Name")
     request.setValue("usd", forHTTPHeaderField: "X-Onekey-Request-Currency")
-    request.setValue(
-      Locale.current.identifier.lowercased(),
-      forHTTPHeaderField: "X-Onekey-Request-Locale"
-    )
+    request.setValue(Self.requestLocale, forHTTPHeaderField: "X-Onekey-Request-Locale")
     request.setValue(Self.version, forHTTPHeaderField: "X-Onekey-Request-Version")
     request.setValue(Self.buildNumber, forHTTPHeaderField: "X-Onekey-Request-Build-Number")
     let requestId = UUID().uuidString
@@ -590,6 +636,25 @@ actor AppClipMarketService {
 
   private static var buildNumber: String {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+  }
+
+  private static var requestLocale: String {
+    let localization = Bundle.main.preferredLocalizations.first?.lowercased() ?? "en"
+    return localization.hasPrefix("zh-hans") ? "zh-cn" : "en-us"
+  }
+
+  // Temporary fallback until the production stock endpoints are available.
+  private static func stockFallbackBaseURL(for baseURL: URL) -> URL? {
+    guard
+      baseURL.scheme?.lowercased() == "https",
+      baseURL.host?.lowercased() == "utility.onekeycn.com",
+      baseURL.user == nil,
+      baseURL.password == nil,
+      baseURL.port == nil || baseURL.port == 443
+    else {
+      return nil
+    }
+    return URL(string: "https://utility.onekeytest.com")
   }
 
   private static let pathSegmentAllowed = CharacterSet(
