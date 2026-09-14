@@ -143,11 +143,36 @@ export function useToMarketStockDetailPage(
             : undefined),
         };
         if (isModalPage) {
-          (
-            navigation as unknown as IModalNavigationProp<IModalMarketParamList>
-          ).replace(EModalMarketRoutes.MarketDetailV2, stockDetailParams);
+          // A detail opened from the selector must live in the Market tab
+          // stack. Replacing the selector inside MarketModal leaves the old
+          // detail underneath, so pressing back reveals the previous symbol.
+          const modalNavigation =
+            navigation as unknown as IModalNavigationProp<IModalMarketParamList> & {
+              popStack?: () => void;
+            };
+          if (modalNavigation.popStack) {
+            modalNavigation.popStack();
+          } else {
+            modalNavigation.replace(
+              EModalMarketRoutes.MarketDetailV2,
+              stockDetailParams,
+            );
+            return;
+          }
+          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+            screen: platformEnv.isNative
+              ? ETabRoutes.Discovery
+              : ETabRoutes.Market,
+            params: {
+              screen: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            },
+          });
         } else {
-          navigation.replace(
+          // Rebuild the tab stack so a detail selected from another detail
+          // always returns to MarketHome instead of the previous symbol.
+          navigation.popToTop();
+          navigation.push(
             ETabMarketRoutes.MarketStockDetail,
             stockDetailParams,
           );
