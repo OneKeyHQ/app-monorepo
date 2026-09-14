@@ -2,6 +2,7 @@
 
 import { act, render, waitFor } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   swrCacheUtils,
@@ -781,6 +782,51 @@ describe('useMarketTokenList initial data', () => {
       await Promise.all(requests);
     });
     expect(nextPageCalls).toBe(1);
+    expect(latestResult?.data.map((item) => item.id)).toEqual([
+      'first',
+      'second',
+    ]);
+  });
+
+  it('holds a failed native page until an explicit load-more retry', async () => {
+    mutablePlatformEnv.isNative = true;
+    mutablePlatformEnv.isWeb = false;
+    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+    let loadMoreAttempt = 0;
+    mockFetchMarketTokenList.mockImplementation(async ({ page }) => {
+      if (page === 1) {
+        return {
+          ...createResponse('first', 'First', 'FIRST'),
+          total: 2,
+        };
+      }
+      loadMoreAttempt += 1;
+      if (loadMoreAttempt === 1) {
+        throw new OneKeyLocalError('offline');
+      }
+      return {
+        ...createResponse('second', 'Second', 'SECOND'),
+        total: 2,
+      };
+    });
+    function Probe() {
+      latestResult = useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        pageSize: 1,
+        type: 'trending',
+      });
+      return null;
+    }
+    render(<Probe />);
+    await waitFor(() => expect(latestResult?.canLoadMore).toBe(true));
+
+    await act(async () => latestResult?.loadMore());
+    expect(latestResult?.isLoadMoreError).toBe(true);
+    expect(latestResult?.canLoadMore).toBe(true);
+
+    await act(async () => latestResult?.loadMore());
+    expect(latestResult?.isLoadMoreError).toBe(false);
     expect(latestResult?.data.map((item) => item.id)).toEqual([
       'first',
       'second',

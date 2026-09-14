@@ -13,6 +13,10 @@ const mockSetSelectorConfig = jest.fn();
 const mockStockListMount = jest.fn();
 const mockTopCoinPress = jest.fn();
 const mockNavigateToMarketTokenDetail = jest.fn();
+const mockToStock = jest.fn();
+const mockUseToMarketStockDetailPage = jest.fn(
+  (_options?: unknown) => mockToStock,
+);
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockSearchTokenList: IMarketToken[] = [];
 let mockWatchlistToken: IMarketToken | undefined;
@@ -129,7 +133,8 @@ jest.mock('@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage',
   () => ({
-    useToMarketStockDetailPage: () => jest.fn(),
+    useToMarketStockDetailPage: (options: unknown) =>
+      mockUseToMarketStockDetailPage(options),
   }),
 );
 
@@ -259,6 +264,8 @@ describe('MarketTokenSelector stock default category', () => {
     mockStockListMount.mockReset();
     mockTopCoinPress.mockReset();
     mockNavigateToMarketTokenDetail.mockReset();
+    mockUseToMarketStockDetailPage.mockClear();
+    mockToStock.mockClear();
     mockSearchTokenList = [];
     mockWatchlistToken = undefined;
     mockSpotCategories = [
@@ -306,6 +313,14 @@ describe('MarketTokenSelector stock default category', () => {
     const topCoinsLabel = screen.getByText('market.top_coins');
     expect(topCoinsLabel.getAttribute('data-text-transform')).toBe('none');
     expect(topCoinsLabel.getAttribute('data-letter-spacing')).toBe('0');
+  });
+
+  it('replaces the current detail route when selecting a stock', () => {
+    renderOpenStockSelector();
+
+    expect(mockUseToMarketStockDetailPage).toHaveBeenCalledWith({
+      replaceCurrentDetail: true,
+    });
   });
 
   function renderOpenStockSelector() {
@@ -455,5 +470,46 @@ describe('MarketTokenSelector stock default category', () => {
         resolveMarketAsset: true,
       }),
     );
+  });
+  it('replaces the current detail for a stock in search results', () => {
+    mockSearchTokenList = [
+      {
+        id: 'dex-token',
+        stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' },
+        name: 'DEX Token',
+        symbol: 'DEX',
+        address: '0xdex',
+        decimals: 18,
+        price: 1,
+        change24h: 0,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: 0,
+        tokenImageUri: '',
+        networkLogoUri: '',
+        networkId: 'evm--1',
+      },
+    ];
+
+    render(<MarketTokenSelector defaultCategory="top_coins" />);
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    fireEvent.change(screen.getByTestId('market-token-selector-search'), {
+      target: { value: 'DEX' },
+    });
+    fireEvent.click(screen.getByTestId('market-token-selector-search-result'));
+
+    expect(mockToStock).toHaveBeenCalledWith({
+      stockId: 'AAPL',
+      symbol: 'DEX',
+      name: 'DEX Token',
+      logoUrl: '',
+      tokenAddress: '0xdex',
+      networkId: 'evm--1',
+      isNative: undefined,
+    });
+    expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
   });
 });

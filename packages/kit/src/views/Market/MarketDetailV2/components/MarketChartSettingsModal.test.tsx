@@ -41,6 +41,7 @@ const mockShowTradingViewChartSettingsDialog = jest.fn<
 let mockIsMobileLayout = false;
 let mockIsNative = false;
 let mockChartSettings = createTradingViewNativeChartSettings();
+let mockRouteParams: { showPreviousClose?: boolean } | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -88,6 +89,10 @@ jest.mock(
   }),
 );
 
+jest.mock('@onekeyhq/kit/src/hooks/useAppRoute', () => ({
+  useAppRoute: () => ({ params: mockRouteParams }),
+}));
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketTradingViewChartSettingsPersistAtom: () => [
     mockChartSettings,
@@ -100,6 +105,7 @@ describe('MarketChartSettingsModal', () => {
     jest.clearAllMocks();
     mockIsMobileLayout = false;
     mockIsNative = false;
+    mockRouteParams = undefined;
     mockChartSettings = createTradingViewNativeChartSettings();
     mockSetChartSettings.mockImplementation((update) => {
       mockChartSettings = update(mockChartSettings);
@@ -124,6 +130,7 @@ describe('MarketChartSettingsModal', () => {
       'futureEvents',
       'pastEvents',
       'clickInteraction',
+      'previousClose',
     ]);
 
     await act(async () => {
@@ -165,6 +172,7 @@ describe('MarketChartSettingsModal', () => {
     expect(props.mobileLayout).toBe(false);
     expect(props.onChange).toBeUndefined();
     expect(props.hiddenOptionIds).toContain('clickInteraction');
+    expect(props.hiddenOptionIds).toContain('previousClose');
 
     act(() => {
       props.onCancel?.();
@@ -190,6 +198,32 @@ describe('MarketChartSettingsModal', () => {
 
     expect(
       mockTradingViewChartSettings.mock.calls[0][0].hiddenOptionIds,
-    ).toEqual(['countdown', 'depth', 'futureEvents', 'pastEvents']);
+    ).toEqual([
+      'countdown',
+      'depth',
+      'futureEvents',
+      'pastEvents',
+      'previousClose',
+    ]);
+  });
+
+  it('offers Prev close only when the chart opts in', () => {
+    mockRouteParams = { showPreviousClose: true };
+    render(<MarketChartSettingsModal />);
+
+    expect(
+      mockTradingViewChartSettings.mock.calls[0][0].hiddenOptionIds,
+    ).not.toContain('previousClose');
+
+    showMarketChartSettingsDialog({ showPreviousClose: true });
+    render(
+      mockShowTradingViewChartSettingsDialog.mock.calls[0][0].renderContent(
+        mockCloseDialog,
+      ),
+    );
+
+    expect(
+      mockTradingViewChartSettings.mock.calls.at(-1)?.[0].hiddenOptionIds,
+    ).not.toContain('previousClose');
   });
 });

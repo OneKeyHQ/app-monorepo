@@ -429,11 +429,12 @@ export const EarnNavigation = {
     navigation: IAppNavigation,
     params?: {
       tab?: IEarnHomeTab;
+      mode?: 'earn' | 'borrow';
     },
   ) {
     const targetEarnTab = params?.tab ?? DEFAULT_EARN_HOME_TAB;
     const earnHomeParams = {
-      mode: 'earn' as const,
+      mode: params?.mode ?? ('earn' as const),
       tab: targetEarnTab,
     };
 

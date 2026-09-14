@@ -33,7 +33,6 @@ import {
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
@@ -46,10 +45,7 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
-import {
-  EJotaiContextStoreNames,
-  useMarketTradingViewSubIndicatorCountPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useMarketTradingViewSubIndicatorCountPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -60,10 +56,8 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../../testIDs';
 import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
@@ -79,17 +73,20 @@ import {
 } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 import {
   getMarketTradingViewSubIndicatorCount,
   normalizeMarketTradingViewSubIndicatorCountPersist,
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
 
+import type { MarketDetailEmbeddedSwap } from '../components/MarketDetailEmbeddedSwap';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
-import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 
 type ISwapPanelProps = ComponentProps<typeof SwapPanel>;
-type ISwapPanelWrapProps = ComponentProps<typeof SwapPanelWrap>;
+type IMarketDetailEmbeddedSwapProps = ComponentProps<
+  typeof MarketDetailEmbeddedSwap
+>;
 type ITokenActivityOverviewProps = {
   pl?: string;
   pr?: string;
@@ -123,12 +120,12 @@ const LazySwapPanel = LazyLoad<ISwapPanelProps>(
   swapPanelLoadingFallback,
 );
 
-const LazySwapPanelWrap = LazyLoad<ISwapPanelWrapProps>(
+const LazyMarketDetailEmbeddedSwap = LazyLoad<IMarketDetailEmbeddedSwapProps>(
   () =>
     import(
-      /* webpackChunkName: "market-detail-v2-swap-panel-wrap" */ '../components/SwapPanel/SwapPanelWrap'
-    ).then(({ SwapPanelWrap }) => ({
-      default: SwapPanelWrap,
+      /* webpackChunkName: "market-detail-v2-embedded-swap" */ '../components/MarketDetailEmbeddedSwap'
+    ).then(({ MarketDetailEmbeddedSwap }) => ({
+      default: MarketDetailEmbeddedSwap,
     })),
   undefined,
   swapPanelLoadingFallback,
@@ -307,7 +304,8 @@ export function MobileLayout({
     perpsInfo,
     isStockToken,
   } = useTokenDetail();
-  const { selectedTokenVariant } = useStockDetail();
+  const { isStockRoute, selectedTokenVariant, stockDetail, stockId } =
+    useStockDetail();
   const networkId =
     selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
   const tokenAddress =
@@ -318,6 +316,18 @@ export function MobileLayout({
       ? routeIsNative
       : storeIsNative;
   const tokenSymbol = tokenDetail?.symbol;
+  // Stock detail charts offer Prev close; the mobile chart always plots the
+  // token price.
+  const isStockDetailChart = isStockRoute && Boolean(stockId);
+  const stockPreviousClose = isStockDetailChart
+    ? getMarketStockChartPreviousClose({
+        priceSource: 'token',
+        stockDetail,
+        selectedTokenVariant,
+        tokenDetail,
+        tokenDetailNetworkId: storeNetworkId,
+      })
+    : undefined;
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
@@ -752,6 +762,8 @@ export function MobileLayout({
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
                       onPriceUpdate={handleNativeChartPriceUpdate}
+                      enablePreviousClose={isStockDetailChart}
+                      previousClose={stockPreviousClose}
                       enableNativeChartSettings
                       maxSelectableSubIndicatorCount={
                         MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
@@ -845,6 +857,7 @@ export function MobileLayout({
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
     isChartFullscreen,
+    isStockDetailChart,
     isTradingViewScrollLocked,
     isTradingViewNative,
     layoutPageWidth,
@@ -855,6 +868,7 @@ export function MobileLayout({
     networkId,
     onChartFullscreenChange,
     onChartSwitch,
+    stockPreviousClose,
     tradingViewNativeSource,
     tradingViewChartHeight,
   ]);
@@ -941,6 +955,8 @@ export function MobileLayout({
     isStockToken,
   ]);
   const isSwapTokenReady =
+    tokenDetail?.address?.toLowerCase() === tokenAddress.toLowerCase() &&
+    tokenDetail?.networkId === networkId &&
     tokenDetail?.decimalsResolved !== false &&
     typeof tokenDetail?.decimals === 'number' &&
     Number.isInteger(tokenDetail.decimals) &&
@@ -961,21 +977,10 @@ export function MobileLayout({
         showExitButton: true,
         renderContent: (
           <View>
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.home,
-                sceneUrl: '',
-              }}
-              enabledNum={[0]}
-            >
-              <MarketWatchListProviderMirrorV2
-                storeName={EJotaiContextStoreNames.marketWatchListV2}
-              >
-                <LazySwapPanelWrap
-                  onCloseDialog={() => dialogRef.current?.close()}
-                />
-              </MarketWatchListProviderMirrorV2>
-            </AccountSelectorProviderMirror>
+            <LazyMarketDetailEmbeddedSwap
+              swapToken={swapToken}
+              testID="market-token-detail-dialog-trade-ready"
+            />
           </View>
         ),
       });

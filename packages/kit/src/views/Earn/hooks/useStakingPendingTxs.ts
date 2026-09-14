@@ -8,6 +8,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
@@ -641,6 +642,7 @@ export const useStakingPendingTxsByInfo = ({
         }
 
         return pendingTxs.filter((tx): tx is IStakePendingTx => {
+          if (tx.replacedType === EReplaceTxType.Cancel) return false;
           if (!tx.stakingInfo) return false;
           const tags = tx.stakingInfo.tags ?? [];
           if (tags.length === 0) return false;

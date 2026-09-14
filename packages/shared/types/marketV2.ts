@@ -488,6 +488,16 @@ export interface IMarketTokenBatchListResponse {
   list: IMarketTokenListItem[];
 }
 
+export interface IMarketTokenBatchRequestParams {
+  tokenAddressList: {
+    contractAddress: string;
+    chainId: string;
+    isNative: boolean;
+  }[];
+  requestLocale?: string;
+  skipCache?: boolean;
+}
+
 export interface IMarketTokenSecurityItem {
   value: boolean | number | string;
   content: string;
@@ -708,6 +718,11 @@ export interface IMarketAccountPortfolioResponse {
 export enum EMarketBannerType {
   Ticker = 'ticker',
   Perps = 'perps',
+  Stock = 'stock',
+  Index = 'index',
+  Mixed = 'mixed',
+  StockPerps = 'stock_perps',
+  StockIndex = 'stock_index',
 }
 
 export interface IMarketBannerDescription {
@@ -723,6 +738,10 @@ export interface IMarketBannerTokenPreview {
   priceChange24hPercent?: string | null;
 }
 
+export interface IMarketBannerIndexPreview extends IMarketBannerTokenPreview {
+  sparkline?: number[];
+}
+
 export interface IMarketBannerItem {
   _id: string;
   title: string;
@@ -735,7 +754,9 @@ export interface IMarketBannerItem {
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
   tokens?: IMarketBannerTokenPreview[];
+  indices?: IMarketBannerIndexPreview[];
   type?: EMarketBannerType;
+  assetType?: IMarketStockAssetType;
 }
 
 export interface IMarketBannerListResponse {
@@ -793,6 +814,8 @@ export type IMarketStockPublicListSortBy =
   | 'default'
   | 'price'
   | 'priceChange24hPercent'
+  | 'marketCap'
+  | 'volume24h'
   | 'symbol';
 
 export interface IMarketStockPublicListRequest {
@@ -805,6 +828,7 @@ export interface IMarketStockPublicListRequest {
 
 export interface IMarketStockPublicSearchRequest {
   query: string;
+  cursor?: string;
   limit?: number;
 }
 

@@ -32,6 +32,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useSettingsConfig } from './config';
@@ -77,6 +78,7 @@ function TabItemView({
     tabBarIconStyle?: IIconProps;
     tabBarLabelStyle?: ISizableTextProps;
     isHidden?: boolean;
+    ignorePress?: boolean;
     showDot?: boolean;
     renderTabItem?: React.ComponentType<{
       selected?: boolean;
@@ -93,6 +95,14 @@ function TabItemView({
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
 
+  const { ignorePress, tabbarOnPress } = options;
+  const handlePress = useCallback(() => {
+    if (ignorePress) {
+      return;
+    }
+    (tabbarOnPress ?? onPress)();
+  }, [ignorePress, onPress, tabbarOnPress]);
+
   const contentMemo = useMemo(() => {
     if (options.isHidden) {
       return null;
@@ -101,12 +111,7 @@ function TabItemView({
     // Use custom tab item renderer if provided
     if (options.renderTabItem) {
       const CustomTabItem = options.renderTabItem;
-      return (
-        <CustomTabItem
-          selected={isActive}
-          onPress={options.tabbarOnPress ?? onPress}
-        />
-      );
+      return <CustomTabItem selected={isActive} onPress={handlePress} />;
     }
 
     if (!options.tabBarLabel) {
@@ -147,7 +152,7 @@ function TabItemView({
 
     return (
       <DesktopTabItem
-        onPress={options.tabbarOnPress ?? onPress}
+        onPress={handlePress}
         trackId={options.trackId}
         testID={options.testID}
         // Keep a stable 20px leading slot while desktop Settings renders an
@@ -170,13 +175,16 @@ function TabItemView({
         label={options.tabBarLabel as string}
       />
     );
-  }, [isActive, onPress, options]);
+  }, [handlePress, isActive, options]);
 
   return contentMemo;
 }
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const { settingsConfig } = useConfigContext();
   const { onSearch, onFocus, previousTabRoute } = useSearch(settingsConfig);
   const activeRouteName = routes[state.index]?.name as
@@ -251,14 +259,18 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       borderRightWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
     >
-      <XStack my="$2.5" px="$3">
-        <SearchBar
-          onSearchTextChange={onSearch}
-          onFocus={onFocus}
-          size="small"
-        />
-      </XStack>
-      <Divider borderColor="$neutral3" />
+      {isTravelMode ? null : (
+        <>
+          <XStack my="$2.5" px="$3">
+            <SearchBar
+              onSearchTextChange={onSearch}
+              onFocus={onFocus}
+              size="small"
+            />
+          </XStack>
+          <Divider borderColor="$neutral3" />
+        </>
+      )}
       <YStack flex={1} pt="$3" px="$3">
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -269,7 +281,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       </YStack>
       <Divider borderColor="$neutral3" />
       <YStack bg="$bgSubdued" px="$3">
-        <SocialButtonGroup />
+        <SocialButtonGroup hideChannels={isTravelMode} />
       </YStack>
     </YStack>
   );

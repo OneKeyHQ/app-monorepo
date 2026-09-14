@@ -2,6 +2,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import {
   EPasswordMode,
@@ -127,8 +128,11 @@ export const { target: passwordModeAtom, use: usePasswordModeAtom } =
     return passwordMode;
   });
 
+// Nothing here is awaited, so declaring the read `async` only made the value a
+// pending promise on every passwordPersistAtom write, suspending every reader
+// for a tick. Keep it synchronous.
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
-  globalAtomComputed<Promise<boolean | undefined>>(async (get) => {
+  globalAtomComputed<boolean | undefined>((get) => {
     if (runtimePersistenceAdapter.isUnavailable()) {
       return false;
     }
@@ -144,7 +148,12 @@ export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
 export const { target: appIsLocked, use: useAppIsLockedAtom } =
   globalAtomComputed<boolean>((get) => {
     const { isMigrationModalOpen, isProcessing } = get(v4migrationAtom.atom());
-    if (isMigrationModalOpen || isProcessing) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode' ||
+      isMigrationModalOpen ||
+      isProcessing
+    ) {
       return false;
     }
     const { isPasswordSet, appLockDuration } = get(passwordPersistAtom.atom());

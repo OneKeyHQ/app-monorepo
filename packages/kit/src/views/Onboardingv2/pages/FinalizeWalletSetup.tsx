@@ -18,6 +18,7 @@ import {
   Icon,
   LinearGradient,
   SizableText,
+  Toast,
   XStack,
   YStack,
   resetOnboardingModal,
@@ -35,9 +36,12 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type {
+  IOneKeyError,
+  IOneKeyErrorI18nInfo,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -45,7 +49,10 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  ETranslations,
+  isKnownTranslationKey,
+} from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
@@ -74,7 +81,10 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { waitForDeviceStageExit } from '../../../provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import {
+  type IFinalizeWalletSetupAccountCreationResult,
+  useAccountSelectorActions,
+} from '../../../states/jotai/contexts/accountSelector/actions';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import {
@@ -257,6 +267,7 @@ function FinalizeWalletSetupPage({
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;
+        info?: IOneKeyErrorI18nInfo;
       }
     | undefined
   >(undefined);
@@ -271,6 +282,9 @@ function FinalizeWalletSetupPage({
   const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
   const prefetchedGiftSerialNoRef = useRef<string | undefined>(undefined);
   const [creatingGiftWalletId, setCreatingGiftWalletId] = useState<string>();
+  const accountCreationResultRef = useRef<
+    IFinalizeWalletSetupAccountCreationResult | undefined
+  >(undefined);
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const deviceData = route?.params?.deviceData;
@@ -681,14 +695,19 @@ function FinalizeWalletSetupPage({
                 vendorModelName: connected.payload.modelName,
               } as SearchDevice;
             }
-            await actions.current.createHWWalletWithoutHidden({
-              device: thirdPartyDevice,
-              hideCheckingDeviceLoading: true,
-              features: featuresForCreate,
-              isFirmwareVerified: true,
-              defaultIsTemp: true,
-              vendor: deviceData.vendor,
-            });
+            const { accountCreationResult } =
+              await actions.current.createHWWalletWithoutHidden(
+                {
+                  device: thirdPartyDevice,
+                  hideCheckingDeviceLoading: true,
+                  features: featuresForCreate,
+                  isFirmwareVerified: true,
+                  defaultIsTemp: true,
+                  vendor: deviceData.vendor,
+                },
+                { mode: 'onboarding' },
+              );
+            accountCreationResultRef.current = accountCreationResult;
             await trackHardwareWalletConnection({
               status: 'success',
               deviceType: thirdPartyDevice.deviceType,
@@ -751,18 +770,22 @@ function FinalizeWalletSetupPage({
       setIsWalletCreationReadyForReferralCheck(true);
     } catch (error) {
       console.error('createWallet error:', error);
-      const hardwareError = error as {
-        messageId: ETranslations;
-        message: string;
+      const hardwareError = error as IOneKeyError<IOneKeyErrorI18nInfo> & {
+        messageId?: ETranslations;
       };
+      const errorKey = hardwareError?.key;
       setSetupError({
         messageId: fixErrorString(
           hardwareError
-            ? hardwareError.messageId ||
+            ? (errorKey && isKnownTranslationKey(errorKey)
+                ? errorKey
+                : undefined) ||
+                hardwareError.messageId ||
                 hardwareError.message ||
                 ETranslations.global_unknown_error
             : ETranslations.global_unknown_error,
         ) as ETranslations,
+        info: hardwareError?.info,
       });
     } finally {
       await endBurst();
@@ -967,7 +990,18 @@ function FinalizeWalletSetupPage({
       getInviteDialog: () => showInviteCodeDialogRef.current,
       isClosed: () => closePageCalled.current,
       closePage,
-      openKeylessAutoConnectDappModal,
+      openKeylessAutoConnectDappModal: async () => {
+        if (
+          accountCreationResultRef.current?.status === 'requires-hidden-wallet'
+        ) {
+          accountCreationResultRef.current = undefined;
+          Toast.error({
+            title:
+              ETranslations.hardware_third_party_passphrase_always_on_device,
+          });
+        }
+        await openKeylessAutoConnectDappModal();
+      },
     });
   }, [
     isReadyActionVisible,
@@ -980,6 +1014,7 @@ function FinalizeWalletSetupPage({
     isReadyActionVisible && activeWallet?.associatedDevice
       ? activeWallet.id
       : creatingGiftWalletId;
+  const reservePrimeGiftSpace = gtMd && Boolean(deviceData || giftWalletId);
   const [giftWalletDevice, setGiftWalletDevice] = useState<{
     walletId: string;
     device: IDBDevice;
@@ -1011,17 +1046,6 @@ function FinalizeWalletSetupPage({
     giftWalletDevice && giftWalletDevice.walletId === giftWalletId
       ? giftWalletDevice.device
       : undefined;
-  const [giftEligibilityBySerialNo] = usePrimeGiftEligibilityPersistAtom();
-  const giftSerialNo =
-    deviceUtils.getDeviceSerialNoFromDbDevice(primeGiftDevice);
-  const giftEligibility = giftSerialNo
-    ? giftEligibilityBySerialNo[giftSerialNo]
-    : undefined;
-  const isPrimeGiftOfferVisible = Boolean(
-    giftSerialNo &&
-    giftEligibility?.eligible &&
-    giftEligibility.hasUnclaimedGift,
-  );
 
   const [isExtensionTopRightVisible, setIsExtensionTopRightVisible] =
     useState(false);
@@ -1077,8 +1101,9 @@ function FinalizeWalletSetupPage({
     }),
   };
 
-  const readyActionWidth = gtMd ? 'auto' : '100%';
-  const readyActionMinWidth = gtMd ? 400 : undefined;
+  const desktopEnterWalletButtonProps = reservePrimeGiftSpace
+    ? { w: 400 }
+    : { minWidth: 240 };
   const enterWalletButton = (
     <Button
       testID={OnboardingTestIDs.finalizeSetupEnterWalletBtn}
@@ -1089,9 +1114,7 @@ function FinalizeWalletSetupPage({
       transition="quick"
       animateOnly={['opacity']}
       enterStyle={{ opacity: 0 }}
-      {...(gtMd
-        ? { minWidth: isPrimeGiftOfferVisible ? 400 : 240 }
-        : { w: '100%' as const })}
+      {...(gtMd ? desktopEnterWalletButtonProps : { w: '100%' as const })}
     >
       {intl.formatMessage({ id: ETranslations.enter_wallet })}
     </Button>
@@ -1207,10 +1230,13 @@ function FinalizeWalletSetupPage({
               <Alert
                 icon="InfoCircleOutline"
                 type="info"
-                description={intl.formatMessage({
-                  id: setupError.messageId,
-                  defaultMessage: setupError.messageId,
-                })}
+                description={intl.formatMessage(
+                  {
+                    id: setupError.messageId,
+                    defaultMessage: setupError.messageId,
+                  },
+                  setupError.info,
+                )}
               />
               <XStack gap="$4" alignItems="center">
                 <Button
@@ -1277,18 +1303,21 @@ function FinalizeWalletSetupPage({
                 </YStack>
               </YStack>
               <StepTextSwap text={stepText} />
-              {isReadyActionVisible && primeGiftDevice ? (
+              {/* Reserve the banner's 88px height for desktop hardware setup so async gift
+                  eligibility results do not shift the vertically centered content. */}
+              {reservePrimeGiftSpace ||
+              (isReadyActionVisible && primeGiftDevice) ? (
                 <YStack
-                  w={readyActionWidth}
-                  minWidth={readyActionMinWidth}
-                  gap="$3"
+                  {...(gtMd ? { w: 400, h: 88 } : { w: '100%' as const })}
                 >
-                  <PrimeGiftOffer
-                    device={primeGiftDevice}
-                    source="onboarding"
-                    onboardingRouteKey={route.key}
-                    skipInitialRefresh
-                  />
+                  {isReadyActionVisible && primeGiftDevice ? (
+                    <PrimeGiftOffer
+                      device={primeGiftDevice}
+                      source="onboarding"
+                      onboardingRouteKey={route.key}
+                      skipInitialRefresh
+                    />
+                  ) : null}
                 </YStack>
               ) : null}
               {gtMd ? (

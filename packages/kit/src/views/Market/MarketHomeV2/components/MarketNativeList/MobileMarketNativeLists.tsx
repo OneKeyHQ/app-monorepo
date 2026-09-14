@@ -40,6 +40,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -106,6 +107,9 @@ type IMarketListingFavorite = {
 };
 
 function useMarketListingFavorites() {
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const actions = useWatchListV2Action();
   const [{ data: watchlist, isMounted }] = useMarketWatchListV2Atom();
   const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(
@@ -118,6 +122,9 @@ function useMarketListingFavorites() {
   );
   const getFavoriteState = useCallback(
     (listing: IMarketListingFavorite) => {
+      if (isTravelMode) {
+        return undefined;
+      }
       const key = getMarketWatchlistKey({
         chainId: '',
         contractAddress: '',
@@ -129,10 +136,13 @@ function useMarketListingFavorites() {
         disabled: !isMounted || pendingKeys.has(key),
       };
     },
-    [favoriteKeys, isMounted, pendingKeys],
+    [favoriteKeys, isMounted, isTravelMode, pendingKeys],
   );
   const toggleFavorite = useCallback(
     async (listing: IMarketListingFavorite) => {
+      if (isTravelMode) {
+        return;
+      }
       const identity = {
         chainId: '',
         contractAddress: '',
@@ -171,7 +181,7 @@ function useMarketListingFavorites() {
         setPendingKeys(new Set(pendingKeysRef.current));
       }
     },
-    [actions, favoriteKeys, isMounted],
+    [actions, favoriteKeys, isMounted, isTravelMode],
   );
   return useMemo(
     () => ({ getFavoriteState, toggleFavorite }),
@@ -318,6 +328,9 @@ function NativeMarketList({
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
+  const nativeRefreshEnabled = Boolean(
+    onRefresh && !platformEnv.isNativeAndroid,
+  );
   const refreshingRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   useEffect(
@@ -365,7 +378,7 @@ function NativeMarketList({
         }),
         retryMessage: intl.formatMessage({ id: ETranslations.global_retry }),
         canLoadMore,
-        canRefresh: Boolean(onRefresh),
+        canRefresh: nativeRefreshEnabled,
         showEnd,
         contentPaddingBottom,
         emptyContentHeight,
@@ -382,7 +395,7 @@ function NativeMarketList({
       loadMoreError,
       loading,
       loadingMore,
-      onRefresh,
+      nativeRefreshEnabled,
       presentation,
       refreshing,
       rows,
@@ -400,7 +413,7 @@ function NativeMarketList({
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
       onRefresh={
-        onRefresh
+        nativeRefreshEnabled
           ? () => void handleRefresh().catch(() => undefined)
           : undefined
       }
@@ -659,6 +672,7 @@ type ISharedListProps = {
   listContainerProps: {
     emptyContentPaddingTop?: number;
     emptyContentHeight?: number;
+    emptyScrollContentMinHeight?: number;
     paddingBottom: number;
   };
   shouldSuppressItemPress?: () => boolean;
@@ -721,6 +735,10 @@ function MobileMarketNativeTokenListImpl({
         void result.refetch().catch(() => undefined);
         return;
       }
+      if (event.actionKey === 'load-more-retry') {
+        void result.loadMore();
+        return;
+      }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
       if (!item) return;
       if (event.actionKey === 'prewarm-detail') {
@@ -763,6 +781,7 @@ function MobileMarketNativeTokenListImpl({
             : undefined
         }
         loadingMore={result.isLoadingMore}
+        loadMoreError={result.isLoadMoreError}
         canLoadMore={result.canLoadMore}
         contentPaddingBottom={listContainerProps.paddingBottom}
         emptyContentHeight={listContainerProps.emptyContentHeight}
@@ -772,6 +791,7 @@ function MobileMarketNativeTokenListImpl({
           if (
             result.canLoadMore &&
             !result.isLoadingMore &&
+            !result.isLoadMoreError &&
             !result.isProvisionalFirstPageResult
           ) {
             void result.loadMore();
@@ -1016,6 +1036,7 @@ function MobileMarketNativeWatchlistImpl({
         testID="market-favorites-empty-scroll"
         contentContainerStyle={{
           paddingTop: listContainerProps.emptyContentPaddingTop ?? 16,
+          minHeight: listContainerProps.emptyScrollContentMinHeight,
         }}
       >
         <Stack alignItems="center">
@@ -1086,15 +1107,17 @@ function MobileMarketNativeStockListImpl({
         return buildStockMarketRow({
           item,
           presentation,
-          favorite: {
-            ...favorite,
-            accessibilityLabel: intl.formatMessage({
-              id: favorite.checked
-                ? ETranslations.market_remove_from_favorites
-                : ETranslations.market_add_to_favorites,
-            }),
-            testID: MarketTestIDs.stockStarButton(item.stockId),
-          },
+          favorite: favorite
+            ? {
+                ...favorite,
+                accessibilityLabel: intl.formatMessage({
+                  id: favorite.checked
+                    ? ETranslations.market_remove_from_favorites
+                    : ETranslations.market_add_to_favorites,
+                }),
+                testID: MarketTestIDs.stockStarButton(item.stockId),
+              }
+            : undefined,
         });
       }),
     [favorites, intl, presentation, result.items],
@@ -1110,7 +1133,7 @@ function MobileMarketNativeStockListImpl({
         return;
       }
       if (event.actionKey === 'load-more-retry') {
-        void result.loadMore();
+        void (result.isRefreshError ? result.refresh() : result.loadMore());
         return;
       }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
@@ -1147,14 +1170,17 @@ function MobileMarketNativeStockListImpl({
       listRef={listRef}
       rows={rows}
       loading={result.isLoading}
-      loadingMore={result.isLoadingMore}
-      loadMoreError={result.isLoadMoreError}
+      loadingMore={
+        result.isLoadingMore || (result.isRefreshing && result.isRefreshError)
+      }
+      loadMoreError={result.isLoadMoreError || result.isRefreshError}
       errorMessage={
         result.isError
           ? intl.formatMessage({ id: ETranslations.global_no_data })
           : undefined
       }
       canLoadMore={result.canLoadMore}
+      showEnd={!result.isRevalidatingFirstPage}
       contentPaddingBottom={listContainerProps.paddingBottom}
       emptyContentHeight={listContainerProps.emptyContentHeight}
       testID={MarketTestIDs.stockList}
@@ -1163,7 +1189,8 @@ function MobileMarketNativeStockListImpl({
         if (
           result.canLoadMore &&
           !result.isLoadingMore &&
-          !result.isLoadMoreError
+          !result.isLoadMoreError &&
+          !result.isRefreshError
         ) {
           void result.loadMore();
         }
@@ -1202,15 +1229,17 @@ function MobileMarketNativeTopCoinsListImpl({
         return buildTopCoinMarketRow({
           item,
           presentation,
-          favorite: {
-            ...favorite,
-            accessibilityLabel: intl.formatMessage({
-              id: favorite.checked
-                ? ETranslations.market_remove_from_favorites
-                : ETranslations.market_add_to_favorites,
-            }),
-            testID: MarketTestIDs.topCoinsStarButton(item.assetId),
-          },
+          favorite: favorite
+            ? {
+                ...favorite,
+                accessibilityLabel: intl.formatMessage({
+                  id: favorite.checked
+                    ? ETranslations.market_remove_from_favorites
+                    : ETranslations.market_add_to_favorites,
+                }),
+                testID: MarketTestIDs.topCoinsStarButton(item.assetId),
+              }
+            : undefined,
         });
       }),
     [data, favorites, intl, presentation],

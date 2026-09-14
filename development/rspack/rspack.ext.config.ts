@@ -6,6 +6,7 @@ import HtmlWebpackPlugin from 'html-webpack-plugin';
 import { merge } from 'webpack-merge';
 
 import {
+  applyExtChannelToEnv,
   isDev,
   isManifestV3,
   nodeEnv,
@@ -452,6 +453,16 @@ interface IExtConfigOptions {
 export function createExtConfig({
   basePath,
 }: IExtConfigOptions): RspackOptions[] {
+  // Resolve the channel (chrome unless EXT_CHANNEL says otherwise) and publish
+  // it to process.env. Inside the factory rather than at module scope:
+  // development/rspack/index.ts re-exports this module with `export *`, so a
+  // module-scope call would fire for anyone importing anything from that
+  // barrel and set EXT_CHANNEL process-wide on web/desktop builds too. Keeping
+  // it here makes the ext-only guarantee structural. Still earlier than every
+  // consumer -- buildDefineMap, loadBuildTimeEnv and the manifest require all
+  // run inside the three config builders below.
+  applyExtChannelToEnv();
+
   if (!isManifestV3) {
     // Build configuration errors are not application-domain errors.
     // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error

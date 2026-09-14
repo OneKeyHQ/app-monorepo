@@ -50,6 +50,14 @@ export function makeModalOpenAnimationOptions(info: {
   return { animation: 'none' };
 }
 
+// iOS 26 applies its automatic top scroll-edge effect to the page's main list
+// even under the opaque modal header, blurring the first rows when the list
+// mounts late (OK-61458, OK-62750). Route options and Page.Header replace this
+// object as a whole, so an override must restate `top` and never pass
+// undefined or a partial object.
+const MODAL_SCROLL_EDGE_EFFECTS: IStackNavigationOptions['scrollEdgeEffects'] =
+  { top: 'hidden' };
+
 export function makeModalStackNavigatorOptions({
   optionsInfo,
   bgColor,
@@ -109,6 +117,15 @@ export function makeModalStackNavigatorOptions({
       // @ts-expect-error
       contentStyle: { backgroundColor: bgColor ?? 'transparent' },
     };
+    // fullScreen (pushFullModal) mounts the same modal routes under the same
+    // opaque header, so it must match modal. Onboarding keeps the effect for
+    // its Liquid Glass header; webView and fullScreenPush are out of scope.
+    if (
+      platformEnv.isNativeIOS26Plus &&
+      (pageType === EPageType.modal || pageType === EPageType.fullScreen)
+    ) {
+      options.scrollEdgeEffects = MODAL_SCROLL_EDGE_EFFECTS;
+    }
   }
 
   // Disable modal first screen navigation.replace() animation

@@ -1,4 +1,4 @@
 interface:
   display_name: "OneKey Trade and Swap"
   short_description: "Owner-first guidance for Swap, Bridge, Limit, Stock, Market, and provider flows"
-  default_prompt: "Use $1k-trade-swap-market to trace the current entry and Swap state transition, change the smallest stable owner, and verify the real quote, execution, or history path."
+  default_prompt: "Use $1k-trade-swap-market to trace the current entry and shared Swap state transition, keep Market-specific behavior as typed extensions, change the smallest stable owner, and verify the real quote, execution, fallback, or history path."

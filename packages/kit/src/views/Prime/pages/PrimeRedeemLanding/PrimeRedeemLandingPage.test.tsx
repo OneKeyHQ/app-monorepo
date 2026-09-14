@@ -497,6 +497,7 @@ describe('PrimeRedeemLandingPage', () => {
   });
 
   it('prefills the code from the route and redeems', async () => {
+    mockGtMd = false;
     mockIsLoggedIn = true;
     mockRouteParams = { code: '  OKP-PJ37L-DYXWR  ' };
     mockRedeemPrimeCode.mockResolvedValue({
@@ -529,10 +530,40 @@ describe('PrimeRedeemLandingPage', () => {
       expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
     });
     expect(
+      screen.getByText(
+        `${ETranslations.prime_redemption_received_days__msg}:30`,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        `${ETranslations.prime_membership_valid_until__desc}:formatted:1800000000000`,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByLabelText(
+          `${ETranslations.redemption_success_title} ${ETranslations.prime_redemption_received_days__msg}:30 ${ETranslations.prime_membership_valid_until__desc}:formatted:1800000000000`,
+        )
+        .getAttribute('aria-live'),
+    ).toBe('polite');
+    expect(
+      screen.queryByText(ETranslations.prime_onekeyid_continue_description),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId(PrimeTestIDs.redemptionBenefitsToggle),
+    ).toBeNull();
+    expect(
       screen.getAllByText(ETranslations.global_download_onekey_wallet),
     ).toHaveLength(1);
+    expect(
+      screen
+        .getByTestId('page-footer')
+        .contains(screen.getByTestId(PrimeTestIDs.redemptionDownloadBtn)),
+    ).toBe(true);
     expect(screen.getByText('u***@example.com')).toBeTruthy();
     expect(screen.queryByText(ETranslations.redemption_done_button)).toBeNull();
+    fireEvent.click(screen.getByTestId(PrimeTestIDs.redemptionDownloadBtn));
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(DOWNLOAD_URL);
     expect(mockRedeemPrimeCode).toHaveBeenCalledWith({
       code: 'OKP-PJ37L-DYXWR',
       expectedOneKeyUserId: 'user-a',

@@ -12,7 +12,6 @@ import {
   View,
   XStack,
   YStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -20,7 +19,6 @@ import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountS
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { prepareSwapProEntry } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
@@ -34,11 +32,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
-
 import { ESwapDirection } from './hooks/useTradeType';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
-import { SwapPanelWrap } from './SwapPanelWrap';
 
 const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
   ESwapProJumpTokenDirection,
@@ -48,7 +43,7 @@ const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
   [ESwapProJumpTokenDirection.SELL]: ESwapDirection.SELL,
 };
 
-function LgTradeButton({
+function TradeButton({
   swapToken,
   onShowSwapDialog,
 }: {
@@ -96,19 +91,14 @@ export function SwapPanel({
   swapToken,
   disableTrade,
   portfolioData,
-  resolvedVariantKeys,
   onShowSwapDialog,
-  stockDetailDesktopLayout,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
-  resolvedVariantKeys?: string[];
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
-  stockDetailDesktopLayout?: boolean;
 }) {
   const intl = useIntl();
-  const media = useMedia();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
@@ -274,22 +264,10 @@ export function SwapPanel({
         }}
         enabledNum={[0]}
       >
-        {media.lg && !stockDetailDesktopLayout ? (
-          <LgTradeButton
-            swapToken={swapToken}
-            onShowSwapDialog={onShowSwapDialog}
-          />
-        ) : (
-          <MarketWatchListProviderMirrorV2
-            storeName={EJotaiContextStoreNames.marketWatchListV2}
-          >
-            <SwapPanelWrap
-              stockDetailDesktopLayout={stockDetailDesktopLayout}
-              portfolioData={portfolioData}
-              resolvedVariantKeys={resolvedVariantKeys}
-            />
-          </MarketWatchListProviderMirrorV2>
-        )}
+        <TradeButton
+          swapToken={swapToken}
+          onShowSwapDialog={onShowSwapDialog}
+        />
       </AccountSelectorProviderMirror>
     </View>
   );

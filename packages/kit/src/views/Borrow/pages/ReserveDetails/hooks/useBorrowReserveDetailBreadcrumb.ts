@@ -24,7 +24,7 @@ export function useBorrowReserveDetailBreadcrumb({
       {
         label: intl.formatMessage({ id: ETranslations.global_borrow }),
         onClick: () => {
-          BorrowNavigation.pushToBorrowHome(appNavigation);
+          BorrowNavigation.popToBorrowHome(appNavigation);
         },
       },
     ];
