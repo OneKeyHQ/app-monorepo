@@ -1,0 +1,274 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowUpdates.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowUpdates.kt
+new file mode 100644
+index 0000000..3804afd
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowUpdates.kt
+@@ -0,0 +1,26 @@
++package com.margelo.nitro.nativelist
++
++import org.json.JSONObject
++
++/** Only text and tone inside existing subtitle slots may change without rebuilding an identity row. */
++internal fun canUpdateIdentitySubtitle(previous: NativeListItem, next: NativeListItem): Boolean {
++  if (previous.key != next.key || previous.type != "identity" || next.type != "identity") return false
++
++  fun structure(item: NativeListItem): String? {
++    val data = JSONObject(item.content)
++    if (data.optString("presentation") != "accountSelector") return null
++    val segments = data.optJSONArray("subtitleSegments") ?: return null
++    if (segments.length() == 0) return null
++    for (index in 0 until segments.length()) {
++      val segment = segments.optJSONObject(index) ?: return null
++      segment.remove("text")
++      segment.remove("textSegments")
++      segment.remove("tone")
++    }
++    data.remove("accessibilityLabel")
++    return data.toString()
++  }
++
++  val previousStructure = structure(previous) ?: return false
++  return previousStructure == structure(next)
++}
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
+index 7821793..d4a78c6 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListRowView.kt
+@@ -1,5 +1,7 @@
+ package com.margelo.nitro.nativelist
+ 
++import com.margelo.nitro.onekeyimage.OneKeyFlickerTrace
++
+ import android.animation.Animator
+ import android.animation.AnimatorListenerAdapter
+ import android.animation.TimeInterpolator
+@@ -339,6 +341,9 @@ internal class NativeListRowView(
+   private val selectorLineHeights = mutableMapOf<TextView, Int>()
+   private val selectorFontSizes = mutableMapOf<TextView, Float>()
+   private val selectorImages = mutableListOf<OneKeyImageReusableView>()
++  private val identitySubtitleLabels = mutableListOf<TextView>()
++  private var boundTheme: String? = null
++  private var boundOrientation: String? = null
+   private var selectorHeight: Int? = null
+   private val leadingImages = List(3) { OneKeyImageReusableView(reactContext) }
+   private val leadingOverlayBackground = View(context)
+@@ -609,6 +614,7 @@ internal class NativeListRowView(
+   // OneKey patch: Yoga rounds a half-pixel text center upward; LinearLayout truncates it.
+   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+     super.onLayout(changed, left, top, right, bottom)
++    identitySubtitleLabels.forEach { OneKeyFlickerTrace.label(it, "row-subtitle-layout", this) }
+     val item = tag as? NativeListItem ?: return
+     val accessory = item.json.optJSONArray("trailing")?.optJSONObject(0)
+     if (item.type == "identity" && item.json.has("height") && item.json.optString("presentation") == "accountSelector" && accessory?.optString("kind") == "icon" && accessory.optString("name") == "PlusSmallOutline") {
+@@ -649,6 +655,35 @@ internal class NativeListRowView(
+     checkboxState: (NativeListItem, NativeSelectionTarget?, String) -> String,
+     useSourceScale: Boolean = false,
+   ) {
++    val previous = tag as? NativeListItem
++    val sourceScale = item.usesSelectorSourceScale || useSourceScale
++    if (
++      boundKey == item.key && previous != null &&
++      boundTheme == theme?.toString() && currentLayout == layout &&
++      boundOrientation == listOrientation && selectorUsesSourceScale == sourceScale &&
++      identitySubtitleLabels.isNotEmpty() && canUpdateIdentitySubtitle(previous, item)
++    ) {
++      OneKeyFlickerTrace.event(this, "row-bind-subtitle", "epoch" to bindingEpoch, "presentation" to item.json.optString("presentation"))
++      // Balance patches keep the same avatar and its in-flight/completed image request.
++      val segments = item.json.getJSONArray("subtitleSegments")
++      identitySubtitleLabels.forEachIndexed { index, label ->
++        OneKeyFlickerTrace.label(label, "row-subtitle-before", this)
++        bindIdentitySubtitleLabel(label, segments.getJSONObject(index), theme)
++        // OneKey patch: subtitle measurement assigned a fixed width to the old text.
++        // Invalidate the child's measure cache as well as the parent layout.
++        label.requestLayout()
++        OneKeyFlickerTrace.label(label, "row-subtitle-after", this)
++        if (com.margelo.nitro.nativelist.BuildConfig.DEBUG) label.postOnAnimation { OneKeyFlickerTrace.label(label, "row-subtitle-next-frame", this) }
++      }
++      contentDescription = item.json.optString("accessibilityLabel", item.json.optString("title"))
++      bindSelection(item, theme, layout, itemIndex, selected, checkboxState)
++      applySelectorTypography(item)
++      return
++    }
++    OneKeyFlickerTrace.event(this, "row-bind-full", "epoch" to bindingEpoch,
++      "sameKey" to (boundKey == item.key), "sameTheme" to (boundTheme == theme?.toString()),
++      "sameLayout" to (currentLayout == layout), "presentation" to item.json.optString("presentation"),
++      "type" to item.type, "index" to itemIndex)
+     val shouldRestorePressed = touchPressed && boundKey == item.key
+     invalidateCurrentBinding()
+     bindingEpoch += 1
+@@ -656,7 +691,11 @@ internal class NativeListRowView(
+     touchPressed = shouldRestorePressed
+     currentLayout = layout
+     tag = item
+-    selectorUsesSourceScale = item.usesSelectorSourceScale || useSourceScale
++    // OneKey patch: preserve images during updates and removal (app-modules#98).
++    // selectorUsesSourceScale = item.usesSelectorSourceScale || useSourceScale
++    selectorUsesSourceScale = sourceScale
++    boundTheme = theme?.toString()
++    boundOrientation = listOrientation
+     reorderActive = false
+     leadingImages.forEach(OneKeyImageReusableView::prepareForReuse)
+     secondaryImage.prepareForReuse()
+@@ -776,6 +815,7 @@ internal class NativeListRowView(
+   }
+ 
+   fun recycle() {
++    OneKeyFlickerTrace.event(this, "row-recycle", "epoch" to bindingEpoch)
+     touchPressed = false
+     restoreRestingBackground()
+     invalidateCurrentBinding()
+@@ -939,6 +979,7 @@ internal class NativeListRowView(
+   }
+ 
+   private fun resetViews() {
++    identitySubtitleLabels.clear()
+     clipChildren = true
+     clipToPadding = true
+     selectorOriginalFontFeatures.forEach { (view, original) -> view.fontFeatureSettings = original }
+@@ -1442,17 +1483,22 @@ internal class NativeListRowView(
+           line.addView(dot, LayoutParams(dp(4), dp(4)).apply { marginStart = dp(6); marginEnd = dp(6) })
+         }
+         val label = TextView(context).apply {
+-          text = segment.optString("text")
++          // OneKey patch: preserve images during updates and removal (app-modules#98).
++          // text = segment.optString("text")
+           typeface = NativeListFonts.regular(context)
+           textSize = sp(14f)
+           includeFontPadding = false
+           maxLines = 1
+           ellipsize = TextUtils.TruncateAt.END
+-          val toneKey = when (segment.optString("tone")) { "primary" -> "primaryText"; "disabled" -> "disabledText"; "caution" -> "caution"; "positive" -> "positive"; "negative" -> "negative"; else -> "secondaryText" }
+-          setTextColor(color(theme, toneKey, if (toneKey == "caution") "#AB6400" else "#0000009B"))
++          // OneKey patch: preserve images during updates and removal (app-modules#98).
++          // val toneKey = when (segment.optString("tone")) { "primary" -> "primaryText"; "disabled" -> "disabledText"; "caution" -> "caution"; "positive" -> "positive"; "negative" -> "negative"; else -> "secondaryText" }
++          // setTextColor(color(theme, toneKey, if (toneKey == "caution") "#AB6400" else "#0000009B"))
+         }
+         TextViewCompat.setLineHeight(label, dp(20))
+-        applyValueSegments(label, segment.optJSONArray("textSegments"), 14, 20, false)
++        // OneKey patch: preserve images during updates and removal (app-modules#98).
++        // applyValueSegments(label, segment.optJSONArray("textSegments"), 14, 20, false)
++        bindIdentitySubtitleLabel(label, segment, theme)
++        identitySubtitleLabels.add(label)
+         line.addView(label, LayoutParams(LayoutParams.WRAP_CONTENT, dp(20)))
+       }
+       mainColumn.addView(line, 2, LayoutParams(LayoutParams.MATCH_PARENT, dp(20)))
+@@ -2311,6 +2357,20 @@ internal class NativeListRowView(
+     applyValueSegments(trailingViews[0], item.json.optJSONArray("valueSegments"))
+   }
+ 
++  private fun bindIdentitySubtitleLabel(label: TextView, segment: JSONObject, theme: JSONObject?) {
++    label.text = segment.optString("text")
++    val toneKey = when (segment.optString("tone")) {
++      "primary" -> "primaryText"
++      "disabled" -> "disabledText"
++      "caution" -> "caution"
++      "positive" -> "positive"
++      "negative" -> "negative"
++      else -> "secondaryText"
++    }
++    label.setTextColor(color(theme, toneKey, if (toneKey == "caution") "#AB6400" else "#0000009B"))
++    applyValueSegments(label, segment.optJSONArray("textSegments"), 14, 20, false)
++  }
++
+   // OneKey patch: preserve compact zero-count digits without changing their baseline.
+   private fun applyValueSegments(view: TextView, segments: JSONArray?, fontSize: Int = 16, lineHeight: Int = 24, medium: Boolean = true) {
+     if (segments == null || segments.length() == 0) return
+diff --git a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
+index e19bff6..7d9616a 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
++++ b/node_modules/@onekeyfe/react-native-native-list/android/src/main/java/com/onekey/nativelist/NativeListView.kt
+@@ -1,5 +1,7 @@
+ package com.margelo.nitro.nativelist
+ 
++import com.margelo.nitro.onekeyimage.OneKeyFlickerTrace
++
+ import android.animation.TimeInterpolator
+ import android.graphics.Canvas
+ import android.graphics.Color
+@@ -160,6 +162,7 @@ class NativeListView(
+   private var lastLayoutHeight = -1
+   private var lastLayoutDirection = layoutDirection
+   private var disposed = false
++  private var contentReleased = false
+ 
+   init {
+     orientation = VERTICAL
+@@ -279,6 +282,7 @@ class NativeListView(
+   }
+ 
+   fun applySnapshot(snapshotJson: String) {
++    if (disposed) return
+     val next = try {
+       NativeListConfig.parse(snapshotJson)
+     } catch (_: Exception) {
+@@ -286,6 +290,11 @@ class NativeListView(
+     }
+     invalidateActionAnchor("snapshot")
+     val previous = config
++    OneKeyFlickerTrace.event(this, "list-snapshot", "itemCount" to next.items.size,
++      "previousCount" to previous?.items?.size,
++      "stableContent" to (previous != null && canApplyStableContentUpdate(previous, next)),
++      "themeChanged" to (previous?.theme?.toString() != next.theme?.toString()),
++      "orientation" to next.orientation, "layout" to next.layout)
+     if (previous != null && canApplyStableContentUpdate(previous, next)) {
+       // OneKey patch: authorize a diff payload only against this exact validated baseline.
+       next.items.forEachIndexed { index, item ->
+@@ -480,12 +489,14 @@ class NativeListView(
+   }
+ 
+   fun applyPatches(patchesJson: String) {
++    if (disposed) return
+     val current = config ?: return
+     val patches = try {
+       JSONArray(patchesJson)
+     } catch (_: Exception) {
+       return
+     }
++    OneKeyFlickerTrace.event(this, "list-patches", "patchCount" to patches.length(), "itemCount" to current.items.size)
+     val indexByKey = current.items.withIndex().associate { it.value.key to it.index }
+     val pending = ArrayList<Pair<Int, JSONObject>>(patches.length())
+     val seen = HashSet<String>()
+@@ -523,6 +534,7 @@ class NativeListView(
+   }
+ 
+   fun reconcileSelection(selectedKeysJson: String) {
++    if (disposed) return
+     val current = config ?: return
+     val array = try {
+       JSONArray(selectedKeysJson)
+@@ -842,6 +854,7 @@ class NativeListView(
+   }
+ 
+   fun dispose() {
++    OneKeyFlickerTrace.event(this, "list-dispose", "disposed" to disposed)
+     if (disposed) return
+     invalidateActionAnchor("destroy")
+     actionAnchor = null
+@@ -855,6 +868,27 @@ class NativeListView(
+     recyclerView.removeOnItemTouchListener(pagerGestureTouchListener)
+     itemTouchHelper?.attachToRecyclerView(null)
+     itemTouchHelper = null
++    onRowAction = null
++    onActionAnchorInvalidated = null
++    onSelectionDelta = null
++    onReorder = null
++    onEndReached = null
++    onVisibleRangeChanged = null
++    // OneKey patch: ScreenStack still draws this list during its exit transition.
++    // Release the rows and their Glide targets only after the native tree detaches.
++    if (!isAttachedToWindow) releaseContent()
++  }
++
++  override fun onDetachedFromWindow() {
++    super.onDetachedFromWindow()
++    OneKeyFlickerTrace.event(this, "list-detached", "disposed" to disposed)
++    if (disposed) releaseContent()
++  }
++
++  private fun releaseContent() {
++    if (contentReleased) return
++    contentReleased = true
++    OneKeyFlickerTrace.event(this, "list-release-content")
+     footerView.recycle()
+     footerView.dispose()
+     recyclerView.swapAdapter(null, false)

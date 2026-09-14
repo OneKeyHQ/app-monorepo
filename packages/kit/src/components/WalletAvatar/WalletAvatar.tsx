@@ -1,7 +1,11 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 
-import type { IStackProps, SizeTokens } from '@onekeyhq/components';
+import type {
+  IImageProps,
+  IStackProps,
+  SizeTokens,
+} from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -21,6 +25,10 @@ export type IWalletAvatarBaseProps = {
   size?: SizeTokens;
   img?: IAllWalletAvatarImageNames | IDeviceType; // use img for WalletAvatarEdit
   wallet: IDBWallet | undefined;
+  imageProps?: Pick<
+    IImageProps,
+    'onLoadStart' | 'onLoad' | 'onLoadEnd' | 'onDisplay' | 'onError'
+  >;
 };
 export type IWalletAvatarProps = IWalletAvatarBaseProps & {
   status?: IWalletProps['status'];
@@ -34,6 +42,7 @@ export function WalletAvatarBase({
   size,
   img,
   wallet,
+  imageProps,
 }: IWalletAvatarBaseProps) {
   const theImg = img || wallet?.avatarInfo?.img;
   if (!theImg) {
@@ -49,6 +58,7 @@ export function WalletAvatarBase({
 
   return (
     <Image
+      {...imageProps}
       size={size}
       source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
       fallback={
@@ -74,6 +84,7 @@ export function WalletAvatar({
   img,
   wallet,
   firmwareTypeProps,
+  imageProps,
 }: IWalletAvatarProps) {
   const socialLoginProvider = getWalletAvatarProvider(wallet);
   const { badgeSize, ...restFirmwareTypeProps } = firmwareTypeProps ?? {};
@@ -91,7 +102,12 @@ export function WalletAvatar({
 
   return (
     <Stack w={size} h={size} justifyContent="center" alignItems="center">
-      <WalletAvatarBase size={size} img={img} wallet={wallet} />
+      <WalletAvatarBase
+        size={size}
+        img={img}
+        wallet={wallet}
+        imageProps={imageProps}
+      />
       {status === 'connected' ? (
         <Stack
           position="absolute"

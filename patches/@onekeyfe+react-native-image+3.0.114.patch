@@ -1,0 +1,473 @@
+diff --git a/node_modules/@onekeyfe/react-native-image/android/build.gradle b/node_modules/@onekeyfe/react-native-image/android/build.gradle
+index f6bed36..982915a 100644
+--- a/node_modules/@onekeyfe/react-native-image/android/build.gradle
++++ b/node_modules/@onekeyfe/react-native-image/android/build.gradle
+@@ -81,5 +81,6 @@ dependencies {
+   implementation "com.github.penfeizhou.android.animation:glide-plugin:3.0.5"
+   implementation project(":react-native-nitro-modules")
+   implementation project(":onekeyfe_react-native-skeleton")
++  implementation project(":onekeyfe_react-native-native-logger")
+   testImplementation "junit:junit:4.13.2"
+ }
+diff --git a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyFlickerTrace.kt b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyFlickerTrace.kt
+new file mode 100644
+index 0000000..2454c39
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyFlickerTrace.kt
+@@ -0,0 +1,54 @@
++package com.margelo.nitro.onekeyimage
++
++import android.os.SystemClock
++import android.view.View
++import android.widget.TextView
++import com.margelo.nitro.nativelogger.OneKeyLog
++import org.json.JSONObject
++import java.util.concurrent.atomic.AtomicLong
++
++/** Temporary physical-device diagnostics; never records source URLs or account values. */
++object OneKeyFlickerTrace {
++  private val sequence = AtomicLong()
++
++  fun event(view: View, event: String, vararg fields: Pair<String, Any?>) {
++    if (!BuildConfig.DEBUG) return
++    val payload = JSONObject()
++      .put("seq", sequence.incrementAndGet())
++      .put("epochMs", System.currentTimeMillis())
++      .put("uptimeMs", SystemClock.uptimeMillis())
++      .put("event", event)
++      .put("view", System.identityHashCode(view))
++      .put("reactTag", view.id)
++      .put("class", view.javaClass.simpleName)
++      .put("ancestors", generateSequence(view.parent as? View) { it.parent as? View }
++        .take(8).joinToString(">") { "${it.javaClass.simpleName}:${System.identityHashCode(it)}" })
++      .put("parent", view.parent?.let(System::identityHashCode) ?: 0)
++      .put("attached", view.isAttachedToWindow)
++      .put("shown", view.isShown)
++      .put("alpha", view.alpha)
++      .put("width", view.width)
++      .put("height", view.height)
++      .put("nightMode", view.resources.configuration.uiMode and 0x30)
++    fields.forEach { (key, value) -> payload.put(key, value ?: JSONObject.NULL) }
++    val message = "[NATIVE-FLICKER] $payload"
++    OneKeyLog.info("NativeFlicker", message)
++    android.util.Log.i("NativeFlicker", message)
++  }
++
++  fun label(view: TextView, event: String, row: View) {
++    if (!BuildConfig.DEBUG) return
++    val layout = view.layout
++    event(view, event,
++      "row" to System.identityHashCode(row),
++      "textLength" to view.text.length,
++      "placeholder" to (view.text.toString() == "--"),
++      "desiredWidth" to android.text.Layout.getDesiredWidth(view.text, view.paint),
++      "measuredWidth" to view.measuredWidth,
++      "paramWidth" to view.layoutParams?.width,
++      "layoutWidth" to layout?.width,
++      "ellipsis" to (if (layout != null && layout.lineCount > 0) layout.getEllipsisCount(0) else 0),
++      "layoutRequested" to view.isLayoutRequested,
++      "parentLayoutRequested" to (view.parent as? View)?.isLayoutRequested)
++  }
++}
+diff --git a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
+index 0f60f74..3b58d8f 100644
+--- a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
++++ b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
+@@ -7,6 +7,7 @@ import android.graphics.Canvas
+ import android.graphics.Color
+ import android.graphics.Paint
+ import android.graphics.drawable.Animatable
++import android.graphics.drawable.ColorDrawable
+ import android.graphics.drawable.Drawable
+ import android.view.View
+ import android.widget.ImageView
+@@ -56,12 +57,24 @@ private class OneKeyImageHostView(context: ThemedReactContext) : ImageView(conte
+ 
+   override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+     super.onSizeChanged(w, h, oldw, oldh)
++    OneKeyFlickerTrace.event(this, "image-size", "oldWidth" to oldw, "oldHeight" to oldh)
+     skeleton.updateBounds(w, h)
+     fallbackPaint.textSize = minOf(w, h) * 0.35f
+     if (w > 0 && h > 0) onReadyForRequest?.invoke()
+   }
+ 
++  private var lastDrawState: String? = null
++
+   override fun onDraw(canvas: Canvas) {
++    if (BuildConfig.DEBUG) {
++      val state = "${drawable != null}:$skeletonRequested:$drawStateSymbol:${(background as? ColorDrawable)?.color}"
++      if (state != lastDrawState) {
++        lastDrawState = state
++        OneKeyFlickerTrace.event(this, "image-draw-state", "hasDrawable" to (drawable != null),
++          "skeleton" to skeletonRequested, "symbol" to drawStateSymbol,
++          "backgroundColor" to (background as? ColorDrawable)?.color)
++      }
++    }
+     super.onDraw(canvas)
+     if (drawStateSymbol) {
+       val baseline = height / 2f - (fallbackPaint.ascent() + fallbackPaint.descent()) / 2f
+@@ -72,12 +85,14 @@ private class OneKeyImageHostView(context: ThemedReactContext) : ImageView(conte
+ 
+   override fun onAttachedToWindow() {
+     super.onAttachedToWindow()
++    OneKeyFlickerTrace.event(this, "image-attached", "hasDrawable" to (drawable != null))
+     syncPlayback()
+     onAttachmentChanged?.invoke(true)
+   }
+ 
+   override fun onDetachedFromWindow() {
+     super.onDetachedFromWindow()
++    OneKeyFlickerTrace.event(this, "image-detached", "hasDrawable" to (drawable != null))
+     syncPlayback()
+     onAttachmentChanged?.invoke(false)
+   }
+@@ -156,6 +171,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   private var displayRunnable: Runnable? = null
+   private var pendingDisplayGeneration: Long? = null
+   private var fallbackRunnable: Runnable? = null
++  private var loadingAppearanceRunnable: Runnable? = null
+ 
+   /**
+    * Native reusable containers own their request cleanup explicitly, so their
+@@ -171,17 +187,26 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+ 
+   override val view: View = hostView
+ 
++  private fun trace(event: String, vararg fields: Pair<String, Any?>) {
++    OneKeyFlickerTrace.event(hostView, event,
++      "generation" to generation, "disposed" to disposed,
++      "hasDrawable" to (hostView.drawable != null), "hasTarget" to (currentTarget != null),
++      "owner" to (if (usesApplicationRequestManager) "native-list" else "react"),
++      "state" to displayState.name, "variant" to variant?.name,
++      "strategy" to loadingStrategy?.name, *fields)
++  }
++
+   override var sourceUri: String? = null
+     set(value) {
+       if (field == value) return
+       field = value
+-      requestIdentityChanged()
++      requestIdentityChanged("sourceUri")
+     }
+   override var sourceHeadersJson: String? = null
+     set(value) {
+       if (field == value) return
+       field = value
+-      requestIdentityChanged()
++      requestIdentityChanged("sourceHeadersJson")
+     }
+   override var variant: OneKeyImageVariant? = OneKeyImageVariant.GENERIC
+     set(value) {
+@@ -194,13 +219,13 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+       field = value
+       if (suppressPropEffects) return
+       applyContentFit()
+-      if (changed) requestIdentityChanged()
++      if (changed) requestIdentityChanged("contentFit")
+     }
+   override var cachePolicy: OneKeyImageCachePolicy? = OneKeyImageCachePolicy.MEMORY_DISK
+     set(value) {
+       if (field == value) return
+       field = value
+-      requestIdentityChanged()
++      requestIdentityChanged("cachePolicy")
+     }
+   override var autoplay: Boolean? = false
+     set(value) {
+@@ -211,25 +236,25 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+     set(value) {
+       if (field == value) return
+       field = value
+-      requestIdentityChanged()
++      requestIdentityChanged("recyclingKey")
+     }
+   override var optimizeTos: Boolean? = true
+     set(value) {
+       if (field == value) return
+       field = value
+-      requestIdentityChanged()
++      requestIdentityChanged("optimizeTos")
+     }
+   override var overscan: Double? = 1.1
+     set(value) {
+       if (field == value) return
+       field = value
+-      requestIdentityChanged()
++      requestIdentityChanged("overscan")
+     }
+   override var resizeWidth: Double? = null
+     set(value) {
+       if (field == value) return
+       field = value
+-      requestIdentityChanged()
++      requestIdentityChanged("resizeWidth")
+     }
+   override var loadingStrategy: OneKeyImageLoadingStrategy? = OneKeyImageLoadingStrategy.STATIC
+     set(value) {
+@@ -245,7 +270,13 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   init {
+     OneKeyImageGlideRegistry.ensureRegistered(context)
+     hostView.updateSkeletonStyle()
+-    hostView.onReadyForRequest = { scheduleLoad() }
++    installHostCallbacks()
++    applyContentFit()
++    applyVariant()
++  }
++
++  private fun installHostCallbacks() {
++    hostView.onReadyForRequest = { loadForCurrentLayout() }
+     hostView.onAttachmentChanged = { attached ->
+       if (attached) {
+         scheduleLoad()
+@@ -255,13 +286,21 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+         displayRunnable = null
+       }
+     }
+-    applyContentFit()
+-    applyVariant()
++    // OneKey patch: preserve images during updates and removal (app-modules#98).
++    // applyContentFit()
++    // applyVariant()
+   }
+ 
+   override fun afterUpdate() {
+     super.afterUpdate()
+-    scheduleLoad()
++    loadForCurrentLayout()
++  }
++
++  private fun loadForCurrentLayout() {
++    // OneKey patch: a posted load misses the first draw even on a memory-cache hit.
++    loadRunnable?.let(hostView::removeCallbacks)
++    loadRunnable = null
++    if (hostView.width > 0 && hostView.height > 0) startLoad(force = false)
+   }
+ 
+   override fun reload() {
+@@ -275,27 +314,58 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   }
+ 
+   override fun prepareForRecycle() {
++    trace("image-prepare-recycle")
+     resetForReuse()
++    disposed = false
++    installHostCallbacks()
+   }
+ 
+   override fun onDropView() {
+-    resetForReuse()
++    trace("image-drop")
++    // OneKey patch: preserve images during updates and removal (app-modules#98).
++    // resetForReuse()
+     disposed = true
+     hostView.onReadyForRequest = null
+-    hostView.onAttachmentChanged = null
++    cancelPendingCallbacks()
++    clearEventCallbacks()
++    hostView.autoplayEnabled = false
++    hostView.skeletonRequested = false
++    hostView.syncPlayback()
++    if (!usesApplicationRequestManager && hostView.isAttachedToWindow && hostView.drawable != null) {
++      trace("image-drop-retained")
++      // ScreenStack can still draw a dropped view during its removal transition.
++      // Keep the completed Glide target too: clearing it may recycle the bitmap.
++      hostView.onAttachmentChanged = { attached -> if (!attached) finishDrop() }
++    } else {
++      finishDrop()
++    }
+     super.onDropView()
+   }
+ 
+-  override fun dispose() {
+-    disposed = true
+-    cancelCurrent(invalidateGeneration = true)
++  private fun finishDrop() {
++    trace("image-finish-drop")
++    resetForReuse()
+     hostView.onReadyForRequest = null
+     hostView.onAttachmentChanged = null
++    // OneKey patch: preserve images during updates and removal (app-modules#98).
++    // super.onDropView()
++  }
++
++  override fun dispose() {
++    trace("image-dispose")
++    disposed = true
++    // OneKey patch: preserve images during updates and removal (app-modules#98).
++    // cancelCurrent(invalidateGeneration = true)
++    // hostView.onReadyForRequest = null
++    // hostView.onAttachmentChanged = null
++    clearEventCallbacks()
++    finishDrop()
+     super.dispose()
+   }
+ 
+-  private fun requestIdentityChanged() {
++  private fun requestIdentityChanged(property: String) {
+     if (suppressPropEffects || disposed) return
++    trace("image-identity-changed", "property" to property)
+     lastSignature = null
+     cancelCurrent(invalidateGeneration = true)
+     if (sourceUri.isNullOrBlank()) showFallback() else showLoading(requestIsActive = false)
+@@ -303,6 +373,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   }
+ 
+   private fun resetForReuse() {
++    trace("image-reset")
+     cancelCurrent(invalidateGeneration = true)
+     lastSignature = null
+     suppressPropEffects = true
+@@ -317,11 +388,13 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+     resizeWidth = null
+     overscan = 1.1
+     loadingStrategy = OneKeyImageLoadingStrategy.STATIC
+-    onLoadStart = null
+-    onLoad = null
+-    onDisplay = null
+-    onError = null
+-    onLoadEnd = null
++    // OneKey patch: preserve images during updates and removal (app-modules#98).
++    // onLoadStart = null
++    // onLoad = null
++    // onDisplay = null
++    // onError = null
++    // onLoadEnd = null
++    clearEventCallbacks()
+     suppressPropEffects = false
+     requestActive = false
+     displayState = DisplayState.LOADING
+@@ -371,6 +444,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+       resizeWidth = resizeWidth,
+     )
+     if (!force && signature == lastSignature) return
++    trace("image-request-start", "force" to force)
+     lastSignature = signature
+ 
+     cancelCurrent(invalidateGeneration = true)
+@@ -423,8 +497,10 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+       }
+ 
+       override fun onResourceReady(resource: Drawable, transition: Transition<in Drawable>?) {
++        trace("image-ready", "requestGeneration" to requestGeneration, "cache" to resolvedCacheType.name)
+         if (requestGeneration != generation || disposed) return
+         requestActive = false
++        cancelLoadingAppearance()
+         displayState = DisplayState.IMAGE
+         hostView.skeletonRequested = false
+         hostView.drawStateSymbol = false
+@@ -450,6 +526,9 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+       }
+ 
+       override fun onResourceCleared(placeholder: Drawable?) {
++        trace("image-resource-cleared", "requestGeneration" to requestGeneration,
++          "isCurrentTarget" to (currentTarget === this),
++          "callers" to (if (BuildConfig.DEBUG) Throwable().stackTrace.take(9).joinToString(" > ") { "${it.className.substringAfterLast('.')}.${it.methodName}" } else ""))
+         if (requestGeneration == generation && currentTarget === this) {
+           currentTarget = null
+           lastSignature = null
+@@ -460,6 +539,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+       }
+ 
+       override fun onLoadFailed(errorDrawable: Drawable?) {
++        trace("image-failed", "requestGeneration" to requestGeneration, "fallback" to mayFallbackToRaw)
+         if (requestGeneration != generation || disposed) return
+         if (mayFallbackToRaw && !safetyFailure) {
+           // Glide forbids clear()/into() while executing a Target or listener
+@@ -553,6 +633,15 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   }
+ 
+   private fun cancelCurrent(invalidateGeneration: Boolean) {
++    cancelPendingCallbacks()
++    clearCurrentTarget()
++    requestActive = false
++    hostView.skeletonRequested = false
++    if (invalidateGeneration) generation++
++  }
++
++  private fun cancelPendingCallbacks() {
++    cancelLoadingAppearance()
+     loadRunnable?.let(hostView::removeCallbacks)
+     loadRunnable = null
+     displayRunnable?.let(hostView::removeCallbacks)
+@@ -560,13 +649,23 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+     pendingDisplayGeneration = null
+     fallbackRunnable?.let(hostView::removeCallbacks)
+     fallbackRunnable = null
+-    clearCurrentTarget()
+-    requestActive = false
+-    hostView.skeletonRequested = false
+-    if (invalidateGeneration) generation++
++    // OneKey patch: preserve images during updates and removal (app-modules#98).
++    // clearCurrentTarget()
++    // requestActive = false
++    // hostView.skeletonRequested = false
++    // if (invalidateGeneration) generation++
++  }
++
++  private fun clearEventCallbacks() {
++    onLoadStart = null
++    onLoad = null
++    onDisplay = null
++    onError = null
++    onLoadEnd = null
+   }
+ 
+   private fun clearCurrentTarget() {
++    trace("image-clear-target")
+     val target = currentTarget ?: return
+     // Clear the field first so onResourceCleared from our own cancellation
+     // cannot erase state belonging to the next generation/request.
+@@ -603,6 +702,7 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   }
+ 
+   private fun showLoading(requestIsActive: Boolean) {
++    trace("image-show-loading")
+     displayState = DisplayState.LOADING
+     requestActive = requestIsActive
+     hostView.setImageDrawable(null)
+@@ -619,6 +719,8 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   }
+ 
+   private fun showTerminalState(state: DisplayState) {
++    trace("image-terminal")
++    cancelLoadingAppearance()
+     displayState = state
+     requestActive = false
+     hostView.setImageDrawable(null)
+@@ -641,14 +743,30 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+     }
+   }
+ 
++  private fun cancelLoadingAppearance() {
++    loadingAppearanceRunnable?.let(hostView::removeCallbacks)
++    loadingAppearanceRunnable = null
++  }
++
+   private fun applyLoadingAppearance() {
++    cancelLoadingAppearance()
++    hostView.setBackgroundColor(Color.TRANSPARENT)
++    hostView.skeletonRequested = false
+     val strategy = loadingStrategy ?: OneKeyImageLoadingStrategy.STATIC
+-    hostView.setBackgroundColor(
+-      if (strategy == OneKeyImageLoadingStrategy.NONE) Color.TRANSPARENT else placeholderColor(),
+-    )
+-    hostView.skeletonRequested =
+-      requestActive && strategy == OneKeyImageLoadingStrategy.SKELETON
+-    hostView.invalidate()
++    if (!requestActive || strategy == OneKeyImageLoadingStrategy.NONE) return
++    // OneKey patch: fast disk-cache loads should not paint a one-frame placeholder.
++    // Slow requests retain the existing placeholder and skeleton appearance.
++    val requestGeneration = generation
++    val runnable = Runnable {
++      loadingAppearanceRunnable = null
++      if (disposed || generation != requestGeneration || !requestActive || displayState != DisplayState.LOADING) return@Runnable
++      hostView.setBackgroundColor(placeholderColor())
++      hostView.skeletonRequested = strategy == OneKeyImageLoadingStrategy.SKELETON
++      hostView.invalidate()
++      trace("image-loading-visible")
++    }
++    loadingAppearanceRunnable = runnable
++    hostView.postDelayed(runnable, 100L)
+   }
+ 
+   private fun stateSymbol(): String = when (variant ?: OneKeyImageVariant.GENERIC) {
