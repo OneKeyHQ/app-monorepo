@@ -7,9 +7,14 @@ import { MarketTestIDs } from '../../testIDs';
 import {
   MARKET_BANNER_ITEM_WIDTH,
   MARKET_BANNER_LIST_MIN_HEIGHT,
+  MARKET_BANNER_MOBILE_ITEM_WIDTH,
 } from './marketBannerLayout';
 
-function MarketBannerItemSkeletonComponent() {
+function MarketBannerItemSkeletonComponent({
+  isSmallScreen = false,
+}: {
+  isSmallScreen?: boolean;
+}) {
   return (
     <YStack
       testID={MarketTestIDs.bannerItemSkeleton}
@@ -19,7 +24,11 @@ function MarketBannerItemSkeletonComponent() {
       pt="$3.5"
       px="$3.5"
       pb="$5"
-      width={MARKET_BANNER_ITEM_WIDTH}
+      width={
+        isSmallScreen
+          ? MARKET_BANNER_MOBILE_ITEM_WIDTH
+          : MARKET_BANNER_ITEM_WIDTH
+      }
       flexShrink={0}
       gap="$6"
     >

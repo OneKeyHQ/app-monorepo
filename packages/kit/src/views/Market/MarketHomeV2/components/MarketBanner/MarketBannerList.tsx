@@ -59,7 +59,7 @@ function BannerContainerMobile({
         bounces={false}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          py: '$2',
+          py: '$4',
           px: '$4',
           gap: '$3',
         }}
@@ -93,8 +93,8 @@ function BannerContainerDesktop({
       pointerEvents={hidden ? 'none' : 'auto'}
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
-      pt="$2"
-      pb="$2"
+      pt="$4"
+      pb="$4"
       px="$5"
       gap="$3"
       overflow="scroll"
@@ -112,7 +112,7 @@ function MarketBannerListSkeletonComponent({
 }) {
   const skeletonCount = isSmallScreen ? 3 : 7;
   const skeletonItems = Array.from({ length: skeletonCount }, (_, i) => (
-    <MarketBannerItemSkeleton key={i} />
+    <MarketBannerItemSkeleton key={i} isSmallScreen={isSmallScreen} />
   ));
 
   if (isSmallScreen) {

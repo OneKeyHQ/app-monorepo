@@ -31,6 +31,7 @@ import { MarketTestIDs } from '../../testIDs';
 import {
   MARKET_BANNER_ITEM_WIDTH,
   MARKET_BANNER_LIST_MIN_HEIGHT,
+  MARKET_BANNER_MOBILE_ITEM_WIDTH,
 } from './marketBannerLayout';
 
 type IMarketBannerItemProps = {
@@ -320,7 +321,7 @@ function BannerQuoteRow({
 }
 
 function MarketBannerItemComponent(props: IMarketBannerItemProps) {
-  const { item, onPress } = props;
+  const { item, isSmallScreen, onPress } = props;
   const intl = useIntl();
   const isIndexBanner = isMarketIndexQuoteBanner(item);
   const tokens = useMemo(() => {
@@ -370,7 +371,11 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
       pt="$3.5"
       px="$3.5"
       pb="$5"
-      width={MARKET_BANNER_ITEM_WIDTH}
+      width={
+        isSmallScreen
+          ? MARKET_BANNER_MOBILE_ITEM_WIDTH
+          : MARKET_BANNER_ITEM_WIDTH
+      }
       flexShrink={0}
       gap="$6"
       userSelect="none"

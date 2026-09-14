@@ -2,9 +2,10 @@ export const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 export const MARKET_MOBILE_COLUMN_HEADER_HEIGHT = 32;
 export const MARKET_MOBILE_CONTENT_TOP_GAP = 16;
 
-// 180pt modern banner card plus the mobile scroller's 8pt top and bottom padding.
-const MARKET_MOBILE_BANNER_MODERN_HEIGHT = 196;
-const MARKET_MOBILE_BANNER_LEGACY_HEIGHT = 134;
+// Banner card height plus the mobile scroller's 16pt top and bottom padding:
+// 180pt modern cards and 118pt legacy cards.
+const MARKET_MOBILE_BANNER_MODERN_HEIGHT = 212;
+const MARKET_MOBILE_BANNER_LEGACY_HEIGHT = 150;
 
 export function getMarketMobileBannerHeaderHeight(
   bannerList: readonly { tokens?: unknown }[],

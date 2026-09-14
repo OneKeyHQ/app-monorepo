@@ -9,11 +9,11 @@ import {
 
 import {
   MARKET_BANNER_ITEM_HEIGHT,
-  MARKET_BANNER_ITEM_WIDTH,
+  MARKET_BANNER_MOBILE_ITEM_WIDTH,
 } from './MarketBanner/marketBannerLayout';
 
 const MARKET_HOME_TAB_BAR_HEIGHT = 44;
-const MARKET_HOME_BANNER_HEIGHT = 196;
+const MARKET_HOME_BANNER_HEIGHT = 212;
 const BANNER_SKELETON_COUNT = 3;
 const TAB_LABEL_SKELETON_WIDTHS = [32, 32, 32, 32] as const;
 
@@ -25,7 +25,7 @@ export function MarketHomeLoadingFallback() {
         flexShrink={0}
         alignItems="center"
         px="$4"
-        py="$2"
+        py="$4"
         gap="$3"
         overflow="hidden"
         testID="market-home-banner-skeleton"
@@ -34,7 +34,7 @@ export function MarketHomeLoadingFallback() {
           <Skeleton
             key={index}
             h={MARKET_BANNER_ITEM_HEIGHT}
-            w={MARKET_BANNER_ITEM_WIDTH}
+            w={MARKET_BANNER_MOBILE_ITEM_WIDTH}
             flexShrink={0}
             radius={12}
           />
