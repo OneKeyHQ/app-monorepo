@@ -74,6 +74,16 @@ export function getStockChartCoinGeckoIdState({
   };
 }
 
+export function isStockChartRequestReady({
+  chartCacheReady,
+  coinGeckoIdLoading,
+}: {
+  chartCacheReady: boolean;
+  coinGeckoIdLoading: boolean;
+}) {
+  return chartCacheReady && !coinGeckoIdLoading;
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
   channelStage: ESwapStockChannelStage,
