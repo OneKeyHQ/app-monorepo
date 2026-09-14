@@ -317,6 +317,7 @@ function BasicActionList({
   renderItemsAsync,
   title,
   trackID,
+  nativeSheet = false,
   sheetProps,
   ...props
 }: IActionListProps) {
@@ -326,6 +327,7 @@ function BasicActionList({
   const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
     useAsyncItemsLifecycle({
       isOpen,
+      nativeSheet,
       renderItemsAsync,
       handleActionListCloseRef,
       handleActionListOpenRef,
@@ -461,7 +463,7 @@ function BasicActionList({
   ]);
 
   const shouldOpenPopover =
-    isOpen && (!renderItemsAsync || Boolean(asyncItems));
+    isOpen && (!nativeSheet || !renderItemsAsync || Boolean(asyncItems));
 
   return (
     <LazyPopover
@@ -471,6 +473,7 @@ function BasicActionList({
       renderContent={renderContentMemo}
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
+      nativeSheet={nativeSheet}
       mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
       sheetProps={resolvedSheetProps}

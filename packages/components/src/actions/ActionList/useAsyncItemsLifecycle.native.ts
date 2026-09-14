@@ -12,6 +12,7 @@ const ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY = 1000;
 
 export function useAsyncItemsLifecycle({
   isOpen,
+  nativeSheet = false,
   renderItemsAsync,
   handleActionListCloseRef,
   handleActionListOpenRef,
@@ -136,9 +137,10 @@ export function useAsyncItemsLifecycle({
           return;
         }
         pendingAsyncItemsRef.current = { requestId, items };
-        // NativeSheet must measure the resolved first frame before locking its
-        // detent. Later updates still reflow inside that fixed outer height.
-        commitPendingAsyncItems();
+        if (nativeSheet || isOpenAnimationCompleteRef.current) {
+          // NativeSheet measures the resolved first frame before presentation.
+          commitPendingAsyncItems();
+        }
       })
       .catch((error: unknown) => {
         if (!isActive || requestId !== requestIdRef.current) {
@@ -149,7 +151,9 @@ export function useAsyncItemsLifecycle({
         defaultLogger.app.error.log(
           `[ActionList] renderItemsAsync failed: ${message}`,
         );
-        handleActionListCloseRef.current?.();
+        if (nativeSheet) {
+          handleActionListCloseRef.current?.();
+        }
       });
 
     return () => {
@@ -165,6 +169,7 @@ export function useAsyncItemsLifecycle({
     handleActionListOpenRef,
     hasRenderItemsAsync,
     isOpen,
+    nativeSheet,
   ]);
 
   return {

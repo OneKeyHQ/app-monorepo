@@ -21,9 +21,19 @@ describe('ActionList NativeSheet presentation', () => {
 
   it('measures resolved async items before opening the native presentation', () => {
     expect(actionListSource).toContain(
-      'isOpen && (!renderItemsAsync || Boolean(asyncItems))',
+      'isOpen && (!nativeSheet || !renderItemsAsync || Boolean(asyncItems))',
     );
-    expect(asyncLifecycleSource).toContain('commitPendingAsyncItems();');
+    expect(asyncLifecycleSource).toContain(
+      'if (nativeSheet || isOpenAnimationCompleteRef.current)',
+    );
+  });
+
+  it('opens the JS sheet with its skeleton while async items resolve', () => {
+    expect(actionListSource).toContain('nativeSheet = false');
+    expect(actionListSource).toContain('nativeSheet={nativeSheet}');
+    expect(asyncLifecycleSource).toMatch(
+      /useAsyncItemsLifecycle\(\{\s+isOpen,\s+nativeSheet = false,/,
+    );
   });
 
   it('keeps NativeSheet opt-in and preserves the JS sheet fallback', () => {
