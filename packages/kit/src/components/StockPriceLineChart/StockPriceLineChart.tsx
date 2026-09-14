@@ -2,19 +2,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@tamagui/core';
 import { colord } from 'colord';
+import { useIntl } from 'react-intl';
 
 import { SizableText, Stack } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
 import { formatChartPrice } from '../LightweightChart/utils/formatChartPrice';
 
+import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
+
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 // Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
 // a stable width instead of resizing with the figures it prints.
 const PRICE_SCALE_WIDTH = 88;
+// Keeps the pulsing tail dot clear of the current price label on the axis.
+const LAST_POINT_RIGHT_GAP = 8;
 // The hover card follows the cursor on both axes. Fixed width so it can be
 // flipped and clamped before it is drawn, and so figures like "$123,456.78"
 // still fit on one line.
@@ -44,6 +50,26 @@ function fadeLineColor(color: string) {
   return parsed.alpha(parsed.alpha() * DIMMED_LINE_ALPHA_RATIO).toRgbString();
 }
 
+// lightweight-charts paints axis labels with the alpha channel dropped, so a
+// translucent theme token (e.g. 45% white) would come out as a solid block.
+// Flatten it over the page background first to keep the intended shade.
+function flattenColor(color: string, background: string) {
+  const foreground = colord(color);
+  const base = colord(background);
+  if (!foreground.isValid() || !base.isValid()) {
+    return color;
+  }
+  const alpha = foreground.alpha();
+  const top = foreground.toRgb();
+  const bottom = base.toRgb();
+  return colord({
+    r: top.r * alpha + bottom.r * (1 - alpha),
+    g: top.g * alpha + bottom.g * (1 - alpha),
+    b: top.b * alpha + bottom.b * (1 - alpha),
+    a: 1,
+  }).toHex();
+}
+
 type IChartHoverData = {
   time: number;
   price: number;
@@ -68,6 +94,8 @@ export function StockPriceLineChart({
   data,
   height,
   pulseLastPoint,
+  previousClose,
+  showCurrentPriceLabel,
   testID,
   hoverLabelShowsPrice = true,
   onHoverChange,
@@ -75,6 +103,13 @@ export function StockPriceLineChart({
   data: IMarketTokenChart;
   height: number;
   pulseLastPoint?: boolean;
+  // Previous session close. Drawn as a dashed line with a "Prev close" tag and
+  // its own axis label, and kept inside the price scale even when the range
+  // never trades through it.
+  previousClose?: number;
+  // Pins the latest price to the price axis on the line's full-strength color,
+  // without the dashed price line lightweight-charts pairs it with.
+  showCurrentPriceLabel?: boolean;
   testID?: string;
   // The hover card answers "when" and, by default, "how much". Hosts that must
   // not repeat the figure pass false to keep the card time-only.
@@ -83,6 +118,7 @@ export function StockPriceLineChart({
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
   const theme = useTheme();
+  const intl = useIntl();
   const { format } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
@@ -147,6 +183,50 @@ export function StockPriceLineChart({
     [solidLineColor],
   );
   const crosshairVertLineColor = theme.textSubdued.val;
+  const pageBackgroundColor = theme.bgApp.val;
+  // Figma stock detail (25907:24812 / 25907:24808): the dashed guide is
+  // `border/strong`, its tag and axis label sit on `bg/primary-active` with
+  // `text/inverse`, and the live price tag on `bg/success-strong`.
+  const previousCloseLineColor = theme.borderStrong.val;
+  // The design library's `bg/primary-active` is ~50% black in light mode, but
+  // the app's `$bgPrimaryActive` maps to primary11 (~61%) there. primary10
+  // matches the design in light mode and equals `$bgPrimaryActive` in dark.
+  const previousCloseLabelColor = flattenColor(
+    theme.primary10.val,
+    pageBackgroundColor,
+  );
+  const previousCloseLabelTextColor = theme.textInverse.val;
+  const currentPriceLabelColor = flattenColor(
+    theme.bgSuccessStrong.val,
+    pageBackgroundColor,
+  );
+  const previousCloseLabel = intl.formatMessage({
+    id: ETranslations.market_prev_close,
+  });
+  // Stable identity: the chart is rebuilt whenever the reference line changes.
+  const referenceLine = useMemo<ILightweightChartReferenceLine | undefined>(
+    () =>
+      previousClose !== undefined && Number.isFinite(previousClose)
+        ? {
+            price: previousClose,
+            color: previousCloseLineColor,
+            lineWidth: 1,
+            lineStyle: 'dashed',
+            axisLabelVisible: true,
+            axisLabelColor: previousCloseLabelColor,
+            axisLabelTextColor: previousCloseLabelTextColor,
+            title: previousCloseLabel,
+            includeInAutoscale: true,
+          }
+        : undefined,
+    [
+      previousClose,
+      previousCloseLabel,
+      previousCloseLabelColor,
+      previousCloseLabelTextColor,
+      previousCloseLineColor,
+    ],
+  );
 
   // The whole range stays on the main (faded) series so the price scale never
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
@@ -235,6 +315,10 @@ export function StockPriceLineChart({
         crosshairVertLineStyle={CROSSHAIR_VERT_LINE_STYLE}
         seriesType="dotted-area"
         showPriceScale
+        referenceLine={referenceLine}
+        showLastValue={showCurrentPriceLabel}
+        showLastValuePriceLine={false}
+        lastValueLabelColor={currentPriceLabelColor}
         showLastPointMarker={false}
         preserveChartInstanceOnDataChange
         pulseLastPoint={pulseLastPoint}
@@ -242,6 +326,7 @@ export function StockPriceLineChart({
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly
         priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
+        timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
         compactPriceMaxCharacters={maxPriceCharacters}
         fontSize={11}

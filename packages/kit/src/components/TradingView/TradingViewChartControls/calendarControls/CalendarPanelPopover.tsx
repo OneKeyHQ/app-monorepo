@@ -9,6 +9,7 @@ import {
   Popover,
   SizableText,
   Stack,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -750,31 +751,24 @@ export function CalendarPanelPopover({
   const renderContent = useCallback(
     ({ closePopover }: { closePopover: () => void }) => (
       <YStack width={328}>
-        <XStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
-          {panelOptions.map(([value, label]) => {
-            const isActive = activePanel === value;
-            return (
-              <YStack
-                key={value}
-                testID={`trading-view-calendar-panel-${value}`}
-                px="$5"
-                pt="$3"
-                gap="$2"
-                cursor="pointer"
-                onPress={() => {
-                  setActivePanel(value);
-                }}
-              >
-                <SizableText
-                  size="$bodyLgMedium"
-                  color={isActive ? '$text' : '$textSubdued'}
-                >
-                  {label}
-                </SizableText>
-                <Stack h="$0.5" bg={isActive ? '$text' : '$transparent'} />
-              </YStack>
-            );
-          })}
+        {/* Same underline tabs as the indicator dialog (Figma 26652:31723). */}
+        <XStack px="$5" gap="$5">
+          {panelOptions.map(([value, label], index) => (
+            <Tabs.TabBarItem
+              key={value}
+              testID={`trading-view-calendar-panel-${value}`}
+              name={value}
+              label={label}
+              index={index}
+              isFocused={activePanel === value}
+              textSize="$bodyLgMedium"
+              // Drop the item's page-padding offset (the row sets its own inset) and
+              // keep the arrow cursor and unselectable label the full TabBar
+              // container gives its items.
+              tabItemStyle={{ ml: '$0', cursor: 'default', userSelect: 'none' }}
+              onPress={() => setActivePanel(value)}
+            />
+          ))}
         </XStack>
 
         <YStack p="$5" gap="$5">
