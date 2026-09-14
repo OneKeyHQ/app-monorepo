@@ -33,6 +33,7 @@ import {
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { LazyPopover } from '../LazyPopover';
+import { shouldUseNativeSheetPresentation } from '../Popover/sheetPresentation';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
@@ -319,16 +320,24 @@ function BasicActionList({
   title,
   trackID,
   nativeSheet = false,
+  usingSheet = true,
   sheetProps,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
+  const { gtMd } = useMedia();
+  const useNativeSheetPresentation = shouldUseNativeSheetPresentation({
+    usingSheet,
+    nativeSheet,
+    isGtMd: Boolean(gtMd),
+    isNativeIOSPad: Boolean(platformEnv.isNativeIOSPad),
+  });
   const handleActionListOpenRef = useRef<() => void>(() => undefined);
   const handleActionListCloseRef = useRef<() => void>(() => undefined);
   const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
     useAsyncItemsLifecycle({
       isOpen,
-      nativeSheet,
+      nativeSheet: useNativeSheetPresentation,
       renderItemsAsync,
       handleActionListCloseRef,
       handleActionListOpenRef,
@@ -464,7 +473,8 @@ function BasicActionList({
   ]);
 
   const shouldOpenPopover =
-    isOpen && (!nativeSheet || !renderItemsAsync || Boolean(asyncItems));
+    isOpen &&
+    (!useNativeSheetPresentation || !renderItemsAsync || Boolean(asyncItems));
 
   return (
     <LazyPopover
@@ -475,6 +485,7 @@ function BasicActionList({
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
       nativeSheet={nativeSheet}
+      usingSheet={usingSheet}
       mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
       sheetProps={resolvedSheetProps}

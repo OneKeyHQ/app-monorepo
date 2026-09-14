@@ -123,7 +123,7 @@ export function WalletRemoveButton({
               isRemoveToMocked,
             });
           },
-          { waitForAnimation: nativeSheet },
+          { waitForAnimation: nativeSheet && platformEnv.isNative },
         )
       }
     />

@@ -18,6 +18,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -173,7 +174,7 @@ export function AccountRenameButton({
   const handleShowAccountRenameDialog = useCallback(
     (close: () => void) =>
       runAfterActionListClose(close, showAccountRenameDialog, {
-        waitForAnimation: nativeSheet,
+        waitForAnimation: nativeSheet && platformEnv.isNative,
       }),
     [nativeSheet, showAccountRenameDialog],
   );

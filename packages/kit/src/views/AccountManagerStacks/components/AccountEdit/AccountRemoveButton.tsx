@@ -235,7 +235,7 @@ export function AccountRemoveButton({
                 indexedAccount,
               });
             },
-            { waitForAnimation: nativeSheet },
+            { waitForAnimation: nativeSheet && platformEnv.isNative },
           );
         } else {
           await removeFn({
