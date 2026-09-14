@@ -3462,6 +3462,7 @@ export enum ETranslations {
   perp_trade_account_overview_avbl = 'perp_trade_account_overview_avbl',
   perp_trade_deposit_to_trade__action = 'perp_trade_deposit_to_trade__action',
   perp_trade_first_deposit_ready__desc = 'perp_trade_first_deposit_ready__desc',
+  perp_trade_settlement__title = 'perp_trade_settlement__title',
   perp_trades_history_recent_range_desc = 'perp_trades_history_recent_range_desc',
   perp_trading_adjust_margin = 'perp_trading_adjust_margin',
   perp_trading_adjust_margin_max = 'perp_trading_adjust_margin_max',

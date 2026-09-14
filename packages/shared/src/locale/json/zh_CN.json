@@ -3457,6 +3457,7 @@
   "perp_trade_account_overview_avbl": "可用",
   "perp_trade_deposit_to_trade__action": "充值以交易",
   "perp_trade_first_deposit_ready__desc": "首次充值后即可开始交易。",
+  "perp_trade_settlement__title": "结算",
   "perp_trades_history_recent_range_desc": "当前最多展示近 2 年的历史成交",
   "perp_trading_adjust_margin": "调整保证金",
   "perp_trading_adjust_margin_max": "最大可添加",

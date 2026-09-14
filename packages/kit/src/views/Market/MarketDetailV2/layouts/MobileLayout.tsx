@@ -267,6 +267,7 @@ function MobileMarketTradingView({
 }
 
 export interface IMobileLayoutProps {
+  isLayoutPending?: boolean;
   isInitialContentPending?: boolean;
   disablePerpsBanner?: boolean;
   disableTrade?: boolean;
@@ -282,6 +283,7 @@ export interface IMobileLayoutProps {
 }
 
 export function MobileLayout({
+  isLayoutPending,
   isInitialContentPending,
   disablePerpsBanner,
   disableTrade,
@@ -989,7 +991,7 @@ export function MobileLayout({
 
   // Reveal quotes and the chart only after the first detail request has
   // also determined whether the perps banner exists. Polling keeps them mounted.
-  if (platformEnv.isNative && isInitialContentPending) {
+  if (platformEnv.isNative && (isLayoutPending || isInitialContentPending)) {
     return (
       <Stack
         flex={1}

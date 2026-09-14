@@ -20409,6 +20409,7 @@
     "packages/kit/src/provider/Container/StateActiveContainer/index.tsx": 8618,
     "packages/kit/src/provider/Container/TabFreezeOnBlurContainer/index.tsx": 188,
     "packages/kit/src/provider/Container/TableSplitViewContainer/SplitViewDetailFullscreenContext.tsx": 10020,
+    "packages/kit/src/provider/Container/TableSplitViewContainer/SplitViewDetailOffsetContext.tsx": 3552,
     "packages/kit/src/provider/Container/TableSplitViewContainer/index.tsx": 13205,
     "packages/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/Lazy.tsx": 18329,
     "packages/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog.tsx": 7549,

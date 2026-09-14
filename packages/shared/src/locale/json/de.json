@@ -3457,6 +3457,7 @@
   "perp_trade_account_overview_avbl": "Verfügbar",
   "perp_trade_deposit_to_trade__action": "Einzahlen zum Traden",
   "perp_trade_first_deposit_ready__desc": "Ihre erste Einzahlung macht Ihr Konto bereit zum Traden.",
+  "perp_trade_settlement__title": "Abrechnung",
   "perp_trades_history_recent_range_desc": "Es werden Trades aus bis zu den letzten 2 Jahren angezeigt.",
   "perp_trading_adjust_margin": "Marge anpassen",
   "perp_trading_adjust_margin_max": "Max. hinzufügen",
