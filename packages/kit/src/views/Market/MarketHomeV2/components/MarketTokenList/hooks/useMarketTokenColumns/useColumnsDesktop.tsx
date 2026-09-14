@@ -135,7 +135,14 @@ function renderLightweightTokenIdentity(record: IMarketToken) {
       minWidth={0}
       overflow="hidden"
     >
-      <Stack width={40} height={40} borderRadius="$full" bg="$bgStrong" />
+      <Token
+        size="lg"
+        borderRadius="$full"
+        tokenImageUri={record.tokenImageUri}
+        tokenImageUris={record.tokenImageUris}
+        networkImageUri={record.networkLogoUri}
+        fallbackIcon="CryptoCoinOutline"
+      />
       <Stack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
         <SizableText
           size="$bodyLgMedium"
