@@ -25,6 +25,155 @@ const currencyMap: Record<string, ICurrencyItem> = {
 const defaultLocale = appLocale.intl.locale;
 const defaultMessages = appLocale.intl.messages;
 
+describe('Portfolio v2 category amounts', () => {
+  const params: IBuildPortfolioPayloadParams = {
+    account: { label: '1', addressMasked: '' },
+    currencyMap,
+    displayCurrency: { id: 'usd', symbol: '$' },
+    schemaVersion: 2,
+    categoryFiat: { defiFiat: '200', perpsFiat: '300' },
+    totalFiat: '1000',
+    totalFiatCurrency: 'usd',
+    totalTokenCount: 4,
+    timestamp: 1_789_380_000_000,
+    tokenMap: { eth: buildFiat({ fiatValue: '800' }) },
+    tokens: [buildToken({ $key: 'eth', networkId: 'evm--1' })],
+  };
+
+  test('adds category net worth without changing token allocations', () => {
+    const payload = buildPortfolioPayload(params);
+    expect(Object.keys(payload)).toHaveLength(10);
+    expect(payload).toMatchObject({
+      v: 2,
+      tokensFiat: '$1.00K',
+      defiFiat: '$200.00',
+      perpsFiat: '$300.00',
+      totalFiat: '$1,500.00',
+      tokenCount: 1,
+      tokens: [{ portfolioPercentage: 80 }],
+      otherTokens: { count: 3, fiat: '$200.00', portfolioPercentage: 20 },
+    });
+  });
+
+  test('converts all categories into the same display currency', () => {
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        displayCurrency: { id: 'cny', symbol: '¥' },
+      }),
+    ).toMatchObject({
+      tokensFiat: '¥7.00K',
+      defiFiat: '¥1.40K',
+      perpsFiat: '¥2.10K',
+      totalFiat: '¥10,500.00',
+    });
+  });
+
+  test.each([undefined, '', 'NaN', 'Infinity'])(
+    'keeps unavailable DeFi (%s) and the total unknown',
+    (defiFiat) => {
+      expect(
+        buildPortfolioPayload({
+          ...params,
+          categoryFiat: { defiFiat, perpsFiat: '300' },
+        }),
+      ).toMatchObject({
+        tokensFiat: '$1.00K',
+        defiFiat: '—',
+        perpsFiat: '$300.00',
+        totalFiat: '—',
+      });
+    },
+  );
+
+  test('does not turn missing conversion rates into a zero net worth', () => {
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        currencyMap: {},
+        displayCurrency: { id: 'cny', symbol: '¥' },
+        totalFiatCurrency: 'cny',
+        tokenMap: { eth: buildFiat({ fiatValue: '800', currency: 'cny' }) },
+      }),
+    ).toMatchObject({
+      tokensFiat: '¥1.00K',
+      defiFiat: '—',
+      perpsFiat: '—',
+      totalFiat: '—',
+    });
+  });
+
+  test('distinguishes synchronized zero assets from unavailable amounts', () => {
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        totalFiat: '0',
+        totalTokenCount: 0,
+        tokens: [],
+        tokenMap: {},
+        categoryFiat: { defiFiat: '0', perpsFiat: '0' },
+      }),
+    ).toMatchObject({
+      v: 2,
+      tokensFiat: '$0.00',
+      defiFiat: '$0.00',
+      perpsFiat: '$0.00',
+      totalFiat: '$0.00',
+      tokenCount: 0,
+      tokens: [],
+      otherTokens: { count: 0, fiat: '$0.00', portfolioPercentage: 0 },
+    });
+  });
+
+  test('preserves negative net worth when formatting and summing', () => {
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        categoryFiat: { defiFiat: '-1200', perpsFiat: '100' },
+      }),
+    ).toMatchObject({
+      defiFiat: '-$1.20K',
+      perpsFiat: '$100.00',
+      totalFiat: '-$100.00',
+    });
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        categoryFiat: { defiFiat: '-0.001', perpsFiat: '0' },
+      }),
+    ).toMatchObject({ defiFiat: '> -$0.01' });
+  });
+
+  test('keeps the seven-field v1 shape and token-only total', () => {
+    const payload = buildPortfolioPayload({ ...params, schemaVersion: 1 });
+    expect(Object.keys(payload)).toHaveLength(7);
+    expect(payload).toMatchObject({ v: 1, totalFiat: '$1,000.00' });
+    expect(payload).not.toHaveProperty('tokensFiat');
+    expect(payload).not.toHaveProperty('defiFiat');
+    expect(payload).not.toHaveProperty('perpsFiat');
+  });
+
+  test('deduplicates category changes independently of timestamps', () => {
+    const payload = buildPortfolioPayload(params);
+    expect(buildPortfolioPayloadHash(payload)).toBe(
+      buildPortfolioPayloadHash(
+        buildPortfolioPayload({
+          ...params,
+          timestamp: params.timestamp + 1000,
+        }),
+      ),
+    );
+    expect(buildPortfolioPayloadHash(payload)).not.toBe(
+      buildPortfolioPayloadHash(
+        buildPortfolioPayload({
+          ...params,
+          categoryFiat: { defiFiat: '201', perpsFiat: '300' },
+        }),
+      ),
+    );
+  });
+});
+
 function buildToken(params: Partial<IAccountToken>): IAccountToken {
   return {
     $key: params.$key ?? 'eth',

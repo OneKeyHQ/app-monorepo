@@ -12,6 +12,7 @@ import {
   PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
   buildPortfolioSyncArtifacts,
   getPortfolioDisplayTimestamp,
+  getPortfolioSchemaVersion,
   getPortfolioSyncCooldownRemainingMs,
 } from './serviceHardwarePortfolioSyncUtils';
 
@@ -56,6 +57,57 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 }
 
 describe('serviceHardwarePortfolioSyncUtils', () => {
+  test.each([
+    [undefined, 1],
+    ['', 1],
+    ['invalid', 1],
+    ['1.0.1', 1],
+    ['1.0.2-beta.1', 1],
+    ['1.0.3-dev', 1],
+    ['1.0.2', 2],
+    ['1.1.0', 2],
+  ] as const)('selects schema %s => %s', (version, expected) => {
+    expect(getPortfolioSchemaVersion(version)).toBe(expected);
+  });
+
+  test('submits v2 categories and the account ordinal with existing server metadata', () => {
+    const artifacts = buildPortfolioSyncArtifacts({
+      schemaVersion: 2,
+      categoryFiat: { defiFiat: '20', perpsFiat: '30' },
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      timestamp: 1_789_380_000_000,
+      eventPayload: {
+        indexedAccountIndex: 1,
+        indexedAccountName: 'Account #2',
+        aggregateTokenMap: {},
+        totalFiat: '100',
+        totalFiatCurrency: 'usd',
+        totalTokenCount: 1,
+        tokenMap: { eth: buildFiat({ fiatValue: '100' }) },
+        tokens: [
+          buildToken({
+            $key: 'eth',
+            networkId: 'evm--1',
+            logoURI: 'https://example.com/eth.png',
+          }),
+        ],
+      },
+    });
+    expect(JSON.parse(artifacts.portfolioJsonText)).toMatchObject({
+      v: 2,
+      ts: 1_789_380_000_000,
+      account: { label: '2' },
+      tokensFiat: '$100.00',
+      defiFiat: '$20.00',
+      perpsFiat: '$30.00',
+      totalFiat: '$150.00',
+      tokens: [{ iconName: null, logoURI: 'https://example.com/eth.png' }],
+    });
+    expect(artifacts.portfolio.tokens[0]).not.toHaveProperty('color');
+    expect(artifacts.portfolio.otherTokens).not.toHaveProperty('color');
+  });
+
   test('converts a Unix timestamp to the App local display time', () => {
     expect(
       getPortfolioDisplayTimestamp({

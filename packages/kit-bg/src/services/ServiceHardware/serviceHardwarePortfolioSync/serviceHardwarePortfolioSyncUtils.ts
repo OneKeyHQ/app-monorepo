@@ -1,3 +1,5 @@
+import semver from 'semver';
+
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,
@@ -9,17 +11,17 @@ import {
   buildPortfolioPayloadHash,
   selectPortfolioPayloadTokens,
 } from '@onekeyhq/shared/src/utils/portfolioPayload';
-import type { IPortfolioPayload } from '@onekeyhq/shared/src/utils/portfolioPayload';
+import type {
+  IPortfolioCategoryFiat,
+  IPortfolioPayload,
+} from '@onekeyhq/shared/src/utils/portfolioPayload';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 
 export type IPortfolioSyncSettledPayload =
   IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled];
 
-export type IPortfolioServerSubmitPayload = Omit<
-  IPortfolioPayload,
-  'tokens'
-> & {
+export type IPortfolioServerSubmitPayload = IPortfolioPayload & {
   tokens: Array<
     IPortfolioPayload['tokens'][number] & {
       logoURI: string;
@@ -39,6 +41,16 @@ export type IPortfolioSyncArtifacts = {
 };
 
 export const PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS = 60_000;
+
+export function getPortfolioSchemaVersion(firmwareVersion?: string): 1 | 2 {
+  // Unknown and prerelease firmware keep the released v1 contract.
+  return firmwareVersion &&
+    semver.valid(firmwareVersion) &&
+    !semver.prerelease(firmwareVersion) &&
+    semver.gte(firmwareVersion, '1.0.2')
+    ? 2
+    : 1;
+}
 
 export function getPortfolioDisplayTimestamp({
   timestamp,
@@ -70,6 +82,7 @@ export function getPortfolioSyncCooldownRemainingMs({
 
 function buildPortfolioAccountFromEventPayload(
   eventPayload: IPortfolioSyncSettledPayload,
+  schemaVersion: 1 | 2,
 ): IPortfolioPayload['account'] {
   const accountIdentifier =
     typeof eventPayload.indexedAccountIndex === 'number'
@@ -81,31 +94,40 @@ function buildPortfolioAccountFromEventPayload(
   return {
     addressMasked: accountIdentifier,
     label:
-      eventPayload.indexedAccountName ||
-      eventPayload.accountName ||
-      accountIdentifier,
+      schemaVersion === 2 &&
+      typeof eventPayload.indexedAccountIndex === 'number'
+        ? String(eventPayload.indexedAccountIndex + 1)
+        : eventPayload.indexedAccountName ||
+          eventPayload.accountName ||
+          accountIdentifier,
   };
 }
 
 export function buildPortfolioSyncArtifacts({
+  categoryFiat,
   currencyMap,
   displayCurrency,
   eventPayload,
+  schemaVersion = 1,
   timestamp,
 }: {
+  categoryFiat?: IPortfolioCategoryFiat;
   currencyMap: Record<string, ICurrencyItem>;
   displayCurrency: {
     id: string;
     symbol: string;
   };
   eventPayload: IPortfolioSyncSettledPayload;
+  schemaVersion?: 1 | 2;
   timestamp: number;
 }): IPortfolioSyncArtifacts {
   const portfolioPayloadParams = {
-    account: buildPortfolioAccountFromEventPayload(eventPayload),
+    account: buildPortfolioAccountFromEventPayload(eventPayload, schemaVersion),
     aggregateTokenMap: eventPayload.aggregateTokenMap,
+    categoryFiat,
     currencyMap,
     displayCurrency,
+    schemaVersion,
     totalFiat: eventPayload.totalFiat,
     totalFiatCurrency: eventPayload.totalFiatCurrency,
     totalTokenCount: eventPayload.totalTokenCount,
