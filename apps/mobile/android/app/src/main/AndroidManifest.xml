@@ -91,10 +91,6 @@
     <meta-data android:name="expo.modules.notifications.default_notification_color" android:resource="@color/notification_icon_color"/>
     <activity android:name=".MainLauncherActivity" android:label="@string/app_name" android:launchMode="singleTask" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
-        <action android:name="android.intent.action.MAIN"/>
-        <category android:name="android.intent.category.LAUNCHER"/>
-      </intent-filter>
-      <intent-filter>
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
@@ -140,6 +136,28 @@
       </intent-filter>
     </activity>
     <activity android:name=".MainActivity" android:label="@string/app_name" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="stateAlwaysHidden|adjustPan" android:theme="@style/Theme.App.SplashScreen" android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />
+    <activity-alias
+        android:name=".StandardLauncher"
+        android:targetActivity=".MainLauncherActivity"
+        android:enabled="true"
+        android:exported="true"
+        android:icon="@mipmap/ic_launcher">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias
+        android:name=".TravelModeLauncher"
+        android:targetActivity=".MainLauncherActivity"
+        android:enabled="false"
+        android:exported="true"
+        android:icon="@mipmap/ic_launcher_travel">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity-alias>
     <activity
         android:name=".RecoveryActivity"
         android:theme="@style/Theme.Recovery"
