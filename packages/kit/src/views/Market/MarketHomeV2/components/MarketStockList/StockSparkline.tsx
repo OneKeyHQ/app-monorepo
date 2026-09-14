@@ -1,10 +1,12 @@
 import { memo, useMemo } from 'react';
 
-import Svg, { Polyline } from 'react-native-svg';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 
-import { useTheme } from '@onekeyhq/components';
+import SparklineChart, {
+  MARKET_SPARKLINE_COLORS,
+} from '../../../components/SparklineChart';
 
-import { buildStockSparklinePoints } from './utils';
+import { downsampleStockSparkline } from './utils';
 
 const SPARKLINE_WIDTH = 132;
 const SPARKLINE_HEIGHT = 44;
@@ -16,38 +18,31 @@ function StockSparklineImpl({
   data?: number[];
   priceChange24hPercent?: string;
 }) {
-  const theme = useTheme();
-  const points = useMemo(
-    () =>
-      buildStockSparklinePoints({
-        data: data ?? [],
-        width: SPARKLINE_WIDTH,
-        height: SPARKLINE_HEIGHT,
-      }),
+  const themeVariant = useThemeVariant();
+  const sampledData = useMemo(
+    () => downsampleStockSparkline(data ?? []),
     [data],
   );
 
-  if (!points) {
+  if (sampledData.length < 2) {
     return null;
   }
 
-  const priceChange = Number(priceChange24hPercent);
-  const lineColor =
-    Number.isFinite(priceChange) && priceChange < 0
-      ? theme.textCritical.val
-      : theme.textSuccess.val;
+  const themeColors =
+    MARKET_SPARKLINE_COLORS[themeVariant === 'dark' ? 'dark' : 'light'];
+  const [lineColor, gradientColor] =
+    Number(priceChange24hPercent) < 0
+      ? themeColors.negative
+      : themeColors.positive;
 
   return (
-    <Svg width={SPARKLINE_WIDTH} height={SPARKLINE_HEIGHT}>
-      <Polyline
-        points={points}
-        fill="none"
-        stroke={lineColor}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
+    <SparklineChart
+      data={sampledData}
+      width={SPARKLINE_WIDTH}
+      height={SPARKLINE_HEIGHT}
+      lineColor={lineColor}
+      linearGradientColor={gradientColor}
+    />
   );
 }
 
