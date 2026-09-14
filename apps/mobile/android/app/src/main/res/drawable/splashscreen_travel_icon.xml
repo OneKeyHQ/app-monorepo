@@ -1,0 +1,8 @@
+<!-- Match the standard icon's 88/240 visible ratio at every system-selected bound. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="31.666667%">
+  <bitmap
+      android:src="@drawable/splashscreen_travel_artwork"
+      android:gravity="fill"
+      android:filter="true"/>
+</inset>
