@@ -5,8 +5,27 @@ description: Navigate OneKey App Swap, Bridge, Limit, and Stock/Market flows. Us
 
 # Trade / Swap / Market
 
-Use this skill as a map to the owning code and contract. Let current code,
-payloads, and runtime behavior decide implementation details.
+Use this skill to preserve trade ownership and lifecycle boundaries. Start from
+the current code, payloads, and runtime; do not treat this skill as a path
+catalog or an implementation snapshot.
+
+## Shared Market Trade Boundary
+
+Market's embedded token/stock trade is an entry adapter, not a second trade
+implementation. Once the embedded route mounts, reuse Swap's provider, quote,
+timer, manual-refresh, review, build/send, fallback, and history owners. Keep
+only Market-owned context (for example K-line/detail layout, stock variant
+selection, speed config, sizing data, or header slots) at the boundary and pass
+it through typed Swap extensions. Do not recreate a Market quote effect,
+review dialog, action state, or input state beside the shared Swap ticket.
+
+When a stock variant or network changes, migrate the full trade identity and
+network-scoped pay-token state atomically. Keep the ticket mounted for partial
+refresh, but reuse in-flight/detail/pay-token state only for the same complete
+identity; clear incompatible selections before the next network's candidates
+arrive. Treat transient config/quote readiness separately
+from terminal unsupported/unavailable states so a fallback or explicit
+unavailable surface is not hidden behind an endless skeleton or disabled action.
 
 ## Quick Start
 
@@ -17,27 +36,17 @@ payloads, and runtime behavior decide implementation details.
 4. Preserve the trade identity across async boundaries, make the smallest
    owner-correct change, and verify the same user path.
 
-## Find The Owner
+## Choose The Reference
 
-| Task | Start here | Read next |
-| --- | --- | --- |
-| Swap selection, quote, review, or send | Swap state/actions, view hooks, background service | [Architecture](references/app-architecture.md), [Code map](references/code-map.md) |
-| Wallet, Send, Earn, Buy, or Market handoff | Source params, then settled Swap state | [Architecture](references/app-architecture.md) |
-| Bridge, Limit, Stock, privacy, or provider work | Capability, payload, and lifecycle adapter | [Provider contracts](references/provider-contracts.md) |
-| Cold start, default asset, tab, or first-frame issue | Route seed, persisted display state, readiness | [Architecture](references/app-architecture.md) |
-| Pending, history, status, restart, or repair | Persistent owner and status source | [Provider contracts](references/provider-contracts.md) |
-| Receive-only filtering | Receive and AssetSelector before any Swap handoff | [Code map](references/code-map.md) |
+Locate the current owner in the live source before editing, then load only the
+reference that matches the failure class:
 
-## Load Detail As Needed
-
-- [Architecture](references/app-architecture.md) explains the execution spine,
-  handoff ownership, runtime boundaries, and cold-start model.
-- [Code map](references/code-map.md) gives stable directories and useful search
-  anchors.
-- [Provider contracts](references/provider-contracts.md) covers channels whose
-  quote, settlement, or persistence semantics differ from an ordinary swap.
-- [Validation](references/validation.md) helps choose focused tests and runtime
-  evidence for the changed layer.
+- [Architecture](references/app-architecture.md) for entry ownership, runtime,
+  handoff, and cold-start boundaries.
+- [Provider contracts](references/provider-contracts.md) for quote, review,
+  build/send, provider lifecycle, and history semantics.
+- [Validation](references/validation.md) for focused checks and owning-platform
+  proof.
 
 ## Finish
 

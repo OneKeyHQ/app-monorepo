@@ -51,7 +51,12 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
 
 function MarketEmbeddedSwapLoading() {
   return (
-    <YStack width="100%" minHeight={520} gap="$4">
+    <YStack
+      testID="market-embedded-swap-trade-loading"
+      width="100%"
+      minHeight={520}
+      gap="$4"
+    >
       <Skeleton h="$10" w="$44" borderRadius="$full" />
       <XStack h="$13" alignItems="center" justifyContent="space-between">
         <XStack alignItems="center" gap="$2">
@@ -100,6 +105,7 @@ function MarketEmbeddedSwapContent({
   swapToken,
   inputDraft,
   onInputDraftChange,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -110,6 +116,7 @@ function MarketEmbeddedSwapContent({
   swapToken: ISwapToken;
   inputDraft?: ISwapInputAmountDraft;
   onInputDraftChange: (draft: ISwapInputAmountDraft) => void;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -122,15 +129,44 @@ function MarketEmbeddedSwapContent({
   // quote/input state to enter the normal loading skeleton rather than
   // remounting the whole trade panel.
   const [swapTokenSeed, setSwapTokenSeed] = useState(swapToken);
+  const [stockTradeTokenSeed, setStockTradeTokenSeed] =
+    useState(stockTradeToken);
   const swapTokenIdentity = `${swapToken.networkId}:${swapToken.contractAddress}`;
   const swapTokenSeedIdentity = `${swapTokenSeed.networkId}:${swapTokenSeed.contractAddress}`;
   const swapTokenReadySignature = `${swapTokenIdentity}:${swapToken.decimals}:${swapToken.symbol}`;
   const swapTokenSeedReadySignature = `${swapTokenSeedIdentity}:${swapTokenSeed.decimals}:${swapTokenSeed.symbol}`;
   useEffect(() => {
-    if (swapTokenReadySignature !== swapTokenSeedReadySignature) {
+    if (
+      !isTradeLoading &&
+      swapTokenReadySignature !== swapTokenSeedReadySignature
+    ) {
       setSwapTokenSeed(swapToken);
     }
-  }, [swapToken, swapTokenReadySignature, swapTokenSeedReadySignature]);
+  }, [
+    isTradeLoading,
+    swapToken,
+    swapTokenReadySignature,
+    swapTokenSeedReadySignature,
+  ]);
+  const stockTradeTokenReadySignature = stockTradeToken
+    ? `${stockTradeToken.networkId}:${stockTradeToken.contractAddress}:${stockTradeToken.decimals}:${stockTradeToken.symbol}`
+    : '';
+  const stockTradeTokenSeedReadySignature = stockTradeTokenSeed
+    ? `${stockTradeTokenSeed.networkId}:${stockTradeTokenSeed.contractAddress}:${stockTradeTokenSeed.decimals}:${stockTradeTokenSeed.symbol}`
+    : '';
+  useEffect(() => {
+    if (
+      !isTradeLoading &&
+      stockTradeTokenReadySignature !== stockTradeTokenSeedReadySignature
+    ) {
+      setStockTradeTokenSeed(stockTradeToken);
+    }
+  }, [
+    isTradeLoading,
+    stockTradeToken,
+    stockTradeTokenReadySignature,
+    stockTradeTokenSeedReadySignature,
+  ]);
   // Consume the route's draft once per mount; live input must not reinitialize Swap.
   const [initialInputAmountDraft] = useState(inputDraft);
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
@@ -177,9 +213,9 @@ function MarketEmbeddedSwapContent({
 
   const resolvedStockTradeHeader =
     stockTradeHeader ??
-    (stockTradeToken ? (
+    (stockTradeTokenSeed ? (
       <MarketStockTradeTarget
-        token={stockTradeToken}
+        token={stockTradeTokenSeed}
         portfolioData={stockTradePortfolioData}
         resolvedVariantKeys={stockTradeResolvedVariantKeys}
       />
@@ -200,7 +236,7 @@ function MarketEmbeddedSwapContent({
         stockSpeedConfig={stockSpeedConfig}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={resolvedStockTradeHeader}
-        stockTradeToken={stockTradeToken}
+        stockTradeToken={stockTradeTokenSeed}
         stockTradePortfolioData={stockTradePortfolioData}
         stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
         initialInputAmountDraft={initialInputAmountDraft}
@@ -213,6 +249,7 @@ function MarketEmbeddedSwapContent({
 function MarketEmbeddedSwapDraft({
   swapToken,
   disabled,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -222,6 +259,7 @@ function MarketEmbeddedSwapDraft({
 }: {
   swapToken: ISwapToken;
   disabled?: boolean;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -243,13 +281,25 @@ function MarketEmbeddedSwapDraft({
     };
   }, []);
 
+  const hasRenderedContentRef = useRef(false);
+
   // Disabled desktop routes render their own unavailable state (or no trade
-  // panel). Do not present a perpetual loading skeleton for a terminal state.
-  return disabled ? null : (
+  // panel). Transient stock identity loading keeps the panel shell visible;
+  // once the shell has mounted, the stock channel owns partial skeletons.
+  if (disabled) {
+    return null;
+  }
+  if (isTradeLoading && !hasRenderedContentRef.current) {
+    return <MarketEmbeddedSwapLoading />;
+  }
+  hasRenderedContentRef.current = true;
+
+  return (
     <MarketEmbeddedSwapContent
       swapToken={swapToken}
       inputDraft={inputDraftRef.current}
       onInputDraftChange={onInputDraftChange}
+      isTradeLoading={isTradeLoading}
       embeddedStockTrade={embeddedStockTrade}
       stockTradeConfig={stockTradeConfig}
       stockTradeHeader={stockTradeHeader}
@@ -264,6 +314,7 @@ export function MarketEmbeddedSwap({
   swapToken,
   inputDraftKey,
   disabled,
+  isTradeLoading,
   embeddedStockTrade,
   stockTradeConfig,
   stockTradeHeader,
@@ -274,6 +325,7 @@ export function MarketEmbeddedSwap({
   swapToken: ISwapToken;
   inputDraftKey: string;
   disabled?: boolean;
+  isTradeLoading?: boolean;
   embeddedStockTrade?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
@@ -290,6 +342,7 @@ export function MarketEmbeddedSwap({
         key={inputDraftKey}
         swapToken={swapToken}
         disabled={disabled}
+        isTradeLoading={isTradeLoading}
         embeddedStockTrade={embeddedStockTrade}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={stockTradeHeader}
