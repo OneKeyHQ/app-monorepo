@@ -53,6 +53,7 @@ function mapStockBannerItemToToken(
       sourceLogoUri: item.logoUrl,
       marketCap: item.marketCap,
       assetAnalysis: { volume24h: item.volume24h },
+      tradingActivity: { peRatio: item.peRatio },
     },
   };
 }
