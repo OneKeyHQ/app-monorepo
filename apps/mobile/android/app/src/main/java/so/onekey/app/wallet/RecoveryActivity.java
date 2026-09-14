@@ -29,6 +29,7 @@ import java.util.zip.ZipOutputStream;
 
 import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochModule;
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeSplashScreen;
 
 public class RecoveryActivity extends AppCompatActivity {
 
@@ -404,9 +405,12 @@ public class RecoveryActivity extends AppCompatActivity {
 
     private void forceDisableTravelModeForRecoveryBestEffort() {
         try {
-            OneKeyTravelModeLaunchEpochModule.forceDisableTravelModeForRecovery(
+            boolean didChange = OneKeyTravelModeLaunchEpochModule.forceDisableTravelModeForRecovery(
                 getApplicationContext()
             );
+            if (didChange) {
+                runOnUiThread(() -> OneKeyTravelModeSplashScreen.synchronizeBestEffort(this, false));
+            }
         } catch (Exception ignored) {
             // The original recovery action must continue if this safeguard fails.
         }
