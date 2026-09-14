@@ -886,7 +886,10 @@ function SendAmountInputContainer() {
     defaultValues: {
       accountId,
       networkId,
-      amount: prefillAmount || '0',
+      // Seed an empty amount and let the placeholder draw the "0": a literal
+      // "0" is real text, so the first keystroke lands as "01" natively and
+      // is only normalized to "1" after the JS round trip (visible flash).
+      amount: prefillAmount || '',
       nftAmount: isNFT && nft?.collectionType === ENFTType.ERC1155 ? '' : '1',
       txMessage: '',
     },
