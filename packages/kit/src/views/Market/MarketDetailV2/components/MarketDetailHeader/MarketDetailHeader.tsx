@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { useWindowDimensions } from 'react-native';
+
 import {
   HeaderIconButton,
   Icon,
@@ -13,6 +15,7 @@ import {
   useClipboard,
   useIsOverlayPage,
   useMedia,
+  useSafeAreaInsets,
   useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -51,6 +54,8 @@ export function MarketDetailHeader({
   showFavoriteButton?: boolean;
 }) {
   const media = useMedia();
+  const { width: windowWidth } = useWindowDimensions();
+  const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
@@ -107,14 +112,30 @@ export function MarketDetailHeader({
 
   const customHeaderRight = useMemo(() => null, []);
 
-  // iOS 26+ mobile: render via the native UINavigationBar so the header
-  // gets the system Liquid Glass material and the back chevron sits in
-  // its proper iOS 26 circular glass container. The token symbol +
-  // dropdown chevron and token identity live in headerTitle; Star + Share
-  // live in headerRight.
+  // Reserve the bar margins, back/action capsules, and the title's side gaps.
+  // Custom bar items resist native compression, so constrain long identities
+  // before UIKit lays out the left and right item groups.
+  const nativeHeaderTitleMaxWidth = Math.max(
+    0,
+    windowWidth -
+      safeAreaLeft -
+      safeAreaRight -
+      40 -
+      44 -
+      (showFavoriteButton ? 100 : 44) -
+      32,
+  );
+
   const renderNativeHeaderTitle = useCallback(
     () => (
-      <XStack ai="center" gap="$2" flex={1} minWidth={0}>
+      <XStack
+        testID="market-detail-native-header-title"
+        ai="center"
+        gap="$2"
+        flexShrink={1}
+        minWidth={0}
+        maxWidth={nativeHeaderTitleMaxWidth}
+      >
         <Token
           size="sm"
           tokenImageUri={tokenDetail?.logoUrl}
@@ -162,7 +183,7 @@ export function MarketDetailHeader({
                 />
               ) : null}
               {tokenDetail?.address ? (
-                <XStack ai="center" gap="$1" minWidth={0}>
+                <XStack ai="center" gap="$1" flexShrink={1} minWidth={0}>
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
@@ -203,6 +224,7 @@ export function MarketDetailHeader({
       isOverlayPage,
       onPressTokenSelector,
       handleCopyAddress,
+      nativeHeaderTitleMaxWidth,
     ],
   );
 
@@ -265,8 +287,15 @@ export function MarketDetailHeader({
   // only pop the current stack and would render no entry at all when
   // state.index === 0.
   const buildNativeHeaderLeftItems = useCallback(
-    () => [glassBarItem(<NavBackButton onPress={handleBackPress} />)],
-    [handleBackPress],
+    () => [
+      glassBarItem(<NavBackButton onPress={handleBackPress} />),
+      {
+        type: 'custom' as const,
+        element: renderNativeHeaderTitle(),
+        hidesSharedBackground: true,
+      },
+    ],
+    [handleBackPress, renderNativeHeaderTitle],
   );
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
@@ -277,7 +306,9 @@ export function MarketDetailHeader({
     return (
       <Page.Header
         headerShown
-        headerTitle={renderNativeHeaderTitle}
+        // Keep the identity in the leading item group. A growing titleView can
+        // overlap the back capsule during the first iOS 26 native layout.
+        headerTitle=""
         unstable_headerLeftItems={buildNativeHeaderLeftItems}
         unstable_headerRightItems={buildNativeHeaderRightItems}
       />
