@@ -20,6 +20,10 @@ const mockChangeAsset = jest
   .fn<Promise<void>, unknown[]>()
   .mockResolvedValue(undefined);
 const mockEmit = jest.fn<void, unknown[]>();
+const mockLogError = jest.fn<void, unknown[]>();
+const mockWebTarget = jest
+  .fn<Promise<void>, unknown[]>()
+  .mockResolvedValue(undefined);
 jest.mock('@onekeyhq/kit/src/hooks/usePerpTabConfig', () => ({
   usePerpTabConfig: () => ({
     perpDisabled: mockPerpDisabled,
@@ -42,6 +46,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceWebviewPerp: {
+      setTradeTarget: (...args: unknown[]) => mockWebTarget(...args),
+    },
     serviceHyperliquid: {
       setPendingInitialTradeInstrument: (...args: unknown[]) =>
         mockPendingInstrument(...args),
@@ -56,7 +63,10 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   ],
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: { market: { token: { perpsBannerClick: jest.fn() } } },
+  defaultLogger: {
+    market: { token: { perpsBannerClick: jest.fn() } },
+    app: { error: { log: (...args: unknown[]) => mockLogError(...args) } },
+  },
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: { emit: (...args: unknown[]) => mockEmit(...args) },
@@ -151,10 +161,15 @@ it.each([false, true])(
       showWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
     );
     if (showWeb) {
+      expect(mockWebTarget).toHaveBeenCalledWith({ coin: 'BTC' });
+      expect(mockWebTarget.mock.invocationCallOrder[0]).toBeLessThan(
+        mockSwitchTab.mock.invocationCallOrder[0],
+      );
       expect(mockPendingInstrument).not.toHaveBeenCalled();
       expect(mockChangeAsset).not.toHaveBeenCalled();
       expect(mockEmit).not.toHaveBeenCalled();
     } else {
+      expect(mockWebTarget).not.toHaveBeenCalled();
       expect(mockPendingInstrument).toHaveBeenCalledWith({
         coin: 'BTC',
         mode: 'perp',
@@ -174,4 +189,33 @@ it('hides the entry when Perps is disabled', () => {
   render(<PerpetualTradingBanner />);
   expect(screen.queryByText(/Trade perpetuals/)).toBeNull();
   expect(mockSwitchTab).not.toHaveBeenCalled();
+});
+
+it('does not open Web Perps with a stale target if preparation fails', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'xyz:AAPL';
+  mockPerpTabShowWeb = true;
+  mockWebTarget.mockRejectedValueOnce(new Error('Background unavailable'));
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockSwitchTab).not.toHaveBeenCalled();
+  expect(mockChangeAsset).not.toHaveBeenCalled();
+  expect(mockLogError).toHaveBeenCalled();
+});
+
+it('preserves native asset selection if initial target preparation fails', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'xyz:AAPL';
+  mockPendingInstrument.mockRejectedValueOnce(new Error('Preparation failed'));
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
+  expect(mockChangeAsset).toHaveBeenCalledWith({ coin: 'xyz:AAPL' });
+  expect(mockEmit).toHaveBeenCalled();
 });

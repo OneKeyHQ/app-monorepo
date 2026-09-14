@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -11,16 +13,15 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export function usePerpsNavigation(source?: EPerpPageEnterSource) {
   const navigation = useAppNavigation();
+  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
 
   const navigateToPerps = useCallback(
     (coin: string) => {
+      if (!coin.trim() || perpDisabled) return;
       setTimeout(async () => {
         setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
-        // Recorded before the navigation that mounts the Perp tab, so the
-        // claiming initial-select cannot run ahead of it. Both this and the
-        // import it needs stay inside the catch: losing the record only costs
-        // the first-mount restore, while a chunk that fails to load must still
-        // leave the tap opening the tab, as it did before.
+        // Prepare the target before mounting the tab. Web Perps requires this
+        // target; native Perps can fall back to changing the active asset below.
         let proxy:
           | (typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy'))['default']
           | undefined;
@@ -28,12 +29,25 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
           proxy = (
             await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy')
           ).default;
-          await proxy.serviceHyperliquid.setPendingInitialTradeInstrument({
-            coin,
-            mode: 'perp',
-          });
-        } catch {
-          // ignore
+          if (perpTabShowWeb) {
+            await proxy.serviceWebviewPerp.setTradeTarget({ coin });
+          } else {
+            await proxy.serviceHyperliquid.setPendingInitialTradeInstrument({
+              coin,
+              mode: 'perp',
+            });
+          }
+        } catch (error) {
+          if (perpTabShowWeb) {
+            defaultLogger.app.error.log(
+              `Failed to prepare web Perps target: ${String(error)}`,
+            );
+            return;
+          }
+        }
+        if (perpTabShowWeb) {
+          navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+          return;
         }
         navigation.switchTab(ETabRoutes.Perp);
         if (!proxy) {
@@ -52,7 +66,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
         }
       }, 80);
     },
-    [navigation, source],
+    [navigation, source, perpDisabled, perpTabShowWeb],
   );
 
   return { navigateToPerps };
