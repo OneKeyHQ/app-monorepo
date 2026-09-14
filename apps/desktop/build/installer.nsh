@@ -509,10 +509,12 @@ FunctionEnd
       Abort
     ${EndIf}
     ${If} $OneKeyModernExplicitScope != ""
+      ShowWindow $HWNDPARENT ${SW_SHOW}
       Abort
     ${EndIf}
     ${If} $OneKeyModernWasInstalled == "1"
     ${AndIf} $OneKeyModernHadPerUser != $OneKeyModernHadPerMachine
+      ShowWindow $HWNDPARENT ${SW_SHOW}
       Abort
     ${EndIf}
 
