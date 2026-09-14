@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
+
 import BigNumber from 'bignumber.js';
 
 import { XStack, useIsKeyboardShown } from '@onekeyhq/components';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const countLeadingZeroDecimals = (value: string) => {
   const num = new BigNumber(value);
@@ -81,17 +84,35 @@ export const calcPercentBalance = ({
 };
 export function PercentageStageOnKeyboard({
   onSelectPercentageStage,
+  reserveSpaceUntilKeyboardShown,
 }: {
   onSelectPercentageStage?: (stage: number) => void;
+  /** Keep the footer height stable while an auto-focused input opens the keyboard. */
+  reserveSpaceUntilKeyboardShown?: boolean;
 }) {
   const isShow = useIsKeyboardShown();
-  return isShow ? (
+  const [hasKeyboardShown, setHasKeyboardShown] = useState(false);
+
+  useEffect(() => {
+    if (isShow) {
+      setHasKeyboardShown(true);
+    }
+  }, [isShow]);
+
+  const shouldReserveSpace =
+    platformEnv.isNative && reserveSpaceUntilKeyboardShown && !hasKeyboardShown;
+  const shouldRender = isShow || shouldReserveSpace;
+
+  return shouldRender ? (
     <XStack
+      transition="quick"
       alignItems="center"
       gap="$1"
       justifyContent="space-around"
       bg="$bgSubdued"
       h="$10"
+      opacity={isShow ? 1 : 0}
+      pointerEvents={isShow ? 'auto' : 'none'}
     >
       <>
         {PercentageInputStageForNative.map((stage) => (

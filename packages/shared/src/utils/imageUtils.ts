@@ -1,5 +1,8 @@
 /* eslint-disable no-plusplus */
+import { fetch as expoFetch } from 'expo/fetch';
 import {
+  copyAsync as ExpoFSCopyAsync,
+  deleteAsync as ExpoFSDeleteAsync,
   downloadAsync as ExpoFSDownloadAsync,
   getInfoAsync as ExpoFSGetInfoAsync,
   makeDirectoryAsync as ExpoFSMakeDirectoryAsync,
@@ -24,6 +27,7 @@ import platformEnv from '../platformEnv';
 import bufferUtils from './bufferUtils';
 import { getImageEmbedBridge } from './imageUtils.embedBridge';
 
+import type { ReadingOptions } from 'expo-file-system/legacy';
 import type {
   Action as ExpoImageManipulatorAction,
   ImageResult,
@@ -35,12 +39,204 @@ type ICommonImageLogFn = (...args: string[]) => void;
 type ILocalImageUri = {
   base64Uri: string;
   nativeUri?: string; // only Native .file:/// path
+  mimeType?: string;
+  cleanup?: () => Promise<void>;
+};
+
+export type IPreparedImageForCrop = {
+  uri: string;
+  mimeType?: string;
+  cleanup?: () => Promise<void>;
 };
 
 const range = (length: number) => [...Array(length).keys()];
 
 export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
+
+// Dither images whose Otsu split falls below this confidence threshold.
+const MIN_SEPARABILITY = 0.85;
+
+// Noisy luminance can make color outliers look perfectly separable.
+const FLAT_LUMINANCE_VARIANCE = 4;
+
+type IProjection = (red: number, green: number, blue: number) => number;
+
+const CHROMA_AXES: IProjection[] = [
+  (red) => red,
+  (_red, green) => green,
+  (_red, _green, blue) => blue,
+  (red, green) => Math.round((red - green + 255) / 2),
+  (red, green, blue) => Math.round((blue - (red + green) / 2 + 255) / 2),
+];
+
+function projectPixels(data: Uint8ClampedArray, project: IProjection) {
+  const pixelCount = data.length / 4;
+  const values = new Uint8ClampedArray(pixelCount);
+  const histogram = new Array<number>(256).fill(0);
+  for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+    values[p] = project(data[i], data[i + 1], data[i + 2]);
+    histogram[values[p]] += 1;
+  }
+  return { values, histogram, pixelCount };
+}
+
+// Returns the threshold axis, polarity, and whether the split is reliable.
+export function pickThresholdAxis(data: Uint8ClampedArray) {
+  const {
+    values: luminance,
+    histogram,
+    pixelCount,
+  } = projectPixels(data, toGrayScale);
+  const brightness = otsuFromHistogram(histogram, pixelCount);
+  const cut = (values: Uint8ClampedArray, threshold: number) => ({
+    values,
+    luminance,
+    threshold,
+    canSplit: true,
+    aboveIsBrighter: isAboveThresholdBrighter(values, luminance, threshold),
+  });
+
+  if (brightness.separability >= MIN_SEPARABILITY) {
+    return cut(luminance, brightness.threshold);
+  }
+
+  // Chroma can rescue equal-luminance colors only when luminance is flat.
+  if (brightness.variance < FLAT_LUMINANCE_VARIANCE) {
+    for (const project of CHROMA_AXES) {
+      const projected = projectPixels(data, project);
+      const chroma = otsuFromHistogram(projected.histogram, pixelCount);
+      if (chroma.separability >= MIN_SEPARABILITY) {
+        return cut(projected.values, chroma.threshold);
+      }
+    }
+  }
+
+  return {
+    values: luminance,
+    luminance,
+    threshold: 128,
+    canSplit: false,
+    aboveIsBrighter: true,
+  };
+}
+
+// Atkinson's 6/8 error diffusion preserves contrast on small screens.
+export function atkinsonDither(
+  luminance: Uint8ClampedArray,
+  width: number,
+): Uint8Array {
+  const height = Math.floor(luminance.length / width);
+  const error = new Float32Array(luminance.length);
+  const out = new Uint8Array(luminance.length);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = y * width + x;
+      const value = luminance[i] + error[i];
+      const black = value < 128;
+      out[i] = black ? 0 : 255;
+      const diffused = (value - (black ? 0 : 255)) / 8;
+
+      const spread = (dx: number, dy: number) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= width || ny >= height) {
+          return;
+        }
+        error[ny * width + nx] += diffused;
+      };
+      spread(1, 0);
+      spread(2, 0);
+      spread(-1, 1);
+      spread(0, 1);
+      spread(1, 1);
+      spread(0, 2);
+    }
+  }
+  return out;
+}
+
+// Derive polarity from cluster means because projection direction may differ.
+function isAboveThresholdBrighter(
+  values: Uint8ClampedArray,
+  luminance: Uint8ClampedArray,
+  threshold: number,
+): boolean {
+  let sumAbove = 0;
+  let sumBelow = 0;
+  let countAbove = 0;
+  for (let p = 0; p < values.length; p += 1) {
+    if (values[p] > threshold) {
+      sumAbove += luminance[p];
+      countAbove += 1;
+    } else {
+      sumBelow += luminance[p];
+    }
+  }
+  const countBelow = values.length - countAbove;
+  if (countAbove === 0 || countBelow === 0) {
+    return true;
+  }
+  return sumAbove / countAbove >= sumBelow / countBelow;
+}
+
+// Only invert when white is unambiguously the majority; near 50% the Otsu
+// threshold tracks the image's own median, so the ratio is noise-sensitive.
+const INVERT_DEAD_ZONE = 0.05;
+
+// Finds Otsu's threshold and its share of total variance.
+export function otsuFromHistogram(histogram: number[], total: number) {
+  let sum = 0;
+  for (let t = 0; t < 256; t += 1) sum += t * histogram[t];
+
+  const mean = total === 0 ? 0 : sum / total;
+  let totalVariance = 0;
+  for (let t = 0; t < 256; t += 1) {
+    totalVariance += histogram[t] * (t - mean) * (t - mean);
+  }
+  totalVariance = total === 0 ? 0 : totalVariance / total;
+
+  let sumBackground = 0;
+  let weightBackground = 0;
+  let maxVariance = 0;
+  let threshold = 128;
+  for (let t = 0; t < 256; t += 1) {
+    weightBackground += histogram[t];
+    if (weightBackground !== 0) {
+      const weightForeground = total - weightBackground;
+      if (weightForeground === 0) break;
+
+      sumBackground += t * histogram[t];
+      const meanBackground = sumBackground / weightBackground;
+      const meanForeground = (sum - sumBackground) / weightForeground;
+      const betweenClassVariance =
+        (weightBackground / total) *
+        (weightForeground / total) *
+        (meanBackground - meanForeground) *
+        (meanBackground - meanForeground);
+      if (betweenClassVariance > maxVariance) {
+        maxVariance = betweenClassVariance;
+        threshold = t;
+      }
+    }
+  }
+
+  return {
+    threshold,
+    separability: totalVariance === 0 ? 0 : maxVariance / totalVariance,
+    variance: totalVariance,
+  };
+}
+
+// Reverse only when white is unambiguously the majority. Near 50% the Otsu
+// threshold tracks the image's own median, making the ratio noise-sensitive.
+export function shouldInvertForMajorityWhite(
+  whiteCount: number,
+  pixelCount: number,
+): boolean {
+  return whiteCount > pixelCount * (0.5 + INVERT_DEAD_ZONE);
+}
 
 export function getOriginX(
   originW: number,
@@ -75,7 +271,7 @@ function prefixBase64Uri(base64: string, mime: string): string {
 }
 
 function stripBase64UriPrefix(base64Uri: string): string {
-  return base64Uri.replace(/^data:image\/\w+;base64,/, '');
+  return base64Uri.replace(/^data:[^,]*;base64,/, '');
 }
 
 function convertToBlackAndWhiteImageBase64(
@@ -104,25 +300,39 @@ function convertToBlackAndWhiteImageBase64(
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
+      const pixelCount = data.length / 4;
+
+      // Prefer luminance, using chroma only for equal-luminance colors.
+      const { values, luminance, threshold, canSplit, aboveIsBrighter } =
+        pickThresholdAxis(data);
+
+      // Dither continuous tones instead of producing a blank bitmap.
+      if (!canSplit) {
+        const dithered = atkinsonDither(luminance, canvas.width);
+        for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+          data[i] = dithered[p];
+          data[i + 1] = dithered[p];
+          data[i + 2] = dithered[p];
+        }
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL(mime || 'image/jpeg'));
+        return;
+      }
 
       let whiteCount = 0;
-
-      // TODO optimize this
-      // https://github.com/trezor/homescreen-editor/blob/gh-pages/js/main.js#L234
-      for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        if (avg > 128) {
-          whiteCount += 4;
+      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+        const isAbove = values[p] > threshold;
+        const isWhite = isAbove === aboveIsBrighter;
+        const bw = isWhite ? 255 : 0;
+        if (bw === 255) {
+          whiteCount += 1;
         }
-        const bw = avg > 128 ? 255 : 0;
-        // const bw = avg > 128 ? 0 : 255;
         data[i] = bw;
         data[i + 1] = bw;
         data[i + 2] = bw;
       }
 
-      // reverse color if white part is more than half
-      if (whiteCount > data.length / 2) {
+      if (shouldInvertForMajorityWhite(whiteCount, pixelCount)) {
         for (let i = 0; i < data.length; i += 4) {
           data[i] = 255 - data[i];
           data[i + 1] = 255 - data[i + 1];
@@ -332,6 +542,7 @@ async function resizeImage(params: {
   compress?: number;
   cornerRadius?: number;
   cornerBackgroundColor?: string;
+  includeHex?: boolean;
 }): Promise<IResizeImageResult> {
   const {
     uri,
@@ -343,6 +554,7 @@ async function resizeImage(params: {
     originH,
     cornerRadius = 0,
     cornerBackgroundColor,
+    includeHex = true,
   } = params;
   if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
 
@@ -450,15 +662,58 @@ async function resizeImage(params: {
     imageResult.base64 = roundedBase64;
   }
 
-  const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
-  const hex = bufferUtils.bytesToHex(buffer);
+  const hex = includeHex
+    ? bufferUtils.bytesToHex(Buffer.from(imageResult.base64 ?? '', 'base64'))
+    : '';
   return { ...imageResult, hex };
 }
 
-/**
- * Detect MIME type from file magic bytes (file signature)
- */
-function detectMimeTypeFromMagicBytes(base64: string): string | null {
+function readBase64Bytes(base64: string, offset: number, length: number) {
+  const base64Start = Math.floor(offset / 3) * 4;
+  const byteOffset = offset - Math.floor(offset / 3) * 3;
+  const base64Length = Math.ceil((byteOffset + length) / 3) * 4;
+  return Buffer.from(
+    base64.substring(base64Start, base64Start + base64Length),
+    'base64',
+  ).subarray(byteOffset, byteOffset + length);
+}
+
+function detectPngMimeType(
+  base64: string,
+  assumeStaticWhenIncomplete: boolean,
+): 'image/apng' | 'image/png' | null {
+  let paddingLength = 0;
+  if (base64.endsWith('==')) {
+    paddingLength = 2;
+  } else if (base64.endsWith('=')) {
+    paddingLength = 1;
+  }
+  const byteLength = Math.floor((base64.length * 3) / 4) - paddingLength;
+  let offset = 8;
+
+  while (offset + 12 <= byteLength) {
+    const chunkHeader = readBase64Bytes(base64, offset, 8);
+    if (chunkHeader.length < 8) {
+      return assumeStaticWhenIncomplete ? 'image/png' : null;
+    }
+
+    const dataLength = chunkHeader.readUInt32BE(0);
+    const chunkType = chunkHeader.toString('ascii', 4, 8);
+    if (chunkType === 'acTL') return 'image/apng';
+    if (chunkType === 'IDAT' || chunkType === 'IEND') return 'image/png';
+
+    const nextOffset = offset + 12 + dataLength;
+    if (nextOffset <= offset || nextOffset > byteLength) {
+      return assumeStaticWhenIncomplete ? 'image/png' : null;
+    }
+    offset = nextOffset;
+  }
+
+  return assumeStaticWhenIncomplete ? 'image/png' : null;
+}
+
+/** Detect MIME type from file magic bytes and PNG chunk metadata. */
+export function detectMimeTypeFromMagicBytes(base64: string): string | null {
   if (!base64) return null;
 
   // Get first few bytes from base64
@@ -469,7 +724,9 @@ function detectMimeTypeFromMagicBytes(base64: string): string | null {
   // JPEG: FF D8 FF
   if (bytes.startsWith('/9j/')) return 'image/jpeg';
   // PNG: 89 50 4E 47
-  if (bytes.startsWith('iVBORw0KGgo')) return 'image/png';
+  if (bytes.startsWith('iVBORw0KGgo')) {
+    return detectPngMimeType(base64, true);
+  }
   // GIF: 47 49 46 38
   if (bytes.startsWith('R0lGOD')) return 'image/gif';
   // WebP: RIFF....WEBP
@@ -494,6 +751,132 @@ function detectMimeTypeFromMagicBytes(base64: string): string | null {
   if (bytes.startsWith('GkXfo')) return 'video/webm';
 
   return null;
+}
+
+export function getImageMimeTypeFromBase64Uri(base64Uri: string) {
+  const declaredMimeType = base64Uri.match(/^data:([^;,]+)/u)?.[1];
+  const detectedMimeType = detectMimeTypeFromMagicBytes(
+    stripBase64UriPrefix(base64Uri),
+  );
+  return detectedMimeType || declaredMimeType;
+}
+
+const IMAGE_MIME_PROBE_MAX_BYTES = 64 * 1024;
+
+function detectMimeTypeFromProbeBytes(bytes: Uint8Array) {
+  const base64 = Buffer.from(bytes).toString('base64');
+  if (base64.startsWith('iVBORw0KGgo')) {
+    return detectPngMimeType(base64, false);
+  }
+  return detectMimeTypeFromMagicBytes(base64);
+}
+
+async function readResponsePrefix(response: Response) {
+  const reader = response.body?.getReader();
+  if (reader) {
+    const chunks: Uint8Array[] = [];
+    let byteLength = 0;
+    try {
+      while (byteLength < IMAGE_MIME_PROBE_MAX_BYTES) {
+        const result = await reader.read();
+        if (result.done) break;
+        const remaining = IMAGE_MIME_PROBE_MAX_BYTES - byteLength;
+        const chunk = result.value.slice(0, remaining);
+        chunks.push(chunk);
+        byteLength += chunk.length;
+        if (chunk.length < result.value.length) break;
+      }
+    } finally {
+      await reader.cancel().catch(() => undefined);
+    }
+
+    const bytes = new Uint8Array(byteLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return bytes;
+  }
+
+  const contentLengthHeader = response.headers.get('content-length');
+  const contentLength = contentLengthHeader
+    ? Number(contentLengthHeader)
+    : Number.NaN;
+  const isBoundedResponse =
+    Number.isFinite(contentLength) &&
+    contentLength <= IMAGE_MIME_PROBE_MAX_BYTES;
+  if (!isBoundedResponse) return undefined;
+
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength > IMAGE_MIME_PROBE_MAX_BYTES) return undefined;
+  return new Uint8Array(buffer);
+}
+
+async function probeImageMimeTypeNative(uri: string, signal?: AbortSignal) {
+  if (signal?.aborted) return undefined;
+
+  const controller = new AbortController();
+  const handleAbort = () => controller.abort();
+  signal?.addEventListener('abort', handleAbort);
+  if (signal?.aborted) controller.abort();
+  try {
+    const response = await expoFetch(uri, {
+      headers: {
+        Range: `bytes=0-${IMAGE_MIME_PROBE_MAX_BYTES - 1}`,
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) return undefined;
+
+    const bytes = await readResponsePrefix(response);
+    if (!bytes?.length) return undefined;
+
+    return detectMimeTypeFromProbeBytes(bytes) || undefined;
+  } finally {
+    signal?.removeEventListener('abort', handleAbort);
+    controller.abort();
+  }
+}
+
+/**
+ * Probe only the leading bytes needed for media-type detection. Native uses a
+ * cancellable streaming request; all platforms stop after the bounded prefix,
+ * so NFT details never preload or download the full asset.
+ */
+export async function probeImageMimeType(uri: string, signal?: AbortSignal) {
+  if (isBase64Uri(uri)) {
+    return getImageMimeTypeFromBase64Uri(uri);
+  }
+
+  if (platformEnv.isNative) {
+    try {
+      return await probeImageMimeTypeNative(uri, signal);
+    } catch {
+      return undefined;
+    }
+  }
+
+  const controller = signal ? undefined : new AbortController();
+  try {
+    const response = await fetch(uri, {
+      headers: {
+        Range: `bytes=0-${IMAGE_MIME_PROBE_MAX_BYTES - 1}`,
+      },
+      signal: signal ?? controller?.signal,
+    });
+    if (!response.ok) return undefined;
+
+    const bytes = await readResponsePrefix(response);
+    if (!bytes?.length) return undefined;
+
+    const detectedMimeType = detectMimeTypeFromProbeBytes(bytes);
+    return detectedMimeType || undefined;
+  } catch {
+    return undefined;
+  } finally {
+    controller?.abort();
+  }
 }
 
 function getBlacklistByMimetype(mimetype: string) {
@@ -551,7 +934,7 @@ function detectFileFormatFromUri(uri: string): {
 }
 
 async function getRNLocalImageBase64({
-  nativeModuleId: _nativeModuleId,
+  nativeModuleId,
   uri,
   logFn,
 }: {
@@ -560,18 +943,14 @@ async function getRNLocalImageBase64({
   logFn?: ICommonImageLogFn;
 }) {
   const errors: string[] = [];
-  let downloadedUri: string | undefined | null;
-  let downloadedUri1: string | undefined | null;
-  let downloadedUri2: string | undefined | null;
   let base64a: string | undefined;
-  let base64a1: string | undefined;
   let base64b: string | undefined;
   let base64c: string | undefined;
   let base64d: string | undefined;
 
   // **** use expo-file-system
   try {
-    base64a = await ExpoFSReadAsStringAsync(uri, {
+    base64a = await readAsStringAsync(nativeModuleId ?? uri, {
       encoding: 'base64',
     });
   } catch (error) {
@@ -580,32 +959,6 @@ async function getRNLocalImageBase64({
       (error as Error)?.message || '',
     );
   }
-
-  // **** use expo-asset
-  // https://stackoverflow.com/a/77425150
-  //
-  // if (isNumber(nativeModuleId)) {
-  //   try {
-  //     const loadAsyncResult = await Asset.loadAsync(nativeModuleId);
-  //     downloadedUri = loadAsyncResult?.[0]?.localUri;
-  //     downloadedUri1 = (loadAsyncResult || [])
-  //       .map((item) => item?.uri || '')
-  //       .join(',');
-  //     downloadedUri2 = (loadAsyncResult || [])
-  //       .map((item) => item?.localUri || '')
-  //       .join(',');
-  //     if (downloadedUri) {
-  //       base64a1 = await ExpoFSReadAsStringAsync(downloadedUri, {
-  //         encoding: 'base64',
-  //       });
-  //     }
-  //   } catch (error) {
-  //     errors.push(
-  //       'ExpoFSReadAsStringAsync downloadedUri error',
-  //       (error as Error)?.message || '',
-  //     );
-  //   }
-  // }
 
   // **** use react-native-image-base64
   // import RNImgToBase64 from 'react-native-image-base64';
@@ -635,20 +988,16 @@ async function getRNLocalImageBase64({
   // }
 
   logFn?.('getRNLocalImageBase64 errors', errors.join('  |||   '));
-  logFn?.('getRNLocalImageBase64 uris', uri, downloadedUri || '', uri2 || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri', downloadedUri || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri1', downloadedUri1 || '');
-  logFn?.('getRNLocalImageBase64 downloadedUri2', downloadedUri2 || '');
+  logFn?.('getRNLocalImageBase64 uris', uri, uri2 || '');
   logFn?.(
     'getRNLocalImageBase64 base64',
     base64a || '',
-    base64a1 || '',
     base64b || '',
     base64c || '',
     base64d || '',
   );
 
-  const base64 = base64a || base64a1 || base64b || base64c || base64d;
+  const base64 = base64a || base64b || base64c || base64d;
   if (!base64) {
     throw new OneKeyLocalError('getRNLocalImageBase64 failed');
   }
@@ -712,6 +1061,7 @@ async function nativeSaveBaseUriToCache({
 }): Promise<{
   uri: string;
   mimetype?: string;
+  cleanup?: () => Promise<void>;
 }> {
   const timestamp = Date.now();
   const random = Math.floor(Math.random() * 10_000);
@@ -722,19 +1072,45 @@ async function nativeSaveBaseUriToCache({
 
   let newUri = uri;
   let mimetype;
+  let cleanup: (() => Promise<void>) | undefined;
   if (isHttpUri(uri)) {
     logFn?.('(native) download remote image', savedPath, uri);
 
-    // eslint-disable-next-line no-param-reassign
-    const result = await ExpoFSDownloadAsync(uri, savedPath);
-    mimetype = result.headers?.['content-type'];
-    newUri = result.uri;
+    cleanup = createNativeCacheCleanup(savedPath);
+    try {
+      // eslint-disable-next-line no-param-reassign
+      const result = await ExpoFSDownloadAsync(uri, savedPath);
+      mimetype = result.headers?.['content-type'];
+      newUri = result.uri;
+    } catch (error) {
+      await cleanup();
+      throw error;
+    }
     logFn?.('(native) download to local uri', uri);
   } else if (isBase64Uri(uri)) {
-    newUri = await nativeSaveBase64ToCache({ uri, savedPath, logFn });
+    cleanup = createNativeCacheCleanup(savedPath);
+    try {
+      newUri = await nativeSaveBase64ToCache({ uri, savedPath, logFn });
+    } catch (error) {
+      await cleanup();
+      throw error;
+    }
   }
 
-  return { uri: newUri, mimetype };
+  return { uri: newUri, mimetype, cleanup };
+}
+
+function createNativeCacheCleanup(uri: string) {
+  let cleaned = false;
+  return async () => {
+    if (cleaned) return;
+    cleaned = true;
+    try {
+      await ExpoFSDeleteAsync(uri, { idempotent: true });
+    } catch {
+      // Cleanup is best-effort and must not replace the original result.
+    }
+  };
 }
 
 async function getBase64FromImageUriNative({
@@ -746,6 +1122,7 @@ async function getBase64FromImageUriNative({
   uri: string;
   logFn?: ICommonImageLogFn;
 }): Promise<ILocalImageUri | undefined> {
+  let cleanup: (() => Promise<void>) | undefined;
   try {
     // Try to detect format from URI first
     const formatInfo = detectFileFormatFromUri(uri);
@@ -759,6 +1136,7 @@ async function getBase64FromImageUriNative({
       // eslint-disable-next-line no-param-reassign
       uri = res.uri;
       downloadMimeType = res.mimetype;
+      cleanup = res.cleanup;
     }
 
     const base64 = await getRNLocalImageBase64({
@@ -771,7 +1149,9 @@ async function getBase64FromImageUriNative({
     // Detect actual MIME type from file content (magic bytes)
     const detectedMimeType = detectMimeTypeFromMagicBytes(base64);
     const finalMimeType =
-      downloadMimeType || detectedMimeType || formatInfo.mimeType;
+      detectedMimeType ||
+      downloadMimeType?.split(';')[0] ||
+      formatInfo.mimeType;
 
     // Check if it's a video format
     const blockMimetype = getBlacklistByMimetype(finalMimeType);
@@ -792,8 +1172,11 @@ async function getBase64FromImageUriNative({
     return {
       base64Uri,
       nativeUri: platformEnv.isNative ? uri : undefined,
+      mimeType: finalMimeType,
+      cleanup,
     };
   } catch (error) {
+    await cleanup?.();
     logFn?.(
       '(native) local uri to base64 ERROR',
       uri,
@@ -823,8 +1206,9 @@ async function getBase64FromImageUriWeb(
           readerResult = await convertSvgToJpegBase64(readerResult);
         }
 
+        const mimeType = getImageMimeTypeFromBase64Uri(readerResult);
         // readerResult is base64 string with mime prefix
-        resolve({ base64Uri: readerResult });
+        resolve({ base64Uri: readerResult, mimeType });
       };
       reader.onerror = reject;
       reader.readAsDataURL(blob);
@@ -848,7 +1232,10 @@ async function getBase64FromImageUri({
   }
 
   if (isBase64Uri(uri)) {
-    return { base64Uri: uri };
+    return {
+      base64Uri: uri,
+      mimeType: getImageMimeTypeFromBase64Uri(uri),
+    };
   }
 
   if (platformEnv.isNative) {
@@ -911,6 +1298,73 @@ async function getUriFromRequiredImageSource(
   return source?.uri;
 }
 
+let androidBundledResourceCopySequence = 0;
+
+/**
+ * Read a URI or a React Native `require()` asset as a string.
+ *
+ * Android release bundles resolve `require()` assets to drawable resource
+ * identifiers without a URI scheme. Expo FileSystem can copy those resources,
+ * but its Base64 reader only accepts URI-backed input streams.
+ */
+export async function readAsStringAsync(
+  source: ImageSourcePropType | string,
+  options?: ReadingOptions,
+): Promise<string> {
+  const uri = await getUriFromRequiredImageSource(source);
+  if (!uri) {
+    throw new OneKeyLocalError('Failed to resolve file source');
+  }
+
+  // `require('./image.png')` returns a numeric Metro asset ID on React
+  // Native. In Android release builds, `resolveAssetSource()` maps that ID to
+  // a compiled drawable resource name without a URI scheme. There is no full
+  // path to construct because the image lives in the APK resource table.
+  //
+  // expo-file-system's legacy Android implementation already handles such
+  // resource names for non-Base64 reads through `openResourceInputStream`.
+  // Its Base64 branch instead uses `getInputStream`, which rejects a null
+  // scheme. Detect that known limitation before calling into native code so
+  // an expected exception is not used as normal control flow. Requiring a
+  // numeric source also prevents arbitrary scheme-less paths from being
+  // mistaken for packaged drawable resources.
+  const shouldCopyAndroidBundledResource =
+    platformEnv.isNativeAndroid &&
+    isNumber(source) &&
+    !uri.includes(':') &&
+    options?.encoding === 'base64';
+
+  if (!shouldCopyAndroidBundledResource) {
+    return ExpoFSReadAsStringAsync(uri, options);
+  }
+
+  const cacheDir = await getNativeCacheDirectory();
+  androidBundledResourceCopySequence += 1;
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+  // The sequence makes concurrent calls unique within one JS runtime, even if
+  // their timestamp and random value happen to match. Android main and bg use
+  // isolated JS runtimes, so their counters are not shared; the timestamp and
+  // wide random component make collisions across those runtimes negligible.
+  // This matters because both runtimes share the native cache directory: a
+  // collision could let one call overwrite or delete another call's file.
+  const copiedUri = `${cacheDir}bundled-resource-${source}-${timestamp}-${random}-${androidBundledResourceCopySequence}`;
+
+  try {
+    // Materialize the APK drawable as a regular file URI, which the Base64
+    // reader can consume without needing to understand Android resources.
+    await ExpoFSCopyAsync({ from: uri, to: copiedUri });
+    return await ExpoFSReadAsStringAsync(copiedUri, options);
+  } finally {
+    try {
+      await ExpoFSDeleteAsync(copiedUri, { idempotent: true });
+    } catch {
+      // Cleanup is best-effort: a deletion failure must not replace either a
+      // successful read result or the original copy/read error.
+    }
+  }
+}
+
 async function getBase64FromRequiredImageSource(
   source: ImageSourcePropType | string | undefined,
   logFn?: ICommonImageLogFn,
@@ -923,16 +1377,20 @@ async function getBase64FromRequiredImageSource(
     logFn,
   });
 
-  if (!imageUri?.base64Uri) {
-    return undefined;
+  try {
+    if (!imageUri?.base64Uri) {
+      return undefined;
+    }
+    return imageUri.base64Uri;
+  } finally {
+    await imageUri?.cleanup?.();
   }
-  return imageUri.base64Uri;
 }
 
-async function prepareImageForCrop(
+async function prepareImageForCropWithInfo(
   source: ImageSourcePropType | string | undefined,
   logFn?: ICommonImageLogFn,
-): Promise<string | undefined> {
+): Promise<IPreparedImageForCrop> {
   // Get source URI first
   const uri = await getUriFromRequiredImageSource(source, logFn);
   logFn?.('prepareImageForCrop uri', uri || '');
@@ -950,10 +1408,25 @@ async function prepareImageForCrop(
 
   // Validate platform-specific requirements
   if (platformEnv.isNative) {
-    return imageUri.nativeUri;
+    if (!imageUri.nativeUri) {
+      throw new OneKeyLocalError('Failed to prepare native image source');
+    }
+    return {
+      uri: imageUri.nativeUri,
+      mimeType: imageUri.mimeType,
+      cleanup: imageUri.cleanup,
+    };
   }
 
-  return imageUri.base64Uri;
+  return { uri: imageUri.base64Uri, mimeType: imageUri.mimeType };
+}
+
+async function prepareImageForCrop(
+  source: ImageSourcePropType | string | undefined,
+  logFn?: ICommonImageLogFn,
+): Promise<string | undefined> {
+  const preparedImage = await prepareImageForCropWithInfo(source, logFn);
+  return preparedImage.uri;
 }
 
 function canvasImageDataToBitmap({
@@ -1149,6 +1622,7 @@ export default {
   stripBase64UriPrefix,
   convertToBlackAndWhiteImageBase64,
   getUriFromRequiredImageSource,
+  readAsStringAsync,
   getBase64FromRequiredImageSource,
   getBase64FromImageUri,
   base64ImageToBitmap,
@@ -1156,5 +1630,7 @@ export default {
   getBase64ImageFromUrl,
   applyRoundedCorners,
   prepareImageForCrop,
+  prepareImageForCropWithInfo,
+  probeImageMimeType,
   base64ImageToBlob,
 };

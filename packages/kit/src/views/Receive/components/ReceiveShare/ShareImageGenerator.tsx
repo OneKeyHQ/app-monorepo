@@ -6,10 +6,12 @@ import {
   useRef,
 } from 'react';
 
-import QRCodeUtil from 'qrcode';
-
 import { Stack } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
+import {
+  drawDotQRCodeOnCanvas,
+  drawRoundedRect,
+} from '@onekeyhq/kit/src/utils/qrCodeCanvas';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -61,31 +63,6 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
     img.onerror = () => resolve(null);
     img.src = src;
   });
-}
-
-function drawRoundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(x, y, width, height, radius);
-  } else {
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-  }
 }
 
 function wrapText(
@@ -415,20 +392,17 @@ export const ShareImageGenerator = memo(
           const qrX = cellX + (cellWidth - qr.size) / 2;
           const qrY = qrCellY + qr.cellPaddingY;
           try {
-            const qrCodeDataUrl = await QRCodeUtil.toDataURL(address, {
-              width: qr.size * CANVAS_SCALE,
-              margin: 0,
+            await drawDotQRCodeOnCanvas(ctx, {
+              value: address,
+              x: qrX,
+              y: qrY,
+              size: qr.size,
               // high error correction: the center plate occludes part of the code
-              errorCorrectionLevel: 'H',
-              color: {
-                dark: '#000000',
-                light: '#FFFFFF',
-              },
+              ecl: 'H',
+              // dots under the plate are cleared like the on-screen code; skip
+              // when the logo failed to load and no plate will be drawn
+              clearPlateSize: tokenLogoImg ? qr.logoPlateSize : undefined,
             });
-            const qrCodeImg = await loadImage(qrCodeDataUrl);
-            if (qrCodeImg) {
-              ctx.drawImage(qrCodeImg, qrX, qrY, qr.size, qr.size);
-            }
 
             // center token logo on a white plate; skip entirely if the logo
             // failed to load (CORS/404) so the QR stays clean and scannable
@@ -597,10 +571,14 @@ export const ShareImageGenerator = memo(
       useImperativeHandle(ref, () => ({ generate }));
 
       return (
+        // top must also be offscreen: an absolute box hanging below the fold
+        // (top: 0 + tall canvas) extends the scrollable overflow area of the
+        // Page ScrollView, adding phantom scroll distance (OK-58185). Overflow
+        // above/left of the origin is unreachable and adds none.
         <Stack
           position="absolute"
           left={-9999}
-          top={0}
+          top={-9999}
           opacity={0}
           pointerEvents="none"
           zIndex={-1}

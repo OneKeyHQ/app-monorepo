@@ -27,7 +27,6 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { MorphoUSDCVaultAddress } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -51,6 +50,12 @@ import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 import { EarnTestIDs } from '../testIDs';
+import {
+  type IPortfolioClaimProtocolIdentity,
+  type IPortfolioClaimSourceCandidate,
+  resolvePortfolioClaimProtocolIdentity,
+  resolveUniquePortfolioClaimSourceIdentity,
+} from '../utils/portfolioClaimUtils';
 
 import type {
   IRefreshOptions,
@@ -98,6 +103,12 @@ const getRewardButtonToken = (button: IWrappedActionButton) => {
   return button.data.token;
 };
 
+// The symbol a claim button pays out, matched against the pending claim's
+// receive token so only that reward's button spins (OK-62924). Undefined for a
+// button without a token keeps the vault-wide match.
+const getRewardButtonSymbol = (button: IWrappedActionButton) =>
+  getRewardButtonToken(button)?.info?.symbol;
+
 const getRewardButtonDisabled = (button: IWrappedActionButton) => {
   return 'disabled' in button ? button.disabled : undefined;
 };
@@ -137,17 +148,15 @@ const usePortfolioPendingTxs = () => useContext(PortfolioPendingTxsContext);
 const WrappedActionButtonCmp = ({
   asset,
   reward,
-  stakedSymbol,
+  claimSourceIdentity,
   rewardSymbol,
-  stakedVault,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
     | IEarnPortfolioInvestment['airdropAssets'][number];
   reward: IWrappedActionReward;
-  stakedSymbol?: string;
+  claimSourceIdentity?: IPortfolioClaimProtocolIdentity | null;
   rewardSymbol?: string;
-  stakedVault?: string;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -161,39 +170,56 @@ const WrappedActionButtonCmp = ({
   const isMorphoProvider = earnUtils.isMorphoProvider({
     providerName,
   });
-  const isPendleProvider = earnUtils.isPendleProvider({
+  const isAirdrop = 'airdropAssets' in asset;
+  const claimIdentity = resolvePortfolioClaimProtocolIdentity({
+    isAirdrop,
     providerName,
+    assetSymbol: asset.token.info.symbol,
+    assetVault: asset.metadata.protocol.vault,
+    claimSymbol: isAirdrop ? asset.metadata.protocol.claimSymbol : undefined,
+    claimSymbolStatus: isAirdrop
+      ? asset.metadata.protocol.claimSymbolStatus
+      : undefined,
+    sourceIdentity: claimSourceIdentity,
   });
+  const isClaimIdentityUnavailable = claimIdentity === null;
+  const symbolForConfig = claimIdentity?.symbol || '';
+  const vaultForConfig = claimIdentity?.vault;
+  const stakedSymbolForRefresh = isAirdrop
+    ? claimSourceIdentity?.symbol || claimIdentity?.symbol
+    : undefined;
 
-  // Default airdrop claims reuse the source position's symbol/vault, but some
-  // providers expose rewards as their own backend asset (for example Pendle's
-  // Ethena unstake claim), so we normalize those separately below.
-  let symbolForConfig = stakedSymbol || asset.token.info.symbol;
-  let vaultForConfig = stakedVault || asset.metadata.protocol.vault;
-  if (isMorphoProvider) {
-    symbolForConfig = 'USDC';
-    vaultForConfig = MorphoUSDCVaultAddress;
-  } else if (isPendleProvider) {
-    // Pendle Ethena-unstake rewards have their own protocol identity on the
-    // backend, so don't reuse the original staked position's symbol/vault.
-    symbolForConfig = asset.token.info.symbol;
-    vaultForConfig = asset.metadata.protocol.vault;
-  }
-
-  const stakeTag = buildLocalTxStatusSyncId({
-    providerName: asset.metadata.protocol.providerDetail.code,
-    tokenSymbol: symbolForConfig,
-    protocolVault: vaultForConfig,
-  });
+  const stakeTag = claimIdentity
+    ? buildLocalTxStatusSyncId({
+        providerName: asset.metadata.protocol.providerDetail.code,
+        tokenSymbol: symbolForConfig,
+        protocolVault: vaultForConfig,
+      })
+    : undefined;
 
   const pendingTxsFilter = useCallback(
     (tx: IStakePendingTx) => {
-      return (
-        [EEarnLabels.Claim].includes(tx.stakingInfo.label) &&
-        tx.stakingInfo.tags?.includes(stakeTag)
-      );
+      if (!stakeTag) {
+        return false;
+      }
+      if (
+        ![EEarnLabels.Claim].includes(tx.stakingInfo.label) ||
+        !tx.stakingInfo.tags?.includes(stakeTag)
+      ) {
+        return false;
+      }
+      // A vault can pay more than one reward token (Morpho on Katana pays
+      // MORPHO and KAT), and the tag is per vault: a MORPHO claim in flight
+      // put a spinner on the KAT button as well (OK-62924). Match the token
+      // the pending claim receives; a claim recorded without one keeps the
+      // vault-wide match.
+      const pendingRewardSymbol = tx.stakingInfo.receive?.token?.symbol;
+      if (pendingRewardSymbol && rewardSymbol) {
+        return pendingRewardSymbol.toLowerCase() === rewardSymbol.toLowerCase();
+      }
+      return true;
     },
-    [stakeTag],
+    [stakeTag, rewardSymbol],
   );
   const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
@@ -223,6 +249,10 @@ const WrappedActionButtonCmp = ({
   });
 
   const onPress = useCallback(() => {
+    if (isClaimIdentityUnavailable) {
+      return;
+    }
+
     // Only Morpho reward claims need the backend reward token selector.
     const rewardTokenAddress =
       isMorphoProvider &&
@@ -240,7 +270,7 @@ const WrappedActionButtonCmp = ({
       rewardTokenAddress,
       claimRequestType,
       indexedAccountId: indexedAccount?.id,
-      stakedSymbol,
+      stakedSymbol: stakedSymbolForRefresh,
       rewardSymbol,
     });
   }, [
@@ -249,12 +279,14 @@ const WrappedActionButtonCmp = ({
     asset,
     isMorphoProvider,
     indexedAccount?.id,
-    stakedSymbol,
+    stakedSymbolForRefresh,
     rewardSymbol,
+    isClaimIdentityUnavailable,
   ]);
   const isDesktopLayout = useIsDesktopLayout();
 
-  const buttonDisabled = getRewardButtonDisabled(reward.button);
+  const buttonDisabled =
+    isClaimIdentityUnavailable || getRewardButtonDisabled(reward.button);
   const buttonText = getRewardButtonText(reward.button);
 
   if (!buttonText) {
@@ -483,7 +515,11 @@ const AssetStatusField = ({
               <EarnTooltip tooltip={status.tooltip} />
             </XStack>
             {actionableStatus ? (
-              <WrappedActionButton asset={asset} reward={actionableStatus} />
+              <WrappedActionButton
+                asset={asset}
+                reward={actionableStatus}
+                rewardSymbol={getRewardButtonSymbol(actionableStatus.button)}
+              />
             ) : null}
           </XStack>
         );
@@ -533,12 +569,27 @@ const ActionField = ({
               <EarnTooltip tooltip={reward.tooltip} />
             </XStack>
           ) : null}
-          <WrappedActionButton asset={asset} reward={reward} />
+          <WrappedActionButton
+            asset={asset}
+            reward={reward}
+            rewardSymbol={getRewardButtonSymbol(reward.button)}
+          />
         </Stack>
       ))}
     </FieldWrapper>
   );
 };
+
+// iOS never paints the hairline border a vertical Divider draws on its
+// zero-width Separator, so the phone showed no rule between a provider's name
+// and its value, nor between a row's amount and its label (OK-62926). Native
+// gets a filled 1pt line; web and desktop keep the Divider they already render.
+const VerticalRule = ({ mx }: { mx: '$1' | '$3' }) =>
+  platformEnv.isNative ? (
+    <Stack w={1} h="$5" mx={mx} bg="$border" />
+  ) : (
+    <Divider vertical h="$5" mx={mx} />
+  );
 
 const PositionValueField = ({ totalFiatValue }: { totalFiatValue: string }) => {
   const currencyInfo = useCurrency();
@@ -580,7 +631,7 @@ const ProtocolHeader = ({
         <SizableText size="$headingLg">
           {portfolioItem.protocol.providerDetail.name}
         </SizableText>
-        <Divider bg="$headingSm" vertical mx="$3" height="$5" width="$1" />
+        <VerticalRule mx="$3" />
         <XStack ai="center" gap="$1">
           <NumberSizeableText
             size="$headingLg"
@@ -617,13 +668,11 @@ const buildRewardPairs = (items: IAirdropRewardItem[]) => {
 
 const ProtocolAirdrop = ({
   airdropAssets,
-  stakedSymbol,
-  stakedVault,
+  claimSourceCandidates,
   isPendle,
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
-  stakedSymbol?: string;
-  stakedVault?: string;
+  claimSourceCandidates: IPortfolioClaimSourceCandidate[];
   isPendle?: boolean;
 }) => {
   const intl = useIntl();
@@ -660,6 +709,13 @@ const ProtocolAirdrop = ({
       </SizableText>
       <YStack w="100%" gap="$4">
         {rows.map(({ key, pair, group }) => {
+          const claimSourceIdentity = resolveUniquePortfolioClaimSourceIdentity(
+            {
+              networkId: group.metadata.network.networkId,
+              providerName: group.metadata.protocol.providerDetail.code,
+              candidates: claimSourceCandidates,
+            },
+          );
           const primaryTitle = pair.primary?.title;
           const primaryDescription = pair.primary?.description;
           const hasSecondary = Boolean(pair.secondary);
@@ -673,8 +729,7 @@ const ProtocolAirdrop = ({
             <WrappedActionButton
               asset={group}
               reward={actionReward}
-              stakedSymbol={stakedSymbol}
-              stakedVault={stakedVault}
+              claimSourceIdentity={claimSourceIdentity}
               rewardSymbol={group.token.info.symbol}
             />
           ) : null;
@@ -755,7 +810,7 @@ const ProtocolAirdrop = ({
                 ) : null}
               </XStack>
               {actionButtonNode}
-              {hasSecondary ? <Divider vertical h="$5" mx="$1" /> : null}
+              {hasSecondary ? <VerticalRule mx="$1" /> : null}
               {secondaryDescription ? (
                 <EarnText
                   size={secondaryTextSize}
@@ -1013,6 +1068,9 @@ const PortfolioItemComponent = ({
                                 <WrappedActionButton
                                   asset={asset}
                                   reward={actionableStatus}
+                                  rewardSymbol={getRewardButtonSymbol(
+                                    actionableStatus.button,
+                                  )}
                                 />
                               ) : null}
                             </XStack>
@@ -1037,6 +1095,9 @@ const PortfolioItemComponent = ({
                             <WrappedActionButton
                               asset={asset}
                               reward={reward}
+                              rewardSymbol={getRewardButtonSymbol(
+                                reward.button,
+                              )}
                             />
                           </XStack>
                         ))}
@@ -1133,8 +1194,12 @@ const PortfolioItemComponent = ({
         ) : null}
         <ProtocolAirdrop
           airdropAssets={portfolioItem.airdropAssets}
-          stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
-          stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
+          claimSourceCandidates={portfolioItem.assets.map((asset) => ({
+            networkId: asset.metadata.network.networkId,
+            providerName: asset.metadata.protocol.providerDetail.code,
+            symbol: asset.token.info.symbol,
+            vault: asset.metadata.protocol.vault,
+          }))}
           isPendle={isPendle}
         />
       </YStack>

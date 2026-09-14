@@ -9,7 +9,10 @@ export const KeyTagTestIDs = {
   enterRecoveryPhraseItem: 'keytag-enter-recovery-phrase-item',
 
   // --- Backup Dot Map ---
-  helpBtn: 'keytag-help-btn',
-  backupConfirmCheckbox: 'keytag-backup-confirm-checkbox',
   gotItBtn: 'keytag-got-it-btn',
+  backupFlipNextBtn: 'keytag-backup-flip-next-btn',
+  backupFlipBackBtn: 'keytag-backup-flip-back-btn',
+  verifyStartBtn: 'keytag-verify-start-btn',
+  verifyConfirmBtn: 'keytag-verify-confirm-btn',
+  verifyDoneBtn: 'keytag-verify-done-btn',
 } as const;

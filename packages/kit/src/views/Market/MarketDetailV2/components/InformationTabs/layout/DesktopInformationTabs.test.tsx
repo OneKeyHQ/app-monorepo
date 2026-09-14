@@ -14,6 +14,7 @@ const mockScrollTransactionsToTop = jest.fn();
 const mockHandleTabChange = jest.fn();
 const mockHandleRealtimePauseHoverIn = jest.fn();
 const mockHandleRealtimePauseHoverOut = jest.fn();
+let mockHoldersTabSupported = false;
 const mockTokenDetailState = {
   tokenAddress: '0xabc',
   networkId: 'evm--1',
@@ -40,6 +41,7 @@ jest.mock('react-native-svg', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
   const Box = ({
     children,
     onMouseEnter,
@@ -89,15 +91,61 @@ jest.mock('@onekeyhq/components', () => {
         renderTabBar,
       }: {
         children?: ReactNode;
-        renderTabBar: (props: { tabNames: string[] }) => ReactNode;
+        renderTabBar: (props: {
+          tabNames: string[];
+          focusedTab: { value: string };
+          onTabPress: (name: string) => void;
+        }) => ReactNode;
+      }) => {
+        const tabNames = React.Children.toArray(children).flatMap((child) =>
+          React.isValidElement<{ name?: string }>(child) && child.props.name
+            ? [child.props.name]
+            : [],
+        );
+        return (
+          <div>
+            {renderTabBar({
+              tabNames,
+              focusedTab: { value: tabNames[0] ?? '' },
+              onTabPress: jest.fn(),
+            })}
+            {children}
+          </div>
+        );
+      },
+      Tab: ({ children }: { children?: ReactNode; name: string }) => (
+        <div>{children}</div>
+      ),
+      TabBar: ({
+        renderItem,
+        tabNames,
+      }: {
+        renderItem: (props: {
+          name: string;
+          isFocused: boolean;
+          onPress: (name: string) => void;
+        }) => ReactNode;
+        tabNames: string[];
       }) => (
-        <div>
-          {renderTabBar({ tabNames: ['Transactions', 'Portfolio'] })}
-          {children}
+        <div data-testid="tab-bar">
+          {tabNames.map((name, index) =>
+            React.createElement(
+              React.Fragment,
+              { key: name },
+              renderItem({
+                name,
+                isFocused: index === 0,
+                onPress: jest.fn(),
+              }),
+            ),
+          )}
         </div>
       ),
-      Tab: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-      TabBar: () => <div data-testid="tab-bar" />,
+      TabBarItem: ({ label, name }: { label?: string; name: string }) => (
+        <span data-testid={`tab-bar-item-${name}`} data-name={name}>
+          {label ?? name}
+        </span>
+      ),
       ScrollView: ({ children }: { children?: ReactNode }) => (
         <div>{children}</div>
       ),
@@ -123,7 +171,7 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/consts/marketConsts', () => ({
-  isHoldersTabSupported: () => false,
+  isHoldersTabSupported: () => mockHoldersTabSupported,
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -196,6 +244,7 @@ describe('DesktopInformationTabs', () => {
     mockHandleTabChange.mockReset();
     mockHandleRealtimePauseHoverIn.mockReset();
     mockHandleRealtimePauseHoverOut.mockReset();
+    mockHoldersTabSupported = false;
   });
 
   it('resumes realtime updates and scrolls to top when the updates pill is clicked', () => {
@@ -231,5 +280,16 @@ describe('DesktopInformationTabs', () => {
     render(<DesktopInformationTabs portfolioData={[]} />);
 
     expect(screen.queryByText('liquidity-pools')).toBeNull();
+  });
+
+  it('keeps the holders tab identity stable when its count label loads', () => {
+    mockHoldersTabSupported = true;
+    Object.assign(mockTokenDetailState, { tokenDetail: { holders: 123 } });
+
+    render(<DesktopInformationTabs portfolioData={[]} />);
+
+    const holdersTab = screen.getByTestId('tab-bar-item-dexmarket.holders');
+    expect(holdersTab.getAttribute('data-name')).toBe('dexmarket.holders');
+    expect(holdersTab.textContent).toBe('dexmarket.holders (123)');
   });
 });

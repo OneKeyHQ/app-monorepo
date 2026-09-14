@@ -9,6 +9,7 @@ import {
 import type {
   IBackupCloudServerDownloadData,
   IBackupDataEncryptedPayload,
+  IBackupDataExportArchive,
   IBackupProviderInfo,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -396,6 +397,47 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async exportBackupArchive(params: {
+    recordId: string;
+    password: string;
+  }): Promise<IBackupDataExportArchive> {
+    if (!params.recordId || !params.password) {
+      throw new OneKeyLocalError('Backup record ID and password are required');
+    }
+    const backup = await this.download({ recordId: params.recordId });
+    if (!backup?.payload?.privateDataEncrypted) {
+      throw new OneKeyLocalError('Backup data is empty');
+    }
+    const privateData = await this.restorePreparePrivateData({
+      payload: backup.payload,
+      password: params.password,
+    });
+    const hasWrappedCredentials = Object.keys(
+      privateData.credentials || {},
+    ).some((id) => !privateData.decryptedCredentials?.[id]);
+    if (
+      hasWrappedCredentials ||
+      privateData.decryptedCredentialsHex ||
+      privateData.cliBotWalletEncryptedCredential
+    ) {
+      throw new OneKeyLocalError(
+        'This backup contains additional encrypted credentials and cannot be exported as plaintext',
+      );
+    }
+    const { createBackupExportArchive } =
+      await import('./createBackupExportArchive');
+    // Only the encrypted archive crosses the background runtime boundary.
+    return createBackupExportArchive({
+      privateData: { ...privateData, credentials: {} },
+      publicData: backup.payload.publicData,
+      isEmptyData: backup.payload.isEmptyData,
+      isWatchingOnly: backup.payload.isWatchingOnly,
+      appVersion: backup.payload.appVersion,
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async restorePreparePrivateData(params: {
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
@@ -534,30 +576,50 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async delete(params: {
     recordId: string;
-    skipPasswordVerify?: boolean;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
+    await this.deleteSilently(params);
+  }
+
+  async deleteSilently(params: {
+    recordId: string;
     skipManifestUpdate?: boolean;
   }): Promise<void> {
     const provider = this.getProvider();
-    if (!params?.skipPasswordVerify) {
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Security,
-      });
-    }
     await provider.deleteBackup({
       recordId: params.recordId,
       skipManifestUpdate: params?.skipManifestUpdate,
     });
   }
 
-  async deleteSilently(params: {
-    recordId: string;
-    skipManifestUpdate: boolean | undefined;
-  }): Promise<void> {
-    return this.delete({
-      recordId: params.recordId,
-      skipPasswordVerify: true,
-      skipManifestUpdate: params?.skipManifestUpdate,
+  @backgroundMethod()
+  @toastIfError()
+  async deleteAllBackups(): Promise<{
+    deletedCount: number;
+    failedCount: number;
+  }> {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
     });
+    const data = await this.getAllBackups();
+    const items = data?.items ?? [];
+    let deletedCount = 0;
+    let failedCount = 0;
+    for (const item of items) {
+      try {
+        await this.deleteSilently({
+          recordId: item.recordID,
+          skipManifestUpdate: false,
+        });
+        deletedCount += 1;
+      } catch (_error) {
+        failedCount += 1;
+      }
+    }
+    return { deletedCount, failedCount };
   }
 
   @backgroundMethod()

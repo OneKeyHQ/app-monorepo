@@ -5,6 +5,7 @@
  * 1. Forbidden modules must not appear in eager bundles
  * 2. Common bundle must not exceed size/module budgets
  * 3. Module-to-bundle assignment must follow dependency rules
+ * 4. SimpleDb Entity implementations must remain lazy
  *
  * Reads allocation reports from dist/ (produced by unionBuild.js).
  *
@@ -44,6 +45,14 @@ const FORBIDDEN_NPM_IN_MAIN = [
 const FORBIDDEN_NPM_IN_COMMON = [
   'viem/', // EVM library — lazy loaded by background connectors
 ];
+
+const SIMPLE_DB_ENTITY_PREFIX =
+  'packages/kit-bg/src/dbs/simple/entity/SimpleDbEntity';
+const ALLOWED_EAGER_SIMPLE_DB_ENTITY_MODULES = new Set([
+  // Lightweight compatibility contract. The implementation lives in
+  // SimpleDbEntityRecentRecipientsImpl.ts and must stay lazy.
+  `${SIMPLE_DB_ENTITY_PREFIX}RecentRecipients.ts`,
+]);
 
 // Module path patterns that must NOT appear in main-runtime segments.
 // These are background-only code that should never be reachable from main.
@@ -226,6 +235,19 @@ function checkViolations(report, bundleName) {
   return [];
 }
 
+function checkSimpleDbEntitiesStayLazy(report, bundleName) {
+  return report.startup.modules
+    .filter(
+      (modulePath) =>
+        modulePath.startsWith(SIMPLE_DB_ENTITY_PREFIX) &&
+        !ALLOWED_EAGER_SIMPLE_DB_ENTITY_MODULES.has(modulePath),
+    )
+    .map(
+      (modulePath) =>
+        `[${bundleName}] SimpleDb Entity implementation is eager: ${modulePath}`,
+    );
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 function main() {
@@ -314,7 +336,18 @@ function main() {
     errors.push(...checkViolations(common, 'common'));
   }
 
-  // 4. Check budgets
+  // 5. Keep all actual SimpleDb Entity implementations out of startup.
+  for (const [bundleName, report] of [
+    ['common', common],
+    ['main', mainReport],
+    ['background', bg],
+  ]) {
+    if (report) {
+      errors.push(...checkSimpleDbEntitiesStayLazy(report, bundleName));
+    }
+  }
+
+  // 6. Check budgets
   errors.push(...checkBudgets(common, mainReport, bg));
 
   // ── Summary ─────────────────────────────────────────────────────────────

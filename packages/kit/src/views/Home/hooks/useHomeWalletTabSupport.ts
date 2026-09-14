@@ -7,14 +7,15 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import {
-  HOME_WALLET_TAB_SUPPORT_INIT,
   type IHomeWalletTabSupportNetwork,
   type IScopedHomeWalletTabSupportState,
   buildHomeWalletTabSupport,
+  buildHomeWalletTabSupportScopeKey,
   resolveHomeWalletTabSupport,
 } from './homeWalletTabSupportUtils';
 
@@ -63,16 +64,44 @@ export function useHomeWalletTabSupport({
     };
   }, [isAllNetworks]);
 
+  useEffect(() => {
+    const onDeFiEnabledNetworksChanged = () => {
+      setEnabledNetworksChangedNonce((value) => value + 1);
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.DeFiEnabledNetworksChanged,
+      onDeFiEnabledNetworksChanged,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.DeFiEnabledNetworksChanged,
+        onDeFiEnabledNetworksChanged,
+      );
+    };
+  }, []);
+
+  // The scope key carries no re-fetch nonce: the nonce only drives a re-run
+  // (deps below), while the key must stay stable across sessions so the
+  // persisted snapshot matches on the next cold start.
   const scopeKey = useMemo(
     () =>
-      [
-        networkId ?? '',
-        isAllNetworks ? 'all' : 'single',
-        perpDisabled ? 'perp-disabled' : 'perp-enabled',
-        enabledNetworksChangedNonce,
-      ].join(':'),
-    [enabledNetworksChangedNonce, isAllNetworks, networkId, perpDisabled],
+      buildHomeWalletTabSupportScopeKey({
+        networkId,
+        isAllNetworks,
+        perpDisabled,
+      }),
+    [isAllNetworks, networkId, perpDisabled],
   );
+
+  // Cold start seeds the first frame from the last resolved support for this
+  // scope so the Perps / DeFi tabs are already in place before the background
+  // gating round-trip returns (OK-61505). The network-less placeholder is
+  // never persisted.
+  const swrKey = networkId
+    ? swrKeys.homeWalletTabSupport({ scopeKey })
+    : undefined;
 
   const { result } = usePromiseResult<IScopedHomeWalletTabSupportState>(
     async () => {
@@ -120,12 +149,19 @@ export function useHomeWalletTabSupport({
         }),
       };
     },
-    [currentNetwork, isAllNetworks, scopeKey, perpDisabled],
+    // The nonce is a pure re-fetch trigger (enabled networks changed); it is
+    // intentionally read by no code path so it stays out of the scope key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      currentNetwork,
+      isAllNetworks,
+      scopeKey,
+      perpDisabled,
+      enabledNetworksChangedNonce,
+    ],
     {
-      initResult: {
-        scopeKey,
-        ...HOME_WALLET_TAB_SUPPORT_INIT,
-      },
+      swrKey,
+      swrShouldPersist: (value) => value.isReady,
       undefinedResultIfReRun: true,
     },
   );

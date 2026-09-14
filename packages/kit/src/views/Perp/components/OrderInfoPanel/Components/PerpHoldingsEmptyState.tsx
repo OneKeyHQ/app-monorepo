@@ -59,7 +59,7 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('holdings');
   const { showGuide } = useShowGuide();
   const [activeAccount] = usePerpsActiveAccountAtom();
 
@@ -84,7 +84,7 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
   return (
     <YStack
       flex={1}
-      justifyContent="center"
+      justifyContent={isMobile ? 'center' : 'flex-start'}
       alignItems="center"
       px="$5"
       py="$6"
@@ -98,8 +98,8 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
         <Illustration name="Orders" size={isMobile ? 88 : 100} mb={-24} />
 
         <SizableText
-          size={isMobile ? '$bodyXs' : '$bodySm'}
-          color="$textSubdued"
+          size={isMobile ? '$bodyXs' : '$headingSm'}
+          color={isMobile ? '$textSubdued' : '$text'}
           textAlign="center"
           maxWidth={isMobile ? 280 : 360}
         >

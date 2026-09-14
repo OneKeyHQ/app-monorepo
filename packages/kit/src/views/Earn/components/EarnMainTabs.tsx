@@ -7,10 +7,6 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
-  ESwitchSize,
-  IconButton,
-  Popover,
-  Switch,
   Tabs,
   XStack,
   YStack,
@@ -25,12 +21,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ListItem } from '../../../components/ListItem';
 import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useTabContainerWidth } from '../../../hooks/useTabContainerWidth';
 import { useEarnHideSmallAssets } from '../hooks/useEarnHideSmallAssets';
 
+import { EarnPortfolioSettings } from './EarnPortfolioSettings';
 import { FAQContent } from './FAQContent';
 import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
@@ -105,7 +101,7 @@ const EarnMainTabsComponent = ({
   const theme = useTheme();
   const internalTabsRef = useRef<ITabContainerRef>(null);
   const tabsRef = externalTabsRef || internalTabsRef;
-  const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
+  const { hideSmallAssets } = useEarnHideSmallAssets();
   const useDesktopPageScrollTabs = platformEnv.isDesktop;
   const directTabPressAnimationEnabled = platformEnv.isNativeIOS;
 
@@ -294,44 +290,10 @@ const EarnMainTabsComponent = ({
     ({ focusedTab }: { focusedTab: string }) =>
       focusedTab === tabNames.portfolio ? (
         <XStack pr="$5">
-          <Popover
-            title={intl.formatMessage({
-              id: ETranslations.defi_display_settings,
-            })}
-            renderTrigger={
-              <IconButton
-                testID="earn-handle-tab-press-icon-btn"
-                variant="tertiary"
-                icon="SliderHorOutline"
-                iconSize="$6"
-                bg={hideSmallAssets ? '$bgStrong' : 'transparent'}
-              />
-            }
-            renderContent={
-              <YStack py="$2.5">
-                <ListItem
-                  title={intl.formatMessage({
-                    id: ETranslations.defi_hide_low_value_positions,
-                  })}
-                  titleProps={{
-                    size: '$bodyMdMedium',
-                    color: '$textSubdued',
-                  }}
-                  childrenBefore={
-                    <Switch
-                      testID="earn-switch"
-                      size={ESwitchSize.small}
-                      value={hideSmallAssets}
-                      onChange={setHideSmallAssets}
-                    />
-                  }
-                />
-              </YStack>
-            }
-          />
+          <EarnPortfolioSettings />
         </XStack>
       ) : null,
-    [hideSmallAssets, intl, setHideSmallAssets, tabNames.portfolio],
+    [tabNames.portfolio],
   );
 
   const renderTabBar = useCallback(

@@ -2,15 +2,17 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList } from '@onekeyhq/components';
 import {
-  EOneKeyIdLogoutDialogSource,
-  useShowOneKeyIdLogoutDialog,
-} from '@onekeyhq/kit/src/components/OneKeyAuth/OneKeyIdLogoutDialog';
-import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+  ActionList,
+  Toast,
+  runAfterActionListClose,
+} from '@onekeyhq/components';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { isIdentityManagedKeylessWallet } from '@onekeyhq/kit-bg/src/services/ServiceAccount/keylessWalletRemovalCapability';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -25,21 +27,23 @@ export function WalletRemoveButton({
   wallet,
   isRemoveToMocked,
   onClose,
+  nativeSheet = false,
 }: {
   wallet: IDBWallet | undefined;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
   onClose: () => void;
+  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
-  const { isLoggedIn: isOneKeyIdLoggedIn } = useOneKeyAuth();
-  const showOneKeyIdLogoutDialog = useShowOneKeyIdLogoutDialog();
+  const { run: runIdentityExit } = useIdentityExitFlow();
+  const isIdentityManagedKeyless = isIdentityManagedKeylessWallet(wallet);
 
   const label = useMemo(() => {
     if (platformEnv.isWebDappMode) {
       return intl.formatMessage({ id: ETranslations.explore_disconnect });
     }
-    if (wallet?.isKeyless) {
+    if (isIdentityManagedKeyless) {
       return intl.formatMessage({ id: ETranslations.log_out_wallet });
     }
     if (accountUtils.isHwHiddenWallet({ wallet })) {
@@ -56,17 +60,17 @@ export function WalletRemoveButton({
     return intl.formatMessage({
       id: ETranslations.remove_wallet,
     });
-  }, [isRemoveToMocked, wallet, intl]);
+  }, [isIdentityManagedKeyless, isRemoveToMocked, wallet, intl]);
 
   const icon = useMemo(() => {
-    if (wallet?.isKeyless) {
+    if (isIdentityManagedKeyless) {
       return 'LogoutOutline';
     }
     if (isRemoveToMocked) {
       return 'DeleteOutline';
     }
     return 'EjectOutline';
-  }, [wallet?.isKeyless, isRemoveToMocked]);
+  }, [isIdentityManagedKeyless, isRemoveToMocked]);
 
   return (
     <ActionList.Item
@@ -75,35 +79,53 @@ export function WalletRemoveButton({
       destructive
       label={label}
       onClose={onClose}
-      onPress={() => {
-        if (wallet?.isKeyless) {
-          void showOneKeyIdLogoutDialog({
-            source: EOneKeyIdLogoutDialogSource.KeylessWallet,
-            keylessWallet: wallet,
-            config,
-            isRemoveToMocked,
-            isOneKeyIdLoggedIn: Boolean(isOneKeyIdLoggedIn),
-            confirmButtonTestID: AccountManagerTestIDs.walletRemoveConfirm,
-          });
-          return;
-        }
+      onPress={(close) =>
+        runAfterActionListClose(
+          close,
+          () => {
+            if (wallet && isIdentityManagedKeyless) {
+              void runIdentityExit(
+                {
+                  type: 'removeKeyless',
+                  expectedWalletId: wallet.id,
+                  scene: 'accountSelector',
+                },
+                {
+                  confirmButtonTestID:
+                    AccountManagerTestIDs.walletRemoveConfirm,
+                  onCompletedReceipt: () => {
+                    defaultLogger.account.wallet.deleteWallet();
+                    Toast.success({
+                      title: intl.formatMessage({
+                        id: ETranslations.feedback_change_saved,
+                      }),
+                    });
+                  },
+                },
+              );
+              return;
+            }
 
-        const { title, description, isHwOrQr } = getTitleAndDescription({
-          wallet,
-          isRemoveToMocked,
-          intl,
-        });
-        showWalletRemoveDialog({
-          config,
-          title,
-          description,
-          // No checkbox for hw/qr wallets.
-          showCheckBox: !isHwOrQr,
-          defaultChecked: false,
-          wallet,
-          isRemoveToMocked,
-        });
-      }}
+            const { title, description, isHwOrQr } = getTitleAndDescription({
+              wallet,
+              isRemoveToMocked,
+              intl,
+            });
+            showWalletRemoveDialog({
+              nativeSheet,
+              config,
+              title,
+              description,
+              // No checkbox for hw/qr wallets.
+              showCheckBox: !isHwOrQr,
+              defaultChecked: false,
+              wallet,
+              isRemoveToMocked,
+            });
+          },
+          { waitForAnimation: nativeSheet && platformEnv.isNative },
+        )
+      }
     />
   );
 }

@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   isUnavailableOrZeroFiatValue,
+  isValidNumberValue,
   sumFiatValuesFromTokens,
   sumTokenGroupsFiatValueIgnoringUnavailable,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
@@ -54,6 +55,15 @@ export interface IAllNetworkSnapshotRound {
    * round, not be looked up per-networkId.
    */
   mergeDeriveAssets?: boolean;
+  /**
+   * Explicit precomputed worth for THIS round, taking precedence over the
+   * map-derived sum. Cache-floor rounds
+   * (useTokenListReactivePipeline.seedAndFlushCache) MUST carry the cached
+   * `tokenListValue` (tokens + smallBalanceTokens only): their three group
+   * maps share the ONE cached full tokenListMap, so a map-derived sum would
+   * leak risk-only keys into the account worth even after per-$key dedup.
+   */
+  accountWorth?: string;
 }
 
 /**
@@ -197,7 +207,13 @@ export function buildMergedAllNetworkSnapshot({
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
     });
 
-    const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+    // Prefer the round's explicit precomputed worth (see the
+    // `IAllNetworkSnapshotRound.accountWorth` contract): summing a cache-floor
+    // round's maps would count risk-only keys the cached tokenListValue
+    // deliberately excludes.
+    const accountWorth = isValidNumberValue(r.accountWorth)
+      ? r.accountWorth
+      : sumTokenGroupsFiatValueIgnoringUnavailable(r);
 
     accountsWorth[
       accountUtils.buildAccountValueKey({

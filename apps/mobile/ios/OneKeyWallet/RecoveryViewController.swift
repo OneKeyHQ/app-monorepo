@@ -1,5 +1,4 @@
 import UIKit
-import MMKV
 
 // MARK: - i18n helper
 
@@ -197,15 +196,6 @@ private enum RecoveryNitroModuleBridge {
     return cls.perform(NSSelectorFromString("downloadBundleDir"))?.takeUnretainedValue() as? String
   }
 
-  /// Clears recovery-related keys from MMKV storage
-  static func clearMmkvRecoveryKeys() {
-    MMKV.initialize(rootDir: nil)
-    guard let mmkv = MMKV(mmapID: "onekey-app-setting") else { return }
-    mmkv.removeValue(forKey: "onekey_pending_install_task")
-    mmkv.removeValue(forKey: "onekey_whats_new_shown")
-    mmkv.removeValue(forKey: "last_valid_server_time")
-    mmkv.removeValue(forKey: "last_valid_local_time")
-  }
 }
 
 // MARK: - RecoveryViewController
@@ -398,7 +388,7 @@ final class RecoveryViewController: UIViewController {
         return
       }
 
-      let logFiles = try fm.contentsOfDirectory(atPath: logDir).filter { $0.hasSuffix(".log") }
+      let logFiles = try eligibleLogPaths(in: logDir)
       guard !logFiles.isEmpty else {
         showAlert(title: RecoveryStrings.current.error, message: RecoveryStrings.current.noLogs)
         return
@@ -417,6 +407,7 @@ final class RecoveryViewController: UIViewController {
       }
 
       let zipURL = URL(fileURLWithPath: zipPath)
+      try fm.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: zipPath)
       let activityVC = UIActivityViewController(activityItems: [zipURL], applicationActivities: nil)
       activityVC.popoverPresentationController?.sourceView = exportLogsButton
       activityVC.popoverPresentationController?.sourceRect = exportLogsButton.bounds
@@ -427,59 +418,86 @@ final class RecoveryViewController: UIViewController {
   }
 
   @objc private func tryAgainTapped() {
-    let defaults = UserDefaults.standard
-    defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
-    defaults.set("try_again", forKey: BootRecoveryKeys.recoveryAction)
-    defaults.synchronize()
-    showAlert(title: RecoveryStrings.current.pleaseRestart, message: "")
+    setRecoveryButtonsEnabled(false)
+    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+      _ = OneKeyForceDisableTravelModeForRecovery()
+      let defaults = UserDefaults.standard
+      defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+      defaults.set("try_again", forKey: BootRecoveryKeys.recoveryAction)
+      let persisted = defaults.synchronize()
+
+      DispatchQueue.main.async {
+        guard let self else { return }
+        self.setRecoveryButtonsEnabled(true)
+        if persisted {
+          self.showAlert(title: RecoveryStrings.current.pleaseRestart, message: "")
+        } else {
+          self.showAlert(
+            title: RecoveryStrings.current.error,
+            message: "Persist recovery action: failed"
+          )
+        }
+      }
+    }
   }
 
   @objc private func autoRepairTapped() {
-    var errors: [String] = []
+    setRecoveryButtonsEnabled(false)
+    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+      var errors: [String] = []
+      _ = OneKeyForceDisableTravelModeForRecovery()
+      RecoveryNitroModuleBridge.clearUpdateBundleData()
 
-    // 1. Clear BundleUpdateStore data via NitroModuleBridge pattern
-    RecoveryNitroModuleBridge.clearUpdateBundleData()
-
-    // 2. Delete OTA bundle directories manually as a safety net
-    let fm = FileManager.default
-    let docDir = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first ?? ""
-
-    let bundleDir = (docDir as NSString).appendingPathComponent("onekey-bundle")
-    if fm.fileExists(atPath: bundleDir) {
-      do {
-        try fm.removeItem(atPath: bundleDir)
-      } catch {
-        errors.append("Remove bundle dir: \(error.localizedDescription)")
+      let fm = FileManager.default
+      let docDir = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first ?? ""
+      let bundleDir = (docDir as NSString).appendingPathComponent("onekey-bundle")
+      if fm.fileExists(atPath: bundleDir) {
+        do {
+          try fm.removeItem(atPath: bundleDir)
+        } catch {
+          errors.append("Remove bundle dir: \(error.localizedDescription)")
+        }
       }
-    }
 
-    let downloadDir = (docDir as NSString).appendingPathComponent("onekey-bundle-download")
-    if fm.fileExists(atPath: downloadDir) {
-      do {
-        try fm.removeItem(atPath: downloadDir)
-      } catch {
-        errors.append("Remove download dir: \(error.localizedDescription)")
+      let downloadDir = (docDir as NSString).appendingPathComponent("onekey-bundle-download")
+      if fm.fileExists(atPath: downloadDir) {
+        do {
+          try fm.removeItem(atPath: downloadDir)
+        } catch {
+          errors.append("Remove download dir: \(error.localizedDescription)")
+        }
       }
-    }
 
-    // 3. Clear recovery-related keys from MMKV
-    RecoveryNitroModuleBridge.clearMmkvRecoveryKeys()
+      // Bg consumes this intent before reading or publishing MMKV data.
+      let defaults = UserDefaults.standard
+      defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+      defaults.set("auto_repair", forKey: BootRecoveryKeys.recoveryAction)
+      if !defaults.synchronize() {
+        errors.append("Persist recovery action: failed")
+      }
 
-    // 4. Reset boot fail counter
-    let defaults = UserDefaults.standard
-    defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
-    defaults.set("auto_repair", forKey: BootRecoveryKeys.recoveryAction)
-    defaults.synchronize()
-
-    if errors.isEmpty {
-      showAlert(title: RecoveryStrings.current.repairComplete, message: "")
-    } else {
-      let detail = errors.joined(separator: "\n")
-      showAlert(title: RecoveryStrings.current.error, message: detail)
+      let repairErrors = errors
+      DispatchQueue.main.async {
+        guard let self else { return }
+        self.setRecoveryButtonsEnabled(true)
+        if repairErrors.isEmpty {
+          self.showAlert(title: RecoveryStrings.current.repairComplete, message: "")
+        } else {
+          self.showAlert(
+            title: RecoveryStrings.current.error,
+            message: repairErrors.joined(separator: "\n")
+          )
+        }
+      }
     }
   }
 
   // MARK: - Helpers
+
+  private func setRecoveryButtonsEnabled(_ enabled: Bool) {
+    autoRepairButton.isEnabled = enabled
+    tryAgainButton.isEnabled = enabled
+  }
 
   private func logDirectory() -> String {
     // Match OneKeyLog.logsDirectory path: Caches/logs
@@ -487,6 +505,29 @@ final class RecoveryViewController: UIViewController {
     // in recovery mode (super.application() is skipped).
     let cacheDir = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first ?? NSTemporaryDirectory()
     return (cacheDir as NSString).appendingPathComponent("logs")
+  }
+
+  private func eligibleLogPaths(in directory: String) throws -> [String] {
+    let rootURL = URL(fileURLWithPath: directory, isDirectory: true)
+    guard let enumerator = FileManager.default.enumerator(
+      at: rootURL,
+      includingPropertiesForKeys: [.isRegularFileKey],
+      options: [.skipsHiddenFiles]
+    ) else {
+      return []
+    }
+
+    var paths: [String] = []
+    for case let fileURL as URL in enumerator {
+      let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+      guard values.isRegularFile == true else { continue }
+      let relativePath = String(fileURL.path.dropFirst(rootURL.path.count + 1))
+      if fileURL.pathExtension == "log" ||
+        (fileURL.pathExtension == "json" && relativePath.hasPrefix("crashes/")) {
+        paths.append(relativePath)
+      }
+    }
+    return paths
   }
 
   /// Creates a zip archive of the given files using NSFileCoordinator (forUploading).
@@ -499,11 +540,21 @@ final class RecoveryViewController: UIViewController {
     if fm.fileExists(atPath: stagingDir) {
       try? fm.removeItem(atPath: stagingDir)
     }
-    try? fm.createDirectory(atPath: stagingDir, withIntermediateDirectories: true)
+    try? fm.createDirectory(
+      atPath: stagingDir,
+      withIntermediateDirectories: true,
+      attributes: [.protectionKey: FileProtectionType.complete]
+    )
 
     for name in fileNames {
       let src = (directory as NSString).appendingPathComponent(name)
       let dst = (stagingDir as NSString).appendingPathComponent(name)
+      let destinationDirectory = (dst as NSString).deletingLastPathComponent
+      try? fm.createDirectory(
+        atPath: destinationDirectory,
+        withIntermediateDirectories: true,
+        attributes: [.protectionKey: FileProtectionType.complete]
+      )
       try? fm.copyItem(atPath: src, toPath: dst)
     }
 

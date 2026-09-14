@@ -3,6 +3,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { OneKeyLocalError } from '../errors/errors/localError';
 import { defaultLogger } from '../logger/logger';
 
+import { isProtocolV2ProductType } from './hardwareDeviceTypes';
 import imageUtils from './imageUtils';
 
 import type { IResizeImageResult } from './imageUtils';
@@ -201,6 +202,7 @@ async function buildCustomScreenHex({
     const customHex = await imagePathToHex(base64Uri, deviceType);
     return {
       screenHex: customHex,
+      screenBase64: undefined,
       thumbnailHex: undefined,
       blurScreenHex: undefined,
     };
@@ -209,13 +211,15 @@ async function buildCustomScreenHex({
   if (!config || !config.size) {
     return {
       screenHex: '',
+      screenBase64: undefined,
       thumbnailHex: undefined,
       blurScreenHex: undefined,
     };
   }
 
+  const isProtocolV2Product = isProtocolV2ProductType(deviceType);
   let imgThumb: IResizeImageResult | undefined;
-  if (config.thumbnailSize) {
+  if (config.thumbnailSize && !isProtocolV2Product) {
     imgThumb = await imageUtils.resizeImage({
       uri: base64Uri,
 
@@ -232,6 +236,7 @@ async function buildCustomScreenHex({
 
   let screenHex = '';
   let screenBase64 = '';
+  let screenBase64Uri = '';
 
   // check image type error in background service
   const errorType = ['data:image/png;', 'data:image/gif;'];
@@ -243,38 +248,47 @@ async function buildCustomScreenHex({
     }
   }
 
-  if (!isUserUpload && hasConvertType) {
+  // TODO: Remove the Pro2-specific conversion after Dashboard provides native
+  // 604x1024 Pro2 wallpaper assets instead of the current 480x800 Pro assets.
+  const shouldResizeFullScreen =
+    isProtocolV2Product || (!isUserUpload && hasConvertType);
+
+  if (shouldResizeFullScreen) {
+    const shouldDetectOriginSize = isProtocolV2Product;
     const imgScreen = await imageUtils.resizeImage({
       uri: base64Uri,
 
       width: config.size?.width,
       height: config.size?.height,
 
-      originW: config.size?.width,
-      originH: config.size?.height,
+      originW: shouldDetectOriginSize ? 0 : config.size?.width,
+      originH: shouldDetectOriginSize ? 0 : config.size?.height,
       isMonochrome: false,
       compress,
       cornerRadius: config.size?.radius ?? 0,
+      includeHex: !isProtocolV2Product,
     });
-    screenHex = imgScreen.hex;
-    screenBase64 = imageUtils.prefixBase64Uri(
+    screenHex = isProtocolV2Product ? '' : imgScreen.hex;
+    if (isProtocolV2Product && !imgScreen.base64) {
+      throw new OneKeyLocalError('Pro2 wallpaper JPEG data is missing');
+    }
+    screenBase64 = imageUtils.stripBase64UriPrefix(
       imgScreen.base64 || base64Uri,
-      'image/jpeg',
     );
+    screenBase64Uri = imageUtils.prefixBase64Uri(screenBase64, 'image/jpeg');
   } else {
-    screenHex = Buffer.from(
-      imageUtils.stripBase64UriPrefix(base64Uri),
-      'base64',
-    ).toString('hex');
-    screenBase64 = imageUtils.prefixBase64Uri(base64Uri, 'image/jpeg');
+    screenBase64 = imageUtils.stripBase64UriPrefix(base64Uri);
+    screenHex = Buffer.from(screenBase64, 'base64').toString('hex');
+    screenBase64Uri = imageUtils.prefixBase64Uri(screenBase64, 'image/jpeg');
   }
 
   const blurScreen = await imageUtils.processImageBlur({
-    base64Data: screenBase64 || '',
+    base64Data: screenBase64Uri,
   });
 
   return {
     screenHex,
+    screenBase64: isProtocolV2Product ? screenBase64 : undefined,
     thumbnailHex: imgThumb?.hex,
     blurScreenHex: blurScreen.hex,
   };

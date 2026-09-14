@@ -1,14 +1,3 @@
-import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
-
-/**
- * Whether a stock's market is explicitly closed. `isOpen === false` means closed;
- * `undefined` means status unknown/unavailable (NOT closed). Shared so every
- * surface uses the same `=== false` rule instead of re-inlining it.
- */
-export function isStockMarketClosed(stock?: IMarketStockInfo): boolean {
-  return stock?.isOpen === false;
-}
-
 /**
  * Standard classifier for a tokenized stock's market-status alert.
  *
@@ -22,10 +11,6 @@ export function isStockMarketClosed(stock?: IMarketStockInfo): boolean {
  * presentation (see `StockMarketStatusAlert`) stays consistent and reusable
  * across modules (Swap stock panel, Market detail, etc.). Keep the logic here —
  * do not re-derive cases ad hoc at each call site.
- *
- * NOTE: case 5 (Halted/Suspended) is intentionally NOT produced yet — the
- * backend does not return a halted signal today. The enum value is reserved and
- * commented so adding it later is a localized change.
  */
 export enum EStockMarketStatusCase {
   /** Market is open (or status unknown/unavailable) — no closed-status alert. */
@@ -38,11 +23,17 @@ export enum EStockMarketStatusCase {
   ClosedUnknownTimeNoPerps = 'closedUnknownTimeNoPerps',
   /** 4. Closed, next-open time unknown, has a Perps equivalent → wait, but can trade Perps. */
   ClosedUnknownTimeWithPerps = 'closedUnknownTimeWithPerps',
-  // 5. Halted = 'halted' — reserved. Backend halted/suspended signal pending.
+  /**
+   * 5. The individual stock is halted/suspended (`stock.isPaused`, OK-58655).
+   * Overlays the closed cases — a halt is about THIS stock, not the market
+   * schedule, so it wins regardless of open state or countdown.
+   */
+  Halted = 'halted',
 }
 
 export function resolveStockMarketStatusCase({
   isOpen,
+  isPaused,
   hasOpenTime,
   hasPerps,
 }: {
@@ -52,11 +43,16 @@ export function resolveStockMarketStatusCase({
    * "unavailable" is a separate concern the caller handles before calling this.
    */
   isOpen?: boolean;
+  /** `tokenDetail.stock.isPaused`. Only an explicit `true` means halted. */
+  isPaused?: boolean;
   /** Do we know the next market-open time? (e.g. backend gave a countdown.) */
   hasOpenTime: boolean;
   /** Does the same underlying have a Perps equivalent (`perpsInfo.hlTicker`)? */
   hasPerps: boolean;
 }): EStockMarketStatusCase {
+  if (isPaused === true) {
+    return EStockMarketStatusCase.Halted;
+  }
   if (isOpen !== false) {
     return EStockMarketStatusCase.Open;
   }

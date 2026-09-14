@@ -1,4 +1,4 @@
-// Web / Desktop: navigator.deviceMemory (Chrome/Chromium only, returns GB)
+// Web / Extension: navigator.deviceMemory when the browser exposes it.
 
 export function getDeviceMemoryGBSync(): number | null {
   if (typeof navigator !== 'undefined' && 'deviceMemory' in navigator) {

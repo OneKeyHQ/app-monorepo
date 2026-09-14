@@ -60,6 +60,7 @@ describe('ServiceSwap history network repair', () => {
   it('returns the current SimpleDB snapshot after asynchronous network lookup', async () => {
     const staleHistory = createHistory(1);
     const currentHistory = createHistory(2);
+    const recoverPendingSwapHistoryItems = jest.fn().mockResolvedValue(0);
     const getSwapHistoryList = jest.fn().mockResolvedValue([staleHistory]);
     const repairSwapHistoryNetworkInfo = jest.fn().mockResolvedValue({
       histories: [staleHistory, currentHistory],
@@ -71,6 +72,7 @@ describe('ServiceSwap history network repair', () => {
         serviceNetwork: { getNetworksByIds },
         simpleDb: {
           swapHistory: {
+            recoverPendingSwapHistoryItems,
             getSwapHistoryList,
             repairSwapHistoryNetworkInfo,
           },
@@ -80,6 +82,7 @@ describe('ServiceSwap history network repair', () => {
 
     const histories = await service.fetchSwapHistoryListFromSimple();
 
+    expect(recoverPendingSwapHistoryItems).toHaveBeenCalledTimes(1);
     expect(getNetworksByIds).toHaveBeenCalledWith({
       networkIds: ['evm--4663'],
     });

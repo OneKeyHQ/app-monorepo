@@ -4,6 +4,7 @@ import { styled } from '@tamagui/core';
 import { useIntl } from 'react-intl';
 
 import { AnimatePresence, Stack, YStack } from '@onekeyhq/components';
+import { PerpsActivityCenterContent } from '@onekeyhq/kit/src/views/Perp/components/PerpsActivityCenterAction';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -22,7 +23,8 @@ export type IWebAccountPanelView =
   | 'main'
   | 'accountList'
   | 'settings'
-  | 'articles';
+  | 'articles'
+  | 'perpsActivityCenter';
 
 const PANEL_WIDTH = 352;
 
@@ -46,10 +48,12 @@ const AnimatedPanelView = styled(Stack, {
 export default function WebAccountPanelPopoverContent({
   initialView,
   connected,
+  showPerpsActivityCenter,
   closePopover,
 }: {
   initialView: IWebAccountPanelView;
   connected: boolean;
+  showPerpsActivityCenter: boolean;
   closePopover: () => void;
 }) {
   const intl = useIntl();
@@ -109,6 +113,11 @@ export default function WebAccountPanelPopoverContent({
           onNavigateAccountList={() => navigate('accountList')}
           onNavigateSettings={() => navigate('settings')}
           onNavigateArticles={() => navigate('articles')}
+          onNavigatePerpsActivityCenter={
+            showPerpsActivityCenter
+              ? () => navigate('perpsActivityCenter')
+              : undefined
+          }
           onHelp={handleHelp}
           onDownloadApp={handleDownloadApp}
           onRequestClose={closePopover}
@@ -142,6 +151,18 @@ export default function WebAccountPanelPopoverContent({
         </YStack>
       );
     }
+    if (view === 'perpsActivityCenter') {
+      return (
+        <YStack w="100%">
+          <WebAccountPanelHeader title={backLabel} onBack={back} />
+          <PerpsActivityCenterContent
+            copyAsUrl
+            closePopover={closePopover}
+            showTitle={false}
+          />
+        </YStack>
+      );
+    }
     return (
       <YStack w="100%">
         <WebAccountPanelHeader title={backLabel} onBack={back} />
@@ -158,6 +179,7 @@ export default function WebAccountPanelPopoverContent({
     closePopover,
     connected,
     backLabel,
+    showPerpsActivityCenter,
   ]);
 
   const presenceCustom = useMemo(() => ({ going }), [going]);
@@ -168,14 +190,14 @@ export default function WebAccountPanelPopoverContent({
       width="100%"
       overflow="hidden"
       height={contentHeight}
-      animation={heightReady ? 'smooth' : '0ms'}
+      transition={heightReady ? 'smooth' : '0ms'}
       animateOnly={ANIMATE_ONLY_HEIGHT}
     >
       <AnimatePresence custom={presenceCustom} initial={false}>
         <AnimatedPanelView
           key={navSeq}
           going={going}
-          animation="smooth"
+          transition="smooth"
           onLayout={(e: LayoutChangeEvent) =>
             handleViewLayout(navSeq, e.nativeEvent.layout.height)
           }

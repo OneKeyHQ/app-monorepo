@@ -73,7 +73,7 @@ function HardwareSales() {
             id: ETranslations.referral_referred_total_orders,
           })}
         </SizableText>
-        <SizableText size="$heading5xl">{total}</SizableText>
+        <SizableText size="$heading4xl">{total}</SizableText>
       </YStack>
       {total === 0 && !isLoading ? (
         <EmptyData />
@@ -143,7 +143,7 @@ function WalletList() {
             id: ETranslations.referral_referred_total_wallets,
           })}
         </SizableText>
-        <SizableText size="$heading5xl">{total}</SizableText>
+        <SizableText size="$heading4xl">{total}</SizableText>
       </YStack>
       {total === 0 && !isLoading ? (
         <EmptyData />

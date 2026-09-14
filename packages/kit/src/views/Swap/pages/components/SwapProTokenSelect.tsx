@@ -8,18 +8,19 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapProSelectTokenAtom,
   useSwapProTokenMarketDetailInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '../../../Market/components/PerpsBadges';
+import { SwapTestIDs } from '../../testIDs';
 
 interface ISwapProTokenSelector {
   onSelectTokenClick: () => void;
@@ -33,18 +34,10 @@ const SwapProTokenSelector = ({
   const [swapProTokenSelect] = useSwapProSelectTokenAtom();
   const [tokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
   const themeVariant = useThemeVariant();
-  const swapProTokenNetworkImageUri = useMemo(() => {
-    if (swapProTokenSelect?.networkLogoURI) {
-      return swapProTokenSelect.networkLogoURI;
-    }
-    if (swapProTokenSelect?.networkId) {
-      const localNetwork = networkUtils.getLocalNetworkInfo(
-        swapProTokenSelect?.networkId,
-      );
-      return localNetwork?.logoURI;
-    }
-    return undefined;
-  }, [swapProTokenSelect]);
+  const swapProTokenNetworkImageUri = useNetworkLogoUri({
+    logoUri: swapProTokenSelect?.networkLogoURI,
+    networkId: swapProTokenSelect?.networkId,
+  });
   const selectedTokenStock = useMemo(() => {
     if (!swapProTokenSelect || !tokenMarketDetailInfo?.stock) {
       return undefined;
@@ -64,6 +57,7 @@ const SwapProTokenSelector = ({
   }
   return (
     <XStack
+      testID={SwapTestIDs.proTokenSelector}
       gap="$2"
       bg="$bgApp"
       cursor="pointer"
@@ -110,7 +104,7 @@ const SwapProTokenSelector = ({
               </SizableText>
             ) : null}
             <StockSourceLogo stock={selectedTokenStock} />
-            <StockIsOpenBadge stock={selectedTokenStock} />
+            <StockMarketStatusBadge stock={selectedTokenStock} />
           </XStack>
         ) : null}
       </YStack>

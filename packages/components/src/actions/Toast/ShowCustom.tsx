@@ -178,7 +178,7 @@ function BasicShowToaster({
             w={platformEnv.isNative ? pageWidth : undefined}
             maxWidth={platformEnv.isNative ? '$96' : undefined}
             px={platformEnv.isNative ? '$5' : undefined}
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             viewportName={containerName}
           >

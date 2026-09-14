@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import { WALLET_BANNER_IMAGE_SIZE } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
 import {
   HYPERLIQUID_REFERRAL_CODE,
   PERPS_NETWORK_ID,
@@ -117,8 +118,12 @@ function BannerItem({
         gap="$3"
       >
         {item.src ? (
-          <YStack w={56} h={56} flexShrink={0}>
-            <Image size={56} source={{ uri: item.src }} />
+          <YStack
+            w={WALLET_BANNER_IMAGE_SIZE}
+            h={WALLET_BANNER_IMAGE_SIZE}
+            flexShrink={0}
+          >
+            <Image size={WALLET_BANNER_IMAGE_SIZE} source={{ uri: item.src }} />
           </YStack>
         ) : null}
         {/* The decorative icon is bottom-anchored (right/bottom "$4", 24pt), so
@@ -415,7 +420,7 @@ function WebBannerScroller({
           pr="$4"
           opacity={showLeftArrow ? 1 : 0}
           pointerEvents={showLeftArrow ? 'auto' : 'none'}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).
@@ -451,7 +456,7 @@ function WebBannerScroller({
           pl="$4"
           opacity={showRightArrow ? 1 : 0}
           pointerEvents={showRightArrow ? 'auto' : 'none'}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).

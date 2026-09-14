@@ -10,6 +10,7 @@ import type { IKytIntroClaimResult } from '@onekeyhq/shared/types/kyt';
 
 import {
   finishPrimeSubscriptionPurchaseSuccess,
+  getErrorMessage,
   handlePrimePurchaseSuccessCloseRequest,
   preparePrimeSubscriptionPurchaseSuccess,
 } from './primeSubscriptionPurchaseSuccess';
@@ -20,6 +21,7 @@ const mockTryClaimKytIntro = jest.fn<
   [unknown]
 >();
 const mockPurchaseSuccessListener = jest.fn();
+const mockPrimeReceiveKytIntroFlowFailed = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -36,7 +38,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
-      usage: { primeReceiveKytIntroFlowFailed: jest.fn() },
+      usage: {
+        primeReceiveKytIntroFlowFailed: (...args: unknown[]) => {
+          mockPrimeReceiveKytIntroFlowFailed(...args);
+        },
+      },
     },
   },
 }));
@@ -126,5 +132,35 @@ describe('Prime subscription purchase success', () => {
     expect(mockTryClaimKytIntro).not.toHaveBeenCalled();
     expect(mockFetchPrimeUserInfo).not.toHaveBeenCalled();
     expect(mockPurchaseSuccessListener).not.toHaveBeenCalled();
+  });
+
+  it('scrubs secrets from purchase success diagnostics', () => {
+    expect(
+      getErrorMessage(
+        new Error('refresh failed for user@example.com token=secret-token'),
+      ),
+    ).toBe('refresh failed for [email] token=[redacted]');
+  });
+
+  it('scrubs a detached purchase refresh failure', async () => {
+    const pop = jest.fn();
+    mockFetchPrimeUserInfo.mockRejectedValueOnce(
+      new Error('refresh failed with token=secret-token'),
+    );
+
+    handlePrimePurchaseSuccessCloseRequest({
+      params: { onekeyUserId: 'user-a' },
+      hashRoutePath: '/prime/purchase',
+      routePrimeUserId: 'user-a',
+      isWebEmbed: true,
+      pop,
+    });
+
+    await waitFor(() =>
+      expect(mockPrimeReceiveKytIntroFlowFailed).toHaveBeenCalledWith({
+        stage: 'primeUserRefresh',
+        errorMessage: 'refresh failed with token=[redacted]',
+      }),
+    );
   });
 });

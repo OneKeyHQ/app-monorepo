@@ -16,22 +16,6 @@ export function useMobileTabTouchScrollBridge() {
   const scrollYCurrent = tabsContext?.scrollYCurrent;
   const tabContentInset = tabsContext?.contentInset ?? 0;
   const scrollDelta = useSharedValue(0);
-  const targetScrollY = useSharedValue(0);
-
-  useAnimatedReaction(
-    () => targetScrollY.value,
-    (currentValue) => {
-      if (!refMap || !focusedTabShared) {
-        return;
-      }
-
-      const ref = refMap[focusedTabShared.value];
-      if (ref) {
-        scrollTo(ref, 0, Math.max(0, currentValue - tabContentInset), false);
-      }
-    },
-    [refMap, focusedTabShared, tabContentInset],
-  );
 
   useAnimatedReaction(
     () => scrollDelta.value,
@@ -40,16 +24,19 @@ export function useMobileTabTouchScrollBridge() {
         delta === 0 ||
         delta === prevDelta ||
         !scrollYCurrent ||
-        !targetScrollY
+        !refMap ||
+        !focusedTabShared
       ) {
         return;
       }
 
-      const currentScrollY = Math.max(scrollYCurrent.value, tabContentInset);
-      targetScrollY.value = currentScrollY + delta;
+      const ref = refMap[focusedTabShared.value];
+      if (ref) {
+        scrollTo(ref, 0, scrollYCurrent.value + delta - tabContentInset, false);
+      }
       scrollDelta.value = 0;
     },
-    [scrollYCurrent, targetScrollY, tabContentInset],
+    [focusedTabShared, refMap, scrollYCurrent, scrollDelta, tabContentInset],
   );
 
   return useCallback(

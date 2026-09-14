@@ -311,6 +311,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   useAccountSelectorValuesLoader({
     num,
     accountsForValuesQuery: listDataResult?.accountsForValuesQuery,
+    linkedNetworkId,
   });
 
   const accountsCount = useMemo(
@@ -576,6 +577,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                   ) {
                     qrHiddenCreateGuideDialog.showDialogForCreatingStandardWallet(
                       {
+                        nativeSheet: true,
                         onConfirm: () => {
                           void createQrWallet({
                             isOnboarding: true,

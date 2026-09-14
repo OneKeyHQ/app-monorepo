@@ -9,14 +9,17 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   buildStockSwapTokenFromMarketListToken,
   getMarketListTokenKey,
+  resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
 } from './swapStockChannelUtils';
 
 export function useSwapStockDefaultToken({
+  marketBasicConfigLoading,
   selectStockSwapToken,
   selectedStockTokenKey,
   spotCategories,
 }: {
+  marketBasicConfigLoading?: boolean;
   selectStockSwapToken: (token: ISwapToken) => void;
   selectedStockTokenKey: string;
   spotCategories: {
@@ -51,19 +54,26 @@ export function useSwapStockDefaultToken({
           token: undefined as IMarketTokenListItem | undefined,
         };
       }
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId: '',
-          type: stockCategoryType,
-          sortBy: 'v24hUSD',
-          sortType: 'desc',
-          page: 1,
-          limit: 1,
-        });
-      return {
-        scope: defaultStockTokenScope,
-        token: response.list.find((item) => !!item.stock) ?? response.list[0],
-      };
+      try {
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+            networkId: '',
+            type: stockCategoryType,
+            sortBy: 'v24hUSD',
+            sortType: 'desc',
+            page: 1,
+            limit: 1,
+          });
+        return {
+          scope: defaultStockTokenScope,
+          token: response.list.find((item) => !!item.stock) ?? response.list[0],
+        };
+      } catch {
+        return {
+          scope: defaultStockTokenScope,
+          token: undefined as IMarketTokenListItem | undefined,
+        };
+      }
     },
     [
       defaultStockTokenScope,
@@ -84,6 +94,15 @@ export function useSwapStockDefaultToken({
       ? defaultStockTokenState.token
       : undefined;
   const defaultStockTokenKey = getMarketListTokenKey(defaultStockToken);
+  const defaultStockTokenStatus = resolveSwapStockDefaultTokenStatus({
+    hasSelectableToken: Boolean(defaultStockTokenKey),
+    hasStockCategory: Boolean(stockCategoryType),
+    isLoading: defaultStockTokenLoading,
+    marketBasicConfigLoading,
+    requestScope: defaultStockTokenScope,
+    resultScope: defaultStockTokenState.scope,
+    shouldLoad: shouldLoadDefaultStockTokenValue,
+  });
 
   useEffect(() => {
     const defaultStockNetworkId =
@@ -110,7 +129,7 @@ export function useSwapStockDefaultToken({
 
   return {
     defaultStockTokenLoading: !!defaultStockTokenLoading,
+    defaultStockTokenStatus,
     shouldLoadDefaultStockToken: shouldLoadDefaultStockTokenValue,
-    stockCategoryType,
   };
 }

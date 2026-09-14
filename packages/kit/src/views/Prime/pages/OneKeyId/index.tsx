@@ -421,12 +421,9 @@ function OneKeyIdPage() {
   const media = useMedia();
   const { toInviteRewardPage } = useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { isLoggedIn, logout } = useOneKeyAuth();
-  const logoutRef = useRef<() => Promise<void>>(logout);
+  const { isLoggedIn } = useOneKeyAuth();
   const isFocused = useRouteIsFocused();
   const isExplicitLogoutRef = useRef(false);
-
-  logoutRef.current = logout;
 
   const handleEditProfile = useCallback(() => {
     navigation.push(EPrimePages.OneKeyIdProfileEdit);
@@ -487,7 +484,6 @@ function OneKeyIdPage() {
         reason:
           'OneKeyIdPage: is focused and primePersistAtom is not logged in',
       });
-      void logoutRef.current();
     }
   }, [isLoggedIn, isFocused]);
 

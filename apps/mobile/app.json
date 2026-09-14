@@ -21,6 +21,21 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "so.onekey.wallet",
+      "infoPlist": {
+        "EXDefaultScreenOrientationMask~ipad": "UIInterfaceOrientationMaskAll",
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight",
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight",
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown"
+        ]
+      },
       "associatedDomains": [
         "applinks:app.onekey.so",
         "applinks:app.onekeytest.com",
@@ -51,7 +66,7 @@
       [
         "expo-screen-orientation",
         {
-          "initialOrientation": "DEFAULT"
+          "initialOrientation": "PORTRAIT_UP"
         }
       ],
       "expo-font",

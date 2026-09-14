@@ -1,4 +1,5 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 
@@ -10,7 +11,12 @@ const HistoryDetails = LazyLoadPage(
 );
 const TokenDetails = LazyLoadPage(() => import('../pages/TokenDetails'));
 const UTXODetails = LazyLoadPage(() => import('../pages/UTXODetails'));
-const MarketDetail = LazyLoadPage(() => import('../../Market/MarketDetail'));
+const MarketDetail = LazyLoadPage(() =>
+  platformEnv.isNative
+    ? import('../pages/NativeMarketDetail')
+    : import('../pages/MarketDetail'),
+);
+const MarketChart = LazyLoadPage(() => import('../pages/MarketChart'));
 const DeFiProtocolDetails = LazyLoadPage(
   () => import('../pages/DeFiProtocolDetails'),
 );
@@ -38,6 +44,10 @@ export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
   {
     name: EModalAssetDetailRoutes.MarketDetail,
     component: MarketDetail,
+  },
+  {
+    name: EModalAssetDetailRoutes.MarketChart,
+    component: MarketChart,
   },
   {
     name: EModalAssetDetailRoutes.NFTDetails,

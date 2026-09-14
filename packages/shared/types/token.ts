@@ -25,6 +25,11 @@ export type IToken = {
   uniqueKey?: string;
   sendAddress?: string;
   coingeckoId?: string;
+  // Scaled-UI / rebase tokens (e.g. xStocks on Solana Token-2022 Scaled UI
+  // Amount, TON TEP-0526). Raw on-chain balances never change; wallets must
+  // display `balanceParsed × balanceMultiplier` and build transactions with
+  // the raw amount. Absent/invalid means no scaling. See tokenRebaseUtils.
+  balanceMultiplier?: string;
 
   // for all networks
   order?: number;
@@ -47,6 +52,11 @@ export type IToken = {
 export type ITokenFiat = {
   balance: string;
   balanceParsed: string;
+  // See IToken.balanceMultiplier — mirrored here so display leaves that only
+  // subscribe to the fiat map can compute the display balance. `balance` /
+  // `balanceParsed` above stay RAW; `fiatValue` is already multiplied
+  // server-side.
+  balanceMultiplier?: string;
   frozenBalance?: string;
   frozenBalanceParsed?: string;
   totalBalance?: string;

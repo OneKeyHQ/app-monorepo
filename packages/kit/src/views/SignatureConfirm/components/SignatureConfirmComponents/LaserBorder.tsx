@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
@@ -7,12 +7,13 @@ import Animated, {
   interpolate,
   interpolateColor,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
 
-import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
+import { LinearGradient, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -20,7 +21,11 @@ import type { LayoutChangeEvent } from 'react-native';
 type IProps = {
   children: ReactNode;
   borderRadius?: number;
+  borderColor?: ComponentProps<typeof Stack>['borderColor'];
   duration?: number;
+  // When false, suppress the animated rainbow sweep and render a plain static
+  // border using borderColor.
+  glow?: boolean;
 };
 
 const BORDER_PX = 1;
@@ -57,26 +62,45 @@ const BORDER_LOCATIONS = [
 
 const WEB_BLUR_STYLE = { filter: 'blur(6px)' } as Record<string, string>;
 
-function LaserBorder({ children, borderRadius = 12, duration = 2800 }: IProps) {
-  const theme = useTheme();
+function LaserBorder({
+  children,
+  borderRadius = 12,
+  borderColor = '$borderSubdued',
+  duration = 2800,
+  glow = true,
+}: IProps) {
+  const reducedMotion = useReducedMotion();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const rotation = useSharedValue(0);
-  const glowOpacity = useSharedValue(1);
+  const glowOpacity = useSharedValue(reducedMotion || !glow ? 0 : 1);
   const hasAnimated = useRef(false);
+  // Keep the inset geometry stable for the entire glow lifecycle. Changing it
+  // when the opacity animation ends would resize the card by 2px and shift all
+  // content below it.
+  const hasLaserInset = !reducedMotion && glow;
 
-  const bgColor = theme.bg?.val ?? '#1a1a1a';
-  const restBorderColor = theme.borderSubdued?.val ?? '#333';
   const diagonal = Math.sqrt(layout.width ** 2 + layout.height ** 2);
 
   useEffect(() => {
-    if (layout.width === 0 || hasAnimated.current) return;
+    // `glow` can flip after mount as async caller state changes. Disable it
+    // immediately; if it has not run yet, enable it once layout is available.
+    if (reducedMotion || !glow) {
+      rotation.value = 0;
+      glowOpacity.value = 0;
+      return;
+    }
+    if (layout.width === 0 || hasAnimated.current) {
+      return;
+    }
     hasAnimated.current = true;
+    rotation.value = 0;
+    glowOpacity.value = 1;
     rotation.value = withTiming(180, { duration, easing: Easing.linear });
     glowOpacity.value = withDelay(
       duration,
       withTiming(0, { duration: FADE_MS }),
     );
-  }, [layout.width, duration, rotation, glowOpacity]);
+  }, [glow, layout.width, duration, rotation, glowOpacity, reducedMotion]);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -110,13 +134,13 @@ function LaserBorder({ children, borderRadius = 12, duration = 2800 }: IProps) {
   return (
     <Animated.View
       style={[
-        { borderRadius },
-        isNative
+        { borderRadius, alignSelf: 'stretch', width: '100%' },
+        isNative && glow
           ? [{ shadowOffset: { width: 0, height: 0 } }, nativeShadowStyle]
           : undefined,
       ]}
     >
-      {!isNative && layout.width > 0 && glowDiag > 0 ? (
+      {glow && !isNative && layout.width > 0 && glowDiag > 0 ? (
         <Stack
           style={[
             {
@@ -157,16 +181,15 @@ function LaserBorder({ children, borderRadius = 12, duration = 2800 }: IProps) {
       ) : null}
 
       <Stack
-        style={{
-          borderRadius,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: restBorderColor,
-          backgroundColor: bgColor,
-          overflow: 'hidden',
-        }}
+        width="100%"
+        borderColor={borderColor}
+        borderRadius={borderRadius}
+        borderWidth={StyleSheet.hairlineWidth}
+        bg="$bg"
+        overflow="hidden"
         onLayout={handleLayout}
       >
-        {diagonal > 0 ? (
+        {glow && diagonal > 0 ? (
           <Animated.View
             style={[
               {
@@ -188,16 +211,18 @@ function LaserBorder({ children, borderRadius = 12, duration = 2800 }: IProps) {
             />
           </Animated.View>
         ) : null}
-        <Stack
-          style={{
-            margin: BORDER_PX,
-            borderRadius: borderRadius - BORDER_PX,
-            backgroundColor: bgColor,
-            overflow: 'hidden',
-          }}
-        >
-          {children}
-        </Stack>
+        {hasLaserInset ? (
+          <Stack
+            m={BORDER_PX}
+            borderRadius={borderRadius - BORDER_PX}
+            bg="$bg"
+            overflow="hidden"
+          >
+            {children}
+          </Stack>
+        ) : (
+          children
+        )}
       </Stack>
     </Animated.View>
   );

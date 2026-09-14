@@ -18,6 +18,7 @@ import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/rou
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
+import { BulkExportHistoryModalRouter } from '../../views/BulkExportHistory/router';
 import { BulkSendModalRouter } from '../../views/BulkSend/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { CloudBackupPages } from '../../views/CloudBackup/router';
@@ -35,7 +36,7 @@ import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
 import { ModalPerpStack } from '../../views/Perp/router';
-import { PrimeRouter } from '../../views/Prime/router';
+import { PrimeGiftRouter, PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ReferFriendsRouter } from '../../views/ReferFriends/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
@@ -118,6 +119,11 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     onUnmounted() {
       void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
     },
+  },
+  {
+    name: EModalRoutes.PrimeGiftModal,
+    children: PrimeGiftRouter,
+    theme: 'dark',
   },
   {
     name: EModalRoutes.FirmwareUpdateModal,
@@ -215,6 +221,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.BulkCopyAddressesModal,
     children: BulkCopyAddressesModalRouter,
+  },
+  {
+    name: EModalRoutes.BulkExportHistoryModal,
+    children: BulkExportHistoryModalRouter,
   },
   {
     name: EModalRoutes.BulkSendModal,

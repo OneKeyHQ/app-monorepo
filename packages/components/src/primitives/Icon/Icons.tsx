@@ -470,6 +470,7 @@ const icons = {
   ChartLine2Outline: () => import('./react/outline/ChartLine2'),
   ChartPieDashboardOutline: () => import('./react/outline/ChartPieDashboard'),
   ChartPieDashboard2Outline: () => import('./react/outline/ChartPieDashboard2'),
+  ChartPositionOutline: () => import('./react/outline/ChartPosition'),
   ChartTrendingOutline: () => import('./react/outline/ChartTrending'),
   ChartTrending2Outline: () => import('./react/outline/ChartTrending2'),
   ChartTrendingUpOutline: () => import('./react/outline/ChartTrendingUp'),

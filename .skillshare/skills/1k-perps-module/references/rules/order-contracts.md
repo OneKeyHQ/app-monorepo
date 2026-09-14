@@ -1,86 +1,58 @@
-# Perps Order Contracts
+# Perps Orders and Execution Prices
 
-Open this before changing order submission, cancel, validation, display, history, or order-mode UI.
+Use for order behavior, validation, order-mode controls or execution prices. A row's spacing or label-only change can stay in the UI; it does not require rechecking every order contract below.
 
-## Source of truth (verify, do not trust memory)
+## Starting points
 
-These contracts are **SDK-typed and volatile**. Confirm against source before relying on a field/value:
+- UI form/confirmation: `packages/kit/src/views/Perp/components/TradingPanel/`, `packages/kit/src/views/Perp/hooks/useOrderConfirm.ts`.
+- Orchestration: `packages/kit/src/states/jotai/contexts/hyperliquid/actions.ts` (`placeOrderByCoin`, `amendChartOrder`, `chaseOrder`, `cancelChartOrder`).
+- SDK adapter: `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidExchange.ts` (`placeOrderByCoin`, `amendOrderPriceByOid`, `modifyOrder`, `placeScaleOrder`, `twapOrder`, `twapCancel`).
+- Payload helpers: `packages/kit-bg/src/services/ServiceHyperLiquid/utils/coinScopedOrder.ts`, `packages/kit-bg/src/services/ServiceHyperLiquid/utils/orderAmend.ts`.
+- Position actions: modals under `packages/kit/src/views/Perp/components/OrderInfoPanel/`; helpers `packages/kit/src/views/Perp/components/OrderInfoPanel/utils/addPosition.ts` and `packages/kit/src/views/Perp/components/OrderInfoPanel/utils/positionTpslSnapshot.ts`.
+- Shared precision/contracts: `packages/shared/src/utils/perpsUtils.ts`, `packages/shared/src/utils/hyperliquidScaleOrderUtils.ts`, `packages/shared/types/hyperliquid/`.
 
-- SDK action types (type-enforced, in repo): `node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/` — `order.ts`, `twapOrder.ts`, `twapCancel.ts`, `modify.ts`, `batchModify.ts`, `cancel.ts`.
-- OneKey re-exports: `packages/shared/types/hyperliquid/sdk.ts` (`import * as HL from '@nktkas/hyperliquid'`).
-- Official exchange docs: <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint>.
-- Recheck on every SDK bump; let the SDK type be the arbiter.
+When changing wire semantics, confirm the working branch's SDK, patches and narrowed types using [source index](source-index.md). Product controls may deliberately expose fewer capabilities than the SDK.
 
-## Shared invariants
+## Order-mode boundaries
 
-- Asset type matters: `perp` and `spot` can share UI but not every order contract.
-- Keep price/size precision in shared utilities and service validation; do not reimplement formatting in a component.
-- Validate reduce-only against current position side/size before submit.
-- Treat mixed child-order outcomes as possible for batched orders; inspect returned statuses and thrown SDK/service errors instead of assuming all-or-nothing.
-- Do not assume missing fee/rate/slippage fields mean zero.
+| Mode | Current contract and common mistake |
+| --- | --- |
+| Limit / TIF | `tif` belongs to the `limit` variant. OneKey user choices are narrowed by `views/Perp/utils/timeInForce.ts`; internal market TIF such as `FrontendMarket` is not a user limit option. Spot scale currently uses `Gtc`; perp scale can use normalized user limit TIF. |
+| Market | User limit TIF controls do not apply. Check the actual reference price and slippage path rather than treating the display price as a guaranteed execution price. |
+| Trigger / TP-SL | Trigger has its own payload, not a limit `tif`. TP/SL relationships depend on `order` grouping. Preserve trigger/limit distinctions during modify and list/chart rendering. |
+| TWAP | Native `twapOrder` / `twapCancel`, not an ordinary open order. The base TWAP payload has no limit price or TIF. Check the installed schema for duration and any extensions; do not transplant ordinary TP/SL controls without a supported contract. Cancel with assetId/twapId, not oid. |
+| Scale | OneKey builds child limit orders locally and submits ordinary batch `order`; there is no native scale group in this implementation. Validate child precision, min notional and size as well as the aggregate. Mixed statuses and thrown child errors are possible. |
 
-## TIF
+TWAP active state comes from `twapStates` / `webData2.twapStates`; history and fills from `userTwapHistory` / `userTwapSliceFills`. Preserve slice labeling and partial-fill/underfill behavior. Recheck fee support before promising it.
 
-- `tif` exists only on the `limit` order variant; `trigger` and `twapOrder` have no `tif`.
-- Read `order.ts` / `modify.ts` / `batchModify.ts` `t.limit.tif` for the raw SDK list; OneKey user-facing TIF is narrower and must not expose internal market TIF such as `FrontendMarket`.
-- Scale child limit orders carry TIF; spot scale currently uses `Gtc`, perp may use normalized user limit TIF.
+For scale, use the shared leg builders/validators, preserve intentional rounding remainder and distribution handling, and do not assume grouping metadata survives across devices. A successful batch request does not establish success for every leg.
 
-Key anchors:
-- `node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/order.ts`, `modify.ts`, `batchModify.ts` (`t.limit.tif` picklist — raw SDK source of truth).
-- `packages/shared/types/hyperliquid/sdk.ts` (`ITIF`).
-- `packages/kit/src/views/Perp/utils/timeInForce.ts`.
-- `packages/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidExchange.ts` (`normalizeUserLimitTif`, order placement methods).
+Reduce-only validation uses the intended account's current position, side and size. Check aggregate and per-leg implications for scale; do not let a stale position satisfy validation. Preserve the actual exchange/product oversize behavior rather than inventing a new clamp or universal size rule. Missing fee/rate/slippage values are not evidence of zero.
 
-## TWAP
+## Coin-scoped actions and Chase
 
-- TWAP is Hyperliquid native `twapOrder` / `twapCancel`.
-- TWAP is not a limit order: no price, no tif; read `twapOrder.ts` for exact fields/duration.
-- It is not a normal open order and must not use ordinary oid cancel.
-- Active TWAP state comes from `twapStates` / `webData2.twapStates`.
-- History/details come from `userTwapHistory` and `userTwapSliceFills`.
-- Cancel by `{ a: assetId, t: twapId }`.
-- Do not show limit price, TP/SL, or TIF controls for TWAP unless product/API contracts change.
-- TWAP can underfill; slice fills must be labeled so users do not confuse them with one manual order.
-- Recheck builder-fee behavior before promising it.
+An order or position row may refer to a different coin from the active chart. Use the intended coin/oid and account when resolving metadata, precision and current position/order. Revalidate after asynchronous guards or dialogs if the selection can change.
 
-Key anchors:
-- `node_modules/@nktkas/hyperliquid/src/api/exchange/_methods/twapOrder.ts`, `twapCancel.ts` (SDK payload source of truth).
-- `ServiceHyperliquidExchange.ts` (`twapOrder`, `twapCancel`).
-- `contexts/hyperliquid/actions.ts` (`twapStates`, TWAP maps, cancel filtering).
-- `packages/shared/types/hyperliquid/types.ts` (`TWAP_STATES`, `USER_TWAP_HISTORY`, `USER_TWAP_SLICE_FILLS`).
+`chaseOrder` resolves the existing order, checks its eligible amendment kind, and requests `amendOrderPriceByOid` with `alwaysPlace`. `buildHyperliquidModifyRequest` maps that option to action-level `a: true`; it is distinct from nested `order.a` (assetId). The working SDK patch and parsed request must retain the field. Check cloid, reduce-only, trigger kind and returned order status when altering this flow.
 
-## Scale orders
+`useChasingOrderTask` in the order panel tracks pending work per oid. Other entry points have their own submit/confirmation guards; preserve protection against duplicate actions and recheck the current target rather than adding a blanket global lock.
 
-- Scale is not a native Hyperliquid order group — the SDK has no scale action/primitive (check the `_methods/` directory if unsure). It is built client-side.
-- OneKey builds multiple child limit orders locally and submits them through ordinary batch `order`.
-- Validate every child leg: price, size, precision, min notional, and reduce-only constraints.
-- Mixed child statuses or thrown child errors are possible; UI/toast must not collapse every scale submission into one guaranteed-success result.
-- Do not fake a native group or rely on group metadata surviving across devices.
-- Handle rounding remainder intentionally, usually on the last leg; map product distributions through shared scale utilities.
+## Price purpose and readiness
 
-Key anchors:
-- `packages/shared/src/utils/hyperliquidScaleOrderUtils.ts` (`buildScaleOrderLegs`, `validateScaleOrderLegs`, `assertValidScaleOrderLegs`).
-- `ServiceHyperliquidExchange.ts` (`placeScaleOrder`).
-- `contexts/hyperliquid/actions.ts` (`placeScaleOrder`, order mode routing).
-- `packages/shared/types/hyperliquid/types.ts` (`IPlaceScaleOrderParams`, scale types).
+- `packages/kit/src/views/Perp/hooks/useTradingPrice.ts` and `usePerpsMidPrice.ts` select live/display sources. Display snapshots, formatted prices and chart priceScale are not interchangeable with payload precision or a fresh execution reference.
+- `packages/kit/src/views/Perp/hooks/useOrderPrice.ts` and `packages/kit/src/views/Perp/utils/tradingReferencePrice.ts` resolve order/sizing prices. For standard BBO limit sizing, the hidden static form price can be stale; use the resolved order price. Do not substitute mid for mark/oracle calculations without tracing the contract.
+- `ServiceHyperliquid.getMarketOrderReferencePrice` uses `packages/kit-bg/src/services/ServiceHyperLiquid/utils/marketOrderReferencePrice.ts`: validate the cached allMids entry or load the requested coin's dex. `ClosePositionModal.tsx` has UI readiness/submit checks; main displaying a price does not establish BG readiness on split-runtime targets.
+- The `addPosition.ts` helper listed above ties sizing to the scoped position and margin data. Keep string/BigNumber precision where preserved upstream; formatted display values should not silently become order inputs.
 
-## Trigger / TP-SL
+For book/BBO click eligibility, use [market data](state-subscriptions.md); for account/position identity, use [account state](positions-account-state.md).
 
-- Trigger and TP/SL share some visual concepts with limit orders but not all execution semantics.
-- Trigger has no tif field. TP/SL is driven by `order` action `grouping`; read `order.ts` for exact trigger fields/grouping.
-- Trigger state/list display must be checked separately from open-order display.
-- Position TP/SL modal changes must validate selected position, side, asset, and account scope.
+## Select validation for the changed contract
 
-## Reduce-only
+Existing tests include:
 
-- Reduce-only order side must oppose an existing position.
-- Reduce-only size must not exceed the current position unless the current contract handles it safely.
-- For scale reduce-only, validate aggregate and per-leg implications before submit.
-- Do not allow stale position state to pass reduce-only validation after account/asset switch.
+- `packages/kit-bg/src/services/ServiceHyperLiquid/utils/coinScopedOrder.test.ts`, `packages/kit-bg/src/services/ServiceHyperLiquid/utils/orderAmend.test.ts`, `packages/kit-bg/src/services/ServiceHyperLiquid/utils/marketOrderReferencePrice.test.ts`.
+- `packages/kit/src/views/Perp/utils/timeInForce.test.ts`, `packages/kit/src/views/Perp/utils/minimumOrderGuard.test.ts`, `packages/kit/src/views/Perp/utils/tradingReferencePrice.test.ts`, `packages/kit/src/views/Perp/hooks/useOrderPrice.test.ts`.
+- `packages/shared/src/utils/hyperliquidScaleOrderUtils.test.ts`, `packages/kit/src/views/Perp/utils/scaleOrderValidation.test.ts`.
+- `packages/kit/src/views/Perp/components/OrderInfoPanel/utils/addPosition.test.ts`, `packages/kit/src/views/Perp/components/OrderInfoPanel/utils/positionTpslSnapshot.test.ts`, `packages/kit/src/views/Perp/components/OrderInfoPanel/hooks/useChasingOrderTask.test.ts`.
 
-## Precision and display
-
-- Use `perpsUtils.ts` and scale utilities for precision/formatting.
-- Price scale for TradingView display is not necessarily the same as order payload precision.
-- Avoid `Number` conversions in hot trading paths if string/BN precision is already preserved upstream.
-- Do not use `JSON.stringify()` for cryptographic/hash/signature paths; use stable serialization where required by repo rules.
+Choose applicable cases: TIF availability and modify/cancel; TWAP duration/randomization/reduce-only/cancel/history; scale small/large leg counts, distributions, direction, per-leg precision/notional and mixed failure; target switch while a dialog is open; stale/missing price at cold start; repeated submission. For external effects, follow existing authorization boundaries and the [validation guide](validation-recipes.md).

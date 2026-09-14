@@ -21,7 +21,7 @@ const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
 };
 
 export function AmountInputSection({ title }: IAmountInputSectionProps) {
-  const { state, actions, actionResult } = useManagePositionContext();
+  const { state, actions, actionResult, approval } = useManagePositionContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -58,7 +58,7 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
     [title, actionLabelProp, action, intl],
   );
 
-  const amountInputDisabled = isDisabled;
+  const amountInputDisabled = isDisabled || approval.approving;
 
   // Borrow action doesn't check isInsufficientBalance for hasError
   // because borrow is borrowing from the protocol, not spending wallet balance

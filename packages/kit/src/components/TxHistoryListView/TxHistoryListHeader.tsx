@@ -10,7 +10,7 @@ import {
   Switch,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
+import { getNetworkIdsSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -26,10 +26,8 @@ type IProps = {
   filteredHistory: IAccountHistoryTx[];
 };
 
-const filterScamHistorySupportedNetworks =
-  getNetworksSupportFilterScamHistory();
 const filterScamHistorySupportedNetworkIds = new Set(
-  filterScamHistorySupportedNetworks.map((n) => n.id),
+  getNetworkIdsSupportFilterScamHistory(),
 );
 
 function TxHistoryListHeader({ filteredHistory: _filteredHistory }: IProps) {

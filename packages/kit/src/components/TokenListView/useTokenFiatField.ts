@@ -21,6 +21,7 @@ import { useAtomValue } from 'jotai';
 import { selectAtom } from 'jotai/utils';
 
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useTokenListContextData } from '../../states/jotai/contexts/tokenList/atoms';
@@ -30,6 +31,7 @@ import {
   meta,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
 
+import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 /** Shallow equality for the small fixed-key field slices selected below. */
@@ -66,11 +68,15 @@ function useTokenFiatField<T>(
   $key: string,
   select: (fiat: ITokenFiat | undefined) => T,
   isEqual: (a: T, b: T) => boolean = Object.is,
+  // Row network, consulted only by the zero-fill gate on the non-cell path.
+  networkId?: string,
 ): T {
   const {
     tokenListMap: contextTokenListMap,
     aggregateTokenFiatMap: contextAggregateTokenFiatMap,
     useCellSeam,
+    zeroFillMissingFiat = false,
+    zeroFillNetworkIds,
   } = useTokenListViewContext();
   // useTokenListContextData throws when no store is mounted, so `store` is
   // always defined here.
@@ -91,16 +97,34 @@ function useTokenFiatField<T>(
 
   // Non-cell paths keep reading the whole context map; the field is projected
   // off it so callers get the same shape on both paths.
-  const mapToken =
-    contextTokenListMap?.[$key] ?? contextAggregateTokenFiatMap?.[$key];
+  const mapToken = resolveMapTokenFiat({
+    $key,
+    networkId,
+    tokenListMap: contextTokenListMap,
+    aggregateTokenFiatMap: contextAggregateTokenFiatMap,
+    zeroFillMissingFiat,
+    zeroFillNetworkIds,
+  });
 
   return useCellSeam ? cellField : select(mapToken);
 }
 
 // --- per-field selectors (module-level for selectAtom caching) -------------
 
+// Scaled-UI (rebase) tokens: the fiat map keeps balanceParsed RAW; the display
+// leaf shows balanceParsed × balanceMultiplier (no-op when absent). fiatValue
+// is already multiplied server-side.
 const selectBalanceParsed = (f: ITokenFiat | undefined): string | undefined =>
-  f?.balanceParsed;
+  tokenRebaseUtils.applyBalanceMultiplier({
+    amount: f?.balanceParsed,
+    balanceMultiplier: f?.balanceMultiplier,
+  });
+
+// Raw `balanceMultiplier` field — for consumers that gate scaled-UI-unaware
+// flows (e.g. the swap entry), not for display math.
+const selectBalanceMultiplier = (
+  f: ITokenFiat | undefined,
+): string | undefined => f?.balanceMultiplier;
 
 const selectPrice24h = (f: ITokenFiat | undefined): number | undefined =>
   f?.price24h;
@@ -117,21 +141,42 @@ const selectPriceSlice = (f: ITokenFiat | undefined): ITokenPriceSlice => ({
 export interface ITokenValueSlice {
   has: boolean;
   fiatValue: string | undefined;
+  /** DISPLAY basis: balanceParsed × balanceMultiplier. See `selectBalanceParsed`. */
   balanceParsed: string | undefined;
   currency: string | undefined;
 }
 const selectValueSlice = (f: ITokenFiat | undefined): ITokenValueSlice => ({
   has: !!f,
   fiatValue: f?.fiatValue,
-  balanceParsed: f?.balanceParsed,
+  // See the contract comment above `selectBalanceParsed`: DISPLAY basis.
+  balanceParsed: tokenRebaseUtils.applyBalanceMultiplier({
+    amount: f?.balanceParsed,
+    balanceMultiplier: f?.balanceMultiplier,
+  }),
   currency: f?.currency,
 });
 
 // --- public per-field hooks ------------------------------------------------
 
-/** `balanceParsed` only — does NOT re-render on a price tick. */
-export function useTokenBalanceParsed($key: string): string | undefined {
-  return useTokenFiatField($key, selectBalanceParsed);
+/**
+ * `balanceParsed` only — does NOT re-render on a price tick.
+ *
+ * Returns the DISPLAY basis (balanceParsed × balanceMultiplier; a no-op for
+ * every non-rebase token).
+ */
+export function useTokenBalanceParsed(
+  $key: string,
+  networkId?: string,
+): string | undefined {
+  return useTokenFiatField($key, selectBalanceParsed, Object.is, networkId);
+}
+
+/**
+ * `balanceMultiplier` only — lets scaled-UI-unaware consumers (e.g. the swap
+ * entry) detect rebase tokens and fail closed.
+ */
+export function useTokenBalanceMultiplier($key: string): string | undefined {
+  return useTokenFiatField($key, selectBalanceMultiplier);
 }
 
 /** `price24h` only. */
@@ -145,6 +190,14 @@ export function useTokenPriceSlice($key: string): ITokenPriceSlice {
 }
 
 /** `{ has, fiatValue, balanceParsed, currency }` for the holding-value leaf. */
-export function useTokenValueSlice($key: string): ITokenValueSlice {
-  return useTokenFiatField($key, selectValueSlice, shallowEqualSlice);
+export function useTokenValueSlice(
+  $key: string,
+  networkId?: string,
+): ITokenValueSlice {
+  return useTokenFiatField(
+    $key,
+    selectValueSlice,
+    shallowEqualSlice,
+    networkId,
+  );
 }

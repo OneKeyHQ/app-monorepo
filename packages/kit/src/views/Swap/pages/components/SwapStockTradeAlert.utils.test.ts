@@ -8,6 +8,7 @@ import {
 import {
   getStockErrorAlertLevel,
   getStockTradeAlertType,
+  isCurrentStockMarketClosedQuoteEventError,
   isCurrentStockQuoteEventError,
 } from './SwapStockTradeAlertUtils';
 
@@ -102,6 +103,56 @@ describe('SwapStockTradeAlert utils', () => {
         toToken: appleStockToken,
       }),
     ).toBe(true);
+  });
+
+  it('matches a current Stock market-closed quote event error', () => {
+    expect(
+      isCurrentStockMarketClosedQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '2.0',
+        quoteEventError: {
+          message: 'Market closed',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+          isMarketOpen: false,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not treat an unknown or stale Stock market status as closed', () => {
+    expect(
+      isCurrentStockMarketClosedQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '2',
+        quoteEventError: {
+          message: 'Market status unavailable',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
+    expect(
+      isCurrentStockMarketClosedQuoteEventError({
+        fromToken: usdcToken,
+        fromTokenAmount: '3',
+        quoteEventError: {
+          message: 'Market closed',
+          fromToken: usdcToken,
+          toToken: appleStockToken,
+          fromTokenAmount: '2',
+          isStock: true,
+          isMarketOpen: false,
+        },
+        toToken: appleStockToken,
+      }),
+    ).toBe(false);
   });
 
   it('keeps Stock min amount errors as warning alerts', () => {

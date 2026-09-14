@@ -20,6 +20,7 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getThirdPartyDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -361,6 +362,12 @@ function TrezorBleBindingContent({
                   bindingId,
                   rejectedConnectIds,
                 });
+              const avatarImg = getThirdPartyDeviceAvatarImage({
+                vendor: EHardwareVendor.trezor,
+                vendorModel: device.vendorModel,
+                vendorModelName: device.vendorModelName,
+                fallback: 'trezor',
+              });
               return (
                 <ListItem
                   key={device.connectId}
@@ -372,7 +379,7 @@ function TrezorBleBindingContent({
                   }}
                   userSelect="none"
                 >
-                  <WalletAvatar wallet={undefined} img="trezor" />
+                  <WalletAvatar wallet={undefined} img={avatarImg} />
                   <ListItem.Text
                     primary={device.name}
                     secondary={

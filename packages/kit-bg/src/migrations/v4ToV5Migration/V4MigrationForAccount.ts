@@ -1298,7 +1298,12 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           let v5deviceSettings: IDBDeviceSettings | undefined;
           if (v4devicePayloadJson) {
             v5deviceSettings = {
-              inputPinOnSoftware: !v4devicePayloadJson.onDeviceInputPin,
+              // Only an explicit v4 on-device choice carries over; the v4
+              // app-input default is dropped so these devices land on v5's
+              // on-device default (OK-61489).
+              inputPinOnSoftware: v4devicePayloadJson.onDeviceInputPin
+                ? false
+                : undefined,
               inputPinOnSoftwareSupport: undefined,
             };
           }

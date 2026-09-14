@@ -20,4 +20,24 @@ describe('buildActiveTradeDisplay', () => {
     expect(display.coin).toBe('SOL');
     expect(display.assetId).toBeUndefined();
   });
+
+  it('exposes the HIP-3 DEX label without changing the display name', () => {
+    const display = buildActiveTradeDisplay({
+      tradeInstrument: {
+        mode: 'perp',
+        coin: 'xyz:UNITREE',
+        assetId: 110_000,
+        universe: undefined,
+      },
+      perpsAsset: {
+        coin: 'xyz:UNITREE',
+        assetId: 110_000,
+        universe: undefined,
+        margin: undefined,
+      },
+    });
+
+    expect(display.displayName).toBe('UNITREE');
+    expect(display.dexLabel).toBe('xyz');
+  });
 });

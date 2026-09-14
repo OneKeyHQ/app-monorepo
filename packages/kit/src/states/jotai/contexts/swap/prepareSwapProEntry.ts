@@ -8,6 +8,7 @@ import { jotaiContextStore } from '../../utils/jotaiContextStore';
 import {
   swapProDirectionAtom,
   swapProSelectTokenAtom,
+  swapProUserSelectedTokenAtom,
   swapTypeSwitchAtom,
 } from './atoms';
 
@@ -24,6 +25,7 @@ export function prepareSwapProEntry({
 
   // Keep ordinary Swap state intact. The pending global intent remains the
   // owner of persistence and Market preset consumption after navigation.
+  store.set(swapProUserSelectedTokenAtom(), undefined);
   store.set(swapProSelectTokenAtom(), token);
   store.set(swapProDirectionAtom(), direction);
   store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);

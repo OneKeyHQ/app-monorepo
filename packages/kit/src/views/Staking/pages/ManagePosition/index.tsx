@@ -71,6 +71,7 @@ const ManagePositionPage = () => {
     enableProtocolSwitch: boolean;
     initialProtocol: ISelectedProtocol;
     initialTab: 'deposit' | 'withdraw';
+    onStakeWithdrawSuccess: (() => void) | undefined;
   }>(() => {
     const {
       networkId,
@@ -80,6 +81,7 @@ const ManagePositionPage = () => {
       tokenImageUri,
       enableProtocolSwitch,
       tab,
+      onStakeWithdrawSuccess,
     } = route.params;
 
     return {
@@ -95,6 +97,7 @@ const ManagePositionPage = () => {
         vault,
       },
       initialTab: tab ?? 'deposit',
+      onStakeWithdrawSuccess,
     };
   }, [activeAccount, route.params, selectedAccount]);
 
@@ -127,6 +130,7 @@ const ManagePositionPage = () => {
     symbol,
     tokenImageUri,
     enableProtocolSwitch,
+    onStakeWithdrawSuccess,
   } = resolvedParams;
 
   const { result: protocols, isLoading: isProtocolListLoading } =
@@ -151,10 +155,6 @@ const ManagePositionPage = () => {
       },
     );
 
-  const selectedProtocolKey = useMemo(
-    () => getProtocolKey(selectedProtocol),
-    [selectedProtocol],
-  );
   const currentProtocol = useMemo(
     () =>
       protocols.find(
@@ -207,8 +207,10 @@ const ManagePositionPage = () => {
     <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <Page.Header title={symbol} />
       <Page.Body>
+        {/* No key remount on protocol switch: useManagePage keeps stale data
+            while refetching, so the switcher / trade-or-buy / input stay put and
+            only the changed values update — no full skeleton flash on switch. */}
         <ManagePositionContent
-          key={selectedProtocolKey}
           showApyDetail
           isInModalContext
           networkId={selectedProtocol.networkId}
@@ -221,6 +223,7 @@ const ManagePositionPage = () => {
           defaultTab={selectedTab}
           onTabChange={setSelectedTab}
           stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
+          onStakeWithdrawSuccess={onStakeWithdrawSuccess}
         />
       </Page.Body>
     </Page>

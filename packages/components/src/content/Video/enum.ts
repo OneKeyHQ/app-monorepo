@@ -1,1 +1,6 @@
-export { default as EVideoResizeMode } from 'react-native-video/src/types/ResizeMode';
+export const EVideoResizeMode = {
+  CONTAIN: 'contain',
+  COVER: 'cover',
+  NONE: 'none',
+  STRETCH: 'stretch',
+} as const;

@@ -142,6 +142,7 @@ export function createDesktopConfig({
     swcTargets: { chrome: '142' },
     enableImportMetaCompat: true,
     enableSentryMinimalCompat: true,
+    removeFirstPartyConsole: true,
   });
 
   const commonDesktopConfig: RspackOptions = {
@@ -158,7 +159,7 @@ export function createDesktopConfig({
     case 'production':
       return merge(
         baseConfig,
-        createProductionConfig({ platform, basePath, dropConsole: true }),
+        createProductionConfig({ platform, basePath }),
         commonDesktopConfig,
         {
           output: {

@@ -124,14 +124,12 @@ export interface IThirdPartyHardwareAdapter {
   ): Promise<void>;
 
   /**
-   * Trezor-only: mark a USB→BLE binding probe as active for `connectId`. While
-   * active, a pairing request from that candidate is cancelled silently instead
-   * of surfacing the THP pairing dialog (a non-matching candidate is "not this
-   * one"). Call endBindingProbe() when the probe finishes. Optional — adapters
-   * without host-managed pairing (Ledger) omit it.
+   * Trezor-only: mark a USB→BLE binding probe as active for `connectId`; call
+   * endBindingProbe() when it finishes. A candidate's identity is decided by
+   * the post-handshake device_id comparison, never by whether it asks to pair
+   * (an expired THP credential makes our own device ask too). Optional —
+   * adapters without host-managed pairing (Ledger) omit it.
    */
   beginBindingProbe?(connectId: string): void;
   endBindingProbe?(): void;
-  /** True if the current probe's connect failed due to that silent cancel. */
-  wasBindingProbeCancelled?(): boolean;
 }

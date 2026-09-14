@@ -1,10 +1,15 @@
 import { useMemo } from 'react';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
+import {
+  type IFetchedNetworkLogo,
+  resolveNetworkLogoUri,
+} from './useNetworkLogoUri.utils';
 import { usePromiseResult } from './usePromiseResult';
 
 // Memoized async function - handles both caching and concurrent request deduplication
@@ -38,19 +43,38 @@ export function useNetworkLogoUri({
   logoUri?: string;
   networkId?: string;
 }): string {
-  const shouldFetch = !logoUri && !!networkId;
+  const localLogoUri = useMemo(
+    () =>
+      logoUri ||
+      (networkId
+        ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+        : undefined),
+    [logoUri, networkId],
+  );
+  const shouldFetch = !localLogoUri && !!networkId;
 
   const { result: fetchedLogo } = usePromiseResult(
-    () =>
-      shouldFetch && networkId
-        ? fetchNetworkLogo(networkId)
-        : Promise.resolve(''),
+    async (): Promise<IFetchedNetworkLogo> => {
+      if (!shouldFetch || !networkId) {
+        return { logoUri: '' };
+      }
+      return {
+        logoUri: await fetchNetworkLogo(networkId),
+        networkId,
+      };
+    },
     [shouldFetch, networkId],
     {
       checkIsFocused: false,
+      initResult: { logoUri: '' },
     },
   );
 
-  // useMemo to avoid unnecessary re-renders
-  return useMemo(() => logoUri || fetchedLogo || '', [logoUri, fetchedLogo]);
+  // A result fetched for the previous network must never be shown beside the
+  // new network identity while its request is still pending.
+  return useMemo(
+    () =>
+      resolveNetworkLogoUri({ fetchedLogo, logoUri: localLogoUri, networkId }),
+    [fetchedLogo, localLogoUri, networkId],
+  );
 }

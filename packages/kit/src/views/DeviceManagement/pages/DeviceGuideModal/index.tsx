@@ -27,13 +27,15 @@ import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avat
 
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
+
 function DeviceItem({
   img,
   name,
   bg,
   ...rest
 }: IXStackProps & {
-  img: IAllWalletAvatarImageNames;
+  img: IAllWalletAvatarImageNames | IDeviceType;
   name: string;
   bg?: IImageProps['source'];
 }) {

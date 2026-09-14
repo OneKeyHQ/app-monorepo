@@ -25,13 +25,21 @@ import {
 import appStorage, {
   storageHub,
 } from '@onekeyhq/shared/src/storage/appStorage';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { storeExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../dbs/local/localDb';
+import {
+  DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
+  deleteMmkvProfileKeyForLocalSecretEnvelope,
+  localSecretEnvelopeService,
+} from '../dbs/local/localSecretEnvelope';
 import simpleDb from '../dbs/simple/simpleDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4appStorage } from '../migrations/v4ToV5Migration/v4appStorage';
@@ -70,7 +78,28 @@ class ServiceApp extends ServiceBase {
     });
   }
 
+  private async resetNativeLocalSecretEnvelopeKeys() {
+    if (!platformEnv.isNative) {
+      return;
+    }
+
+    try {
+      await deleteMmkvProfileKeyForLocalSecretEnvelope();
+    } catch {
+      defaultLogger.app.error.log('Native LSE MMKV key reset failed');
+    }
+    try {
+      await secureStorageInstance.removeSecureItem(
+        DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
+      );
+    } catch {
+      defaultLogger.app.error.log('Native LSE secure-storage key reset failed');
+    }
+    localSecretEnvelopeService.clearCapabilityCache();
+  }
+
   private async resetData() {
+    let nativeJotaiResetError: unknown;
     // const v4migrationPersistData = await v4migrationPersistAtom.get();
     // const v4migrationAutoStartDisabled =
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
@@ -92,7 +121,7 @@ class ServiceApp extends ServiceBase {
     }
 
     try {
-      appStorage.syncStorage.clearAll();
+      await appStorage.syncStorage.clearAll();
     } catch {
       console.error('syncStorage.clear() error');
     }
@@ -101,12 +130,12 @@ class ServiceApp extends ServiceBase {
     // Clean jotai MMKV per-key storage (separate instance from syncStorage)
     if (platformEnv.isNative) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { default: jotaiMMKV } =
-          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-        jotaiMMKV.clearAll();
-      } catch {
-        console.error('jotaiMMKV.clearAll() error');
+        const { clearNativeJotaiStorageForReset } =
+          await import('../states/jotai/jotaiStorage');
+        await clearNativeJotaiStorageForReset();
+      } catch (error) {
+        nativeJotaiResetError = error;
+        console.error('jotaiMMKV.clearAll() error', error);
       }
       defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
     }
@@ -131,7 +160,7 @@ class ServiceApp extends ServiceBase {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { coldStartCacheStorage } =
           require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-        coldStartCacheStorage.clearAll();
+        await coldStartCacheStorage.clearAll();
       }
     } catch {
       console.error('coldStartCacheStorage.clearAll() error');
@@ -147,6 +176,11 @@ class ServiceApp extends ServiceBase {
     }
     defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
+
+    // Explicit App Reset performs crypto erasure before Realm is removed. The
+    // two native LSE keys live outside Realm and general app-settings storage.
+    await this.resetNativeLocalSecretEnvelopeKeys();
+    defaultLogger.setting.page.clearDataStep('localSecretEnvelopeKeys-reset');
 
     // WARNING:
     // After deleting the realm database on Android, it blocks the thread for about 300ms. Root cause unknown.
@@ -286,6 +320,9 @@ class ServiceApp extends ServiceBase {
         }
       }
     }
+    if (nativeJotaiResetError) {
+      throw new OneKeyLocalError('Jotai storage reset failed');
+    }
   }
 
   @backgroundMethod()
@@ -293,8 +330,13 @@ class ServiceApp extends ServiceBase {
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: 'ServiceApp.resetApp',
     });
-    // logout supabase is called in UI hooks
-    void this.backgroundApi.servicePrime.apiLogout();
+    try {
+      await this.backgroundApi.serviceIdentityExit.prepareIdentityAuthForAppReset();
+    } catch {
+      // App Reset must remain available when identity recovery itself is
+      // broken; resetData clears the same persisted identity state.
+      defaultLogger.setting.page.clearDataStep('identityAuthCleanup-skipped');
+    }
 
     defaultLogger.setting.page.clearDataStep('servicePrime-apiLogout');
     void this.backgroundApi.serviceNotification.unregisterClient();
@@ -314,8 +356,9 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('resetData-start');
       await this.resetData();
       defaultLogger.setting.page.clearDataStep('resetData-end');
-    } catch (e) {
-      console.error('resetData error', e);
+    } catch (error) {
+      console.error('resetData error', error);
+      throw error;
     } finally {
       resetUtils.endResetting();
       defaultLogger.setting.page.clearDataStep('endResetting');
@@ -367,26 +410,146 @@ class ServiceApp extends ServiceBase {
   async openExtensionMarketTokenDetail(params: {
     tokenAddress: string;
     network: string;
+    marketTokenId?: string;
+    marketVariantId?: string;
+    skipMarketDataFetch?: boolean;
+    disableTrade?: boolean;
     isNative?: boolean;
     from?: EEnterWay;
     showFavoriteButton?: boolean;
+    marketTokenCategory?: string;
+    marketTokenSymbol?: string;
+    resolveMarketAsset?: boolean;
+    tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
-    const { tokenAddress, network, isNative, from, showFavoriteButton } =
-      params;
+    const {
+      tokenAddress,
+      network,
+      marketTokenId,
+      marketVariantId,
+      skipMarketDataFetch,
+      disableTrade,
+      isNative,
+      from,
+      showFavoriteButton,
+      marketTokenCategory,
+      marketTokenSymbol,
+      resolveMarketAsset,
+      tokenDetailPreview,
+    } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
-    if (typeof isNative === 'boolean') {
-      routeParams.isNative = isNative;
+    if (
+      typeof tokenAddress !== 'string' ||
+      typeof network !== 'string' ||
+      !network ||
+      (!tokenAddress && isNative === false)
+    ) {
+      throw new OneKeyLocalError('Invalid market token identity');
     }
+    const routeIsNative = isNative ?? tokenAddress.length === 0;
+    routeParams.isNative = routeIsNative;
     if (from) {
       routeParams.from = from;
     }
     if (typeof showFavoriteButton === 'boolean') {
       routeParams.showFavoriteButton = showFavoriteButton;
     }
+    if (marketTokenCategory) {
+      routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (marketTokenSymbol) {
+      routeParams.marketTokenSymbol = marketTokenSymbol;
+    }
+    if (resolveMarketAsset) {
+      routeParams.resolveMarketAsset = true;
+    }
+    if (marketTokenId) {
+      routeParams.marketTokenId = marketTokenId;
+    }
+    if (marketVariantId) {
+      routeParams.marketVariantId = marketVariantId;
+    }
+    if (skipMarketDataFetch) {
+      routeParams.skipMarketDataFetch = true;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
+    }
+    if (tokenDetailPreview) {
+      const previewId = await storeExtensionTokenPreview(
+        { network, tokenAddress, isNative: routeIsNative },
+        tokenDetailPreview,
+      );
+      if (previewId) routeParams.marketTokenPreviewId = previewId;
+    }
+    if (skipMarketDataFetch && !routeParams.marketTokenPreviewId) {
+      throw new OneKeyLocalError('Unable to transfer market token preview');
+    }
 
     return extUtils.openExpandTab({
-      path: `/market/token/${network}/${tokenAddress}`,
+      path: `/market/token/${encodeURIComponent(network)}/${encodeURIComponent(tokenAddress)}`,
+      params: routeParams,
+    });
+  }
+
+  @backgroundMethod()
+  async openExtensionMarketStockDetail(params: {
+    stockId: string;
+    stockPreviewLogoUrl?: string;
+    stockPreviewName?: string;
+    stockPreviewSymbol?: string;
+    tokenAddress?: string;
+    network?: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+    disableTrade?: boolean;
+    showFavoriteButton?: boolean;
+  }) {
+    const {
+      stockId,
+      stockPreviewLogoUrl,
+      stockPreviewName,
+      stockPreviewSymbol,
+      tokenAddress,
+      network,
+      isNative,
+      from,
+      disableTrade,
+      showFavoriteButton,
+    } = params;
+    const routeParams: IOpenUrlRouteInfo['params'] = {};
+
+    if (stockPreviewSymbol) {
+      routeParams.stockPreviewSymbol = stockPreviewSymbol;
+    }
+    if (stockPreviewName) {
+      routeParams.stockPreviewName = stockPreviewName;
+    }
+    if (stockPreviewLogoUrl) {
+      routeParams.stockPreviewLogoUrl = stockPreviewLogoUrl;
+    }
+    if (tokenAddress) {
+      routeParams.tokenAddress = tokenAddress;
+    }
+    if (network) {
+      routeParams.network = network;
+    }
+    if (typeof isNative === 'boolean') {
+      routeParams.isNative = isNative;
+    }
+    if (from) {
+      routeParams.from = from;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
+    }
+    if (typeof showFavoriteButton === 'boolean') {
+      routeParams.showFavoriteButton = showFavoriteButton;
+    }
+
+    return extUtils.openExpandTab({
+      path: `/market/stock/${encodeURIComponent(stockId)}`,
       params: routeParams,
     });
   }
@@ -504,17 +667,9 @@ class ServiceApp extends ServiceBase {
           await globalStatesStorage.clear();
         }
       } else {
-        // Native: Filter and remove keys with g_states_v5 prefix from appStorage
-        const GLOBAL_STATES_KEY_PREFIX = 'g_states_v5';
-        const allKeys = await appStorage.getAllKeys();
-        const globalStatesKeys = allKeys.filter((key) =>
-          key.startsWith(GLOBAL_STATES_KEY_PREFIX),
-        );
-
-        if (globalStatesKeys.length > 0) {
-          await appStorage.multiRemove(globalStatesKeys);
-        }
-        clearedKeysCount = globalStatesKeys.length;
+        const { clearNativeJotaiStorageForReset } =
+          await import('../states/jotai/jotaiStorage');
+        clearedKeysCount = await clearNativeJotaiStorageForReset();
       }
 
       defaultLogger.setting.page.clearDataStep('globalStatus-clear');
@@ -638,13 +793,32 @@ class ServiceApp extends ServiceBase {
           allKeys = await globalStatesStorage.getAllKeys();
         }
       } else {
-        // Native: Filter keys with g_states_v5 prefix from appStorage
-        const GLOBAL_STATES_KEY_PREFIX = 'g_states_v5';
-        const allAppStorageKeys = await appStorage.getAllKeys();
-        allKeys = allAppStorageKeys.filter((key) =>
-          key.startsWith(GLOBAL_STATES_KEY_PREFIX),
-        );
-        storage = appStorage;
+        const { getNativeJotaiStorageEntries } =
+          await import('../states/jotai/jotaiStorage');
+        const entries = await getNativeJotaiStorageEntries();
+        if (!entries || entries.size === 0) {
+          return {
+            isEmpty: true,
+            key: null,
+            value: null,
+            totalKeys: 0,
+          };
+        }
+        const firstEntry = entries.entries().next();
+        if (firstEntry.done) {
+          return {
+            isEmpty: true,
+            key: null,
+            value: null,
+            totalKeys: 0,
+          };
+        }
+        return {
+          isEmpty: false,
+          key: firstEntry.value[0],
+          value: firstEntry.value[1],
+          totalKeys: entries.size,
+        };
       }
 
       if (allKeys.length === 0 || !storage) {

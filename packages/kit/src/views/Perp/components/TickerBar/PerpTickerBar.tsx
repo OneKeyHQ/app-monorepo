@@ -4,13 +4,16 @@ import { useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpTickerBarDesktop } from './PerpTickerBarDesktop';
-import { PerpTickerBarMobile } from './PerpTickerBarMobile';
+import {
+  type IPerpTickerBarMobileProps,
+  PerpTickerBarMobile,
+} from './PerpTickerBarMobile';
 
-function PerpTickerBar() {
+function PerpTickerBar(props: IPerpTickerBarMobileProps) {
   const { gtMd } = useMedia();
 
   if (!gtMd || platformEnv.isNative) {
-    return <PerpTickerBarMobile />;
+    return <PerpTickerBarMobile {...props} />;
   }
   return <PerpTickerBarDesktop />;
 }

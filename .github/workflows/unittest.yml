@@ -21,7 +21,7 @@ concurrency:
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
-  JEST_SHARD_TOTAL: 3
+  JEST_SHARD_TOTAL: 5
   JEST_COVERAGE_THRESHOLD_JSON: '{"statements":10,"branches":35,"functions":10}'
 
 permissions:
@@ -30,14 +30,14 @@ permissions:
 
 jobs:
   unittest:
-    name: Unit Tests (${{ matrix.shard }}/3)
+    name: Unit Tests (${{ matrix.shard }}/5)
     runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
       matrix:
         node-version: [24.x]
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5]
 
     steps:
       - uses: actions/checkout@v4

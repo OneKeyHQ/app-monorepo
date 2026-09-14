@@ -1,11 +1,12 @@
 import { execFile } from 'child_process';
+import { rmSync } from 'fs';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
 import * as Sentry from '@sentry/electron/main';
-import { Menu, app, shell, systemPreferences } from 'electron';
+import { Menu, ShareMenu, app, shell, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
 import si from 'systeminformation';
 
@@ -19,6 +20,7 @@ import {
 } from '@onekeyhq/desktop/app/libs/utils';
 import { restartBridge } from '@onekeyhq/desktop/app/process';
 import { getAppStaticResourcesPath } from '@onekeyhq/desktop/app/resoucePath';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
 
@@ -143,6 +145,69 @@ export interface IMenuItem {
 export interface IMenu {
   groupsMap: Record<string, unknown>;
   items: IMenuItem[];
+}
+
+// The only legitimate producer of share images is the renderer share-card
+// canvas (`toDataURL('image/png')`), so the main process accepts nothing but
+// a bounded PNG data URI — a compromised renderer must not be able to write
+// arbitrary or oversized payloads to disk through this API.
+const SHARE_IMAGE_DATA_URI_PREFIX = 'data:image/png;base64,';
+// real share cards decode to well under 3 MB
+const SHARE_IMAGE_MAX_DECODED_BYTES = 10 * 1024 * 1024;
+const PNG_MAGIC_BYTES = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+
+function decodeShareImagePngOrThrow(base64Image: unknown): Buffer {
+  if (
+    typeof base64Image !== 'string' ||
+    !base64Image.startsWith(SHARE_IMAGE_DATA_URI_PREFIX)
+  ) {
+    throw new OneKeyLocalError(
+      'shareImageFile: only PNG data URIs are accepted',
+    );
+  }
+  const base64Data = base64Image.slice(SHARE_IMAGE_DATA_URI_PREFIX.length);
+  // reject oversized payloads from the encoded length (4 chars ≈ 3 bytes)
+  // before the decode buffer is ever allocated
+  if (base64Data.length > (SHARE_IMAGE_MAX_DECODED_BYTES / 3) * 4 + 4) {
+    throw new OneKeyLocalError('shareImageFile: image exceeds the size limit');
+  }
+  const imageBuffer = Buffer.from(base64Data, 'base64');
+  if (
+    imageBuffer.length === 0 ||
+    imageBuffer.length > SHARE_IMAGE_MAX_DECODED_BYTES
+  ) {
+    throw new OneKeyLocalError('shareImageFile: image exceeds the size limit');
+  }
+  if (
+    !imageBuffer.subarray(0, PNG_MAGIC_BYTES.length).equals(PNG_MAGIC_BYTES)
+  ) {
+    throw new OneKeyLocalError('shareImageFile: payload is not a PNG image');
+  }
+  return imageBuffer;
+}
+
+// Shared files must survive the picker long enough for share extensions to
+// read them (AirDrop reads only after the user picks a target), then be
+// reclaimed deterministically even if this API is never called again.
+const SHARE_IMAGE_FILE_STALE_MS = 60 * 60 * 1000;
+const SHARE_IMAGE_FILE_DELETE_DELAY_MS = 10 * 60 * 1000;
+
+let isShareDirQuitCleanupRegistered = false;
+function registerShareDirQuitCleanup(shareDir: string) {
+  if (isShareDirQuitCleanupRegistered) {
+    return;
+  }
+  isShareDirQuitCleanupRegistered = true;
+  app.on('will-quit', () => {
+    try {
+      // sync on purpose: async work is not guaranteed to finish during quit
+      rmSync(shareDir, { recursive: true, force: true });
+    } catch {
+      // best-effort privacy cleanup
+    }
+  });
 }
 
 class DesktopApiSystem {
@@ -311,6 +376,49 @@ class DesktopApiSystem {
     await shell.openExternal(
       'x-apple.systempreferences:com.apple.preference.security?Privacy',
     );
+  }
+
+  // Electron only implements the system share picker (ShareMenu) on macOS;
+  // a false return means "no system share on this platform" and callers are
+  // expected to hide their share entry or fall back to saving the file.
+  async shareImageFile(params: { base64Image: string }): Promise<boolean> {
+    if (process.platform !== 'darwin') {
+      return false;
+    }
+    const imageBuffer = decodeShareImagePngOrThrow(params.base64Image);
+    const shareDir = path.join(app.getPath('temp'), 'onekey-image-share');
+    await fs.mkdir(shareDir, { recursive: true });
+    // sweep leftovers from crashed/killed sessions whose delete timers died
+    try {
+      const entries = await fs.readdir(shareDir);
+      const now = Date.now();
+      await Promise.all(
+        entries.map(async (entry) => {
+          const entryPath = path.join(shareDir, entry);
+          const stat = await fs.stat(entryPath);
+          if (now - stat.mtimeMs > SHARE_IMAGE_FILE_STALE_MS) {
+            await fs.unlink(entryPath);
+          }
+        }),
+      );
+    } catch {
+      // best-effort cleanup only
+    }
+    // filename is built here, never taken from the renderer, so IPC input
+    // cannot influence the write path
+    const filePath = path.join(shareDir, `onekey-share-${Date.now()}.png`);
+    await fs.writeFile(filePath, imageBuffer);
+    const shareMenu = new ShareMenu({ filePaths: [filePath] });
+    shareMenu.popup();
+    // deterministic reclamation for this file: share extensions read it after
+    // the picker closes, so delete well past that window. Electron quits
+    // explicitly (pending timers never block exit); quitting before the timer
+    // fires is covered by the will-quit cleanup below.
+    setTimeout(() => {
+      void fs.unlink(filePath).catch(() => {});
+    }, SHARE_IMAGE_FILE_DELETE_DELAY_MS);
+    registerShareDirQuitCleanup(shareDir);
+    return true;
   }
 
   async getMediaAccessStatus(

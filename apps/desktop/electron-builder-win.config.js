@@ -27,6 +27,14 @@ module.exports = {
         from: 'app/build/static/bin/bridge/win-${arch}',
         to: 'bin/bridge',
       },
+      // Windows BLE OS-pairing helper (onekey-ble-pair). Same layout as bridge:
+      // commit the built exe to public/static/bin/ble-pair/win-<arch>/ and the
+      // renderer build stages it into app/build/static. Missing arch (e.g.
+      // arm64 before it is built) simply means no helper → app falls back.
+      {
+        from: 'app/build/static/bin/ble-pair/win-${arch}',
+        to: 'bin/ble-pair',
+      },
     ],
     extraFiles: DLLs,
     icon: 'app/build/static/images/icons/installerIcon.ico',

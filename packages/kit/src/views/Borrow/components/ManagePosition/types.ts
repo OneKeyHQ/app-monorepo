@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 
 import type {
+  EApproveType,
   IBorrowAsset,
   IBorrowTransactionConfirmation,
   ICheckAmountAlert,
@@ -17,13 +18,6 @@ export type IBorrowActionType = 'supply' | 'withdraw' | 'borrow' | 'repay';
 
 export type ITokenSelectorMode = 'navigation' | 'popover' | 'disabled';
 
-export type IManagePositionApproveTarget = {
-  accountId: string;
-  networkId: string;
-  spenderAddress: string;
-  token: IToken;
-};
-
 // ============================================================================
 // Confirm Params
 // ============================================================================
@@ -32,6 +26,36 @@ export interface IManagePositionConfirmParams {
   amount: string;
   withdrawAll?: boolean;
   repayAll?: boolean;
+}
+
+export interface IBorrowApproveTarget {
+  accountId: string;
+  networkId: string;
+  spenderAddress: string;
+  token?: IToken;
+}
+
+export type IManagePositionApproveTarget = IBorrowApproveTarget & {
+  token: IToken;
+};
+
+export interface IBorrowDelegationApproveTarget {
+  accountId: string;
+  networkId: string;
+  provider: string;
+  marketAddress: string;
+  reserveAddress: string;
+  allowance: string;
+}
+
+export interface IManagePositionApproval {
+  approveType?: EApproveType;
+  approving: boolean;
+  approvalProgressStarted: boolean;
+  loadingAllowance: boolean;
+  shouldApprove: boolean;
+  ensureReadyToSubmit: () => Promise<boolean>;
+  onApprove: () => Promise<void>;
 }
 
 // ============================================================================
@@ -51,11 +75,16 @@ export interface IManagePositionProps {
   balance: string;
   maxBalance?: string;
   repayAllBalance?: string;
+  debtBalance?: string;
   tokenSymbol?: string;
   tokenImageUri?: string;
   decimals?: number;
   price?: string;
   tokenInfo?: IEarnTokenInfo;
+  approveType?: EApproveType;
+  approveTarget?: IBorrowApproveTarget;
+  borrowDelegationApproveTarget?: IBorrowDelegationApproveTarget;
+  currentAllowance?: string;
 
   // UI configuration
   isDisabled?: boolean;
@@ -69,12 +98,10 @@ export interface IManagePositionProps {
   selectableAssetsLoading?: boolean;
   onTokenSelect?: (item: IBorrowAsset) => void;
 
-  // Optional token approval gate before submit.
-  approveTarget?: IManagePositionApproveTarget;
-  currentAllowance?: string;
-
   // Callbacks
-  onConfirm?: (params: IManagePositionConfirmParams) => Promise<void>;
+  // Resolves false when the flow never started (the user rejected the risk
+  // disclaimer, say), so the form can keep what the user typed.
+  onConfirm?: (params: IManagePositionConfirmParams) => Promise<boolean | void>;
 }
 
 // ============================================================================
@@ -100,6 +127,7 @@ export interface IManagePositionState {
   price: string;
   balance: string;
   maxBalance?: string;
+  debtBalance?: string;
   tokenInfo?: IEarnTokenInfo;
   token?: IToken;
 
@@ -124,8 +152,6 @@ export interface IManagePositionState {
   // Action-specific flags
   isWithdrawAll: boolean;
   isRepayAll: boolean;
-  shouldApprove: boolean;
-  approveLoading: boolean;
 
   // Token selection
   tokenSelectorMode: ITokenSelectorMode;
@@ -152,7 +178,6 @@ export interface IManagePositionActions {
   onTokenSelect?: (item: IBorrowAsset) => void;
   handleOpenTokenSelector: () => void;
   onSubmit: () => Promise<void>;
-  onApprove?: () => Promise<void>;
 }
 
 // ============================================================================
@@ -162,6 +187,7 @@ export interface IManagePositionActions {
 export interface IManagePositionActionResult {
   estimateFeeResp?: IEarnEstimateFeeResp;
   transactionConfirmation?: IBorrowTransactionConfirmation;
+  transactionConfirmationLoading: boolean;
   checkAmountMessage: string;
   checkAmountAlerts: ICheckAmountAlert[];
   checkAmountLoading: boolean;
@@ -178,6 +204,7 @@ export interface IManagePositionContextValue {
   state: IManagePositionState;
   actions: IManagePositionActions;
   actionResult: IManagePositionActionResult;
+  approval: IManagePositionApproval;
 }
 
 // ============================================================================

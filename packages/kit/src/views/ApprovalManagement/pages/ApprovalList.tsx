@@ -362,12 +362,14 @@ function ApprovalList() {
       selectedTokens: filteredSelectedTokensByNetwork,
       tokenMap,
       contractMap,
+      approvals: filteredApprovalsByNetwork,
     });
   }, [
     navigationToBulkRevokeProcess,
     filteredSelectedTokensByNetwork,
     tokenMap,
     contractMap,
+    filteredApprovalsByNetwork,
   ]);
   const handleOnCancel = useCallback(() => {
     updateIsBulkRevokeMode(false);

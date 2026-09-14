@@ -5,6 +5,7 @@ import { appApiClient } from '../appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '../config/appConfig';
 import { getEndpointByServiceName } from '../config/endpointsMap';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import platformEnv from '../platformEnv';
 import requestHelper from '../request/requestHelper';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
@@ -87,9 +88,25 @@ function normalizeTimestamp(time: number | undefined): number | undefined {
   return Math.floor(time);
 }
 
+function getPersistedTimeValue(key: EAppSyncStorageKeys): number | undefined {
+  if (platformEnv.isDesktop) {
+    try {
+      const value = globalThis.localStorage?.getItem(key);
+      if (!value) {
+        return undefined;
+      }
+      const timestamp = Number(value);
+      return Number.isFinite(timestamp) ? timestamp : undefined;
+    } catch (_error) {
+      return undefined;
+    }
+  }
+  return appStorage.syncStorage.getNumber(key);
+}
+
 class SystemTimeUtils {
   constructor() {
-    const lastServerTimeInStorage = appStorage.syncStorage.getNumber(
+    const lastServerTimeInStorage = getPersistedTimeValue(
       lastValidServerTimeStorageKey,
     );
     this.setLastServerTimeValue({
@@ -97,7 +114,7 @@ class SystemTimeUtils {
       updateEstimateBaseline: false,
       persist: false,
     });
-    const lastLocalTimeInStorage = appStorage.syncStorage.getNumber(
+    const lastLocalTimeInStorage = getPersistedTimeValue(
       lastValidLocalTimeStorageKey,
     );
     this.setLastLocalTimeValue({
@@ -210,7 +227,13 @@ class SystemTimeUtils {
     value: number;
   }) {
     try {
-      appStorage.syncStorage.set(key, value);
+      if (platformEnv.isDesktop) {
+        // Desktop syncStorage uses sendSync; keep this best-effort cache local
+        // to the renderer so server responses cannot block on the main process.
+        globalThis.localStorage?.setItem(key, String(value));
+        return;
+      }
+      void appStorage.syncStorage.set(key, value);
     } catch (_error) {
       // Cache persistence is best-effort and should not affect time checks.
     }

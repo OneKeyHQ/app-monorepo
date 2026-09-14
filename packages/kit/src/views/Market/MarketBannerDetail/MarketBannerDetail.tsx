@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -9,6 +9,7 @@ import {
   Page,
   SizableText,
   Stack,
+  Tabs,
   XStack,
   useMedia,
   useSafeAreaInsets,
@@ -36,8 +37,17 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
+import {
+  getStockPeRatioValue,
+  shouldUseStockMetadataColumnsForTokens,
+} from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
+import { COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS } from '../MarketHomeV2/utils';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import {
+  isMarketIndexQuoteBanner,
+  isMarketMixedBanner,
+} from '../utils/marketBannerUtils';
 
 import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
 import { PerpsTokenListSection } from './PerpsTokenListSection';
@@ -55,10 +65,26 @@ type IMarketBannerDetailRouteParams = RouteProp<
   ETabMarketRoutes.MarketBannerDetail | EModalMarketRoutes.MarketBannerDetail
 >;
 
+// Stock metadata uses the liquidity column for volume, so only token lists hide it.
+const BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS = ['liquidity'] as const;
+
 function MarketBannerDetailContent({ title }: { title: string }) {
   const route = useRoute<IMarketBannerDetailRouteParams>();
-  const { tokenListId, type } = route.params;
+  const { tokenListId, type, assetType } = route.params;
   const isPerps = type === EMarketBannerType.Perps;
+  const isMixed = isMarketMixedBanner(type);
+  const [activeTab, setActiveTab] = useState<'spot' | 'perps'>('spot');
+  const showPerps = isPerps || (isMixed && activeTab === 'perps');
+  const handleTabPress = useCallback((name: string) => {
+    if (name === 'spot' || name === 'perps') setActiveTab(name);
+  }, []);
+  const isIndex = isMarketIndexQuoteBanner({ type, assetType });
+  const isStock =
+    type === EMarketBannerType.Stock ||
+    isMixed ||
+    assetType === 'stock' ||
+    assetType === 'etf' ||
+    assetType === 'index';
 
   const intl = useIntl();
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
@@ -74,7 +100,21 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     listResult,
     mobileData,
     tickerIsLoading,
-  } = useMarketBannerDetail({ tokenListId, isPerps });
+  } = useMarketBannerDetail({ tokenListId, isPerps, isStock, isIndex });
+  const useStockColumns = shouldUseStockMetadataColumnsForTokens(
+    listResult.data,
+    { forceStockMetadataColumns: isStock },
+  );
+  const hiddenDesktopColumns = useMemo(() => {
+    if (!useStockColumns) return BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS;
+    const hasPeRatio = listResult.data.some(
+      (item) => getStockPeRatioValue(item) !== undefined,
+    );
+    // The turnover column renders P/E in stock metadata mode.
+    return hasPeRatio
+      ? COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS
+      : ([...COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS, 'turnover'] as const);
+  }, [listResult.data, useStockColumns]);
 
   const renderHeaderLeft = useCallback(
     () => <NavBackButton onPress={handleBackPress} />,
@@ -113,6 +153,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     },
     [toDetailPage],
   );
+  const handleIndexItemPress = useCallback(() => undefined, []);
+  const onItemPress = isIndex ? handleIndexItemPress : handleItemPress;
 
   const renderPageHeader = useMemo(() => {
     if (isWebDesktop) {
@@ -177,7 +219,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     const change24hColumnTitle = intl.formatMessage({
       id: ETranslations.dexmarket_banner_token_24hchange,
     });
-    if (isPerps) {
+    if (showPerps) {
       return (
         <PerpsTokenListSection
           tokenListId={tokenListId}
@@ -187,16 +229,24 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         />
       );
     }
-    // Native mobile: use FlatList + TokenListItem to match watchlist layout
-    if (platformEnv.isNative && !gtMd) {
+    // Narrow layouts use the compact list to avoid the desktop table's
+    // intrinsic width overflowing the viewport.
+    if (!gtMd) {
       return (
         <BannerDetailTokenFlatList
           data={mobileData}
           isLoading={tickerIsLoading}
+          primaryColumnTitle={
+            useStockColumns
+              ? intl.formatMessage({ id: ETranslations.market_stock_company })
+              : `${intl.formatMessage({ id: ETranslations.global_name })} / ${intl.formatMessage({ id: ETranslations.market_mcap })}`
+          }
+          showMarketCap={!useStockColumns}
+          showVolume={!useStockColumns}
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={handleChangeSortPress}
-          onItemPress={handleItemPress}
+          onItemPress={onItemPress}
         />
       );
     }
@@ -204,19 +254,20 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     const tokenList = (
       <MarketTokenListBase
         result={listResult}
-        onItemPress={handleItemPress}
+        onItemPress={onItemPress}
         hideTokenAge
         clientSort
         watchlistFrom={EWatchlistFrom.BannerList}
         copyFrom={ECopyFrom.BannerList}
-        showEndReachedIndicator
         change24hColumnTitle={change24hColumnTitle}
+        showStockSubtitle={useStockColumns ? 'auto' : true}
+        forceStockMetadataColumns={useStockColumns}
+        hiddenDesktopColumns={hiddenDesktopColumns}
       />
     );
-    if (platformEnv.isNative) {
-      return tokenList;
-    }
-    return (
+    return platformEnv.isNative ? (
+      tokenList
+    ) : (
       <Stack
         flex={1}
         className="normal-scrollbar"
@@ -228,10 +279,12 @@ function MarketBannerDetailContent({ title }: { title: string }) {
       </Stack>
     );
   }, [
-    isPerps,
+    showPerps,
+    useStockColumns,
+    hiddenDesktopColumns,
     tokenListId,
     listResult,
-    handleItemPress,
+    onItemPress,
     gtMd,
     tickerIsLoading,
     mobileData,
@@ -255,6 +308,30 @@ function MarketBannerDetailContent({ title }: { title: string }) {
       <Page.Body>
         <Stack flex={1} pt={bodyTopInset} px={gtMd ? '$4' : 0} gap="$4">
           {renderTitleSection}
+          {isMixed ? (
+            <XStack role="tablist" px={gtMd ? '$2' : '$4'} gap="$5">
+              {(['spot', 'perps'] as const).map((name) => (
+                <Tabs.TabBarItem
+                  key={name}
+                  name={name}
+                  label={intl.formatMessage({
+                    id:
+                      name === 'spot'
+                        ? ETranslations.dexmarket_spot
+                        : ETranslations.global_perp,
+                  })}
+                  isFocused={activeTab === name}
+                  onPress={handleTabPress}
+                  testID={`market-banner-detail-tab-${name}`}
+                  tabItemStyle={{
+                    ml: 0,
+                    role: 'tab',
+                    'aria-selected': activeTab === name,
+                  }}
+                />
+              ))}
+            </XStack>
+          ) : null}
           {renderTokenList}
         </Stack>
       </Page.Body>
@@ -264,7 +341,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
 
 export function MarketBannerDetail() {
   const route = useRoute<IMarketBannerDetailRouteParams>();
-  const { title } = route.params;
+  const { title, tokenListId, type, assetType } = route.params;
 
   return (
     <AccountSelectorProviderMirror
@@ -277,7 +354,10 @@ export function MarketBannerDetail() {
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <MarketBannerDetailContent title={title} />
+        <MarketBannerDetailContent
+          key={`${tokenListId}:${type ?? ''}:${assetType ?? ''}`}
+          title={title}
+        />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

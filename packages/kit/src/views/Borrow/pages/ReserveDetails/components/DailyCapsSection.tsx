@@ -19,7 +19,7 @@ export function DailyCapsSection({
 }) {
   const intl = useIntl();
 
-  if (!details) {
+  if (!details?.dailyInfo) {
     return null;
   }
 

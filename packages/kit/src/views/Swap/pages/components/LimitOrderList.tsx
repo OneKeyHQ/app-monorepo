@@ -198,7 +198,7 @@ const LimitOrderList = ({
   );
 
   return shouldShowSwapLocalData &&
-    (!shouldShowSwapLimitOrders || !swapLimitOrders.length) &&
+    !shouldShowSwapLimitOrders &&
     (isLoading || swapLimitOrdersLoading) ? (
     loadingSkeleton
   ) : (

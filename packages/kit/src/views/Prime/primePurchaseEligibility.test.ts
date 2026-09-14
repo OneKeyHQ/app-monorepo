@@ -1,0 +1,186 @@
+/* cspell:ignore Infini */
+import { ensurePrimePurchaseEligible } from './primePurchaseEligibility';
+
+import type { IntlShape } from 'react-intl';
+
+const mockIntl = {
+  formatMessage: ({ id }: { id: string }) => id,
+} as unknown as IntlShape;
+const mockApiFetchPrimeUserInfo = jest.fn<Promise<unknown>, [unknown]>();
+const mockToastError = jest.fn();
+const mockToastMessage = jest.fn();
+const mockShowPrimeInfiniPaymentErrorToast = jest.fn();
+const mockLogPrimeInfiniPaymentFlow = jest.fn();
+
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: (...args: unknown[]) => {
+      mockToastError(...args);
+    },
+    message: (...args: unknown[]) => {
+      mockToastMessage(...args);
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    servicePrime: {
+      apiFetchPrimeUserInfo: (params: unknown): Promise<unknown> =>
+        mockApiFetchPrimeUserInfo(params),
+    },
+  },
+}));
+
+jest.mock('./primeInfiniPaymentError', () => ({
+  showPrimeInfiniPaymentErrorToast: (...args: unknown[]) => {
+    mockShowPrimeInfiniPaymentErrorToast(...args);
+  },
+}));
+
+jest.mock('./primeInfiniPaymentLogger', () => ({
+  logPrimeInfiniPaymentFlow: (...args: unknown[]) => {
+    mockLogPrimeInfiniPaymentFlow(...args);
+  },
+}));
+
+function buildUserInfo({
+  oneKeyUserId = 'user-1',
+  isPrimeActive = false,
+}: {
+  oneKeyUserId?: string;
+  isPrimeActive?: boolean;
+} = {}) {
+  return {
+    userInfo: {
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: oneKeyUserId,
+    },
+    primeSubscription: isPrimeActive
+      ? {
+          isActive: true,
+        }
+      : undefined,
+  };
+}
+
+describe('ensurePrimePurchaseEligible', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('forces a fresh server check before allowing payment', async () => {
+    mockApiFetchPrimeUserInfo.mockResolvedValue(buildUserInfo());
+
+    await expect(
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
+    ).resolves.toBe(true);
+
+    expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
+  });
+
+  it('blocks payment when Prime is already active', async () => {
+    mockApiFetchPrimeUserInfo.mockResolvedValue(
+      buildUserInfo({ isPrimeActive: true }),
+    );
+
+    await expect(
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
+    ).resolves.toBe(false);
+
+    expect(mockToastMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks payment when the OneKey ID changes during the check', async () => {
+    mockApiFetchPrimeUserInfo.mockResolvedValue(
+      buildUserInfo({ oneKeyUserId: 'user-2' }),
+    );
+
+    await expect(
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
+    ).resolves.toBe(false);
+
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces concurrent checks for the same OneKey ID', async () => {
+    let resolveRequest:
+      | ((value: ReturnType<typeof buildUserInfo>) => void)
+      | undefined;
+    mockApiFetchPrimeUserInfo.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+
+    const first = ensurePrimePurchaseEligible({
+      expectedOneKeyUserId: 'user-1',
+      intl: mockIntl,
+    });
+    const second = ensurePrimePurchaseEligible({
+      expectedOneKeyUserId: 'user-1',
+      intl: mockIntl,
+    });
+    resolveRequest?.(buildUserInfo());
+
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when the server check fails', async () => {
+    const error = new Error('network failed');
+    mockApiFetchPrimeUserInfo.mockRejectedValue(error);
+
+    await expect(
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
+    ).resolves.toBe(false);
+
+    expect(mockShowPrimeInfiniPaymentErrorToast).toHaveBeenCalledWith({
+      error,
+      fallbackMessage: 'prime_payment_start_failed__msg',
+    });
+    expect(mockLogPrimeInfiniPaymentFlow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'purchaseEligibilityCheckFailed',
+        error,
+      }),
+    );
+  });
+
+  it('allows the user to retry after a failed server check', async () => {
+    mockApiFetchPrimeUserInfo
+      .mockRejectedValueOnce(new Error('network failed'))
+      .mockResolvedValueOnce(buildUserInfo());
+
+    await expect(
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      ensurePrimePurchaseEligible({
+        expectedOneKeyUserId: 'user-1',
+        intl: mockIntl,
+      }),
+    ).resolves.toBe(true);
+
+    expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledTimes(2);
+  });
+});

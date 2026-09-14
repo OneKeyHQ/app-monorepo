@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
@@ -52,7 +53,7 @@ function PerpMarketFooter() {
     <Page.Footer
       px="$5"
       pt="$3"
-      pb="$10"
+      pb={platformEnv.isNative ? '$5' : '$3'}
       cancelButton={
         <Page.CancelButton
           flex={1}

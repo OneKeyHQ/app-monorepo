@@ -193,7 +193,7 @@ export const PendleAccordionTriggerContent: FC<
       {triggerText}
     </SizableText>
     <YStack
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_TRANSFORM}
       rotate={open && !isDisabled ? '180deg' : '0deg'}
     >

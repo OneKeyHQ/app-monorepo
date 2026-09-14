@@ -29,6 +29,7 @@ export function InfoItem({
   showCopy = false,
   openWithUrl,
   disabledCopy = false,
+  copyContent,
   ...rest
 }: {
   label?: string | ReactNode;
@@ -39,6 +40,9 @@ export function InfoItem({
   disabledCopy?: boolean;
   showCopy?: boolean;
   openWithUrl?: () => void;
+  // Copy this value instead of renderContent, e.g. when renderContent is a
+  // shortened display of the full value.
+  copyContent?: string;
 } & IStackProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -107,7 +111,7 @@ export function InfoItem({
                   size="small"
                   onPress={() => {
                     if (!disabledCopy) {
-                      copyText(renderContent);
+                      copyText(copyContent ?? renderContent);
                     }
                   }}
                 />

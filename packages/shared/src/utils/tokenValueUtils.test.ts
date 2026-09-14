@@ -193,4 +193,32 @@ describe('sumTokenGroupsFiatValueIgnoringUnavailable', () => {
   test('handles missing token group shapes', () => {
     expect(sumTokenGroupsFiatValueIgnoringUnavailable({})).toBe('0');
   });
+
+  test('counts a $key present in both maps only once', () => {
+    // Cache-floor rounds (useTokenListReactivePipeline.seedAndFlushCache) carry
+    // the ONE cached full tokenListMap as BOTH tokens.map and
+    // smallBalanceTokens.map — summing both verbatim doubled every
+    // cache-floor network's account worth on the Home overview.
+    const fullCachedMap = {
+      usdt: { fiatValue: '5000' },
+      trx: { fiatValue: '150' },
+    };
+    expect(
+      sumTokenGroupsFiatValueIgnoringUnavailable({
+        tokens: { map: fullCachedMap },
+        smallBalanceTokens: { map: fullCachedMap },
+      }),
+    ).toBe('5150');
+  });
+
+  test('overlapping keys are counted once while distinct keys still sum', () => {
+    expect(
+      sumTokenGroupsFiatValueIgnoringUnavailable({
+        tokens: { map: { a: { fiatValue: '10' }, b: { fiatValue: '2' } } },
+        smallBalanceTokens: {
+          map: { b: { fiatValue: '2' }, c: { fiatValue: '0.5' } },
+        },
+      }),
+    ).toBe('12.5');
+  });
 });

@@ -42,6 +42,21 @@ export const normalizeUtilization = (value: number): number => {
   return value > 1 ? value / 100 : value;
 };
 
+export const parseUtilizationRatio = (value?: string): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const parsedValue = Number.parseFloat(value);
+  if (!Number.isFinite(parsedValue)) {
+    return null;
+  }
+
+  return value.includes('%')
+    ? parsedValue / 100
+    : normalizeUtilization(parsedValue);
+};
+
 export const normalizeApyToPercent = (value: number): number => {
   if (!Number.isFinite(value)) {
     return 0;

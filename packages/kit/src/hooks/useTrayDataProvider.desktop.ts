@@ -6,6 +6,7 @@ import {
   resetAboveMainRoute,
   rootNavigationRef,
   switchTabAsync,
+  willTabFocusTransition,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
 import type {
   IDBAccount,
@@ -28,6 +29,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
@@ -50,7 +55,7 @@ import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 import {
-  getHyperliquidTokenImageUrl,
+  getHyperliquidTokenImageUris,
   getTokenSubtitle,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -834,14 +839,16 @@ export function useTrayDataProvider() {
                         name: '',
                         icon:
                           coin.tokenImageUrl ||
-                          getHyperliquidTokenImageUrl(
-                            parsedCoin.displayName || displayName,
-                          ),
+                          // The bare symbol collides across dexs.
+                          getHyperliquidTokenImageUris(
+                            item.perpsCoin || coin.name || displayName,
+                          )[0],
                         price: formatTrayUsdPrice(coin.markPrice),
                         change24h: coin.change24hPercent || 0,
                         type: 'perps',
                         perpsCoin: item.perpsCoin,
                         maxLeverage: coin.maxLeverage,
+                        dexLabel: parsedCoin.dexLabel || parsedDisplay.dexLabel,
                         subtitle: getTokenSubtitle(
                           coin.name || item.perpsCoin || '',
                           tokenSearchAliases,
@@ -1102,7 +1109,22 @@ export function useTrayDataProvider() {
       if (action?.type === 'market-detail-v2') {
         if (action.perpsCoin) {
           const coin = action.perpsCoin;
-          void switchTabAsync(ETabRoutes.Perp).then(async () => {
+          if (willTabFocusTransition(ETabRoutes.Perp)) {
+            setPerpPageEnterSource(EPerpPageEnterSource.DesktopTray);
+          }
+          void (async () => {
+            // A missing intent only costs the first-mount restore, so this
+            // must not be able to abort the tap. Recorded before the tab
+            // switch that mounts Perp, so the claiming initial-select cannot
+            // run ahead of it.
+            try {
+              await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+                { coin, mode: 'perp' },
+              );
+            } catch {
+              // ignore
+            }
+            await switchTabAsync(ETabRoutes.Perp);
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
                 coin,
@@ -1118,7 +1140,7 @@ export function useTrayDataProvider() {
               mode: 'perp',
               coin,
             });
-          });
+          })();
           return;
         }
 

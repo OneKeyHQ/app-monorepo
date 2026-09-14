@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTheme } from '@tamagui/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { EPageType } from '@onekeyhq/components';
 import {
   Button,
   Divider,
@@ -19,6 +19,7 @@ import {
   SegmentControl,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -28,14 +29,10 @@ import {
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import {
-  HeaderButtonGroup,
-  HeaderIconButton,
-} from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -44,15 +41,18 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProEnableCurrentSymbolAtom,
+  useSwapQuoteActionLockAtom,
+  useSwapQuoteEventCompletedAtom,
   useSwapQuoteEventErrorAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
@@ -80,9 +80,11 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type {
@@ -96,6 +98,8 @@ import {
   type IFetchQuoteResult,
   type ISwapAlertState,
   type ISwapNetwork,
+  type ISwapStockSpeedConfig,
+  type ISwapStockTradeConfig,
   type ISwapToken,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
@@ -103,11 +107,10 @@ import {
 import SwapFAQ from '../../components/SwapFAQ';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import {
-  useShouldShowSwapLocalData,
-  useSwapLimitOrdersLocalDataVisibility,
-} from '../../hooks/useSwapLocalDataVisibility';
+import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
   ESwapStockChannelAsyncStatus,
@@ -123,19 +126,20 @@ import { SwapTestIDs } from '../../testIDs';
 import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
-  getSwapLimitOpenOrderCount,
   getSwapMarketPendingHistoryKey,
-  getSwapMarketPendingHistoryList,
-  isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
-import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
+import { calculateSwapStockEstimatedShares } from '../../utils/swapStockReviewUtils';
+import {
+  getStockQuoteTradeControl,
+  isQuoteRequestForStockTrade,
+} from '../../utils/swapStockTradeControl';
 import {
   getSwapKLineWalletChartDays,
   normalizeSwapKLineWalletChartData,
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
-import { SwapSettingsHeaderButton } from './SwapHeaderRightActionContainer';
+import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
 import SwapHistoryClearButton from './SwapHistoryClearButton';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
@@ -145,24 +149,39 @@ import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 import SwapQuoteResult from './SwapQuoteResult';
 import {
+  type IStockChartCoinGeckoIdLookupResult,
   type IStockChartRange,
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
+  getStockChartCoinGeckoIdState,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
+  getStockMarketTokenSubtitle,
+  getStockNetworkLogoUri,
+  isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
+  shouldDeferStockInitialContent,
+  shouldShowStockMarketHeaderSkeleton,
+  shouldShowStockMarketTokenLabelsSkeleton,
+  shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
+import { SwapStockTokenDetails } from './SwapStockTokenDetails';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
-import { isCurrentStockQuoteEventError } from './SwapStockTradeAlertUtils';
+import {
+  isCurrentStockMarketClosedQuoteEventError,
+  isCurrentStockQuoteEventError,
+} from './SwapStockTradeAlertUtils';
 import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
+import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
+  pageType?: EPageType;
   headerContent?: ReactNode;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
@@ -182,9 +201,18 @@ interface ISwapStockDesktopContainerProps {
     states: ISwapAlertState[];
     quoteId: string;
   };
+  /** Keep the shared stock ticket while omitting Swap's page-level shell. */
+  embedded?: boolean;
+  stockSpeedConfig?: ISwapStockSpeedConfig;
+  stockTradeConfig?: ISwapStockTradeConfig;
+  stockTradeHeader?: ReactNode;
+  stockTradeToken?: ISwapToken;
 }
 
 type IStockMarketTokenDetail = IMarketTokenDetail | undefined;
+type ISwapStockTokenWithMetadata = ISwapToken & {
+  stock?: IMarketTokenDetail['stock'];
+};
 type IStockMarketDataRow = {
   label: string;
   value: string;
@@ -192,24 +220,23 @@ type IStockMarketDataRow = {
 };
 
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
-const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
-const STOCK_CHART_HOVER_TOOLTIP_WIDTH = 112;
+const STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT = 24;
+const STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT = 20;
+const STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT =
+  STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT +
+  STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT;
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 const STOCK_DESKTOP_CONTENT_MAX_WIDTH = 1140;
 const STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES = [ESwapTabSwitchType.STOCK] as const;
-
-type IStockChartHoverData = {
-  time: number;
-  price: number;
-  x: number;
-  y: number;
-};
 
 type IStockChartState = {
   assetScope: string;
   data: IMarketTokenChart;
   range: IStockChartRange;
   scope: string;
+  // Optional for compatibility with existing SWR entries written before the
+  // request lifecycle became explicit.
+  status?: 'pending' | 'success' | 'error';
 };
 
 function useOpenStockTokenSelector({
@@ -255,41 +282,54 @@ function useStockChartCoinGeckoId({
 }) {
   const tokenDetailCoinGeckoId =
     getStockChartTokenDetailCoinGeckoId(tokenDetail);
-  const tokenScope = `${networkId ?? ''}:${tokenAddress ?? ''}`;
+  const tokenScope = networkId
+    ? `${networkId}:${tokenAddress?.trim().toLowerCase() || '__native__'}`
+    : '';
+  const swrKey = tokenScope
+    ? ['swapStockChartCoinGeckoId', 'v1', tokenScope].join(':')
+    : undefined;
   const { result } = usePromiseResult<
-    | {
-        tokenScope: string;
-        coinGeckoId?: string;
-      }
-    | undefined
+    IStockChartCoinGeckoIdLookupResult | undefined
   >(
     async () => {
       if (tokenDetailCoinGeckoId || !networkId) {
         return undefined;
       }
 
-      const tokenInfo =
-        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-          networkId,
-          tokenAddress: tokenAddress ?? '',
-        });
-      return {
-        tokenScope,
-        coinGeckoId: tokenInfo?.info?.coingeckoId?.trim() || undefined,
-      };
+      try {
+        const tokenInfo =
+          await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+            networkId,
+            tokenAddress: tokenAddress ?? '',
+          });
+        return {
+          tokenScope,
+          coinGeckoId: tokenInfo?.info?.coingeckoId?.trim() || undefined,
+        };
+      } catch (_error) {
+        const cachedResult = swrKey
+          ? swrCacheUtils.get<IStockChartCoinGeckoIdLookupResult>(swrKey)
+          : undefined;
+        return cachedResult?.tokenScope === tokenScope
+          ? cachedResult
+          : { cacheable: false, tokenScope };
+      }
     },
-    [networkId, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
+    [networkId, swrKey, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
     {
       checkIsFocused: false,
-      undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
+      swrKey,
+      swrShouldPersist: (value) =>
+        value?.cacheable !== false && value?.tokenScope === tokenScope,
     },
   );
 
-  return (
-    tokenDetailCoinGeckoId ||
-    (result?.tokenScope === tokenScope ? result.coinGeckoId : undefined)
-  );
+  return getStockChartCoinGeckoIdState({
+    lookupResult: result,
+    networkId,
+    tokenDetailCoinGeckoId,
+    tokenScope,
+  });
 }
 
 function StockMarketDataItem({
@@ -413,12 +453,17 @@ function buildStockMarketDataRows({
 
 function useCurrentStockMarketDetail() {
   const stockChannel = useSwapStockTradeContext();
-  const currentStockToken = stockChannel.currentStockToken;
+  const currentStockToken = stockChannel.currentStockToken as
+    | ISwapStockTokenWithMetadata
+    | undefined;
 
   return {
     stockChannel,
-    tokenDetail: stockChannel.activeStockTokenDetail,
+    // Display may use the scope-safe SWR seed immediately; quote/action state
+    // continues to use activeStockTokenDetail and the fresh channel stage.
+    tokenDetail: stockChannel.displayStockTokenDetail,
     currentStockToken,
+    hasCurrentLocaleStockMetadata: stockChannel.hasCurrentLocaleStockMetadata,
     tokenAddress: currentStockToken?.contractAddress,
     networkId: currentStockToken?.networkId,
     isNative: currentStockToken?.isNative,
@@ -527,11 +572,15 @@ function StockEstimatedReceive({
   quoteLoading,
   quoteEventFetching,
   stockChannel,
+  showEstimatedShares,
+  stockTradeConfig,
 }: {
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   stockChannel: IUseSwapStockChannelReturn;
+  showEstimatedShares?: boolean;
+  stockTradeConfig?: ISwapStockTradeConfig;
 }) {
   const intl = useIntl();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -571,6 +620,7 @@ function StockEstimatedReceive({
     isSellSide,
     isReceiveTokenPopoverOpen,
     onReceiveTokenPress,
+    quoteMatchesStockTrade,
     rateDifference,
     receiveAmount,
     receiveFiatValue,
@@ -584,6 +634,25 @@ function StockEstimatedReceive({
     stockChannel,
   });
   const receiveTokenSymbol = receiveToken?.symbol ?? '';
+  const estimatedStockTokenAmount =
+    stockChannel.tradeSide === ESwapStockTradeSide.Buy
+      ? quoteResult?.toAmount
+      : quoteResult?.fromAmount;
+  const estimatedShares = calculateSwapStockEstimatedShares({
+    stockTokenAmount: quoteMatchesStockTrade
+      ? estimatedStockTokenAmount
+      : undefined,
+    tokenToAssetRatio:
+      stockTradeConfig?.tokenToAssetRatio ??
+      stockChannel.activeStockTokenDetail?.stock?.tokenToAssetRatio ??
+      stockChannel.currentStockToken?.stock?.tokenToAssetRatio,
+  });
+  const stockUnderlyingSymbol =
+    stockTradeConfig?.underlyingSymbol ??
+    stockChannel.activeStockTokenDetail?.stock?.underlyingAssetTicker ??
+    stockChannel.currentStockToken?.symbol ??
+    '';
+  const shouldShowEstimatedShares = Boolean(showEstimatedShares);
   const hasReceiveAmount = Boolean(receiveAmount && receiveTokenSymbol);
   const shouldShowReceiveToken = Boolean(
     hasReceiveAmount || (isSellSide && receiveTokenSymbol),
@@ -594,8 +663,30 @@ function StockEstimatedReceive({
         ? ETranslations.promode_limit_sell_for
         : ETranslations.private_send_estimated_received,
   });
+  let estimatedSharesContent: ReactNode = (
+    <SizableText size="$bodyMdMedium">--</SizableText>
+  );
+  if (isLoading) {
+    estimatedSharesContent = <Skeleton h="$5" w="$20" />;
+  } else if (estimatedShares) {
+    estimatedSharesContent = (
+      <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+        <NumberSizeableText
+          size="$bodyMdMedium"
+          formatter="balance"
+          numberOfLines={1}
+        >
+          {estimatedShares}
+        </NumberSizeableText>
+        <SizableText size="$bodyMdMedium" numberOfLines={1}>
+          {stockUnderlyingSymbol}
+        </SizableText>
+      </XStack>
+    );
+  }
   const receiveTokenDisplay = shouldShowReceiveToken ? (
     <XStack
+      h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
       alignItems="center"
       justifyContent="flex-end"
       gap="$1"
@@ -651,14 +742,20 @@ function StockEstimatedReceive({
     </XStack>
   ) : null;
   let receiveTokenContent: ReactNode = (
-    <SizableText
-      size="$bodyMdMedium"
-      color="$text"
-      numberOfLines={1}
-      textAlign="right"
+    <XStack
+      h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
+      alignItems="center"
+      justifyContent="flex-end"
     >
-      --
-    </SizableText>
+      <SizableText
+        size="$bodyMdMedium"
+        color="$text"
+        numberOfLines={1}
+        textAlign="right"
+      >
+        --
+      </SizableText>
+    </XStack>
   );
   if (shouldShowReceiveToken) {
     receiveTokenContent = canSelectReceiveToken ? (
@@ -676,7 +773,7 @@ function StockEstimatedReceive({
           <StockPayTokenPopoverContent
             tokens={stockChannel.payTokens}
             currentSelectToken={stockChannel.payToken}
-            disableNativeToken={stockChannel.disableNativePayToken}
+            disableNativeToken={false}
             disableCurrentToken={false}
             onTokenPress={onReceiveTokenPress}
           />
@@ -688,66 +785,105 @@ function StockEstimatedReceive({
   }
 
   return (
-    <XStack
-      testID={SwapTestIDs.stockEstimatedReceive}
-      h={48}
-      alignItems="center"
-      justifyContent="space-between"
-      gap="$2"
-    >
-      <XStack alignItems="center" gap="$1" flexShrink={0} h="$5">
-        <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
-        <SizableText size="$bodyMd" color="$text">
-          {labelText}
-        </SizableText>
-      </XStack>
-      <YStack flex={1} maxWidth={360} alignItems="flex-end" minWidth={0}>
-        {isLoading ? (
-          <>
-            <Skeleton h="$4" w="$20" />
-            <Skeleton mt="$1" h="$4" w="$16" />
-          </>
-        ) : (
-          <>
-            {receiveTokenContent}
-            <XStack
-              alignItems="center"
-              justifyContent="flex-end"
-              gap="$1"
-              pr="$1"
-            >
-              <NumberSizeableText
-                size="$bodyMd"
-                color="$textSubdued"
-                formatter="value"
-                formatterOptions={{
-                  currency: currencySymbol,
-                }}
-                numberOfLines={1}
+    <YStack gap="$4">
+      <XStack
+        testID={SwapTestIDs.stockEstimatedReceive}
+        h={stockTradeConfig ? 40 : 48}
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$2"
+      >
+        <XStack alignItems="center" gap="$1" flexShrink={0} h="$5">
+          {stockTradeConfig ? null : (
+            <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
+          )}
+          <SizableText size="$bodyMd" color="$text">
+            {labelText}
+          </SizableText>
+        </XStack>
+        <YStack
+          h={STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT}
+          flex={1}
+          maxWidth={360}
+          alignItems="flex-end"
+          minWidth={0}
+        >
+          {isLoading ? (
+            <>
+              <XStack
+                h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
+                alignItems="center"
+                justifyContent="flex-end"
               >
-                {receiveFiatValue || '0'}
-              </NumberSizeableText>
-              <SwapRateDifferenceText
-                loading={isLoading}
-                rateDifference={rateDifference}
-                size="$bodyMd"
-              />
-            </XStack>
-          </>
-        )}
-      </YStack>
-    </XStack>
+                <Skeleton h="$5" w="$20" />
+              </XStack>
+              <XStack
+                h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
+                alignItems="center"
+                justifyContent="flex-end"
+              >
+                <Skeleton h="$5" w="$16" />
+              </XStack>
+            </>
+          ) : (
+            <>
+              {receiveTokenContent}
+              <XStack
+                h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
+                alignItems="center"
+                justifyContent="flex-end"
+                gap="$1"
+                pr="$1"
+              >
+                <NumberSizeableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  formatter="value"
+                  formatterOptions={{
+                    currency: currencySymbol,
+                  }}
+                  numberOfLines={1}
+                >
+                  {receiveFiatValue || '0'}
+                </NumberSizeableText>
+                <SwapRateDifferenceText
+                  loading={isLoading}
+                  rateDifference={rateDifference}
+                  size="$bodyMd"
+                />
+              </XStack>
+            </>
+          )}
+        </YStack>
+      </XStack>
+      {shouldShowEstimatedShares ? (
+        <XStack
+          testID="stock-trade-estimated-shares"
+          minHeight={40}
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$2"
+        >
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({ id: ETranslations.market_est_shares })}
+          </SizableText>
+          {estimatedSharesContent}
+        </XStack>
+      ) : null}
+    </YStack>
   );
 }
 
 function StockActionGate({
   alerts,
+  balanceActionsReady,
   stockChannel,
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
 }: {
   alerts: ISwapStockDesktopContainerProps['alerts'];
+  balanceActionsReady: boolean;
   stockChannel: IUseSwapStockChannelReturn;
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
@@ -758,6 +894,10 @@ function StockActionGate({
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const accountInfo = swapFromAddressInfo.accountInfo;
   const isDesktopModalPage = isModalPage && !md;
   const isWebDappModeWithNoWallet = Boolean(
@@ -786,12 +926,12 @@ function StockActionGate({
   }, [navigation]);
   const keyboardPercentageStage = useMemo(
     () =>
-      !platformEnv.isNativeIOS ? (
+      !platformEnv.isNativeIOS && balanceActionsReady ? (
         <PercentageStageOnKeyboard
           onSelectPercentageStage={onSelectPercentageStage}
         />
       ) : null,
-    [onSelectPercentageStage],
+    [balanceActionsReady, onSelectPercentageStage],
   );
   const renderActionButton = useCallback(
     (button: ReactNode) => {
@@ -820,9 +960,20 @@ function StockActionGate({
   const isStockChannelInitializing =
     stockChannel.stockTokenStatus ===
       ESwapStockChannelAsyncStatus.Initializing ||
-    stockChannel.marketStatusStatus ===
-      ESwapStockChannelAsyncStatus.Initializing ||
     stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing;
+  const forceQuoteActionLoading = shouldShowStockQuoteActionLoading({
+    inputAmount: fromTokenAmount.value,
+    quoteEventCompleted,
+    quoteRequestMatchesStockTrade: isQuoteRequestForStockTrade({
+      currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
+      currentAddress: swapFromAddressInfo.address,
+      currentReceivingAddress: swapToAddressInfo.address,
+      quoteRequest: quoteActionLock,
+      receiveToken: stockChannel.toToken,
+      sendAmount: fromTokenAmount.value,
+      sendToken: stockChannel.fromToken,
+    }),
+  });
   const disabledLabel = useMemo(() => {
     switch (stockChannel.channelStage) {
       case ESwapStockChannelStage.MissingStock:
@@ -846,6 +997,7 @@ function StockActionGate({
       <Button
         testID={SwapTestIDs.swapButton}
         onPress={handleConnectWalletPress}
+        disabled={shouldRedirectOnboardingToTravelMode()}
         size={isDesktopModalPage ? 'medium' : 'large'}
         variant="primary"
         borderRadius="$full"
@@ -860,9 +1012,12 @@ function StockActionGate({
   if (stockChannel.readyForQuote) {
     return (
       <SwapActionsState
+        forceQuoteActionLoading={forceQuoteActionLoading}
         onPreSwap={onPreSwap}
         onOpenRecipientAddress={onToAnotherAddressModal}
-        onSelectPercentageStage={onSelectPercentageStage}
+        onSelectPercentageStage={
+          balanceActionsReady ? onSelectPercentageStage : undefined
+        }
       />
     );
   }
@@ -874,17 +1029,24 @@ function StockActionGate({
         size={isDesktopModalPage ? 'medium' : 'large'}
         variant="primary"
         disabled
-        loading
         borderRadius="$full"
-      />,
+        childrenAsText={false}
+      >
+        <Spinner
+          h="$6"
+          alignItems="center"
+          justifyContent="center"
+          size="small"
+          color="$iconInverse"
+        />
+      </Button>,
     );
   }
 
-  const isMarketClosed =
-    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed;
-  const disabledButtonProps = isMarketClosed
-    ? undefined
-    : getStockDisabledActionButtonProps(stockChannel.tradeSide);
+  const disabledButtonProps = getStockDisabledActionButtonProps(
+    stockChannel.tradeSide,
+    stockChannel.channelStage,
+  );
 
   return renderActionButton(
     <Button
@@ -946,7 +1108,13 @@ function StockPayTokenPopoverContent({
 function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
   const intl = useIntl();
   return (
-    <YStack h={124} bg="$bgSubdued" borderRadius="$4" overflow="hidden">
+    <YStack
+      testID={SwapTestIDs.stockAmountInputSkeleton}
+      h={124}
+      bg="$bgSubdued"
+      borderRadius="$4"
+      overflow="hidden"
+    >
       <XStack
         pt="$3.5"
         px="$3.5"
@@ -996,14 +1164,17 @@ function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
 function StockAmountInput({
   fetchLoading,
   amountInputState,
+  deferInitialContent,
   storeName,
 }: Pick<ISwapStockDesktopContainerProps, 'fetchLoading' | 'storeName'> & {
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
+  deferInitialContent: boolean;
 }) {
   const intl = useIntl();
   const [, setInAppNotification] = useInAppNotificationAtom();
   const {
     amountFiatValue,
+    balanceActionsReady,
     balanceLoading,
     currencySymbol,
     disableNativePayToken,
@@ -1074,7 +1245,7 @@ function StockAmountInput({
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
 
-  if (shouldRenderSkeleton) {
+  if (shouldRenderSkeleton || deferInitialContent) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
   }
 
@@ -1096,7 +1267,9 @@ function StockAmountInput({
         <SwapInputActions
           fromToken={inputToken}
           accountInfo={swapFromAddressInfo.accountInfo}
-          showPercentageInput={showPercentageInputDebounce}
+          showPercentageInput={Boolean(
+            showPercentageInputDebounce && balanceActionsReady,
+          )}
           showActionBuy={showActionBuy}
           onSelectStage={onSelectPercentageStage}
         />
@@ -1116,17 +1289,18 @@ function StockAmountInput({
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
           loading: balanceLoading,
-          onPress: onBalanceMaxPress,
+          onPress: balanceActionsReady ? onBalanceMaxPress : undefined,
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
-          testID: SwapTestIDs.maxButton,
+          testID: balanceActionsReady ? SwapTestIDs.maxButton : undefined,
         }}
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
           placeholder: '0.0',
-          inputAccessoryViewID: platformEnv.isNativeIOS
-            ? SwapAmountInputAccessoryViewID
-            : undefined,
+          inputAccessoryViewID:
+            platformEnv.isNativeIOS && balanceActionsReady
+              ? SwapAmountInputAccessoryViewID
+              : undefined,
           onFocus: handleAmountInputFocus,
           onBlur: handleAmountInputBlur,
           testID: SwapTestIDs.fromAmountInput,
@@ -1159,16 +1333,18 @@ function StockAmountInput({
                     <StockPayTokenPopoverContent
                       tokens={payTokens}
                       currentSelectToken={payToken}
-                      disableNativeToken={disableNativePayToken}
+                      disableNativeToken={
+                        isBuySide ? disableNativePayToken : false
+                      }
                       onTokenPress={selectPayToken}
                     />
                   ),
                 }
               : undefined,
         }}
-        enableMaxAmount
+        enableMaxAmount={Boolean(inputToken)}
       />
-      {platformEnv.isNativeIOS ? (
+      {platformEnv.isNativeIOS && balanceActionsReady ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
@@ -1196,6 +1372,9 @@ function StockTradeTicket({
   recentTokenPairs,
   onSelectRecentTokenPairs,
   compact,
+  showTradeSideSwitch = true,
+  stockTradeConfig,
+  stockTradeHeader,
 }: Omit<
   ISwapStockDesktopContainerProps,
   'headerContent' | 'supportNetworksList'
@@ -1206,50 +1385,110 @@ function StockTradeTicket({
   recentTokenPairs: ISwapRecentTokenPair[];
   onSelectRecentTokenPairs: (params: ISwapRecentTokenPair) => void;
   compact?: boolean;
+  showTradeSideSwitch?: boolean;
+  stockTradeConfig?: ISwapStockTradeConfig;
+  stockTradeHeader?: ReactNode;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
+  const deferInitialAmountContent = shouldDeferStockInitialContent({
+    channelStage: stockChannel.channelStage,
+    startedWithoutContent: startedWithoutAmountInputRef.current,
+  });
+  if (!deferInitialAmountContent) startedWithoutAmountInputRef.current = false;
+  const isModalPage = useIsOverlayPage();
+  const { md } = useMedia();
+  // The desktop modal action renders through Page.Footer. Keep its portal
+  // placeholder outside this gapped stack so channel readiness cannot add an
+  // empty gap above Recent Trades.
+  const renderActionGateOutsideTicket = isModalPage && !md;
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const hasPositiveInputAmount = new BigNumber(
+    amountInputState.inputValue || 0,
+  ).gt(0);
+  const isCurrentQuoteMarketClosed = isCurrentStockMarketClosedQuoteEventError({
+    fromToken: stockChannel.fromToken,
+    fromTokenAmount: amountInputState.inputValue,
+    quoteEventError,
+    toToken: stockChannel.toToken,
+  });
+  const quoteScopeKey = [
+    getTokenIdentityKey(stockChannel.fromToken),
+    getTokenIdentityKey(stockChannel.toToken),
+    amountInputState.inputValue,
+  ].join('|');
+  useRefreshQuoteWhenStockMarketReopens({
+    enabled: stockChannel.readyForQuote && hasPositiveInputAmount,
+    // The normalized status stays open while detail is unavailable so quote
+    // execution can continue; reopen detection needs the raw tri-state value.
+    marketIsOpen: stockChannel.activeStockTokenDetail?.stock?.isOpen,
+    onRefresh: refreshAction,
+    quoteMarketClosed: isCurrentQuoteMarketClosed,
+    scopeKey: quoteScopeKey,
+  });
+  const stockActionGate = (
+    <StockActionGate
+      alerts={alerts}
+      balanceActionsReady={amountInputState.balanceActionsReady}
+      stockChannel={stockChannel}
+      onPreSwap={onPreSwap}
+      onToAnotherAddressModal={onToAnotherAddressModal}
+      onSelectPercentageStage={amountInputState.onSelectPercentageStage}
+    />
+  );
+
   return (
-    <YStack gap={compact ? '$3' : '$4'}>
-      <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />
-      <StockAmountInput
-        fetchLoading={fetchLoading}
-        amountInputState={amountInputState}
-        storeName={storeName}
-      />
-      <StockEstimatedReceive
-        quoteResult={quoteResult}
-        quoteLoading={quoteLoading}
-        quoteEventFetching={quoteEventFetching}
-        stockChannel={stockChannel}
-      />
-      <StockActionGate
-        alerts={alerts}
-        stockChannel={stockChannel}
-        onPreSwap={onPreSwap}
-        onToAnotherAddressModal={onToAnotherAddressModal}
-        onSelectPercentageStage={amountInputState.onSelectPercentageStage}
-      />
-      <SwapStockTradeAlert
-        alerts={alerts}
-        quoteEventFetching={quoteEventFetching}
-        quoteLoading={quoteLoading}
-        quoteResult={quoteResult}
-        stockChannel={stockChannel}
-      />
-      {stockChannel.readyForQuote ? (
-        <SwapQuoteResult
-          refreshAction={refreshAction}
-          onOpenProviderList={onOpenProviderList}
-          quoteResult={quoteResult}
+    <>
+      <YStack gap={compact ? '$3' : '$4'}>
+        {showTradeSideSwitch ? (
+          <StockTradeSideSwitch
+            value={tradeSide}
+            onChange={onTradeSideChange}
+          />
+        ) : null}
+        {stockTradeHeader}
+        <StockAmountInput
+          fetchLoading={fetchLoading}
+          amountInputState={amountInputState}
+          deferInitialContent={deferInitialAmountContent}
+          storeName={storeName}
         />
-      ) : null}
-      <SwapRecentTokenPairsGroup
-        onSelectTokenPairs={onSelectRecentTokenPairs}
-        tokenPairs={recentTokenPairs}
-        fromTokenAmount={amountInputState.inputValue}
-        visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
-      />
-    </YStack>
+        <StockEstimatedReceive
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          stockChannel={stockChannel}
+          showEstimatedShares={Boolean(stockTradeConfig)}
+          stockTradeConfig={stockTradeConfig}
+        />
+        {renderActionGateOutsideTicket ? null : stockActionGate}
+        <SwapStockTradeAlert
+          alerts={alerts}
+          quoteEventFetching={quoteEventFetching}
+          quoteLoading={quoteLoading}
+          quoteResult={quoteResult}
+          stockChannel={stockChannel}
+          // px of the hosting YStack gap above: "$3" = 12, "$4" = 16
+          parentGap={compact ? 12 : 16}
+        />
+        {stockChannel.readyForQuote ? (
+          <SwapQuoteResult
+            refreshAction={refreshAction}
+            onOpenProviderList={onOpenProviderList}
+            quoteResult={quoteResult}
+          />
+        ) : null}
+        {showTradeSideSwitch ? (
+          <SwapRecentTokenPairsGroup
+            onSelectTokenPairs={onSelectRecentTokenPairs}
+            tokenPairs={recentTokenPairs}
+            fromTokenAmount={amountInputState.inputValue}
+            visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
+          />
+        ) : null}
+      </YStack>
+      {renderActionGateOutsideTicket ? stockActionGate : null}
+    </>
   );
 }
 
@@ -1289,11 +1528,7 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
               <Skeleton h="$5" w="$20" />
               <Skeleton h="$5" w="$5" />
             </XStack>
-            <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
-              <Skeleton h="$4" w="$18" />
-              <Skeleton h="$4" w="$5" radius="round" />
-              <Skeleton h="$4" w="$12" />
-            </XStack>
+            <StockMarketTokenLabelsSkeleton />
           </YStack>
         </XStack>
       </XStack>
@@ -1311,12 +1546,22 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
   );
 }
 
+function StockMarketTokenLabelsSkeleton() {
+  return (
+    <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
+      <Skeleton h="$4" w="$18" />
+      <Skeleton h="$4" w="$5" radius="round" />
+      <Skeleton h="$4" w="$12" />
+    </XStack>
+  );
+}
+
 function StockMarketTokenHeader({
-  loading,
+  channelStage,
   storeName,
   proAligned,
 }: {
-  loading?: boolean;
+  channelStage: ESwapStockChannelStage;
   storeName: EJotaiContextStoreNames;
   // The mobile layout passes true so the header visually matches Pro mode's
   // token selector (see SwapProTokenSelect): symbol at $headingLg with a
@@ -1327,15 +1572,30 @@ function StockMarketTokenHeader({
   proAligned?: boolean;
 }) {
   const intl = useIntl();
-  const { currentStockToken, tokenDetail, networkId } =
-    useCurrentStockMarketDetail();
+  const {
+    currentStockToken,
+    hasCurrentLocaleStockMetadata,
+    tokenDetail,
+    networkId,
+  } = useCurrentStockMarketDetail();
   const stockTokenNetworkId =
-    tokenDetail?.networkId ?? currentStockToken?.networkId ?? networkId;
+    currentStockToken?.networkId ?? tokenDetail?.networkId ?? networkId;
+  const stockTokenNetworkLogoUri = useMemo(
+    () =>
+      getStockNetworkLogoUri({
+        networkId: stockTokenNetworkId,
+        networkLogoUri: currentStockToken?.networkLogoURI,
+      }),
+    [currentStockToken?.networkLogoURI, stockTokenNetworkId],
+  );
   const effectiveNetworkLogoUri = useNetworkLogoUri({
-    logoUri: undefined,
+    logoUri: stockTokenNetworkLogoUri,
     networkId: stockTokenNetworkId,
   });
-  const stock = tokenDetail?.stock;
+  const selectedStock = hasCurrentLocaleStockMetadata
+    ? currentStockToken?.stock
+    : undefined;
+  const stock = tokenDetail?.stock ?? selectedStock;
   const tokenSymbol = tokenDetail?.symbol ?? currentStockToken?.symbol;
   const tokenDisplaySymbol =
     tokenSymbol ??
@@ -1344,22 +1604,51 @@ function StockMarketTokenHeader({
     });
   const tokenName =
     tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
-  const tokenSubtitle =
-    stock?.subtitle ?? (tokenDetail ? undefined : currentStockToken?.name);
+  const priceChange24hPercent = tokenDetail?.priceChange24hPercent;
+  const hasPriceChange24hPercent =
+    priceChange24hPercent !== undefined &&
+    priceChange24hPercent !== null &&
+    priceChange24hPercent !== '';
+  const tokenSubtitle = getStockMarketTokenSubtitle({
+    currentStockSubtitle: selectedStock?.subtitle,
+    tokenDetailStockSubtitle: stock?.subtitle,
+    tokenDetailStockUnderlyingAssetName: stock?.underlyingAssetName,
+  });
+  const showTokenLabelsSkeleton = shouldShowStockMarketTokenLabelsSkeleton({
+    channelStage,
+    hasTokenData: Boolean(stock || tokenSubtitle),
+  });
+  const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
+  const startedWithoutHeaderContentRef = useRef(!currentStockToken);
+  const deferInitialHeaderContent = shouldDeferStockInitialContent({
+    channelStage,
+    startedWithoutContent: startedWithoutHeaderContentRef.current,
+  });
+  if (!deferInitialHeaderContent)
+    startedWithoutHeaderContentRef.current = false;
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
-  if (!tokenDetail && loading) {
+  if (
+    deferInitialHeaderContent ||
+    shouldShowStockMarketHeaderSkeleton({
+      channelStage,
+      hasStockIdentity: Boolean(currentStockToken),
+    })
+  ) {
     return <StockMarketHeaderSkeleton proAligned={proAligned} />;
   }
 
   const tokenIcon = (
     <Token
       size="md"
-      tokenImageUri={tokenDetail?.logoUrl ?? currentStockToken?.logoURI}
-      tokenImageUris={tokenDetail?.logoUrls}
+      tokenImageUri={tokenImageUri}
+      tokenImageUris={
+        currentStockToken?.logoURI ? undefined : tokenDetail?.logoUrls
+      }
+      recyclingKey={tokenImageUri}
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
       bg="$transparent"
@@ -1388,7 +1677,8 @@ function StockMarketTokenHeader({
   );
   const tokenLabelsRow = (
     <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
-      {tokenSubtitle ? (
+      {showTokenLabelsSkeleton ? <StockMarketTokenLabelsSkeleton /> : null}
+      {!showTokenLabelsSkeleton && tokenSubtitle ? (
         <SizableText
           size="$bodySm"
           color="$textSubdued"
@@ -1398,8 +1688,10 @@ function StockMarketTokenHeader({
           {tokenSubtitle}
         </SizableText>
       ) : null}
-      <StockSourceLogo stock={stock} />
-      {stock ? <StockIsOpenBadge stock={stock} /> : null}
+      {!showTokenLabelsSkeleton ? <StockSourceLogo stock={stock} /> : null}
+      {!showTokenLabelsSkeleton ? (
+        <StockMarketStatusBadge stock={stock} />
+      ) : null}
     </XStack>
   );
   const tokenInfoContent = (
@@ -1447,8 +1739,8 @@ function StockMarketTokenHeader({
       >
         {tokenInfoContent}
       </XStack>
-      {tokenDetail ? (
-        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+      <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+        {tokenDetail ? (
           <BaseMarketTokenPrice
             size="$bodyLg"
             color="$text"
@@ -1460,23 +1752,28 @@ function StockMarketTokenHeader({
             lastUpdated={String(tokenDetail.lastUpdated ?? '')}
             currency="$"
           />
-          <PriceChangePercentage size="$bodySm">
-            {tokenDetail.priceChange24hPercent}
-          </PriceChangePercentage>
-        </YStack>
-      ) : (
-        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+        ) : (
           <SizableText size="$bodyLg" color="$textSubdued">
             --
           </SizableText>
-        </YStack>
-      )}
+        )}
+        {hasPriceChange24hPercent ? (
+          <PriceChangePercentage size="$bodySm">
+            {priceChange24hPercent}
+          </PriceChangePercentage>
+        ) : (
+          <SizableText size="$bodySm" color="$textSubdued">
+            -
+          </SizableText>
+        )}
+      </YStack>
     </XStack>
   );
 }
 
 function StockPriceChart({
   coinGeckoId,
+  coinGeckoIdLoading,
   isNative,
   networkId,
   onRangeChange,
@@ -1486,6 +1783,7 @@ function StockPriceChart({
   tokenAddress,
 }: {
   coinGeckoId?: string;
+  coinGeckoIdLoading: boolean;
   isNative?: boolean;
   networkId?: string;
   onRangeChange: (range: IStockChartRange) => void;
@@ -1495,11 +1793,7 @@ function StockPriceChart({
   tokenAddress?: string;
 }) {
   const intl = useIntl();
-  const theme = useTheme();
-  const [hoverData, setHoverData] = useState<IStockChartHoverData | null>(null);
-  const [chartWidth, setChartWidth] = useState(0);
   const normalizedCoinGeckoId = coinGeckoId?.trim();
-  const chartLineColor = theme.textSuccess.val;
   const rangeOptions = useMemo(
     () =>
       STOCK_CHART_RANGE_ITEMS.map((item) => ({
@@ -1512,7 +1806,6 @@ function StockPriceChart({
   const handleRangeChange = useCallback(
     (value: string | number) => {
       onRangeChange(value as IStockChartRange);
-      setHoverData(null);
     },
     [onRangeChange],
   );
@@ -1522,56 +1815,96 @@ function StockPriceChart({
   );
   const chartAssetScope = `${networkId ?? ''}:${tokenAddress ?? ''}:${
     isNative ? 'native' : 'token'
-  }:${normalizedCoinGeckoId ?? ''}`;
-  const chartScope = `${chartAssetScope}:${range}`;
+  }`;
+  const chartScope = swrKeys.swapStockChart({
+    networkId: networkId ?? '',
+    tokenAddress: tokenAddress ?? '',
+    isNative,
+    range,
+    requestCurrency: 'usd',
+  });
+  const chartCacheReady = Boolean(
+    networkId && (tokenAddress || isNative) && activeRange,
+  );
+  const chartRequestReady = isStockChartRequestReady({
+    chartCacheReady,
+    coinGeckoIdLoading,
+  });
   const [visibleChartState, setVisibleChartState] = useState<IStockChartState>({
     assetScope: '',
     data: [],
     range,
     scope: '',
+    status: 'pending',
   });
-  useEffect(() => {
-    setHoverData(null);
-  }, [chartScope]);
-  const { result: chartState, isLoading } = usePromiseResult(
+  const {
+    result: chartState,
+    isLoading,
+    run: retryChart,
+  } = usePromiseResult(
     async () => {
-      if (
-        !networkId ||
-        !normalizedCoinGeckoId ||
-        (!tokenAddress && !isNative) ||
-        !activeRange
-      ) {
+      if (!chartRequestReady || !activeRange) {
+        return (
+          (chartCacheReady
+            ? swrCacheUtils.get<IStockChartState>(chartScope)
+            : undefined) ?? {
+            scope: chartScope,
+            assetScope: chartAssetScope,
+            range,
+            data: [] as IMarketTokenChart,
+            status:
+              chartCacheReady && !coinGeckoIdLoading
+                ? ('success' as const)
+                : ('pending' as const),
+          }
+        );
+      }
+      try {
+        const timeTo = Math.floor(Date.now() / 1000);
+        const timeFrom = timeTo - activeRange.seconds;
+        const days = getSwapKLineWalletChartDays({ timeFrom, timeTo });
+        const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
+          normalizedCoinGeckoId,
+          days,
+          {
+            networkId,
+            requestCurrency: 'usd',
+            tokenAddress,
+          },
+        );
+        return {
+          scope: chartScope,
+          assetScope: chartAssetScope,
+          range,
+          data: normalizeSwapKLineWalletChartData({
+            chartData: response,
+            timeFrom,
+            timeTo,
+          }),
+          status: 'success' as const,
+        };
+      } catch (_error) {
+        const cachedChartState =
+          swrCacheUtils.get<IStockChartState>(chartScope);
+        if (cachedChartState) {
+          return cachedChartState;
+        }
         return {
           scope: chartScope,
           assetScope: chartAssetScope,
           range,
           data: [] as IMarketTokenChart,
+          status: 'error' as const,
         };
       }
-      const timeTo = Math.floor(Date.now() / 1000);
-      const timeFrom = timeTo - activeRange.seconds;
-      const days = getSwapKLineWalletChartDays({ timeFrom, timeTo });
-      const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
-        normalizedCoinGeckoId,
-        days,
-        { requestCurrency: 'usd' },
-      );
-      return {
-        scope: chartScope,
-        assetScope: chartAssetScope,
-        range,
-        data: normalizeSwapKLineWalletChartData({
-          chartData: response,
-          timeFrom,
-          timeTo,
-        }),
-      };
     },
     [
       activeRange,
       chartAssetScope,
+      chartCacheReady,
+      chartRequestReady,
       chartScope,
-      isNative,
+      coinGeckoIdLoading,
       networkId,
       normalizedCoinGeckoId,
       range,
@@ -1583,116 +1916,79 @@ function StockPriceChart({
         assetScope: '',
         range,
         data: [] as IMarketTokenChart,
+        status: 'pending',
       },
+      swrKey: chartCacheReady ? chartScope : undefined,
+      // Wait for the CoinGecko lookup to settle before choosing between the
+      // preferred id and the network/address fallback.
+      swrShouldPersist: (state) =>
+        chartRequestReady &&
+        state.status !== 'pending' &&
+        state.status !== 'error',
       watchLoading: true,
     },
   );
+  const chartStateMatchesCurrentScope =
+    chartState.scope === chartScope &&
+    chartState.assetScope === chartAssetScope;
   useEffect(() => {
-    if (
-      chartState.scope === chartScope &&
-      chartState.assetScope === chartAssetScope
-    ) {
+    if (chartStateMatchesCurrentScope) {
       setVisibleChartState(chartState);
     }
-  }, [chartAssetScope, chartScope, chartState]);
+  }, [chartState, chartStateMatchesCurrentScope]);
+  // A matching SWR snapshot is available during render. Prefer it directly so
+  // remounting Stock does not spend one painted frame on the local empty state
+  // while the effect mirrors the cached result.
+  const displayChartState = chartStateMatchesCurrentScope
+    ? chartState
+    : visibleChartState;
   const isVisibleChartStateForCurrentAsset =
-    visibleChartState.assetScope === chartAssetScope;
+    displayChartState.assetScope === chartAssetScope;
   const isVisibleChartStateForCurrentScope =
     isVisibleChartStateForCurrentAsset &&
-    visibleChartState.scope === chartScope;
+    displayChartState.scope === chartScope;
   const visibleRange = isVisibleChartStateForCurrentAsset
-    ? visibleChartState.range
+    ? displayChartState.range
     : range;
   const baseChartData = useMemo<IMarketTokenChart>(
-    () => (isVisibleChartStateForCurrentAsset ? visibleChartState.data : []),
-    [isVisibleChartStateForCurrentAsset, visibleChartState.data],
+    () => (isVisibleChartStateForCurrentAsset ? displayChartState.data : []),
+    [displayChartState.data, isVisibleChartStateForCurrentAsset],
   );
-  const { chartData, shouldShowChartLoading } = useMemo(
+  const { chartData, shouldShowChartError, shouldShowChartLoading } = useMemo(
     () =>
       getStockChartDisplayState({
         baseChartData,
         isChartStateForCurrentScope: isVisibleChartStateForCurrentScope,
         isLoading,
+        requestStatus: displayChartState.status ?? 'success',
         realtimeChartPoint,
       }),
     [
       baseChartData,
+      displayChartState.status,
       isLoading,
       isVisibleChartStateForCurrentScope,
       realtimeChartPoint,
     ],
   );
-  const priceFormatter = useCallback(
-    (price: number) =>
-      numberFormat(String(price), {
-        formatter: 'price',
-        formatterOptions: { currency: '$' },
-      }),
-    [],
-  );
-  const handleChartHover = useCallback(
-    ({
-      time,
-      price,
-      x,
-      y,
-    }: {
-      time?: number;
-      price?: number;
-      x?: number;
-      y?: number;
-    }) => {
-      if (
-        time !== undefined &&
-        price !== undefined &&
-        x !== undefined &&
-        y !== undefined
-      ) {
-        setHoverData({ time, price, x, y });
-      } else {
-        setHoverData(null);
-      }
-    },
-    [],
-  );
-  const tooltipPosition = useMemo(() => {
-    if (!hoverData || !chartWidth) {
-      return null;
+  const chartRetryPendingRef = useRef(false);
+  const handleChartRetry = useCallback(() => {
+    if (chartRetryPendingRef.current) {
+      return;
     }
-
-    const offset = 10;
-    const edge = 8;
-    const isLeftHalf = hoverData.x < chartWidth / 2;
-    const translateX = isLeftHalf ? 0 : -STOCK_CHART_HOVER_TOOLTIP_WIDTH;
-    const desiredLeft = isLeftHalf
-      ? hoverData.x + offset
-      : hoverData.x - offset;
-    const clampedLeft = Math.min(
-      Math.max(desiredLeft + translateX, edge),
-      chartWidth - STOCK_CHART_HOVER_TOOLTIP_WIDTH - edge,
-    );
-
-    return {
-      left: clampedLeft - translateX,
-      top: Math.max(8, hoverData.y - 56),
-      translateX,
-    };
-  }, [chartWidth, hoverData]);
-  const hoverTimeText = useMemo(() => {
-    if (!hoverData) {
-      return '';
-    }
-    return intl.formatDate(new Date(hoverData.time * 1000), {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
+    chartRetryPendingRef.current = true;
+    void retryChart().finally(() => {
+      chartRetryPendingRef.current = false;
     });
-  }, [hoverData, intl]);
-
+  }, [retryChart]);
   let chartContent: ReactNode = (
-    <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
+    <YStack
+      testID={SwapTestIDs.stockChartEmpty}
+      flex={1}
+      alignItems="center"
+      justifyContent="center"
+      gap="$2"
+    >
       <YStack
         w="$10"
         h="$10"
@@ -1716,67 +2012,44 @@ function StockPriceChart({
     </YStack>
   );
   if (shouldShowChartLoading) {
-    chartContent = <Skeleton w="100%" h="100%" />;
-  } else if (chartData.length > 0) {
+    chartContent = (
+      <YStack testID={SwapTestIDs.stockChartLoading} w="100%" h="100%">
+        <Skeleton w="100%" h="100%" />
+      </YStack>
+    );
+  } else if (shouldShowChartError) {
     chartContent = (
       <YStack
-        position="relative"
-        h={STOCK_CHART_VISIBLE_HEIGHT}
-        onLayout={(event) => {
-          const width = event.nativeEvent.layout.width;
-          if (width !== chartWidth) {
-            setChartWidth(width);
-          }
-        }}
+        testID={SwapTestIDs.stockChartError}
+        flex={1}
+        alignItems="center"
+        justifyContent="center"
+        gap="$2"
       >
-        {hoverData && tooltipPosition ? (
-          <YStack
-            position="absolute"
-            top={tooltipPosition.top}
-            left={tooltipPosition.left}
-            transform={[{ translateX: tooltipPosition.translateX }]}
-            bg="$bg"
-            borderRadius="$2"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            px="$2"
-            py="$1.5"
-            zIndex={100}
-            pointerEvents="none"
-            width={STOCK_CHART_HOVER_TOOLTIP_WIDTH}
-          >
-            <SizableText size="$bodyXs" color="$textDisabled">
-              {hoverTimeText}
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
-              {priceFormatter(hoverData.price)}
-            </SizableText>
-          </YStack>
-        ) : null}
-        <LightweightChart
-          data={chartData}
-          height={STOCK_CHART_VISIBLE_HEIGHT}
-          lineColor={chartLineColor}
-          lineWidth={1}
-          secondaryLineData={chartData}
-          secondaryLineColor={chartLineColor}
-          secondaryLineWidth={2}
-          seriesType="dotted-area"
-          showPriceScale
-          showLastPointMarker={false}
-          preserveChartInstanceOnDataChange
-          // Pulse the chart tail only while the market is open (live updating);
-          // it stops when the market is closed.
-          pulseLastPoint={pulseLastPoint}
-          showTimeScale
-          priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
-          priceScaleEntireTextOnly
-          priceFormatter={priceFormatter}
-          fontSize={11}
-          useTimeScaleTickMarkWithoutUnit
-          onHover={handleChartHover}
-        />
+        <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          })}
+        </SizableText>
+        <Button
+          testID={SwapTestIDs.stockChartRetry}
+          size="small"
+          variant="tertiary"
+          onPress={handleChartRetry}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
       </YStack>
+    );
+  } else if (chartData.length > 0) {
+    chartContent = (
+      <StockPriceLineChart
+        testID={SwapTestIDs.stockChartContent}
+        data={chartData}
+        height={STOCK_CHART_VISIBLE_HEIGHT}
+        pulseLastPoint={pulseLastPoint}
+      />
     );
   }
 
@@ -1822,10 +2095,12 @@ function StockPriceChart({
 function StockMobilePositionsSection({
   onTokenPress,
   supportNetworksList,
+  supportNetworksReady,
   storeName,
 }: {
   onTokenPress?: (token: ISwapToken) => void;
   supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  supportNetworksReady: boolean;
   storeName: EJotaiContextStoreNames;
 }) {
   const intl = useIntl();
@@ -1835,8 +2110,16 @@ function StockMobilePositionsSection({
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
-  const { cachedPositionTokenList, hasCachedPositionTokenList } =
-    useSwapProSupportNetworksTokenList(supportNetworksList);
+  const {
+    positionLoadError,
+    positionLoading,
+    positionTokenList,
+    swapProLoadSupportNetworksTokenListRun,
+  } = useSwapProSupportNetworksTokenList(
+    supportNetworksList,
+    supportNetworksReady,
+    { stockOnly: true },
+  );
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
     storeName,
@@ -1864,6 +2147,12 @@ function StockMobilePositionsSection({
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
     'position',
   );
+  const retryPositions = useCallback(() => {
+    void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+      forceRefresh: true,
+      stockOnly: true,
+    });
+  }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
 
   return (
     <YStack mt="$2">
@@ -1926,8 +2215,10 @@ function StockMobilePositionsSection({
             onTokenPress={handlePositionPress}
             onSearchClick={handleOpenStockTokenSelector}
             filterToken={filterToken}
-            cachedTokenList={cachedPositionTokenList}
-            hasCachedTokenList={hasCachedPositionTokenList}
+            positionTokenList={positionTokenList}
+            positionLoadError={positionLoadError}
+            positionLoading={positionLoading}
+            onRetry={retryPositions}
             stockOnly
             hideSearch
           />
@@ -1978,11 +2269,12 @@ function StockMarketContextPanel({
 }) {
   const { stockChannel, tokenDetail, tokenAddress, networkId, isNative } =
     useCurrentStockMarketDetail();
-  const coinGeckoId = useStockChartCoinGeckoId({
-    networkId,
-    tokenAddress,
-    tokenDetail,
-  });
+  const { coinGeckoId, isLoading: isCoinGeckoIdLoading } =
+    useStockChartCoinGeckoId({
+      networkId,
+      tokenAddress,
+      tokenDetail,
+    });
   const [range, setRange] = useState<IStockChartRange>(
     STOCK_CHART_DEFAULT_RANGE,
   );
@@ -1994,10 +2286,11 @@ function StockMarketContextPanel({
   // Only pulse the chart tail while the market is open (live updating).
   const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
   let chartContent: ReactNode;
-  if (chartReady) {
+  if (chartReady || marketPanelLoading) {
     chartContent = (
       <StockPriceChart
         coinGeckoId={coinGeckoId}
+        coinGeckoIdLoading={isCoinGeckoIdLoading}
         tokenAddress={tokenAddress ?? ''}
         networkId={networkId ?? ''}
         isNative={isNative}
@@ -2007,8 +2300,6 @@ function StockMarketContextPanel({
         realtimeChartPoint={stockChannel.realtimeChartPoint}
       />
     );
-  } else if (marketPanelLoading) {
-    chartContent = <Skeleton w="100%" h={274} />;
   } else {
     chartContent = <StockMarketChartEmptyState />;
   }
@@ -2037,13 +2328,18 @@ function StockMarketContextPanel({
     >
       <StockMarketTokenHeader
         storeName={storeName}
-        loading={marketPanelLoading}
+        channelStage={stockChannel.channelStage}
       />
 
       <Stack mt="$6">{chartContent}</Stack>
 
       <Divider mt="$2.5" mb="$3" />
       <StockMarketDataGrid tokenDetail={tokenDetail} />
+      <SwapStockTokenDetails
+        tokenDetail={tokenDetail}
+        networkId={networkId}
+        loading={marketPanelLoading}
+      />
     </YStack>
   );
 }
@@ -2059,27 +2355,40 @@ function useSwapStockRecentTokenPairs() {
       ),
     [swapHistoryPendingList],
   );
-  const { result: swapTxHistoryList } = usePromiseResult(async () => {
+  const { result: swapTxHistoryList } = usePromiseResult(
+    async () => {
+      if (!shouldShowSwapLocalData) {
+        return [];
+      }
+      const histories =
+        await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
+      return histories;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stockPendingKey, shouldShowSwapLocalData],
+    {
+      // Share the persisted history snapshot used by ordinary Swap. Stock can
+      // derive its own protocol-filtered pairs synchronously on every remount,
+      // then refresh the full history list in the background.
+      swrKey: shouldShowSwapLocalData
+        ? swrKeys.swapHistoryPreviewList()
+        : undefined,
+    },
+  );
+
+  return useMemo(() => {
     if (!shouldShowSwapLocalData) {
       return [];
     }
-    const histories =
-      await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
-    return histories;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockPendingKey, shouldShowSwapLocalData]);
-
-  return useMemo(
-    () =>
-      buildSwapRecentTokenPairsFromHistory({
-        items: swapTxHistoryList ?? [],
-        protocol: EProtocolOfExchange.STOCK,
-      }),
-    [swapTxHistoryList],
-  );
+    return buildSwapRecentTokenPairsFromHistory({
+      items: swapTxHistoryList ?? [],
+      protocol: EProtocolOfExchange.STOCK,
+    });
+  }, [shouldShowSwapLocalData, swapTxHistoryList]);
 }
 
 function SwapStockDesktopContent({
+  pageType,
   headerContent,
   storeName,
   onSelectToken,
@@ -2094,39 +2403,21 @@ function SwapStockDesktopContent({
   quoteLoading,
   quoteEventFetching,
   alerts,
+  embedded,
+  stockTradeConfig,
+  stockTradeHeader,
 }: ISwapStockDesktopContainerProps) {
   const intl = useIntl();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [
-    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
-  ] = useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
-  const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
-    useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
-  const historyBadgeCount = useMemo(() => {
-    if (!shouldShowSwapLocalData) {
-      return 0;
-    }
-    const stockPendingHistoryCount = getSwapMarketPendingHistoryList(
-      swapHistoryPendingList,
-      EProtocolOfExchange.SWAP,
-    ).filter(isStockSwapHistoryItem).length;
-    return (
-      stockPendingHistoryCount +
-      (shouldShowSwapLimitOrders
-        ? getSwapLimitOpenOrderCount(swapLimitOrders)
-        : 0)
-    );
-  }, [
-    shouldShowSwapLimitOrders,
-    shouldShowSwapLocalData,
-    swapHistoryPendingList,
-    swapLimitOrders,
-  ]);
+  let contentTopPadding: '$0' | '$5' | undefined;
+  if (embedded) {
+    contentTopPadding = '$0';
+  } else if (!headerContent) {
+    contentTopPadding = '$5';
+  }
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -2140,16 +2431,6 @@ function SwapStockDesktopContent({
     [setFromTokenAmount, setToTokenAmount, stockChannel],
   );
 
-  const onOpenHistoryListModal = useCallback(() => {
-    dismissKeyboard();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapHistoryList,
-      params: {
-        type: EProtocolOfExchange.STOCK,
-        storeName,
-      },
-    });
-  }, [navigation, storeName]);
   const handleSelectRecentStockTokenPairs = useCallback(
     ({ fromToken, toToken }: ISwapRecentTokenPair) => {
       void stockChannel.selectRecentTokenPair({ fromToken, toToken });
@@ -2159,91 +2440,63 @@ function SwapStockDesktopContent({
 
   return (
     <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-      <YStack
-        width="100%"
-        alignItems="center"
-        pb="$5"
-        pt={headerContent ? undefined : '$5'}
-      >
-        {headerContent ? (
+      {embedded ? null : <SwapTipsContainer pageType={pageType} />}
+      <YStack width="100%" alignItems="center" pb="$5" pt={contentTopPadding}>
+        {!embedded && headerContent ? (
           <YStack {...STOCK_DESKTOP_HEADER_SLOT_PROPS}>{headerContent}</YStack>
         ) : null}
-        <YStack width="100%" maxWidth={STOCK_DESKTOP_CONTENT_MAX_WIDTH}>
+        <YStack
+          width="100%"
+          maxWidth={embedded ? undefined : STOCK_DESKTOP_CONTENT_MAX_WIDTH}
+        >
           <XStack width="100%" gap="$1" px="$5" alignItems="flex-start">
-            <YStack p="$5" flexBasis="50%" minWidth={0} gap="$12">
+            <YStack
+              p={embedded ? '$0' : '$5'}
+              flexBasis={embedded ? '100%' : '50%'}
+              minWidth={0}
+              gap="$12"
+            >
               <YStack
                 width="100%"
                 minWidth={0}
-                minHeight={466}
-                p="$6"
-                borderWidth={1}
+                minHeight={embedded ? undefined : 466}
+                p={embedded ? '$0' : '$6'}
+                borderWidth={embedded ? 0 : 1}
                 borderColor="$borderSubdued"
-                borderRadius="$6"
+                borderRadius={embedded ? '$0' : '$6'}
                 bg="$bgApp"
-                elevationAndroid="$1"
-                $platform-web={{
-                  boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
-                }}
-                style={{
-                  shadowColor: 'rgba(0, 0, 0, 0.08)',
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 1,
-                  shadowRadius: 24,
-                }}
-                gap="$5"
+                elevationAndroid={embedded ? undefined : '$1'}
+                $platform-web={
+                  embedded
+                    ? undefined
+                    : { boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)' }
+                }
+                style={
+                  embedded
+                    ? undefined
+                    : {
+                        shadowColor: 'rgba(0, 0, 0, 0.08)',
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: 1,
+                        shadowRadius: 24,
+                      }
+                }
+                gap={embedded ? '$4' : '$5'}
               >
                 <XStack alignItems="center" justifyContent="space-between">
-                  <SizableText size="$headingLg" color="$text">
-                    {intl.formatMessage({
-                      id: ETranslations.perps_token_selector_stocks,
-                    })}
-                  </SizableText>
-                  <HeaderButtonGroup gap="$4" flexShrink={0}>
-                    <SwapSettingsHeaderButton
-                      iconSize="$5"
-                      iconColor="$iconStrong"
-                      showCustomSlippageValue
+                  {embedded ? (
+                    <StockTradeSideSwitch
+                      value={stockChannel.tradeSide}
+                      onChange={handleTradeSideChange}
                     />
-                    {historyBadgeCount > 0 ? (
-                      <Stack
-                        testID="swap-stock-history-button"
-                        m="$0.5"
-                        w="$5"
-                        h="$5"
-                        userSelect="none"
-                        borderRadius="$full"
-                        borderColor="$icon"
-                        borderWidth={1.2}
-                        alignItems="center"
-                        justifyContent="center"
-                        hoverStyle={{
-                          bg: '$bgHover',
-                        }}
-                        pressStyle={{
-                          bg: '$bgActive',
-                        }}
-                        focusVisibleStyle={{
-                          outlineColor: '$focusRing',
-                          outlineWidth: 2,
-                          outlineStyle: 'solid',
-                          outlineOffset: 0,
-                        }}
-                        onPress={onOpenHistoryListModal}
-                      >
-                        <SizableText color="$text" size="$bodySm">
-                          {`${historyBadgeCount}`}
-                        </SizableText>
-                      </Stack>
-                    ) : (
-                      <HeaderIconButton
-                        testID="swap-stock-history-button"
-                        icon="ClockTimeHistoryOutline"
-                        size="medium"
-                        iconProps={{ size: '$5', color: '$iconStrong' }}
-                        onPress={onOpenHistoryListModal}
-                      />
-                    )}
-                  </HeaderButtonGroup>
+                  ) : (
+                    <SizableText size="$headingLg" color="$text">
+                      {intl.formatMessage({
+                        id: ETranslations.perps_token_selector_stocks,
+                      })}
+                    </SizableText>
+                  )}
+                  <SwapStockHeaderRightActionContainer storeName={storeName} />
                 </XStack>
                 <StockTradeTicket
                   onSelectToken={onSelectToken}
@@ -2264,16 +2517,23 @@ function SwapStockDesktopContent({
                   onTradeSideChange={handleTradeSideChange}
                   recentTokenPairs={stockRecentTokenPairs}
                   onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
+                  showTradeSideSwitch={!embedded}
+                  stockTradeConfig={stockTradeConfig}
+                  stockTradeHeader={stockTradeHeader}
                 />
-                <SwapPendingHistoryListComponent
-                  protocol={EProtocolOfExchange.STOCK}
-                />
+                {embedded ? null : (
+                  <SwapPendingHistoryListComponent
+                    protocol={EProtocolOfExchange.STOCK}
+                  />
+                )}
               </YStack>
-              <SwapFAQ variant="stock" />
+              {embedded ? null : <SwapFAQ variant="stock" />}
             </YStack>
-            <YStack p="$5" flexBasis="50%" minWidth={0}>
-              <StockMarketContextPanel storeName={storeName} />
-            </YStack>
+            {embedded ? null : (
+              <YStack p="$5" flexBasis="50%" minWidth={0}>
+                <StockMarketContextPanel storeName={storeName} />
+              </YStack>
+            )}
           </XStack>
         </YStack>
       </YStack>
@@ -2284,23 +2544,45 @@ function SwapStockDesktopContent({
 export function SwapStockDesktopContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
+  const { stockSpeedConfig, stockTradeToken } = props;
   return (
-    <SwapStockTradeProvider>
+    <SwapStockTradeProvider
+      stockSpeedConfig={stockSpeedConfig}
+      stockTradeToken={stockTradeToken}
+    >
       <SwapStockDesktopContent {...props} />
     </SwapStockTradeProvider>
   );
 }
 
 function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
+  const {
+    embedded,
+    pageType,
+    storeName,
+    onSelectToken,
+    fetchLoading,
+    onSelectPercentageStage,
+    onBalanceMaxPress,
+    onPreSwap,
+    onToAnotherAddressModal,
+    onOpenProviderList,
+    refreshAction,
+    quoteResult,
+    quoteLoading,
+    quoteEventFetching,
+    alerts,
+    onTokenPress,
+    supportNetworksList,
+    stockTradeConfig,
+    stockTradeHeader,
+  } = props;
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const stockChannel = useSwapStockTradeContext();
-  const marketPanelLoading = isStockMarketPanelLoadingStage(
-    stockChannel.channelStage,
-  );
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
   // The desktop trade modal reuses this mobile content; positions/order-history
   // don't belong in that compact modal, so hide them there (native/web tabs keep
@@ -2334,49 +2616,55 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       contentContainerStyle={{ paddingBottom: tabBarHeight }}
       bottomOffset={bottomOffset}
     >
+      {embedded ? null : <SwapTipsContainer pageType={pageType} />}
       <YStack
         testID={SwapTestIDs.stockMobileContainer}
         // pt $1 + the header pill's py $1 puts the stock symbol at the same
         // vertical offset as Pro mode's (pt $2 -> symbol at 8px), so the
         // instrument name does not jump when switching tabs (OK-57348).
-        pt="$1"
+        pt={embedded ? '$0' : '$1'}
         px="$5"
         pb="$5"
         gap="$2"
         flex={1}
       >
-        <StockMarketTokenHeader
-          storeName={props.storeName}
-          loading={marketPanelLoading}
-          proAligned
-        />
+        {embedded ? null : (
+          <StockMarketTokenHeader
+            storeName={storeName}
+            channelStage={stockChannel.channelStage}
+            proAligned
+          />
+        )}
         <StockTradeTicket
-          onSelectToken={props.onSelectToken}
-          fetchLoading={props.fetchLoading}
-          storeName={props.storeName}
-          onSelectPercentageStage={props.onSelectPercentageStage}
-          onBalanceMaxPress={props.onBalanceMaxPress}
-          onPreSwap={props.onPreSwap}
-          onToAnotherAddressModal={props.onToAnotherAddressModal}
-          onOpenProviderList={props.onOpenProviderList}
-          refreshAction={props.refreshAction}
-          quoteResult={props.quoteResult}
-          quoteLoading={props.quoteLoading}
-          quoteEventFetching={props.quoteEventFetching}
-          alerts={props.alerts}
+          onSelectToken={onSelectToken}
+          fetchLoading={fetchLoading}
+          storeName={storeName}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
           stockChannel={stockChannel}
           tradeSide={stockChannel.tradeSide}
           onTradeSideChange={handleTradeSideChange}
           recentTokenPairs={stockRecentTokenPairs}
           onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
           compact
+          stockTradeConfig={stockTradeConfig}
+          stockTradeHeader={stockTradeHeader}
         />
-        {isDesktopModalPage ? null : (
+        {embedded || isDesktopModalPage ? null : (
           <YStack mt="$2">
             <StockMobilePositionsSection
-              onTokenPress={props.onTokenPress}
-              supportNetworksList={props.supportNetworksList}
-              storeName={props.storeName}
+              onTokenPress={onTokenPress}
+              supportNetworksList={supportNetworksList}
+              supportNetworksReady={!fetchLoading}
+              storeName={storeName}
             />
           </YStack>
         )}
@@ -2388,8 +2676,12 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
 export function SwapStockMobileContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
+  const { stockSpeedConfig, stockTradeToken } = props;
   return (
-    <SwapStockTradeProvider>
+    <SwapStockTradeProvider
+      stockSpeedConfig={stockSpeedConfig}
+      stockTradeToken={stockTradeToken}
+    >
       <SwapStockMobileContent {...props} />
     </SwapStockTradeProvider>
   );

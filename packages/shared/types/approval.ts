@@ -55,6 +55,8 @@ export type IApproval = {
   time: number;
   riskLevel: number;
   reason?: string;
+  permit2Address?: string;
+  expirationMs?: number;
 };
 
 export type IFetchAccountApprovalsParams = {

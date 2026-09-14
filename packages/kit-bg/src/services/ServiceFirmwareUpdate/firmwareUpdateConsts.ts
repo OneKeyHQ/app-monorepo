@@ -17,6 +17,12 @@ export const FIRMWARE_UPDATE_MIN_VERSION_ALLOWED: Partial<
     // ble: '0.0.0',
     // bootloader: '0.0.0',
   },
+  [EDeviceType.Pro2]: {
+    bootloader: '1.0.0',
+  },
+  [EDeviceType.Neo]: {
+    bootloader: '1.0.0',
+  },
   [EDeviceType.Touch]: {
     // >= 4.1.0 allowed update by App, < 4.1.0 only allowed update by web
     firmware: '4.1.0', // only 4.1.0 support bootloader update

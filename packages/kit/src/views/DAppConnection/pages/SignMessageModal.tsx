@@ -36,6 +36,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { MessageConfirmExtraInfo } from '../../SignatureConfirm/components/SignatureConfirmExtraInfo';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppSignMessageContent } from '../components/DAppRequestContent';
 import {
@@ -290,6 +291,11 @@ function SignMessageModal() {
               <DAppAccountListStandAloneItem readonly />
             )}
             <DAppSignMessageContent unsignedMessage={unsignedMessage} />
+            <MessageConfirmExtraInfo
+              accountId={accountId}
+              networkId={networkId}
+              unsignedMessage={unsignedMessage}
+            />
           </DAppRequestLayout>
         </Page.Body>
         <Page.Footer>

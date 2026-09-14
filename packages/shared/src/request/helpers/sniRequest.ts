@@ -1,4 +1,8 @@
-import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
+import type {
+  ISniRequestConfig,
+  ISniRequestOptions,
+  ISniResponse,
+} from '../types/ipTable';
 
 /**
  * SNI Request - Default implementation for Web/Extension
@@ -7,6 +11,7 @@ import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
  */
 export async function sniRequest(
   _config: ISniRequestConfig,
+  _options?: ISniRequestOptions,
 ): Promise<ISniResponse | null> {
   return null; // Web/Extension don't support SNI direct connection
 }

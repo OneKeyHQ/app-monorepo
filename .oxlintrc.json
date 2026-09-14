@@ -167,6 +167,13 @@
       {
         "patterns": [
           {
+            "group": [
+              "@react-native-async-storage/async-storage",
+              "@react-native-async-storage/async-storage/**"
+            ],
+            "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+          },
+          {
             "group": ["@onekeyfe/hd-core"],
             "message": "using `const {} = await CoreSDKLoader()` instead",
             "allowTypeImports": true
@@ -499,6 +506,13 @@
           {
             "patterns": [
               {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
+              {
                 "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg"],
                 "message": "Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder",
                 "allowTypeImports": true
@@ -521,6 +535,13 @@
           "error",
           {
             "patterns": [
+              {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
               {
                 "group": [
                   "@onekeyhq/kit",
@@ -549,6 +570,13 @@
           {
             "patterns": [
               {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
+              {
                 "group": ["tamagui"],
                 "message": "Please avoid using tamagui in this folder",
                 "allowTypeImports": true
@@ -571,6 +599,13 @@
           "error",
           {
             "patterns": [
+              {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
               {
                 "group": ["tamagui"],
                 "message": "Please avoid using tamagui in this folder",
@@ -610,6 +645,13 @@
           "error",
           {
             "patterns": [
+              {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
               {
                 "group": [
                   "tamagui",
@@ -658,6 +700,18 @@
         "packages/kit/src/views/Onboardingv2/pages/KeylessOnboardingDebugPanel.tsx",
         "packages/kit/src/views/Developer/pages/**/*.tsx",
         "packages/kit/src/provider/Container/FullWindowOverlayContainer/DevOverlayWindow.tsx"
+      ],
+      "rules": {
+        "onekey/require-testid": "off"
+      }
+    },
+    {
+      // Component CSF stories + Storybook playground config — dev workbench, not user-facing UI
+      "files": [
+        "packages/components/src/**/*.stories.tsx",
+        "packages/components/src/**/*.stories.ts",
+        "apps/playground/.storybook/**/*.tsx",
+        "apps/playground/.storybook/**/*.ts"
       ],
       "rules": {
         "onekey/require-testid": "off"
@@ -752,6 +806,7 @@
     "packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js",
     "packages/shared/src/locale/enum/translations.ts",
     "packages/shared/src/locale/localeJsonMap.ts",
+    "apps/mobile/.rnstorybook/storybook.requires.ts",
     "packages/shared/src/locale/json/*",
     "node_modules/**",
     ".history/**",

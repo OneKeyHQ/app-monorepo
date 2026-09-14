@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -136,6 +136,48 @@ function ReceiveSelectorContent() {
   const isLightningNetwork = networkUtils.isLightningNetworkByNetworkId(
     token?.networkId ?? networkId,
   );
+
+  const titleNetworkId = token?.networkId ?? networkId;
+
+  // Preset networks resolve synchronously so the title is complete on the
+  // first frame; custom and server-delivered networks need a background lookup.
+  const presetNetworkName = useMemo(
+    () =>
+      titleNetworkId
+        ? networkUtils.getLocalNetworkInfo(titleNetworkId)?.name
+        : undefined,
+    [titleNetworkId],
+  );
+
+  const { result: resolvedNetworkName } = usePromiseResult(
+    async () => {
+      if (!token?.symbol || !titleNetworkId || presetNetworkName) {
+        return presetNetworkName;
+      }
+      const titleNetwork =
+        await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+          networkId: titleNetworkId,
+        });
+      return titleNetwork?.name;
+    },
+    [token?.symbol, titleNetworkId, presetNetworkName],
+    { initResult: presetNetworkName },
+  );
+
+  // With a token param the selector is scoped to one asset, so the title
+  // names it together with its chain, e.g. "Receive BNB (BNB Chain)".
+  const pageTitle = useMemo(() => {
+    if (!token?.symbol) {
+      return intl.formatMessage({ id: ETranslations.global_receive });
+    }
+    const networkName = resolvedNetworkName ?? presetNetworkName;
+    return intl.formatMessage(
+      { id: ETranslations.receive_token__title },
+      {
+        token: networkName ? `${token.symbol} (${networkName})` : token.symbol,
+      },
+    );
+  }, [intl, token?.symbol, resolvedNetworkName, presetNetworkName]);
 
   const navigation = useAppNavigation();
 
@@ -406,9 +448,7 @@ function ReceiveSelectorContent() {
           : undefined
       }
     >
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_receive })}
-      />
+      <Page.Header title={pageTitle} />
       <Page.Body pb={showSwapEntry ? '$5' : undefined}>
         <YStack gap="$5" px="$5" pt="$px">
           {showBuyAction ? (

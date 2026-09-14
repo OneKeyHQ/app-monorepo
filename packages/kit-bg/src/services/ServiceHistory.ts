@@ -10,6 +10,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { HISTORY_TIME_RANGE_MONTHS } from '@onekeyhq/shared/src/consts/walletConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -34,9 +35,13 @@ import {
   getPrivateSendHistoryDisplayStatus,
   isPrivateSendAccountHistoryTx,
   isPrivateSendSwapHistoryItem,
+  isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressBadge,
   IAddressInfo,
@@ -48,8 +53,11 @@ import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
   IChangedPendingTxInfo,
+  ICreateExportTransactionHistoryTaskParams,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
+  IFetchAccountTransactionRangeResp,
+  IFetchExportTransactionHistoryTasksResp,
   IFetchHistoryTxDetailsParams,
   IFetchMergeDeriveAccountHistoryParams,
   IFetchTransferRecipientsResp,
@@ -64,6 +72,7 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
+  IDecodedTxAction,
   IReplaceTxInfo,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
@@ -93,13 +102,6 @@ const HISTORY_TIME_RANGE_MS = timerUtils.getTimeDurationMs({
   month: HISTORY_TIME_RANGE_MONTHS,
 });
 
-const PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES = new Set([
-  ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.FAILED,
-  ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
-]);
-
 type IHistoryDecodedAction = IAccountHistoryTx['decodedTx']['actions'][number];
 type IHistoryDecodedTransfer = NonNullable<
   IHistoryDecodedAction['assetTransfer']
@@ -119,12 +121,8 @@ function shouldPreferPrivateSendSwapHistory(
   next: ISwapTxHistory,
   current: ISwapTxHistory,
 ) {
-  const isNextTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
-    next.status,
-  );
-  const isCurrentTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
-    current.status,
-  );
+  const isNextTerminal = isSwapHistoryTerminalStatus(next.status);
+  const isCurrentTerminal = isSwapHistoryTerminalStatus(current.status);
 
   if (isNextTerminal !== isCurrentTerminal) {
     return isNextTerminal;
@@ -721,6 +719,145 @@ function mergePrivateSendLocalDecodedTxFields({
       ...(outputActionsResult.updated
         ? { outputActions: outputActionsResult.actions }
         : {}),
+    },
+  };
+}
+
+// The indexer owns a tx's display label, but networks it cannot parse return an
+// empty one. Replacing the local record with such an on-chain record drops the
+// semantics the app already knew when it built the tx (Earn claim/redeem,
+// internal swap), leaving both the history row and its details page with an
+// empty title. Carry those local display fields over, but only when the indexer
+// gave us nothing to show. Replacement linkage is local-only, so it is carried
+// independently of the display-label branch below.
+function getLocalReplacementFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): Pick<
+  IAccountHistoryTx,
+  'replacedPrevId' | 'replacedNextId' | 'replacedType' | 'replacedMethod'
+> {
+  // Replacement linkage is local-only metadata. The indexer response can
+  // replace the local record after confirmation, so carry it forward when the
+  // response does not provide an equivalent field. In particular, a cancel
+  // replacement must remain distinguishable from the staking metadata it
+  // inherits for pending-state guards.
+  return {
+    ...(isNil(onChainHistoryTx.replacedPrevId) && !isNil(localTx.replacedPrevId)
+      ? { replacedPrevId: localTx.replacedPrevId }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedNextId) && !isNil(localTx.replacedNextId)
+      ? { replacedNextId: localTx.replacedNextId }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedType) && !isNil(localTx.replacedType)
+      ? { replacedType: localTx.replacedType }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedMethod) && !isNil(localTx.replacedMethod)
+      ? { replacedMethod: localTx.replacedMethod }
+      : {}),
+  };
+}
+
+export function mergeLocalTxDisplayFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): IAccountHistoryTx {
+  const localStakingInfo = localTx.stakingInfo;
+  const localReplacementFields = getLocalReplacementFields({
+    localTx,
+    onChainHistoryTx,
+  });
+  if (onChainHistoryTx.decodedTx.payload?.label) {
+    return {
+      ...onChainHistoryTx,
+      ...localReplacementFields,
+      ...(localStakingInfo && !onChainHistoryTx.stakingInfo
+        ? { stakingInfo: localStakingInfo }
+        : {}),
+    };
+  }
+
+  const localTransfer = localTx.decodedTx.actions?.[0]?.assetTransfer;
+  // stakingInfo also identifies a staking tx whose merged record no longer has
+  // an assetTransfer action (the indexer parsed no transfers), so the label
+  // survives every later refresh instead of only the first merge.
+  const isInternalStaking = Boolean(
+    localTransfer?.isInternalStaking || localStakingInfo,
+  );
+  const isInternalSwap = localTransfer?.isInternalSwap;
+  if (!isInternalStaking && !isInternalSwap) {
+    return { ...onChainHistoryTx, ...localReplacementFields };
+  }
+
+  // Keep local staking metadata even when the indexer already supplied a
+  // display label. Borrow metadata-only actions such as setCollateral are
+  // identified by these tags and otherwise disappear after confirmation.
+  const preserveLocalStakingInfo =
+    localStakingInfo && !onChainHistoryTx.stakingInfo
+      ? { stakingInfo: localStakingInfo }
+      : {};
+
+  const internalStakingLabel = isInternalStaking
+    ? localTransfer?.internalStakingLabel ||
+      (localStakingInfo
+        ? getStakingActionLabel({ stakingInfo: localStakingInfo })
+        : undefined)
+    : undefined;
+
+  const mergeAction = (action: IDecodedTxAction): IDecodedTxAction => {
+    if (action.assetTransfer) {
+      return {
+        ...action,
+        assetTransfer: {
+          ...action.assetTransfer,
+          ...(isInternalStaking ? { isInternalStaking } : {}),
+          ...(isInternalSwap ? { isInternalSwap } : {}),
+          ...(internalStakingLabel ? { internalStakingLabel } : {}),
+        },
+      };
+    }
+
+    // The indexer parsed no transfers at all, so the tx renders as a function
+    // call / unknown action instead. Those views read their own label field.
+    if (!internalStakingLabel) {
+      return action;
+    }
+    if (action.functionCall && !action.functionCall.functionName) {
+      return {
+        ...action,
+        functionCall: {
+          ...action.functionCall,
+          functionName: internalStakingLabel,
+        },
+      };
+    }
+    if (action.unknownAction && !action.unknownAction.label) {
+      return {
+        ...action,
+        unknownAction: {
+          ...action.unknownAction,
+          label: internalStakingLabel,
+        },
+      };
+    }
+    return action;
+  };
+
+  return {
+    ...onChainHistoryTx,
+    ...localReplacementFields,
+    ...preserveLocalStakingInfo,
+    decodedTx: {
+      ...onChainHistoryTx.decodedTx,
+      actions: onChainHistoryTx.decodedTx.actions.map((action, index) =>
+        index === 0 ? mergeAction(action) : action,
+      ),
     },
   };
 }
@@ -2181,12 +2318,16 @@ class ServiceHistory extends ServiceBase {
           const localHistoryTx = localHistoryTxs.find((tx) =>
             this.isSameScopedHistoryTx(onChainHistoryTx, tx),
           );
-          return localHistoryTx
-            ? mergePrivateSendLocalDecodedTxFields({
-                localTx: localHistoryTx,
-                onChainHistoryTx,
-              })
-            : onChainHistoryTx;
+          if (!localHistoryTx) {
+            return onChainHistoryTx;
+          }
+          return mergeLocalTxDisplayFields({
+            localTx: localHistoryTx,
+            onChainHistoryTx: mergePrivateSendLocalDecodedTxFields({
+              localTx: localHistoryTx,
+              onChainHistoryTx,
+            }),
+          });
         },
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
@@ -2324,6 +2465,76 @@ class ServiceHistory extends ServiceBase {
     const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildFetchHistoryListParams(params);
+  }
+
+  @backgroundMethod()
+  public async fetchAccountTransactionRange() {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // The caller renders a retryable in-page error state, so suppress the
+    // default request toast to avoid presenting the same failure twice.
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const resp = await client.post<{
+      data: IFetchAccountTransactionRangeResp;
+    }>('/wallet/v1/account/transaction/export/range', {}, requestConfig);
+
+    // autoHandleError: false lets code !== 0 responses resolve with no data;
+    // surface them as errors so the caller can render its retryable state.
+    const range = resp.data?.data;
+    if (!range) {
+      throw new OneKeyLocalError('Failed to fetch account transaction range');
+    }
+    return range;
+  }
+
+  @backgroundMethod()
+  public async createExportTransactionHistoryTask(
+    params: ICreateExportTransactionHistoryTaskParams,
+  ) {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    await client.post(
+      '/wallet/v1/account/transaction/export-task/create',
+      params,
+    );
+  }
+
+  @backgroundMethod()
+  public async fetchExportTransactionHistoryTasks() {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    // Errors are surfaced as an in-page error state by the caller, so suppress
+    // the default error toast to avoid a duplicate prompt.
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      autoHandleError: false,
+    };
+    const resp = await client.post<{
+      data: IFetchExportTransactionHistoryTasksResp;
+    }>('/wallet/v1/account/transaction/export-task/list', {}, requestConfig);
+
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async downloadExportTransactionHistoryTaskCsv(params: { id: number }) {
+    // Prime-only endpoint: use the OneKey ID authenticated client so the
+    // request carries the auth token and prime auth errors are handled.
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: string;
+    }>('/wallet/v1/account/transaction/export-task/csv', params, {
+      // exported CSV files can be large
+      timeout: 30_000,
+    });
+
+    return resp.data.data;
   }
 
   @backgroundMethod()
@@ -3062,6 +3273,9 @@ class ServiceHistory extends ServiceBase {
         xpub,
       });
       if (prevTx) {
+        if (prevTx.stakingInfo && !newHistoryTx.stakingInfo) {
+          newHistoryTx.stakingInfo = prevTx.stakingInfo;
+        }
         prevTx.decodedTx.status = EDecodedTxStatus.Dropped;
         prevTx.replacedNextId = newHistoryTx.id;
 

@@ -4,8 +4,14 @@ import BigNumber from 'bignumber.js';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  useActiveAccountValueAtom,
+  useCurrencyPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountSelectorDeFiItem } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -15,18 +21,7 @@ function AccountValue(accountValue: {
   accountId: string;
   currency: string;
   value: Record<string, string> | string;
-  accountDeFiOverview?: {
-    overview: Record<
-      string,
-      {
-        totalValue: number;
-        totalDebt: number;
-        totalReward: number;
-        netWorth: number;
-        currency: string;
-      }
-    >;
-  };
+  accountDeFiOverview?: IAccountSelectorDeFiItem;
   linkedAccountId?: string;
   linkedNetworkId?: string;
   indexedAccountId?: string;
@@ -57,6 +52,25 @@ function AccountValue(accountValue: {
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
 
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+
+  // Hyperliquid perps net worth arrives in USD basis (BG gates its presence by
+  // the selector's network context, mirroring Home). Convert to the row
+  // value's currency so every branch sums in one basis before <Currency>
+  // converts for display — the same USD-basis summation Home performs.
+  const perpsNetWorth = useMemo(() => {
+    const perpsNetWorthUsd = accountDeFiOverview?.perpsNetWorthUsd;
+    if (!perpsNetWorthUsd || !currency) {
+      return '0';
+    }
+    return convertFiat({
+      value: perpsNetWorthUsd,
+      sourceCurrency: USD_CURRENCY_ID,
+      targetCurrency: currency,
+      currencyMap,
+    });
+  }, [accountDeFiOverview?.perpsNetWorthUsd, currency, currencyMap]);
+
   const accountValueString = useMemo(() => {
     // Branch 1: "others" account — value is already a scalar string.
     if (typeof value === 'string') {
@@ -64,12 +78,13 @@ function AccountValue(accountValue: {
         accountDeFiOverview?.overview?.[linkedNetworkId ?? '']?.netWorth ?? '0';
       return calculateAccountTotalValue({
         tokensValue: value,
-        deFiNetWorth: deFi,
+        deFiNetWorth: new BigNumber(deFi).plus(perpsNetWorth).toFixed(),
       });
     }
 
     // Branch 2: merge-derive chain — BTC/LTC/etc. Intentionally no DeFi
-    // (these chains have no DeFi positions; matches prior behavior).
+    // (these chains have no DeFi positions; matches prior behavior), and BG
+    // supplies no perps for their non-DeFi contexts either.
     if (linkedNetworkId && mergeDeriveAssetsEnabled && !isSingleAddress) {
       return calculateAccountTotalValue({
         tokensValue: value,
@@ -85,10 +100,17 @@ function AccountValue(accountValue: {
       linkedNetworkId &&
       !networkUtils.isAllNetwork({ networkId: linkedNetworkId })
     ) {
+      const deFiRaw =
+        accountDeFiOverview?.overview?.[linkedNetworkId]?.netWorth;
+      const hasPerps = accountDeFiOverview?.perpsNetWorthUsd !== undefined;
       return calculateAccountTotalValue({
         tokensValue: value,
+        // Preserve the undefined "no data → --" sentinel: only materialize
+        // a number when DeFi or perps actually contributed.
         deFiNetWorth:
-          accountDeFiOverview?.overview?.[linkedNetworkId]?.netWorth,
+          deFiRaw === undefined && !hasPerps
+            ? undefined
+            : new BigNumber(deFiRaw ?? '0').plus(perpsNetWorth).toFixed(),
         accountId: linkedAccountId,
         networkId: linkedNetworkId,
       });
@@ -98,7 +120,7 @@ function AccountValue(accountValue: {
     const deFiAll = Object.values(accountDeFiOverview?.overview ?? {}).reduce(
       (acc, curr) =>
         new BigNumber(acc ?? '0').plus(curr?.netWorth ?? '0').toFixed(),
-      '0',
+      perpsNetWorth,
     );
     return calculateAccountTotalValue({
       tokensValue: value,
@@ -116,6 +138,7 @@ function AccountValue(accountValue: {
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
     accountDeFiOverview,
+    perpsNetWorth,
     walletId,
   ]);
 
@@ -171,18 +194,7 @@ function AccountValueWithSpotlight({
   walletId: string;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
   networkInfoMap: Record<string, INetworkDeriveInfo>;
-  accountDeFiOverview?: {
-    overview: Record<
-      string,
-      {
-        totalValue: number;
-        totalDebt: number;
-        totalReward: number;
-        netWorth: number;
-        currency: string;
-      }
-    >;
-  };
+  accountDeFiOverview?: IAccountSelectorDeFiItem;
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue

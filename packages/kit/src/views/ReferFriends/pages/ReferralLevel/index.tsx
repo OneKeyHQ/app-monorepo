@@ -28,8 +28,10 @@ import { UpgradeProgressTitle } from './components/UpgradeProgressTitle';
 function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
   const intl = useIntl();
 
-  // Find current level info
-  const currentLevelInfo = data.levels.find((level) => level.isCurrent);
+  const currentLevelInfo =
+    data.levels.find((level) => level.level === data.currentLevel) ??
+    data.levels.find((level) => level.isCurrent);
+  const currentLevel = currentLevelInfo?.level ?? data.currentLevel;
 
   return (
     <ScrollView>
@@ -42,14 +44,14 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
           />
           {currentLevelInfo ? (
             <CurrentLevelSection
-              currentLevel={data.currentLevel}
+              currentLevel={currentLevel}
               levelIcon={currentLevelInfo.icon}
               levelLabel={currentLevelInfo.label}
             />
           ) : null}
           <UpgradeProgressTitle />
 
-          <LevelListSection levels={data.levels} />
+          <LevelListSection currentLevel={currentLevel} levels={data.levels} />
         </YStack>
       </ReferFriendsPageContainer>
     </ScrollView>

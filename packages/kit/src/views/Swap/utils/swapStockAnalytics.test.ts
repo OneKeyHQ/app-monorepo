@@ -5,6 +5,7 @@ import {
   ESwapAnalyticsEnterFrom,
   ESwapSource,
   ESwapTabSwitchType,
+  ESwapTradeSource,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -16,6 +17,7 @@ import {
   getSwapAnalyticsCategory,
   getSwapAnalyticsCategoryFromSwapType,
   getSwapAnalyticsEnterFrom,
+  getSwapTradeSource,
 } from './swapStockAnalytics';
 
 const payToken = {
@@ -52,6 +54,43 @@ describe('swapStockAnalytics', () => {
     expect(getSwapAnalyticsCategoryFromSwapType(ESwapTabSwitchType.LIMIT)).toBe(
       ESwapAnalyticsCategory.LIMIT,
     );
+    expect(
+      getSwapAnalyticsCategoryFromSwapType(ESwapTabSwitchType.LIMIT, true),
+    ).toBe(ESwapAnalyticsCategory.PRO);
+  });
+
+  it('maps build transaction owners to tradeSource values', () => {
+    expect(
+      getSwapTradeSource({
+        protocol: EProtocolOfExchange.SWAP,
+        isSwapPro: false,
+      }),
+    ).toBe(ESwapTradeSource.SWAP_BRIDGE);
+    expect(
+      getSwapTradeSource({
+        protocol: EProtocolOfExchange.LIMIT,
+        isSwapPro: true,
+      }),
+    ).toBe(ESwapTradeSource.SWAP_PRO);
+    expect(
+      getSwapTradeSource({
+        protocol: EProtocolOfExchange.LIMIT,
+        isSwapPro: false,
+      }),
+    ).toBe(ESwapTradeSource.LIMIT);
+    expect(
+      getSwapTradeSource({
+        protocol: EProtocolOfExchange.STOCK,
+        isSwapPro: false,
+      }),
+    ).toBe(ESwapTradeSource.STOCK);
+    expect(
+      getSwapTradeSource({
+        protocol: EProtocolOfExchange.PRIVATE_SEND,
+        isSwapPro: false,
+      }),
+    ).toBe(ESwapTradeSource.UNKNOWN);
+    expect(ESwapTradeSource.PERPS).toBe('perps');
   });
 
   it('maps Swap source values to tradeCategorySwitch enterFrom values', () => {

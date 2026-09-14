@@ -3,6 +3,8 @@ import {
   ONEKEY_OAUTH_STATE_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import type { IOAuthPopupOptions, IOAuthPopupResult } from './types';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -74,13 +76,23 @@ export abstract class OAuthPopupBase {
           expectedOneKeyState = redirectToUrl.searchParams.get(
             ONEKEY_OAUTH_STATE_KEY,
           );
-        } catch {
+        } catch (error) {
+          defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+            reason: `OAuth redirect state parsing failed: ${getSanitizedErrorLogText(
+              error,
+            )}`,
+          });
           expectedOneKeyState = null;
         }
       }
 
       return { expectedState, expectedOneKeyState };
-    } catch {
+    } catch (error) {
+      defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+        reason: `OAuth authorization state parsing failed: ${getSanitizedErrorLogText(
+          error,
+        )}`,
+      });
       return { expectedState: null, expectedOneKeyState: null };
     }
   }
@@ -158,7 +170,7 @@ export abstract class OAuthPopupBase {
     const { data, error } = await client.auth.exchangeCodeForSession(code);
 
     if (error) {
-      throw new OneKeyLocalError(error.message);
+      throw error;
     }
 
     if (!data.session) {
@@ -181,6 +193,9 @@ export abstract class OAuthPopupBase {
     if (error instanceof OneKeyLocalError || error instanceof OneKeyError) {
       return error;
     }
+    defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+      reason: `${fallbackMessage}: ${getSanitizedErrorLogText(error)}`,
+    });
     return new OneKeyLocalError(
       error instanceof Error ? error.message : fallbackMessage,
     );

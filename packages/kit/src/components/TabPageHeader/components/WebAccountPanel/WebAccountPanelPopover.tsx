@@ -11,6 +11,7 @@ export interface IWebAccountPanelPopoverProps {
   renderTrigger: ReactNode;
   initialView?: IWebAccountPanelView;
   connected?: boolean;
+  showPerpsActivityCenter?: boolean;
 }
 
 const PANEL_WIDTH = 352;
@@ -33,6 +34,7 @@ export function WebAccountPanelPopover({
   renderTrigger,
   initialView = 'main',
   connected = true,
+  showPerpsActivityCenter = false,
 }: IWebAccountPanelPopoverProps) {
   const { config } = useAccountSelectorContextData();
   // Popover renders `renderContent` as a component (<RenderContent/> in
@@ -49,12 +51,13 @@ export function WebAccountPanelPopover({
             <LazyWebAccountPanelPopoverContent
               initialView={initialView}
               connected={connected}
+              showPerpsActivityCenter={showPerpsActivityCenter}
               closePopover={closePopover}
             />
           </Suspense>
         </AccountSelectorProviderMirror>
       ) : null,
-    [config, initialView, connected],
+    [config, initialView, connected, showPerpsActivityCenter],
   );
   return (
     <Popover

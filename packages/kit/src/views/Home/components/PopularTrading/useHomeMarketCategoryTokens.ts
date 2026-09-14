@@ -1,5 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -10,6 +11,7 @@ import {
 } from './constants';
 import {
   EMPTY_DISPLAY_TOKENS,
+  mapMarketAssetToDisplay,
   mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 } from './utils';
@@ -82,6 +84,21 @@ function useHomeMarketCategoryTokens({
                 }),
               )
               .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
+          };
+        }
+
+        if (selectedMarketCategoryId === MARKET_TOP_COINS_CATEGORY_ID) {
+          const response =
+            await backgroundApiProxy.serviceMarket.fetchMarketAssetList({
+              currency: 'usd',
+              limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+              page: 1,
+              type: MARKET_TOP_COINS_CATEGORY_ID,
+            });
+
+          return {
+            requestKey: currentRequestKey,
+            tokens: response.list.map(mapMarketAssetToDisplay),
           };
         }
 

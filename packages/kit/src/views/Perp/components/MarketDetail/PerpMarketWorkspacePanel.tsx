@@ -4,18 +4,22 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { PerpCandles } from '../PerpCandles';
 
+import { PerpFundingChart } from './PerpFundingChart';
 import {
   PERP_MARKET_INFO_TAB_KEYS,
   PerpMarketDetailContent,
 } from './PerpMarketDetailContent';
 
-type IPerpMarketWorkspaceView = 'chart' | 'info';
+type IPerpMarketWorkspaceView = 'chart' | 'funding' | 'info';
 
 const WORKSPACE_VIEW_ITEMS: Array<{
   key: IPerpMarketWorkspaceView;
@@ -23,6 +27,7 @@ const WORKSPACE_VIEW_ITEMS: Array<{
 }> = [
   { key: 'chart', translationId: ETranslations.market_chart },
   { key: 'info', translationId: ETranslations.global_info },
+  { key: 'funding', translationId: ETranslations.perp_position_funding },
 ];
 
 function WorkspaceTabButton({
@@ -63,12 +68,24 @@ export function PerpMarketWorkspacePanel({
   const [activeView, setActiveView] =
     useState<IPerpMarketWorkspaceView>('chart');
   const [, setLayoutState] = usePerpsLayoutStateAtom();
-  const { baseName, coin, displayName } = useActiveTradeDisplay();
+  const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
+  const visibleActiveView =
+    mode !== 'perp' && activeView === 'funding' ? 'chart' : activeView;
+  const workspaceViewItems = useMemo(
+    () =>
+      mode === 'perp'
+        ? WORKSPACE_VIEW_ITEMS
+        : WORKSPACE_VIEW_ITEMS.filter((item) => item.key !== 'funding'),
+    [mode],
+  );
   const marketKey = useMemo(
     () => coin || displayName || baseName || 'unknown',
     [baseName, coin, displayName],
   );
   const [mountedInfoMarketKey, setMountedInfoMarketKey] = useState<
+    string | undefined
+  >();
+  const [mountedFundingMarketKey, setMountedFundingMarketKey] = useState<
     string | undefined
   >();
   const [collapseChartExpandSignal, setCollapseChartExpandSignal] = useState(0);
@@ -88,16 +105,51 @@ export function PerpMarketWorkspacePanel({
   );
 
   useEffect(() => {
+    if (mode !== 'perp' && activeView === 'funding') {
+      setActiveView('chart');
+    }
+  }, [activeView, mode]);
+
+  useEffect(() => {
+    const handleShowFundingHistory = () => {
+      handleChangeActiveView('funding');
+    };
+    appEventBus.on(
+      EAppEventBusNames.PerpShowFundingHistory,
+      handleShowFundingHistory,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.PerpShowFundingHistory,
+        handleShowFundingHistory,
+      );
+    };
+  }, [handleChangeActiveView]);
+
+  useEffect(() => {
     setMountedInfoMarketKey((prev) => {
-      if (activeView === 'info') {
+      if (visibleActiveView === 'info') {
         return marketKey;
       }
 
       return prev === marketKey ? prev : undefined;
     });
-  }, [activeView, marketKey]);
+  }, [marketKey, visibleActiveView]);
+
+  useEffect(() => {
+    setMountedFundingMarketKey((prev) => {
+      if (visibleActiveView === 'funding' && mode === 'perp') {
+        return marketKey;
+      }
+
+      return prev === marketKey ? prev : undefined;
+    });
+  }, [marketKey, mode, visibleActiveView]);
 
   const shouldRenderInfo = mountedInfoMarketKey === marketKey;
+  const shouldRenderFunding =
+    mode === 'perp' && mountedFundingMarketKey === marketKey;
+  const isFundingActive = visibleActiveView === 'funding';
 
   return (
     <YStack flex={1} minHeight={0}>
@@ -109,21 +161,21 @@ export function PerpMarketWorkspacePanel({
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
       >
-        {WORKSPACE_VIEW_ITEMS.map((item) => (
+        {workspaceViewItems.map((item) => (
           <WorkspaceTabButton
             key={item.key}
-            active={activeView === item.key}
+            active={visibleActiveView === item.key}
             label={intl.formatMessage({ id: item.translationId })}
             onPress={() => handleChangeActiveView(item.key)}
           />
         ))}
       </XStack>
 
-      <YStack flex={1} minHeight={0}>
+      <YStack flex={1} minHeight={0} position="relative">
         <YStack
           flex={1}
           minHeight={0}
-          display={activeView === 'chart' ? 'flex' : 'none'}
+          display={visibleActiveView === 'chart' ? 'flex' : 'none'}
         >
           <PerpCandles
             collapseChartExpandSignal={collapseChartExpandSignal}
@@ -131,12 +183,32 @@ export function PerpMarketWorkspacePanel({
           />
         </YStack>
 
+        {shouldRenderFunding ? (
+          <YStack
+            key={`funding-${mountedFundingMarketKey}`}
+            testID="perp-funding-workspace-panel"
+            position="absolute"
+            inset={0}
+            minHeight={0}
+            opacity={isFundingActive ? 1 : 0}
+            pointerEvents={isFundingActive ? 'auto' : 'none'}
+            aria-hidden={!isFundingActive}
+            accessibilityElementsHidden={!isFundingActive}
+            importantForAccessibility={
+              isFundingActive ? 'auto' : 'no-hide-descendants'
+            }
+            {...(platformEnv.isNative ? {} : { inert: !isFundingActive })}
+          >
+            <PerpFundingChart coin={coin} isActive={isFundingActive} />
+          </YStack>
+        ) : null}
+
         {shouldRenderInfo ? (
           <YStack
             key={`info-${mountedInfoMarketKey}`}
             flex={1}
             minHeight={0}
-            display={activeView === 'info' ? 'flex' : 'none'}
+            display={visibleActiveView === 'info' ? 'flex' : 'none'}
           >
             <PerpMarketDetailContent
               coin={coin}

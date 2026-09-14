@@ -1,4 +1,5 @@
 import {
+  createProtocolLendingSubmitGuard,
   findSupportedBorrowMarket,
   resolveProtocolLendingBalanceContext,
   resolveProtocolLendingDefiFillableAmountState,
@@ -6,9 +7,112 @@ import {
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
+  shouldShowProtocolLendingFallbackWarning,
 } from './protocolLendingActionUtils';
 
+function createSubmitGuard({
+  actionDialogClosed,
+  userRejected = false,
+  errorAlreadyReported = false,
+  showInlineError = true,
+}: {
+  actionDialogClosed: boolean;
+  userRejected?: boolean;
+  errorAlreadyReported?: boolean;
+  showInlineError?: boolean;
+}) {
+  const onInlineError = jest.fn();
+  const onPostCloseError = jest.fn();
+  const onRelease = jest.fn();
+  const guard = createProtocolLendingSubmitGuard({
+    isActionDialogClosed: () => actionDialogClosed,
+    isUserRejectedError: () => userRejected,
+    isErrorAlreadyReported: () => errorAlreadyReported,
+    shouldShowInlineError: () => showInlineError,
+    onInlineError,
+    onPostCloseError,
+    onRelease,
+  });
+
+  return {
+    guard,
+    onInlineError,
+    onPostCloseError,
+    onRelease,
+  };
+}
+
 describe('protocolLendingActionUtils', () => {
+  it('keeps a direct submit error inline without a post-close report', () => {
+    const { guard, onInlineError, onPostCloseError, onRelease } =
+      createSubmitGuard({ actionDialogClosed: false });
+    const error = new Error('Build failed');
+
+    expect(guard.releaseWithError(error)).toBe(false);
+    expect(onInlineError).toHaveBeenCalledTimes(1);
+    expect(onInlineError).toHaveBeenCalledWith(error);
+    expect(onPostCloseError).not.toHaveBeenCalled();
+    expect(onRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports an asynchronous post-close failure exactly once', () => {
+    const { guard, onInlineError, onPostCloseError, onRelease } =
+      createSubmitGuard({ actionDialogClosed: true });
+    const error = new Error('Confirmation failed');
+
+    expect(guard.releaseWithError(error)).toBe(false);
+    expect(guard.releaseWithError(new Error('Late duplicate'))).toBe(false);
+    expect(onInlineError).not.toHaveBeenCalled();
+    expect(onPostCloseError).toHaveBeenCalledTimes(1);
+    expect(onPostCloseError).toHaveBeenCalledWith(error);
+    expect(onRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates a detached build failure without reporting it twice', () => {
+    const { guard, onInlineError, onPostCloseError, onRelease } =
+      createSubmitGuard({ actionDialogClosed: true });
+    const error = new Error('Build failed after approval');
+
+    expect(
+      guard.releaseWithError(error, {
+        postCloseErrorMode: 'propagate',
+      }),
+    ).toBe(true);
+    expect(onInlineError).not.toHaveBeenCalled();
+    expect(onPostCloseError).not.toHaveBeenCalled();
+    expect(onRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases a rejected submission without showing an error', () => {
+    const { guard, onInlineError, onPostCloseError, onRelease } =
+      createSubmitGuard({
+        actionDialogClosed: true,
+        userRejected: true,
+      });
+
+    expect(guard.releaseWithError(new Error('User rejected'))).toBe(false);
+    expect(onInlineError).not.toHaveBeenCalled();
+    expect(onPostCloseError).not.toHaveBeenCalled();
+    expect(onRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not report or propagate an error whose auto-toast already fired', () => {
+    const { guard, onInlineError, onPostCloseError, onRelease } =
+      createSubmitGuard({
+        actionDialogClosed: true,
+        errorAlreadyReported: true,
+      });
+
+    expect(
+      guard.releaseWithError(new Error('Already visible'), {
+        postCloseErrorMode: 'propagate',
+      }),
+    ).toBe(false);
+    expect(onInlineError).not.toHaveBeenCalled();
+    expect(onPostCloseError).not.toHaveBeenCalled();
+    expect(onRelease).toHaveBeenCalledTimes(1);
+  });
+
   it('marks withdraw amount above the supplied balance as insufficient', () => {
     const state = resolveProtocolLendingWithdrawAmountState({
       amount: '10.0001',
@@ -194,6 +298,59 @@ describe('protocolLendingActionUtils', () => {
       currentDebt: '10',
       remainingDebt: '0',
     });
+  });
+
+  it('shows the generic liquidation warning when no server alert is available', () => {
+    expect(
+      shouldShowProtocolLendingFallbackWarning({
+        hasDebts: true,
+        isWithdraw: true,
+        checkAmountAlertCount: 0,
+        riskOfLiquidationAlert: false,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([true, false])(
+    'lets a server liquidation alert with risk marker %s replace the generic warning',
+    (riskOfLiquidationAlert) => {
+      expect(
+        shouldShowProtocolLendingFallbackWarning({
+          hasDebts: true,
+          isWithdraw: true,
+          checkAmountAlertCount: 1,
+          riskOfLiquidationAlert,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it('keeps the generic warning alongside unrelated server alerts', () => {
+    expect(
+      shouldShowProtocolLendingFallbackWarning({
+        hasDebts: true,
+        isWithdraw: true,
+        checkAmountAlertCount: 1,
+        riskOfLiquidationAlert: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not show the generic liquidation warning outside debt withdrawals', () => {
+    expect(
+      shouldShowProtocolLendingFallbackWarning({
+        hasDebts: false,
+        isWithdraw: true,
+        checkAmountAlertCount: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowProtocolLendingFallbackWarning({
+        hasDebts: true,
+        isWithdraw: false,
+        checkAmountAlertCount: 0,
+      }),
+    ).toBe(false);
   });
 
   it('shows remaining debt and wallet balance for repay with known debt', () => {

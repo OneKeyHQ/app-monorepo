@@ -4,19 +4,24 @@ import { debounce } from 'lodash';
 import { Animated } from 'react-native';
 
 import { LottieView, XStack } from '@onekeyhq/components';
-import { swapRefreshInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import {
+  useSwapQuoteAutoRefreshTimerAtom,
+  useSwapShouldRefreshQuoteAtom,
+} from '../../../states/jotai/contexts/swap';
+import { shouldPlaySwapQuoteRefreshAnimation } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { useSwapActionState } from '../hooks/useSwapState';
 
 type ISwapRefreshButtonBaseProps = {
-  refreshAction: (manual?: boolean) => void;
+  refreshAction: () => void;
   disabled?: boolean;
   isRefreshQuote: boolean;
   isLoading: boolean;
   isFocused?: boolean;
-  autoRefresh?: boolean;
+  manualRefreshRequired?: boolean;
+  autoRefreshTimerActive?: boolean;
 };
 
 function BasicSwapRefreshButton({
@@ -25,11 +30,10 @@ function BasicSwapRefreshButton({
   isRefreshQuote,
   isLoading,
   isFocused = true,
-  autoRefresh = true,
+  manualRefreshRequired = false,
+  autoRefreshTimerActive = false,
 }: ISwapRefreshButtonBaseProps) {
   const loadingAnim = useRef(new Animated.Value(0)).current;
-  const processAnim = useRef(new Animated.Value(0)).current;
-  const processAnimRef = useRef<Animated.CompositeAnimation>(undefined);
   const themeVariant = useThemeVariant();
   const lottieRef = useRef<any>(null);
   const isRefreshQuoteRef = useRef(isRefreshQuote);
@@ -41,7 +45,6 @@ function BasicSwapRefreshButton({
     disabledRef.current = disabled;
   }
   const refreshLockedRef = useRef(false);
-  const listenerRef = useRef<string | null>(null);
   const isFocusedRef = useRef(isFocused);
   if (isFocusedRef.current !== isFocused) {
     isFocusedRef.current = isFocused;
@@ -54,36 +57,51 @@ function BasicSwapRefreshButton({
   if (refreshActionRef.current !== refreshAction) {
     refreshActionRef.current = refreshAction;
   }
+  const shouldPlayAutoRefreshAnimation = shouldPlaySwapQuoteRefreshAnimation({
+    autoRefreshTimerActive,
+    disabled: Boolean(disabled),
+    focused: isFocused,
+    loading: isLoading,
+    manualRefreshRequired,
+    refreshActionRequired: isRefreshQuote,
+  });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const onRefresh = useCallback(
-    debounce((manual?: boolean) => {
-      if (
-        !isFocusedRef.current ||
-        disabledRef.current ||
-        isRefreshQuoteRef.current ||
-        refreshLockedRef.current
-      ) {
-        return;
-      }
-      refreshLockedRef.current = true;
-      loadingAnimRef.current.setValue(0);
-      Animated.timing(loadingAnimRef.current, {
-        toValue: -1,
-        duration: 500,
-        useNativeDriver: true,
-      }).start((finished) => {
-        if (finished) {
-          refreshActionRef.current(manual);
-          setTimeout(() => {
-            if (!isRefreshQuoteRef.current) {
-              refreshLockedRef.current = false;
-            }
-          }, 100);
-        } else {
-          refreshLockedRef.current = false;
+    debounce(
+      () => {
+        if (
+          !isFocusedRef.current ||
+          disabledRef.current ||
+          isRefreshQuoteRef.current ||
+          refreshLockedRef.current
+        ) {
+          return;
         }
-      });
-    }, 10),
+        refreshLockedRef.current = true;
+        loadingAnimRef.current.setValue(0);
+        Animated.timing(loadingAnimRef.current, {
+          toValue: -1,
+          duration: 500,
+          useNativeDriver: true,
+        }).start((finished) => {
+          if (finished) {
+            refreshActionRef.current();
+            setTimeout(() => {
+              if (!isRefreshQuoteRef.current) {
+                refreshLockedRef.current = false;
+              }
+            }, 100);
+          } else {
+            refreshLockedRef.current = false;
+          }
+        });
+      },
+      10,
+      {
+        leading: true,
+        trailing: false,
+      },
+    ),
     [],
   );
 
@@ -93,78 +111,17 @@ function BasicSwapRefreshButton({
     }
   }, [isRefreshQuote]);
 
+  // Auto-refresh is owned by the quote action. The icon only runs while that
+  // owner has a real refresh timer scheduled for the current context.
   useEffect(() => {
-    if (!autoRefresh) return undefined;
-    if (listenerRef.current) return;
-    listenerRef.current = processAnim.addListener(({ value }) => {
-      // mobile will trigger twice, so we need to debounce it , when max value
-      if (value === swapRefreshInterval) {
-        onRefresh();
-      }
-    });
-    return () => {
-      if (listenerRef.current) {
-        processAnim.removeListener(listenerRef.current);
-        listenerRef.current = null;
-      }
-    };
-  }, [autoRefresh, onRefresh, processAnim]);
-
-  useEffect(() => {
-    if (!autoRefresh) {
-      processAnimRef.current?.reset();
-      return;
-    }
-    // Don't start auto-refresh timer when disabled
-    if (disabled) {
-      processAnimRef.current?.reset();
-      return;
-    }
-    if (!isRefreshQuoteRef.current) {
-      processAnimRef.current = Animated.timing(processAnim, {
-        toValue: swapRefreshInterval,
-        duration: swapRefreshInterval,
-        useNativeDriver: true,
-      });
-      processAnimRef.current?.reset();
-      processAnimRef.current?.start();
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      lottieRef.current?.reset();
-      processAnimRef.current?.reset();
-    }
-  }, [autoRefresh, processAnim, isRefreshQuote, disabled]);
-
-  useEffect(() => {
-    if (isFocusedRef.current) {
-      if (isLoading) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        lottieRef.current?.reset();
-        processAnimRef.current?.reset();
-      }
-    }
-  }, [isLoading]);
-
-  useEffect(() => {
-    if (autoRefresh && isFocused && !disabled) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const value = Number((processAnim as any)._value);
-      if (value === swapRefreshInterval) {
-        onRefresh();
-      }
-    }
-  }, [autoRefresh, disabled, isFocused, processAnim, onRefresh]);
-
-  // Control Lottie animation when disabled state changes
-  useEffect(() => {
-    if (disabled) {
+    if (!shouldPlayAutoRefreshAnimation) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       lottieRef.current?.reset();
     } else {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       lottieRef.current?.play();
     }
-  }, [disabled]);
+  }, [shouldPlayAutoRefreshAnimation]);
 
   return (
     <XStack
@@ -173,7 +130,7 @@ function BasicSwapRefreshButton({
       onPress={(event) => {
         if (disabled) return;
         event.stopPropagation();
-        onRefresh(true);
+        onRefresh();
       }}
     >
       <Animated.View
@@ -197,7 +154,7 @@ function BasicSwapRefreshButton({
           }
           width={18}
           height={18}
-          autoPlay={!disabled}
+          autoPlay={shouldPlayAutoRefreshAnimation}
         />
       </Animated.View>
     </XStack>
@@ -210,11 +167,13 @@ const SwapRefreshButton = ({
   refreshAction,
   disabled,
 }: {
-  refreshAction: (manual?: boolean) => void;
+  refreshAction: () => void;
   disabled?: boolean;
 }) => {
   const isFocused = useRouteIsFocused();
   const { isRefreshQuote, isLoading } = useSwapActionState();
+  const [manualRefreshRequired] = useSwapShouldRefreshQuoteAtom();
+  const [autoRefreshTimer] = useSwapQuoteAutoRefreshTimerAtom();
   return (
     <SwapRefreshButtonBase
       refreshAction={refreshAction}
@@ -222,6 +181,8 @@ const SwapRefreshButton = ({
       isRefreshQuote={!!isRefreshQuote}
       isLoading={!!isLoading}
       isFocused={isFocused}
+      manualRefreshRequired={manualRefreshRequired}
+      autoRefreshTimerActive={autoRefreshTimer !== undefined}
     />
   );
 };

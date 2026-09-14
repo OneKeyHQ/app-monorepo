@@ -42,7 +42,7 @@ function GuideArticleItem({
   return (
     <XStack
       onPress={handlePress}
-      px="$3"
+      px="$5"
       py="$2.5"
       alignItems="center"
       gap="$3"
@@ -83,7 +83,7 @@ function GuideCategorySection({
   const intl = useIntl();
   return (
     <YStack>
-      <SizableText size="$bodySm" color="$textSubdued" px="$3" pt="$4" pb="$1">
+      <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$4" pb="$1">
         {intl.formatMessage({ id: category.titleId })}
       </SizableText>
       <YStack>
@@ -95,7 +95,7 @@ function GuideCategorySection({
           />
         ))}
       </YStack>
-      {isLast ? null : <Divider mx="$3" mt="$1" />}
+      {isLast ? null : <Divider mx="$5" mt="$1" />}
     </YStack>
   );
 }
@@ -120,7 +120,7 @@ export function PerpGuideContent({ onClose }: { onClose?: () => void }) {
 
   return (
     <YStack flex={1}>
-      <YStack px="$3" pt="$2" pb="$1">
+      <YStack px="$5" pt="$2" pb="$1">
         <SearchBar
           testID="perp-url-input"
           placeholder={intl.formatMessage({

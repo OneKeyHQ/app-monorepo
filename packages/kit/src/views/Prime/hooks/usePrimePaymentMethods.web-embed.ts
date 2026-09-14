@@ -285,6 +285,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
           subscriptionPeriod,
           featureName,
+          // The web-embed page hosts RevenueCat web billing (Stripe) inside
+          // the Android in-app webview
+          paymentMethod: 'stripe',
         });
 
         // test credit card
@@ -294,6 +297,12 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         return purchase;
       } catch (error) {
         console.error('purchasePaywallPackage ERROR', error);
+        primePaymentUtils.trackPrimeSubscriptionFailed({
+          error,
+          paymentMethod: 'stripe',
+          subscriptionPeriod,
+          featureName,
+        });
         // TODO alert error
         // errorToastUtils.toastIfError(error);
         throw error;

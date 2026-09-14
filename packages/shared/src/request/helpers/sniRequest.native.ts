@@ -7,12 +7,19 @@ import {
   isProxyActiveForUrl as nativeIsProxyActiveForUrl,
   request as nativeSniRequest,
 } from '@onekeyfe/react-native-sni-connect';
+import { NativeModules, TurboModuleRegistry } from 'react-native';
 
+import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 
 import { safeSniLogValue } from './sniLogRedaction';
+import { executeSniRequestWithAbort } from './sniRequestAbort';
 
-import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
+import type {
+  ISniRequestConfig,
+  ISniRequestOptions,
+  ISniResponse,
+} from '../types/ipTable';
 
 const SNI_CONNECT_NO_BODY_METHODS = [
   'GET',
@@ -59,8 +66,14 @@ function isRequiredBodyMethod(
  */
 export async function sniRequest(
   config: ISniRequestConfig,
+  options?: ISniRequestOptions,
 ): Promise<ISniResponse | null> {
-  const response = await nativeSniRequest(buildNativeSniRequest(config));
+  const response = await executeSniRequestWithAbort(
+    config,
+    options,
+    (requestConfig) => nativeSniRequest(buildNativeSniRequest(requestConfig)),
+    (requestId) => cancelNativeSniRequest(requestId, config.hostname),
+  );
   const multiValueHeaders = (
     response as typeof response & {
       multiValueHeaders?: Record<string, string[]>;
@@ -76,6 +89,50 @@ export async function sniRequest(
     multiValueHeaders,
     body: response.data,
   };
+}
+
+type SniConnectNativeModule = {
+  cancelRequest?: (requestId: string) => Promise<{ success: boolean }>;
+};
+
+function getSniConnectNativeModule(): SniConnectNativeModule | null {
+  return (
+    (TurboModuleRegistry.get('SniConnect') as SniConnectNativeModule | null) ??
+    (NativeModules.SniConnect as SniConnectNativeModule | undefined) ??
+    null
+  );
+}
+
+async function cancelNativeSniRequest(
+  requestId: string,
+  hostname: string,
+): Promise<{ success: boolean }> {
+  const nativeModule = getSniConnectNativeModule();
+  const cancelRequest = nativeModule?.cancelRequest;
+  if (typeof cancelRequest !== 'function') {
+    logAdapterCapability('warn', {
+      adapter: 'native',
+      capability: 'cancel_request',
+      available: false,
+      decision: 'transport_may_continue',
+      hostname,
+    });
+    throw new OneKeyLocalError('Native SNI cancellation is unavailable');
+  }
+
+  try {
+    return await cancelRequest.call(nativeModule, requestId);
+  } catch (error) {
+    logAdapterCapability('error', {
+      adapter: 'native',
+      capability: 'cancel_request',
+      available: true,
+      decision: 'transport_may_continue',
+      hostname,
+      errorMessage: getErrorMessage(error),
+    });
+    throw error;
+  }
 }
 
 class SniInvalidConfigError extends Error {

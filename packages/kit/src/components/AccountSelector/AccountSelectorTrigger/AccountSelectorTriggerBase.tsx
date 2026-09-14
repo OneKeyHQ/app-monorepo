@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   DebugRenderTracker,
@@ -32,8 +33,11 @@ export function AccountSelectorTriggerBase({
   showWalletAvatar,
   showWalletName = true,
   showConnectWalletModalInDappMode,
+  disabled,
   linkNetworkId,
   linkNetwork,
+  containerProps,
+  alignChevronToEnd,
   ...others
 }: {
   num: number;
@@ -43,6 +47,11 @@ export function AccountSelectorTriggerBase({
   showWalletAvatar?: boolean;
   showWalletName?: boolean;
   showConnectWalletModalInDappMode?: boolean;
+  disabled?: boolean;
+  containerProps?: IXStackProps;
+  // Full-width form-field triggers pin the chevron to the row end; adaptive
+  // header triggers keep it right after the label (native default).
+  alignChevronToEnd?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const { sceneName } = useAccountSelectorSceneInfo();
   const {
@@ -63,12 +72,14 @@ export function AccountSelectorTriggerBase({
 
   const isWebDappModeWithNoWallet =
     platformEnv.isWebDappMode && !wallet && !accountName;
-  const isTriggerDisabled =
+  const isWebDappAccountLocked = Boolean(
     platformEnv.isWebDappMode &&
     sceneName === EAccountSelectorSceneName.homeUrlAccount &&
-    !isWebDappModeWithNoWallet;
+    !isWebDappModeWithNoWallet,
+  );
+  const isTriggerDisabled = Boolean(disabled || isWebDappAccountLocked);
   const displayLabel =
-    isTriggerDisabled && account?.address
+    isWebDappAccountLocked && account?.address
       ? accountUtils.shortenAddress({ address: account.address })
       : displayAccountName;
 
@@ -89,6 +100,7 @@ export function AccountSelectorTriggerBase({
           h="$8"
           shadowOpacity={0}
           elevation={0}
+          disabled={isTriggerDisabled}
           hoverStyle={{
             opacity: 0.9,
           }}
@@ -128,6 +140,7 @@ export function AccountSelectorTriggerBase({
         }
         onPress={handleAccountSelectorPress}
         userSelect="none"
+        {...containerProps}
       >
         <AccountAvatar
           size="small"
@@ -141,7 +154,7 @@ export function AccountSelectorTriggerBase({
           flexDirection={horizontalLayout ? 'row' : 'column'}
           pl={showWalletAvatar ? '$2.5' : '$2'}
           flexShrink={1}
-          flex={platformEnv.isNative ? undefined : 1}
+          flex={alignChevronToEnd || !platformEnv.isNative ? 1 : undefined}
         >
           {horizontalLayout ? (
             <SizableText
@@ -189,6 +202,8 @@ export function AccountSelectorTriggerBase({
     );
   }, [
     account,
+    alignChevronToEnd,
+    containerProps,
     dbAccount,
     displayLabel,
     handleAccountSelectorPress,

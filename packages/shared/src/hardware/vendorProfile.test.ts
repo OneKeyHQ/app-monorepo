@@ -24,4 +24,22 @@ describe('hardware vendor profile', () => {
       getVendorProfile(EHardwareVendor.ledger).addAccountDefaultNetworkMode,
     ).toBe('ledgerAppAware');
   });
+
+  it('requires a seed check on connectId match only for Ledger', () => {
+    // Ledger's connectId is not a stable per-device identity, so reusing a
+    // connectId-matched record must be gated on a seed check. OneKey and
+    // Trezor always match by deviceId and never reach that gate.
+    expect(
+      getVendorProfile(EHardwareVendor.onekey)
+        .requiresSeedVerifyOnConnectIdMatch,
+    ).toBe(false);
+    expect(
+      getVendorProfile(EHardwareVendor.trezor)
+        .requiresSeedVerifyOnConnectIdMatch,
+    ).toBe(false);
+    expect(
+      getVendorProfile(EHardwareVendor.ledger)
+        .requiresSeedVerifyOnConnectIdMatch,
+    ).toBe(true);
+  });
 });

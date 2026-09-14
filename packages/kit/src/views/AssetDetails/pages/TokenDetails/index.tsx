@@ -16,6 +16,7 @@ import {
   ActionList,
   Badge,
   Button,
+  Empty,
   Icon,
   IconButton,
   Page,
@@ -56,7 +57,6 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -78,6 +78,7 @@ import {
   useTokenDetailsContext,
 } from './TokenDetailsContext';
 import TokenDetailsFooter from './TokenDetailsFooter';
+import { enableNetworkInAllNetworksOnce } from './tokenDetailsNetworkAutoEnable';
 import TokenDetailsOverview from './TokenDetailsOverview';
 import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
@@ -152,11 +153,13 @@ function TokenDetailsView() {
   } = usePromiseResult(
     async () => {
       if (tokenInfo.isAggregateToken) {
-        const aggregateTokenRawData =
-          await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
-
-        const allAggregateTokenMap =
-          aggregateTokenRawData?.allAggregateTokenMap ?? {};
+        // getAllAggregateTokenInfo() filters members by getListedNetworkMap()
+        // (bundled preset networks only): a stale aggregate-token cache
+        // persisted by an older app version may still reference delisted
+        // networks, and getNetworkSafe() cannot detect them because the
+        // server/custom network caches may still mark them as LISTED.
+        const { allAggregateTokenMap } =
+          await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
         const aggregateTokens: IAccountToken[] = [];
 
         const { unavailableItems } =
@@ -188,48 +191,53 @@ function TokenDetailsView() {
                 networkId: aggregateToken.networkId ?? '',
               }),
             ]);
-            if (!accountUtils.isOthersWallet({ walletId })) {
-              try {
-                const { accounts } =
-                  await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
-                    {
-                      indexedAccountIds: [indexedAccountId ?? ''],
-                      networkId: aggregateToken.networkId ?? '',
-                      deriveType: deriveType ?? 'default',
-                    },
-                  );
-                tokenAccountId = accounts[0]?.id ?? '';
-                tokenAccountAddress = accounts[0]?.address ?? '';
-              } catch {
-                tokenAccountId = undefined;
-                tokenAccountAddress = undefined;
+
+            // Null-safety only: delisted-network members are already
+            // filtered out by getAllAggregateTokenInfo() above.
+            if (tokenNetwork) {
+              if (!accountUtils.isOthersWallet({ walletId })) {
+                try {
+                  const { accounts } =
+                    await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                      {
+                        indexedAccountIds: [indexedAccountId ?? ''],
+                        networkId: aggregateToken.networkId ?? '',
+                        deriveType: deriveType ?? 'default',
+                      },
+                    );
+                  tokenAccountId = accounts[0]?.id ?? '';
+                  tokenAccountAddress = accounts[0]?.address ?? '';
+                } catch {
+                  tokenAccountId = undefined;
+                  tokenAccountAddress = undefined;
+                }
               }
-            }
 
-            const originalToken = aggregateTokensParam?.find(
-              (t) =>
-                t.address === aggregateToken.address &&
-                t.networkId === aggregateToken.networkId,
-            );
+              const originalToken = aggregateTokensParam?.find(
+                (t) =>
+                  t.address === aggregateToken.address &&
+                  t.networkId === aggregateToken.networkId,
+              );
 
-            if (originalToken) {
-              aggregateTokens.push({
-                ...originalToken,
-                accountId: originalToken.accountId ?? tokenAccountId ?? '',
-                networkShortName: tokenNetwork?.shortname ?? '',
-              });
-            } else {
-              aggregateTokens.push({
-                ...aggregateToken,
-                accountId: tokenAccountId ?? '',
-                networkName: tokenNetwork?.name ?? '',
-                networkShortName: tokenNetwork?.shortname ?? '',
-                $key: buildTokenListMapKey({
-                  networkId: aggregateToken.networkId ?? '',
-                  accountAddress: tokenAccountAddress ?? '',
-                  tokenAddress: aggregateToken.address ?? '',
-                }),
-              });
+              if (originalToken) {
+                aggregateTokens.push({
+                  ...originalToken,
+                  accountId: originalToken.accountId ?? tokenAccountId ?? '',
+                  networkShortName: tokenNetwork.shortname,
+                });
+              } else {
+                aggregateTokens.push({
+                  ...aggregateToken,
+                  accountId: tokenAccountId ?? '',
+                  networkName: tokenNetwork.name,
+                  networkShortName: tokenNetwork.shortname,
+                  $key: buildTokenListMapKey({
+                    networkId: aggregateToken.networkId ?? '',
+                    accountAddress: tokenAccountAddress ?? '',
+                    tokenAddress: aggregateToken.address ?? '',
+                  }),
+                });
+              }
             }
           }
         }
@@ -265,6 +273,27 @@ function TokenDetailsView() {
       },
     },
   );
+
+  // A stale aggregate-token cache may shrink a group below two members after
+  // the delisted-network filtering above. Degrade instead of letting the page
+  // fall back to the aggregate descriptor (mock networkId `aggregate--0`):
+  // a single surviving member becomes the current token, and an empty group
+  // renders an unavailable state.
+  const effectiveTokenInfo = useMemo(() => {
+    if (
+      tokenInfo.isAggregateToken &&
+      isLoadingTokens === false &&
+      tokens.length === 1
+    ) {
+      return tokens[0];
+    }
+    return tokenInfo;
+  }, [tokenInfo, isLoadingTokens, tokens]);
+
+  const isAggregateTokenUnavailable =
+    tokenInfo.isAggregateToken &&
+    isLoadingTokens === false &&
+    tokens.length === 0;
 
   const { result: allNetworksState, run: refreshAllNetworkState } =
     usePromiseResult(
@@ -399,6 +428,15 @@ function TokenDetailsView() {
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
 
+    // While the aggregate group is still resolving, or resolved with no valid
+    // member, there is no concrete network to copy a contract from or jump to.
+    if (
+      tokenInfo.isAggregateToken &&
+      (isLoadingTokens !== false || tokens.length === 0)
+    ) {
+      return null;
+    }
+
     if (
       tokenInfo.isAggregateToken &&
       tokens.length > 1 &&
@@ -409,10 +447,6 @@ function TokenDetailsView() {
           title={intl.formatMessage({
             id: ETranslations.global_contract_address,
           })}
-          sheetProps={{
-            snapPoints: [92],
-            snapPointsMode: 'percent',
-          }}
           renderTrigger={
             <HeaderIconButton
               testID={AssetDetailsTestIDs.headerInfoBtn}
@@ -428,7 +462,7 @@ function TokenDetailsView() {
       );
     }
 
-    if (!tokenInfo?.isNative) {
+    if (!effectiveTokenInfo?.isNative) {
       sections.push({
         items: [
           {
@@ -436,12 +470,12 @@ function TokenDetailsView() {
               id: ETranslations.global_copy_token_contract,
             }),
             icon: 'Copy3Outline',
-            onPress: () => copyText(tokenInfo?.address ?? ''),
+            onPress: () => copyText(effectiveTokenInfo?.address ?? ''),
           },
         ],
       });
 
-      if (tokenInfo?.address) {
+      if (effectiveTokenInfo?.address) {
         sections[0].items.push({
           label: intl.formatMessage({
             id: ETranslations.global_view_in_blockchain_explorer,
@@ -449,8 +483,8 @@ function TokenDetailsView() {
           icon: 'OpenOutline',
           onPress: () =>
             openTokenDetailsUrl({
-              networkId: tokenInfo.networkId ?? '',
-              tokenAddress: tokenInfo?.address,
+              networkId: effectiveTokenInfo.networkId ?? '',
+              tokenAddress: effectiveTokenInfo?.address,
             }),
         });
       }
@@ -471,8 +505,10 @@ function TokenDetailsView() {
   }, [
     tokenInfo.isAggregateToken,
     tokenInfo?.isNative,
-    tokenInfo?.address,
-    tokenInfo.networkId,
+    effectiveTokenInfo?.isNative,
+    effectiveTokenInfo?.address,
+    effectiveTokenInfo.networkId,
+    isLoadingTokens,
     tokens.length,
     intl,
     renderAggregateTokens,
@@ -568,31 +604,38 @@ function TokenDetailsView() {
     [uniqueTabNames],
   );
 
+  // The Overview descriptor has no token; fall back to the largest member
+  // for its market data (tokens are fiat-sorted, tokens[0] is the largest
+  // holding).
+  const activeFooterToken = useMemo(
+    () =>
+      (aggregateTabs
+        ? aggregateTabs[activeTabIndex]?.token
+        : tokens[activeTabIndex]) ?? tokens[0],
+    [activeTabIndex, aggregateTabs, tokens],
+  );
+  const activeFooterNetworkId = activeFooterToken?.networkId ?? networkId;
+
   // Updating the context from the hook result (not inside the promise body)
   // keeps usePromiseResult's stale-run protection: a slow response for a
   // previously active tab can no longer overwrite the current tab's market
   // data during fast tab switches.
   const { result: footerTokenMetadata } = usePromiseResult(async () => {
-    // The Overview descriptor has no token; fall back to the largest member
-    // for its market data (tokens are fiat-sorted, tokens[0] is the largest
-    // holding).
-    const activeToken =
-      (aggregateTabs
-        ? aggregateTabs[activeTabIndex]?.token
-        : tokens[activeTabIndex]) ?? tokens[0];
-    if (!activeToken) return undefined;
+    if (!activeFooterToken) return undefined;
 
     const resp = await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-      networkId: activeToken.networkId ?? '',
-      tokenAddress: activeToken.address,
+      networkId: activeFooterNetworkId,
+      tokenAddress: activeFooterToken.address,
     });
     return {
       price: resp?.price ?? 0,
       priceChange24h: resp?.price24h ?? 0,
       coingeckoId: resp?.info?.coingeckoId ?? '',
+      networkId: activeFooterNetworkId,
+      tokenAddress: activeFooterToken.address,
       currency: resp?.currency,
     };
-  }, [activeTabIndex, tokens, aggregateTabs]);
+  }, [activeFooterNetworkId, activeFooterToken]);
 
   useEffect(() => {
     if (footerTokenMetadata) {
@@ -706,48 +749,59 @@ function TokenDetailsView() {
 
   const pageWidth = useTabletModalPageWidth();
 
+  // The native Tabs container captures onIndexChange once, so read the tab
+  // list through a ref instead of trusting the closure to stay current.
+  const aggregateTabsRef = useRef(aggregateTabs);
+  aggregateTabsRef.current = aggregateTabs;
+  const enablingNetworkIdsRef = useRef<Set<string>>(new Set());
+
   const handleTabIndexChange = useCallback(
     async (index: number) => {
+      setActiveTabIndex(index);
+
       // The Overview descriptor has no token, so only member tabs can trigger
       // the auto-enable below.
-      const activeToken = aggregateTabs?.[index]?.token;
-      if (
-        isAllNetworks &&
-        activeToken?.accountId &&
-        activeToken.networkId &&
-        !isEnabledNetworksInAllNetworks({
-          networkId: activeToken.networkId,
-          disabledNetworks: allNetworksState.disabledNetworks,
-          enabledNetworks: allNetworksState.enabledNetworks,
-          isTestnet: false,
-        })
-      ) {
-        await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-          enabledNetworks: { [activeToken.networkId]: true },
-        });
-        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.network_also_enabled,
-          }),
-        });
-        void refreshAllNetworkState();
+      const activeToken = aggregateTabsRef.current?.[index]?.token;
+      const activeNetworkId = activeToken?.networkId;
+      if (!isAllNetworks || !activeToken?.accountId || !activeNetworkId) {
+        return;
       }
-
-      setActiveTabIndex(index);
+      // OK-61863: decide against the live All-Networks state rather than the
+      // render snapshot, so a network enabled by an earlier tab switch is
+      // never enabled (and toasted) a second time.
+      const enabled = await enableNetworkInAllNetworksOnce({
+        networkId: activeNetworkId,
+        inFlightNetworkIds: enablingNetworkIdsRef.current,
+        getAllNetworksState: () =>
+          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+        enableNetwork: async (targetNetworkId) => {
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks: { [targetNetworkId]: true },
+          });
+        },
+      });
+      if (!enabled) {
+        return;
+      }
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.network_also_enabled,
+        }),
+      });
+      void refreshAllNetworkState();
     },
-    [
-      isAllNetworks,
-      aggregateTabs,
-      allNetworksState.disabledNetworks,
-      allNetworksState.enabledNetworks,
-      intl,
-      refreshAllNetworkState,
-    ],
+    [isAllNetworks, intl, refreshAllNetworkState],
   );
 
   const tokenDetailsViewElement = useMemo(() => {
-    if (isLoading || isLoadingTokens)
+    if (
+      isLoading ||
+      isLoadingTokens ||
+      // Keep aggregate tokens on the spinner until the group is resolved so
+      // the aggregate descriptor never reaches the single-token fallback.
+      (tokenInfo.isAggregateToken && isLoadingTokens !== false)
+    )
       return (
         <Stack
           flex={1}
@@ -758,6 +812,22 @@ function TokenDetailsView() {
           <Spinner size="large" />
         </Stack>
       );
+    if (isAggregateTokenUnavailable) {
+      return (
+        <Stack
+          flex={1}
+          height="100%"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Empty
+            title={intl.formatMessage({
+              id: ETranslations.global_no_data,
+            })}
+          />
+        </Stack>
+      );
+    }
     if (
       (!accountUtils.isOthersWallet({ walletId }) &&
         vaultSettings?.mergeDeriveAssetsEnabled) ||
@@ -791,10 +861,10 @@ function TokenDetailsView() {
 
     return (
       <TokenDetailsViews
-        accountId={tokenInfo.accountId ?? accountId}
-        networkId={tokenInfo.networkId ?? networkId}
+        accountId={effectiveTokenInfo.accountId ?? accountId}
+        networkId={effectiveTokenInfo.networkId ?? networkId}
         walletId={walletId}
-        tokenInfo={tokenInfo}
+        tokenInfo={effectiveTokenInfo}
         tokenMap={tokenMap}
         isAllNetworks={isAllNetworks}
         indexedAccountId={indexedAccountId}
@@ -804,10 +874,12 @@ function TokenDetailsView() {
   }, [
     isLoading,
     isLoadingTokens,
+    isAggregateTokenUnavailable,
     walletId,
     vaultSettings?.mergeDeriveAssetsEnabled,
     tokens,
     tokenInfo,
+    effectiveTokenInfo,
     tokenMap,
     accountId,
     networkId,
@@ -818,6 +890,7 @@ function TokenDetailsView() {
     pageWidth,
     handleTabIndexChange,
     jumpToMemberTab,
+    intl,
   ]);
 
   const headerTitle = useCallback(() => {
@@ -836,10 +909,11 @@ function TokenDetailsView() {
         </SizableText>
         {!isLoadingTokens &&
         !isLoading &&
+        !isAggregateTokenUnavailable &&
         (tokens?.length <= 1 || !tokenInfo.isAggregateToken) &&
         gtMd ? (
           <Badge badgeSize="sm">
-            <Badge.Text>{tokenInfo.networkName ?? ''}</Badge.Text>
+            <Badge.Text>{effectiveTokenInfo.networkName ?? ''}</Badge.Text>
           </Badge>
         ) : null}
       </XStack>
@@ -850,7 +924,8 @@ function TokenDetailsView() {
     tokenInfo.symbol,
     tokenInfo.name,
     tokenInfo.isAggregateToken,
-    tokenInfo.networkName,
+    effectiveTokenInfo.networkName,
+    isAggregateTokenUnavailable,
     tokens.length,
     gtMd,
     network?.logoURI,
@@ -886,7 +961,15 @@ function TokenDetailsView() {
     <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
-      <TokenDetailsFooter networkId={networkId} />
+      <TokenDetailsFooter
+        isNative={activeFooterToken?.isNative}
+        isAggregateToken={activeFooterToken?.isAggregateToken}
+        networkId={activeFooterNetworkId}
+        networkName={activeFooterToken?.networkName}
+        symbol={activeFooterToken?.symbol}
+        tokenAddress={activeFooterToken?.address}
+        tokenImageUri={activeFooterToken?.logoURI}
+      />
     </Page>
   );
 }

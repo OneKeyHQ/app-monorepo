@@ -1,6 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type {
   IStackNavigationOptions,
@@ -13,13 +12,15 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 
 import { DeviceAvatarWithColor } from '../../../components/DeviceAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { getTargetFirmwareTypeLabel } from '../utils';
+import {
+  getFirmwareUpdateDeviceTitle,
+  getTargetFirmwareTypeLabel,
+} from '../utils';
 
 export function FirmwareUpdatePageHeaderTitle(props: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
   const intl = useIntl();
-  const { width: windowWidth } = useWindowDimensions();
   const { result } = props;
   if (!result) {
     return null;
@@ -44,29 +45,8 @@ export function FirmwareUpdatePageHeaderTitle(props: {
       },
     );
   } else {
-    title = result.deviceName;
+    title = getFirmwareUpdateDeviceTitle(result);
   }
-  if (platformEnv.isNativeIOS) {
-    const titleWidth = Math.max(0, windowWidth - 220);
-
-    return (
-      <XStack ai="center" gap={6} flex={1} minWidth={0}>
-        <Stack flexShrink={0}>
-          <DeviceAvatarWithColor
-            size="$6"
-            deviceType={result.deviceType || EDeviceType.Unknown}
-            features={result.features}
-          />
-        </Stack>
-        <Stack width={titleWidth} minWidth={0}>
-          <SizableText size="$headingMd" numberOfLines={2}>
-            {title}
-          </SizableText>
-        </Stack>
-      </XStack>
-    );
-  }
-
   return (
     <XStack ai="center" gap={6} flex={1} minWidth={0}>
       <Stack flexShrink={0}>
@@ -84,14 +64,16 @@ export function FirmwareUpdatePageHeaderTitle(props: {
       >
         {title}
       </SizableText>
-      <SizableText
-        size="$bodyLg"
-        color="$textSubdued"
-        flexShrink={0}
-        numberOfLines={1}
-      >
-        {result.deviceBleName}
-      </SizableText>
+      {result.deviceBleName ? (
+        <SizableText
+          size="$bodyLg"
+          color="$textSubdued"
+          flexShrink={0}
+          numberOfLines={1}
+        >
+          {result.deviceBleName}
+        </SizableText>
+      ) : null}
     </XStack>
   );
 }

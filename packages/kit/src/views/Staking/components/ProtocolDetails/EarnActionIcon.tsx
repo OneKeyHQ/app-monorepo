@@ -2,7 +2,11 @@ import { memo, useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import type { IIconButtonProps, IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  IIconButtonProps,
+  IKeyOfIcons,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
   Divider,
@@ -13,6 +17,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -61,10 +66,15 @@ function useHandleClaimAction({
   protocolInfo,
   tokenInfo,
   token,
+  onSuccess,
 }: {
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
+  // Fires once the claim transaction is confirmed, for callers that render
+  // balances the claim invalidates. Optional: existing call sites pass nothing
+  // and keep what they do today.
+  onSuccess?: () => void;
 }) {
   const handleClaim = useHandleClaim({
     accountId: protocolInfo?.earnAccount?.accountId || '',
@@ -118,10 +128,11 @@ function useHandleClaimAction({
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
         portfolioSymbol: token?.symbol,
+        onSuccess,
       });
       setLoading(false);
     },
-    [handleClaim, protocolInfo, tokenInfo, token],
+    [handleClaim, protocolInfo, tokenInfo, token, onSuccess],
   );
 }
 
@@ -157,14 +168,22 @@ export function ActionPopupContent({
   items,
   panel,
   description,
+  containerProps,
 }: {
   bulletList: IEarnPopupActionIcon['data']['bulletList'];
   items: IEarnPopupActionIcon['data']['items'];
   panel: IEarnPopupActionIcon['data']['panel'];
   description: IEarnPopupActionIcon['data']['description'];
+  containerProps?: IYStackProps;
 }) {
+  // The description block is separated from the content above it by a divider.
+  // When it is the only block (e.g. Spark's liquidity-request explainer), the
+  // leading divider would just add an orphan line + gap, so skip it.
+  const hasContentAbove = Boolean(
+    items?.length || bulletList?.length || panel?.length,
+  );
   return (
-    <YStack p="$5">
+    <YStack p="$5" {...containerProps}>
       {items?.length ? (
         <YStack gap="$2.5">
           {items.map(({ icon, title, value, token }) => (
@@ -238,7 +257,7 @@ export function ActionPopupContent({
       ) : null}
       {description?.length ? (
         <>
-          <Divider my="$4" />
+          {hasContentAbove ? <Divider my="$4" /> : null}
           {description.map((text) => (
             <EarnText
               key={text.text}
@@ -310,15 +329,18 @@ function BasicClaimActionIcon({
   tokenInfo,
   token,
   trigger,
+  onSuccess,
 }: {
   actionIcon: IEarnClaimActionIcon;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
   token?: IEarnToken;
   trigger?: IActionTrigger;
+  onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const handleClaimAction = useHandleClaimAction({
+    onSuccess,
     protocolInfo,
     tokenInfo,
     token,
@@ -357,11 +379,16 @@ function BasicListaCheckActionIcon({
   protocolInfo,
   token,
   trigger,
+  onSuccess,
 }: {
   actionIcon: IEarnListaCheckActionIcon;
   protocolInfo?: IProtocolInfo;
   token?: IEarnToken;
   trigger?: IActionTrigger;
+  // Fires once the server has accepted the signature: the reward amount and
+  // its Claim button only exist in the next detail response, so the caller
+  // has to refetch (OK-62942). The positions page does the same.
+  onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const signMessage = useEarnSignMessage();
@@ -378,8 +405,10 @@ function BasicListaCheckActionIcon({
       provider: protocolInfo.provider,
       symbol: token?.symbol,
       request: { origin: 'https://lista.org/', scope: 'ethereum' },
-    }).finally(() => setLoading(false));
-  }, [protocolInfo, signMessage, token]);
+    })
+      .then(() => onSuccess?.())
+      .finally(() => setLoading(false));
+  }, [protocolInfo, signMessage, token, onSuccess]);
 
   if (trigger) {
     return trigger({
@@ -527,6 +556,7 @@ function BasicEarnActionIcon({
   token,
   onHistory,
   trigger,
+  onActionSuccess,
 }: {
   title?: string;
   actionIcon?: IEarnActionIcon;
@@ -535,8 +565,12 @@ function BasicEarnActionIcon({
   token?: IEarnToken;
   onHistory?: (params?: { filterType?: string }) => void;
   trigger?: IActionTrigger;
+  // Fires after a claim confirms, so a caller showing the balance the claim
+  // changed can refetch it. Currently only the phone Portfolio tab passes it.
+  onActionSuccess?: () => void;
 }) {
   const [cancelLoading, setCancelLoading] = useState(false);
+  const { copyText } = useClipboard();
   const handleUniversalWithdraw = useUniversalWithdraw({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: protocolInfo?.networkId || tokenInfo?.networkId || '',
@@ -579,10 +613,16 @@ function BasicEarnActionIcon({
   }
   let onPress: undefined | IIconButtonProps['onPress'];
   let icon: IKeyOfIcons | undefined;
+  let disabled: boolean | undefined;
   switch (actionIcon?.type) {
     case 'link':
       icon = 'OpenOutline';
       onPress = () => openUrlExternal(actionIcon.data.link);
+      break;
+    case 'copy':
+      icon = 'Copy3Outline';
+      disabled = actionIcon.disabled;
+      onPress = () => copyText(actionIcon.data.text);
       break;
     case 'portfolio':
       return (
@@ -600,6 +640,7 @@ function BasicEarnActionIcon({
           protocolInfo={protocolInfo}
           token={token}
           trigger={trigger}
+          onSuccess={onActionSuccess}
         />
       );
     case EStakingActionType.CancelWithdrawal:
@@ -636,6 +677,7 @@ function BasicEarnActionIcon({
           token={token}
           actionIcon={actionIcon}
           trigger={trigger}
+          onSuccess={onActionSuccess}
         />
       );
     case 'claimWithKyc': {
@@ -699,6 +741,7 @@ function BasicEarnActionIcon({
       size="small"
       icon={icon}
       onPress={onPress}
+      disabled={disabled}
       color="$iconSubdued"
       variant="tertiary"
     />

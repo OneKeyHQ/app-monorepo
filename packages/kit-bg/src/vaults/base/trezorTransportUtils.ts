@@ -4,7 +4,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  EHardwareVendor,
+} from '@onekeyhq/shared/types/device';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
@@ -19,16 +22,46 @@ export type IRequestTrezorBleConnectId = (params: {
 
 export type ICallTrezorWithBleFallbackOptions = {
   requestBleConnectId?: IRequestTrezorBleConnectId;
+  // Resolve the transport-correct connectId for the first attempt via the
+  // single authority (getCompatibleConnectId): bleConnectId in a BLE session,
+  // the primary (USB) connectId otherwise. Without it the first attempt is
+  // USB-first, which in a BLE session hangs on the noble connect timeout.
+  resolvePrimaryConnectId?: (
+    dbDevice: IDBDevice,
+  ) => Promise<string | undefined>;
 };
 
 type ITrezorTransportFailurePayload = {
   code?: unknown;
+  // SDK failure text; used to tell a locked device from a dead address, since
+  // both surface as the same BleConnectFailed code.
+  error?: unknown;
 };
+
+// A locked/busy device answers the BLE link but fails GATT service discovery;
+// the SDK reports BleConnectFailed with "unreachable while discovering
+// services". The device is bonded and in range — just locked — so re-binding
+// can't help and only pops a pointless pairing dialog. This is distinct from a
+// dead/rotated address, which fails BEFORE the link comes up. Heuristic on the
+// SDK message for now; a dedicated sub-code would be sturdier.
+function isTrezorDeviceUnresponsiveFailure(
+  payload?: ITrezorTransportFailurePayload,
+): boolean {
+  const text =
+    typeof payload?.error === 'string' ? payload.error.toLowerCase() : '';
+  return text.includes('unreachable while discovering services');
+}
 
 function isTrezorTransportDownFailure(
   payload?: ITrezorTransportFailurePayload,
 ): boolean {
   const code = payload?.code;
+  // BleConnectFailed spans two cases: a dead/rotated address (link never came
+  // up → rebind helps) and a locked device (link up, GATT unreachable → rebind
+  // is wrong, it just needs unlocking). Only the former is transport-down.
+  if (code === HardwareErrorCode.BleConnectFailed) {
+    return !isTrezorDeviceUnresponsiveFailure(payload);
+  }
   return (
     code === HardwareErrorCode.DeviceDisconnected ||
     code === HardwareErrorCode.DeviceNotFound ||
@@ -63,6 +96,13 @@ export function buildTrezorBleFallbackOptions(
           device: dbDevice,
         },
       ),
+    resolvePrimaryConnectId: async (dbDevice) =>
+      backgroundApi.serviceHardware.getCompatibleConnectId({
+        connectId: dbDevice.connectId,
+        featuresDeviceId: dbDevice.deviceId,
+        vendor: dbDevice.vendor,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
   };
 }
 
@@ -94,7 +134,21 @@ export async function callTrezorWithBleFallback<T>(
   fn: (connectId: string) => Promise<Response<T>>,
   options?: ICallTrezorWithBleFallbackOptions,
 ): Promise<Response<T>> {
-  const primaryConnectId = dbDevice.usbConnectId || dbDevice.connectId;
+  // Transport-correct first attempt: getCompatibleConnectId picks bleConnectId
+  // in a BLE session and the primary (USB) connectId otherwise — the USB handle
+  // (deviceId) is unresolvable over BLE and hangs until the noble connect
+  // timeout. Resolver failure must not block the call; keep USB-first then.
+  let primaryConnectId = dbDevice.usbConnectId || dbDevice.connectId;
+  if (options?.resolvePrimaryConnectId) {
+    try {
+      const resolved = await options.resolvePrimaryConnectId(dbDevice);
+      if (resolved) {
+        primaryConnectId = resolved;
+      }
+    } catch {
+      // noop
+    }
+  }
   let result = await fn(primaryConnectId);
   if (result.success) return result;
 

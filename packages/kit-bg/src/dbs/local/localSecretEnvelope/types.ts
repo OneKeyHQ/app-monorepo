@@ -6,7 +6,13 @@ export type ILocalSecretEnvelopeLayerKind =
   | 'keychain'
   | 'keystore'
   | 'secure-storage'
+  | 'mmkv-profile-key'
   | 'indexeddb-cryptokey';
+
+export type ILocalSecretEnvelopeLayerAvailability =
+  | 'available'
+  | 'unsupported'
+  | 'temporarily-unavailable';
 
 export type ILocalSecretEnvelopeLayerCapabilities = {
   sync: 'local-only' | 'cloud-sync' | 'unknown';

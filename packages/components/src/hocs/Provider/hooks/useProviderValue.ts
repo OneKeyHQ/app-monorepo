@@ -10,6 +10,7 @@ export type ISettingConfigContextValue = {
   // hosts that don't have a persisted settings store.
   themeSetting?: 'light' | 'dark' | 'system';
   locale: ILocaleSymbol;
+  hapticFeedbackEnabled: boolean;
   HyperlinkText: typeof HyperlinkText;
 };
 

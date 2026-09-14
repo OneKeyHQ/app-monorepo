@@ -1,18 +1,16 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView, Keyboard } from 'react-native';
+import { InputAccessoryView } from 'react-native';
 
 import {
-  Button,
   Input,
   SizableText,
   XStack,
   YStack,
   getFontSize,
-  useIsKeyboardShown,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,61 +18,24 @@ import {
   calculateProfitLoss,
   formatPercentage,
   formatPriceToSignificantDigits,
+  snapHlPriceToGrid,
   validatePriceInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-// Done button component
-const TpslDoneButton = ({ onDone }: { onDone: () => void }) => {
-  const intl = useIntl();
-  const isKeyboardShown = useIsKeyboardShown();
-  const viewShow = platformEnv.isNativeIOS || isKeyboardShown;
+import { InputAccessoryDoneButton } from './TradingFormInput';
 
-  if (!viewShow) return null;
-
-  return (
-    <XStack
-      p="$2.5"
-      px="$3.5"
-      justifyContent="flex-end"
-      bg="$bgSubdued"
-      borderTopWidth="$px"
-      borderTopColor="$borderSubduedLight"
-    >
-      <Button
-        testID="perp-view-show-btn"
-        variant="tertiary"
-        onPress={() => {
-          Keyboard.dismiss();
-          onDone();
-        }}
-      >
-        {intl.formatMessage({ id: ETranslations.global_done })}
-      </Button>
-    </XStack>
-  );
-};
-
-// Wrapper component similar to InputWithAccessoryDoneView but with unique ID support
-type ITpslInputWithDoneProps = ComponentProps<typeof Input> & {
-  accessoryViewId: string;
-  onDone?: () => void;
-};
-
-const TpslInputWithDone = ({
-  accessoryViewId,
-  onDone = () => {},
-  ...inputProps
-}: ITpslInputWithDoneProps) => {
+const TpslInputWithDone = (inputProps: ComponentProps<typeof Input>) => {
+  const accessoryId = useId();
   return (
     <>
       <Input
         {...inputProps}
-        inputAccessoryViewID={accessoryViewId}
+        inputAccessoryViewID={platformEnv.isNativeIOS ? accessoryId : undefined}
         testID="perp-tpsl-input-with-done-input"
       />
       {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={accessoryViewId}>
-          <TpslDoneButton onDone={onDone} />
+        <InputAccessoryView nativeID={accessoryId}>
+          <InputAccessoryDoneButton />
         </InputAccessoryView>
       ) : null}
     </>
@@ -98,6 +59,10 @@ interface ITpslInputProps {
   isMobile?: boolean;
   // Optional props for profit/loss calculation
   amount?: string | number;
+  // When a leg's price equals the price derived from this percent, show this
+  // percent verbatim instead of the value reverse-computed from the snapped
+  // price, so a seeded 10% default reads as "10" like manual percent entry.
+  seedPercent?: { tp?: string; sl?: string };
 }
 
 export const TpslInput = memo(
@@ -114,6 +79,7 @@ export const TpslInput = memo(
     hiddenSl = false,
     isMobile = false,
     amount,
+    seedPercent,
   }: ITpslInputProps) => {
     const referencePrice = useMemo(() => {
       return new BigNumber(price || 0);
@@ -188,20 +154,32 @@ export const TpslInput = memo(
           (side === 'long') === isTP
             ? new BigNumber(100).plus(adjustedPercent)
             : new BigNumber(100).minus(adjustedPercent);
-        return formatPriceToSignificantDigits(
-          referencePrice.multipliedBy(multiplier).dividedBy(100),
-          szDecimals,
-        );
+        const rawPrice = referencePrice.multipliedBy(multiplier).dividedBy(100);
+        // Snap to the nearest valid price so the typed percentage survives the
+        // round-trip instead of always truncating toward zero.
+        const snappedPrice =
+          snapHlPriceToGrid(rawPrice, 'nearest', szDecimals) ?? rawPrice;
+        return formatPriceToSignificantDigits(snappedPrice, szDecimals);
       },
       [referencePrice, side, szDecimals, leverage],
     );
 
     useEffect(() => {
+      // Keep the seeded percent (e.g. 10) as-is while the leg still sits on its
+      // seeded price; fall back to the reverse-computed percent once the user
+      // moves the price off that seed.
+      const resolveDisplayPercent = (priceValue: string, isTP: boolean) => {
+        const seed = isTP ? seedPercent?.tp : seedPercent?.sl;
+        if (seed && calculatePrice(seed, isTP) === priceValue) {
+          return seed;
+        }
+        return calculatePercent(priceValue, isTP);
+      };
       const newTpPercent = tpsl.tpPrice
-        ? calculatePercent(tpsl.tpPrice, true)
+        ? resolveDisplayPercent(tpsl.tpPrice, true)
         : '';
       const newSlPercent = tpsl.slPrice
-        ? calculatePercent(tpsl.slPrice, false)
+        ? resolveDisplayPercent(tpsl.slPrice, false)
         : '';
 
       setInternalState((prev) => {
@@ -327,8 +305,6 @@ export const TpslInput = memo(
           {hiddenTp ? null : (
             <YStack gap="$2">
               <TpslInputWithDone
-                accessoryViewId="tpsl-tp-price-mobile"
-                onDone={() => {}}
                 h={32}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
@@ -389,8 +365,6 @@ export const TpslInput = memo(
           {hiddenSl ? null : (
             <YStack gap="$2">
               <TpslInputWithDone
-                accessoryViewId="tpsl-sl-price-mobile"
-                onDone={() => {}}
                 h={32}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,
@@ -470,8 +444,6 @@ export const TpslInput = memo(
               borderRadius="$2"
             >
               <TpslInputWithDone
-                accessoryViewId="tpsl-tp-price-desktop"
-                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
@@ -504,8 +476,6 @@ export const TpslInput = memo(
               borderRadius="$2"
             >
               <TpslInputWithDone
-                accessoryViewId="tpsl-tp-gain-percent"
-                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price_gain,
@@ -576,8 +546,6 @@ export const TpslInput = memo(
               borderRadius="$2"
             >
               <TpslInputWithDone
-                accessoryViewId="tpsl-sl-price-desktop"
-                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,
@@ -609,8 +577,6 @@ export const TpslInput = memo(
               bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
             >
               <TpslInputWithDone
-                accessoryViewId="tpsl-sl-loss-percent"
-                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price_loss,

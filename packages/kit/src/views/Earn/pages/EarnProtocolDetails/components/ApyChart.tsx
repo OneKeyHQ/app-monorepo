@@ -15,123 +15,38 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import {
+  APY_PRICE_SCALE_MARGINS,
+  LightweightChart,
+} from '@onekeyhq/kit/src/components/LightweightChart';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { buildChartHistory, getLatestTimestamp } from './ApyChart.utils';
+
+import type {
+  IApyChartHistoryItem,
+  IApyChartTimePeriod,
+} from './ApyChart.utils';
 import type { UTCTimestamp } from 'lightweight-charts';
 
-type IApyHistoryItem = {
-  timestamp: number;
-  apy: string;
-};
-
-type IChartTimePeriod = '1h' | '1d' | '1w' | 'max';
-
 interface IApyChartProps {
-  apyHistory?: IApyHistoryItem[] | null;
-  underlyingApyHistory?: IApyHistoryItem[] | null;
+  apyHistory?: IApyChartHistoryItem[] | null;
+  underlyingApyHistory?: IApyChartHistoryItem[] | null;
   showChartControls?: boolean;
   showUnderlyingApyToggle?: boolean;
   primaryApyLabel?: string;
   secondaryApyLabel?: string;
+  /** The phone layout puts the range selector under the chart and
+   * left-aligned, per the design. Wide layouts keep it above and right-aligned,
+   * so Pendle's desktop page is unchanged. */
+  controlsPlacement?: 'top' | 'bottom';
+  /** Hex for the second line. Pendle's underlying APY keeps the default blue;
+   * the campaign line is orange. Literal hex because the chart library takes
+   * colors, not theme tokens — same as the two lines already here. */
+  secondaryLineColor?: string;
 }
 
-const ONE_HOUR_MS = 60 * 60 * 1000;
-const ONE_DAY_MS = 24 * ONE_HOUR_MS;
-const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
-const THIRTY_DAYS_MS = 30 * ONE_DAY_MS;
-const ONE_YEAR_MS = 365 * ONE_DAY_MS;
-
-function normalizeHistory(history?: IApyHistoryItem[] | null) {
-  if (!history?.length) {
-    return [];
-  }
-
-  return history
-    .map((item) => ({
-      timestamp: Number(item.timestamp),
-      apy: Number(item.apy),
-    }))
-    .filter(
-      (item) => Number.isFinite(item.timestamp) && Number.isFinite(item.apy),
-    )
-    .toSorted((a, b) => a.timestamp - b.timestamp);
-}
-
-function toUtcDateKey(timestamp: number) {
-  const date = new Date(timestamp);
-  return `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
-}
-
-function toUtcWeekKey(timestamp: number) {
-  const date = new Date(timestamp);
-  const utcDate = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-  const day = utcDate.getUTCDay() || 7;
-  utcDate.setUTCDate(utcDate.getUTCDate() - day + 1);
-  return utcDate.getTime().toString();
-}
-
-function aggregateByPeriod(
-  history: Array<{ timestamp: number; apy: number }>,
-  period: '1d' | '1w',
-) {
-  const bucket = new Map<string, { timestamp: number; apy: number }>();
-
-  history.forEach((item) => {
-    const key =
-      period === '1d'
-        ? toUtcDateKey(item.timestamp)
-        : toUtcWeekKey(item.timestamp);
-    bucket.set(key, item);
-  });
-
-  return Array.from(bucket.values()).toSorted(
-    (a, b) => a.timestamp - b.timestamp,
-  );
-}
-
-function filterByTimeWindow(
-  history: Array<{ timestamp: number; apy: number }>,
-  windowMs: number,
-) {
-  if (!history.length) {
-    return [];
-  }
-
-  const latestTimestamp = history[history.length - 1].timestamp;
-  const minTimestamp = latestTimestamp - windowMs;
-  return history.filter((item) => item.timestamp >= minTimestamp);
-}
-
-function buildChartHistory(
-  history: IApyHistoryItem[] | null | undefined,
-  period: IChartTimePeriod,
-) {
-  const normalized = normalizeHistory(history);
-
-  if (!normalized.length) {
-    return [];
-  }
-
-  if (period === '1h') {
-    return filterByTimeWindow(normalized, SEVEN_DAYS_MS);
-  }
-
-  if (period === '1d') {
-    return filterByTimeWindow(
-      aggregateByPeriod(normalized, '1d'),
-      THIRTY_DAYS_MS,
-    );
-  }
-
-  if (period === '1w') {
-    return filterByTimeWindow(aggregateByPeriod(normalized, '1w'), ONE_YEAR_MS);
-  }
-
-  return normalized;
-}
+const APY_CHART_HEIGHT = 200;
 
 const ApyChartComponent = ({
   apyHistory,
@@ -140,6 +55,8 @@ const ApyChartComponent = ({
   showUnderlyingApyToggle,
   primaryApyLabel,
   secondaryApyLabel,
+  secondaryLineColor = '#0177E5',
+  controlsPlacement = 'top',
 }: IApyChartProps) => {
   const intl = useIntl();
 
@@ -148,7 +65,7 @@ const ApyChartComponent = ({
   const resolvedSecondaryLabel =
     secondaryApyLabel || intl.formatMessage({ id: ETranslations.global_apy });
 
-  const [timePeriod, setTimePeriod] = useState<IChartTimePeriod>(
+  const [timePeriod, setTimePeriod] = useState<IApyChartTimePeriod>(
     showChartControls ? '1h' : 'max',
   );
   const [showUnderlyingApy, setShowUnderlyingApy] = useState(false);
@@ -250,9 +167,21 @@ const ApyChartComponent = ({
     [apyHistory, timePeriod],
   );
 
+  // The second line is cut from the primary line's newest point so both lines
+  // cover the same days; see buildChartHistory.
+  const primaryLatestTimestamp = useMemo(
+    () => getLatestTimestamp(apyHistory),
+    [apyHistory],
+  );
+
   const filteredUnderlyingApyHistory = useMemo(
-    () => buildChartHistory(underlyingApyHistory, timePeriod),
-    [underlyingApyHistory, timePeriod],
+    () =>
+      buildChartHistory(
+        underlyingApyHistory,
+        timePeriod,
+        primaryLatestTimestamp,
+      ),
+    [underlyingApyHistory, timePeriod, primaryLatestTimestamp],
   );
 
   const chartData = useMemo(() => {
@@ -276,82 +205,94 @@ const ApyChartComponent = ({
     };
   }, [filteredApyHistory, filteredUnderlyingApyHistory]);
 
+  // Pendle puts the second line behind a checkbox; every other provider draws
+  // it whenever the server sent one, so the campaign / reward line needs no
+  // extra interaction.
+  const hasSecondaryData = Boolean(chartData?.secondaryLineData.length);
+  const isSecondaryVisible = showUnderlyingApyToggle
+    ? showUnderlyingApy && hasSecondaryData
+    : hasSecondaryData;
+
   const isLoading = apyHistory === undefined;
 
   const timePeriodOptions = useMemo(
     () => [
       {
         label: intl.formatMessage({ id: ETranslations.market_1h }),
-        value: '1h' as IChartTimePeriod,
+        value: '1h' as IApyChartTimePeriod,
       },
       {
         label: intl.formatMessage({ id: ETranslations.market_1d }),
-        value: '1d' as IChartTimePeriod,
+        value: '1d' as IApyChartTimePeriod,
       },
       {
         label: intl.formatMessage({ id: ETranslations.market_1w }),
-        value: '1w' as IChartTimePeriod,
+        value: '1w' as IApyChartTimePeriod,
       },
       {
         label: intl.formatMessage({ id: ETranslations.dexmarket_max }),
-        value: 'max' as IChartTimePeriod,
+        value: 'max' as IApyChartTimePeriod,
       },
     ],
     [intl],
   );
 
+  const isControlsAtBottom = controlsPlacement === 'bottom';
+  const controls = showChartControls ? (
+    <YStack gap="$2">
+      <XStack ai="center" gap="$3" minHeight={44}>
+        {isControlsAtBottom ? null : <XStack flex={1} />}
+
+        <SegmentControl
+          // Bottom placement spans the chart width with evenly sized segments,
+          // the way the design spaces them; the wide layout keeps the compact
+          // content-sized control it ships today.
+          fullWidth={isControlsAtBottom}
+          value={timePeriod}
+          options={timePeriodOptions}
+          onChange={(nextValue) =>
+            setTimePeriod(nextValue as IApyChartTimePeriod)
+          }
+          slotBackgroundColor="$bg"
+          activeBackgroundColor="$bgActive"
+          activeTextColor="$text"
+        />
+      </XStack>
+
+      {showUnderlyingApyToggle ? (
+        <Checkbox
+          testID="earn-checkbox"
+          value={showUnderlyingApy}
+          onChange={(value) => setShowUnderlyingApy(Boolean(value))}
+          label={intl.formatMessage({
+            id: ETranslations.defi_show_underlying_apy,
+          })}
+          containerProps={{
+            ai: 'center',
+          }}
+          labelContainerProps={{
+            py: '$0',
+            my: '$0',
+            justifyContent: 'center',
+          }}
+          labelProps={{
+            variant: '$bodyMd',
+          }}
+        />
+      ) : null}
+    </YStack>
+  ) : null;
+
   return (
     <YStack gap="$2">
-      {showChartControls ? (
-        <YStack gap="$2">
-          <XStack ai="center" gap="$3" minHeight={44}>
-            <XStack flex={1} />
-
-            <SegmentControl
-              value={timePeriod}
-              options={timePeriodOptions}
-              onChange={(nextValue) =>
-                setTimePeriod(nextValue as IChartTimePeriod)
-              }
-              slotBackgroundColor="$bg"
-              activeBackgroundColor="$bgActive"
-              activeTextColor="$text"
-            />
-          </XStack>
-
-          {showUnderlyingApyToggle ? (
-            <Checkbox
-              testID="earn-checkbox"
-              value={showUnderlyingApy}
-              onChange={(value) => setShowUnderlyingApy(Boolean(value))}
-              label={intl.formatMessage({
-                id: ETranslations.defi_show_underlying_apy,
-              })}
-              containerProps={{
-                ai: 'center',
-              }}
-              labelContainerProps={{
-                py: '$0',
-                my: '$0',
-                justifyContent: 'center',
-              }}
-              labelProps={{
-                variant: '$bodyMd',
-              }}
-            />
-          ) : null}
-        </YStack>
-      ) : null}
+      {isControlsAtBottom ? null : controls}
 
       {isLoading && !chartData ? (
         <Stack
-          $gtMd={{ height: 200 }}
-          $md={{ height: 180 }}
-          $sm={{ height: 160 }}
-          height={160}
+          height={APY_CHART_HEIGHT}
           position="relative"
           overflow="hidden"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={{ opacity: 0 }}
         >
@@ -372,7 +313,7 @@ const ApyChartComponent = ({
       {chartData && !isLoading ? (
         <YStack
           position="relative"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{ opacity: 0, scale: 0.98 }}
           exitStyle={{ opacity: 0, scale: 0.98 }}
@@ -420,7 +361,7 @@ const ApyChartComponent = ({
                     {hoverData.apy.toFixed(2)}%
                   </SizableText>
                 </XStack>
-                {showUnderlyingApy && hoverData.secondaryApy !== undefined ? (
+                {isSecondaryVisible && hoverData.secondaryApy !== undefined ? (
                   <XStack jc="space-between" ai="center" width="100%">
                     <SizableText size="$bodySmMedium" color="$textSubdued">
                       {resolvedSecondaryLabel}
@@ -437,23 +378,25 @@ const ApyChartComponent = ({
           <LightweightChart
             data={chartData.marketChartData}
             secondaryLineData={
-              showUnderlyingApy && showUnderlyingApyToggle
-                ? chartData.secondaryLineData
-                : undefined
+              isSecondaryVisible ? chartData.secondaryLineData : undefined
             }
-            secondaryLineColor="#0177E5"
+            secondaryLineColor={secondaryLineColor}
             secondaryLineWidth={2}
-            height={200}
+            height={APY_CHART_HEIGHT}
             onHover={handleHover}
             lineColor="#008347D6"
             topColor="#00834726"
             bottomColor="#00834700"
             lineWidth={2}
             showPriceScale
+            priceScaleEntireTextOnly
+            priceScaleMargins={APY_PRICE_SCALE_MARGINS}
             showHorzGridLines
           />
         </YStack>
       ) : null}
+
+      {isControlsAtBottom ? controls : null}
     </YStack>
   );
 };

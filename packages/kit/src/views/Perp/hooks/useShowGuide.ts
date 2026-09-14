@@ -5,17 +5,21 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-export function useShowGuide() {
+export function useShowGuide({
+  forceModal = false,
+}: {
+  forceModal?: boolean;
+} = {}) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
 
   const showGuide = useCallback(() => {
-    if (!gtMd) {
+    if (forceModal || !gtMd) {
       navigation.pushModal(EModalRoutes.PerpModal, {
         screen: EModalPerpRoutes.PerpGuidePage,
       });
     }
-  }, [gtMd, navigation]);
+  }, [forceModal, gtMd, navigation]);
 
   return { showGuide };
 }

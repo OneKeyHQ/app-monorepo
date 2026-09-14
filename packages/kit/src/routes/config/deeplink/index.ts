@@ -41,10 +41,13 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isAllowedAppClipCampaignEntryUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
+import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
@@ -137,7 +140,23 @@ type IOneKeyAppLinkTarget =
   | { type: 'stocks' }
   | { type: 'perps' }
   | { type: 'swapHome' }
-  | { type: 'market' };
+  | { type: 'market' }
+  | {
+      type: 'marketDetail';
+      tokenAddress: string;
+      network: string;
+      isNative?: boolean;
+    }
+  | { type: 'appClipWeb'; url: string }
+  | {
+      // Earn protocol detail universal link, mirroring the web route
+      // /earn/:network/:symbol/:provider?vault= (EarnProtocolDetailsShare)
+      type: 'earnProtocolDetail';
+      network: string;
+      symbol: string;
+      provider: string;
+      vault?: string;
+    };
 
 const ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS = new Set<string>([
   ONEKEY_UNIVERSAL_LINK_HOST,
@@ -152,10 +171,56 @@ const ONEKEY_PERPS_APP_LINK_HOSTS = new Set<string>([
   ONEKEY_PERPS_TEST_APP_LINK_HOST,
 ]);
 const ONEKEY_SWAP_APP_LINK_HOSTS = new Set<string>([ONEKEY_SWAP_APP_LINK_HOST]);
+const ONEKEY_APP_CLIP_HANDOFF_PATH = 'app-clip';
 
 // expo-linking returns "swap" while the jest URL polyfill returns "/swap".
 function normalizeAppLinkPath(path?: string | null) {
   return path?.replace(/^\/+|\/+$/gu, '').toLowerCase() ?? '';
+}
+
+function parseAppClipWebUrl(value: unknown): string | undefined {
+  const rawUrl = getStringQueryParam(value);
+  if (!rawUrl || !isAllowedAppClipCampaignEntryUrl(rawUrl)) {
+    return undefined;
+  }
+  try {
+    const url = new URL(rawUrl);
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function parseAppClipMarketTarget(
+  queryParams?: Linking.ParsedURL['queryParams'],
+): IOneKeyAppLinkTarget {
+  const tokenAddress = getStringQueryParam(queryParams?.address) ?? '';
+  const network = getStringQueryParam(queryParams?.network);
+  const rawIsNative = getStringQueryParam(queryParams?.is_native);
+  const isNative = rawIsNative === 'true';
+  const isValidCosmosDenom =
+    network?.startsWith('cosmos--') === true &&
+    /^[A-Za-z][A-Za-z0-9/:._-]{2,127}$/u.test(tokenAddress);
+  const isValidAddress =
+    (isNative && tokenAddress === '') ||
+    /^[A-Za-z0-9._:%~-]{1,256}$/u.test(tokenAddress) ||
+    isValidCosmosDenom;
+  if (
+    !isValidAddress ||
+    !network ||
+    !/^[A-Za-z0-9._:-]{1,64}$/u.test(network) ||
+    (rawIsNative !== undefined &&
+      rawIsNative !== 'true' &&
+      rawIsNative !== 'false')
+  ) {
+    return { type: 'market' };
+  }
+  return {
+    type: 'marketDetail',
+    tokenAddress,
+    network,
+    isNative: rawIsNative === undefined ? undefined : isNative,
+  };
 }
 
 function parseOneKeyAppLinkTarget({
@@ -194,6 +259,38 @@ function parseOneKeyAppLinkTarget({
   if (normalizedPath === 'market') {
     return { type: 'market' };
   }
+  if (normalizedPath === 'clip/market') {
+    return parseAppClipMarketTarget(queryParams);
+  }
+  if (normalizedPath === 'clip/web' || normalizedPath.startsWith('clip/web/')) {
+    const url = parseAppClipWebUrl(queryParams?.web_url);
+    return url ? { type: 'appClipWeb', url } : undefined;
+  }
+  // Earn detail page universal link: /earn/:network/:symbol/:provider?vault=.
+  // Cannot use normalizeAppLinkPath (it lowercases): server-side matching of
+  // symbol/provider/vault is case-sensitive, so preserve the original casing.
+  const rawSegments = (path ?? '')
+    .replace(/^\/+|\/+$/gu, '')
+    .split('/')
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    });
+  if (rawSegments.length === 4 && rawSegments[0].toLowerCase() === 'earn') {
+    const [, network, symbol, provider] = rawSegments;
+    if (network && symbol && provider) {
+      return {
+        type: 'earnProtocolDetail',
+        network,
+        symbol,
+        provider,
+        vault: getStringQueryParam(queryParams?.vault),
+      };
+    }
+  }
   return undefined;
 }
 
@@ -217,6 +314,16 @@ async function processOneKeyAppUniversalLink(
   const target = parseOneKeyAppLinkTarget(params.parsedUrl);
   if (!target) {
     return false;
+  }
+  const normalizedPath = normalizeAppLinkPath(params.parsedUrl.path);
+  if (
+    times === 0 &&
+    platformEnv.isNativeIOS &&
+    (normalizedPath === 'clip/market' ||
+      normalizedPath === 'clip/web' ||
+      normalizedPath.startsWith('clip/web/'))
+  ) {
+    void reportInstallAttribution().catch(() => undefined);
   }
   if (times > 10) {
     return true;
@@ -283,6 +390,40 @@ async function processOneKeyAppUniversalLink(
     }
     return true;
   }
+  if (target.type === 'marketDetail') {
+    navigation.navigate(ERootRoutes.Main, {
+      screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          tokenAddress: target.tokenAddress,
+          network: target.network,
+          isNative: target.isNative,
+        },
+      },
+    });
+    return true;
+  }
+  if (target.type === 'earnProtocolDetail') {
+    // Reuse the safe Earn navigation: it handles the native Discovery
+    // sub-tab switch, earn-mode switch, and stack push; if the protocol does
+    // not exist, the detail page has its own error-state fallback
+    EarnNavigation.pushToEarnProtocolDetailsShare(navigation, {
+      network: target.network,
+      symbol: target.symbol,
+      provider: target.provider,
+      vault: target.vault,
+    });
+    return true;
+  }
+  if (target.type === 'appClipWeb') {
+    openWebView({
+      appClipCampaign: true,
+      url: target.url,
+      source: 'deeplink',
+    });
+    return true;
+  }
   const perpsTabRoute = await getPerpsAppLinkTabRoute();
   if (perpsTabRoute) {
     // switchTabAsync serializes overlay dismiss and tab switch; the sync
@@ -290,6 +431,41 @@ async function processOneKeyAppUniversalLink(
     await navigation.switchTabAsync(perpsTabRoute);
   }
   return true;
+}
+
+async function processAppClipHandoff(
+  params: IProcessDeepLinkParams,
+): Promise<boolean> {
+  if (
+    getOneKeyDeepLinkPath(params.parsedUrl) !== ONEKEY_APP_CLIP_HANDOFF_PATH
+  ) {
+    return false;
+  }
+  const canonicalUrl = getStringQueryParam(params.parsedUrl.queryParams?.url);
+  if (!canonicalUrl || canonicalUrl.length > 4096) {
+    return true;
+  }
+  try {
+    const parsedUrl = Linking.parse(canonicalUrl);
+    const normalizedPath = normalizeAppLinkPath(parsedUrl.path);
+    if (
+      normalizedPath !== 'clip/market' &&
+      normalizedPath !== 'clip/web' &&
+      !normalizedPath.startsWith('clip/web/')
+    ) {
+      return true;
+    }
+    if (!parseOneKeyAppLinkTarget(parsedUrl)) {
+      return true;
+    }
+    await processOneKeyAppUniversalLink({
+      url: canonicalUrl,
+      parsedUrl,
+    });
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 async function processDeepLinkUrlAccount(
@@ -540,6 +716,12 @@ const processDeepLinkUrl = memoizee(
       if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
         return;
       }
+      if (
+        getOneKeyDeepLinkPath(parsedUrl) === ONEKEY_APP_CLIP_HANDOFF_PATH &&
+        (await processAppClipHandoff({ url, parsedUrl }))
+      ) {
+        return;
+      }
       if (await processOneKeyAppUniversalLink({ url, parsedUrl })) {
         return;
       }
@@ -555,6 +737,21 @@ const processDeepLinkUrl = memoizee(
     maxAge: 600,
   },
 );
+
+// For feature code (e.g. the banner) to try before opening a webpage: if the
+// URL is an official universal link (earn detail / market / perps, etc.),
+// navigate natively and return true; otherwise return false and the caller
+// opens the webpage as before.
+export const tryHandleOneKeyUniversalLink = async (
+  url: string,
+): Promise<boolean> => {
+  try {
+    const parsedUrl = Linking.parse(url);
+    return await processOneKeyAppUniversalLink({ url, parsedUrl });
+  } catch {
+    return false;
+  }
+};
 
 export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
   const urls = [data.url, ...(data.argv ?? [])].filter(

@@ -3,6 +3,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 
 import { getDisplayEmailOrUnknown } from '../OneKeyAuth/oneKeyIdDisplayEmailUtils';
 
@@ -121,8 +122,14 @@ export async function showKeylessOneKeyIdSessionConflictDialog(params: {
       title: intl.formatMessage({
         id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
       }),
-      // TODO: i18n
-      description: `You are signed in to OneKey ID as ${displayEmail}, but this Keyless wallet is linked to a different account. Continuing will log you out of OneKey ID (you can log in again later); the Keyless wallet stays untouched.`,
+      description: intl.formatMessage(
+        {
+          id: ETranslations.keyless_onekey_id_session_conflict__desc,
+        },
+        {
+          email: displayEmail,
+        },
+      ),
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
@@ -133,6 +140,95 @@ export async function showKeylessOneKeyIdSessionConflictDialog(params: {
       onConfirm: () => settle(true),
       onCancel: () => settle(false),
       onClose: () => settle(false),
+    });
+  });
+}
+
+export async function showOneKeyIdOAuthAccountMismatchDialog(params: {
+  intl: IntlShape;
+  mismatchedProvider: EOAuthSocialLoginProvider;
+  continueProvider: EOAuthSocialLoginProvider;
+}): Promise<boolean> {
+  const { intl, mismatchedProvider, continueProvider } = params;
+  const mismatchedProviderName =
+    getOAuthSocialLoginProviderName(mismatchedProvider);
+  const continueProviderName =
+    getOAuthSocialLoginProviderName(continueProvider);
+  return new Promise<boolean>((resolve) => {
+    let isSettled = false;
+    const settle = (value: boolean) => {
+      if (!isSettled) {
+        isSettled = true;
+        resolve(value);
+      }
+    };
+    Dialog.show({
+      icon: 'ErrorOutline',
+      title: intl.formatMessage({
+        id: ETranslations.keyless_wallet_verify_pin_account_mismatch,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.onekey_id_oauth_reauth_account_mismatch__desc,
+        },
+        { provider: mismatchedProviderName },
+      ),
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage(
+        { id: ETranslations.continue_with_social_platform },
+        { platform: continueProviderName },
+      ),
+      onConfirm: () => settle(true),
+      onClose: () => settle(false),
+    });
+  });
+}
+
+export type IKeylessOAuthRefreshRecoveryAction =
+  | 'dismiss'
+  | 'reauthenticate'
+  | 'retry';
+
+export async function showKeylessOAuthRefreshRecoveryDialog(params: {
+  intl: IntlShape;
+  provider?: EOAuthSocialLoginProvider;
+}): Promise<IKeylessOAuthRefreshRecoveryAction> {
+  const { intl, provider } = params;
+  const providerName =
+    getOAuthSocialLoginProviderName(provider) ||
+    intl.formatMessage({ id: ETranslations.google_or_apple__label });
+  return new Promise<IKeylessOAuthRefreshRecoveryAction>((resolve) => {
+    let isSettled = false;
+    const settle = (action: IKeylessOAuthRefreshRecoveryAction) => {
+      if (!isSettled) {
+        isSettled = true;
+        resolve(action);
+      }
+    };
+    Dialog.show({
+      icon: 'ErrorOutline',
+      title: intl.formatMessage({
+        id: ETranslations.global_connection_failed,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.keyless_verify_identity_desc,
+        },
+        { provider: providerName },
+      ),
+      showCancelButton: true,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_retry,
+      }),
+      onCancelText: intl.formatMessage(
+        {
+          id: ETranslations.continue_with_social_platform,
+        },
+        { platform: providerName },
+      ),
+      onConfirm: () => settle('retry'),
+      onCancel: () => settle('reauthenticate'),
+      onClose: () => settle('dismiss'),
     });
   });
 }

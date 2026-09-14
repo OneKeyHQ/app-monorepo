@@ -6,7 +6,12 @@
     "start": "cross-env WEB_PORT=3008 yarn run -T rspack serve --config-loader jiti",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
-    "build": "yarn clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" NODE_ENV=production yarn run -T rspack build --config-loader jiti && node ./scripts/check-browser-compat.js && node ./scripts/finalize-production-assets.js && bash ./postbuild.sh"
+    "build": "yarn clean && cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" NODE_ENV=production yarn run -T rspack build --config-loader jiti && node ./scripts/check-browser-compat.js && node ./scripts/finalize-production-assets.js && bash ./postbuild.sh",
+    "prebundle:build": "node scripts/web-embed-prebundle.js build",
+    "prebundle:input-key": "node scripts/web-embed-prebundle.js input-key",
+    "prebundle:package": "node scripts/web-embed-prebundle.js package",
+    "prebundle:restore": "node scripts/web-embed-prebundle.js restore",
+    "prebundle:tag": "node scripts/web-embed-prebundle.js tag"
   },
   "private": true,
   "dependencies": {
@@ -16,6 +21,7 @@
   },
   "devDependencies": {
     "cross-env": "7.0.3",
-    "rimraf": "3.0.2"
+    "rimraf": "3.0.2",
+    "tar": "7.5.22"
   }
 }

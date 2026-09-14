@@ -16,7 +16,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IFill,
   IHex,
@@ -285,59 +284,26 @@ export function usePerpsTradingViewMessageHandler({
   const handleGetHyperliquidPriceScale = useCallback(
     async (request: { symbol: string; requestId: string }) => {
       const { symbol: requestSymbol, requestId } = request;
-      let midValue: string | undefined;
-      let calculatedPriceScale = DEFAULT_HYPERLIQUID_PRICE_SCALE;
-      let persistedPriceScale: number | undefined;
+      let priceScale: number | undefined;
 
-      if (requestSymbol) {
-        midValue =
-          await backgroundApiProxy.serviceHyperliquid.getTradingviewMidPrice(
-            requestSymbol,
-          );
+      // Single background call: cache/persisted answers return immediately so
+      // the chart's resolveSymbol never waits on the REST allMids fallback.
+      try {
+        ({ priceScale } =
+          await backgroundApiProxy.serviceHyperliquid.getTradingviewPriceScale({
+            symbol: requestSymbol,
+          }));
+      } catch (error) {
+        console.error('[MessageHandler] Failed to load price scale:', error);
       }
-
-      if (!midValue) {
-        try {
-          persistedPriceScale =
-            await backgroundApiProxy.serviceHyperliquid.getTradingviewDisplayPriceScale(
-              requestSymbol,
-            );
-        } catch (error) {
-          console.error(
-            '[MessageHandler] Failed to load stored price scale:',
-            error,
-          );
-        }
-      }
-
-      if (midValue) {
-        calculatedPriceScale = calculateDisplayPriceScale(midValue);
-        try {
-          await backgroundApiProxy.serviceHyperliquid.setTradingviewDisplayPriceScale(
-            {
-              symbol: requestSymbol,
-              priceScale: calculatedPriceScale,
-            },
-          );
-        } catch (error) {
-          console.error(
-            '[MessageHandler] Failed to persist price scale:',
-            error,
-          );
-        }
-      } else if (persistedPriceScale !== undefined) {
-        calculatedPriceScale = persistedPriceScale;
-      }
-
-      const response = {
-        priceScale: calculatedPriceScale,
-        minmov: 1,
-        requestId,
-      };
 
       webRef.current?.sendMessageViaInjectedScript({
         type: 'HYPERLIQUID_PRICESCALE_RESPONSE',
-        payload: response,
+        payload: {
+          priceScale: priceScale ?? DEFAULT_HYPERLIQUID_PRICE_SCALE,
+          minmov: 1,
+          requestId,
+        },
       });
     },
     [webRef],

@@ -30,6 +30,26 @@ export type IPageHeaderProps = IStackNavigationOptions &
     headerRightNoGlass?: boolean;
   };
 
+function getPageHeaderStyleOptions({
+  headerTransparent,
+  headerStyle,
+}: Pick<IPageHeaderProps, 'headerTransparent' | 'headerStyle'>): Pick<
+  IPageHeaderProps,
+  'headerStyle'
+> {
+  if (headerTransparent) {
+    return {
+      headerStyle: [
+        headerStyle ?? {},
+        {
+          backgroundColor: 'transparent',
+        },
+      ],
+    };
+  }
+  return headerStyle === undefined ? {} : { headerStyle };
+}
+
 // `reload()` returns a flat options object whose values are reference-stable by
 // convention (callers wrap header render functions in `useCallback`). A shallow
 // own-key comparison is therefore enough to detect real changes, and avoids the
@@ -103,8 +123,9 @@ const usePageHeaderReloadOptions = () => {
                 unstable_headerRightItems: noGlassRightItems,
               }
             : { headerRight: wrapHeaderRenderInGlass(restProps.headerRight) })),
-        ...(headerTransparent && {
-          headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
+        ...getPageHeaderStyleOptions({
+          headerTransparent,
+          headerStyle,
         }),
         ...(!platformEnv.isNativeIOS &&
           headerSearchBarOptions && {

@@ -1,0 +1,181 @@
+diff --git a/node_modules/@tamagui/toast/dist/cjs/ToastImpl.cjs b/node_modules/@tamagui/toast/dist/cjs/ToastImpl.cjs
+index 7e11e26..d4ef1fb 100644
+--- a/node_modules/@tamagui/toast/dist/cjs/ToastImpl.cjs
++++ b/node_modules/@tamagui/toast/dist/cjs/ToastImpl.cjs
+@@ -334,6 +334,8 @@ const shouldGrantGestureMove = (dir, {
+   dx,
+   dy
+ }) => {
++  if ((dir === "horizontal" || dir === "left" || dir === "right") && dx === 0) return false;
++  if ((dir === "vertical" || dir === "up" || dir === "down") && dy === 0) return false;
+   if ((dir === "horizontal" || dir === "left") && dx < -GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "horizontal" || dir === "right") && dx > GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "vertical" || dir === "up") && dy > -GESTURE_GRANT_THRESHOLD) return true;
+diff --git a/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js b/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
+index bc466cc..e52a9af 100644
+--- a/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
++++ b/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
+@@ -342,6 +342,8 @@ var shouldGrantGestureMove = function (dir, param) {
+     dx,
+     dy
+   } = param;
++  if ((dir === "horizontal" || dir === "left" || dir === "right") && dx === 0) return false;
++  if ((dir === "vertical" || dir === "up" || dir === "down") && dy === 0) return false;
+   if ((dir === "horizontal" || dir === "left") && dx < -GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "horizontal" || dir === "right") && dx > GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "vertical" || dir === "up") && dy > -GESTURE_GRANT_THRESHOLD) return true;
+diff --git a/node_modules/@tamagui/toast/dist/cjs/ToastViewport.cjs b/node_modules/@tamagui/toast/dist/cjs/ToastViewport.cjs
+index 3f52e9b..5162363 100644
+--- a/node_modules/@tamagui/toast/dist/cjs/ToastViewport.cjs
++++ b/node_modules/@tamagui/toast/dist/cjs/ToastViewport.cjs
+@@ -237,6 +237,7 @@ const ToastViewport = React.memo(React.forwardRef((props, forwardedRef) => {
+       children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(ToastViewportFrame, {
+         focusable: context.toastCount > 0,
+         ref: composedRefs,
++        zIndex,
+         ...viewportProps,
+         children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_portal.PortalHost, {
+           render: children => /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_animate_presence.AnimatePresence, {
+diff --git a/node_modules/@tamagui/toast/dist/cjs/ToastViewport.native.js b/node_modules/@tamagui/toast/dist/cjs/ToastViewport.native.js
+index fb89cf2..f011578 100644
+--- a/node_modules/@tamagui/toast/dist/cjs/ToastViewport.native.js
++++ b/node_modules/@tamagui/toast/dist/cjs/ToastViewport.native.js
+@@ -257,6 +257,7 @@ var ToastViewport = /* @__PURE__ */React.memo(/* @__PURE__ */React.forwardRef(fu
+       children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(ToastViewportFrame, {
+         focusable: context.toastCount > 0,
+         ref: composedRefs,
++        zIndex: zIndex,
+         ...viewportProps,
+         children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_portal.PortalHost, {
+           render: function (children) {
+diff --git a/node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs b/node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs
+index 77ee82b..16f93d6 100644
+--- a/node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs
++++ b/node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs
+@@ -294,6 +294,8 @@ const shouldGrantGestureMove = (dir, {
+   dx,
+   dy
+ }) => {
++  if ((dir === "horizontal" || dir === "left" || dir === "right") && dx === 0) return false;
++  if ((dir === "vertical" || dir === "up" || dir === "down") && dy === 0) return false;
+   if ((dir === "horizontal" || dir === "left") && dx < -GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "horizontal" || dir === "right") && dx > GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "vertical" || dir === "up") && dy > -GESTURE_GRANT_THRESHOLD) return true;
+diff --git a/node_modules/@tamagui/toast/dist/esm/ToastImpl.native.js b/node_modules/@tamagui/toast/dist/esm/ToastImpl.native.js
+index 67ea953..12a2c12 100644
+--- a/node_modules/@tamagui/toast/dist/esm/ToastImpl.native.js
++++ b/node_modules/@tamagui/toast/dist/esm/ToastImpl.native.js
+@@ -306,6 +306,8 @@ var shouldGrantGestureMove = function (dir, param) {
+     dx,
+     dy
+   } = param;
++  if ((dir === "horizontal" || dir === "left" || dir === "right") && dx === 0) return false;
++  if ((dir === "vertical" || dir === "up" || dir === "down") && dy === 0) return false;
+   if ((dir === "horizontal" || dir === "left") && dx < -GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "horizontal" || dir === "right") && dx > GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "vertical" || dir === "up") && dy > -GESTURE_GRANT_THRESHOLD) return true;
+diff --git a/node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs b/node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs
+index 785753a..a86db84 100644
+--- a/node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs
++++ b/node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs
+@@ -196,6 +196,7 @@ const ToastViewport = React.memo(React.forwardRef((props, forwardedRef) => {
+       children: /* @__PURE__ */jsx(ToastViewportFrame, {
+         focusable: context.toastCount > 0,
+         ref: composedRefs,
++        zIndex,
+         ...viewportProps,
+         children: /* @__PURE__ */jsx(PortalHost, {
+           render: children => /* @__PURE__ */jsx(AnimatePresence, {
+diff --git a/node_modules/@tamagui/toast/dist/esm/ToastViewport.native.js b/node_modules/@tamagui/toast/dist/esm/ToastViewport.native.js
+index 939eaae..d30eabe 100644
+--- a/node_modules/@tamagui/toast/dist/esm/ToastViewport.native.js
++++ b/node_modules/@tamagui/toast/dist/esm/ToastViewport.native.js
+@@ -214,6 +214,7 @@ var ToastViewport = /* @__PURE__ */React.memo(/* @__PURE__ */React.forwardRef(fu
+       children: /* @__PURE__ */_jsx(ToastViewportFrame, {
+         focusable: context.toastCount > 0,
+         ref: composedRefs,
++        zIndex: zIndex,
+         ...viewportProps,
+         children: /* @__PURE__ */_jsx(PortalHost, {
+           render: function (children) {
+diff --git a/node_modules/@tamagui/toast/dist/jsx/ToastImpl.mjs b/node_modules/@tamagui/toast/dist/jsx/ToastImpl.mjs
+index 77ee82b..16f93d6 100644
+--- a/node_modules/@tamagui/toast/dist/jsx/ToastImpl.mjs
++++ b/node_modules/@tamagui/toast/dist/jsx/ToastImpl.mjs
+@@ -294,6 +294,8 @@ const shouldGrantGestureMove = (dir, {
+   dx,
+   dy
+ }) => {
++  if ((dir === "horizontal" || dir === "left" || dir === "right") && dx === 0) return false;
++  if ((dir === "vertical" || dir === "up" || dir === "down") && dy === 0) return false;
+   if ((dir === "horizontal" || dir === "left") && dx < -GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "horizontal" || dir === "right") && dx > GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "vertical" || dir === "up") && dy > -GESTURE_GRANT_THRESHOLD) return true;
+diff --git a/node_modules/@tamagui/toast/dist/jsx/ToastImpl.native.js b/node_modules/@tamagui/toast/dist/jsx/ToastImpl.native.js
+index bc466cc..e52a9af 100644
+--- a/node_modules/@tamagui/toast/dist/jsx/ToastImpl.native.js
++++ b/node_modules/@tamagui/toast/dist/jsx/ToastImpl.native.js
+@@ -342,6 +342,8 @@ var shouldGrantGestureMove = function (dir, param) {
+     dx,
+     dy
+   } = param;
++  if ((dir === "horizontal" || dir === "left" || dir === "right") && dx === 0) return false;
++  if ((dir === "vertical" || dir === "up" || dir === "down") && dy === 0) return false;
+   if ((dir === "horizontal" || dir === "left") && dx < -GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "horizontal" || dir === "right") && dx > GESTURE_GRANT_THRESHOLD) return true;
+   if ((dir === "vertical" || dir === "up") && dy > -GESTURE_GRANT_THRESHOLD) return true;
+diff --git a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.mjs b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.mjs
+index 785753a..a86db84 100644
+--- a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.mjs
++++ b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.mjs
+@@ -196,6 +196,7 @@ const ToastViewport = React.memo(React.forwardRef((props, forwardedRef) => {
+       children: /* @__PURE__ */jsx(ToastViewportFrame, {
+         focusable: context.toastCount > 0,
+         ref: composedRefs,
++        zIndex,
+         ...viewportProps,
+         children: /* @__PURE__ */jsx(PortalHost, {
+           render: children => /* @__PURE__ */jsx(AnimatePresence, {
+diff --git a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.native.js b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.native.js
+index fb89cf2..f011578 100644
+--- a/node_modules/@tamagui/toast/dist/jsx/ToastViewport.native.js
++++ b/node_modules/@tamagui/toast/dist/jsx/ToastViewport.native.js
+@@ -257,6 +257,7 @@ var ToastViewport = /* @__PURE__ */React.memo(/* @__PURE__ */React.forwardRef(fu
+       children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(ToastViewportFrame, {
+         focusable: context.toastCount > 0,
+         ref: composedRefs,
++        zIndex: zIndex,
+         ...viewportProps,
+         children: /* @__PURE__ */(0, import_jsx_runtime.jsx)(import_portal.PortalHost, {
+           render: function (children) {
+diff --git a/node_modules/@tamagui/toast/src/ToastImpl.tsx b/node_modules/@tamagui/toast/src/ToastImpl.tsx
+index c96817d..497ad26 100644
+--- a/node_modules/@tamagui/toast/src/ToastImpl.tsx
++++ b/node_modules/@tamagui/toast/src/ToastImpl.tsx
+@@ -474,6 +474,13 @@ const shouldGrantGestureMove = (
+   dir: SwipeDirection,
+   { dx, dy }: PanResponderGestureState
+ ) => {
++  // OneKey patch: Do not capture taps that have no movement as swipe gestures.
++  if ((dir === 'horizontal' || dir === 'left' || dir === 'right') && dx === 0) {
++    return false
++  }
++  if ((dir === 'vertical' || dir === 'up' || dir === 'down') && dy === 0) {
++    return false
++  }
+   if ((dir === 'horizontal' || dir === 'left') && dx < -GESTURE_GRANT_THRESHOLD) {
+     return true
+   }
+diff --git a/node_modules/@tamagui/toast/src/ToastViewport.tsx b/node_modules/@tamagui/toast/src/ToastViewport.tsx
+index ddb4560..f958acc 100644
+--- a/node_modules/@tamagui/toast/src/ToastViewport.tsx
++++ b/node_modules/@tamagui/toast/src/ToastViewport.tsx
+@@ -292,6 +292,8 @@ const ToastViewport = React.memo(
+             <ToastViewportFrame
+               focusable={context.toastCount > 0}
+               ref={composedRefs as any}
++              // OneKey patch: Preserve the caller's overlay stacking order.
++              zIndex={zIndex}
+               {...viewportProps}
+             >
+               <PortalHost

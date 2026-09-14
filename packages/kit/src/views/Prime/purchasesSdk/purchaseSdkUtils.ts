@@ -1,4 +1,9 @@
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+
+function generateRevenueCatAnonymousAppUserId(): string {
+  return `$RCAnonymousID:${stringUtils.generateUUID({ removeDashes: true })}`;
+}
 
 function convertToRevenuecatLocale({
   locale,
@@ -33,4 +38,7 @@ function convertToRevenuecatLocale({
   return localeMap[locale] || 'en'; // Fallback to English for unsupported locales
 }
 
-export default { convertToRevenuecatLocale };
+export default {
+  convertToRevenuecatLocale,
+  generateRevenueCatAnonymousAppUserId,
+};

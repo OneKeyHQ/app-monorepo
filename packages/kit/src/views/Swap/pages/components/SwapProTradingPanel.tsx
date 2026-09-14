@@ -14,7 +14,9 @@ import {
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ISwapProSpeedConfig } from '@onekeyhq/shared/types/swap/types';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
@@ -41,9 +43,11 @@ import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/
 import type { ITradeType } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 
 interface ISwapProTradingPanelProps {
+  storeName: EJotaiContextStoreNames;
   swapProConfig: ISwapProSpeedConfig;
   balanceLoading: boolean;
   configLoading: boolean;
+  configReady: boolean;
   supportSpeedSwap: boolean;
   onSwapProActionClick: () => void;
   hasEnoughBalance: boolean;
@@ -59,10 +63,12 @@ interface ISwapProTradingPanelProps {
 }
 
 const SwapProTradingPanel = ({
+  storeName,
   supportSpeedSwap,
   swapProConfig,
   balanceLoading,
   configLoading,
+  configReady,
   onBalanceMax,
   onSwapProActionClick,
   handleSelectAccountClick,
@@ -129,6 +135,10 @@ const SwapProTradingPanel = ({
       if (value === swapProTradeType) return;
       cleanInputAmount();
       setSwapProTradeType(value);
+      defaultLogger.swap.swapPro.swapProTradeTypeChange({
+        fromType: swapProTradeType,
+        toType: value,
+      });
     },
     [cleanInputAmount, setSwapProTradeType, swapProTradeType],
   );
@@ -200,6 +210,7 @@ const SwapProTradingPanel = ({
           defaultTokens={swapProConfig.defaultTokens}
           defaultLimitTokens={swapProConfig.defaultLimitTokens}
           cleanInputAmount={cleanInputAmount}
+          configReady={configReady}
         />
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <SwapProLimitPriceValue
@@ -215,23 +226,27 @@ const SwapProTradingPanel = ({
         <SwapProTradeInfoGroup
           balanceLoading={balanceLoading}
           onBalanceMax={onBalanceMax}
+          storeName={storeName}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />
-        {showMarketPresetSelector && marketPresetSettings ? (
-          <SwapProPresetSelector
-            antiMEV={antiMEV}
-            estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-            presetSettings={marketPresetSettings}
-          />
-        ) : null}
-        {/* Networks without an enabled market preset still quote with the
-            global slippage state, so keep the plain slippage entry visible
-            there — the preset selector replaces it only when presets are on. */}
-        {swapProTradeType === ESwapProTradeType.MARKET &&
-        (!marketPresetSettings ||
-          (!marketPresetSettings.enabled &&
-            !marketPresetSettings.isLoading)) ? (
-          <SwapProSlippageSetting isMEV={!!antiMEV} />
+        {swapProTradeType === ESwapProTradeType.MARKET ? (
+          <YStack h="$6">
+            {showMarketPresetSelector && marketPresetSettings ? (
+              <SwapProPresetSelector
+                antiMEV={antiMEV}
+                estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
+                presetSettings={marketPresetSettings}
+              />
+            ) : null}
+            {/* Networks without an enabled market preset still quote with the
+                global slippage state, so keep the plain slippage entry visible
+                there — the preset selector replaces it only when presets are on. */}
+            {!marketPresetSettings ||
+            (!marketPresetSettings.enabled &&
+              !marketPresetSettings.isLoading) ? (
+              <SwapProSlippageSetting isMEV={!!antiMEV} />
+            ) : null}
+          </YStack>
         ) : null}
         {swapProTradeType === ESwapProTradeType.LIMIT ? (
           <>

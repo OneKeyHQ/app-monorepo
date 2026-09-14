@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -19,16 +19,18 @@ import type {
 
 export function useWalletActionConfig() {
   const {
-    activeAccount: { network },
+    activeAccount: { network, vaultSettings: cachedVaultSettings },
   } = useActiveAccount({ num: 0 });
 
-  const vaultSettings = usePromiseResult(async () => {
+  const fetchedVaultSettings = usePromiseResult(async () => {
     if (!network?.id) return null;
     const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId: network.id,
     });
     return settings;
-  }, [network?.id]);
+  }, [network?.id]).result;
+  const vaultSettings =
+    fetchedVaultSettings ?? cachedVaultSettings ?? undefined;
 
   const config = useMemo((): INetworkWalletActionsConfig => {
     if (!network?.id) return defaultWalletActionsConfig;
@@ -42,18 +44,16 @@ export function useWalletActionConfig() {
       ...userCustomConfig,
     };
 
-    if (vaultSettings.result) {
-      const { result: settings } = vaultSettings;
-
+    if (vaultSettings) {
       const filterDisabledActions = (
         actions: IWalletActionType[],
       ): IWalletActionType[] => {
         return actions.filter((action) => {
           switch (action) {
             case 'send':
-              return !settings.disabledSendAction;
+              return !vaultSettings.disabledSendAction;
             case 'swap':
-              return !settings.disabledSwapAction;
+              return !vaultSettings.disabledSwapAction;
             default:
               return true;
           }
@@ -71,17 +71,23 @@ export function useWalletActionConfig() {
     return mergedConfig;
   }, [network?.id, vaultSettings]);
 
-  const isActionEnabled = (actionType: IWalletActionType): boolean => {
-    return [...config.mainActions, ...config.moreActions].includes(actionType);
-  };
+  const isActionEnabled = useCallback(
+    (actionType: IWalletActionType): boolean => {
+      return [...config.mainActions, ...config.moreActions].includes(
+        actionType,
+      );
+    },
+    [config.mainActions, config.moreActions],
+  );
 
-  const getActionCustomization = (
-    actionType: IWalletActionType,
-  ): IActionCustomization | undefined => {
-    return config.actionCustomization?.[actionType];
-  };
+  const getActionCustomization = useCallback(
+    (actionType: IWalletActionType): IActionCustomization | undefined => {
+      return config.actionCustomization?.[actionType];
+    },
+    [config.actionCustomization],
+  );
 
-  const getMoreActionGroups = (): IMoreActionGroup[] => {
+  const getMoreActionGroups = useCallback((): IMoreActionGroup[] => {
     const groups = config.moreActionGroups || [];
 
     const allGroups: IMoreActionGroup[] = [...groups];
@@ -100,13 +106,13 @@ export function useWalletActionConfig() {
     }
 
     return allGroups.toSorted((a, b) => a.order - b.order);
-  };
+  }, [config.moreActionGroups, config.moreActions]);
 
   return {
     config,
     isActionEnabled,
     getActionCustomization,
     getMoreActionGroups,
-    vaultSettings: vaultSettings.result,
+    vaultSettings,
   };
 }

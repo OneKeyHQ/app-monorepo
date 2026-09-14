@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import type { ENotificationPermission } from '@onekeyhq/shared/types/notification';
+
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
@@ -9,6 +11,8 @@ export type INotificationsPersistAtomData = {
   lastRegisterTime: number | undefined;
   maxAccountCount: number | undefined;
   lastSettingsUpdateTime: number | undefined;
+  permissionRecoveryDismissedAt: number | undefined;
+  permissionRecoveryLastPermission: ENotificationPermission | undefined;
   // Alert dismissed states for different history lists
   txHistoryAlertDismissed: boolean | undefined;
   swapHistoryAlertDismissed: boolean | undefined;
@@ -26,6 +30,8 @@ export const {
     lastReceivedTime: undefined,
     lastRegisterTime: undefined,
     lastSettingsUpdateTime: undefined,
+    permissionRecoveryDismissedAt: undefined,
+    permissionRecoveryLastPermission: undefined,
     maxAccountCount: undefined,
     txHistoryAlertDismissed: undefined,
     swapHistoryAlertDismissed: undefined,

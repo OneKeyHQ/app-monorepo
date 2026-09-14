@@ -54,7 +54,6 @@ export const initSentry = () => {
       ...defaultIntegrations.filter(
         (i) => !i.name.toLowerCase().includes('minidump'),
       ),
-      Sentry.anrIntegration({ captureStackTrace: true }),
       Sentry.childProcessIntegration({
         breadcrumbs: [
           'clean-exit',

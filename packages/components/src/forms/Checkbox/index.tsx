@@ -25,7 +25,10 @@ const focusVisibleStyle = {
 
 export type ICheckboxProps = IFormFieldProps<
   ICheckedState,
-  Omit<TMCheckboxProps, 'size' | 'onCheckedChange' | 'checked' | 'value'> & {
+  Omit<
+    TMCheckboxProps,
+    'size' | 'onChange' | 'onCheckedChange' | 'checked' | 'value'
+  > & {
     label?: string;
     description?: string;
     labelProps?: ILabelProps;

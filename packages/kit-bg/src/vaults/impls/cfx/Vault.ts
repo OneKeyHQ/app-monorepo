@@ -506,6 +506,25 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  override async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxCfx | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+    const { to, data, value } = encodedTx;
+
+    return Promise.resolve({
+      encodedTx: {
+        to,
+        data,
+        value,
+      },
+    });
+  }
+
   async _buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxCfx,
   ): Promise<IUnsignedTxPro> {

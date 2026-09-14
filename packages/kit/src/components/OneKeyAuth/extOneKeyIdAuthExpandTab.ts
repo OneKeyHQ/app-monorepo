@@ -1,14 +1,21 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EExtOneKeyIdAuthFlow,
+  EOAuthSocialLoginProvider,
   EXT_ONEKEY_ID_AUTH_FLOW_PARAM,
+  EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM,
   EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EOnboardingPagesV2,
+  type EOnboardingV2OneKeyIDLoginMode,
+} from '@onekeyhq/shared/src/routes/onboardingv2';
 
 export interface IExtOneKeyIdAuthFlowInfo {
   flow: EExtOneKeyIdAuthFlow;
   toOneKeyIdPageOnLoginSuccess?: boolean;
+  provider?: EOAuthSocialLoginProvider;
 }
 
 // Only the extension action popup needs the expand-tab handoff: Chrome
@@ -23,6 +30,7 @@ export function shouldRunOneKeyIdAuthInExtExpandTab(): boolean {
 export async function redirectOneKeyIdAuthToExtExpandTab({
   flow,
   toOneKeyIdPageOnLoginSuccess,
+  provider,
 }: IExtOneKeyIdAuthFlowInfo): Promise<void> {
   const params: Record<string, string> = {
     [EXT_ONEKEY_ID_AUTH_FLOW_PARAM]: flow,
@@ -30,10 +38,30 @@ export async function redirectOneKeyIdAuthToExtExpandTab({
   if (toOneKeyIdPageOnLoginSuccess) {
     params[EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM] = 'true';
   }
+  if (provider) {
+    params[EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM] = provider;
+  }
   // The popup does not need an explicit close: Chrome dismisses it as soon
   // as the newly opened expand tab takes focus.
   await backgroundApiProxy.serviceApp.openExtensionExpandTab({
     path: '/',
+    params,
+  });
+}
+
+export async function redirectKeylessOneKeyIdAuthToExtExpandTab({
+  mode,
+  provider,
+}: {
+  mode: EOnboardingV2OneKeyIDLoginMode;
+  provider?: EOAuthSocialLoginProvider;
+}): Promise<void> {
+  const params: Record<string, string> = { mode };
+  if (provider) {
+    params.provider = provider;
+  }
+  await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+    path: `/onboarding/${EOnboardingPagesV2.OneKeyIDLogin}`,
     params,
   });
 }
@@ -62,10 +90,17 @@ export function consumeExtOneKeyIdAuthFlowFromUrl():
   }
   const toOneKeyIdPageOnLoginSuccess =
     searchParams.get(EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM) === 'true';
+  const providerParam = searchParams.get(EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM);
+  const provider =
+    providerParam === EOAuthSocialLoginProvider.Google ||
+    providerParam === EOAuthSocialLoginProvider.Apple
+      ? providerParam
+      : undefined;
 
   try {
     searchParams.delete(EXT_ONEKEY_ID_AUTH_FLOW_PARAM);
     searchParams.delete(EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM);
+    searchParams.delete(EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM);
     const restQuery = searchParams.toString();
     const newHash = `${hash.slice(0, queryIndex)}${
       restQuery ? `?${restQuery}` : ''
@@ -81,5 +116,5 @@ export function consumeExtOneKeyIdAuthFlowFromUrl():
     // URL cleanup is best-effort only; the flow info is already extracted.
   }
 
-  return { flow, toOneKeyIdPageOnLoginSuccess };
+  return { flow, toOneKeyIdPageOnLoginSuccess, provider };
 }

@@ -4,7 +4,10 @@ import { Empty, type IYStackProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-function EmptyToken(props: IYStackProps) {
+// `title` overrides the default holdings-semantics copy for flows that do not
+// care about holdings (e.g. Receive), keeping the shared illustration and the
+// Android height convention.
+function EmptyToken(props: IYStackProps & { title?: string }) {
   const intl = useIntl();
 
   return (

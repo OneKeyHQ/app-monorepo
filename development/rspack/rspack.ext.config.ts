@@ -6,6 +6,7 @@ import HtmlWebpackPlugin from 'html-webpack-plugin';
 import { merge } from 'webpack-merge';
 
 import {
+  applyExtChannelToEnv,
   isDev,
   isManifestV3,
   nodeEnv,
@@ -40,6 +41,7 @@ const entries = {
 } as const;
 
 interface IReplacementConfig {
+  contentMarker?: string;
   regexToFind: RegExp;
   replacement: string;
 }
@@ -67,14 +69,19 @@ class ChromeExtensionV3ViolationPlugin implements RspackPluginInstance {
                 let changed = false;
 
                 for (const config of this.replaceConfigs) {
-                  config.regexToFind.lastIndex = 0;
-                  if (config.regexToFind.test(content)) {
+                  const matchesContentMarker =
+                    !config.contentMarker ||
+                    content.includes(config.contentMarker);
+                  if (matchesContentMarker) {
                     config.regexToFind.lastIndex = 0;
-                    content = content.replace(
-                      config.regexToFind,
-                      config.replacement,
-                    );
-                    changed = true;
+                    if (config.regexToFind.test(content)) {
+                      config.regexToFind.lastIndex = 0;
+                      content = content.replace(
+                        config.regexToFind,
+                        config.replacement,
+                      );
+                      changed = true;
+                    }
                   }
                 }
 
@@ -116,8 +123,9 @@ function createChromeExtensionV3ViolationPlugin(): RspackPluginInstance {
       replacement: '',
     },
     {
-      regexToFind: /https:\/\/js\.stripe\.com\/v3\//g,
-      replacement: '',
+      contentMarker: 'webpackChunkStripeJSouter',
+      regexToFind: /(\.p\s*=\s*)(["'])https:\/\/js\.stripe\.com\/v3\/\2/g,
+      replacement: '$1$2$2',
     },
   ]);
 }
@@ -253,12 +261,19 @@ function createCompilerConfig({
     swcTargets: getSwcTargets(),
     enableImportMetaCompat: true,
     enableSentryMinimalCompat: true,
+    removeFirstPartyConsole: true,
   });
   removeDefaultHtmlPlugin(baseConfig);
 
   const environmentConfig =
     nodeEnv === 'production'
-      ? createProductionConfig({ platform, basePath })
+      ? createProductionConfig({
+          platform,
+          basePath,
+          // The unsplit background bundle benefits from one extra compression pass.
+          compressPasses:
+            compilerName === compilerNames.background ? 3 : undefined,
+        })
       : createDevelopmentConfig({ basePath });
 
   const config = merge(
@@ -438,6 +453,16 @@ interface IExtConfigOptions {
 export function createExtConfig({
   basePath,
 }: IExtConfigOptions): RspackOptions[] {
+  // Resolve the channel (chrome unless EXT_CHANNEL says otherwise) and publish
+  // it to process.env. Inside the factory rather than at module scope:
+  // development/rspack/index.ts re-exports this module with `export *`, so a
+  // module-scope call would fire for anyone importing anything from that
+  // barrel and set EXT_CHANNEL process-wide on web/desktop builds too. Keeping
+  // it here makes the ext-only guarantee structural. Still earlier than every
+  // consumer -- buildDefineMap, loadBuildTimeEnv and the manifest require all
+  // run inside the three config builders below.
+  applyExtChannelToEnv();
+
   if (!isManifestV3) {
     // Build configuration errors are not application-domain errors.
     // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error

@@ -4,13 +4,17 @@ import { BigNumber } from 'bignumber.js';
 
 import type { IBBOPriceMode } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useActiveTradeInstrumentAtom,
   useBboForOrderPrice,
   useTradingFormOrderPriceParams,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getPerpsMarketDataLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import type { IPerpsActiveAssetCtxMidPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
-import { getTriggerEffectivePrice } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getTriggerEffectivePrice,
+  resolveBboOrderPrice,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -53,7 +57,9 @@ export function calculateOrderPrice(
   executionPrice?: string,
   scaleLowerPrice?: string,
   scaleUpperPrice?: string,
+  szDecimals?: number,
   now = Date.now(),
+  assetType: 'perp' | 'spot' = 'perp',
 ): IUseOrderPriceReturn {
   // Trigger mode: use trigger effective price
   if (orderMode === 'trigger' && triggerOrderType) {
@@ -118,19 +124,7 @@ export function calculateOrderPrice(
     }
 
     const [bid, ask] = bbo.bbo;
-    const { type } = bboPriceMode;
-
-    let targetPrice: string | null = null;
-
-    if (side === 'long') {
-      // Long: Counterparty = Ask (taker, immediate fill), Queue = Bid (maker, wait in queue)
-      targetPrice = type === 'counterparty' ? ask?.px : bid?.px;
-    } else {
-      // Short: Counterparty = Bid (taker, immediate fill), Queue = Ask (maker, wait in queue)
-      targetPrice = type === 'counterparty' ? bid?.px : ask?.px;
-    }
-
-    if (!targetPrice) {
+    if (szDecimals === undefined) {
       return {
         price: new BigNumber(0),
         isValid: false,
@@ -138,12 +132,27 @@ export function calculateOrderPrice(
       };
     }
 
-    const priceBN = new BigNumber(targetPrice);
-    const isValid = priceBN.isFinite() && priceBN.gt(0);
+    const priceBN = resolveBboOrderPrice({
+      bid: bid.px,
+      ask: ask.px,
+      side,
+      type: bboPriceMode.type,
+      offsetTicks: bboPriceMode.offsetTicks,
+      szDecimals,
+      assetType,
+    });
+
+    if (!priceBN) {
+      return {
+        price: new BigNumber(0),
+        isValid: false,
+        error: 'bbo_unavailable',
+      };
+    }
 
     return {
       price: priceBN,
-      isValid,
+      isValid: true,
       error: null,
     };
   }
@@ -170,12 +179,13 @@ export function calculateOrderPrice(
 function useOrderPriceWithMidPrice(
   midPriceBN: BigNumber,
   side?: 'long' | 'short',
+  szDecimals?: number,
+  assetType: 'perp' | 'spot' = 'perp',
 ): IUseOrderPriceReturn {
   const formData = useTradingFormOrderPriceParams();
+  const bboPriceMode = formData.bboPriceMode;
   const shouldTrackBboFreshness =
-    formData.type === 'limit' &&
-    Boolean(formData.bboPriceMode) &&
-    Boolean(side);
+    formData.type === 'limit' && Boolean(bboPriceMode) && Boolean(side);
   const bbo = useBboForOrderPrice(shouldTrackBboFreshness);
   const [, refreshBboFreshness] = useState(0);
   const bboReceivedAt = getPerpsMarketDataLocalReceivedAt(bbo);
@@ -203,7 +213,7 @@ function useOrderPriceWithMidPrice(
   return calculateOrderPrice(
     formData.type,
     formData.price,
-    formData.bboPriceMode,
+    bboPriceMode,
     bbo,
     midPriceBN,
     side,
@@ -213,6 +223,9 @@ function useOrderPriceWithMidPrice(
     formData.executionPrice,
     formData.scaleLowerPrice,
     formData.scaleUpperPrice,
+    szDecimals,
+    undefined,
+    assetType,
   );
 }
 
@@ -220,6 +233,14 @@ export function useOrderPrice(
   side?: 'long' | 'short',
   { priceSource = 'live' }: IUseOrderPriceOptions = {},
 ): IUseOrderPriceReturn {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { midPriceBN } = useTradingPrice({ source: priceSource });
-  return useOrderPriceWithMidPrice(midPriceBN, side);
+  return useOrderPriceWithMidPrice(
+    midPriceBN,
+    side,
+    activeTradeInstrument.mode === 'perp'
+      ? activeTradeInstrument.universe?.szDecimals
+      : activeTradeInstrument.universe?.baseSzDecimals,
+    activeTradeInstrument.mode,
+  );
 }

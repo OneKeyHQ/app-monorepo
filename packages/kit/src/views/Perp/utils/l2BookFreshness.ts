@@ -14,6 +14,11 @@ export type IPerpsL2BookColdCache = Record<
   }
 >;
 
+type IPerpsCachedL2Book = HL.IBook & {
+  localReceivedAt?: number;
+  isCachedSnapshot?: boolean;
+};
+
 type IPerpsL2BookColdCacheGlobal = typeof globalThis & {
   __ONEKEY_PERPS_L2_BOOK_COLD_CACHE__?: IPerpsL2BookColdCache;
 };
@@ -26,6 +31,20 @@ export function getPerpsL2BookColdCacheGlobalSnapshot() {
 export function hasL2BookLevels(bookData: HL.IBook | null | undefined) {
   return Boolean(
     bookData?.levels?.[0]?.length && bookData?.levels?.[1]?.length,
+  );
+}
+
+export function isL2BookForTarget(
+  book: HL.IBook | null | undefined,
+  coin: string,
+  options?: IL2BookOptions,
+) {
+  return (
+    book?.coin === coin &&
+    book.nSigFigs !== undefined &&
+    book.mantissa !== undefined &&
+    (book.nSigFigs ?? null) === (options?.nSigFigs ?? null) &&
+    (book.mantissa ?? null) === (options?.mantissa ?? null)
   );
 }
 
@@ -51,10 +70,14 @@ export function getFreshL2BookSnapshotFromColdCache({
   for (const key of keys) {
     const entry = cache[key];
     if (
-      entry?.data?.coin === coin &&
+      isL2BookForTarget(entry?.data, coin, options) &&
       Date.now() - entry.updatedAt <= maxAgeMs
     ) {
-      return entry.data;
+      return {
+        ...entry.data,
+        localReceivedAt: entry.updatedAt,
+        isCachedSnapshot: true,
+      } as IPerpsCachedL2Book;
     }
   }
   return undefined;
@@ -63,13 +86,15 @@ export function getFreshL2BookSnapshotFromColdCache({
 export function isPerpsL2BookInteractive({
   bookTime,
   bookReceivedAt,
+  isCachedSnapshot,
   now = Date.now(),
 }: {
   bookTime: number | undefined;
   bookReceivedAt?: number;
+  isCachedSnapshot?: boolean;
   now?: number;
 }) {
-  if (!bookTime || !Number.isFinite(bookTime)) {
+  if (isCachedSnapshot || !bookTime || !Number.isFinite(bookTime)) {
     return false;
   }
   const freshnessTime =
@@ -84,13 +109,15 @@ export function isPerpsL2BookInteractive({
 export function getPerpsL2BookInteractiveRefreshDelayMs({
   bookTime,
   bookReceivedAt,
+  isCachedSnapshot,
   now = Date.now(),
 }: {
   bookTime: number | undefined;
   bookReceivedAt?: number;
+  isCachedSnapshot?: boolean;
   now?: number;
 }) {
-  if (!bookTime || !Number.isFinite(bookTime)) {
+  if (isCachedSnapshot || !bookTime || !Number.isFinite(bookTime)) {
     return undefined;
   }
   const freshnessTime =

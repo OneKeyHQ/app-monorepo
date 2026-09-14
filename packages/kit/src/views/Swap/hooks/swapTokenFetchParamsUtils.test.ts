@@ -72,7 +72,7 @@ describe('buildSwapTokenFetchParams', () => {
     });
   });
 
-  it('does not invent account params for all-network requests', () => {
+  it('requests the complete Stock list without inventing all-network account params', () => {
     expect(
       buildSwapTokenFetchParams({
         currentNetworkId: 'onekeyall--0',
@@ -88,6 +88,50 @@ describe('buildSwapTokenFetchParams', () => {
       keywords: '',
       lpToken: undefined,
       currency: 'usd',
+      limit: 200,
     });
+  });
+
+  it('keeps the default limit for non-Stock all-network requests', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentNetworkId: 'onekeyall--0',
+        currentSelectNetworkId: 'onekeyall--0',
+        keywords: '',
+        swapType: ESwapTabSwitchType.SWAP,
+        requestCurrency: 'usd',
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).not.toHaveProperty('limit');
+  });
+
+  it('requests only supported swap tokens for keyword searches', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentNetworkId: 'evm--56',
+        currentSelectNetworkId: 'evm--56',
+        keywords: '苹果',
+        swapType: ESwapTabSwitchType.SWAP,
+        requestCurrency: 'usd',
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).toMatchObject({
+      keywords: '苹果',
+      onlySwapTokens: true,
+    });
+  });
+
+  it('keeps LP token keyword searches unchanged', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentNetworkId: 'evm--56',
+        currentSelectNetworkId: 'evm--56',
+        keywords: 'LP',
+        swapType: ESwapTabSwitchType.SWAP,
+        lpToken: true,
+        requestCurrency: 'usd',
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).not.toHaveProperty('onlySwapTokens');
   });
 });

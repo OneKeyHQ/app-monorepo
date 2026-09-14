@@ -62,7 +62,9 @@ export const ShareContentRenderer = memo(
 
     const imageCount = useMemo(
       () =>
-        1 + (tokenLogoURI ? 1 : 0) + (tokenLogoURI && networkLogoURI ? 1 : 0),
+        // +1: the QR code signals once its lazily-loaded encoder has drawn
+        // the symbol, so a ViewShot capture can't run against an empty code
+        2 + (tokenLogoURI ? 1 : 0) + (tokenLogoURI && networkLogoURI ? 1 : 0),
       [tokenLogoURI, networkLogoURI],
     );
     const loadedCountRef = useRef(0);
@@ -142,7 +144,11 @@ export const ShareContentRenderer = memo(
               py={qr.cellPaddingY}
             >
               <YStack>
-                <QRCode value={address} size={qr.size} />
+                <QRCode
+                  value={address}
+                  size={qr.size}
+                  onRenderReady={handleImageLoaded}
+                />
                 {tokenLogoURI ? (
                   // full-bleed overlay + flex centering: percentage translate
                   // is unreliable on native, so avoid left/top 50% -50% here
@@ -171,6 +177,9 @@ export const ShareContentRenderer = memo(
                           height: qr.logoSize,
                           borderRadius: qr.logoSize / 2,
                         }}
+                        // Android fades images in for 300ms after onLoad;
+                        // ViewShot must never capture mid-fade (OK-58189)
+                        fadeDuration={0}
                         onLoad={() => setIsTokenLogoLoaded(true)}
                         onError={handleImageLoaded}
                       />
@@ -191,6 +200,7 @@ export const ShareContentRenderer = memo(
                               height: qr.networkBadgeIconSize,
                               borderRadius: qr.networkBadgeIconSize / 2,
                             }}
+                            fadeDuration={0}
                             onLoad={handleImageLoaded}
                             onError={handleImageLoaded}
                           />
@@ -247,6 +257,7 @@ export const ShareContentRenderer = memo(
           <Image
             source={{ uri: ONEKEY_LOGO_URL }}
             style={{ width: footer.logoSize, height: footer.logoSize }}
+            fadeDuration={0}
             onLoad={handleImageLoaded}
             onError={handleImageLoaded}
           />

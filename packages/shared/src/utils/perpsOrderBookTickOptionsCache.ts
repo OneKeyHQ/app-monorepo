@@ -23,7 +23,6 @@ export function setPerpsOrderBookTickOptionsCache(
   options: IPerpsOrderBookTickOptionsCache,
 ) {
   swrCacheUtils.set(ORDER_BOOK_TICK_OPTIONS_CACHE_KEY, options);
-  swrCacheUtils.flushNow();
 }
 
 export function getPerpsOrderBookTickOptionsWithCache(

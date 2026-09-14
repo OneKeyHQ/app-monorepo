@@ -25,20 +25,6 @@ class ServiceOneKeyID extends ServiceBase {
     return { success: true };
   }
 
-  // ============ Logout ============
-
-  @backgroundMethod()
-  async logout(): Promise<{ success: boolean }> {
-    // Logout from Prime service
-    try {
-      await this.backgroundApi.servicePrime.apiLogout();
-    } catch {
-      // Ignore errors from Prime logout
-    }
-
-    return { success: true };
-  }
-
   // ============ Check Login Status ============
 
   @backgroundMethod()

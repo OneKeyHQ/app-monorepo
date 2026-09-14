@@ -9,13 +9,28 @@ apply plugin: 'com.google.gms.google-services'
 apply plugin: "io.sentry.android.gradle"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+def repositoryRoot = rootDir.getAbsoluteFile().getParentFile().getParentFile().getParentFile()
+def useDevShell = System.getenv('ONEKEY_DEV_SHELL') == 'true'
+def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
+def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
+def bip39EnglishWordList = new File(repositoryRoot, "node_modules/bip39/src/wordlists/english.json")
+def generatedSentryAssetsDir = file("${buildDir}/generated/assets/onekeySentry/main")
+def easBuildEnv = System.getenv('EAS_BUILD')
+def isEasAndroidBuild =
+    System.getenv('PLATFORM') == 'android' ||
+    (easBuildEnv != null && !easBuildEnv.isEmpty()) ||
+    System.getenv('EAS_BUILD_RUNNER') == 'eas-build'
+def shouldAutoUploadSentryNativeSymbols =
+    System.getenv('SENTRY_DISABLE_AUTO_UPLOAD') != 'true' &&
+    System.getenv('SENTRY_DISABLE_NATIVE_DEBUG_UPLOAD') != 'true'
 
 sentry {
     // Enables or disables the automatic configuration of Native Symbols
     // for Sentry. This executes sentry-cli automatically so
     // you don't need to do it manually.
     // Default is disabled.
-    uploadNativeSymbols = false
+    uploadNativeSymbols = true
+    autoUploadNativeSymbols = shouldAutoUploadSentryNativeSymbols
 
     // Enables or disables the automatic upload of the app's native source code to Sentry.
     // This executes sentry-cli with the --include-sources param automatically so
@@ -41,7 +56,7 @@ sentry {
 react {
     entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", projectRoot, "android", "absolute"].execute(null, rootDir).text.trim())
     reactNativeDir = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
-    hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
+    hermesCommand = new File(["node", "--print", "require.resolve('hermes-compiler/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/hermesc/%OS-BIN%/hermesc"
     codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
     enableBundleCompression = (findProperty('android.enableBundleCompression') ?: false).toBoolean()
 
@@ -130,6 +145,19 @@ static def readRootEnvFile(fileName = ".env") {
     return props
 }
 
+def appEnvConfig = readRootEnvFile()
+// CI writes BUNDLE_VERSION to .env.expo, merge it into appEnvConfig
+def expoEnvConfig = readRootEnvFile('.env.expo')
+expoEnvConfig.each { key, value ->
+    if (value && !value.toString().isEmpty()) {
+        appEnvConfig.setProperty(key.toString(), value.toString())
+    }
+}
+def enableNativeBackgroundThread =
+    defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
+def sentryDsnReactNative =
+    defEnvStr(appEnvConfig, 'SENTRY_DSN_REACT_NATIVE', '')
+
 apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -150,18 +178,11 @@ android {
         // buildConfigField("boolean", "REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS", (findProperty("reactNative.unstable_useRuntimeSchedulerAlways") ?: true).toString())
         buildConfigField("boolean", "NO_FLIPPER", 'true')
         buildConfigField("String", "ANDROID_CHANNEL", "\"" + (System.getenv('ANDROID_CHANNEL') ?: 'direct') + "\"")
-        def appEnvConfig = readRootEnvFile()
-        // CI writes BUNDLE_VERSION to .env.expo, merge it into appEnvConfig
-        def expoEnvConfig = readRootEnvFile('.env.expo')
-        expoEnvConfig.each { key, value ->
-            if (value && !value.toString().isEmpty()) {
-                appEnvConfig.setProperty(key.toString(), value.toString())
-            }
-        }
+        buildConfigField("boolean", "ENABLE_NATIVE_BACKGROUND_THREAD", enableNativeBackgroundThread)
         buildConfigField(
-            "boolean",
-            "ENABLE_NATIVE_BACKGROUND_THREAD",
-            defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
+            "String",
+            "SENTRY_DSN_REACT_NATIVE",
+            groovy.json.JsonOutput.toJson(sentryDsnReactNative),
         )
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
         // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md
@@ -175,7 +196,7 @@ android {
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',
-            BUILTIN_BUNDLE_VERSION: defEnvStr(appEnvConfig, 'BUNDLE_VERSION'),
+            BUILTIN_BUNDLE_VERSION: (useDevShell ? '0' : defEnvStr(appEnvConfig, 'BUNDLE_VERSION')),
         ]
     }
     signingConfigs {
@@ -188,6 +209,13 @@ android {
     }
     buildTypes {
         debug {
+            buildConfigField("boolean", "ONEKEY_DEV_SHELL", useDevShell.toString())
+            buildConfigField("boolean", "ONEKEY_DEV_BG_HMR", useDevBackgroundHmr.toString())
+            buildConfigField(
+                "boolean",
+                "ENABLE_NATIVE_BACKGROUND_THREAD",
+                (useDevShell ? 'true' : enableNativeBackgroundThread),
+            )
             resValue "string", "app_name", "OneKey Dev"
             signingConfig signingConfigs.debug
             ndk {
@@ -234,6 +262,11 @@ android {
         noCompress '.hbc'
     }
 
+    sourceSets {
+        main.assets.srcDir(generatedSentryAssetsDir)
+        debug.assets.srcDir(generatedDevShellAssetsDir)
+    }
+
     // @onekeyfe/react-native-app-update: replace with noop stub for non-prod flavors
     applicationVariants.configureEach { variant ->
         if (variant.flavorName != "prod") {
@@ -243,6 +276,73 @@ android {
             variant.runtimeConfiguration.resolutionStrategy.dependencySubstitution {
                 substitute project(':onekeyfe_react-native-app-update') using project(':app-update-noop')
             }
+        }
+    }
+}
+
+def prepareSentryNativeAssets = tasks.register("prepareSentryNativeAssets") {
+    inputs.file(bip39EnglishWordList)
+    outputs.file(file("${generatedSentryAssetsDir}/onekey-bip39-english.json"))
+
+    doLast {
+        delete(generatedSentryAssetsDir)
+        copy {
+            from(bip39EnglishWordList)
+            into(generatedSentryAssetsDir)
+            rename { "onekey-bip39-english.json" }
+        }
+    }
+}
+
+tasks.matching { it.name.toLowerCase().contains("lintvital") }.configureEach {
+    dependsOn(prepareSentryNativeAssets)
+}
+
+def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
+    inputs.property("onekeyDevShellEnabled", useDevShell)
+    outputs.dir(generatedDevShellAssetsDir)
+    outputs.upToDateWhen { false }
+
+    doLast {
+        delete(generatedDevShellAssetsDir)
+        if (!useDevShell) {
+            return
+        }
+        mkdir(generatedDevShellAssetsDir)
+        exec {
+            workingDir projectRoot
+            commandLine(
+                "node",
+                "scripts/native-dev-shell.js",
+                "contract",
+                "--platform",
+                "android",
+                "--output",
+                file("${generatedDevShellAssetsDir}/onekey-dev-shell-contract.json"),
+            )
+        }
+    }
+}
+
+android.applicationVariants.configureEach { variant ->
+    def targetName = capitalizeVariantName(variant.name)
+    tasks.named("merge${targetName}Assets").configure {
+        dependsOn(prepareSentryNativeAssets)
+    }
+    if (variant.buildType?.name?.equalsIgnoreCase("release")) {
+        variant.preBuildProvider.configure {
+            doFirst {
+                if (isEasAndroidBuild && sentryDsnReactNative.isEmpty()) {
+                    throw new GradleException(
+                        "SENTRY_DSN_REACT_NATIVE is required for EAS release builds",
+                    )
+                }
+            }
+        }
+    }
+    if (variant.buildType?.name?.equalsIgnoreCase("debug")) {
+        tasks.named("merge${targetName}Assets").configure {
+            dependsOn(prepareDevShellDebugAssets)
         }
     }
 }
@@ -558,8 +658,8 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
-    // MMKV — used by RecoveryActivity to clear pending install tasks
-    implementation("io.github.zhongwuzw:mmkv:2.2.4")
+    // Used only by the bg-gated native migration module for durable barriers.
+    implementation("io.github.zhongwuzw:mmkv:2.4.1")
 
     // AndroidX Core SplashScreen - fixes MIUI/HyperOS splash screen crashes
     implementation("androidx.core:core-splashscreen:1.2.0-alpha02")
@@ -614,9 +714,7 @@ dependencies {
     // implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")
     // implementation("com.google.code.gson:gson:2.13.1")
 
-    // add billing sdk, also update AndroidManifest.xml
-    // def billingVersion = 7.1.1
-    // implementation("com.android.billingclient:billing:$billingVersion")
+    // Google Play Billing is provided transitively by react-native-purchases.
 
     // Detox (Android instrumentation tests)
     // Keep this pinned (no '+') to ensure reproducible builds and reduce supply-chain risk.

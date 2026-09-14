@@ -13,6 +13,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -28,6 +30,10 @@ import type {
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type {
+  IPrimeGiftDevice,
+  IPrimeGiftVerifyV2Result,
+} from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
@@ -53,7 +59,173 @@ export type IFirmwareAuthenticateParams = {
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
 
+type FirmwareVerifyPayload = {
+  data: string;
+  dataHex: string;
+};
+
+type IHardwareVerifyV2Data = {
+  sno: string;
+  primeCode?: string;
+  primeCodeStatus?: IPrimeGiftVerifyV2Result['status'];
+};
+
+function getFirmwareVerifyPayload({
+  instanceId,
+}: {
+  instanceId: string;
+}): FirmwareVerifyPayload {
+  // Same challenge as Pro/Classic: wallet splits `data` on '_' and requires
+  // a UUID v4 instanceId. Device gets the UTF-8 bytes; Pro2/Neo firmware
+  // must accept this variable-length message the same way Pro does.
+  const data = `${instanceId}_${Date.now()}_${stringUtils.randomString(12)}`;
+  return {
+    data,
+    dataHex: bufferUtils.textToHex(data, 'utf-8'),
+  };
+}
+
+function buildSkippedFirmwareAuthenticateResult(
+  device: SearchDevice | IDBDevice,
+): IFirmwareVerifyResult {
+  return {
+    verified: false,
+    skipVerification: true,
+    device,
+    payload: {
+      deviceType: device.deviceType,
+      data: '',
+      cert: '',
+      signature: '',
+    },
+    result: {
+      code: 0,
+      message: 'Firmware authentication skipped',
+    },
+  };
+}
+
+function buildSkippedFirmwareHashResult(
+  onekeyFeatures: OnekeyFeatures | undefined,
+): IDeviceVerifyVersionCompareResult {
+  const localVerifyInfos = onekeyFeatures
+    ? deviceUtils.parseLocalDeviceVersions({ onekeyFeatures })
+    : undefined;
+
+  return {
+    certificate: {
+      isMatch: false,
+      format: onekeyFeatures?.onekey_serial_no ?? '',
+    },
+    firmware: {
+      isMatch: false,
+      format: localVerifyInfos?.firmware.formatted ?? '',
+      releaseUrl: localVerifyInfos?.firmware.releaseUrl,
+    },
+    bluetooth: {
+      isMatch: false,
+      format: localVerifyInfos?.bluetooth.formatted ?? '',
+      releaseUrl: localVerifyInfos?.bluetooth.releaseUrl,
+    },
+    bootloader: {
+      isMatch: false,
+      format: localVerifyInfos?.bootloader.formatted ?? '',
+      releaseUrl: localVerifyInfos?.bootloader.releaseUrl,
+    },
+  };
+}
+
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
+  async firmwareAuthenticateForPrimeGift({
+    device,
+    serialNo,
+  }: {
+    device: IPrimeGiftDevice;
+    serialNo: string;
+  }): Promise<IPrimeGiftVerifyV2Result> {
+    if (!device.connectId || !serialNo) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.prime_gift_connect_device__msg,
+        }),
+      );
+    }
+    const connectId = device.connectId;
+    const dbDevice = await localDb.getExistingDevice({
+      rawDeviceId: device.deviceId || '',
+      uuid: serialNo,
+    });
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () => {
+        const payload = await this.getFirmwareVerificationPayload({
+          connectId,
+          deviceType: device.deviceType,
+        });
+        const response = await this.requestFirmwareVerification(payload);
+        const result = response.data;
+        if (response.code !== 0) {
+          throw new OneKeyServerApiError({
+            code: response.code,
+            message: response.message,
+          });
+        }
+        return {
+          code: result?.primeCode,
+          status: result?.primeCodeStatus,
+        };
+      },
+      {
+        deviceParams: dbDevice
+          ? { dbDevice: { ...dbDevice, connectId } }
+          : undefined,
+        hideCheckingDeviceLoading: true,
+        debugMethodName: 'firmwareAuthenticateForPrimeGift',
+      },
+    );
+  }
+
+  private async requestFirmwareVerification(
+    payload: IFirmwareVerifyResult['payload'],
+  ) {
+    const client = await this.serviceHardware.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const response = await client.post<{
+      code: number;
+      message: string;
+      data?: IHardwareVerifyV2Data | null;
+    }>('/wallet/v1/hardware/verify-v2', payload);
+    return response.data;
+  }
+
+  private async getFirmwareVerificationPayload({
+    connectId,
+    deviceType,
+  }: {
+    connectId: string;
+    deviceType: IDeviceType;
+  }): Promise<IFirmwareVerifyResult['payload']> {
+    const { instanceId } = await settingsPersistAtom.get();
+    const { data, dataHex } = getFirmwareVerifyPayload({ instanceId });
+    const { cert, signature } = await this.getDeviceCertWithSig({
+      connectId,
+      dataHex,
+    });
+    await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
+      skipDeviceCancel: true,
+      connectId,
+    });
+    appEventBus.emit(
+      EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+      undefined,
+    );
+    return { deviceType, data, cert, signature };
+  }
+
+  private isFirmwareVerificationEnabled(deviceType?: IDeviceType) {
+    return deviceUtils.isFirmwareVerifySupported(deviceType);
+  }
+
   @backgroundMethod()
   async getDeviceCertWithSig({
     connectId,
@@ -79,9 +251,15 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async shouldAuthenticateFirmware({
     device,
   }: IShouldAuthenticateFirmwareParams) {
+    if (!this.isFirmwareVerificationEnabled(device.deviceType)) {
+      return false;
+    }
+
     const dbDevice: IDBDevice | undefined = await localDb.getExistingDevice({
       rawDeviceId: device.deviceId || '',
-      uuid: device.uuid,
+      uuid:
+        (device as SearchDevice & { serialNo?: string | null }).serialNo ||
+        device.uuid,
     });
     // const versionText = deviceUtils.getDeviceVersionStr(device);
     // return dbDevice?.verifiedAtVersion !== versionText;
@@ -102,6 +280,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     skipDeviceCancel,
   }: IFirmwareAuthenticateParams): Promise<IFirmwareVerifyResult> {
     const { connectId, deviceType } = device;
+    if (!this.isFirmwareVerificationEnabled(deviceType)) {
+      return buildSkippedFirmwareAuthenticateResult(device);
+    }
+
     if (!connectId) {
       throw new OneKeyLocalError(
         'firmwareAuthenticate ERROR: device connectId is undefined',
@@ -109,49 +291,21 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const ts = Date.now();
-        const settings = await settingsPersistAtom.get();
-        const data = `${settings.instanceId}_${ts}_${stringUtils.randomString(
-          12,
-        )}`;
-        const dataHex = bufferUtils.textToHex(data, 'utf-8');
-        const verifySig: DeviceVerifySignature =
-          // call sdk.deviceVerify()
-          await this.getDeviceCertWithSig({
-            connectId,
-            dataHex,
-          });
-        const { cert, signature } = verifySig;
-        // always close dialog only without cancel device
-        await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
-          skipDeviceCancel: true, // firmwareAuthenticate close dialog before api call
+        const payload = await this.getFirmwareVerificationPayload({
           connectId,
-        });
-        appEventBus.emit(
-          EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
-          undefined,
-        );
-        const client = await this.serviceHardware.getClient(
-          EServiceEndpointEnum.Wallet,
-        );
-
-        const payload = {
           deviceType,
-          data,
-          cert,
-          signature,
-        };
-        let result: {
-          code?: number;
-          message?: string;
-        } = {};
+        });
+        let result: NonNullable<IFirmwareVerifyResult['result']> = {};
         try {
-          const resp = await client.post<{
-            message?: string;
-            data?: string;
-            code?: number;
-          }>('/wallet/v1/hardware/verify', payload);
-          result = resp.data;
+          const response = await this.requestFirmwareVerification(payload);
+          const serialNumber = response.data?.sno;
+          // Keep redemption codes inside the background service while preserving
+          // the certificate serial format used by the genuine-check UI.
+          result = {
+            code: response.code,
+            message: response.message,
+            data: typeof serialNumber === 'string' ? serialNumber : undefined,
+          };
         } catch (error) {
           if (
             error instanceof OneKeyServerApiError &&
@@ -165,13 +319,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
             throw error;
           }
         }
-        console.log('firmwareAuthenticate result: ', result, connectId);
-
-        // result.message = 'false';
-
-        // result.data = 'CLA45F0024'; // server return SN
-        // SearchDevice.connectId (web sdk return SN, but ble sdk return uuid)
-
         const verified = result.code === 0;
 
         const dbDevice = device as IDBDevice;
@@ -204,12 +351,13 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   }: {
     features: IOneKeyDeviceFeatures | undefined;
   }) {
-    // onekey_firmware_version
-    // onekey_firmware_hash
-    // onekey_ble_version
-    // onekey_ble_hash
-    // onekey_boot_version
-    // onekey_boot_hash
+    const deviceType = features
+      ? await deviceUtils.getDeviceTypeFromFeatures({ features })
+      : undefined;
+    if (!this.isFirmwareVerificationEnabled(deviceType)) {
+      return false;
+    }
+
     if (!features) {
       return false;
     }
@@ -267,6 +415,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async fetchFirmwareVerifyHash(
     params: IFetchFirmwareVerifyHashParams,
   ): Promise<IFirmwareVerifyInfo[]> {
+    if (!this.isFirmwareVerificationEnabled(params.deviceType)) {
+      return [];
+    }
+
     try {
       return await this.fetchFirmwareVerifyHashWithCache(params);
     } catch {
@@ -313,6 +465,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     deviceType: IDeviceType;
     onekeyFeatures: OnekeyFeatures | undefined;
   }): Promise<IDeviceVerifyVersionCompareResult> {
+    if (!this.isFirmwareVerificationEnabled(deviceType)) {
+      return buildSkippedFirmwareHashResult(onekeyFeatures);
+    }
+
     const defaultResult = {
       certificate: {
         isMatch: true,
@@ -328,8 +484,8 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     }
 
     const verifyVersions =
-      await deviceUtils.getDeviceVerifyVersionsFromFeatures({
-        features: onekeyFeatures,
+      await deviceUtils.getDeviceVerifyVersionsFromRawOnekeyFeatures({
+        onekeyFeatures,
         deviceType,
       });
     if (!verifyVersions) {
@@ -370,7 +526,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     return {
       certificate: {
         isMatch: true,
-        format: onekeyFeatures?.onekey_serial_no ?? '',
+        format: onekeyFeatures.onekey_serial_no ?? '',
       },
       firmware: {
         isMatch: firmwareMatch,

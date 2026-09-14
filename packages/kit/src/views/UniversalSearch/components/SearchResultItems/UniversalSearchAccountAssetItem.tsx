@@ -19,20 +19,26 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IUniversalSearchAccountAssets } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchAccountAssets,
+} from '@onekeyhq/shared/types/search';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 interface IUniversalSearchAccountAssetItemProps {
   item: IUniversalSearchAccountAssets;
   allAggregateTokenMap?: Record<string, { tokens: IAccountToken[] }>;
   getSearchInput: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchAccountAssetItem({
   item,
   allAggregateTokenMap,
   getSearchInput,
+  source,
 }: IUniversalSearchAccountAssetItemProps) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -56,6 +62,7 @@ export function UniversalSearchAccountAssetItem({
 
   const handlePress = useCallback(async () => {
     defaultLogger.universalSearch.search.universalSearchClick({
+      source,
       searchText: getSearchInput(),
       type: item.type,
       itemId: token.address ?? token.symbol ?? '',
@@ -112,6 +119,7 @@ export function UniversalSearchAccountAssetItem({
     getSearchInput,
     item.type,
     navigation,
+    source,
     token,
     universalSearchActions,
   ]);
@@ -155,7 +163,10 @@ export function UniversalSearchAccountAssetItem({
           color="$textSubdued"
           hideValue={hideValue}
         >
-          {tokenFiat?.balanceParsed ?? '0'}
+          {tokenRebaseUtils.applyBalanceMultiplier({
+            amount: tokenFiat?.balanceParsed,
+            balanceMultiplier: tokenFiat?.balanceMultiplier,
+          }) ?? '0'}
         </NumberSizeableTextWrapper>
       </Stack>
       <Stack flexDirection="column" alignItems="flex-end" flexShrink={1}>

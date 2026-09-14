@@ -14,6 +14,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: undefined,
         broadcastTimeMs: NOW - 31 * MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({ id: ETranslations.tx_confirm_slow__desc });
   });
@@ -25,8 +26,62 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: 3,
         broadcastTimeMs: NOW - 45 * MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({ id: ETranslations.tx_confirm_slow__desc });
+  });
+
+  it('never nudges speed-up on chains without replace support (e.g. Solana)', () => {
+    expect(
+      getTxConfirmSubtitle({
+        confirmationETASeconds: undefined,
+        confirmationETABlocks: undefined,
+        broadcastTimeMs: NOW - 31 * MINUTE,
+        nowMs: NOW,
+        canSpeedUp: false,
+      }),
+    ).toEqual({ id: ETranslations.tx_confirm_waiting__desc });
+  });
+
+  it('still drops the misleading ETA past the threshold when speed-up is unavailable', () => {
+    expect(
+      getTxConfirmSubtitle({
+        confirmationETASeconds: 120,
+        confirmationETABlocks: 3,
+        broadcastTimeMs: NOW - 45 * MINUTE,
+        nowMs: NOW,
+        canSpeedUp: false,
+      }),
+    ).toEqual({ id: ETranslations.tx_confirm_waiting__desc });
+  });
+
+  it('stays on the neutral copy past the threshold while capability is unresolved', () => {
+    // canSpeedUp === undefined covers both the in-flight window and a
+    // capability check that errored and will never resolve; neither may
+    // unlock the speed-up nudge.
+    expect(
+      getTxConfirmSubtitle({
+        confirmationETASeconds: undefined,
+        confirmationETABlocks: undefined,
+        broadcastTimeMs: NOW - 31 * MINUTE,
+        nowMs: NOW,
+        canSpeedUp: undefined,
+      }),
+    ).toEqual({ id: ETranslations.tx_confirm_waiting__desc });
+  });
+
+  it('still drops the misleading ETA past the threshold while capability is unresolved', () => {
+    // The ETA is deliberately discarded once the tx counts as slow; an
+    // unresolved capability must not resurrect it.
+    expect(
+      getTxConfirmSubtitle({
+        confirmationETASeconds: 300,
+        confirmationETABlocks: undefined,
+        broadcastTimeMs: NOW - 45 * MINUTE,
+        nowMs: NOW,
+        canSpeedUp: undefined,
+      }),
+    ).toEqual({ id: ETranslations.tx_confirm_waiting__desc });
   });
 
   it('does not flag "slow" exactly at the threshold (strict greater-than)', () => {
@@ -37,6 +92,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: undefined,
         broadcastTimeMs: NOW - 30 * MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({ id: ETranslations.tx_confirm_waiting__desc });
   });
@@ -48,6 +104,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: undefined,
         broadcastTimeMs: undefined,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({
       id: ETranslations.tx_confirm_eta_minutes__desc,
@@ -62,6 +119,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: undefined,
         broadcastTimeMs: NOW - MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({ id: ETranslations.almost_confirmed });
   });
@@ -73,6 +131,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: undefined,
         broadcastTimeMs: NOW - MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({
       id: ETranslations.tx_confirm_eta_minutes__desc,
@@ -88,6 +147,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: undefined,
         broadcastTimeMs: NOW - MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({
       id: ETranslations.tx_confirm_eta_minutes__desc,
@@ -101,6 +161,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: undefined,
         broadcastTimeMs: NOW - MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({
       id: ETranslations.tx_confirm_eta_minutes__desc,
@@ -115,6 +176,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: 2,
         broadcastTimeMs: NOW - MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({
       id: ETranslations.tx_confirm_eta_minutes__desc,
@@ -129,6 +191,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: 2,
         broadcastTimeMs: NOW - MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({
       id: ETranslations.tx_confirm_eta_blocks__desc,
@@ -143,6 +206,7 @@ describe('getTxConfirmSubtitle (OK-56372 §3 priority)', () => {
         confirmationETABlocks: 0,
         broadcastTimeMs: NOW - MINUTE,
         nowMs: NOW,
+        canSpeedUp: true,
       }),
     ).toEqual({ id: ETranslations.tx_confirm_waiting__desc });
   });

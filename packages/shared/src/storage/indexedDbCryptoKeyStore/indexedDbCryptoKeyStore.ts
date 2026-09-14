@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
+import storageChecker from '../../storageChecker/storageChecker';
 import appStorage from '../appStorage';
 
 /**
@@ -63,6 +64,25 @@ function requestToPromise<TResult>(request: IDBRequest<TResult>) {
       resolve(request.result);
     };
   });
+}
+
+/**
+ * Feed an async write failure back into the storage state machine before
+ * rethrowing. These raw paths bypass `IndexedDBTransactionPromised`, which is
+ * what normally reports quota failures, so without this a CryptoKey write that
+ * is the first operation to exhaust storage would surface a low-level error and
+ * leave the guard — and the user-facing diagnostics — untouched.
+ */
+async function reportStorageWriteFailure<T>(
+  run: () => Promise<T>,
+  indexedDBFactory?: IDBFactory | null,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    storageChecker.handleDiskFullError(error, { indexedDBFactory });
+    throw error;
+  }
 }
 
 function transactionDone(transaction: IDBTransaction) {
@@ -201,7 +221,9 @@ async function openCryptoKeyDb({
       });
     }
   };
-  return requestToPromise(request);
+  // Same open-time gap as `IndexedDBPromised`: a full backing store fails the
+  // open itself, before any transaction exists.
+  return reportStorageWriteFailure(() => requestToPromise(request), indexedDB);
 }
 
 export async function readCryptoKeyRecord({
@@ -241,6 +263,10 @@ export async function writeCryptoKeyRecord({
   key: CryptoKey;
   keyRef: string;
 }): Promise<void> {
+  // Raw write path (bypasses IndexedDBPromised): apply the same disk-full
+  // guard contract so it fails fast with the typed error instead of an opaque
+  // aborted transaction. Deletes stay unguarded — they free space.
+  storageChecker.checkIfDiskIsFullSync();
   const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
   try {
     const transaction = db.transaction(
@@ -249,15 +275,19 @@ export async function writeCryptoKeyRecord({
     );
     const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
     const now = Date.now();
-    await requestToPromise(
-      store.put({
-        createdAt: now,
-        id: keyRef,
-        key,
-        updatedAt: now,
-      } satisfies IIndexedDbCryptoKeyRecord),
-    );
-    await transactionDone(transaction);
+    // Pass the factory in use so recovery probes the owner that failed here,
+    // not a previously failed bucket left in the state machine.
+    await reportStorageWriteFailure(async () => {
+      await requestToPromise(
+        store.put({
+          createdAt: now,
+          id: keyRef,
+          key,
+          updatedAt: now,
+        } satisfies IIndexedDbCryptoKeyRecord),
+      );
+      await transactionDone(transaction);
+    }, getIndexedDBInstance(indexedDBInstance));
   } finally {
     db.close();
   }
@@ -324,6 +354,21 @@ export async function getOrCreateCryptoKey({
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
 }): Promise<CryptoKey> {
+  // Returning an already-persisted key consumes no storage, so it must keep
+  // working while the disk-full guard is raised — the sealed-value codec
+  // resolves its device key through here, and blocking it would turn a
+  // readable session into repeated decrypt failures.
+  const existingKeyRecord = await readCryptoKeyRecord({
+    dbName,
+    indexedDBInstance,
+    keyRef,
+  });
+  if (existingKeyRecord?.key) {
+    return existingKeyRecord.key;
+  }
+  // Creating one does consume storage; the readwrite transaction below still
+  // re-checks atomically, so the cross-runtime race safety is unchanged.
+  storageChecker.checkIfDiskIsFullSync();
   const candidateKey = await generateNonExtractableAesGcmKey({ cryptoGlobal });
   const db = await openCryptoKeyDb({ dbName, indexedDBInstance });
   try {
@@ -340,15 +385,18 @@ export async function getOrCreateCryptoKey({
       return existingRecord.key;
     }
     const now = Date.now();
-    await requestToPromise(
-      store.put({
-        createdAt: now,
-        id: keyRef,
-        key: candidateKey,
-        updatedAt: now,
-      } satisfies IIndexedDbCryptoKeyRecord),
-    );
-    await transactionDone(transaction);
+    // Same owner-recording contract as writeCryptoKeyRecord above.
+    await reportStorageWriteFailure(async () => {
+      await requestToPromise(
+        store.put({
+          createdAt: now,
+          id: keyRef,
+          key: candidateKey,
+          updatedAt: now,
+        } satisfies IIndexedDbCryptoKeyRecord),
+      );
+      await transactionDone(transaction);
+    }, getIndexedDBInstance(indexedDBInstance));
     return candidateKey;
   } finally {
     db.close();

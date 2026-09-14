@@ -4,6 +4,7 @@
 */
 
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +13,6 @@ import type {
   IKeyOfIcons,
   ISizableTextProps,
   IXStackProps,
-  SizeTokens,
 } from '@onekeyhq/components';
 import {
   Badge,
@@ -31,9 +31,10 @@ import { useAccountData } from '../../hooks/useAccountData';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
+import { type ITokenSize, TOKEN_SIZE_MAP } from './tokenSize';
+
 import type { ImageURISource } from 'react-native';
 
-type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
 export type ITokenProps = {
   isNFT?: boolean;
   fallbackIcon?: IKeyOfIcons;
@@ -43,25 +44,11 @@ export type ITokenProps = {
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   showNetworkIconBorder?: boolean;
+  cornerBadge?: ReactNode;
+  showCornerBadgeBorder?: boolean;
   networkId?: string;
   isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
-
-const sizeMap: Record<
-  ITokenSize,
-  {
-    tokenImageSize: SizeTokens;
-    chainImageSize: SizeTokens;
-    fallbackIconSize: SizeTokens;
-  }
-> = {
-  xl: { tokenImageSize: '$12', chainImageSize: '$5', fallbackIconSize: '$8' },
-  lg: { tokenImageSize: '$10', chainImageSize: '$4', fallbackIconSize: '$7' },
-  md: { tokenImageSize: '$8', chainImageSize: '$4', fallbackIconSize: '$6' },
-  sm: { tokenImageSize: '$6', chainImageSize: '$3', fallbackIconSize: '$6' },
-  xs: { tokenImageSize: '$5', chainImageSize: '$2.5', fallbackIconSize: '$5' },
-  xxs: { tokenImageSize: '$4', chainImageSize: '$2', fallbackIconSize: '$4' },
-};
 
 export function Token({
   isNFT,
@@ -72,14 +59,16 @@ export function Token({
   networkId,
   showNetworkIcon,
   showNetworkIconBorder = true,
+  cornerBadge,
+  showCornerBadgeBorder = true,
   fallbackIcon,
   isAggregateToken,
   bg: bgProp,
   ...rest
 }: ITokenProps) {
   const { tokenImageSize, chainImageSize, fallbackIconSize } = size
-    ? sizeMap[size]
-    : sizeMap.lg;
+    ? TOKEN_SIZE_MAP[size]
+    : TOKEN_SIZE_MAP.lg;
 
   const themeVariant = useThemeVariant();
 
@@ -124,7 +113,7 @@ export function Token({
     [borderRadius, tokenImageSize, fallbackIconSize, fallbackIconName],
   );
 
-  const skeletonElement = useMemo(
+  const placeholderElement = useMemo(
     () => (
       <Skeleton
         w={rest.w ?? tokenImageSize}
@@ -142,7 +131,7 @@ export function Token({
     borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
     borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,
     fallback: fallbackElement,
-    skeleton: skeletonElement,
+    placeholder: placeholderElement,
     ...rest,
   };
 
@@ -156,43 +145,65 @@ export function Token({
       <Image source={source} {...sharedImageProps} />
     );
 
-  if (networkImageUri) {
-    return (
-      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
-        {tokenImage}
-        <Stack
-          position="absolute"
-          right="$-1"
-          bottom="$-1"
-          p={showNetworkIconBorder ? '$0.5' : '$0'}
-          bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
-          borderRadius="$full"
-        >
-          <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
-        </Stack>
+  let overlay: ReactNode = null;
+  if (cornerBadge) {
+    overlay = (
+      <Stack
+        position="absolute"
+        right="$-1"
+        bottom="$-1"
+        p={showCornerBadgeBorder ? '$0.5' : '$0'}
+        bg={showCornerBadgeBorder ? '$bgApp' : '$transparent'}
+        borderRadius="$full"
+      >
+        {cornerBadge}
+      </Stack>
+    );
+  } else if (networkImageUri) {
+    overlay = (
+      <Stack
+        position="absolute"
+        right="$-1"
+        bottom="$-1"
+        p={showNetworkIconBorder ? '$0.5' : '$0'}
+        bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+        borderRadius="$full"
+      >
+        <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
+      </Stack>
+    );
+  } else if (showNetworkIcon && networkId) {
+    overlay = (
+      <Stack
+        position="absolute"
+        right="$-1"
+        bottom="$-1"
+        p={showNetworkIconBorder ? '$0.5' : '$0'}
+        bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+        borderRadius="$full"
+      >
+        <NetworkAvatar networkId={networkId} size={chainImageSize} />
       </Stack>
     );
   }
 
-  if (showNetworkIcon && networkId) {
-    return (
-      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
-        {tokenImage}
-        <Stack
-          position="absolute"
-          right="$-1"
-          bottom="$-1"
-          p={showNetworkIconBorder ? '$0.5' : '$0'}
-          bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
-          borderRadius="$full"
-        >
-          <NetworkAvatar networkId={networkId} size={chainImageSize} />
-        </Stack>
-      </Stack>
-    );
-  }
-
-  return tokenImage;
+  // Always render the same wrapper element regardless of whether an overlay is
+  // present. Callers often resolve the network logo asynchronously, and if the
+  // root element type changed from <Image> to <Stack> once it arrived, React
+  // would unmount and reload the token image — visible as an icon flash on
+  // platforms without a synchronous image cache (Android). The wrapper only
+  // takes an explicit size when it has to anchor an overlay, so plain tokens
+  // keep hugging the image exactly as before.
+  return (
+    <Stack
+      position="relative"
+      width={overlay ? tokenImageSize : undefined}
+      height={overlay ? tokenImageSize : undefined}
+    >
+      {tokenImage}
+      {overlay}
+    </Stack>
+  );
 }
 
 export function TokenName({

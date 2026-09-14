@@ -1,5 +1,5 @@
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
-import { flatten, groupBy, isEqual, uniqBy } from 'lodash';
+import { flatten, groupBy, isEqual, keyBy, uniqBy } from 'lodash';
 import semver from 'semver';
 
 import {
@@ -12,10 +12,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  getListedNetworkMap,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_BTC,
   IMPL_EVM,
@@ -46,6 +43,7 @@ import {
   buildAggregateTokenListMapKeyForTokenList,
   buildAggregateTokenMapKeyForAggregateConfig,
   buildHomeDefaultTokenMapKey,
+  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EHardwareTransportType,
@@ -77,6 +75,7 @@ import {
 } from '../states/jotai/atoms';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import {
+  inscriptionProtectionControlPersistAtom,
   settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -96,6 +95,19 @@ export type IAccountDerivationConfigItem = {
   icon?: string;
   defaultNetworkId: string;
 };
+
+const INSCRIPTION_PROTECTION_SETTING_KEY = 'BTC_INSCRIPTION_PROTECTION_ENABLED';
+
+function parseInscriptionProtectionServerEnabled(
+  value: string,
+): boolean | undefined {
+  try {
+    const parsed = JSON.parse(value) as { value?: unknown };
+    return typeof parsed?.value === 'boolean' ? parsed.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
@@ -269,6 +281,11 @@ class ServiceSetting extends ServiceBase {
     await currencyPersistAtom.set({
       currencyMap,
     });
+    // Lazy import keeps the reconcile helper out of the native background
+    // startup graph (Startup Graph Budget check).
+    const { reconcileCurrencyInfoSymbolSnapshot } =
+      await import('./utils/currencySymbolSyncUtils');
+    await reconcileCurrencyInfoSymbolSnapshot({ currencyMap });
   }
 
   @backgroundMethod()
@@ -291,6 +308,7 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
     if (values.tokenAndNFT) {
       // clear token and nft
@@ -344,6 +362,17 @@ class ServiceSetting extends ServiceBase {
     if (values.serverNetworks) {
       await this.backgroundApi.simpleDb.serverNetwork.clearRawData();
       await this.backgroundApi.simpleDb.recentNetworks.clearRawData();
+    }
+    if (values.perpsData) {
+      // Recovery exit for a perp record IndexedDB can no longer read. Runtime
+      // cache first so in-flight fetches cannot write stale data back.
+      await this.backgroundApi.serviceWebviewPerp.clearPerpsDepositTokenListRuntimeCache();
+      await this.backgroundApi.simpleDb.perp.clearRawData();
+    }
+    // This is an account-level logout and intentionally runs after the pure
+    // cache operations so a failure cannot prevent the selected cache clears.
+    if (values.oneKeyId) {
+      await this.backgroundApi.servicePrime.clearOneKeyIdLocalAuthCache();
     }
     defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
@@ -489,6 +518,57 @@ class ServiceSetting extends ServiceBase {
     }
   }
 
+  private _fetchInscriptionProtectionControl = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key: INSCRIPTION_PROTECTION_SETTING_KEY,
+        },
+      });
+      const matched = response.data.data.find(
+        (item) => item.key === INSCRIPTION_PROTECTION_SETTING_KEY,
+      );
+      const serverEnabled = matched
+        ? parseInscriptionProtectionServerEnabled(matched.value)
+        : undefined;
+      if (serverEnabled === undefined) {
+        throw new OneKeyLocalError(
+          'Invalid inscription protection control response',
+        );
+      }
+      await inscriptionProtectionControlPersistAtom.set(() => ({
+        enabled: serverEnabled,
+      }));
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async fetchInscriptionProtectionControl({
+    forceRefresh,
+  }: {
+    forceRefresh?: boolean;
+  } = {}) {
+    if (forceRefresh) {
+      void this._fetchInscriptionProtectionControl.clear();
+    }
+    try {
+      await this._fetchInscriptionProtectionControl();
+    } catch (error) {
+      void this._fetchInscriptionProtectionControl.clear();
+      defaultLogger.setting.page.consoleError(
+        'fetchInscriptionProtectionControl error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+    }
+  }
+
   private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
     if (platformEnv.isDesktop) {
       void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
@@ -588,6 +668,42 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setInscriptionProtection(enabled: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      inscriptionProtection: enabled,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getInscriptionProtectionServerEnabled() {
+    const { enabled } = await inscriptionProtectionControlPersistAtom.get();
+    return enabled;
+  }
+
+  @backgroundMethod()
+  public async getEffectiveInscriptionProtection({
+    networkId,
+    accountId,
+    mergeDeriveAssetsEnabled,
+  }: {
+    networkId: string;
+    accountId: string;
+    mergeDeriveAssetsEnabled?: boolean;
+  }) {
+    const [settings, control, accountEligible] = await Promise.all([
+      settingsPersistAtom.get(),
+      inscriptionProtectionControlPersistAtom.get(),
+      this.checkInscriptionProtectionEnabled({
+        networkId,
+        accountId,
+        mergeDeriveAssetsEnabled,
+      }),
+    ]);
+    return accountEligible && settings.inscriptionProtection && control.enabled;
+  }
+
+  @backgroundMethod()
   public async isShowFloatingButton() {
     const { isFloatingIconAlwaysDisplay } = await settingsPersistAtom.get();
     return isFloatingIconAlwaysDisplay ?? false;
@@ -682,9 +798,13 @@ class ServiceSetting extends ServiceBase {
   public async setHardwareTransportType(
     hardwareTransportType: EHardwareTransportType,
   ) {
+    const nextHardwareTransportType =
+      deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
-      hardwareTransportType,
+      hardwareTransportType: nextHardwareTransportType,
     }));
   }
 
@@ -692,7 +812,9 @@ class ServiceSetting extends ServiceBase {
   public async getHardwareTransportType(): Promise<EHardwareTransportType> {
     const { hardwareTransportType } = await settingsPersistAtom.get();
     if (hardwareTransportType) {
-      return hardwareTransportType;
+      return deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     }
     return deviceUtils.getDefaultHardwareTransportType();
   }
@@ -732,7 +854,7 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async getEnableDesktopBluetooth() {
     const { enableDesktopBluetooth } = await settingsPersistAtom.get();
-    return enableDesktopBluetooth ?? false;
+    return enableDesktopBluetooth ?? true;
   }
 
   @backgroundMethod()
@@ -761,6 +883,14 @@ class ServiceSetting extends ServiceBase {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       enableMenuBarTray: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setHapticFeedbackEnabled(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      hapticFeedbackEnabled: value,
     }));
   }
 
@@ -866,7 +996,16 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async syncWalletConfig() {
     await this.abortFetchWalletConfig();
-    const resp = await this.fetchWalletConfig();
+    // Aggregate members are gated on the merged network registry below, which
+    // includes server-delivered networks only once their cache has been filled.
+    // On a fresh install getServerNetworks returns an empty cache and refreshes
+    // it in the background, so without waiting here the first sync would drop
+    // every server-chain member and persist that incomplete map until the
+    // config TTL expires.
+    const [resp] = await Promise.all([
+      this.fetchWalletConfig(),
+      this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched(),
+    ]);
 
     if (!resp) {
       return;
@@ -889,7 +1028,17 @@ class ServiceSetting extends ServiceBase {
     const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
     const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
     const aggregateTokenSymbolMap: Record<string, boolean> = {};
-    const listedNetworkMap = getListedNetworkMap();
+    // Aggregate members may live on server-delivered chains (e.g. Robinhood)
+    // that are not part of presetNetworks, so gate on the merged network
+    // registry instead of the preset-only listed map: presets keep their
+    // preset status, server networks their server status, delisted (TRASH)
+    // networks are already dropped and user custom RPC networks are excluded.
+    const { networks: eligibleNetworks } =
+      await this.backgroundApi.serviceNetwork.getAllNetworks({
+        excludeCustomNetwork: true,
+        excludeAllNetworkItem: true,
+      });
+    const eligibleNetworkMap = keyBy(eligibleNetworks, 'id');
     homeDefaults.forEach((homeDefault) => {
       homeDefaultTokenMap[
         buildHomeDefaultTokenMapKey({
@@ -901,7 +1050,7 @@ class ServiceSetting extends ServiceBase {
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
         const filteredData = uniqBy(
-          data.filter((token) => !!listedNetworkMap[token.networkId]),
+          data.filter((token) => !!eligibleNetworkMap[token.networkId]),
           (token) => token.networkId,
         );
 
@@ -965,6 +1114,14 @@ class ServiceSetting extends ServiceBase {
       },
     );
 
+    // The server array is not guaranteed to follow `order` (prod USDG arrives
+    // as Ethereum, Robinhood, X Layer, Solana with orders 3, 1, 2, 4) and the
+    // Receive search flatten keeps array order, so sort members once here.
+    // Members without `order` sink to the end.
+    Object.values(allAggregateTokenMap).forEach((group) => {
+      group.tokens = sortTokensByOrder({ tokens: group.tokens });
+    });
+
     const allAggregateTokens: IAccountToken[] = Object.keys(
       allAggregateTokenMap,
     ).map((key) => {
@@ -990,6 +1147,11 @@ class ServiceSetting extends ServiceBase {
         homeDefaultTokenMap,
         allAggregateTokenMap,
         aggregateTokenSymbolMap,
+        configSyncMeta: {
+          appVersion: platformEnv.version ?? '',
+          bundleVersion: platformEnv.bundleVersion ?? '',
+          syncedAt: Date.now(),
+        },
       }),
       this.backgroundApi.simpleDb.approval.updateApprovalResurfaceDaysConfig({
         approvalResurfaceDays,
@@ -998,6 +1160,40 @@ class ServiceSetting extends ServiceBase {
     ]);
 
     return aggregateTokenConfigMap;
+  }
+
+  _syncWalletConfigIfNeededPromise: Promise<void> | undefined;
+
+  @backgroundMethod()
+  public async syncWalletConfigIfNeeded() {
+    if (this._syncWalletConfigIfNeededPromise) {
+      return this._syncWalletConfigIfNeededPromise;
+    }
+    this._syncWalletConfigIfNeededPromise = (async () => {
+      const rawData =
+        await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+      const configSyncMeta = rawData?.configSyncMeta;
+      const appVersion = platformEnv.version ?? '';
+      const bundleVersion = platformEnv.bundleVersion ?? '';
+      // Re-sync when the config has never been synced, when the app or
+      // hot-update bundle version changed (the bundled preset network list may
+      // differ, leaving stale networks in the cached aggregate-token maps), or
+      // when the cache is older than the TTL. Hot updates keep
+      // platformEnv.version, so bundleVersion is what tells them apart.
+      const shouldSync =
+        !rawData?.aggregateTokenConfigMap ||
+        !configSyncMeta ||
+        configSyncMeta.appVersion !== appVersion ||
+        (configSyncMeta.bundleVersion ?? '') !== bundleVersion ||
+        Date.now() - configSyncMeta.syncedAt >
+          timerUtils.getTimeDurationMs({ day: 1 });
+      if (shouldSync) {
+        await this.syncWalletConfig();
+      }
+    })().finally(() => {
+      this._syncWalletConfigIfNeededPromise = undefined;
+    });
+    return this._syncWalletConfigIfNeededPromise;
   }
 
   @backgroundMethod()

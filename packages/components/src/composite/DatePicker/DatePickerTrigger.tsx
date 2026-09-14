@@ -80,6 +80,7 @@ export const DatePickerTrigger = memo(
     placeholder,
     disabled,
     onClear,
+    size = 'small',
   }: IDatePickerTriggerProps) => {
     const intl = useIntl();
     const displayValue = useMemo(
@@ -127,7 +128,7 @@ export const DatePickerTrigger = memo(
         disabled={disabled}
         placeholder={placeholder || displayValue}
         readonly
-        size="small"
+        size={size}
         addOns={addOns}
       />
     );

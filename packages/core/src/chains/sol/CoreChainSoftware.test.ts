@@ -1,7 +1,7 @@
 import base58 from 'bs58';
 
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
 
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
@@ -107,9 +107,44 @@ describe('SOL Core tests', () => {
       txSamples,
     });
   });
-  it.skip('signMessage', async () => {
-    // const coreApi = new CoreChainHd();
-    // coreApi.signMessage
-    throw new NotImplemented();
+  it('signMessage version 1 offchain message', async () => {
+    const coreApi = new CoreChainHd();
+    const address = hdAccounts[0].address;
+    await coreTestsUtils.expectSignMessageOk({
+      coreApi,
+      networkInfo,
+      account: hdAccounts[0],
+      hdCredential,
+      msgSamples: [
+        {
+          unsignedMsg: {
+            type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+            message: 'Sign in to app.example',
+            payload: { version: 1, requiredSigners: [address] },
+          },
+          // Signature over the bytes the spec produces, cross-checked with tweetnacl.
+          signedMsg:
+            'VzKjTNrysKTQcDaCKBxEamRzgsK8ASg9XiuJqoGuPqvfG5Cz4m1H2cCSHMpM9DwKAmQ8LaovRAae5jNxhjvKGzX',
+        },
+      ],
+    });
+  });
+
+  it('signMessage refuses a version 1 message that does not require this account', async () => {
+    const coreApi = new CoreChainHd();
+    const other = '11111111111111111111111111111112';
+    await expect(
+      coreApi.signMessage({
+        networkInfo,
+        password: hdCredential.password,
+        credentials: { hd: hdCredential.hdCredentialHex },
+        account: hdAccounts[0],
+        unsignedMsg: {
+          type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+          message: 'Sign in to app.example',
+          payload: { version: 1, requiredSigners: [other] },
+        },
+      }),
+    ).rejects.toThrow('signer is not one of requiredSigners');
   });
 });

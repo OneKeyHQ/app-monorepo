@@ -27,7 +27,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
 
   override enableCache = false;
 
-  updateCode(params: Partial<IReferralCodeData>) {
+  async updateCode(params: Partial<IReferralCodeData>) {
     return this.setRawData(
       (rawData) =>
         ({
@@ -37,7 +37,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     );
   }
 
-  updatePostConfig(params: IInvitePostConfig) {
+  async updatePostConfig(params: IInvitePostConfig) {
     return this.setRawData(
       (rawData) =>
         ({

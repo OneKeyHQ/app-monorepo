@@ -10,16 +10,16 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import {
-  type ITradingViewDisabledFeature,
-  TRADING_VIEW_DISABLED_FEATURES,
-  TradingViewV2,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import {
   TradingViewChartSettings,
   TradingViewIndicatorSettings,
   createTradingViewChartSettingsValue,
   createTradingViewIndicatorSettingsValue,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/chartSettings';
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import {
+  type ITradingViewDisabledFeature,
+  TRADING_VIEW_DISABLED_FEATURES,
+  TradingViewV2,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 

@@ -24,9 +24,8 @@ export function HardwareSalesReward({
     <Card.Container flex={1}>
       <Card.Title
         icon="OnekeyLiteOutline"
-        title={hardwareSales.title}
-        description={intl.formatMessage({
-          id: ETranslations.referral_hw_sales_desc,
+        title={intl.formatMessage({
+          id: ETranslations.referral_referred_type_3,
         })}
         onPress={toHardwareSalesRewardPage}
       />

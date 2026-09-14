@@ -42,10 +42,6 @@ type IParams = {
   // vaultSettings.isNativeTokenContractAddressEmpty is true). Non-empty for
   // ERC20-style contracts.
   tokenAddress: string;
-  // Global inscription-protection setting. Part of the spendable-balance
-  // contract, so it must be both an input to the fetch and part of the cache
-  // key — otherwise toggling it mid-flow keeps serving stale sibling balances.
-  inscriptionProtection: boolean;
 };
 
 // Fetches the available balance of the same token under every other deriveType
@@ -65,27 +61,33 @@ export function useSiblingDeriveBalances({
   networkId,
   indexedAccountId,
   tokenAddress,
-  inscriptionProtection,
 }: IParams) {
   const cacheRef = useRef<ICache | null>(null);
 
-  const cacheKey = `${networkId}|${indexedAccountId}|${tokenAddress}|${inscriptionProtection}`;
+  const baseCacheKey = `${networkId}|${indexedAccountId}|${tokenAddress}`;
 
   const fetch = useCallback(async (): Promise<ISiblingDeriveBalancesResult> => {
     if (!networkId || !indexedAccountId) {
       return { siblings: [], hadError: false };
     }
 
-    const cache = cacheRef.current;
-    if (
-      cache &&
-      cache.key === cacheKey &&
-      Date.now() - cache.fetchedAt < CACHE_TTL_MS
-    ) {
-      return { siblings: cache.data, hadError: false };
-    }
-
     try {
+      const [localProtectionEnabled, serverProtectionEnabled] =
+        await Promise.all([
+          backgroundApiProxy.serviceSetting.getInscriptionProtection(),
+          backgroundApiProxy.serviceSetting.getInscriptionProtectionServerEnabled(),
+        ]);
+      const cacheKey = `${baseCacheKey}|${localProtectionEnabled}|${serverProtectionEnabled}`;
+
+      const cache = cacheRef.current;
+      if (
+        cache &&
+        cache.key === cacheKey &&
+        Date.now() - cache.fetchedAt < CACHE_TTL_MS
+      ) {
+        return { siblings: cache.data, hadError: false };
+      }
+
       const { networkAccounts } =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
           {
@@ -103,15 +105,13 @@ export function useSiblingDeriveBalances({
           const account = item.account;
           if (!account) return null;
           try {
-            const checkInscriptionProtectionEnabled =
-              await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+            const withCheckInscription =
+              await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
                 {
                   networkId,
                   accountId: account.id,
                 },
               );
-            const withCheckInscription =
-              checkInscriptionProtectionEnabled && inscriptionProtection;
 
             const resp =
               await backgroundApiProxy.serviceToken.fetchTokensDetails({
@@ -157,13 +157,7 @@ export function useSiblingDeriveBalances({
     } catch {
       return { siblings: [], hadError: true };
     }
-  }, [
-    cacheKey,
-    networkId,
-    indexedAccountId,
-    tokenAddress,
-    inscriptionProtection,
-  ]);
+  }, [baseCacheKey, networkId, indexedAccountId, tokenAddress]);
 
   return { fetch };
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Alert, BackHandler } from 'react-native';
@@ -13,6 +13,10 @@ import type {
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
+import {
+  releaseFirmwareUpdateWorkflowPage,
+  retainFirmwareUpdateWorkflowPage,
+} from '../firmwareUpdateWorkflowLifetime';
 
 import { useFirmwareUpdateActions } from './useFirmwareUpdateActions';
 
@@ -25,6 +29,7 @@ export function useModalExitPrevent({
   onConfirm,
   onConfirmText,
   onCancelText,
+  shouldRemoveOnConfirm = true,
 }: {
   title: string;
   message: string;
@@ -32,6 +37,7 @@ export function useModalExitPrevent({
   onConfirm?: () => void;
   onConfirmText?: string;
   onCancelText?: string;
+  shouldRemoveOnConfirm?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -59,7 +65,9 @@ export function useModalExitPrevent({
           onConfirmText ||
           intl.formatMessage({ id: ETranslations.global_quit }),
         onConfirm: () => {
-          navigation.dispatch(data.action);
+          if (shouldRemoveOnConfirm) {
+            navigation.dispatch(data.action);
+          }
           onConfirm?.();
         },
         onCancelText:
@@ -70,7 +78,16 @@ export function useModalExitPrevent({
         },
       });
     },
-    [message, navigation, title, intl, onConfirm, onConfirmText, onCancelText],
+    [
+      message,
+      navigation,
+      title,
+      intl,
+      onConfirm,
+      onConfirmText,
+      onCancelText,
+      shouldRemoveOnConfirm,
+    ],
   );
   usePreventRemove(shouldPreventRemove, navPreventRemoveCallback);
 }
@@ -139,6 +156,22 @@ export function useAppExitPrevent({
 
   // Prevent Desktop exit
   // TODO
+}
+
+export function useFirmwareUpdateWorkflowLifetime({
+  onReallyLeave,
+}: {
+  onReallyLeave?: () => void | Promise<void>;
+} = {}) {
+  const onReallyLeaveRef = useRef(onReallyLeave);
+  onReallyLeaveRef.current = onReallyLeave;
+
+  useEffect(() => {
+    retainFirmwareUpdateWorkflowPage();
+    return () => {
+      releaseFirmwareUpdateWorkflowPage(() => onReallyLeaveRef.current?.());
+    };
+  }, []);
 }
 
 export function useExtensionUpdatingFromExpandTab() {

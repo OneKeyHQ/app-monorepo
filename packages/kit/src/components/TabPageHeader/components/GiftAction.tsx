@@ -1,34 +1,55 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import type { IButtonProps } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ActivityHubAction } from '@onekeyhq/kit/src/components/ActivityHub/ActivityHubAction';
+import { useShowEarnInviteeReward } from '@onekeyhq/kit/src/views/Earn/components/InviteeReward/hooks/useShowEarnInviteeReward';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useReferFriends } from '../../../hooks/useReferFriends';
-
-export function GiftAction({
-  source = 'Earn',
+function EarnActivityHubAction({
   size = 'medium',
   copyAsUrl = false,
 }: {
-  source?: 'Earn' | 'Perps';
   size?: IButtonProps['size'];
   copyAsUrl?: boolean;
 }) {
-  const { shareReferRewards } = useReferFriends();
-  const handleShareReferRewards = useCallback(() => {
-    void shareReferRewards(undefined, undefined, source, copyAsUrl);
-  }, [shareReferRewards, source, copyAsUrl]);
-  const intl = useIntl();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
+  const { showEarnInviteeReward } = useShowEarnInviteeReward();
+  const handleOpenInviteeReward = useCallback(() => {
+    showEarnInviteeReward();
+  }, [showEarnInviteeReward]);
+
   return (
-    <HeaderIconButton
-      testID="header-gift-action"
-      title={intl.formatMessage({ id: ETranslations.referral_title })}
-      icon="GiftOutline"
+    <ActivityHubAction
+      source="Earn"
       size={size}
-      onPress={handleShareReferRewards}
+      copyAsUrl={copyAsUrl}
+      open={isTravelMode ? false : undefined}
+      triggerProps={{ disabled: isTravelMode }}
+      onOpenInviteeReward={handleOpenInviteeReward}
     />
+  );
+}
+
+export function GiftAction({
+  size = 'medium',
+  copyAsUrl = false,
+}: {
+  size?: IButtonProps['size'];
+  copyAsUrl?: boolean;
+}) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <EarnActivityHubAction size={size} copyAsUrl={copyAsUrl} />
+    </AccountSelectorProviderMirror>
   );
 }

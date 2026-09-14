@@ -1,3 +1,5 @@
+import '@onekeyhq/shared/src/polyfills/polyfillsExtContentScript';
+
 import { shouldInject } from '../content-script/shouldInject';
 
 if (shouldInject()) {

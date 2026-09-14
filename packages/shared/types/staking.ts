@@ -536,6 +536,7 @@ export type IProtocolInfo = {
   approve?: {
     allowance?: string;
     approveType: EApproveType;
+    approveAsset?: string;
     approveTarget: string;
   };
   approveAsset?: string;
@@ -562,7 +563,7 @@ export type IProtocolInfo = {
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
-  // Max repay balance (debt balance) for repay max button
+  // Max repay input balance. Repay-all debt semantics use debtBalance.
   maxRepayBalance?: string;
   // Debt balance for collateral repay (from debt field in manage page response)
   debtBalance?: string;
@@ -570,6 +571,8 @@ export type IProtocolInfo = {
   needsSetupLut?: boolean;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
+  // Borrow delegation allowance returned by Aave borrow manage-page.
+  borrowAllowance?: string;
   receiptTokenRate?: string;
   morphoTokenRate?: string;
 };
@@ -582,6 +585,13 @@ export interface IEarnToken {
   logoURI: string;
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
+
   totalSupply: string;
   riskLevel: number;
   coingeckoId: string;
@@ -617,7 +627,9 @@ export interface ISubscriptionAction {
 }
 
 interface IEarnBadge {
-  badgeType: 'success' | 'warning';
+  // Mirrors the server's EBadgeColor. 'danger' has no Badge variant on the
+  // client and maps onto 'critical' at the render site.
+  badgeType: 'default' | 'success' | 'info' | 'warning' | 'critical' | 'danger';
   badgeSize: 'sm' | 'lg';
   text: {
     text: string;
@@ -817,6 +829,14 @@ export interface IEarnPopupActionIcon {
       title: IEarnText;
       description: IEarnText;
     }[];
+    /**
+     * Mobile Yield sheet header. Labels come from the server so this surface
+     * needs no new generated i18n keys on the client.
+     */
+    yieldSummary?: {
+      totalApy: { title: IEarnText; description: IEarnText };
+      campaignEnd?: { title: IEarnText; endTime: number };
+    };
     items?: {
       icon?: IEarnIcon;
       token?: {
@@ -825,6 +845,20 @@ export interface IEarnPopupActionIcon {
       };
       title: IEarnText;
       value: string;
+      /**
+       * Mobile Yield sheet only. `rate` is a percentage number string ('3.52'),
+       * matching the unit `value` is rendered in — not a ratio. `yieldToken` is
+       * deliberately separate from `token`: the wide-screen popup renders
+       * `token`, so writing into it would change that surface too.
+       */
+      kind?: 'base' | 'reward' | 'campaign' | 'fee';
+      rate?: string;
+      color?: string;
+      yieldToken?: {
+        info: IEarnToken;
+        price: string;
+      };
+      yieldTitle?: IEarnText;
     }[];
     platformBonusInfos?: {
       title: IEarnText;
@@ -839,6 +873,18 @@ export interface IEarnLinkActionIcon {
   data: {
     link: string;
     showIntercom?: boolean;
+  };
+  icon?: IEarnIcon;
+  disabled?: boolean;
+  text?: IEarnText;
+}
+
+/** Puts data.text on the clipboard, e.g. a contract address the cell shows
+ * shortened (OK-62922). */
+export interface IEarnCopyActionIcon {
+  type: 'copy';
+  data: {
+    text: string;
   };
   icon?: IEarnIcon;
   disabled?: boolean;
@@ -877,7 +923,7 @@ export interface IEarnRewardClaimItem {
   title: IEarnText;
   description?: IEarnText;
   token: IEarnRewardTokenSummary;
-  button: IEarnRewardClaimButton;
+  button?: IEarnRewardClaimButton;
 }
 
 export interface IEarnRewardClaimGroup {
@@ -897,8 +943,9 @@ export interface IEarnBorrowUnclaimableReward {
 }
 
 export interface IEarnRewardsDetail {
-  claimable: IEarnRewardClaimGroup[];
-  unclaimable: IEarnBorrowUnclaimableReward[];
+  claimable?: IEarnRewardClaimGroup[] | null;
+  unclaimable?: IEarnBorrowUnclaimableReward[] | null;
+  button?: IEarnRewardClaimButton;
 }
 
 export interface IEarnRewardsDetailsData {
@@ -1118,6 +1165,7 @@ export interface IBorrowOnekeyBonusAction {
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
+  | IEarnCopyActionIcon
   | IEarnClaimActionIcon
   | IEarnHistoryActionIcon
   | IEarnPortfolioActionIcon
@@ -1392,6 +1440,7 @@ export interface IEarnManagePageResponse {
   approve?: {
     allowance?: string;
     approveType?: string;
+    approveAsset?: string;
     approveTarget?: string;
   };
   approveAsset?: string;
@@ -1463,7 +1512,24 @@ export interface IEarnRiskNoticeDialog {
   checkboxes: IEarnText[];
 }
 
+/** Promo banner above the vault detail page. Configured in the back office
+ * (Earn -> Banner, placement "detail") and matched per provider/network/vault. */
+export interface IEarnDetailPageBanner {
+  bannerId: string;
+  /** the banner's own light/dark preference; the app follows its own theme and
+   * ignores this, kept so the field is not silently dropped */
+  theme?: string;
+  icon: string;
+  title: string;
+  description?: string;
+  /** campaign end, ms. The countdown next to the title is computed client-side */
+  endTime: number;
+  href: string;
+  hrefType: 'external' | 'internal';
+}
+
 export interface IStakeEarnDetail {
+  activityBanner?: IEarnDetailPageBanner;
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;
@@ -1493,6 +1559,49 @@ export interface IStakeEarnDetail {
   protocol?: IProtocolInfo;
   withdrawApprove?: IEarnWithdrawApproveInfo;
   protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
+  /**
+   * Phone-only Portfolio tab read model. Grouped by whether the user has to
+   * claim, not by where the reward came from.
+   */
+  mobilePortfolio?: {
+    asOf: number;
+    capabilities: {
+      portfolio: boolean;
+      rewardBreakdown: boolean;
+      claim: boolean;
+      redeem: boolean;
+    };
+    hasPosition: boolean;
+    summary?: { items: IEarnGridItem[] };
+    groups: {
+      // Two sections per design; the reward stage lives on the row instead of
+      // splitting rewards into one section per stage.
+      key: 'balance' | 'rewards';
+      title: IEarnText;
+      items: (Omit<
+        NonNullable<IStakeEarnDetail['portfolios']>['items'][0],
+        'badge'
+      > & {
+        // Optional here, unlike the wide-layout portfolio row: only the reward
+        // stages the user cannot act on carry one.
+        badge?: IEarnBadge;
+        status?: 'claimable' | 'pending' | 'distributed';
+        /** the balance row the page's Redeem action applies to */
+        redeemable?: boolean;
+        txHash?: string;
+        distributedAt?: number;
+        availableAt?: number;
+      })[];
+    }[];
+  };
+  /**
+   * Phone-only Info tab blocks. `intro` stays untouched because desktop, web
+   * and iPad all render it; this is a separate additive copy.
+   */
+  mobileInfo?: {
+    productInfo?: { title: IEarnText; items: IEarnGridItem[] };
+    tokenInfo?: { title: IEarnText; items: IEarnGridItem[] };
+  };
   countDownAlert?: {
     title?: IEarnText;
     description: IEarnText;
@@ -1576,6 +1685,15 @@ export interface IStakeEarnDetail {
     title: IEarnText;
     items: IEarnFAQItem[];
   };
+  // 协议 Tips (OK-58972，dashboard 配置)：数组序即展示序；
+  // 单条直显无 View All；多条外显 showDefault 那条（无则第一条）
+  protocolTips?: {
+    tips: {
+      title: IEarnText;
+      description: IEarnText;
+      showDefault?: boolean;
+    }[];
+  };
   extras?: {
     title: IEarnText;
     items: IEarnGridItem[];
@@ -1625,6 +1743,9 @@ export interface IEarnProvider {
 export type IEarnTransactionTip = {
   type: string;
   text: IEarnText;
+  // Optional second line rendered below `text` (e.g. Spark liquidity-request
+  // banner: title on `text`, subtitle on `description`).
+  description?: IEarnText;
   button?: IEarnActionIcon;
 };
 
@@ -1640,6 +1761,14 @@ export interface IStakeTransactionConfirmation {
     tooltip?: IEarnTooltip;
   }>;
   receive?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
+  };
+  // Server-driven "Available liquidity" row (e.g. Bitway withdraw: instant
+  // withdrawal is capped by the flash pool balance; amounts above it must go
+  // through the queued path). Rendered like `receive` when present.
+  availableLiquidity?: {
     title: IEarnText;
     description: IEarnText;
     tooltip?: IEarnTooltip;
@@ -1754,7 +1883,21 @@ export enum EBorrowActionsEnum {
   Repay = 'repay',
 }
 
+export enum EBorrowProviderEnum {
+  Kamino = 'kamino',
+  Aave = 'aave',
+}
+
 export type IStakeProtocolListItem = {
+  // In the full-list (no symbol) case the server tags each row with its symbol (6.6.0+)
+  symbol?: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
+
   provider: IStakeProviderInfo & {
     group: EStakeProtocolGroupEnum;
     category?: string | null;
@@ -1855,6 +1998,12 @@ export interface IEarnAccountToken {
   networkId: string;
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   aprWithoutFee: string;
   profit: string;
@@ -1902,6 +2051,12 @@ export type IAvailableAsset = IEarnAvailableAsset & {
 export type IRecommendAsset = {
   name: string;
   symbol: string;
+  /**
+   * Server-supplied display relabel of `symbol`. Absent for almost every
+   * token. Render it via earnUtils.getDisplaySymbol; never use it as a
+   * lookup key, request param or route segment.
+   */
+  displaySymbol?: string;
   logoURI: string;
   protocols: Array<{
     networkId: string;
@@ -2104,11 +2259,19 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
   };
 };
 
+export type IEarnPortfolioClaimSymbolStatus =
+  | 'matched'
+  | 'ambiguous'
+  | 'unmatched';
+
 export type IEarnPortfolioAirdropAsset =
   IEarnAirdropInvestmentItemV2['assets'][number] & {
     // Metadata containing protocol and network information for this airdrop asset
     metadata: {
-      protocol: IEarnAirdropInvestmentItemV2['protocol'];
+      protocol: IEarnAirdropInvestmentItemV2['protocol'] & {
+        claimSymbol?: string;
+        claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
+      };
       network: IEarnAirdropInvestmentItemV2['network'];
     };
   };
@@ -2285,9 +2448,16 @@ export type IStakeBlockRegionResponse =
       countryCode: string;
     };
 
+/** Second chart line color: a protocol-owned reward is blue, anything that
+ * includes a platform campaign is orange. Resolved by the server. */
+export type IExtraApyKind = 'campaign' | 'reward';
+
 export interface IApyHistoryItem {
   apy: string;
   timestamp: number;
+  /** campaign boost + protocol reward APYs, summed; absent when there is none */
+  extraApy?: string;
+  extraApyKind?: IExtraApyKind;
 }
 
 export type IBorrowApyHistoryItem = IApyHistoryItem;
@@ -2369,7 +2539,7 @@ export interface IBorrowAsset {
     logoURI: string;
   };
   canBeCollateral?: boolean;
-  balance: {
+  balance?: {
     title: IEarnText;
     description: IEarnText;
   };
@@ -2379,10 +2549,10 @@ export interface IBorrowAsset {
   // Optional: the repay-action asset-list omits `supplied` (only the
   // withdraw/supply lists carry it), so callers must guard before deref.
   supplied?: IBorrowBalance;
-  apyDetail: IBorrowApy;
+  apyDetail?: IBorrowApy;
   platformBonusApy?: {
     title: IEarnText;
-    logoURI: string;
+    logoURI?: string;
   };
 }
 
@@ -2480,6 +2650,9 @@ export interface IBorrowReserveItem {
       suppliedAmount: IBorrowBalance;
       liquidationLtv?: string;
       canBeCollateral?: boolean;
+      // Current on-chain state: position counted as collateral right now.
+      // Absent ⇒ provider unsupported (e.g. Kamino) — the collateral Switch is not rendered.
+      usageAsCollateral?: boolean;
       withdrawButton: IEarnWithdrawActionData;
       platformBonusApy?: {
         title: IEarnText;
@@ -2721,6 +2894,7 @@ export interface IBorrowTransactionConfirmation {
   };
   apyDetail?: IBorrowApy;
   canBeCollateral?: boolean;
+  usageAsCollateral?: boolean;
   refundableFee?: {
     title: IEarnText;
     description: IEarnText;
@@ -2766,6 +2940,61 @@ export interface IBorrowTransactionConfirmation {
 export interface IBorrowUnsignedTransaction {
   tx: string;
   orderId?: string;
+}
+
+export interface IBorrowEModeAsset {
+  reserveAddress: string;
+  token: IToken;
+  boostedLTV: boolean;
+  borrowable: boolean;
+}
+
+export interface IBorrowEModeCategory {
+  eModeId: number;
+  label: string;
+  ltv: string; // boosted LTV, e.g. "93"
+  liquidationThreshold?: string; // e.g. "95"; backend may omit on older markets
+  disabled: boolean;
+  // Optional: backend may report whether each category is switchable. Absent →
+  // the client treats a non-disabled row as optimistically switchable and
+  // resolves the real state via switch-check on tap.
+  canSwitch?: boolean;
+  assets: IBorrowEModeAsset[];
+}
+
+export interface IBorrowEModeStatus {
+  eModeId: number; // 0 = normal mode
+  originalLtv: string;
+  categories: IBorrowEModeCategory[];
+}
+
+export interface IBorrowEModeBlockerAsset {
+  reserveAddress: string;
+  token: IToken;
+  supplied?: { title: IEarnText; description?: IEarnText; number: string };
+  borrowed?: { title: IEarnText; description?: IEarnText; number: string };
+}
+
+// collateral/debt carry title+description; maxLtv/healthFactor carry title only.
+// Reuse the existing confirmation row shapes instead of new parallel types.
+export type IBorrowEModeConfirmRow = NonNullable<
+  IBorrowTransactionConfirmation['mySupply']
+>;
+export type IBorrowEModeHfRow = NonNullable<
+  IBorrowTransactionConfirmation['healthFactor']
+>;
+
+export interface IBorrowEModeSwitchCheck {
+  canSwitch: boolean;
+  reasons: string[];
+  disableCollateralAssets?: IBorrowEModeBlockerAsset[];
+  repayAssets?: IBorrowEModeBlockerAsset[];
+  additionalRepayAssets?: IBorrowEModeBlockerAsset[];
+  additionalRepayFiatValue?: string; // server-formatted fiat total, e.g. "< $0.01"
+  collateral: IBorrowEModeConfirmRow;
+  debt: IBorrowEModeConfirmRow;
+  maxLtv: IBorrowEModeHfRow;
+  healthFactor: IBorrowEModeHfRow;
 }
 
 export type IBorrowManagePage = IEarnManagePageResponse;

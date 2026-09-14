@@ -22,6 +22,7 @@ import {
   LogLevel,
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
+import { assertRuntimePolyfillsReady } from '@onekeyhq/shared/src/polyfills/runtimeCapabilities';
 
 import { getRuntimeKind } from './runtimeInfo';
 import {
@@ -622,6 +623,7 @@ function installLoadBundleAsyncOverride(
 export function installProdBundleLoader(
   loader: ISplitBundleNativeLoader,
 ): void {
+  assertRuntimePolyfillsReady();
   setNativeLoader(loader);
   installLoadBundleAsyncOverride(
     globalThis as ILoadBundleAsyncGlobal,

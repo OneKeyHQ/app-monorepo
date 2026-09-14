@@ -7,7 +7,10 @@ import {
 } from '@onekeyhq/components';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { buildMarketFullUrlV2 } from '../../../marketUtils';
+import {
+  buildMarketFullUrlV2,
+  buildMarketStockFullUrlV2,
+} from '../../../marketUtils';
 
 interface IShareButtonProps {
   networkId: string;
@@ -15,6 +18,9 @@ interface IShareButtonProps {
   isNative?: boolean;
   size?: string;
   useIconButton?: boolean;
+  // Stock detail pages live under their own route, so sharing has to point at
+  // the listing instead of the chain/contract pair of the wrapping token.
+  stockId?: string;
 }
 
 export function ShareButton({
@@ -23,10 +29,16 @@ export function ShareButton({
   isNative,
   size,
   useIconButton,
+  stockId,
 }: IShareButtonProps) {
   const { shareText } = useShare();
 
   const handleShare = async () => {
+    if (stockId) {
+      void shareText(buildMarketStockFullUrlV2({ stockId }));
+      return;
+    }
+
     // Convert full networkId back to shortcode for URL
     const shortCode =
       networkUtils.getNetworkShortCode({ networkId }) || networkId;

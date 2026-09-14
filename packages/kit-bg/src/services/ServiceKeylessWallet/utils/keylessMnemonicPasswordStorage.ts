@@ -1,3 +1,6 @@
+import { ESecretEncryptPayloadFormat } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import { PBKDF2_CURRENT_NUM_OF_ITERATIONS } from '@onekeyhq/shared/src/appCrypto/consts';
+import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { KeylessDataCorruptedError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -7,6 +10,10 @@ import { buildKeylessLocalEncryptionKeyWithPassword } from './keylessLocalEncryp
 import keylessStorageUtils from './keylessStorageUtils';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
+
+// sensitiveEncodeKey is persisted with local app data, so the low-entropy app
+// passcode still requires the full password-hardening KDF.
+const KEYLESS_LOCAL_ENCRYPTION_ITERATIONS = PBKDF2_CURRENT_NUM_OF_ITERATIONS;
 
 async function saveMnemonicPasswordToStorageWithPassword(params: {
   ownerId: string;
@@ -20,6 +27,9 @@ async function saveMnemonicPasswordToStorageWithPassword(params: {
   const encryptionKey = await buildKeylessLocalEncryptionKeyWithPassword({
     password,
   });
+  // Derivation finishes before appStorage starts its write, so WebCrypto does
+  // not run inside an IndexedDB transaction callback.
+  const kdfParams = getPbkdf2KdfParamsForNonDbTx();
 
   const encryptedPayloadHex = await backgroundApi.servicePassword.encryptString(
     {
@@ -27,6 +37,9 @@ async function saveMnemonicPasswordToStorageWithPassword(params: {
       data: mnemonicPassword,
       dataEncoding: 'utf8',
       allowRawPassword: true,
+      format: ESecretEncryptPayloadFormat.v2,
+      iterations: KEYLESS_LOCAL_ENCRYPTION_ITERATIONS,
+      ...kdfParams,
     },
   );
 
@@ -54,6 +67,7 @@ async function getMnemonicPasswordFromStorageWithPassword(params: {
   const decryptionKey = await buildKeylessLocalEncryptionKeyWithPassword({
     password,
   });
+  const kdfParams = getPbkdf2KdfParamsForNonDbTx();
 
   try {
     const mnemonicPassword = await backgroundApi.servicePassword.decryptString({
@@ -62,6 +76,7 @@ async function getMnemonicPasswordFromStorageWithPassword(params: {
       dataEncoding: 'base64',
       resultEncoding: 'utf8',
       allowRawPassword: true,
+      ...kdfParams,
     });
     return mnemonicPassword;
   } catch (_error) {
@@ -80,6 +95,7 @@ async function getMnemonicPasswordFromStorageWithPassword(params: {
  * NOTE: This function requires `password` parameter. Caller is responsible for
  * obtaining the password via promptPasswordVerify() before calling this function.
  * This design prevents multiple password prompts when saving multiple items in a transaction.
+ * Here transaction means the application workflow, not an IndexedDB callback.
  */
 async function saveMnemonicPasswordToStorage(params: {
   ownerId: string;
@@ -103,6 +119,7 @@ async function saveMnemonicPasswordToStorage(params: {
  * NOTE: This function requires `password` parameter. Caller is responsible for
  * obtaining the password via promptPasswordVerify() before calling this function.
  * This design prevents multiple password prompts when getting multiple items in a transaction.
+ * Here transaction means the application workflow, not an IndexedDB callback.
  */
 async function getMnemonicPasswordFromStorage(params: {
   ownerId: string;

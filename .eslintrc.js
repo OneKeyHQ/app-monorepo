@@ -142,6 +142,14 @@ const jsRules = {
 };
 const restrictedImportsPatterns = [
   {
+    group: [
+      '@react-native-async-storage/async-storage',
+      '@react-native-async-storage/async-storage/**',
+    ],
+    message:
+      'Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned.',
+  },
+  {
     allowTypeImports: true,
     group: ['@onekeyfe/hd-core'],
     message: 'using `const {} = await CoreSDKLoader()` instead',
@@ -313,6 +321,9 @@ const resolveExtensions = (platform) =>
 
 module.exports = {
   root: true,
+  // Added by the Storybook upgrade CLI (eslintPlugin auto-migration): activates
+  // eslint-plugin-storybook's own overrides for *.stories.* files only.
+  extends: ['plugin:storybook/recommended'],
   plugins: [
     'import-path',
     'use-effect-no-deps',

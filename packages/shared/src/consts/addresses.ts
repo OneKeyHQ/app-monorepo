@@ -31,6 +31,8 @@ export const BinanceSmartChainLISTA =
 export const BinanceSmartChainSlisBNBx =
   '0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B';
 export const BaseUSDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+// Vault Bridge USDC on Katana (evm--747474)
+export const KatanaVbUSDC = '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36';
 export const BaseUniBTC = '0x93919784C523f39CACaa98Ee0a9d96c3F32b593e';
 export const SuiUSDC =
   '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
@@ -51,6 +53,10 @@ export const MorphoUSDCVaultAddress =
 
 export const MorphoBaseBundlerContract =
   '0xb98c948cfa24072e58935bc004a8a7b376ae746a';
+// Morpho GeneralAdapter on Katana (permit spender), mirrors the Base contract.
+// https://docs.morpho.org/addresses/#bundlers
+export const MorphoKatanaBundlerContract =
+  '0x916aa175c36e845db45ff6ddb886ae437d403b61';
 export const PangolinsBaseUSDCVaultAddress =
   '0x1401d1271C47648AC70cBcdfA3776D4A87CE006B';
 export const SolanaUSDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';

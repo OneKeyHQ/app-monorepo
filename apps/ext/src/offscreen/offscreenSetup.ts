@@ -9,9 +9,22 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
-export function offscreenSetup() {
+let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+
+const createOffscreenBridge = () => {
   const offscreenBridge = bridgeSetup.offscreen.createOffscreenJsBridge({
-    onPortConnect() {},
+    onPortConnect(port) {
+      port.onDisconnect.addListener(() => {
+        if (reconnectTimer) {
+          return;
+        }
+        reconnectTimer = setTimeout(() => {
+          reconnectTimer = undefined;
+          appGlobals.extJsBridgeOffscreenToBg =
+            createOffscreenBridge() as unknown as JsBridgeBase;
+        }, 100);
+      });
+    },
     async receiveHandler(payload, bridge) {
       const msg = payload.data as IOffscreenApiMessagePayload | undefined;
       if (msg && msg.type === OFFSCREEN_API_MESSAGE_TYPE) {
@@ -21,6 +34,12 @@ export function offscreenSetup() {
       }
     },
   });
+
+  return offscreenBridge;
+};
+
+export function offscreenSetup() {
+  const offscreenBridge = createOffscreenBridge();
 
   appGlobals.extJsBridgeOffscreenToBg =
     offscreenBridge as unknown as JsBridgeBase;

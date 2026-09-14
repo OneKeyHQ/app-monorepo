@@ -1,3 +1,6 @@
+import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
+
 import networkUtils from './networkUtils';
 
 // Estimated seconds until an incoming transfer is safely confirmed
@@ -122,7 +125,6 @@ export function resolveReceiveArrivalSeconds({
   return null;
 }
 
-// TODO(i18n): unit suffixes are hard-coded pending i18n keys
 export function formatReceiveArrivalTime({
   seconds,
 }: {
@@ -136,13 +138,22 @@ export function formatReceiveArrivalTime({
     return undefined;
   }
   if (seconds < 60) {
-    return `~${Math.ceil(seconds)} s`;
+    return appLocale.intl.formatMessage(
+      { id: ETranslations.receive_arrival_time_sec },
+      { number: Math.ceil(seconds) },
+    );
   }
   const minutes = Math.ceil(seconds / 60);
   if (minutes > 60) {
-    return '> 60 min';
+    return appLocale.intl.formatMessage(
+      { id: ETranslations.receive_arrival_time_over_min },
+      { number: 60 },
+    );
   }
-  return `~${minutes} min`;
+  return appLocale.intl.formatMessage(
+    { id: ETranslations.receive_arrival_time_min },
+    { number: minutes },
+  );
 }
 
 export function getReceiveArrivalTimeText(params: {

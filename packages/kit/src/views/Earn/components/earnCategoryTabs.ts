@@ -43,3 +43,30 @@ export function buildEarnAvailableAssetCategoryTabs(
     title: getEarnAvailableAssetCategoryTitle(intl, type),
   }));
 }
+
+/**
+ * Flat home sections on mobile (OK-58506):
+ *  - Trending tokens (SimpleEarn; Staking assets are merged into this section)
+ *  - Fixed income
+ * No standalone Staked section. The desktop TabView / search dialog still
+ * use buildEarnAvailableAssetCategoryTabs and are unaffected.
+ */
+export function buildEarnHomeFlatSections(
+  intl: Pick<IntlShape, 'formatMessage'>,
+): IEarnAvailableAssetCategoryTab[] {
+  return [
+    {
+      type: EAvailableAssetsTypeEnum.SimpleEarn,
+      title: intl.formatMessage({
+        id: ETranslations.trending_tokens__title,
+      }),
+    },
+    {
+      type: EAvailableAssetsTypeEnum.FixedRate,
+      title: getEarnAvailableAssetCategoryTitle(
+        intl,
+        EAvailableAssetsTypeEnum.FixedRate,
+      ),
+    },
+  ];
+}

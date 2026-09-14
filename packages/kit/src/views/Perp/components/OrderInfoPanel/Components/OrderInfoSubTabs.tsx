@@ -1,10 +1,15 @@
+import type { ComponentProps } from 'react';
+
 import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
+
+import { PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT } from '../utils/tableLayout';
 
 function OrderInfoSubTabs<T extends string>({
   tabs,
   activeTab,
   onChange,
   variant: _variant = 'underline',
+  leftInset,
 }: {
   tabs: {
     key: T;
@@ -13,8 +18,10 @@ function OrderInfoSubTabs<T extends string>({
   activeTab: T;
   onChange: (tab: T) => void;
   variant?: 'pill' | 'underline';
+  leftInset?: ComponentProps<typeof XStack>['pl'];
 }) {
   const isPillVariant = _variant === 'pill';
+  const resolvedLeftInset = leftInset ?? (isPillVariant ? '$2' : '$5');
 
   return (
     <XStack mt={isPillVariant ? '$2' : undefined}>
@@ -29,7 +36,7 @@ function OrderInfoSubTabs<T extends string>({
       >
         <XStack
           minWidth={isPillVariant ? undefined : '100%'}
-          pl={isPillVariant ? '$2' : '$5'}
+          pl={resolvedLeftInset}
           pr={isPillVariant ? '$4' : '$5'}
           py={isPillVariant ? '$1.5' : '$0'}
           gap={isPillVariant ? '$2' : '$5'}
@@ -47,7 +54,11 @@ function OrderInfoSubTabs<T extends string>({
             return (
               <YStack
                 key={tab.key}
-                h={isPillVariant ? undefined : 36}
+                h={
+                  isPillVariant
+                    ? undefined
+                    : PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT - 1
+                }
                 px={isPillVariant ? '$2' : '$0'}
                 py={isPillVariant ? '$1' : '$0'}
                 onPress={() => onChange(tab.key)}

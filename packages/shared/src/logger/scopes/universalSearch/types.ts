@@ -1,3 +1,4 @@
+import type { EUniversalSearchSource } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 const searchTypeTrackingNameMap: Record<EUniversalSearchType, string> = {
@@ -16,6 +17,10 @@ export function getSearchTypeTrackingName(type: EUniversalSearchType): string {
 
 export interface IUniversalSearchParams {
   /**
+   * Business page where the search modal was opened
+   */
+  source: EUniversalSearchSource;
+  /**
    * The search text entered by the user
    */
   searchText: string;
@@ -30,6 +35,7 @@ export interface IUniversalSearchParams {
 }
 
 export interface ISearchResultClickParams {
+  source: EUniversalSearchSource;
   searchText: string;
   type: EUniversalSearchType;
   itemId: string;

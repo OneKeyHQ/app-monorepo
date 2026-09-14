@@ -1,11 +1,13 @@
 import {
   buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter,
   buildLocalSecretEnvelopeAadV1,
+  buildLocalSecretEnvelopeAesGcmLayerAdapter,
   deleteIndexedDbCryptoKeyForLocalSecretEnvelope,
   isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
   parseLocalSecretEnvelopeV1,
   readIndexedDbCryptoKeyForLocalSecretEnvelope,
   unwrapLocalSecretEnvelopeV1,
+  upgradeLocalSecretEnvelopeLayerTopologyV1,
   wrapLocalSecretEnvelopeV1,
 } from '.';
 
@@ -130,6 +132,83 @@ describe('buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter', () => {
     ).rejects.toThrow();
   });
 
+  it('keeps the original CryptoKey usable when adding a secure-storage layer', async () => {
+    const { adapter, dbName, indexedDBInstance } = buildAdapter();
+    const secureStorageRecords = new Map<string, string>();
+    const secureStorageAdapter = buildLocalSecretEnvelopeAesGcmLayerAdapter({
+      capabilities: {
+        extractable: 'unknown',
+        keyAccess: 'raw-key-readable',
+        sync: 'unknown',
+      },
+      keyRef: 'test:lse:secure-storage:global-key',
+      keyStorage: {
+        getItem: async (keyRef) => secureStorageRecords.get(keyRef) ?? null,
+        getOrCreateItem: async (keyRef, createKeyHex) => {
+          const existing = secureStorageRecords.get(keyRef);
+          if (existing) {
+            return existing;
+          }
+          const created = createKeyHex();
+          secureStorageRecords.set(keyRef, created);
+          return created;
+        },
+        setItem: async (keyRef, keyHex) => {
+          secureStorageRecords.set(keyRef, keyHex);
+        },
+      },
+      kind: 'secure-storage',
+      randomBytes: buildDeterministicRandomBytes(),
+    });
+    const originalPlaintext = '|RP|old-current-kdf-payload';
+    const nextPlaintext = '|RP|new-current-kdf-payload';
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: originalPlaintext,
+      recordId: 'hd-1',
+      strength: 'profile-bound',
+    });
+    const original = parseLocalSecretEnvelopeV1(originalEnvelope);
+
+    const upgradedEnvelope = await upgradeLocalSecretEnvelopeLayerTopologyV1({
+      envelope: originalEnvelope,
+      layerAdapters: [adapter, secureStorageAdapter],
+      plaintext: nextPlaintext,
+      strength: 'secure-storage-bound',
+    });
+    const upgraded = parseLocalSecretEnvelopeV1(upgradedEnvelope);
+
+    expect(upgraded.wrappingLayers[0].keyRef).toBe(
+      original.wrappingLayers[0].keyRef,
+    );
+    await expect(
+      readIndexedDbCryptoKeyForLocalSecretEnvelope({
+        dbName,
+        indexedDBInstance,
+        keyRef: original.wrappingLayers[0].keyRef,
+      }),
+    ).resolves.toBeDefined();
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: originalEnvelope,
+        resolveLayerAdapter: () => adapter,
+      }),
+    ).resolves.toBe(originalPlaintext);
+    const adaptersByKind = new Map(
+      [adapter, secureStorageAdapter].map((layerAdapter) => [
+        layerAdapter.kind,
+        layerAdapter,
+      ]),
+    );
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: upgradedEnvelope,
+        resolveLayerAdapter: (layer) => adaptersByKind.get(layer.kind),
+      }),
+    ).resolves.toBe(nextPlaintext);
+  });
+
   it('throws retryable unavailable after the IndexedDB CryptoKey is deleted', async () => {
     const { adapter, dbName, indexedDBInstance } = buildAdapter();
     const envelope = await wrapLocalSecretEnvelopeV1({
@@ -166,6 +245,55 @@ describe('buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter', () => {
     await expect(unwrapPromise).rejects.not.toThrow(
       /^test:lse:indexeddb-cryptokey:/,
     );
+  });
+
+  it('uses an independent CryptoKey for each envelope', async () => {
+    const { adapter, dbName, indexedDBInstance } = buildAdapter();
+    const firstEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|HLP|first-agent',
+      recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
+      strength: 'profile-bound',
+    });
+    const secondEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|HLP|second-agent',
+      recordId: 'hyperliquid-agent--0x2--OneKeyAgent1',
+      strength: 'profile-bound',
+    });
+    const firstKeyRef =
+      parseLocalSecretEnvelopeV1(firstEnvelope).wrappingLayers[0].keyRef;
+    const secondKeyRef =
+      parseLocalSecretEnvelopeV1(secondEnvelope).wrappingLayers[0].keyRef;
+
+    expect(firstKeyRef).not.toBe(secondKeyRef);
+    await deleteIndexedDbCryptoKeyForLocalSecretEnvelope({
+      dbName,
+      indexedDBInstance,
+      keyRef: firstKeyRef,
+    });
+
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: firstEnvelope,
+        resolveLayerAdapter: () => adapter,
+      }),
+    ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: secondEnvelope,
+        resolveLayerAdapter: () => adapter,
+      }),
+    ).resolves.toBe('|HLP|second-agent');
+    await expect(
+      readIndexedDbCryptoKeyForLocalSecretEnvelope({
+        dbName,
+        indexedDBInstance,
+        keyRef: secondKeyRef,
+      }),
+    ).resolves.toBeDefined();
   });
 
   it('returns unavailable when IndexedDB or WebCrypto is missing', async () => {

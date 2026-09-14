@@ -345,6 +345,7 @@ function widenCompactFiat(compact: ICompactFiat, currency: string): ITokenFiat {
     price: compact.price,
     price24h: compact.price24h,
     currency: compact.currency ?? currency,
+    balanceMultiplier: compact.balanceMultiplier,
   };
 }
 
@@ -525,7 +526,7 @@ export function purgeOldColdStartIfNeeded(): void {
     const snapshot = parseColdStartSnapshotRaw(raw);
     if (snapshot) {
       const purged = purgeOldColdStartFields(snapshot);
-      coldStartCacheStorage.set(
+      void coldStartCacheStorage.set(
         EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
         JSON.stringify(purged),
       );
@@ -537,7 +538,7 @@ export function purgeOldColdStartIfNeeded(): void {
     // reference_coldstart_cache_double_authority).
     purgeOldColdStartRuntimeKeys(OLD_RENDERED_TOKEN_LIST_CACHE_SCOPED_SUFFIX);
 
-    coldStartCacheStorage.set(
+    void coldStartCacheStorage.set(
       TOKEN_COLD_START_CLEANUP_VERSION_STORAGE_KEY,
       TOKEN_COLD_START_CLEANUP_VERSION,
     );

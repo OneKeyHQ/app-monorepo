@@ -3,7 +3,13 @@ import { memo, useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  Spinner,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -29,6 +35,10 @@ import {
   getColumnStyle,
   getOrderAssetDisplayName,
 } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -55,6 +65,9 @@ interface IOpenOrdersRowProps {
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   handleCancelOrder: () => void;
+  handleChaseOrder: () => void;
+  canChaseOrder: boolean;
+  isChasingOrder: boolean;
   isMobile?: boolean;
   index: number;
   renderMode?: IRenderMode;
@@ -67,6 +80,9 @@ const OpenOrdersRow = memo(
     order,
     cellMinWidth,
     handleCancelOrder,
+    handleChaseOrder,
+    canChaseOrder,
+    isChasingOrder,
     columnConfigs,
     isMobile,
     index,
@@ -283,19 +299,38 @@ const OpenOrdersRow = memo(
                 </SizableText>
               </XStack>
             </YStack>
-            <Button
-              testID={PerpTestIDs.CancelOrderButton(order.oid)}
-              size="small"
-              variant="secondary"
-              onPress={handleCancelOrder}
-              childrenAsText={false}
-            >
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.perp_open_orders_cancel,
-                })}
-              </SizableText>
-            </Button>
+            <XStack gap="$2">
+              {canChaseOrder ? (
+                <Button
+                  testID={PerpTestIDs.ChaseOrderButton(order.oid)}
+                  size="small"
+                  variant="secondary"
+                  loading={isChasingOrder}
+                  disabled={isChasingOrder}
+                  onPress={handleChaseOrder}
+                  childrenAsText={false}
+                >
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.chase__action,
+                    })}
+                  </SizableText>
+                </Button>
+              ) : null}
+              <Button
+                testID={PerpTestIDs.CancelOrderButton(order.oid)}
+                size="small"
+                variant="secondary"
+                onPress={handleCancelOrder}
+                childrenAsText={false}
+              >
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                </SizableText>
+              </Button>
+            </XStack>
           </XStack>
           <XStack
             width="100%"
@@ -379,8 +414,8 @@ const OpenOrdersRow = memo(
       <XStack
         flex={1}
         py="$1.5"
-        pl="$5"
-        pr="$3"
+        pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+        pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
         alignItems="center"
         backgroundColor={bgColor}
         onHoverIn={() => onHoverChange?.(index)}
@@ -569,16 +604,48 @@ const OpenOrdersRow = memo(
             alignItems="center"
             cursor="default"
           >
-            <SizableText
-              color="$bgAccent"
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              size="$bodySmMedium"
-              onPress={handleCancelOrder}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_open_orders_cancel,
-              })}
-            </SizableText>
+            <XStack gap="$3" alignItems="center">
+              {canChaseOrder ? (
+                <XStack
+                  testID={PerpTestIDs.ChaseOrderButton(order.oid)}
+                  gap="$1"
+                  alignItems="center"
+                  cursor={isChasingOrder ? 'default' : 'pointer'}
+                  onPress={isChasingOrder ? undefined : handleChaseOrder}
+                >
+                  {isChasingOrder ? (
+                    <Spinner
+                      size="small"
+                      color="$textInteractive"
+                      scale={0.65}
+                    />
+                  ) : null}
+                  <SizableText
+                    color={isChasingOrder ? '$textDisabled' : '$bgAccent'}
+                    hoverStyle={
+                      isChasingOrder
+                        ? undefined
+                        : { size: '$bodySmMedium', fontWeight: 600 }
+                    }
+                    size="$bodySmMedium"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.chase__action,
+                    })}
+                  </SizableText>
+                </XStack>
+              ) : null}
+              <SizableText
+                color="$bgAccent"
+                hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+                size="$bodySmMedium"
+                onPress={handleCancelOrder}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_open_orders_cancel,
+                })}
+              </SizableText>
+            </XStack>
           </XStack>
         ) : null}
       </XStack>

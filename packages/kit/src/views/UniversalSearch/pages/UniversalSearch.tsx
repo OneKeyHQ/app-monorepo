@@ -32,6 +32,7 @@ import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IUniversalSearchBatchResult,
@@ -39,6 +40,7 @@ import type {
 } from '@onekeyhq/shared/types/search';
 import {
   ESearchStatus,
+  EUniversalSearchSource,
   EUniversalSearchType,
 } from '@onekeyhq/shared/types/search';
 
@@ -166,11 +168,16 @@ const isMarketSection = (tabIndex: number) => tabIndex === MARKET_TAB_INDEX;
 export function UniversalSearch({
   filterTypes,
   initialTab,
+  source,
 }: {
   filterTypes?: EUniversalSearchType[];
   initialTab?: 'market' | 'dapp';
+  source: EUniversalSearchSource;
 }) {
   const intl = useIntl();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const { activeAccount } = useActiveAccount({ num: 0 });
   // Home raw list + full fiat map snapshot (PULLed from the BG VM, refreshed on
   // each home structure frame). Keeps the search cache hint alive (do
@@ -218,9 +225,9 @@ export function UniversalSearch({
   const shouldIncludeSettings = allowedSearchTypeSet.has(
     EUniversalSearchType.Settings,
   );
-  const shouldIncludeMarketTrending = allowedSearchTypeSet.has(
-    EUniversalSearchType.V2MarketToken,
-  );
+  const shouldIncludeMarketTrending =
+    !isTravelMode &&
+    allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
 
   const tabTitles = useMemo(() => {
     return [
@@ -609,12 +616,13 @@ export function UniversalSearch({
         .map((s) => `${getSearchTypeTrackingName(s.type)}:${s.count}`)
         .join(',');
       defaultLogger.universalSearch.search.universalSearchQuery({
+        source,
         searchText: input,
         resultCount,
         exposedTypes,
       });
     },
-    [],
+    [source],
   );
 
   const isSearchResultStale = useCallback((input: string) => {
@@ -827,6 +835,7 @@ export function UniversalSearch({
               item={item}
               contextNetworkId={activeAccount?.network?.id}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         case EUniversalSearchType.V2MarketToken:
@@ -841,6 +850,7 @@ export function UniversalSearch({
                 item={item}
                 isTrending={searchStatus === ESearchStatus.init}
                 getSearchInput={getSearchInput}
+                source={source}
               />
             </>
           );
@@ -850,6 +860,7 @@ export function UniversalSearch({
               item={item}
               allAggregateTokenMap={allAggregateTokenMap}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         case EUniversalSearchType.Dapp:
@@ -857,6 +868,7 @@ export function UniversalSearch({
             <UniversalSearchDappItem
               item={item}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         case EUniversalSearchType.Perp:
@@ -864,6 +876,7 @@ export function UniversalSearch({
             <UniversalSearchPerpItem
               item={item}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         case EUniversalSearchType.Settings:
@@ -871,6 +884,7 @@ export function UniversalSearch({
             <UniversalSearchSettingsItem
               item={item}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         default:
@@ -882,6 +896,7 @@ export function UniversalSearch({
       searchStatus,
       allAggregateTokenMap,
       getSearchInput,
+      source,
     ],
   );
 
@@ -952,8 +967,23 @@ export function UniversalSearch({
   }, [activeTab, isInAllTab, sections, isFocusInMarketTab]);
 
   const renderResult = useCallback(() => {
+    const noResultsComponent = (
+      <Empty
+        illustration="QuestionMark"
+        title={intl.formatMessage({
+          id: ETranslations.global_no_results,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.global_search_no_results_desc,
+        })}
+      />
+    );
+
     switch (searchStatus) {
       case ESearchStatus.init:
+        if (isTravelMode) {
+          return noResultsComponent;
+        }
         return (
           <SectionList
             stickySectionHeadersEnabled
@@ -1005,17 +1035,7 @@ export function UniversalSearch({
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
               renderSectionFooter={renderSectionFooter}
-              ListEmptyComponent={
-                <Empty
-                  illustration="QuestionMark"
-                  title={intl.formatMessage({
-                    id: ETranslations.global_no_results,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.global_search_no_results_desc,
-                  })}
-                />
-              }
+              ListEmptyComponent={noResultsComponent}
               renderItem={renderItem}
               keyExtractor={keyExtractor}
               estimatedItemSize="$16"
@@ -1029,6 +1049,7 @@ export function UniversalSearch({
     }
   }, [
     searchStatus,
+    isTravelMode,
     renderSectionHeader,
     renderRecommendSectionHeader,
     recommendSections,
@@ -1091,6 +1112,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
   // array, so computing it inline in the prop would rebuild the downstream
   // allowedSearchTypeSet memo (and its dependents) on every wrapper re-render.
   const routeFilterTypes = route?.params?.filterTypes;
+  const source = route?.params?.source ?? EUniversalSearchSource.Unknown;
   const filterTypes = useMemo(
     () => routeFilterTypes || getDefaultFilterTypes(),
     [routeFilterTypes],
@@ -1103,6 +1125,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
       <UniversalSearch
         filterTypes={filterTypes}
         initialTab={route?.params?.initialTab}
+        source={source}
       />
     </HomeTokenListProviderMirrorWrapper>
   );

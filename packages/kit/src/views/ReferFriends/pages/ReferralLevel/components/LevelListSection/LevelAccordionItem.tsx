@@ -186,7 +186,7 @@ export function LevelAccordionItem({
               </XStack>
             </XStack>
             <Stack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '180deg' : '0deg'}
             >
@@ -199,7 +199,7 @@ export function LevelAccordionItem({
           </XStack>
         )}
       </Accordion.Trigger>
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
           borderBottomWidth={isLast ? 0 : 1}
           borderTopWidth={0}

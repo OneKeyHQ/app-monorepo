@@ -41,6 +41,7 @@ import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import { SwapQuoteStockMarketStatusAlert } from './SwapQuoteStockMarketStatusAlert';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
@@ -60,6 +61,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   swapTypeSwitch: ESwapTabSwitchType;
+  routeSwapType?: ESwapTabSwitchType;
   alerts: {
     states: ISwapAlertState[];
     quoteId: string;
@@ -75,6 +77,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   headerContent?: ReactNode;
+  hideRecentTokenPairs?: boolean;
 }
 
 const DESKTOP_SWAP_TITLE_TRANSITION =
@@ -132,12 +135,14 @@ const SwapOldSwapBridgeLimitContainer = ({
   quoteLoading,
   quoteEventFetching,
   swapTypeSwitch,
+  routeSwapType,
   alerts,
   isWrapped,
   onSelectRecentTokenPairs,
   fromTokenAmountValue,
   swapRecentTokenPairs,
   headerContent,
+  hideRecentTokenPairs,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
@@ -252,17 +257,20 @@ const SwapOldSwapBridgeLimitContainer = ({
         }
         quoteResult={quoteResult}
       />
+      <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
       {alerts.states.length > 0 &&
       !quoteLoading &&
       !quoteEventFetching &&
       alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
         <SwapAlertContainer alerts={alerts.states} />
       ) : null}
-      <SwapRecentTokenPairsGroup
-        onSelectTokenPairs={onSelectRecentTokenPairs}
-        tokenPairs={swapRecentTokenPairs}
-        fromTokenAmount={fromTokenAmountValue}
-      />
+      {hideRecentTokenPairs ? null : (
+        <SwapRecentTokenPairsGroup
+          onSelectTokenPairs={onSelectRecentTokenPairs}
+          tokenPairs={swapRecentTokenPairs}
+          fromTokenAmount={fromTokenAmountValue}
+        />
+      )}
       <SwapPendingHistoryListComponent pageType={pageType} />
     </YStack>
   );
@@ -293,6 +301,7 @@ const SwapOldSwapBridgeLimitContainer = ({
             pageType={pageType}
             iconSize="$5"
             iconColor="$iconStrong"
+            routeSwapType={routeSwapType}
           />
         </XStack>
         <LimitOrderOpenItem storeName={storeName} />
@@ -312,17 +321,20 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenProviderList={undefined}
           quoteResult={quoteResult}
         />
+        <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&
         alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
           <SwapAlertContainer alerts={alerts.states} />
         ) : null}
-        <SwapRecentTokenPairsGroup
-          onSelectTokenPairs={onSelectRecentTokenPairs}
-          tokenPairs={swapRecentTokenPairs}
-          fromTokenAmount={fromTokenAmountValue}
-        />
+        {hideRecentTokenPairs ? null : (
+          <SwapRecentTokenPairsGroup
+            onSelectTokenPairs={onSelectRecentTokenPairs}
+            tokenPairs={swapRecentTokenPairs}
+            fromTokenAmount={fromTokenAmountValue}
+          />
+        )}
         <SwapPendingHistoryListComponent pageType={pageType} />
       </YStack>
     );
@@ -396,6 +408,7 @@ const SwapOldSwapBridgeLimitContainer = ({
                 pageType={pageType}
                 iconSize="$5"
                 iconColor="$iconStrong"
+                routeSwapType={routeSwapType}
               />
             </XStack>
             <LimitOrderOpenItem storeName={storeName} />
@@ -416,17 +429,20 @@ const SwapOldSwapBridgeLimitContainer = ({
               onOpenProviderList={undefined}
               quoteResult={quoteResult}
             />
+            <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
             {alerts.states.length > 0 &&
             !quoteLoading &&
             !quoteEventFetching &&
             alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
               <SwapAlertContainer alerts={alerts.states} />
             ) : null}
-            <SwapRecentTokenPairsGroup
-              onSelectTokenPairs={onSelectRecentTokenPairs}
-              tokenPairs={swapRecentTokenPairs}
-              fromTokenAmount={fromTokenAmountValue}
-            />
+            {hideRecentTokenPairs ? null : (
+              <SwapRecentTokenPairsGroup
+                onSelectTokenPairs={onSelectRecentTokenPairs}
+                tokenPairs={swapRecentTokenPairs}
+                fromTokenAmount={fromTokenAmountValue}
+              />
+            )}
             <SwapPendingHistoryListComponent pageType={pageType} />
           </YStack>
         </YStack>

@@ -7,6 +7,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export interface IWebAccountPanelFooterProps extends IXStackProps {
   connected?: boolean;
   onDownloadApp?: () => void;
+  onPerpsActivityCenter?: () => void;
   onArticles?: () => void;
   onHelp?: () => void;
   onSettings?: () => void;
@@ -15,6 +16,7 @@ export interface IWebAccountPanelFooterProps extends IXStackProps {
 export function WebAccountPanelFooter({
   connected = true,
   onDownloadApp,
+  onPerpsActivityCenter,
   onArticles,
   onHelp,
   onSettings,
@@ -43,6 +45,19 @@ export function WebAccountPanelFooter({
         {intl.formatMessage({ id: ETranslations.global_download_app })}
       </Button>
       <XStack ai="center" gap="$5">
+        {onPerpsActivityCenter ? (
+          <IconButton
+            icon="GiftOutline"
+            size="small"
+            variant="tertiary"
+            iconSize="$5"
+            title={intl.formatMessage({
+              id: ETranslations.perps_activity_hub,
+            })}
+            onPress={onPerpsActivityCenter}
+            testID="web-account-panel-footer-perps-activity"
+          />
+        ) : null}
         <IconButton
           icon="BookOpenOutline"
           size="small"

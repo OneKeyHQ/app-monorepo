@@ -14,5 +14,6 @@ export { StatCard } from './StatCard';
 export type { IStatCardProps } from './StatCard';
 export {
   RewardHeaderLayout,
+  ResponsiveFourColumnLayout,
   ResponsiveThreeColumnLayout,
 } from './RewardHeaderLayout';

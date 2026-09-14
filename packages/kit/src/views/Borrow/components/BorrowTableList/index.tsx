@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { Empty } from '@onekeyhq/components';
 import type {
   ITableColumn,
@@ -11,12 +13,35 @@ import { AssetField } from './AssetField';
 import { AssetWithAmountField } from './AssetWithAmountField';
 import { BorrowAPYField } from './BorrowAPYField';
 import { BorrowListSkeleton, EmptyStateSkeleton } from './BorrowListSkeleton';
+import { CollateralBadge } from './CollateralBadge';
 import { FieldWrapper } from './FieldWrapper';
 
 import type { ISwapConfig } from './ActionField';
 
-export const BORROW_TABLE_APY_COLUMN_MIN_WIDTH = 120;
-export const BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH = 140;
+/**
+ * Shared column width budget for the four Borrow tables. Columns are sized by
+ * flex weight, so without an upper bound a right-aligned value drifts far from
+ * the column beside it: the empty part of a wide column all lands on its left.
+ * Capping the value columns keeps the numbers together and hands the leftover
+ * width to the asset column, which is the one that actually needs it.
+ */
+export const BORROW_TABLE_APY_COLUMN_MIN_WIDTH = 96;
+export const BORROW_TABLE_APY_COLUMN_MAX_WIDTH = 104;
+// Floors sized to the content, so the deficit can no longer be dumped on
+// whichever column happens to lack a minimum.
+export const BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH = 100;
+export const BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH = 88;
+export const BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH = 160;
+// Holds a switch, so it never needs a full column share — but it still has to
+// fit its own "Collateral" header rather than truncating it.
+export const BORROW_TABLE_COLLATERAL_COLUMN_FLEX = 0.6;
+export const BORROW_TABLE_COLLATERAL_COLUMN_MIN_WIDTH = 76;
+export const BORROW_TABLE_COLLATERAL_COLUMN_MAX_WIDTH = 88;
+// Fixed rather than elastic: the column holds controls, so extra width would
+// only be padding. Two sizes because reserving room for the overflow trigger
+// in tables that never render one is what pushed the button out of the card.
+export const BORROW_TABLE_ACTION_COLUMN_WIDTH = 140;
+export const BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH = 112;
 
 type IBorrowTableListProps<T> = {
   columns: ITableColumn<T>[];
@@ -43,6 +68,14 @@ const BorrowTableList = <T,>({
   skeletonCount,
 }: IBorrowTableListProps<T>) => {
   const hasData = data && data.length > 0;
+  const tableColumns = useMemo(
+    () =>
+      columns.map((column) => ({
+        ...column,
+        headerNumberOfLines: column.headerNumberOfLines ?? 1,
+      })),
+    [columns],
+  );
 
   if (!hasData) {
     if (isLoading) {
@@ -60,7 +93,7 @@ const BorrowTableList = <T,>({
 
   return (
     <TableList
-      columns={columns}
+      columns={tableColumns}
       data={data}
       isLoading={isLoading}
       tableLayout
@@ -87,6 +120,7 @@ export {
   AssetWithAmountField,
   AmountField,
   BorrowAPYField,
+  CollateralBadge,
   FieldWrapper,
 };
 

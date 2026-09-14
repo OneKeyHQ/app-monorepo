@@ -53,6 +53,7 @@ function FeaturedMedia({
           left={0}
           width="100%"
           height="100%"
+          resizeWidth={480}
           contentFit="cover"
           resizeMode="cover"
         />

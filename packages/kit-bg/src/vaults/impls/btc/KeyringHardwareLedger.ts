@@ -241,6 +241,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       const { inputs, outputs } = encodedTx;
       const network = btcNetwork;
       const psbt = new BitcoinJS.Psbt({ network });
+      type IPsbtInputData = Parameters<typeof psbt.addInput>[0];
+      type IPsbtOutputData = Parameters<typeof psbt.addOutput>[0];
 
       const vault = this.vault as VaultBtc;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -270,6 +272,10 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       // Get xpub and master fingerprint for BIP32 derivation
       const utxoAccount = dbAccount as IDBUtxoAccount;
       const xpub = utxoAccount.xpubSegwit || utxoAccount.xpub;
+      // For P2TR, xpubSegwit is a `tr([fp/path]xpub/<0;1>/*)` descriptor
+      // (see prepareAccounts), not a base58 xpub — getPublicKeyFromXpub
+      // needs the plain one.
+      const taprootXpub = utxoAccount.xpub;
       const fpResult = await callLedgerWithFingerprint(
         this.backgroundApi,
         dbDevice,
@@ -288,7 +294,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         'hex',
       );
 
-      const isTaproot = dbAccount.path.includes("86'");
+      const isTaproot = isTaprootPath(dbAccount.path);
 
       for (const input of inputs) {
         const scriptPubKey = BitcoinJS.address.toOutputScript(
@@ -301,7 +307,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         const fullPathParts = fullPath.replace(/^m\//, '').split('/');
         const relPath = fullPathParts.slice(accountPathParts.length).join('/');
 
-        const inputData: any = {
+        const inputData: IPsbtInputData = {
           hash: input.txid,
           index: input.vout,
           witnessUtxo: {
@@ -321,9 +327,14 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         }
 
         // Add BIP32 derivation info (required by Ledger BTC App)
-        if (isTaproot) {
-          // Taproot: x-only key from P2TR script
-          const xOnlyKey = scriptPubKey.slice(2, 34);
+        if (isTaproot && taprootXpub && relPath) {
+          // tapInternalKey must be the pre-tweak pubkey, derived from xpub.
+          const pubkeyHex = getPublicKeyFromXpub({
+            xpub: taprootXpub,
+            network,
+            relPath,
+          });
+          const xOnlyKey = Buffer.from(pubkeyHex, 'hex').subarray(1, 33);
           inputData.tapInternalKey = xOnlyKey;
           inputData.tapBip32Derivation = [
             {
@@ -362,10 +373,66 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             value: BigInt(0),
           });
         } else {
-          psbt.addOutput({
+          const outputData: IPsbtOutputData = {
             address: output.address,
             value: BigInt(output.value),
-          });
+          };
+          // BIP-174 change detection: the change output carries the wallet's
+          // own derivation so the device nets it out of the confirmed amount.
+          // Recipient outputs must never carry it. A claim must be provable
+          // against this account — the path has to extend the account path by
+          // exactly <change>/<index>; anything else (and any derivation
+          // failure) degrades to a plain output the device displays, never a
+          // wrong claim and never a failed signature.
+          const changePath = output.payload?.isChange
+            ? output.payload?.bip44Path
+            : undefined;
+          if (changePath) {
+            try {
+              const relPath = changePath.startsWith(`${dbAccount.path}/`)
+                ? changePath.slice(dbAccount.path.length + 1)
+                : '';
+              if (/^[01]\/\d+$/.test(relPath)) {
+                if (isTaproot && taprootXpub) {
+                  // Same as the input branch: derive the pre-tweak pubkey.
+                  const pubkeyHex = getPublicKeyFromXpub({
+                    xpub: taprootXpub,
+                    network,
+                    relPath,
+                  });
+                  const xOnlyKey = Buffer.from(pubkeyHex, 'hex').subarray(
+                    1,
+                    33,
+                  );
+                  outputData.tapInternalKey = xOnlyKey;
+                  outputData.tapBip32Derivation = [
+                    {
+                      masterFingerprint,
+                      pubkey: xOnlyKey,
+                      path: changePath,
+                      leafHashes: [],
+                    },
+                  ];
+                } else if (xpub) {
+                  const pubkeyHex = getPublicKeyFromXpub({
+                    xpub,
+                    network,
+                    relPath,
+                  });
+                  outputData.bip32Derivation = [
+                    {
+                      masterFingerprint,
+                      pubkey: Buffer.from(pubkeyHex, 'hex'),
+                      path: changePath,
+                    },
+                  ];
+                }
+              }
+            } catch {
+              // best-effort: fall through to a plain output
+            }
+          }
+          psbt.addOutput(outputData);
         }
       }
 

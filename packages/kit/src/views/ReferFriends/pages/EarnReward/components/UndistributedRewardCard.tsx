@@ -60,9 +60,9 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
         ) : null}
       </XStack>
       {isMinDisplay ? (
-        <SizableText size="$heading5xl">{`< $${MIN_DISPLAY_AMOUNT}`}</SizableText>
+        <SizableText size="$heading4xl">{`< $${MIN_DISPLAY_AMOUNT}`}</SizableText>
       ) : (
-        <Currency formatter="value" size="$heading5xl">
+        <Currency formatter="value" size="$heading4xl">
           {value}
         </Currency>
       )}

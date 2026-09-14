@@ -23,6 +23,7 @@ import {
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
+import { buildMarketSearchTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,11 +38,15 @@ import {
   formatTokenSymbolForDisplay,
   getTokenPriceChangeStyle,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchV2MarketToken,
+} from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
 import {
@@ -154,12 +159,14 @@ interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchV2MarketToken;
   isTrending?: boolean;
   getSearchInput?: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchV2MarketTokenItem({
   item,
   isTrending,
   getSearchInput,
+  source,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
@@ -169,6 +176,7 @@ export function UniversalSearchV2MarketTokenItem({
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
     from: EEnterWay.Search,
+    resolveMarketAsset: true,
   });
 
   const {
@@ -212,6 +220,7 @@ export function UniversalSearchV2MarketTokenItem({
     const searchText = getSearchInput?.();
     if (searchText) {
       defaultLogger.universalSearch.search.universalSearchClick({
+        source,
         searchText,
         type: item.type,
         itemId: address ?? symbol ?? '',
@@ -236,8 +245,11 @@ export function UniversalSearchV2MarketTokenItem({
         void toMarketDetailPage({
           tokenAddress: address,
           networkId: network,
+          name,
           symbol,
           isNative,
+          stock,
+          tokenDetailPreview: buildMarketSearchTokenDetailPreview(item.payload),
         });
 
         defaultLogger.market.token.searchToken({
@@ -263,12 +275,16 @@ export function UniversalSearchV2MarketTokenItem({
     isTrending,
     address,
     network,
+    name,
     symbol,
     isNative,
+    stock,
     universalSearchActions,
     item.type,
+    item.payload,
     toMarketDetailPage,
     appNavigation,
+    source,
   ]);
 
   if (!isMounted) {
@@ -277,6 +293,7 @@ export function UniversalSearchV2MarketTokenItem({
 
   return (
     <Stack
+      testID={`universal-search-market-token-${network}-${address}`}
       flexDirection="row"
       alignItems="center"
       gap="$3"
@@ -295,6 +312,7 @@ export function UniversalSearchV2MarketTokenItem({
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
           <MarketStarV2Deferred
+            stockId={resolveMarketStockId({ stock, symbol, name })}
             chainId={network}
             contractAddress={address}
             from={EWatchlistFrom.Search}

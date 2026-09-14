@@ -79,6 +79,9 @@ export function usePendleLayoutState({
   const hasLegacySummaryContent =
     !!transactionConfirmation?.title ||
     !!transactionConfirmation?.tooltip ||
+    // availableLiquidity 行渲染在 summary 分支内，必须纳入可见性判定，
+    // 否则服务端只下发 availableLiquidity 时整个 summary 区被跳过 (PR#12636 review)
+    !!transactionConfirmation?.availableLiquidity ||
     (transactionConfirmation?.rewards?.length ?? 0) > 0;
   const hasSummarySection =
     showApyHeader || usePendleSummaryLayout || hasLegacySummaryContent;

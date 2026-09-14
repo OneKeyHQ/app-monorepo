@@ -2,7 +2,14 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Stack, useMedia, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  Empty,
+  Page,
+  Stack,
+  useMedia,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -17,9 +24,11 @@ import type {
   IBorrowAsset,
   IBorrowAssetsList,
   IBorrowBalance,
+  IBorrowReserveItem,
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
+import { filterUnsupportedAaveNativeReserveAssets } from '../../components/borrowRepayPosition.utils';
 import {
   AmountField,
   AssetField,
@@ -27,6 +36,8 @@ import {
   BorrowAPYField,
   BorrowTableList,
 } from '../../components/BorrowTableList';
+
+import { filterUnavailableSupplyAssets } from './borrowTokenSelect.utils';
 
 type IBorrowSelectAsset = IBorrowAsset;
 
@@ -38,8 +49,31 @@ const emptyBalance: IBorrowBalance = {
   description: emptyText,
 };
 
+const EMPTY_ASSETS_LIST: IBorrowAssetsList = { assets: [] };
+
+// OK-60106: usePromiseResult restarts from initResult on every mount, so
+// re-entering the selector rendered an "empty + loading" frame before the
+// already-warm request came back — the empty state QA saw flash past.
+// Remembering the last result per request identity lets a re-entry render the
+// list on its first frame instead. The key carries accountId, so one account's
+// balances can never seed another's, and the entry is refreshed by the request
+// that runs right behind it.
+const borrowAssetsListCache = new Map<string, IBorrowAssetsList>();
+
+function buildBorrowAssetsCacheKey(params: {
+  accountId?: string;
+  networkId?: string;
+  provider?: string;
+  marketAddress?: string;
+  action?: string;
+}) {
+  const { accountId, networkId, provider, marketAddress, action } = params;
+  return [accountId, networkId, provider, marketAddress, action].join('|');
+}
+
 export default function BorrowTokenSelectModal() {
-  const navigation = useAppNavigation();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalStakingParamList>>();
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { gtMd } = useMedia();
@@ -49,36 +83,89 @@ export default function BorrowTokenSelectModal() {
   >();
   const {
     accountId,
+    indexedAccountId,
     networkId,
     provider,
     marketAddress,
     action,
     currentReserveAddress,
+    navigateOnSelect,
     onSelect,
+    closeOnSelect = true,
   } = route.params;
   const [searchKeyword, setSearchKeyword] = useState('');
 
-  const { result: assetsList, isLoading } = usePromiseResult<IBorrowAssetsList>(
+  const cacheKey = buildBorrowAssetsCacheKey({
+    accountId,
+    networkId,
+    provider,
+    marketAddress,
+    action,
+  });
+  // Read once per mount: the first render is the only one that matters here,
+  // and a later key change is picked up by the request that re-runs anyway.
+  const [initialAssetsList] = useState<IBorrowAssetsList>(
+    () => borrowAssetsListCache.get(cacheKey) ?? EMPTY_ASSETS_LIST,
+  );
+
+  const {
+    result: assetsList,
+    isLoading,
+    run: refreshAssets,
+  } = usePromiseResult<IBorrowAssetsList | undefined>(
     async () => {
       if (!accountId || !networkId || !provider || !marketAddress) {
-        return { assets: [] };
+        return EMPTY_ASSETS_LIST;
       }
-      return backgroundApiProxy.serviceStaking.getBorrowAssetsList({
-        accountId,
-        networkId,
-        provider,
-        marketAddress,
-        action: action as EBorrowActionsEnum,
-      });
+      const [result, reserves] = await Promise.all([
+        backgroundApiProxy.serviceStaking.getBorrowAssetsList({
+          accountId,
+          networkId,
+          provider,
+          marketAddress,
+          action: action as EBorrowActionsEnum,
+        }),
+        action === 'supply'
+          ? backgroundApiProxy.serviceStaking.getBorrowReserves({
+              accountId,
+              networkId,
+              provider,
+              marketAddress,
+            })
+          : Promise.resolve<IBorrowReserveItem | undefined>(undefined),
+      ]);
+      const nextResult =
+        action === 'supply'
+          ? {
+              ...result,
+              assets: filterUnavailableSupplyAssets({
+                assets: result.assets,
+                supplyAssets: reserves?.supply.assets,
+                networkId,
+              }),
+            }
+          : result;
+      borrowAssetsListCache.set(cacheKey, nextResult);
+      return nextResult;
     },
-    [accountId, networkId, provider, marketAddress, action],
+    [accountId, networkId, provider, marketAddress, action, cacheKey],
     {
-      initResult: { assets: [] },
+      initResult: initialAssetsList,
       watchLoading: true,
+      undefinedResultIfError: true,
+      revalidateOnReconnect: true,
     },
   );
 
-  const assets = assetsList.assets;
+  const assets = useMemo(
+    () =>
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: assetsList?.assets ?? EMPTY_ASSETS_LIST.assets,
+        networkId,
+        providerName: provider,
+      }),
+    [assetsList?.assets, networkId, provider],
+  );
 
   const filteredAssets = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
@@ -105,25 +192,22 @@ export default function BorrowTokenSelectModal() {
     const supplied = intl.formatMessage({
       id: ETranslations.wallet_defi_asset_type_supplied,
     });
-    const available = intl.formatMessage({
-      id: ETranslations.global_available,
+    const balance = intl.formatMessage({
+      id: ETranslations.global_balance,
     });
     return {
       asset,
-      available,
+      balance,
       borrowed,
       supplied,
-      walletBalance: intl.formatMessage({
-        id: ETranslations.global_wallet_balance,
-      }),
       borrowApy: intl.formatMessage({ id: ETranslations.defi_borrow_apy }),
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
-      assetAvailable: `${asset} / ${available}`,
-      availableWithColon: `${available}:`,
     };
   }, [intl]);
 
-  const balanceLabel = isBorrowAction ? labels.available : labels.walletBalance;
+  const balanceLabel = labels.balance;
+  const assetBalanceLabel = `${labels.asset} / ${balanceLabel}`;
+  const balanceLabelWithColon = `${balanceLabel}:`;
   const positionLabel = isBorrowAction ? labels.borrowed : labels.supplied;
   const apyLabel = isBorrowAction ? labels.borrowApy : labels.supplyApy;
   const modalTitle = isBorrowAction
@@ -136,17 +220,43 @@ export default function BorrowTokenSelectModal() {
 
   const handleSelect = useCallback(
     (item: IBorrowSelectAsset) => {
+      if (navigateOnSelect) {
+        navigation.push(navigateOnSelect.screen, {
+          accountId,
+          indexedAccountId,
+          networkId,
+          provider,
+          marketAddress,
+          reserveAddress: item.reserveAddress,
+          symbol: item.token.symbol,
+          logoURI: item.token.logoURI,
+          ...navigateOnSelect.params,
+        });
+        return;
+      }
       void onSelect?.(item);
-      navigation.pop();
+      if (closeOnSelect) {
+        navigation.pop();
+      }
     },
-    [navigation, onSelect],
+    [
+      accountId,
+      closeOnSelect,
+      indexedAccountId,
+      marketAddress,
+      navigateOnSelect,
+      navigation,
+      networkId,
+      onSelect,
+      provider,
+    ],
   );
 
   // Mobile columns - 2 columns only (Asset with amount + APY)
   const mobileColumns = useMemo(
     () => [
       {
-        label: labels.assetAvailable,
+        label: assetBalanceLabel,
         key: 'asset',
         render: (item: IBorrowSelectAsset) => {
           const balance = isBorrowAction
@@ -155,7 +265,7 @@ export default function BorrowTokenSelectModal() {
           return (
             <AssetWithAmountField
               token={item.token}
-              amountLabel={{ text: labels.availableWithColon }}
+              amountLabel={{ text: balanceLabelWithColon }}
               amount={balance.title}
               amountDescription={balance.description}
               platformBonusApy={item?.platformBonusApy}
@@ -174,7 +284,7 @@ export default function BorrowTokenSelectModal() {
         flex: 1,
       },
     ],
-    [labels, isBorrowAction, apyLabel],
+    [apyLabel, assetBalanceLabel, balanceLabelWithColon, isBorrowAction],
   );
 
   // Desktop columns - all 4 columns
@@ -257,26 +367,44 @@ export default function BorrowTokenSelectModal() {
         }}
       />
       <Page.Body>
-        <BorrowTableList<IBorrowSelectAsset>
-          data={filteredAssets}
-          isLoading={Boolean(isLoading)}
-          columns={columns}
-          skeletonCount={6}
-          onPressRow={(item) => {
-            if (item.reserveAddress === currentReserveAddress) return;
-            handleSelect(item);
-          }}
-          listProps={{
-            listItemProps: (item) =>
-              item.reserveAddress === currentReserveAddress
-                ? { bg: '$bgHover' }
-                : undefined,
-            ListFooterComponent: <Stack h={bottom || '$2'} />,
-          }}
-          emptyContent={intl.formatMessage({
-            id: ETranslations.global_no_results,
-          })}
-        />
+        {!assetsList && !isLoading ? (
+          <Empty
+            testID="borrow-assets-error"
+            py="$16"
+            icon="ErrorOutline"
+            title={intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.global_an_error_occurred_desc,
+            })}
+            buttonProps={{
+              testID: 'borrow-assets-retry',
+              onPress: () => refreshAssets(),
+              children: intl.formatMessage({
+                id: ETranslations.global_retry,
+              }),
+            }}
+          />
+        ) : (
+          <BorrowTableList<IBorrowSelectAsset>
+            data={filteredAssets}
+            isLoading={Boolean(isLoading)}
+            columns={columns}
+            skeletonCount={6}
+            onPressRow={handleSelect}
+            listProps={{
+              listItemProps: (item) =>
+                item.reserveAddress === currentReserveAddress
+                  ? { bg: '$bgHover' }
+                  : undefined,
+              ListFooterComponent: <Stack h={bottom || '$2'} />,
+            }}
+            emptyContent={intl.formatMessage({
+              id: ETranslations.global_no_results,
+            })}
+          />
+        )}
       </Page.Body>
     </Page>
   );

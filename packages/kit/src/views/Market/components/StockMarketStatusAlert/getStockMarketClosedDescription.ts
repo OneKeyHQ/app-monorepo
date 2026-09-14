@@ -19,3 +19,15 @@ export function getStockMarketClosedDescription(reason?: string | null) {
 
   return firstLine;
 }
+
+/**
+ * Backend descriptions can be full sentences ending with sentence punctuation
+ * (e.g. a halted stock's "该股票目前停牌，暂时无法交易。"), while the `{time}`
+ * templates supply their own separator ("{time}，您仍然可以…"). Strip the
+ * trailing punctuation before interpolating so the result never renders a
+ * doubled "。，" / ".," (OK-58554). Countdown lines have no trailing
+ * punctuation, so this is a no-op for them.
+ */
+export function stripTrailingSentencePunctuation(text: string): string {
+  return text.replace(/[。．.！!？?，,、；;：:]+$/u, '');
+}

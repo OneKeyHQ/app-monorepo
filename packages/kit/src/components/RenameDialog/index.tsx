@@ -3,7 +3,7 @@ import { useState } from 'react';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
-import type { ISelectItem } from '@onekeyhq/components';
+import type { IInputProps, ISelectItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -34,9 +34,11 @@ import type { IntlShape } from 'react-intl';
 function V4AccountNameSelector({
   onChange,
   indexedAccount,
+  nativeSheet,
 }: {
   onChange?: (val: string) => void;
   indexedAccount: IDBIndexedAccount;
+  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const [val] = useState('');
@@ -93,6 +95,7 @@ function V4AccountNameSelector({
         title={intl.formatMessage({
           id: ETranslations.v4_select_account_name_label,
         })}
+        nativeSheet={nativeSheet}
       />
     </Stack>
   );
@@ -101,16 +104,30 @@ function V4AccountNameSelector({
 export function RenameInputWithNameSelector({
   value,
   onChange,
+  hasError,
+  forceHasError,
+  validationErrorMessage,
+  validationErrorTestID,
   maxLength = 8000,
   description,
   indexedAccount,
   disabledMaxLengthLabel = false,
   nameHistoryInfo,
   inputTestID,
+  trimOuterWhitespace = false,
+  showSensitiveInfoWarning = true,
+  keyboardType,
+  autoCorrect,
+  autoCapitalize,
+  nativeSheet,
 }: {
   maxLength?: number;
   value?: string;
   onChange?: (val: string) => void;
+  hasError?: boolean;
+  forceHasError?: boolean;
+  validationErrorMessage?: string;
+  validationErrorTestID?: string;
   description?: string;
   indexedAccount?: IDBIndexedAccount;
   disabledMaxLengthLabel: boolean;
@@ -120,8 +137,17 @@ export function RenameInputWithNameSelector({
     contentType: EChangeHistoryContentType.Name;
   };
   inputTestID?: string;
+  trimOuterWhitespace?: boolean;
+  showSensitiveInfoWarning?: boolean;
+  keyboardType?: IInputProps['keyboardType'];
+  autoCorrect?: IInputProps['autoCorrect'];
+  autoCapitalize?: IInputProps['autoCapitalize'];
+  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
+  const valueLength = trimOuterWhitespace
+    ? value?.trim().length || 0
+    : value?.length || 0;
   const { result: shouldShowV4AccountNameSelector } =
     usePromiseResult(async () => {
       if (indexedAccount) {
@@ -139,9 +165,13 @@ export function RenameInputWithNameSelector({
       <Stack>
         <Input
           testID={inputTestID}
+          error={forceHasError ?? hasError}
           size="large"
           $gtMd={{ size: 'medium' }}
-          maxLength={maxLength}
+          maxLength={trimOuterWhitespace ? undefined : maxLength}
+          keyboardType={keyboardType}
+          autoCorrect={autoCorrect}
+          autoCapitalize={autoCapitalize}
           autoFocus
           value={value}
           onChangeText={onChange}
@@ -152,6 +182,7 @@ export function RenameInputWithNameSelector({
                   buildChangeHistoryInputAddon({
                     changeHistoryInfo: nameHistoryInfo,
                     onChange,
+                    nativeSheet,
                   }),
                 ]
               : undefined
@@ -161,16 +192,27 @@ export function RenameInputWithNameSelector({
           <V4AccountNameSelector
             indexedAccount={indexedAccount}
             onChange={onChange}
+            nativeSheet={nativeSheet}
           />
         ) : null}
       </Stack>
-      <Form.FieldDescription>
-        {intl.formatMessage({
-          id: ETranslations.account_name_form_helper_text,
-        })}
-      </Form.FieldDescription>
+      {validationErrorMessage ? (
+        <Form.FieldDescription
+          color="$textCritical"
+          testID={validationErrorTestID}
+        >
+          {validationErrorMessage}
+        </Form.FieldDescription>
+      ) : null}
+      {showSensitiveInfoWarning ? (
+        <Form.FieldDescription>
+          {intl.formatMessage({
+            id: ETranslations.account_name_form_helper_text,
+          })}
+        </Form.FieldDescription>
+      ) : null}
       {disabledMaxLengthLabel ? null : (
-        <Form.FieldDescription textAlign="right">{`${value?.length || 0}/${
+        <Form.FieldDescription textAlign="right">{`${valueLength}/${
           maxLength ?? ''
         }`}</Form.FieldDescription>
       )}
@@ -192,6 +234,7 @@ export const showRenameDialog = (
     inputTestID,
     confirmTestID,
     intl,
+    nativeSheet = false,
     ...dialogProps
   }: IDialogShowProps & {
     indexedAccount?: IDBIndexedAccount;
@@ -237,6 +280,7 @@ export const showRenameDialog = (
             disabledMaxLengthLabel={disabledMaxLengthLabel}
             nameHistoryInfo={nameHistoryInfo}
             inputTestID={inputTestID}
+            nativeSheet={nativeSheet}
           />
         </Dialog.FormField>
       </Dialog.Form>
@@ -253,6 +297,7 @@ export const showRenameDialog = (
       });
     },
     ...dialogProps,
+    nativeSheet,
     ...(confirmTestID
       ? {
           confirmButtonProps: {

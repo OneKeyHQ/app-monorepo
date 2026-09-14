@@ -66,6 +66,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     version: '1.0.0',
     bundleVersion: '1',
+    isDesktop: true,
     isExtension: false,
     isNativeAndroid: false,
   },
@@ -73,13 +74,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
   AppUpdate: {
+    checkPackageAvailability: jest.fn(async () => ({
+      status: 'notApplicable',
+    })),
     downloadPackage: jest.fn(async () => ({
       downloadedFile: '/tmp/app.pkg',
     })),
     verifyPackage: jest.fn(async () => undefined),
     verifyASC: jest.fn(async () => undefined),
     downloadASC: jest.fn(async () => undefined),
-    installPackage: jest.fn(async () => undefined),
+    installPackage: jest.fn(async () => true),
     clearPackage: jest.fn(async () => undefined),
   },
   BundleUpdate: {
@@ -364,6 +368,38 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
+  });
+
+  test('readyToInstall publishes ready only after the pending task is durable', async () => {
+    let statusWhenPendingTaskWasWritten: EAppUpdateStatus | undefined;
+    appStorageMock.syncStorage.setObject.mockImplementationOnce(
+      async (_key: string, task: any) => {
+        statusWhenPendingTaskWasWritten = appUpdateState.status;
+        pendingTaskValue = task;
+        return pendingTaskValue;
+      },
+    );
+    setReadyState({
+      latestVersion: '2.0.0',
+      jsBundleVersion: '1',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        isUpdaterRehydrated: true,
+      },
+    });
+
+    await service.readyToInstall();
+
+    expect(statusWhenPendingTaskWasWritten).toBe(
+      EAppUpdateStatus.verifyPackage,
+    );
+    expect(pendingTaskValue).toMatchObject({
+      type: 'app-install',
+      status: 'pending',
+    });
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
   });
 
   test('readyToInstall does not create pending task for non-seamless strategy', async () => {
@@ -820,9 +856,12 @@ describe('processPendingInstallTask', () => {
     });
   });
 
-  test('appshell APP_PACKAGE_MISSING when no downloadedFile triggers retry', async () => {
+  test('appshell APP_PACKAGE_MISSING triggers full-flow re-download', async () => {
     // Clear downloadedEvent from atom
     resetAppUpdateState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
       downloadedEvent: undefined,
     });
     resetPendingTask({
@@ -847,11 +886,8 @@ describe('processPendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    expect(pendingTaskValue).toMatchObject({
-      status: 'pending',
-      retryCount: 1,
-      lastError: 'APP_PACKAGE_MISSING',
-    });
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
   });
 
   test('app-install in applied_waiting_verify within grace period is skipped', async () => {

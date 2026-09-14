@@ -13,6 +13,7 @@ interface ITradingViewWithVersionProps extends ITradingViewProps {
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
   enableNativeChartControls?: boolean;
+  enableNativeChartSettings?: boolean;
   enableNativeIntervalSelector?: boolean;
   nativeChartTypeControlMode?: 'toggle' | 'select';
   nativeIndicatorControlMode?: 'dialog' | 'popover';
@@ -32,6 +33,7 @@ export function TradingView({
   disabledFeatures,
   storageNamespace,
   enableNativeChartControls,
+  enableNativeChartSettings,
   enableNativeIntervalSelector,
   nativeChartTypeControlMode,
   nativeIndicatorControlMode,
@@ -53,6 +55,7 @@ export function TradingView({
         disabledFeatures={disabledFeatures}
         storageNamespace={storageNamespace}
         enableNativeChartControls={enableNativeChartControls}
+        enableNativeChartSettings={enableNativeChartSettings}
         enableNativeIntervalSelector={enableNativeIntervalSelector}
         nativeChartTypeControlMode={nativeChartTypeControlMode}
         nativeIndicatorControlMode={nativeIndicatorControlMode}

@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   COINTYPE_LIGHTNING_TESTNET,
   IMPL_LIGHTNING_TESTNET,
@@ -27,6 +29,15 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: false,
 
   addressBookDisabled: true,
+
+  supportedDeviceTypes: [
+    EDeviceType.Classic,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Pro,
+  ],
 
   defaultFeePresetIndex: 0,
 
