@@ -234,6 +234,42 @@ function convertEarnTokenToIToken(earnToken?: IEarnToken): IToken | undefined {
   };
 }
 
+/**
+ * Resolves the label a token should be shown under.
+ *
+ * `symbol` stays the protocol identifier — it is the request param, the route
+ * segment and the key the server matches on, so it must never be swapped for a
+ * label. `displaySymbol` is an optional server-supplied relabel (e.g. Katana's
+ * vbUSDC reads as "USDC for Katana (vbUSDC)") that only ever affects rendering,
+ * and is absent for almost every token.
+ *
+ * Use this for identity surfaces — list rows, search results, page titles.
+ * Do NOT use it as an amount unit: a relabel can be far longer than a symbol
+ * and would wreck "0.00 <symbol>" layouts.
+ */
+function getDisplaySymbol(
+  token?: { symbol?: string; displaySymbol?: string } | null,
+): string {
+  return token?.displaySymbol || token?.symbol || '';
+}
+
+/**
+ * Whether a keyword matches a token by either of its labels, so search still
+ * finds a relabelled token by the symbol users already know.
+ */
+function matchesSymbolKeyword(
+  token: { symbol?: string; displaySymbol?: string } | null | undefined,
+  keyword: string,
+): boolean {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  if (!normalizedKeyword) {
+    return true;
+  }
+  return [token?.symbol, token?.displaySymbol].some((label) =>
+    label?.toLowerCase().includes(normalizedKeyword),
+  );
+}
+
 function extractAmountFromText(text?: IEarnText): string {
   if (!text?.text) return '0';
 
@@ -331,6 +367,8 @@ export default {
   resolveEarnApproveType,
   resolveEarnAllowanceSpenderAddress,
   convertEarnTokenToIToken,
+  getDisplaySymbol,
+  matchesSymbolKeyword,
   extractAmountFromText,
   normalizeBorrowAddress,
   normalizeBorrowAddressParams,
