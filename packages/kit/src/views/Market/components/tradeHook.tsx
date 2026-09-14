@@ -23,6 +23,7 @@ import {
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
   IMarketDetailPlatformNetwork,
+  IMarketPreferredToken,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
@@ -38,10 +39,14 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { EarnNavigation } from '../../Earn/earnUtils';
 import { getLegacyMarketPrimaryNetwork } from '../utils/legacyMarketNetwork';
 
-export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const network = useMemo(() => getLegacyMarketPrimaryNetwork(token), [token]);
-  return network;
-};
+export const useMarketTradeNetwork = (
+  token: IMarketTokenDetail | null,
+  preferredToken?: IMarketPreferredToken,
+) =>
+  useMemo(
+    () => getLegacyMarketPrimaryNetwork(token, preferredToken),
+    [token, preferredToken],
+  );
 
 export const useMarketTradeNetworkId = (
   network: IMarketDetailPlatformNetwork | null | undefined,
@@ -52,10 +57,13 @@ export const useMarketTradeNetworkId = (
     return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
   }, [network, symbol]);
 
-export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
+export const useMarketTradeActions = (
+  token: IMarketTokenDetail | null,
+  preferredToken?: IMarketPreferredToken,
+) => {
   const { symbol = '', name, image } = token || {};
   const intl = useIntl();
-  const network = useMarketTradeNetwork(token);
+  const network = useMarketTradeNetwork(token, preferredToken);
   const networkId = useMarketTradeNetworkId(network, symbol);
 
   const navigation =
