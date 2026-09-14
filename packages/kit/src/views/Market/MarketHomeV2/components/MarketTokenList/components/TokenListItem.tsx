@@ -36,6 +36,12 @@ interface ITokenListItemProps {
   isDragging?: boolean;
 }
 
+// Fixed like the desktop table rows: 12px padding around the two-line identity
+// block. A row's content can change after its first render (a listing's volume
+// line appears once its quote loads), and the web virtualized lists cache the
+// height they measure first, so a content-driven height left stale gaps.
+const TOKEN_LIST_ITEM_HEIGHT = 72;
+
 const IOS_DRAGGING_SHADOW_STYLE = {
   shadowColor: '#000',
   shadowOpacity: 0.2,
@@ -113,6 +119,9 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       onLayout={onLayout}
       px="$5"
       py="$3"
+      height={TOKEN_LIST_ITEM_HEIGHT}
+      // Keeps a long name or subtitle from running into the price.
+      gap="$2"
       alignItems="center"
       borderRadius="$3"
       bg={isHighlighted ? '$bgActive' : '$bgApp'}

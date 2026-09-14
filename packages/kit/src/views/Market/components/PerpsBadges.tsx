@@ -190,6 +190,15 @@ const SubtitleBadge = memo(
 );
 SubtitleBadge.displayName = 'SubtitleBadge';
 
+/**
+ * Unified subtitle size across every Market/Perps list and selector row: 11px
+ * on desktop, 12px on mobile. Text that sits beside the localized name (a
+ * volume, for one) reads it from here so the pair never diverges.
+ */
+function getSubtitleTextSize(gtMd: boolean): ISizableTextProps['size'] {
+  return gtMd ? '$bodyXs' : '$bodySm';
+}
+
 // Localized name rendered as plain subdued text (no badge background).
 // Used in Market/Perps list rows: placed under the symbol on desktop and
 // before the volume on mobile.
@@ -211,10 +220,7 @@ const SubtitleText = memo(
     size?: ISizableTextProps['size'];
   }) => {
     const { gtMd } = useMedia();
-    // Unified subtitle size across every Market/Perps list and selector row:
-    // 11px on desktop, 12px on mobile. Keep this the single source of truth so
-    // the localized name never diverges between lists.
-    const size = sizeOverride ?? (gtMd ? '$bodyXs' : '$bodySm');
+    const size = sizeOverride ?? getSubtitleTextSize(gtMd);
     // The uncapped list rows also skip the layout-driven measurement: it could
     // record "truncated" mid-layout and never re-measure, popping the tooltip
     // over a name that fits.
@@ -605,6 +611,7 @@ const StockSourceLogo = memo(
 StockSourceLogo.displayName = 'StockSourceLogo';
 
 export {
+  getSubtitleTextSize,
   LeverageBadge,
   PerpDexBadge,
   StockIsOpenBadge,

@@ -63,10 +63,12 @@ const TOKEN_ROW_STYLE: MarketRowStyle = {
     lines: 1,
     alignment: 'start',
   },
+  // Every mobile Market row runs its subtitle at 12/16 (the web `$bodySm`),
+  // whatever the line holds: a volume, a company name, or both.
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'regular',
-    lineHeight: 20,
+    lineHeight: 16,
     lines: 1,
     alignment: 'start',
   },
@@ -89,18 +91,6 @@ const TOKEN_ROW_STYLE: MarketRowStyle = {
   changeCornerRadius: 8,
 };
 
-const STOCK_ROW_STYLE: MarketRowStyle = {
-  ...TOKEN_ROW_STYLE,
-  lineGap: 0,
-  image: {
-    width: 40,
-    height: 40,
-    shape: 'circle',
-    cornerRadius: 20,
-    contentFit: 'cover',
-  },
-};
-
 const PERP_ROW_STYLE: MarketRowStyle = {
   ...TOKEN_ROW_STYLE,
   horizontalPadding: 16,
@@ -108,11 +98,6 @@ const PERP_ROW_STYLE: MarketRowStyle = {
   lineGap: 0,
   contentTrailingGap: 12,
   subtitleTrailingPadding: 12,
-  subtitle: {
-    ...TOKEN_ROW_STYLE.subtitle,
-    fontSize: 12,
-    lineHeight: 16,
-  },
 };
 
 function toTextSegments(rendered: ReturnType<typeof numberFormatAsRenderText>):
@@ -414,7 +399,7 @@ export function buildStockMarketRow({
       : undefined,
     leading: {
       kind: 'token',
-      image: marketImage(item.logoUrl, 40),
+      image: marketImage(item.logoUrl, 32),
       fallbackIcon: { name: 'CryptoCoinOutline' },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
@@ -427,7 +412,8 @@ export function buildStockMarketRow({
     change,
     pressActionKey: 'open-detail',
     pressInActionKey: 'prewarm-stock-detail',
-    style: rowStyleForChange(STOCK_ROW_STYLE, changeValue),
+    // Stock rows share the token row frame (32px logo, 4px line gap).
+    style: rowStyleForChange(TOKEN_ROW_STYLE, changeValue),
   };
 }
 
