@@ -71,11 +71,11 @@ const token: IMarketToken = {
 };
 
 describe('useColumnsDesktop', () => {
-  test('renders token images in lightweight rows', () => {
+  function renderLightweightNameCell(isWatchlistMode: boolean) {
     const { result } = renderHook(() =>
       useColumnsDesktop(
         undefined,
-        true,
+        isWatchlistMode,
         undefined,
         undefined,
         undefined,
@@ -93,17 +93,31 @@ describe('useColumnsDesktop', () => {
     const cell = nameColumn?.render?.(undefined, token, 4) as ReactElement<{
       children: ReactNode;
     }>;
-    const tokenElement = Children.toArray(
-      cell.props.children,
-    )[0] as ReactElement<{
+
+    return Children.toArray(cell.props.children)[0] as ReactElement<{
       tokenImageUri?: string;
       tokenImageUris?: string[];
       networkImageUri?: string;
+      width?: number;
+      height?: number;
     }>;
+  }
+
+  test('renders token images in lightweight watchlist rows', () => {
+    const tokenElement = renderLightweightNameCell(true);
 
     expect(tokenElement.type).toBe(Token);
     expect(tokenElement.props.tokenImageUri).toBe(token.tokenImageUri);
     expect(tokenElement.props.tokenImageUris).toBe(token.tokenImageUris);
     expect(tokenElement.props.networkImageUri).toBe(token.networkLogoUri);
+  });
+
+  test('keeps lightweight non-watchlist rows image-free', () => {
+    const placeholderElement = renderLightweightNameCell(false);
+
+    expect(placeholderElement.type).not.toBe(Token);
+    expect(placeholderElement.props.width).toBe(40);
+    expect(placeholderElement.props.height).toBe(40);
+    expect(placeholderElement.props.tokenImageUri).toBeUndefined();
   });
 });
