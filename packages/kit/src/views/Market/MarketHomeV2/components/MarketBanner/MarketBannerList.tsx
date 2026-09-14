@@ -61,6 +61,7 @@ function BannerContainerMobile({
           py: '$2',
           px: '$4',
           gap: '$3',
+          alignItems: platformEnv.isNativeAndroid ? 'center' : undefined,
         }}
       >
         {children}
