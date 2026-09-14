@@ -435,7 +435,7 @@ function PerpPositionsList({
         >
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator
+            showsHorizontalScrollIndicator={false}
             nestedScrollEnabled
             style={{ flex: 1 }}
             contentContainerStyle={{

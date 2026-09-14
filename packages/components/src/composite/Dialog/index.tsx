@@ -49,6 +49,10 @@ import {
   usePageType,
 } from '../../hocs';
 import {
+  NATIVE_SHEET_PRESENTATION_SUPPORTED,
+  NativeSheetPresentation,
+} from '../../hocs/NativeSheetPresentation';
+import {
   useBackHandler,
   useKeyboardEventWithoutNavigation,
   useModalNavigatorContextPortalId,
@@ -267,6 +271,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
+  nativeSheet = false,
   trackID,
   forceMount,
   useInitialSafeAreaBottomInsetFallback = false,
@@ -364,11 +369,17 @@ function DialogFrame({
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
     useInitialSafeAreaBottomInsetFallback,
   });
+  const useNativeSheetPresentation =
+    nativeSheet && media.md && NATIVE_SHEET_PRESENTATION_SUPPORTED;
   const dialogHeader = showHeader ? (
     <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
   ) : null;
   const renderDialogContent = (
-    <Animated.View style={safeKeyboardAnimationStyle}>
+    <Animated.View
+      style={
+        useNativeSheetPresentation ? undefined : safeKeyboardAnimationStyle
+      }
+    >
       {isHeaderDragOnly ? (
         <HeaderDragZone
           dragY={headerDragY}
@@ -386,6 +397,7 @@ function DialogFrame({
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
+        nativeSheetPresentation={useNativeSheetPresentation}
         {...(contentContainerProps as any)}
       >
         {renderContent}
@@ -416,6 +428,68 @@ function DialogFrame({
       />
     </Animated.View>
   );
+
+  const dialogSheetBody = (
+    <DialogSheetContext.Provider value={!useNativeSheetPresentation}>
+      <FocusScope
+        enabled={open}
+        trapped={open ? effectiveTrapFocus : undefined}
+        onMountAutoFocus={onOpenAutoFocus}
+        loop
+      >
+        {isHeaderDragOnly ? (
+          <Animated.View style={headerDragStyle}>
+            <Stack
+              bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
+              borderTopLeftRadius="$6"
+              borderTopRightRadius="$6"
+              borderCurve="continuous"
+            >
+              {renderDialogContent}
+            </Stack>
+          </Animated.View>
+        ) : (
+          <Stack>
+            {!disableDrag ? <SheetGrabber /> : null}
+            {renderDialogContent}
+          </Stack>
+        )}
+      </FocusScope>
+    </DialogSheetContext.Provider>
+  );
+
+  if (useNativeSheetPresentation) {
+    return (
+      <NativeSheetPresentation
+        open={Boolean(open)}
+        onOpenChange={handleOpenChange}
+        dismissOnOverlayPress={dismissOnOverlayPress}
+        dismissOnSnapToBottom={sheetProps?.dismissOnSnapToBottom ?? true}
+        disableDrag={
+          disableDrag || Boolean(sheetProps?.disableDrag) || isHeaderDragOnly
+        }
+        dismissOnBackPress={!disableSystemClose}
+        showHandle={false}
+        cornerRadius={24}
+        onAnimationComplete={sheetProps?.onAnimationComplete}
+        testID={testID}
+      >
+        <Stack
+          bg={
+            isHeaderDragOnly
+              ? 'transparent'
+              : ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
+          }
+          borderTopLeftRadius="$6"
+          borderTopRightRadius="$6"
+          borderCurve="continuous"
+          overflow="hidden"
+        >
+          {dialogSheetBody}
+        </Stack>
+      </NativeSheetPresentation>
+    );
+  }
 
   if (media.md) {
     return (
@@ -472,35 +546,7 @@ function DialogFrame({
           width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
-          <DialogSheetContext.Provider value>
-            <FocusScope
-              enabled={open}
-              trapped={open ? effectiveTrapFocus : undefined}
-              onMountAutoFocus={onOpenAutoFocus}
-              loop
-            >
-              {isHeaderDragOnly ? (
-                <Animated.View style={headerDragStyle}>
-                  <Stack
-                    bg={
-                      (contentContainerProps as { bg?: IColorTokens })?.bg ??
-                      '$bg'
-                    }
-                    borderTopLeftRadius="$6"
-                    borderTopRightRadius="$6"
-                    borderCurve="continuous"
-                  >
-                    {renderDialogContent}
-                  </Stack>
-                </Animated.View>
-              ) : (
-                <Stack>
-                  {!disableDrag ? <SheetGrabber /> : null}
-                  {renderDialogContent}
-                </Stack>
-              )}
-            </FocusScope>
-          </DialogSheetContext.Provider>
+          {dialogSheetBody}
         </Sheet.Frame>
       </Sheet>
     );
@@ -576,7 +622,19 @@ function DialogFrame({
               }
               zIndex={floatingPanelProps?.zIndex || zIndex}
             >
-              {renderDialogContent}
+              {platformEnv.isNative ? (
+                // Native only: the centered frame sits in an absolute-fill
+                // Stack, so Yoga measures its subtree in AtMost mode and any
+                // `flex: 1` child (e.g. ListItem's Pressable wrapper) collapses
+                // to zero height and overlaps its siblings. A ScrollView
+                // measures its content unconstrained (overflow: scroll), which
+                // restores content sizing and also lets tall content scroll.
+                <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+                  {renderDialogContent}
+                </ScrollView>
+              ) : (
+                renderDialogContent
+              )}
             </TMDialog.Content>
           </Stack>
         ) : null}

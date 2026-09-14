@@ -36,6 +36,7 @@ export default function LegacyMarketDetailRoute(
   const intl = useIntl();
   const { route } = props;
   const marketTokenId = route.params.token;
+  const preferredToken = route.params.preferredToken;
   const {
     result: legacyDetailResult,
     isLoading,
@@ -73,9 +74,10 @@ export default function LegacyMarketDetailRoute(
       params: getLegacyMarketDetailV2RouteParams({
         marketTokenId,
         token: legacyDetail,
+        preferredToken,
       }),
     };
-  }, [legacyDetail, marketTokenId, route]);
+  }, [legacyDetail, marketTokenId, preferredToken, route]);
 
   if (legacyDetailResult.status === 'error') {
     return (

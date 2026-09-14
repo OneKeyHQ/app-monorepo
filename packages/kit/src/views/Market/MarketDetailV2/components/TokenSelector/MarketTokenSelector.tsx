@@ -96,7 +96,9 @@ function convertTopCoinToSelectorToken(
     networkLogoUri: '',
     networkId: '',
     chainId: '',
-    selectorSubtitle: item.symbol.toUpperCase(),
+    // The row title is already the symbol, so the subtitle carries the full
+    // name and stays empty rather than repeating the symbol when it is missing.
+    selectorSubtitle: item.name?.trim() || undefined,
   };
 }
 

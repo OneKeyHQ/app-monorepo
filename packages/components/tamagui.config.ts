@@ -663,7 +663,8 @@ declare module 'tamagui' {
       | 'card'
       | 'sidebarClearButton'
       | 'sidebarBrowserDivider'
-      | 'marketTokenRow';
+      | 'marketTokenRow'
+      | 'marketBannerCard';
   }
 }
 

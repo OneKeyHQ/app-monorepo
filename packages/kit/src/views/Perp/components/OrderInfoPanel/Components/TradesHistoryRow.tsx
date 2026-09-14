@@ -468,14 +468,18 @@ const TradesHistoryRow = memo(
             >
               <Tooltip
                 placement="top"
+                triggerAsChild="except-style"
                 renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    dashThickness={0.3}
-                  >
-                    {tradeBaseInfo.feeFormatted}
-                  </DashText>
+                  <XStack cursor="help">
+                    <DashText
+                      size="$bodySm"
+                      color="$text"
+                      dashThickness={0.3}
+                      dashOverlay
+                    >
+                      {tradeBaseInfo.feeFormatted}
+                    </DashText>
+                  </XStack>
                 }
                 renderContent={feeTooltipContent}
               />
