@@ -185,8 +185,8 @@ function NotificationItem({
               right={0}
               borderRadius="$full"
               bg="$bgCriticalStrong"
-              w={6}
-              h={6}
+              w="$2"
+              h="$2"
             />
           ) : null}
         </YStack>
