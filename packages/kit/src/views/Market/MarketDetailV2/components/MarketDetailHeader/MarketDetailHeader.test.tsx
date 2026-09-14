@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { isValidElement } from 'react';
+import { Children, isValidElement } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
@@ -16,6 +16,7 @@ const mockBackPress = jest.fn();
 let mockWindowWidth = 402;
 let mockSafeArea = { left: 0, right: 0 };
 let mockMd = true;
+let mockCommunityRecognized = false;
 
 jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ width: mockWindowWidth }),
@@ -85,7 +86,11 @@ jest.mock('../../hooks/useMarketDetailBackNavigation', () => ({
 }));
 jest.mock('../../hooks/useMarketDetailDisplayData', () => ({
   useMarketDetailHeaderDisplayData: () => ({
-    tokenDetail: { symbol: 'BNC4', address: '0x12345678' },
+    tokenDetail: {
+      symbol: 'BNC4',
+      address: '0x12345678',
+      communityRecognized: mockCommunityRecognized,
+    },
     networkId: 'evm--56',
     isNative: false,
   }),
@@ -119,12 +124,43 @@ function getHeaderItems() {
   return { options, items, title, titleProps: title.element.props };
 }
 
+type ILayoutElementProps = {
+  children?: ReactNode;
+  testID?: string;
+  flexShrink?: number;
+  minWidth?: number;
+  numberOfLines?: number;
+};
+
+function findParentByChildTestId(
+  node: ReactNode,
+  testID: string,
+): ReactElement<ILayoutElementProps> | undefined {
+  if (!isValidElement<ILayoutElementProps>(node)) return undefined;
+  const children = Children.toArray(node.props.children);
+  if (
+    children.some(
+      (child) =>
+        isValidElement<ILayoutElementProps>(child) &&
+        child.props.testID === testID,
+    )
+  ) {
+    return node;
+  }
+  for (const child of children) {
+    const parent = findParentByChildTestId(child, testID);
+    if (parent) return parent;
+  }
+  return undefined;
+}
+
 describe('MarketDetailHeader native layout', () => {
   beforeEach(() => {
     mockPageHeader.mockClear();
     mockWindowWidth = 402;
     mockSafeArea = { left: 0, right: 0 };
     mockMd = true;
+    mockCommunityRecognized = false;
     platformEnv.isNativeIOS26Plus = true;
   });
 
@@ -156,6 +192,31 @@ describe('MarketDetailHeader native layout', () => {
     view.rerender(<MarketDetailHeader showFavoriteButton={false} />);
     expect(getHeaderItems().titleProps.maxWidth).toBe(195);
   });
+
+  it.each([false, true])(
+    'allows the address row to shrink on narrow screens (recognized: %s)',
+    (communityRecognized) => {
+      mockWindowWidth = 375;
+      mockCommunityRecognized = communityRecognized;
+      render(<MarketDetailHeader />);
+      const { title, titleProps } = getHeaderItems();
+      expect(titleProps.maxWidth).toBe(159);
+      const addressRow = findParentByChildTestId(title.element, 'market-icon');
+      expect(addressRow?.props).toEqual(
+        expect.objectContaining({ flexShrink: 1, minWidth: 0 }),
+      );
+      const addressText = Children.toArray(addressRow?.props.children).find(
+        (child) =>
+          isValidElement<ILayoutElementProps>(child) &&
+          child.props.numberOfLines === 1,
+      );
+      expect(
+        isValidElement<ILayoutElementProps>(addressText)
+          ? addressText.props.flexShrink
+          : undefined,
+      ).toBe(1);
+    },
+  );
 
   it('does not change the legacy mobile or large-screen header paths', () => {
     platformEnv.isNativeIOS26Plus = false;

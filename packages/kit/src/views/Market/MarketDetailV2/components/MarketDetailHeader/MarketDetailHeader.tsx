@@ -183,7 +183,7 @@ export function MarketDetailHeader({
                 />
               ) : null}
               {tokenDetail?.address ? (
-                <XStack ai="center" gap="$1" minWidth={0}>
+                <XStack ai="center" gap="$1" flexShrink={1} minWidth={0}>
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
