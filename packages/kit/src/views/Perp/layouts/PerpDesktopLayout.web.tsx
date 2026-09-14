@@ -299,11 +299,7 @@ function PerpDesktopLayout() {
         <PerpNetworkAlert />
         {chartExpanded ? null : <FavoritesBar />}
 
-        <YStack
-          flex={chartExpanded ? 1 : undefined}
-          borderBottomWidth="$px"
-          borderBottomColor="$borderSubdued"
-        >
+        <YStack flex={chartExpanded ? 1 : undefined}>
           <PerpTickerBar />
 
           <Stack
