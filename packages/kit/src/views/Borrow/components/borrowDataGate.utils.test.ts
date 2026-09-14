@@ -2,10 +2,52 @@ import { EBorrowDataStatus } from '../borrowDataStatus';
 
 import {
   getOwnedBorrowReservesResult,
+  isBorrowEarnAccountLoading,
   isCurrentBorrowReservesRequest,
   shouldPublishBorrowMarketChange,
   shouldRefreshBorrowDataOnActivation,
 } from './borrowDataGate.utils';
+
+describe('isBorrowEarnAccountLoading', () => {
+  it.each([undefined, false, true])(
+    'keeps an unresolved target account pending when request loading is %s',
+    (isLoading) => {
+      expect(
+        isBorrowEarnAccountLoading({
+          isLoading,
+          hasAccountContext: true,
+          hasMarketNetwork: true,
+          isAccountUnresolved: true,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it.each([
+    {
+      hasAccountContext: false,
+      hasMarketNetwork: true,
+      isAccountUnresolved: true,
+    },
+    {
+      hasAccountContext: true,
+      hasMarketNetwork: false,
+      isAccountUnresolved: true,
+    },
+    {
+      hasAccountContext: true,
+      hasMarketNetwork: true,
+      isAccountUnresolved: false,
+    },
+  ])(
+    'does not mark a settled or absent account scope as loading: %j',
+    (scope) => {
+      expect(isBorrowEarnAccountLoading({ isLoading: false, ...scope })).toBe(
+        false,
+      );
+    },
+  );
+});
 
 describe('shouldPublishBorrowMarketChange', () => {
   it.each([EBorrowDataStatus.Initializing, EBorrowDataStatus.Idle])(
