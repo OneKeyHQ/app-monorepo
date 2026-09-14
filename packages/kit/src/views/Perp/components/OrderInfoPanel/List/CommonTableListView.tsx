@@ -62,6 +62,8 @@ import {
   getPerpDesktopTableFixedSectionWidth,
 } from '../utils/tableLayout';
 
+import { PerpTableScrollView } from './PerpTableScrollView';
+
 import type {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -508,6 +510,9 @@ export function CommonTableListView<T>({
   );
 
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
+  const [desktopRowHeights, setDesktopRowHeights] = useState<
+    Record<string, number>
+  >({});
 
   const paginatedData = useMemo<T[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -906,7 +911,6 @@ export function CommonTableListView<T>({
     <XStack
       key={column.key}
       {...getColumnStyle(column)}
-      pr={column.headerRightPadding}
       justifyContent={calcCellAlign(column.align) as any}
       onPress={column.onPress}
       cursor="default"
@@ -917,6 +921,7 @@ export function CommonTableListView<T>({
           renderTrigger={
             <SizableText
               size="$bodySmMedium"
+              mr={column.headerRightPadding}
               borderBottomWidth="$px"
               borderTopWidth={0}
               borderLeftWidth={0}
@@ -935,6 +940,7 @@ export function CommonTableListView<T>({
       ) : (
         <SizableText
           size="$bodySmMedium"
+          mr={column.headerRightPadding}
           borderBottomWidth="$px"
           borderBottomColor="transparent"
           color={column.onPress ? '$bgAccent' : headerTextColor}
@@ -998,7 +1004,7 @@ export function CommonTableListView<T>({
   );
   const desktopTable = (
     <XStack flex={1}>
-      <ScrollView
+      <PerpTableScrollView
         ref={scrollViewRef}
         testID="perp-desktop-table-body"
         style={{
@@ -1016,7 +1022,11 @@ export function CommonTableListView<T>({
         }}
       >
         <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">
-          <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
+          <YStack
+            flex={!platformEnv.isNative ? undefined : 1}
+            flexShrink={!platformEnv.isNative ? 0 : undefined}
+            pb={enablePagination ? 0 : '$4'}
+          >
             {effectiveListLoading ? (
               <YStack
                 flex={1}
@@ -1028,21 +1038,38 @@ export function CommonTableListView<T>({
               </YStack>
             ) : null}
             {!effectiveListLoading && paginatedData.length > 0
-              ? paginatedData.map((item, index) => (
-                  <Fragment key={keyExtractor?.(item, index) ?? String(index)}>
-                    {renderRow(
-                      item,
-                      index,
-                      hasFixedColumns ? 'left' : 'full',
-                      hoveredRowIndex === index,
-                      setHoveredRowIndex,
-                    )}
-                  </Fragment>
-                ))
+              ? paginatedData.map((item, index) => {
+                  const key = keyExtractor?.(item, index) ?? String(index);
+                  const row = renderRow(
+                    item,
+                    index,
+                    hasFixedColumns ? 'left' : 'full',
+                    hoveredRowIndex === index,
+                    setHoveredRowIndex,
+                  );
+                  return !platformEnv.isNative && hasFixedColumns ? (
+                    <YStack
+                      key={key}
+                      flexShrink={0}
+                      onLayout={(event) => {
+                        const { height } = event.nativeEvent.layout;
+                        setDesktopRowHeights((previous) =>
+                          previous[key] === height
+                            ? previous
+                            : { ...previous, [key]: height },
+                        );
+                      }}
+                    >
+                      {row}
+                    </YStack>
+                  ) : (
+                    <Fragment key={key}>{row}</Fragment>
+                  );
+                })
               : null}
           </YStack>
         </YStack>
-      </ScrollView>
+      </PerpTableScrollView>
 
       {/* Fixed columns */}
       {hasFixedColumns ? (
@@ -1067,23 +1094,37 @@ export function CommonTableListView<T>({
             visible={showFixedShadow}
             isDark={isDark}
           />
-          <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
+          <YStack
+            flex={!platformEnv.isNative ? undefined : 1}
+            flexShrink={!platformEnv.isNative ? 0 : undefined}
+            pb={enablePagination ? 0 : '$4'}
+          >
             {effectiveListLoading ? <YStack flex={1} p="$20" /> : null}
             {!effectiveListLoading && paginatedData.length === 0 ? (
               <YStack flex={1} p="$5" />
             ) : null}
             {!effectiveListLoading && paginatedData.length > 0
-              ? paginatedData.map((item, index) => (
-                  <Fragment key={keyExtractor?.(item, index) ?? String(index)}>
-                    {renderRow(
-                      item,
-                      index,
-                      'right',
-                      hoveredRowIndex === index,
-                      setHoveredRowIndex,
-                    )}
-                  </Fragment>
-                ))
+              ? paginatedData.map((item, index) => {
+                  const key = keyExtractor?.(item, index) ?? String(index);
+                  const row = renderRow(
+                    item,
+                    index,
+                    'right',
+                    hoveredRowIndex === index,
+                    setHoveredRowIndex,
+                  );
+                  return !platformEnv.isNative ? (
+                    <YStack
+                      key={key}
+                      height={desktopRowHeights[key]}
+                      flexShrink={0}
+                    >
+                      {row}
+                    </YStack>
+                  ) : (
+                    <Fragment key={key}>{row}</Fragment>
+                  );
+                })
               : null}
           </YStack>
         </YStack>
@@ -1094,12 +1135,14 @@ export function CommonTableListView<T>({
   return (
     <YStack flex={1} testID="perp-desktop-table">
       {desktopHeader}
-      <ScrollView
+      <PerpTableScrollView
         onContentSizeChange={
           platformEnv.isNative ? undefined : handleDesktopContentSizeChange
         }
         contentContainerStyle={
-          showDesktopEmptyState ? { flexGrow: 1 } : undefined
+          !platformEnv.isNative || showDesktopEmptyState
+            ? { flexGrow: 1 }
+            : undefined
         }
         style={{
           flex: 1,
@@ -1123,7 +1166,7 @@ export function CommonTableListView<T>({
         ) : (
           desktopTable
         )}
-      </ScrollView>
+      </PerpTableScrollView>
       {enablePagination && currentListPage ? (
         <PaginationFooter
           currentPage={currentListPage}
