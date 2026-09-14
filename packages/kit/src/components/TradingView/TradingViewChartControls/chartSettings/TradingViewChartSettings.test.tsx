@@ -174,7 +174,7 @@ describe('TradingViewChartSettings', () => {
     const previousCloseCheckbox = screen.getByTestId(
       'trading-view-settings-checkbox-previous-close',
     );
-    expect(previousCloseCheckbox.textContent).toBe('Prev close');
+    expect(previousCloseCheckbox.textContent).toBe('market.prev_close');
     expect(previousCloseCheckbox.getAttribute('data-value')).toBe('false');
 
     fireEvent.click(previousCloseCheckbox);
