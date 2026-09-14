@@ -250,7 +250,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
 
     return (
       <Keyboard.AvoidingView
-        automaticOffset
+        automaticOffset={platformEnv.isNativeAndroid}
         behavior="height"
         enabled={platformEnv.isNativeAndroid}
         style={{ flex: 1 }}
