@@ -264,10 +264,12 @@ private struct MarketScalar: Decodable {
 
 actor AppClipMarketService {
   // Keep each stock pagination chain and the chart endpoint stable for this App Clip process.
-  private var resolvedStockListBaseURLs: [URL: URL] = [:]
-  private var pendingStockListBaseURLResolutions: [URL: StockBaseURLResolution] = [:]
-  private var resolvedStockChartBaseURLs: [URL: URL] = [:]
-  private var pendingStockChartBaseURLResolutions: [URL: StockBaseURLResolution] = [:]
+  private var resolvedStockListBaseURLs: [StockListBaseURLKey: URL] = [:]
+  private var pendingStockListBaseURLResolutions:
+    [StockListBaseURLKey: StockListBaseURLResolution] = [:]
+  private var resolvedStockChartBaseURLs: [StockChartBaseURLKey: URL] = [:]
+  private var pendingStockChartBaseURLResolutions:
+    [StockChartBaseURLKey: StockChartBaseURLResolution] = [:]
 
   func fetchConfiguration(baseURL: URL) async throws -> AppClipMarketConfiguration {
     var components = URLComponents(
@@ -303,13 +305,55 @@ actor AppClipMarketService {
     cursor: String? = nil,
     limit: Int = 20
   ) async throws -> AppClipMarketStockPage {
-    let resolvedBaseURL = try await resolveStockListBaseURL(for: baseURL)
-    return try await fetchStockPage(
-      baseURL: resolvedBaseURL,
-      category: category,
-      cursor: cursor,
-      limit: limit
-    )
+    let key = StockListBaseURLKey(baseURL: baseURL, category: category)
+    if let resolvedBaseURL = resolvedStockListBaseURLs[key] {
+      return try await fetchStockPage(
+        baseURL: resolvedBaseURL,
+        category: category,
+        cursor: cursor,
+        limit: limit
+      )
+    }
+    let resolution: StockListBaseURLResolution
+    let ownsResolution: Bool
+    if let pendingResolution = pendingStockListBaseURLResolutions[key] {
+      resolution = pendingResolution
+      ownsResolution = false
+    } else {
+      let resolutionID = UUID()
+      let task = Task {
+        try await self.fetchStockPageResolvingBaseURL(
+          baseURL: baseURL,
+          category: category,
+          cursor: cursor,
+          limit: limit
+        )
+      }
+      resolution = StockListBaseURLResolution(id: resolutionID, task: task)
+      pendingStockListBaseURLResolutions[key] = resolution
+      ownsResolution = true
+    }
+    do {
+      let result = try await resolution.task.value
+      if pendingStockListBaseURLResolutions[key]?.id == resolution.id {
+        resolvedStockListBaseURLs[key] = result.baseURL
+        pendingStockListBaseURLResolutions[key] = nil
+      }
+      if ownsResolution {
+        return result.page
+      }
+      return try await fetchStockPage(
+        baseURL: resolvedStockListBaseURLs[key] ?? result.baseURL,
+        category: category,
+        cursor: cursor,
+        limit: limit
+      )
+    } catch {
+      if pendingStockListBaseURLResolutions[key]?.id == resolution.id {
+        pendingStockListBaseURLResolutions[key] = nil
+      }
+      throw error
+    }
   }
 
   private func fetchStockPage(
@@ -347,6 +391,37 @@ actor AppClipMarketService {
       },
       nextCursor: payload.nextCursor.flatMap { $0.isEmpty ? nil : $0 }
     )
+  }
+
+  private func fetchStockPageResolvingBaseURL(
+    baseURL: URL,
+    category: String?,
+    cursor: String?,
+    limit: Int
+  ) async throws -> (baseURL: URL, page: AppClipMarketStockPage) {
+    do {
+      let page = try await fetchStockPage(
+        baseURL: baseURL,
+        category: category,
+        cursor: cursor,
+        limit: limit
+      )
+      return (baseURL, page)
+    } catch {
+      guard
+        Self.shouldFallbackStockRequest(after: error),
+        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
+      else {
+        throw error
+      }
+      let page = try await fetchStockPage(
+        baseURL: fallbackBaseURL,
+        category: category,
+        cursor: cursor,
+        limit: limit
+      )
+      return (fallbackBaseURL, page)
+    }
   }
 
   func fetchPerps(
@@ -479,16 +554,52 @@ actor AppClipMarketService {
     period: String,
     baseURL: URL
   ) async throws -> AppClipKlineResult {
-    let resolvedBaseURL = try await resolveStockChartBaseURL(
-      for: baseURL,
-      stockID: stockID,
-      period: period
-    )
-    return try await fetchStockCandles(
-      stockID: stockID,
-      period: period,
-      requestBaseURL: resolvedBaseURL
-    )
+    let key = StockChartBaseURLKey(baseURL: baseURL, stockID: stockID)
+    if let resolvedBaseURL = resolvedStockChartBaseURLs[key] {
+      return try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: resolvedBaseURL
+      )
+    }
+    let resolution: StockChartBaseURLResolution
+    let ownsResolution: Bool
+    if let pendingResolution = pendingStockChartBaseURLResolutions[key] {
+      resolution = pendingResolution
+      ownsResolution = false
+    } else {
+      let resolutionID = UUID()
+      let task = Task {
+        try await self.fetchStockCandlesResolvingBaseURL(
+          stockID: stockID,
+          period: period,
+          baseURL: baseURL
+        )
+      }
+      resolution = StockChartBaseURLResolution(id: resolutionID, task: task)
+      pendingStockChartBaseURLResolutions[key] = resolution
+      ownsResolution = true
+    }
+    do {
+      let result = try await resolution.task.value
+      if pendingStockChartBaseURLResolutions[key]?.id == resolution.id {
+        resolvedStockChartBaseURLs[key] = result.baseURL
+        pendingStockChartBaseURLResolutions[key] = nil
+      }
+      if ownsResolution {
+        return result.result
+      }
+      return try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: resolvedStockChartBaseURLs[key] ?? result.baseURL
+      )
+    } catch {
+      if pendingStockChartBaseURLResolutions[key]?.id == resolution.id {
+        pendingStockChartBaseURLResolutions[key] = nil
+      }
+      throw error
+    }
   }
 
   private func fetchStockCandles(
@@ -524,6 +635,34 @@ actor AppClipMarketService {
       timeTo: Double.greatestFiniteMagnitude,
       samplingStrategy: .evenlySpaced(maximumPointCount: 300)
     )
+  }
+
+  private func fetchStockCandlesResolvingBaseURL(
+    stockID: String,
+    period: String,
+    baseURL: URL
+  ) async throws -> (baseURL: URL, result: AppClipKlineResult) {
+    do {
+      let result = try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: baseURL
+      )
+      return (baseURL, result)
+    } catch {
+      guard
+        Self.shouldFallbackStockRequest(after: error),
+        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
+      else {
+        throw error
+      }
+      let result = try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: fallbackBaseURL
+      )
+      return (fallbackBaseURL, result)
+    }
   }
 
   func fetchPerpCandles(
@@ -647,126 +786,24 @@ actor AppClipMarketService {
     return URL(string: "https://utility.onekeytest.com")
   }
 
-  private struct StockBaseURLResolution {
+  private struct StockListBaseURLKey: Hashable {
+    let baseURL: URL
+    let category: String?
+  }
+
+  private struct StockChartBaseURLKey: Hashable {
+    let baseURL: URL
+    let stockID: String
+  }
+
+  private struct StockListBaseURLResolution {
     let id: UUID
-    let task: Task<URL, Error>
+    let task: Task<(baseURL: URL, page: AppClipMarketStockPage), Error>
   }
 
-  private func resolveStockListBaseURL(for baseURL: URL) async throws -> URL {
-    if let resolvedBaseURL = resolvedStockListBaseURLs[baseURL] {
-      return resolvedBaseURL
-    }
-    let resolution: StockBaseURLResolution
-    if let pendingResolution = pendingStockListBaseURLResolutions[baseURL] {
-      resolution = pendingResolution
-    } else {
-      let resolutionID = UUID()
-      let task = Task { try await self.findWorkingStockListBaseURL(for: baseURL) }
-      resolution = StockBaseURLResolution(id: resolutionID, task: task)
-      pendingStockListBaseURLResolutions[baseURL] = resolution
-    }
-    do {
-      let resolvedBaseURL = try await resolution.task.value
-      if pendingStockListBaseURLResolutions[baseURL]?.id == resolution.id {
-        resolvedStockListBaseURLs[baseURL] = resolvedBaseURL
-        pendingStockListBaseURLResolutions[baseURL] = nil
-      }
-      return resolvedStockListBaseURLs[baseURL] ?? resolvedBaseURL
-    } catch {
-      if pendingStockListBaseURLResolutions[baseURL]?.id == resolution.id {
-        pendingStockListBaseURLResolutions[baseURL] = nil
-      }
-      throw error
-    }
-  }
-
-  private func findWorkingStockListBaseURL(for baseURL: URL) async throws -> URL {
-    do {
-      _ = try await fetchStockPage(baseURL: baseURL, category: nil, cursor: nil, limit: 1)
-      return baseURL
-    } catch {
-      guard
-        Self.shouldFallbackStockRequest(after: error),
-        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
-      else {
-        throw error
-      }
-      _ = try await fetchStockPage(baseURL: fallbackBaseURL, category: nil, cursor: nil, limit: 1)
-      return fallbackBaseURL
-    }
-  }
-
-  private func resolveStockChartBaseURL(
-    for baseURL: URL,
-    stockID: String,
-    period: String
-  ) async throws -> URL {
-    if let resolvedBaseURL = resolvedStockChartBaseURLs[baseURL] {
-      return resolvedBaseURL
-    }
-    if
-      let resolvedListBaseURL = resolvedStockListBaseURLs[baseURL],
-      resolvedListBaseURL != baseURL
-    {
-      resolvedStockChartBaseURLs[baseURL] = resolvedListBaseURL
-      return resolvedListBaseURL
-    }
-    let resolution: StockBaseURLResolution
-    if let pendingResolution = pendingStockChartBaseURLResolutions[baseURL] {
-      resolution = pendingResolution
-    } else {
-      let resolutionID = UUID()
-      let task = Task {
-        try await self.findWorkingStockChartBaseURL(
-          for: baseURL,
-          stockID: stockID,
-          period: period
-        )
-      }
-      resolution = StockBaseURLResolution(id: resolutionID, task: task)
-      pendingStockChartBaseURLResolutions[baseURL] = resolution
-    }
-    do {
-      let resolvedBaseURL = try await resolution.task.value
-      if pendingStockChartBaseURLResolutions[baseURL]?.id == resolution.id {
-        resolvedStockChartBaseURLs[baseURL] = resolvedBaseURL
-        pendingStockChartBaseURLResolutions[baseURL] = nil
-      }
-      return resolvedStockChartBaseURLs[baseURL] ?? resolvedBaseURL
-    } catch {
-      if pendingStockChartBaseURLResolutions[baseURL]?.id == resolution.id {
-        pendingStockChartBaseURLResolutions[baseURL] = nil
-      }
-      throw error
-    }
-  }
-
-  private func findWorkingStockChartBaseURL(
-    for baseURL: URL,
-    stockID: String,
-    period: String
-  ) async throws -> URL {
-    do {
-      _ = try await fetchStockCandles(
-        stockID: stockID,
-        period: period,
-        requestBaseURL: baseURL
-      )
-      return baseURL
-    } catch {
-      guard
-        Self.shouldFallbackStockRequest(after: error),
-        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
-      else {
-        throw error
-      }
-      _ = try await fetchStockCandles(
-        stockID: stockID,
-        period: period,
-        requestBaseURL: fallbackBaseURL
-      )
-      return fallbackBaseURL
-    }
+  private struct StockChartBaseURLResolution {
+    let id: UUID
+    let task: Task<(baseURL: URL, result: AppClipKlineResult), Error>
   }
 
   private static func shouldFallbackStockRequest(after error: Error) -> Bool {
