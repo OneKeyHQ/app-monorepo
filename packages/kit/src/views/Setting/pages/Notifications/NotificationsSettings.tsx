@@ -200,8 +200,9 @@ export default function NotificationsSettings() {
       ) {
         return;
       }
+      // An explicit empty object is a loaded empty config, not a missing payload.
       if (
-        result === undefined &&
+        (result === undefined || result === null) &&
         hasNotificationSettings(
           getCachedNotificationSettings(notificationSettingsIdentityKey),
         )
@@ -223,10 +224,15 @@ export default function NotificationsSettings() {
   );
 
   const isUpdating = useRef(false);
+  const doUpdateSettingsToServerRef = useRef<(() => Promise<void>) | undefined>(
+    undefined,
+  );
 
   const doUpdateSettingsToServer = useCallback(async () => {
     if (
       !notificationSettingsIdentityKey ||
+      notificationSettingsIdentityKeyRef.current !==
+        notificationSettingsIdentityKey ||
       isUpdating.current ||
       !pendingSettings.current
     ) {
@@ -245,7 +251,7 @@ export default function NotificationsSettings() {
       if (pendingSettings.current) {
         // If there are new pending settings, continue updating
         isUpdating.current = false;
-        void doUpdateSettingsToServer();
+        void doUpdateSettingsToServerRef.current?.();
       } else {
         await reloadSettings(updated);
         isUpdating.current = false;
@@ -266,9 +272,16 @@ export default function NotificationsSettings() {
           settings: prevSettings.current,
         });
       }
+      if (pendingSettings.current) {
+        void doUpdateSettingsToServerRef.current?.();
+      }
       throw e;
     }
   }, [notificationSettingsIdentityKey, reloadSettings]);
+
+  useEffect(() => {
+    doUpdateSettingsToServerRef.current = doUpdateSettingsToServer;
+  }, [doUpdateSettingsToServer]);
 
   const updateSettingsToServer = useDebouncedCallback(
     () => {
