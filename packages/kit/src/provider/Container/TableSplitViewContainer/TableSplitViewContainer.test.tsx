@@ -14,8 +14,18 @@ let mockIsSplitView = true;
 let mockIsOnBoardingOpen = false;
 let mockIsNativeAndroid = true;
 let mockDetailOnLayout:
-  | ((event: { nativeEvent: { layout: { x: number } } }) => void)
+  | ((event: { nativeEvent: { layout: { x: number; width: number } } }) => void)
   | undefined;
+let mockContainerOnLayout: typeof mockDetailOnLayout;
+
+function measureSplit(detailX = 421.5) {
+  act(() => {
+    mockContainerOnLayout?.({ nativeEvent: { layout: { x: 0, width: 842 } } });
+    mockDetailOnLayout?.({
+      nativeEvent: { layout: { x: detailX, width: 420.5 } },
+    });
+  });
+}
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -30,7 +40,16 @@ jest.mock('@onekeyhq/components', () => ({
   Divider: ({ display }: { display?: string }) => (
     <div data-display={display} data-testid="split-divider" />
   ),
-  XStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  XStack: ({
+    children,
+    onLayout,
+  }: {
+    children?: ReactNode;
+    onLayout?: typeof mockContainerOnLayout;
+  }) => {
+    mockContainerOnLayout = onLayout;
+    return <div>{children}</div>;
+  },
   YStack: ({
     children,
     display,
@@ -74,6 +93,7 @@ describe('TableSplitViewContainer', () => {
     mockIsOnBoardingOpen = false;
     mockIsNativeAndroid = true;
     mockDetailOnLayout = undefined;
+    mockContainerOnLayout = undefined;
   });
 
   it('expands the detail pane across a foldable screen while fullscreen', () => {
@@ -112,9 +132,14 @@ describe('TableSplitViewContainer', () => {
 
     expect(screen.getByTestId('detail-offset').textContent).toBe('0');
     expect(mockDetailOnLayout).toBeDefined();
-    act(() => mockDetailOnLayout?.({ nativeEvent: { layout: { x: 421.5 } } }));
+    measureSplit();
     expect(screen.getByTestId('detail-offset').textContent).toBe('421.5');
-    act(() => mockDetailOnLayout?.({ nativeEvent: { layout: { x: 501 } } }));
+    act(() => {
+      mockContainerOnLayout?.({
+        nativeEvent: { layout: { x: 0, width: 1001 } },
+      });
+      mockDetailOnLayout?.({ nativeEvent: { layout: { x: 501, width: 500 } } });
+    });
     expect(screen.getByTestId('detail-offset').textContent).toBe('501');
   });
 
@@ -125,9 +150,12 @@ describe('TableSplitViewContainer', () => {
         detailRouter={<DetailFullscreenControls />}
       />,
     );
-    act(() => mockDetailOnLayout?.({ nativeEvent: { layout: { x: 421.5 } } }));
+    measureSplit();
 
     fireEvent.click(screen.getByText('Enter fullscreen'));
+    act(() =>
+      mockDetailOnLayout?.({ nativeEvent: { layout: { x: 0, width: 842 } } }),
+    );
     expect(screen.getByTestId('detail-offset').textContent).toBe('0');
     fireEvent.click(screen.getByText('Exit fullscreen'));
     expect(screen.getByTestId('detail-offset').textContent).toBe('421.5');
@@ -143,9 +171,7 @@ describe('TableSplitViewContainer', () => {
         />
       );
       const { rerender } = render(element);
-      act(() =>
-        mockDetailOnLayout?.({ nativeEvent: { layout: { x: 421.5 } } }),
-      );
+      measureSplit();
 
       mockIsSplitView = mode !== 'folded';
       mockIsOnBoardingOpen = mode === 'onboarding';
@@ -155,7 +181,14 @@ describe('TableSplitViewContainer', () => {
           detailRouter={<DetailFullscreenControls />}
         />,
       );
+      act(() =>
+        mockDetailOnLayout?.({ nativeEvent: { layout: { x: 0, width: 842 } } }),
+      );
       expect(screen.getByTestId('detail-offset').textContent).toBe('0');
+      mockIsSplitView = true;
+      mockIsOnBoardingOpen = false;
+      rerender(element);
+      expect(screen.getByTestId('detail-offset').textContent).toBe('421.5');
     },
   );
 
@@ -168,6 +201,37 @@ describe('TableSplitViewContainer', () => {
       />,
     );
     expect(mockDetailOnLayout).toBeUndefined();
+    expect(mockContainerOnLayout).toBeUndefined();
     expect(screen.getByTestId('detail-offset').textContent).toBe('0');
+  });
+
+  it('measures the same logical start offset when the RTL detail pane is at x=0', () => {
+    render(
+      <TableSplitViewContainer
+        mainRouter={null}
+        detailRouter={<DetailFullscreenControls />}
+      />,
+    );
+    measureSplit(0);
+    expect(screen.getByTestId('detail-offset').textContent).toBe('421.5');
+  });
+
+  it('handles detail layout arriving before container layout', () => {
+    render(
+      <TableSplitViewContainer
+        mainRouter={null}
+        detailRouter={<DetailFullscreenControls />}
+      />,
+    );
+    act(() =>
+      mockDetailOnLayout?.({ nativeEvent: { layout: { x: 0, width: 420.5 } } }),
+    );
+    expect(screen.getByTestId('detail-offset').textContent).toBe('0');
+    act(() =>
+      mockContainerOnLayout?.({
+        nativeEvent: { layout: { x: 0, width: 842 } },
+      }),
+    );
+    expect(screen.getByTestId('detail-offset').textContent).toBe('421.5');
   });
 });

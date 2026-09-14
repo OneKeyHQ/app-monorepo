@@ -88,8 +88,9 @@ export function FullWindowOverlayContainer() {
           top={0}
           // Extend to the actual split-view origin without relocating the portal
           // or changing its order relative to dialogs, toasts, and the app lock.
-          left={-detailOffset}
-          right={0}
+          {...(platformEnv.isNativeAndroid
+            ? { start: -detailOffset, end: 0 }
+            : { left: 0, right: 0 })}
           bottom={0}
           zIndex={HARDWARE_STAGE_Z_INDEX}
           pointerEvents="box-none"
