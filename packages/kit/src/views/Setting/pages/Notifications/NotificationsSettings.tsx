@@ -84,11 +84,7 @@ function updateCachedNotificationSettings({
   identityKey: string;
   settings: INotificationPushSettings;
 }) {
-  if (hasNotificationSettings(settings)) {
-    cachedNotificationSettings = { identityKey, settings };
-  } else if (cachedNotificationSettings?.identityKey === identityKey) {
-    cachedNotificationSettings = undefined;
-  }
+  cachedNotificationSettings = { identityKey, settings };
 }
 
 function NotificationSettingsSwitchSkeleton() {
