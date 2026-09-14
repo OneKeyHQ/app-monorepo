@@ -147,10 +147,8 @@ it('keeps token columns for a ticker banner containing stock and crypto rows', (
   mockIncludeNonStockToken = true;
   render(<MarketBannerDetail />);
   const list = screen.getByTestId('stocks');
-  expect(list.getAttribute('data-stock-columns')).toBe('true');
-  expect(list.getAttribute('data-hidden-columns')).toBe(
-    'transactions,uniqueTraders,holders,tokenAge',
-  );
+  expect(list.getAttribute('data-stock-columns')).toBe('false');
+  expect(list.getAttribute('data-hidden-columns')).toBe('liquidity');
 });
 
 it.each([

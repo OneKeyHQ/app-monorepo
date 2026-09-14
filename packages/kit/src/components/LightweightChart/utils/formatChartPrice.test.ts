@@ -17,8 +17,8 @@ describe('chart axis prices', () => {
     for (const price of [0.000_123_456, 0.000_012_345_6]) {
       expect(formatChartPrice(price, limit)).toContain('1');
     }
-    const labels = [0.000_001_5, 0.000_002_5, 0.000_003_5].map(
-      (price) => formatChartPrice(price, limit),
+    const labels = [0.000_001_5, 0.000_002_5, 0.000_003_5].map((price) =>
+      formatChartPrice(price, limit),
     );
     expect(new Set(labels).size).toBe(3);
   });
