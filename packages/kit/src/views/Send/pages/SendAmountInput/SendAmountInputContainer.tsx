@@ -2423,8 +2423,14 @@ function SendAmountInputContainer() {
       if (!inputValue && hadUserInput) {
         return '0';
       }
+      // A fully cleared field stays empty so the placeholder draws the "0";
+      // the integer branch below would otherwise turn '' into a literal '0'
+      // (Lightning sats) and bring back the "01" first-keystroke flash.
+      if (!inputValue) {
+        return '';
+      }
 
-      const valueBN = new BigNumber(inputValue || 0);
+      const valueBN = new BigNumber(inputValue);
       if (valueBN.isNaN()) {
         return '0';
       }
