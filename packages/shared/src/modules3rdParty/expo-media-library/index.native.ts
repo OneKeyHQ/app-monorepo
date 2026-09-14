@@ -1,4 +1,4 @@
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 
 const mediaLibrary = {
   saveToLibraryAsync: (uri: string) => MediaLibrary.saveToLibraryAsync(uri),
