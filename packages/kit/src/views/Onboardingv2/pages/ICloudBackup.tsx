@@ -198,6 +198,9 @@ export default function ICloudBackup() {
         maxWidth: 480,
         gap: '$3',
         paddingTop: 20,
+        // TODO: Move this content-owned inset into OnboardingPage. This page
+        // opts out of Page safe-area handling, so merge the native inset with
+        // the existing design padding locally instead of stacking both values.
         paddingBottom: Math.max(bottom, 20),
       }}
     >
