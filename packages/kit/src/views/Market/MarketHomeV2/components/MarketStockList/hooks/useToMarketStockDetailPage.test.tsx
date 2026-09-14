@@ -14,6 +14,9 @@ import { useToMarketStockDetailPage } from './useToMarketStockDetailPage';
 const mockReplace = jest.fn();
 const mockPopToTop = jest.fn();
 const mockPush = jest.fn();
+const mockSwitchTabAsync = jest.fn<Promise<void>, [unknown]>(() =>
+  Promise.resolve(),
+);
 let mockIsModalPage = false;
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -40,6 +43,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/components', () => ({
   ESplitViewType: { UNKNOWN: 'UNKNOWN' },
   rootNavigationRef: { current: { navigate: jest.fn() } },
+  switchTabAsync: (route: unknown) => mockSwitchTabAsync(route),
   useIsModalPage: () => mockIsModalPage,
   useMedia: () => ({ gtLg: true }),
   useSplitViewType: () => 'UNKNOWN',
@@ -83,6 +87,7 @@ const mockNavigate: jest.Mock = jest.requireMock('@onekeyhq/components')
 const mockedPlatformEnv = platformEnv as typeof platformEnv & {
   isExtensionUiPopup: boolean;
   isExtensionUiSidePanel: boolean;
+  isNative: boolean;
 };
 const mockCloseExtensionPopupAfterExpandTabOpen = jest.mocked(
   closeExtensionPopupAfterExpandTabOpen,
@@ -93,10 +98,11 @@ describe('useToMarketStockDetailPage', () => {
     jest.clearAllMocks();
     mockedPlatformEnv.isExtensionUiPopup = false;
     mockedPlatformEnv.isExtensionUiSidePanel = false;
+    mockedPlatformEnv.isNative = false;
     mockIsModalPage = false;
   });
 
-  it('resets the tab stack before opening the selected stock', async () => {
+  it('replaces the current detail with the selected stock', async () => {
     const { result } = renderHook(() =>
       useToMarketStockDetailPage({ replaceCurrentDetail: true }),
     );
@@ -108,17 +114,20 @@ describe('useToMarketStockDetailPage', () => {
         logoUrl: 'aapl.png',
       });
     });
-    expect(mockPopToTop).toHaveBeenCalled();
-    expect(mockPush).toHaveBeenCalledWith(ETabMarketRoutes.MarketStockDetail, {
-      stockId: 'AAPL',
-      stockPreviewSymbol: 'AAPL',
-      stockPreviewName: 'Apple',
-      stockPreviewLogoUrl: 'aapl.png',
-    });
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith(
+      ETabMarketRoutes.MarketStockDetail,
+      {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple',
+        stockPreviewLogoUrl: 'aapl.png',
+      },
+    );
+    expect(mockPopToTop).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('replaces the current market detail inside the market modal', async () => {
+  it('dismisses the market modal before opening the selected stock', async () => {
     mockIsModalPage = true;
     const { result } = renderHook(() =>
       useToMarketStockDetailPage({ replaceCurrentDetail: true }),
@@ -131,11 +140,40 @@ describe('useToMarketStockDetailPage', () => {
         logoUrl: 'aapl.png',
       });
     });
-    expect(mockReplace).toHaveBeenCalledWith('MarketDetailV2', {
-      stockId: 'AAPL',
-      stockPreviewSymbol: 'AAPL',
-      stockPreviewName: 'Apple',
-      stockPreviewLogoUrl: 'aapl.png',
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
+    expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketStockDetail,
+        params: {
+          stockId: 'AAPL',
+          stockPreviewSymbol: 'AAPL',
+          stockPreviewName: 'Apple',
+          stockPreviewLogoUrl: 'aapl.png',
+        },
+      },
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('opens the selected stock in Discovery after dismissing a native modal', async () => {
+    mockIsModalPage = true;
+    mockedPlatformEnv.isNative = true;
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current('AAPL');
+    });
+
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Discovery,
+      params: {
+        screen: ETabMarketRoutes.MarketStockDetail,
+        params: { stockId: 'AAPL' },
+      },
     });
   });
 
