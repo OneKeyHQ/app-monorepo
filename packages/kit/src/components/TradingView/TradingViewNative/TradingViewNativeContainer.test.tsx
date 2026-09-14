@@ -59,6 +59,7 @@ const mockTradingViewNativeChartSettingsButton = jest.fn<
   [
     {
       priceAxisWidth: number;
+      enablePreviousClose?: boolean;
       isChartSwitchDisabled?: boolean;
       onChartSwitch?: () => void;
     },
@@ -314,6 +315,7 @@ jest.mock('./TradingViewNativeChartControlsContainer', () => ({
 jest.mock('./TradingViewNativeChartSettingsButton', () => ({
   TradingViewNativeChartSettingsButton: (props: {
     priceAxisWidth: number;
+    enablePreviousClose?: boolean;
     isChartSwitchDisabled?: boolean;
     onChartSwitch?: () => void;
   }) => mockTradingViewNativeChartSettingsButton(props),
@@ -1370,6 +1372,7 @@ describe('TradingViewNativeContainer', () => {
     );
 
     expect(mockTradingViewNativeChartSettingsButton).toHaveBeenCalledWith({
+      enablePreviousClose: false,
       isChartSwitchDisabled: true,
       onChartSwitch: handleChartSwitch,
       priceAxisWidth: 0,

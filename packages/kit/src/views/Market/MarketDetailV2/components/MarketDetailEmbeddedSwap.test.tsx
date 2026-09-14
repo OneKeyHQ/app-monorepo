@@ -8,6 +8,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { MarketEmbeddedSwap } from '../layouts/MarketEmbeddedSwap';
+
 import { MarketDetailEmbeddedSwap } from './MarketDetailEmbeddedSwap';
 
 const mockEmbeddedSwap = jest.fn((_props: Record<string, unknown>) => null);
@@ -38,9 +40,13 @@ jest.mock('@onekeyhq/components', () => {
     XStack: ({ children }: { children?: React.ReactNode }) => (
       <div>{children}</div>
     ),
-    YStack: ({ children }: { children?: React.ReactNode }) => (
-      <div>{children}</div>
-    ),
+    YStack: ({
+      children,
+      testID,
+    }: {
+      children?: React.ReactNode;
+      testID?: string;
+    }) => <div data-testid={testID}>{children}</div>,
   };
 });
 
@@ -232,5 +238,127 @@ describe('MarketDetailEmbeddedSwap', () => {
     );
 
     expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a loading shell before the first stock trade content mounts', () => {
+    const view = render(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        inputDraftKey="stock:MSFT"
+        isTradeLoading
+      />,
+    );
+
+    expect(view.getByTestId('market-embedded-swap-trade-loading')).toBeTruthy();
+    expect(mockEmbeddedSwap).not.toHaveBeenCalled();
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        inputDraftKey="stock:MSFT"
+      />,
+    );
+
+    expect(view.queryByTestId('market-embedded-swap-trade-loading')).toBeNull();
+    expect(view.getByTestId('market-embedded-swap-trade-ready')).toBeTruthy();
+    expect(mockEmbeddedSwap).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps mounted stock trade content during a later loading transition', () => {
+    const view = render(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        inputDraftKey="stock:MSFT"
+      />,
+    );
+    expect(mockEmbeddedSwap).toHaveBeenCalledTimes(1);
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        inputDraftKey="stock:MSFT"
+        isTradeLoading
+      />,
+    );
+
+    expect(view.queryByTestId('market-embedded-swap-trade-loading')).toBeNull();
+    expect(view.getByTestId('market-embedded-swap-trade-ready')).toBeTruthy();
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not seed a mounted stock Swap with unresolved variant metadata', () => {
+    const view = render(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        inputDraftKey="stock:MSFT"
+        stockTradeToken={{ ...marketToken, isStock: true }}
+      />,
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importToToken: expect.objectContaining({
+          contractAddress: '0xtoken',
+          decimals: 18,
+        }),
+      }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
+      expect.objectContaining({ contractAddress: '0xtoken', decimals: 18 }),
+    );
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{
+          ...marketToken,
+          contractAddress: '0xnext',
+          decimals: 0,
+          isStock: true,
+        }}
+        inputDraftKey="stock:MSFT"
+        isTradeLoading
+        stockTradeToken={{
+          ...marketToken,
+          contractAddress: '0xnext',
+          decimals: 0,
+          isStock: true,
+        }}
+      />,
+    );
+
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importToToken: expect.objectContaining({
+          contractAddress: '0xtoken',
+          decimals: 18,
+        }),
+      }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
+      expect.objectContaining({ contractAddress: '0xtoken', decimals: 18 }),
+    );
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, contractAddress: '0xnext', isStock: true }}
+        inputDraftKey="stock:MSFT"
+        stockTradeToken={{
+          ...marketToken,
+          contractAddress: '0xnext',
+          isStock: true,
+        }}
+      />,
+    );
+
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importToToken: expect.objectContaining({
+          contractAddress: '0xnext',
+          decimals: 18,
+        }),
+      }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
+      expect.objectContaining({ contractAddress: '0xnext', decimals: 18 }),
+    );
   });
 });

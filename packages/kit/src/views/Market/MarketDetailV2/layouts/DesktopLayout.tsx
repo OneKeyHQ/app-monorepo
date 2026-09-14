@@ -35,6 +35,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
@@ -133,6 +134,7 @@ export interface IDesktopLayoutProps {
   isNative: boolean;
   networkId: string;
   tokenAddress: string;
+  isTokenDetailRequestPending?: boolean;
   marketTokenId?: string;
   marketAssetDetail?: IMarketAssetDetailData;
   isMarketAssetDetailLoading?: boolean;
@@ -149,6 +151,7 @@ export function DesktopLayout({
   isNative: routeIsNative,
   networkId: routeNetworkId,
   tokenAddress: routeTokenAddress,
+  isTokenDetailRequestPending,
   marketTokenId,
   marketAssetDetail,
   isMarketAssetDetailLoading,
@@ -164,9 +167,17 @@ export function DesktopLayout({
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
+    isLoading: isTokenDetailLoading,
   } = useTokenDetail();
   const { tokenDetail: displayTokenDetail } = useMarketDetailDisplayData();
-  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
+  const {
+    isStockRoute,
+    isTokenVariantPending,
+    isTokenVariantsError,
+    selectedTokenVariant,
+    stockDetail,
+    stockId,
+  } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
@@ -174,6 +185,16 @@ export function DesktopLayout({
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
+  // Stock detail charts offer Prev close in both price modes.
+  const stockPreviousClose = shouldUseStockDesktopLayout
+    ? getMarketStockChartPreviousClose({
+        priceSource: isStockSharePrice ? 'share' : 'token',
+        stockDetail,
+        selectedTokenVariant,
+        tokenDetail,
+        tokenDetailNetworkId: storeNetworkId,
+      })
+    : undefined;
   const stockNetworkId = selectedTokenVariant?.networkId || routeNetworkId;
   const stockTokenAddress =
     selectedTokenVariant?.contractAddress || routeTokenAddress;
@@ -290,24 +311,25 @@ export function DesktopLayout({
     typeof displayTokenDetail?.decimals === 'number' &&
     Number.isInteger(displayTokenDetail.decimals) &&
     displayTokenDetail.decimals >= 0;
-  const stockTradeScopeRef = useRef(stockId);
-  const hasRenderedStockTradeRef = useRef(false);
-  if (stockTradeScopeRef.current !== stockId) {
-    stockTradeScopeRef.current = stockId;
-    hasRenderedStockTradeRef.current = false;
-  }
-  if (shouldUseStockDesktopLayout && isSwapTokenReady) {
-    hasRenderedStockTradeRef.current = true;
-  }
-  // Keep a mounted trade panel alive while a sibling chain variant is
-  // resolving its metadata. The shared Swap channel then replaces only the
-  // token-dependent controls with skeletons; the initial cold start still
-  // waits for a complete execution token.
+  const isTerminalStockTradeUnavailable =
+    shouldUseStockDesktopLayout &&
+    !selectedTokenVariant &&
+    (isTokenVariantsError || !isTokenVariantPending);
+  const isTradeReadinessPending =
+    !isTerminalStockTradeUnavailable &&
+    (isTokenVariantPending ||
+      (Boolean(selectedTokenVariant) &&
+        (isTokenDetailRequestPending || isTokenDetailLoading)));
+  const isTradeLoading =
+    shouldUseStockDesktopLayout && !isSwapTokenReady && isTradeReadinessPending;
+  // Stock's embedded Swap owns transient token/config loading and renders its
+  // own skeletons. Only terminal route/ownership state should remove the
+  // trade panel; generic token layouts still wait for a resolved token before
+  // mounting Swap.
   const shouldDisableTrade =
     disableTrade ||
-    (shouldUseStockDesktopLayout
-      ? !hasRenderedStockTradeRef.current && !isSwapTokenReady
-      : !isSwapTokenReady);
+    (!shouldUseStockDesktopLayout && !isSwapTokenReady) ||
+    isTerminalStockTradeUnavailable;
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -424,6 +446,8 @@ export function DesktopLayout({
           key={getTradingViewNativeSourceKey(tradingViewNativeSource)}
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          enablePreviousClose={shouldUseStockDesktopLayout}
+          previousClose={stockPreviousClose}
           onPriceUpdate={handleNativeChartPriceUpdate}
           forcedChartType={
             shouldUseStockDesktopLayout ? 'candlestick' : undefined
@@ -515,6 +539,7 @@ export function DesktopLayout({
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
     stockId,
+    stockPreviousClose,
     proKLineDataFallback,
     tradingViewNativeSource,
   ]);
@@ -535,6 +560,7 @@ export function DesktopLayout({
             !effectiveMarketTradingViewParams && !isStockSharePrice,
           )}
           disableTrade={shouldDisableTrade}
+          isTradeLoading={isTradeLoading}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
