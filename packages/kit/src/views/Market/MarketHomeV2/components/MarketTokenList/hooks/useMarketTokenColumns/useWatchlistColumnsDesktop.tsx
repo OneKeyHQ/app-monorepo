@@ -1,0 +1,558 @@
+import { useMemo } from 'react';
+import type { ReactNode } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import type { ITableColumn } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
+import {
+  MarketPerpsStarV2,
+  MarketStarV2,
+} from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+  StockSourceLogo,
+  SubtitleText,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  MARKET_LIST_NAME_COLUMN_WIDTH,
+  MARKET_LIST_STAR_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
+import { MarketHoverRevealLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
+import {
+  MARKET_CELL_LOGO_GAP,
+  MARKET_CELL_PRIMARY_SIZE,
+  MARKET_CELL_SUBTITLE_LINE_HEIGHT,
+  MARKET_CELL_SUBTITLE_SIZE,
+  MarketCellPrimary,
+  MarketIdentityCell,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
+import { MarketTokenAgeAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
+import { MarketVariantLogoGroup } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketVariantLogoGroup';
+import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
+
+import {
+  EMPTY_MARKET_VALUE,
+  renderLightweightText,
+  renderLightweightTokenIdentity,
+  shouldUseLightweightCell,
+} from './lightweightCells';
+import { getTokenAgeLabel } from './tokenAgeLabel';
+
+import type { IMarketToken } from '../../MarketTokenData';
+import type { IntlShape } from 'react-intl';
+
+export type IMarketWatchlistRowKind = 'token' | 'asset' | 'stock' | 'perps';
+
+/**
+ * Which sibling list a watchlist row mirrors. Spot tokens always carry a
+ * network and listings never do, so the network check comes before the id
+ * checks: a legacy chain favorite keeps its stored `stockId` next to its
+ * address and must still render as a token.
+ */
+export function getMarketWatchlistRowKind(
+  record: Pick<IMarketToken, 'perpsCoin' | 'networkId' | 'stockId' | 'assetId'>,
+): IMarketWatchlistRowKind {
+  if (record.perpsCoin) {
+    return 'perps';
+  }
+  if (record.networkId) {
+    return 'token';
+  }
+  if (record.stockId) {
+    return 'stock';
+  }
+  if (record.assetId) {
+    return 'asset';
+  }
+  return 'token';
+}
+
+// The metric columns share the row's remaining width evenly, on the same 8px
+// padding the other list pages use.
+const METRIC_COLUMN_PROPS = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  px: '$2',
+} as const;
+
+function WatchlistMetricValue({
+  value,
+  formatter,
+}: {
+  value: number;
+  formatter: 'price' | 'marketCap';
+}) {
+  // A market cap or volume of 0 means the API had nothing; a price of 0 is
+  // still a price.
+  const isMissing =
+    !Number.isFinite(value) || (formatter === 'marketCap' && value === 0);
+  if (isMissing) {
+    return (
+      <SizableText size={MARKET_CELL_PRIMARY_SIZE}>
+        {EMPTY_MARKET_VALUE}
+      </SizableText>
+    );
+  }
+
+  return (
+    <NumberSizeableText
+      size={MARKET_CELL_PRIMARY_SIZE}
+      formatter={
+        formatter === 'price' && value > 1_000_000 ? 'marketCap' : formatter
+      }
+      formatterOptions={{ currency: '$', capAtMaxT: true }}
+    >
+      {value}
+    </NumberSizeableText>
+  );
+}
+
+function WatchlistChangeValue({
+  value,
+  priceChangeRaw,
+}: {
+  value: number;
+  priceChangeRaw?: string;
+}) {
+  if (priceChangeRaw === '-' || !Number.isFinite(value)) {
+    return (
+      <SizableText size={MARKET_CELL_PRIMARY_SIZE}>
+        {EMPTY_MARKET_VALUE}
+      </SizableText>
+    );
+  }
+
+  const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
+    priceChange: value,
+  });
+  return (
+    <NumberSizeableText
+      size={MARKET_CELL_PRIMARY_SIZE}
+      color={changeColor}
+      formatter="priceChangeCapped"
+      formatterOptions={{ showPlusMinusSigns }}
+    >
+      {value}
+    </NumberSizeableText>
+  );
+}
+
+/** The Stocks table's resting company line, also used by top-coin listings. */
+function ListingSubtitle({ children }: { children: string }) {
+  return (
+    <SizableText
+      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      size={MARKET_CELL_SUBTITLE_SIZE}
+      color="$textSubdued"
+      numberOfLines={1}
+      ellipsizeMode="tail"
+    >
+      {children}
+    </SizableText>
+  );
+}
+
+/**
+ * Listing rows mirror the Stocks and Top Coins tables: the 24px symbol line
+ * sits directly on the 20px subtitle line with no gap between them.
+ */
+function ListingIdentityCell({
+  logoUri,
+  symbol,
+  subtitle,
+}: {
+  logoUri: string;
+  symbol: string;
+  subtitle: ReactNode;
+}) {
+  return (
+    <XStack
+      width="100%"
+      minWidth={0}
+      overflow="hidden"
+      alignItems="center"
+      gap={MARKET_CELL_LOGO_GAP}
+    >
+      <Token
+        size="lg"
+        borderRadius="$full"
+        tokenImageUri={logoUri}
+        fallbackIcon="CryptoCoinOutline"
+      />
+      <YStack flex={1} minWidth={0} justifyContent="center">
+        <SizableText
+          size={MARKET_CELL_PRIMARY_SIZE}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {symbol}
+        </SizableText>
+        {subtitle}
+      </YStack>
+    </XStack>
+  );
+}
+
+/** Stocks-table first column: ticker over the company name, variants on hover. */
+export function WatchlistStockIdentity({
+  record,
+  intl,
+}: {
+  record: IMarketToken;
+  intl: IntlShape;
+}) {
+  const variants = record.stockVariants;
+  return (
+    <ListingIdentityCell
+      logoUri={record.tokenImageUri}
+      symbol={record.symbol}
+      subtitle={
+        <MarketHoverRevealLine
+          lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+          resting={<ListingSubtitle>{record.name}</ListingSubtitle>}
+          revealed={
+            variants?.length ? (
+              <XStack
+                height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+                alignItems="center"
+                gap="$1"
+                minWidth={0}
+              >
+                <SizableText
+                  size={MARKET_CELL_SUBTITLE_SIZE}
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {intl.formatMessage(
+                    { id: ETranslations.market_number_tokens },
+                    { number: variants.length },
+                  )}
+                </SizableText>
+                <MarketVariantLogoGroup variants={variants} />
+              </XStack>
+            ) : undefined
+          }
+        />
+      }
+    />
+  );
+}
+
+/** Top Coins first column: upper-cased symbol over the asset name. */
+export function WatchlistAssetIdentity({ record }: { record: IMarketToken }) {
+  return (
+    <ListingIdentityCell
+      logoUri={record.tokenImageUri}
+      symbol={record.symbol.toUpperCase()}
+      subtitle={
+        record.name ? <ListingSubtitle>{record.name}</ListingSubtitle> : null
+      }
+    />
+  );
+}
+
+/** Perps-table first column: name with leverage and DEX badges over the subtitle. */
+export function WatchlistPerpsIdentity({ record }: { record: IMarketToken }) {
+  const { dexLabel } = parseDexCoin(record.perpsCoin ?? '');
+  return (
+    <MarketIdentityCell
+      logo={
+        <Token
+          size="lg"
+          borderRadius="$full"
+          tokenImageUri={record.tokenImageUri}
+          tokenImageUris={record.tokenImageUris}
+          fallbackIcon="CryptoCoinOutline"
+        />
+      }
+      primary={
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          <MarketCellPrimary flexShrink={1} userSelect="none">
+            {record.symbol}
+          </MarketCellPrimary>
+          {record.maxLeverage ? (
+            <LeverageBadge leverage={record.maxLeverage} />
+          ) : null}
+          <PerpDexBadge dexLabel={dexLabel} />
+        </XStack>
+      }
+      secondary={
+        record.perpsSubtitle ? (
+          // The list tables run their subtitle at the row's own secondary
+          // size rather than the badge default.
+          <SubtitleText
+            subtitle={record.perpsSubtitle}
+            size={MARKET_CELL_SUBTITLE_SIZE}
+          />
+        ) : null
+      }
+    />
+  );
+}
+
+/** Trending-table first column: symbol with badges over the age/address line. */
+export function WatchlistTokenIdentity({
+  record,
+  intl,
+  copyFrom,
+}: {
+  record: IMarketToken;
+  intl: IntlShape;
+  copyFrom: ECopyFrom;
+}) {
+  return (
+    <MarketIdentityCell
+      logo={
+        <Token
+          size="lg"
+          borderRadius="$full"
+          tokenImageUri={record.tokenImageUri}
+          tokenImageUris={record.tokenImageUris}
+          networkImageUri={record.networkLogoUri}
+          fallbackIcon="CryptoCoinOutline"
+        />
+      }
+      primary={
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          <MarketCellPrimary flexShrink={1}>{record.symbol}</MarketCellPrimary>
+          <StockSourceLogo stock={record.stock} />
+          {record.communityRecognized ? <CommunityRecognizedBadge /> : null}
+        </XStack>
+      }
+      secondary={
+        <MarketTokenAgeAddressLine
+          address={record.address}
+          ageLabel={getTokenAgeLabel(intl, record.firstTradeTime)}
+          copyFrom={copyFrom}
+        />
+      }
+    />
+  );
+}
+
+/**
+ * Desktop columns for the Favorites table. The first column mirrors each
+ * row's sibling list (Trending, Top Coins, Stocks, Perps) and the metric
+ * columns are the fixed `Price / 24h change / MCap / 24h volume` set from the
+ * design. The watchlist is ordered by drag, so no header sorts.
+ */
+export function useWatchlistColumnsDesktop({
+  networkId,
+  watchlistFrom = EWatchlistFrom.Homepage,
+  copyFrom = ECopyFrom.Homepage,
+  hiddenDesktopColumns,
+  deferRichRowAfterIndex,
+}: {
+  networkId?: string;
+  watchlistFrom?: EWatchlistFrom;
+  copyFrom?: ECopyFrom;
+  hiddenDesktopColumns?: readonly string[];
+  /** Web cold start keeps only the first rows rich; see MarketTokenListBase. */
+  deferRichRowAfterIndex?: number;
+}): ITableColumn<IMarketToken>[] {
+  const intl = useIntl();
+
+  return useMemo(() => {
+    const isRichRow = (index?: number) =>
+      !shouldUseLightweightCell(index, deferRichRowAfterIndex);
+
+    const columns: ITableColumn<IMarketToken>[] = [
+      {
+        title: (
+          <SizableText
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            textAlign="center"
+            size="$bodySmMedium"
+            color="$textSubdued"
+          >
+            #
+          </SizableText>
+        ),
+        dataIndex: 'star',
+        // No right padding: the column's trailing space IS the design's 6px
+        // gap to the name group, so the next column starts its logo flush.
+        columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
+        columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
+        render: (_: unknown, record: IMarketToken, index?: number) => {
+          if (!isRichRow(index)) {
+            return <Stack width={MARKET_LIST_STAR_SLOT_WIDTH} height={24} />;
+          }
+
+          return (
+            <Stack
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
+              alignItems="center"
+              justifyContent="center"
+            >
+              {record.perpsCoin ? (
+                <MarketPerpsStarV2
+                  perpsCoin={record.perpsCoin}
+                  size="small"
+                  customIconSize="$4"
+                />
+              ) : (
+                <MarketStarV2
+                  assetId={record.assetId}
+                  stockId={record.stockId}
+                  chainId={record.chainId || networkId || ''}
+                  contractAddress={record.address}
+                  from={watchlistFrom}
+                  tokenSymbol={record.symbol}
+                  size="small"
+                  customIconSize="$4"
+                  isNative={record.isNative}
+                />
+              )}
+            </Stack>
+          );
+        },
+        renderSkeleton: () => (
+          <Skeleton width={24} height={24} borderRadius="$full" />
+        ),
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.global_name }),
+        dataIndex: 'name',
+        columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
+        // No left padding: the star column already spends the shared star-to-
+        // logo distance, so the logo starts on this column's edge.
+        columnProps: { flexShrink: 0, pl: 0, pr: '$2' },
+        render: (_: unknown, record: IMarketToken, index?: number) => {
+          if (!isRichRow(index)) {
+            return renderLightweightTokenIdentity(record);
+          }
+
+          switch (getMarketWatchlistRowKind(record)) {
+            case 'perps':
+              return <WatchlistPerpsIdentity record={record} />;
+            case 'stock':
+              return <WatchlistStockIdentity record={record} intl={intl} />;
+            case 'asset':
+              return <WatchlistAssetIdentity record={record} />;
+            default:
+              return (
+                <WatchlistTokenIdentity
+                  record={record}
+                  intl={intl}
+                  copyFrom={copyFrom}
+                />
+              );
+          }
+        },
+        renderSkeleton: () => (
+          <XStack alignItems="center" gap={MARKET_CELL_LOGO_GAP}>
+            <Skeleton width={40} height={40} borderRadius="$full" />
+            <YStack gap="$1">
+              <Skeleton width={80} height={16} />
+              <Skeleton width={60} height={12} />
+            </YStack>
+          </XStack>
+        ),
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.global_price }),
+        dataIndex: 'price',
+        columnProps: METRIC_COLUMN_PROPS,
+        render: (_: unknown, record: IMarketToken, index?: number) =>
+          isRichRow(index) ? (
+            <WatchlistMetricValue value={record.price} formatter="price" />
+          ) : (
+            renderLightweightText(
+              Number.isFinite(record.price) ? record.price : EMPTY_MARKET_VALUE,
+            )
+          ),
+        renderSkeleton: () => <Skeleton width={70} height={16} />,
+      },
+      {
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
+        dataIndex: 'change24h',
+        columnProps: METRIC_COLUMN_PROPS,
+        render: (_: unknown, record: IMarketToken, index?: number) =>
+          isRichRow(index) ? (
+            <WatchlistChangeValue
+              value={record.change24h}
+              priceChangeRaw={record.priceChangeRaw}
+            />
+          ) : (
+            renderLightweightText(
+              record.priceChangeRaw === '-'
+                ? EMPTY_MARKET_VALUE
+                : record.change24h,
+            )
+          ),
+        renderSkeleton: () => <Skeleton width={60} height={16} />,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.market_mcap }),
+        dataIndex: 'marketCap',
+        columnProps: METRIC_COLUMN_PROPS,
+        render: (_: unknown, record: IMarketToken, index?: number) =>
+          isRichRow(index) ? (
+            <WatchlistMetricValue
+              value={record.marketCap}
+              formatter="marketCap"
+            />
+          ) : (
+            renderLightweightText(record.marketCap || EMPTY_MARKET_VALUE)
+          ),
+        renderSkeleton: () => <Skeleton width={80} height={16} />,
+      },
+      {
+        title: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
+        dataIndex: 'turnover',
+        columnProps: METRIC_COLUMN_PROPS,
+        render: (_: unknown, record: IMarketToken, index?: number) =>
+          isRichRow(index) ? (
+            <WatchlistMetricValue
+              value={record.turnover}
+              formatter="marketCap"
+            />
+          ) : (
+            renderLightweightText(record.turnover || EMPTY_MARKET_VALUE)
+          ),
+        renderSkeleton: () => <Skeleton width={90} height={16} />,
+      },
+    ];
+
+    if (!hiddenDesktopColumns?.length) {
+      return columns;
+    }
+
+    return columns.filter(
+      (column) => !hiddenDesktopColumns.includes(String(column.dataIndex)),
+    );
+  }, [
+    copyFrom,
+    deferRichRowAfterIndex,
+    hiddenDesktopColumns,
+    intl,
+    networkId,
+    watchlistFrom,
+  ]);
+}
