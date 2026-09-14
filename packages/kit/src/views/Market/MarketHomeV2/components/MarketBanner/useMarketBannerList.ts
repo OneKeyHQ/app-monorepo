@@ -47,10 +47,15 @@ export async function hydrateMarketBannerQuotes(
           const assets = await fetchMarketBannerStockTokenListForPlatform(
             banner.tokenListId,
           );
+          // Keep the banner artwork while refreshing quotes: the stock endpoint
+          // can provide a different rendition of the same company's logo.
+          const previewLogos = new Map(
+            banner.tokens?.map((token) => [token.symbol, token.logo]),
+          );
           return {
             ...banner,
             tokens: assets.map((asset) => ({
-              logo: asset.logoUrl,
+              logo: previewLogos.get(asset.symbol) || asset.logoUrl,
               name: asset.name,
               symbol: asset.symbol,
               price: asset.price,
