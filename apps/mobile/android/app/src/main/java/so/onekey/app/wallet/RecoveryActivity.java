@@ -24,6 +24,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochModule;
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeSplashScreen;
 
 public class RecoveryActivity extends AppCompatActivity {
 
@@ -330,6 +331,7 @@ public class RecoveryActivity extends AppCompatActivity {
             OneKeyTravelModeLaunchEpochModule.forceDisableTravelModeForRecovery(
                 getApplicationContext()
             );
+            runOnUiThread(() -> OneKeyTravelModeSplashScreen.synchronizeBestEffort(this, false));
         } catch (Exception ignored) {
             // The original recovery action must continue if this safeguard fails.
         }

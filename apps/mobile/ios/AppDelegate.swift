@@ -303,6 +303,12 @@ class AppDelegate: ExpoAppDelegate {
     return result
   }
 
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
+    // Repair the icon after a cold start, an interrupted transition, or recovery.
+    OneKeySynchronizeTravelModeAppIcon()
+  }
+
   // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
   // Skip reset when in recovery mode (count >= 3) so recovery is still offered
   // if the user force-kills from the app switcher while viewing the recovery screen.
