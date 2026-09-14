@@ -662,7 +662,9 @@ declare module 'tamagui' {
       | 'nftItem'
       | 'card'
       | 'sidebarClearButton'
-      | 'sidebarBrowserDivider';
+      | 'sidebarBrowserDivider'
+      | 'marketTokenRow'
+      | 'marketBannerCard';
   }
 }
 

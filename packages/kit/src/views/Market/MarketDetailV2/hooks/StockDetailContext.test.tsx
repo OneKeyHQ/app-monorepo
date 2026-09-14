@@ -106,6 +106,45 @@ describe('StockDetailProvider', () => {
     focusControl.__resetFocus();
   });
 
+  it('exposes a matching route preview before the stock detail request settles', () => {
+    const stockPreview = {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: 'https://example.com/aapl.png',
+    };
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="aapl" initialStockPreview={stockPreview}>
+        {children}
+      </StockDetailProvider>
+    );
+
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.stockDetail).toBeUndefined();
+    expect(result.current.stockPreview).toEqual(stockPreview);
+  });
+
+  it('ignores a route preview that belongs to another stock', () => {
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="MSFT"
+        initialStockPreview={{
+          stockId: 'AAPL',
+          symbol: 'AAPL',
+          name: 'Apple Inc.',
+          logoUrl: 'https://example.com/aapl.png',
+        }}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.stockPreview).toBeUndefined();
+  });
+
   it('loads stock resources by stockId and selects the backend default token', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
       stockId: 'AAPL',
@@ -167,6 +206,32 @@ describe('StockDetailProvider', () => {
     expect(serviceMarketV2.fetchMarketStockTokenVariants.mock.calls).toEqual([
       [{ stockId: 'AAPL' }],
     ]);
+  });
+
+  it('releases initial layout loading when every token variant is paused', async () => {
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [
+        {
+          tokenId: 'aapl-paused',
+          issuer: 'ondo',
+          networkId: 'evm--1',
+          contractAddress: '0xpaused',
+          currency: 'USD',
+          status: 'paused',
+          tradingEnabled: false,
+        },
+      ],
+    });
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+    expect(result.current.isTokenVariantPending).toBe(true);
+    await waitFor(() =>
+      expect(result.current.isTokenVariantPending).toBe(false),
+    );
+    expect(result.current.selectedTokenVariant).toBeUndefined();
   });
 
   it('falls back to the first tradable token when the backend default is disabled', async () => {
@@ -266,6 +331,152 @@ describe('StockDetailProvider', () => {
       expect(result.current.selectedTokenId).toBe('aapl-xstock');
     });
   });
+
+  it('applies a new route variant once and preserves subsequent manual selection', async () => {
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    });
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      defaultTokenId: 'aapl-ondo',
+      items: [
+        {
+          tokenId: 'aapl-xstock',
+          issuer: 'xstock',
+          networkId: 'sol--101',
+          contractAddress: 'AAPLx',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+        {
+          tokenId: 'aapl-ondo',
+          issuer: 'ondo',
+          networkId: 'evm--1',
+          contractAddress: '0xaapl',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+      ],
+    });
+
+    let routeNetwork = 'evm--1';
+    let routeAddress = '0xaapl';
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        initialNetworkId={routeNetwork}
+        initialTokenAddress={routeAddress}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result, rerender } = renderHook(() => useStockDetail(), {
+      wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-ondo'),
+    );
+    routeNetwork = 'sol--101';
+    routeAddress = 'AAPLx';
+    rerender();
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-xstock'),
+    );
+    act(() => result.current.setSelectedTokenId('aapl-ondo'));
+    await act(async () => {
+      await result.current.retryTokenVariants();
+    });
+    expect(result.current.selectedTokenId).toBe('aapl-ondo');
+  });
+
+  it.each([
+    {
+      networkId: 'evm--1',
+      address: '0xaabb',
+      updatedAddress: '0xAaBb',
+      expected: 'manual',
+    },
+    {
+      networkId: 'sol--101',
+      address: 'AAPLx',
+      updatedAddress: 'AAPLX',
+      expected: 'updated',
+    },
+  ])(
+    'compares route addresses using $networkId identity rules',
+    async ({ networkId, address, updatedAddress, expected }) => {
+      serviceMarketV2.fetchMarketStockDetail.mockResolvedValue(null);
+      serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+        stockId: 'AAPL',
+        defaultTokenId: 'initial',
+        items: [
+          {
+            tokenId: 'initial',
+            issuer: 'xstock',
+            networkId,
+            contractAddress: address,
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+          {
+            tokenId: 'manual',
+            issuer: 'ondo',
+            networkId,
+            contractAddress: 'manual-address',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+          ...(networkId === 'sol--101'
+            ? [
+                {
+                  tokenId: 'updated',
+                  issuer: 'xstock',
+                  networkId,
+                  contractAddress: updatedAddress,
+                  currency: 'USD' as const,
+                  status: 'active',
+                  tradingEnabled: true,
+                },
+              ]
+            : []),
+        ],
+      });
+      let routeAddress = address;
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <StockDetailProvider
+          stockId="AAPL"
+          initialNetworkId={networkId}
+          initialTokenAddress={routeAddress}
+        >
+          {children}
+        </StockDetailProvider>
+      );
+      const { result, rerender } = renderHook(() => useStockDetail(), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.selectedTokenId).toBe('initial'),
+      );
+      act(() => result.current.setSelectedTokenId('manual'));
+      routeAddress = updatedAddress;
+      rerender();
+      await waitFor(() =>
+        expect(result.current.selectedTokenId).toBe(expected),
+      );
+    },
+  );
 
   it('matches EVM route addresses without checksum casing', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({

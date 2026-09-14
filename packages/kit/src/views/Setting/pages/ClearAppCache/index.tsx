@@ -196,11 +196,9 @@ export default function ClearAppCache() {
               return;
             }
             await backgroundApiProxy.serviceSetting.clearCacheOnApp(values);
-            // The expo-image disk cache (token logos, NFT full-res images, dApp
-            // favicons, DeFi/market icons) is the largest on-disk contributor and
-            // is NOT cleared by clearCacheOnApp (which only clears DB/simpleDb).
-            // Purge the whole image cache here when the user clears Token & NFT
-            // data. Native-only effect; clearDiskCache is a no-op on web.
+            // The native image disk cache (token logos, NFT full-res images,
+            // dApp favicons, and DeFi/market icons) is not cleared by
+            // clearCacheOnApp, which only clears DB/simpleDb.
             if (values.tokenAndNFT && platformEnv.isNative) {
               await Promise.all([
                 Image.clearDiskCache(),

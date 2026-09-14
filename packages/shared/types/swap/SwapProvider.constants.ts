@@ -21,7 +21,7 @@ export const swapServiceFeeDefault = 0.3;
 
 export const swapSlippageCustomDefaultList = [0.1, 0.5, 1];
 
-export const swapSlippageAutoValue = 0.5;
+export const swapSlippageAutoValue = 1;
 
 export const swapSlippageMaxValue = 50;
 
@@ -445,7 +445,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/dashboard/logo/upload_1782996521358.0.27118193195795703.0.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--4663/tokens/address--1785395959075.png',
       'isNative': true,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/robinhood.png',

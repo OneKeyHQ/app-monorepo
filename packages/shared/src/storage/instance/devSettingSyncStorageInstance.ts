@@ -1,4 +1,5 @@
 import platformEnv from '../../platformEnv';
+import { travelModeManager } from '../../travelMode';
 
 import {
   broadcastNativeDevSettingMutation,
@@ -30,26 +31,60 @@ function getDevSettingStorageInstance(): IDevSettingStorageInstance {
     .default as IDevSettingStorageInstance;
 }
 
-const devSettingStorageInstance = getDevSettingStorageInstance();
+let devSettingStorageInstance: IDevSettingStorageInstance | undefined;
+
+function runWithDevSettingStorage<T>({
+  operation,
+  onBlocked,
+}: {
+  operation: (storage: IDevSettingStorageInstance) => T;
+  onBlocked: () => T;
+}): T {
+  return travelModeManager.getRuntimeEnvironmentSync().persistence.runSync({
+    operation: () => {
+      devSettingStorageInstance ??= getDevSettingStorageInstance();
+      return operation(devSettingStorageInstance);
+    },
+    onBlocked,
+  });
+}
 
 const devSettingSyncStorageWeb = {
   set(key: EDevSettingSyncStorageKeys, value: boolean | string | number) {
-    const acknowledgement = devSettingStorageInstance.set(key, value);
-    broadcastMutation({ operation: 'set', key, value });
-    return acknowledgement;
+    return runWithDevSettingStorage({
+      operation: (storage) => {
+        const acknowledgement = storage.set(key, value);
+        broadcastMutation({ operation: 'set', key, value });
+        return acknowledgement;
+      },
+      onBlocked: () => undefined,
+    });
   },
   getBoolean(key: EDevSettingSyncStorageKeys) {
-    return devSettingStorageInstance.getBoolean(key);
+    return runWithDevSettingStorage({
+      operation: (storage) => storage.getBoolean(key),
+      onBlocked: () => undefined,
+    });
   },
   delete(key: EDevSettingSyncStorageKeys) {
-    const acknowledgement = devSettingStorageInstance.remove(key);
-    broadcastMutation({ operation: 'remove', key });
-    return acknowledgement;
+    return runWithDevSettingStorage({
+      operation: (storage) => {
+        const acknowledgement = storage.remove(key);
+        broadcastMutation({ operation: 'remove', key });
+        return acknowledgement;
+      },
+      onBlocked: () => undefined,
+    });
   },
   clearAll() {
-    const acknowledgement = devSettingStorageInstance.clearAll();
-    broadcastMutation({ operation: 'clear' });
-    return acknowledgement;
+    return runWithDevSettingStorage({
+      operation: (storage) => {
+        const acknowledgement = storage.clearAll();
+        broadcastMutation({ operation: 'clear' });
+        return acknowledgement;
+      },
+      onBlocked: () => undefined,
+    });
   },
 };
 

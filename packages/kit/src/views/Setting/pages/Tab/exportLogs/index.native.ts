@@ -53,7 +53,7 @@ export const exportLogs = async (filename: string) => {
   console.log('logFilePath', logFilePath);
   const Share = await getShareModule();
   if (!Share) return;
-  Share.shareAsync(logFilePath, {
+  await Share.shareAsync(logFilePath, {
     dialogTitle: 'OneKey Logs',
     mimeType: 'application/zip',
     UTI: 'public.zip-archive',
@@ -126,6 +126,10 @@ export const collectLogDigest = async (
     },
   };
 };
+
+// Native archives stay available for deferred readers and are removed by the
+// next launch's background idle cleanup.
+export const disposeLogDigest = async (_digest: ILogDigest) => {};
 
 export const uploadLogBundle = async ({
   uploadToken,

@@ -8,7 +8,6 @@ import type {
   ICheckedState,
   IPageScreenProps,
   ISelectRenderTriggerProps,
-  ISizableTextProps,
 } from '@onekeyhq/components';
 import {
   Button,
@@ -97,6 +96,20 @@ function DeriveTypeTrigger({ onPress }: ISelectRenderTriggerProps) {
     </XStack>
   );
 }
+
+// Index column sizing: the "No." column only receives a 20% flex share of the
+// row, so a 10-digit account index (e.g. 2147483641) wraps onto two lines.
+// Give the column a digit-aware floor instead. The checkbox label renders at
+// Roobert $bodyLgMedium (16px), whose tabular figures advance ~10.1px; round
+// up to stay safe on fallback fonts.
+const INDEX_DIGIT_WIDTH = 11;
+// Checkbox box (~20px) plus the 8px label gap in `Checkbox`.
+const INDEX_CHECKBOX_WIDTH = 28;
+// Native rows use a 32px column gap. Once the index floor reaches 8 digits it
+// no longer fits a 375pt phone together with that gap, so wide-index pages
+// fall back to the 16px web gap to keep the address and balance columns
+// readable.
+const INDEX_COMPACT_GAP_DIGITS = 8;
 
 const MemoDeriveTypeTrigger = memo(DeriveTypeTrigger);
 
@@ -240,6 +253,23 @@ function BatchCreateAccountPreviewPage({
 
   const beginIndex = fromInt - 1;
   const endIndex = beginIndex + countInt - 1;
+
+  // Widest index label on the current page; derived from page arithmetic (not
+  // the loaded rows) so the header and skeleton rows already use the final
+  // width and nothing shifts once data arrives.
+  const indexColumnDigits = useMemo(() => {
+    const lastLabelOnPage = Math.min(
+      fromInt + page * pageSize - 1,
+      endIndex + 1,
+    );
+    return String(Math.max(lastLabelOnPage, 1)).length;
+  }, [endIndex, fromInt, page]);
+  const indexColumnMinWidth =
+    INDEX_CHECKBOX_WIDTH + indexColumnDigits * INDEX_DIGIT_WIDTH;
+  const rowGap =
+    platformEnv.isNative && indexColumnDigits < INDEX_COMPACT_GAP_DIGITS
+      ? '$8'
+      : '$4';
 
   const previewTimes = useRef(0);
 
@@ -655,6 +685,7 @@ function BatchCreateAccountPreviewPage({
         columnProps: {
           flexGrow: 2,
           flexBasis: 0,
+          minWidth: indexColumnMinWidth,
         },
         dataIndex: 'checkBox',
         columnWidth: 22,
@@ -671,12 +702,9 @@ function BatchCreateAccountPreviewPage({
               }}
               value={checkedState}
               label={String((account.pathIndex ?? 0) + 1)}
-              labelProps={
-                {
-                  size: '$bodyMd',
-                  numberOfLines: 10,
-                } as ISizableTextProps
-              }
+              labelProps={{
+                numberOfLines: 10,
+              }}
             />
           );
         },
@@ -761,6 +789,7 @@ function BatchCreateAccountPreviewPage({
       buildBalanceMapKey,
       buildRelPathSuffix,
       getAccountCheckedState,
+      indexColumnMinWidth,
       intl,
       network?.symbol,
       networkId,
@@ -798,7 +827,7 @@ function BatchCreateAccountPreviewPage({
       <Table
         onRow={onRow}
         rowProps={{
-          gap: platformEnv.isNative ? '$8' : '$4',
+          gap: rowGap,
           px: '$3',
           mx: '$2',
           minHeight: '$12',
@@ -814,7 +843,7 @@ function BatchCreateAccountPreviewPage({
         keyExtractor={(item) => item.id}
       />
     );
-  }, [accounts, columns, extraData, isLoading, onRow]);
+  }, [accounts, columns, extraData, isLoading, onRow, rowGap]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -1001,9 +1030,13 @@ function BatchCreateAccountPreviewPage({
             flexDirection="row"
             alignItems="center"
           >
-            <Stack>
+            {/* Let the select-all block yield to a wide pager on narrow
+                screens instead of pushing the settings and pager controls
+                past the footer edge; the label wraps rather than clipping. */}
+            <Stack flexShrink={1} minWidth={0}>
               <Checkbox
                 testID="account-manager-checkbox"
+                labelContainerProps={{ flexShrink: 1 }}
                 onChange={(val) => {
                   selectCheckBox({
                     val,
@@ -1081,6 +1114,7 @@ function BatchCreateAccountPreviewPage({
               <ButtonGroup.Item
                 testID="batch-create-account-preview-page-number"
                 opacity={1}
+                px="$3"
                 onPress={() => {
                   showBatchCreateAccountPreviewPageNumberDialog({
                     page,

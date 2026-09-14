@@ -34,6 +34,7 @@ const FIRMWARE_DISCONNECT_ERROR_CODES = [
   HardwareErrorCode.BleDeviceBondError,
   HardwareErrorCode.BleDeviceDisconnected,
   HardwareErrorCode.BlePeerRemovedPairingInformation,
+  HardwareErrorCode.BleBondInvalid,
 ];
 
 function getErrorText(error: IOneKeyError | undefined): string {
@@ -176,7 +177,9 @@ export function classifyFirmwareUpdateFailure(
       HardwareErrorCode.IframeTimeout,
       HardwareErrorCode.PollingTimeout,
     ]) ||
-    getErrorText(error).toLowerCase().includes('timeout')
+    ['timeout', 'timed out'].some((text) =>
+      getErrorText(error).toLowerCase().includes(text),
+    )
   ) {
     return 'timeout';
   }

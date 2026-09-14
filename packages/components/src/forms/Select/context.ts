@@ -12,7 +12,8 @@ export type IContextType = {
   items?: ISelectItem[];
   onValueChange?: (
     value: string | number | boolean | undefined | ISelectItem,
-  ) => void;
+  ) => void | Promise<void>;
+  waitForChangeBeforeClose?: boolean;
   placeholder?: string;
   title?: string;
   disabled?: boolean;
@@ -26,5 +27,6 @@ export type IContextType = {
   selectedItemRef: MutableRefObject<ISelectItem>;
   offset?: IPopoverProps['offset'];
   usingPercentSnapPoints?: boolean;
+  nativeSheet?: IPopoverProps['nativeSheet'];
 };
 export const SelectContext = createContext<IContextType>({} as IContextType);

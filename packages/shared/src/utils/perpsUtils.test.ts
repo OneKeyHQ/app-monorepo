@@ -33,6 +33,7 @@ import {
   getOrderBookSizeDisplaySymbol,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
+  getValidPerpsPrice,
   getValidPriceDecimals,
   getValidSpotPriceDecimals,
   isHyperLiquidAbstractionModeEnabled,
@@ -541,6 +542,19 @@ describe('HyperLiquid wire-safe formatters', () => {
   test('formatSpotPriceToValid truncates instead of rounding up', () => {
     expect(formatSpotPriceToValid('60.123456789', 2)).toBe('60.123');
     expect(formatSpotPriceToValid('0.00123456789', 2)).toBe('0.001234');
+  });
+});
+
+describe('getValidPerpsPrice', () => {
+  test.each([undefined, null, '', '0', '0.0', '-1', 'NaN', 'Infinity'])(
+    'rejects a non-positive or invalid trading price: %s',
+    (price) => {
+      expect(getValidPerpsPrice(price)).toBeUndefined();
+    },
+  );
+
+  test('preserves a valid positive trading price', () => {
+    expect(getValidPerpsPrice('213.63')).toBe('213.63');
   });
 });
 

@@ -13,16 +13,16 @@ import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/
 
 import { PnlCell } from '../components/PnlCell';
 
+import { PORTFOLIO_TOKEN_COLUMN_WIDTH } from './portfolioColumnConstants';
+
 interface IPortfolioItemNormalProps {
   item: IMarketAccountPortfolioDisplayItem;
   tokenLogoUrl?: string;
-  columnWidth: number;
 }
 
 function PortfolioItemNormalBase({
   item,
   tokenLogoUrl,
-  columnWidth,
 }: IPortfolioItemNormalProps) {
   const pnl = item.pnl;
   const isPnlSupported = pnl?.isPnlSupported ?? false;
@@ -39,22 +39,28 @@ function PortfolioItemNormalBase({
       cursor="default"
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
-      <XStack gap="$2" alignItems="center" w={100}>
+      <XStack gap="$2.5" alignItems="center" w={PORTFOLIO_TOKEN_COLUMN_WIDTH}>
         <Token
-          size="xs"
+          size="md"
           tokenImageUri={item.tokenLogoUrl ?? tokenLogoUrl}
           networkImageUri={item.networkLogoUrl}
           networkId={item.networkId}
           showNetworkIcon={Boolean(item.networkId)}
         />
-        <SizableText size="$bodyMd" color="$text" numberOfLines={1}>
+        <SizableText size="$bodyLgMedium" color="$text" numberOfLines={1}>
           {item.symbol}
         </SizableText>
       </XStack>
 
-      <YStack w={columnWidth} alignItems="flex-end">
+      <YStack
+        flex={1}
+        flexBasis={0}
+        minWidth={0}
+        gap="$0.5"
+        alignItems="flex-end"
+      >
         <Currency
-          size="$bodySm"
+          size="$bodyMd"
           color="$text"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
@@ -76,14 +82,16 @@ function PortfolioItemNormalBase({
         usdValue={pnl?.unrealizedPnlUsd ?? '0'}
         percent={pnl?.unrealizedPnlPercent ?? '0'}
         isSupported={isPnlSupported}
-        columnWidth={columnWidth}
+        flex={1}
+        emphasizedText
       />
 
       <PnlCell
         usdValue={pnl?.totalPnlUsd ?? '0'}
         percent={pnl?.totalPnlPercent ?? '0'}
         isSupported={isPnlSupported}
-        columnWidth={columnWidth}
+        flex={1}
+        emphasizedText
       />
     </XStack>
   );

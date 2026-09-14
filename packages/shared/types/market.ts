@@ -1,4 +1,4 @@
-import type { IMarketStockInfo } from './marketV2';
+import type { IMarketStockInfo, IMarketTokenKLineResponse } from './marketV2';
 
 export interface IMarketCategory {
   categoryId: string;
@@ -46,6 +46,8 @@ export interface IMarketToken {
 export interface IMarketAssetListItem {
   assetId: string;
   symbol: string;
+  // Optional because only some list projections carry it; top_coins does.
+  name?: string;
   logoUrl: string;
   price: string;
   priceChange24hPercent: string;
@@ -105,11 +107,16 @@ export interface IMarketAssetPerformance {
 }
 
 export interface IMarketAssetDetailData {
+  about: string;
   asset: IMarketAssetIdentity;
   variants: IMarketAssetVariant[];
   selectedVariant: IMarketAssetVariant;
   market: IMarketAssetMarket;
   performance: IMarketAssetPerformance;
+}
+
+export interface IMarketAssetKLineData extends IMarketTokenKLineResponse {
+  pointType: 'ohlc' | 'single';
 }
 
 export interface IMarketDetailAthOrAtl {
@@ -133,6 +140,19 @@ export interface IMarketDetailPlatformNetwork {
   coingeckoNetworkId?: string;
   isNative?: true;
   tokenAddress?: string;
+}
+
+/**
+ * Identity of the wallet asset a caller launched Market from. Market data
+ * only knows a token per CoinGecko platform, so when the market service has
+ * not mapped that platform the trade actions rebuild the platform entry
+ * from this instead of guessing another chain. `tokenAddress` is the empty
+ * string for the native token.
+ */
+export interface IMarketPreferredToken {
+  networkId: string;
+  tokenAddress: string;
+  isNative?: boolean;
 }
 
 export interface IMarketDetailPlatform {
@@ -309,14 +329,26 @@ export enum ESpeedSwapSwitchType {
   SELL = 'sell',
 }
 
-// Market Watch List V2 Types (using chainId + contractAddress)
+// Spot tokens, asset listings, stock listings and perps retain distinct identities.
 export interface IMarketWatchListItemV2 {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   sortIndex?: number;
   isNative?: boolean;
   // Perps watchlist: coin name (e.g. "BTC", "ETH"). When set, chainId/contractAddress are empty.
   perpsCoin?: string;
+}
+
+export interface IMarketListingWatchlistQuote {
+  symbol: string;
+  name: string;
+  logoUrl: string;
+  price?: string;
+  priceChange24hPercent?: string;
+  marketCap?: string;
+  volume24h?: string;
 }
 
 export interface IMarketWatchListDataV2 {

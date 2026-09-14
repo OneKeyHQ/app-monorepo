@@ -23,6 +23,22 @@ but they must declare how they use or intentionally diverge from each stage.
 Route params are one-shot inputs. After consumption, current manual selection
 and channel-owned state win over later source/account synchronization.
 
+## Embedded Market / Stock Trade
+
+An embedded Market or Stock surface is an entry adapter, not a second trade
+implementation. It may keep its detail/chart shell and pass typed context such
+as the selected variant, configuration, sizing, or presentation slots, while
+the shared Swap surface owns quote, refresh, review, build/send, fallback, and
+history lifecycle. Do not duplicate quote, review, action, or input state.
+
+When a route, asset, variant, or network changes, key the transition by the
+complete route and execution identity. Keep the shared trade surface mounted
+when a partial refresh is part of the lifecycle, reuse in-flight state only for
+the same identity, and clear incompatible pay-token state before resolving new
+candidates. Treat transient readiness, provider error, terminal unsupported,
+and actionable fallback as distinct states; terminal unavailability must not be
+left behind an indefinite loading placeholder.
+
 ## State Boundaries
 
 Keep these owners distinct:

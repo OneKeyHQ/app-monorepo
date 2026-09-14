@@ -1,5 +1,6 @@
 import {
   TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+  TRADING_VIEW_NATIVE_STOCK_KLINE_INTERVALS,
   buildTradingViewNativeGoToDateTimeRange,
   getTradingViewNativeKLineIntervalForTimeRange,
 } from './tradingViewNativeIntervals';
@@ -122,4 +123,21 @@ describe('TradingViewNative adaptive time-range interval', () => {
       }),
     ).toBe(TRADING_VIEW_NATIVE_KLINE_INTERVALS[4]);
   });
+});
+
+describe('stock chart intervals', () => {
+  it.each([undefined, 256, 2000])(
+    'keeps multi-year calendar ranges on daily stock candles at width %s',
+    (chartWidth) => {
+      expect(
+        getTradingViewNativeKLineIntervalForTimeRange({
+          chartWidth,
+          currentInterval: '60',
+          intervals: TRADING_VIEW_NATIVE_STOCK_KLINE_INTERVALS,
+          from: 1_100_000_000,
+          to: 1_100_000_000 + 10 * 365 * DAY_SECONDS,
+        }).value,
+      ).toBe('1D');
+    },
+  );
 });

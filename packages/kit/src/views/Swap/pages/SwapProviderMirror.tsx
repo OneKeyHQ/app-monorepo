@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  type ISwapInputAmountDraft,
   ProviderJotaiContextSwap,
   swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
@@ -19,6 +20,7 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
   swapStockSelectedTokenAtom,
+  swapToTokenAmountAtom,
   swapTypeSwitchAtom,
   useSwapStockSelectedTokenAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -46,6 +48,7 @@ export const SwapProviderMirror = memo(
         fromToken?: ISwapToken;
         toToken?: ISwapToken;
         swapType?: ESwapTabSwitchType;
+        inputAmountDraft?: ISwapInputAmountDraft;
       };
     },
   ) => {
@@ -152,7 +155,19 @@ export const SwapProviderMirror = memo(
         store.set(swapStockSelectedTokenAtom(), initialStockSelectedToken);
         store.set(swapSelectedTokensColdStartContextAtom(), entryContext);
         store.set(swapInitialSelectedTokensSyncedAtom(), true);
-        store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        store.set(
+          swapFromTokenAmountAtom(),
+          initialSelectedTokensOnInit.inputAmountDraft?.fromTokenAmount ?? {
+            value: '',
+            isInput: false,
+          },
+        );
+        if (initialSelectedTokensOnInit.inputAmountDraft) {
+          store.set(
+            swapToTokenAmountAtom(),
+            initialSelectedTokensOnInit.inputAmountDraft.toTokenAmount,
+          );
+        }
         store.set(swapTypeSwitchAtom(), initialSwapType);
       } else {
         hasInitializedSelectedTokensRef.current =

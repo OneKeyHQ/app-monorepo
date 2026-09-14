@@ -1,4 +1,5 @@
 import type { IFirmwareTransferMetrics } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
+import { formatDuration as formatDateDuration } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 const ETA_WARMUP_ELAPSED_MS = 2000;
@@ -18,7 +19,10 @@ function formatDuration(durationMs: number) {
   const totalSeconds = Math.max(Math.round(durationMs / 1000), 0);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  return formatDateDuration(
+    minutes > 0 ? { minutes, seconds } : { seconds },
+    true,
+  );
 }
 
 export function getFirmwareTransferDisplayMetrics(

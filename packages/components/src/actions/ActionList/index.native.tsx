@@ -2,7 +2,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Dimensions, type GestureResponderEvent } from 'react-native';
+import { Dimensions, I18nManager } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -33,14 +33,32 @@ import {
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { LazyPopover } from '../LazyPopover';
+import { shouldUseNativeSheetPresentation } from '../Popover/sheetPresentation';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
+import {
+  createImperativeActionListLifecycle,
+  getImperativeActionListPlacement,
+  getImperativeActionListProxyGeometry,
+  preventImperativeActionListCloseAutoFocus,
+} from './imperativeShowUtils';
 import { useAsyncItemsLifecycle } from './useAsyncItemsLifecycle';
 
 import type { IActionListRenderItemsAsync } from './asyncItemsLifecycleTypes';
+import type {
+  IActionListPlacement,
+  IActionListTriggerPosition,
+  IActionListTriggerRect,
+} from './imperativeShowUtils';
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../LazyPopover';
+
+export type {
+  IActionListTriggerPosition,
+  IActionListTriggerRect,
+} from './imperativeShowUtils';
+export { runAfterActionListClose } from './runAfterClose';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -91,7 +109,7 @@ export function ActionListSkeletonItem() {
     <XStack
       flex={1}
       mx="$2"
-      height="$8"
+      height="$11"
       position="relative"
       borderRadius="$2"
       overflow="hidden"
@@ -137,16 +155,12 @@ export function ActionListItem(
     !shouldKeepExtraInteractive,
   );
 
-  const handlePress = useCallback(
-    async (event: GestureResponderEvent) => {
-      event.stopPropagation();
-      await onPress?.(onClose);
-      if (!onPress?.length) {
-        onClose?.();
-      }
-    },
-    [onClose, onPress],
-  );
+  const handlePress = useCallback(async () => {
+    await onPress?.(onClose);
+    if (!onPress?.length) {
+      onClose?.();
+    }
+  }, [onClose, onPress]);
 
   const keys = useMemo(() => {
     if (shortcutKeys) {
@@ -264,8 +278,8 @@ export interface IActionListProps extends Omit<
     handleActionListOpen: () => void;
   }) => React.ReactNode;
   /**
-   * Starts loading when the list opens. Native applies the resolved content
-   * after the entry animation so fit-mode height stays stable while sliding.
+   * Starts loading when the list opens. Native measures the resolved initial
+   * content before presentation, then keeps the outer sheet height stable.
    */
   renderItemsAsync?: IActionListRenderItemsAsync;
   /**
@@ -305,15 +319,25 @@ function BasicActionList({
   renderItemsAsync,
   title,
   trackID,
+  nativeSheet = false,
+  usingSheet = true,
   sheetProps,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
+  const { gtMd } = useMedia();
+  const useNativeSheetPresentation = shouldUseNativeSheetPresentation({
+    usingSheet,
+    nativeSheet,
+    isGtMd: Boolean(gtMd),
+    isNativeIOSPad: Boolean(platformEnv.isNativeIOSPad),
+  });
   const handleActionListOpenRef = useRef<() => void>(() => undefined);
   const handleActionListCloseRef = useRef<() => void>(() => undefined);
   const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
     useAsyncItemsLifecycle({
       isOpen,
+      nativeSheet: useNativeSheetPresentation,
       renderItemsAsync,
       handleActionListCloseRef,
       handleActionListOpenRef,
@@ -448,14 +472,20 @@ function BasicActionList({
     handleActionListOpen,
   ]);
 
+  const shouldOpenPopover =
+    isOpen &&
+    (!useNativeSheetPresentation || !renderItemsAsync || Boolean(asyncItems));
+
   return (
     <LazyPopover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
-      open={isOpen}
+      open={shouldOpenPopover}
       onOpenChange={handleOpenStatusChange}
       renderContent={renderContentMemo}
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
+      nativeSheet={nativeSheet}
+      usingSheet={usingSheet}
       mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
       sheetProps={resolvedSheetProps}
@@ -463,12 +493,17 @@ function BasicActionList({
   );
 }
 
-type IShowActionListParams = Omit<
+export type IActionListShowHandle = {
+  close: () => void;
+};
+
+export type IShowActionListParams = Omit<
   IActionListProps,
   'renderTrigger' | 'defaultOpen'
 > & {
   onClose?: () => void;
-  triggerPosition?: { x: number; y: number };
+  triggerPosition?: IActionListTriggerPosition;
+  triggerRect?: IActionListTriggerRect;
 };
 const showActionList = (
   props: IShowActionListParams,
@@ -478,71 +513,70 @@ const showActionList = (
         pageContextValue?: ReturnType<typeof usePageContext>;
       }
     | undefined,
-) => {
+): IActionListShowHandle & { closeImmediately: () => void } => {
   const { modalNavigatorContext, pageContextValue } = contexts || {};
-  const { triggerPosition, ...restProps } = props;
+  const { onClose, triggerPosition, triggerRect, ...restProps } = props;
   dismissKeyboard();
 
+  const proxyGeometry =
+    !platformEnv.isNative && (triggerRect || triggerPosition)
+      ? getImperativeActionListProxyGeometry({
+          triggerPosition,
+          triggerRect,
+        })
+      : undefined;
+
   // eslint-disable-next-line react-perf/jsx-no-jsx-as-prop
-  const triggerElement =
-    triggerPosition && !platformEnv.isNative ? (
-      <Stack width={1} height={1} />
-    ) : null;
+  const triggerElement = proxyGeometry ? (
+    <Stack
+      width={proxyGeometry.triggerWidth}
+      height={proxyGeometry.triggerHeight}
+      pointerEvents="none"
+    />
+  ) : null;
 
   // Use let so the destroy callback can reference it after assignment
   // eslint-disable-next-line prefer-const
-  let ref: { destroy: () => void };
-  let isClosed = false;
-
-  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
-      restProps.onOpenChange?.(true);
-      return;
-    }
-    if (isClosed) {
-      return;
-    }
-    isClosed = true;
-    restProps.onOpenChange?.(false);
-    setTimeout(() => {
-      restProps.onClose?.();
-    });
-    // delay the destruction of the reference to allow for the completion of the animation transition.
-    setTimeout(() => {
-      ref.destroy();
-    }, 500);
-  };
+  let ref: { destroy: () => void } | undefined;
+  const lifecycle = createImperativeActionListLifecycle({
+    onOpenChange: restProps.onOpenChange,
+    onClose,
+    // Delay destruction so the close animation can finish.
+    destroy: () => ref?.destroy(),
+  });
 
   // For context menu positioning: compute the optimal placement direction
   // based on viewport boundaries, like native OS context menus that flip
   // at screen edges. Keep allowFlip disabled to prevent Floating UI from
   // recalculating placement during close animation.
-  let contextMenuPlacement:
-    | 'bottom-start'
-    | 'bottom-end'
-    | 'top-start'
-    | 'top-end' = 'bottom-start';
-  if (triggerPosition && !platformEnv.isNative) {
+  let contextMenuPlacement: IActionListPlacement = 'bottom-start';
+  if (proxyGeometry) {
     const { height: windowHeight, width: windowWidth } =
       Dimensions.get('window');
-    const ESTIMATED_MENU_HEIGHT = 200;
-    const ESTIMATED_MENU_WIDTH = 224; // $56 = 56 * 4 = 224px
-    const EDGE_PADDING = 8;
-
-    const spaceBelow = windowHeight - triggerPosition.y - EDGE_PADDING;
-    const spaceRight = windowWidth - triggerPosition.x - EDGE_PADDING;
-
-    const vertical = spaceBelow >= ESTIMATED_MENU_HEIGHT ? 'bottom' : 'top';
-    const horizontal = spaceRight >= ESTIMATED_MENU_WIDTH ? 'start' : 'end';
-    contextMenuPlacement =
-      `${vertical}-${horizontal}` as typeof contextMenuPlacement;
+    contextMenuPlacement = getImperativeActionListPlacement({
+      triggerPosition,
+      triggerRect,
+      windowWidth,
+      windowHeight,
+      isRTL: I18nManager.isRTL,
+    });
   }
 
-  const contextMenuProps =
-    triggerPosition && !platformEnv.isNative
-      ? { placement: contextMenuPlacement, allowFlip: false }
-      : {};
+  const contextMenuProps = proxyGeometry
+    ? {
+        placement: contextMenuPlacement,
+        allowFlip: false,
+        ...(triggerRect
+          ? {
+              floatingPanelProps: {
+                ...ACTION_LIST_FLOATING_PANEL_PROPS,
+                ...restProps.floatingPanelProps,
+                onCloseAutoFocus: preventImperativeActionListCloseAutoFocus,
+              },
+            }
+          : undefined),
+      }
+    : {};
 
   const actionList = (
     <BasicActionList
@@ -550,28 +584,28 @@ const showActionList = (
       {...contextMenuProps}
       defaultOpen
       renderTrigger={triggerElement}
-      onOpenChange={handleOpenChange}
+      onOpenChange={lifecycle.handleOpenChange}
     />
   );
 
-  // Wrap in a fixed-position container at cursor coordinates for context menu positioning
-  const content =
-    triggerPosition && !platformEnv.isNative ? (
-      <Stack
-        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
-        style={{
-          position: 'fixed' as const,
-          left: triggerPosition.x,
-          top: triggerPosition.y,
-          width: 0,
-          height: 0,
-        }}
-      >
-        {actionList}
-      </Stack>
-    ) : (
-      actionList
-    );
+  // Wrap in a fixed-position container at the point or rectangle coordinates.
+  const content = proxyGeometry ? (
+    <Stack
+      pointerEvents="none"
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+      style={{
+        position: 'fixed' as const,
+        left: proxyGeometry.left,
+        top: proxyGeometry.top,
+        width: proxyGeometry.containerWidth,
+        height: proxyGeometry.containerHeight,
+      }}
+    >
+      {actionList}
+    </Stack>
+  ) : (
+    actionList
+  );
 
   const modalCtxValue =
     modalNavigatorContext || FALLBACK_MODAL_NAVIGATOR_CONTEXT;
@@ -587,10 +621,8 @@ const showActionList = (
     </ModalNavigatorContext.Provider>,
   );
   return {
-    close: () => {
-      handleOpenChange(false);
-      ref.destroy();
-    },
+    close: lifecycle.close,
+    closeImmediately: lifecycle.closeImmediately,
   };
 };
 function ActionListFrame(props: IActionListProps) {
@@ -632,9 +664,10 @@ function ActionListFrame(props: IActionListProps) {
 
 // Imperative action lists share one overlay slot; newer calls replace the active one.
 let imperativeActionList: ReturnType<typeof showActionList> | undefined;
-const show = (props: IShowActionListParams) => {
-  imperativeActionList?.close();
+const show = (props: IShowActionListParams): IActionListShowHandle => {
+  imperativeActionList?.closeImmediately();
   imperativeActionList = showActionList(props, undefined);
+  return imperativeActionList;
 };
 
 export const ActionList = withStaticProperties(ActionListFrame, {

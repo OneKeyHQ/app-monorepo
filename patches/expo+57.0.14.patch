@@ -1,24 +1,32 @@
 diff --git a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
-index c712e48..3e9a902 100644
+index c712e48..4288dfe 100644
 --- a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 +++ b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
-@@ -10,2 +10,3 @@ import com.facebook.react.ReactPackageTurboModuleManagerDelegate
+@@ -8,6 +8,7 @@ import com.facebook.react.ReactInstanceEventListener
+ import com.facebook.react.ReactPackage
+ import com.facebook.react.ReactPackageTurboModuleManagerDelegate
  import com.facebook.react.bridge.JSBundleLoader
 +import com.facebook.react.bridge.JSBundleLoaderDelegate
  import com.facebook.react.bridge.ReactContext
-@@ -22,3 +23,6 @@ import com.facebook.react.runtime.hermes.HermesInstance
+ import com.facebook.react.common.annotations.UnstableReactNativeAPI
+ import com.facebook.react.common.build.ReactBuildConfig
+@@ -20,11 +21,198 @@ import com.facebook.react.runtime.ReactHostDelegate
+ import com.facebook.react.runtime.ReactHostImpl
+ import com.facebook.react.runtime.hermes.HermesInstance
  import expo.modules.core.interfaces.ReactNativeHostHandler
 +import java.io.File
  import java.lang.ref.WeakReference
 +import java.net.HttpURLConnection
 +import java.net.URL
  
-@@ -27,2 +31,156 @@ object ExpoReactHostFactory {
+ object ExpoReactHostFactory {
+   private var reactHost: ReactHost? = null
++  private const val MAX_DEV_VENDOR_DELTA_BYTES = 256L * 1024L * 1024L
  
 +  // OneKey patch: load a stable local HBC before the live Metro delta while
 +  // keeping ReactHost dev support enabled for Fast Refresh and full reloads.
 +  private data class DevVendorConfig(
-+    val commonAssetName: String,
++    val commonBundleLocation: String,
 +    val entryUrl: String,
 +    val fingerprint: String
 +  )
@@ -39,11 +47,20 @@ index c712e48..3e9a902 100644
 +            .appendQueryParameter("transform.bytecode", "1")
 +            .build()
 +            .toString()
-+        delegate.loadScriptFromAssets(
-+          context.assets,
-+          "assets://${config.commonAssetName}",
-+          false
-+        )
++        val commonFile = File(config.commonBundleLocation)
++        if (commonFile.isFile) {
++          delegate.loadScriptFromFile(
++            commonFile.absolutePath,
++            "onekey-dev-vendor://common.hbc",
++            false
++          )
++        } else {
++          delegate.loadScriptFromAssets(
++            context.assets,
++            "assets://${config.commonBundleLocation}",
++            false
++          )
++        }
 +
 +        val assertionFile = File(context.cacheDir, "onekey-dev-vendor-assert-main.js")
 +        val quotedEntryUrl = org.json.JSONObject.quote(hmrEntryUrl)
@@ -72,14 +89,33 @@ index c712e48..3e9a902 100644
 +          try {
 +            connection.connectTimeout = 15_000
 +            connection.readTimeout = 60_000
++            connection.instanceFollowRedirects = false
 +            val statusCode = connection.responseCode
-+            if (statusCode !in 200..299) {
++            val declaredBytes = connection.contentLengthLong
++            if (
++              statusCode !in 200..299 ||
++              declaredBytes > MAX_DEV_VENDOR_DELTA_BYTES
++            ) {
 +              throw IllegalStateException(
-+                "Dev-vendor main delta returned HTTP $statusCode"
++                "Dev-vendor main delta rejected status=$statusCode bytes=$declaredBytes"
 +              )
 +            }
 +            connection.inputStream.use { input ->
-+              temporaryFile.outputStream().use { output -> input.copyTo(output) }
++              temporaryFile.outputStream().use { output ->
++                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
++                var receivedBytes = 0L
++                while (true) {
++                  val count = input.read(buffer)
++                  if (count == -1) break
++                  receivedBytes += count
++                  if (receivedBytes > MAX_DEV_VENDOR_DELTA_BYTES) {
++                    throw IllegalStateException(
++                      "Dev-vendor main delta exceeds size limit"
++                    )
++                  }
++                  output.write(buffer, 0, count)
++                }
++              }
 +            }
 +          } finally {
 +            connection.disconnect()
@@ -169,12 +205,21 @@ index c712e48..3e9a902 100644
 +    }
 +  }
 +
++  // OneKey patch: the custom bundle loaders above feed this host delegate.
    @UnstableReactNativeAPI
-@@ -35,2 +193,3 @@ object ExpoReactHostFactory {
+   private class ExpoReactHostDelegate(
+     private val weakContext: WeakReference<Context>,
+@@ -33,6 +221,7 @@ object ExpoReactHostFactory {
+     private val jsBundleAssetPath: String?,
+     private val jsBundleFilePath: String? = null,
      private val useDevSupport: Boolean,
 +    private val devVendorConfig: DevVendorConfig? = null,
      override val bindingsInstaller: BindingsInstaller? = null,
-@@ -69,6 +228,14 @@ object ExpoReactHostFactory {
+     override val turboModuleManagerDelegateBuilder: ReactPackageTurboModuleManagerDelegate.Builder =
+       DefaultTurboModuleManagerDelegate.Builder(),
+@@ -67,13 +256,25 @@ object ExpoReactHostFactory {
+         }
+         val context = weakContext.get()
            ?: throw IllegalStateException("Unable to get concrete Context")
 +        devVendorConfig?.let { return createDevVendorBundleLoader(context, it) }
          hostDelegateJsBundleFilePath?.let { jsBundleFile ->
@@ -189,14 +234,18 @@ index c712e48..3e9a902 100644
 +            return createSequentialFileBundleLoader(commonPath, jsBundleFile)
 +          }
            return JSBundleLoader.createFileLoader(jsBundleFile)
-@@ -76,2 +243,6 @@ object ExpoReactHostFactory {
+         }
  
 +        if (hasCommonBundleInAssets(context)) {
 +          val entryAssetName = hostDelegateJSBundleAssetPath ?: jsBundleAssetPath ?: "index.android.bundle"
 +          return createSequentialAssetBundleLoader(context, "common.bundle", entryAssetName)
 +        }
          return JSBundleLoader.createAssetLoader(context, "assets://$hostDelegateJSBundleAssetPath", true)
-@@ -105,3 +276,6 @@ object ExpoReactHostFactory {
+       }
+ 
+@@ -103,12 +304,30 @@ object ExpoReactHostFactory {
+     jsBundleFilePath: String? = null,
+     jsRuntimeFactory: JSRuntimeFactory? = null,
      useDevSupport: Boolean = ReactBuildConfig.DEBUG,
 -    bindingsInstaller: BindingsInstaller? = null
 +    bindingsInstaller: BindingsInstaller? = null,
@@ -204,7 +253,9 @@ index c712e48..3e9a902 100644
 +    devVendorEntryUrl: String? = null,
 +    devVendorFingerprint: String? = null
    ): ReactHost {
-@@ -111,2 +285,17 @@ object ExpoReactHostFactory {
+     if (reactHost == null) {
+       val hostHandlers = ExpoModulesPackage.packageList
+         .flatMap { it.createReactNativeHostHandlers(context) }
  
 +      val devVendorConfig =
 +        if (
@@ -222,24 +273,36 @@ index c712e48..3e9a902 100644
 +          null
 +        }
        val reactHostDelegate = ExpoReactHostDelegate(
-@@ -118,3 +307,4 @@ object ExpoReactHostFactory {
+         WeakReference(context),
+         packageList,
+@@ -116,7 +335,8 @@ object ExpoReactHostFactory {
+         jsBundleAssetPath,
+         jsBundleFilePath,
          useDevSupport,
 -        bindingsInstaller,
 +        devVendorConfig = devVendorConfig,
 +        bindingsInstaller = bindingsInstaller,
          hostHandlers = hostHandlers
-@@ -133,3 +323,5 @@ object ExpoReactHostFactory {
+       )
+       val componentFactory = ComponentFactory()
+@@ -131,7 +351,9 @@ object ExpoReactHostFactory {
+           context,
+           delegate = reactHostDelegate,
            componentFactory = componentFactory,
 -          allowPackagerServerAccess = true,
 +          // Keep DevSupportManager active. Its ReactContext listener performs
 +          // HMRClient.setup once for every new runtime; Fast Refresh reuses it.
 +          allowPackagerServerAccess = devVendorConfig == null,
            useDevSupport = useDevSupport
+         )
+ 
 diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
-index ed88404..57ba984 100644
+index ed88404..380ff8b 100644
 --- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
 +++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
-@@ -41,28 +41,36 @@ - (void)host:(nonnull RCTHost *)host didInitializeRuntime:(facebook::jsi::Runtim
+@@ -39,32 +39,40 @@ - (void)hostDidStart:(nonnull RCTHost *)host
+ // [JS thread]
+ - (void)host:(nonnull RCTHost *)host didInitializeRuntime:(facebook::jsi::Runtime &)runtime
  {
 -  _appContext = [[EXAppContext alloc] init];
 -
@@ -302,3 +365,5 @@ index ed88404..57ba984 100644
 +    [_appContext registerNativeModules];
 +  }
  }
+ 
+ @end

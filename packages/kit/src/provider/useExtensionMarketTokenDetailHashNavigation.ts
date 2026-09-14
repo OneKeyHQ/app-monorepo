@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Dialog, rootNavigationRef } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -9,6 +12,7 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import { readExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 
 type IMarketTokenDetailNavigationTarget =
   | {
@@ -31,6 +35,9 @@ type IMarketTokenDetailRouteParams = Partial<
     stockId?: string;
     isNative?: boolean | string;
     showFavoriteButton?: boolean | string;
+    stockPreviewLogoUrl?: string;
+    stockPreviewName?: string;
+    stockPreviewSymbol?: string;
   };
 
 const NAVIGATION_RETRY_DELAYS = [120, 360];
@@ -78,13 +85,27 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const skipMarketDataFetch = parseOptionalRouteBooleanParam(
       searchParams.get('skipMarketDataFetch'),
     );
+    const resolveMarketAsset = parseOptionalRouteBooleanParam(
+      searchParams.get('resolveMarketAsset'),
+    );
     const marketTokenId = searchParams.get('marketTokenId') || undefined;
+    const marketVariantId = searchParams.get('marketVariantId') || undefined;
     const marketTokenCategory =
       searchParams.get('marketTokenCategory') || undefined;
+    const marketTokenSymbol =
+      searchParams.get('marketTokenSymbol') || undefined;
     const from = searchParams.get('from');
+    const marketTokenPreviewId =
+      searchParams.get('marketTokenPreviewId') || undefined;
 
     if (segments[1] === 'stock') {
       const stockId = decodeURIComponent(segments[2]);
+      const stockPreviewLogoUrl =
+        searchParams.get('stockPreviewLogoUrl') || undefined;
+      const stockPreviewName =
+        searchParams.get('stockPreviewName') || undefined;
+      const stockPreviewSymbol =
+        searchParams.get('stockPreviewSymbol') || undefined;
       const tokenAddress = searchParams.get('tokenAddress') || undefined;
       const network = searchParams.get('network') || undefined;
 
@@ -92,6 +113,9 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         screen: ETabMarketRoutes.MarketStockDetail,
         params: {
           stockId,
+          ...(stockPreviewSymbol ? { stockPreviewSymbol } : undefined),
+          ...(stockPreviewName ? { stockPreviewName } : undefined),
+          ...(stockPreviewLogoUrl ? { stockPreviewLogoUrl } : undefined),
           ...(tokenAddress ? { tokenAddress } : undefined),
           ...(network ? { network } : undefined),
           ...(isNative === undefined ? undefined : { isNative }),
@@ -115,8 +139,14 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         params: {
           network,
           isNative: true,
+          ...(marketTokenPreviewId ? { marketTokenPreviewId } : undefined),
           ...(marketTokenId ? { marketTokenId } : undefined),
+          ...(marketVariantId ? { marketVariantId } : undefined),
           ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+          ...(marketTokenSymbol ? { marketTokenSymbol } : undefined),
+          ...(resolveMarketAsset === undefined
+            ? undefined
+            : { resolveMarketAsset }),
           ...(skipMarketDataFetch === undefined
             ? undefined
             : { skipMarketDataFetch }),
@@ -134,8 +164,14 @@ export function getMarketTokenDetailNavigationTargetFromHash(
       params: {
         network,
         tokenAddress,
+        ...(marketTokenPreviewId ? { marketTokenPreviewId } : undefined),
         ...(marketTokenId ? { marketTokenId } : undefined),
+        ...(marketVariantId ? { marketVariantId } : undefined),
         ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+        ...(marketTokenSymbol ? { marketTokenSymbol } : undefined),
+        ...(resolveMarketAsset === undefined
+          ? undefined
+          : { resolveMarketAsset }),
         ...(skipMarketDataFetch === undefined
           ? undefined
           : { skipMarketDataFetch }),
@@ -199,13 +235,25 @@ function isCurrentMarketTokenDetailTarget(
     return (
       params.stockId === target.params.stockId &&
       params.network === target.params.network &&
-      params.tokenAddress === target.params.tokenAddress
+      params.tokenAddress === target.params.tokenAddress &&
+      params.stockPreviewSymbol === target.params.stockPreviewSymbol &&
+      params.stockPreviewName === target.params.stockPreviewName &&
+      params.stockPreviewLogoUrl === target.params.stockPreviewLogoUrl
     );
   }
 
   if (
     params.marketTokenId !== target.params.marketTokenId ||
+    (target.params.marketTokenPreviewId !== undefined &&
+      params.marketTokenPreviewId !== target.params.marketTokenPreviewId) ||
+    (target.params.legacyTokenPreview &&
+      params.legacyTokenPreview?.selectedAt !==
+        target.params.legacyTokenPreview.selectedAt) ||
+    params.marketVariantId !== target.params.marketVariantId ||
     params.marketTokenCategory !== target.params.marketTokenCategory ||
+    params.marketTokenSymbol !== target.params.marketTokenSymbol ||
+    normalizeRouteBooleanParam(params.resolveMarketAsset, false) !==
+      normalizeRouteBooleanParam(target.params.resolveMarketAsset, false) ||
     normalizeRouteBooleanParam(params.skipMarketDataFetch, false) !==
       normalizeRouteBooleanParam(target.params.skipMarketDataFetch, false)
   ) {
@@ -226,6 +274,10 @@ function isCurrentMarketTokenDetailTarget(
 export const useExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
     ? () => {
+        const intl = useIntl();
+        const errorDialogRef = useRef<
+          ReturnType<typeof Dialog.show> | undefined
+        >(undefined);
         const handledHashRef = useRef<string | undefined>(undefined);
         const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
           undefined,
@@ -239,79 +291,153 @@ export const useExtensionMarketTokenDetailHashNavigation =
           }
         }, []);
 
-        const navigateFromHash = useCallback((expectedHash: string) => {
-          const currentHash = globalThis.location?.hash ?? '';
-          if (currentHash !== expectedHash) {
-            return true;
-          }
+        const navigateFromHash = useCallback(
+          (
+            expectedHash: string,
+            preparedTarget: IMarketTokenDetailNavigationTarget,
+          ) => {
+            const currentHash = globalThis.location?.hash ?? '';
+            if (currentHash !== expectedHash) {
+              return true;
+            }
 
-          const target =
-            getMarketTokenDetailNavigationTargetFromHash(currentHash);
-          if (!target) {
-            handledHashRef.current = undefined;
-            return true;
-          }
+            const target = preparedTarget;
+            if (!target) {
+              handledHashRef.current = undefined;
+              return true;
+            }
 
-          const isCurrentTarget = isCurrentMarketTokenDetailTarget(target);
-          if (handledHashRef.current === currentHash && isCurrentTarget) {
-            return true;
-          }
+            const isCurrentTarget = isCurrentMarketTokenDetailTarget(target);
+            if (handledHashRef.current === currentHash && isCurrentTarget) {
+              return true;
+            }
 
-          const navigation = rootNavigationRef.current;
-          if (!navigation) {
+            const navigation = rootNavigationRef.current;
+            if (!navigation) {
+              return false;
+            }
+
+            if (isCurrentTarget) {
+              handledHashRef.current = currentHash;
+              return true;
+            }
+
+            navigation.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Market,
+              params: {
+                screen: target.screen,
+                params: target.params,
+              },
+            });
+
             return false;
-          }
+          },
+          [],
+        );
 
-          if (isCurrentTarget) {
-            handledHashRef.current = currentHash;
-            return true;
-          }
+        const startNavigationFromHash = useCallback(
+          function startNavigation() {
+            clearRetryTimer();
+            void errorDialogRef.current?.close();
+            errorDialogRef.current = undefined;
 
-          navigation.navigate(ERootRoutes.Main, {
-            screen: ETabRoutes.Market,
-            params: {
-              screen: target.screen,
-              params: target.params,
-            },
-          });
+            const runId = retryRunIdRef.current + 1;
+            retryRunIdRef.current = runId;
 
-          return false;
-        }, []);
-
-        const startNavigationFromHash = useCallback(() => {
-          clearRetryTimer();
-
-          const hash = globalThis.location?.hash ?? '';
-          const target = getMarketTokenDetailNavigationTargetFromHash(hash);
-          if (!target) {
-            handledHashRef.current = undefined;
-            return;
-          }
-
-          const runId = retryRunIdRef.current + 1;
-          retryRunIdRef.current = runId;
-          let retryIndex = 0;
-
-          const run = () => {
-            if (retryRunIdRef.current !== runId) {
+            const hash = globalThis.location?.hash ?? '';
+            const target = getMarketTokenDetailNavigationTargetFromHash(hash);
+            if (!target) {
+              handledHashRef.current = undefined;
               return;
             }
 
-            const done = navigateFromHash(hash);
-            if (done || retryIndex >= NAVIGATION_RETRY_DELAYS.length) {
-              retryTimerRef.current = undefined;
-              return;
+            let retryIndex = 0;
+
+            const run = () => {
+              if (retryRunIdRef.current !== runId || !target) {
+                return;
+              }
+
+              const done = navigateFromHash(hash, target);
+              if (done || retryIndex >= NAVIGATION_RETRY_DELAYS.length) {
+                retryTimerRef.current = undefined;
+                return;
+              }
+
+              retryTimerRef.current = setTimeout(
+                run,
+                NAVIGATION_RETRY_DELAYS[retryIndex],
+              );
+              retryIndex += 1;
+            };
+
+            if (
+              target.screen !== ETabMarketRoutes.MarketStockDetail &&
+              target.params.marketTokenPreviewId
+            ) {
+              const tokenTarget = target;
+              void readExtensionTokenPreview(
+                target.params.marketTokenPreviewId,
+                {
+                  network: target.params.network,
+                  tokenAddress:
+                    'tokenAddress' in target.params
+                      ? target.params.tokenAddress
+                      : '',
+                  isNative: normalizeRouteBooleanParam(
+                    target.params.isNative,
+                    target.screen === ETabMarketRoutes.MarketNativeDetail,
+                  ),
+                },
+              ).then((preview) => {
+                if (
+                  retryRunIdRef.current !== runId ||
+                  globalThis.location?.hash !== hash
+                )
+                  return;
+                if (preview) {
+                  tokenTarget.params.legacyTokenPreview = preview;
+                } else if (
+                  normalizeRouteBooleanParam(
+                    tokenTarget.params.skipMarketDataFetch,
+                    false,
+                  )
+                ) {
+                  // Do not silently accept the old route or open an empty no-fetch
+                  // detail. Retrying performs a new lookup, not a layout remount.
+                  errorDialogRef.current = Dialog.show({
+                    title: intl.formatMessage({
+                      id: ETranslations.global_an_error_occurred,
+                    }),
+                    description: intl.formatMessage({
+                      id: ETranslations.global_unknown_error_retry_message,
+                    }),
+                    onConfirmText: intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    }),
+                    onConfirm: async ({ close }) => {
+                      await close();
+                      if (
+                        globalThis.location?.hash === hash &&
+                        retryRunIdRef.current === runId
+                      )
+                        startNavigation();
+                    },
+                  });
+                  return;
+                } else {
+                  // Explicitly clear the previous handoff when updating the same
+                  // route; navigation may merge params rather than replace them.
+                  tokenTarget.params.legacyTokenPreview = undefined;
+                }
+                run();
+              });
+            } else {
+              run();
             }
-
-            retryTimerRef.current = setTimeout(
-              run,
-              NAVIGATION_RETRY_DELAYS[retryIndex],
-            );
-            retryIndex += 1;
-          };
-
-          run();
-        }, [clearRetryTimer, navigateFromHash]);
+          },
+          [clearRetryTimer, intl, navigateFromHash],
+        );
 
         useEffect(() => {
           startNavigationFromHash();
@@ -319,6 +445,8 @@ export const useExtensionMarketTokenDetailHashNavigation =
           return () => {
             retryRunIdRef.current += 1;
             clearRetryTimer();
+            void errorDialogRef.current?.close();
+            errorDialogRef.current = undefined;
             globalThis.removeEventListener(
               'hashchange',
               startNavigationFromHash,

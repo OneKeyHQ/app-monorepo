@@ -62,6 +62,28 @@ export function resolveSettingsHeaderBackgroundTokenKey({
   return pageBackgroundTokenKey ?? (isNativeIOS ? undefined : 'bgApp');
 }
 
+export function isVisibleSubSettingsItem({
+  hasDesktopTab,
+  isMobileHome,
+  isTabNavigator,
+  isMobileLayout,
+}: {
+  hasDesktopTab: boolean;
+  isMobileHome: boolean;
+  isTabNavigator: boolean;
+  isMobileLayout: boolean;
+}): boolean {
+  // Sidebar already exposes desktopTab items; keep the source row on
+  // extension / narrow web, where that tab does not exist.
+  if (isTabNavigator && hasDesktopTab) {
+    return false;
+  }
+  if (!isMobileLayout) {
+    return true;
+  }
+  return !isMobileHome;
+}
+
 export function resolveSettingsSectionSurface(
   presentation: ISettingsSectionPresentation,
 ) {

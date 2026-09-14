@@ -1,4 +1,5 @@
 import {
+  formatBalanceDisplay,
   hasSufficientRepayFunding,
   repayShortfall,
 } from './needActionBalances';
@@ -73,5 +74,20 @@ describe('eMode repay funding', () => {
       hasSufficientRepayFunding({ step, balanceParsed: 'not-a-number' }),
     ).toBe(false);
     expect(repayShortfall({ step })).toBeNull();
+  });
+});
+
+describe('eMode wallet balance display', () => {
+  it('keeps a non-zero dust balance visible', () => {
+    expect(formatBalanceDisplay('0.00000032')).toBe('0.00000032');
+  });
+
+  it('keeps the existing six-decimal floor for normal balances', () => {
+    expect(formatBalanceDisplay('1.23456789')).toBe('1.234567');
+  });
+
+  it('does not render non-finite values as a balance', () => {
+    expect(formatBalanceDisplay('Infinity')).toBeNull();
+    expect(formatBalanceDisplay('not-a-number')).toBeNull();
   });
 });

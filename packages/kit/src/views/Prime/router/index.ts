@@ -1,7 +1,13 @@
 /* cspell:ignore Infini */
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import type {
+  IPrimeGiftParamList,
+  IPrimeParamList,
+} from '@onekeyhq/shared/src/routes/prime';
+import {
+  EPrimeGiftPages,
+  EPrimePages,
+} from '@onekeyhq/shared/src/routes/prime';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
@@ -35,6 +41,20 @@ const PrimeInfiniPayment = LazyLoadPage(
 const PrimeInfiniSubscription = LazyLoadPage(
   () => import('../pages/PrimeInfiniSubscription'),
 );
+const PrimeGift = LazyLoadPage(() => import('../pages/PrimeGift'));
+
+export const PrimeGiftRouter: IModalFlowNavigatorConfig<
+  EPrimeGiftPages,
+  IPrimeGiftParamList
+>[] = [
+  {
+    name: EPrimeGiftPages.PrimeGift,
+    component: PrimeGift,
+    options: {
+      headerShown: false,
+    },
+  },
+];
 
 export const PrimeRouter: IModalFlowNavigatorConfig<
   EPrimePages,

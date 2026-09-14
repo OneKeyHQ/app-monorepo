@@ -173,6 +173,19 @@ function useOpenPerpAsset() {
         if (infoPanelTab) {
           await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
         }
+        // After the writes above and before the navigation that mounts the tab:
+        // recording it earlier would strand a pending pair whenever those
+        // writes bail out, and later would lose the race with the first mount.
+        // Isolated because losing it only costs that first-mount restore.
+        if (coin) {
+          try {
+            await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+              { coin, mode },
+            );
+          } catch {
+            // ignore
+          }
+        }
         setPerpPageEnterSource(EPerpPageEnterSource.Home);
         navigation.switchTab(ETabRoutes.Perp);
         if (!coin) {

@@ -8,9 +8,11 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
@@ -21,6 +23,7 @@ import {
 } from '@onekeyhq/shared/src/utils/assertUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import { deviceStageAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
@@ -47,6 +50,28 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+
+// OK-59934 hard rule #2 (失败不外溢): while the DeviceStage is carrying a
+// hardware interaction, a hardware failure lands there as the stage's own
+// outcome — the same rejection must not also toast. This is the belt for
+// calls outside withHardwareProcessing (the wrapper clears autoToast for
+// the ones inside); non-hardware errors and a resting stage keep the
+// legacy toast behavior.
+function showToastOfErrorUnlessStageCarriesIt(error: unknown) {
+  void (async () => {
+    try {
+      if (!isLegacyHardwareUiActive() && isOneKeyHardwareError(error)) {
+        const stage = await deviceStageAtom.get();
+        if (stage && stage.step !== 'off') {
+          return;
+        }
+      }
+    } catch {
+      // never let the gate itself eat the toast
+    }
+    errorToastUtils.showToastOfError(error as any);
+  })();
+}
 
 export class BackgroundApiProxyBase
   extends BackgroundServiceProxyBase
@@ -377,7 +402,7 @@ export class BackgroundApiProxyBase
         await this.emitEvent(type as any, payload, originNodeId);
       },
     });
-    globalErrorHandler.addListener(errorToastUtils.showToastOfError);
+    globalErrorHandler.addListener(showToastOfErrorUnlessStageCarriesIt);
   }
 
   async getAtomStates(
@@ -689,7 +714,7 @@ export class BackgroundApiProxyBase
         await this.callBackgroundMethod(true, method, ...params);
       } catch (error) {
         setTimeout(() => {
-          errorToastUtils.showToastOfError(error as any);
+          showToastOfErrorUnlessStageCarriesIt(error);
         }, 50);
         throw error;
       }
@@ -701,7 +726,7 @@ export class BackgroundApiProxyBase
       return await this.callBackgroundMethod(false, method, ...params);
     } catch (error) {
       setTimeout(() => {
-        errorToastUtils.showToastOfError(error as any);
+        showToastOfErrorUnlessStageCarriesIt(error);
       }, 50);
       throw error;
     }

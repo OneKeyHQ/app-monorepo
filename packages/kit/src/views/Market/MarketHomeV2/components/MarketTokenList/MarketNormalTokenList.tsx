@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react';
-import type { ReactNode } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,8 +23,8 @@ type IMarketNormalTokenListProps = {
   timeRange?: IMarketTimeRangeValue;
   sortBy?: string;
   sortType?: 'asc' | 'desc';
+  useApiDefaultSort?: boolean;
   onItemPress?: (item: IMarketToken) => void;
-  toolbar?: ReactNode;
   tabIntegrated?: boolean;
   tabName?: string;
   listContainerProps?: {
@@ -49,8 +48,8 @@ function MarketNormalTokenList({
   timeRange,
   sortBy: initialSortBy,
   sortType: initialSortType,
+  useApiDefaultSort,
   onItemPress,
-  toolbar,
   tabIntegrated,
   tabName,
   listContainerProps,
@@ -73,6 +72,7 @@ function MarketNormalTokenList({
     networkId,
     initialSortBy,
     initialSortType,
+    useApiDefaultSort,
     pageSize: 20,
     type: selectedCategory,
     category: stockCategory,
@@ -116,7 +116,6 @@ function MarketNormalTokenList({
       testID="market-normal-token-list"
       networkId={networkId}
       onItemPress={onItemPress}
-      toolbar={toolbar}
       result={normalResult}
       isWatchlistMode={false}
       showEndReachedIndicator

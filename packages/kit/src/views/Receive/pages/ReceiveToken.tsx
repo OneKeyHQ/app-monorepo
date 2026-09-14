@@ -334,6 +334,7 @@ function ReceiveToken() {
           deriveType: currentDeriveType,
           confirmOnDevice: EConfirmOnDeviceType.EveryItem,
           customReceiveAddressPath: verificationPath,
+          expectedAddress: displayAddress,
         });
 
       const isSameAddress =

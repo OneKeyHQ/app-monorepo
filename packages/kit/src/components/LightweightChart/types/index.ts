@@ -10,6 +10,42 @@ import type {
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
 export type ILightweightChartLineType = 'simple' | 'steps';
 export type ILightweightChartPriceScalePosition = 'left' | 'right';
+export type ILightweightChartSeriesType =
+  | 'area'
+  | 'baseline'
+  | 'dotted-area'
+  | 'histogram';
+export type ILightweightChartReferenceLineStyle =
+  | 'solid'
+  | 'dotted'
+  | 'dashed'
+  | 'large-dashed'
+  | 'sparse-dotted';
+
+export interface ILightweightChartReferenceLine {
+  price: number;
+  color: string;
+  lineWidth?: 1 | 2 | 3 | 4;
+  lineStyle?: ILightweightChartReferenceLineStyle;
+  axisLabelVisible?: boolean;
+  // Drawn on the plot beside the axis label, on the line's own color. Only
+  // shown together with `axisLabelVisible`.
+  title?: string;
+  // Axis label colors. Default to the line color with a contrasting text.
+  axisLabelColor?: string;
+  axisLabelTextColor?: string;
+  // Extends the price autoscale so the line stays on screen even when the
+  // series never reaches it (e.g. a gap open away from the previous close).
+  includeInAutoscale?: boolean;
+}
+
+export interface ILightweightChartHistogramOptions {
+  positiveColor: string;
+  negativeColor: string;
+  base?: number;
+  barWidthRatio?: number;
+  maxBarWidth?: number;
+}
 
 export interface ILightweightChartTheme {
   bgColor: string;
@@ -19,7 +55,7 @@ export interface ILightweightChartTheme {
   bottomColor: string;
 }
 
-export type ILightweightChartData = SingleValueData;
+export type ILightweightChartData = SingleValueData & { color?: string };
 export type ILightweightSecondaryLineData = LineData;
 export type ILightweightChartTime = UTCTimestamp;
 
@@ -42,17 +78,24 @@ export interface ILightweightChartConfig {
   patternColor?: string;
   pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
+  priceScaleMinimumWidth?: number;
   priceFormatterType?: ILightweightChartPriceFormatterType;
+  compactPriceMaxCharacters?: number;
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
-  seriesType?: 'area' | 'baseline' | 'dotted-area';
+  seriesType?: ILightweightChartSeriesType;
   lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
+  histogramOptions?: ILightweightChartHistogramOptions;
+  referenceLine?: ILightweightChartReferenceLine;
   showLastValue?: boolean;
+  showLastValuePriceLine?: boolean;
+  lastValueLabelColor?: string;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
   hideCrosshairPriceLabel?: boolean;
@@ -71,6 +114,8 @@ export interface ILightweightChartProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  horzLineColor?: string;
+  horzLineStyle?: number;
   priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
@@ -93,16 +138,28 @@ export interface ILightweightChartProps {
   priceFormatter?: (price: number) => string;
   // Native WebView only. Custom formatter functions cannot cross the WebView
   // boundary, so callers can opt into a serializable percent precision.
+  compactPriceMaxCharacters?: number;
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
-  seriesType?: 'area' | 'baseline' | 'dotted-area';
+  seriesType?: ILightweightChartSeriesType;
   lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
+  histogramOptions?: ILightweightChartHistogramOptions;
+  referenceLine?: ILightweightChartReferenceLine;
   showLastValue?: boolean;
+  // Defaults to `showLastValue`. Pass false to keep the last-value axis label
+  // while dropping the dashed price line it normally comes with.
+  showLastValuePriceLine?: boolean;
+  // Background of the last-value axis label (and of the price line when it is
+  // shown). Defaults to the series color, so a dimmed line can still carry a
+  // full-strength label.
+  lastValueLabelColor?: string;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  // Blank space between the last point and the price scale, in pixels.
+  timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
   // Native WebView only. Keeps the default axis hover label unless a chart

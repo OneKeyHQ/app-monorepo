@@ -20,7 +20,11 @@ import {
   EPerpUserType,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   IUnifoldDepositExecution,
@@ -34,6 +38,15 @@ import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
+
+// Shared by Market entries and Web Perps, including expanded extension windows.
+export const {
+  target: webviewPerpTradeTargetAtom,
+  use: useWebviewPerpTradeTargetAtom,
+} = globalAtom<{ coin?: string; revision: number }>({
+  name: EAtomNames.webviewPerpTradeTargetAtom,
+  initialValue: { revision: 0 },
+});
 
 // #region Active Account
 export interface IPerpsActiveAccountAtom {
@@ -1086,6 +1099,7 @@ export interface IPerpsCustomSettings {
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
+  lastUsdcWithdrawDestinationId: IUsdcWithdrawDestinationId;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -1101,6 +1115,7 @@ export const {
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    lastUsdcWithdrawDestinationId: DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
   },
 });
 

@@ -170,6 +170,7 @@ const SwapProSelectTokenPage = ({
               <MarketWatchlistTokenList
                 onItemPress={handleTokenSelect}
                 hidePerps
+                hideListings
               />
             ) : (
               <MarketNormalTokenList

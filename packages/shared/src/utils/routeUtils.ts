@@ -17,6 +17,7 @@ import {
   ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
+  PRIME_REDEEM_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
 
 interface IAllowSettingItem {
@@ -32,6 +33,8 @@ export type IScreenPathConfig = Record<
     exact: boolean;
     initialRouteName?: string;
     screens?: IScreenPathConfig;
+    parse?: Record<string, (value: string) => unknown>;
+    stringify?: Record<string, (value: unknown) => string>;
   }
 >;
 
@@ -266,6 +269,12 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    // pagePath() strips inner slashes, so this two-segment public URL would
+    // not match getPathFromState. Keep the email path as a literal allowlist key.
+    [PRIME_REDEEM_LANDING_PATH]: {
+      showUrl: true,
+      showParams: true,
+    },
     // eslint-disable-next-line no-nested-ternary
     ...(perpTabShowWeb
       ? {

@@ -65,11 +65,15 @@ const PasswordVerifyPromptMount = () => {
     ({
       id,
       dialogProps,
+      enforcePasswordErrorProtection,
+      manualPasswordOnly,
       skipPostVerifyBackgroundTasks,
       kdfParams,
     }: {
       id: number;
       dialogProps?: IDialogShowProps;
+      enforcePasswordErrorProtection?: boolean;
+      manualPasswordOnly?: boolean;
       skipPostVerifyBackgroundTasks?: boolean;
       kdfParams?: IPbkdf2KdfParams;
     }) => {
@@ -91,6 +95,8 @@ const PasswordVerifyPromptMount = () => {
         },
         renderContent: (
           <PasswordVerifyContainer
+            enforcePasswordErrorProtection={enforcePasswordErrorProtection}
+            manualPasswordOnly={manualPasswordOnly}
             skipPostVerifyBackgroundTasks={skipPostVerifyBackgroundTasks}
             kdfParams={kdfParams}
             onVerifyRes={async (data) => {
@@ -129,6 +135,10 @@ const PasswordVerifyPromptMount = () => {
         showPasswordVerifyPromptRef.current?.({
           id: passwordPromptPromiseTriggerData.idNumber,
           dialogProps: passwordPromptPromiseTriggerData.dialogProps,
+          enforcePasswordErrorProtection:
+            passwordPromptPromiseTriggerData.enforcePasswordErrorProtection,
+          manualPasswordOnly:
+            passwordPromptPromiseTriggerData.manualPasswordOnly,
           skipPostVerifyBackgroundTasks:
             passwordPromptPromiseTriggerData.skipPostVerifyBackgroundTasks,
           kdfParams: passwordPromptPromiseTriggerData.kdfParams,

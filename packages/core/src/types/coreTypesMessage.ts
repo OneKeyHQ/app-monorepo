@@ -93,10 +93,7 @@ export type IUnsignedMessageAlph = {
   payload?: any;
 };
 
-/**
- * Version 0 of the Solana offchain message spec. Legacy: kept because OneKey hardware firmware
- * only implements version 0 today.
- */
+/** Version 0 of the Solana offchain message spec. */
 export type IOffchainMessagePayloadV0 = {
   version?: 0;
   /** Version 0 only. Removed by version 1 because it is unverifiable and easily forged. */

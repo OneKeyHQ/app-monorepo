@@ -6,7 +6,7 @@
   "private": true,
   "author": "OneKey <hi@onekey.so>",
   "scripts": {
-    "postinstall": ""
+    "postinstall": "node ../../../node_modules/patch-package/index.js --patch-dir patches --error-on-fail"
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",

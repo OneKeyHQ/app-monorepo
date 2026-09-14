@@ -217,6 +217,7 @@ export type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
     optional?: boolean;
     labelAddon?: string | ReactElement | ReactNode;
     errorMessageAlign?: 'left' | 'center' | 'right';
+    errorMessagePaddingHorizontal?: GetProps<typeof SizableText>['px'];
     renderErrorMessage?: (props: IFieldErrorProps) => ReactElement;
   }>;
 
@@ -226,6 +227,7 @@ function Field({
   optional,
   display,
   errorMessageAlign,
+  errorMessagePaddingHorizontal,
   description,
   hint,
   rules,
@@ -303,6 +305,7 @@ function Field({
           {hint || error?.message ? (
             <SizableText
               pt="$1.5"
+              px={errorMessagePaddingHorizontal}
               transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={errorAnimationStyle}
@@ -344,6 +347,7 @@ function Field({
       display,
       error,
       errorMessageAlign,
+      errorMessagePaddingHorizontal,
       hint,
       horizontal,
       intl,

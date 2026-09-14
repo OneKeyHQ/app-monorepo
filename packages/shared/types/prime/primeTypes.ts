@@ -203,6 +203,7 @@ export type IPrimeInfiniPaymentCreateParams = {
 export type IPrimeRedemptionParams = {
   code: string;
   expectedOneKeyUserId: string;
+  primeGiftSerialNo?: string;
 };
 
 export type IPrimeRedemptionResult = {

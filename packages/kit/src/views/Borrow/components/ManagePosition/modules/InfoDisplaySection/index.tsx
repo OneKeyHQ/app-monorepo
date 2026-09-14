@@ -48,7 +48,12 @@ export function InfoDisplaySection({
   const hasApyDetail = showApyDetail && !!transactionConfirmation?.apyDetail;
   const hasRefundableFee = !!transactionConfirmation?.refundableFee;
   const hasRefundFee = !!transactionConfirmation?.refundFee;
-  const hasCanBeCollateral = !!transactionConfirmation?.canBeCollateral;
+  const canBeCollateral = transactionConfirmation?.canBeCollateral;
+  const usageAsCollateral = transactionConfirmation?.usageAsCollateral;
+  // Older responses omit usageAsCollateral; do not infer the collateral switch state.
+  const hasCollateralStatus =
+    canBeCollateral === false ||
+    (canBeCollateral === true && usageAsCollateral !== undefined);
 
   // Determine if we should show swap/bridge based on action
   const shouldShowSwapOrBridge =
@@ -59,7 +64,7 @@ export function InfoDisplaySection({
     hasApyDetail ||
     hasRefundableFee ||
     hasRefundFee ||
-    hasCanBeCollateral ||
+    hasCollateralStatus ||
     shouldShowSwapOrBridge;
 
   const showInfoSection = hasPrimaryInfo || hasSecondaryInfo;
@@ -79,7 +84,7 @@ export function InfoDisplaySection({
           hasMySupply ||
           hasApyDetail ||
           hasRefundableFee ||
-          hasCanBeCollateral)
+          hasCollateralStatus)
       );
     }
     if (action === 'borrow' || action === 'repay') {
@@ -143,7 +148,12 @@ export function InfoDisplaySection({
           {hasRefundFee ? (
             <FeeInfo type="refund" data={transactionConfirmation.refundFee!} />
           ) : null}
-          {hasCanBeCollateral ? <CollateralInfo /> : null}
+          {hasCollateralStatus ? (
+            <CollateralInfo
+              canBeCollateral={canBeCollateral}
+              usageAsCollateral={usageAsCollateral}
+            />
+          ) : null}
           {shouldShowSwapOrBridge ? (
             <SwapOrBridgeInfo
               token={token}

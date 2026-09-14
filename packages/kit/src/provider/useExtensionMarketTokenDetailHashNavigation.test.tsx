@@ -1,12 +1,13 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { Dialog, rootNavigationRef } from '@onekeyhq/components';
 import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { readExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 
 import {
   getMarketTokenDetailNavigationTargetFromHash,
@@ -21,9 +22,21 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
+  Dialog: {
+    show: jest.fn(() => ({ close: jest.fn().mockResolvedValue(undefined) })),
+  },
   rootNavigationRef: {
     current: undefined,
   },
+}));
+
+jest.mock('react-intl', () => {
+  const intl = { formatMessage: ({ id }: { id: string }) => id };
+  return { useIntl: () => intl };
+});
+
+jest.mock('@onekeyhq/shared/src/utils/marketTokenPreviewRoute', () => ({
+  readExtensionTokenPreview: jest.fn().mockResolvedValue(undefined),
 }));
 
 const mockRootNavigationRef = rootNavigationRef as unknown as {
@@ -54,6 +67,10 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    jest
+      .mocked(readExtensionTokenPreview)
+      .mockReset()
+      .mockResolvedValue(undefined);
     hashChangeHandler = undefined;
     originalAddEventListener = globalThis.addEventListener;
     originalRemoveEventListener = globalThis.removeEventListener;
@@ -103,7 +120,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketTokenCategory=top_coins',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins&resolveMarketAsset=true&marketTokenSymbol=BTC',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
@@ -111,12 +128,253 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         network: 'bsc',
         tokenAddress: '0xabc',
         marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--56-0xabc',
         marketTokenCategory: 'top_coins',
+        marketTokenSymbol: 'BTC',
+        resolveMarketAsset: true,
         skipMarketDataFetch: true,
         isNative: false,
         from: 'ExtensionSidePanel',
         disableTrade: true,
         showFavoriteButton: false,
+      },
+    });
+  });
+
+  it('ignores a serialized token preview in the expand-tab hash', () => {
+    const legacyTokenPreview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'ABC Token',
+      symbol: 'ABC',
+      decimals: 18,
+      price: 1,
+      selectedAt: 1,
+    };
+    const query = new URLSearchParams({
+      legacyTokenPreview: JSON.stringify(legacyTokenPreview),
+    });
+
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        `#/market/token/eth/0xabc?${query.toString()}`,
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+      },
+    });
+  });
+
+  it('restores a trusted session preview before navigating a no-fetch detail', async () => {
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      name: 'ABC',
+      symbol: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    jest.mocked(readExtensionTokenPreview).mockResolvedValue(preview);
+    setHash(
+      '#/market/token/eth/0xabc?skipMarketDataFetch=true&marketTokenPreviewId=transfer',
+    );
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(readExtensionTokenPreview).toHaveBeenCalledWith('transfer', {
+      network: 'eth',
+      tokenAddress: '0xabc',
+      isNative: false,
+    });
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: {
+            network: 'eth',
+            tokenAddress: '0xabc',
+            skipMarketDataFetch: true,
+            marketTokenPreviewId: 'transfer',
+            legacyTokenPreview: preview,
+          },
+        },
+      },
+    );
+  });
+
+  it('adopts a new trusted handoff for the active token only once', async () => {
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      name: 'ABC',
+      symbol: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    jest.mocked(readExtensionTokenPreview).mockResolvedValue(preview);
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        marketTokenPreviewId: 'old',
+        legacyTokenPreview: preview,
+      },
+    });
+    setHash('#/market/token/eth/0xabc?marketTokenPreviewId=new');
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        marketTokenPreviewId: 'new',
+        legacyTokenPreview: preview,
+      },
+    });
+    await act(async () =>
+      triggerHashChange(
+        '#/market/token/eth/0xabc?marketTokenPreviewId=new&legacyTokenPreview=',
+      ),
+    );
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a slow session lookup navigate after the hash changed', async () => {
+    let resolve: (value: undefined) => void = () => undefined;
+    jest.mocked(readExtensionTokenPreview).mockReturnValue(
+      new Promise((done) => {
+        resolve = done;
+      }),
+    );
+    setHash('#/market/token/eth/0xfirst?marketTokenPreviewId=transfer');
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    act(() => triggerHashChange('#/market/token/eth/0xsecond'));
+    await act(async () => resolve(undefined));
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params.params
+        .tokenAddress,
+    ).toBe('0xsecond');
+  });
+
+  it('clears the previous preview when a new ordinary handoff cannot be read', async () => {
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        marketTokenPreviewId: 'old',
+        legacyTokenPreview: { selectedAt: 1 },
+      },
+    });
+    setHash('#/market/token/eth/0xabc?marketTokenPreviewId=new');
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params.params,
+    ).toEqual({
+      network: 'eth',
+      tokenAddress: '0xabc',
+      marketTokenPreviewId: 'new',
+      legacyTokenPreview: undefined,
+    });
+    expect(Dialog.show).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed no-fetch handoff and retries without accepting the previous route', async () => {
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        skipMarketDataFetch: true,
+        marketTokenPreviewId: 'old',
+        legacyTokenPreview: { selectedAt: 1 },
+      },
+    });
+    setHash(
+      '#/market/token/eth/0xabc?skipMarketDataFetch=true&marketTokenPreviewId=new',
+    );
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(mockRootNavigationRef.current?.navigate).not.toHaveBeenCalled();
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      name: 'ABC',
+      symbol: 'ABC',
+      decimals: 18,
+      selectedAt: 2,
+    };
+    jest.mocked(readExtensionTokenPreview).mockResolvedValue(preview);
+    const retry = jest.mocked(Dialog.show).mock.calls[0][0].onConfirm;
+    await act(async () => {
+      await retry?.({
+        close: jest.fn().mockResolvedValue(undefined),
+        getForm: jest.fn(),
+        isExist: jest.fn(),
+        preventClose: jest.fn(),
+      });
+    });
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params.params
+        .legacyTokenPreview,
+    ).toEqual(preview);
+  });
+
+  it('does not retry an error dialog after the user navigates to another token', async () => {
+    setHash(
+      '#/market/token/eth/0xabc?skipMarketDataFetch=true&marketTokenPreviewId=failed',
+    );
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    const retry = jest.mocked(Dialog.show).mock.calls[0][0].onConfirm;
+    await act(async () => {
+      triggerHashChange('#/market/token/eth/0xother');
+    });
+    const reads = jest.mocked(readExtensionTokenPreview).mock.calls.length;
+    await act(async () => {
+      await retry?.({
+        close: jest.fn().mockResolvedValue(undefined),
+        getForm: jest.fn(),
+        isExist: jest.fn(),
+        preventClose: jest.fn(),
+      });
+    });
+    expect(readExtensionTokenPreview).toHaveBeenCalledTimes(reads);
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params.params
+        .tokenAddress,
+    ).toBe('0xother');
+  });
+
+  it('ignores a malformed serialized token preview', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token/eth/0xabc?legacyTokenPreview=%7B%22name%22%3A1%7D',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
       },
     });
   });
@@ -139,6 +397,39 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
   });
 
+  it('reads a native handoff with the identity encoded by the producer', async () => {
+    const preview = {
+      address: '',
+      networkId: 'evm--1',
+      isNative: true,
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    jest.mocked(readExtensionTokenPreview).mockResolvedValue(preview);
+    setHash(
+      '#/market/token/eth/?isNative=true&marketTokenPreviewId=native&skipMarketDataFetch=true',
+    );
+    await act(async () => {
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+    });
+    expect(readExtensionTokenPreview).toHaveBeenCalledWith('native', {
+      network: 'eth',
+      tokenAddress: '',
+      isNative: true,
+    });
+    expect(
+      mockRootNavigationRef.current?.navigate.mock.calls[0][1].params,
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketNativeDetail,
+      params: expect.objectContaining({
+        legacyTokenPreview: preview,
+        isNative: true,
+      }),
+    });
+  });
+
   it('parses market stock detail hash with an optional token variant', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
@@ -153,6 +444,22 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         from: 'ExtensionPopup',
         disableTrade: true,
         showFavoriteButton: false,
+      },
+    });
+  });
+
+  it('parses the stock preview from an extension detail hash', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Faapl.png',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/aapl.png',
       },
     });
   });
@@ -268,6 +575,24 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['', '?legacyTokenPreview=%5Bobject%20Object%5D'])(
+    'does not navigate again when the active preview is absent from the hash: %s',
+    (query) => {
+      setHash(`#/market/token/eth/0xabc${query}`);
+      mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+        name: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          network: 'eth',
+          tokenAddress: '0xabc',
+          legacyTokenPreview: { selectedAt: 1 },
+        },
+      });
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+      act(() => jest.runOnlyPendingTimers());
+      expect(mockRootNavigationRef.current?.navigate).not.toHaveBeenCalled();
+    },
+  );
+
   it('refreshes the same token route when favorite visibility changes', () => {
     setHash('#/market/token/eth/0xabc?showFavoriteButton=false');
     mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
@@ -297,6 +622,39 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     );
   });
 
+  it('refreshes the same stock route when preview metadata changes', () => {
+    setHash(
+      '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Fnew.png',
+    );
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/old.png',
+      },
+    });
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: {
+            stockId: 'AAPL',
+            stockPreviewSymbol: 'AAPL',
+            stockPreviewName: 'Apple Inc.',
+            stockPreviewLogoUrl: 'https://example.com/new.png',
+          },
+        },
+      },
+    );
+  });
+
   it.each([
     {
       query: 'disableTrade=true',
@@ -314,9 +672,24 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
       expectedParams: { marketTokenId: 'bitcoin' },
     },
     {
+      query: 'marketVariantId=bitcoin-evm--1-0xabc',
+      currentParams: {},
+      expectedParams: { marketVariantId: 'bitcoin-evm--1-0xabc' },
+    },
+    {
       query: 'marketTokenCategory=top_coins',
       currentParams: {},
       expectedParams: { marketTokenCategory: 'top_coins' },
+    },
+    {
+      query: 'resolveMarketAsset=true',
+      currentParams: {},
+      expectedParams: { resolveMarketAsset: true },
+    },
+    {
+      query: 'marketTokenSymbol=BTC',
+      currentParams: {},
+      expectedParams: { marketTokenSymbol: 'BTC' },
     },
   ])(
     'refreshes the same token route when $query changes',

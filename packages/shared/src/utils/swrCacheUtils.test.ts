@@ -1,4 +1,8 @@
 import {
+  SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+  SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
+} from './swrCacheLimits';
+import {
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
   SWR_CACHE_MAX_KEY_CHARS,
@@ -150,6 +154,19 @@ function loadFreshRuntime() {
 describe('SWR cache keys', () => {
   it('uses a stable key for cached order book tick options', () => {
     expect(swrKeys.perpsOrderBookTickOptions()).toBe('perpsOrderBookTicks:v1');
+  });
+
+  it('scopes the buy crypto token list by network, direction and account', () => {
+    expect(
+      swrKeys.fiatCryptoTokenList({
+        networkId: 'onekeyall--0',
+        type: 'buy',
+        accountId: 'hd-1--m/44h/0h/0h/0/0',
+      }),
+    ).toBe('fiatCryptoTokenList:v1:onekeyall--0:buy:hd-1--m/44h/0h/0h/0/0');
+    expect(
+      swrKeys.fiatCryptoTokenList({ networkId: 'evm--1', type: 'buy' }),
+    ).toBe('fiatCryptoTokenList:v1:evm--1:buy:');
   });
 
   it('uses stable keys for cached market bootstrap requests', () => {
@@ -591,6 +608,86 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(SWR_CACHE_MAX_SERIALIZED_CHARS).toBe(100 * 1024 * 1024);
   });
 
+  it('bounds account scopes during hydration without evicting other namespaces', () => {
+    const accounts = Object.fromEntries(
+      Array.from({ length: 8 }, (_, i) => [
+        `accSelList:v1:hd-${i}:default:::1`,
+        { d: { walletId: `hd-${i}` }, t: i + 1 },
+      ]),
+    );
+    otherRuntimeFlush({ ...accounts, walletList: { d: 'keep', t: 0 } });
+    const swr = loadFreshRuntime();
+
+    expect(swr.get('accSelList:v1:hd-0:default:::1')).toBeUndefined();
+    expect(swr.get('accSelList:v1:hd-7:default:::1')).toEqual({
+      walletId: 'hd-7',
+    });
+    expect(swr.get('walletList')).toBe('keep');
+    swr.flushNow();
+    expect(
+      Object.keys(readDiskStore()).filter((key) =>
+        key.startsWith('accSelList:'),
+      ),
+    ).toHaveLength(SWR_ACCOUNT_SELECTOR_MAX_ENTRIES);
+  });
+
+  it('keeps recent account scopes bounded through updates and cross-runtime merges', () => {
+    const swr = loadFreshRuntime();
+    swr.set('walletList', 'keep');
+    for (let i = 0; i < 6; i += 1) {
+      setNow(1000 + i);
+      swr.set(`accSelList:v1:hd-${i}:default:::1`, i);
+    }
+    expect(swr.get('accSelList:v1:hd-2:default:::1')).toBeUndefined();
+    expect(swr.get('accSelList:v1:hd-3:default:::1')).toBe(3);
+    setNow(2000);
+    swr.set('accSelList:v1:hd-3:default:::1', 'refreshed');
+    swr.flushNow();
+    otherRuntimeFlush({
+      ...readDiskStore(),
+      'accSelList:v1:hd-0:default:::1': { d: 'stale', t: 500 },
+      'accSelList:v1:hd-6:default:::1': { d: 6, t: 3000 },
+      unrelated: { d: 'other runtime', t: 0 },
+    });
+    setNow(4000);
+    swr.set('unrelated-local', 'new');
+    swr.flushNow();
+
+    expect(swr.get('accSelList:v1:hd-0:default:::1')).toBeUndefined();
+    expect(swr.get('accSelList:v1:hd-4:default:::1')).toBeUndefined();
+    expect(swr.get('accSelList:v1:hd-3:default:::1')).toBe('refreshed');
+    expect(swr.get('accSelList:v1:hd-6:default:::1')).toBe(6);
+    expect(readDiskStore().walletList.d).toBe('keep');
+    expect(readDiskStore().unrelated.d).toBe('other runtime');
+    expect(
+      Object.keys(readDiskStore()).filter((key) =>
+        key.startsWith('accSelList:'),
+      ),
+    ).toHaveLength(SWR_ACCOUNT_SELECTOR_MAX_ENTRIES);
+  });
+
+  it('enforces the account serialized budget on writes and persistence pruning', () => {
+    const swr = loadFreshRuntime();
+    const value = 'x'.repeat(SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS / 2);
+    swr.set('unrelated', 'keep');
+    swr.set('accSelList:v1:first', value);
+    setNow(2000);
+    swr.set('accSelList:v1:second', value);
+    expect(swr.get('accSelList:v1:first')).toBeUndefined();
+    expect(swr.get('accSelList:v1:second')).toBe(value);
+    swr.flushNow();
+    const result = pruneSWRCacheStore({
+      'accSelList:v1:first': { d: value, t: 1 },
+      'accSelList:v1:second': { d: value, t: 2 },
+      unrelated: { d: 'keep', t: 0 },
+    });
+    expect(Object.keys(result.store)).toEqual([
+      'accSelList:v1:second',
+      'unrelated',
+    ]);
+    expect(readDiskStore().unrelated.d).toBe('keep');
+  });
+
   it('retains a value larger than the former per-entry budget', () => {
     const swr = loadFreshRuntime();
     const value = 'x'.repeat(1024 * 1024);
@@ -782,6 +879,29 @@ describe('SWR cache native incremental persistence', () => {
 
   afterEach(() => {
     fakeDiskGlobal.__swrUsePatch = false;
+  });
+
+  it('includes account eviction intents in the native patch', () => {
+    const swr = loadFreshRuntime();
+    const clock = jest.spyOn(Date, 'now');
+    try {
+      for (let i = 0; i < 5; i += 1) {
+        clock.mockReturnValue(1000 + i);
+        swr.set(`accSelList:v1:hd-${i}`, i);
+        swr.flushNow();
+      }
+      const disk = readDiskStore();
+      expect(Object.keys(disk).toSorted()).toEqual([
+        'accSelList:v1:hd-2',
+        'accSelList:v1:hd-3',
+        'accSelList:v1:hd-4',
+      ]);
+      expect(fakeDiskGlobal.__swrPatches?.at(-1)).toMatchObject({
+        removals: [['accSelList:v1:hd-1', 1004]],
+      });
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it('flushes only the changed entry instead of the hydrated store', () => {

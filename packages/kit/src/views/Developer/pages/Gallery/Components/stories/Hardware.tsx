@@ -30,6 +30,8 @@ import {
   hardwareUiStateAtom,
   hardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
@@ -61,13 +63,20 @@ const BootloaderDialogHandoffTest = () => {
             rawPayload: undefined,
           };
 
-          await hardwareUiStateDialogLifecycle.openAndWait(() =>
+          const openLegacyState = () =>
             hardwareUiStateAtom.set({
               action: EHardwareUiStateAction.DeviceChecking,
               connectId: payload.connectId,
               payload,
-            }),
-          );
+            });
+          // Same gate as production call sites: the wait is for the legacy
+          // Sheet's mount acknowledgement — with the stage owning the surface
+          // no Sheet mounts and openAndWait can only time out (OK-59934).
+          if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
+            await hardwareUiStateDialogLifecycle.openAndWait(openLegacyState);
+          } else {
+            await openLegacyState();
+          }
           await timerUtils.wait(500);
           await hardwareUiStateDialogLifecycle.closeAndWait(() =>
             hardwareUiStateAtom.set(undefined),

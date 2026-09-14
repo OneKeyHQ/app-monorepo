@@ -239,6 +239,38 @@ describe('nativeSWRCachePersistence', () => {
     });
   });
 
+  it('bounds account entries across runtime patches and removes evicted physical keys', async () => {
+    const mmkv = new FakeMMKV();
+    const persistence = loadPersistence(mmkv);
+    await persistence.ensureMigrated();
+    persistence.applyPatch({
+      removePrefixes: [],
+      removals: [],
+      updates: [
+        ['unrelated', JSON.stringify({ d: 'keep', t: 1 })],
+        ...[1, 2, 3].map(
+          (i) =>
+            [`accSelList:v1:hd-${i}`, JSON.stringify({ d: i, t: i })] as const,
+        ),
+      ],
+    });
+    persistence.applyPatch({
+      removePrefixes: [],
+      removals: [],
+      updates: [['accSelList:v1:hd-4', JSON.stringify({ d: 4, t: 4 })]],
+    });
+
+    expect(JSON.parse(persistence.readSerialized())).toEqual({
+      unrelated: { d: 'keep', t: 1 },
+      'accSelList:v1:hd-2': { d: 2, t: 2 },
+      'accSelList:v1:hd-3': { d: 3, t: 3 },
+      'accSelList:v1:hd-4': { d: 4, t: 4 },
+    });
+    expect(
+      mmkv.getAllKeys().some((key) => key.endsWith(':accSelList:v1:hd-1')),
+    ).toBe(false);
+  });
+
   it('drops a logical key whose UTF-8 bytes exceed the MMKV key budget', async () => {
     const mmkv = new FakeMMKV();
     const persistence = loadPersistence(mmkv);

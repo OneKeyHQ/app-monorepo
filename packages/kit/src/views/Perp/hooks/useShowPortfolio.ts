@@ -7,7 +7,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-export function useShowPortfolio() {
+import type { IPortfolioChartType } from '../components/Portfolio/portfolioStats';
+
+export function useShowPortfolio({
+  initialChartType,
+}: {
+  initialChartType?: IPortfolioChartType;
+} = {}) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const dialogInTab = useInTabDialog();
@@ -17,13 +23,14 @@ export function useShowPortfolio() {
     if (gtMd) {
       const { showPerpPortfolioDialog } =
         await import('../components/Portfolio/PerpPortfolioModal');
-      showPerpPortfolioDialog(dialogInTab, intl);
+      showPerpPortfolioDialog(dialogInTab, intl, { initialChartType });
     } else {
       navigation.pushModal(EModalRoutes.PerpModal, {
         screen: EModalPerpRoutes.MobilePortfolioPage,
+        params: { initialChartType },
       });
     }
-  }, [gtMd, dialogInTab, navigation, intl]);
+  }, [dialogInTab, gtMd, initialChartType, intl, navigation]);
 
   return { showPortfolio };
 }

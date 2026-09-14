@@ -19,6 +19,7 @@ import type {
 } from '../types';
 
 export interface ITradingViewNativeLegendItem {
+  customPaintId?: string;
   label: string;
   value: string;
   valueColorRole?: 'trend';

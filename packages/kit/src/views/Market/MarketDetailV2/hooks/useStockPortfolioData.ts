@@ -43,7 +43,11 @@ type IFetchStockPortfolioDataParams = {
   }) => Promise<IMarketAccountPortfolioResponse>;
 };
 
-function getVariantIdentity(variant: IMarketStockTokenVariant) {
+/**
+ * Identity a balance lookup is keyed on. Exported so a consumer can ask whether
+ * a given variant's balance was actually established this run.
+ */
+export function getStockPortfolioVariantKey(variant: IMarketStockTokenVariant) {
   const contractAddress =
     normalizeTokenContractAddress({
       networkId: variant.networkId,
@@ -98,7 +102,8 @@ export async function fetchStockPortfolioData({
     (variant, index, variants) =>
       variants.findIndex(
         (candidate) =>
-          getVariantIdentity(candidate) === getVariantIdentity(variant),
+          getStockPortfolioVariantKey(candidate) ===
+          getStockPortfolioVariantKey(variant),
       ) === index,
   );
   const networkIds = Array.from(
@@ -121,14 +126,15 @@ export async function fetchStockPortfolioData({
 
   const portfolioGroups = await Promise.all(
     uniqueVariants.map(async (variant) => {
+      const variantKey = getStockPortfolioVariantKey(variant);
       const networkAccount = networkAccounts.get(variant.networkId);
-      if (!networkAccount?.address) return [];
+      // No account for the variant's network means its balance was never
+      // looked up, which is not the same as holding none of it.
+      if (!networkAccount?.address) {
+        return { variantKey, items: [], resolved: false };
+      }
 
-      const cacheKey = [
-        stockId,
-        networkAccount.id,
-        getVariantIdentity(variant),
-      ].join(':');
+      const cacheKey = [stockId, networkAccount.id, variantKey].join(':');
 
       try {
         const response = await fetchPortfolio({
@@ -160,14 +166,29 @@ export async function fetchStockPortfolioData({
             networkLogoUrl: variant.networkLogoUrl,
           }));
         successfulPortfolioCache.set(cacheKey, items);
-        return items;
+        return { variantKey, items, resolved: true };
       } catch (_error) {
-        return successfulPortfolioCache.get(cacheKey) ?? [];
+        // A cached hit still describes a real holding; without one the request
+        // simply failed and the balance stays unknown.
+        const cached = successfulPortfolioCache.get(cacheKey);
+        return {
+          variantKey,
+          items: cached ?? [],
+          resolved: cached !== undefined,
+        };
       }
     }),
   );
 
-  return portfolioGroups.flat();
+  return {
+    items: portfolioGroups.flatMap((group) => group.items),
+    // Reported as what the run did establish rather than what it missed, so a
+    // variant this payload never covered at all — the previous stock's result
+    // still standing while the new one loads — reads as unknown too.
+    resolvedVariantKeys: portfolioGroups
+      .filter((group) => group.resolved)
+      .map((group) => group.variantKey),
+  };
 }
 
 export function useStockPortfolioData() {
@@ -185,7 +206,7 @@ export function useStockPortfolioData() {
       tokenVariants
         .map(
           (variant) =>
-            `${getVariantIdentity(variant)}:${variant.tokenId}:${
+            `${getStockPortfolioVariantKey(variant)}:${variant.tokenId}:${
               variant.logoUrl ?? ''
             }:${variant.networkLogoUrl ?? ''}`,
         )
@@ -233,12 +254,15 @@ export function useStockPortfolioData() {
   );
 
   const {
-    result: portfolioData = [],
+    result: portfolioResult,
     isLoading: isRefreshing,
     run: fetchPortfolio,
   } = usePromiseResult(
     async () => {
-      if (!stockId || !hasAccount) return [];
+      // Undefined rather than an empty result: with no account there is
+      // nothing to read a balance from, and an empty list would claim every
+      // variant was checked and found empty.
+      if (!stockId || !hasAccount) return undefined;
       return fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
@@ -265,8 +289,16 @@ export function useStockPortfolioData() {
     },
   );
 
+  const portfolioData = portfolioResult?.items ?? [];
+  // Empty until a run settles, so nothing counts as established before then.
+  const resolvedVariantKeys = useMemo(
+    () => portfolioResult?.resolvedVariantKeys ?? [],
+    [portfolioResult],
+  );
+
   return {
     portfolioData,
+    resolvedVariantKeys,
     isRefreshing: Boolean(isRefreshing),
     hasAccount,
     fetchPortfolio,

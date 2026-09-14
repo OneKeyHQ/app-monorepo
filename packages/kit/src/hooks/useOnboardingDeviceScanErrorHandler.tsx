@@ -11,6 +11,7 @@ import {
   BridgeTimeoutError,
   BridgeTimeoutErrorForDesktop,
   ConnectTimeoutError,
+  DeviceBondError,
   DeviceMethodCallTimeout,
   InitIframeLoadFail,
   InitIframeTimeout,
@@ -59,7 +60,7 @@ function isConnectionTimeoutError(error: Error) {
 }
 
 function showStoppedScanError(error: Error, intl: IntlShape) {
-  if (isBluetoothSetupError(error)) {
+  if (isBluetoothSetupError(error) || error instanceof DeviceBondError) {
     return;
   }
   if (

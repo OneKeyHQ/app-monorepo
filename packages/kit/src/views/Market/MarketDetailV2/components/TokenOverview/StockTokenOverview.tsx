@@ -15,22 +15,24 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useStockSecurityStats } from '../../hooks/useStockSecurityStats';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
-import {
-  STOCK_ABOUT_IPO_DATE_LABEL,
-  buildStockInfoFromPublicDetail,
-  formatDirectPercentValue,
-  getStockAnalystConsensus,
-} from '../../utils/stockPublicDataUtils';
+import { buildStockInfoFromPublicDetail } from '../../utils/stockPublicDataUtils';
+import { MarketAboutDescription } from '../MarketAboutDescription';
 import { StockDescriptionRows } from '../StockDescriptionRows';
+import { StockFinancials } from '../StockFinancials/StockFinancials';
 import { StockStatSections } from '../StockStatSections';
 
 import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
+
+// MarketAboutDescription collapses to two lines, about 200 Latin characters at
+// the desktop width. The ~335px mobile column needs four to show a similar
+// amount.
+const STOCK_OVERVIEW_ABOUT_COLLAPSED_LINES = 4;
 
 export function StockTokenOverview() {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail, isStockToken } = useTokenDetail();
-  const { stockDetail, isStockDetailError, retryStockDetail } =
+  const { stockId, stockDetail, isStockDetailError, retryStockDetail } =
     useStockDetail();
   const stock = stockDetail
     ? buildStockInfoFromPublicDetail(stockDetail, tokenDetail?.stock)
@@ -67,7 +69,6 @@ export function StockTokenOverview() {
     return <TokenOverviewSkeleton />;
   }
 
-  const ratings = stockDetail?.analystRatings;
   const about = stockDetail?.about;
 
   return (
@@ -100,44 +101,38 @@ export function StockTokenOverview() {
 
       <Divider my="$1" />
 
-      <Stack gap="$3" py="$2">
-        <SizableText size="$bodyLgMedium">Analyst Ratings</SizableText>
-        <XStack justifyContent="space-between">
-          <SizableText color="$textSubdued">Consensus</SizableText>
-          <SizableText>{getStockAnalystConsensus(ratings)}</SizableText>
-        </XStack>
-        {[
-          {
-            key: 'buy',
-            label: intl.formatMessage({ id: ETranslations.global_buy }),
-            value: ratings?.buy,
-          },
-          { key: 'hold', label: 'Hold', value: ratings?.hold },
-          {
-            key: 'sell',
-            label: intl.formatMessage({ id: ETranslations.global_sell }),
-            value: ratings?.sell,
-          },
-        ].map((item) => (
-          <XStack key={item.key} justifyContent="space-between">
-            <SizableText color="$textSubdued">{item.label}</SizableText>
-            <SizableText>{formatDirectPercentValue(item.value)}</SizableText>
-          </XStack>
-        ))}
-      </Stack>
-
-      <Divider my="$1" />
+      {stockId ? (
+        <StockFinancials stockId={stockId} withHorizontalPadding={false} />
+      ) : null}
 
       <Stack gap="$3" py="$2">
         <SizableText size="$bodyLgMedium">
-          About {stockDetail?.symbol ?? tokenDetail?.symbol}
+          {intl.formatMessage(
+            { id: ETranslations.market_about_title },
+            { ticker: stockDetail?.symbol ?? tokenDetail?.symbol },
+          )}
         </SizableText>
         {[
-          { label: 'CEO', value: about?.ceo },
-          { label: 'Employees', value: about?.employees },
-          { label: 'Exchange', value: about?.exchange },
           {
-            label: STOCK_ABOUT_IPO_DATE_LABEL,
+            label: intl.formatMessage({
+              id: ETranslations.market_stock_about_ceo,
+            }),
+            value: about?.ceo,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.market_stock_about_employees,
+            }),
+            value: about?.employees,
+          },
+          {
+            label: intl.formatMessage({ id: ETranslations.exchange__title }),
+            value: about?.exchange,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.market_stock_about_ipo_date,
+            }),
             value: about?.ipoDate
               ? formatDate(about.ipoDate, { hideTimeForever: true })
               : '--',
@@ -149,7 +144,12 @@ export function StockTokenOverview() {
           </XStack>
         ))}
         {about?.description ? (
-          <SizableText color="$textSubdued">{about.description}</SizableText>
+          <MarketAboutDescription
+            description={about.description}
+            testID="stock-overview-about-description"
+            toggleTestID="stock-overview-about-description-toggle"
+            collapsedLines={STOCK_OVERVIEW_ABOUT_COLLAPSED_LINES}
+          />
         ) : null}
       </Stack>
     </Stack>

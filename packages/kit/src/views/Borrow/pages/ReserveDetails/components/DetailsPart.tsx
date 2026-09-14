@@ -63,6 +63,16 @@ function formatOraclePrice({
   return `${currencySymbol}${formatLocalizedNumberString(price.toFixed(2))}`;
 }
 
+function formatCompactFiatValue({
+  value,
+  currencySymbol,
+}: {
+  value: string | undefined;
+  currencySymbol: string;
+}) {
+  return value ? `${currencySymbol}${value}` : undefined;
+}
+
 const DetailsPartComponent = ({
   details,
   isLoading,
@@ -81,6 +91,14 @@ const DetailsPartComponent = ({
     oraclePrice: details?.oraclePrice,
     currencySymbol: currencyInfo.symbol,
   });
+  const formattedReserveSize = formatCompactFiatValue({
+    value: details?.reserveSize,
+    currencySymbol: currencyInfo.symbol,
+  });
+  const formattedAvailableLiquidity = formatCompactFiatValue({
+    value: details?.liquidity,
+    currencySymbol: currencyInfo.symbol,
+  });
 
   const mobileContainerProps = useMemo(
     () => ({
@@ -91,8 +109,8 @@ const DetailsPartComponent = ({
             symbol={symbol}
             logoURI={logoURI}
             oraclePrice={formattedOraclePrice}
-            reserveSize={details?.reserveSize}
-            availableLiquidity={details?.liquidity}
+            reserveSize={formattedReserveSize}
+            availableLiquidity={formattedAvailableLiquidity}
             utilizationRatio={details?.utilizationRatio}
             platformBonus={details?.platformBonus}
             managers={details?.managers}
@@ -100,7 +118,14 @@ const DetailsPartComponent = ({
         </YStack>
       ),
     }),
-    [symbol, logoURI, details, formattedOraclePrice],
+    [
+      symbol,
+      logoURI,
+      details,
+      formattedOraclePrice,
+      formattedReserveSize,
+      formattedAvailableLiquidity,
+    ],
   );
 
   if (!gtMd) {
@@ -141,8 +166,8 @@ const DetailsPartComponent = ({
                 logoURI={logoURI}
                 onShare={onShare}
                 oraclePrice={formattedOraclePrice}
-                reserveSize={details.reserveSize}
-                availableLiquidity={details.liquidity}
+                reserveSize={formattedReserveSize}
+                availableLiquidity={formattedAvailableLiquidity}
                 utilizationRatio={details.utilizationRatio}
                 platformBonus={details.platformBonus}
                 managers={details.managers}

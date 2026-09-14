@@ -22,7 +22,7 @@ export function TradingViewNativeFullscreenButton({
     <IconButton
       testID="trading-view-native-fullscreen-toggle"
       position="absolute"
-      left="$8"
+      left="$5"
       bottom={getTradingViewNativeFullscreenButtonBottom({
         chartHeight,
         paneCount: visibleSubIndicatorCount,

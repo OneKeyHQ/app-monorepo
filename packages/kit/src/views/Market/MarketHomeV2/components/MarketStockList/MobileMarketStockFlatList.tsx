@@ -53,7 +53,10 @@ function MobileMarketStockFlatListImpl({
     isLoadingMore,
     isError,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
     canLoadMore,
+    isRevalidatingFirstPage,
     loadMore,
     refresh,
   } = useMarketStockList({
@@ -76,7 +79,7 @@ function MobileMarketStockFlatListImpl({
             pressStyle={{ bg: '$bgActive' }}
             onPress={() => {
               if (!shouldSuppressItemPress?.()) {
-                void toMarketStockDetailPage(item.stockId);
+                void toMarketStockDetailPage(item);
               }
             }}
           >
@@ -101,9 +104,14 @@ function MobileMarketStockFlatListImpl({
                 </SizableText>
               </YStack>
             </XStack>
-            <YStack alignItems="flex-end" gap="$1">
+            <XStack alignItems="center" gap="$2">
               {price === undefined ? (
-                <SizableText size="$bodyLgMedium" color="$textSubdued">
+                <SizableText
+                  size="$bodyLgMedium"
+                  color="$textSubdued"
+                  flexShrink={1}
+                  numberOfLines={1}
+                >
                   --
                 </SizableText>
               ) : (
@@ -111,12 +119,14 @@ function MobileMarketStockFlatListImpl({
                   size="$bodyLgMedium"
                   formatter="price"
                   formatterOptions={{ currency: '$' }}
+                  flexShrink={1}
+                  numberOfLines={1}
                 >
                   {price}
                 </NumberSizeableText>
               )}
               <PriceChangeBadge change={priceChange ?? '--'} />
-            </YStack>
+            </XStack>
           </XStack>
         );
       },
@@ -124,41 +134,45 @@ function MobileMarketStockFlatListImpl({
     );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+    if (canLoadMore && !isLoadingMore && !isLoadMoreError && !isRefreshError) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadMoreError, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadMoreError, isRefreshError, isLoadingMore, loadMore]);
 
   const ListFooterComponent = useMemo(() => {
-    if (isLoadingMore) {
+    if (isLoadingMore || (isRefreshing && isRefreshError)) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Spinner size="small" />
         </Stack>
       );
     }
-    if (isLoadMoreError) {
+    if (isLoadMoreError || isRefreshError) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Button
             testID="market-stock-mobile-load-more-retry"
             size="small"
             variant="tertiary"
-            onPress={() => void loadMore()}
+            onPress={() => void (isRefreshError ? refresh() : loadMore())}
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
         </Stack>
       );
     }
-    if (!canLoadMore && items.length > 0) {
+    if (!canLoadMore && items.length > 0 && !isRevalidatingFirstPage) {
       return <ListEndIndicator />;
     }
     return null;
   }, [
     canLoadMore,
+    isRevalidatingFirstPage,
     intl,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
+    refresh,
     isLoadingMore,
     items.length,
     loadMore,

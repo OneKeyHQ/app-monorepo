@@ -71,8 +71,10 @@ export function isPrintableASCII(buffer: Buffer): boolean {
   );
 }
 
-export function isAsciiAlphanumericWithSpaces(value: string): boolean {
-  return /^[A-Za-z0-9 ]+$/u.test(value);
+export const PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH = 14;
+
+export function isPrintableASCIIString(value: string): boolean {
+  return Boolean(value) && isPrintableASCII(Buffer.from(value, 'utf8'));
 }
 
 export function isUTF8(buf: Buffer): boolean {
@@ -330,7 +332,7 @@ export default {
   equalsIgnoreCase,
   capitalizeWords,
   isPrintableASCII,
-  isAsciiAlphanumericWithSpaces,
+  isPrintableASCIIString,
   isUTF8,
   decodeJWT,
   stripLineBreaks,

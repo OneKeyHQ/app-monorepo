@@ -30,6 +30,7 @@ import {
   filterAccountTokenListByLimit,
   getEmptyTokenData,
   getMergedTokenData,
+  normalizeTokenSearchResults,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -872,14 +873,10 @@ class ServiceToken extends ServiceBase {
     const buildSearchTokenKey = (info: IToken) =>
       `${info.networkId ?? ''}_${info.uniqueKey ?? info.address}`;
 
-    // Defense-in-depth (OK-60860): the backend search index may still return
-    // tokens on delisted networks (dropped from getAllNetworks via status
-    // TRASH) or on networks this app version does not know at all. Such rows
-    // render without a resolvable network and cannot receive funds, so drop
-    // them here. Tokens without their own networkId belong to the request's
-    // scoped networkId and pass through. The catalog lookup itself is
-    // best-effort: a transient catalog failure must not discard the token
-    // queries that already succeeded, so fail open and skip the filter.
+    // Catalog for the delisted-network filter inside
+    // normalizeTokenSearchResults (OK-60860). The lookup is best-effort: a
+    // transient catalog failure must not discard the token queries that
+    // already succeeded, so fail open and skip the filter.
     let availableNetworkIds: Set<string> | undefined;
     try {
       const { networks: availableNetworks } =
@@ -891,15 +888,15 @@ class ServiceToken extends ServiceBase {
       availableNetworkIds = undefined;
     }
 
+    // Normalize before deduping so the key sees the stamped networkId: a hit
+    // that omits it under a scoped request would otherwise collide across
+    // networks and, on press, fall back to the selector's own network.
     return uniqBy(
-      fulfilledResponses
-        .flatMap((resp) => resp.data.data)
-        .filter(
-          (item) =>
-            !item.info.networkId ||
-            !availableNetworkIds ||
-            availableNetworkIds.has(item.info.networkId),
-        ),
+      normalizeTokenSearchResults({
+        items: fulfilledResponses.flatMap((resp) => resp.data.data),
+        requestNetworkId: networkId,
+        availableNetworkIds,
+      }),
       (item) => buildSearchTokenKey(item.info),
     ).map((item) => ({
       ...item.info,

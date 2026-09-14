@@ -141,30 +141,32 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <>
       {userInfoView}
 
-      <ActionList.Item
-        testID={PrimeTestIDs.redemptionMenuItem}
-        label={intl.formatMessage({
-          id: ETranslations.prime_redeem__action,
-        })}
-        icon="TicketOutline"
-        onClose={handleActionListClose}
-        onPress={async (close) => {
-          close();
-          if (currentOneKeyUserId) {
-            const isPrimeActiveBeforeRedeem = Boolean(isPrime);
-            defaultLogger.prime.subscription.primeRedemptionEntryClick({
-              isPrimeActiveBeforeRedeem,
-            });
-            if (platformEnv.isNative) {
-              await timerUtils.wait(500);
+      {platformEnv.isNativeIOS ? null : (
+        <ActionList.Item
+          testID={PrimeTestIDs.redemptionMenuItem}
+          label={intl.formatMessage({
+            id: ETranslations.prime_redeem__action,
+          })}
+          icon="TicketOutline"
+          onClose={handleActionListClose}
+          onPress={async (close) => {
+            close();
+            if (currentOneKeyUserId) {
+              const isPrimeActiveBeforeRedeem = Boolean(isPrime);
+              defaultLogger.prime.subscription.primeRedemptionEntryClick({
+                isPrimeActiveBeforeRedeem,
+              });
+              if (platformEnv.isNative) {
+                await timerUtils.wait(500);
+              }
+              showPrimeRedemptionDialog({
+                expectedOneKeyUserId: currentOneKeyUserId,
+                isPrimeActiveBeforeRedeem,
+              });
             }
-            showPrimeRedemptionDialog({
-              expectedOneKeyUserId: currentOneKeyUserId,
-              isPrimeActiveBeforeRedeem,
-            });
-          }
-        }}
-      />
+          }}
+        />
+      )}
 
       {isPrime && currentOneKeyUserId ? (
         <ActionList.Item

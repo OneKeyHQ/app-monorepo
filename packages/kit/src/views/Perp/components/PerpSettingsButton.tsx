@@ -40,7 +40,7 @@ export function PerpSettingsButton({
   showGuideEntry?: boolean;
 }) {
   const intl = useIntl();
-  const { gtMd, gtXl } = useMedia();
+  const { gtMd } = useMedia();
   const isMobileLayout = platformEnv.isNative || !gtMd;
   const shouldShowChartPositionSetting =
     showChartPositionSetting || isMobileLayout;
@@ -48,7 +48,7 @@ export function PerpSettingsButton({
     isFirstVisit: isSettingsFeatureFirstVisit,
     tourVisited: markSettingsFeatureVisited,
   } = useSpotlight(ESpotlightTour.perpLayoutSettingsMenu);
-  const { showGuide } = useShowGuide({ forceModal: !gtXl });
+  const { showGuide } = useShowGuide({ forceModal: isMobileLayout });
   const [isActivityCenterOpen, setIsActivityCenterOpen] = useState(false);
   const handleOpenActivityCenter = useCallback(() => {
     setIsActivityCenterOpen(true);
@@ -79,7 +79,7 @@ export function PerpSettingsButton({
     showGuideEntry,
   ]);
 
-  if (!gtXl) {
+  if (isMobileLayout) {
     return (
       <DebugRenderTracker name="PerpSettingsButton">
         <>

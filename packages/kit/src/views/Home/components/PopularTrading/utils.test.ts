@@ -1,5 +1,10 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketPerpsTokenFromServer,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   buildHomeMarketCategories,
@@ -8,8 +13,24 @@ import {
   getMarketTokenDisplayVolume24h,
   getTokenKey,
   mapMarketAssetToDisplay,
+  mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 } from './utils';
+
+function buildServerPerpsToken(name: string): IMarketPerpsTokenFromServer {
+  return {
+    name,
+    displayName: 'UNITREE',
+    maxLeverage: 10,
+    tokenImageUrl: 'unitree.png',
+    markPrice: '90.38',
+    prevDayPrice: '72.58',
+    change24hPercent: 24.52,
+    volume24h: '10940000',
+    openInterest: '6660000',
+    fundingRate: '0.000008',
+  };
+}
 
 describe('PopularTrading market token display utils', () => {
   test('normalizes placeholder market values instead of returning NaN', () => {
@@ -37,7 +58,51 @@ describe('PopularTrading market token display utils', () => {
     expect(Number.isNaN(displayToken?.priceChange24h)).toBe(false);
     expect(displayToken?.logoUrls).toEqual(item.logoUrls);
     expect(displayToken?.communityRecognized).toBe(true);
+    expect(displayToken?.stockId).toBeUndefined();
   });
+
+  test.each<Partial<IMarketTokenListItem>>([
+    { stockId: ' aapl ' },
+    { stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' } },
+    {
+      stock: {
+        underlyingAssetTicker: 'aapl',
+        subtitle: 'Apple',
+        sourceLogoUri: '',
+      },
+    },
+    { name: 'Apple xStock', symbol: 'AAPLx' },
+  ])(
+    'preserves the stock favorite identity in Home display data: %j',
+    (identity) => {
+      const item: IMarketTokenListItem = {
+        networkId: 'evm--1',
+        address: '0x1234567890123456789012345678901234567890',
+        isNative: false,
+        name: 'Apple',
+        symbol: 'AAPL',
+        decimals: 18,
+        ...identity,
+      };
+      const displayToken = mapMarketTokenToDisplay(item);
+      expect(displayToken).toMatchObject({
+        stockId: 'AAPL',
+        chainId: 'evm--1',
+        contractAddress: item.address,
+      });
+      expect(displayToken?.stock).toEqual(item.stock);
+      if (!displayToken)
+        throw new OneKeyLocalError('Expected a Home stock row');
+      expect(getMarketWatchlistKey(displayToken)).toBe(
+        getMarketWatchlistKey({
+          stockId: 'AAPL',
+          chainId: '',
+          contractAddress: '',
+        }),
+      );
+      expect(getTokenKey(displayToken)).toBe('stock:AAPL');
+    },
+  );
 
   test('maps Top Coins assets without inventing a token identity', () => {
     const item: IMarketAssetListItem = {
@@ -65,10 +130,10 @@ describe('PopularTrading market token display utils', () => {
       volume24h: 50_000_000_000,
       marketAsset: item,
     });
-    expect(getTokenKey(displayToken)).toBe('market:bitcoin');
+    expect(getTokenKey(displayToken)).toBe('asset:bitcoin');
   });
 
-  test('inserts Top Coins before stocks in the wallet home tabs', () => {
+  test('inserts Top Coins after stocks in the wallet home tabs', () => {
     const categories = buildHomeMarketCategories({
       apiHomeTabs: [
         { type: 'watchlist', name: '自选' },
@@ -97,8 +162,8 @@ describe('PopularTrading market token display utils', () => {
         iconOnly: true,
       },
       { id: 'trending', name: '热门', icon: undefined },
-      { id: 'top_coins', name: 'Top Coins' },
       { id: 'stocks', name: '股票', icon: undefined },
+      { id: 'top_coins', name: 'Top Coins' },
       { id: 'home-perps-hot', name: '合约' },
     ]);
   });
@@ -118,5 +183,29 @@ describe('PopularTrading market token display utils', () => {
     expect(categories.filter((item) => item.id === 'top_coins')).toEqual([
       { id: 'top_coins', name: 'Mainstream Coins', icon: undefined },
     ]);
+  });
+  test.each([
+    ['xyz:UNITREE', 'xyz'],
+    ['para:UNITREE', 'para'],
+  ])('preserves the %s perps DEX source label', (name, dexLabel) => {
+    expect(
+      mapMarketPerpsTokenToDisplay({
+        token: buildServerPerpsToken(name),
+        subtitle: 'Unitree Robotics',
+      }),
+    ).toMatchObject({
+      symbol: 'UNITREE',
+      perpsCoin: name,
+      perpsSubtitle: 'Unitree Robotics',
+      perpsDexLabel: dexLabel,
+    });
+  });
+
+  test('does not add a DEX source label to main DEX perps', () => {
+    expect(
+      mapMarketPerpsTokenToDisplay({
+        token: buildServerPerpsToken('BTC'),
+      }).perpsDexLabel,
+    ).toBeUndefined();
   });
 });

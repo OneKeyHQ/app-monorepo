@@ -1,3 +1,4 @@
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
@@ -8,6 +9,12 @@ import {
 } from './firmwareUpdateProgressUtils';
 
 describe('firmwareUpdateProgressUtils', () => {
+  beforeEach(() => {
+    jest.spyOn(appLocale, 'getLocale').mockReturnValue('en-US');
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   test('将 bootloader 就绪事件归一到重启阶段，避免 UI 直接进入传输阶段', () => {
     expect(
       normalizeFirmwareUpdateProgressType(
@@ -73,8 +80,8 @@ describe('firmwareUpdateProgressUtils', () => {
       transferredText: '1.2 MiB',
       totalText: '2.3 MiB',
       speedText: '16.4 KiB/s',
-      elapsedText: '1m 13s',
-      estimatedRemainingText: '1m 13s',
+      elapsedText: '1 minute 13 seconds',
+      estimatedRemainingText: '1 minute 13 seconds',
     });
   });
 
@@ -104,4 +111,36 @@ describe('firmwareUpdateProgressUtils', () => {
       }),
     ).toBeUndefined();
   });
+
+  test.each([
+    [13, '13 秒'],
+    [60, '1 分钟 0 秒'],
+    [73, '1 分钟 13 秒'],
+    [1200, '20 分钟 0 秒'],
+    [1213, '20 分钟 13 秒'],
+  ])(
+    'formats %i seconds with the app locale without Intl unit formatting',
+    (durationSeconds, expectedText) => {
+      jest.spyOn(appLocale, 'getLocale').mockReturnValue('zh-CN');
+      const NativeNumberFormat = Intl.NumberFormat;
+      jest
+        .spyOn(Intl, 'NumberFormat')
+        .mockImplementation((locales, options) => {
+          expect(options?.style).not.toBe('unit');
+          return new NativeNumberFormat(locales, options);
+        });
+
+      expect(
+        getFirmwareTransferDisplayMetrics({
+          transferredBytes: 128 * 1024,
+          totalBytes: 256 * 1024,
+          rateBytesPerSecond: (128 * 1024) / durationSeconds,
+          elapsedMs: durationSeconds * 1000,
+        }),
+      ).toMatchObject({
+        elapsedText: expectedText,
+        estimatedRemainingText: expectedText,
+      });
+    },
+  );
 });

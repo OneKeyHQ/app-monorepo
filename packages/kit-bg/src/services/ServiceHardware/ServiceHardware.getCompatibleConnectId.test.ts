@@ -1,4 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import axios from 'axios';
 
@@ -26,6 +26,7 @@ import localDb from '../../dbs/local/localDb';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom as desktopHardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareManifestProvider';
+import { HardwareProcessingManager } from '../ServiceHardwareUI/HardwareProcessingManager';
 
 import { HardwareConnectionManager } from './HardwareConnectionManager';
 import ServiceHardware from './ServiceHardware';
@@ -813,53 +814,155 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('uses the USB connectId for desktop firmware preflight', async () => {
-    const dbDevice = {
-      id: 'db-pro2-device',
-      connectId: 'PRB09B0088A',
-      usbConnectId: 'PRB09B0088A',
-      bleConnectId: 'f7e440001d2c1c79509d55dfdc8201ff',
-      deviceId: 'PRO2_DEVICE_ID',
+  it('keeps the post-update snapshot silent while USB is restarting', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-classic-pure',
+      connectId: 'CLASSIC_USB',
+      usbConnectId: 'CLASSIC_USB',
+      connectProtocol: 'V1',
       vendor: EHardwareVendor.onekey,
-      name: 'OneKey Pro 2',
-      features: '{}',
-      settingsRaw: '{}',
-      createdAt: 0,
-      updatedAt: 0,
-    } as IDBDevice;
-    mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
-    const withHardwareProcessing = jest.fn(
-      async (callback: () => Promise<unknown>) => callback(),
-    );
+    } as IDBDevice);
     const service = new ServiceHardware({
       backgroundApi: {
         serviceSetting: {
           getHardwareTransportType: jest
             .fn()
-            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
-          setHardwareTransportType: jest.fn(),
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
         },
-        serviceHardwareUI: { withHardwareProcessing },
       } as unknown as IBackgroundApi,
     });
-    const getFeaturesWithoutCache = jest
-      .spyOn(service, 'getFeaturesWithoutCache')
-      .mockResolvedValue({ success: true } as any);
-
-    await expect(
-      service.checkDeviceReachableForFirmwareUpdate({
-        connectId: dbDevice.usbConnectId as string,
-      }),
-    ).resolves.toBe(dbDevice.usbConnectId);
-    expect(getFeaturesWithoutCache).toHaveBeenCalledWith({
-      connectId: dbDevice.usbConnectId,
-      params: {
-        retryCount: 1,
-        forceProtocolDetection: false,
-      },
-      hardwareTransportType: EHardwareTransportType.WEBUSB,
+    const resolveTransportType = jest
+      .spyOn(service.connectionManager, 'resolveTransportType')
+      .mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: false,
+      payload: { code: HardwareErrorCode.DeviceNotFound },
     });
+    jest.spyOn(service, 'getSDKInstance').mockResolvedValue({
+      getDeviceState,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const { appEventBus: hardwareEventBus } = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+    >('@onekeyhq/shared/src/eventBus/appEventBus');
+    const emitHardwareEvent = jest
+      .spyOn(hardwareEventBus, 'emit')
+      .mockReturnValue(false);
+
+    try {
+      await expect(
+        service.getDeviceManagementSnapshot({
+          connectId: 'CLASSIC_USB',
+          refreshInfo: true,
+        }),
+      ).rejects.toMatchObject({ code: HardwareErrorCode.DeviceNotFound });
+      expect(getDeviceState).toHaveBeenCalledWith(
+        'CLASSIC_USB',
+        expect.objectContaining({ scope: 'firmware', connectProtocol: 'V1' }),
+      );
+      expect(resolveTransportType).not.toHaveBeenCalled();
+      expect(emitHardwareEvent).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowHardwareErrorDialog,
+        expect.anything(),
+      );
+    } finally {
+      emitHardwareEvent.mockRestore();
+    }
   });
+
+  it.each(
+    [EDeviceType.ClassicPure, EDeviceType.Pro2].flatMap((deviceType) =>
+      [true, false].map((usbAvailable) => ({ deviceType, usbAvailable })),
+    ),
+  )(
+    'preserves the confirmed protocol for $deviceType firmware preflight (USB available: $usbAvailable)',
+    async ({ deviceType, usbAvailable }) => {
+      const connectProtocol = deviceType === EDeviceType.Pro2 ? 'V2' : 'V1';
+      const dbDevice = {
+        id: 'db-pro2-device',
+        connectId: 'PRB09B0088A',
+        usbConnectId: 'PRB09B0088A',
+        bleConnectId: 'f7e440001d2c1c79509d55dfdc8201ff',
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType,
+        connectProtocol,
+        vendor: EHardwareVendor.onekey,
+        name: 'OneKey Pro 2',
+        features: '{}',
+        settingsRaw: '{}',
+        createdAt: 0,
+        updatedAt: 0,
+      } as IDBDevice;
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+      const withHardwareProcessing = jest.fn(
+        async (callback: () => Promise<unknown>) => callback(),
+      );
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+            setHardwareTransportType: jest.fn(),
+          },
+          serviceHardwareUI: { withHardwareProcessing },
+        } as unknown as IBackgroundApi,
+      });
+      jest
+        .spyOn(service.connectionManager, 'detectUSBDeviceAvailability')
+        .mockResolvedValue(usbAvailable);
+      jest
+        .spyOn(service.connectionManager, 'detectBluetoothAvailability')
+        .mockResolvedValue(true);
+      const expectedConnectId = usbAvailable
+        ? dbDevice.usbConnectId
+        : dbDevice.bleConnectId;
+      const getFeatures = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { device_id: dbDevice.deviceId },
+      });
+      const getDeviceState = jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          protocol: connectProtocol,
+          identity: { deviceType, serialNo: dbDevice.usbConnectId },
+          status: { mode: 'normal' },
+          settings: {},
+          versions: {},
+        },
+      });
+      const getSDKInstance = jest
+        .spyOn(service, 'getSDKInstance')
+        .mockResolvedValue({
+          getFeatures,
+          getDeviceState,
+        } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+      await expect(
+        service.checkDeviceReachableForFirmwareUpdate({
+          connectId: dbDevice.usbConnectId as string,
+        }),
+      ).resolves.toBe(expectedConnectId);
+      expect(
+        connectProtocol === 'V1' ? getFeatures : getDeviceState,
+      ).toHaveBeenCalledWith(expectedConnectId, {
+        retryCount: 1,
+        connectProtocol,
+        ...(!usbAvailable ? { timeout: 30_000 } : {}),
+      });
+      expect(getSDKInstance).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectId: expectedConnectId,
+          connectProtocol,
+          hardwareTransportType: usbAvailable
+            ? EHardwareTransportType.WEBUSB
+            : EHardwareTransportType.DesktopWebBle,
+        }),
+      );
+    },
+  );
 
   it.each([
     ['missing', undefined],
@@ -2413,9 +2516,47 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(getSDKInstance).toHaveBeenCalledWith({
       connectId: 'ONEKEY_USB',
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      persistTransportType: false,
     });
     expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
       packageBase64,
+    });
+  });
+
+  it('uploads an interactive portfolio package with progress UI', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('ONEKEY_USB');
+    const uploadPortfolio = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { portfolioUpdated: true },
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      uploadPortfolio,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    service.getCompatibleConnectId = getCompatibleConnectId;
+    service.getSDKInstance = getSDKInstance;
+
+    await expect(
+      service.uploadPortfolioPackage({
+        connectId: 'ONEKEY_USB',
+        packageBase64: 'AQID',
+        uiMode: 'progress',
+      }),
+    ).resolves.toEqual({ portfolioUpdated: true });
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
+      packageBase64: 'AQID',
+      uiMode: 'progress',
     });
   });
 
@@ -2462,6 +2603,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         connectId: 'PRO2_BLE_ID',
         hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        persistTransportType: false,
       });
       expect(beginConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
       expect(uploadPortfolio).toHaveBeenCalledWith('PRO2_BLE_ID', {
@@ -3051,5 +3193,182 @@ describe('ServiceHardware.unlockDevice', () => {
     expect(deviceUnlock).toHaveBeenCalledWith('PRO2_USB', {
       pinType: DeviceSessionPinType.Any,
     });
+  });
+});
+
+describe('ServiceHardware cancellation ownership', () => {
+  it('preserves the operation outcome when cancel initialization fails', async () => {
+    const manager = new HardwareProcessingManager();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { hardwareProcessingManager: manager },
+      } as unknown as IBackgroundApi,
+    });
+    const operationError = new Error('operation failed');
+    service.getSDKInstance = jest
+      .fn()
+      .mockRejectedValue(new Error('cancel initialization failed'));
+
+    await expect(
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          void service.cancel({
+            connectId: 'device',
+            oneKeyOperationLease: lease,
+            immediate: true,
+          });
+          return 'operation result';
+        },
+      }),
+    ).resolves.toBe('operation result');
+
+    await expect(
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          void service.cancel({
+            connectId: 'device',
+            oneKeyOperationLease: lease,
+            immediate: true,
+          });
+          throw operationError;
+        },
+      }),
+    ).rejects.toBe(operationError);
+  });
+
+  it('does not start a portfolio upload after its lease is cancelled during SDK lookup', async () => {
+    const manager = new HardwareProcessingManager();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { hardwareProcessingManager: manager },
+      } as unknown as IBackgroundApi,
+    });
+    let finishLookup!: (
+      value: Awaited<ReturnType<ServiceHardware['getSDKInstance']>>,
+    ) => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const lookup = new Promise<
+      Awaited<ReturnType<ServiceHardware['getSDKInstance']>>
+    >((resolve) => {
+      finishLookup = resolve;
+    });
+    const uploadPortfolio = jest.fn();
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('device');
+    service.getSDKInstance = jest.fn(async () => {
+      started();
+      return lookup;
+    });
+    const result = manager
+      .runExclusiveOneKeyOperation({
+        operation: () =>
+          service.uploadPortfolioPackage({
+            connectId: 'device',
+            packageBase64: 'AQID',
+            uiMode: 'progress',
+          }),
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    manager.cancelOneKeyOperation(manager.getActiveOneKeyOperationLease()!);
+    finishLookup({ uploadPortfolio } as unknown as Awaited<
+      ReturnType<ServiceHardware['getSDKInstance']>
+    >);
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(uploadPortfolio).not.toHaveBeenCalled();
+  });
+
+  it('ignores a delayed cancel after a new operation invalidates its async lookup', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    let finishLookup!: (
+      value: Awaited<ReturnType<ServiceHardware['getSDKInstance']>>,
+    ) => void;
+    const lookup = new Promise<
+      Awaited<ReturnType<ServiceHardware['getSDKInstance']>>
+    >((resolve) => {
+      finishLookup = resolve;
+    });
+    const sdkCancel = jest.fn();
+    service.getSDKInstance = jest.fn(() => lookup);
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('device');
+    service.getCompatibleConnectId = getCompatibleConnectId;
+    const cancel = service.cancel({ connectId: 'device', immediate: true });
+    service.invalidatePendingCancel();
+    finishLookup({ cancel: sdkCancel } as unknown as Awaited<
+      ReturnType<ServiceHardware['getSDKInstance']>
+    >);
+    await cancel;
+    expect(sdkCancel).not.toHaveBeenCalled();
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+  });
+
+  it('dispatches one cancel before the next lease starts and ignores cleanup with a stale lease', async () => {
+    const manager = new HardwareProcessingManager();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceHardwareUI: { hardwareProcessingManager: manager },
+      } as unknown as IBackgroundApi,
+    });
+    let finishLookup!: (
+      value: Awaited<ReturnType<ServiceHardware['getSDKInstance']>>,
+    ) => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const lookup = new Promise<
+      Awaited<ReturnType<ServiceHardware['getSDKInstance']>>
+    >((resolve) => {
+      finishLookup = resolve;
+    });
+    const sdkCancel = jest.fn();
+    const order: string[] = [];
+    const getSDKInstance = jest.fn(async () => {
+      started();
+      return lookup;
+    });
+    service.getSDKInstance = getSDKInstance;
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('device');
+    let oldLease: ReturnType<typeof manager.getActiveOneKeyOperationLease>;
+    const first = manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        oldLease = lease;
+        void service.cancel({
+          connectId: 'device',
+          oneKeyOperationLease: lease,
+          immediate: true,
+        });
+        void service.cancel({
+          connectId: 'device',
+          oneKeyOperationLease: lease,
+        });
+      },
+    });
+    await ready;
+    const next = manager.runExclusiveOneKeyOperation({
+      operation: async () => {
+        order.push('next');
+        await service.cancel({
+          connectId: 'device',
+          oneKeyOperationLease: oldLease,
+          immediate: true,
+        });
+      },
+    });
+    await Promise.resolve();
+    expect(order).toEqual([]);
+    finishLookup({ cancel: sdkCancel } as unknown as Awaited<
+      ReturnType<ServiceHardware['getSDKInstance']>
+    >);
+    await Promise.all([first, next]);
+    expect(sdkCancel).toHaveBeenCalledTimes(1);
+    expect(getSDKInstance).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['next']);
   });
 });

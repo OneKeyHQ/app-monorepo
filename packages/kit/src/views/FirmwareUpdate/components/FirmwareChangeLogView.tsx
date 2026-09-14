@@ -26,6 +26,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   EFirmwareUpdateSteps,
   useDevSettingsPersistAtom,
+  useFirmwareUpdateDevSettingsPersistAtom,
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -280,9 +281,14 @@ export function FirmwareChangeLogContentView({
 } & IStackProps) {
   const intl = useIntl();
   const [devSettings] = useDevSettingsPersistAtom();
+  const [firmwareDevSettings] = useFirmwareUpdateDevSettingsPersistAtom();
+  const hideDebugInfo =
+    devSettings.enabled &&
+    result?.deviceType === 'pro2' &&
+    firmwareDevSettings.hidePro2FirmwareDebugInfo === true;
   const protocolV2VersionItems = getProtocolV2FirmwareVersionDisplayItems(
     result,
-    { includeComponents: devSettings.enabled },
+    { includeComponents: devSettings.enabled && !hideDebugInfo },
   );
   const [safeOSItem, ...componentItems] = protocolV2VersionItems;
   if (safeOSItem) {

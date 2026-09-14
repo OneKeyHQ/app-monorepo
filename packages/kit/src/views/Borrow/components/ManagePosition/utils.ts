@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import { isBorrowRepayAllAmount } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+
 import type { IManagePositionProps } from './types';
 
 type IBorrowRepayAllReserveAsset = {
@@ -66,6 +68,33 @@ export function resolveRepayAllAmountValue({
   return action === 'repay'
     ? (repayAllBalance ?? maxAmountValue)
     : maxAmountValue;
+}
+
+export function isManagePositionRepayAll({
+  action,
+  amount,
+  debtBalance,
+  maxAmountValue,
+  repayAllBalance,
+}: {
+  action: IManagePositionProps['action'];
+  amount: string;
+  debtBalance?: string;
+  maxAmountValue: string;
+  repayAllBalance?: string;
+}) {
+  if (action !== 'repay') return false;
+  if (repayAllBalance === undefined && debtBalance !== undefined) {
+    return isBorrowRepayAllAmount({ amount, debtBalance });
+  }
+  return isSamePositiveAmount({
+    amount,
+    targetAmount: resolveRepayAllAmountValue({
+      action,
+      maxAmountValue,
+      repayAllBalance,
+    }),
+  });
 }
 
 export function resolveBorrowRepayAllBalance({

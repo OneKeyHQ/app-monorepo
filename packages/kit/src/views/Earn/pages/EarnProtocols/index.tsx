@@ -348,27 +348,36 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     const yieldLabel = intl.formatMessage({
       id: ETranslations.defi_apr_apy,
     });
+    // Direction labels use the shared high-to-low / low-to-high i18n, matching
+    // the Tokens and Fixed-rate sort sheets (OK-58880). Bare ↓/↑ glyphs read
+    // as untranslated UI and give a screen reader nothing to announce.
+    const highToLow = intl.formatMessage({
+      id: ETranslations.high_to_low__action,
+    });
+    const lowToHigh = intl.formatMessage({
+      id: ETranslations.low_to_high__action,
+    });
     return [
       {
-        label: `${tvlLabel} ↓`,
+        label: `${tvlLabel} ${highToLow}`,
         triggerLabel: tvlLabel,
         value: 'tvl',
         direction: 'desc',
       },
       {
-        label: `${tvlLabel} ↑`,
+        label: `${tvlLabel} ${lowToHigh}`,
         triggerLabel: tvlLabel,
         value: 'tvl',
         direction: 'asc',
       },
       {
-        label: `${yieldLabel} ↓`,
+        label: `${yieldLabel} ${highToLow}`,
         triggerLabel: yieldLabel,
         value: 'yield',
         direction: 'desc',
       },
       {
-        label: `${yieldLabel} ↑`,
+        label: `${yieldLabel} ${lowToHigh}`,
         triggerLabel: yieldLabel,
         value: 'yield',
         direction: 'asc',

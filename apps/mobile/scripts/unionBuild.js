@@ -77,6 +77,7 @@ const {
   expandSyncDependencyClosure,
   groupSerializedEntriesBySegment,
   mergeSharedSegmentOutputs,
+  removeCommonModulesFromSegmentAllocation,
   rewriteAsyncRequirePaths,
   seedSegmentAssignments,
   setEquals,
@@ -1436,7 +1437,7 @@ async function writeSegments({
   sharedEquivalentAbsPaths,
   mainEagerAbsPaths,
   bgEagerAbsPaths,
-  runtimeOwnership,
+  commonEagerAbsPaths,
 }) {
   const promotedSet = new Set(promotedSegments);
 
@@ -1669,7 +1670,7 @@ async function writeSegments({
   const commonReferencedSegmentKeys = collectCommonReferencedSegmentKeys({
     mainGraph: mainRuntime.graph,
     backgroundGraph: backgroundRuntime.graph,
-    sharedStartupAbsPaths: runtimeOwnership?.sharedStartupAbsPaths,
+    sharedStartupAbsPaths: commonEagerAbsPaths,
     mainSegmentAbsPathsByKey: mainRuntime.segmentAbsPathsByKey,
     backgroundSegmentAbsPathsByKey: backgroundRuntime.segmentAbsPathsByKey,
   });
@@ -2102,15 +2103,6 @@ async function main() {
       `BG startup-only modules:   ${runtimeOwnership.bgStartupAbsPaths.size}`,
     );
 
-    const segmentIdMap = allocateSegmentIds(
-      [
-        ...new Set([
-          ...mainAllocation.segmentModules.keys(),
-          ...backgroundAllocation.segmentModules.keys(),
-        ]),
-      ].toSorted(),
-    );
-
     const createModuleId = metroServer.getCreateModuleId();
     const getGraphModuleId = (absolutePath) => fileToIdMap.get(absolutePath);
     const mainModuleIndex = buildGraphModuleIndex(mainGraph, createModuleId);
@@ -2118,61 +2110,6 @@ async function main() {
       backgroundGraph,
       createModuleId,
     );
-    const mainAbsPathToSegment = createAbsolutePathToSegmentMap({
-      graph: mainGraph,
-      moduleToSegment: mainAllocation.moduleToSegment,
-      getGraphModuleId,
-    });
-    const backgroundAbsPathToSegment = createAbsolutePathToSegmentMap({
-      graph: backgroundGraph,
-      moduleToSegment: backgroundAllocation.moduleToSegment,
-      getGraphModuleId,
-    });
-    const mainSerializedModuleToSegment = createSerializedModuleToSegmentMap({
-      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      absPathToSegment: mainAbsPathToSegment,
-    });
-    const backgroundSerializedModuleToSegment =
-      createSerializedModuleToSegmentMap({
-        moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
-        absPathToSegment: backgroundAbsPathToSegment,
-      });
-    const mainRuntimeAsyncPaths = {
-      absPathToSegment: mainAbsPathToSegment,
-      eagerAbsPaths: new Set([
-        ...runtimeOwnership.sharedStartupAbsPaths,
-        ...runtimeOwnership.mainStartupAbsPaths,
-      ]),
-    };
-    const backgroundRuntimeAsyncPaths = {
-      absPathToSegment: backgroundAbsPathToSegment,
-      eagerAbsPaths: new Set([
-        ...runtimeOwnership.sharedStartupAbsPaths,
-        ...runtimeOwnership.bgStartupAbsPaths,
-      ]),
-    };
-    const mainSegmentDeps = buildSegmentDeps(
-      mainGraph,
-      mainAllocation.segmentAbsPathsByKey,
-      mainAbsPathToSegment,
-    );
-    const backgroundSegmentDeps = buildSegmentDeps(
-      backgroundGraph,
-      backgroundAllocation.segmentAbsPathsByKey,
-      backgroundAbsPathToSegment,
-    );
-    // Each runtime's moduleFilter must only exclude its OWN segment paths.
-    // Using the union of both runtimes' segments causes a module that is
-    // segmented in one runtime but eager in another to be incorrectly
-    // excluded from the eager bundle → "Requiring unknown module" crash.
-    const mainSegmentAbsPaths = mainAllocation.segmentAbsPaths;
-    const bgSegmentAbsPaths = backgroundAllocation.segmentAbsPaths;
-    // Keep the union for common bundle (shared modules should not be in
-    // any runtime-specific segment).
-    const allSegmentAbsPaths = new Set([
-      ...mainSegmentAbsPaths,
-      ...bgSegmentAbsPaths,
-    ]);
 
     const commonBundleOptions = createBundleOptions({
       metroServer,
@@ -2210,6 +2147,120 @@ async function main() {
       moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
     }).serializedEntries;
 
+    const initiallyAllocatedSegmentAbsPaths = new Set([
+      ...mainAllocation.segmentAbsPaths,
+      ...backgroundAllocation.segmentAbsPaths,
+    ]);
+    const initialCommonAbsPaths = new Set(
+      mainSerializedEntries
+        .filter(
+          ({ absolutePath }) =>
+            runtimeOwnership.sharedStartupAbsPaths.has(absolutePath) &&
+            !initiallyAllocatedSegmentAbsPaths.has(absolutePath),
+        )
+        .map(({ absolutePath }) => absolutePath),
+    );
+    const plannedCommonEagerAbsPaths = expandSyncDependencyClosure({
+      serializedEntries: mainSerializedEntries,
+      initialIncludedAbsPaths: initialCommonAbsPaths,
+      externalAbsPaths: new Set(
+        [...runtimeOwnership.allAbsPaths].filter(
+          (absolutePath) =>
+            !runtimeOwnership.sharedEquivalentAbsPaths.has(absolutePath),
+        ),
+      ),
+    });
+    const commonExternalAbsPaths = new Set(
+      [...runtimeOwnership.allAbsPaths].filter(
+        (absolutePath) => !plannedCommonEagerAbsPaths.has(absolutePath),
+      ),
+    );
+
+    const mainRemovedCommonAbsPaths = removeCommonModulesFromSegmentAllocation({
+      allocation: mainAllocation,
+      commonEagerAbsPaths: plannedCommonEagerAbsPaths,
+      sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
+      getGraphModuleId,
+    });
+    const bgRemovedCommonAbsPaths = removeCommonModulesFromSegmentAllocation({
+      allocation: backgroundAllocation,
+      commonEagerAbsPaths: plannedCommonEagerAbsPaths,
+      sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
+      getGraphModuleId,
+    });
+    if (
+      mainRemovedCommonAbsPaths.size > 0 ||
+      bgRemovedCommonAbsPaths.size > 0
+    ) {
+      console.log(
+        `[unionBuild] Removed common module duplicates from segments: main -${mainRemovedCommonAbsPaths.size}, background -${bgRemovedCommonAbsPaths.size}`,
+      );
+    }
+
+    const segmentIdMap = allocateSegmentIds(
+      [
+        ...new Set([
+          ...mainAllocation.segmentModules.keys(),
+          ...backgroundAllocation.segmentModules.keys(),
+        ]),
+      ].toSorted(),
+    );
+    const mainAbsPathToSegment = createAbsolutePathToSegmentMap({
+      graph: mainGraph,
+      moduleToSegment: mainAllocation.moduleToSegment,
+      getGraphModuleId,
+    });
+    const backgroundAbsPathToSegment = createAbsolutePathToSegmentMap({
+      graph: backgroundGraph,
+      moduleToSegment: backgroundAllocation.moduleToSegment,
+      getGraphModuleId,
+    });
+    const mainSerializedModuleToSegment = createSerializedModuleToSegmentMap({
+      moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
+      absPathToSegment: mainAbsPathToSegment,
+    });
+    const backgroundSerializedModuleToSegment =
+      createSerializedModuleToSegmentMap({
+        moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
+        absPathToSegment: backgroundAbsPathToSegment,
+      });
+    const mainRuntimeAsyncPaths = {
+      absPathToSegment: mainAbsPathToSegment,
+      eagerAbsPaths: new Set([
+        ...plannedCommonEagerAbsPaths,
+        ...runtimeOwnership.mainStartupAbsPaths,
+      ]),
+    };
+    const backgroundRuntimeAsyncPaths = {
+      absPathToSegment: backgroundAbsPathToSegment,
+      eagerAbsPaths: new Set([
+        ...plannedCommonEagerAbsPaths,
+        ...runtimeOwnership.bgStartupAbsPaths,
+      ]),
+    };
+    const mainSegmentDeps = buildSegmentDeps(
+      mainGraph,
+      mainAllocation.segmentAbsPathsByKey,
+      mainAbsPathToSegment,
+    );
+    const backgroundSegmentDeps = buildSegmentDeps(
+      backgroundGraph,
+      backgroundAllocation.segmentAbsPathsByKey,
+      backgroundAbsPathToSegment,
+    );
+    // Each runtime's moduleFilter must only exclude its OWN segment paths.
+    // Using the union of both runtimes' segments causes a module that is
+    // segmented in one runtime but eager in another to be incorrectly
+    // excluded from the eager bundle → "Requiring unknown module" crash.
+    const mainSegmentAbsPaths = mainAllocation.segmentAbsPaths;
+    const bgSegmentAbsPaths = backgroundAllocation.segmentAbsPaths;
+    // Keep the union for common bundle (shared modules should not be in
+    // any runtime-specific segment).
+    const allSegmentAbsPaths = new Set([
+      ...mainSegmentAbsPaths,
+      ...bgSegmentAbsPaths,
+    ]);
+
     const {
       mainManifest,
       backgroundManifest,
@@ -2235,14 +2286,14 @@ async function main() {
       segmentIdMap,
       sharedEquivalentAbsPaths: runtimeOwnership.sharedEquivalentAbsPaths,
       mainEagerAbsPaths: new Set([
-        ...runtimeOwnership.sharedStartupAbsPaths,
+        ...plannedCommonEagerAbsPaths,
         ...runtimeOwnership.mainStartupAbsPaths,
       ]),
       bgEagerAbsPaths: new Set([
-        ...runtimeOwnership.sharedStartupAbsPaths,
+        ...plannedCommonEagerAbsPaths,
         ...runtimeOwnership.bgStartupAbsPaths,
       ]),
-      runtimeOwnership,
+      commonEagerAbsPaths: plannedCommonEagerAbsPaths,
     });
 
     // ── Common bundle ──────────────────────────────────────────────────
@@ -2279,10 +2330,7 @@ async function main() {
       bundleOptions: commonBundleOptions,
       moduleToSegment: commonModuleToSegment,
       moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: new Set([
-        ...runtimeOwnership.mainStartupAbsPaths,
-        ...runtimeOwnership.bgStartupAbsPaths,
-      ]),
+      externalModulePaths: commonExternalAbsPaths,
       runtimeVariants: {
         main: mainRuntimeAsyncPaths,
         background: backgroundRuntimeAsyncPaths,
@@ -2307,7 +2355,7 @@ async function main() {
       bundleOptions: mainBundleOptions,
       moduleToSegment: mainSerializedModuleToSegment,
       moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: runtimeOwnership.sharedStartupAbsPaths,
+      externalModulePaths: plannedCommonEagerAbsPaths,
     });
 
     // Background bundle: bg-only eager modules + entry require
@@ -2328,7 +2376,7 @@ async function main() {
       bundleOptions: backgroundBundleOptions,
       moduleToSegment: backgroundSerializedModuleToSegment,
       moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: runtimeOwnership.sharedStartupAbsPaths,
+      externalModulePaths: plannedCommonEagerAbsPaths,
     });
 
     // --- Bundle completeness validation ---

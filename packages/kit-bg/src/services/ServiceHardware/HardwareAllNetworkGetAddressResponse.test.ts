@@ -43,6 +43,51 @@ describe('HardwareAllNetworkGetAddressResponse', () => {
     await expect(response.getItem(request)).resolves.toBe(item);
   });
 
+  test('keeps a failed item available for its network consumer', async () => {
+    const response = new HardwareAllNetworkGetAddressResponse();
+    const item: IHwAllNetworkPrepareAccountsItem = {
+      path: request.path,
+      network: request.hwSdkNetwork,
+      success: false as const,
+      payload: {
+        code: 10_405,
+        errorCode: 10_405,
+        error: 'Passphrase must be entered on device',
+        connectId: 'connect-id',
+        deviceId: 'device-id',
+      },
+    };
+
+    response.onSdkItemCallResponse(item);
+    response.completeSdkResponse();
+
+    await expect(response.getItem(request)).resolves.toBe(item);
+    await expect(response.getFirstErrorItem()).resolves.toBe(item);
+  });
+
+  test('still rejects unrelated item failures', async () => {
+    const response = new HardwareAllNetworkGetAddressResponse();
+    const pendingItem = response.getItem(request);
+    const item: IHwAllNetworkPrepareAccountsItem = {
+      path: request.path,
+      network: request.hwSdkNetwork,
+      success: false as const,
+      payload: {
+        code: 99_999,
+        errorCode: 99_999,
+        error: 'Unrelated hardware failure',
+        connectId: 'connect-id',
+        deviceId: 'device-id',
+      },
+    };
+
+    response.onSdkItemCallResponse(item);
+
+    await expect(pendingItem).rejects.toMatchObject({
+      payload: { error: 'Unrelated hardware failure' },
+    });
+  });
+
   test('keeps loop items pending until the callback response completes', async () => {
     const response = new HardwareAllNetworkGetAddressResponse();
     let settled = false;

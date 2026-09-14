@@ -9,6 +9,12 @@ export const MarketTestIDs = {
   bannerItem: 'market-banner-item',
   bannerItemSkeleton: 'market-banner-item-skeleton',
   bannerList: 'market-banner-list',
+  bannerScrollLeft: 'market-banner-scroll-left',
+  bannerScrollRight: 'market-banner-scroll-right',
+  bannerTitle: 'market-banner-title',
+  bannerTokenRow: 'market-banner-token-row',
+  bannerTokenPrice: 'market-banner-token-price',
+  bannerTokenChange: 'market-banner-token-change',
 
   // Token list
   tokenListItem: (symbol: string) => `market-token-item-${symbol}`,
@@ -18,6 +24,8 @@ export const MarketTestIDs = {
   // Stock list
   stockList: 'market-stock-list',
   stockRow: (stockId: string) => `market-stock-row-${stockId}`,
+  stockStarButton: (stockId: string) => `market-stock-star-${stockId}`,
+  topCoinsStarButton: (assetId: string) => `market-top-coins-star-${assetId}`,
   perpsList: 'market-perps-list',
 
   // Watchlist
@@ -34,6 +42,7 @@ export const MarketTestIDs = {
   detailChartFullscreenInfo: 'market-detail-chart-fullscreen-info',
   detailBuyButton: 'market-detail-buy-button',
   detailSwapButton: 'market-detail-swap-button',
+  detailEmbeddedSwap: 'market-detail-embedded-swap',
   detailAbout: 'market-detail-about',
   detailNotificationButton: 'market-banner-detail-notification', // preserve existing
 

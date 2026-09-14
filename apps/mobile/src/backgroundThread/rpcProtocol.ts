@@ -104,7 +104,9 @@ export type IBackgroundThreadResponseErrorPayload = {
   requestId?: string;
   httpStatusCode?: number;
   data?: unknown;
+  info?: unknown;
   payload?: unknown;
+  reconnect?: boolean;
 };
 
 export type IBackgroundThreadResponsePayload = {

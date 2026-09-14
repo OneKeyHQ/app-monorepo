@@ -31,27 +31,9 @@ export function findTopCoinsEarnAsset({
   return undefined;
 }
 
-export function useTopCoinsDetail(marketTokenId?: string) {
+export function useTopCoinsDetail(assetDetail?: IMarketAssetDetailData) {
   const { tokenDetail } = useMarketDetailDisplayData();
   const symbol = tokenDetail?.symbol;
-
-  const { result: assetDetail, isLoading: isAssetDetailLoading } =
-    usePromiseResult<IMarketAssetDetailData | undefined>(
-      async () => {
-        if (!marketTokenId) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-          assetId: marketTokenId,
-          currency: 'usd',
-        });
-      },
-      [marketTokenId],
-      {
-        checkIsFocused: false,
-        watchLoading: true,
-      },
-    );
 
   const { result: earnAssets = [] } = usePromiseResult<IRecommendAsset[]>(
     async () => {
@@ -76,8 +58,6 @@ export function useTopCoinsDetail(marketTokenId?: string) {
   );
 
   return {
-    assetDetail,
     earnAsset,
-    isAssetDetailLoading,
   };
 }

@@ -1,6 +1,9 @@
+import type { RefObject } from 'react';
+
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import type { ITradingViewNativeChartRuntime } from './native/chartRuntime';
 import type {
   ITradingViewNativeCandleLabels,
   ITradingViewNativeChartLeafComponent,
@@ -16,8 +19,14 @@ import type {
   ITradingViewNativeVisiblePointRange,
 } from './utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorRenderPane } from './utils/subIndicatorRender';
+import type { SharedValue } from 'react-native-reanimated';
 
 export interface ITradingViewNativeChartProps {
+  /** Owned by the data controller so native presentation changes retain the viewport. */
+  runtimeRef?: RefObject<{
+    runtime: SharedValue<ITradingViewNativeChartRuntime>;
+    decayOffset: SharedValue<number>;
+  } | null>;
   candleIntervalSeconds: number;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
@@ -30,6 +39,7 @@ export interface ITradingViewNativeChartProps {
   indicatorSeriesSettingsKey: string;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
+  isMobileLayout?: boolean;
   locale: string;
   priceAxisFontSize?: number;
   priceAxisTickCount?: number;

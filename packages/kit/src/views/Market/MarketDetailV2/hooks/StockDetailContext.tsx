@@ -11,21 +11,34 @@ import type { PropsWithChildren } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  IMarketStockDetailPreview,
   IMarketStockPublicDetail,
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  getDefaultStockTokenVariant,
+  isStockTokenVariantTradable,
+} from '../utils/stockTokenVariant';
+
+export { isStockTokenVariantTradable } from '../utils/stockTokenVariant';
+
 type IStockDetailContextValue = {
   stockId?: string;
   isStockRoute: boolean;
+  stockPreview?: IMarketStockDetailPreview;
   stockDetail?: IMarketStockPublicDetail | null;
   isStockDetailLoading: boolean;
   isStockDetailError: boolean;
   retryStockDetail: () => Promise<void>;
   tokenVariants: IMarketStockTokenVariant[];
   isTokenVariantsLoading: boolean;
+  isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
   retryTokenVariants: () => Promise<void>;
   selectedTokenId?: string;
@@ -44,6 +57,7 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
   retryStockDetail: async () => undefined,
   tokenVariants: [],
   isTokenVariantsLoading: false,
+  isTokenVariantPending: false,
   isTokenVariantsError: false,
   retryTokenVariants: async () => undefined,
   setSelectedTokenId: () => undefined,
@@ -71,27 +85,35 @@ type IStockTokenVariantsRequestResult = {
 // so it keeps the 6s cadence the rest of the detail page polls at.
 const STOCK_TOKEN_VARIANTS_POLLING_INTERVAL = 6000;
 
-export function isStockTokenVariantTradable(variant: IMarketStockTokenVariant) {
-  return Boolean(
-    variant.tradingEnabled &&
-    !variant.isPaused &&
-    !variant.tradingHours?.isPaused &&
-    variant.status.trim().toLowerCase() === 'active',
-  );
-}
-
 export function StockDetailProvider({
   stockId,
+  initialStockPreview,
   initialNetworkId,
   initialTokenAddress,
   children,
 }: PropsWithChildren<{
   stockId?: string;
+  initialStockPreview?: IMarketStockDetailPreview;
   initialNetworkId?: string;
   initialTokenAddress?: string;
 }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
+  const stockPreview =
+    initialStockPreview?.stockId.trim().toUpperCase() === normalizedStockId
+      ? initialStockPreview
+      : undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
+  const appliedTokenRouteRef = useRef<string | undefined>(undefined);
+  const tokenRouteKey = JSON.stringify([
+    normalizedStockId,
+    initialNetworkId,
+    initialNetworkId
+      ? normalizeTokenContractAddress({
+          networkId: initialNetworkId,
+          contractAddress: initialTokenAddress,
+        })
+      : initialTokenAddress,
+  ]);
   // Keep the last successful detail per stock so a superseded response cannot
   // replace the fallback used by the currently selected stock.
   const successfulStockDetailsRef = useRef(
@@ -210,15 +232,18 @@ export function StockDetailProvider({
 
   useEffect(() => {
     if (!normalizedStockId) {
+      appliedTokenRouteRef.current = undefined;
       setSelectedTokenId(undefined);
       return;
     }
-    if (tokenVariantResult?.failed) return;
+    if (!hasCurrentTokenVariants || tokenVariantResult?.failed) return;
 
+    // Apply explicit navigation once; polling must preserve manual selection.
+    const routeChanged = appliedTokenRouteRef.current !== tokenRouteKey;
     const hasCurrentToken = tokenVariants.some(
       (item) => item.tokenId === selectedTokenId,
     );
-    if (hasCurrentToken) return;
+    if (!routeChanged && hasCurrentToken) return;
 
     const routeToken = tokenVariants.find(
       (item) =>
@@ -234,18 +259,14 @@ export function StockDetailProvider({
           },
         }),
     );
-    const defaultToken = tokenVariants.find(
-      (item) =>
-        item.tokenId === tokenVariantResult?.defaultTokenId &&
-        isStockTokenVariantTradable(item),
+    const defaultToken = getDefaultStockTokenVariant(
+      tokenVariants,
+      tokenVariantResult?.defaultTokenId,
     );
-    const firstTradableToken = tokenVariants.find(isStockTokenVariantTradable);
-    setSelectedTokenId(
-      routeToken?.tokenId ??
-        defaultToken?.tokenId ??
-        firstTradableToken?.tokenId,
-    );
+    appliedTokenRouteRef.current = tokenRouteKey;
+    setSelectedTokenId(routeToken?.tokenId ?? defaultToken?.tokenId);
   }, [
+    hasCurrentTokenVariants,
     initialNetworkId,
     initialTokenAddress,
     normalizedStockId,
@@ -253,6 +274,7 @@ export function StockDetailProvider({
     tokenVariantResult?.defaultTokenId,
     tokenVariantResult?.failed,
     tokenVariants,
+    tokenRouteKey,
   ]);
 
   const selectedTokenVariant = useMemo(
@@ -273,6 +295,7 @@ export function StockDetailProvider({
     () => ({
       stockId: normalizedStockId,
       isStockRoute: Boolean(normalizedStockId),
+      stockPreview,
       stockDetail: currentStockDetail,
       isStockDetailLoading: Boolean(normalizedStockId && isStockDetailLoading),
       isStockDetailError: Boolean(
@@ -282,6 +305,13 @@ export function StockDetailProvider({
       ),
       retryStockDetail,
       tokenVariants,
+      isTokenVariantPending: Boolean(
+        normalizedStockId &&
+        (!hasCurrentTokenVariants ||
+          (!tokenVariantResult?.failed &&
+            tokenVariants.some(isStockTokenVariantTradable) &&
+            !selectedTokenVariant)),
+      ),
       isTokenVariantsLoading: Boolean(
         normalizedStockId && isTokenVariantsLoading,
       ),
@@ -297,6 +327,7 @@ export function StockDetailProvider({
       portfolioNetworkId: selectedTokenVariant?.networkId ?? initialNetworkId,
     }),
     [
+      hasCurrentTokenVariants,
       initialNetworkId,
       isStockDetailLoading,
       isTokenVariantsLoading,
@@ -306,6 +337,7 @@ export function StockDetailProvider({
       retryTokenVariants,
       selectedTokenId,
       selectedTokenVariant,
+      stockPreview,
       stockDetailResult?.failed,
       stockDetailResult?.stockId,
       tokenVariantResult?.failed,

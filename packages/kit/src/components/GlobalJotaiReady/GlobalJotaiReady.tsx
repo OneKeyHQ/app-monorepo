@@ -31,7 +31,6 @@ const isWebOrDesktop = platformEnv.isWeb || platformEnv.isDesktop;
 // seconds on cold IDB), short enough that a stuck handler can never hang
 // the app forever.
 const GATE_SAFETY_TIMEOUT_MS = 5000;
-const COLD_START_IMAGE_PRIME_TIMEOUT_MS = isWebOrDesktop ? 160 : 0;
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -90,9 +89,7 @@ async function waitForJotaiReadyOnWebOrDesktop(): Promise<void> {
 }
 
 async function primeColdStartImagesBeforeRender(): Promise<void> {
-  await prewarmColdStartImagesFromSnapshot({
-    primeTimeoutMs: COLD_START_IMAGE_PRIME_TIMEOUT_MS,
-  });
+  await prewarmColdStartImagesFromSnapshot();
 }
 
 const jsEntryStart: number =

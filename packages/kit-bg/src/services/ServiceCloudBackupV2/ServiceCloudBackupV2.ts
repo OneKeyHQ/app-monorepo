@@ -9,6 +9,7 @@ import {
 import type {
   IBackupCloudServerDownloadData,
   IBackupDataEncryptedPayload,
+  IBackupDataExportArchive,
   IBackupProviderInfo,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -327,6 +328,47 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const provider = this.getProvider();
     await provider.checkAvailability();
     return provider.downloadData(params);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async exportBackupArchive(params: {
+    recordId: string;
+    password: string;
+  }): Promise<IBackupDataExportArchive> {
+    if (!params.recordId || !params.password) {
+      throw new OneKeyLocalError('Backup record ID and password are required');
+    }
+    const backup = await this.download({ recordId: params.recordId });
+    if (!backup?.payload?.privateDataEncrypted) {
+      throw new OneKeyLocalError('Backup data is empty');
+    }
+    const privateData = await this.restorePreparePrivateData({
+      payload: backup.payload,
+      password: params.password,
+    });
+    const hasWrappedCredentials = Object.keys(
+      privateData.credentials || {},
+    ).some((id) => !privateData.decryptedCredentials?.[id]);
+    if (
+      hasWrappedCredentials ||
+      privateData.decryptedCredentialsHex ||
+      privateData.cliBotWalletEncryptedCredential
+    ) {
+      throw new OneKeyLocalError(
+        'This backup contains additional encrypted credentials and cannot be exported as plaintext',
+      );
+    }
+    const { createBackupExportArchive } =
+      await import('./createBackupExportArchive');
+    // Only the encrypted archive crosses the background runtime boundary.
+    return createBackupExportArchive({
+      privateData: { ...privateData, credentials: {} },
+      publicData: backup.payload.publicData,
+      isEmptyData: backup.payload.isEmptyData,
+      isWatchingOnly: backup.payload.isWatchingOnly,
+      appVersion: backup.payload.appVersion,
+    });
   }
 
   @backgroundMethod()

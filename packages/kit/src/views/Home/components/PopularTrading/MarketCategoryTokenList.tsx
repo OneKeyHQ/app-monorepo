@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
-  Icon,
   IconButton,
   SizableText,
   Stack,
@@ -59,10 +58,6 @@ function MarketCategoryTokenList({
 
   const columns = useMemo<ITableProps<IFavoriteTokenDisplay>['columns']>(() => {
     const renderStarButton = (record: IFavoriteTokenDisplay) => {
-      if (record.marketAsset) {
-        return <Icon name="StarOutline" size="$5" color="$iconSubdued" />;
-      }
-
       const checked = isTokenInWatchList(record);
       return (
         <IconButton

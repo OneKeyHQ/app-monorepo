@@ -1,10 +1,26 @@
 // Shared utility functions for MarketHomeV2 components
 
-import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import {
+  MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID,
+  MARKET_TOP_COINS_CATEGORY_ID,
+} from '@onekeyhq/shared/src/consts/marketConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { IMarketCategoryItem } from './types';
+import type { IMarketCategoryItem, IMarketTimeRangeValue } from './types';
+
+// Lists whose metrics are always 24h still label their columns through the
+// same ranged phrases the trending table interpolates, so every list reads
+// the same way instead of mixing "24h volume" with "24h 交易量".
+export const MARKET_FIXED_24H_RANGE: IMarketTimeRangeValue = '24h';
+// Not an `IMarketTimeRangeValue`: no list offers 7d in its range dropdown,
+// it is only ever a fixed column.
+export const MARKET_FIXED_7D_RANGE = '7d';
 
 const SPOT_CATEGORIES_WITH_FULL_STATS = new Set(['trending', 'x_mentioned']);
+const TRENDING_STYLE_SPOT_CATEGORY_IDS = new Set([
+  'trending',
+  'robinhood_meme',
+]);
 
 export const COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS = [
   'transactions',
@@ -140,6 +156,14 @@ export const shouldHideSpotExtendedStats = (
   return !SPOT_CATEGORIES_WITH_FULL_STATS.has(normalizedCategory);
 };
 
+export const shouldShowSpotNetworkSelector = (categoryId?: string): boolean =>
+  categoryId !== MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID;
+
+export const isTrendingStyleSpotCategory = (
+  categoryId: string | undefined,
+): boolean =>
+  Boolean(categoryId && TRENDING_STYLE_SPOT_CATEGORY_IDS.has(categoryId));
+
 export const isMarketStockCategory = (
   category?: Pick<IMarketCategoryItem, 'id' | 'name' | 'isStockCategory'>,
 ): boolean => {
@@ -159,6 +183,26 @@ export const isMarketStockCategory = (
     normalizedName.includes('stock') ||
     normalizedName.includes('股票')
   );
+};
+
+// Work order 2026-09-08 §5. Favorites and Perps carry no copy, so they fall
+// through and their tabs stay plain.
+const CATEGORY_TOOLTIP_IDS: Record<string, ETranslations> = {
+  trending: ETranslations.market_tab_trending_tooltip,
+  // oxlint-disable-next-line @cspell/spellchecker
+  robinhood_meme: ETranslations.market_tab_robinhood_tooltip,
+  [MARKET_TOP_COINS_CATEGORY_ID]: ETranslations.market_tab_top_coins_tooltip,
+};
+
+export const getMarketCategoryTooltipId = (
+  category: Pick<IMarketCategoryItem, 'id' | 'name' | 'isStockCategory'>,
+): ETranslations | undefined => {
+  // Stocks is a set of API categories rather than one fixed id, so it is
+  // matched by the same predicate the rest of the module uses.
+  if (isMarketStockCategory(category)) {
+    return ETranslations.market_tab_stocks_tooltip;
+  }
+  return CATEGORY_TOOLTIP_IDS[category.id];
 };
 
 export const isMarketStockCategoryById = (
@@ -188,17 +232,8 @@ export const ensureMarketTopCoinsCategory = (
     id: MARKET_TOP_COINS_CATEGORY_ID,
     name: fallbackName,
   };
-  const firstStockCategoryIndex = categories.findIndex((category) =>
-    isMarketStockCategory(category),
-  );
 
-  if (firstStockCategoryIndex < 0) {
-    return [...categories, topCoinsCategory];
-  }
-
-  return [
-    ...categories.slice(0, firstStockCategoryIndex),
-    topCoinsCategory,
-    ...categories.slice(firstStockCategoryIndex),
-  ];
+  // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps. Perps is
+  // appended after every spot category, so Top coins goes last among them.
+  return [...categories, topCoinsCategory];
 };

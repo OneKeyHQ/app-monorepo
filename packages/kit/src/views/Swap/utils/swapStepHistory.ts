@@ -16,7 +16,11 @@ export function reconcileSwapStepWithHistory({
   let status = ESwapStepStatus.PENDING;
   if (historyStatus === ESwapTxHistoryStatus.SUCCESS) {
     status = ESwapStepStatus.SUCCESS;
-  } else if (historyStatus === ESwapTxHistoryStatus.FAILED) {
+  } else if (
+    historyStatus === ESwapTxHistoryStatus.FAILED ||
+    historyStatus === ESwapTxHistoryStatus.REFUNDED ||
+    historyStatus === ESwapTxHistoryStatus.EXPIRED
+  ) {
     status = ESwapStepStatus.FAILED;
   }
 

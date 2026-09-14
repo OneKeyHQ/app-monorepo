@@ -148,18 +148,20 @@ export function StockNewsSection() {
 
   const handleShowMore = useCallback(() => {
     Dialog.show({
-      title: 'News',
+      title: intl.formatMessage({ id: ETranslations.market_stock_news }),
       renderContent: <StockNewsListDialogContent items={allNews} />,
       showFooter: false,
       disableDrag: true,
       floatingPanelProps: NEWS_DIALOG_FLOATING_PANEL_PROPS,
     });
-  }, [allNews]);
+  }, [allNews, intl]);
 
   return (
     <YStack testID="stock-detail-news" px={STOCK_DETAIL_HORIZONTAL_GUTTER}>
       <YStack py="$8" gap="$4">
-        <SizableText size="$headingXl">News</SizableText>
+        <SizableText size="$headingXl">
+          {intl.formatMessage({ id: ETranslations.market_stock_news })}
+        </SizableText>
         {isLoading && news.length === 0
           ? Array.from({ length: 3 }).map((_, index) => (
               <Skeleton key={index} width="100%" height={96} />
@@ -205,7 +207,7 @@ export function StockNewsSection() {
             alignSelf="flex-start"
             onPress={handleShowMore}
           >
-            Show more
+            {intl.formatMessage({ id: ETranslations.global_show_more })}
           </Button>
         ) : null}
       </YStack>

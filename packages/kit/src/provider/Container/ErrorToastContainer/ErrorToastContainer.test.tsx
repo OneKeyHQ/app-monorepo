@@ -3,15 +3,36 @@
 import { act, render } from '@testing-library/react';
 
 import { Toast, globalNetInfo } from '@onekeyhq/components';
+import {
+  InvalidPIN,
+  NeedFirmwareUpgradeFromWeb,
+  UnknownHardwareError,
+} from '@onekeyhq/shared/src/errors';
+import {
+  ThirdPartyAppNotInstalled,
+  ThirdPartyPassphraseAlwaysOnDevice,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
+import { getErrorAction } from './ErrorToasts';
 
 const mockSubscribeNativeStorageContractViolations = jest.fn();
+
+jest.mock('react-intl', () => {
+  const actual = jest.requireActual<typeof import('react-intl')>('react-intl');
+  const intl = actual.createIntl({
+    locale: 'zh-CN',
+    messages: jest.requireActual('@onekeyhq/shared/src/locale/json/zh_CN.json'),
+  });
+  return { ...actual, useIntl: () => intl };
+});
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
@@ -183,6 +204,190 @@ describe('ErrorToastContainer', () => {
       expect.objectContaining({
         title: 'Device method call timeout',
       }),
+    );
+    unmount();
+  });
+
+  it.each([
+    {
+      errorCode: 110,
+      title: 'Device Id in the features is not same.',
+      i18nKey:
+        ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
+      expectedTitle:
+        '设备连接状态已更新。请选择「添加钱包」>「连接硬件钱包」来重新设置。使用原助记词将恢复当前钱包，使用新助记词将创建新钱包。',
+    },
+    {
+      errorCode: 118,
+      title: 'Device check unlock type not match error',
+      i18nKey: ETranslations.hardware_device_pin_state_error,
+      expectedTitle: '输入的PIN码与当前钱包不符。请重试。',
+    },
+    {
+      errorCode: 112,
+      title: 'Device passphrase state error',
+      i18nKey: ETranslations.hardware_device_passphrase_state_error,
+      expectedTitle: 'Passphrase 与当前钱包不匹配，请再试一次',
+    },
+  ])(
+    'localizes hardware error $errorCode on the main thread',
+    ({ errorCode, title, i18nKey, expectedTitle }) => {
+      const { unmount } = render(<ErrorToastContainer />);
+
+      act(() => {
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
+          title,
+          errorCode,
+          i18nKey,
+        });
+      });
+
+      expect(mockedToast.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expectedTitle,
+        }),
+      );
+      unmount();
+    },
+  );
+
+  it.each([
+    {
+      ErrorClass: NeedFirmwareUpgradeFromWeb,
+      expectedTitle:
+        '您的硬件钱包固件需要更新。请在电脑上访问 firmware.onekey.so 进行升级。',
+    },
+    {
+      ErrorClass: UnknownHardwareError,
+      expectedTitle:
+        '操作失败。请确保您的硬件和应用程序均为最新版本，或联系技术支持。 Firmware response detail : 800',
+    },
+  ])(
+    'localizes the recovery toast from $ErrorClass.name and retains its action',
+    async ({ ErrorClass, expectedTitle }) => {
+      const { unmount } = render(<ErrorToastContainer />);
+      const error = new ErrorClass({
+        payload: {
+          connectId: 'FIRMWARE_DEVICE_ID',
+          code: 800,
+          error: 'Firmware response detail',
+        },
+      });
+      error.autoToast = true;
+      // Error construction under Jest leaves the background fallback text;
+      // the real UI formatter above must supply the Chinese guidance.
+      expect(error.message).not.toBe(expectedTitle);
+      const action = <span>Update firmware</span>;
+      jest.mocked(getErrorAction).mockReturnValueOnce(action);
+      const onShowToast = jest.fn();
+      appEventBus.on(EAppEventBusNames.ShowToast, onShowToast);
+      try {
+        await act(async () => {
+          errorToastUtils.showToastOfError(error);
+        });
+        expect(onShowToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            i18nKey: error.key,
+            i18nInfo: error.info,
+          }),
+        );
+        expect(getErrorAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            errorCode: error.code,
+            connectId: 'FIRMWARE_DEVICE_ID',
+          }),
+        );
+        expect(mockedToast.error).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: expectedTitle,
+            actions: action,
+          }),
+        );
+      } finally {
+        appEventBus.off(EAppEventBusNames.ShowToast, onShowToast);
+        unmount();
+      }
+    },
+  );
+
+  it('preserves raw details for unrelated parameterized error keys', () => {
+    const { unmount } = render(<ErrorToastContainer />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'The request is too large for the current connection.',
+        errorCode: 833,
+        i18nKey: ETranslations.wallet_action_failed,
+      });
+    });
+
+    expect(mockedToast.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'The request is too large for the current connection.',
+      }),
+    );
+    unmount();
+  });
+
+  it.each([
+    InvalidPIN,
+    ThirdPartyPassphraseAlwaysOnDevice,
+    ThirdPartyAppNotInstalled,
+  ])(
+    'localizes %s through the hardware error toast event',
+    async (ErrorClass) => {
+      const { unmount } = render(<ErrorToastContainer />);
+      const error = new ErrorClass({
+        payload: { error: 'Raw firmware English error' },
+        info: { appName: 'Ethereum' },
+        appName: 'Ethereum',
+      });
+      error.autoToast = true;
+      const onShowToast = jest.fn();
+      appEventBus.on(EAppEventBusNames.ShowToast, onShowToast);
+      try {
+        await act(async () => {
+          errorToastUtils.showToastOfError(error);
+        });
+        expect(onShowToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            isHardwareError: true,
+            i18nKey: error.key,
+            i18nInfo: error.info,
+          }),
+        );
+        const messages: Record<string, string> = jest.requireActual(
+          '@onekeyhq/shared/src/locale/json/zh_CN.json',
+        );
+        expect(mockedToast.error).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: messages[error.key as string].replace(
+              '{appName}',
+              'Ethereum',
+            ),
+          }),
+        );
+      } finally {
+        appEventBus.off(EAppEventBusNames.ShowToast, onShowToast);
+        unmount();
+      }
+    },
+  );
+
+  it('preserves raw hardware messages without a known translation key', () => {
+    const { unmount } = render(<ErrorToastContainer />);
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'Unknown firmware failure',
+        isHardwareError: true,
+        i18nKey: 'onekey_error' as ETranslations,
+      });
+    });
+    expect(mockedToast.error).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Unknown firmware failure' }),
     );
     unmount();
   });
