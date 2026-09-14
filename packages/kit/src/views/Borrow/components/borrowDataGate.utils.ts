@@ -1,5 +1,22 @@
 import { EBorrowDataStatus } from '../borrowDataStatus';
 
+export function isBorrowEarnAccountLoading({
+  isLoading,
+  hasAccountContext,
+  hasMarketNetwork,
+  isAccountUnresolved,
+}: {
+  isLoading?: boolean;
+  hasAccountContext: boolean;
+  hasMarketNetwork: boolean;
+  isAccountUnresolved: boolean;
+}): boolean {
+  return (
+    Boolean(isLoading) ||
+    (hasAccountContext && hasMarketNetwork && isAccountUnresolved)
+  );
+}
+
 export function shouldPublishBorrowMarketChange({
   isMarketChangePending,
   dataStatus,
@@ -9,6 +26,10 @@ export function shouldPublishBorrowMarketChange({
 }): boolean {
   return (
     !isMarketChangePending ||
+    dataStatus === EBorrowDataStatus.LoadingMarkets ||
+    dataStatus === EBorrowDataStatus.WaitingForAccount ||
+    dataStatus === EBorrowDataStatus.LoadingReserves ||
+    dataStatus === EBorrowDataStatus.Refreshing ||
     dataStatus === EBorrowDataStatus.Ready ||
     dataStatus === EBorrowDataStatus.Error
   );
