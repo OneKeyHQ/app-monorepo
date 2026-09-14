@@ -18,9 +18,9 @@ import {
   CategoryFilterItemWithLayout,
 } from '../CategoryFilterItem';
 
-export type IWatchlistFilterType = 'crypto' | 'stocks' | 'perps';
+export type IWatchlistFilterType = 'all' | 'spot' | 'stocks' | 'perps';
 
-export const DEFAULT_WATCHLIST_FILTER: IWatchlistFilterType = 'crypto';
+export const DEFAULT_WATCHLIST_FILTER: IWatchlistFilterType = 'all';
 
 interface IMarketWatchlistCategorySelectorProps {
   selectedFilter: IWatchlistFilterType;
@@ -33,8 +33,12 @@ function useWatchlistFilterCategories() {
   return useMemo(
     () => [
       {
-        id: 'crypto' as const,
-        name: intl.formatMessage({ id: ETranslations.global_crypto }),
+        id: 'all' as const,
+        name: intl.formatMessage({ id: ETranslations.global_all }),
+      },
+      {
+        id: 'spot' as const,
+        name: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
       },
       {
         id: 'stocks' as const,

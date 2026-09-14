@@ -6,10 +6,7 @@ import type { IWatchlistFilterType } from '../MarketWatchlistCategorySelector';
 export type IWatchlistFilteredGroups = Record<
   IWatchlistFilterType,
   IMarketToken[]
-> & {
-  /** Every row that passed the hide options, for surfaces with no category selector. */
-  all: IMarketToken[];
-};
+>;
 
 /**
  * Stock listings (starred on the Stocks tab) and tokenized stocks (chain
@@ -51,7 +48,9 @@ export function useWatchlistFilteredGroups(
     const spot = base.filter((t) => !t.perpsCoin);
     return {
       all: base,
-      crypto: spot.filter((t) => !isWatchlistStockToken(t)),
+      spot,
+      // Stocks is a lens over spot, not a partition of it: stock listings and
+      // tokenized stocks stay visible under Spot as well.
       stocks: spot.filter((t) => isWatchlistStockToken(t)),
       perps: base.filter((t) => !!t.perpsCoin),
     };

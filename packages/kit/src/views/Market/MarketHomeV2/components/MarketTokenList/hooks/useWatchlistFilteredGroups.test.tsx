@@ -38,7 +38,7 @@ it('keeps chain tokens and native coins selectable while excluding listings and 
   ]);
 });
 
-it('splits rows into crypto, stocks and perps, with tokenized stocks under stocks', () => {
+it('keeps spot as every non-perps row and adds a stocks lens over it', () => {
   const token = transformApiItemToToken(
     { address: '0xtoken', name: 'Token', symbol: 'TOK', decimals: 18 },
     { chainId: 'evm--1', networkLogoUri: '' },
@@ -79,12 +79,18 @@ it('splits rows into crypto, stocks and perps, with tokenized stocks under stock
       perps,
     ]),
   );
-  expect(result.current.crypto).toEqual([token, assetListing]);
+  expect(result.current.all).toHaveLength(6);
+  expect(result.current.spot).toEqual([
+    token,
+    tokenizedStock,
+    legacyStockToken,
+    stockListing,
+    assetListing,
+  ]);
   expect(result.current.stocks).toEqual([
     tokenizedStock,
     legacyStockToken,
     stockListing,
   ]);
   expect(result.current.perps).toEqual([perps]);
-  expect(result.current.all).toHaveLength(6);
 });

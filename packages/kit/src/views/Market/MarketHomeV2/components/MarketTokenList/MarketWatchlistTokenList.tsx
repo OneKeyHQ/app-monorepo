@@ -84,7 +84,7 @@ function MarketWatchlistTokenList({
 
   const actions = useWatchListV2Actions();
 
-  // Watchlist category filter: crypto / stocks / perps
+  // Watchlist category filter: all / spot / stocks / perps
   const [selectedFilter, setSelectedFilter] = useState<IWatchlistFilterType>(
     DEFAULT_WATCHLIST_FILTER,
   );
