@@ -9,6 +9,10 @@ export function shouldPublishBorrowMarketChange({
 }): boolean {
   return (
     !isMarketChangePending ||
+    dataStatus === EBorrowDataStatus.LoadingMarkets ||
+    dataStatus === EBorrowDataStatus.WaitingForAccount ||
+    dataStatus === EBorrowDataStatus.LoadingReserves ||
+    dataStatus === EBorrowDataStatus.Refreshing ||
     dataStatus === EBorrowDataStatus.Ready ||
     dataStatus === EBorrowDataStatus.Error
   );
