@@ -390,11 +390,12 @@ function RawPopover({
     () => ({ transformOrigin }),
     [transformOrigin],
   );
-  useIsomorphicLayoutEffect(() => {
-    if (!shouldUseWebKeepMountedTransition) {
-      return;
-    }
-    const popperElement = contentRef.current as unknown as HTMLElement;
+  const contentStateRef = useRef({ isOpen, shouldUseWebKeepMountedTransition });
+  const handleContentRef = useCallback((node: View | null) => {
+    contentRef.current = node;
+    const state = contentStateRef.current;
+    if (!state.shouldUseWebKeepMountedTransition || !node) return;
+    const popperElement = node as unknown as HTMLElement;
     if (!popperElement) {
       return;
     }
@@ -410,13 +411,17 @@ function RawPopover({
       popperElement.style.removeProperty('transform');
       popperElement.style.removeProperty('visibility');
     }
-    contentElement.style.transition = isOpen
+    contentElement.style.transition = state.isOpen
       ? WEB_KEEP_MOUNTED_TRANSITION
       : `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
-    contentElement.style.opacity = isOpen ? '1' : '0';
-    contentElement.style.transform = `scale(${isOpen ? 1 : 0.95})`;
-    contentElement.style.visibility = isOpen ? 'visible' : 'hidden';
-  }, [isOpen, shouldUseWebKeepMountedTransition]);
+    contentElement.style.opacity = state.isOpen ? '1' : '0';
+    contentElement.style.transform = `scale(${state.isOpen ? 1 : 0.95})`;
+    contentElement.style.visibility = state.isOpen ? 'visible' : 'hidden';
+  }, []);
+  useIsomorphicLayoutEffect(() => {
+    contentStateRef.current = { isOpen, shouldUseWebKeepMountedTransition };
+    handleContentRef(contentRef.current);
+  }, [handleContentRef, isOpen, shouldUseWebKeepMountedTransition]);
   const scrollViewStyle = useMemo(
     () => ({ maxHeight: maxScrollViewHeight }),
     [maxScrollViewHeight],
@@ -444,7 +449,7 @@ function RawPopover({
       {/* floating panel */}
       {platformEnv.isNative ? null : (
         <TMPopover.Content
-          ref={contentRef}
+          ref={handleContentRef}
           zIndex={keepChildrenMounted ? undefined : SHEET_POPOVER_Z_INDEX + 1}
           trapFocus={false}
           unstyled
