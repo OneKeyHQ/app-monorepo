@@ -570,12 +570,21 @@ check_one_worktree() {
   local merge_evidence=""
   local squashed_commit=""
   local head_oid=""
+  local patch_id_allowed="no"
 
   git -C "$wt" rev-parse --verify origin/x^{commit} >/dev/null 2>&1 || \
     die "origin/x is missing for $wt. Fetch origin x before running check."
 
   dirty_output="$(collect_dirty_files "$wt" || true)"
   head_oid="$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null || true)"
+  case "${WT_PR_LABELS[$idx]}" in
+    MERGED\ #*|NONE|DETACHED)
+      patch_id_allowed="yes"
+      ;;
+    UNAVAILABLE*)
+      [[ "$PATCH_ID_MODE" == "--verbatim" ]] && patch_id_allowed="yes"
+      ;;
+  esac
 
   if [[ -z "$head_oid" ]]; then
     candidate_output=""
@@ -610,10 +619,8 @@ check_one_worktree() {
     elif [[ $unmatched_count -eq 0 ]]; then
       result="MERGED_TO_ORIGIN_X_BY_CODE"
       merge_evidence="all branch-side candidate blobs match origin/x"
-    elif [[ "${WT_PR_LABELS[$idx]}" == MERGED\ #* ||
-      "${WT_PR_LABELS[$idx]}" == NONE ||
-      "${WT_PR_LABELS[$idx]}" == UNAVAILABLE\ \(* ]] && \
-      squashed_commit="$(find_squashed_patch_match "$wt" 2>/dev/null)"; then
+  elif [[ "$patch_id_allowed" == "yes" ]] && \
+    squashed_commit="$(find_squashed_patch_match "$wt" 2>/dev/null)"; then
       result="MERGED_TO_ORIGIN_X_BY_PATCH_ID"
       merge_evidence="matching squash commit ${squashed_commit:0:12} (patch-id mode: ${PATCH_ID_MODE})"
     else
