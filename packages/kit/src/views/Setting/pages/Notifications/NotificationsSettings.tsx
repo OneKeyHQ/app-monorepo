@@ -24,7 +24,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useDevSettingsPersistAtom,
   useNotificationsAtom,
-  usePrimeInitAtom,
   usePrimePersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -72,6 +71,12 @@ function getCachedNotificationSettings(identityKey: string | undefined) {
     : undefined;
 }
 
+function hasNotificationSettings(
+  settings: INotificationPushSettings | undefined,
+) {
+  return Boolean(settings && Object.keys(settings).length > 0);
+}
+
 function updateCachedNotificationSettings({
   identityKey,
   settings,
@@ -79,7 +84,7 @@ function updateCachedNotificationSettings({
   identityKey: string;
   settings: INotificationPushSettings;
 }) {
-  if (Object.keys(settings).length > 0) {
+  if (hasNotificationSettings(settings)) {
     cachedNotificationSettings = { identityKey, settings };
   } else if (cachedNotificationSettings?.identityKey === identityKey) {
     cachedNotificationSettings = undefined;
@@ -125,15 +130,11 @@ function NotificationsSettingsHelper() {
 
 export default function NotificationsSettings() {
   const intl = useIntl();
-  const [primeInitAtom] = usePrimeInitAtom();
   const [primePersistAtom] = usePrimePersistAtom();
   let notificationSettingsIdentityKey: string | undefined;
-  if (primeInitAtom.isReady && primePersistAtom.onekeyUserId) {
-    notificationSettingsIdentityKey = `onekey-id:${
-      primePersistAtom.onekeyUserId
-    }:prime:${primePersistAtom.primeSubscription?.isActive === true}`;
+  if (primePersistAtom.onekeyUserId) {
+    notificationSettingsIdentityKey = `onekey-id:${primePersistAtom.onekeyUserId}`;
   } else if (
-    primeInitAtom.isReady &&
     !primePersistAtom.isLoggedIn &&
     !primePersistAtom.isLoggedInOnServer
   ) {
@@ -162,6 +163,9 @@ export default function NotificationsSettings() {
   );
   const settingsMutationVersionRef = useRef(0);
   const notificationSettingsIdentityKeyRef = useRef(
+    notificationSettingsIdentityKey,
+  );
+  const previousNotificationSettingsIdentityKeyRef = useRef(
     notificationSettingsIdentityKey,
   );
 
@@ -193,6 +197,14 @@ export default function NotificationsSettings() {
       if (
         notificationSettingsIdentityKeyRef.current !==
         notificationSettingsIdentityKey
+      ) {
+        return;
+      }
+      if (
+        !hasNotificationSettings(result) &&
+        hasNotificationSettings(
+          getCachedNotificationSettings(notificationSettingsIdentityKey),
+        )
       ) {
         return;
       }
@@ -284,10 +296,9 @@ export default function NotificationsSettings() {
         if (v.identityKey !== notificationSettingsIdentityKey || !v.settings) {
           return v;
         }
-        const currentSettings =
-          Object.keys(v.settings).length > 0
-            ? v.settings
-            : EMPTY_NOTIFICATION_SETTINGS_DEFAULTS;
+        const currentSettings = hasNotificationSettings(v.settings)
+          ? v.settings
+          : EMPTY_NOTIFICATION_SETTINGS_DEFAULTS;
         const newValue = {
           ...currentSettings,
           ...partSettings,
@@ -308,21 +319,46 @@ export default function NotificationsSettings() {
   );
 
   useEffect(() => {
+    const previousIdentityKey =
+      previousNotificationSettingsIdentityKeyRef.current;
+    const identityChanged =
+      previousIdentityKey !== notificationSettingsIdentityKey;
+    previousNotificationSettingsIdentityKeyRef.current =
+      notificationSettingsIdentityKey;
     settingsMutationVersionRef.current += 1;
-    updateSettingsToServer.cancel();
-    pendingSettings.current = undefined;
-    const cachedSettings = getCachedNotificationSettings(
-      notificationSettingsIdentityKey,
-    );
-    setSettingsState({
-      identityKey: notificationSettingsIdentityKey,
-      settings: cachedSettings,
-    });
-    prevSettings.current = cachedSettings;
+    if (identityChanged) {
+      if (
+        previousIdentityKey &&
+        pendingSettings.current &&
+        prevSettings.current !== undefined
+      ) {
+        updateCachedNotificationSettings({
+          identityKey: previousIdentityKey,
+          settings: prevSettings.current,
+        });
+      }
+      updateSettingsToServer.cancel();
+      pendingSettings.current = undefined;
+      const cachedSettings = getCachedNotificationSettings(
+        notificationSettingsIdentityKey,
+      );
+      setSettingsState({
+        identityKey: notificationSettingsIdentityKey,
+        settings: cachedSettings,
+      });
+      prevSettings.current = cachedSettings;
+    }
     if (notificationSettingsIdentityKey) {
       void reloadSettings();
     }
-  }, [notificationSettingsIdentityKey, reloadSettings, updateSettingsToServer]);
+  }, [
+    notificationSettingsIdentityKey,
+    primePersistAtom.isLoggedIn,
+    primePersistAtom.isLoggedInOnServer,
+    primePersistAtom.primeSubscription?.isActive,
+    reloadSettings,
+    updateSettingsToServer,
+  ]);
 
   // Flush pending settings only when the component actually unmounts.
   useEffect(
