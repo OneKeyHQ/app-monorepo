@@ -23,8 +23,11 @@ import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochModule;
+
 public class RecoveryActivity extends AppCompatActivity {
 
+    private static final String EXPORT_ARCHIVE_NAME = "onekey_logs.zip";
     private final ExecutorService recoveryExecutor = Executors.newSingleThreadExecutor();
 
     // i18n locale strings
@@ -171,7 +174,7 @@ public class RecoveryActivity extends AppCompatActivity {
                 return;
             }
 
-            File zipFile = new File(getCacheDir(), "onekey_logs.zip");
+            File zipFile = exportArchiveFile();
             zipDirectory(logDir, zipFile);
 
             Uri uri = OnekeyFileProvider.getUriForFile(this, zipFile);
@@ -183,6 +186,10 @@ public class RecoveryActivity extends AppCompatActivity {
         } catch (Exception e) {
             showError(sExportError + ": " + e.getMessage());
         }
+    }
+
+    private File exportArchiveFile() {
+        return new File(getCacheDir(), EXPORT_ARCHIVE_NAME);
     }
 
     private File findNativeLoggerDir() {
@@ -228,6 +235,7 @@ public class RecoveryActivity extends AppCompatActivity {
     private void tryAgain() {
         setRecoveryButtonsEnabled(false);
         recoveryExecutor.execute(() -> {
+            forceDisableTravelModeForRecoveryBestEffort();
             try {
                 SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
                 boolean committed = prefs.edit()
@@ -250,6 +258,7 @@ public class RecoveryActivity extends AppCompatActivity {
     private void autoRepair() {
         setRecoveryButtonsEnabled(false);
         recoveryExecutor.execute(() -> {
+            forceDisableTravelModeForRecoveryBestEffort();
             try {
                 Context context = getApplicationContext();
                 BundleUpdateStoreAndroid.INSTANCE.clearUpdateBundleData(context);
@@ -316,7 +325,18 @@ public class RecoveryActivity extends AppCompatActivity {
         }
     }
 
+    private void forceDisableTravelModeForRecoveryBestEffort() {
+        try {
+            OneKeyTravelModeLaunchEpochModule.forceDisableTravelModeForRecovery(
+                getApplicationContext()
+            );
+        } catch (Exception ignored) {
+            // The original recovery action must continue if this safeguard fails.
+        }
+    }
+
     private void restartApp() {
+        forceDisableTravelModeForRecoveryBestEffort();
         Intent launchIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
         if (launchIntent != null) {
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);

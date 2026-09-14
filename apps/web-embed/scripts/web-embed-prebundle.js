@@ -5,9 +5,24 @@
 const { execFile, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const { builtinModules } = require('module');
 const os = require('os');
 const path = require('path');
 const { promisify } = require('util');
+
+const babelParser = require('@babel/parser');
+const enhancedResolve = require('enhanced-resolve');
+
+const {
+  createBaseResolveOptions,
+} = require('../../../development/rspack/rspack.resolve.config');
+
+const {
+  createInputSnapshot,
+  getInputCacheKey,
+  readInputCache,
+  writeInputCache,
+} = require('./web-embed-input-cache');
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(__dirname, '../../..');
@@ -38,18 +53,14 @@ const TRUSTED_ROOT_PATH = path.join(
   'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
 );
 const INPUT_PATHS = [
-  '.env.version',
-  '.github/workflows/web-embed-prebundle.yml',
-  'apps/web-embed',
-  'development',
-  'package.json',
-  'packages/components',
-  'packages/core',
-  'packages/kit',
-  'packages/kit-bg',
-  'packages/shared',
-  'patches',
-  'yarn.lock',
+  'apps/ext/src/assets/preload-html-head.js',
+  'apps/web-embed/babel.config.js',
+  'apps/web-embed/index.js',
+  'apps/web-embed/public/static/images/icons/favicon/favicon.png',
+  'apps/web-embed/rspack.config.ts',
+  'apps/web-embed/scripts/finalize-production-assets.js',
+  'apps/web-embed/sentry.js',
+  'packages/shared/src/web/index.html.ejs',
 ];
 const EXCLUDED_DIRECTORY_NAMES = new Set([
   '.cache',
@@ -69,6 +80,43 @@ const EXCLUDED_GENERATED_INPUT_PATHS = new Set([
   'packages/kit/src/components/WebViewWebEmbed/injectedWebEmbed.text-js',
   'packages/shared/src/web/index.html',
 ]);
+const SOURCE_EXTENSIONS = new Set([
+  '.cjs',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.ts',
+  '.tsx',
+]);
+const WEB_EMBED_RESOLVE_EXTENSIONS = [
+  '.web-embed.ts',
+  '.web-embed.tsx',
+  '.web-embed.js',
+  '.web-embed.jsx',
+  '.web-only.ts',
+  '.web-only.tsx',
+  '.web-only.mjs',
+  '.web-only.js',
+  '.web-only.jsx',
+  '.web.ts',
+  '.web.tsx',
+  '.web.mjs',
+  '.web.js',
+  '.web.jsx',
+  '.ts',
+  '.tsx',
+  '.mjs',
+  '.cjs',
+  '.js',
+  '.jsx',
+  '.json',
+  '.wasm',
+  '.d.ts',
+];
+const BUILTIN_MODULES = new Set(
+  builtinModules.flatMap((name) => [name, `node:${name}`]),
+);
+let cachedDefaultInputKey;
 const CANONICAL_EMPTY_ENV_KEYS = [
   'BUILD_APP_VERSION',
   'CI_BUILD_APP_VERSION',
@@ -103,7 +151,7 @@ function toRepoPath(absolutePath, root = REPO_ROOT) {
   return path.relative(root, absolutePath).split(path.sep).join('/');
 }
 
-function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
+function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT, snapshot) {
   const files = [];
   const visit = (absolutePath) => {
     if (EXCLUDED_GENERATED_INPUT_PATHS.has(toRepoPath(absolutePath, root))) {
@@ -117,6 +165,7 @@ function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
     if (!stat.isDirectory()) {
       throw new Error(`[webEmbedPrebundle] Unsupported input: ${absolutePath}`);
     }
+    snapshot?.contextDependencies.add(absolutePath);
     for (const entry of fs
       .readdirSync(absolutePath, { withFileTypes: true })
       .toSorted((left, right) => compareStrings(left.name, right.name))) {
@@ -137,6 +186,337 @@ function listFiles(inputPaths = INPUT_PATHS, root = REPO_ROOT) {
   return files.toSorted((left, right) =>
     compareStrings(toRepoPath(left, root), toRepoPath(right, root)),
   );
+}
+
+function parseModuleSpecifiers(filePath, snapshot) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  snapshot?.recordContents(filePath, source);
+  const commonPlugins = [
+    'classProperties',
+    'decorators-legacy',
+    'dynamicImport',
+    'importMeta',
+    'jsx',
+    'topLevelAwait',
+  ];
+  let ast;
+  try {
+    ast = babelParser.parse(source, {
+      errorRecovery: false,
+      plugins: [...commonPlugins, 'typescript'],
+      sourceType: 'unambiguous',
+    });
+  } catch {
+    try {
+      ast = babelParser.parse(source, {
+        errorRecovery: false,
+        plugins: [...commonPlugins, 'flow', 'flowComments'],
+        sourceType: 'unambiguous',
+      });
+    } catch {
+      const specifiers = new Set();
+      const importPattern =
+        /(?:\b(?:import|export)\b[\s\S]*?\bfrom\s*|\brequire(?:\.resolve)?\s*\(|\bimport\s*\()\s*['"]([^'"]+)['"]/gu;
+      for (const match of source.matchAll(importPattern)) {
+        specifiers.add(match[1]);
+      }
+      return [...specifiers].toSorted(compareStrings);
+    }
+  }
+  const specifiers = new Set();
+  const addSource = (sourceNode) => {
+    if (sourceNode?.type === 'StringLiteral') specifiers.add(sourceNode.value);
+  };
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'ImportDeclaration' && node.importKind !== 'type') {
+      addSource(node.source);
+    } else if (
+      ['ExportAllDeclaration', 'ExportNamedDeclaration'].includes(node.type) &&
+      node.exportKind !== 'type'
+    ) {
+      addSource(node.source);
+    } else if (node.type === 'ImportExpression') {
+      addSource(node.source);
+    } else if (node.type === 'CallExpression') {
+      const isRequire =
+        node.callee?.type === 'Identifier' && node.callee.name === 'require';
+      const isDynamicImport = node.callee?.type === 'Import';
+      const isRequireResolve =
+        node.callee?.type === 'MemberExpression' &&
+        node.callee.object?.type === 'Identifier' &&
+        node.callee.object.name === 'require' &&
+        node.callee.property?.type === 'Identifier' &&
+        node.callee.property.name === 'resolve';
+      if (isRequire || isDynamicImport || isRequireResolve) {
+        addSource(node.arguments?.[0]);
+      }
+    } else if (
+      node.type === 'NewExpression' &&
+      node.callee?.type === 'Identifier' &&
+      node.callee.name === 'URL'
+    ) {
+      addSource(node.arguments?.[0]);
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if (!['comments', 'errors', 'loc', 'tokens'].includes(key)) visit(value);
+    }
+  };
+  visit(ast.program);
+  return [...specifiers].toSorted(compareStrings);
+}
+
+function getWebEmbedResolveOptions(root, inputResolveOptions) {
+  return (
+    inputResolveOptions ||
+    createBaseResolveOptions({
+      basePath: path.join(root, 'apps/web-embed'),
+      enableSentryMinimalCompat: true,
+      extensions: WEB_EMBED_RESOLVE_EXTENSIONS,
+    })
+  );
+}
+
+function createWebEmbedResolver(root, inputResolveOptions, snapshot) {
+  const resolveOptions = getWebEmbedResolveOptions(root, inputResolveOptions);
+  const { fallback = {}, ...resolverOptions } = resolveOptions;
+  const resolve = enhancedResolve.create({
+    ...resolverOptions,
+    conditionNames: ['browser', 'import', 'require', 'default'],
+    modules: [path.join(root, 'node_modules'), 'node_modules'],
+    // Isolate filesystem memoization to this scan so new files cannot use an old negative lookup.
+    fileSystem: new enhancedResolve.CachedInputFileSystem(fs, 30_000),
+    useSyncFileSystemCalls: true,
+  });
+  const resolvedPaths = new Map();
+  return {
+    fallback,
+    resolve(context, specifier) {
+      const key = `${context}\0${specifier}`;
+      if (resolvedPaths.has(key)) return resolvedPaths.get(key);
+      let settled = false;
+      let result;
+      let failure;
+      resolve(context, specifier, snapshot || {}, (error, resolved) => {
+        settled = true;
+        failure = error;
+        result = resolved;
+      });
+      if (!settled)
+        throw new Error(
+          '[webEmbedPrebundle] Expected synchronous module resolution.',
+        );
+      if (failure) {
+        throw new Error(
+          `[webEmbedPrebundle] Module resolution failed: ${String(failure)}`,
+          { cause: failure },
+        );
+      }
+      resolvedPaths.set(key, result);
+      return result;
+    },
+  };
+}
+
+function resolveWebEmbedSpecifier({ fallback, resolve }, context, specifier) {
+  if (BUILTIN_MODULES.has(specifier)) {
+    const builtinName = specifier.startsWith('node:')
+      ? specifier.slice('node:'.length)
+      : specifier;
+    const replacement = fallback[builtinName];
+    if (replacement === false || replacement === undefined) return false;
+    return resolve(context, replacement);
+  }
+  return resolve(context, specifier);
+}
+
+function findPackageRoot(filePath, root, cache, snapshot) {
+  let current = path.dirname(filePath);
+  const visited = [];
+  const finish = (result) => {
+    for (const directory of visited) cache?.set(directory, result);
+    return result;
+  };
+  while (current.startsWith(root) && current !== root) {
+    if (cache?.has(current)) return finish(cache.get(current));
+    visited.push(current);
+    const packagePath = path.join(current, 'package.json');
+    snapshot?.fileDependencies.add(packagePath);
+    if (fs.existsSync(packagePath)) {
+      const contents = fs.readFileSync(packagePath, 'utf8');
+      snapshot?.recordContents(packagePath, contents);
+      const packageJson = JSON.parse(contents);
+      if (
+        typeof packageJson.name === 'string' &&
+        typeof packageJson.version === 'string'
+      ) {
+        return finish({ packageJson, packagePath, packageRoot: current });
+      }
+    }
+    current = path.dirname(current);
+  }
+  return finish(undefined);
+}
+
+function readYarnLockResolutionRecords(root, snapshot) {
+  const records = new Map();
+  let activeKey;
+  let activeRecord;
+  const flush = () => {
+    if (!activeRecord?.resolution || !activeRecord.version) return;
+    const key = `${activeRecord.resolution}\0${activeRecord.version}`;
+    records.set(key, {
+      checksum: activeRecord.checksum || null,
+      resolution: activeRecord.resolution,
+      version: activeRecord.version,
+    });
+  };
+  const lockPath = path.join(root, 'yarn.lock');
+  const contents = fs.readFileSync(lockPath, 'utf8');
+  snapshot?.recordContents(lockPath, contents);
+  for (const line of contents.split('\n')) {
+    if (line && !line.startsWith(' ') && line.endsWith(':')) {
+      flush();
+      activeKey = line.slice(0, -1);
+      activeRecord = activeKey === '__metadata' ? undefined : {};
+    } else if (activeRecord) {
+      const field = line.match(/^  (checksum|resolution|version): (.+)$/u);
+      if (field) {
+        activeRecord[field[1]] = field[2].startsWith('"')
+          ? JSON.parse(field[2])
+          : field[2];
+      }
+    }
+  }
+  flush();
+  return [...records.values()];
+}
+
+function getPackageResolutionRecords(packageJson, lockRecords) {
+  const exactNpmResolution = `${packageJson.name}@npm:${packageJson.version}`;
+  const matches = lockRecords.filter(
+    ({ resolution, version }) =>
+      version === packageJson.version &&
+      (resolution === exactNpmResolution ||
+        resolution.startsWith(`${packageJson.name}@`)),
+  );
+  if (matches.length === 0) {
+    throw new Error(
+      `[webEmbedPrebundle] Installed dependency is missing from yarn.lock: ${packageJson.name}@${packageJson.version}`,
+    );
+  }
+  return matches.toSorted((left, right) =>
+    compareStrings(JSON.stringify(left), JSON.stringify(right)),
+  );
+}
+
+function getWebEmbedInputDescriptor({
+  inputPaths = INPUT_PATHS,
+  resolveOptions,
+  root = REPO_ROOT,
+  snapshot,
+} = {}) {
+  const resolver = createWebEmbedResolver(root, resolveOptions, snapshot);
+  const repoFiles = new Set(listFiles(inputPaths, root, snapshot));
+  const pending = [...repoFiles];
+  const visited = new Set();
+  const externalPackages = new Map();
+  const packageRoots = new Map();
+  while (pending.length > 0) {
+    const filePath = pending.pop();
+    if (!visited.has(filePath)) {
+      visited.add(filePath);
+      snapshot?.fileDependencies.add(filePath);
+      if (SOURCE_EXTENSIONS.has(path.extname(filePath))) {
+        const specifiers = parseModuleSpecifiers(filePath, snapshot);
+        for (const specifier of specifiers) {
+          let resolved;
+          try {
+            resolved = resolveWebEmbedSpecifier(
+              resolver,
+              path.dirname(filePath),
+              specifier,
+            );
+          } catch (error) {
+            const adjacentPath = path.resolve(
+              path.dirname(filePath),
+              specifier,
+            );
+            if (
+              fs.existsSync(adjacentPath) &&
+              fs.lstatSync(adjacentPath).isFile()
+            ) {
+              resolved = adjacentPath;
+            } else {
+              throw new Error(
+                `[webEmbedPrebundle] Unable to resolve ${specifier} from ${toRepoPath(filePath, root)}. Run yarn install first.`,
+                { cause: error },
+              );
+            }
+          }
+          if (resolved !== false && typeof resolved === 'string') {
+            const normalizedPath = resolved
+              .replaceAll('\0#', '#')
+              .replaceAll('\0?', '?');
+            const relativePath = toRepoPath(normalizedPath, root);
+            if (!relativePath.startsWith('node_modules/')) {
+              if (!repoFiles.has(normalizedPath)) {
+                repoFiles.add(normalizedPath);
+              }
+            } else {
+              const resolvedPackage = findPackageRoot(
+                normalizedPath,
+                root,
+                packageRoots,
+                snapshot,
+              );
+              if (!resolvedPackage) {
+                throw new Error(
+                  `[webEmbedPrebundle] Unable to identify dependency for ${relativePath}.`,
+                );
+              }
+              externalPackages.set(
+                resolvedPackage.packageRoot,
+                resolvedPackage,
+              );
+            }
+            pending.push(normalizedPath);
+          }
+        }
+      }
+    }
+  }
+
+  const packages = [];
+  const lockRecords = readYarnLockResolutionRecords(root, snapshot);
+  for (const dependency of externalPackages.values()) {
+    const { packageJson } = dependency;
+    packages.push({
+      browser: packageJson.browser ?? null,
+      dependencies: packageJson.dependencies || {},
+      exports: packageJson.exports ?? null,
+      main: packageJson.main ?? null,
+      module: packageJson.module ?? null,
+      name: packageJson.name,
+      optionalDependencies: packageJson.optionalDependencies || {},
+      peerDependencies: packageJson.peerDependencies || {},
+      resolutions: getPackageResolutionRecords(packageJson, lockRecords),
+      sideEffects: packageJson.sideEffects ?? null,
+      version: packageJson.version,
+    });
+  }
+
+  return {
+    files: [...repoFiles].toSorted((left, right) =>
+      compareStrings(toRepoPath(left, root), toRepoPath(right, root)),
+    ),
+    packages: packages.toSorted((left, right) =>
+      compareStrings(
+        `${left.name}@${left.version}`,
+        `${right.name}@${right.version}`,
+      ),
+    ),
+  };
 }
 
 function hashFiles(absolutePaths, root = REPO_ROOT) {
@@ -161,11 +541,64 @@ function hashFiles(absolutePaths, root = REPO_ROOT) {
   return hash.digest('hex');
 }
 
-function getInputKey({ inputPaths = INPUT_PATHS, root = REPO_ROOT } = {}) {
+function getInputKey(options = {}) {
+  if (Object.keys(options).length === 0 && cachedDefaultInputKey) {
+    return cachedDefaultInputKey;
+  }
+  const {
+    inputPaths = INPUT_PATHS,
+    resolveOptions,
+    root = REPO_ROOT,
+    traceDependencies = inputPaths === INPUT_PATHS,
+    inputCache = true,
+  } = options;
+  const resolvedOptions = traceDependencies
+    ? getWebEmbedResolveOptions(root, resolveOptions)
+    : undefined;
+  const cachePath =
+    inputCache && traceDependencies
+      ? path.join(
+          root,
+          'apps/web-embed/out-dir-bundle/web-embed-input-cache.json',
+        )
+      : undefined;
+  const cacheKey = cachePath
+    ? getInputCacheKey({
+        root,
+        inputPaths,
+        resolveOptions: resolvedOptions,
+        platform: process.platform,
+        nodeVersion: process.versions.node,
+        scanner: sha256(fs.readFileSync(__filename)),
+        parserVersion: require('@babel/parser/package.json').version,
+        resolverVersion: require('enhanced-resolve/package.json').version,
+      })
+    : undefined;
+  const cached = readInputCache(cachePath, cacheKey);
+  if (cached) {
+    if (Object.keys(options).length === 0) cachedDefaultInputKey = cached;
+    return cached;
+  }
+  const snapshot = cacheKey ? createInputSnapshot() : undefined;
   const hash = crypto.createHash('sha256');
   hash.update(`schema:${SCHEMA_VERSION}\0`);
-  hash.update(hashFiles(listFiles(inputPaths, root), root));
-  return hash.digest('hex');
+  if (traceDependencies) {
+    const descriptor = getWebEmbedInputDescriptor({
+      inputPaths,
+      resolveOptions: resolvedOptions,
+      root,
+      snapshot,
+    });
+    hash.update(hashFiles(descriptor.files, root));
+    hash.update('\0');
+    hash.update(JSON.stringify(descriptor.packages));
+  } else {
+    hash.update(hashFiles(listFiles(inputPaths, root), root));
+  }
+  const inputKey = hash.digest('hex');
+  if (snapshot) writeInputCache({ cachePath, cacheKey, inputKey, snapshot });
+  if (Object.keys(options).length === 0) cachedDefaultInputKey = inputKey;
+  return inputKey;
 }
 
 function getReleaseTag() {
@@ -269,6 +702,40 @@ function assertCanonicalBuildReceipt({
       '[webEmbedPrebundle] web-build was not produced by the canonical prebundle build.',
     );
   }
+}
+
+function getPreparedWebEmbedCache({
+  inputKey = getInputKey(),
+  webBuildDirectory = path.join(WEB_EMBED_ROOT, 'web-build'),
+  buildReceiptPath = getCanonicalBuildReceiptPath(),
+  restoredReceiptPath = path.join(
+    WEB_EMBED_ROOT,
+    'out-dir-bundle/web-embed-prebundle-restored.json',
+  ),
+} = {}) {
+  for (const receiptPath of [buildReceiptPath, restoredReceiptPath]) {
+    try {
+      const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+      if (
+        receipt.schemaVersion === 1 &&
+        receipt.inputKey === inputKey &&
+        /^[0-9a-f]{64}$/u.test(receipt.outputTreeDigest || '')
+      ) {
+        const stat = fs.lstatSync(webBuildDirectory);
+        if (!stat.isDirectory() || stat.isSymbolicLink()) return undefined;
+        const outputTreeDigest = hashFiles(
+          listOutputFiles(webBuildDirectory),
+          webBuildDirectory,
+        );
+        if (outputTreeDigest === receipt.outputTreeDigest) {
+          return { inputKey, outputTreeDigest, source: 'local-cache' };
+        }
+      }
+    } catch {
+      // Missing, obsolete, or modified output must go through restore/build again.
+    }
+  }
+  return undefined;
 }
 
 function assertSourceCommit(sourceCommit) {
@@ -1057,7 +1524,9 @@ module.exports = {
   createArchiveEntryFilter,
   getCanonicalBuildEnvironment,
   getInputKey,
+  getPreparedWebEmbedCache,
   getReleaseTag,
+  getWebEmbedInputDescriptor,
   hashFiles,
   listFiles,
   packageRelease,

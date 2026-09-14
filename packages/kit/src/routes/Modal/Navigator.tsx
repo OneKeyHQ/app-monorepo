@@ -4,18 +4,28 @@ import { useIsFocused } from '@react-navigation/native';
 
 import {
   EPageType,
+  Spinner,
+  Stack,
   Theme,
+  popToMainRoute,
   setGlassHeaderUIStyle,
   setSystemBarsOverride,
   useThemeName,
 } from '@onekeyhq/components';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
+import {
   EModalRoutes,
-  EOnboardingV2Routes,
+  EModalSettingRoutes,
+  type EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes';
 import type { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
+
+import useAppNavigation from '../../hooks/useAppNavigation';
+import {
+  openTravelModeSettingsWithAdmission,
+  shouldRedirectOnboardingToTravelMode,
+} from '../../utils/onboardingEntryGate';
 
 import {
   fullScreenPushRouterConfig,
@@ -45,7 +55,38 @@ export function FullScreenPushNavigator() {
   );
 }
 
-export function OnboardingNavigator() {
+function TravelModeOnboardingRedirect() {
+  const navigation = useAppNavigation();
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (startedRef.current) {
+      return;
+    }
+    startedRef.current = true;
+    void openTravelModeSettingsWithAdmission({
+      openTravelModeSettings: async ({ admissionId }) => {
+        await popToMainRoute();
+        navigation.pushModal(EModalRoutes.SettingModal, {
+          screen: EModalSettingRoutes.SettingTravelModeModal,
+          params: { admissionId },
+        });
+      },
+    }).then((opened) => {
+      if (!opened) {
+        void popToMainRoute();
+      }
+    });
+  }, [navigation]);
+
+  return (
+    <Stack flex={1} alignItems="center" justifyContent="center">
+      <Spinner size="large" />
+    </Stack>
+  );
+}
+
+function StandardOnboardingNavigator() {
   // Onboarding forces a dark Theme for its content, so the iOS 26 glass header
   // bar must use the dark variant while onboarding is the foreground route —
   // otherwise it flashes the light variant (the app theme is usually light).
@@ -111,4 +152,11 @@ export function OnboardingNavigator() {
       />
     </Theme>
   );
+}
+
+export function OnboardingNavigator() {
+  if (shouldRedirectOnboardingToTravelMode()) {
+    return <TravelModeOnboardingRedirect />;
+  }
+  return <StandardOnboardingNavigator />;
 }

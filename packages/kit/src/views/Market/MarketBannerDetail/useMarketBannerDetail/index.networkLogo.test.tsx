@@ -2,7 +2,12 @@
 
 import { useMarketBannerDetail } from '.';
 
-import { render } from '@testing-library/react';
+import { render, renderHook } from '@testing-library/react';
+
+import type {
+  IMarketStockPublicItem,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 const mockNetworkList = [
   {
@@ -14,7 +19,9 @@ const mockNetworkList = [
     chainId: '143',
   },
 ];
-const mockTickerResult = [
+const mockFetchStocks = jest.fn<Promise<IMarketStockPublicItem[]>, []>();
+let mockRequest: () => Promise<unknown>;
+let mockTickerResult: IMarketTokenListItem[] = [
   {
     address: '0xmonad',
     name: 'Monad Token',
@@ -31,14 +38,19 @@ const mockSetBannerSort = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { serviceMarketV2: {} },
+  default: {
+    serviceMarketV2: {
+      fetchMarketBannerStockTokenList: (...args: []) =>
+        mockFetchStocks(...args),
+    },
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({
-    result: mockTickerResult,
-    isLoading: false,
-  }),
+  usePromiseResult: (request: () => Promise<unknown>) => {
+    mockRequest = request;
+    return { result: mockTickerResult, isLoading: false };
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -65,4 +77,34 @@ describe('useMarketBannerDetail network logos', () => {
 
     expect(latestNetworkLogoUri).toBe('https://example.com/monad.png');
   });
+});
+
+it('keeps stock identity without exposing it as a contract address', async () => {
+  mockFetchStocks.mockResolvedValue([
+    {
+      stockId: 'AAPL',
+      name: 'Apple',
+      symbol: 'AAPL',
+      logoUrl: '',
+      price: '100',
+      priceChange24hPercent: '1',
+      assetType: 'stock',
+      currency: 'USD',
+    },
+  ]);
+  const { result, rerender } = renderHook(() =>
+    useMarketBannerDetail({
+      tokenListId: 'stocks',
+      isPerps: false,
+      isStock: true,
+    }),
+  );
+  const response = await mockRequest();
+  expect(response).toEqual([
+    expect.objectContaining({ address: '', stockId: 'AAPL' }),
+  ]);
+  mockTickerResult = response as typeof mockTickerResult;
+  rerender();
+  expect(result.current.mobileData[0].address).toBe('');
+  expect(result.current.mobileData[0].stock?.stockId).toBe('AAPL');
 });

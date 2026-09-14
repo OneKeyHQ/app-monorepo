@@ -28,9 +28,11 @@ import appStorage, {
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { storeExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../dbs/local/localDb';
 import {
@@ -416,6 +418,9 @@ class ServiceApp extends ServiceBase {
     from?: EEnterWay;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    marketTokenSymbol?: string;
+    resolveMarketAsset?: boolean;
+    tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
     const {
       tokenAddress,
@@ -428,12 +433,22 @@ class ServiceApp extends ServiceBase {
       from,
       showFavoriteButton,
       marketTokenCategory,
+      marketTokenSymbol,
+      resolveMarketAsset,
+      tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
-    if (typeof isNative === 'boolean') {
-      routeParams.isNative = isNative;
+    if (
+      typeof tokenAddress !== 'string' ||
+      typeof network !== 'string' ||
+      !network ||
+      (!tokenAddress && isNative === false)
+    ) {
+      throw new OneKeyLocalError('Invalid market token identity');
     }
+    const routeIsNative = isNative ?? tokenAddress.length === 0;
+    routeParams.isNative = routeIsNative;
     if (from) {
       routeParams.from = from;
     }
@@ -442,6 +457,12 @@ class ServiceApp extends ServiceBase {
     }
     if (marketTokenCategory) {
       routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (marketTokenSymbol) {
+      routeParams.marketTokenSymbol = marketTokenSymbol;
+    }
+    if (resolveMarketAsset) {
+      routeParams.resolveMarketAsset = true;
     }
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;
@@ -455,9 +476,19 @@ class ServiceApp extends ServiceBase {
     if (typeof disableTrade === 'boolean') {
       routeParams.disableTrade = disableTrade;
     }
+    if (tokenDetailPreview) {
+      const previewId = await storeExtensionTokenPreview(
+        { network, tokenAddress, isNative: routeIsNative },
+        tokenDetailPreview,
+      );
+      if (previewId) routeParams.marketTokenPreviewId = previewId;
+    }
+    if (skipMarketDataFetch && !routeParams.marketTokenPreviewId) {
+      throw new OneKeyLocalError('Unable to transfer market token preview');
+    }
 
     return extUtils.openExpandTab({
-      path: `/market/token/${network}/${tokenAddress}`,
+      path: `/market/token/${encodeURIComponent(network)}/${encodeURIComponent(tokenAddress)}`,
       params: routeParams,
     });
   }

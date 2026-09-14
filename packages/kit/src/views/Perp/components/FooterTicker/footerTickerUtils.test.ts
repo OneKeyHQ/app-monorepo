@@ -1,4 +1,5 @@
 import {
+  applyActiveCtxToFooterTickerItems,
   getFooterTickerStructureKey,
   mergeFooterTickerLiveValues,
   shouldAnimateFooterTicker,
@@ -22,6 +23,41 @@ function createItem(
 }
 
 describe('footerTickerUtils', () => {
+  test('active coin mirrors the per-asset ctx mark price', () => {
+    const btc = createItem({});
+    const eth = createItem({ displayName: 'ETH', coinName: 'ETH', assetId: 1 });
+
+    const result = applyActiveCtxToFooterTickerItems(
+      [btc, eth],
+      [
+        { coin: 'BTC', mode: 'perp', markPrice: '100.5', change24hPercent: 3 },
+        undefined,
+      ],
+    );
+
+    expect(result[0]).toEqual(
+      createItem({ markPrice: '100.5', change24hPercent: 3 }),
+    );
+    expect(result[1]).toBe(eth);
+  });
+
+  test('active ctx overlay keeps item identity when nothing changes', () => {
+    const btc = createItem({});
+    const items = [btc];
+
+    expect(
+      applyActiveCtxToFooterTickerItems(items, [
+        { coin: 'BTC', mode: 'perp', markPrice: '100', change24hPercent: 1 },
+      ]),
+    ).toBe(items);
+    expect(
+      applyActiveCtxToFooterTickerItems(items, [
+        { coin: 'BTC', mode: 'perp', markPrice: '0' },
+        { coin: 'BTC', mode: 'spot', markPrice: '200' },
+      ]),
+    ).toBe(items);
+  });
+
   test('structure key ignores live price changes', () => {
     const first = createItem({});
     const updated = createItem({

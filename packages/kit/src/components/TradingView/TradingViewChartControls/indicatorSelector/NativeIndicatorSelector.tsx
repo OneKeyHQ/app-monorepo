@@ -9,11 +9,15 @@ import {
   ScrollView,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import {
   HEADER_ICON_BUTTON_STYLE_PROPS,
@@ -35,6 +39,8 @@ import type {
 } from '../types';
 
 const INDICATOR_GRID_COLUMN_COUNT = 4;
+
+type IIndicatorSubmitAction = 'confirm' | 'settings';
 
 function buildIndicatorItemTestID(value: string): string {
   return `trading-view-native-indicator-item-${value
@@ -188,6 +194,7 @@ export function IndicatorListDialogContent({
   onSelect,
   onSelectionConfirm,
   onResetLayout,
+  onSettingsPress,
 }: {
   indicators: ITradingViewIndicatorOption[];
   resetLayout?: ITradingViewNativeChartControlsConfigData['resetLayout'];
@@ -195,11 +202,16 @@ export function IndicatorListDialogContent({
   onSelect: (indicatorName: string, desiredActive: boolean) => void;
   onSelectionConfirm?: (
     selection: ITradingViewNativeIndicatorSelection,
-  ) => void;
+  ) => void | Promise<void>;
   onResetLayout: () => void;
+  onSettingsPress?: () => void;
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
+  const [submittingAction, setSubmittingAction] =
+    useState<IIndicatorSubmitAction>();
+  const isSubmitting = submittingAction !== undefined;
+  const submittingRef = useRef(false);
   const [activeIndicatorValues, setActiveIndicatorValues] = useState(
     () =>
       new Set(
@@ -209,6 +221,9 @@ export function IndicatorListDialogContent({
       ),
   );
   const originalActiveIndicatorValuesRef = useRef(activeIndicatorValues);
+  const pendingSelectionRef = useRef<
+    ITradingViewNativeIndicatorSelection | undefined
+  >(undefined);
   const activeIndicatorValuesRef = useRef(activeIndicatorValues);
   const { mainIndicators, subIndicators } = useMemo(
     () => getIndicatorSections(indicators),
@@ -218,6 +233,7 @@ export function IndicatorListDialogContent({
   const handleIndicatorPress = useCallback(
     (indicator: ITradingViewIndicatorOption) => {
       if (
+        submittingRef.current ||
         !canToggleTradingViewNativeIndicatorOn({
           indicatorValue: indicator.value,
           activeIndicatorValues: activeIndicatorValuesRef.current,
@@ -241,18 +257,62 @@ export function IndicatorListDialogContent({
     [maxSelectableSubIndicatorCount],
   );
 
-  const handleConfirmPress = useCallback(() => {
+  const commitSelection = useCallback(async () => {
     const originalValues = originalActiveIndicatorValuesRef.current;
     const nextValues = activeIndicatorValuesRef.current;
-    commitNativeIndicatorSelection({
+    await commitNativeIndicatorSelection({
       indicators,
       nextActiveIndicatorValues: nextValues,
       onSelect,
-      onSelectionConfirm,
+      onSelectionConfirm: onSelectionConfirm
+        ? async (selection) => {
+            // A rejected write may already have updated the atom in memory.
+            pendingSelectionRef.current = selection;
+            await onSelectionConfirm(selection);
+            pendingSelectionRef.current = undefined;
+          }
+        : undefined,
       originalActiveIndicatorValues: originalValues,
+      pendingSelection: pendingSelectionRef.current,
     });
-    void dialog.close();
-  }, [dialog, indicators, onSelect, onSelectionConfirm]);
+    originalActiveIndicatorValuesRef.current = new Set(nextValues);
+  }, [indicators, onSelect, onSelectionConfirm]);
+
+  const handleSelectionSubmit = useCallback(
+    async (action: IIndicatorSubmitAction) => {
+      if (submittingRef.current) {
+        return;
+      }
+      submittingRef.current = true;
+      setSubmittingAction(action);
+      let phase = 'persist';
+      try {
+        await commitSelection();
+        phase = 'close';
+        await dialog.close();
+        if (action === 'settings') {
+          phase = 'navigate';
+          onSettingsPress?.();
+        }
+      } catch (error) {
+        const { name, className, message, code } = toPlainErrorObject(error);
+        defaultLogger.app.error.log(
+          `[NativeIndicatorSelector] ${phase} failed: ${stringUtils.stableStringify(
+            { name, className, message: message ?? String(error), code },
+          )}`,
+        );
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+      } finally {
+        submittingRef.current = false;
+        setSubmittingAction(undefined);
+      }
+    },
+    [commitSelection, dialog, intl, onSettingsPress],
+  );
 
   const confirmText = intl.formatMessage({
     id: ETranslations.global_confirm,
@@ -267,6 +327,7 @@ export function IndicatorListDialogContent({
       testID="trading-view-native-indicators-reset-layout-button"
       variant="secondary"
       size="large"
+      disabled={isSubmitting}
       onPress={() => {
         onResetLayout();
         void dialog.close();
@@ -282,7 +343,9 @@ export function IndicatorListDialogContent({
       testID="trading-view-native-indicators-confirm-button"
       variant="primary"
       size="large"
-      onPress={handleConfirmPress}
+      disabled={isSubmitting}
+      loading={submittingAction === 'confirm'}
+      onPress={() => handleSelectionSubmit('confirm')}
     >
       {confirmText}
     </Button>
@@ -290,6 +353,19 @@ export function IndicatorListDialogContent({
 
   return (
     <YStack gap="$6" pb="$2">
+      {onSettingsPress ? (
+        <Button
+          testID="trading-view-native-indicators-settings-button"
+          icon="SettingsOutline"
+          justifyContent="flex-start"
+          variant="tertiary"
+          disabled={isSubmitting}
+          loading={submittingAction === 'settings'}
+          onPress={() => handleSelectionSubmit('settings')}
+        >
+          {intl.formatMessage({ id: ETranslations.global_settings })}
+        </Button>
+      ) : null}
       <ScrollView maxHeight={320} showsVerticalScrollIndicator={false}>
         <YStack gap="$6">
           <IndicatorSection

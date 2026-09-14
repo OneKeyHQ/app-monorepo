@@ -1,5 +1,8 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
-import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ETabHomeRoutes,
+  PRIME_REDEEM_LANDING_PATH,
+} from '@onekeyhq/shared/src/routes';
 
 import {
   LazyLoadPage,
@@ -35,6 +38,12 @@ const RedeemBitcoinVoucherLanding = LazyLoadPage(async () => {
   return { default: RedeemBitcoinVoucherLandingPage };
 });
 
+const PrimeRedeemLanding = LazyLoadPage(async () => {
+  const { PrimeRedeemLandingPage } =
+    await import('../../Prime/pages/PrimeRedeemLanding/PrimeRedeemLandingPage');
+  return { default: PrimeRedeemLandingPage };
+});
+
 const BulkSendAddressesInput = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAddressesInput'),
 );
@@ -62,6 +71,7 @@ export const referralLandingRewrite = '/r/:code/app/:page';
 export const referralLandingRewriteWithoutPage = '/r/:code/app';
 export const referralLandingRewriteCodeOnly = '/r/:code';
 export const redeemBitcoinVoucherLandingRewrite = '/redeem-bitcoin-voucher';
+export const primeRedeemLandingRewrite = PRIME_REDEEM_LANDING_PATH;
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -106,6 +116,13 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomeRedeemBitcoinVoucher,
     component: RedeemBitcoinVoucherLanding,
     rewrite: redeemBitcoinVoucherLandingRewrite,
+    exact: true,
+    headerShown: false,
+  },
+  {
+    name: ETabHomeRoutes.TabHomePrimeRedeem,
+    component: PrimeRedeemLanding,
+    rewrite: primeRedeemLandingRewrite,
     exact: true,
     headerShown: false,
   },

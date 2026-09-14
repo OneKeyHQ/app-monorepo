@@ -346,7 +346,7 @@ export function FirmwareUpdateProgressBarV2({
     }
     return intl.formatMessage(
       { id: ETranslations.firmware_update_estimated_time__desc },
-      { time: displayMetrics.estimatedRemainingText ?? '- s' },
+      { time: displayMetrics.estimatedRemainingText ?? '-' },
     );
   }, [firmwareProgressType, firmwareTransferMetrics, intl]);
 
@@ -596,6 +596,10 @@ export function FirmwareUpdateProgressBarV2({
           verifyVersion = resultVerifyVersions?.finalBootloaderVersion;
         } else if (item.target === 'coprocessor') {
           verifyVersion = resultVerifyVersions?.finalBleVersion;
+        } else if (isDoneInternal && !item.releaseIdentifierOnly) {
+          // The SDK verifies P1/P2 and SE targets before reporting success,
+          // but its legacy result only exposes firmware, bootloader and BLE.
+          verifyVersion = item.targetVersion ?? undefined;
         }
         const title = getProtocolV2FirmwareVersionTitle({
           target: item.target,
@@ -664,7 +668,14 @@ export function FirmwareUpdateProgressBarV2({
     }
 
     return versions;
-  }, [devSettings.enabled, hideDebugInfo, result, intl, resultVerifyVersions]);
+  }, [
+    devSettings.enabled,
+    hideDebugInfo,
+    isDoneInternal,
+    result,
+    intl,
+    resultVerifyVersions,
+  ]);
 
   const previousStepInfo = useRef(stepInfo);
   useEffect(() => {

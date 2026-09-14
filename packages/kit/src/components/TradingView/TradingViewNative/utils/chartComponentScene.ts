@@ -69,7 +69,10 @@ export function appendTradingViewNativeChartComponentCommands({
 
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
-  for (const component of components) {
+  components.forEach((component) => {
+    if (component.type !== 'referenceLine') {
+      return;
+    }
     const { anchor, color, style, title } = component.props;
     const priceLayout = getTradingViewNativeCurrentPriceLayout({
       labelHeight: PRICE_LABEL_HEIGHT,
@@ -191,6 +194,6 @@ export function appendTradingViewNativeChartComponentCommands({
         );
       }
     }
-  }
+  });
   return { priceLabelCommands, textLabelCommands };
 }

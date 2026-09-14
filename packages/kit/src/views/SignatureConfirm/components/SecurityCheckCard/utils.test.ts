@@ -239,26 +239,37 @@ describe('SecurityCheckCard address risk boundaries', () => {
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
+        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
       }),
     ).toBe(true);
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: true,
+        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
       }),
     ).toBe(false);
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
+        hasAddressRisk: false,
         hasResolvedRequiredChecks: false,
       }),
     ).toBe(false);
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
+        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
         isSecurityCheckPending: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowNoIssueSection({
+        hasCardFindings: false,
+        hasAddressRisk: true,
+        hasResolvedRequiredChecks: true,
       }),
     ).toBe(false);
   });
@@ -269,11 +280,6 @@ describe('SecurityCheckCard simulation asset display rules', () => {
     it.each([
       ['token uses symbol', buildTokenAsset(), 'ETH'],
       ['nft prefers metadata name', buildNFTAsset(), 'Cool Cat #42'],
-      [
-        'nft falls back to collection name',
-        buildNFTAsset({}, { metadata: undefined }),
-        'Cool Cats',
-      ],
       [
         'nft falls back to literal NFT',
         buildNFTAsset({}, { metadata: undefined, collectionName: '' }),
@@ -302,6 +308,19 @@ describe('SecurityCheckCard simulation asset display rules', () => {
     ])('%s', (_title, asset, expected) => {
       expect(getSimulationAssetLabel(asset)).toBe(expected);
     });
+
+    it('shows collection name and quantity for an nft with empty metadata', () => {
+      const asset = buildNFTAsset(
+        { transferDirection: ETransferDirection.In },
+        {
+          collectionName: 'Uniswap v4 Positions NFT',
+          metadata: {} as IDisplayComponentNFT['nft']['metadata'],
+        },
+      );
+      expect(getSimulationAssetLabel(asset)).toBe('Uniswap v4 Positions NFT');
+      expect(getSimulationAssetSign(asset)).toBe('+');
+      expect(getSimulationAssetAmount(asset)).toBe('1');
+    });
   });
 
   describe('getSimulationAssetAmount', () => {
@@ -317,26 +336,24 @@ describe('SecurityCheckCard simulation asset display rules', () => {
         buildTokenAsset({ amountParsed: undefined, amount: '2' }),
         '',
       ],
-      // Canonical Assets.tsx rule: a unique (non-ERC1155) NFT shows no
-      // numeric quantity, an ERC1155 keeps its stack size.
-      ['erc721 nft hides amount', buildNFTAsset({ amount: '1' }), ''],
+      ['erc721 nft uses server amount', buildNFTAsset({ amount: '1' }), '1'],
       [
         'erc1155 nft keeps amount',
         buildNFTAsset({ amount: '5' }, { collectionType: ENFTType.ERC1155 }),
         '5',
       ],
       [
-        'internal erc721 nft hides amount',
+        'internal erc721 nft uses parsed quantity',
         buildInternalAsset({ isNFT: true, NFTType: ENFTType.ERC721 }),
-        '',
+        '1',
       ],
       [
-        'internal nft without NFTType hides amount',
+        'internal nft without NFTType uses parsed quantity',
         buildInternalAsset({ isNFT: true }),
-        '',
+        '1',
       ],
       [
-        'internal erc1155 nft keeps amount',
+        'internal erc1155 nft keeps parsed quantity',
         buildInternalAsset({
           isNFT: true,
           NFTType: ENFTType.ERC1155,
@@ -371,14 +388,12 @@ describe('SecurityCheckCard simulation asset display rules', () => {
       ).toBe(expected);
     });
 
-    it('keeps the lone sign for an outgoing unique NFT (amount hidden)', () => {
+    it('shows signed quantity for an outgoing unique NFT', () => {
       const asset = buildNFTAsset({
         transferDirection: ETransferDirection.Out,
       });
-      // Assets.tsx renders the direction sign unconditionally and hides only
-      // the numeric amount, so the row still reads as leaving the wallet.
       expect(getSimulationAssetSign(asset)).toBe('-');
-      expect(getSimulationAssetAmount(asset)).toBe('');
+      expect(getSimulationAssetAmount(asset)).toBe('1');
     });
   });
 

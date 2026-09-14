@@ -102,6 +102,7 @@ import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { getPerpDepositErrorCode } from '../../../utils/perpDepositAnalytics';
+import { resolvePerpsDepositReceiveAccountId } from '../../../utils/perpsDepositReceiveAccount';
 import { preloadPerpsDepositSelectTokenModal } from '../../../utils/preloadPerpsDepositSelectTokenModal';
 import {
   PERP_DIALOG_BUTTON_SIZE,
@@ -561,9 +562,24 @@ function DepositWithdrawContent({
       walletType: accountResult.wallet?.type ?? '',
     });
 
+    const tokenNetworkId = currentPerpsDepositSelectedToken.networkId ?? '';
+    // Pair a cross-chain deposit token (e.g. on Solana) with the account of
+    // its own network instead of the EVM Perps account (OK-62522).
+    const receiveAccountId = await resolvePerpsDepositReceiveAccountId({
+      selectedAccountId: selectedAccount.accountId,
+      indexedAccountId: selectedAccount.indexedAccountId,
+      tokenNetworkId,
+      deps: {
+        getGlobalDeriveTypeOfNetwork: (query) =>
+          backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(query),
+        getNetworkAccount: (query) =>
+          backgroundApiProxy.serviceAccount.getNetworkAccount(query),
+      },
+    });
+
     const navParams = {
-      accountId: selectedAccount.accountId ?? '',
-      networkId: currentPerpsDepositSelectedToken.networkId ?? '',
+      accountId: receiveAccountId,
+      networkId: tokenNetworkId,
       walletId: accountResult.wallet?.id ?? '',
       indexedAccountId: selectedAccount.indexedAccountId,
       showSwapEntry: true,

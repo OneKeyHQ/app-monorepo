@@ -50,7 +50,9 @@ export type ISelectProps<
   title: string;
   value?: T;
   open?: boolean;
-  onChange?: (value: T) => void;
+  onChange?: (value: T) => void | Promise<void>;
+  /** Keep the selector open until an asynchronous selection is ready to show. */
+  waitForChangeBeforeClose?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   defaultTriggerInputProps?: IInputProps;

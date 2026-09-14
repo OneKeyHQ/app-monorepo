@@ -31,6 +31,9 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
   for normal iOS/Android React Native development. Read this guide before
   starting the app, restoring shell/vendor resources, or attaching UI tooling.
 
+- [Mobile dependency setup](references/mobile-dependencies.md) - CocoaPods,
+  Pods installation, and missing injected assets.
+
 - `yarn app:ios` - Start iOS development through the Mobile DevSession launcher
   - **Runtime**: 1-2 minutes (includes Metro bundler)
   - **Common issues**: Xcode setup, simulator issues, pod install failures
@@ -48,6 +51,9 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
 - `yarn app:web-embed` - Start embeddable components development
   - **Runtime**: 15-30 seconds
   - **Usage**: For developing standalone wallet components
+
+- `yarn app:native-bundle` - Prepare iOS/Android development vendor bundles,
+  then start Metro. Wait for `Dev server ready`; this does not install the app.
 
 ## Build Commands
 
@@ -70,12 +76,6 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
   - **Output**: Static files in `apps/web/dist/`
   - **Common issues**: Bundle size limits, missing environment variables
   - **Verification**: Serve built files and test functionality
-
-- `yarn app:native-bundle` - Bundle React Native app
-  - **Runtime**: 3-5 minutes
-  - **Output**: Platform-specific bundles
-  - **Common issues**: Native module linking, Metro bundler errors
-  - **Prerequisites**: Platform development environment properly configured
 
 ## Development Tools & Quality Assurance
 

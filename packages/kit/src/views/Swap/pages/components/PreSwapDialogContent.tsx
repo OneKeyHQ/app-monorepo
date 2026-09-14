@@ -880,48 +880,55 @@ const PreSwapDialogContent = ({
           </YStack>
 
           {stockReviewDisplay ? (
-            <YStack testID="swap-stock-review-info" gap="$3">
-              <XStack
-                testID="swap-stock-review-estimated-shares"
-                alignItems="center"
-                justifyContent="space-between"
-                gap="$3"
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  Shares
-                </SizableText>
-                <NumberSizeableText
-                  size="$bodyMdMedium"
-                  formatter="balance"
-                  formatterOptions={{
-                    tokenSymbol: stockReviewDisplay.underlyingSymbol,
-                  }}
-                >
-                  {stockReviewDisplay.estimatedShares}
-                </NumberSizeableText>
-              </XStack>
-              {stockReviewDisplay.sharePrice ? (
+            <>
+              <Divider testID="swap-stock-review-divider" />
+              <YStack testID="swap-stock-review-info" gap="$3">
+                {stockReviewDisplay.sharePrice ? (
+                  <XStack
+                    testID="swap-stock-review-share-price"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    gap="$3"
+                  >
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.market_token_price,
+                      })}
+                    </SizableText>
+                    <NumberSizeableText
+                      size="$bodyMdMedium"
+                      formatter="value"
+                      formatterOptions={{
+                        currency: settingsPersist.currencyInfo.symbol,
+                      }}
+                    >
+                      {stockReviewDisplay.sharePrice}
+                    </NumberSizeableText>
+                  </XStack>
+                ) : null}
                 <XStack
-                  testID="swap-stock-review-share-price"
+                  testID="swap-stock-review-estimated-shares"
                   alignItems="center"
                   justifyContent="space-between"
                   gap="$3"
                 >
                   <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({ id: ETranslations.global_price })}
+                    {intl.formatMessage({
+                      id: ETranslations.market_est_shares,
+                    })}
                   </SizableText>
                   <NumberSizeableText
                     size="$bodyMdMedium"
-                    formatter="value"
+                    formatter="balance"
                     formatterOptions={{
-                      currency: settingsPersist.currencyInfo.symbol,
+                      tokenSymbol: stockReviewDisplay.underlyingSymbol,
                     }}
                   >
-                    {stockReviewDisplay.sharePrice}
+                    {stockReviewDisplay.estimatedShares}
                   </NumberSizeableText>
                 </XStack>
-              ) : null}
-            </YStack>
+              </YStack>
+            </>
           ) : null}
 
           {showMarketableFillTip ? (
@@ -934,7 +941,7 @@ const PreSwapDialogContent = ({
             />
           ) : null}
 
-          <Divider />
+          {stockReviewDisplay ? null : <Divider />}
 
           {swapSteps.steps.length > 0 &&
           swapSteps.steps[0].status === ESwapStepStatus.READY ? (

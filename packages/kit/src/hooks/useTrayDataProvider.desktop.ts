@@ -1112,7 +1112,19 @@ export function useTrayDataProvider() {
           if (willTabFocusTransition(ETabRoutes.Perp)) {
             setPerpPageEnterSource(EPerpPageEnterSource.DesktopTray);
           }
-          void switchTabAsync(ETabRoutes.Perp).then(async () => {
+          void (async () => {
+            // A missing intent only costs the first-mount restore, so this
+            // must not be able to abort the tap. Recorded before the tab
+            // switch that mounts Perp, so the claiming initial-select cannot
+            // run ahead of it.
+            try {
+              await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+                { coin, mode: 'perp' },
+              );
+            } catch {
+              // ignore
+            }
+            await switchTabAsync(ETabRoutes.Perp);
             try {
               await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
                 coin,
@@ -1128,7 +1140,7 @@ export function useTrayDataProvider() {
               mode: 'perp',
               coin,
             });
-          });
+          })();
           return;
         }
 

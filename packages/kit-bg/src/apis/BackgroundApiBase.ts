@@ -1,4 +1,5 @@
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
 
@@ -39,11 +40,22 @@ import {
   serializeAsyncStorageWriteForwarderRequestStatus,
 } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
 import type { INativeStorageRequest } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import {
+  buildTravelModeCurrencyReferenceView,
+  buildTravelModeManualLockPersistView,
+  buildTravelModePasswordPersistView,
+  buildTravelModeSettingsPersistView,
+  mergeTravelModePasswordPersistWrite,
+  mergeTravelModeSettingsPersistWrite,
+} from '@onekeyhq/shared/src/travelMode/persistencePolicy';
+import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import {
   ensurePromiseObject,
   ensureSerializable,
 } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
+import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { updateInterceptorRequestHelper } from '../init/updateInterceptorRequestHelper';
 import { updateInterceptorRequestHelperWithIpTable } from '../init/updateInterceptorRequestHelperWithIpTable';
@@ -51,7 +63,16 @@ import {
   createBackgroundProviders,
   providerApiLoaders,
 } from '../providers/backgroundProviders';
-import { settingsPersistAtom } from '../states/jotai/atoms';
+import { EAtomNames } from '../states/jotai/atomNames';
+import {
+  currencyPersistAtomInitialValue,
+  settingsAtomInitialValue,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
+import {
+  type IPasswordAtom,
+  passwordAtomInitialValue,
+} from '../states/jotai/atoms/passwordLock';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 
@@ -63,6 +84,8 @@ import {
   isProviderApiPrivateAllowedOrigin,
   isProviderApiPrivateKeylessMethod,
 } from './backgroundApiPermissions';
+import { travelModeCommandDispatcher } from './TravelModeCommandDispatcher';
+import { travelModeDappRequestIngress } from './TravelModeDappRequestIngress';
 
 import type {
   IBackgroundApiBridge,
@@ -70,7 +93,6 @@ import type {
   IBackgroundAtomStates,
 } from './IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
-import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JotaiCrossAtom } from '../states/jotai/utils/JotaiCrossAtom';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -120,6 +142,237 @@ function summarizeSetAtomValuePayload(value: unknown) {
     ].join(', ');
   }
   return valueType;
+}
+
+const PASSWORD_VERIFY_STATUS_VALUES = new Set(
+  Object.values(EPasswordVerifyStatus),
+);
+
+const TRAVEL_MODE_CONTEXT_STORE_KEYS = new Set([
+  'accountSelector@home',
+  'accountSelector@swap',
+  'perps',
+  'swap',
+]);
+
+const TRAVEL_MODE_RESETTABLE_PERPS_ATOMS = new Set<EAtomNames>([
+  EAtomNames.perpsActiveAssetCtxAtom,
+  EAtomNames.perpsActiveAssetCtxDisplayAtom,
+  EAtomNames.perpsActiveAssetDataAtom,
+  EAtomNames.spotActiveAssetCtxAtom,
+]);
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function buildTravelModeContextStoreMapView(
+  value: unknown,
+): Record<string, unknown> {
+  if (!isPlainRecord(value)) {
+    return {};
+  }
+
+  const result: Record<string, unknown> = {};
+  TRAVEL_MODE_CONTEXT_STORE_KEYS.forEach((key) => {
+    const item = value[key];
+    if (!isPlainRecord(item)) {
+      return;
+    }
+    const count = item.count;
+    if (typeof count !== 'number' || !Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    const normalizedCount = Math.min(Math.trunc(count), 100);
+    if (key === 'perps' || key === 'swap') {
+      if (item.storeName !== key) {
+        return;
+      }
+      result[key] = { storeName: key, count: normalizedCount };
+      return;
+    }
+
+    if (item.storeName !== 'accountSelector') {
+      return;
+    }
+    const accountSelectorInfo = item.accountSelectorInfo;
+    if (!isPlainRecord(accountSelectorInfo)) {
+      return;
+    }
+    const sceneName = key === 'accountSelector@home' ? 'home' : 'swap';
+    if (
+      accountSelectorInfo.sceneName !== sceneName ||
+      (accountSelectorInfo.sceneUrl !== undefined &&
+        accountSelectorInfo.sceneUrl !== '')
+    ) {
+      return;
+    }
+    const enabledNum = Array.isArray(accountSelectorInfo.enabledNum)
+      ? [
+          ...new Set(
+            accountSelectorInfo.enabledNum.filter(
+              (num): num is number => num === 0 || num === 1,
+            ),
+          ),
+        ].toSorted()
+      : [];
+    if (!enabledNum.length) {
+      return;
+    }
+    result[key] = {
+      storeName: 'accountSelector',
+      accountSelectorInfo: {
+        sceneName,
+        sceneUrl: '',
+        enabledNum,
+      },
+      count: normalizedCount,
+    };
+  });
+  return result;
+}
+
+function buildTravelModePerpsOrderBookOptionsView(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isPlainRecord(value)) {
+    return undefined;
+  }
+
+  const coin = value.coin;
+  const assetId = value.assetId;
+  const nSigFigs = value.nSigFigs;
+  const mantissa = value.mantissa;
+  if (
+    typeof coin !== 'string' ||
+    coin.length === 0 ||
+    coin.length > 128 ||
+    (assetId !== undefined &&
+      (typeof assetId !== 'number' ||
+        !Number.isSafeInteger(assetId) ||
+        assetId < 0)) ||
+    (nSigFigs !== undefined &&
+      nSigFigs !== null &&
+      ![2, 3, 4, 5].includes(nSigFigs as number)) ||
+    (mantissa !== undefined &&
+      mantissa !== null &&
+      mantissa !== 2 &&
+      mantissa !== 5)
+  ) {
+    return undefined;
+  }
+
+  return {
+    coin,
+    assetId,
+    nSigFigs,
+    mantissa,
+  };
+}
+
+function buildTravelModeTradingModeView(value: unknown) {
+  return value === 'spot' ? 'spot' : 'perp';
+}
+
+async function buildTravelModePasswordRuntimeState({
+  currentValue,
+  proposedValue,
+}: {
+  currentValue: IPasswordAtom;
+  proposedValue: unknown;
+}): Promise<IPasswordAtom> {
+  const proposedStatus = (
+    proposedValue as Partial<IPasswordAtom> | null | undefined
+  )?.passwordVerifyStatus;
+  if (
+    !proposedStatus ||
+    !PASSWORD_VERIFY_STATUS_VALUES.has(proposedStatus.value) ||
+    (proposedStatus.message !== undefined &&
+      typeof proposedStatus.message !== 'string')
+  ) {
+    return rejectTravelModeUnknownError();
+  }
+  return {
+    ...currentValue,
+    passwordVerifyStatus: {
+      value: proposedStatus.value,
+      ...(proposedStatus.message === undefined
+        ? undefined
+        : { message: proposedStatus.message }),
+    },
+  };
+}
+
+const TRAVEL_MODE_READABLE_ATOMS = new Set<EAtomNames>([
+  EAtomNames.currencyPersistAtom,
+  EAtomNames.jotaiContextStoreMapAtom,
+  EAtomNames.passwordAtom,
+  EAtomNames.passwordPersistAtom,
+  EAtomNames.passwordPersistManualLockStateAtom,
+  EAtomNames.perpsActiveOrderBookOptionsAtom,
+  EAtomNames.settingsPersistAtom,
+  EAtomNames.tradingModeAtom,
+]);
+
+const TRAVEL_MODE_WRITABLE_ATOMS = new Set<EAtomNames>([
+  EAtomNames.jotaiContextStoreMapAtom,
+  EAtomNames.passwordAtom,
+  EAtomNames.passwordPersistAtom,
+  EAtomNames.perpsActiveOrderBookOptionsAtom,
+  ...TRAVEL_MODE_RESETTABLE_PERPS_ATOMS,
+  EAtomNames.settingsPersistAtom,
+  EAtomNames.tradingModeAtom,
+]);
+
+async function buildTravelModeAtomState(
+  atomName: EAtomNames,
+  atomValue: unknown,
+): Promise<unknown> {
+  switch (atomName) {
+    case EAtomNames.currencyPersistAtom:
+      return buildTravelModeCurrencyReferenceView({
+        initialValue: currencyPersistAtomInitialValue,
+        persistedValue: atomValue,
+      });
+    case EAtomNames.jotaiContextStoreMapAtom:
+      return buildTravelModeContextStoreMapView(atomValue);
+    case EAtomNames.passwordPersistAtom:
+      return buildTravelModePasswordPersistView({
+        initialValue: passwordAtomInitialValue,
+        persistedValue: atomValue,
+      });
+    case EAtomNames.passwordAtom: {
+      const passwordState = atomValue as Partial<IPasswordAtom>;
+      const passwordVerifyStatus = passwordState.passwordVerifyStatus;
+      return {
+        unLock: passwordState.unLock === true,
+        passwordVerifyStatus:
+          passwordVerifyStatus &&
+          PASSWORD_VERIFY_STATUS_VALUES.has(passwordVerifyStatus.value) &&
+          (passwordVerifyStatus.message === undefined ||
+            typeof passwordVerifyStatus.message === 'string')
+            ? passwordVerifyStatus
+            : { value: EPasswordVerifyStatus.DEFAULT },
+      } satisfies IPasswordAtom;
+    }
+    case EAtomNames.passwordPersistManualLockStateAtom:
+      return buildTravelModeManualLockPersistView({
+        initialValue: { manualLocking: false },
+        persistedValue: atomValue,
+      });
+    case EAtomNames.perpsActiveOrderBookOptionsAtom:
+      return buildTravelModePerpsOrderBookOptionsView(atomValue);
+    case EAtomNames.settingsPersistAtom:
+      return buildTravelModeSettingsPersistView({
+        initialValue: settingsAtomInitialValue,
+        persistedValue: atomValue,
+      });
+    case EAtomNames.tradingModeAtom:
+      return buildTravelModeTradingModeView(atomValue);
+    default:
+      return rejectTravelModeUnknownError();
+  }
 }
 
 const ASYNC_STORAGE_FORWARDER_BG_LOG_PREFIX = '[AsyncStorageForwarder][BG]';
@@ -394,9 +647,20 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   async getAtomStates(
     atomNames?: EAtomNames[],
   ): Promise<{ states: IBackgroundAtomStates }> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.commands.isBlocked) {
+      if (
+        atomNames?.some((atomName) => !TRAVEL_MODE_READABLE_ATOMS.has(atomName))
+      ) {
+        await rejectTravelModeUnknownError();
+      }
+    }
+    const requestedAtomNames = environment.commands.isBlocked
+      ? (atomNames ?? [...TRAVEL_MODE_READABLE_ATOMS])
+      : atomNames;
     const atoms = await this.allAtoms;
-    const atomEntries = atomNames
-      ? atomNames.map((atomName) => {
+    const atomEntries = requestedAtomNames
+      ? requestedAtomNames.map((atomName) => {
           const atom = atoms[atomName];
           if (!atom) {
             throw new OneKeyLocalError(
@@ -409,7 +673,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const states: IBackgroundAtomStates = {};
     await Promise.all(
       atomEntries.map(async ([key, value]) => {
-        states[key as EAtomNames] = await value.get();
+        const atomValue = await value.get();
+        const atomName = key as EAtomNames;
+        states[atomName] = environment.commands.isBlocked
+          ? await buildTravelModeAtomState(atomName, atomValue)
+          : atomValue;
       }),
     );
     return { states };
@@ -419,6 +687,13 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   @backgroundMethod()
   async setAtomValue(atomName: EAtomNames, value: any) {
     const startedAt = Date.now();
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (
+      environment.commands.isBlocked &&
+      !TRAVEL_MODE_WRITABLE_ATOMS.has(atomName)
+    ) {
+      await rejectTravelModeUnknownError();
+    }
     if (!isBackgroundApiAtomWritable(atomName)) {
       throw new OneKeyLocalError(
         `setAtomValue ERROR: atom is background-owned: ${atomName}`,
@@ -432,7 +707,51 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       );
     }
     try {
-      await atom.set(value);
+      let nextValue = value;
+      if (environment.commands.isBlocked) {
+        const currentValue = await atom.get();
+        if (atomName === EAtomNames.passwordPersistAtom) {
+          nextValue = mergeTravelModePasswordPersistWrite({
+            persistedValue: buildTravelModePasswordPersistView({
+              initialValue: passwordAtomInitialValue,
+              persistedValue: currentValue,
+            }),
+            proposedValue: value,
+          });
+        } else if (atomName === EAtomNames.settingsPersistAtom) {
+          nextValue = mergeTravelModeSettingsPersistWrite({
+            persistedValue: buildTravelModeSettingsPersistView({
+              initialValue: settingsAtomInitialValue,
+              persistedValue: currentValue,
+            }),
+            proposedValue: value,
+          });
+        } else if (atomName === EAtomNames.jotaiContextStoreMapAtom) {
+          nextValue = buildTravelModeContextStoreMapView(value);
+        } else if (atomName === EAtomNames.perpsActiveOrderBookOptionsAtom) {
+          nextValue = buildTravelModePerpsOrderBookOptionsView(value);
+          if (value !== undefined && nextValue === undefined) {
+            await rejectTravelModeUnknownError();
+          }
+        } else if (atomName === EAtomNames.tradingModeAtom) {
+          if (value !== 'perp' && value !== 'spot') {
+            await rejectTravelModeUnknownError();
+          }
+          nextValue = value;
+        } else if (TRAVEL_MODE_RESETTABLE_PERPS_ATOMS.has(atomName)) {
+          // The native JSON bridge encodes undefined array arguments as null.
+          if (value !== undefined && value !== null) {
+            await rejectTravelModeUnknownError();
+          }
+          nextValue = undefined;
+        } else {
+          nextValue = await buildTravelModePasswordRuntimeState({
+            currentValue: currentValue as IPasswordAtom,
+            proposedValue: value,
+          });
+        }
+      }
+      await atom.set(nextValue);
       const durationMs = Date.now() - startedAt;
       if (durationMs >= 1000) {
         defaultLogger.app.appUpdate.log(
@@ -483,6 +802,10 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   @backgroundMethod()
   async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
+    await travelModeManager.ready;
+    if (travelModeManager.isMaskingDataSync() && request.scope === 'recovery') {
+      return undefined;
+    }
     if (
       request.scope === 'recovery' &&
       request.operation === 'resetMigrationTarget' &&
@@ -512,6 +835,10 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   @backgroundMethod()
   async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.persistence.kind === 'masked') {
+      return;
+    }
     const startedAt = Date.now();
     const summary = getAsyncStorageWriteRequestSummary(request);
     try {
@@ -673,39 +1000,46 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   async handleProviderMethods(
     payload: IJsBridgeMessagePayload,
   ): Promise<IJsonRpcResponse<any>> {
-    const { scope, origin } = payload;
-    const payloadData = payload?.data as IJsonRpcRequest;
-    const isKeylessPrivateMethod = isProviderApiPrivateKeylessMethod(
-      payloadData?.method,
-    );
-    const provider: ProviderApiBase = await this.getProviderApi(
-      scope as IInjectedProviderNames,
-    );
-    if (
-      scope === IInjectedProviderNames.$private &&
-      ((isKeylessPrivateMethod &&
-        !isProviderApiPrivateAllowedKeylessOrigin(origin)) ||
-        (!isKeylessPrivateMethod &&
-          !isProviderApiPrivateAllowedOrigin(origin) &&
-          !isProviderApiPrivateAllowedMethod(payloadData?.method)))
-    ) {
-      const error = new Error(
-        `[${origin as string}] is not allowed to call $private methods: ${
-          payloadData?.method
-        }`,
-      );
-      throw error;
-    }
-    // throw web3Errors.provider.custom({
-    //   code: 3881,
-    //   message: 'test custom error to dapp',
-    // });
-    const result = await provider.handleMethods(payload);
-    ensureSerializable(result);
-    // TODO non rpc result return in some chain provider
-    const resultWrapped = this.rpcResult(result, payloadData);
+    return travelModeDappRequestIngress.run({
+      onBlocked: () => {
+        throw web3Errors.rpc.internal('Unknown error');
+      },
+      operation: async () => {
+        const { scope, origin } = payload;
+        const payloadData = payload?.data as IJsonRpcRequest;
+        const isKeylessPrivateMethod = isProviderApiPrivateKeylessMethod(
+          payloadData?.method,
+        );
+        const provider: ProviderApiBase = await this.getProviderApi(
+          scope as IInjectedProviderNames,
+        );
+        if (
+          scope === IInjectedProviderNames.$private &&
+          ((isKeylessPrivateMethod &&
+            !isProviderApiPrivateAllowedKeylessOrigin(origin)) ||
+            (!isKeylessPrivateMethod &&
+              !isProviderApiPrivateAllowedOrigin(origin) &&
+              !isProviderApiPrivateAllowedMethod(payloadData?.method)))
+        ) {
+          const error = new Error(
+            `[${origin as string}] is not allowed to call $private methods: ${
+              payloadData?.method
+            }`,
+          );
+          throw error;
+        }
+        // throw web3Errors.provider.custom({
+        //   code: 3881,
+        //   message: 'test custom error to dapp',
+        // });
+        const result = await provider.handleMethods(payload);
+        ensureSerializable(result);
+        // TODO non rpc result return in some chain provider
+        const resultWrapped = this.rpcResult(result, payloadData);
 
-    return resultWrapped;
+        return resultWrapped;
+      },
+    });
   }
 
   async _bridgeReceiveHandler(payload: IJsBridgeMessagePayload): Promise<any> {
@@ -760,25 +1094,31 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const serviceName = service || '';
     const paramsArr = [].concat(params as any);
 
-    const serviceApi = getBackgroundServiceApi({
+    return travelModeCommandDispatcher.runServiceCall({
+      methodName: method,
       serviceName,
-      backgroundApi: this,
+      operation: async () => {
+        const serviceApi = getBackgroundServiceApi({
+          serviceName,
+          backgroundApi: this,
+        });
+
+        const methodFunc = serviceApi[method];
+        if (methodFunc) {
+          const resultPromise = methodFunc.call(serviceApi, ...paramsArr);
+          ensurePromiseObject(resultPromise, {
+            serviceName,
+            methodName: method,
+          });
+          const result = await resultPromise;
+          ensureSerializable(result);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return result;
+        }
+
+        throwMethodNotFound(serviceName, method);
+      },
     });
-
-    const methodFunc = serviceApi[method];
-    if (methodFunc) {
-      const resultPromise = methodFunc.call(serviceApi, ...paramsArr);
-      ensurePromiseObject(resultPromise, {
-        serviceName,
-        methodName: method,
-      });
-      const result = await resultPromise;
-      ensureSerializable(result);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return result;
-    }
-
-    throwMethodNotFound(serviceName, method);
   }
 
   sendForProviderMaps: Record<string, any> = {};

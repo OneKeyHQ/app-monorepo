@@ -463,11 +463,18 @@ const SwapHeaderContainer = ({
           {swapBridgeLabel}
         </SizableText>
         {!hideRightActions ? (
+          // This branch is only reached from the Market detail pages' embedded
+          // swap, so the actions match the stock trade panel sitting in the
+          // same slot: the roomier icon size and spacing rather than `compact`.
+          // `iconSize` has to be a size token — `Icon` resolves its `size`
+          // variant through the token table, and a raw number silently falls
+          // back to the 24px default.
           <SwapHeaderRightActionContainer
             pageType={pageType}
             marketPresetSettings={marketPresetSettings}
             routeSwapType={defaultSwapType}
-            compact
+            iconSize="$5"
+            iconColor="$iconStrong"
             hideKLine
           />
         ) : null}

@@ -12,6 +12,10 @@ export const SHEET_AND_DIALOG_Z_INDEX = 100_000 - 1;
 //  the z-index of the Popover 15e4.
 // Drag clone must render above Dialog (1e5) and Sheet (1e5-1) overlays
 export const DRAG_CLONE_Z_INDEX = 100_001;
+// The hardware DeviceStage window: above every Dialog/Sheet stack level
+// (the flows that raise it start on those surfaces), below the sheet
+// popovers, the password prompt and the toasts.
+export const HARDWARE_STAGE_Z_INDEX = 120_000;
 export const SHEET_POPOVER_Z_INDEX = 150_000;
 
 export const PASSWORD_VERIFY_CONTAINER_Z_INDEX = 160_000;

@@ -91,6 +91,24 @@ body {
   border-radius: 3px;
 }
 
+[data-onekey-scroll-view-scrollbar='hidden'] {
+  scrollbar-width: none;
+}
+
+[data-onekey-scroll-view-scrollbar='hidden']::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+[data-onekey-scroll-view-scrollbar='visible'] {
+  scrollbar-width: auto;
+}
+
+[data-onekey-scroll-view-scrollbar='visible']::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
 .show-scrollbar ::-webkit-scrollbar {
   width: 8px;
   height: unset;

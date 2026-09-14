@@ -196,6 +196,12 @@ const aptosScriptComposerNativeStub = path.resolve(
   monorepoRoot,
   'node_modules/@aptos-labs/script-composer-pack/dist/react-native.js',
 );
+// The OneKey pager package publishes a `browser` entry, which Metro otherwise
+// prefers even for native bundles. Pin native resolution to its native entry.
+const nativePagerViewEntry = path.resolve(
+  monorepoRoot,
+  'node_modules/react-native-pager-view/lib/module/index.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -219,6 +225,15 @@ const ledgerCjsByPackage = new Map(
 );
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === 'react-native-pager-view'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: nativePagerViewEntry,
+    };
+  }
   if (
     (platform === 'ios' || platform === 'android') &&
     moduleName === '@aptos-labs/script-composer-pack'
@@ -616,6 +631,59 @@ const AssetsPaths = [
   '/packages/kit/assets',
 ];
 
+const DEV_SESSION_WEB_EMBED_PREFIX = '/onekey-dev-session/web-embed/';
+const DEV_SESSION_WEB_EMBED_ROOT = path.join(
+  monorepoRoot,
+  'apps/web-embed/web-build',
+);
+const DEV_SESSION_WEB_EMBED_CONTENT_TYPES = new Map([
+  ['.css', 'text/css; charset=utf-8'],
+  ['.html', 'text/html; charset=utf-8'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.json', 'application/json; charset=utf-8'],
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
+  ['.wasm', 'application/wasm'],
+]);
+
+const serveDevSessionWebEmbed = (req, res, next) => {
+  if (
+    !process.env.ONEKEY_DEV_SESSION_ID ||
+    !req.url.startsWith(DEV_SESSION_WEB_EMBED_PREFIX)
+  ) {
+    return next();
+  }
+  let relativePath;
+  try {
+    relativePath = decodeURIComponent(
+      req.url.slice(DEV_SESSION_WEB_EMBED_PREFIX.length).split('?', 1)[0],
+    );
+  } catch {
+    res.statusCode = 400;
+    res.end('Invalid web-embed path.');
+    return undefined;
+  }
+  const filePath = path.resolve(DEV_SESSION_WEB_EMBED_ROOT, relativePath);
+  if (
+    !relativePath ||
+    !filePath.startsWith(`${DEV_SESSION_WEB_EMBED_ROOT}${path.sep}`) ||
+    !fs.existsSync(filePath) ||
+    !fs.statSync(filePath).isFile()
+  ) {
+    res.statusCode = 404;
+    res.end('Web-embed asset not found.');
+    return undefined;
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader(
+    'Content-Type',
+    DEV_SESSION_WEB_EMBED_CONTENT_TYPES.get(path.extname(filePath)) ||
+      'application/octet-stream',
+  );
+  fs.createReadStream(filePath).pipe(res);
+  return undefined;
+};
+
 const applyFixImageAssetsMiddleware = (middleware) => {
   return (req, res, next) => {
     console.log('metro-sever: >>>>>', req.url);
@@ -651,8 +719,11 @@ const applyFixImageAssetsMiddleware = (middleware) => {
   };
 };
 
-config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
-  applyFixImageAssetsMiddleware(metroMiddleware);
+config.server.enhanceMiddleware = (metroMiddleware, _metroServer) => {
+  const assetMiddleware = applyFixImageAssetsMiddleware(metroMiddleware);
+  return (req, res, next) =>
+    serveDevSessionWebEmbed(req, res, () => assetMiddleware(req, res, next));
+};
 
 // STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's
 // transform-cache key cannot see — flipping modes would serve stale transforms

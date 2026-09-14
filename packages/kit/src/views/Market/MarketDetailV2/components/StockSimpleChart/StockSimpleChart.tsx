@@ -10,10 +10,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  type IStockPriceLineChartHoverPoint,
-  StockPriceLineChart,
-} from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,12 +22,16 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   type IStockSimpleChartRange,
   fetchStockSimpleChartPoints,
+  resolveStockSimpleChartPreviousClose,
+  resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
 export type { IStockSimpleChartRange } from './stockSimpleChartData';
 
-const STOCK_SIMPLE_CHART_INITIAL_HEIGHT = 304;
+// Pre-measure fallback: the 456px default chart block minus its 40px toolbar
+// row and 16px gap; onLayout below tracks the real (resizable) height.
+const STOCK_SIMPLE_CHART_INITIAL_HEIGHT = 400;
 
 type IStockSimpleChartState = {
   data: IMarketTokenChart;
@@ -42,15 +43,11 @@ export function StockSimpleChart({
   marketAssetId,
   range,
   priceMode,
-  onHoverChange,
 }: {
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
-  // Forwarded to the line chart so the price header above can follow the
-  // crosshair; called with undefined once the pointer leaves the plot.
-  onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
   const intl = useIntl();
   const [chartHeight, setChartHeight] = useState(
@@ -76,6 +73,17 @@ export function StockSimpleChart({
     range,
     stockId,
     tokenAddress,
+  });
+
+  const previousClose = resolveStockSimpleChartPreviousClose({
+    priceMode: requestPriceMode,
+    range: requestRange,
+    stockDetail,
+  });
+  const pulseLastPoint = resolveStockSimpleChartPulseLastPoint({
+    stockDetail,
+    stockId,
+    tokenStock: tokenDetail?.stock,
   });
 
   const {
@@ -178,14 +186,10 @@ export function StockSimpleChart({
         testID="stock-simple-chart-content"
         data={chartState.data}
         height={chartHeight}
-        pulseLastPoint={
-          stockDetail?.marketStatus?.isOpen === true ||
-          tokenDetail?.stock?.isOpen === true
-        }
-        // The stock detail page redirects its own price header to the hovered
-        // point, so a price inside the crosshair label would repeat it.
-        hoverLabelShowsPrice={false}
-        onHoverChange={onHoverChange}
+        pulseLastPoint={pulseLastPoint}
+        previousClose={previousClose}
+        showCurrentPriceLabel
+        hoverLabelLargePrice
       />
     );
   }

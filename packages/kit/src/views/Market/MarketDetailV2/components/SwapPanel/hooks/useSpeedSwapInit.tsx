@@ -1,18 +1,26 @@
 import { useMemo } from 'react';
 
+// cspell:ignore robinhood
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   mevSwapNetworks,
   swapDefaultSetTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISpeedSwapConfig } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISpeedSwapConfig,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 
 import type { IToken } from '../types';
+
+const ROBINHOOD_NETWORK_ID = 'evm--4663';
 
 function buildSwapPairFallbackConfig(networkId: string): ISpeedSwapConfig {
   const defaultTokenSet = swapDefaultSetTokens[networkId];
@@ -54,27 +62,68 @@ function applySwapPairFallback({
   config: ISpeedSwapConfig;
   fallbackConfig: ISpeedSwapConfig;
 }): ISpeedSwapConfig {
+  const safeConfig =
+    config?.speedConfig && Array.isArray(config.speedConfig.defaultTokens)
+      ? config
+      : fallbackConfig;
   const shouldUseDefaultTokensFallback =
-    config.speedConfig.defaultTokens.length === 0;
+    safeConfig.speedConfig.defaultTokens.length === 0;
+  const canonicalDefaultTokens = fallbackConfig.speedConfig.defaultTokens;
+  const canonicalRobinhoodEthToken = canonicalDefaultTokens.find(
+    (token) =>
+      token.networkId === ROBINHOOD_NETWORK_ID &&
+      token.isNative &&
+      token.symbol === 'ETH',
+  );
+  const applyRobinhoodEthLogoFallback = (
+    token?: ISwapTokenBase,
+  ): ISwapTokenBase | undefined => {
+    if (
+      !token ||
+      !canonicalRobinhoodEthToken?.logoURI ||
+      canonicalRobinhoodEthToken.logoURI === token.logoURI ||
+      !equalTokenNoCaseSensitive({
+        token1: canonicalRobinhoodEthToken,
+        token2: token,
+      })
+    ) {
+      return undefined;
+    }
+    return {
+      ...token,
+      logoURI: canonicalRobinhoodEthToken.logoURI,
+    };
+  };
+  const normalizedDefaultTokens = shouldUseDefaultTokensFallback
+    ? canonicalDefaultTokens
+    : safeConfig.speedConfig.defaultTokens.map(
+        (token) => applyRobinhoodEthLogoFallback(token) ?? token,
+      );
+  const normalizedSpeedDefaultSelectToken = shouldUseDefaultTokensFallback
+    ? fallbackConfig.speedDefaultSelectToken
+    : (applyRobinhoodEthLogoFallback(safeConfig.speedDefaultSelectToken) ??
+      safeConfig.speedDefaultSelectToken);
+  const hasNormalizedTokenLogo =
+    normalizedDefaultTokens.some(
+      (token, index) => token !== safeConfig.speedConfig.defaultTokens[index],
+    ) ||
+    normalizedSpeedDefaultSelectToken !== safeConfig.speedDefaultSelectToken;
   if (
     !shouldUseDefaultTokensFallback &&
-    config.supportSpeedSwap !== undefined
+    safeConfig.supportSpeedSwap !== undefined &&
+    !hasNormalizedTokenLogo
   ) {
-    return config;
+    return safeConfig;
   }
   return {
-    ...config,
+    ...safeConfig,
     speedConfig: {
-      ...config.speedConfig,
-      defaultTokens: shouldUseDefaultTokensFallback
-        ? fallbackConfig.speedConfig.defaultTokens
-        : config.speedConfig.defaultTokens,
+      ...safeConfig.speedConfig,
+      defaultTokens: normalizedDefaultTokens,
     },
     supportSpeedSwap:
-      config.supportSpeedSwap ?? fallbackConfig.supportSpeedSwap,
-    speedDefaultSelectToken: shouldUseDefaultTokensFallback
-      ? fallbackConfig.speedDefaultSelectToken
-      : config.speedDefaultSelectToken,
+      safeConfig.supportSpeedSwap ?? fallbackConfig.supportSpeedSwap,
+    speedDefaultSelectToken: normalizedSpeedDefaultSelectToken,
   };
 }
 
@@ -147,15 +196,25 @@ export function useSpeedSwapInit(
       },
     );
   const speedSwapConfigReady =
-    speedSwapConfigState.scope === speedSwapConfigScope;
-  const speedSwapConfig = speedSwapConfigReady
-    ? speedSwapConfigState.config
+    speedSwapConfigState?.scope === speedSwapConfigScope;
+  const rawSpeedSwapConfig = speedSwapConfigReady
+    ? (speedSwapConfigState?.config ?? fallbackConfig)
     : fallbackConfig;
+  const speedSwapConfig = useMemo(
+    () =>
+      applySwapPairFallback({
+        config: rawSpeedSwapConfig,
+        fallbackConfig,
+      }),
+    [fallbackConfig, rawSpeedSwapConfig],
+  );
 
   return {
-    defaultTokens: speedSwapConfig?.speedConfig.defaultTokens as IToken[],
-    defaultLimitTokens: speedSwapConfig?.speedConfig
-      .defaultLimitTokens as IToken[],
+    speedSwapConfig,
+    defaultTokens: (speedSwapConfig?.speedConfig?.defaultTokens ??
+      []) as IToken[],
+    defaultLimitTokens: (speedSwapConfig?.speedConfig?.defaultLimitTokens ??
+      []) as IToken[],
     isLoading: !!speedSwapConfigLoading,
     speedConfigReady: speedSwapConfigReady,
     speedConfig: speedSwapConfig?.speedConfig,

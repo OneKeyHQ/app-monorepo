@@ -6,6 +6,7 @@ import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
   IAuthFailureReason,
+  IDeviceStageConnectionType,
   IDeviceStageErrorReason,
   IDeviceStageStep,
 } from './type';
@@ -35,6 +36,32 @@ export function resolveErrorMessage(
     );
   }
   return message;
+}
+
+/** The notice capsule's word budget: about two lines of $headingMd
+ * inside the capsule's text width (188pt) — ~21 Latin or ~11 CJK glyphs
+ * a line, so CJK counts double. Reason-claimed titles are short by
+ * construction; this only ever weighs a failure's own raw words. */
+const ERROR_NOTICE_MAX_UNITS = 44;
+const WIDE_GLYPH = /[ᄀ-ᅟ⺀-꓏가-힯豈-﫿︰-﹏＀-｠￠-￦]/;
+
+/**
+ * Whether a failure's own words still read on the notice capsule. Past
+ * the budget the stage plays the error as the card instead (OK-62077):
+ * a raw SDK message five lines deep in a pill was unreadable.
+ */
+export function errorNoticeFits(words: string | undefined): boolean {
+  if (!words) {
+    return true;
+  }
+  let units = 0;
+  for (const glyph of words) {
+    units += WIDE_GLYPH.test(glyph) ? 2 : 1;
+    if (units > ERROR_NOTICE_MAX_UNITS) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // `off` has no words of its own: searching is part of connecting, so the
@@ -85,16 +112,25 @@ export const ERROR_TEXT: Record<
  * The authenticity flow's failure copy, the live dialog's own keys (the
  * design drops the old error-code suffixes). `action` picks the card's
  * exits: 'support' is terminal; 'retry' offers Retry and Support but never
- * bypasses authenticity verification.
+ * bypasses authenticity verification; 'retryOnly' is the vanished device
+ * (Retry, nothing else applies); 'retryOrContinue' is our side failing
+ * (Retry, or Continue anyway behind the NOTE beat — the one bypass, and
+ * only where the device cannot be what stopped the check).
  * The icon fronts the card where the staged steps front the replica.
  */
+export type IAuthFailureAction =
+  | 'support'
+  | 'retry'
+  | 'retryOnly'
+  | 'retryOrContinue';
+
 export const AUTH_FAILURE_TEXT: Record<
   IAuthFailureReason,
   {
     title: ETranslations;
     sub: ETranslations;
     icon: IKeyOfIcons;
-    action: 'support' | 'retry';
+    action: IAuthFailureAction;
   }
 > = {
   unofficialDevice: {
@@ -119,7 +155,7 @@ export const AUTH_FAILURE_TEXT: Record<
     title: ETranslations.global_network_error,
     sub: ETranslations.global_network_error_help_text,
     icon: 'GlobusSolid',
-    action: 'retry',
+    action: 'retryOrContinue',
   },
   unknown: {
     title: ETranslations.send_verification_failure,
@@ -131,9 +167,24 @@ export const AUTH_FAILURE_TEXT: Record<
     title: ETranslations.device_auth_temporarily_unavailable,
     sub: ETranslations.device_auth_temporarily_unavailable_help_text,
     icon: 'ServerSolid',
-    action: 'retry',
+    action: 'retryOrContinue',
+  },
+  disconnected: {
+    title: ETranslations.hardware_third_party_device_disconnected,
+    sub: ETranslations.device_stage_disconnected__desc,
+    icon: 'ErrorSolid',
+    action: 'retryOnly',
   },
 };
+
+/** The NOTE beat before Continue anyway: no icon, the warning line in
+ * critical, "I understand" over "Back" (the design's 10-2 frame). */
+export const AUTH_NOTE_TEXT = {
+  title: ETranslations.device_stage_auth_note__title,
+  sub: ETranslations.device_auth_continue_anyway_warning_message,
+  confirm: ETranslations.global_i_understand,
+  back: ETranslations.global_back,
+} as const;
 
 /**
  * Wallet grammar: an instruction-first title, one informative line
@@ -355,6 +406,19 @@ export const DEVICE_BADGE_STEPS: ReadonlySet<IDeviceStageStep> =
     'authSuccess',
   ]);
 
+/**
+ * The capsule arrivals that buzz. Every card arrival speaks; the capsule
+ * waits stay silent (attention released, not demanded — see
+ * fireStepHaptic in the engine). `done` is the burst's ✓ beat, news
+ * rather than a wait; `confirm` keeps the buzz it had as a card. The
+ * vendor track's capsule asks (confirmOnDevice, openApp, unlockDevice)
+ * stay silent as before — untouched by confirm's move, not decided
+ * against; isDeviceStageAnsweredStep in shared is the classification
+ * that would unify them.
+ */
+export const CAPSULE_HAPTIC_STEPS: ReadonlySet<IDeviceStageStep> =
+  new Set<IDeviceStageStep>(['done', 'confirm']);
+
 /** A step's second line: its own informative line, empty when none. */
 export function resolveStepSub(
   intl: IntlShape,
@@ -438,7 +502,10 @@ export const STEP_POSE: Record<
   passphraseOnApp: 'card',
   showQr: 'card',
   scanQr: 'card',
-  confirm: 'card',
+  // The device-side confirm rests as the capsule (2026-09-11) — the
+  // vendor track's confirmOnDevice grammar. Its card stays wired but
+  // parked: see CONFIRM_PAYLOAD_HIDDEN in kit-bg's DeviceStageBurst.
+  confirm: 'capsule',
   genuineCheck: 'card',
   authVerifying: 'card',
   authSuccess: 'card',
@@ -466,17 +533,17 @@ export const STEP_POSE: Record<
 /**
  * The staged steps — the ones that keep the replica on stage. The full
  * stage crops the device to screen-and-keys for the device-side asks;
- * the compact list wears the confirm miniature instead — confirm's own
- * shrink, and the authenticity flow, which keeps the whole device in
- * view while the card talks. The engine derives its port map (and the
- * miniature's scale) from these two lists, so membership is stated once.
+ * the compact list wears the miniature instead — the authenticity flow,
+ * which keeps the whole device in view while the card talks. The engine
+ * derives its port map (and the miniature's scale) from these two
+ * lists, so membership is stated once. Only card-posed steps belong
+ * here: the stage arrangement exists on the card alone.
  */
 export const FULL_STAGED_STEPS: IDeviceStageStep[] = [
   'enterPin',
   'enterPassphrase',
 ];
 export const COMPACT_STAGED_STEPS: IDeviceStageStep[] = [
-  'confirm',
   'genuineCheck',
   'authVerifying',
   'authSuccess',
@@ -524,7 +591,10 @@ export function resolvePassphrasePanelText(
  * speaks single labels (the board carries no device-name line there),
  * with `connecting` reworded to say what the missing line said. Only
  * capsule-pose steps reach here — including the actionless error, the
- * notice, which speaks its reason's title alone on either track. */
+ * notice, which speaks its reason's title alone on either track. A
+ * connecting wait that has stalled (`stalledOn`, the transport it rides)
+ * trades the device's name for the hint that matches the transport:
+ * wake the device and keep it near, or check the cable. */
 export function resolveCapsuleText(
   intl: IntlShape,
   step: IDeviceStageStep,
@@ -532,6 +602,7 @@ export function resolveCapsuleText(
   vendor?: 'ledger' | 'trezor',
   errorReason?: IDeviceStageErrorReason,
   errorMessage?: string,
+  stalledOn?: IDeviceStageConnectionType,
 ): { title: string; sub: string } {
   if (step === 'error') {
     return {
@@ -556,6 +627,17 @@ export function resolveCapsuleText(
             : STEP_TEXT[step].title,
       }),
       sub: '',
+    };
+  }
+  if (step === 'connecting' && stalledOn) {
+    return {
+      title: intl.formatMessage({ id: STEP_TEXT[step].title }),
+      sub: intl.formatMessage({
+        id:
+          stalledOn === 'bluetooth'
+            ? ETranslations.device_stage_connecting_stalled_bluetooth__desc
+            : ETranslations.device_stage_connecting_stalled_usb__desc,
+      }),
     };
   }
   return {

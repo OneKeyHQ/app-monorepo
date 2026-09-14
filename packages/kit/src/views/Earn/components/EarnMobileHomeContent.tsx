@@ -63,7 +63,7 @@ function EarnMobileHomeContentComponent({
   onOpenPortfolio: () => void;
   onOpenTokens: () => void;
   onOpenProtocols: () => void;
-  onHeaderHorizontalSwipe: (direction: 'left' | 'right') => void;
+  onHeaderHorizontalSwipe?: (direction: 'left' | 'right') => void;
 }) {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();

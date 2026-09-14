@@ -2267,16 +2267,6 @@ export function UniversalStake({
     />
   ) : null;
 
-  // When entering from the trending list, the protocol selector is rendered as a
-  // standalone (border-less) card above the summary card. The bordered summary
-  // card should then only render when it actually has body content, otherwise it
-  // would show up as an empty bordered box.
-  const summaryCardHasBodyContent = Boolean(
-    summaryContent ||
-    ongoingValidator ||
-    (!shouldShowPlatformBonus && tradeOrBuyContent),
-  );
-
   // The "Est. annual rewards" summary depends on a second request
   // (getTransactionConfirmation) that resolves after managePageData. Without a
   // placeholder it pops in on the second stage and shoves the rest of the card
@@ -2284,19 +2274,46 @@ export function UniversalStake({
   // window: once the quote settles (success or failure) never show it again,
   // so no-summary protocols don't pulse on amount edits and a failed request
   // doesn't leave the skeleton stuck.
+  // Stakefish's trending entry uses a compact colored "earn starts" row instead
+  // of the full title/value summary, so reserve the height of that row as well.
+  const shouldReserveCompactSummary =
+    Boolean(protocolSwitchConfig) && isStakefishProvider;
   const summaryPending =
     !hasSummarySection &&
     !isPendleLikeLayout &&
-    !protocolSwitchConfig &&
+    (!protocolSwitchConfig || shouldReserveCompactSummary) &&
     !isDisabled &&
     !transactionConfirmationSettledRef.current;
 
-  const summaryLoadingContent = summaryPending ? (
-    <YStack gap="$1.5">
-      <Skeleton.BodyMd w={96} />
-      <Skeleton.BodyLg w={140} />
-    </YStack>
-  ) : null;
+  const summaryLoadingContent = useMemo(() => {
+    if (!summaryPending) {
+      return null;
+    }
+    if (shouldReserveCompactSummary) {
+      return (
+        <YStack mt="$1.5">
+          <Skeleton.BodyLg w={160} />
+        </YStack>
+      );
+    }
+    return (
+      <YStack gap="$1.5">
+        <Skeleton.BodyMd w={96} />
+        <Skeleton.BodyLg w={140} />
+      </YStack>
+    );
+  }, [shouldReserveCompactSummary, summaryPending]);
+
+  // When entering from the trending list, the protocol selector is rendered as a
+  // standalone (border-less) card above the summary card. The bordered summary
+  // card should then only render when it actually has body content, otherwise it
+  // would show up as an empty bordered box.
+  const summaryCardHasBodyContent = Boolean(
+    summaryContent ||
+    summaryLoadingContent ||
+    ongoingValidator ||
+    (!shouldShowPlatformBonus && tradeOrBuyContent),
+  );
 
   return (
     <StakingFormWrapper>

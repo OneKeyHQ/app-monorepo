@@ -427,7 +427,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           skipWebDevicePrompt: true,
           allowEmptyConnectId,
           forceProtocolDetection,
-          ...(forceProtocolDetection
+          ...(forceProtocolDetection ||
+          hardwareTransportType === EHardwareTransportType.DesktopWebBle
             ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
             : {}),
         },
@@ -824,7 +825,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? { connectId, transportType: resolvedTransportType }
         : await this.backgroundApi.serviceHardware.resolveHardwareTransport({
             connectId,
-            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+            hardwareCallContext:
+              EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
     }
     const originalConnectId = resolvedTransport?.connectId ?? connectId;
@@ -882,8 +884,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
-        forceProtocolDetection:
-          currentTransportType === EHardwareTransportType.DesktopWebBle,
         hardwareTransportType: currentTransportType,
       });
     let features: IOneKeyDeviceFeatures =
@@ -896,8 +896,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
           connectId: isBootloaderMode ? updatingConnectId : originalConnectId,
           params: {
             allowEmptyConnectId: true,
-            forceProtocolDetection:
-              currentTransportType === EHardwareTransportType.DesktopWebBle,
             ...(currentTransportType === EHardwareTransportType.DesktopWebBle
               ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
               : {}),
@@ -2320,7 +2318,32 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // Lock transport type during firmware update to prevent auto-switching
             // This prevents the system from switching to BLE when USB device is temporarily
             // unavailable during device reboot
-            const currentTransportType = await this.getActiveTransportType();
+            let currentTransportType = await this.getActiveTransportType();
+            if (platformEnv.isDesktop) {
+              // Release information may have been read over BLE before USB was connected.
+              const resolvedTransport =
+                await this.backgroundApi.serviceHardware.resolveHardwareTransport(
+                  {
+                    connectId:
+                      params.releaseResult.originalConnectId ??
+                      params.releaseResult.updatingConnectId,
+                    hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+                  },
+                );
+              currentTransportType = resolvedTransport.transportType;
+              params.releaseResult.updatingConnectId =
+                deviceUtils.getUpdatingConnectId({
+                  connectId: resolvedTransport.connectId,
+                  currentTransportType,
+                });
+              if (
+                currentTransportType === EHardwareTransportType.DesktopWebBle
+              ) {
+                throw new OneKeyLocalError(
+                  'Desktop firmware updates require a USB transport',
+                );
+              }
+            }
             this.recordUpdateWorkflowTransportType(
               workflowId,
               currentTransportType,
@@ -2494,10 +2517,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async clearHardwareUiStateBeforeStartUpdateWorkflow() {
-    // The stage leaves with the legacy state: the update page is the only
-    // surface from here, and a burst still in flight takes nothing down
-    // until its own end. An air-gap scan the stage was hosting leaves with
-    // it, rejected, rather than waiting invisibly for its expiry.
+    // The stage leaves with the legacy state: the update page narrates
+    // the update from here, and a burst still in flight takes nothing
+    // down until its own end. The device's asks during the update (PIN,
+    // the install confirm) still play on the stage (OK-62087). An air-gap
+    // scan the stage was hosting leaves with it, rejected, rather than
+    // waiting invisibly for its expiry.
     await this.backgroundApi.serviceHardwareUI.silenceDeviceStageForFirmwareWorkflow();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.FIRMWARE_TIP,

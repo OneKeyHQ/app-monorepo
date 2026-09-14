@@ -5,6 +5,7 @@ import {
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
@@ -161,22 +162,57 @@ export function pickNewerDeviceStateSnapshot({
 export function isDeviceManagementWalletUsable(
   walletWithDevice?: IHwQrWalletWithDevice,
 ) {
-  const wallet = walletWithDevice?.wallet;
-  if (!wallet) {
-    return false;
-  }
-  // Hidden-only devices retain an active mocked standard wallet as their
-  // device-management proxy, while deprecated wallets stay hidden.
-  return !wallet.deprecated;
+  return Boolean(walletWithDevice?.wallet && walletWithDevice.device);
 }
 
 export function resolveUsableWalletWithDevice(
   walletWithDevice?: IHwQrWalletWithDevice,
+  allWallets: IHwQrWalletWithDevice[] = [],
 ) {
   if (!isDeviceManagementWalletUsable(walletWithDevice)) {
     return undefined;
   }
-  return walletWithDevice;
+  const isQrWallet = accountUtils.isQrWallet({
+    walletId: walletWithDevice?.wallet.id,
+  });
+  return (
+    allWallets.find(
+      (item) =>
+        !item.wallet.deprecated &&
+        !accountUtils.isHwHiddenWallet({ wallet: item.wallet }) &&
+        accountUtils.isQrWallet({ walletId: item.wallet.id }) === isQrWallet &&
+        deviceUtils.isSamePhysicalDevice(item.device, walletWithDevice?.device),
+    ) ?? walletWithDevice
+  );
+}
+
+export function getDeviceManagementWallets(
+  wallets: IHwQrWalletWithDevice[],
+): IHwQrWalletWithDevice[] {
+  const devices: IHwQrWalletWithDevice[] = [];
+  for (const item of wallets) {
+    if (
+      isDeviceManagementWalletUsable(item) &&
+      !accountUtils.isHwHiddenWallet({ wallet: item.wallet })
+    ) {
+      const representative = resolveUsableWalletWithDevice(item, wallets);
+      if (
+        representative &&
+        !devices.some(
+          (entry) =>
+            accountUtils.isQrWallet({ walletId: entry.wallet.id }) ===
+              accountUtils.isQrWallet({ walletId: representative.wallet.id }) &&
+            deviceUtils.isSamePhysicalDevice(
+              entry.device,
+              representative.device,
+            ),
+        )
+      ) {
+        devices.push(representative);
+      }
+    }
+  }
+  return devices;
 }
 
 export function resolveDeviceWithCurrentType<

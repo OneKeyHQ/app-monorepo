@@ -762,7 +762,7 @@ describe('TradingViewNative data providers', () => {
       networkId: 'evm--1',
       tokenAddress: '0xabc',
       symbol: 'TOKEN',
-      chartType: '1h',
+      chartType: '1H',
       currency: 'usd',
     };
     expect(mocks?.marketService.subscribeOHLCV).toHaveBeenCalledWith(

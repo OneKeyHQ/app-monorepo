@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore robinhood
 
 import { renderHook } from '@testing-library/react';
 
@@ -78,12 +79,36 @@ const missingSupportConfig: ISpeedSwapConfig = {
   supportSpeedSwap: undefined,
 };
 
+const robinhoodEthLogoURI =
+  'https://uni.onekey-asset.com/server-service-indexer/evm--4663/tokens/address--1785395959075.png';
+const robinhoodWrongLogoURI =
+  'https://uni-test.onekey-asset.com/dashboard/logo/upload_1782996301845.0.5226359915426765.0.png';
+const robinhoodEthToken = {
+  networkId: 'evm--4663',
+  contractAddress: '',
+  symbol: 'ETH',
+  decimals: 18,
+  isNative: true,
+  logoURI: robinhoodWrongLogoURI,
+};
+const robinhoodConfig: ISpeedSwapConfig = {
+  ...cachedConfig,
+  speedConfig: {
+    ...cachedConfig.speedConfig,
+    defaultTokens: [robinhoodEthToken],
+  },
+  speedDefaultSelectToken: robinhoodEthToken,
+};
+
 describe('useSpeedSwapInit cold display config', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     swrCacheUtils.remove(swrKeys.swapStockSpeedConfig({ networkId: 'evm--1' }));
     swrCacheUtils.remove(
       swrKeys.swapStockSpeedConfig({ networkId: 'evm--56' }),
+    );
+    swrCacheUtils.remove(
+      swrKeys.swapStockSpeedConfig({ networkId: 'evm--4663' }),
     );
     mockUsePromiseResult.mockReturnValue({
       result: {
@@ -105,6 +130,41 @@ describe('useSpeedSwapInit cold display config', () => {
       expect.objectContaining({
         swrKey: 'swapStockSpeedConfig:v1:evm--1',
       }),
+    );
+  });
+
+  it('normalizes cached Robinhood ETH metadata before the first render', () => {
+    mockUsePromiseResult.mockReturnValue({
+      result: {
+        config: robinhoodConfig,
+        scope: 'evm--4663',
+        fromCache: true,
+      },
+      isLoading: true,
+    });
+
+    const { result } = renderHook(() => useSpeedSwapInit('evm--4663'));
+
+    expect(result.current.defaultTokens[0]?.logoURI).toBe(robinhoodEthLogoURI);
+    expect(result.current.speedDefaultSelectToken?.logoURI).toBe(
+      robinhoodEthLogoURI,
+    );
+  });
+
+  it('normalizes fresh Robinhood ETH metadata before persisting it', async () => {
+    mockFetchSpeedSwapConfig.mockResolvedValueOnce(robinhoodConfig);
+    renderHook(() => useSpeedSwapInit('evm--4663'));
+
+    const request = mockUsePromiseResult.mock.calls[0]?.[0] as () => Promise<{
+      config: ISpeedSwapConfig;
+    }>;
+    const freshResult = await request();
+
+    expect(freshResult.config.speedConfig.defaultTokens[0]?.logoURI).toBe(
+      robinhoodEthLogoURI,
+    );
+    expect(freshResult.config.speedDefaultSelectToken?.logoURI).toBe(
+      robinhoodEthLogoURI,
     );
   });
 

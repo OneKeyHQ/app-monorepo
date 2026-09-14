@@ -100,7 +100,7 @@ import {
   EApproveType,
   EStakeProtocolGroupEnum,
 } from '@onekeyhq/shared/types/staking';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
@@ -326,6 +326,7 @@ class ServiceStaking extends ServiceBase {
         o,
       ): o is IAccountHistoryTx &
         Required<Pick<IAccountHistoryTx, 'stakingInfo'>> =>
+        o.replacedType !== EReplaceTxType.Cancel &&
         Boolean(o.stakingInfo && o.stakingInfo.tags.includes(stakeTag)),
     );
 
@@ -1609,8 +1610,16 @@ class ServiceStaking extends ServiceBase {
     theme,
   }: {
     theme: IEarnBannerTheme;
-  }): Promise<IEarnPageBannerListItem[]> {
-    return this.backgroundApi.simpleDb.earnExtra.getPageBannerList(theme);
+  }): Promise<{
+    list: IEarnPageBannerListItem[];
+    isCacheHit: boolean;
+  }> {
+    const cache =
+      await this.backgroundApi.simpleDb.earnExtra.getPageBannerListCache(theme);
+    return {
+      list: cache.list,
+      isCacheHit: cache.isThemeScoped || cache.list.length > 0,
+    };
   }
 
   @backgroundMethod()

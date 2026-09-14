@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { Keyboard } from 'react-native';
 
@@ -255,21 +255,50 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
+    waitForChangeBeforeClose,
     usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
   } = useContext(SelectContext);
+  const isSelectingRef = useRef(false);
+  const selectionGenerationRef = useRef(0);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
+      if (isSelectingRef.current) {
+        return;
+      }
+      const nextValue = labelInValue ? item : item.value;
+      if (waitForChangeBeforeClose) {
+        const selectionGeneration = (selectionGenerationRef.current += 1);
+        isSelectingRef.current = true;
+        void (async () => {
+          try {
+            await onValueChange?.(nextValue);
+          } finally {
+            if (selectionGeneration === selectionGenerationRef.current) {
+              isSelectingRef.current = false;
+              changeOpenStatus?.(false);
+            }
+          }
+        })();
+        return;
+      }
       changeOpenStatus?.(false);
       requestIdleCallback(() => {
-        onValueChange?.(labelInValue ? item : item.value);
+        void onValueChange?.(nextValue);
       });
     },
-    [changeOpenStatus, labelInValue, onValueChange],
+    [changeOpenStatus, labelInValue, onValueChange, waitForChangeBeforeClose],
   );
 
   const handleOpenChange = useCallback(
     (openStatus: boolean) => {
+      if (!openStatus) {
+        // Closing the sheet cancels its pending selection lifecycle. The async
+        // work itself may continue, but its stale finally block must not lock
+        // or close a newly reopened Select instance.
+        selectionGenerationRef.current += 1;
+        isSelectingRef.current = false;
+      }
       changeOpenStatus?.(openStatus);
     },
     [changeOpenStatus],
@@ -309,6 +338,9 @@ function SelectContent() {
   );
 
   const sectionSeparator = useMemo(() => <Stack h="$2" />, []);
+  const renderContentVersion = waitForChangeBeforeClose
+    ? `${String(isOpen)}-${String((value as ISelectItem)?.value ?? value)}`
+    : isOpen;
 
   const renderContent = useMemo(
     () => {
@@ -339,8 +371,11 @@ function SelectContent() {
         />
       );
     },
+    // Select lists are normally frozen while open. The wait mode is the one
+    // exception: its selected check must follow the value that settles before
+    // the sheet closes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOpen],
+    [renderContentVersion],
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
@@ -371,6 +406,7 @@ function SelectContent() {
       open={isOpen}
       onOpenChange={handleOpenChange}
       keepChildrenMounted={!platformEnv.isNative}
+      mountNativePortalBeforeOpen
       sheetProps={mergedSheetProps}
       floatingPanelProps={mergedFloatingPanelProps}
       placement={placement}
@@ -400,6 +436,7 @@ function SelectFrame<
   floatingPanelProps,
   placement = platformEnv.isNative ? 'bottom-start' : undefined,
   usingPercentSnapPoints,
+  waitForChangeBeforeClose,
 }: ISelectProps<T>) {
   const [isOpenInternal, setIsOpenInternal] = useState(false);
   const isControlled = openProp !== undefined;
@@ -435,6 +472,7 @@ function SelectFrame<
       placement,
       offset,
       usingPercentSnapPoints,
+      waitForChangeBeforeClose,
     }),
     [
       isOpen,
@@ -452,6 +490,7 @@ function SelectFrame<
       placement,
       offset,
       usingPercentSnapPoints,
+      waitForChangeBeforeClose,
     ],
   );
   return (

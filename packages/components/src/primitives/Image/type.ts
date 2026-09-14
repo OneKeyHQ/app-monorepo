@@ -51,6 +51,7 @@ export type IUseImageComponent = (
 export type IImageCachePolicy = 'memory-disk' | 'memory' | 'disk' | 'none';
 export type IImageContentFit = 'cover' | 'contain' | 'fill' | 'center';
 export type IImageCacheType = 'none' | 'disk' | 'memory';
+export type IImageLoadingStrategy = 'static' | 'skeleton' | 'none';
 
 export type IImageLoadEventData = {
   cacheType: IImageCacheType;
@@ -144,6 +145,10 @@ export type IImageV2Props = Omit<
     resizeMode?: ImageProps['resizeMode'];
     contentFit?: IImageContentFit;
     cachePolicy?: IImageCachePolicy;
+    /** Loading visual. Skeleton must be explicitly requested.
+     * @default 'static'
+     */
+    loadingStrategy?: IImageLoadingStrategy;
     recyclingKey?: string;
     /** @deprecated ImageV2 does not support blur effects. */
     blurRadius?: never;

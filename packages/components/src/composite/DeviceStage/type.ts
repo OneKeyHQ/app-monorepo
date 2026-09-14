@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
+import type {
+  IDeviceStageConnectionTypeValue,
+  IDeviceStageErrorI18n,
+} from '@onekeyhq/shared/types/deviceStage';
 
 import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 
@@ -22,7 +25,9 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * `off` is the stage at rest: the overlay is not there, and whichever
  * step follows enters at its own pose. `connecting` and `processing`
  * are the waiting beats — nothing is asked of the person, so the stage
- * rests as the floating capsule until the device answers. `pinOnApp`
+ * rests as the floating capsule until the device answers; `confirm`
+ * rests there too — a device-side ask with nothing to answer in the
+ * app, the vendor track's `confirmOnDevice` grammar. `pinOnApp`
  * and `passphraseOnApp` are the app-side inputs — the person types here
  * while the device waits, so the replica leaves the stage and the input
  * panel takes its place. `selectWalletType` is the wallet-creation fork
@@ -48,7 +53,7 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * person confirms the check on the device — then the wait while the
  * certificate (and, on capable firmware, each component hash: the
  * `authChecklist`) is verified, then a landing. The three staged steps
- * keep the replica on stage as the confirm miniature, screens per the
+ * keep the replica on stage as the compact miniature, screens per the
  * scene map; `authFailure` fronts an icon instead of the replica, worded
  * by `authFailureReason`, with retry/support and a developer override.
  *
@@ -105,7 +110,7 @@ export type IDeviceStageVendor = 'ledger' | 'trezor';
 /** The transport a burst rides. Desktop runs USB and Bluetooth side by
  * side, so the connecting wait tells them apart; which one is the
  * driver's knowledge, never looked up here. */
-export type IDeviceStageConnectionType = 'bluetooth' | 'usb';
+export type IDeviceStageConnectionType = IDeviceStageConnectionTypeValue;
 
 /** The wallet-creation fork's two answers — the live dialog's own pair:
  * a standard wallet (no passphrase) or a hidden one (passphrase or
@@ -124,9 +129,15 @@ export type IDeviceStageErrorReason =
   | 'busy';
 
 /**
- * What ended the authenticity check, in stage vocabulary. The first
- * three are terminal — the device (or its firmware) is the problem, and
- * Support is the only exit. The last three offer Retry and Support.
+ * What ended the authenticity check, in stage vocabulary — sorted by
+ * whose fault the check did not stand (OK-62484). Terminal, the device
+ * or its firmware is the problem, Support is the only exit:
+ * unofficialDevice, unofficialFirmware, defective. The device stayed on
+ * the line but could not prove itself: unknown — Retry and Support,
+ * never a bypass (OK-61777). The device vanished mid-check:
+ * disconnected — Retry only, there is nothing to continue with. The
+ * device did its part and our side could not finish: network,
+ * unavailable — Retry, or Continue anyway behind the NOTE beat.
  * Mapping concrete SDK/server errors onto these is the integration
  * layer's.
  */
@@ -136,7 +147,8 @@ export type IAuthFailureReason =
   | 'defective'
   | 'network'
   | 'unknown'
-  | 'unavailable';
+  | 'unavailable'
+  | 'disconnected';
 
 /**
  * One row of the authenticity checklist — the per-component verification
@@ -159,6 +171,13 @@ export interface IDeviceStageProps {
    * third-party flows (`vendor` set) omit it — their devices have no
    * code-drawn replica and the capsule wears the product shot instead. */
   deviceType?: IHardwareDeviceType;
+  /**
+   * The standing replica's width on the full stage, in pt — the design's
+   * tuning knob (OK-62091). The full port and the words' tuck scale with
+   * it; the capsule thumbnail and the confirm miniature keep their own
+   * widths. Defaults to REPLICA_WIDTH (see ./consts).
+   */
+  replicaWidth?: number;
   step: IDeviceStageStep;
   /**
    * Dresses the stage for a third-party device: the capsule's left seat
@@ -234,19 +253,31 @@ export interface IDeviceStageProps {
    */
   connectionType?: IDeviceStageConnectionType;
   /**
+   * The current machine wait has stalled (the driver's stall clock,
+   * design hard rule #3). Only the connecting capsule wears it: its
+   * second line trades the device name for a hint — wake the device and
+   * keep it near, or check the cable — chosen by `connectionType`. The
+   * same clock grants the close, so hint and way out arrive together.
+   */
+  waitStalled?: boolean;
+  /**
    * The person's way out of the stage. Given, the surface wears its close
    * button and follows a downward drag; absent, it cannot be dismissed at
-   * all. When to grant it is the driver's policy — the live hardware flows
-   * arm it on a timer (a few seconds into an ask, longer into a wait) and
-   * keep it armed for the rest of the burst; the authenticity flow arms it
-   * from the start. The driver answers a dismissal by moving `step` to
-   * `off` — the exit is already under way when this fires.
+   * all. When to grant it is the driver's policy (design hard rule #3):
+   * an ask opens once the stage has settled after appearing, a wait on
+   * the machine only once it has stalled, an outcome or a decision at
+   * once. The driver answers a dismissal by moving `step` to `off` — the
+   * exit is already under way when this fires.
    */
   onClose?: () => void;
   /**
-   * The confirm step's payload, three shapes — rows (`confirmDetails`),
-   * a text block (`confirmMessage`), or a description (`confirmDescription`)
-   * — one per burst, all on the same card and the same late fade-in.
+   * The confirm card's payload — parked: confirm rests as the capsule,
+   * which has no seat for it, so none of these render today (see
+   * CONFIRM_PAYLOAD_HIDDEN in kit-bg's DeviceStageBurst).
+   *
+   * Three shapes — rows (`confirmDetails`), a text block
+   * (`confirmMessage`), or a description (`confirmDescription`) — one
+   * per burst, all on the same card and the same late fade-in.
    * Copy rule for whichever shape rides in: the card is the app's half
    * of a comparison, never a mirror of the device — say "check this
    * against the device", never "this is what the device shows". The two

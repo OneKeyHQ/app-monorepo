@@ -23,25 +23,31 @@ import {
 import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IMarketStockPublicItem,
-  IMarketStockPublicListSortBy,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_LIST_ROW_HEIGHT,
+} from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
+import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
 import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
 import { useMarketStockColumns } from './useMarketStockColumns';
+import { getMarketStockSortByColumn } from './utils';
 
 import type { IMarketCategoryItem } from '../../types';
 
-const STOCK_LIST_MIN_WIDTH = 1240;
-const STOCK_TABLE_MIN_WIDTH = 1216;
+const STOCK_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  priceChange24hPercent: 128,
+  sparkline: 148,
+} as const;
 
 type IMarketStockListProps = {
   categories: IMarketCategoryItem[];
@@ -65,14 +71,25 @@ function MarketStockListImpl({
   const intl = useIntl();
   const { md } = useMedia();
   const toMarketStockDetailPage = useToMarketStockDetailPage();
-  const columns = useMarketStockColumns();
+  const baseColumns = useMarketStockColumns({ showWatchlist: true });
+  const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
+    useMarketDesktopResponsiveColumns({
+      columns: baseColumns,
+      enabled: !platformEnv.isNative && !md,
+      firstColumnCount: 1,
+      horizontalInset: 24,
+      metricColumnMinimumWidths: STOCK_METRIC_COLUMN_MINIMUM_WIDTHS,
+    });
   const {
     items,
     isLoading,
     isLoadingMore,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
     isError,
     canLoadMore,
+    isRevalidatingFirstPage,
     sortBy,
     sortType,
     setSorting,
@@ -85,27 +102,18 @@ function MarketStockListImpl({
 
   const CategorySelector = useMemo(
     () => (
-      <Stack pt="$4" pb="$5" px="$5">
-        <MarketStockCategorySelector
-          categories={categories}
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={onSelectCategory}
-        />
-      </Stack>
+      <MarketStockCategorySelector
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
+        onSelectCategory={onSelectCategory}
+      />
     ),
     [categories, onSelectCategory, selectedCategoryId],
   );
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketStockPublicItem>) => {
-      let serverSortBy:
-        | Exclude<IMarketStockPublicListSortBy, 'default'>
-        | undefined;
-      if (column.dataIndex === 'price') {
-        serverSortBy = 'price';
-      } else if (column.dataIndex === 'priceChange24hPercent') {
-        serverSortBy = 'priceChange24hPercent';
-      }
+      const serverSortBy = getMarketStockSortByColumn(column.dataIndex);
       if (!serverSortBy) {
         return undefined;
       }
@@ -121,10 +129,10 @@ function MarketStockListImpl({
   );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+    if (canLoadMore && !isLoadingMore && !isLoadMoreError && !isRefreshError) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadMoreError, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadMoreError, isRefreshError, isLoadingMore, loadMore]);
 
   const webTabIntegrated = Boolean(tabIntegrated && !platformEnv.isNative);
   useEffect(() => {
@@ -152,6 +160,14 @@ function MarketStockListImpl({
   const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const useDesktopPortal =
     webTabIntegrated && Boolean(stickyPortalTarget) && !md;
+  useEffect(() => {
+    if (
+      sortBy !== 'default' &&
+      !columns.some((column) => column.dataIndex === sortBy)
+    ) {
+      setSorting(sortBy, undefined);
+    }
+  }, [columns, setSorting, sortBy]);
 
   const portalContent = useMemo(() => {
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) {
@@ -159,20 +175,12 @@ function MarketStockListImpl({
     }
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} bg="$bgApp">
-          {CategorySelector}
-          <Stack px="$3" overflow="hidden">
-            <Table.HeaderRow
-              columns={columns}
-              onHeaderRow={handleHeaderRow}
-              rowProps={{
-                width: '100%',
-                minWidth: STOCK_TABLE_MIN_WIDTH,
-              }}
-              headerRowProps={{ height: 36 }}
-            />
-          </Stack>
-        </YStack>
+        <MarketDesktopStickyHeader<IMarketStockPublicItem>
+          toolbar={CategorySelector}
+          columns={columns}
+          onHeaderRow={handleHeaderRow}
+          rowProps={{ width: '100%' }}
+        />
       </StickyHeaderPortal>
     );
   }, [
@@ -219,21 +227,21 @@ function MarketStockListImpl({
   }, [intl, isError, isLoading, refresh]);
 
   const TableFooterComponent = useMemo(() => {
-    if (isLoadingMore) {
+    if (isLoadingMore || (isRefreshing && isRefreshError)) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Spinner size="small" />
         </Stack>
       );
     }
-    if (isLoadMoreError) {
+    if (isLoadMoreError || isRefreshError) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Button
             testID="market-stock-list-load-more-retry"
             size="small"
             variant="tertiary"
-            onPress={() => void loadMore()}
+            onPress={() => void (isRefreshError ? refresh() : loadMore())}
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
@@ -243,14 +251,18 @@ function MarketStockListImpl({
     if (canLoadMore && webTabIntegrated) {
       return <div ref={endSentinelRef} style={{ height: 1 }} />;
     }
-    if (items.length > 0 && !canLoadMore) {
+    if (items.length > 0 && !canLoadMore && !isRevalidatingFirstPage) {
       return <ListEndIndicator />;
     }
     return null;
   }, [
     canLoadMore,
+    isRevalidatingFirstPage,
     intl,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
+    refresh,
     isLoadingMore,
     items.length,
     loadMore,
@@ -270,16 +282,16 @@ function MarketStockListImpl({
         flex={1}
         className="normal-scrollbar"
         style={{ overflowX: 'auto', overflowY: 'hidden' }}
+        onLayout={handleResponsiveContainerLayout}
       >
-        <Stack flex={1} minWidth={STOCK_LIST_MIN_WIDTH} minHeight={400} px="$3">
+        <Stack flex={1} minHeight={400} px="$3">
           {showSkeleton ? (
             <Table.Skeleton
               columns={columns}
               count={8}
               rowProps={{
                 width: '100%',
-                minWidth: STOCK_TABLE_MIN_WIDTH,
-                height: 72,
+                height: MARKET_LIST_ROW_HEIGHT,
               }}
             />
           ) : (
@@ -297,8 +309,7 @@ function MarketStockListImpl({
               onHeaderRow={handleHeaderRow}
               rowProps={{
                 width: '100%',
-                minWidth: STOCK_TABLE_MIN_WIDTH,
-                height: 72,
+                height: MARKET_LIST_ROW_HEIGHT,
               }}
               headerRowProps={{ height: 36 }}
               TableEmptyComponent={TableEmptyComponent}
@@ -307,6 +318,10 @@ function MarketStockListImpl({
                 onPress: () => void toMarketStockDetailPage(item),
                 rowProps: {
                   testID: MarketTestIDs.stockRow(item.stockId),
+                  // Data rows only: the company cell swaps its subtitle for the
+                  // variant summary while the row is hovered. The header row
+                  // shares `rowProps` above and must not become a group.
+                  group: MARKET_TOKEN_ROW_GROUP_NAME,
                 },
               })}
             />

@@ -896,7 +896,7 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: finallyBlurScreenHex,
                 },
               });
-            if (isProtocolV2ProductType(device.deviceType)) {
+            if (device.deviceType !== EDeviceType.Pro) {
               close();
             }
             Toast.success({

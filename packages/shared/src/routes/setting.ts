@@ -18,6 +18,7 @@ export enum EModalSettingRoutes {
   SettingCustomNetwork = 'SettingCustomNetwork',
   SettingAppAutoLockModal = 'SettingAppAutoLockModal',
   SettingProtectModal = 'SettingProtectModal',
+  SettingTravelModeModal = 'SettingTravelModeModal',
   SettingReceiveRiskSupportedAssets = 'SettingReceiveRiskSupportedAssets',
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
   SettingDAppConnectionList = 'SettingDAppConnectionList',
@@ -50,6 +51,7 @@ export enum EModalSettingRoutes {
   SettingDevBundleUpdateStatusModal = 'SettingDevBundleUpdateStatusModal',
   SettingDevSplitBundleTestModal = 'SettingDevSplitBundleTestModal',
   SettingDevDrawingOrderStressModal = 'SettingDevDrawingOrderStressModal',
+  SettingDevLargeWalletDataCreation = 'SettingDevLargeWalletDataCreation',
   // OneKey ID sub-pages
   SettingOneKeyIdPersonalInfo = 'SettingOneKeyIdPersonalInfo',
   SettingOneKeyIdSignInSecurity = 'SettingOneKeyIdSignInSecurity',
@@ -108,6 +110,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingCustomTransaction]: undefined;
   [EModalSettingRoutes.SettingAppAutoLockModal]: undefined;
   [EModalSettingRoutes.SettingProtectModal]: undefined;
+  [EModalSettingRoutes.SettingTravelModeModal]: { admissionId: string };
   [EModalSettingRoutes.SettingReceiveRiskSupportedAssets]: undefined;
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
   [EModalSettingRoutes.SettingDAppConnectionList]: undefined;
@@ -141,6 +144,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevBundleUpdateStatusModal]: undefined;
   [EModalSettingRoutes.SettingDevSplitBundleTestModal]: undefined;
   [EModalSettingRoutes.SettingDevDrawingOrderStressModal]: undefined;
+  [EModalSettingRoutes.SettingDevLargeWalletDataCreation]: undefined;
   // OneKey ID sub-pages
   [EModalSettingRoutes.SettingOneKeyIdPersonalInfo]: undefined;
   [EModalSettingRoutes.SettingOneKeyIdSignInSecurity]: undefined;

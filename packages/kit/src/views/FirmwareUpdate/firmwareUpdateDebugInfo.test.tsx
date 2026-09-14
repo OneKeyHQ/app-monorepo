@@ -15,6 +15,13 @@ import { FirmwareChangeLogContentView } from './components/FirmwareChangeLogView
 import { FirmwareUpdateProgressBarV2 } from './componentsV2/FirmwareUpdateProgressBarV2';
 
 let mockDeveloperMode = true;
+let mockVerifyVersions:
+  | {
+      finalFirmwareVersion: string;
+      finalBootloaderVersion: string;
+      finalBleVersion: string;
+    }
+  | undefined;
 let mockFirmwareSettings: Partial<IFirmwareUpdateDevSettings>;
 const mockUpdateFirmwareSettings = jest.fn(
   async (values: Partial<IFirmwareUpdateDevSettings>) => {
@@ -73,7 +80,13 @@ jest.mock('@onekeyhq/components', () => {
         role: 'progressbar',
         'aria-valuenow': value,
       }),
-    SizableText: Div,
+    SizableText: ({
+      children,
+      color,
+    }: {
+      children?: ReactNode;
+      color?: string;
+    }) => React.createElement('div', { 'data-color': color }, children),
     Stack: Div,
     Switch: ({
       value,
@@ -120,7 +133,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
     EFirmwareUpdateSteps: {},
     useDevSettingsPersistAtom: () => [{ enabled: mockDeveloperMode }],
     useFirmwareUpdateDevSettingsPersistAtom: () => [mockFirmwareSettings],
-    useFirmwareUpdateResultVerifyAtom: () => [undefined],
+    useFirmwareUpdateResultVerifyAtom: () => [mockVerifyVersions],
     useFirmwareUpdateStepInfoAtom: () => [step, setStep],
     useHardwareUiStateAtom: () => [undefined],
     useHardwareUiStateCompletedAtom: () => [undefined],
@@ -177,6 +190,7 @@ describe('Pro2 firmware debug information visibility', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockDeveloperMode = true;
+    mockVerifyVersions = undefined;
     mockFirmwareSettings = { pro2ForceUpdateTargets: ['boot'] };
   });
 
@@ -208,6 +222,72 @@ describe('Pro2 firmware debug information visibility', () => {
     expect(mockUpdateFirmwareSettings).toHaveBeenLastCalledWith({
       hidePro2FirmwareDebugInfo: false,
     });
+  });
+
+  it.each([
+    'app_v1',
+    'app_v2',
+    'se01',
+    'se02',
+    'se03',
+    'se04',
+    'boot',
+    'coprocessor',
+  ] as const)('marks %s green only after a successful update', (target) => {
+    const result: ICheckAllFirmwareReleaseResult = {
+      ...release,
+      pro2TargetsToUpdate: [target],
+      protocolV2FirmwareVersionInfo: {
+        safeOS: { currentVersion: '1.0.0', targetVersion: '1.1.0' },
+        components: [
+          { target, currentVersion: '0.1.0', targetVersion: '0.2.0' },
+        ],
+      },
+    };
+    const { rerender } = render(
+      <FirmwareUpdateProgressBarV2
+        result={result}
+        lastFirmwareTipMessage={undefined}
+      />,
+    );
+    expect(screen.getByText('0.2.0').getAttribute('data-color')).toBe(
+      '$textSubdued',
+    );
+    mockVerifyVersions = {
+      finalFirmwareVersion: '1.1.0',
+      finalBootloaderVersion: '0.2.0',
+      finalBleVersion: '0.2.0',
+    };
+    rerender(
+      <FirmwareUpdateProgressBarV2
+        result={result}
+        lastFirmwareTipMessage={undefined}
+        isDone
+      />,
+    );
+    act(() => jest.advanceTimersByTime(1500));
+    expect(screen.getByText('0.2.0').getAttribute('data-color')).toBe(
+      '$textSuccess',
+    );
+  });
+
+  it('preserves a mismatched observed version instead of marking the target green', () => {
+    mockVerifyVersions = {
+      finalFirmwareVersion: '1.1.0',
+      finalBootloaderVersion: '0.3.0',
+      finalBleVersion: '0.2.0',
+    };
+    render(
+      <FirmwareUpdateProgressBarV2
+        result={release}
+        lastFirmwareTipMessage={undefined}
+        isDone
+      />,
+    );
+    expect(screen.getByText('0.3.0').getAttribute('data-color')).toBe(
+      '$textCritical',
+    );
+    expect(screen.queryByText('0.2.0')).toBeNull();
   });
 
   it('hides and restores changelog component details without hiding SafeOS or release notes', () => {

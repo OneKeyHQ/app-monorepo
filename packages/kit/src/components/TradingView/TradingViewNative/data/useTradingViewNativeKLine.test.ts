@@ -2,8 +2,17 @@
  * @jest-environment jsdom
  */
 
+import {
+  Suspense,
+  createElement,
+  startTransition,
+  use,
+  useLayoutEffect,
+} from 'react';
+
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
@@ -11,6 +20,7 @@ import type {
 
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
+import { createTradingViewNativeStockDataProvider } from './providers/stock/stockDataProvider';
 import { emitTradingViewNativeDebugEvent } from './tradingViewNativeDebugLogger';
 import {
   readTradingViewNativeActiveInterval,
@@ -34,6 +44,13 @@ const mockFetchHistory = jest.fn<
   Promise<ITradingViewNativeHistoryResponse | null>,
   [ITradingViewNativeHistoryRequest]
 >();
+
+jest.mock(
+  '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData',
+  () => ({
+    fetchMarketStockKLineData: jest.fn(),
+  }),
+);
 const mockHasMoreHistory = jest.fn<
   boolean,
   [ITradingViewNativeHistoryPageInfo]
@@ -183,12 +200,14 @@ function buildProviderKey(source: ITradingViewNativeSource) {
 function buildMarketSource({
   fallbackCoinGeckoId,
   isNative,
+  networkId = 'evm--1',
   realtime = 'disabled',
   symbol = 'TOKEN',
   tokenAddress = '0x123',
 }: {
   fallbackCoinGeckoId?: string;
   isNative?: boolean;
+  networkId?: string;
   realtime?: 'disabled' | 'websocket';
   symbol?: string;
   tokenAddress?: string;
@@ -197,7 +216,7 @@ function buildMarketSource({
     kind: 'market',
     ...(fallbackCoinGeckoId ? { fallbackCoinGeckoId } : {}),
     ...(isNative ? { isNative: true } : {}),
-    networkId: 'evm--1',
+    networkId,
     tokenAddress,
     symbol,
     realtime,
@@ -258,6 +277,91 @@ describe('TradingViewNative K-line data state machine', () => {
     jest.useRealTimers();
     jest.restoreAllMocks();
   });
+
+  it('stops after one empty stock scan and allows a manual retry', async () => {
+    jest.useFakeTimers();
+    const fetchStock = jest.mocked(fetchMarketStockKLineData);
+    fetchStock.mockReset();
+    fetchStock.mockResolvedValue({ pointType: 'ohlc', points: [], total: 0 });
+    mockCreateTradingViewNativeDataProvider.mockReturnValue(
+      createTradingViewNativeStockDataProvider({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: { kind: 'stock', stockId: 'AAPL' } }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.dataState.status).toBe('error');
+    expect(fetchStock).toHaveBeenCalledTimes(8);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(4001);
+    });
+    expect(fetchStock).toHaveBeenCalledTimes(8);
+    fetchStock.mockResolvedValue(
+      buildResponse(100, Math.floor(Date.now() / 1000)),
+    );
+    act(() => result.current.handleRetry());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.points).toHaveLength(1);
+    expect(fetchStock).toHaveBeenCalledTimes(9);
+  });
+
+  it('retries stock transport failures before accepting history', async () => {
+    jest.useFakeTimers();
+    const fetchStock = jest.mocked(fetchMarketStockKLineData);
+    fetchStock.mockReset();
+    fetchStock.mockRejectedValueOnce(new Error('Network unavailable'));
+    fetchStock.mockResolvedValue(
+      buildResponse(100, Math.floor(Date.now() / 1000)),
+    );
+    mockCreateTradingViewNativeDataProvider.mockReturnValue(
+      createTradingViewNativeStockDataProvider({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: { kind: 'stock', stockId: 'AAPL' } }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1001);
+    });
+    expect(fetchStock).toHaveBeenCalledTimes(2);
+    expect(result.current.points).toHaveLength(1);
+  });
+
+  it.each(['1W', '1M'] as const)(
+    'replaces unsupported stored stock interval %s before fetching',
+    async (storedInterval) => {
+      mockReadTradingViewNativeActiveInterval.mockReturnValue(storedInterval);
+      mockFetchHistory.mockResolvedValue(buildResponse(100, 1_000_000));
+      const { result } = renderHook(() =>
+        useTradingViewNativeKLine({
+          source: { kind: 'stock', stockId: 'AAPL' },
+        }),
+      );
+      await waitFor(() => expect(mockFetchHistory).toHaveBeenCalled());
+      expect(result.current.intervalConfig.activeInterval).toBe('60');
+      expect(
+        result.current.intervalConfig.intervals.map(
+          (interval) => interval.value,
+        ),
+      ).toEqual(['1', '5', '15', '30', '60', '240', '1D']);
+      expect(
+        mockFetchHistory.mock.calls.every(
+          ([request]) => request.interval.value === '60',
+        ),
+      ).toBe(true);
+      act(() => result.current.handleIntervalChange(storedInterval));
+      expect(result.current.intervalConfig.activeInterval).toBe('60');
+    },
+  );
 
   it('preserves the self-maintained Asset source for history requests', async () => {
     mockFetchHistory.mockResolvedValue(buildResponse(0.08, 1_000_000));
@@ -632,6 +736,64 @@ describe('TradingViewNative K-line data state machine', () => {
       interval: '15',
       namespace: 'token',
     });
+  });
+
+  it('persists a selected interval before its history request finishes', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 100_000))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    const { result, unmount } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    mockSaveTradingViewNativeActiveInterval.mockClear();
+    act(() => result.current.handleIntervalChange('15'));
+    expect(mockSaveTradingViewNativeActiveInterval).toHaveBeenLastCalledWith({
+      interval: '15',
+      namespace: 'token',
+    });
+    unmount();
+  });
+
+  it('restores and saves Swap intervals independently for the same token', async () => {
+    mockReadTradingViewNativeActiveInterval.mockImplementation((namespace) =>
+      namespace === 'swap' ? '240' : '15',
+    );
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 100_000));
+    const source = buildMarketSource();
+    const { result, rerender } = renderHook(
+      ({ storageNamespace }: { storageNamespace: 'market' | 'swap' }) =>
+        useTradingViewNativeKLine({ source, storageNamespace }),
+      { initialProps: { storageNamespace: 'market' } },
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    expect(result.current.intervalConfig.activeInterval).toBe('15');
+
+    mockSaveTradingViewNativeActiveInterval.mockClear();
+    rerender({ storageNamespace: 'swap' });
+    expect(result.current.intervalConfig.activeInterval).toBe('240');
+    expect(mockSaveTradingViewNativeActiveInterval).not.toHaveBeenCalledWith({
+      interval: '15',
+      namespace: 'swap',
+    });
+    await waitFor(() =>
+      expect(mockSaveTradingViewNativeActiveInterval).toHaveBeenCalledWith({
+        interval: '240',
+        namespace: 'swap',
+      }),
+    );
+
+    mockSaveTradingViewNativeActiveInterval.mockClear();
+    act(() => result.current.handleIntervalChange('1D'));
+    await waitFor(() =>
+      expect(mockSaveTradingViewNativeActiveInterval).toHaveBeenCalledWith({
+        interval: '1D',
+        namespace: 'swap',
+      }),
+    );
+    expect(mockSaveTradingViewNativeActiveInterval).not.toHaveBeenCalledWith(
+      expect.objectContaining({ namespace: 'token' }),
+    );
   });
 
   it('refines the weekly history boundary with daily data and caches it for 24 hours', async () => {
@@ -3470,9 +3632,10 @@ describe('TradingViewNative K-line data state machine', () => {
     );
     expect(result.current.points[0]?.c).toBe(100);
     expect(result.current.dataState.status).toBe('stale');
-    expect(mockSaveTradingViewNativeActiveInterval).not.toHaveBeenCalledWith(
-      expect.objectContaining({ interval: '1' }),
-    );
+    expect(mockSaveTradingViewNativeActiveInterval).toHaveBeenLastCalledWith({
+      interval: '60',
+      namespace: 'token',
+    });
   });
 
   it('aborts selected-interval history when time navigation takes over', async () => {
@@ -3883,6 +4046,205 @@ describe('TradingViewNative K-line data state machine', () => {
     });
   });
 
+  it.each(['commit', 'cancel'] as const)(
+    'keeps the committed subscription live through a suspended source change and %s',
+    async (outcome) => {
+      mockFetchHistory.mockResolvedValue(buildResponse(100));
+      const currentPriceUpdate = jest.fn();
+      const pendingPriceUpdate = jest.fn();
+      const suspendedRender = jest.fn();
+      const suspension = createDeferred<void>();
+      const currentSource = buildMarketSource({ realtime: 'websocket' });
+      const pendingSource = buildMarketSource({
+        tokenAddress: '0x456',
+        realtime: 'websocket',
+      });
+      const currentProps = {
+        source: currentSource,
+        onRealtimePoint: currentPriceUpdate,
+        shouldSuspend: false,
+      };
+      const pendingProps = {
+        source: pendingSource,
+        onRealtimePoint: pendingPriceUpdate,
+        shouldSuspend: true,
+      };
+      const { result, rerender } = renderHook(
+        ({ source, onRealtimePoint, shouldSuspend }) => {
+          const chart = useTradingViewNativeKLine({ source, onRealtimePoint });
+          if (shouldSuspend) {
+            suspendedRender();
+            use(suspension.promise);
+          }
+          return chart;
+        },
+        {
+          initialProps: currentProps,
+          wrapper: ({ children }) =>
+            createElement(Suspense, { fallback: null }, children),
+        },
+      );
+      await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+      await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+      const currentSubscription = mockSubscribeRealtime.mock.calls[0][0];
+
+      await act(async () => {
+        startTransition(() => rerender(pendingProps));
+      });
+
+      expect(suspendedRender).toHaveBeenCalled();
+      expect(currentSubscription.signal.aborted).toBe(false);
+      expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1);
+      const currentPoint = { o: 100, h: 106, l: 99, c: 105, v: 12, t: 200 };
+      await act(async () => {
+        currentSubscription.onPoint(currentPoint);
+      });
+
+      expect(currentPriceUpdate).toHaveBeenCalledTimes(1);
+      expect(currentPriceUpdate).toHaveBeenLastCalledWith(currentPoint);
+      expect(pendingPriceUpdate).not.toHaveBeenCalled();
+      expect(result.current.points.at(-1)).toEqual(currentPoint);
+
+      const finalProps = outcome === 'commit' ? pendingProps : currentProps;
+      await act(async () => {
+        rerender({ ...finalProps, shouldSuspend: false });
+      });
+      await waitFor(() =>
+        expect(mockSubscribeRealtime).toHaveBeenCalledTimes(
+          outcome === 'commit' ? 2 : 1,
+        ),
+      );
+      expect(currentSubscription.signal.aborted).toBe(outcome === 'commit');
+      const nextPoint = { ...currentPoint, c: 110, h: 111, t: 300 };
+      await act(async () => {
+        realtimePointListener?.(nextPoint);
+      });
+
+      expect(finalProps.onRealtimePoint).toHaveBeenLastCalledWith(nextPoint);
+      expect(result.current.points.at(-1)).toEqual(nextPoint);
+    },
+  );
+
+  it.each([
+    { networkId: 'evm--1', tokenAddress: '0x456' },
+    { networkId: 'evm--8453', tokenAddress: '0x123' },
+  ])(
+    'rejects old subscription prices before passive cleanup after switching to %j',
+    async (nextToken) => {
+      mockFetchHistory.mockResolvedValue(buildResponse(100));
+      const previousPriceUpdate = jest.fn();
+      const nextPriceUpdate = jest.fn();
+      const emitPreviousPoint = jest.fn();
+      let emittedBeforeCleanup = false;
+      const { result, rerender } = renderHook(
+        ({ networkId, tokenAddress, onRealtimePoint }) => {
+          const chart = useTradingViewNativeKLine({
+            onRealtimePoint,
+            source: buildMarketSource({
+              networkId,
+              tokenAddress,
+              realtime: 'websocket',
+            }),
+          });
+          useLayoutEffect(() => {
+            if (networkId !== 'evm--1' || tokenAddress !== '0x123') {
+              emitPreviousPoint();
+            }
+          }, [networkId, tokenAddress]);
+          return chart;
+        },
+        {
+          initialProps: {
+            networkId: 'evm--1',
+            tokenAddress: '0x123',
+            onRealtimePoint: previousPriceUpdate,
+          },
+        },
+      );
+
+      await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+      await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+      const previousSubscription = mockSubscribeRealtime.mock.calls[0][0];
+      const previousSignal = previousSubscription.signal;
+      emitPreviousPoint.mockImplementation(() => {
+        emittedBeforeCleanup = !previousSignal.aborted;
+        previousSubscription.onPoint({
+          o: 100,
+          h: 106,
+          l: 99,
+          c: 105,
+          v: 12,
+          t: 100,
+        });
+      });
+
+      rerender({ ...nextToken, onRealtimePoint: nextPriceUpdate });
+
+      expect(emittedBeforeCleanup).toBe(true);
+      expect(previousPriceUpdate).not.toHaveBeenCalled();
+      expect(nextPriceUpdate).not.toHaveBeenCalled();
+      expect(previousSignal.aborted).toBe(true);
+
+      await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+      await waitFor(() =>
+        expect(mockSubscribeRealtime).toHaveBeenCalledTimes(2),
+      );
+      const currentPoint = { o: 100, h: 111, l: 99, c: 110, v: 12, t: 200 };
+      pushRealtimePoint(currentPoint);
+      expect(nextPriceUpdate).toHaveBeenCalledTimes(1);
+      expect(nextPriceUpdate).toHaveBeenLastCalledWith(currentPoint);
+    },
+  );
+
+  it('updates an older candle without publishing it as the latest price', async () => {
+    mockFetchHistory.mockResolvedValue(
+      buildMultiPointResponse([
+        { close: 100, timestamp: 100 },
+        { close: 200, timestamp: 200 },
+      ]),
+    );
+    const onRealtimePoint = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        onRealtimePoint,
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+
+    pushRealtimePoint({ o: 100, h: 106, l: 99, c: 105, v: 12, t: 100 });
+
+    expect(result.current.points.map((point) => point.c)).toEqual([105, 200]);
+    expect(onRealtimePoint).not.toHaveBeenCalled();
+  });
+
+  it('ignores delayed price updates within a batch and keeps updates to the current candle', async () => {
+    mockFetchHistory.mockResolvedValue(buildResponse(100));
+    const onRealtimePoint = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        onRealtimePoint,
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+    const currentPoint = { o: 100, h: 301, l: 99, c: 300, v: 12, t: 300 };
+    const updatedPoint = { ...currentPoint, c: 310, h: 311 };
+
+    act(() => {
+      realtimePointListener?.(currentPoint);
+      realtimePointListener?.({ ...currentPoint, c: 250, t: 200 });
+      realtimePointListener?.(updatedPoint);
+    });
+
+    expect(onRealtimePoint).toHaveBeenCalledTimes(2);
+    expect(onRealtimePoint).toHaveBeenNthCalledWith(1, currentPoint);
+    expect(onRealtimePoint).toHaveBeenNthCalledWith(2, updatedPoint);
+    expect(result.current.points.at(-1)).toEqual(updatedPoint);
+  });
+
   it('discards realtime candles until initial history is ready', async () => {
     const historyRequest = createDeferred<IMarketTokenKLineResponse | null>();
     mockFetchHistory.mockReturnValue(historyRequest.promise);
@@ -4165,6 +4527,38 @@ describe('TradingViewNative K-line data state machine', () => {
     act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(3));
     await waitFor(() => expect(result.current.points).toHaveLength(400));
+  });
+
+  it('keeps loading earlier stock pages and merges candles in time order', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 100, timestamp: 1_000_000 },
+          { close: 101, timestamp: 1_003_600 },
+        ]),
+      )
+      .mockResolvedValueOnce(buildResponse(99, 900_000))
+      .mockResolvedValueOnce(buildResponse(98, 800_000));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: { kind: 'stock', stockId: 'AAPL' },
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(result.current.points).toHaveLength(3));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(result.current.points).toHaveLength(4));
+    expect(result.current.points.map((point) => point.c)).toEqual([
+      98, 99, 100, 101,
+    ]);
+    expect(mockFetchHistory.mock.calls[1][0].timeTo).toBe(999_999);
+    expect(mockFetchHistory.mock.calls[2][0].timeTo).toBe(899_999);
+    expect(
+      mockFetchHistory.mock.calls.every(
+        ([request]) => request.allowEarlierHistory,
+      ),
+    ).toBe(true);
   });
 
   it('loads older history through the Hyperliquid provider path', async () => {

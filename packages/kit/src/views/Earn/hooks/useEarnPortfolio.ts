@@ -482,6 +482,8 @@ export interface IUseEarnPortfolioReturn {
   investments: IEarnPortfolioInvestment[];
   earnTotalFiatValue: BigNumber;
   earnTotalEarnings24hFiatValue: BigNumber;
+  cachedOverviewTotalFiatValue: string | undefined;
+  cachedOverviewEarnings24h: string | undefined;
   isLoading: boolean;
   refresh: (options?: IRefreshOptions) => Promise<void>;
 }
@@ -1104,6 +1106,8 @@ export const useEarnPortfolio = ({
     investments: aggregatedInvestments,
     earnTotalFiatValue,
     earnTotalEarnings24hFiatValue,
+    cachedOverviewTotalFiatValue: currentOverviewData?.totalFiatValue,
+    cachedOverviewEarnings24h: currentOverviewData?.earnings24h,
     isLoading,
     refresh,
   };

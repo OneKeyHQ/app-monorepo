@@ -17,6 +17,7 @@ import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
 } from '@onekeyhq/shared/src/routes/addressBook';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -47,9 +48,15 @@ function EditItemPage() {
     >();
 
   const isCreateMode = !addressBookParams?.id;
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
+      if (isTravelMode) {
+        return;
+      }
       const { serviceAddressBook } = backgroundApiProxy;
       try {
         setIsSubmitLoading(true);
@@ -75,11 +82,14 @@ function EditItemPage() {
         setIsSubmitLoading(false);
       }
     },
-    [addressBookParams, intl, navigation],
+    [addressBookParams, intl, isTravelMode, navigation],
   );
 
   const onRemove = useCallback(
     async (item: IAddressItem) => {
+      if (isTravelMode) {
+        return;
+      }
       Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.address_book_edit_address_delete_contact_title,
@@ -115,7 +125,7 @@ function EditItemPage() {
         },
       });
     },
-    [navigation, intl],
+    [isTravelMode, navigation, intl],
   );
 
   const { result: item, isLoading } = usePromiseResult(
@@ -144,7 +154,13 @@ function EditItemPage() {
   );
 
   // isLoading is undefined initially, so we need to explicitly check if it's false
-  return isLoading === false ? (
+  if (isTravelMode) {
+    return null;
+  }
+  if (isLoading !== false) {
+    return null;
+  }
+  return (
     <CreateOrEditContent
       isSubmitLoading={isSubmitLoading}
       title={intl.formatMessage({
@@ -166,7 +182,7 @@ function EditItemPage() {
           : undefined
       }
     />
-  ) : null;
+  );
 }
 
 export default EditItemPage;

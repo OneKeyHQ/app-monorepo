@@ -244,6 +244,55 @@ describe('getSwapHistoryTransactionIdRows', () => {
     ]);
   });
 
+  it('renders the refund hash when state-tx only returns the refunded state', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          status: ESwapTxHistoryStatus.REFUNDED,
+          fromNetworkId: 'evm--1',
+          toNetworkId: 'btc--0',
+          swapOrderHash: {
+            fromTxHash: '0xsource',
+            refundHash: '0xrefund',
+          },
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'source',
+        transactionId: '0xsource',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+      {
+        kind: 'refund',
+        transactionId: '0xrefund',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+    ]);
+  });
+
+  it('does not render a pending target row for an expired order', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          provider: 'Swap1inchFusion',
+          status: ESwapTxHistoryStatus.EXPIRED,
+          fromNetworkId: 'evm--1',
+          toNetworkId: 'evm--1',
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'transaction',
+        transactionId: '0xsource',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+    ]);
+  });
+
   it('ignores a stale refund hash after the target chain succeeds', () => {
     expect(
       getSwapHistoryTransactionIdRows(

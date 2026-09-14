@@ -1060,6 +1060,47 @@ function MessageParseFallbackDemo() {
   );
 }
 
+function InternalSendAddressTagDemo() {
+  const intl = useIntl();
+  return (
+    <FakeWrapper gap="$5" testID="signature-gallery-internal-send">
+      <SecurityCheckCard
+        model={buildSecurityCheckModel({
+          kind: 'transaction',
+          decodedTxs: [
+            {
+              ...galleryDecodedTx(),
+              txDisplay: {
+                title: 'Send',
+                components: [
+                  {
+                    type: EParseTxComponentType.Address,
+                    label: 'To',
+                    address: '0x76f3f64cb3cd19debee51436df630a342b736c24',
+                    tags: [
+                      {
+                        displayType: 'warning',
+                        value: 'Initial transfer',
+                      },
+                    ],
+                  },
+                ],
+                alerts: [],
+              },
+            },
+          ],
+          intl,
+        })}
+      />
+      <SignatureAddressDetailItem
+        label="To"
+        address="0x76f3f64cb3cd19debee51436df630a342b736c24"
+        tags={[{ type: 'warning', name: 'Initial transfer' }]}
+      />
+    </FakeWrapper>
+  );
+}
+
 function ApprovalCheckFailedDemo() {
   const [isRetrying, setIsRetrying] = useState(false);
   return (
@@ -1164,6 +1205,10 @@ const SignatureConfirmationGallery = () => (
       {
         title: 'Unverified · Message parsing fallback',
         element: <MessageParseFallbackDemo />,
+      },
+      {
+        title: 'Internal send · Address tag only',
+        element: <InternalSendAddressTagDemo />,
       },
       {
         title: 'Incomplete · Retry',

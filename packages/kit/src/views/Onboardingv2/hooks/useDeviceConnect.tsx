@@ -636,6 +636,12 @@ export function useDeviceConnect({
             );
           }
 
+          // The connecting beat stands on stage behind its touch wall, and
+          // the page's hold keeps it there until the throw below lands —
+          // the dialog opened under it, unreachable (OK-62105). The stage
+          // yields first; the hold's own end still releases the layer.
+          await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
+
           fwUpdateActions.showBootloaderMode({
             connectId: device.connectId ?? undefined,
             existsFirmware,

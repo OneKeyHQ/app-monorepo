@@ -113,6 +113,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import {
   type IStakePendingTx,
@@ -141,12 +142,16 @@ const timerMock = (
 const pendingTag = 'borrow:aave:setEMode';
 const pendingTagMatcher = (tag: string) => tag === pendingTag;
 
-function createPendingTx(id: string): IStakePendingTx {
+function createPendingTx(
+  id: string,
+  replacedType?: EReplaceTxType,
+): IStakePendingTx {
   return {
     id,
     stakingInfo: {
       tags: [pendingTag],
     },
+    replacedType,
   } as unknown as IStakePendingTx;
 }
 
@@ -178,6 +183,32 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     );
     backgroundMock.getFetchHistoryPollingIntervalsBatch.mockReset();
     backgroundMock.getFetchHistoryPollingIntervalsBatch.mockResolvedValue({});
+  });
+
+  it('does not expose cancellation replacements as pending staking actions', async () => {
+    const cancelledTx = createPendingTx(
+      'cancelled-pending',
+      EReplaceTxType.Cancel,
+    );
+    const activeTx = createPendingTx('active-pending');
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      cancelledTx,
+      activeTx,
+    ]);
+
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1'],
+        accountId: 'route-account',
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.filteredTxs).toEqual([activeTx]);
   });
 
   it('fails closed after every pending-history query fails on a cold mount', async () => {

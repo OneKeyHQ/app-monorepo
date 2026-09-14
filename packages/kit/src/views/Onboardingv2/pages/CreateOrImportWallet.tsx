@@ -322,6 +322,11 @@ function CreateOrImportWallet() {
   }: IImportOption) => (
     <ListItem
       key={key}
+      testID={
+        key === 'watch'
+          ? OnboardingTestIDs.createOrImportWalletOptionBtn(key)
+          : undefined
+      }
       icon={icon}
       title={title}
       drillIn

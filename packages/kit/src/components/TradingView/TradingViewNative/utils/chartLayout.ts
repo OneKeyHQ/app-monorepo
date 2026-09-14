@@ -5,7 +5,6 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
-  TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH,
   TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
@@ -20,8 +19,6 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_AXIS_MAX_TICK_COUNT,
   TRADING_VIEW_NATIVE_VOLUME_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
-  TRADING_VIEW_NATIVE_WATERMARK_BOTTOM_INSET,
-  TRADING_VIEW_NATIVE_WATERMARK_LEFT_INSET,
   TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
   TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
 } from '../chartConstants';
@@ -120,7 +117,7 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const VOLUME_HEIGHT_RATIO = 0.2;
 const PRICE_INTEGER_FRACTION_DIGITS = 2;
 const PRICE_SIGNIFICANT_FRACTION_DIGITS = 4;
-const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 4;
+const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 3;
 const PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE =
   10 ** -(PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD + 1);
 const PRICE_SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
@@ -232,7 +229,12 @@ function compactTradingViewNativePriceLeadingZeros(value: string) {
   )}${value.slice(firstSignificantDigitIndex)}`;
 }
 
-export function formatTradingViewNativePriceTick(price: number) {
+export function formatTradingViewNativePriceTick(
+  price: number,
+  // Worklet default parameters cannot read captured constants before __closure is initialized.
+  // Keep this literal in sync manually with PRICE_SIGNIFICANT_FRACTION_DIGITS.
+  significantFractionDigits: 4 | 6 = 4,
+) {
   'worklet';
 
   if (!Number.isFinite(price)) {
@@ -251,11 +253,9 @@ export function formatTradingViewNativePriceTick(price: number) {
     -Math.floor(Math.log10(absolutePrice)) - 1,
     0,
   );
-  const fractionDigits = leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS;
+  const fractionDigits = leadingZeroCount + significantFractionDigits;
   if (fractionDigits > MAX_TO_FIXED_FRACTION_DIGITS) {
-    return Number(
-      price.toPrecision(PRICE_SIGNIFICANT_FRACTION_DIGITS),
-    ).toString();
+    return Number(price.toPrecision(significantFractionDigits)).toString();
   }
 
   const fixedPrice = price.toFixed(fractionDigits);
@@ -603,29 +603,11 @@ export function getTradingViewNativeWatermarkLayout({
   );
   const watermarkHeight =
     watermarkWidth / TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO;
-  const shouldCenterWatermark =
-    isMobileLayout || canvasWidth < TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH;
-
   return {
     height: watermarkHeight,
     width: watermarkWidth,
-    x: shouldCenterWatermark
-      ? (canvasWidth - watermarkWidth) / 2
-      : Math.max(
-          Math.min(
-            TRADING_VIEW_NATIVE_WATERMARK_LEFT_INSET,
-            canvasWidth - watermarkWidth,
-          ),
-          0,
-        ),
-    y: shouldCenterWatermark
-      ? (mainChartBottom - watermarkHeight) / 2
-      : Math.max(
-          mainChartBottom -
-            watermarkHeight -
-            TRADING_VIEW_NATIVE_WATERMARK_BOTTOM_INSET,
-          0,
-        ),
+    x: (canvasWidth - watermarkWidth) / 2,
+    y: (mainChartBottom - watermarkHeight) / 2,
   };
 }
 

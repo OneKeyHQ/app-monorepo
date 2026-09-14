@@ -1,276 +1,107 @@
 /* cspell:ignore Infini */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import {
-  Dialog,
-  Form,
-  Icon,
-  Input,
-  LottieView,
-  SizableText,
-  Stack,
-  UnOrderedList,
-  YStack,
-  useThemeName,
-} from '@onekeyhq/components';
-import { useForm } from '@onekeyhq/components/src/hooks/useForm';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Dialog, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { IPrimeGiftAnalyticsSource } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { PrimeDarkDialogContainer } from '../../components/PrimeDarkDialogContainer';
+import {
+  PrimeRedemptionFormView,
+  PrimeRedemptionSuccessView,
+} from '../../components/PrimeRedemptionViews';
 import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
+import { usePrimeRedemptionSubmit } from '../../hooks/usePrimeRedemptionSubmit';
 import { PrimeTestIDs } from '../../testIDs';
 
-type IPrimeRedemptionFormValues = {
-  code: string;
+async function readInfiniPaymentEntryGuard() {
+  try {
+    return await getPrimeInfiniPaymentEntryGuard();
+  } catch {
+    // Probe failed: treat as not ready so redeem stays blocked.
+    return undefined;
+  }
+}
+
+type IPrimeRedemptionDialogParams = {
+  expectedOneKeyUserId: string;
+  isPrimeActiveBeforeRedeem: boolean;
+  initialCode?: string;
+  primeGiftSerialNo?: string;
+  giftSource?: IPrimeGiftAnalyticsSource;
+  onRedeemed?: (result: IPrimeRedemptionResult) => void;
 };
 
 function PrimeRedemptionDialogContent({
   expectedOneKeyUserId,
   isPrimeActiveBeforeRedeem,
-}: {
-  expectedOneKeyUserId: string;
-  isPrimeActiveBeforeRedeem: boolean;
-}) {
+  initialCode,
+  primeGiftSerialNo,
+  giftSource,
+  onRedeemed,
+}: IPrimeRedemptionDialogParams) {
   const intl = useIntl();
-  const form = useForm<IPrimeRedemptionFormValues>({
-    defaultValues: { code: '' },
-    mode: 'onChange',
+  const {
+    codeValue,
+    form,
+    isSubmitting,
+    redemptionResult,
+    runWithSubmittingLock,
+    submitRedemption,
+  } = usePrimeRedemptionSubmit({
+    expectedOneKeyUserId,
+    isPrimeActiveBeforeRedeem,
+    initialCode,
+    primeGiftSerialNo,
+    giftSource,
+    onRedeemed,
   });
-  const isSubmittingRef = useRef(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPendingPaymentConfirmation, setIsPendingPaymentConfirmation] =
     useState(false);
-  const [redemptionResult, setRedemptionResult] =
-    useState<IPrimeRedemptionResult>();
-  const codeValue = form.watch('code');
-  const themeName = useThemeName() as 'light' | 'dark';
-  const primeIconName =
-    themeName === 'light'
-      ? 'OnekeyPrimeLightColored'
-      : 'OnekeyPrimeDarkColored';
-  const redemptionCodeLabel = intl.formatMessage({
-    id: ETranslations.redemption_enter_code_placeholder,
-  });
-
-  const runWithSubmittingLock = useCallback(
-    async (action: () => Promise<void>) => {
-      if (isSubmittingRef.current) {
-        return;
-      }
-
-      isSubmittingRef.current = true;
-      setIsSubmitting(true);
-      form.clearErrors('code');
-      try {
-        await action();
-      } finally {
-        isSubmittingRef.current = false;
-        setIsSubmitting(false);
-      }
-    },
-    [form],
-  );
-
-  const submitRedemption = useCallback(
-    async ({
-      code,
-      close,
-    }: {
-      code: string;
-      close: IDialogInstance['close'];
-    }) => {
-      try {
-        const result = await backgroundApiProxy.servicePrime.apiRedeemPrimeCode(
-          {
-            code,
-            expectedOneKeyUserId,
-          },
-        );
-        defaultLogger.prime.subscription.primeRedemptionResult({
-          result: 'success',
-          isPrimeActiveBeforeRedeem,
-          addedDays: result.addedDays,
-        });
-        setRedemptionResult(result);
-        void backgroundApiProxy.servicePrime
-          .apiFetchPrimeUserInfo({ forceRefresh: true })
-          .catch(() => undefined);
-      } catch (error) {
-        setIsPendingPaymentConfirmation(false);
-        const apiError = error as {
-          code?: unknown;
-          data?: {
-            code?: unknown;
-            message?: unknown;
-            translatedMessage?: unknown;
-          };
-          key?: unknown;
-          message?: unknown;
-          response?: {
-            data?: {
-              code?: unknown;
-              message?: unknown;
-              translatedMessage?: unknown;
-            };
-          };
-        };
-        const responseData = apiError.response?.data;
-        const translatedMessage =
-          apiError.data?.translatedMessage ?? responseData?.translatedMessage;
-        const serverMessage = apiError.data?.message ?? responseData?.message;
-        const errorCodeCandidate =
-          apiError.data?.code ?? responseData?.code ?? apiError.code;
-        const errorCode =
-          Number.isSafeInteger(errorCodeCandidate) &&
-          Number(errorCodeCandidate) > 0
-            ? Number(errorCodeCandidate)
-            : undefined;
-        defaultLogger.prime.subscription.primeRedemptionResult({
-          result: 'failed',
-          isPrimeActiveBeforeRedeem,
-          errorCode,
-        });
-        if (apiError.key === ETranslations.id_login_expired_description) {
-          await close();
-          return;
-        }
-        form.setError('code', {
-          message:
-            (typeof translatedMessage === 'string' && translatedMessage) ||
-            (typeof serverMessage === 'string' && serverMessage) ||
-            (typeof apiError.message === 'string' && apiError.message) ||
-            intl.formatMessage({
-              id: ETranslations.redemption_invalid_code_error,
-            }),
-        });
-      }
-    },
-    [expectedOneKeyUserId, form, intl, isPrimeActiveBeforeRedeem],
-  );
 
   const handleRedeem = useCallback(
-    async ({
-      close,
-      preventClose,
-    }: IDialogInstance & { preventClose: () => void }) => {
+    async (
+      { close, preventClose }: IDialogInstance & { preventClose: () => void },
+      options?: { skipPendingPaymentCheck?: boolean },
+    ) => {
       preventClose();
-      const code = form.getValues('code').trim();
-      if (!code) {
-        return;
-      }
-
       await runWithSubmittingLock(async () => {
-        let entryGuard:
-          | Awaited<ReturnType<typeof getPrimeInfiniPaymentEntryGuard>>
-          | undefined;
-        try {
-          entryGuard = await getPrimeInfiniPaymentEntryGuard();
-        } catch {
-          entryGuard = undefined;
-        }
-        if (
-          !entryGuard?.isLoggedIn ||
-          entryGuard.onekeyUserId !== expectedOneKeyUserId
-        ) {
-          form.setError('code', {
-            message: intl.formatMessage({
-              id: ETranslations.global_unknown_error_retry_message,
-            }),
-          });
-          return;
-        }
-        if (entryGuard.hasPendingPayment) {
-          setIsPendingPaymentConfirmation(true);
-          return;
+        if (!options?.skipPendingPaymentCheck) {
+          const entryGuard = await readInfiniPaymentEntryGuard();
+          if (
+            !entryGuard?.isLoggedIn ||
+            entryGuard.onekeyUserId !== expectedOneKeyUserId
+          ) {
+            form.setError('code', {
+              message: intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
+            });
+            return;
+          }
+          if (entryGuard.hasPendingPayment) {
+            setIsPendingPaymentConfirmation(true);
+            return;
+          }
         }
 
-        await submitRedemption({ code, close });
+        await submitRedemption({ onExpiredSession: close });
+        setIsPendingPaymentConfirmation(false);
       });
     },
     [expectedOneKeyUserId, form, intl, runWithSubmittingLock, submitRedemption],
   );
 
-  const handleConfirmedRedeem = useCallback(
-    async ({
-      close,
-      preventClose,
-    }: IDialogInstance & { preventClose: () => void }) => {
-      preventClose();
-      const code = form.getValues('code').trim();
-      if (!code) {
-        return;
-      }
-      await runWithSubmittingLock(() => submitRedemption({ code, close }));
-    },
-    [form, runWithSubmittingLock, submitRedemption],
-  );
-
   if (redemptionResult) {
-    const successTitle = intl.formatMessage({
-      id: ETranslations.redemption_success_title,
-    });
-    const receivedDaysMessage = intl.formatMessage(
-      {
-        id: ETranslations.prime_redemption_received_days__msg,
-      },
-      { count: redemptionResult.addedDays },
-    );
-    const validUntilMessage = intl.formatMessage(
-      {
-        id: ETranslations.prime_membership_valid_until__desc,
-      },
-      {
-        date: formatDateFns(new Date(redemptionResult.finalExpiresAt)),
-      },
-    );
-
     return (
       <YStack mx="$-5" testID={PrimeTestIDs.redemptionSuccess}>
         <Dialog.Header />
-        <YStack
-          px="$5"
-          pt="$2"
-          pb="$5"
-          alignItems="center"
-          accessible
-          accessibilityLiveRegion="polite"
-          accessibilityLabel={`${successTitle} ${receivedDaysMessage} ${validUntilMessage}`}
-        >
-          <LottieView
-            source={require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')}
-            width={110}
-            height={110}
-            autoPlay
-            loop={false}
-          />
-          <SizableText size="$headingXl" textAlign="center" mt="$-2">
-            {successTitle}
-          </SizableText>
-          <YStack
-            mt="$5"
-            width="100%"
-            px="$4"
-            py="$4"
-            gap="$1.5"
-            alignItems="center"
-            bg="$brand2"
-            borderRadius="$3"
-            borderCurve="continuous"
-          >
-            <Icon name={primeIconName} size="$6" />
-            <SizableText size="$headingMd" textAlign="center">
-              {receivedDaysMessage}
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-              {validUntilMessage}
-            </SizableText>
-          </YStack>
+        <YStack px="$5" pt="$2" pb="$5">
+          <PrimeRedemptionSuccessView redemptionResult={redemptionResult} />
         </YStack>
         <Dialog.Footer
           showCancelButton={false}
@@ -301,7 +132,9 @@ function PrimeRedemptionDialogContent({
           onCancelText={intl.formatMessage({
             id: ETranslations.global_back,
           })}
-          onConfirm={handleConfirmedRedeem}
+          onConfirm={(dialog) =>
+            handleRedeem(dialog, { skipPendingPaymentCheck: true })
+          }
           onConfirmText={intl.formatMessage({
             id: ETranslations.prime_redeem_anyway__action,
           })}
@@ -314,53 +147,11 @@ function PrimeRedemptionDialogContent({
   return (
     <YStack mx="$-5">
       <Dialog.Header />
-      <YStack px="$5" py="$5" alignItems="center">
-        <Stack
-          w="$16"
-          h="$16"
-          bg="$brand3"
-          borderRadius="$full"
-          alignItems="center"
-          justifyContent="center"
-          mb="$5"
-        >
-          <Icon name={primeIconName} size="$10" />
-        </Stack>
-        <SizableText size="$headingXl" textAlign="center" mb="$5">
-          {intl.formatMessage({
-            id: ETranslations.prime_redeem__action,
-          })}
-        </SizableText>
-        <YStack width="100%">
-          <Form form={form}>
-            <Form.Field
-              name="code"
-              description={
-                <UnOrderedList width="100%" pt="$2">
-                  <UnOrderedList.Item titleSize="$bodySm" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.prime_redemption_codes_cumulative__desc,
-                    })}
-                  </UnOrderedList.Item>
-                  <UnOrderedList.Item titleSize="$bodySm" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.prime_redemption_paid_subscription_blocked__desc,
-                    })}
-                  </UnOrderedList.Item>
-                </UnOrderedList>
-              }
-            >
-              <Input
-                testID={PrimeTestIDs.redemptionCodeInput}
-                size="large"
-                accessibilityLabel={redemptionCodeLabel}
-                placeholder={redemptionCodeLabel}
-                autoCapitalize="characters"
-                autoCorrect={false}
-              />
-            </Form.Field>
-          </Form>
-        </YStack>
+      <YStack px="$5" py="$5">
+        <PrimeRedemptionFormView
+          form={form}
+          isCodeReadOnly={Boolean(primeGiftSerialNo)}
+        />
       </YStack>
       <Dialog.Footer
         showCancelButton={false}
@@ -377,20 +168,27 @@ function PrimeRedemptionDialogContent({
   );
 }
 
-export function showPrimeRedemptionDialog({
-  expectedOneKeyUserId,
-  isPrimeActiveBeforeRedeem,
-}: {
-  expectedOneKeyUserId: string;
-  isPrimeActiveBeforeRedeem: boolean;
-}): IDialogInstance {
+export function showPrimeRedemptionDialog(
+  params: IPrimeRedemptionDialogParams,
+): IDialogInstance {
+  const renderContent = <PrimeRedemptionDialogContent {...params} />;
+  const isHardwarePrimeGift = Boolean(params.primeGiftSerialNo);
   return Dialog.show({
+    testID: 'prime-redemption-dialog',
     showFooter: false,
-    renderContent: (
-      <PrimeRedemptionDialogContent
-        expectedOneKeyUserId={expectedOneKeyUserId}
-        isPrimeActiveBeforeRedeem={isPrimeActiveBeforeRedeem}
-      />
-    ),
+    renderContent,
+    ...(isHardwarePrimeGift
+      ? {
+          dialogContainer: ({ ref }) => (
+            <PrimeDarkDialogContainer
+              ref={ref}
+              testID="prime-redemption-dialog"
+              showFooter={false}
+              renderContent={renderContent}
+              onClose={async () => undefined}
+            />
+          ),
+        }
+      : {}),
   });
 }

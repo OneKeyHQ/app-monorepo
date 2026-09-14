@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 
+import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import {
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
@@ -85,6 +86,7 @@ function isChartPriceUpdateForCurrentToken({
 }
 
 export interface IMarketTradingViewProps {
+  loadingIdentity?: string;
   tokenAddress: string;
   networkId: string;
   tokenSymbol?: string;
@@ -93,6 +95,7 @@ export interface IMarketTradingViewProps {
   isNative?: boolean;
   dataSource: 'websocket' | 'polling';
   storageNamespace?: string;
+  intervalStorageNamespace?: ITradingViewNativeIntervalStorageNamespace;
   pageWidth?: number;
   nativeChartTypeControlMode?: 'toggle' | 'select';
   nativeIndicatorControlMode?: 'dialog' | 'popover';
@@ -131,6 +134,7 @@ export const MarketTradingView = memo(
     decimal = 8,
     dataSource,
     storageNamespace,
+    intervalStorageNamespace,
     pageWidth,
     nativeChartTypeControlMode,
     nativeIndicatorControlMode,
@@ -201,6 +205,7 @@ export const MarketTradingView = memo(
         decimal={decimal}
         dataSource={dataSource}
         storageNamespace={storageNamespace}
+        intervalStorageNamespace={intervalStorageNamespace}
         accountAddress={accountAddress}
         w={pageWidth}
         onTouchScroll={onTouchScroll}

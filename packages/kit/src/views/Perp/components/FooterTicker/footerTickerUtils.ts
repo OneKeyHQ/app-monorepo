@@ -10,6 +10,59 @@ export interface IFooterTickerItemData {
   markPrice?: string;
 }
 
+export interface IFooterTickerActiveCtx {
+  coin: string;
+  mode: 'perp' | 'spot';
+  markPrice?: string;
+  change24hPercent?: number;
+}
+
+function isUsableMarkPrice(markPrice: string | undefined): markPrice is string {
+  if (!markPrice) {
+    return false;
+  }
+  const value = Number.parseFloat(markPrice);
+  return Number.isFinite(value) && value > 0;
+}
+
+// Ticker items are built from the batch asset ctx snapshot, which refreshes
+// every ~10s+, while the ticker bar reads the per-asset activeAssetCtx stream
+// (~1/s). Mirror that stream for the active coin so both show the same mark price.
+export function applyActiveCtxToFooterTickerItems(
+  items: IFooterTickerItemData[],
+  activeCtxs: (IFooterTickerActiveCtx | undefined)[],
+) {
+  const usableCtxs = activeCtxs.filter(
+    (ctx): ctx is IFooterTickerActiveCtx =>
+      !!ctx && isUsableMarkPrice(ctx.markPrice),
+  );
+  if (usableCtxs.length === 0) {
+    return items;
+  }
+
+  let changed = false;
+  const nextItems = items.map((item) => {
+    const activeCtx = usableCtxs.find(
+      (ctx) => ctx.mode === item.mode && ctx.coin === item.coinName,
+    );
+    if (!activeCtx) {
+      return item;
+    }
+    const change24hPercent =
+      activeCtx.change24hPercent ?? item.change24hPercent;
+    if (
+      activeCtx.markPrice === item.markPrice &&
+      change24hPercent === item.change24hPercent
+    ) {
+      return item;
+    }
+    changed = true;
+    return { ...item, markPrice: activeCtx.markPrice, change24hPercent };
+  });
+
+  return changed ? nextItems : items;
+}
+
 export function getFooterTickerItemKey(item: IFooterTickerItemData) {
   return `${item.mode}:${item.dexIndex}:${item.assetId}:${item.coinName}`;
 }

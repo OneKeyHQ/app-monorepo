@@ -45,13 +45,13 @@ function DeviceSectionDeviceConnect() {
   const onPressForgetDevice = useCallback(async () => {
     const walletWithDevice = await actions.getWalletWithDevice();
     if (!walletWithDevice) return;
-    const walletId = walletWithDevice.wallet.id;
     showDialogForgetDevice({
       onConfirmForgetDevice: async () => {
         try {
           await accountActions.current.removeWallet({
-            walletId,
+            walletId: walletWithDevice.wallet.id,
             isRemoveToMocked: false,
+            removeSameDeviceWallets: true,
           });
           defaultLogger.account.wallet.deleteWallet();
           Toast.success({

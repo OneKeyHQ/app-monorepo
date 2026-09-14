@@ -2,6 +2,76 @@ export const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 export const MARKET_MOBILE_COLUMN_HEADER_HEIGHT = 32;
 export const MARKET_MOBILE_CONTENT_TOP_GAP = 16;
 
+const MARKET_MOBILE_BANNER_MODERN_HEIGHT = 204;
+const MARKET_MOBILE_BANNER_LEGACY_HEIGHT = 134;
+
+export function getMarketMobileBannerHeaderHeight(
+  bannerList: readonly { tokens?: unknown }[],
+) {
+  const isModernBannerList = bannerList.some((item) => Boolean(item.tokens));
+  return isModernBannerList
+    ? MARKET_MOBILE_BANNER_MODERN_HEIGHT
+    : MARKET_MOBILE_BANNER_LEGACY_HEIGHT;
+}
+
+export type IMarketBannerHeaderHeightState = {
+  scope: string;
+  height: number;
+};
+
+export function resolveMarketBannerHeaderHeight({
+  current,
+  scope,
+  isFetched,
+  bannerList,
+}: {
+  current: IMarketBannerHeaderHeightState;
+  scope: string;
+  isFetched: boolean;
+  bannerList: readonly { tokens?: unknown }[];
+}): IMarketBannerHeaderHeightState {
+  if (isFetched && bannerList.length > 0) {
+    const height = getMarketMobileBannerHeaderHeight(bannerList);
+    return current.scope === scope && current.height === height
+      ? current
+      : { scope, height };
+  }
+  if (current.scope !== scope) {
+    return { scope, height: MARKET_MOBILE_BANNER_LEGACY_HEIGHT };
+  }
+  return current;
+}
+
+export type IMarketBannerHeaderDecision = {
+  scope: string;
+  isDecided: boolean;
+  hasBanners: boolean;
+};
+
+export function resolveMarketBannerHeaderDecision({
+  current,
+  scope,
+  isFetched,
+  bannerCount,
+}: {
+  current: IMarketBannerHeaderDecision;
+  scope: string;
+  isFetched: boolean;
+  bannerCount: number;
+}): IMarketBannerHeaderDecision {
+  if (current.scope !== scope) {
+    return {
+      scope,
+      isDecided: isFetched,
+      hasBanners: isFetched && bannerCount > 0,
+    };
+  }
+  if (!current.isDecided && isFetched) {
+    return { scope, isDecided: true, hasBanners: bannerCount > 0 };
+  }
+  return current;
+}
+
 const MARKET_MOBILE_COMPACT_HEADER_OFFSET =
   MARKET_MOBILE_COLUMN_HEADER_HEIGHT - MARKET_MOBILE_SECONDARY_HEADER_HEIGHT;
 const MARKET_MOBILE_EMPTY_CONTENT_OFFSET =

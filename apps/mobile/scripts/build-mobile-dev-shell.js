@@ -1,12 +1,16 @@
 #!/usr/bin/env node
+/* cspell:words podspec podspecs */
 /* eslint-disable onekey/no-raw-error */
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const yaml = require('yaml');
+
 const devVendorConfig = require('../dev-vendor.config');
 
+const { signAndVerifyIosSimulatorApp } = require('./mobile-dev-shell-resource');
 const {
   getPlatformArtifact,
   getShellCompatibility,
@@ -156,9 +160,11 @@ function injectIosDevShellInfoPlist({ appDirectory, nativeContractKey }) {
   for (const [key, type, value] of getIosDevShellInfoPlistEntries(
     nativeContractKey,
   )) {
-    runChecked('/usr/libexec/PlistBuddy', [
-      '-c',
-      `Add :${key} ${type} ${value}`,
+    runChecked('/usr/bin/plutil', [
+      '-replace',
+      key,
+      `-${type}`,
+      value,
       infoPlistPath,
     ]);
   }
@@ -169,6 +175,9 @@ function injectIosDevShellInfoPlist({ appDirectory, nativeContractKey }) {
 function getIosBuildSettings() {
   return [
     'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG ONEKEY_DEV_SHELL',
+    // Xcode must embed simulated entitlements before ad-hoc signing.
+    'CODE_SIGNING_ALLOWED=YES',
+    'CODE_SIGN_IDENTITY=-',
   ];
 }
 
@@ -215,9 +224,33 @@ function buildAndroid({ artifactPath }) {
   fs.copyFileSync(apks[0], artifactPath);
 }
 
+function refreshStaleIosPodspecs(iosDirectory) {
+  const lockPath = path.join(iosDirectory, 'Podfile.lock');
+  const manifestPath = path.join(iosDirectory, 'Pods/Manifest.lock');
+  if (!fs.existsSync(lockPath) || !fs.existsSync(manifestPath)) return;
+  const lock = yaml.parse(fs.readFileSync(lockPath, 'utf8'));
+  const installed = yaml.parse(fs.readFileSync(manifestPath, 'utf8'));
+  for (const [name, source] of Object.entries(lock['EXTERNAL SOURCES'] || {})) {
+    if (
+      source[':podspec'] &&
+      /^[A-Za-z0-9_.+-]+$/u.test(name) &&
+      lock['SPEC CHECKSUMS']?.[name] !== installed['SPEC CHECKSUMS']?.[name]
+    ) {
+      // CocoaPods otherwise reuses an obsolete external spec after a branch switch.
+      fs.rmSync(
+        path.join(iosDirectory, 'Pods/Local Podspecs', `${name}.podspec.json`),
+        {
+          force: true,
+        },
+      );
+    }
+  }
+}
+
 function installIosPods() {
   const iosDirectory = path.join(MOBILE_ROOT, 'ios');
-  runChecked('pod', ['install'], { cwd: iosDirectory });
+  refreshStaleIosPodspecs(iosDirectory);
+  runChecked('pod', ['install', '--deployment'], { cwd: iosDirectory });
 }
 
 function buildIosSimulator({ artifactPath, nativeContractKey }) {
@@ -244,7 +277,6 @@ function buildIosSimulator({ artifactPath, nativeContractKey }) {
       'ARCHS=arm64',
       'ONLY_ACTIVE_ARCH=YES',
       ...getIosBuildSettings(),
-      'CODE_SIGNING_ALLOWED=NO',
     ],
     {
       cwd: iosDirectory,
@@ -255,6 +287,14 @@ function buildIosSimulator({ artifactPath, nativeContractKey }) {
     iosDirectory,
     'outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet.app',
   );
+  packageIosSimulatorApp({ appDirectory, artifactPath, nativeContractKey });
+}
+
+function packageIosSimulatorApp({
+  appDirectory,
+  artifactPath,
+  nativeContractKey,
+}) {
   assertDirectory(appDirectory, 'iOS Simulator app');
   injectIosDevShellInfoPlist({ appDirectory, nativeContractKey });
   const architectures = runForOutput('lipo', [
@@ -266,6 +306,8 @@ function buildIosSimulator({ artifactPath, nativeContractKey }) {
       `[buildMobileDevShell] iOS Simulator app architecture is invalid: ${architectures}.`,
     );
   }
+  // Injecting Info.plist invalidates Xcode's signature; sign the final archive contents.
+  signAndVerifyIosSimulatorApp(appDirectory);
   runChecked('ditto', [
     '-c',
     '-k',
@@ -362,6 +404,8 @@ module.exports = {
   getIosDevShellInfoPlistEntries,
   getNativeBuildEnvironment,
   injectIosDevShellInfoPlist,
+  packageIosSimulatorApp,
   parseArgs,
+  refreshStaleIosPodspecs,
   syncWebEmbedAssets,
 };

@@ -18,6 +18,7 @@ import {
   BrowserWindow,
   Menu,
   app,
+  webContents as electronWebContents,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -38,6 +39,11 @@ import {
   getTemplatePhishingUrls,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
+import {
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
@@ -239,6 +245,39 @@ const sdkConnectSrc = isLocalUnpacked
   : path.join('/static', 'js-sdk/');
 
 const isMac = process.platform === 'darwin';
+
+const TRADING_VIEW_ORIGINS = new Set([
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+]);
+
+function isTradingViewWebContents(contents: Electron.WebContents): boolean {
+  try {
+    return TRADING_VIEW_ORIGINS.has(new URL(contents.getURL()).origin);
+  } catch {
+    return false;
+  }
+}
+
+// Electron zoom roles target getFocusedWebContents(), which prefers any <webview> guest in the
+// focused window. For TradingView that zooms only the chart page, so zoom its host window instead.
+function getZoomTargetWebContents(): Electron.WebContents | null {
+  const focused = electronWebContents.getFocusedWebContents();
+  if (focused?.getType() === 'webview' && isTradingViewWebContents(focused)) {
+    return focused.hostWebContents ?? focused;
+  }
+  return focused;
+}
+
+function adjustZoomLevel(delta: number | 'reset'): void {
+  const target = getZoomTargetWebContents();
+  if (!target) {
+    return;
+  }
+  target.zoomLevel = delta === 'reset' ? 0 : target.zoomLevel + delta;
+}
+
 const isWin = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
 
@@ -468,24 +507,19 @@ const initMenu = () => {
             ].filter(Boolean)
           : []),
         {
-          role: 'resetZoom',
           label: i18nText(ElectronTranslations.menu_actual_size),
           accelerator: 'CmdOrCtrl+0',
+          click: () => adjustZoomLevel('reset'),
         },
-        isMac
-          ? {
-              role: 'zoomIn',
-              label: i18nText(ElectronTranslations.menu_zoom_in),
-            }
-          : {
-              role: 'zoomIn',
-              label: i18nText(ElectronTranslations.menu_zoom_in),
-              accelerator: 'CmdOrCtrl+Shift+]',
-            },
         {
-          role: 'zoomOut',
+          label: i18nText(ElectronTranslations.menu_zoom_in),
+          accelerator: isMac ? 'CmdOrCtrl+Plus' : 'CmdOrCtrl+Shift+]',
+          click: () => adjustZoomLevel(0.5),
+        },
+        {
           label: i18nText(ElectronTranslations.menu_zoom_out),
           accelerator: isMac ? 'CmdOrCtrl+-' : 'CmdOrCtrl+Shift+[',
+          click: () => adjustZoomLevel(-0.5),
         },
         { type: 'separator' },
         {
@@ -963,6 +997,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     }
   });
   browserWindow.on('closed', () => {
+    unregisterShortcuts();
     mainWindow = null;
     isAppReady = false;
     logger.info('set isAppReady on browserWindow closed', isAppReady);
@@ -1200,6 +1235,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   browserWindow.on('enter-full-screen', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    if (
+      bleQuitStarted ||
+      !safelyBrowserWindow?.isFocused() ||
+      !safelyBrowserWindow.isVisible()
+    ) {
+      return;
+    }
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
@@ -1216,6 +1258,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'active';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
+    if (
+      bleQuitStarted ||
+      !safelyBrowserWindow?.isFocused() ||
+      !safelyBrowserWindow.isVisible()
+    ) {
+      return;
+    }
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
@@ -1223,13 +1272,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   browserWindow.on('blur', () => {
+    unregisterShortcuts();
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'blur';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-    unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
+    unregisterShortcuts();
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'background';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
@@ -1838,6 +1888,7 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', (event) => {
+  unregisterShortcuts();
   if (isMac && !bleQuitReady) {
     event.preventDefault();
     if (bleQuitStarted) return;
@@ -1888,7 +1939,9 @@ app.on('before-quit', (event) => {
       trezorBleSupports.clear();
       logger.info('[BLE] Process dispose completed; resuming app quit');
       bleQuitReady = true;
-      app.quit();
+      // Let the native before-quit callback return before retrying. An immediately
+      // resolved cleanup can otherwise re-enter app.quit() and lose its quit state.
+      setImmediate(() => app.quit());
     });
     return;
   }

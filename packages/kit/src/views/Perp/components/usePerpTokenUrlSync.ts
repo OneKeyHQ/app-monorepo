@@ -179,6 +179,8 @@ export function usePerpTokenUrlSync(): void {
   ]);
 
   const updateTitle = (price: string) => {
+    if (!isFocused) return;
+
     try {
       if (!price || !symbolDisplay) {
         globalThis.document.title = originalTitleRef.current;
@@ -205,9 +207,6 @@ export function usePerpTokenUrlSync(): void {
       isInitializedRef.current = true;
     })();
 
-    return () => {
-      globalThis.document.title = originalTitleRef.current;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused]);
 
@@ -239,12 +238,8 @@ export function usePerpTokenUrlSync(): void {
   useEffect(() => {
     if (!isInitializedRef.current || !isFocused) return;
     debouncedUpdateTitle(markPrice);
-  }, [markPrice, symbolDisplay, debouncedUpdateTitle, isFocused]);
 
-  useEffect(() => {
-    if (!isInitializedRef.current) return;
-    if (!isFocused) {
-      globalThis.document.title = originalTitleRef.current;
-    }
-  }, [isFocused]);
+    // Navigation owns the next screen's title; only cancel pending price updates.
+    return () => debouncedUpdateTitle.cancel();
+  }, [markPrice, symbolDisplay, debouncedUpdateTitle, isFocused]);
 }

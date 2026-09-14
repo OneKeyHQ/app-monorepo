@@ -380,6 +380,7 @@ export default function NotificationsSettings() {
 
                 {/* Manage - Account selection */}
                 <ListItem
+                  testID="notifications-manage-accounts"
                   title={intl.formatMessage({
                     id: ETranslations.notifications_notifications_account_manage_label,
                   })}

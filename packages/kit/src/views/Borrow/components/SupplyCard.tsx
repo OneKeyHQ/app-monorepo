@@ -18,7 +18,10 @@ import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
 
-import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
+import {
+  filterUnsupportedAaveNativeReserveAssets,
+  hasPositiveBorrowBalance,
+} from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
@@ -177,10 +180,9 @@ export const SupplyCard = () => {
     if (!gtMd) return supportedAssets;
     // Desktop: filter based on showZeroBalance toggle
     if (showZeroBalance) return supportedAssets;
-    return supportedAssets.filter((asset) => {
-      const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
-      return balance.gt(0);
-    });
+    return supportedAssets.filter((asset) =>
+      hasPositiveBorrowBalance(asset.walletBalance),
+    );
   }, [
     gtMd,
     market?.networkId,

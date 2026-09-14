@@ -3,6 +3,8 @@ import {
   WALLET_TYPE_HD,
   WALLET_TYPE_IMPORTED,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceAccountSelector from './ServiceAccountSelector';
@@ -393,5 +395,217 @@ describe('ServiceAccountSelector', () => {
       networkId: allNetworkId,
       othersWalletAccountId: EVM_ACCOUNT_ID,
     });
+  });
+});
+
+describe('ServiceAccountSelector missing network repair (OK-62137)', () => {
+  const allNetworkId = getNetworkIdsMap().onekeyall;
+
+  function buildRepairService() {
+    return new ServiceAccountSelector({
+      backgroundApi: {
+        serviceNetwork: {
+          getGlobalDeriveTypeOfNetwork: jest.fn(async () => undefined),
+        },
+      },
+    });
+  }
+
+  it('fills All Networks for a persisted account selection that lost its network', async () => {
+    const service = buildRepairService();
+
+    const result = await service.fixDeriveTypesForInitAccountSelectorMap({
+      selectedAccountsMapInDB: {
+        0: {
+          walletId: 'hw-1',
+          indexedAccountId: 'hw-1--0',
+          focusedWallet: 'hw-1',
+          othersWalletAccountId: undefined,
+          networkId: undefined,
+          deriveType: undefined,
+        },
+      },
+      sceneName: EAccountSelectorSceneName.home,
+    });
+
+    expect(result[0]?.networkId).toBe(allNetworkId);
+    expect(result[0]?.deriveType).toBe('default');
+  });
+
+  it('leaves a wallet-less selection without a network on load', async () => {
+    const service = buildRepairService();
+
+    const result = await service.fixDeriveTypesForInitAccountSelectorMap({
+      selectedAccountsMapInDB: {
+        0: {
+          walletId: undefined,
+          indexedAccountId: undefined,
+          focusedWallet: undefined,
+          othersWalletAccountId: undefined,
+          networkId: undefined,
+          deriveType: undefined,
+        },
+      },
+      sceneName: EAccountSelectorSceneName.home,
+    });
+
+    expect(result[0]?.networkId).toBeUndefined();
+  });
+
+  it('builds the active account on All Networks when an indexed account selection has no network', async () => {
+    const dbAccount = {
+      id: `${HD_WALLET_ID}--60--0`,
+      address: '0x1111111111111111111111111111111111111111',
+    } as IDBAccount;
+    const getNetwork = jest.fn(async ({ networkId }: { networkId: string }) => {
+      if (networkId !== allNetworkId) {
+        throw new OneKeyLocalError(`unexpected network lookup: ${networkId}`);
+      }
+      return {
+        id: allNetworkId,
+        name: 'All networks',
+        isAllNetworks: true,
+      };
+    });
+    const service = new ServiceAccountSelector({
+      backgroundApi: {
+        serviceAccount: {
+          getWallet: jest.fn(
+            async () =>
+              ({
+                id: HD_WALLET_ID,
+                name: 'HD Wallet',
+                type: WALLET_TYPE_HD,
+              }) as IDBWallet,
+          ),
+          getIndexedAccount: jest.fn(async () => ({
+            id: HD_INDEXED_ACCOUNT_ID,
+            name: 'Account #1',
+            index: 0,
+          })),
+          getDbAccountIdFromIndexedAccountId: jest.fn(
+            async () => allNetworksMockAccount.id,
+          ),
+          getNetworkAccount: jest.fn(async () => allNetworksMockAccount),
+          getMockedAllNetworkAccount: jest.fn(
+            async () => allNetworksMockAccount,
+          ),
+          getAccountsInSameIndexedAccountId: jest.fn(async () => ({
+            accounts: [dbAccount],
+            allDbAccounts: [dbAccount],
+          })),
+          isTempWalletRemoved: jest.fn(async () => false),
+        },
+        serviceNetwork: {
+          getNetwork,
+          getDeriveInfoOfNetwork: jest.fn(async () => ({
+            label: 'Default',
+            value: 'default',
+          })),
+          getDeriveInfoItemsOfNetwork: jest.fn(async () => []),
+        },
+      },
+    });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount: {
+        walletId: HD_WALLET_ID,
+        focusedWallet: HD_WALLET_ID,
+        indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+        othersWalletAccountId: undefined,
+        networkId: undefined,
+        deriveType: undefined,
+      },
+    });
+
+    expect(getNetwork).toHaveBeenCalledWith({ networkId: allNetworkId });
+    expect(result.activeAccount.network?.id).toBe(allNetworkId);
+    expect(result.activeAccount.account).toEqual(allNetworksMockAccount);
+    expect(result.activeAccount.canCreateAddress).toBe(true);
+    expect(result.selectedAccount.networkId).toBe(allNetworkId);
+  });
+
+  it('leaves a discover selection without a network instead of All Networks on load', async () => {
+    const service = buildRepairService();
+
+    const result = await service.fixDeriveTypesForInitAccountSelectorMap({
+      selectedAccountsMapInDB: {
+        0: {
+          walletId: 'hw-1',
+          indexedAccountId: 'hw-1--0',
+          focusedWallet: 'hw-1',
+          othersWalletAccountId: undefined,
+          networkId: undefined,
+          deriveType: undefined,
+        },
+      },
+      sceneName: EAccountSelectorSceneName.discover,
+      sceneUrl: 'https://app.uniswap.org',
+    });
+
+    expect(result[0]?.networkId).toBeUndefined();
+  });
+
+  it('does not build a discover active account on All Networks when the selection has no network', async () => {
+    const getNetwork = jest.fn(async ({ networkId }: { networkId: string }) => {
+      throw new OneKeyLocalError(`unexpected network lookup: ${networkId}`);
+    });
+    const getMockedAllNetworkAccount = jest.fn(
+      async () => allNetworksMockAccount,
+    );
+    const service = new ServiceAccountSelector({
+      backgroundApi: {
+        serviceAccount: {
+          getWallet: jest.fn(
+            async () =>
+              ({
+                id: HD_WALLET_ID,
+                name: 'HD Wallet',
+                type: WALLET_TYPE_HD,
+              }) as IDBWallet,
+          ),
+          getIndexedAccount: jest.fn(async () => ({
+            id: HD_INDEXED_ACCOUNT_ID,
+            name: 'Account #1',
+            index: 0,
+          })),
+          getDbAccountIdFromIndexedAccountId: jest.fn(
+            async () => allNetworksMockAccount.id,
+          ),
+          getNetworkAccount: jest.fn(async () => allNetworksMockAccount),
+          getMockedAllNetworkAccount,
+          getAccountsInSameIndexedAccountId: jest.fn(async () => ({
+            accounts: [],
+            allDbAccounts: [],
+          })),
+          isTempWalletRemoved: jest.fn(async () => false),
+        },
+        serviceNetwork: {
+          getNetwork,
+          getDeriveInfoOfNetwork: jest.fn(async () => ({
+            label: 'Default',
+            value: 'default',
+          })),
+          getDeriveInfoItemsOfNetwork: jest.fn(async () => []),
+        },
+      },
+    });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount: {
+        walletId: HD_WALLET_ID,
+        focusedWallet: HD_WALLET_ID,
+        indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+        othersWalletAccountId: undefined,
+        networkId: undefined,
+        deriveType: undefined,
+      },
+      sceneName: EAccountSelectorSceneName.discover,
+    });
+
+    expect(getNetwork).not.toHaveBeenCalled();
+    expect(getMockedAllNetworkAccount).not.toHaveBeenCalled();
+    expect(result.activeAccount.network).toBeUndefined();
+    expect(result.selectedAccount.networkId).toBeUndefined();
   });
 });

@@ -1,5 +1,9 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { IncorrectPinError } from '@onekeyhq/shared/src/errors/errors/appErrors';
+import { DeviceNotFound } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const mockSharedRPCWrite = jest.fn();
@@ -163,6 +167,44 @@ describe('background thread RPC handler', () => {
         reconnect: false,
       },
     });
+    expect(response).not.toHaveProperty('error.stack');
+  });
+
+  it('serializes a hardware error without the getter-only constructorName (OK-61417)', async () => {
+    const { setBackgroundThreadRequestExecutor } =
+      await import('./setupBackgroundThreadRPCHandler');
+    const hardwarePayload = {
+      code: HardwareErrorCode.DeviceNotFound,
+      error: 'Device not found',
+      connectId: 'ble-connect-id',
+      deviceId: 'device-id',
+    };
+    const error = new DeviceNotFound({
+      payload: hardwarePayload,
+      silentMode: true,
+    });
+    setBackgroundThreadRequestExecutor(() => Promise.reject(error));
+    mockSharedRPCWrite.mockClear();
+
+    dispatchServiceRequest('hardware');
+    await flushRequest();
+
+    const response = getResponse('hardware');
+    expect(response).toMatchObject({
+      ok: false,
+      error: {
+        className: EOneKeyErrorClassNames.DeviceNotFound,
+        $isHardwareError: true,
+        code: HardwareErrorCode.DeviceNotFound,
+        key: ETranslations.hardware_device_not_find_error,
+        payload: hardwarePayload,
+        reconnect: true,
+      },
+    });
+    // constructorName is a getter-only accessor on the main-runtime error
+    // classes; serializing it invited the rehydration TypeError that hung
+    // the create-address flow.
+    expect(response).not.toHaveProperty('error.constructorName');
     expect(response).not.toHaveProperty('error.stack');
   });
 

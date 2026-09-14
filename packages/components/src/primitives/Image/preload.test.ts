@@ -107,79 +107,69 @@ describe('native preloadImages', () => {
     mockNativePreload.mockResolvedValue(true);
   });
 
-  test('uses the same encoded TOS URL as the render path', async () => {
+  test('passes the raw URL and layout size to native rendition selection', async () => {
     await preloadNativeImages([
-      {
-        uri: 'https://uni.onekey-asset.com/token.png',
-        resizeWidth: 32,
-        pixelRatio: 1,
-      },
+      { uri: 'https://uni.onekey-asset.com/token.png', resizeWidth: 32 },
     ]);
-
     expect(mockNativePreload).toHaveBeenCalledWith([
       expect.objectContaining({
-        uri: 'https://uni.onekey-asset.com/token.png?x-tos-process=image%2Fresize%2Cw_40',
-        optimizeTos: false,
-      }),
-    ]);
-  });
-
-  test('retries the original URLs when an optimized preload fails', async () => {
-    mockNativePreload.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-
-    await expect(
-      preloadNativeImages([
-        {
-          uri: 'https://uni.onekey-asset.com/token.png',
-          resizeWidth: 32,
-          pixelRatio: 1,
-        },
-      ]),
-    ).resolves.toBe(true);
-
-    expect(mockNativePreload).toHaveBeenNthCalledWith(2, [
-      expect.objectContaining({
         uri: 'https://uni.onekey-asset.com/token.png',
-        optimizeTos: false,
+        resizeWidth: 32,
+        pixelRatio: undefined,
+        optimizeTos: true,
       }),
     ]);
   });
 
-  test('only retries failed optimized entries with their original URLs', async () => {
-    mockNativePreload
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(true);
-
-    await expect(
-      preloadNativeImages([
+  test('forwards explicit density, dimensions, and optimization opt-outs', async () => {
+    await preloadNativeImages(
+      [
         {
           uri: 'https://uni.onekey-asset.com/a.png',
-          resizeWidth: 32,
-          pixelRatio: 1,
+          width: 32,
+          height: 64,
+          pixelRatio: 2.625,
         },
         {
           uri: 'https://uni.onekey-asset.com/b.png',
-          resizeWidth: 32,
-          pixelRatio: 1,
-        },
-        {
-          uri: 'https://example.com/c.png',
+          resizeWidth: 40,
           optimize: false,
         },
-      ]),
-    ).resolves.toBe(true);
-
-    expect(mockNativePreload).toHaveBeenCalledTimes(4);
-    expect(mockNativePreload).toHaveBeenNthCalledWith(3, [
-      expect.objectContaining({ uri: 'https://example.com/c.png' }),
-    ]);
-    expect(mockNativePreload).toHaveBeenNthCalledWith(4, [
+        {
+          uri: 'https://uni.onekey-asset.com/private.png',
+          resizeWidth: 32,
+          headers: { Authorization: 'test' },
+        },
+      ],
+      { pixelRatio: 3 },
+    );
+    expect(mockNativePreload).toHaveBeenNthCalledWith(1, [
       expect.objectContaining({
-        uri: 'https://uni.onekey-asset.com/b.png',
+        resizeWidth: 32,
+        resizeHeight: 64,
+        pixelRatio: 2.625,
+        optimizeTos: true,
       }),
     ]);
+    expect(mockNativePreload).toHaveBeenNthCalledWith(2, [
+      expect.objectContaining({ pixelRatio: 3, optimizeTos: false }),
+    ]);
+    expect(mockNativePreload).toHaveBeenNthCalledWith(3, [
+      expect.objectContaining({
+        headers: { Authorization: 'test' },
+        optimizeTos: false,
+      }),
+    ]);
+  });
+
+  test('reports native failure without repeating its optimized-to-raw fallback in JS', async () => {
+    mockNativePreload.mockResolvedValueOnce(false);
+    await expect(
+      preloadNativeImages([
+        { uri: 'https://uni.onekey-asset.com/token.png', resizeWidth: 32 },
+      ]),
+    ).resolves.toBe(false);
+    expect(mockNativePreload).toHaveBeenCalledTimes(1);
   });
 
   test('returns false for blank sources while preloading valid entries', async () => {

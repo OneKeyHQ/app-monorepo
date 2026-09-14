@@ -27,6 +27,7 @@ import {
   isStockTokenVariantTradable,
   useStockDetail,
 } from '../../hooks/StockDetailContext';
+import { getStockPortfolioVariantKey } from '../../utils/stockTokenVariant';
 
 // Figma 25497:17813 (Select): the panel is 384 wide and its header/rows share a
 // four-slot layout - a 32 avatar slot followed by three equal-width columns
@@ -34,7 +35,17 @@ import {
 // (25884:24154) so the Issuer and Token Price labels line up with their values.
 const AVATAR_SLOT_WIDTH = 32;
 const HEADER_SPACER_HEIGHT = 16;
-const POPOVER_WIDTH = 384;
+// Unlike Figma's equal thirds, the name column takes the largest share: it
+// carries the symbol, the 24/7 tag and the balance, while the price column only
+// ever holds one figure. Header and rows share these weights to stay aligned.
+const NAME_COLUMN_FLEX = 1.3;
+const ISSUER_COLUMN_FLEX = 1;
+const PRICE_COLUMN_FLEX = 0.9;
+// 8 narrower than Figma's 384: opened from the trigger's left edge, a 384 panel
+// ends 4px short of the window on a gutter-limited layout, inside the popper's
+// 10px frame padding, so it got pushed left. 376 keeps a 12px margin while the
+// name column still fits a symbol plus the 24/7 tag.
+const POPOVER_WIDTH = 376;
 const ROW_MIN_HEIGHT = 62;
 // Figma 25672:54928: the trigger avatar is 28 with a 12 chain badge. The shared
 // Token size scale steps 24 -> 32, so the badge is composed here instead.
@@ -46,6 +57,14 @@ const VALUE_FALLBACK = '--';
 const StockTokenVariantPortfolioContext = createContext<
   IMarketAccountPortfolioDisplayItem[] | undefined
 >(undefined);
+
+// Variants whose balance this payload actually established. Anything outside
+// it is unknown — no account, the first fetch still in flight, a request that
+// failed with nothing cached, or a variant the standing result never covered
+// because the page has since switched stocks.
+const StockTokenVariantResolvedContext = createContext<Set<string>>(
+  new Set<string>(),
+);
 
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
@@ -68,10 +87,12 @@ function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
 }
 
 function findVariantBalance({
+  isBalanceResolved,
   portfolioData,
   variant,
   isPortfolioScope,
 }: {
+  isBalanceResolved: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   variant: IMarketStockTokenVariant;
   isPortfolioScope: boolean;
@@ -91,7 +112,14 @@ function findVariantBalance({
       equalsIgnoreCase(item.tokenAddress, variant.contractAddress)
     );
   });
-  const balance = new BigNumber(position?.amount ?? '');
+  // Once the lookup is known to have run, no position means the account holds
+  // none of it, which is a zero balance rather than missing information. An
+  // amount that fails to parse still falls back — that is corrupt data, and
+  // reading it as zero would state something the payload never said.
+  if (!position) {
+    return isBalanceResolved ? '0' : undefined;
+  }
+  const balance = new BigNumber(position.amount ?? '');
   return balance.isFinite() ? balance.toFixed() : undefined;
 }
 
@@ -110,7 +138,11 @@ function StockTokenVariantRow({
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
 }) {
+  const resolvedVariantKeys = useContext(StockTokenVariantResolvedContext);
   const balance = findVariantBalance({
+    isBalanceResolved: resolvedVariantKeys.has(
+      getStockPortfolioVariantKey(variant),
+    ),
     portfolioData,
     variant,
     isPortfolioScope,
@@ -143,9 +175,10 @@ function StockTokenVariantRow({
         tokenImageUri={variant.logoUrl}
         networkImageUri={variant.networkLogoUrl}
         showNetworkIcon
+        placeholder={<Stack width="100%" height="100%" />}
       />
 
-      <YStack flex={1} flexBasis={0} minWidth={0} gap="$0.5">
+      <YStack flex={NAME_COLUMN_FLEX} flexBasis={0} minWidth={0} gap="$0.5">
         <XStack alignItems="center" gap="$1">
           <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
             {variant.symbol || variant.name || VALUE_FALLBACK}
@@ -181,14 +214,25 @@ function StockTokenVariantRow({
         )}
       </YStack>
 
-      <XStack flex={1} flexBasis={0} minWidth={0} alignItems="center" gap="$1">
+      <XStack
+        flex={ISSUER_COLUMN_FLEX}
+        flexBasis={0}
+        minWidth={0}
+        alignItems="center"
+        gap="$1"
+      >
         <Token size="xxs" tokenImageUri={variant.issuerLogoUrl} />
         <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
           {getIssuerLabel(variant.issuer)}
         </SizableText>
       </XStack>
 
-      <XStack flex={1} flexBasis={0} minWidth={0} alignItems="center">
+      <XStack
+        flex={PRICE_COLUMN_FLEX}
+        flexBasis={0}
+        minWidth={0}
+        alignItems="center"
+      >
         {variant.price ? (
           <NumberSizeableText
             size="$bodyMdMedium"
@@ -237,7 +281,7 @@ function StockTokenVariantSelectorContent({
     >
       <XStack px="$2.5" py="$2" gap="$3" alignItems="center">
         <SizableText
-          flex={1}
+          flex={NAME_COLUMN_FLEX}
           flexBasis={0}
           minWidth={0}
           size="$bodySmMedium"
@@ -256,7 +300,7 @@ function StockTokenVariantSelectorContent({
           pointerEvents="none"
         />
         <SizableText
-          flex={1}
+          flex={ISSUER_COLUMN_FLEX}
           flexBasis={0}
           minWidth={0}
           size="$bodySmMedium"
@@ -268,12 +312,11 @@ function StockTokenVariantSelectorContent({
           })}
         </SizableText>
         <SizableText
-          flex={1}
+          flex={PRICE_COLUMN_FLEX}
           flexBasis={0}
           minWidth={0}
           size="$bodySmMedium"
           color="$textSubdued"
-          textDecorationLine="underline"
           numberOfLines={1}
         >
           {intl.formatMessage({ id: ETranslations.global_price })}
@@ -301,8 +344,10 @@ function StockTokenVariantSelectorContent({
 
 export function StockTokenVariantSelector({
   portfolioData,
+  resolvedVariantKeys,
 }: {
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  resolvedVariantKeys?: string[];
 }) {
   const intl = useIntl();
   const {
@@ -317,6 +362,12 @@ export function StockTokenVariantSelector({
   const selectedIndex = useMemo(
     () => tokenVariants.findIndex((item) => item.tokenId === selectedTokenId),
     [selectedTokenId, tokenVariants],
+  );
+  // Empty when the caller supplies nothing: that is no evidence the balances
+  // were read, so the rows fall back rather than claim a zero.
+  const resolvedKeySet = useMemo(
+    () => new Set(resolvedVariantKeys ?? []),
+    [resolvedVariantKeys],
   );
 
   if (!selectedTokenVariant) {
@@ -350,6 +401,9 @@ export function StockTokenVariantSelector({
         id: ETranslations.trade_stocks_token_details,
       })}
       placement="bottom-start"
+      // Flip above/below when needed, but never swap to end alignment: the
+      // panel always opens rightward from the trigger.
+      allowFlip={{ flipAlignment: false }}
       floatingPanelProps={{ width: POPOVER_WIDTH }}
       renderTrigger={
         // Figma 26230:23589. The pressable area is tight to its content (32
@@ -375,6 +429,7 @@ export function StockTokenVariantSelector({
             tokenImageUri={selectedTokenVariant.logoUrl}
             networkImageUri={selectedTokenVariant.networkLogoUrl}
             showNetworkIcon
+            placeholder={<Stack width="100%" height="100%" />}
           />
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>
@@ -390,7 +445,10 @@ export function StockTokenVariantSelector({
                 color="$textSubdued"
                 numberOfLines={1}
               >
-                {`Issued by ${getIssuerLabel(selectedTokenVariant.issuer)}`}
+                {intl.formatMessage(
+                  { id: ETranslations.market_issued_by },
+                  { issuer: getIssuerLabel(selectedTokenVariant.issuer) },
+                )}
               </SizableText>
             </YStack>
             <Icon
@@ -407,7 +465,9 @@ export function StockTokenVariantSelector({
 
   return (
     <StockTokenVariantPortfolioContext.Provider value={portfolioData}>
-      {popover}
+      <StockTokenVariantResolvedContext.Provider value={resolvedKeySet}>
+        {popover}
+      </StockTokenVariantResolvedContext.Provider>
     </StockTokenVariantPortfolioContext.Provider>
   );
 }

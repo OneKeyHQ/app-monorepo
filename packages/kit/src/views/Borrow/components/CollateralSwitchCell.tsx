@@ -12,20 +12,22 @@ import { useIntl } from 'react-intl';
 import {
   Dialog,
   SizableText,
+  Spinner,
   Stack,
   Switch,
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import type { ISwitchProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   getLastSignedTxid,
   showDeFiActionTxConfirmDialog,
 } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -33,7 +35,10 @@ import {
   EBorrowProviderEnum,
   EEarnLabels,
 } from '@onekeyhq/shared/types/staking';
-import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowReserveItem,
+  IBorrowTransactionConfirmation,
+} from '@onekeyhq/shared/types/staking';
 
 import { getBorrowEarnAccountId } from '../borrowEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
@@ -53,6 +58,7 @@ import { HealthFactorInfo } from './ManagePosition/modules/InfoDisplaySection/He
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 type ICollateralSettlementStatus = 'idle' | 'confirming' | 'success';
+type ICollateralConfirmationOperation = { phase: 'preview' | 'dialog' };
 
 const COLLATERAL_SETTLEMENT_REFRESH_DELAY = timerUtils.getTimeDurationMs({
   seconds: 3,
@@ -64,71 +70,24 @@ const COLLATERAL_SETTLEMENT_SLOW_REFRESH_DELAY = timerUtils.getTimeDurationMs({
 });
 
 function CollateralConfirmDialogContent({
-  networkId,
-  provider,
-  marketAddress,
-  reserveAddress,
-  accountId,
+  confirmation,
   useAsCollateral,
-  eModeId,
   symbol,
   onConfirm,
 }: {
-  networkId: string;
-  provider: string;
-  marketAddress: string;
-  reserveAddress: string;
-  accountId: string;
+  confirmation?: IBorrowTransactionConfirmation;
   useAsCollateral: boolean;
-  eModeId?: number;
   symbol: string;
   onConfirm: () => Promise<void>;
 }) {
   const intl = useIntl();
-  // The live preview is authoritative for both collateral transitions. A
-  // successful response may omit canBeCollateral, so only an explicit false
-  // rejects enablement; a missing response still fails closed.
-  const { result: confirmation, isLoading } = usePromiseResult(
-    async () => {
-      try {
-        return await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
-          {
-            networkId,
-            provider,
-            marketAddress,
-            reserveAddress,
-            accountId,
-            action: 'setCollateral',
-            useAsCollateral,
-            eModeId,
-            amount: '0',
-          },
-        );
-      } catch {
-        return undefined;
-      }
-    },
-    [
-      networkId,
-      provider,
-      marketAddress,
-      reserveAddress,
-      accountId,
-      useAsCollateral,
-      eModeId,
-    ],
-    { watchLoading: true },
-  );
-
   const healthFactor = confirmation?.healthFactor;
   const liquidationRisk = confirmation?.liquidationRisk === true;
-  const previewPending = isLoading !== false;
-  const previewUnavailable = isLoading === false && confirmation === undefined;
+  const previewUnavailable = confirmation === undefined;
   const collateralUnavailable =
     useAsCollateral && confirmation?.canBeCollateral === false;
   const actionUnavailable = previewUnavailable || collateralUnavailable;
-  const confirmDisabled =
-    previewPending || liquidationRisk || actionUnavailable;
+  const confirmDisabled = liquidationRisk || actionUnavailable;
   const handleConfirm = useCallback(async () => {
     // This guard protects the dialog interaction. The final transaction owner
     // performs another authoritative preview immediately before building.
@@ -177,7 +136,6 @@ function CollateralConfirmDialogContent({
         onCancelText={intl.formatMessage({ id: ETranslations.global_cancel })}
         confirmButtonProps={{
           testID: BorrowTestIDs.collateralConfirmBtn,
-          loading: previewPending,
           disabled: confirmDisabled,
         }}
       />
@@ -187,13 +145,8 @@ function CollateralConfirmDialogContent({
 
 function showCollateralConfirmDialog(params: {
   title: string;
-  networkId: string;
-  provider: string;
-  marketAddress: string;
-  reserveAddress: string;
-  accountId: string;
+  confirmation?: IBorrowTransactionConfirmation;
   useAsCollateral: boolean;
-  eModeId?: number;
   symbol: string;
 }): Promise<boolean> {
   const { title, ...contentProps } = params;
@@ -235,9 +188,11 @@ function showCollateralConfirmDialog(params: {
 export function CollateralSwitchCell({
   item,
   eModeId,
+  size = 'small',
 }: {
   item: ISuppliedAsset;
   eModeId?: number;
+  size?: ISwitchProps['size'];
 }) {
   const intl = useIntl();
   const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
@@ -255,6 +210,7 @@ export function CollateralSwitchCell({
   );
   const [settlementStatus, setSettlementStatus] =
     useState<ICollateralSettlementStatus>('idle');
+  const [previewLoading, setPreviewLoading] = useState(false);
   // Once the chain confirms success, retain the target as the displayed state
   // if the reserve indexer remains stale. This prevents a second identical tx
   // without keeping the control permanently locked.
@@ -262,7 +218,7 @@ export function CollateralSwitchCell({
     useState<boolean | null>(null);
   // Synchronous guard: block a second confirm dialog from opening before the
   // modal overlay mounts (sub-frame double-tap) — prevents duplicate signing.
-  const confirmingRef = useRef(false);
+  const confirmingRef = useRef<ICollateralConfirmationOperation | null>(null);
   const submittingTargetRef = useRef<boolean | null>(null);
   const settlementRefreshAttemptsRef = useRef(0);
   const settlementWarningShownRef = useRef(false);
@@ -306,7 +262,13 @@ export function CollateralSwitchCell({
   );
   const confirmationScopeRef = useRef(renderedConfirmationScope);
   const pendingSetCollateral = market
-    ? hasPendingSetCollateral({ pendingTxs, provider: market.provider })
+    ? hasPendingSetCollateral({
+        pendingTxs,
+        provider: market.provider,
+        networkId: market.networkId,
+        marketAddress: market.marketAddress,
+        reserveAddress: item.reserveAddress,
+      })
     : false;
   const requiresEModeId =
     market?.provider.toLowerCase() === EBorrowProviderEnum.Aave;
@@ -340,8 +302,17 @@ export function CollateralSwitchCell({
   useLayoutEffect(() => {
     const operationScopeChanged =
       operationScopeRef.current !== renderedOperationScope;
+    const confirmationScopeChanged =
+      confirmationScopeRef.current !== renderedConfirmationScope;
     operationScopeRef.current = renderedOperationScope;
     confirmationScopeRef.current = renderedConfirmationScope;
+    if (
+      confirmationScopeChanged &&
+      confirmingRef.current?.phase === 'preview'
+    ) {
+      confirmingRef.current = null;
+      setPreviewLoading(false);
+    }
     if (!operationScopeChanged) {
       return;
     }
@@ -469,36 +440,70 @@ export function CollateralSwitchCell({
       return;
     }
     if (confirmingRef.current) return;
-    confirmingRef.current = true;
     const target = !(effectiveUsageAsCollateral === true);
     const targetEModeId = target ? eModeId : undefined;
     if (
       target &&
       (!canEnableCollateral || (requiresEModeId && targetEModeId === undefined))
     ) {
-      confirmingRef.current = false;
       return;
     }
+    const confirmationOperation: ICollateralConfirmationOperation = {
+      phase: 'preview',
+    };
+    confirmingRef.current = confirmationOperation;
     void (async () => {
       let confirmed = false;
       try {
+        setPreviewLoading(true);
+        let confirmation: IBorrowTransactionConfirmation | undefined;
+        try {
+          confirmation =
+            await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
+              {
+                networkId: market.networkId,
+                provider: market.provider,
+                marketAddress: market.marketAddress,
+                reserveAddress: item.reserveAddress,
+                accountId,
+                action: 'setCollateral',
+                useAsCollateral: target,
+                ...(targetEModeId !== undefined
+                  ? { eModeId: targetEModeId }
+                  : {}),
+                amount: '0',
+              },
+            );
+        } catch {
+          confirmation = undefined;
+        }
+        if (
+          !mountedRef.current ||
+          confirmingRef.current !== confirmationOperation ||
+          operationScopeRef.current !== renderedOperationScope ||
+          confirmationScopeRef.current !== renderedConfirmationScope
+        ) {
+          return;
+        }
+        confirmationOperation.phase = 'dialog';
+        setPreviewLoading(false);
         confirmed = await showCollateralConfirmDialog({
           title: intl.formatMessage({
             id: target
               ? ETranslations.defi_enable_as_collateral__title
               : ETranslations.defi_disable_as_collateral__title,
           }),
-          networkId: market.networkId,
-          provider: market.provider,
-          marketAddress: market.marketAddress,
-          reserveAddress: item.reserveAddress,
-          accountId,
+          confirmation,
           useAsCollateral: target,
-          ...(targetEModeId !== undefined ? { eModeId: targetEModeId } : {}),
           symbol: item.token.symbol,
         });
       } finally {
-        confirmingRef.current = false;
+        if (confirmingRef.current === confirmationOperation) {
+          confirmingRef.current = null;
+          if (mountedRef.current) {
+            setPreviewLoading(false);
+          }
+        }
       }
       if (
         !confirmed ||
@@ -537,6 +542,15 @@ export function CollateralSwitchCell({
               buildBorrowTag({
                 provider: market.provider,
                 action: 'setCollateral',
+              }),
+              buildBorrowTag({
+                provider: market.provider,
+                action: 'setCollateral',
+                setCollateralScope: {
+                  networkId: market.networkId,
+                  marketAddress: market.marketAddress,
+                  reserveAddress: item.reserveAddress,
+                },
               }),
             ],
           },
@@ -641,24 +655,68 @@ export function CollateralSwitchCell({
 
   if (!render || !market || !accountId) return null;
 
+  const isSwitchDisabled =
+    previewLoading ||
+    isNativeActionUnsupported ||
+    disabled ||
+    (!value && requiresEModeId && eModeId === undefined);
+
   return (
     <Stack
-      onPress={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
+      position="relative"
+      ai="center"
+      jc="center"
+      onPress={
+        platformEnv.isNative
+          ? undefined
+          : (e) => {
+              e.stopPropagation();
+            }
+      }
     >
-      <Switch
-        testID={BorrowTestIDs.suppliedCollateralSwitch}
-        value={value}
-        size="small"
-        disabled={
-          isNativeActionUnsupported ||
-          disabled ||
-          (!value && requiresEModeId && eModeId === undefined)
-        }
-        onChange={handleToggle}
-      />
+      <Stack opacity={previewLoading ? 0 : 1}>
+        {/* The shared press-based switch avoids native row hit-testing issues on iOS. */}
+        <Switch
+          testID={BorrowTestIDs.suppliedCollateralSwitch}
+          value={value}
+          size={size}
+          native={!platformEnv.isNativeIOS}
+          disabled={isSwitchDisabled}
+          {...(platformEnv.isNativeIOS
+            ? {
+                accessible: true,
+                accessibilityRole: 'switch' as const,
+                accessibilityLabel: `${item.token.symbol} ${intl.formatMessage({
+                  id: ETranslations.defi_collateral,
+                })}`,
+                accessibilityState: {
+                  checked: value,
+                  disabled: isSwitchDisabled,
+                },
+                onAccessibilityTap: () => {
+                  if (!isSwitchDisabled) handleToggle();
+                },
+                hitSlop: { top: 12, bottom: 12, left: 6, right: 6 },
+                bg: value ? '$bgAccent' : '$neutral5',
+              }
+            : undefined)}
+          onChange={handleToggle}
+        />
+      </Stack>
+      {previewLoading ? (
+        <Stack
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          ai="center"
+          jc="center"
+          pointerEvents="none"
+        >
+          <Spinner size="small" />
+        </Stack>
+      ) : null}
     </Stack>
   );
 }

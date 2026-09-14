@@ -120,7 +120,9 @@ export function shouldUseAaveNativeGateway({
 }) {
   const networkIdsMap = getNetworkIdsMap();
   return (
-    (networkId === networkIdsMap.eth || networkId === networkIdsMap.base) &&
+    (networkId === networkIdsMap.eth ||
+      networkId === networkIdsMap.base ||
+      networkId === networkIdsMap.arbitrum) &&
     providerName?.toLowerCase() === EBorrowProviderEnum.Aave &&
     reserveAddress === ''
   );
@@ -234,27 +236,6 @@ export function buildAaveNativeGatewayReceiveToken({
     name: nativeToken?.name ?? 'Ether',
     symbol: nativeToken?.symbol ?? 'ETH',
   } as IToken;
-}
-
-export function shouldDowngradeAaveNativeRepayAll({
-  action,
-  networkId,
-  providerName,
-  reserveAddress,
-}: {
-  action?: string;
-  networkId?: string;
-  providerName?: string;
-  reserveAddress?: string;
-}) {
-  return (
-    action === 'repay' &&
-    shouldUseAaveNativeGateway({
-      networkId,
-      providerName,
-      reserveAddress,
-    })
-  );
 }
 
 export function resolveBorrowTokenApproveSpenderAddress({

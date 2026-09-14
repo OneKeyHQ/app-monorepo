@@ -114,6 +114,11 @@ export type IModalStakingParamList = {
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
     enableProtocolSwitch?: boolean;
+    // Fires after a deposit/withdraw confirms, before this modal pops. The
+    // inline wide-layout ManagePositionPart takes the same callback as a prop;
+    // opened as a modal there is no other way back to the caller. Same shape as
+    // the onSuccess this file already carries on the Claim routes.
+    onStakeWithdrawSuccess?: () => void;
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {

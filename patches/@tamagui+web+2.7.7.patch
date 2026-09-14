@@ -1,3 +1,36 @@
+diff --git a/node_modules/@tamagui/web/dist/cjs/createComponent.cjs b/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
+index 2044e88..10bf6b9 100644
+--- a/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
++++ b/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
+@@ -296,6 +296,7 @@ function createComponent(staticConfig) {
+       isHydrated,
+       presence,
+       presenceState,
++      suppressInitialEnterStyle,
+       setState,
+       noClass,
+       state,
+@@ -461,6 +462,7 @@ ${banner}
+       isExiting,
+       isAnimated,
+       willBeAnimated,
++      suppressInitialEnterStyle,
+       styledContext: styledContextValue
+     };
+     const themeName = themeState?.name || "";
+diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs b/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
+index 7384d83..a00ea1f 100644
+--- a/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
++++ b/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
+@@ -340,7 +340,7 @@ const getSplitStyles = (props, staticConfig, theme, themeName, componentState, s
+         const isEnter = key === "enterStyle";
+         const isExit = key === "exitStyle";
+         if (!descriptor) return;
+-        if (shouldDoClasses && !isExit) {
++        if (shouldDoClasses && !isExit && !(isEnter && styleProps.suppressInitialEnterStyle)) {
+           const pseudoStyles = (0, import_getCSSStylesAtomic.getStyleAtomic)(pseudoStyleObject, descriptor);
+           if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
+           for (const psuedoStyle of pseudoStyles) {
 diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js b/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
 index 421eb93..c6a975f 100644
 --- a/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
@@ -12,6 +45,70 @@ index 421eb93..c6a975f 100644
    // Other web-only props
    htmlFor: 1,
    dangerouslySetInnerHTML: 1
+diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs b/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
+index 7436a67..43602e9 100644
+--- a/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
++++ b/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
+@@ -71,9 +71,16 @@ const useComponentState = (props, animationDriver, staticConfig, config) => {
+   } = props;
+   const presence = !isHOC && willBeAnimated && props["animatePresence"] !== false && animationDriver?.usePresence?.() || null;
+   const presenceState = presence?.[2];
++  // OneKey patch: AnimatePresence only exposes initial={false} on its first render.
++  // Latch that decision so a later render cannot attach a variant-expanded enterStyle
++  // while the account menu's Popover ancestor is still marked t_unmounted.
++  if (import_constants.isWeb && presenceState?.initial === false) {
++    curStateRef.suppressInitialEnterStyle = true;
++  }
++  const suppressInitialEnterStyle = !!curStateRef.suppressInitialEnterStyle;
+   const isExiting = presenceState?.isPresent === false;
+-  const isEntering = presenceState?.isPresent === true && presenceState.initial !== false;
+-  const hasEnterStyle = !!props.enterStyle;
++  const isEntering = presenceState?.isPresent === true && !suppressInitialEnterStyle;
++  const hasEnterStyle = !!props.enterStyle && !suppressInitialEnterStyle;
+   const hasAnimationThatNeedsHydrate = hasAnimationProp && !isHydrated && (animationDriver?.isReactNative || inputStyle !== "css");
+   const canImmediatelyEnter = hasEnterStyle || isEntering;
+   const shouldEnter = !isHOC && (hasEnterStyle || isEntering || hasAnimationThatNeedsHydrate ||
+@@ -198,6 +205,7 @@ const useComponentState = (props, animationDriver, staticConfig, config) => {
+     isHydrated,
+     presence,
+     presenceState,
++    suppressInitialEnterStyle,
+     setState,
+     setStateShallow,
+     noClass,
+diff --git a/node_modules/@tamagui/web/dist/esm/createComponent.mjs b/node_modules/@tamagui/web/dist/esm/createComponent.mjs
+index 57af6df..b4415ac 100644
+--- a/node_modules/@tamagui/web/dist/esm/createComponent.mjs
++++ b/node_modules/@tamagui/web/dist/esm/createComponent.mjs
+@@ -261,6 +261,7 @@ function createComponent(staticConfig) {
+       isHydrated,
+       presence,
+       presenceState,
++      suppressInitialEnterStyle,
+       setState,
+       noClass,
+       state,
+@@ -425,6 +426,7 @@ ${banner}
+       isExiting,
+       isAnimated,
+       willBeAnimated,
++      suppressInitialEnterStyle,
+       styledContext: styledContextValue
+     };
+     const themeName = themeState?.name || "";
+diff --git a/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs b/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs
+index abf7a63..cec9cf3 100644
+--- a/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs
++++ b/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs
+@@ -294,7 +294,7 @@ const getSplitStyles = (props, staticConfig, theme, themeName, componentState, s
+         const isEnter = key === "enterStyle";
+         const isExit = key === "exitStyle";
+         if (!descriptor) return;
+-        if (shouldDoClasses && !isExit) {
++        if (shouldDoClasses && !isExit && !(isEnter && styleProps.suppressInitialEnterStyle)) {
+           const pseudoStyles = getStyleAtomic(pseudoStyleObject, descriptor);
+           if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
+           for (const psuedoStyle of pseudoStyles) {
 diff --git a/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js b/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
 index a976632..d5f0121 100644
 --- a/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
@@ -26,6 +123,74 @@ index a976632..d5f0121 100644
    // Other web-only props
    htmlFor: 1,
    dangerouslySetInnerHTML: 1
+diff --git a/node_modules/@tamagui/web/dist/esm/hooks/useComponentState.mjs b/node_modules/@tamagui/web/dist/esm/hooks/useComponentState.mjs
+index 02ca38a..6a57138 100644
+--- a/node_modules/@tamagui/web/dist/esm/hooks/useComponentState.mjs
++++ b/node_modules/@tamagui/web/dist/esm/hooks/useComponentState.mjs
+@@ -44,9 +44,16 @@ const useComponentState = (props, animationDriver, staticConfig, config) => {
+   } = props;
+   const presence = !isHOC && willBeAnimated && props["animatePresence"] !== false && animationDriver?.usePresence?.() || null;
+   const presenceState = presence?.[2];
++  // OneKey patch: AnimatePresence only exposes initial={false} on its first render.
++  // Latch that decision so a later render cannot attach a variant-expanded enterStyle
++  // while the account menu's Popover ancestor is still marked t_unmounted.
++  if (isWeb && presenceState?.initial === false) {
++    curStateRef.suppressInitialEnterStyle = true;
++  }
++  const suppressInitialEnterStyle = !!curStateRef.suppressInitialEnterStyle;
+   const isExiting = presenceState?.isPresent === false;
+-  const isEntering = presenceState?.isPresent === true && presenceState.initial !== false;
+-  const hasEnterStyle = !!props.enterStyle;
++  const isEntering = presenceState?.isPresent === true && !suppressInitialEnterStyle;
++  const hasEnterStyle = !!props.enterStyle && !suppressInitialEnterStyle;
+   const hasAnimationThatNeedsHydrate = hasAnimationProp && !isHydrated && (animationDriver?.isReactNative || inputStyle !== "css");
+   const canImmediatelyEnter = hasEnterStyle || isEntering;
+   const shouldEnter = !isHOC && (hasEnterStyle || isEntering || hasAnimationThatNeedsHydrate ||
+@@ -171,6 +178,7 @@ const useComponentState = (props, animationDriver, staticConfig, config) => {
+     isHydrated,
+     presence,
+     presenceState,
++    suppressInitialEnterStyle,
+     setState,
+     setStateShallow,
+     noClass,
+diff --git a/node_modules/@tamagui/web/src/createComponent.tsx b/node_modules/@tamagui/web/src/createComponent.tsx
+index 11a6863..2b1555d 100644
+--- a/node_modules/@tamagui/web/src/createComponent.tsx
++++ b/node_modules/@tamagui/web/src/createComponent.tsx
+@@ -458,6 +458,7 @@ export function createComponent<
+       isHydrated,
+       presence,
+       presenceState,
++      suppressInitialEnterStyle,
+       setState,
+       noClass,
+       state,
+@@ -719,6 +720,7 @@ export function createComponent<
+       isExiting,
+       isAnimated,
+       willBeAnimated,
++      suppressInitialEnterStyle,
+       styledContext: styledContextValue,
+     } as const
+ 
+diff --git a/node_modules/@tamagui/web/src/helpers/getSplitStyles.tsx b/node_modules/@tamagui/web/src/helpers/getSplitStyles.tsx
+index c91b74f..f93aa0b 100644
+--- a/node_modules/@tamagui/web/src/helpers/getSplitStyles.tsx
++++ b/node_modules/@tamagui/web/src/helpers/getSplitStyles.tsx
+@@ -725,7 +725,11 @@ export const getSplitStyles: StyleSplitter = (
+         }
+ 
+         // on server only generate classes for enterStyle
+-        if (shouldDoClasses && !isExit) {
++        if (
++          shouldDoClasses &&
++          !isExit &&
++          !(isEnter && styleProps.suppressInitialEnterStyle)
++        ) {
+           const pseudoStyles = getStyleAtomic(pseudoStyleObject, descriptor)
+ 
+           if (process.env.NODE_ENV === 'development' && debug === 'verbose') {
 diff --git a/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts b/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
 index 08cc802..8f8c675 100644
 --- a/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
@@ -40,3 +205,87 @@ index 08cc802..8f8c675 100644
  
    // Other web-only props
    htmlFor: 1,
+diff --git a/node_modules/@tamagui/web/src/hooks/useComponentState.ts b/node_modules/@tamagui/web/src/hooks/useComponentState.ts
+index a5dcd7b..0ed165d 100644
+--- a/node_modules/@tamagui/web/src/hooks/useComponentState.ts
++++ b/node_modules/@tamagui/web/src/hooks/useComponentState.ts
+@@ -100,10 +100,17 @@ export const useComponentState = (
+     null
+ 
+   const presenceState = presence?.[2]
++  // OneKey patch: AnimatePresence only exposes initial={false} on its first render.
++  // Latch that decision so a later render cannot attach a variant-expanded enterStyle
++  // while the account menu's Popover ancestor is still marked t_unmounted.
++  if (isWeb && presenceState?.initial === false) {
++    curStateRef.suppressInitialEnterStyle = true
++  }
++  const suppressInitialEnterStyle = !!curStateRef.suppressInitialEnterStyle
+   const isExiting = presenceState?.isPresent === false
+-  const isEntering = presenceState?.isPresent === true && presenceState.initial !== false
++  const isEntering = presenceState?.isPresent === true && !suppressInitialEnterStyle
+ 
+-  const hasEnterStyle = !!props.enterStyle
++  const hasEnterStyle = !!props.enterStyle && !suppressInitialEnterStyle
+ 
+   const hasAnimationThatNeedsHydrate =
+     hasAnimationProp &&
+@@ -289,6 +296,7 @@ export const useComponentState = (
+     isHydrated,
+     presence,
+     presenceState,
++    suppressInitialEnterStyle,
+     setState,
+     setStateShallow,
+     noClass,
+diff --git a/node_modules/@tamagui/web/src/types.tsx b/node_modules/@tamagui/web/src/types.tsx
+index 1378c7b..b636320 100644
+--- a/node_modules/@tamagui/web/src/types.tsx
++++ b/node_modules/@tamagui/web/src/types.tsx
+@@ -599,6 +599,7 @@ export type TamaguiComponentStateRef = {
+   willHydrate?: boolean
+   hasMeasured?: boolean
+   hasAnimated?: boolean
++  suppressInitialEnterStyle?: boolean
+   themeShallow?: boolean
+   hasEverThemed?: boolean | 'wrapped'
+   hasEverResetPresence?: boolean
+@@ -3216,6 +3217,7 @@ export type SplitStyleProps = {
+   willBeAnimated?: boolean // we need to track media queries even before animation
+   isAnimated: boolean
+   isExiting?: boolean
++  suppressInitialEnterStyle?: boolean
+   exitVariant?: string
+   enterVariant?: string
+ }
+diff --git a/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts b/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
+index 6d30ff2..a3701a3 100644
+--- a/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
++++ b/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
+@@ -12,6 +12,7 @@ export declare const useComponentState: (props: ViewProps | TextProps | Record<s
+     isHydrated: boolean;
+     presence: import("../types").UsePresenceResult | null;
+     presenceState: import("../types").PresenceContextProps | null | undefined;
++    suppressInitialEnterStyle: boolean;
+     setState: import("react").Dispatch<import("react").SetStateAction<TamaguiComponentState>>;
+     setStateShallow: import("../types").ComponentSetStateShallow;
+     noClass: boolean;
+diff --git a/node_modules/@tamagui/web/types/types.d.ts b/node_modules/@tamagui/web/types/types.d.ts
+index 28fb92c..ead048a 100644
+--- a/node_modules/@tamagui/web/types/types.d.ts
++++ b/node_modules/@tamagui/web/types/types.d.ts
+@@ -303,6 +303,7 @@ export type TamaguiComponentStateRef = {
+     willHydrate?: boolean;
+     hasMeasured?: boolean;
+     hasAnimated?: boolean;
++    suppressInitialEnterStyle?: boolean;
+     themeShallow?: boolean;
+     hasEverThemed?: boolean | 'wrapped';
+     hasEverResetPresence?: boolean;
+@@ -1782,6 +1783,7 @@ export type SplitStyleProps = {
+     willBeAnimated?: boolean;
+     isAnimated: boolean;
+     isExiting?: boolean;
++    suppressInitialEnterStyle?: boolean;
+     exitVariant?: string;
+     enterVariant?: string;
+ };

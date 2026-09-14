@@ -35,6 +35,9 @@ export const {
   use: useMarketV2StorageReadyAtom,
 } = contextAtom<boolean>(false);
 
+export const { atom: marketWatchListV2RefreshRequestIdAtom } =
+  contextAtom<number>(0);
+
 // Token Detail Atoms
 export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
   IMarketTokenDetail | undefined

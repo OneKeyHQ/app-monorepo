@@ -37,6 +37,14 @@ interface IApyChartProps {
   showUnderlyingApyToggle?: boolean;
   primaryApyLabel?: string;
   secondaryApyLabel?: string;
+  /** The phone layout puts the range selector under the chart and
+   * left-aligned, per the design. Wide layouts keep it above and right-aligned,
+   * so Pendle's desktop page is unchanged. */
+  controlsPlacement?: 'top' | 'bottom';
+  /** Hex for the second line. Pendle's underlying APY keeps the default blue;
+   * the campaign line is orange. Literal hex because the chart library takes
+   * colors, not theme tokens — same as the two lines already here. */
+  secondaryLineColor?: string;
 }
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -144,6 +152,8 @@ const ApyChartComponent = ({
   showUnderlyingApyToggle,
   primaryApyLabel,
   secondaryApyLabel,
+  secondaryLineColor = '#0177E5',
+  controlsPlacement = 'top',
 }: IApyChartProps) => {
   const intl = useIntl();
 
@@ -280,6 +290,14 @@ const ApyChartComponent = ({
     };
   }, [filteredApyHistory, filteredUnderlyingApyHistory]);
 
+  // Pendle puts the second line behind a checkbox; every other provider draws
+  // it whenever the server sent one, so the campaign / reward line needs no
+  // extra interaction.
+  const hasSecondaryData = Boolean(chartData?.secondaryLineData.length);
+  const isSecondaryVisible = showUnderlyingApyToggle
+    ? showUnderlyingApy && hasSecondaryData
+    : hasSecondaryData;
+
   const isLoading = apyHistory === undefined;
 
   const timePeriodOptions = useMemo(
@@ -304,48 +322,53 @@ const ApyChartComponent = ({
     [intl],
   );
 
+  const isControlsAtBottom = controlsPlacement === 'bottom';
+  const controls = showChartControls ? (
+    <YStack gap="$2">
+      <XStack ai="center" gap="$3" minHeight={44}>
+        {isControlsAtBottom ? null : <XStack flex={1} />}
+
+        <SegmentControl
+          // Bottom placement spans the chart width with evenly sized segments,
+          // the way the design spaces them; the wide layout keeps the compact
+          // content-sized control it ships today.
+          fullWidth={isControlsAtBottom}
+          value={timePeriod}
+          options={timePeriodOptions}
+          onChange={(nextValue) => setTimePeriod(nextValue as IChartTimePeriod)}
+          slotBackgroundColor="$bg"
+          activeBackgroundColor="$bgActive"
+          activeTextColor="$text"
+        />
+      </XStack>
+
+      {showUnderlyingApyToggle ? (
+        <Checkbox
+          testID="earn-checkbox"
+          value={showUnderlyingApy}
+          onChange={(value) => setShowUnderlyingApy(Boolean(value))}
+          label={intl.formatMessage({
+            id: ETranslations.defi_show_underlying_apy,
+          })}
+          containerProps={{
+            ai: 'center',
+          }}
+          labelContainerProps={{
+            py: '$0',
+            my: '$0',
+            justifyContent: 'center',
+          }}
+          labelProps={{
+            variant: '$bodyMd',
+          }}
+        />
+      ) : null}
+    </YStack>
+  ) : null;
+
   return (
     <YStack gap="$2">
-      {showChartControls ? (
-        <YStack gap="$2">
-          <XStack ai="center" gap="$3" minHeight={44}>
-            <XStack flex={1} />
-
-            <SegmentControl
-              value={timePeriod}
-              options={timePeriodOptions}
-              onChange={(nextValue) =>
-                setTimePeriod(nextValue as IChartTimePeriod)
-              }
-              slotBackgroundColor="$bg"
-              activeBackgroundColor="$bgActive"
-              activeTextColor="$text"
-            />
-          </XStack>
-
-          {showUnderlyingApyToggle ? (
-            <Checkbox
-              testID="earn-checkbox"
-              value={showUnderlyingApy}
-              onChange={(value) => setShowUnderlyingApy(Boolean(value))}
-              label={intl.formatMessage({
-                id: ETranslations.defi_show_underlying_apy,
-              })}
-              containerProps={{
-                ai: 'center',
-              }}
-              labelContainerProps={{
-                py: '$0',
-                my: '$0',
-                justifyContent: 'center',
-              }}
-              labelProps={{
-                variant: '$bodyMd',
-              }}
-            />
-          ) : null}
-        </YStack>
-      ) : null}
+      {isControlsAtBottom ? null : controls}
 
       {isLoading && !chartData ? (
         <Stack
@@ -421,7 +444,7 @@ const ApyChartComponent = ({
                     {hoverData.apy.toFixed(2)}%
                   </SizableText>
                 </XStack>
-                {showUnderlyingApy && hoverData.secondaryApy !== undefined ? (
+                {isSecondaryVisible && hoverData.secondaryApy !== undefined ? (
                   <XStack jc="space-between" ai="center" width="100%">
                     <SizableText size="$bodySmMedium" color="$textSubdued">
                       {resolvedSecondaryLabel}
@@ -438,11 +461,9 @@ const ApyChartComponent = ({
           <LightweightChart
             data={chartData.marketChartData}
             secondaryLineData={
-              showUnderlyingApy && showUnderlyingApyToggle
-                ? chartData.secondaryLineData
-                : undefined
+              isSecondaryVisible ? chartData.secondaryLineData : undefined
             }
-            secondaryLineColor="#0177E5"
+            secondaryLineColor={secondaryLineColor}
             secondaryLineWidth={2}
             height={APY_CHART_HEIGHT}
             onHover={handleHover}
@@ -457,6 +478,8 @@ const ApyChartComponent = ({
           />
         </YStack>
       ) : null}
+
+      {isControlsAtBottom ? controls : null}
     </YStack>
   );
 };
