@@ -43,6 +43,9 @@ export function ButtonGroupItem({
     <ToggleGroup.Item
       borderWidth={0}
       m={0}
+      // ToggleFrame's default `size="$true"` pins width to a fixed 44px, so
+      // wide content (e.g. a 9-digit page number) overflows into siblings.
+      width="auto"
       minWidth={42}
       height={38}
       bg="$bgStrong"

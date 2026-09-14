@@ -997,6 +997,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     }
   });
   browserWindow.on('closed', () => {
+    unregisterShortcuts();
     mainWindow = null;
     isAppReady = false;
     logger.info('set isAppReady on browserWindow closed', isAppReady);
@@ -1234,6 +1235,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   browserWindow.on('enter-full-screen', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    if (
+      bleQuitStarted ||
+      !safelyBrowserWindow?.isFocused() ||
+      !safelyBrowserWindow.isVisible()
+    ) {
+      return;
+    }
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
@@ -1250,6 +1258,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'active';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
+    if (
+      bleQuitStarted ||
+      !safelyBrowserWindow?.isFocused() ||
+      !safelyBrowserWindow.isVisible()
+    ) {
+      return;
+    }
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
@@ -1257,13 +1272,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   browserWindow.on('blur', () => {
+    unregisterShortcuts();
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'blur';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-    unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
+    unregisterShortcuts();
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'background';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
@@ -1872,6 +1888,7 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', (event) => {
+  unregisterShortcuts();
   if (isMac && !bleQuitReady) {
     event.preventDefault();
     if (bleQuitStarted) return;
