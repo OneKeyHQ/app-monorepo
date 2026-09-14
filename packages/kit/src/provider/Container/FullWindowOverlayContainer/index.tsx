@@ -10,11 +10,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
 import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
+import { useSplitViewDetailOffset } from '../TableSplitViewContainer/SplitViewDetailOffsetContext';
 
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
 export function FullWindowOverlayContainer() {
+  const detailOffset = useSplitViewDetailOffset();
   return (
     <OverlayContainer>
       <TradingViewNativeFullscreenHost />
@@ -48,7 +50,9 @@ export function FullWindowOverlayContainer() {
       <Stack
         position="absolute"
         top={0}
-        left={0}
+        // Extend to the actual split-view origin without relocating the portal
+        // or changing its order relative to dialogs, toasts, and the app lock.
+        left={-detailOffset}
         right={0}
         bottom={0}
         zIndex={HARDWARE_STAGE_Z_INDEX}
