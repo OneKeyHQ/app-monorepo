@@ -19,6 +19,7 @@ export function HdWalletBackupButton({
     <WalletBackupActions
       wallet={wallet}
       actionListProps={{
+        nativeSheet: true,
         offset: {
           mainAxis: 0,
           crossAxis: 18,
