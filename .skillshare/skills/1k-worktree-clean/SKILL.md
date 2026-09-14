@@ -118,7 +118,7 @@ rtk proxy rm -rf <path>
 ## How To Interpret The Result
 
 - `MERGED_TO_ORIGIN_X_BY_ANCESTOR`: the worktree HEAD is an ancestor of `origin/x`.
-- `MERGED_TO_ORIGIN_X_BY_PR`: GitHub reports a merged PR from this branch into `x`.
+- `MERGED_TO_ORIGIN_X_BY_PR`: GitHub reports a merged PR from this branch into `x`, its `headRefOid` matches the current worktree `HEAD`, and the branch-side candidate blobs match `origin/x`.
 - `MERGED_TO_ORIGIN_X_BY_PATCH_ID`: the branch's aggregate patch matches a non-merge commit in `origin/x`, covering squash merges.
 - `MERGED_TO_ORIGIN_X_BY_CODE`: every branch-side candidate file now matches `origin/x`.
 - `NEEDS_MANUAL_REVIEW`: later edits or conflict resolution prevent the script from proving equivalence.
