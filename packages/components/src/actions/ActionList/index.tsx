@@ -59,6 +59,7 @@ export type {
   IActionListTriggerPosition,
   IActionListTriggerRect,
 } from './imperativeShowUtils';
+export { runAfterActionListClose } from './runAfterClose';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;

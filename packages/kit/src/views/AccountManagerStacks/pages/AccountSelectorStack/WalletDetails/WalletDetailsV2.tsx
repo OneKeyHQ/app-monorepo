@@ -747,6 +747,8 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     style: { flex: 1 },
     pointerEvents: presentedList.identity === listIdentity ? 'auto' : 'none',
     testID: 'account-selector-account-list-v2',
+    keyboardDismissMode: 'on-drag',
+    keyboardShouldPersistTaps: 'handled',
     snapshot: nativeSnapshot,
     onActionAnchorInvalidated: (event) => closeMenu(event.token),
     onRowAction: (event) => {
@@ -896,6 +898,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
                   ) {
                     qrHiddenCreateGuideDialog.showDialogForCreatingStandardWallet(
                       {
+                        nativeSheet: true,
                         onConfirm: () => {
                           void createQrWallet({ isOnboarding: true });
                         },
