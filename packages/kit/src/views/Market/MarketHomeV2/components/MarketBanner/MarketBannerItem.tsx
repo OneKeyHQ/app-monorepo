@@ -323,6 +323,8 @@ function BannerQuoteRow({
 function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   const { item, isSmallScreen, onPress } = props;
   const intl = useIntl();
+  // Touch layouts have no hover, so only the desktop web card hides More.
+  const revealMoreOnHover = !isSmallScreen && !platformEnv.isNative;
   const isIndexBanner = isMarketIndexQuoteBanner(item);
   const tokens = useMemo(() => {
     const bannerTokens = item.tokens ?? [];
@@ -407,8 +409,10 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
             <SizableText
               size="$bodySm"
               color="$textSubdued"
-              opacity={0}
-              $group-marketBannerCard-hover={{ opacity: 1 }}
+              opacity={revealMoreOnHover ? 0 : 1}
+              $group-marketBannerCard-hover={
+                revealMoreOnHover ? { opacity: 1 } : undefined
+              }
             >
               {intl.formatMessage({ id: ETranslations.global_more })}
             </SizableText>
