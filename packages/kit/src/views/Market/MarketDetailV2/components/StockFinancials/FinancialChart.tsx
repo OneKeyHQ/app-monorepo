@@ -263,45 +263,52 @@ export function FinancialChart({
                     ) : null}
                   </>
                 ) : (
-                  series.map((item, index) => {
-                    const value = row.values[index];
-                    if (!isFinancialNumber(value)) return null;
-                    if (item.kind === 'line') return null;
-                    if (item.kind === 'bar') {
-                      const barIndex = barSeries.indexOf(item);
+                  series
+                    .map((item, index) => ({ item, index }))
+                    .toSorted(
+                      (a, b) =>
+                        (a.item.kind === 'estimate' ? 0 : 1) -
+                        (b.item.kind === 'estimate' ? 0 : 1),
+                    )
+                    .map(({ item, index }) => {
+                      const value = row.values[index];
+                      if (!isFinancialNumber(value)) return null;
+                      if (item.kind === 'line') return null;
+                      if (item.kind === 'bar') {
+                        const barIndex = barSeries.indexOf(item);
+                        return (
+                          <Path
+                            key={item.key}
+                            d={roundedBarPath(
+                              center +
+                                (barIndex - barSeries.length / 2) * barWidth +
+                                1,
+                              Math.min(y(0), y(value)),
+                              Math.max(1, barWidth - 2),
+                              Math.max(1, Math.abs(y(0) - y(value))),
+                              radius,
+                              value < 0,
+                            )}
+                            fill={theme[item.color].val}
+                          />
+                        );
+                      }
                       return (
-                        <Path
+                        <Circle
                           key={item.key}
-                          d={roundedBarPath(
-                            center +
-                              (barIndex - barSeries.length / 2) * barWidth +
-                              1,
-                            Math.min(y(0), y(value)),
-                            Math.max(1, barWidth - 2),
-                            Math.max(1, Math.abs(y(0) - y(value))),
-                            radius,
-                            value < 0,
-                          )}
-                          fill={theme[item.color].val}
+                          cx={center}
+                          cy={y(value)}
+                          r={circleRadius(item.kind)}
+                          fill={
+                            item.kind === 'actual'
+                              ? theme[item.color].val
+                              : theme.bgApp.val
+                          }
+                          stroke={theme[item.color].val}
+                          strokeWidth={1.5}
                         />
                       );
-                    }
-                    return (
-                      <Circle
-                        key={item.key}
-                        cx={center}
-                        cy={y(value)}
-                        r={circleRadius(item.kind)}
-                        fill={
-                          item.kind === 'actual'
-                            ? theme[item.color].val
-                            : theme.bgApp.val
-                        }
-                        stroke={theme[item.color].val}
-                        strokeWidth={1.5}
-                      />
-                    );
-                  })
+                    })
                 )}
               </G>
             );

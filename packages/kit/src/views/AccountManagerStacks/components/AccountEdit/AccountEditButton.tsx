@@ -246,6 +246,7 @@ export function useAccountEditActionListOptions({
             />
           ) : null}
           <AccountRenameButton
+            nativeSheet
             name={name}
             wallet={wallet}
             indexedAccount={indexedAccount}
@@ -309,6 +310,7 @@ export function useAccountEditActionListOptions({
             <>
               <Divider mx="$2" my="$1" />
               <AccountRemoveButton
+                nativeSheet
                 accountsCount={accountsCount}
                 name={name}
                 indexedAccount={indexedAccount}
@@ -348,6 +350,7 @@ function AccountEditButtonView(props: IAccountEditButtonProps) {
 
   return (
     <ActionList
+      nativeSheet
       title={title}
       renderTrigger={
         <ListItem.IconButton

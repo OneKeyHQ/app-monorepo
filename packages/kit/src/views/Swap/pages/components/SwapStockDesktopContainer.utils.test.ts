@@ -14,6 +14,7 @@ import {
   getStockDisabledActionButtonProps,
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
+  isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
   shouldDeferStockInitialContent,
@@ -96,6 +97,21 @@ describe('SwapStockDesktopContainer utils', () => {
         tokenScope,
       }),
     ).toEqual({ coinGeckoId: undefined, isLoading: false });
+  });
+
+  it('requests the stock chart after a missing CoinGecko id settles', () => {
+    expect(
+      isStockChartRequestReady({
+        chartCacheReady: true,
+        coinGeckoIdLoading: false,
+      }),
+    ).toBe(true);
+    expect(
+      isStockChartRequestReady({
+        chartCacheReady: true,
+        coinGeckoIdLoading: true,
+      }),
+    ).toBe(false);
   });
 
   it('ignores a completed CoinGecko lookup from another token scope', () => {

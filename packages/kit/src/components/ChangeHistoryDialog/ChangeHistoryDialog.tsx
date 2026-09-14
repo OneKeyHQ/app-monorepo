@@ -74,6 +74,7 @@ function ChangeHistoryDialogContent({
 export function buildChangeHistoryInputAddon({
   changeHistoryInfo,
   onChange,
+  nativeSheet,
 }: {
   changeHistoryInfo: {
     entityId: string;
@@ -81,6 +82,7 @@ export function buildChangeHistoryInputAddon({
     contentType: EChangeHistoryContentType;
   };
   onChange?: (val: string) => void;
+  nativeSheet?: boolean;
 }): IInputAddOnProps {
   return {
     iconName: 'ClockTimeHistoryOutline',
@@ -93,6 +95,7 @@ export function buildChangeHistoryInputAddon({
         showConfirmButton: false,
         showCancelButton: false,
         disableDrag: true,
+        nativeSheet,
         renderContent: (
           <Stack>
             <ChangeHistoryDialogContent
