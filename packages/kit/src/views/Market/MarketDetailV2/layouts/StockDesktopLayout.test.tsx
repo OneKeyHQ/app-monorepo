@@ -112,8 +112,8 @@ jest.mock('../components/StockAnalystGauge', () => ({
   StockAnalystGauge: () => null,
   parseStockAnalystRatingCounts: jest.fn(),
 }));
-jest.mock('../components/SwapPanel/SwapPanel', () => ({
-  SwapPanel: () => null,
+jest.mock('./MarketEmbeddedSwap', () => ({
+  MarketEmbeddedSwap: () => null,
 }));
 jest.mock('../components/TokenDetailHeader/ShareButton', () => ({
   ShareButton: () => null,

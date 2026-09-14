@@ -78,12 +78,14 @@ import {
   DialogTitle,
   SetDialogHeader,
 } from './Header';
+import { HeaderDragZone } from './HeaderDragZone';
 import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogForm,
   IDialogFormProps,
   IDialogHeaderProps,
   IDialogInstance,
@@ -221,6 +223,10 @@ const useSafeKeyboardAnimationStyle = ({
   return animatedStyles;
 };
 
+// Without a title the header drag zone is only the grabber strip; keep it
+// tall enough to catch a finger.
+const HEADER_DRAG_ZONE_MIN_HEIGHT = 24;
+
 /**
  * Renders a responsive dialog component that adapts between a sheet (for medium and larger screens) and a modal dialog (for smaller screens or web), supporting customizable content, footer actions, and platform-specific behaviors.
  *
@@ -253,6 +259,7 @@ function DialogFrame({
   sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
+  sheetDragArea = 'sheet',
   disableSystemClose = false,
   showHeader = true,
   trapFocus,
@@ -334,18 +341,46 @@ function DialogFrame({
 
   const media = useMedia();
 
+  // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
+  // so a scrollable body scrolls natively with no hand-off to the sheet, and
+  // the grabber + title row (HeaderDragZone) carry a pan of their own that
+  // moves the sheet body and lets go of it past its thresholds.
+  const isHeaderDragOnly =
+    media.md && sheetDragArea === 'header' && !disableDrag;
+  const headerDragY = useSharedValue(0);
+  useEffect(() => {
+    if (open) {
+      headerDragY.value = 0;
+    }
+  }, [open, headerDragY]);
+  const dismissFromHeaderDrag = useCallback(() => {
+    handleOpenChange(false);
+  }, [handleOpenChange]);
+  const headerDragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: headerDragY.value }],
+  }));
+
   const zIndex = useOverlayZIndex(open, title);
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
     useInitialSafeAreaBottomInsetFallback,
   });
+  const dialogHeader = showHeader ? (
+    <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
+  ) : null;
   const renderDialogContent = (
     <Animated.View style={safeKeyboardAnimationStyle}>
-      {showHeader ? (
-        <DialogHeader
-          trackID={trackID}
-          onClose={handleHeaderCloseButtonPress}
-        />
-      ) : null}
+      {isHeaderDragOnly ? (
+        <HeaderDragZone
+          dragY={headerDragY}
+          onDismiss={dismissFromHeaderDrag}
+          minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
+        >
+          <SheetGrabber />
+          {dialogHeader}
+        </HeaderDragZone>
+      ) : (
+        dialogHeader
+      )}
       {/* extra children */}
       <Content
         testID={testID}
@@ -385,7 +420,7 @@ function DialogFrame({
   if (media.md) {
     return (
       <Sheet
-        disableDrag={disableDrag}
+        disableDrag={disableDrag || isHeaderDragOnly}
         open={open}
         position={position}
         onPositionChange={setPosition}
@@ -422,7 +457,14 @@ function DialogFrame({
           // safe-area inset region (applied as paddingBottom on the wrapper,
           // below the footer) doesn't reveal the default `$bg` as a seam when a
           // dialog overrides its content background (e.g. Prime feature intro).
-          bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
+          // In header-drag mode the frame stays put and transparent while the
+          // body below carries the surface and moves with the drag, so the
+          // pull reads as the sheet moving rather than content sliding in it.
+          bg={
+            isHeaderDragOnly
+              ? 'transparent'
+              : ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
+          }
           borderCurve="continuous"
           disableHideBottomOverflow
           // Fix width issue for portrait iPad mini - ensure proper dialog width
@@ -437,10 +479,26 @@ function DialogFrame({
               onMountAutoFocus={onOpenAutoFocus}
               loop
             >
-              <Stack>
-                {!disableDrag ? <SheetGrabber /> : null}
-                {renderDialogContent}
-              </Stack>
+              {isHeaderDragOnly ? (
+                <Animated.View style={headerDragStyle}>
+                  <Stack
+                    bg={
+                      (contentContainerProps as { bg?: IColorTokens })?.bg ??
+                      '$bg'
+                    }
+                    borderTopLeftRadius="$6"
+                    borderTopRightRadius="$6"
+                    borderCurve="continuous"
+                  >
+                    {renderDialogContent}
+                  </Stack>
+                </Animated.View>
+              ) : (
+                <Stack>
+                  {!disableDrag ? <SheetGrabber /> : null}
+                  {renderDialogContent}
+                </Stack>
+              )}
             </FocusScope>
           </DialogSheetContext.Provider>
         </Sheet.Frame>
@@ -582,19 +640,41 @@ function BaseDialogContainer(
     [isExist],
   );
 
+  // `Dialog.Form` registers itself onto `formRef` from a lazily loaded module,
+  // so it lands after the rest of the dialog has mounted and lands again on
+  // every remount. Consumers that hold on to the instance (the footer's
+  // `disabledOn` subscription) need to be told, not to re-read a ref they have
+  // no reason to look at again. (OK-62416)
+  const formListenersRef = useRef(new Set<() => void>());
+  const registerForm = useCallback((form: IDialogForm | undefined) => {
+    formRef.current = form;
+    for (const listener of formListenersRef.current) {
+      listener();
+    }
+  }, []);
+  const subscribeFormChange = useCallback((listener: () => void) => {
+    const listeners = formListenersRef.current;
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
         close: handleClose,
         ref: formRef,
         isExist: handleIsExist,
+        registerForm,
+        subscribeFormChange,
       },
       footerRef: {
         notifyUpdate: undefined,
         props: undefined,
       },
     }),
-    [handleClose, handleIsExist],
+    [handleClose, handleIsExist, registerForm, subscribeFormChange],
   );
 
   const handleOpen = useCallback(() => {
@@ -675,6 +755,28 @@ function dialogShow({
   isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
+  if (
+    platformEnv.isDev &&
+    platformEnv.isNativeIOS &&
+    portalContainer &&
+    isOverTopAllViews === true
+  ) {
+    // iOS only, because only `renderToContainer.ios` fails on this shape: it
+    // mounts `element` twice — once wrapped in a fresh `OverlayContainer`,
+    // once into `portalContainer` — and returns only the second manager, so
+    // the first window is never torn down. That stray window is also created
+    // at dialog-open time, and iOS stacks window overlays in the order they
+    // were added, so once the app-state lock screen has added its own (at lock
+    // time, not app start) a dialog opened afterwards lands on top of the
+    // passcode screen. Elsewhere the pair is fine and documented: web renders
+    // once and portals to `document.body` (the only shape in which that
+    // feature exists, and what `useInPageDialog` relies on), and Android
+    // ignores the flag outright. (OK-62416)
+    console.error(
+      '[Dialog.show] on iOS, `portalContainer` and `isOverTopAllViews: true` must not be combined: it mounts the dialog twice, leaks the first window overlay, and can stack it above the app-state lock screen. Pass one or the other.',
+      { portalContainer },
+    );
+  }
   void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();
