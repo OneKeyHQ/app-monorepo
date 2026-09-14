@@ -37,7 +37,10 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { MarketStarV2 } from '../../components/MarketStarV2';
 import { MarketTooltipLabel } from '../../components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
+} from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import { MarketAboutDescription } from '../components/MarketAboutDescription';
 import {
@@ -87,7 +90,6 @@ import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import {
   STOCK_DETAIL_COLUMN_GAP,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
-  STOCK_DETAIL_TRADE_PANEL_WIDTH,
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
@@ -1308,9 +1310,8 @@ export function StockDesktopLayout({
 
         <Stack
           testID="stock-token-detail-trade"
-          width={STOCK_DETAIL_TRADE_PANEL_WIDTH}
-          pt="$6"
-          flexShrink={0}
+          {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
+          mt="$6"
         >
           <MarketEmbeddedSwap
             swapToken={swapToken}
