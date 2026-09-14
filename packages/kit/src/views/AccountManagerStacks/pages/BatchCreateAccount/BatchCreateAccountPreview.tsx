@@ -105,6 +105,11 @@ function DeriveTypeTrigger({ onPress }: ISelectRenderTriggerProps) {
 const INDEX_DIGIT_WIDTH = 11;
 // Checkbox box (~20px) plus the 8px label gap in `Checkbox`.
 const INDEX_CHECKBOX_WIDTH = 28;
+// Native rows use a 32px column gap. Once the index floor reaches 8 digits it
+// no longer fits a 375pt phone together with that gap, so wide-index pages
+// fall back to the 16px web gap to keep the address and balance columns
+// readable.
+const INDEX_COMPACT_GAP_DIGITS = 8;
 
 const MemoDeriveTypeTrigger = memo(DeriveTypeTrigger);
 
@@ -252,14 +257,19 @@ function BatchCreateAccountPreviewPage({
   // Widest index label on the current page; derived from page arithmetic (not
   // the loaded rows) so the header and skeleton rows already use the final
   // width and nothing shifts once data arrives.
-  const indexColumnMinWidth = useMemo(() => {
+  const indexColumnDigits = useMemo(() => {
     const lastLabelOnPage = Math.min(
       fromInt + page * pageSize - 1,
       endIndex + 1,
     );
-    const digits = String(Math.max(lastLabelOnPage, 1)).length;
-    return INDEX_CHECKBOX_WIDTH + digits * INDEX_DIGIT_WIDTH;
+    return String(Math.max(lastLabelOnPage, 1)).length;
   }, [endIndex, fromInt, page]);
+  const indexColumnMinWidth =
+    INDEX_CHECKBOX_WIDTH + indexColumnDigits * INDEX_DIGIT_WIDTH;
+  const rowGap =
+    platformEnv.isNative && indexColumnDigits < INDEX_COMPACT_GAP_DIGITS
+      ? '$8'
+      : '$4';
 
   const previewTimes = useRef(0);
 
@@ -817,7 +827,7 @@ function BatchCreateAccountPreviewPage({
       <Table
         onRow={onRow}
         rowProps={{
-          gap: platformEnv.isNative ? '$8' : '$4',
+          gap: rowGap,
           px: '$3',
           mx: '$2',
           minHeight: '$12',
@@ -833,7 +843,7 @@ function BatchCreateAccountPreviewPage({
         keyExtractor={(item) => item.id}
       />
     );
-  }, [accounts, columns, extraData, isLoading, onRow]);
+  }, [accounts, columns, extraData, isLoading, onRow, rowGap]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -1020,9 +1030,13 @@ function BatchCreateAccountPreviewPage({
             flexDirection="row"
             alignItems="center"
           >
-            <Stack>
+            {/* Let the select-all block yield to a wide pager on narrow
+                screens instead of pushing the settings and pager controls
+                past the footer edge; the label wraps rather than clipping. */}
+            <Stack flexShrink={1} minWidth={0}>
               <Checkbox
                 testID="account-manager-checkbox"
+                labelContainerProps={{ flexShrink: 1 }}
                 onChange={(val) => {
                   selectCheckBox({
                     val,
