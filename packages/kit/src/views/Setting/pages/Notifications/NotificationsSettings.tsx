@@ -17,7 +17,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
-import { NotificationPermissionRecoveryAlert } from '@onekeyhq/kit/src/components/NotificationPermissionRecoveryAlert';
 import { showNotificationPermissionsDialog } from '@onekeyhq/kit/src/components/PermissionsDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -434,13 +433,6 @@ export default function NotificationsSettings() {
             />
           )}
         </ListItem>
-
-        {settings?.pushEnabled ? (
-          <NotificationPermissionRecoveryAlert
-            scene="settings"
-            pushEnabled={settings.pushEnabled}
-          />
-        ) : null}
 
         {settings === undefined || settings.pushEnabled ? (
           <>
