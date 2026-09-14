@@ -160,7 +160,7 @@ function PerpDesktopLayout() {
   const accountPanel = useMemo(() => {
     return (
       <YStack alignSelf="stretch">
-        <YStack minHeight={layout.bottomPanelHeight}>
+        <YStack>
           <XStack alignItems="center">
             <XStack py="$3" px="$2.5">
               <SizableText size="$bodyMdMedium">
@@ -177,7 +177,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl, layout.bottomPanelHeight]);
+  }, [intl]);
 
   const marketPanel = (
     <XStack h="100%" overflow="hidden">
