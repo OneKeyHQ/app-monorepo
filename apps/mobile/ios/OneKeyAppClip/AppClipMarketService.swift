@@ -102,6 +102,7 @@ struct AppClipKlineResult {
 
 enum AppClipMarketServiceError: Error {
   case business(code: Int, message: String?)
+  case httpStatus(Int)
   case missingData
 }
 
@@ -262,6 +263,9 @@ private struct MarketScalar: Decodable {
 }
 
 actor AppClipMarketService {
+  // Keep stock pagination, refreshes, and charts on one backend for this App Clip process.
+  private var resolvedStockBaseURLs: [URL: URL] = [:]
+
   func fetchConfiguration(baseURL: URL) async throws -> AppClipMarketConfiguration {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("utility/v2/market/basic-config"),
@@ -296,23 +300,38 @@ actor AppClipMarketService {
     cursor: String? = nil,
     limit: Int = 20
   ) async throws -> AppClipMarketStockPage {
-    do {
+    if let resolvedBaseURL = resolvedStockBaseURLs[baseURL] {
       return try await fetchStockPage(
+        baseURL: resolvedBaseURL,
+        category: category,
+        cursor: cursor,
+        limit: limit
+      )
+    }
+    do {
+      let page = try await fetchStockPage(
         baseURL: baseURL,
         category: category,
         cursor: cursor,
         limit: limit
       )
+      resolvedStockBaseURLs[baseURL] = baseURL
+      return page
     } catch {
-      guard let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL) else {
+      guard
+        Self.shouldFallbackStockRequest(after: error),
+        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
+      else {
         throw error
       }
-      return try await fetchStockPage(
+      let page = try await fetchStockPage(
         baseURL: fallbackBaseURL,
         category: category,
         cursor: cursor,
         limit: limit
       )
+      resolvedStockBaseURLs[baseURL] = fallbackBaseURL
+      return page
     }
   }
 
@@ -483,6 +502,13 @@ actor AppClipMarketService {
     period: String,
     baseURL: URL
   ) async throws -> AppClipKlineResult {
+    if let resolvedBaseURL = resolvedStockBaseURLs[baseURL] {
+      return try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: resolvedBaseURL
+      )
+    }
     do {
       return try await fetchStockCandles(
         stockID: stockID,
@@ -490,7 +516,10 @@ actor AppClipMarketService {
         requestBaseURL: baseURL
       )
     } catch {
-      guard let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL) else {
+      guard
+        Self.shouldFallbackStockRequest(after: error),
+        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
+      else {
         throw error
       }
       return try await fetchStockCandles(
@@ -617,11 +646,11 @@ actor AppClipMarketService {
     request.setValue(requestId, forHTTPHeaderField: "X-Onekey-Request-ID")
     request.setValue(requestId, forHTTPHeaderField: "X-Amzn-Trace-Id")
     let (data, response) = try await URLSession.shared.data(for: request)
-    guard
-      let response = response as? HTTPURLResponse,
-      (200..<300).contains(response.statusCode)
-    else {
+    guard let response = response as? HTTPURLResponse else {
       throw URLError(.badServerResponse)
+    }
+    guard (200..<300).contains(response.statusCode) else {
+      throw AppClipMarketServiceError.httpStatus(response.statusCode)
     }
     return data
   }
@@ -655,6 +684,34 @@ actor AppClipMarketService {
       return nil
     }
     return URL(string: "https://utility.onekeytest.com")
+  }
+
+  private static func shouldFallbackStockRequest(after error: Error) -> Bool {
+    if let serviceError = error as? AppClipMarketServiceError {
+      switch serviceError {
+      case .business(let code, _):
+        return code == 404
+      case .httpStatus(let statusCode):
+        return statusCode == 404 || (500..<600).contains(statusCode)
+      case .missingData:
+        return false
+      }
+    }
+    guard let urlError = error as? URLError else {
+      return false
+    }
+    switch urlError.code {
+    case .timedOut,
+         .cannotFindHost,
+         .cannotConnectToHost,
+         .dnsLookupFailed,
+         .networkConnectionLost,
+         .resourceUnavailable,
+         .badServerResponse:
+      return true
+    default:
+      return false
+    }
   }
 
   private static let pathSegmentAllowed = CharacterSet(
