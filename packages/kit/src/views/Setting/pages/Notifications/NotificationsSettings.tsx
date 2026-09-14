@@ -201,7 +201,7 @@ export default function NotificationsSettings() {
         return;
       }
       if (
-        !hasNotificationSettings(result) &&
+        result === undefined &&
         hasNotificationSettings(
           getCachedNotificationSettings(notificationSettingsIdentityKey),
         )
@@ -325,11 +325,17 @@ export default function NotificationsSettings() {
       previousIdentityKey !== notificationSettingsIdentityKey;
     previousNotificationSettingsIdentityKeyRef.current =
       notificationSettingsIdentityKey;
+    const hasOutstandingUpdate = Boolean(
+      pendingSettings.current || isUpdating.current,
+    );
+    if (!identityChanged && hasOutstandingUpdate) {
+      return;
+    }
     settingsMutationVersionRef.current += 1;
     if (identityChanged) {
       if (
         previousIdentityKey &&
-        pendingSettings.current &&
+        hasOutstandingUpdate &&
         prevSettings.current !== undefined
       ) {
         updateCachedNotificationSettings({
