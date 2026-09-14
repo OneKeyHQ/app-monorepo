@@ -1387,8 +1387,16 @@ class ServiceMarketV2 extends ServiceBase {
         );
 
       if (action === 'add' && !existing) {
+        const { data } =
+          await this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
+        const [sortIndex] = sortUtils.buildTopSortIndexes({
+          oldList: data,
+          count: 1,
+        });
         await this.addMarketWatchListV2({
-          watchList: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          watchList: [
+            { chainId: '', contractAddress: '', perpsCoin: coin, sortIndex },
+          ],
           callerName: 'syncToMarketWatchList',
         });
       } else if (action === 'remove' && existing) {
@@ -1468,11 +1476,17 @@ class ServiceMarketV2 extends ServiceBase {
 
       // Sync missing items to Market watchlist
       if (missingInMarket.length > 0) {
+        // Perps favorites are stored oldest-first, so the newest lands on top.
+        const sortIndexes = sortUtils.buildTopSortIndexes({
+          oldList: watchListData.data,
+          count: missingInMarket.length,
+        });
         await this.addMarketWatchListV2({
-          watchList: missingInMarket.map((coin) => ({
+          watchList: missingInMarket.map((coin, index) => ({
             chainId: '',
             contractAddress: '',
             perpsCoin: coin,
+            sortIndex: sortIndexes[index],
           })),
           callerName: 'reconcilePerpsFavorites',
         });
