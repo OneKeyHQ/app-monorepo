@@ -286,6 +286,7 @@ export function useMarketTokenList({
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoadMoreError, setIsLoadMoreError] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const [errorQueryKey, setErrorQueryKey] = useState<string>();
   const forceRemoteFirstPageRef = useRef(false);
@@ -740,6 +741,7 @@ export function useMarketTokenList({
     }));
     setCurrentPage(1);
     setHasReachedEnd(false);
+    setIsLoadMoreError(false);
 
     // Track network loading analytics
     trackNetworkLoading(networkId, apiResult.list.length);
@@ -788,6 +790,7 @@ export function useMarketTokenList({
     setCurrentPage(1);
     setIsLoadingMore(false);
     setHasReachedEnd(false);
+    setIsLoadMoreError(false);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
   }, [networkId, sortBy, sortType, type, category, timeFrame]);
@@ -843,6 +846,7 @@ export function useMarketTokenList({
     if (platformEnv.isNative) loadMoreRequestRef.current = request;
 
     setIsLoadingMore(true);
+    setIsLoadMoreError(false);
 
     try {
       // Load the next page
@@ -899,8 +903,13 @@ export function useMarketTokenList({
         // Empty response - stop loading immediately
         setHasReachedEnd(true);
       }
-    } catch (error) {
-      console.error('Failed to load more market tokens:', error);
+    } catch (_error) {
+      if (
+        currentQueryKeyRef.current === requestQueryKey &&
+        (!platformEnv.isNative || loadMoreRequestRef.current === request)
+      ) {
+        setIsLoadMoreError(true);
+      }
     } finally {
       if (!platformEnv.isNative || loadMoreRequestRef.current === request) {
         loadMoreRequestRef.current = undefined;
@@ -949,6 +958,7 @@ export function useMarketTokenList({
     isLoading: effectiveIsLoading,
     isError: errorQueryKey === currentQueryKey,
     isLoadingMore,
+    isLoadMoreError,
     isNetworkSwitching: isNetworkSwitching && transformedData.length === 0,
     isProvisionalFirstPageResult,
     initialSortBy,

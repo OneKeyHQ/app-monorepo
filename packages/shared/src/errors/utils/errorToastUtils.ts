@@ -239,6 +239,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
         errorCode: err?.code,
         errorClassName: err?.className,
         errorName: err?.name,
+        isHardwareError: err?.$isHardwareError === true,
         connectId: err?.payload?.connectId,
         httpStatusCode,
         method: 'error' as const,

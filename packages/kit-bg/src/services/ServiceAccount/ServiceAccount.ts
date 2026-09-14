@@ -88,7 +88,12 @@ import {
   DeviceNotOpenedPassphrase,
   DeviceNotSame,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyHardwareErrorPayload,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -3634,7 +3639,10 @@ class ServiceAccount extends ServiceBase {
     dbDevice,
     compatibleConnectId,
   }: {
-    dbDevice: IDBDevice;
+    dbDevice: Pick<
+      IDBDevice,
+      'vendor' | 'deviceId' | 'deviceStateInfo' | 'featuresInfo'
+    >;
     compatibleConnectId: string;
   }): Promise<IOneKeyDeviceFeatures> {
     let features: IOneKeyDeviceFeatures | undefined;
@@ -3646,7 +3654,26 @@ class ServiceAccount extends ServiceBase {
         await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
+          deviceId: dbDevice.deviceId,
         });
+      if (dbDevice.vendor === EHardwareVendor.trezor) {
+        if (!connected.success) {
+          throw convertDeviceError(
+            connected.payload as IOneKeyHardwareErrorPayload,
+            { vendor: dbDevice.vendor },
+          );
+        }
+        // Reject reset devices before creating wallet records.
+        if (
+          !connected.payload.deviceId ||
+          connected.payload.deviceId !== dbDevice.deviceId
+        ) {
+          throw new ThirdPartyDeviceMismatch({
+            vendor: dbDevice.vendor,
+            payload: {},
+          });
+        }
+      }
       if (connected.success) {
         features = connected.payload.features as IOneKeyDeviceFeatures;
       }
@@ -3789,6 +3816,15 @@ class ServiceAccount extends ServiceBase {
           }
         }
 
+        // Check identity before requesting the passphrase.
+        const trezorFeatures =
+          dbDevice.vendor === EHardwareVendor.trezor
+            ? await this.getFeaturesForHwWalletCreate({
+                dbDevice,
+                compatibleConnectId,
+              })
+            : undefined;
+
         const passphraseState = await getHwHiddenWalletPassphraseState({
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
@@ -3843,10 +3879,12 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
-          dbDevice: seededDbDevice,
-          compatibleConnectId,
-        });
+        const resolvedFeatures =
+          trezorFeatures ||
+          (await this.getFeaturesForHwWalletCreate({
+            dbDevice: seededDbDevice,
+            compatibleConnectId,
+          }));
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(seededDbDevice),
           features: resolvedFeatures,
@@ -4035,6 +4073,21 @@ class ServiceAccount extends ServiceBase {
       features,
       isThirdParty: vendorProfile?.isThirdParty,
     });
+
+    if (
+      vendor === EHardwareVendor.trezor &&
+      !passphraseState &&
+      !isMockedStandardHwWallet
+    ) {
+      await this.getFeaturesForHwWalletCreate({
+        dbDevice: {
+          vendor,
+          deviceId: params.device.deviceId || deviceId,
+          featuresInfo: features,
+        },
+        compatibleConnectId,
+      });
+    }
 
     const getDeviceStateForHwWalletCreate = (
       connectId: string,

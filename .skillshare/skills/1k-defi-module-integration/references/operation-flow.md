@@ -14,6 +14,11 @@
 Do not copy a neighboring operation merely because the UI looks similar. Its
 provider, amount units, account type, or status contract may differ.
 
+For approval-sensitive Borrow/Lending dialogs, treat a seeded allowance as an
+initial hint only. On mount or reopen, reconcile it with the current chain
+allowance for the exact account/network/asset/spender scope; otherwise a stale
+seed can skip a required approval or show an obsolete authorization step.
+
 ## Execution Sequence
 
 1. Load current position, action capability, account, and token data.
@@ -23,6 +28,11 @@ provider, amount units, account type, or status contract may differ.
 5. Broadcast or submit, preserving tx/order identity.
 6. Settle status and release submit protection on success, failure, or cancel.
 7. Refresh the smallest affected scope and reconcile pending/history.
+
+When a selector changes market/reserve, record the requested identity and close
+the selector immediately; fetch the new reserves/position data asynchronously.
+Do not make the interaction wait for a long request or leave the previous
+market's pending lock attached to the new scope.
 
 A provider-managed step still needs a visible loading, unavailable, pending,
 failed, success, or unknown state. Do not collapse missing and zero values.
@@ -45,6 +55,12 @@ network, provider, position, token, action, route visibility, and request id.
 After a successful position change, refresh the exact owner. Cancel or failure
 must not claim a successful refresh. Delays, quotas, and other policy values
 must come from current code/config rather than this skill.
+
+For local replacement history, carry replacement type/links and operation
+metadata through remote merges. Preserve the linkage so pending guards can
+identify the replacement chain, but exclude a cancellation replacement from
+the original operation's pending and display classification. An acceleration
+replacement should retain the metadata needed for the original pending guard.
 
 ## Swap Handoff
 
