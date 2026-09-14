@@ -20,6 +20,9 @@ type IBannerDetailTokenFlatListProps = {
   data: IMarketToken[];
   isLoading?: boolean;
   changeSortType?: IBannerDetailSortType;
+  primaryColumnTitle?: string;
+  showMarketCap?: boolean;
+  showVolume?: boolean;
   change24hColumnTitle: string;
   onChangeSortPress: () => void;
   onItemPress: (item: IMarketToken) => void;
@@ -29,6 +32,9 @@ export function BannerDetailTokenFlatList({
   data,
   isLoading,
   changeSortType,
+  primaryColumnTitle,
+  showMarketCap = false,
+  showVolume = true,
   change24hColumnTitle,
   onChangeSortPress,
   onItemPress,
@@ -50,9 +56,13 @@ export function BannerDetailTokenFlatList({
 
   const renderItem: FlatListProps<IMarketToken>['renderItem'] = useCallback(
     ({ item }) => (
-      <TokenListItem item={item} onPress={() => onItemPress(item)} />
+      <TokenListItem
+        item={showMarketCap ? { ...item, turnover: item.marketCap } : item}
+        showVolume={showVolume}
+        onPress={() => onItemPress(item)}
+      />
     ),
-    [onItemPress],
+    [onItemPress, showMarketCap, showVolume],
   );
 
   const keyExtractor = useCallback((item: IMarketToken) => item.id, []);
@@ -73,6 +83,10 @@ export function BannerDetailTokenFlatList({
   return (
     <Stack flex={1}>
       <BannerDetailListColumnHeader
+        primaryColumnTitle={
+          primaryColumnTitle ??
+          `${intl.formatMessage({ id: ETranslations.global_name })} / ${intl.formatMessage({ id: ETranslations.dexmarket_turnover })}`
+        }
         changeSortType={changeSortType}
         change24hColumnTitle={change24hColumnTitle}
         onChangeSortPress={onChangeSortPress}

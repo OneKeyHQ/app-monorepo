@@ -11,7 +11,10 @@ import type { PropsWithChildren } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
   IMarketStockPublicDetail,
@@ -100,6 +103,17 @@ export function StockDetailProvider({
       ? initialStockPreview
       : undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
+  const appliedTokenRouteRef = useRef<string | undefined>(undefined);
+  const tokenRouteKey = JSON.stringify([
+    normalizedStockId,
+    initialNetworkId,
+    initialNetworkId
+      ? normalizeTokenContractAddress({
+          networkId: initialNetworkId,
+          contractAddress: initialTokenAddress,
+        })
+      : initialTokenAddress,
+  ]);
   // Keep the last successful detail per stock so a superseded response cannot
   // replace the fallback used by the currently selected stock.
   const successfulStockDetailsRef = useRef(
@@ -218,15 +232,18 @@ export function StockDetailProvider({
 
   useEffect(() => {
     if (!normalizedStockId) {
+      appliedTokenRouteRef.current = undefined;
       setSelectedTokenId(undefined);
       return;
     }
-    if (tokenVariantResult?.failed) return;
+    if (!hasCurrentTokenVariants || tokenVariantResult?.failed) return;
 
+    // Apply explicit navigation once; polling must preserve manual selection.
+    const routeChanged = appliedTokenRouteRef.current !== tokenRouteKey;
     const hasCurrentToken = tokenVariants.some(
       (item) => item.tokenId === selectedTokenId,
     );
-    if (hasCurrentToken) return;
+    if (!routeChanged && hasCurrentToken) return;
 
     const routeToken = tokenVariants.find(
       (item) =>
@@ -246,8 +263,10 @@ export function StockDetailProvider({
       tokenVariants,
       tokenVariantResult?.defaultTokenId,
     );
+    appliedTokenRouteRef.current = tokenRouteKey;
     setSelectedTokenId(routeToken?.tokenId ?? defaultToken?.tokenId);
   }, [
+    hasCurrentTokenVariants,
     initialNetworkId,
     initialTokenAddress,
     normalizedStockId,
@@ -255,6 +274,7 @@ export function StockDetailProvider({
     tokenVariantResult?.defaultTokenId,
     tokenVariantResult?.failed,
     tokenVariants,
+    tokenRouteKey,
   ]);
 
   const selectedTokenVariant = useMemo(
