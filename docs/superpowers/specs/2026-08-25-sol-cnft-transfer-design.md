@@ -2,7 +2,7 @@
 
 - Date: 2026-08-25
 - Branch: `feat/sol-cnft-transfer`
-- Status: Design approved, implementation not started
+- Status: Implemented 2026-09-14 (plan: `docs/superpowers/plans/2026-09-14-sol-cnft-transfer.md`). Deviations: no new npm packages (hand-written Bubblegum instruction locked by golden tests), Bubblegum decode branch added so the confirm page shows an NFT transfer, `leafOwner` marked as signer. Backend DAS live on test env 2026-09-14; prod still `Method not found`.
 - Related: QA Slack thread 2026-08-12 ("SOL 的 NFT 转账一直报拥挤"); the server masks the simulation failure as error 40001
 
 ## 1. Problem
@@ -36,7 +36,7 @@ unavailable.
 | Topic | Decision |
 | --- | --- |
 | DAS data source | OneKey backend RPC proxy passes through DAS methods (`getAsset`, `getAssetProof`). Backend must switch/add a DAS-capable upstream node (e.g. Helius) for `sol--101`. Verified on 2026-08-25 that prod proxy currently returns `"Method not found"` for `getAsset`. |
-| Instruction building | Add solita-era `@metaplex-foundation/mpl-bubblegum@0.11.0` (`createTransferInstruction`) and `@solana/spl-account-compression@0.2.1` (`ConcurrentMerkleTreeAccount` for canopy depth). Matches the existing solita-style `@metaplex-foundation/mpl-token-metadata@2.7` usage; compatible with `@solana/web3.js@1.98.2`. |
+| Instruction building | Hand-written `sdkSol/bubblegum.ts` (transfer instruction, tree header / canopy parsing, asset-id PDA, decode). Golden values generated from `@metaplex-foundation/mpl-bubblegum@0.11.0` + `@solana/spl-account-compression@0.2.1`; those packages are **not** added (they drag stale `spl-token@0.1.x` / `beet` transitive deps into the signing path for ~80 lines of needed surface). |
 | Custom RPC | Out of scope. Transaction building always goes through the backend proxy (`ClientSol`); `ClientCustomRpcSol` is only used for broadcast/health and stays untouched. |
 | Rollout | Client code merges first with a graceful degradation path; it activates automatically once backend DAS goes live. |
 
