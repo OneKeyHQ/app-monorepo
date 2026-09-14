@@ -47,5 +47,17 @@
       "#13124"
     ],
     "notes": "chore: release #2 (#13089), fix: recover Perps TWAP history and stalled order book subscriptions (OK-60985, OK-61108) (#12999), feat: register the Entropy hip-3 perps dex (OK-61073, OK-60689) (#13029), fix: refresh DeFi network config cache OK-61713 (#13126), fix: DeFi share links, banner looping, risk gate coverage and in-app … (#13135), fix: Perps close-position price readiness, cold-start banner shift, favorites order sync and TWAP tab shadow flash(OK-61259 OK-61504 OK-61486 OK-61520) (#13128), feat: withdraw Perps USDC over Hyperliquid's CCTP rail(OK-61320) (#13119), fix: backport Receive token selector search optimizations to v6.5.2 (OK-61630 OK-61484 OK-61367 OK-61365) (#13112), fix: bound the All Networks header hold and split the 6.5.2 home refresh hotfix OK-61576 (#13124)"
+  },
+  {
+    "seq": 4,
+    "commit": "f55f9927bdc89e0748ebffc353bccd20bc3f1b55",
+    "date": "2026-09-14T07:23:43Z",
+    "prs": [
+      "#13219",
+      "#13247",
+      "#13282",
+      "#13186"
+    ],
+    "notes": "Enable Robinhood by default and refresh stale wallet config (#13219); support Earn displaySymbol labels and preserve asset identity in Market/Swap navigation (#13247); fix iPad onboarding width breakpoints and recycled-view autoresizing (#13282); recover Market lists after request failures (#13186)"
   }
 ]
