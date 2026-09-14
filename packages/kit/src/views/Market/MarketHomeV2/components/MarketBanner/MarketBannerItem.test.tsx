@@ -143,7 +143,7 @@ describe('Market theme banner', () => {
       ),
     ).toEqual([
       'https://uni.onekey-asset.com/static/stock/s-and-p-500.png',
-      'https://uni.onekey-asset.com/static/stock/nasdaq-100.png',
+      'https://uni.onekey-asset.com/static/stock/nasdaq-composite.png',
       'https://uni.onekey-asset.com/static/stock/dow-30.png',
     ]);
     expect(screen.queryByText('global.more')).toBeNull();

@@ -195,7 +195,7 @@ function normalizeMarketValue(value?: string | null) {
 
 const MARKET_INDEX_LOGO_URLS = {
   sp500: 'https://uni.onekey-asset.com/static/stock/s-and-p-500.png',
-  nasdaq: 'https://uni.onekey-asset.com/static/stock/nasdaq-100.png',
+  nasdaq: 'https://uni.onekey-asset.com/static/stock/nasdaq-composite.png',
   dow30: 'https://uni.onekey-asset.com/static/stock/dow-30.png',
 } as const;
 
