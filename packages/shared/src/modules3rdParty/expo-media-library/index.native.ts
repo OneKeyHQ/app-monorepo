@@ -1,7 +1,11 @@
 import * as MediaLibrary from 'expo-media-library';
 
 const mediaLibrary = {
-  saveToLibraryAsync: (uri: string) => MediaLibrary.saveToLibraryAsync(uri),
+  saveToLibraryAsync: async (uri: string): Promise<void> => {
+    await MediaLibrary.Asset.create(
+      uri.startsWith('/') ? `file://${uri}` : uri,
+    );
+  },
   requestPermissionsAsync: (writeOnly?: boolean) =>
     MediaLibrary.requestPermissionsAsync(writeOnly),
   getPermissionsAsync: (writeOnly?: boolean) =>
