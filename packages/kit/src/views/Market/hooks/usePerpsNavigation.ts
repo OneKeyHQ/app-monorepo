@@ -1,9 +1,13 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
@@ -12,6 +16,7 @@ import {
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export function usePerpsNavigation(source?: EPerpPageEnterSource) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
 
@@ -39,6 +44,12 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
           }
         } catch (error) {
           if (perpTabShowWeb) {
+            // Keep the requested contract intact and make preparation failures visible.
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
+            });
             defaultLogger.app.error.log(
               `Failed to prepare web Perps target: ${String(error)}`,
             );
@@ -66,7 +77,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
         }
       }, 80);
     },
-    [navigation, source, perpDisabled, perpTabShowWeb],
+    [intl, navigation, source, perpDisabled, perpTabShowWeb],
   );
 
   return { navigateToPerps };

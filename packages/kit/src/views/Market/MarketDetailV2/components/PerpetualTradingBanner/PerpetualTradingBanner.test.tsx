@@ -3,9 +3,14 @@ import type { PropsWithChildren } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { PerpetualTradingBanner } from './PerpetualTradingBanner';
+
+let mockProxyUnavailable = false;
+const mockToastError = jest.fn<void, unknown[]>();
 
 let mockTicker: string | undefined;
 let mockDismissed = false;
@@ -37,7 +42,12 @@ jest.mock('../../hooks/useTokenDetail', () => ({
   }),
 }));
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: () => 'Trade perpetuals' }),
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) =>
+      id === ETranslations.global_unknown_error_retry_message
+        ? id
+        : 'Trade perpetuals',
+  }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -45,15 +55,18 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {
-    serviceWebviewPerp: {
-      setTradeTarget: (...args: unknown[]) => mockWebTarget(...args),
-    },
-    serviceHyperliquid: {
-      setPendingInitialTradeInstrument: (...args: unknown[]) =>
-        mockPendingInstrument(...args),
-      changeActiveAsset: (...args: unknown[]) => mockChangeAsset(...args),
-    },
+  get default() {
+    if (mockProxyUnavailable) throw new OneKeyLocalError('Chunk unavailable');
+    return {
+      serviceWebviewPerp: {
+        setTradeTarget: (...args: unknown[]) => mockWebTarget(...args),
+      },
+      serviceHyperliquid: {
+        setPendingInitialTradeInstrument: (...args: unknown[]) =>
+          mockPendingInstrument(...args),
+        changeActiveAsset: (...args: unknown[]) => mockChangeAsset(...args),
+      },
+    };
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -77,6 +90,7 @@ jest.mock('@onekeyhq/shared/src/logger/scopes/perp/perpPageSource', () => ({
   EPerpPageEnterSource: {},
 }));
 jest.mock('@onekeyhq/components', () => ({
+  Toast: { error: (...args: unknown[]) => mockToastError(...args) },
   Icon: () => null,
   IconButton: () => null,
   SizableText: ({ children }: PropsWithChildren) => <span>{children}</span>,
@@ -93,6 +107,7 @@ jest.mock('@onekeyhq/components', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockProxyUnavailable = false;
   mockTicker = undefined;
   mockDismissed = false;
   mockPerpDisabled = false;
@@ -191,20 +206,39 @@ it('hides the entry when Perps is disabled', () => {
   expect(mockSwitchTab).not.toHaveBeenCalled();
 });
 
-it('does not open Web Perps with a stale target if preparation fails', async () => {
-  jest.useFakeTimers();
-  mockTicker = 'xyz:AAPL';
-  mockPerpTabShowWeb = true;
-  mockWebTarget.mockRejectedValueOnce(new Error('Background unavailable'));
-  render(<PerpetualTradingBanner />);
-  await act(async () => {
-    mockPress?.();
-    await jest.advanceTimersByTimeAsync(80);
-  });
-  expect(mockSwitchTab).not.toHaveBeenCalled();
-  expect(mockChangeAsset).not.toHaveBeenCalled();
-  expect(mockLogError).toHaveBeenCalled();
-});
+it.each(['chunk', 'target'])(
+  'shows a retry message when Web Perps %s preparation fails',
+  async (failure) => {
+    jest.useFakeTimers();
+    mockTicker = 'xyz:AAPL';
+    mockPerpTabShowWeb = true;
+    if (failure === 'chunk') {
+      mockProxyUnavailable = true;
+    } else {
+      mockWebTarget.mockRejectedValueOnce(new Error('Background unavailable'));
+    }
+    render(<PerpetualTradingBanner />);
+    await act(async () => {
+      mockPress?.();
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    expect(mockSwitchTab).not.toHaveBeenCalled();
+    expect(mockChangeAsset).not.toHaveBeenCalled();
+    expect(mockLogError).toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: ETranslations.global_unknown_error_retry_message,
+    });
+    if (failure === 'chunk') expect(mockWebTarget).not.toHaveBeenCalled();
+    mockProxyUnavailable = false;
+    await act(async () => {
+      mockPress?.();
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    expect(mockWebTarget).toHaveBeenLastCalledWith({ coin: 'xyz:AAPL' });
+    expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.WebviewPerpTrade);
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+  },
+);
 
 it('preserves native asset selection if initial target preparation fails', async () => {
   jest.useFakeTimers();
