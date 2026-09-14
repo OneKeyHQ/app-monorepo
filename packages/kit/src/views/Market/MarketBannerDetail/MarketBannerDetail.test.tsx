@@ -10,6 +10,7 @@ let mockType = EMarketBannerType.Mixed;
 let mockWide = false;
 let mockTokenListId = 'composite';
 let mockStockTokens = false;
+let mockIncludeNonStockToken = false;
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({
     params: {
@@ -123,7 +124,9 @@ jest.mock('./useMarketBannerDetail', () => ({
         ? [
             { stock: { tradingActivity: { peRatio: '27.46' } } },
             { stock: {} },
-            {},
+            ...(mockIncludeNonStockToken
+              ? [{ marketCap: 100, liquidity: 200, turnover: 300 }]
+              : []),
           ]
         : [],
     },
@@ -134,6 +137,18 @@ jest.mock('./useMarketBannerDetail', () => ({
 beforeEach(() => {
   mockTokenListId = 'composite';
   mockStockTokens = false;
+  mockIncludeNonStockToken = false;
+});
+
+it('keeps token columns for a ticker banner containing stock and crypto rows', () => {
+  mockType = EMarketBannerType.Ticker;
+  mockWide = true;
+  mockStockTokens = true;
+  mockIncludeNonStockToken = true;
+  render(<MarketBannerDetail />);
+  const list = screen.getByTestId('stocks');
+  expect(list.getAttribute('data-stock-columns')).toBe('false');
+  expect(list.getAttribute('data-hidden-columns')).toBe('liquidity');
 });
 
 it.each([

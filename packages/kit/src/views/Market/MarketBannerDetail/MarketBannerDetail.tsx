@@ -39,7 +39,7 @@ import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hook
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
   getStockPeRatioValue,
-  shouldShowStockSubtitleForTokens,
+  shouldUseStockMetadataColumnsForTokens,
 } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS } from '../MarketHomeV2/utils';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
@@ -101,8 +101,10 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     mobileData,
     tickerIsLoading,
   } = useMarketBannerDetail({ tokenListId, isPerps, isStock, isIndex });
-  const useStockColumns =
-    isStock || shouldShowStockSubtitleForTokens(listResult.data);
+  const useStockColumns = shouldUseStockMetadataColumnsForTokens(
+    listResult.data,
+    { forceStockMetadataColumns: isStock },
+  );
   const hiddenDesktopColumns = useMemo(() => {
     if (!useStockColumns) return BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS;
     const hasPeRatio = listResult.data.some(

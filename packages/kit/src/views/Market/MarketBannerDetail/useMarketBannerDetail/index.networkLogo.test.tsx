@@ -8,6 +8,7 @@ import type {
   IMarketStockPublicItem,
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
+
 import { getStockPeRatioValue } from '../../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 const mockNetworkList = [
