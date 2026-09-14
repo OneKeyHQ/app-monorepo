@@ -109,6 +109,50 @@ body {
   height: 8px;
 }
 
+[data-perp-table-scrollbar='true']::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+[data-perp-table-scrollbar='true']::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
+    var(--bgApp);
+  border-radius: 2px;
+}
+
+[data-perp-table-scrollbar='true']::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(var(--textDisabled), var(--textDisabled)),
+    var(--bgApp);
+}
+
+.perp-table-overlay-scrollbar {
+  display: none;
+  position: absolute;
+  border-radius: 2px;
+  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
+    var(--bgApp);
+  touch-action: none;
+  user-select: none;
+}
+
+.perp-table-overlay-scrollbar[data-orientation='vertical'] {
+  top: 0;
+  right: 0;
+  width: 4px;
+}
+
+.perp-table-overlay-scrollbar[data-orientation='horizontal'] {
+  bottom: 0;
+  left: 0;
+  height: 4px;
+}
+
+.perp-table-overlay-scrollbar:hover,
+.perp-table-overlay-scrollbar:active {
+  background: linear-gradient(var(--textDisabled), var(--textDisabled)),
+    var(--bgApp);
+}
+
 .show-scrollbar ::-webkit-scrollbar {
   width: 8px;
   height: unset;
