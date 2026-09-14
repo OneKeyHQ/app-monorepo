@@ -754,7 +754,7 @@ FunctionEnd
       Abort
     ${EndIf}
 
-    ${If} $OneKeyModernWasInstalled == "0"
+    ${If} $OneKeyModernAccepted == "1"
     ${AndIf} $OneKeyModernChosenDirectory != ""
       StrCpy $INSTDIR "$OneKeyModernChosenDirectory"
     ${EndIf}
