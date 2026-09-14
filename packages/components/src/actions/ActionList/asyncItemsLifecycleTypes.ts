@@ -18,6 +18,7 @@ export type IResolvedAsyncItems = {
 
 export type IUseAsyncItemsLifecycleProps = {
   isOpen: boolean;
+  nativeSheet?: boolean;
   renderItemsAsync?: IActionListRenderItemsAsync;
   handleActionListCloseRef: RefObject<() => void>;
   handleActionListOpenRef: RefObject<() => void>;
