@@ -33,7 +33,10 @@ import {
 } from '../../../Earn/components/AprText.utils';
 import { EarnNavigation } from '../../../Earn/earnUtils';
 import { PriceChangePercentage } from '../../components/PriceChangePercentage';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
+} from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import { MarketAboutDescription } from '../components/MarketAboutDescription';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
@@ -51,7 +54,6 @@ import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import { TokenPriceHeader } from './TokenDesktopLayout';
 
 const TOP_COINS_MAIN_COLUMN_WIDTH = 832;
-const TOP_COINS_TRADE_COLUMN_WIDTH = 384;
 const TOP_COINS_COLUMN_GAP = 24;
 // Figma 25703:19148: label (bodyMd, 20px line) + 6px gap + value (headingXl,
 // 28px line).
@@ -676,7 +678,7 @@ export function TopCoinsDesktopLayout({
           />
         </YStack>
 
-        <YStack width={TOP_COINS_TRADE_COLUMN_WIDTH} flexShrink={0}>
+        <YStack {...MARKET_DETAIL_TRADE_COLUMN_PROPS}>
           {/* Renders only when the token has a Hyperliquid counterpart, and
               stays hidden once dismissed. Sits above the trade panel, where the
               pre-redesign desktop layout carried it. */}
