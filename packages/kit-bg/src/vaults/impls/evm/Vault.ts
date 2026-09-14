@@ -28,6 +28,7 @@ import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
@@ -1116,6 +1117,28 @@ export default class Vault extends VaultBase {
         allowance === InfiniteAmountText ||
         !allowanceBn.isFinite() ||
         (approveType === EApproveType.Approve && isUnlimited);
+
+      // Scaled-UI (rebase) tokens: the editor UI is fail-closed for them
+      // (display-basis allowance strings must never be re-encoded as raw
+      // units — that would over-approve by the multiplier). This guard is
+      // defense in depth behind those UI gates, not a reachable branch.
+      // The multiplier comes from the same decode snapshot as the displayed
+      // action (no second token fetch that could diverge from it).
+      // Unlimited and revoke (allowance === 0) are multiplier-invariant and
+      // skip the check; every other path re-encodes a finite non-zero
+      // allowance and must not pass with a scaling multiplier.
+      if (!isMaxUint256 && !allowanceBn.isZero()) {
+        if (
+          tokenRebaseUtils.isScalingBalanceMultiplier(
+            action.tokenApprove.balanceMultiplier,
+          )
+        ) {
+          throw new OneKeyLocalError(
+            'Approve editing is not supported for scaled-UI tokens',
+          );
+        }
+      }
+
       const amountHex = toBigIntHex(
         isMaxUint256
           ? new BigNumber(2).pow(256).minus(1)
@@ -1242,9 +1265,26 @@ export default class Vault extends VaultBase {
       value = txDesc?.args[2] as ethers.BigNumber;
     }
 
-    const amount = chainValueUtils.convertTokenChainValueToAmount({
+    const rawAmount = chainValueUtils.convertTokenChainValueToAmount({
       value: value.toString(),
       token,
+    });
+    // Scaled-UI (rebase) tokens: decoded calldata carries the raw on-chain
+    // value; convert to the display basis the send page rendered. This
+    // governs the locally saved pending-history entry and the local
+    // txDisplay path — ServiceSignatureConfirm forces the local path for
+    // scaling-token txs so the confirm page renders these amounts.
+    // Snapshot-preference per the same-snapshot contract; EVM hex
+    // addresses compare case-insensitively.
+    const balanceMultiplier = tokenRebaseUtils.pickDecodeBalanceMultiplier({
+      snapshotToken: transferPayload?.tokenInfo,
+      fetchedToken: token,
+      tokenAddress: token.address,
+      addressCaseInsensitive: true,
+    });
+    const amount = tokenRebaseUtils.applyBalanceMultiplier({
+      amount: rawAmount,
+      balanceMultiplier,
     });
 
     if (
@@ -1263,6 +1303,7 @@ export default class Vault extends VaultBase {
       name: token.name,
       symbol: token.symbol,
       amount,
+      balanceMultiplier,
       isNFT: false,
     };
 
@@ -1283,7 +1324,17 @@ export default class Vault extends VaultBase {
     const { encodedTx, txDesc, token } = params;
     const spender = txDesc?.args[0] as string;
     const value = txDesc?.args[1] as ethers.BigNumber;
-    const amount = formatValue(value, token.decimals);
+    const rawAmountText = formatValue(value, token.decimals);
+    // Scaled-UI (rebase) tokens: show the display-basis approve amount.
+    // dApp approves have no send-page snapshot, so the fetched token is the
+    // only multiplier source. The 'Infinite' sentinel is non-finite and
+    // passes through applyBalanceMultiplier unchanged (pinned by test);
+    // revoke (0) is multiplier-invariant.
+    const balanceMultiplier = token.balanceMultiplier;
+    const amount = tokenRebaseUtils.applyBalanceMultiplier({
+      amount: rawAmountText,
+      balanceMultiplier,
+    });
     const accountAddress = await this.getAccountAddress();
 
     const approveType =
@@ -1303,8 +1354,10 @@ export default class Vault extends VaultBase {
         decimals: token.decimals,
         tokenIdOnNetwork: token.address,
         isInfiniteAmount:
-          approveType === EApproveType.Approve && amount === InfiniteAmountText,
+          approveType === EApproveType.Approve &&
+          rawAmountText === InfiniteAmountText,
         approveType,
+        balanceMultiplier,
       },
     };
 

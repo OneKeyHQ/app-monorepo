@@ -3,7 +3,6 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
   buildTokenActionSwapFromToken,
-  findTokenActionAggregateKey,
   getResolvedTokenActionToken,
   getTokenActionSameNetworkSwapToToken,
   getTokenActionSwapToToken,
@@ -187,6 +186,16 @@ describe('getTokenActionSwapToToken', () => {
     ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
   });
 
+  it('leaves account-scoped balances to Swap after the Home handoff', () => {
+    const fromToken = buildTokenActionSwapFromToken({
+      token: buildAccountToken(),
+      networkId: 'btc--0',
+    });
+
+    expect(fromToken).not.toHaveProperty('accountAddress');
+    expect(fromToken).not.toHaveProperty('balanceParsed');
+  });
+
   it.each([
     undefined,
     { isSupportCrossChain: true, isSupportSwap: false },
@@ -279,33 +288,5 @@ describe('getTokenActionSwapToToken', () => {
         },
       }),
     ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
-  });
-});
-
-describe('findTokenActionAggregateKey', () => {
-  it('finds the network-scoped member behind an aggregate Home token', () => {
-    expect(
-      findTokenActionAggregateKey({
-        ownedAggregateTokenListMap: {
-          aggregate_USDC_: {
-            tokens: [
-              buildAccountToken({
-                $key: 'bsc-usdc',
-                address: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
-                isNative: false,
-                networkId: 'evm--56',
-                symbol: 'USDC',
-              }),
-            ],
-          },
-        },
-        targetToken: buildSwapToken({
-          contractAddress: '0x8AC76A51CC950D9822D68B83FE1AD97B32CD580D',
-          isNative: false,
-          networkId: 'evm--56',
-          symbol: 'USDC',
-        }),
-      }),
-    ).toBe('aggregate_USDC_');
   });
 });

@@ -6,15 +6,9 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
-import type { ImageSource } from 'expo-image';
-import type { ImageSourcePropType } from 'react-native';
+import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
-type IImageSourceInput =
-  | ImageSource
-  | ImageSourcePropType
-  | string
-  | number
-  | undefined;
+type IImageSourceInput = ImageSourcePropType | string | number | undefined;
 
 const STATIC_SIZE_TOKEN_VALUES: Record<string, number> = {
   '0': 0,
@@ -61,8 +55,8 @@ const STATIC_SIZE_TOKEN_VALUES: Record<string, number> = {
 };
 
 export type IOptimizedImageSourceResult = {
-  source: ImageSource | null;
-  rawSource: ImageSource | null;
+  source: ImageURISource | null;
+  rawSource: ImageURISource | null;
   optimized: boolean;
   rawUri?: string;
   optimizedUri?: string;
@@ -112,7 +106,7 @@ function getStaticStyleNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-function hasCustomSourceIdentity(source: IImageSourceInput) {
+export function hasCustomSourceIdentity(source: IImageSourceInput) {
   if (!source || typeof source !== 'object') {
     return false;
   }
@@ -121,8 +115,8 @@ function hasCustomSourceIdentity(source: IImageSourceInput) {
     return true;
   }
 
-  const imageSource = source as Partial<ImageSource>;
-  return Boolean(imageSource.headers || imageSource.cacheKey);
+  const imageSource = source as Partial<ImageURISource>;
+  return Boolean(imageSource.headers);
 }
 
 function getPixelRatio(pixelRatio?: number) {
@@ -142,7 +136,7 @@ export function buildOptimizedImageSource({
   allowRelativeUrl,
 }: {
   source: IImageSourceInput;
-  resolvedSource: ImageSource | null;
+  resolvedSource: ImageURISource | null;
   resizeWidth?: unknown;
   width?: unknown;
   height?: unknown;

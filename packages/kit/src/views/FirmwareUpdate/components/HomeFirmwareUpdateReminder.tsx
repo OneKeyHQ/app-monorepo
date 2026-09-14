@@ -12,20 +12,16 @@ import {
   usePopoverContext,
   useTooltipContext,
 } from '@onekeyhq/components';
-import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useDeviceManagerNavigation } from '../../DeviceManagement/hooks/useDeviceManagerNavigation';
+import { useFirmwareUpdateDetectStatus } from '../hooks/useFirmwareUpdateDetectStatus';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { BootloaderModeUpdateReminder } from './BootloaderModeUpdateReminder';
-import { HomeFirmwareUpdateDetect } from './HomeFirmwareUpdateDetect';
 
 export function FirmwareUpdateReminderAlert({
   message,
@@ -87,31 +83,11 @@ function HomeFirmwareUpdateReminderCmp() {
   const { pushToDeviceList } = useDeviceManagerNavigation();
   const { closePopover } = usePopoverContext();
   const { closeTooltip } = useTooltipContext();
-  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const navigation = useAppNavigation();
-  const { result } = usePromiseResult(async () => {
-    if (!connectId) return undefined;
-
-    const detectResult = detectStatus?.[connectId];
-    const shouldUpdate =
-      detectResult?.connectId === connectId && detectResult?.hasUpgrade;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const detectInfo =
-      await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectInfo(
-        {
-          connectId,
-        },
-      );
-    return {
-      shouldUpdate,
-      detectResult,
-    };
-  }, [connectId, detectStatus]);
+  const detectResult = useFirmwareUpdateDetectStatus(connectId);
+  const shouldUpdate = detectResult?.hasUpgrade;
 
   const updateButton = useMemo(() => {
-    if (result?.shouldUpdate) {
+    if (shouldUpdate) {
       const message = intl.formatMessage({
         id: ETranslations.update_firmware_available,
       });
@@ -135,13 +111,7 @@ function HomeFirmwareUpdateReminderCmp() {
       );
     }
     return null;
-  }, [
-    result?.shouldUpdate,
-    intl,
-    closePopover,
-    closeTooltip,
-    pushToDeviceList,
-  ]);
+  }, [shouldUpdate, intl, closePopover, closeTooltip, pushToDeviceList]);
 
   if (!updateButton) {
     return null;
@@ -149,7 +119,6 @@ function HomeFirmwareUpdateReminderCmp() {
 
   return (
     <XStack>
-      <HomeFirmwareUpdateDetect />
       <BootloaderModeUpdateReminder />
       {updateButton}
     </XStack>

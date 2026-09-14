@@ -55,7 +55,7 @@ function PageButton({
   );
 }
 
-export interface IPaginationProps extends IXStackProps {
+export interface IPaginationProps extends Omit<IXStackProps, 'onChange'> {
   current: number;
   total: number;
   onChange?: (page: number) => void;

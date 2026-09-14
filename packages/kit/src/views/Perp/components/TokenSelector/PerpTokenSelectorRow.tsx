@@ -782,7 +782,8 @@ const TokenOpenInterestCellDesktop = memo(() => {
 TokenOpenInterestCellDesktop.displayName = 'TokenOpenInterestCellDesktop';
 
 const TokenSelectorRowDesktop = memo(() => {
-  const { onPress, isSpot, desktopLayout } = useTokenSelectorRowContext();
+  const { onPress, isSpot, desktopLayout, token } =
+    useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -793,6 +794,7 @@ const TokenSelectorRowDesktop = memo(() => {
       >
         <XStack
           onPress={onPress}
+          testID={PerpTestIDs.TokenSelectorRow(token.name)}
           borderRadius="$0"
           justifyContent="flex-start"
           width="100%"
@@ -830,7 +832,7 @@ const TokenSelectorRowDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [onPress, isSpot, desktopLayout],
+    [onPress, isSpot, desktopLayout, token.name],
   );
   return content;
 });
@@ -1027,7 +1029,7 @@ const Token24hChangeMobile = memo(() => {
 Token24hChangeMobile.displayName = 'Token24hChangeMobile';
 
 const TokenSelectorRowMobile = memo(() => {
-  const { onPress } = useTokenSelectorRowContext();
+  const { onPress, token } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -1043,6 +1045,7 @@ const TokenSelectorRowMobile = memo(() => {
           justifyContent="space-between"
           alignItems="center"
           onPress={onPress}
+          testID={PerpTestIDs.TokenSelectorRow(token.name)}
           pressStyle={{
             bg: '$bgHover',
           }}
@@ -1064,7 +1067,7 @@ const TokenSelectorRowMobile = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [onPress],
+    [onPress, token.name],
   );
   return content;
 });

@@ -188,7 +188,7 @@ const SwapQuoteResultRate = ({
             justifyContent={
               shouldUseInlineSlippageLayout ? undefined : 'flex-end'
             }
-            animation="popoverQuick"
+            transition="popoverQuick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             y={openResult ? '$1' : '$0'}
             opacity={openResult ? 0 : 1}
@@ -247,7 +247,7 @@ const SwapQuoteResultRate = ({
         )}
         {!quoting && canOpenResult ? (
           <Stack
-            animation="popoverQuick"
+            transition="popoverQuick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={openResult ? '180deg' : '0deg'}
           >
@@ -276,7 +276,7 @@ const SwapQuoteResultRate = ({
             ) : null}
             {canOpenResult ? (
               <Stack
-                animation="popoverQuick"
+                transition="popoverQuick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={openResult ? '180deg' : '0deg'}
               >

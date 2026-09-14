@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Ref } from 'react';
 
 import { useTheme } from '@tamagui/core';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import type { ILightweightChartTheme } from '@onekeyhq/kit/src/components/LightweightChart/types';
 import {
   createAreaSeriesOptions,
@@ -21,6 +23,7 @@ import {
   convertUtilizationToTime,
   normalizeApyToPercent,
   normalizeUtilization,
+  parseUtilizationRatio,
   useInterestRateModelLabels,
 } from './InterestRateModelChartShared';
 
@@ -61,6 +64,7 @@ export function InterestRateModelChart({
   const [hoverData, setHoverData] = useState<IHoverData | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [verticalLineX, setVerticalLineX] = useState<number | null>(null);
+  const normalizedUtilizationRatio = parseUtilizationRatio(utilizationRatio);
 
   const {
     utilizationRatioLabel,
@@ -248,18 +252,43 @@ export function InterestRateModelChart({
       });
 
       // Calculate current utilization vertical line x coordinate
-      const currentUtilTime = utilizationRatio
-        ? convertUtilizationToTime(
-            normalizeUtilization(parseFloat(utilizationRatio)),
-          )
-        : null;
+      const currentUtilTime =
+        normalizedUtilizationRatio !== null
+          ? convertUtilizationToTime(normalizedUtilizationRatio)
+          : null;
 
       const localChart = chart;
+      const sampleTimes = Array.from(
+        new Set([
+          ...chartData.supplyData.map(({ time }) => time),
+          ...chartData.borrowData.map(({ time }) => time),
+        ]),
+      ).toSorted((a, b) => a - b);
       const updateVerticalLinePosition = () => {
         if (currentUtilTime !== null) {
-          const xCoord = localChart
-            .timeScale()
-            .timeToCoordinate(currentUtilTime as UTCTimestamp);
+          const timeScale = localChart.timeScale();
+          let xCoord: number | null = timeScale.timeToCoordinate(
+            currentUtilTime as UTCTimestamp,
+          );
+          // The chart API only resolves exact samples. Interpolate between
+          // neighbors so fractional utilization still has a current-value marker.
+          if (xCoord === null) {
+            const rightIndex = sampleTimes.findIndex(
+              (time) => time > currentUtilTime,
+            );
+            if (rightIndex > 0) {
+              const leftTime = sampleTimes[rightIndex - 1];
+              const rightTime = sampleTimes[rightIndex];
+              const leftX = timeScale.timeToCoordinate(leftTime);
+              const rightX = timeScale.timeToCoordinate(rightTime);
+              if (leftX !== null && rightX !== null) {
+                xCoord =
+                  leftX +
+                  ((currentUtilTime - leftTime) / (rightTime - leftTime)) *
+                    (rightX - leftX);
+              }
+            }
+          }
           setVerticalLineX(xCoord);
         } else {
           setVerticalLineX(null);
@@ -301,17 +330,16 @@ export function InterestRateModelChart({
     chartData,
     supplyTheme,
     borrowTheme,
-    utilizationRatio,
+    normalizedUtilizationRatio,
     theme.borderSubdued?.val,
     theme.iconSubdued?.val,
     handleCrosshairMove,
   ]);
 
-  const utilizationPercentage = utilizationRatio
-    ? `${(normalizeUtilization(parseFloat(utilizationRatio)) * 100).toFixed(
-        2,
-      )}%`
-    : '0.00%';
+  const utilizationPercentage =
+    normalizedUtilizationRatio !== null
+      ? `${(normalizedUtilizationRatio * 100).toFixed(2)}%`
+      : '0.00%';
 
   if (isLoading) {
     return (
@@ -375,7 +403,11 @@ export function InterestRateModelChart({
             pointerEvents="none"
           />
         ) : null}
-        <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />
+        <Stack
+          ref={chartContainerRef as unknown as Ref<IElement>}
+          width="100%"
+          height={CHART_HEIGHT}
+        />
       </Stack>
     </YStack>
   );

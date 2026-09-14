@@ -40,6 +40,7 @@ import { buildMarketFullUrlV2 } from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router/types';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
+import { useMarketDetailWatchlistIdentity } from '../../hooks/useMarketDetailWatchlistIdentity';
 import { ShareButton } from '../TokenDetailHeader/ShareButton';
 
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
@@ -50,6 +51,7 @@ export function MarketDetailHeader({
   showFavoriteButton?: boolean;
 }) {
   const media = useMedia();
+  const listingIdentity = useMarketDetailWatchlistIdentity();
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
   const { tokenDetail, networkId, isNative } =
@@ -211,6 +213,7 @@ export function MarketDetailHeader({
   // passed into the bar-item elements as plain props, so those elements
   // don't consume the watchlist store directly and need no Mirror wrap.
   const { checked: starChecked, onPress: onStarPress } = useStarV2Checked({
+    ...listingIdentity,
     chainId: networkId ?? '',
     contractAddress: tokenDetail?.address ?? '',
     from: EWatchlistFrom.Detail,
@@ -361,11 +364,12 @@ export function MarketDetailHeader({
             </YStack>
           </XStack>
 
-          {networkId ? (
+          {networkId || listingIdentity.assetId || listingIdentity.stockId ? (
             <XStack gap="$3" ai="center">
               {showFavoriteButton ? (
                 <MarketStarV2
-                  chainId={networkId}
+                  {...listingIdentity}
+                  chainId={networkId ?? ''}
                   contractAddress={tokenDetail?.address ?? ''}
                   size="large"
                   from={EWatchlistFrom.Detail}

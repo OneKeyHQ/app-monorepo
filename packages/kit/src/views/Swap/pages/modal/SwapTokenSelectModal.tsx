@@ -58,6 +58,8 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
   isTokenSelectorDappTokenFilterSupportedNetwork,
@@ -124,6 +126,7 @@ type IStockMetadataRequest = {
 };
 
 type IStockMetadataResult = {
+  cacheable?: boolean;
   metadataMap: Record<string, IMarketStockInfo>;
   tokenKey: string;
 };
@@ -187,7 +190,11 @@ function useStockMetadata({
   }
   const request = requestRef.current;
   const tokenKey = request.tokenKey;
-  const { result, isLoading } = usePromiseResult<IStockMetadataResult>(
+  const swrKey =
+    enabled && tokenKey
+      ? ['swapStockSelectorMetadata', 'v1', requestLocale, tokenKey].join(':')
+      : undefined;
+  const { result } = usePromiseResult<IStockMetadataResult>(
     async () => {
       if (!enabled || !tokenKey) {
         return {
@@ -195,20 +202,22 @@ function useStockMetadata({
           tokenKey,
         };
       }
-      const response = await (async () => {
-        try {
-          return await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
-            {
-              requestLocale,
-              tokenAddressList: request.tokenAddressEntries.map(
-                ([, token]) => token,
-              ),
-            },
-          );
-        } catch {
-          return { list: [] };
-        }
-      })();
+      const response = await backgroundApiProxy.serviceMarketV2
+        .fetchMarketTokenListBatch({
+          requestLocale,
+          tokenAddressList: request.tokenAddressEntries.map(
+            ([, token]) => token,
+          ),
+        })
+        .catch(() => undefined);
+      if (!response) {
+        const cachedResult = swrKey
+          ? swrCacheUtils.get<IStockMetadataResult>(swrKey)
+          : undefined;
+        return cachedResult?.tokenKey === tokenKey
+          ? cachedResult
+          : { cacheable: false, metadataMap: {}, tokenKey };
+      }
       const metadataMap: Record<string, IMarketStockInfo> = {};
       response.list.forEach((token, index) => {
         const requestKey = request.tokenAddressEntries[index]?.[0];
@@ -221,13 +230,16 @@ function useStockMetadata({
         tokenKey,
       };
     },
-    [enabled, request, requestLocale, tokenKey],
+    [enabled, request, requestLocale, swrKey, tokenKey],
     {
       initResult: {
         metadataMap: {},
         tokenKey: '',
       },
       watchLoading: enabled,
+      swrKey,
+      swrShouldPersist: (value) =>
+        value.cacheable !== false && value.tokenKey === tokenKey,
     },
   );
 
@@ -236,7 +248,6 @@ function useStockMetadata({
     pending: isSwapStockMetadataPending({
       isSwapStockSelectTarget: enabled,
       resolvedStockMetadataTokenKey: result.tokenKey,
-      stockMetadataLoading: isLoading,
       stockMetadataTokenKey: tokenKey,
     }),
   };
@@ -367,7 +378,7 @@ const SwapTokenSelectPage = ({
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
-  const { selectFromTokenByUser, selectToTokenByUser, syncNetworksSort } =
+  const { selectFromToken, selectToToken, syncNetworksSort } =
     useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const getSelectableDefaultNetwork = useCallback(
@@ -715,7 +726,7 @@ const SwapTokenSelectPage = ({
         ) {
           setSwapSelectToToken(fromTokenRef.current);
         }
-        void selectFromTokenByUser(token);
+        void selectFromToken(token);
       } else {
         if (
           equalTokenNoCaseSensitive({
@@ -725,13 +736,13 @@ const SwapTokenSelectPage = ({
         ) {
           setSwapSelectFromToken(toTokenRef.current);
         }
-        void selectToTokenByUser(token);
+        void selectToToken(token);
       }
     },
     [
       navigation,
-      selectFromTokenByUser,
-      selectToTokenByUser,
+      selectFromToken,
+      selectToToken,
       setSwapSelectFromToken,
       setSwapSelectToToken,
       isSwapStockSelectTarget,
@@ -741,6 +752,17 @@ const SwapTokenSelectPage = ({
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
+      // Scaled-UI (rebase) tokens: fail-closed with feedback — the silent
+      // actions-level gate would otherwise make the tap feel dead. Copy is
+      // the generic unsupported-token string pending product wording.
+      if (tokenRebaseUtils.isScalingBalanceMultiplier(item.balanceMultiplier)) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.earn_unsupported_token,
+          }),
+        });
+        return;
+      }
       if (await checkRiskToken(item)) {
         navigation.push(EModalSwapRoutes.TokenRiskReminder, {
           storeName: route.params.storeName,
@@ -766,6 +788,7 @@ const SwapTokenSelectPage = ({
     },
     [
       checkRiskToken,
+      intl,
       isSwapStockSelectTarget,
       navigation,
       route.params.storeName,

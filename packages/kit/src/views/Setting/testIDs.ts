@@ -13,7 +13,11 @@ export const SettingTestIDs = {
   clearAppCacheItem: 'setting-clear-app-cache',
   addressBookItem: 'setting-address-book',
   aboutItem: 'setting-about',
+  devModeItem: 'setting-dev-mode',
   officialChannelsItem: 'setting-official-channels',
+  travelModeItem: 'setting-travel-mode-item',
+  travelModeSwitch: 'setting-travel-mode-switch',
+  travelModeRestartButton: 'setting-travel-mode-restart-button',
 
   // Clear application cache
   clearAppCachePage: 'setting-clear-app-cache-page',

@@ -1,0 +1,90 @@
+diff --git a/node_modules/react-native-uuid/dist/rng.js b/node_modules/react-native-uuid/dist/rng.js
+index c927e92..86436b3 100644
+--- a/node_modules/react-native-uuid/dist/rng.js
++++ b/node_modules/react-native-uuid/dist/rng.js
+@@ -7,8 +7,28 @@ exports.rng = void 0;
+ const min = 0;
+ const max = 256;
+ const RANDOM_LENGTH = 16;
++let isUsingCryptoRandomUUID = false;
+ // returns pseudo random 16 bytes
+ const rng = () => {
++    // OneKey patch: Prefer platform cryptographic RNGs before the legacy fallback.
++    const cryptoApi = globalThis.crypto;
++    if (typeof (cryptoApi === null || cryptoApi === void 0 ? void 0 : cryptoApi.randomUUID) === 'function' &&
++        !isUsingCryptoRandomUUID) {
++        try {
++            isUsingCryptoRandomUUID = true;
++            const uuidHex = cryptoApi.randomUUID().replace(/-/g, '');
++            if (!/^[0-9a-f]{32}$/i.test(uuidHex)) {
++                throw new TypeError('crypto.randomUUID() returned an invalid UUID');
++            }
++            return Array.from({ length: RANDOM_LENGTH }, (_, index) => parseInt(uuidHex.slice(index * 2, index * 2 + 2), 16));
++        }
++        finally {
++            isUsingCryptoRandomUUID = false;
++        }
++    }
++    if (typeof (cryptoApi === null || cryptoApi === void 0 ? void 0 : cryptoApi.getRandomValues) === 'function') {
++        return Array.from(cryptoApi.getRandomValues(new Uint8Array(RANDOM_LENGTH)));
++    }
+     let result = new Array(RANDOM_LENGTH);
+     for (let j = 0; j < RANDOM_LENGTH; j++) {
+         result[j] = 0xff & (Math.random() * (max - min) + min);
+@@ -16,4 +36,4 @@ const rng = () => {
+     return result;
+ };
+ exports.rng = rng;
+-//# sourceMappingURL=rng.js.map
+\ No newline at end of file
++//# sourceMappingURL=rng.js.map
+diff --git a/node_modules/react-native-uuid/src/rng.ts b/node_modules/react-native-uuid/src/rng.ts
+index 4d85249..1fd9f62 100644
+--- a/node_modules/react-native-uuid/src/rng.ts
++++ b/node_modules/react-native-uuid/src/rng.ts
+@@ -5,9 +5,38 @@
+ const min = 0;
+ const max = 256;
+ const RANDOM_LENGTH = 16;
++let isUsingCryptoRandomUUID = false;
+ 
+ // returns pseudo random 16 bytes
+ export const rng = () => {
++  // OneKey patch: Prefer platform cryptographic RNGs before the legacy fallback.
++  const cryptoApi = globalThis.crypto as
++    | undefined
++    | {
++        getRandomValues?: (array: Uint8Array) => Uint8Array;
++        randomUUID?: () => string;
++      };
++  if (
++    typeof cryptoApi?.randomUUID === 'function' &&
++    !isUsingCryptoRandomUUID
++  ) {
++    try {
++      isUsingCryptoRandomUUID = true;
++      const uuidHex = cryptoApi.randomUUID().replace(/-/g, '');
++      if (!/^[0-9a-f]{32}$/i.test(uuidHex)) {
++        throw new TypeError('crypto.randomUUID() returned an invalid UUID');
++      }
++      return Array.from({length: RANDOM_LENGTH}, (_, index) =>
++        parseInt(uuidHex.slice(index * 2, index * 2 + 2), 16),
++      );
++    } finally {
++      isUsingCryptoRandomUUID = false;
++    }
++  }
++  if (typeof cryptoApi?.getRandomValues === 'function') {
++    return Array.from(cryptoApi.getRandomValues(new Uint8Array(RANDOM_LENGTH)));
++  }
++
+   let result = new Array<number>(RANDOM_LENGTH);
+ 
+   for (let j = 0; j < RANDOM_LENGTH; j++) {
+@@ -15,4 +44,4 @@ export const rng = () => {
+   }
+ 
+   return result;
+-};
+\ No newline at end of file
++};

@@ -1,5 +1,10 @@
+import BigNumber from 'bignumber.js';
+import { isObject } from 'lodash';
+
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ESwapNetworkFeeLevel,
   IFetchBuildTxResult,
@@ -8,8 +13,209 @@ import type {
   ISwapGasInfo,
   ISwapPreSwapData,
   ISwapStep,
+  ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapStepStatus,
+  ESwapStepType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
+
+import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
+
+export const NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE = 1;
+
+export type ISwapStepSignAndSendProgress = {
+  hasUncertainSend: boolean;
+  succeededCount: number;
+  succeededApproveCount: number;
+};
+
+export function shouldFallbackSwapStep({
+  error,
+  stepType,
+  signAndSendProgress,
+}: {
+  error: unknown;
+  stepType: ESwapStepType;
+  signAndSendProgress: ISwapStepSignAndSendProgress;
+}) {
+  const hasSubmittedNonApproveTx =
+    signAndSendProgress.succeededCount >
+    signAndSendProgress.succeededApproveCount;
+  const wouldReplaySubmittedTx =
+    signAndSendProgress.succeededCount > 0 &&
+    stepType !== ESwapStepType.BATCH_APPROVE_SWAP;
+
+  if (
+    signAndSendProgress.hasUncertainSend ||
+    hasSubmittedNonApproveTx ||
+    wouldReplaySubmittedTx
+  ) {
+    return false;
+  }
+
+  const errorInfo = isObject(error) ? (error as Record<string, unknown>) : {};
+
+  return (
+    errorInfo.name !== EOneKeyErrorClassNames.OneKeyAppError &&
+    errorInfo.name !== EOneKeyErrorClassNames.OneKeyHardwareError &&
+    errorInfo.className !== EOneKeyErrorClassNames.OneKeyHardwareError &&
+    errorInfo.$isHardwareError !== true &&
+    errorInfo.key !== 'global.cancel' &&
+    errorInfo.code !== 803 &&
+    errorInfo.code !== -99_999 &&
+    !String(errorInfo.message ?? '')
+      .toLowerCase()
+      .includes('reject') &&
+    stepType !== ESwapStepType.SIGN_MESSAGE &&
+    errorInfo.name !== 'buildSwapApi'
+  );
+}
+
+export function markSubmittedSwapApprovalsCompleted({
+  steps,
+  succeededApproveCount,
+}: {
+  steps: ISwapStep[];
+  succeededApproveCount: number;
+}) {
+  let remainingSucceededApprovals = succeededApproveCount;
+
+  return steps.map((step) => {
+    if (
+      step.type !== ESwapStepType.APPROVE_TX ||
+      remainingSucceededApprovals <= 0
+    ) {
+      return step;
+    }
+
+    remainingSucceededApprovals -= 1;
+    return {
+      ...step,
+      status: ESwapStepStatus.SUCCESS,
+    };
+  });
+}
+
+type INativeBtcSwapTokenIdentity = Pick<ISwapToken, 'isNative' | 'networkId'>;
+
+export function isNativeBitcoinMainnetToken(
+  token?: INativeBtcSwapTokenIdentity,
+) {
+  return Boolean(token?.isNative && networkUtils.isBTCMainnet(token.networkId));
+}
+
+export function shouldShowNativeBtcLowSlippageWarning({
+  fromToken,
+  toToken,
+  slippage,
+  swapType,
+  isSwapPro,
+}: {
+  fromToken?: INativeBtcSwapTokenIdentity;
+  toToken?: INativeBtcSwapTokenIdentity;
+  slippage?: number;
+  swapType?: ESwapTabSwitchType;
+  isSwapPro?: boolean;
+}) {
+  if (
+    isSwapPro ||
+    (swapType !== ESwapTabSwitchType.SWAP &&
+      swapType !== ESwapTabSwitchType.BRIDGE)
+  ) {
+    return false;
+  }
+
+  const slippageBN = new BigNumber(slippage ?? Number.NaN);
+  if (
+    !slippageBN.isFinite() ||
+    slippageBN.isNegative() ||
+    slippageBN.gte(NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE)
+  ) {
+    return false;
+  }
+
+  return (
+    isNativeBitcoinMainnetToken(fromToken) ||
+    isNativeBitcoinMainnetToken(toToken)
+  );
+}
+
+export function calculateMinToAmountBySlippage({
+  toTokenAmount,
+  toTokenDecimals,
+  slippage,
+}: {
+  toTokenAmount?: string;
+  toTokenDecimals?: number;
+  slippage: number;
+}) {
+  const toTokenAmountBN = new BigNumber(toTokenAmount ?? Number.NaN);
+  const slippageBN = new BigNumber(slippage);
+  if (
+    !toTokenAmountBN.isFinite() ||
+    toTokenAmountBN.isNegative() ||
+    !slippageBN.isFinite() ||
+    slippageBN.isNegative() ||
+    slippageBN.gte(100)
+  ) {
+    return undefined;
+  }
+
+  const minToAmountBN = toTokenAmountBN
+    .multipliedBy(new BigNumber(100).minus(slippageBN))
+    .dividedBy(100);
+  if (
+    typeof toTokenDecimals === 'number' &&
+    Number.isInteger(toTokenDecimals) &&
+    toTokenDecimals >= 0
+  ) {
+    return minToAmountBN
+      .decimalPlaces(toTokenDecimals, BigNumber.ROUND_DOWN)
+      .toFixed();
+  }
+  return minToAmountBN.toFixed();
+}
+
+export function invalidateSwapReviewForSlippageChange({
+  reviewState,
+  slippagePercentage,
+}: {
+  reviewState: ISwapReviewState;
+  slippagePercentage: number;
+}): ISwapReviewState {
+  const nextMinToAmount = calculateMinToAmountBySlippage({
+    toTokenAmount: reviewState.preSwapData.toTokenAmount,
+    toTokenDecimals: reviewState.preSwapData.toToken?.decimals,
+    slippage: slippagePercentage,
+  });
+  const minToAmount = nextMinToAmount ?? reviewState.preSwapData.minToAmount;
+
+  return {
+    ...reviewState,
+    quoteResult: reviewState.quoteResult
+      ? {
+          ...reviewState.quoteResult,
+          slippage: slippagePercentage,
+          minToAmount,
+          quoteResultCtx: buildCustomSlippageQuoteResultCtx(
+            reviewState.quoteResult.quoteResultCtx,
+          ),
+        }
+      : reviewState.quoteResult,
+    preSwapData: {
+      ...reviewState.preSwapData,
+      slippage: slippagePercentage,
+      minToAmount,
+      swapBuildResultData: undefined,
+      netWorkFee: undefined,
+      supportNetworkFeeLevel: false,
+      estimateNetworkFeeLoading: false,
+      requiresSlippageRebuildOnConfirm: true,
+    },
+  };
+}
 
 export type ISwapReviewGasInfoEntry = {
   encodeTx: IEncodedTx;
@@ -64,6 +270,8 @@ export function buildRebuiltSwapReviewQuoteResult({
   return {
     ...quoteResult,
     ...buildResult,
+    fromTokenInfo: quoteResult.fromTokenInfo,
+    toTokenInfo: quoteResult.toTokenInfo,
     allowanceResult: quoteResult.allowanceResult,
     quoteResultCtx: quoteResult.quoteResultCtx,
     slippage: slippagePercentage,
@@ -80,28 +288,39 @@ export function resolveSwapReviewNeedFetchGasAfterRebuild({
   return fallbackToSeparateTxConfirm || Boolean(previousNeedFetchGas);
 }
 
-export function hasInFlightSwapReviewSteps({ steps }: { steps: ISwapStep[] }) {
-  return steps.some(
-    (step) =>
-      step.status === ESwapStepStatus.LOADING ||
-      step.status === ESwapStepStatus.PENDING,
+export function hasInFlightSwapReviewWork({
+  steps,
+  preSwapData,
+}: {
+  steps: ISwapStep[];
+  preSwapData: ISwapPreSwapData;
+}) {
+  return Boolean(
+    preSwapData.swapBuildLoading ||
+    preSwapData.estimateNetworkFeeLoading ||
+    preSwapData.stepBeforeActionsLoading ||
+    steps.some(
+      (step) =>
+        step.status === ESwapStepStatus.LOADING ||
+        step.status === ESwapStepStatus.PENDING,
+    ),
   );
 }
 
 export function shouldCloseSwapReviewOnFocusLoss({
   isFocused,
   isAppLocked,
-  hasInFlightSteps,
+  hasInFlightReviewWork,
   initialRootRouterCount,
   currentRootRouterCount,
 }: {
   isFocused: boolean;
   isAppLocked: boolean;
-  hasInFlightSteps: boolean;
+  hasInFlightReviewWork: boolean;
   initialRootRouterCount: number;
   currentRootRouterCount: number;
 }) {
-  if (isFocused || isAppLocked || hasInFlightSteps) {
+  if (isFocused || isAppLocked || hasInFlightReviewWork) {
     return false;
   }
 
@@ -145,6 +364,13 @@ export type ISwapReviewAdapter = {
     slippagePercentage: number;
     networkFeeLevel?: ESwapNetworkFeeLevel;
     customPriorityFee?: ISwapReviewCustomPriorityFee;
+    isCurrent: () => boolean;
+    onPhaseChange: (
+      phase:
+        | ESwapReviewRebuildPhase.BuildingTransaction
+        | ESwapReviewRebuildPhase.PreparingExecution,
+    ) => void;
+    onExecutionReady: (reviewState: ISwapReviewState) => void;
   }) => Promise<ISwapReviewState>;
   saveSlippageForFutureOrders?: (
     slippagePercentage: number,

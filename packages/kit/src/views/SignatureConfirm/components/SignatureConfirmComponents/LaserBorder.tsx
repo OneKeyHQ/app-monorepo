@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
+import { LinearGradient, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -69,7 +69,6 @@ function LaserBorder({
   duration = 2800,
   glow = true,
 }: IProps) {
-  const theme = useTheme();
   const reducedMotion = useReducedMotion();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const rotation = useSharedValue(0);
@@ -80,7 +79,6 @@ function LaserBorder({
   // content below it.
   const hasLaserInset = !reducedMotion && glow;
 
-  const bgColor = theme.bg?.val ?? '#1a1a1a';
   const diagonal = Math.sqrt(layout.width ** 2 + layout.height ** 2);
 
   useEffect(() => {
@@ -136,7 +134,7 @@ function LaserBorder({
   return (
     <Animated.View
       style={[
-        { borderRadius },
+        { borderRadius, alignSelf: 'stretch', width: '100%' },
         isNative && glow
           ? [{ shadowOffset: { width: 0, height: 0 } }, nativeShadowStyle]
           : undefined,
@@ -183,13 +181,12 @@ function LaserBorder({
       ) : null}
 
       <Stack
+        width="100%"
         borderColor={borderColor}
-        style={{
-          borderRadius,
-          borderWidth: StyleSheet.hairlineWidth,
-          backgroundColor: bgColor,
-          overflow: 'hidden',
-        }}
+        borderRadius={borderRadius}
+        borderWidth={StyleSheet.hairlineWidth}
+        bg="$bg"
+        overflow="hidden"
         onLayout={handleLayout}
       >
         {glow && diagonal > 0 ? (
@@ -214,18 +211,18 @@ function LaserBorder({
             />
           </Animated.View>
         ) : null}
-        <Stack
-          style={{
-            margin: hasLaserInset ? BORDER_PX : 0,
-            borderRadius: hasLaserInset
-              ? borderRadius - BORDER_PX
-              : borderRadius,
-            backgroundColor: bgColor,
-            overflow: 'hidden',
-          }}
-        >
-          {children}
-        </Stack>
+        {hasLaserInset ? (
+          <Stack
+            m={BORDER_PX}
+            borderRadius={borderRadius - BORDER_PX}
+            bg="$bg"
+            overflow="hidden"
+          >
+            {children}
+          </Stack>
+        ) : (
+          children
+        )}
       </Stack>
     </Animated.View>
   );

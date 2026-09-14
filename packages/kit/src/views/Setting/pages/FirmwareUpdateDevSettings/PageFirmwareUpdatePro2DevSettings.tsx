@@ -88,12 +88,31 @@ function Pro2FirmwareUpdateTargetRow({
 function FirmwareUpdatePro2DevSettings() {
   const [devSetting] = useFirmwareUpdateDevSettingsPersistAtom();
 
+  const handleHideDebugInfoChange = useCallback(async (enabled: boolean) => {
+    await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings({
+      hidePro2FirmwareDebugInfo: enabled,
+    });
+  }, []);
+
   const resetPro2ForceTargets = useCallback(async () => {
     await backgroundApiProxy.serviceDevSetting.resetPro2FirmwareForceTargets();
   }, []);
 
   return (
     <YStack>
+      <ListItem
+        title="Hide firmware debug info"
+        subtitle="Preview the regular Pro2 update UI without component details or progress debug info. Update settings are unchanged."
+      >
+        <Switch
+          size={ESwitchSize.small}
+          value={devSetting.hidePro2FirmwareDebugInfo ?? false}
+          onChange={(enabled) => {
+            void handleHideDebugInfoChange(enabled);
+          }}
+          testID="pro2-firmware-hide-debug-info"
+        />
+      </ListItem>
       <ListItem
         title="Pro2 force targets"
         subtitle="Configured resources are included automatically. Resource force/once means reinstall."

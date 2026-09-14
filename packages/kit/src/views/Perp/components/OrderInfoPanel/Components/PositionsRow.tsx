@@ -10,7 +10,6 @@ import {
   Divider,
   Icon,
   IconButton,
-  Popover,
   SizableText,
   Tooltip,
   XStack,
@@ -32,7 +31,10 @@ import {
   getValidPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpsAssetPosition,
+  IUserFunding,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedOpenOrdersByCoin } from '../../../hooks/usePerpsAccountScopedOpenOrdersByCoin';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
@@ -44,14 +46,23 @@ import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
 import { MOBILE_POSITION_ACTION_TEXT_SIZE } from '../utils/positionActionPresentation';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import { DesktopActionIconButton } from './DesktopActionIconButton';
+import {
+  PositionFundingDetails,
+  showPositionFundingDetailsDialog,
+} from './PositionFundingDetails';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
 export interface IPositionRowItem {
   index: number;
   activePosition: IPerpsAssetPosition;
+  assetId?: number;
 }
 
 interface IPositionRowProps {
@@ -63,6 +74,9 @@ interface IPositionRowProps {
   renderMode?: IRenderMode;
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
+  fundingHistory: IUserFunding[];
+  isFundingHistoryLoading: boolean;
+  isFundingHistoryError: boolean;
 }
 
 interface IAssetInfo {
@@ -390,13 +404,22 @@ const PositionRowDesktopFunding = memo(
   ({
     columnConfig,
     otherInfo,
-    assetInfo,
+    coin,
+    assetId,
+    signedSize,
+    fundingHistory,
+    isFundingHistoryLoading,
+    isFundingHistoryError,
   }: {
     columnConfig: IColumnConfig;
     otherInfo: IOtherInfo;
-    assetInfo: IAssetInfo;
+    coin: string;
+    assetId?: number;
+    signedSize: string;
+    fundingHistory: IUserFunding[];
+    isFundingHistoryLoading: boolean;
+    isFundingHistoryError: boolean;
   }) => {
-    const intl = useIntl();
     return (
       <DebugRenderTracker
         position="bottom-right"
@@ -408,65 +431,27 @@ const PositionRowDesktopFunding = memo(
           alignItems="center"
         >
           <Tooltip
+            hovering
+            placement="top"
+            contentProps={{ p: 0, maxWidth: 300 }}
             renderTrigger={
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color={otherInfo.fundingSinceOpenColor}
+                cursor="help"
               >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
             renderContent={
-              <YStack gap="$2">
-                <XStack>
-                  <SizableText size="$bodySm">
-                    {intl.formatMessage(
-                      {
-                        id: ETranslations.perp_position_funding_since_open,
-                      },
-                      { token: assetInfo.assetSymbol },
-                    )}
-                    {': '}
-                  </SizableText>
-                  <SizableText
-                    size="$bodySm"
-                    color={otherInfo.fundingAllTimeColor}
-                  >
-                    {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}{' '}
-                  </SizableText>
-                </XStack>
-                <XStack>
-                  <SizableText size="$bodySm">
-                    {intl.formatMessage(
-                      {
-                        id: ETranslations.perp_position_funding_all_time,
-                      },
-                      { token: assetInfo.assetSymbol },
-                    )}
-                    {': '}
-                  </SizableText>
-                  <SizableText
-                    size="$bodySm"
-                    color={otherInfo.fundingAllTimeColor}
-                  >
-                    {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}{' '}
-                  </SizableText>
-                </XStack>
-                <XStack>
-                  <SizableText size="$bodySm">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_funding_since_change,
-                    })}
-                    {': '}
-                  </SizableText>
-                  <SizableText
-                    size="$bodySm"
-                    color={otherInfo.fundingSinceChangeColor}
-                  >
-                    {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
-                  </SizableText>
-                </XStack>
-              </YStack>
+              <PositionFundingDetails
+                coin={coin}
+                assetId={assetId}
+                signedSize={signedSize}
+                fundingHistory={fundingHistory}
+                isFundingHistoryLoading={isFundingHistoryLoading}
+                isFundingHistoryError={isFundingHistoryError}
+              />
             }
           />
         </XStack>
@@ -668,6 +653,9 @@ interface IPositionRowDesktopProps {
   renderMode?: IRenderMode;
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
+  fundingHistory: IUserFunding[];
+  isFundingHistoryLoading: boolean;
+  isFundingHistoryError: boolean;
 }
 
 const PositionRowDesktop = memo(
@@ -691,6 +679,9 @@ const PositionRowDesktop = memo(
     renderMode = 'full',
     isHovered,
     onHoverChange,
+    fundingHistory,
+    isFundingHistoryLoading,
+    isFundingHistoryError,
   }: IPositionRowDesktopProps) => {
     const isOddRow = mockedPosition.index % 2 === 1;
     const baseBgColor = isOddRow ? '$bgSubdued' : '$bgApp';
@@ -708,8 +699,8 @@ const PositionRowDesktop = memo(
         <XStack
           minWidth={renderMode === 'full' ? cellMinWidth : undefined}
           py="$1.5"
-          pl="22px"
-          pr="$3"
+          pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+          pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
           display="flex"
           flex={1}
           alignItems="center"
@@ -754,7 +745,12 @@ const PositionRowDesktop = memo(
               <PositionRowDesktopFunding
                 columnConfig={columnConfigs[7]}
                 otherInfo={otherInfo}
-                assetInfo={assetInfo}
+                coin={coin}
+                assetId={mockedPosition.assetId}
+                signedSize={mockedPosition.activePosition.position.szi}
+                fundingHistory={fundingHistory}
+                isFundingHistoryLoading={isFundingHistoryLoading}
+                isFundingHistoryError={isFundingHistoryError}
               />
               <PositionRowDesktopTPSL
                 columnConfig={columnConfigs[8]}
@@ -1059,13 +1055,25 @@ PositionRowMobileEntryPrice.displayName = 'PositionRowMobileEntryPrice';
 
 const PositionRowMobileFunding = memo(
   ({
-    assetInfo,
     otherInfo,
+    coin,
+    assetId,
   }: {
-    assetInfo: IAssetInfo;
     otherInfo: IOtherInfo;
+    coin: string;
+    assetId?: number;
   }) => {
     const intl = useIntl();
+    const handleOpenFundingDetails = useCallback(() => {
+      showPositionFundingDetailsDialog({
+        coin,
+        assetId,
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_funding_2,
+        }),
+      });
+    }, [assetId, coin, intl]);
+
     return (
       <YStack
         gap="$1"
@@ -1073,96 +1081,14 @@ const PositionRowMobileFunding = memo(
         flexBasis={0}
         minWidth={0}
         position="relative"
+        onPress={handleOpenFundingDetails}
+        pressStyle={{ opacity: 0.7 }}
       >
-        <Popover
-          title={intl.formatMessage({
+        <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
+          {intl.formatMessage({
             id: ETranslations.perp_position_funding_2,
           })}
-          renderTrigger={
-            <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
-              {intl.formatMessage({
-                id: ETranslations.perp_position_funding_2,
-              })}
-            </DashText>
-          }
-          renderContent={
-            <YStack
-              bg="$bg"
-              justifyContent="center"
-              w="100%"
-              px="$5"
-              pt="$2"
-              pb="$5"
-              gap="$4"
-            >
-              <XStack alignItems="center" justifyContent="space-between">
-                <YStack w="50%">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_funding_since_open,
-                    })}
-                  </SizableText>
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color={otherInfo.fundingSinceOpenColor}
-                  >
-                    {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
-                  </SizableText>
-                </YStack>
-
-                <YStack w="50%">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_funding_since_change,
-                    })}
-                  </SizableText>
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color={otherInfo.fundingSinceChangeColor}
-                  >
-                    {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
-                  </SizableText>
-                </YStack>
-              </XStack>
-              <XStack alignItems="center" justifyContent="space-between">
-                <YStack w="50%">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage(
-                      {
-                        id: ETranslations.perp_position_funding_all_time,
-                      },
-                      { token: assetInfo.assetSymbol },
-                    )}
-                  </SizableText>
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color={otherInfo.fundingAllTimeColor}
-                  >
-                    {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
-                  </SizableText>
-                </YStack>
-              </XStack>
-              <Divider />
-              <YStack gap="$2">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_funding_rate_tip0,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySmMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_funding_rate_tip1,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySmMedium">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_funding_rate_tip2,
-                  })}
-                </SizableText>
-              </YStack>
-            </YStack>
-          }
-        />
+        </DashText>
 
         <SizableText
           size="$bodyMdMedium"
@@ -1410,6 +1336,7 @@ interface IPositionRowMobileProps {
   priceInfo: IPriceInfo;
   otherInfo: IOtherInfo;
   coin: string;
+  assetId?: number;
   isIsolatedMode: boolean;
   isSizeViewChange: boolean;
   onChangeAsset: () => void;
@@ -1429,6 +1356,7 @@ const PositionRowMobile = memo(
     priceInfo,
     otherInfo,
     coin,
+    assetId,
     isIsolatedMode,
     isSizeViewChange,
     onChangeAsset,
@@ -1474,8 +1402,9 @@ const PositionRowMobile = memo(
           </XStack>
           <XStack width="100%" flex={1} alignItems="center">
             <PositionRowMobileFunding
-              assetInfo={assetInfo}
               otherInfo={otherInfo}
+              coin={coin}
+              assetId={assetId}
             />
             <PositionRowMobileMarkPrice coin={coin} />
             <PositionRowMobileLiqPrice priceInfo={priceInfo} />
@@ -1502,6 +1431,9 @@ const PositionRow = memo(
     renderMode = 'full',
     isHovered,
     onHoverChange,
+    fundingHistory,
+    isFundingHistoryLoading,
+    isFundingHistoryError,
   }: IPositionRowProps) => {
     const navigation = useAppNavigation();
     const actions = useHyperliquidActions();
@@ -1758,6 +1690,7 @@ const PositionRow = memo(
           priceInfo={priceInfo}
           otherInfo={otherInfo}
           coin={coin}
+          assetId={mockedPosition.assetId}
           isIsolatedMode={isIsolatedMode}
           isSizeViewChange={isSizeViewChange}
           onChangeAsset={handleChangeAsset}
@@ -1792,6 +1725,9 @@ const PositionRow = memo(
         renderMode={renderMode}
         isHovered={isHovered}
         onHoverChange={onHoverChange}
+        fundingHistory={fundingHistory}
+        isFundingHistoryLoading={isFundingHistoryLoading}
+        isFundingHistoryError={isFundingHistoryError}
       />
     );
   },

@@ -76,6 +76,7 @@ import {
   resolveProtocolLendingRepayAmountState,
   resolveProtocolLendingRepayDebtState,
   resolveProtocolLendingWithdrawAmountState,
+  shouldShowProtocolLendingFallbackWarning,
 } from './protocolLendingActionUtils';
 import {
   type IProtocolPositionActionSuccessParams,
@@ -288,14 +289,24 @@ function RemainingDebtChangeRow({
     <ProtocolPositionActionAnchor
       label={label}
       valueNode={
-        <XStack alignItems="center" gap="$2" flexShrink={0}>
+        <XStack
+          alignItems="center"
+          justifyContent="flex-end"
+          gap="$2"
+          maxWidth="65%"
+          flexShrink={1}
+          minWidth={0}
+          flexWrap="wrap"
+        >
           <LendingAmountValue
             amount={currentDebt}
             symbol={symbol}
             color="$textSubdued"
           />
-          <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
-          <LendingAmountValue amount={remainingDebt} symbol={symbol} />
+          <XStack alignItems="center" gap="$2" flexShrink={0}>
+            <Icon name="ArrowRightSolid" size="$4" color="$iconDisabled" />
+            <LendingAmountValue amount={remainingDebt} symbol={symbol} />
+          </XStack>
         </XStack>
       }
     />
@@ -427,15 +438,14 @@ function LendingAssetSelectorRow({
   );
 }
 
-// Shared exit-side warning + inline error block. `hasDebts` withdraws surface the
-// liquidation note; a build/submit failure renders in the critical slot the same
-// way the generic portfolio dialog does.
+// Amount-specific server alerts take precedence over the generic liquidation
+// warning. Build/submit failures remain visible in their own critical slot.
 function LendingActionAlerts({
-  showLiquidationWarning,
+  showFallbackLiquidationWarning,
   errorMessage,
   checkAmountAlerts = [],
 }: {
-  showLiquidationWarning: boolean;
+  showFallbackLiquidationWarning: boolean;
   errorMessage?: string;
   checkAmountAlerts?: ICheckAmountAlert[];
 }) {
@@ -443,18 +453,10 @@ function LendingActionAlerts({
   const liquidationWarningText = intl.formatMessage({
     id: ETranslations.defi_liquidation_withdraw_desc,
   });
-  const visibleCheckAmountAlerts = checkAmountAlerts.filter((alert) => {
-    if (!showLiquidationWarning) {
-      return true;
-    }
-    return ![alert.title?.text, alert.text?.text, alert.description?.text].some(
-      (text) => text?.trim() === liquidationWarningText.trim(),
-    );
-  });
   const hasVisibleAlert =
-    showLiquidationWarning ||
+    showFallbackLiquidationWarning ||
     Boolean(errorMessage) ||
-    visibleCheckAmountAlerts.length > 0;
+    checkAmountAlerts.length > 0;
 
   if (!hasVisibleAlert) {
     return null;
@@ -462,7 +464,7 @@ function LendingActionAlerts({
 
   return (
     <YStack gap="$3">
-      {showLiquidationWarning ? (
+      {showFallbackLiquidationWarning ? (
         <Alert
           type="warning"
           icon="InfoCircleOutline"
@@ -479,7 +481,7 @@ function LendingActionAlerts({
           description={errorMessage}
         />
       ) : null}
-      {visibleCheckAmountAlerts.map((alert, index) => (
+      {checkAmountAlerts.map((alert, index) => (
         <Alert
           key={index}
           type="warning"
@@ -763,7 +765,7 @@ function ProtocolLendingActionDefiContent({
     };
     try {
       await Keyboard.dismissWithDelay(80);
-      await submitProtocolPositionAction({
+      const started = await submitProtocolPositionAction({
         action: source.action,
         selectedAssets: [selectedAsset],
         amount,
@@ -782,6 +784,11 @@ function ProtocolLendingActionDefiContent({
         onConfirmFail: releaseSubmitGuardOnceWithError,
         onConfirmCancel: releaseSubmitGuardOnce,
       });
+      // A declined risk disclaimer does not fire a callback or throw, so the
+      // dialog still owns the submit guard on this path.
+      if (started === false) {
+        releaseSubmitGuardOnce();
+      }
     } catch (error) {
       if (
         !isActionDialogClosed &&
@@ -882,7 +889,7 @@ function ProtocolLendingActionDefiContent({
   );
   const feedbackNode = showFeedbackRegion ? (
     <LendingActionAlerts
-      showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
+      showFallbackLiquidationWarning={Boolean(hasDebts && isWithdraw)}
       errorMessage={inlineErrorMessage}
     />
   ) : null;
@@ -1399,7 +1406,7 @@ function ProtocolLendingActionBorrowContent({
         providerDetailName: protocolInfo?.providerDetail.name,
       });
       if (actionType === 'repay') {
-        await handleBorrowRepay({
+        const repayStarted = await handleBorrowRepay({
           amount,
           provider,
           marketAddress,
@@ -1432,6 +1439,12 @@ function ProtocolLendingActionBorrowContent({
             submitGuard.release();
           },
         });
+        // false means the flow never started (the risk disclaimer was declined,
+        // say): no callback fires and nothing throws, so the guard taken above
+        // is ours to release or the footer stays stuck loading forever.
+        if (repayStarted === false) {
+          submitGuard.release();
+        }
         return;
       }
       const receiveToken = shouldUnwrapNativeAaveReserve
@@ -1441,7 +1454,7 @@ function ProtocolLendingActionBorrowContent({
             networkId,
           })
         : effectiveToken;
-      await handleBorrowWithdraw({
+      const withdrawStarted = await handleBorrowWithdraw({
         amount,
         provider,
         marketAddress,
@@ -1478,6 +1491,10 @@ function ProtocolLendingActionBorrowContent({
           submitGuard.release();
         },
       });
+      // Same "never started" release as the repay branch above.
+      if (withdrawStarted === false) {
+        submitGuard.release();
+      }
     } catch (error) {
       const shouldPropagate = submitGuard.releaseWithError(error, {
         // A detached approval has no owning input surface, so its build
@@ -1521,6 +1538,9 @@ function ProtocolLendingActionBorrowContent({
   const { shouldApprove, approving, loadingAllowance, ensureReadyToSubmit } =
     useBorrowApproval({
       action: actionType,
+      // Labels the risk-disclaimer gate inside the approve step; without it the
+      // gate has no provider and silently lets the first on-chain action pass.
+      providerName: source.provider,
       amountValue: amount,
       repayAll: !isWithdraw && isFullClose,
       withdrawAll: isWithdraw && isFullClose,
@@ -1528,10 +1548,11 @@ function ProtocolLendingActionBorrowContent({
       // metadata is normalized to Legacy on the manage page as well.
       approveType: EApproveType.Legacy,
       approveTarget,
-      // useTrackTokenAllowance never fetches on mount - seed it with the
-      // manage-page allowance, which tracks the selected reserve because
-      // useManagePage loads again per reserveAddress.
+      // The manage-page allowance can lag after an approval transaction. Keep
+      // it as the first-paint value, then reconcile with the current chain
+      // allowance before deciding whether approval is needed.
       currentAllowance: protocolInfo?.approve?.allowance,
+      refreshAllowanceOnMount: true,
       onApprovedSubmit: submitBorrowTx,
       onBeforeNavigateConfirm: closeActionDialogBeforeConfirm,
       // close() destroys a static dialog after its exit animation. Keep only
@@ -1674,6 +1695,13 @@ function ProtocolLendingActionBorrowContent({
   }
   const isInitialLoading = !hasLoadedOnceRef.current;
   const checkAmountAlerts = actionResult.checkAmountAlerts ?? [];
+  const showFallbackLiquidationWarning =
+    shouldShowProtocolLendingFallbackWarning({
+      hasDebts,
+      isWithdraw,
+      checkAmountAlertCount: checkAmountAlerts.length,
+      riskOfLiquidationAlert: actionResult.riskOfLiquidationAlert,
+    });
   const inlineErrorMessage =
     assetsError ??
     submitError ??
@@ -1682,7 +1710,7 @@ function ProtocolLendingActionBorrowContent({
       : undefined);
   const showFeedbackRegion =
     !isInitialLoading &&
-    ((Boolean(hasDebts) && isWithdraw) ||
+    (showFallbackLiquidationWarning ||
       Boolean(inlineErrorMessage) ||
       checkAmountAlerts.length > 0);
   const bodyNode = (
@@ -1821,7 +1849,7 @@ function ProtocolLendingActionBorrowContent({
   );
   const feedbackNode = showFeedbackRegion ? (
     <LendingActionAlerts
-      showLiquidationWarning={Boolean(hasDebts && isWithdraw)}
+      showFallbackLiquidationWarning={showFallbackLiquidationWarning}
       errorMessage={inlineErrorMessage}
       checkAmountAlerts={checkAmountAlerts}
     />

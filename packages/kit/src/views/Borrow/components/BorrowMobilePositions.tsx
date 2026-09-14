@@ -2,7 +2,14 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import {
+  ESwitchSize,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -206,15 +213,18 @@ export function BorrowMobilePositions({
               collateral={
                 hasCollateralControls &&
                 suppliedAsset.usageAsCollateral !== undefined ? (
-                  <>
+                  <XStack ai="center" gap="$2">
                     <SizableText size="$bodyMd" color="$textSubdued">
                       {labels.collateral}
                     </SizableText>
-                    <CollateralSwitchCell
-                      item={suppliedAsset}
-                      eModeId={eModeId}
-                    />
-                  </>
+                    <Stack>
+                      <CollateralSwitchCell
+                        item={suppliedAsset}
+                        eModeId={eModeId}
+                        size={ESwitchSize.extraSmall}
+                      />
+                    </Stack>
+                  </XStack>
                 ) : null
               }
               actions={actions}

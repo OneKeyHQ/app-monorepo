@@ -18,6 +18,7 @@ import {
   Divider,
   HeightTransition,
   Icon,
+  NumberSizeableText,
   Popover,
   SizableText,
   Stack,
@@ -34,8 +35,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   filterSwapHistoryPendingList,
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -75,9 +78,21 @@ import {
   SwapReviewSlippageEditor,
 } from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
-import { shouldShowSwapReviewToAmountSkeleton } from '../../utils/swapReviewState';
+import {
+  isSwapReviewConfirmBlocked,
+  isSwapReviewRebuildInProgress,
+} from '../../utils/swapReviewRebuildStateMachine';
+import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  invalidateSwapReviewForSlippageChange,
+  shouldShowSwapReviewToAmountSkeleton,
+} from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
+import { buildSwapStockReviewDisplay } from '../../utils/swapStockReviewUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
+
+import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
+import type { ISwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
@@ -96,10 +111,17 @@ interface IPreSwapDialogContentProps {
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
-  rebuildReviewWithSlippage?: (slippagePercentage: number) => Promise<void>;
+  isSwapPro?: boolean;
+  rebuildReviewWithSlippage?: (
+    slippagePercentage: number,
+    options?: ISwapReviewRebuildOptions,
+  ) => Promise<void>;
+  reviewRebuildState?: ISwapReviewRebuildState;
+  resetUncommittedReviewRebuildError?: () => void;
   saveSlippageForFutureOrders?: (
     slippagePercentage: number,
   ) => Promise<void> | void;
+  disableSaveSlippageForFutureOrders?: boolean;
 }
 
 const PreSwapDialogContent = ({
@@ -111,11 +133,17 @@ const PreSwapDialogContent = ({
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
+  isSwapPro,
   rebuildReviewWithSlippage,
+  reviewRebuildState,
+  resetUncommittedReviewRebuildError,
   saveSlippageForFutureOrders,
+  disableSaveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [, setSettings] = useSettingsAtom();
+  const [settingsPersist] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const [slippageEditorOpen, setSlippageEditorOpen] = useState(false);
   const [slippageSavingScope, setSlippageSavingScope] = useState<
     ISwapReviewSlippageSaveScope | undefined
@@ -169,6 +197,7 @@ const PreSwapDialogContent = ({
     customNetworkFeeOptionKey,
   );
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
@@ -215,6 +244,25 @@ const PreSwapDialogContent = ({
       toAmount: preSwapData?.toTokenAmount || '0',
     };
   }, [preSwapData]);
+  const stockReviewDisplay = useMemo(
+    () =>
+      buildSwapStockReviewDisplay({
+        currencyMap,
+        fromAmount,
+        fromToken: preSwapData?.fromToken,
+        targetCurrency: settingsPersist.currencyInfo.id,
+        toAmount,
+        toToken: preSwapData?.toToken,
+      }),
+    [
+      currencyMap,
+      fromAmount,
+      preSwapData?.fromToken,
+      preSwapData?.toToken,
+      settingsPersist.currencyInfo.id,
+      toAmount,
+    ],
+  );
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [limitPriceMarketPrice] = useSwapLimitPriceMarketPriceAtom();
   // A limit order whose rate the market already beats will likely fill
@@ -323,23 +371,35 @@ const PreSwapDialogContent = ({
         preSwapData?.estimateNetworkFeeLoading ||
         preSwapData?.swapBuildLoading ||
         preSwapData?.stepBeforeActionsLoading ||
-        preSwapData?.stepBeforeActionsError,
+        preSwapData?.stepBeforeActionsError ||
+        isSwapReviewConfirmBlocked(reviewRebuildState?.phase),
       ),
     [
       preSwapData?.estimateNetworkFeeLoading,
       preSwapData?.stepBeforeActionsError,
       preSwapData?.stepBeforeActionsLoading,
       preSwapData?.swapBuildLoading,
+      reviewRebuildState?.phase,
     ],
   );
 
   const handleSlippageEditorOpenChange = useCallback(
     (open: boolean) => {
-      if (!slippageSavingScope) {
+      if (
+        !slippageSavingScope &&
+        !isSwapReviewRebuildInProgress(reviewRebuildState?.phase)
+      ) {
+        if (!open) {
+          resetUncommittedReviewRebuildError?.();
+        }
         setSlippageEditorOpen(open);
       }
     },
-    [slippageSavingScope],
+    [
+      resetUncommittedReviewRebuildError,
+      reviewRebuildState?.phase,
+      slippageSavingScope,
+    ],
   );
   const handleSaveSlippage = useCallback(
     async (scope: ISwapReviewSlippageSaveScope, slippagePercentage: number) => {
@@ -348,23 +408,38 @@ const PreSwapDialogContent = ({
       }
 
       setSlippageSavingScope(scope);
-      try {
-        await rebuildReviewWithSlippage(slippagePercentage);
-        if (!isMountedRef.current) {
+      let editorReleased = false;
+      const releaseEditor = () => {
+        if (editorReleased || !isMountedRef.current) {
           return;
         }
-        if (scope === 'future') {
-          if (saveSlippageForFutureOrders) {
-            await saveSlippageForFutureOrders(slippagePercentage);
-          } else {
-            setSettings((prev) => ({
-              ...prev,
-              swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
-              swapSlippagePercentageCustomValue: slippagePercentage,
-            }));
-          }
-        }
+        editorReleased = true;
         setSlippageEditorOpen(false);
+        setSlippageSavingScope(undefined);
+
+        if (scope !== 'future') {
+          return;
+        }
+        if (saveSlippageForFutureOrders) {
+          void Promise.resolve(
+            saveSlippageForFutureOrders(slippagePercentage),
+          ).catch((error: unknown) => {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          });
+        } else {
+          setSettings((prev) => ({
+            ...prev,
+            swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+            swapSlippagePercentageCustomValue: slippagePercentage,
+          }));
+        }
+      };
+      try {
+        await rebuildReviewWithSlippage(slippagePercentage, {
+          onExecutionReady: releaseEditor,
+        });
+        releaseEditor();
       } catch (error) {
         errorToastUtils.toastIfError(error);
         errorToastUtils.showToastOfError(error);
@@ -638,6 +713,19 @@ const PreSwapDialogContent = ({
     swapSteps.steps[0]?.status === ESwapStepStatus.READY &&
     !showResultContent,
   );
+  const handleSetNativeBtcMinSlippage = useCallback(() => {
+    if (supportSlippageRebuild) {
+      void handleSaveSlippage('current', NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE);
+      return;
+    }
+
+    setSwapSteps((prev) =>
+      invalidateSwapReviewForSlippageChange({
+        reviewState: prev,
+        slippagePercentage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      }),
+    );
+  }, [handleSaveSlippage, setSwapSteps, supportSlippageRebuild]);
   const showMobileSlippageEditor =
     platformEnv.isNative && supportSlippageRebuild && slippageEditorOpen;
 
@@ -693,6 +781,9 @@ const PreSwapDialogContent = ({
         <HeightTransition initialHeight={355}>
           <Stack pt="$2">
             <SwapReviewSlippageEditor
+              disableSaveSlippageForFutureOrders={
+                disableSaveSlippageForFutureOrders
+              }
               initialValue={preSwapData.slippage ?? 0}
               savingScope={slippageSavingScope}
               showTitle={false}
@@ -788,6 +879,58 @@ const PreSwapDialogContent = ({
             />
           </YStack>
 
+          {stockReviewDisplay ? (
+            <>
+              <Divider testID="swap-stock-review-divider" />
+              <YStack testID="swap-stock-review-info" gap="$3">
+                {stockReviewDisplay.sharePrice ? (
+                  <XStack
+                    testID="swap-stock-review-share-price"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    gap="$3"
+                  >
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.market_token_price,
+                      })}
+                    </SizableText>
+                    <NumberSizeableText
+                      size="$bodyMdMedium"
+                      formatter="value"
+                      formatterOptions={{
+                        currency: settingsPersist.currencyInfo.symbol,
+                      }}
+                    >
+                      {stockReviewDisplay.sharePrice}
+                    </NumberSizeableText>
+                  </XStack>
+                ) : null}
+                <XStack
+                  testID="swap-stock-review-estimated-shares"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  gap="$3"
+                >
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.market_est_shares,
+                    })}
+                  </SizableText>
+                  <NumberSizeableText
+                    size="$bodyMdMedium"
+                    formatter="balance"
+                    formatterOptions={{
+                      tokenSymbol: stockReviewDisplay.underlyingSymbol,
+                    }}
+                  >
+                    {stockReviewDisplay.estimatedShares}
+                  </NumberSizeableText>
+                </XStack>
+              </YStack>
+            </>
+          ) : null}
+
           {showMarketableFillTip ? (
             <Alert
               type="warning"
@@ -798,7 +941,7 @@ const PreSwapDialogContent = ({
             />
           ) : null}
 
-          <Divider />
+          {stockReviewDisplay ? null : <Divider />}
 
           {swapSteps.steps.length > 0 &&
           swapSteps.steps[0].status === ESwapStepStatus.READY ? (
@@ -818,6 +961,11 @@ const PreSwapDialogContent = ({
                 <>
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
+                    onSetNativeBtcMinSlippage={handleSetNativeBtcMinSlippage}
+                    nativeBtcMinSlippageSaving={
+                      slippageSavingScope === 'current'
+                    }
+                    isSwapPro={isSwapPro}
                     onSelectNetworkFeeLevel={handleSelectNetworkFeeLevel}
                     customNetworkFeeOptionLabel={
                       customNetworkFeeOptionRef.current?.label
@@ -826,6 +974,7 @@ const PreSwapDialogContent = ({
                     slippageEditor={
                       supportSlippageRebuild
                         ? {
+                            disableSaveSlippageForFutureOrders,
                             open: slippageEditorOpen,
                             savingScope: slippageSavingScope,
                             onOpenChange: handleSlippageEditorOpenChange,

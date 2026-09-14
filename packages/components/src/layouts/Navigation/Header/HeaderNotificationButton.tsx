@@ -13,6 +13,7 @@ export interface IHeaderNotificationButtonProps {
   showBadge?: boolean;
   badgeCount?: number;
   onPress?: () => void;
+  disabled?: boolean;
   testID?: string;
 }
 
@@ -23,12 +24,14 @@ function HeaderNotificationButton({
   showBadge = false,
   badgeCount,
   onPress,
+  disabled = false,
   testID = 'headerNotificationButton',
 }: IHeaderNotificationButtonProps) {
   return (
     <Stack
       testID={testID}
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
       position="relative"
       className="app-region-no-drag"
     >
@@ -38,6 +41,7 @@ function HeaderNotificationButton({
         iconSize={iconSize}
         title={title}
         onPress={platformEnv.isNative ? onPress : undefined}
+        disabled={disabled}
       />
       {showBadge ? (
         <Stack
@@ -47,6 +51,7 @@ function HeaderNotificationButton({
           alignItems="flex-end"
           w="$10"
           pointerEvents="none"
+          opacity={disabled ? 0.5 : 1}
         >
           <Stack
             bg="$bgApp"

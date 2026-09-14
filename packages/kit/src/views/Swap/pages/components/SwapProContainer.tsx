@@ -106,7 +106,6 @@ const SwapProContainer = ({
   config,
 }: ISwapProContainerProps) => {
   const {
-    isLoading,
     isAccountContextReady,
     speedConfigReady,
     speedConfig,
@@ -292,7 +291,7 @@ const SwapProContainer = ({
             cleanInputAmount();
             onProSelectToken();
           }}
-          configLoading={isLoading}
+          configLoading={!speedConfigReady}
         />
         {/* On mobile this candlestick button moved up into the top header
             capsule (SwapProKLineHeaderButton); keep it inline on desktop. */}
@@ -326,7 +325,7 @@ const SwapProContainer = ({
             storeName={storeName}
             supportSpeedSwap={!!supportSpeedSwap}
             swapProConfig={speedConfig}
-            configLoading={isLoading}
+            configLoading={!speedConfigReady}
             configReady={speedConfigReady}
             balanceLoading={balanceLoading}
             limitPriceUseMarketPrice={limitPriceUseMarketPrice}

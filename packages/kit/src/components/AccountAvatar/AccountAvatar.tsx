@@ -76,7 +76,7 @@ const VARIANT_SIZE = {
 
 type IKeyOfVariantSize = keyof typeof VARIANT_SIZE;
 
-export interface IAccountAvatarProps extends IImageProps {
+export interface IAccountAvatarProps extends Omit<IImageProps, 'loading'> {
   address?: string;
   size?: IKeyOfVariantSize | SizeTokens;
   networkId?: string;
@@ -418,7 +418,7 @@ function BasicAccountAvatar({
             bg="$bgStrong"
             borderRadius={size === 'small' ? '$1' : '$2'}
             {...restProps}
-            skeleton={renderLoading}
+            placeholder={renderLoading}
             fallback={renderFallback}
           />
         </Animated.View>

@@ -103,6 +103,31 @@ describe('fetchSpecifiedTokenSelectorTokens', () => {
     jest.clearAllMocks();
   });
 
+  it('requests native coin balances alongside token balances without dropping the empty contract', async () => {
+    const response = buildTokenResponse('evm--1');
+    mocks.fetchAccountTokens.mockResolvedValue(response);
+
+    const result = await fetchSpecifiedTokenSelectorTokens({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      targets: [
+        { networkId: 'evm--1', contractAddress: '' },
+        { networkId: 'evm--1', contractAddress: '0xusdc' },
+        { networkId: 'evm--1', contractAddress: '' },
+      ],
+    });
+
+    expect(mocks.fetchAccountTokens).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchAccountTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        contractList: ['', '0xusdc'],
+      }),
+    );
+    expect(result.responsesByNetworkId['evm--1']).toBe(response);
+    expect(result.issues).toEqual([]);
+  });
+
   it('uses the same token-selector account-token request as Send', async () => {
     mocks.fetchAccountTokens.mockResolvedValue(buildTokenResponse('evm--1'));
 

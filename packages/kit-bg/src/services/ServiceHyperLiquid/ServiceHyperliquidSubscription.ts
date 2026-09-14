@@ -243,6 +243,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     typeof setTimeout
   > | null = null;
 
+  private _reconcileInFlight = false;
+
   private _resumeRecoveryPromise: Promise<void> | null = null;
 
   private _subscriptionUpdateRecoveryPromise: Promise<void> | null = null;
@@ -892,11 +894,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     this._currentState = newState;
     this._emitConnectionStatus();
-    await this._executeSubscriptionChanges();
+    // Armed before the await: a hung subscribe ack keeps
+    // _executeSubscriptionChanges pending, so a check scheduled after it never
+    // gets armed at all. Must stay below the stale-critical branch above, which
+    // bumps _subscriptionLifecycleVersion and would self-invalidate a timer
+    // that captured the version before the bump.
+    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
+    this._reconcileInFlight = true;
+    try {
+      await this._executeSubscriptionChanges();
+    } finally {
+      this._reconcileInFlight = false;
+      // _executeSubscriptionChanges can reach _forceReconnectTransport, which
+      // clears the timer armed above; re-arm so the reconcile still ends with a
+      // watchdog carrying the current lifecycle version.
+      this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
+    }
     if (this._activeSubscriptions.size > 0) {
       this._startPostOpenDataCheck();
     }
-    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
   }
 
   private async _enqueueSubscriptionReconcile(): Promise<void> {
@@ -1149,6 +1165,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         return;
       }
 
+      // The timer is armed before the reconcile awaits, so it can fire while
+      // that same reconcile is still pending. Rebuilding here would queue every
+      // destroy behind the stalled mutation on the same per-key queue and tear
+      // down the healthy subscriptions in the meantime, so wait it out instead.
+      if (this._reconcileInFlight) {
+        this._scheduleCriticalSubscriptionHealthCheck(
+          `${reason}__reconcile_in_flight`,
+        );
+        return;
+      }
+
       const client = this._client;
       if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
         return;
@@ -1160,6 +1187,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lifecycleVersion !== this._subscriptionLifecycleVersion ||
         !requiredSubInfo
       ) {
+        return;
+      }
+
+      // A reconcile can also start while buildRequiredSubscriptionsMap awaits.
+      // A plain reconcile does not bump _subscriptionLifecycleVersion, so the
+      // guard above cannot catch it, and its subscribes have not landed yet,
+      // which biases the checks below toward reporting them missing. The
+      // remaining steps are synchronous, so this is the last point a concurrent
+      // reconcile can slip in before the rebuild.
+      if (this._reconcileInFlight) {
+        this._scheduleCriticalSubscriptionHealthCheck(
+          `${reason}__reconcile_in_flight`,
+        );
         return;
       }
 
@@ -2054,6 +2094,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
+        // A dropped subscribe ack stalls the whole reconcile for the SDK's 10s
+        // default, leaving the order book empty. Keep this at or above
+        // reconnect.connectionTimeout so frames rews buffers while the socket
+        // is reconnecting still get a chance to flush before aborting.
+        timeout: 5000,
         /* spell-checker:disable */
         reconnect: {
           maxRetries: 999,

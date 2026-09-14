@@ -148,16 +148,7 @@ function NotificationItem({
   const imageElement = useMemo(() => {
     if (item.icon) {
       return (
-        <Stack
-          w={28}
-          h={28}
-          bg="$bgStrong"
-          borderColor="$borderSubdued"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderRadius="$full"
-          ai="center"
-          jc="center"
-        >
+        <Stack w={28} h={28} borderRadius="$full" ai="center" jc="center">
           <Icon name={item.icon} color="$icon" size="$4.5" />
         </Stack>
       );
@@ -766,7 +757,8 @@ export function NotificationListView({
           zIndex={10}
           bg="$bg"
           $platform-web={{
-            position: 'sticky',
+            // Tamagui's web type still exposes the unsupported legacy value.
+            position: 'sticky' as '-webkit-sticky',
             top: 0,
           }}
         >

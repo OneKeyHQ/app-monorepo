@@ -1,7 +1,10 @@
 import { EEarnProviderEnum } from '../../types/earn';
 import { EApproveType } from '../../types/staking';
+import { getNetworkIdsMap } from '../config/networkIds';
 import {
+  MorphoBaseBundlerContract,
   MorphoBundlerContract,
+  MorphoKatanaBundlerContract,
   PendleRouterContract,
 } from '../consts/addresses';
 
@@ -157,9 +160,11 @@ function resolveEarnApproveType({
 }
 
 function resolveEarnAllowanceSpenderAddress({
+  networkId,
   approveType,
   approveSpenderAddress,
 }: {
+  networkId: string;
   approveType?: EApproveType;
   approveSpenderAddress?: string;
 }) {
@@ -167,6 +172,12 @@ function resolveEarnAllowanceSpenderAddress({
     return '';
   }
   if (approveType === EApproveType.Permit) {
+    if (networkId === getNetworkIdsMap().base) {
+      return MorphoBaseBundlerContract;
+    }
+    if (networkId === getNetworkIdsMap().katana) {
+      return MorphoKatanaBundlerContract;
+    }
     return MorphoBundlerContract;
   }
   return approveSpenderAddress;

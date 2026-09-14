@@ -31,6 +31,7 @@ export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   swapStockPayTokenDisplayAtom: 'ctx:swapStockPayTokenDisplayAtom',
   swapBalanceDisplayCacheAtom: 'ctx:swapBalanceDisplayCacheAtom',
   swapStockBalanceDisplayCacheAtom: 'ctx:swapStockBalanceDisplayCacheAtom',
+  swapProSelectTokenAtom: 'ctx:swapProSelectTokenAtom',
   swapProPositionsCacheAtom: 'ctx:swapProPositionsCacheAtom',
 } as const;
 

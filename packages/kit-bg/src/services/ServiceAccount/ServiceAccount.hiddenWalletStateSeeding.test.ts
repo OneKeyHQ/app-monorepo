@@ -143,7 +143,7 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
     });
     // The live read must happen before the hidden-wallet session is opened,
     // otherwise it restores the standard Protocol V1 session. Persistence
-    // drains happen after the passphrase call and before the final status read.
+    // drain happens after the passphrase call before wallet creation.
     expect(callOrder).toEqual([
       'getDeviceState',
       'getPassphraseState',
@@ -258,7 +258,7 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
       ...SEEDED_STATE,
       status: { mode: 'normal', unlocked: true, unlockedAttachPin: false },
     } as unknown as IOneKeyDeviceState;
-    const { service } = buildService({
+    const { service, getDeviceByConnectIdMock } = buildService({
       dbDevice,
       callOrder,
       latestDbDevice: { deviceStateInfo: postUnlockState },
@@ -275,6 +275,10 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
     expect(service.createHWWalletBase).toHaveBeenCalledWith(
       expect.objectContaining({ deviceState: postUnlockState }),
     );
+    expect(getDeviceByConnectIdMock).toHaveBeenNthCalledWith(1, {
+      connectId: 'CONNECT_ID_1',
+      featuresDeviceId: 'DEVICE_ID_1',
+    });
   });
 
   it('never queries by an empty connectId for the post-unlock refresh', async () => {
@@ -302,20 +306,30 @@ describe('createHWHiddenWallet canonical device state seeding', () => {
     );
   });
 
-  it('reports isAttachPinMode from the freshest persisted post-unlock state', async () => {
+  it('reports isAttachPinMode from the persisted post-unlock state', async () => {
     const callOrder: string[] = [];
     const dbDevice = buildDbDevice({ connectProtocol: 'V1' });
-    const { service } = buildService({
+    const postUnlockState = {
+      ...SEEDED_STATE,
+      status: { mode: 'normal', unlockedAttachPin: false },
+    } as unknown as IOneKeyDeviceState;
+    const postDerivationState = {
+      ...SEEDED_STATE,
+      status: { mode: 'normal', unlockedAttachPin: true },
+    } as unknown as IOneKeyDeviceState;
+    const { service, getDeviceByConnectIdMock } = buildService({
       dbDevice,
       callOrder,
-      // The seeded pre-unlock snapshot says no attach-PIN unlock, but the
-      // state persisted during the passphrase/derivation calls says yes.
       latestDbDevice: {
-        deviceStateInfo: {
-          ...SEEDED_STATE,
-          status: { mode: 'normal', unlockedAttachPin: true },
-        } as unknown as IOneKeyDeviceState,
+        deviceStateInfo: postUnlockState,
       },
+    });
+    getDeviceByConnectIdMock
+      .mockResolvedValueOnce({ deviceStateInfo: postUnlockState })
+      .mockResolvedValueOnce({ deviceStateInfo: postDerivationState });
+    service.getFeaturesForHwWalletCreate.mockResolvedValue({
+      deviceId: 'DEVICE_ID_1',
+      unlockedAttachPin: false,
     });
 
     const result = (await service.createHWHiddenWallet({

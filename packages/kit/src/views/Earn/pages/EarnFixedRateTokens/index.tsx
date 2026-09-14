@@ -215,12 +215,11 @@ function EarnFixedRateTokensContent() {
       <AvailableAssetItem
         asset={item}
         categoryType={EAvailableAssetsTypeEnum.FixedRate}
-        totalLiquidityLabel={totalLiquidityLabel}
         testID={EarnTestIDs.fixedRateItem(item.symbol)}
         onPress={() => handleAssetPress(item)}
       />
     ),
-    [handleAssetPress, totalLiquidityLabel],
+    [handleAssetPress],
   );
 
   const keyExtractor = useCallback(

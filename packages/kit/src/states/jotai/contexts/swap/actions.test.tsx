@@ -13,6 +13,7 @@ import {
   SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER,
   SWAP_PRO_POSITIONS_CACHE_VERSION,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
+import { loadSwapProPositions } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsLoader';
 import { swapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { getSwapStableTokenKey } from '@onekeyhq/kit/src/views/Swap/utils/swapStableCoinUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -25,6 +26,7 @@ import {
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -56,6 +58,7 @@ import {
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
+  swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
@@ -64,10 +67,8 @@ import {
   swapProDirectionAtom,
   swapProInputAmountAtom,
   swapProPositionsCacheAtom,
-  swapProPositionsCurrentOwnerKeyAtom,
-  swapProPositionsDataOwnerKeyAtom,
+  swapProPositionsRuntimeDataAtom,
   swapProSelectTokenAtom,
-  swapProSupportNetworksTokenListAtom,
   swapProTokenBalanceLoadingAtom,
   swapProUseSelectBuyTokenAtom,
   swapProUserSelectedTokenAtom,
@@ -84,7 +85,9 @@ import {
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSelectTokenDetailFetchingAtom,
   swapSelectedFromTokenBalanceAtom,
+  swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapStockExecutionTokenSyncIdAtom,
@@ -93,7 +96,6 @@ import {
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
-  swapUserSelectedTokensAtom,
   useSwapBalanceDisplayCacheAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -116,6 +118,14 @@ const mockFetchSwapTokenDetails: jest.MockedFunction<
     params: IFetchSwapTokenDetailsParams,
   ) => Promise<{ balanceParsed?: string; price?: string; fiatValue?: string }[]>
 > = jest.fn();
+const mockGetNativeTokenAddress = jest.fn<
+  Promise<string>,
+  [{ networkId: string }]
+>();
+const mockGetNetworkAccount = jest.fn<
+  Promise<INetworkAccount | undefined>,
+  [{ networkId: string }]
+>();
 const mockFetchQuotesEvents: jest.MockedFunction<
   (params: unknown) => Promise<void>
 > = jest.fn();
@@ -136,6 +146,9 @@ const mockSetSwapNetworksSortRawData: jest.MockedFunction<
 const mockSetSwapProSelectToken: jest.MockedFunction<
   (token: ISwapToken) => Promise<void>
 > = jest.fn();
+const mockGetSwapProSelectToken: jest.MockedFunction<
+  () => Promise<ISwapToken | undefined>
+> = jest.fn();
 const mockGetSupportSwapAllAccounts: jest.MockedFunction<
   (params: unknown) => Promise<{
     supportAccountsFetchFailed: boolean;
@@ -149,9 +162,19 @@ const mockGetSupportSwapAllAccounts: jest.MockedFunction<
 const mockFetchSwapTokens: jest.MockedFunction<
   (params: unknown) => Promise<ISwapToken[]>
 > = jest.fn();
+const mockFetchMarketTokenListBatch: jest.MockedFunction<
+  (params: unknown) => Promise<{ list: { stock?: ISwapToken['stock'] }[] }>
+> = jest.fn();
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceToken: {
+      getNativeTokenAddress: (params: { networkId: string }) =>
+        mockGetNativeTokenAddress(params),
+    },
+    serviceNetwork: {
+      getGlobalDeriveTypeOfNetwork: async () => 'default',
+    },
     serviceSwap: {
       fetchSwapTokens: (params: unknown) => mockFetchSwapTokens(params),
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
@@ -163,8 +186,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       cancelFetchQuoteEvents: (quoteRequestId?: string) =>
         mockCancelFetchQuoteEvents(quoteRequestId),
     },
+    serviceMarketV2: {
+      fetchMarketTokenListBatch: (params: unknown) =>
+        mockFetchMarketTokenListBatch(params),
+    },
     simpleDb: {
       swapProSelectToken: {
+        getSwapProSelectToken: () => mockGetSwapProSelectToken(),
         setSwapProSelectToken: (token: ISwapToken) =>
           mockSetSwapProSelectToken(token),
       },
@@ -174,6 +202,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       },
     },
     serviceAccount: {
+      getNetworkAccount: (params: { networkId: string }) =>
+        mockGetNetworkAccount(params),
       checkAccountNetworkNotSupported: (params: {
         walletId?: string;
         accountId?: string;
@@ -457,6 +487,12 @@ describe('useSwapActions', () => {
     platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);
     jest.clearAllMocks();
+    mockGetNativeTokenAddress.mockResolvedValue('');
+    mockGetNetworkAccount.mockImplementation(async ({ networkId }) => ({
+      ...evmAccount,
+      addressDetail: { ...evmAccount.addressDetail, networkId },
+    }));
+    mockGetSwapProSelectToken.mockResolvedValue(undefined);
     mockSetSwapProSelectToken.mockResolvedValue(undefined);
     mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
     mockCloseApproving.mockResolvedValue(undefined);
@@ -464,6 +500,7 @@ describe('useSwapActions', () => {
     mockCheckAccountNetworkNotSupported.mockResolvedValue(false);
     mockFetchQuotesEvents.mockResolvedValue(undefined);
     mockFetchSwapTokens.mockResolvedValue([]);
+    mockFetchMarketTokenListBatch.mockResolvedValue({ list: [] });
     mockGetSupportSwapAllAccounts.mockResolvedValue({
       supportAccountsFetchFailed: false,
       swapSupportAccounts: [],
@@ -737,6 +774,167 @@ describe('useSwapActions', () => {
     });
   });
 
+  it.each([ESwapDirectionType.FROM, ESwapDirectionType.TO])(
+    'resolves the Aptos native address for the %s display balance',
+    async (direction) => {
+      const nativeAddress = '0x1::aptos_coin::AptosCoin';
+      const aptosToken: ISwapToken = {
+        networkId: 'aptos--1',
+        contractAddress: '',
+        isNative: true,
+        symbol: 'APT',
+        decimals: 8,
+      };
+      mockGetNativeTokenAddress.mockResolvedValue(nativeAddress);
+      mockFetchSwapTokenDetails.mockImplementation(async (params) => [
+        {
+          balanceParsed:
+            params.contractAddress === nativeAddress ? '6.6044' : '0',
+        },
+      ]);
+      const selectedTokenAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectFromTokenAtom
+          : swapSelectToTokenAtom;
+      const selectedBalanceAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectedFromTokenBalanceAtom
+          : swapSelectedToTokenBalanceAtom;
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(selectedTokenAtom(), aptosToken);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.loadSwapSelectTokenDetail(direction, {
+          ...fromAddressInfo,
+          networkId: aptosToken.networkId,
+        });
+      });
+
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: aptosToken.networkId,
+          contractAddress: nativeAddress,
+          direction,
+        }),
+      );
+      expect(store.get(selectedBalanceAtom())).toBe('6.6044');
+      expect(store.get(selectedTokenAtom())?.contractAddress).toBe('');
+    },
+  );
+
+  it.each(['token', 'account'] as const)(
+    'does not send a stale native balance request after switching %s during address resolution',
+    async (switchTarget) => {
+      const nativeAddress = '0x1::aptos_coin::AptosCoin';
+      const pendingAddress = createDeferred<string>();
+      const aptosToken: ISwapToken = {
+        networkId: 'aptos--1',
+        contractAddress: '',
+        isNative: true,
+        symbol: 'APT',
+        decimals: 8,
+      };
+      mockGetNativeTokenAddress
+        .mockImplementationOnce(() => pendingAddress.promise)
+        .mockResolvedValue(nativeAddress);
+      mockFetchSwapTokenDetails.mockResolvedValue([{ balanceParsed: '7' }]);
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(swapSelectFromTokenAtom(), aptosToken);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const addressInfo = {
+        ...fromAddressInfo,
+        networkId: aptosToken.networkId,
+      };
+      let pendingBalance: Promise<void> | undefined;
+      await act(async () => {
+        pendingBalance = result.current.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          addressInfo,
+          true,
+        );
+      });
+      await act(async () => {
+        if (switchTarget === 'token') {
+          store.set(swapSelectFromTokenAtom(), {
+            ...aptosToken,
+            contractAddress: 'aptos-usdc',
+            isNative: false,
+            symbol: 'USDC',
+          });
+        }
+        await result.current.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          {
+            ...addressInfo,
+            address: switchTarget === 'account' ? '0xdef' : addressInfo.address,
+          },
+          true,
+        );
+        pendingAddress.resolve(nativeAddress);
+        await pendingBalance;
+      });
+
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(1);
+      expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('7');
+    },
+  );
+
+  it('keeps loading and balance owned by the latest account when responses arrive out of order', async () => {
+    const oldDetail = createDeferred<{ balanceParsed: string }[]>();
+    const newDetail = createDeferred<{ balanceParsed: string }[]>();
+    mockFetchSwapTokenDetails
+      .mockImplementationOnce(() => oldDetail.promise)
+      .mockImplementationOnce(() => newDetail.promise);
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    let oldRequest: Promise<void> | undefined;
+    let newRequest: Promise<void> | undefined;
+    await act(async () => {
+      oldRequest = result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+        true,
+      );
+    });
+    await act(async () => {
+      newRequest = result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        { ...fromAddressInfo, address: '0xdef' },
+        true,
+      );
+    });
+    await act(async () => {
+      oldDetail.resolve([{ balanceParsed: '99' }]);
+      await oldRequest;
+    });
+    expect(store.get(swapSelectTokenDetailFetchingAtom()).from).toBe(true);
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('');
+    expect(store.get(swapSelectFromTokenAtom())?.accountAddress).not.toBe(
+      '0xabc',
+    );
+    expect(store.get(swapBalanceDisplayCacheAtom()).entries).toHaveLength(0);
+
+    await act(async () => {
+      newDetail.resolve([{ balanceParsed: '7' }]);
+      await newRequest;
+    });
+    expect(store.get(swapSelectTokenDetailFetchingAtom()).from).toBe(false);
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('7');
+    expect(store.get(swapSelectFromTokenAtom())?.accountAddress).toBe('0xdef');
+    expect(store.get(swapBalanceDisplayCacheAtom()).entries).toEqual([
+      expect.objectContaining({ accountAddress: '0xdef', balance: '7' }),
+    ]);
+  });
+
   it('does not persist an error fallback as a display balance', async () => {
     mockFetchSwapTokenDetails.mockRejectedValue(new Error('network error'));
 
@@ -766,6 +964,70 @@ describe('useSwapActions', () => {
     expect(result.current.balance).toBe('0.0');
     expect(result.current.balanceDisplayCache.entries).toEqual([]);
   });
+
+  it.each(['detail', 'recipient account'] as const)(
+    'does not replace a refresh with cached balance while %s is resolving',
+    async (stage) => {
+      const direction =
+        stage === 'detail' ? ESwapDirectionType.FROM : ESwapDirectionType.TO;
+      const selectedTokenAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectFromTokenAtom
+          : swapSelectToTokenAtom;
+      const selectedBalanceAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectedFromTokenBalanceAtom
+          : swapSelectedToTokenBalanceAtom;
+      const oldDetail = createDeferred<{ balanceParsed: string }[]>();
+      const oldAccount = createDeferred<INetworkAccount | undefined>();
+      if (stage === 'detail') {
+        mockFetchSwapTokenDetails
+          .mockImplementationOnce(() => oldDetail.promise)
+          .mockResolvedValueOnce([{ balanceParsed: '5' }]);
+      } else {
+        mockGetNetworkAccount.mockImplementationOnce(() => oldAccount.promise);
+        mockFetchSwapTokenDetails.mockResolvedValueOnce([
+          { balanceParsed: '5' },
+        ]);
+      }
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(selectedTokenAtom(), {
+          ...ethToken,
+          balanceParsed: '10',
+          accountAddress: fromAddressInfo.address,
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      let refresh: Promise<void> | undefined;
+      await act(async () => {
+        refresh = result.current.loadSwapSelectTokenDetail(
+          direction,
+          fromAddressInfo,
+          true,
+        );
+      });
+      await act(async () => {
+        await result.current.loadSwapSelectTokenDetail(
+          direction,
+          fromAddressInfo,
+          false,
+        );
+        oldDetail.resolve([{ balanceParsed: '7' }]);
+        oldAccount.resolve(evmAccount);
+        await refresh;
+      });
+
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(
+        stage === 'detail' ? 2 : 1,
+      );
+      expect(store.get(selectedBalanceAtom())).toBe('5');
+      expect(store.get(swapSelectTokenDetailFetchingAtom())[direction]).toBe(
+        false,
+      );
+    },
+  );
 
   it('does not let the ordinary Swap balance loader run for Stock tokens', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
@@ -852,6 +1114,38 @@ describe('useSwapActions', () => {
       symbol: 'AAPL',
       contractAddress: '0xaapl',
     });
+  });
+
+  it('clears the stale pay token while a Stock pair changes network', async () => {
+    const solanaStockToken = {
+      ...appleStockToken,
+      networkId: 'sol--101',
+    };
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+      storeInstance.set(swapStockExecutionTokensAtom(), {
+        syncId: 1,
+        fromToken: usdcToken,
+        toToken: stockTokenA,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.selectStockExecutionTokens({
+        toToken: solanaStockToken,
+        clearFromToken: true,
+        syncId: 2,
+      });
+    });
+
+    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
+    expect(store.get(swapSelectToTokenAtom())).toEqual(solanaStockToken);
+    expect(store.get(swapStockExecutionTokensAtom())).toBeUndefined();
   });
 
   it('does not clear the Stock selected owner on a pay-token-only execution sync', async () => {
@@ -1849,17 +2143,13 @@ describe('useSwapActions', () => {
     ).toBeUndefined();
   });
 
-  it('carries the ordinary Swap target into native Pro', async () => {
+  it('carries native BTC into Pro when Market support config omits it', async () => {
     platformEnv.isNative = true;
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
-      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+      storeInstance.set(swapSelectToTokenAtom(), btcToken);
       storeInstance.set(swapProSelectTokenAtom(), usdcToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: bnbToken,
-        toToken: appleStockToken,
-      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -1871,82 +2161,20 @@ describe('useSwapActions', () => {
         bnbToken.networkId,
         {
           ...carryTargetTokenOptions,
-          proSupportedNetworkIds: buildProSupportedNetworkIds(appleStockToken),
+          proSupportedNetworkIds: new Set(),
         },
       );
     });
 
     expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
-    expect(store.get(swapProSelectTokenAtom())).toEqual(appleStockToken);
-    expect(mockSetSwapProSelectToken).toHaveBeenCalledWith(appleStockToken);
-  });
-
-  it('invalidates manual carry intent after a programmatic token write', async () => {
-    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
-      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
-      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
-    });
-    const { result } = renderHook(() => useSwapActions().current, {
-      wrapper: Wrapper,
-    });
-
-    await act(async () => {
-      await result.current.selectToTokenByUser(usdtToken);
-    });
-    expect(store.get(swapUserSelectedTokensAtom())).toEqual({
-      fromToken: bnbToken,
-      toToken: usdtToken,
-    });
-
-    await act(async () => {
-      await result.current.selectToToken(uniToken);
-    });
-
-    expect(store.get(swapUserSelectedTokensAtom())).toBeUndefined();
-  });
-
-  it('publishes manual token intent before network-sort persistence settles', async () => {
-    let resolveNetworkSort: (() => void) | undefined;
-    mockSetSwapNetworksSortRawData.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        resolveNetworkSort = resolve;
-      }),
-    );
-    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
-      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
-      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
-    });
-    const { result } = renderHook(() => useSwapActions().current, {
-      wrapper: Wrapper,
-    });
-
-    let selectionPromise: Promise<void> | undefined;
-    act(() => {
-      selectionPromise = result.current.selectToTokenByUser(uniToken);
-    });
-
-    expect(store.get(swapSelectToTokenAtom())).toEqual(uniToken);
-    expect(store.get(swapUserSelectedTokensAtom())).toEqual({
-      fromToken: bnbToken,
-      toToken: uniToken,
-    });
-
-    await act(async () => {
-      resolveNetworkSort?.();
-      await selectionPromise;
-    });
+    expect(store.get(swapProSelectTokenAtom())).toEqual(btcToken);
+    expect(mockSetSwapProSelectToken).toHaveBeenCalledWith(btcToken);
   });
 
   it('owns Pro user selection independently from metadata backfill', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
       storeInstance.set(swapProSelectTokenAtom(), uniToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: bnbToken,
-        toToken: usdtToken,
-      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -1965,16 +2193,11 @@ describe('useSwapActions', () => {
       isStock: false,
     });
     expect(store.get(swapProUserSelectedTokenAtom())).toEqual(bnbToken);
-    expect(store.get(swapUserSelectedTokensAtom())).toBeUndefined();
   });
 
   it('clears stale carry intent for programmatic Pro initialization', async () => {
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapProUserSelectedTokenAtom(), uniToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: bnbToken,
-        toToken: usdtToken,
-      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -1986,37 +2209,27 @@ describe('useSwapActions', () => {
 
     expect(store.get(swapProSelectTokenAtom())).toEqual(bnbToken);
     expect(store.get(swapProUserSelectedTokenAtom())).toBeUndefined();
-    expect(store.get(swapUserSelectedTokensAtom())).toBeUndefined();
   });
 
-  it('keeps an armed Swap selection aligned after reversing the pair', () => {
+  it('loads the shared Pro token without overriding a newer selection', async () => {
+    const savedTokenRequest = createDeferred<ISwapToken | undefined>();
+    mockGetSwapProSelectToken.mockReturnValue(savedTokenRequest.promise);
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
-      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
-      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: bnbToken,
-        toToken: usdtToken,
-      });
+      storeInstance.set(swapProSelectTokenAtom(), usdcToken);
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
     });
 
-    act(() => {
-      result.current.alternationToken();
+    let initializePromise: Promise<void> | undefined;
+    await act(async () => {
+      initializePromise = result.current.initializeSwapProSelectToken();
+      await result.current.selectSwapProToken(bnbToken);
+      savedTokenRequest.resolve(uniToken);
+      await initializePromise;
     });
 
-    expect(store.get(swapUserSelectedTokensAtom())).toEqual({
-      fromToken: usdtToken,
-      toToken: bnbToken,
-    });
-
-    store.set(swapUserSelectedTokensAtom(), undefined);
-    act(() => {
-      result.current.alternationToken();
-    });
-    expect(store.get(swapUserSelectedTokensAtom())).toBeUndefined();
+    expect(store.get(swapProSelectTokenAtom())).toEqual(bnbToken);
   });
 
   it('carries Swap FromToken when ToToken is stable', async () => {
@@ -2026,10 +2239,6 @@ describe('useSwapActions', () => {
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
       storeInstance.set(swapSelectToTokenAtom(), usdtToken);
       storeInstance.set(swapProSelectTokenAtom(), uniToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: bnbToken,
-        toToken: usdtToken,
-      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -2057,10 +2266,6 @@ describe('useSwapActions', () => {
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
       storeInstance.set(swapSelectToTokenAtom(), usdcToken);
       storeInstance.set(swapProSelectTokenAtom(), uniToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: bnbToken,
-        toToken: usdcToken,
-      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -2088,10 +2293,6 @@ describe('useSwapActions', () => {
       storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
       storeInstance.set(swapSelectToTokenAtom(), usdtToken);
       storeInstance.set(swapProSelectTokenAtom(), uniToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: usdcToken,
-        toToken: usdtToken,
-      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -2120,10 +2321,6 @@ describe('useSwapActions', () => {
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
       storeInstance.set(swapSelectToTokenAtom(), usdtToken);
       storeInstance.set(swapProSelectTokenAtom(), uniToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: bnbToken,
-        toToken: usdtToken,
-      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -2143,17 +2340,13 @@ describe('useSwapActions', () => {
     expect(store.get(swapProSelectTokenAtom())).toEqual(usdtToken);
   });
 
-  it('does not carry a Swap token into an unsupported Pro network', async () => {
+  it('does not carry Litecoin into an unsupported Pro network', async () => {
     platformEnv.isNative = true;
     const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
       storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
       storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
-      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapSelectToTokenAtom(), ltcToken);
       storeInstance.set(swapProSelectTokenAtom(), uniToken);
-      storeInstance.set(swapUserSelectedTokensAtom(), {
-        fromToken: bnbToken,
-        toToken: usdtToken,
-      });
     });
     const { result } = renderHook(() => useSwapActions().current, {
       wrapper: Wrapper,
@@ -2355,33 +2548,6 @@ describe('useSwapActions', () => {
       await result.current.swapTypeSwitchAction(
         ESwapTabSwitchType.LIMIT,
         bnbToken.networkId,
-      );
-    });
-
-    expect(store.get(swapProSelectTokenAtom())).toEqual(usdcToken);
-    expect(mockSetSwapProSelectToken).not.toHaveBeenCalled();
-  });
-
-  it('does not carry targets on a plain user tab flip', async () => {
-    platformEnv.isNative = true;
-    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
-      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
-      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
-      storeInstance.set(swapProSelectTokenAtom(), usdcToken);
-    });
-    const { result } = renderHook(() => useSwapActions().current, {
-      wrapper: Wrapper,
-    });
-
-    await act(async () => {
-      await result.current.swapTypeSwitchAction(
-        ESwapTabSwitchType.LIMIT,
-        bnbToken.networkId,
-        {
-          ...carryTargetTokenOptions,
-          proSupportedNetworkIds: buildProSupportedNetworkIds(appleStockToken),
-        },
       );
     });
 
@@ -4750,16 +4916,18 @@ describe('useSwapActions', () => {
     ]);
   });
 
-  it('updates position balances only for the active owner and keeps its cache coherent', async () => {
+  it('updates position balances only for an initialized owner and keeps its cache coherent', async () => {
     const ownerA = 'account-a__evm--1__usd';
     const ownerB = 'account-b__evm--56__usd';
     const updatedAt = 123;
     const { store, Wrapper } = createWrapperWithStore();
-    store.set(swapProPositionsCurrentOwnerKeyAtom(), ownerA);
-    store.set(swapProPositionsDataOwnerKeyAtom(), ownerA);
-    store.set(swapProSupportNetworksTokenListAtom(), [
-      { ...ethToken, balanceParsed: '1' },
-    ]);
+    store.set(swapProPositionsRuntimeDataAtom(), {
+      [ownerA]: {
+        status: 'success',
+        tokens: [{ ...ethToken, balanceParsed: '1' }],
+        updatedAt,
+      },
+    });
     store.set(swapProPositionsCacheAtom(), {
       version: SWAP_PRO_POSITIONS_CACHE_VERSION,
       byOwner: {
@@ -4784,7 +4952,8 @@ describe('useSwapActions', () => {
     });
 
     expect(
-      store.get(swapProSupportNetworksTokenListAtom())[0]?.balanceParsed,
+      store.get(swapProPositionsRuntimeDataAtom())[ownerA]?.tokens[0]
+        ?.balanceParsed,
     ).toBe('2');
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerA]?.tokens[0]
@@ -4795,18 +4964,15 @@ describe('useSwapActions', () => {
     ).toBe(updatedAt);
 
     act(() => {
-      store.set(swapProPositionsCurrentOwnerKeyAtom(), ownerB);
-      store.set(swapProPositionsDataOwnerKeyAtom(), ownerB);
-      store.set(swapProSupportNetworksTokenListAtom(), [bnbToken]);
       result.current.updateSwapProPositionTokenBalances({
-        positionOwnerKey: ownerA,
+        positionOwnerKey: ownerB,
         tokens: [{ ...ethToken, balanceParsed: '3' }],
       });
     });
 
-    expect(store.get(swapProSupportNetworksTokenListAtom())).toEqual([
-      bnbToken,
-    ]);
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[ownerB],
+    ).toBeUndefined();
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerA]?.tokens[0]
         ?.balanceParsed,
@@ -4872,7 +5038,271 @@ describe('useSwapActions', () => {
     ).toBe(false);
   });
 
-  it('uses a fresh top-N positions cache only as a seed and still restores the full live list', async () => {
+  it('publishes each network position as soon as that network request succeeds', async () => {
+    const ownerKey = 'indexed-account__evm--1,evm--56__usd';
+    const cachedEthToken = {
+      ...ethToken,
+      balanceParsed: '1',
+      fiatValue: '100',
+    };
+    const cachedBnbToken = {
+      ...bnbToken,
+      balanceParsed: '2',
+      fiatValue: '50',
+    };
+    const updatedEthToken = {
+      ...cachedEthToken,
+      balanceParsed: '3',
+      fiatValue: '300',
+    };
+    const updatedBnbToken = {
+      ...cachedBnbToken,
+      balanceParsed: '4',
+      fiatValue: '200',
+    };
+    const ethRequest = createDeferred<ISwapToken[]>();
+    const bnbRequest = createDeferred<ISwapToken[]>();
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--1',
+          accountId: 'eth-account',
+        },
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--56',
+          accountId: 'bnb-account',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockImplementation((params) => {
+      const { networkId } = params as { networkId: string };
+      return networkId === 'evm--1' ? ethRequest.promise : bnbRequest.promise;
+    });
+    const { store, Wrapper } = createWrapperWithStore();
+    store.set(swapProPositionsCacheAtom(), {
+      version: SWAP_PRO_POSITIONS_CACHE_VERSION,
+      byOwner: {
+        [ownerKey]: {
+          ownerKey,
+          networkIdsKey: 'evm--1,evm--56',
+          currencyId: 'usd',
+          tokens: [cachedEthToken, cachedBnbToken],
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    let loadPromise: Promise<void> | undefined;
+    act(() => {
+      loadPromise = result.current.swapProLoadSupportNetworksTokenList(
+        [
+          { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+          { networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' },
+        ],
+        'indexed-account',
+        undefined,
+        'usd',
+        { positionLoader: loadSwapProPositions },
+      );
+    });
+    await waitFor(() => {
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      ethRequest.resolve([updatedEthToken]);
+      await Promise.resolve();
+    });
+
+    const partiallyLoadedTokens = store.get(swapProPositionsRuntimeDataAtom())[
+      ownerKey
+    ].tokens;
+    expect(partiallyLoadedTokens.map((token) => token.balanceParsed)).toEqual([
+      '3',
+    ]);
+    expect(store.get(swapProPositionsRuntimeDataAtom())[ownerKey].status).toBe(
+      'loading',
+    );
+    expect(
+      store
+        .get(swapProPositionsCacheAtom())
+        .byOwner[ownerKey].tokens.find((token) => token.networkId === 'evm--1')
+        ?.balanceParsed,
+    ).toBe('1');
+    expect(
+      store
+        .get(swapProPositionsCacheAtom())
+        .byOwner[ownerKey].tokens.find((token) => token.networkId === 'evm--56')
+        ?.balanceParsed,
+    ).toBe('2');
+
+    await act(async () => {
+      bnbRequest.resolve([updatedBnbToken]);
+      await loadPromise;
+    });
+
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[ownerKey],
+    ).toMatchObject({
+      status: 'success',
+      tokens: [updatedEthToken, updatedBnbToken],
+    });
+    expect(
+      store
+        .get(swapProPositionsCacheAtom())
+        .byOwner[ownerKey].tokens.find((token) => token.networkId === 'evm--1')
+        ?.balanceParsed,
+    ).toBe('3');
+    expect(
+      store
+        .get(swapProPositionsCacheAtom())
+        .byOwner[ownerKey].tokens.find((token) => token.networkId === 'evm--56')
+        ?.balanceParsed,
+    ).toBe('4');
+  });
+
+  it('warms Swap and Stock owners through one network queue', async () => {
+    const swapOwnerKey = 'indexed-account__evm--1,evm--56__usd';
+    const stockOwnerKey = 'indexed-account__evm--56__usd__stock';
+    const stockPositionToken = { ...stockTokenA, fiatValue: '10' };
+    const stablePositionToken = { ...usdcToken, fiatValue: '5' };
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--1',
+          accountId: 'eth-account',
+        },
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--56',
+          accountId: 'bnb-account',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockImplementation(async (params) => {
+      const { networkId } = params as { networkId: string };
+      return networkId === 'evm--1'
+        ? [ethToken]
+        : [stockPositionToken, stablePositionToken];
+    });
+    const stock = {} as NonNullable<ISwapToken['stock']>;
+    mockFetchMarketTokenListBatch.mockResolvedValue({
+      list: [{ stock }, {}],
+    });
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapProLoadSupportNetworksTokenList(
+        [
+          { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+          { networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' },
+        ],
+        'indexed-account',
+        undefined,
+        'usd',
+        {
+          positionLoader: loadSwapProPositions,
+          additionalSupportNetworkScopes: [
+            {
+              stockOnly: true,
+              supportNetworks: [
+                {
+                  networkId: 'evm--56',
+                  name: 'BNB Smart Chain',
+                  symbol: 'BNB',
+                },
+              ],
+            },
+          ],
+        },
+      );
+    });
+
+    expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+    expect(mockFetchMarketTokenListBatch).toHaveBeenCalledTimes(1);
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[swapOwnerKey],
+    ).toMatchObject({
+      status: 'success',
+      tokens: expect.arrayContaining([
+        ethToken,
+        stockPositionToken,
+        stablePositionToken,
+      ]),
+    });
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[stockOwnerKey],
+    ).toMatchObject({
+      status: 'success',
+      tokens: [{ ...stockPositionToken, isStock: true, stock }],
+    });
+  });
+
+  it('keeps successful network positions when another network fails', async () => {
+    const ownerKey = 'indexed-account__evm--1,evm--56__usd';
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--1',
+          accountId: 'eth-account',
+        },
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--56',
+          accountId: 'bnb-account',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockImplementation(async (params) => {
+      const { networkId } = params as { networkId: string };
+      if (networkId === 'evm--56') {
+        throw new OneKeyLocalError('BNB request failed');
+      }
+      return [{ ...ethToken, fiatValue: '100' }];
+    });
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapProLoadSupportNetworksTokenList(
+        [
+          { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+          { networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' },
+        ],
+        'indexed-account',
+        undefined,
+        'usd',
+        { positionLoader: loadSwapProPositions },
+      );
+    });
+
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[ownerKey],
+    ).toMatchObject({
+      status: 'error',
+      tokens: [{ ...ethToken, fiatValue: '100' }],
+    });
+    expect(
+      store.get(swapProPositionsCacheAtom()).byOwner[ownerKey],
+    ).toBeUndefined();
+  });
+
+  it('keeps the full runtime list while bounding the persisted last-good snapshot', async () => {
     const ownerKey = 'indexed-account__evm--1__usd';
     const liveTokens = Array.from(
       { length: SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER + 5 },
@@ -4922,20 +5352,20 @@ describe('useSwapActions', () => {
         'indexed-account',
         undefined,
         'usd',
+        { positionLoader: loadSwapProPositions },
       );
     });
 
     expect(mockFetchSwapTokens).toHaveBeenCalledTimes(1);
-    expect(store.get(swapProSupportNetworksTokenListAtom())).toHaveLength(
-      SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER + 5,
-    );
-    expect(store.get(swapProPositionsDataOwnerKeyAtom())).toBe(ownerKey);
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[ownerKey].tokens,
+    ).toHaveLength(SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER + 5);
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerKey].tokens,
     ).toHaveLength(SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER);
   });
 
-  it('does not mark a persisted positions seed as live when the refresh fails', async () => {
+  it('does not publish a persisted positions snapshot when the live refresh fails', async () => {
     const ownerKey = 'indexed-account__evm--1__usd';
     mockGetSupportSwapAllAccounts.mockResolvedValue({
       supportAccountsFetchFailed: true,
@@ -4964,12 +5394,16 @@ describe('useSwapActions', () => {
         'indexed-account',
         undefined,
         'usd',
+        { positionLoader: loadSwapProPositions },
       );
     });
 
-    expect(store.get(swapProPositionsCurrentOwnerKeyAtom())).toBe(ownerKey);
-    expect(store.get(swapProPositionsDataOwnerKeyAtom())).toBe('');
-    expect(store.get(swapProSupportNetworksTokenListAtom())).toEqual([]);
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[ownerKey],
+    ).toMatchObject({
+      status: 'error',
+      tokens: [],
+    });
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerKey].tokens,
     ).toEqual([ethToken]);

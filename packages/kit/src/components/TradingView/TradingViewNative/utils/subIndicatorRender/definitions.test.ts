@@ -211,17 +211,37 @@ describe('TradingViewNative sub-indicator definitions', () => {
 
     const macd = getTradingViewNativeSubIndicatorDefinition('MACD');
     expect(macd.plots.map(({ id }) => id)).toEqual([
-      'histogram',
       'macd',
       'signal',
+      'histogram',
     ]);
-    expect(macd.plots[0]).toMatchObject({
+    expect(macd.plots.map(({ title }) => title)).toEqual([
+      'DIF',
+      'DEA',
+      'MACD',
+    ]);
+    expect(macd.plots[2]).toMatchObject({
       defaultStyle: { baseline: 0, type: 'columns' },
       paletteId: 'histogram',
     });
     expect(macd.palettes).toHaveLength(1);
     expect(macd.palettes[0]?.id).toBe('histogram');
     expect(macd.palettes[0]?.defaultColors).toHaveLength(4);
+  });
+
+  it('enables the 30-period MAOBV line by default', () => {
+    const obv = getTradingViewNativeSubIndicatorDefinition('OBV');
+
+    expect(
+      obv.inputs.find(({ id }) => id === 'movingAveragePeriod'),
+    ).toMatchObject({ defaultValue: 30 });
+    expect(obv.plots.map(({ title }) => title)).toEqual(['OBV', 'MAOBV']);
+    expect(obv.plots[1]).toMatchObject({
+      defaultStyle: {
+        color: '$orange9',
+        visible: true,
+      },
+    });
   });
 
   it('models oscillator bands, fills, and zero reference lines', () => {

@@ -153,6 +153,47 @@ describe('sanitizeText', () => {
     expect(result).toBe('Failed to sign: ****');
   });
 
+  test('should sanitize quoted sensitive JSON values', () => {
+    const result = sanitizeText(
+      '{"password":"hunter2","token":"opaque-short-token","safe":"value"}',
+    );
+    expect(result).not.toContain('hunter2');
+    expect(result).not.toContain('opaque-short-token');
+  });
+
+  test('should sanitize bearer authorization values before credential labels', () => {
+    const result = sanitizeText('Authorization: Bearer opaque-short-token');
+    expect(result).not.toContain('opaque-short-token');
+  });
+
+  test('should sanitize sensitive mnemonic arrays and seed keys', () => {
+    const mnemonicArray = sanitizeText(
+      '{"mnemonic":["abandon","ability","able"]}',
+    );
+    const seedArray = sanitizeText('{"seed":["abandon","ability","able"]}');
+    for (const result of [mnemonicArray, seedArray]) {
+      expect(result).not.toContain('abandon');
+      expect(result).not.toContain('ability');
+      expect(result).not.toContain('able');
+    }
+  });
+
+  test('should sanitize multiline sensitive arrays with diagnostic prefixes', () => {
+    const result = sanitizeText(`Error: {"mnemonic": [
+      "abandon",
+      "ability",
+      "able"
+    ]}`);
+    expect(result).not.toContain('abandon');
+    expect(result).not.toContain('ability');
+    expect(result).not.toContain('able');
+  });
+
+  test('should sanitize quoted credentials containing the other quote type', () => {
+    const result = sanitizeText('{"password":"hunter\'s2"}');
+    expect(result).not.toContain("hunter's2");
+  });
+
   test('should sanitize mnemonic in error message', () => {
     const text = `Invalid mnemonic: ${TEST_MNEMONIC_3}`;
     const result = sanitizeText(text);
@@ -537,6 +578,57 @@ describe('buildBasicOptions', () => {
       expect(event.exception.values[0].stacktrace.frames[0].vars.secret).toBe(
         '****',
       );
+      expect(onError.mock.calls[0][1].frames[0].vars.secret).toBe('****');
+    });
+
+    test('should sanitize stacktrace variables without an exception message', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              stacktrace: {
+                frames: [
+                  {
+                    vars: {
+                      secret: TEST_ETH_PRIVATE_KEY,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      };
+
+      void callBeforeSend(options, event);
+
+      expect(event.exception.values[0].stacktrace.frames[0].vars.secret).toBe(
+        '****',
+      );
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    test('should sanitize credentials, addresses, URLs, emails, and short mnemonic sequences', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              value:
+                'password=hunter2 abandon, ability, able https://example.com/path?token=abc user@example.com 0x0123456789abcdef0123456789abcdef01234567',
+            },
+          ],
+        },
+      };
+
+      void callBeforeSend(options, event);
+
+      expect(event.exception.values[0].value).toBe(
+        'password=**** ****, ****, **** **** **** ****',
+      );
     });
 
     test('should filter breadcrumbs with sentry.event category and error level', () => {
@@ -578,6 +670,34 @@ describe('buildBasicOptions', () => {
       const result = callBeforeSend(options, event);
 
       expect(result).toBeNull();
+    });
+
+    test('should forward web-embed exceptions locally and drop the Sentry event', () => {
+      const previousIsWebEmbed = platformEnv.isWebEmbed;
+      platformEnv.isWebEmbed = true;
+      try {
+        const onError = jest.fn();
+        const options = buildBasicOptions({ onError });
+        const event: any = {
+          exception: {
+            values: [
+              {
+                value: `Secret: ${TEST_MNEMONIC_3}`,
+              },
+            ],
+          },
+        };
+
+        const result = callBeforeSend(options, event);
+
+        expect(result).toBeNull();
+        expect(onError).toHaveBeenCalledWith(
+          'Secret: **** **** ****',
+          undefined,
+        );
+      } finally {
+        platformEnv.isWebEmbed = previousIsWebEmbed;
+      }
     });
 
     test('should handle event without exception values', () => {

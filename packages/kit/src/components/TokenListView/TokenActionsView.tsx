@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,11 +9,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
-import {
-  buildTokenListMapKey,
-  equalTokenNoCaseSensitive,
-  sortTokensCommon,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -28,17 +24,12 @@ import { useAggregateSubTokenFiat } from '../../states/jotai/contexts/tokenList/
 
 import {
   buildTokenActionSwapFromToken,
-  findTokenActionAggregateKey,
   getResolvedTokenActionToken,
-  getTokenActionSameNetworkSwapToToken,
   getTokenActionSwapToToken,
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
 import { useTokenListViewContext } from './TokenListViewContext';
-import {
-  useTokenBalanceMultiplier,
-  useTokenBalanceParsedRaw,
-} from './useTokenFiatField';
+import { useTokenBalanceMultiplier } from './useTokenFiatField';
 
 import type { XStackProps } from 'tamagui';
 
@@ -82,21 +73,10 @@ function TokenActionsView(props: IProps) {
   });
   const networkId =
     resolvedActiveToken?.networkId ?? activeAccount?.network?.id ?? '';
-  const accountAddress = account?.addressDetail?.address;
-  // RAW basis: this value only seeds the Swap modal's fallback balance
-  // (never rendered here), and the Swap boundary expects on-chain-raw
-  // amounts uniformly today — mixing in the display-multiplied basis would
-  // desync it from the `aggregateFromTokenFiat?.balanceParsed` (raw) branch
-  // of the `??` fallback below.
-  const fromTokenBalance = useTokenBalanceParsedRaw(
-    resolvedActiveToken?.$key ?? '',
-  );
   const aggregateFromTokenFiat = useAggregateSubTokenFiat(
     token.isAggregateToken ? token.$key : '',
     resolvedActiveToken?.networkId,
   );
-  const fromTokenBalanceSeed =
-    aggregateFromTokenFiat?.balanceParsed ?? fromTokenBalance;
   const fromTokenBalanceMultiplier = useTokenBalanceMultiplier(
     resolvedActiveToken?.$key ?? '',
   );
@@ -112,48 +92,6 @@ function TokenActionsView(props: IProps) {
       fromTokenBalanceMultiplier,
       resolvedActiveToken?.balanceMultiplier,
     ].find(tokenRebaseUtils.isScalingBalanceMultiplier) !== undefined;
-  const sameNetworkToToken = useMemo(() => {
-    if (!resolvedActiveToken || !networkId) {
-      return undefined;
-    }
-    return getTokenActionSameNetworkSwapToToken({
-      fromToken: buildTokenActionSwapFromToken({
-        token: resolvedActiveToken,
-        networkId,
-        networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
-      }),
-    });
-  }, [
-    activeAccount?.network?.logoURI,
-    network?.logoURI,
-    networkId,
-    resolvedActiveToken,
-  ]);
-  const sameNetworkToTokenKey =
-    sameNetworkToToken && accountAddress
-      ? buildTokenListMapKey({
-          networkId: sameNetworkToToken.networkId,
-          accountAddress,
-          tokenAddress: sameNetworkToToken.contractAddress ?? '',
-        })
-      : '';
-  // RAW basis — same rationale as `fromTokenBalance` above: only used as the
-  // Swap modal's `importToToken.balanceParsed` seed, never rendered here.
-  const sameNetworkToTokenBalance = useTokenBalanceParsedRaw(
-    sameNetworkToTokenKey,
-  );
-  const sameNetworkToTokenAggregateKey = useMemo(
-    () =>
-      findTokenActionAggregateKey({
-        ownedAggregateTokenListMap,
-        targetToken: sameNetworkToToken,
-      }),
-    [ownedAggregateTokenListMap, sameNetworkToToken],
-  );
-  const sameNetworkToTokenAggregateFiat = useAggregateSubTokenFiat(
-    sameNetworkToTokenAggregateKey ?? '',
-    sameNetworkToToken?.networkId,
-  );
 
   useEffect(() => {
     let isStale = false;
@@ -233,8 +171,6 @@ function TokenActionsView(props: IProps) {
       const importAccountKey =
         buildSwapSelectedTokensColdStartAccountKey(activeAccount);
       const importFromToken = buildTokenActionSwapFromToken({
-        accountAddress,
-        balanceParsed: fromTokenBalanceSeed,
         token: resolvedActiveToken,
         networkId,
         networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
@@ -255,22 +191,6 @@ function TokenActionsView(props: IProps) {
         } catch {
           // Keep the existing Swap fallback if capability refresh fails.
         }
-      }
-      if (
-        importToToken &&
-        sameNetworkToToken &&
-        equalTokenNoCaseSensitive({
-          token1: importToToken,
-          token2: sameNetworkToToken,
-        })
-      ) {
-        importToToken = {
-          ...importToToken,
-          accountAddress,
-          balanceParsed:
-            sameNetworkToTokenAggregateFiat?.balanceParsed ??
-            sameNetworkToTokenBalance,
-        };
       }
 
       defaultLogger.wallet.walletActions.actionTrade({
@@ -295,8 +215,6 @@ function TokenActionsView(props: IProps) {
     })();
   }, [
     activeAccount,
-    accountAddress,
-    fromTokenBalanceSeed,
     isSoftwareWalletOnlyUser,
     navigation,
     network,
@@ -305,9 +223,6 @@ function TokenActionsView(props: IProps) {
     isScaledUiSwapBlocked,
     networkId,
     resolvedActiveToken,
-    sameNetworkToToken,
-    sameNetworkToTokenAggregateFiat?.balanceParsed,
-    sameNetworkToTokenBalance,
   ]);
 
   if (!token) {

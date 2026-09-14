@@ -1,7 +1,52 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+import type {
+  ISettingCategoryOpenedParams,
+  ISettingItemClickedParams,
+  ISettingValueChangedParams,
+  ISettingsOpenedParams,
+  ISettingsSearchedParams,
+} from '../types';
+
 export class PageScene extends BaseScene {
+  /**
+   * Settings root opened. Fires once per mount, not on internal tab switches.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public settingsOpened(params: ISettingsOpenedParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public settingCategoryOpened(params: ISettingCategoryOpenedParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public settingItemClicked(params: ISettingItemClickedParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public settingValueChanged(params: ISettingValueChangedParams) {
+    return params;
+  }
+
+  /**
+   * In-settings search after the user stops typing. Never includes raw query
+   * text — only length, result count, and the top result's stable id.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public settingsSearched(params: ISettingsSearchedParams) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public resetApp({
@@ -38,20 +83,8 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public enterBackup() {
-    return {};
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
   public backup({ backupMethod }: { backupMethod: 'iCloud' | 'Google' }) {
     return { backupMethod };
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
-  public enterOneKeyLite() {
-    return {};
   }
 
   @LogToServer()
@@ -68,20 +101,8 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public oneKeyLiteImport() {
-    return {};
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
   public oneKeyLiteImportResult({ isSuccess }: { isSuccess: boolean }) {
     return { isSuccess };
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
-  public enterKeyTag() {
-    return {};
   }
 
   @LogToServer()
@@ -123,18 +144,6 @@ export class PageScene extends BaseScene {
       mode: args?.mode ?? 'unknown',
       reason: args?.reason ?? 'unknown',
     };
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
-  public enterCustomRPC() {
-    return {};
-  }
-
-  @LogToServer()
-  @LogToLocal({ level: 'info' })
-  public enterCustomizeTransaction() {
-    return {};
   }
 
   @LogToServer()

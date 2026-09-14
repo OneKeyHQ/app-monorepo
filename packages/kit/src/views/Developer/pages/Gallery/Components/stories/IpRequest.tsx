@@ -11,6 +11,7 @@ import {
   TextArea,
 } from '@onekeyhq/components';
 import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   DEFAULT_IP_TABLE_CONFIG,
   IP_TABLE_SPEED_TEST_TIMEOUT_MS,
@@ -22,6 +23,7 @@ import {
 import { sniRequest } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import { isSupportIpTablePlatform } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
+import { DesktopSniQueueTest } from './DesktopSniQueueTest';
 import { Layout } from './utils/Layout';
 
 const HARD_CODED_REQUEST = {
@@ -83,9 +85,7 @@ const IpRequestGallery = () => {
 
   const handleSend = useCallback(async () => {
     if (!isSupportIpTablePlatform()) {
-      setError(
-        'This demo only works on native clients because @onekeyfe/react-native-sni-connect is a native module.',
-      );
+      setError('This demo only works on native or desktop clients.');
       return;
     }
     setLoading(true);
@@ -103,9 +103,7 @@ const IpRequestGallery = () => {
 
   const handleSpeedTest = useCallback(async () => {
     if (!isSupportIpTablePlatform()) {
-      setSpeedTestError(
-        'Speed test only works on native clients because @onekeyfe/react-native-sni-connect is a native module.',
-      );
+      setSpeedTestError('Speed test only works on native or desktop clients.');
       return;
     }
 
@@ -341,7 +339,7 @@ const IpRequestGallery = () => {
           ),
         },
         {
-          title: 'Direct IP Request (Native Only)',
+          title: 'Direct IP Request (Native / Desktop)',
           element: (
             <Stack gap="$4">
               <Stack gap="$2">
@@ -386,6 +384,14 @@ const IpRequestGallery = () => {
             </Stack>
           ),
         },
+        ...(platformEnv.isDesktop
+          ? [
+              {
+                title: '20-request Queue + Cancel (Desktop Dev)',
+                element: <DesktopSniQueueTest />,
+              },
+            ]
+          : []),
       ]}
     />
   );

@@ -32,6 +32,51 @@ describe('buildPortfolioClaimSymbolMap', () => {
     ).toEqual({ status: 'matched', symbol: 'USDC' });
   });
 
+  it.each(['MORPHO', 'KAT'])(
+    'maps the Katana %s reward to the vbUSDC staking identity',
+    (rewardSymbol) => {
+      const katanaVault = '0xbeeff2d5d126d4809195eea02b605423917bb6c6';
+      const airdropAsset: IEarnAvailableAssetV2 = {
+        type: 'airdrop',
+        networkId: 'evm--747474',
+        provider: 'morpho',
+        symbol: rewardSymbol,
+        vault: katanaVault,
+      };
+      const claimSymbolMap = buildPortfolioClaimSymbolMap([
+        {
+          type: 'normal',
+          networkId: 'evm--747474',
+          provider: 'morpho',
+          symbol: 'vbUSDC',
+          vault: katanaVault.toUpperCase(),
+        },
+        airdropAsset,
+      ]);
+      const claimSymbolMatch = claimSymbolMap.get(
+        getPortfolioProtocolIdentityKey(airdropAsset),
+      );
+
+      expect(claimSymbolMatch).toEqual({
+        status: 'matched',
+        symbol: 'vbUSDC',
+      });
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: true,
+          providerName: 'morpho',
+          assetSymbol: rewardSymbol,
+          assetVault: katanaVault,
+          claimSymbol:
+            claimSymbolMatch?.status === 'matched'
+              ? claimSymbolMatch.symbol
+              : undefined,
+          claimSymbolStatus: claimSymbolMatch?.status,
+        }),
+      ).toEqual({ symbol: 'vbUSDC', vault: katanaVault });
+    },
+  );
+
   it('resolves non-USDC claim symbols without provider-specific rules', () => {
     const airdropAsset: IEarnAvailableAssetV2 = {
       type: 'airdrop',

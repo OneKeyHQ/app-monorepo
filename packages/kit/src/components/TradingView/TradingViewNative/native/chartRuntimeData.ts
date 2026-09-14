@@ -1,14 +1,15 @@
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
-interface ITradingViewNativeSubIndicatorPanesPictureInput {
-  chartPictureVersion: number;
+interface ITradingViewNativePictureInput {
   pointCount: number;
+  renderDataRevision: string;
+}
+
+interface ITradingViewNativeSubIndicatorPanesPictureInput extends ITradingViewNativePictureInput {
   structureKey: string;
 }
 
-interface ITradingViewNativeIndicatorSeriesPictureInput {
-  chartPictureVersion: number;
-  pointCount: number;
+interface ITradingViewNativeIndicatorSeriesPictureInput extends ITradingViewNativePictureInput {
   seriesKey: string;
   settingsKey: string;
 }
@@ -30,6 +31,19 @@ export interface ITradingViewNativeSubIndicatorPanesUpdate {
   structureKey: string;
 }
 
+export function shouldReplaceTradingViewNativeChartPoints({
+  current,
+  previous,
+}: {
+  current: ITradingViewNativePictureInput;
+  previous: ITradingViewNativePictureInput;
+}) {
+  return (
+    previous.renderDataRevision !== current.renderDataRevision ||
+    previous.pointCount !== current.pointCount
+  );
+}
+
 export function shouldReplaceTradingViewNativeIndicatorSeries({
   current,
   previous,
@@ -38,8 +52,7 @@ export function shouldReplaceTradingViewNativeIndicatorSeries({
   previous: ITradingViewNativeIndicatorSeriesPictureInput;
 }) {
   return (
-    previous.chartPictureVersion !== current.chartPictureVersion ||
-    previous.pointCount !== current.pointCount ||
+    shouldReplaceTradingViewNativeChartPoints({ current, previous }) ||
     previous.seriesKey !== current.seriesKey ||
     previous.settingsKey !== current.settingsKey
   );
@@ -144,8 +157,7 @@ export function getTradingViewNativeSubIndicatorPanesUpdate({
   previous: ITradingViewNativeSubIndicatorPanesPictureInput;
 }): ITradingViewNativeSubIndicatorPanesUpdate {
   const shouldReplaceAllPanes =
-    previous.chartPictureVersion !== current.chartPictureVersion ||
-    previous.pointCount !== current.pointCount ||
+    shouldReplaceTradingViewNativeChartPoints({ current, previous }) ||
     previous.structureKey !== current.structureKey;
   return {
     latestPaneValues: shouldReplaceAllPanes

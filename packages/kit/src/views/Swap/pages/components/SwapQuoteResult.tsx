@@ -23,7 +23,6 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapTokenMetadataAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -37,6 +36,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import {
   SWAP_QUOTE_INPUT_DEBOUNCE_MS,
@@ -45,11 +45,11 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
+  ESwapDirectionType,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
-  type ISwapToken,
-  type ISwapTokenMetadata,
+  type ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 
 import LimitExpirySelect from '../../components/LimitExpirySelect';
@@ -58,6 +58,7 @@ import SwapApprovingItem from '../../components/SwapApprovingItem';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
@@ -65,6 +66,7 @@ import {
   useSwapQuoteProgressState,
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapQuoteTokenTaxPercentages } from '../../utils/swapTokenTaxUtils';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
@@ -143,8 +145,20 @@ const SwapQuoteResult = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  // External-wallet accounts pay the fee estimated by the connected wallet
+  // itself, so the "Free" claim never holds; show the real quoted fee, and
+  // fall back to the "zero fee with OneKey wallet" promo copy only when the
+  // quote carries no fee estimate (OK-61254).
+  const fromAccountId = swapFromAddressInfo?.accountInfo?.account?.id;
+  const isExternalAccount = useMemo(
+    () =>
+      fromAccountId
+        ? accountUtils.isExternalAccount({ accountId: fromAccountId })
+        : false,
+    [fromAccountId],
+  );
 
   const [
     { swapApprovingTransaction, swapApprovingLoading },
@@ -196,13 +210,7 @@ const SwapQuoteResult = ({
   }, [slippageItem.key, slippageItem.value]);
 
   const calculateTaxItem = useCallback(
-    (
-      tokenBuyTaxBps: BigNumber,
-      tokenSellTaxBps: BigNumber,
-      tokenInfo?: ISwapToken,
-    ) => {
-      const showTax = BigNumber.maximum(tokenBuyTaxBps, tokenSellTaxBps);
-      const finalShowTax = showTax.dividedBy(100).toNumber();
+    (taxPercentage: string, tokenInfo?: ISwapTokenBase) => {
       return (
         <SwapCommonInfoItem
           title={intl.formatMessage(
@@ -213,7 +221,7 @@ const SwapQuoteResult = ({
           )}
           isLoading={isQuotePresentationLoading}
           valueComponent={
-            <SizableText size="$bodyMdMedium">{`${finalShowTax}%`}</SizableText>
+            <SizableText size="$bodyMdMedium">{`${taxPercentage}%`}</SizableText>
           }
         />
       );
@@ -221,51 +229,8 @@ const SwapQuoteResult = ({
     [intl, isQuotePresentationLoading],
   );
 
-  const tokenMetadataParse = useCallback(
-    (
-      tokenMetadata: ISwapTokenMetadata,
-      fromTokenInfo?: ISwapToken,
-      toTokenInfo?: ISwapToken,
-    ) => {
-      const buyToken = tokenMetadata?.buyToken;
-      const sellToken = tokenMetadata?.sellToken;
-      let buyTaxItem = null;
-      let sellTaxItem = null;
-      const buyTokenBuyTaxBps = new BigNumber(
-        buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
-      );
-      const buyTokenSellTaxBps = new BigNumber(
-        buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
-      );
-      const sellTokenBuyTaxBps = new BigNumber(
-        sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
-      );
-      const sellTokenSellTaxBps = new BigNumber(
-        sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
-      );
-      if (buyTokenBuyTaxBps.gt(0) || buyTokenSellTaxBps.gt(0)) {
-        buyTaxItem = calculateTaxItem(
-          buyTokenBuyTaxBps,
-          buyTokenSellTaxBps,
-          toTokenInfo,
-        );
-      }
-      if (sellTokenBuyTaxBps.gt(0) || sellTokenSellTaxBps.gt(0)) {
-        sellTaxItem = calculateTaxItem(
-          sellTokenBuyTaxBps,
-          sellTokenSellTaxBps,
-          fromTokenInfo,
-        );
-      }
-      return (
-        <>
-          {sellTaxItem}
-          {buyTaxItem}
-        </>
-      );
-    },
-    [calculateTaxItem],
-  );
+  const { buyTaxPercentage, sellTaxPercentage } =
+    getSwapQuoteTokenTaxPercentages(quoteResultForDisplay);
 
   const quoting = isQuotePresentationLoading;
 
@@ -482,7 +447,9 @@ const SwapQuoteResult = ({
             })}
             isLoading={isQuotePresentationLoading}
             valueComponent={
-              quoteResultForDisplay?.fee?.isFreeNetworkFee ? (
+              quoteResultForDisplay?.fee?.isFreeNetworkFee &&
+              (!isExternalAccount ||
+                !quoteResultForDisplay?.fee?.estimatedFeeFiatValue) ? (
                 <XStack gap="$1" alignItems="center">
                   <Icon
                     name="PartyCelebrateSolid"
@@ -492,7 +459,9 @@ const SwapQuoteResult = ({
                   />
                   <SizableText size="$bodyMdMedium" color="$textSuccess">
                     {intl.formatMessage({
-                      id: ETranslations.prime_status_free,
+                      id: isExternalAccount
+                        ? ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc
+                        : ETranslations.prime_status_free,
                     })}
                   </SizableText>
                 </XStack>
@@ -522,11 +491,16 @@ const SwapQuoteResult = ({
             }
           />
         ) : null}
-        {swapTokenMetadata?.swapTokenMetadata
-          ? tokenMetadataParse(
-              swapTokenMetadata?.swapTokenMetadata,
-              fromToken,
-              toToken,
+        {sellTaxPercentage
+          ? calculateTaxItem(
+              sellTaxPercentage,
+              quoteResultForDisplay?.fromTokenInfo,
+            )
+          : null}
+        {buyTaxPercentage
+          ? calculateTaxItem(
+              buyTaxPercentage,
+              quoteResultForDisplay?.toTokenInfo,
             )
           : null}
       </SwapQuoteResultAccordion>

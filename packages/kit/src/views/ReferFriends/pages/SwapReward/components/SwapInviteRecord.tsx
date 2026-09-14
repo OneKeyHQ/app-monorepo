@@ -146,7 +146,7 @@ export function SwapInviteRecord({
               </Badge>
             </XStack>
             <Stack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={isExpanded ? '0deg' : '-90deg'}
             >

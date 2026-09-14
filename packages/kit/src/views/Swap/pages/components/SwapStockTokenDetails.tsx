@@ -131,12 +131,12 @@ function TokenRatioDialogContent() {
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
+            <Accordion.HeightAnimator transition="quick">
               <Accordion.Content
                 unstyled
                 p={0}
                 pt="$2"
-                animation="100ms"
+                transition="100ms"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 enterStyle={{ opacity: 0 }}
                 exitStyle={{ opacity: 0 }}

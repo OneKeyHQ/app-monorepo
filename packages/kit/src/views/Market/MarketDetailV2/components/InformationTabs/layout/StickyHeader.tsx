@@ -48,6 +48,9 @@ function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
   if (focusedTab === portfolioTabName) {
     currentHeader = portfolioHeader;
   } else if (focusedTab === liquidityPoolsTabName) {
+    // The liquidity table scrolls horizontally (960px min width), so its
+    // column header must live inside that ScrollView to stay aligned with the
+    // rows — it renders in the tab content with a matching 44px zone instead.
     return null;
   } else if (focusedTab !== firstTabName) {
     currentHeader = holdersHeader;

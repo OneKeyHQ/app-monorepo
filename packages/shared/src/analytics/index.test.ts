@@ -37,6 +37,7 @@ jest.mock('../platformEnv', () => ({
     isDev: false,
     isE2E: false,
     isNative: false,
+    isWeb: true,
     isWebEmbed: false,
     version: '1.0.0',
   },
@@ -172,6 +173,59 @@ describe('Analytics tier', () => {
     );
   });
 
+  it('waits for profile delivery and propagates request failures', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.updateUserProfileAsync({
+      isOneKeyIdLoggedIn: false,
+      isPrimeActive: false,
+    });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/attributes',
+      expect.objectContaining({
+        distinctId: 'instance-id',
+        attributes: expect.objectContaining({
+          isOneKeyIdLoggedIn: false,
+          isPrimeActive: false,
+        }),
+      }),
+    );
+
+    mockPost.mockRejectedValueOnce(new OneKeyLocalError('network failed'));
+
+    await expect(
+      analytics.updateUserProfileAsync({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+      }),
+    ).rejects.toThrow('network failed');
+  });
+
+  it('rejects confirmed profile delivery before analytics is initialized', async () => {
+    const analytics = new Analytics();
+
+    await expect(
+      analytics.updateUserProfileAsync({ isOneKeyIdLoggedIn: false }),
+    ).rejects.toThrow('Analytics is not initialized');
+  });
+
+  it('resolves whenInitialized after init and immediately when already ready', async () => {
+    const analytics = new Analytics();
+    let initialized = false;
+    const pending = analytics.whenInitialized().then(() => {
+      initialized = true;
+    });
+
+    expect(initialized).toBe(false);
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+    await pending;
+    expect(initialized).toBe(true);
+
+    await expect(analytics.whenInitialized()).resolves.toBeUndefined();
+  });
+
   it('sends events with the medium fallback when tier enrichment fails', async () => {
     mockGetDeviceCpuTier.mockImplementationOnce(() => {
       throw new OneKeyLocalError('segment runtime mismatch');
@@ -219,5 +273,69 @@ describe('Analytics tier', () => {
       '[Analytics] Failed to load device info:',
       expect.any(Error),
     );
+  });
+});
+
+describe('Analytics redemption URL privacy', () => {
+  const originalLocation = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'location',
+  );
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+  afterEach(() => {
+    for (const [key, descriptor] of [
+      ['location', originalLocation],
+      ['window', originalWindow],
+    ] as const) {
+      if (descriptor) {
+        Object.defineProperty(globalThis, key, descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, key);
+      }
+    }
+  });
+
+  it.each([
+    [
+      'https://app.onekey.so/prime/redeem?code=PRIVATE-CODE#PRIVATE-HASH',
+      'https://app.onekey.so/prime/redeem',
+    ],
+    [
+      'https://app.onekey.so/prime/redeem/?code=PRIVATE-CODE',
+      'https://app.onekey.so/prime/redeem/',
+    ],
+    [
+      'https://app.onekey.so/wallet?ref=email#section',
+      'https://app.onekey.so/wallet?ref=email#section',
+    ],
+  ])('serializes the analytics URL for %s', async (href, expected) => {
+    const location = new URL(href);
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: location,
+    });
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location },
+    });
+    mockPost.mockClear();
+    mockPost.mockResolvedValue(undefined);
+    mockGetDeviceCpuTier.mockReturnValue('high');
+    mockGetDeviceInfo.mockResolvedValue({ deviceId: 'device-id' });
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('primeEvent');
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventProps: expect.objectContaining({ currentUrl: expected }),
+      }),
+    );
+    expect(JSON.stringify(mockPost.mock.calls)).not.toContain('PRIVATE-CODE');
+    expect(JSON.stringify(mockPost.mock.calls)).not.toContain('PRIVATE-HASH');
+    expect(globalThis.location.href).toBe(href);
   });
 });

@@ -12,8 +12,11 @@ import {
 
 import type {
   ILightweightChartConfig,
+  ILightweightChartHistogramOptions,
   ILightweightChartLineType,
   ILightweightChartPriceScalePosition,
+  ILightweightChartReferenceLine,
+  ILightweightChartSeriesType,
   ILightweightChartTime,
 } from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
@@ -30,20 +33,33 @@ interface IUseChartConfigProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  horzLineColor?: string;
+  horzLineStyle?: number;
   priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
+  crosshairVertLineColor?: string;
+  crosshairVertLineStyle?: number;
+  patternColor?: string;
+  pulseLastPointColor?: string;
+  priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
+  compactPriceMaxCharacters?: number;
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
-  seriesType?: 'area' | 'baseline' | 'dotted-area';
+  seriesType?: ILightweightChartSeriesType;
   lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
+  histogramOptions?: ILightweightChartHistogramOptions;
+  referenceLine?: ILightweightChartReferenceLine;
   showLastValue?: boolean;
+  showLastValuePriceLine?: boolean;
+  lastValueLabelColor?: string;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
 }
@@ -60,20 +76,33 @@ export function useChartConfig({
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
+  horzLineColor,
+  horzLineStyle,
   priceScalePosition = 'right',
   priceScaleMargins,
   priceScaleEntireTextOnly,
+  crosshairVertLineColor,
+  crosshairVertLineStyle,
+  patternColor,
+  pulseLastPointColor,
+  priceScaleMinimumWidth,
   priceFormatter,
+  compactPriceMaxCharacters,
   priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
   seriesType,
   lineType,
   baselineOptions,
+  histogramOptions,
+  referenceLine,
   showLastValue,
+  showLastValuePriceLine,
+  lastValueLabelColor,
   showLastPointMarker,
   showTimeScale = true,
   useTimeScaleTickMarkWithoutUnit,
+  timeScaleRightOffsetPixels,
   timeZone,
   locale,
 }: IUseChartConfigProps): ILightweightChartConfig {
@@ -87,6 +116,34 @@ export function useChartConfig({
     seriesType: resolvedSeriesType,
     priceFormatterTickStep: priceFormatterTickStepProp,
   });
+
+  // Mapped once per source array so that replacing only one of them (charts
+  // that re-cut their overlay on every crosshair step) leaves the other one
+  // referentially stable, and the consumer can tell the two updates apart.
+  const chartData = useMemo(
+    () =>
+      data.map(([time, value]: [number, number]) => ({
+        time: time as ILightweightChartTime,
+        value,
+        ...(resolvedSeriesType === 'histogram'
+          ? {
+              color:
+                value >= (histogramOptions?.base ?? 0)
+                  ? (histogramOptions?.positiveColor ?? lineColor)
+                  : (histogramOptions?.negativeColor ?? lineColor),
+            }
+          : {}),
+      })),
+    [data, histogramOptions, lineColor, resolvedSeriesType],
+  );
+  const chartSecondaryLineData = useMemo(
+    () =>
+      secondaryLineData?.map(([time, value]: [number, number]) => ({
+        time: time as ILightweightChartTime,
+        value,
+      })),
+    [secondaryLineData],
+  );
 
   return useMemo(
     () => ({
@@ -104,38 +161,41 @@ export function useChartConfig({
       priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
-      horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
-      horzLineStyle: 2,
-      data: data.map(([time, value]: [number, number]) => ({
-        time: time as ILightweightChartTime,
-        value,
-      })),
-      secondaryLineData: secondaryLineData?.map(
-        ([time, value]: [number, number]) => ({
-          time: time as ILightweightChartTime,
-          value,
-        }),
-      ),
+      horzLineColor: horzLineColor ?? theme.borderSubdued?.val ?? '#E5E5EA',
+      horzLineStyle: horzLineStyle ?? 2,
+      crosshairVertLineColor,
+      crosshairVertLineStyle,
+      patternColor,
+      pulseLastPointColor,
+      data: chartData,
+      secondaryLineData: chartSecondaryLineData,
       secondaryLineColor,
       secondaryLineWidth,
+      priceScaleMinimumWidth,
       priceFormatter,
       priceFormatterType,
+      compactPriceMaxCharacters,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
       seriesType: resolvedSeriesType,
       lineType,
       baselineOptions,
+      histogramOptions,
+      referenceLine,
       showLastValue,
+      showLastValuePriceLine,
+      lastValueLabelColor,
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
+      timeScaleRightOffsetPixels,
       timeZone,
       locale,
     }),
     [
-      data,
-      secondaryLineData,
+      chartData,
+      chartSecondaryLineData,
       theme.textSubdued?.val,
       theme.borderSubdued?.val,
       lineColor,
@@ -147,21 +207,34 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      horzLineColor,
+      horzLineStyle,
       priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
+      crosshairVertLineColor,
+      crosshairVertLineStyle,
+      patternColor,
+      pulseLastPointColor,
+      priceScaleMinimumWidth,
       priceFormatter,
       priceFormatterType,
+      compactPriceMaxCharacters,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
       resolvedSeriesType,
       lineType,
       baselineOptions,
+      histogramOptions,
+      referenceLine,
       showLastValue,
+      showLastValuePriceLine,
+      lastValueLabelColor,
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
+      timeScaleRightOffsetPixels,
       timeZone,
       locale,
     ],

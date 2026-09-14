@@ -1,5 +1,16 @@
 /* eslint-disable import/first */
 
+// The one-time DeFi risk disclaimer (OK-59196) gates every borrow trade hook.
+// Accept it by default here; the rejection path has its own test.
+const mockEnsureRiskAccepted = jest.fn(async () => true);
+jest.mock(
+  '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog',
+  () => ({
+    __esModule: true,
+    useEarnRiskWarningGate: () => mockEnsureRiskAccepted,
+  }),
+);
+
 jest.mock('react-intl', () => {
   const actualReactIntl =
     jest.requireActual<typeof import('react-intl')>('react-intl');
@@ -382,6 +393,34 @@ describe('useBorrowApproval', () => {
     });
 
     expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('resets approval progress when the request scope changes', async () => {
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ amountValue }: { amountValue: string }) =>
+        useBorrowApproval({
+          action: 'repay',
+          amountValue,
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit,
+        }),
+      { initialProps: { amountValue: '5' } },
+    );
+
+    expect(result.current.approvalProgressStarted).toBe(false);
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    expect(result.current.approvalProgressStarted).toBe(true);
+
+    rerender({ amountValue: '6' });
+    expect(result.current.approvalProgressStarted).toBe(false);
+
+    rerender({ amountValue: '5' });
+    expect(result.current.approvalProgressStarted).toBe(false);
   });
 
   it('opens approval from cached insufficient allowance when the fresh check fails', async () => {
@@ -1118,5 +1157,62 @@ describe('useBorrowApproval', () => {
     );
     expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(3);
     expect(onBeforeNavigateConfirm).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('useBorrowApproval risk disclaimer gate (OK-59196)', () => {
+  it('blocks the approve step when the disclaimer is declined', async () => {
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    mockEnsureRiskAccepted.mockResolvedValue(false);
+    backgroundMock.serviceStaking.getBorrowManagePage.mockResolvedValue({
+      borrowAllowance: '0',
+    });
+
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'borrow',
+        providerName: 'aave',
+        amountValue: '5',
+        borrowDelegationApproveTarget: delegationTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(mockEnsureRiskAccepted).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: delegationTarget.provider }),
+    );
+    // Bailed out before taking the approving lock, so the footer never sticks.
+    expect(result.current.approving).toBe(false);
+    expect(result.current.approvalProgressStarted).toBe(false);
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+    expect(
+      backgroundMock.serviceStaking.getBorrowManagePage,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('falls back to providerName when there is no delegation target', async () => {
+    mockEnsureRiskAccepted.mockResolvedValue(false);
+
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        providerName: 'kamino',
+        amountValue: '5',
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit: jest.fn(),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(mockEnsureRiskAccepted).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'kamino' }),
+    );
   });
 });

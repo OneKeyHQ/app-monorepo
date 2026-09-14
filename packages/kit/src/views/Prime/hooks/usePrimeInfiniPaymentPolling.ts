@@ -1,13 +1,13 @@
 /* cspell:ignore Infini infini */
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { mergePrimeInfiniPaymentProgressSnapshot } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import {
-  isPrimeInfiniPaymentForAssetSnapshot,
-  isSamePrimeInfiniPaymentTransferSnapshot,
-  mergePrimeInfiniPaymentProgressSnapshot,
-} from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+  createPrimeInfiniPaymentValidationError,
+  getPrimeInfiniPaymentValidationFailure,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import type {
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentAsset,
@@ -57,6 +57,7 @@ function getProcessingFailureReason(reason: string) {
 }
 
 export function usePrimeInfiniPaymentPolling({
+  flowId,
   payment,
   asset,
   baseline,
@@ -66,6 +67,7 @@ export function usePrimeInfiniPaymentPolling({
   onIssue,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 }: {
+  flowId?: string;
   payment: IPrimeInfiniPayment | undefined;
   asset: IPrimeInfiniPaymentAsset;
   baseline: IPrimeInfiniPurchaseBaseline;
@@ -75,6 +77,7 @@ export function usePrimeInfiniPaymentPolling({
   onIssue?: (error: unknown) => void;
   pollIntervalMs?: number;
 }) {
+  const flowIdRef = useRef(flowId);
   const adapter = useCallback<
     IPrimePurchaseMonitorAdapter<
       IPrimeInfiniPaymentMonitorData,
@@ -92,6 +95,16 @@ export function usePrimeInfiniPaymentPolling({
 
       const [paymentResult, purchaseStatusResult] = await Promise.allSettled([
         backgroundApiProxy.servicePrime.apiGetInfiniPayment({
+          flowContext: flowIdRef.current
+            ? {
+                flowId: flowIdRef.current,
+                paymentSource: 'polling',
+                expectedChain: asset.chain,
+                expectedToken: asset.token,
+                sessionMode: 'tracking',
+                sendStarted: true,
+              }
+            : undefined,
           paymentId: frozenPayment.paymentId,
           expectedOneKeyUserId: baseline.onekeyUserId ?? '',
         }),
@@ -99,27 +112,34 @@ export function usePrimeInfiniPaymentPolling({
           expectedOneKeyUserId: baseline.onekeyUserId ?? '',
         }),
       ]);
+      const validationFailure =
+        paymentResult.status === 'fulfilled'
+          ? getPrimeInfiniPaymentValidationFailure({
+              payment: paymentResult.value,
+              previousPayment: frozenPayment,
+              asset,
+              validateQuote: false,
+            })
+          : undefined;
       const paymentRequestSucceeded =
-        paymentResult.status === 'fulfilled' &&
-        isSamePrimeInfiniPaymentTransferSnapshot({
-          first: frozenPayment,
-          second: paymentResult.value,
-          networkId: asset.networkId,
-        }) &&
-        isPrimeInfiniPaymentForAssetSnapshot({
-          payment: paymentResult.value,
-          asset,
-        });
+        paymentResult.status === 'fulfilled' && !validationFailure;
       const purchaseStatusRequestSucceeded =
         purchaseStatusResult.status === 'fulfilled';
 
-      const paymentIssue =
-        paymentResult.status === 'rejected'
-          ? {
-              reason: 'paymentUnavailableOrSnapshotMismatch',
-              error: paymentResult.reason,
-            }
-          : undefined;
+      let paymentError: unknown;
+      if (paymentResult.status === 'rejected') {
+        paymentError = paymentResult.reason;
+      } else if (validationFailure) {
+        paymentError = createPrimeInfiniPaymentValidationError(
+          validationFailure,
+          {
+            expectedChain: asset.chain,
+            expectedToken: asset.token,
+            actualChain: paymentResult.value.chain,
+            actualToken: paymentResult.value.token,
+          },
+        );
+      }
       const purchaseStatusIssue =
         purchaseStatusResult.status === 'rejected'
           ? {
@@ -134,7 +154,7 @@ export function usePrimeInfiniPaymentPolling({
                 ? 'paymentUnavailableOrSnapshotMismatch'
                 : 'purchaseStatusUnavailable',
               error: !paymentRequestSucceeded
-                ? paymentIssue?.error
+                ? paymentError
                 : purchaseStatusIssue?.error,
               relatedIssues:
                 !paymentRequestSucceeded && purchaseStatusIssue
@@ -214,6 +234,8 @@ export function usePrimeInfiniPaymentPolling({
         );
       }
       logPrimeInfiniPaymentFlow({
+        flowId: flowIdRef.current,
+        paymentSource: 'polling',
         stage: 'paymentPolling',
         status: 'succeeded',
         checkoutType: 'internalWallet',
@@ -240,6 +262,8 @@ export function usePrimeInfiniPaymentPolling({
         );
       }
       logPrimeInfiniPaymentFlow({
+        flowId: flowIdRef.current,
+        paymentSource: 'polling',
         stage: 'paymentPolling',
         status: terminalOutcome,
         checkoutType: 'internalWallet',
@@ -263,7 +287,9 @@ export function usePrimeInfiniPaymentPolling({
       logPrimeInfiniPaymentMonitorEvent({
         event,
         context: {
-          stage: 'paymentPolling',
+          flowId: flowIdRef.current,
+          paymentSource: 'polling',
+          stage: 'polling',
           checkoutType: 'internalWallet',
           paymentId: currentPayment.paymentId,
           networkId: asset.networkId,
@@ -289,6 +315,9 @@ export function usePrimeInfiniPaymentPolling({
     baseline.wasPrimeActive ? 'active' : 'inactive',
     baseline.primeExpiresAt ?? '',
     baseline.infiniPeriodEnd ?? '',
+    baseline.infiniSubscriptionId === undefined
+      ? 'legacy'
+      : (baseline.infiniSubscriptionId ?? 'none'),
   ].join(':');
   const monitor = usePrimePurchaseMonitor<
     IPrimeInfiniPaymentMonitorData,

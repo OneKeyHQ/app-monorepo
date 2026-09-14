@@ -1,95 +1,64 @@
 ---
 name: 1k-defi-module-integration
-description: OneKey App Earn, Borrow, Staking, and DeFi Portfolio implementation or debugging. Use for protocol data, action visibility, claim/withdraw/repay, transactions, pending/history, refresh, and Earn routes.
+description: Navigate and implement OneKey App Earn, Borrow, Staking, and DeFi Portfolio flows. Use for protocol data, portfolio actions, transactions, pending/history, refresh, and Earn routes.
 ---
 
-# Earn / DeFi Domain Guide
+# Earn / DeFi
 
-Use this skill as an owner and contract router. Ground every decision in the
-current code, payload, and owning service; do not treat an old issue or
-implementation snapshot as product truth.
+Use this skill to preserve DeFi ownership and operation boundaries. Start from
+current code, server data, and the real runtime; do not treat the skill as a
+path catalog or an implementation snapshot.
 
-## Working Loop
+## Operation And Refresh Boundary
 
-1. Observe the failing or requested user path. If the user names an issue,
-   thread, PR, payload, or server contract, inspect its current state.
-2. Locate the first wrong owner: entry/route, UI state, portfolio data,
-   supported action, transaction builder, order/status, or refresh.
-3. Write down the stable identity and sequence before editing: account,
-   network, provider, position, action, amount units, setup, business action,
-   terminal state, and refresh target.
-4. Find the closest current implementation with `rg`; reuse it only where its
-   identity and operation semantics match.
-5. Change the smallest stable owner and protect the nearest sibling protocols,
-   actions, routes, and platforms.
-6. Run focused tests and exercise the real owning route. If the fix fails,
-   revisit the owner and contract instead of adding another local exception.
+Keep the full operation scope—account, network, provider, market/reserve,
+position, token/symbol, action, and request id—through setup, business
+transaction, status, and refresh. A seeded approval/allowance or cached
+position is a display/input hint, not proof of current chain state: reconcile
+chain allowance when an approval-sensitive dialog mounts. Preserve native versus
+wrapped assets and server-derived symbols instead of inferring them from a
+provider name.
 
-## Owner Router
+Treat pending/history metadata as a contract. SpeedUp replacements inherit the
+metadata needed by pending guards; replacement linkage remains available for
+those guards, while Cancel replacements must not render as the original
+collateral/staking action after an indexer merge. Keep display filtering
+separate from operation locks and carry replacement identity through
+local/remote reconciliation.
 
-| Symptom or change                                         | Start with                                                      | Load                                                                                         |
-| --------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Earn home, list, recommendation, or detail                | Earn view/state owner and its service request                   | [app-architecture.md](references/app-architecture.md), [code-map.md](references/code-map.md) |
-| Borrow market, reserve, collateral, or health factor      | Borrow view/hooks plus current lending contract                 | [operation-flow.md](references/operation-flow.md)                                            |
-| Portfolio action missing or failing                       | Position metadata, supported actions, then transaction builder  | [portfolio-actions-guide.md](references/portfolio-actions-guide.md)                          |
-| Claim, withdraw, repay, approval, permit, or order status | Operation sequence and terminal ownership                       | [operation-flow.md](references/operation-flow.md)                                            |
-| Native route, modal, restart, event, or account switch    | Platform host and runtime ownership                             | [app-architecture.md](references/app-architecture.md)                                        |
-| External protocol website                                 | Discovery/browser until a chain RPC enters the App              | [app-architecture.md](references/app-architecture.md)                                        |
-| Funding or conversion after a handoff to Swap             | DeFi owns the prefill; Swap owns execution after quoting starts | `$1k-trade-swap-market`                                                                      |
+For Earn/Borrow refreshes, distinguish cached, empty, loading, error, and
+settled states. Preserve a complete visible snapshot during refresh and make
+identity changes invalidate the old result. Close a selector/modal at the user
+action boundary, then load the new market/reserve asynchronously.
 
-## Stable Contracts
+## Quick Start
 
-- Trace the full path from entry and data through action, setup, business
-  transaction, status, and refresh. A successful build response is not a
-  completed action.
-- Preserve account, network, provider, position, action, token, and route
-  identity across modal params, background calls, pending rows, and events.
-- Treat portfolio positions, supported actions, and transaction building as
-  separate contracts. Never infer all three from one response.
-- Derive claim/config token and vault identity from current service data;
-  never infer either from provider identity.
-- Keep approval/permit/setup separate from the business transaction. Every
-  success, failure, and cancel terminal must release duplicate-submit state.
-- Refresh only the affected account/network after a successful
-  position-changing outcome; reject stale results after owner changes.
-- Native Earn is hosted by Discovery. AssetDetails modal routes must carry
-  their own account context rather than assuming a Home provider is mounted.
+1. Reproduce the real entry and affected platform.
+2. Trace `entry -> data/position -> action -> transaction -> status -> refresh`.
+3. Find the first owner whose identity, capability, or transition is wrong.
+4. Reuse a nearby pattern only when its protocol and operation semantics match;
+   then verify the changed path and a relevant sibling.
 
-## Reference Routing
+## Choose The Reference
 
-Load only what the task needs:
+Locate the current owner in the live source before editing, then load only the
+reference that matches the failure class:
 
-- [app-architecture.md](references/app-architecture.md): surfaces, routing,
-  runtime ownership, and cross-surface boundaries.
-- [code-map.md](references/code-map.md): stable directories and search paths.
-- [operation-flow.md](references/operation-flow.md): typed operation,
-  transaction, pending, and refresh contracts.
-- [portfolio-actions-guide.md](references/portfolio-actions-guide.md): action
-  visibility, claim identity, grouped metadata, and build responses.
-- [validation.md](references/validation.md): focused tests and runtime proof.
+- [Architecture](references/app-architecture.md) for surface ownership, hosts,
+  runtime boundaries, and cross-module handoffs.
+- [Operation flow](references/operation-flow.md) for setup, status, async
+  identity, replacement, and refresh behavior.
+- [Portfolio actions](references/portfolio-actions-guide.md) for position
+  read-model and capability/build contracts.
+- [Validation](references/validation.md) for focused checks and platform proof.
+- For a funding handoff, stop DeFi ownership when Swap begins quoting and use
+  `$1k-trade-swap-market` for the remainder.
 
-## Hard Stops
+## Finish
 
-- Do not invent product behavior or request fields when client, server, or
-  runtime evidence is missing or contradictory.
-- Do not hide a portfolio position merely because it has no executable action.
-- Do not create an internal DeFi action for an external DApp before an App-owned
-  RPC or operation contract exists.
-- Do not broaden shared Staking/Borrow utilities without sibling-protocol
-  regression reasoning.
-- Do not claim runtime success from a static diff, a passing utility test, or
-  the existence of a rendered element.
-- Do not edit generated locale files; use `$1k-i18n`.
+State the owning surface/service and the identities that matter. Run nearby
+tests and repository-required checks, then prove the affected route reaches the
+intended terminal and refresh state. Report unavailable runtime or server proof.
 
-## Done When
-
-The owner and contract are explicit, the change is scoped to that owner,
-focused tests pass, the affected route/platform demonstrates the intended
-terminal state, and any unverified runtime or server dependency is disclosed.
-
-## Related Skills
-
-- `$1k-trade-swap-market` for Swap execution after a DeFi handoff.
-- `$1k-state-management` for Jotai ownership.
-- `$1k-cross-platform` for platform-specific UI and routing.
-- `$1k-coding-patterns` for TypeScript, React, and error handling.
+Related skills: `$1k-trade-swap-market`, `$1k-state-management`,
+`$1k-cross-platform`, `$1k-coding-patterns`.

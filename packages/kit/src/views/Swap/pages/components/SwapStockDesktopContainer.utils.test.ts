@@ -16,6 +16,7 @@ import {
   getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
+  shouldDeferStockInitialContent,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
@@ -83,6 +84,18 @@ describe('SwapStockDesktopContainer utils', () => {
       coinGeckoId: undefined,
       isLoading: false,
     });
+  });
+
+  it('settles a failed CoinGecko lookup without an id', () => {
+    const tokenScope = 'evm--1:0xstock';
+
+    expect(
+      getStockChartCoinGeckoIdState({
+        lookupResult: { cacheable: false, tokenScope },
+        networkId: 'evm--1',
+        tokenScope,
+      }),
+    ).toEqual({ coinGeckoId: undefined, isLoading: false });
   });
 
   it('ignores a completed CoinGecko lookup from another token scope', () => {
@@ -191,6 +204,36 @@ describe('SwapStockDesktopContainer utils', () => {
       shouldShowStockMarketHeaderSkeleton({
         channelStage: ESwapStockChannelStage.MissingStock,
         hasStockIdentity: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('coordinates cold Stock content until the channel finishes initializing', () => {
+    expect(
+      [
+        ESwapStockChannelStage.InitializingStock,
+        ESwapStockChannelStage.CheckingMarketStatus,
+        ESwapStockChannelStage.InitializingPayToken,
+      ].map((channelStage) =>
+        shouldDeferStockInitialContent({
+          channelStage,
+          startedWithoutContent: true,
+        }),
+      ),
+    ).toEqual([true, true, true]);
+    expect(
+      shouldDeferStockInitialContent({
+        channelStage: ESwapStockChannelStage.Ready,
+        startedWithoutContent: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps warm Stock display content visible while the channel revalidates', () => {
+    expect(
+      shouldDeferStockInitialContent({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        startedWithoutContent: false,
       }),
     ).toBe(false);
   });

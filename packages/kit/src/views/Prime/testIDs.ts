@@ -3,8 +3,16 @@ export const PrimeTestIDs = {
   primeHeaderBtn: 'headerRightPrimeButton', // preserve existing
   userInfoMoreBtn: 'prime-user-info-more-btn',
   redemptionMenuItem: 'prime-redemption-menu-item',
+  manageSubscriptionMenuItem: 'prime-manage-subscription-menu-item',
   redemptionCodeInput: 'prime-redemption-code-input',
   redemptionSuccess: 'prime-redemption-success',
+  redemptionLandingPage: 'prime-redemption-landing-page',
+  redemptionLandingBody: 'prime-redemption-landing-body',
+  redemptionAccountChip: 'prime-redemption-account-chip',
+  redemptionLoginBtn: 'prime-redemption-login-btn',
+  redemptionSubmitBtn: 'prime-redemption-submit-btn',
+  redemptionBenefitsToggle: 'prime-redemption-benefits-toggle',
+  redemptionDownloadBtn: 'prime-redemption-download-btn',
 
   // --- Login Email Dialog ---
   emailInput: 'prime-email-input',

@@ -33,6 +33,16 @@ type IMarketCategoryTokenListProps = {
   onViewMore: () => void;
 };
 
+function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
+  if (item.marketAsset) {
+    return `market-${item.marketAsset.assetId}`;
+  }
+  if (item.perpsCoin) {
+    return `perps-${item.perpsCoin}`;
+  }
+  return `${item.chainId}-${item.contractAddress}`;
+}
+
 function MarketCategoryTokenList({
   tokens,
   isLoading,
@@ -114,11 +124,7 @@ function MarketCategoryTokenList({
         showHeader={shouldUseTableLayout}
         dataSource={tokens}
         columns={columns}
-        keyExtractor={(item) =>
-          item.perpsCoin
-            ? `perps-${item.perpsCoin}`
-            : `${item.chainId}-${item.contractAddress}`
-        }
+        keyExtractor={getMarketCategoryTokenKey}
         estimatedItemSize={56}
         rowProps={{
           mx: '$2',

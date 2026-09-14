@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsOverlayPage } from '@onekeyhq/components';
+import { rootNavigationRef, useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useSettingsAtom,
@@ -15,6 +15,7 @@ import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/sce
 import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapQuote';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
@@ -75,6 +76,10 @@ export function isSwapQuoteTabEffectivelyVisible({
   return isFocus && !isHiddenModel;
 }
 
+export function shouldKeepSwapQuoteAliveOnFocusLoss(routeName?: string) {
+  return routeName === EModalSwapRoutes.SwapProviderSelect;
+}
+
 export function handleSwapQuoteTabVisibilityChange({
   isFocus,
   isHiddenModel,
@@ -112,7 +117,11 @@ export function handleSwapQuoteTabVisibilityChange({
  *
  * This hook coordinates state and side effects related to swap quote retrieval, token and amount changes, slippage settings, and user interactions. It integrates with Jotai atoms, event bus listeners, and debounced input handling to ensure accurate and efficient quote updates. The hook also manages cleanup and event subscriptions based on tab focus and modal state.
  */
-export function useSwapQuote() {
+export function useSwapQuote({
+  isMarketEmbeddedSwap = false,
+}: {
+  isMarketEmbeddedSwap?: boolean;
+} = {}) {
   const {
     quoteAction,
     cleanQuoteInterval,
@@ -248,8 +257,9 @@ export function useSwapQuote() {
   }
   const isFocused = useIsFocused();
   const isModalPage = useIsOverlayPage();
+  const shouldUseRouteQuoteLifecycle = isModalPage || isMarketEmbeddedSwap;
   const isQuoteVisibleRef = useRef(isFocused);
-  if (isModalPage || !isFocused) {
+  if (shouldUseRouteQuoteLifecycle || !isFocused) {
     isQuoteVisibleRef.current = isFocused;
   }
 
@@ -983,10 +993,18 @@ export function useSwapQuote() {
     setSwapQuoteResultList,
   ]);
 
+  const isProviderSelectRouteActive = useCallback(
+    () =>
+      shouldKeepSwapQuoteAliveOnFocusLoss(
+        rootNavigationRef.current?.getCurrentRoute()?.name,
+      ),
+    [],
+  );
+
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (!isModalPage) {
+      if (!shouldUseRouteQuoteLifecycle) {
         handleSwapQuoteTabVisibilityChange({
           isFocus,
           isHiddenModel,
@@ -1003,24 +1021,25 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
-    if (isModalPage) {
+    if (shouldUseRouteQuoteLifecycle) {
       if (isFocused) {
         subscribeQuoteEvents();
         refreshPreservedInputQuoteOnFocus();
-      } else {
+      } else if (!isProviderSelectRouteActive()) {
         pauseQuoteOnFocusLoss();
       }
     }
     return () => {
-      if (isModalPage) {
+      if (shouldUseRouteQuoteLifecycle && !isProviderSelectRouteActive()) {
         unsubscribeQuoteEvents();
       }
     };
   }, [
     isFocused,
-    isModalPage,
+    isProviderSelectRouteActive,
     pauseQuoteOnFocusLoss,
     refreshPreservedInputQuoteOnFocus,
+    shouldUseRouteQuoteLifecycle,
     subscribeQuoteEvents,
     unsubscribeQuoteEvents,
   ]);

@@ -615,6 +615,7 @@ Offchain
 offscreen
 Offscreen
 offscreens
+OLED
 okx
 Okx
 OKX
@@ -705,6 +706,7 @@ pwkey
 qrcode
 Queueing
 Rabby
+rasterizes
 rbf
 rbtc
 rdns
@@ -981,6 +983,7 @@ wmin
 wns
 wordlist
 wordlists
+wordmark
 worklet
 xaid
 xbuf
@@ -1570,6 +1573,9 @@ navigations
 # OpenType tabular-figures feature tag
 tnum
 
+# Circle Cross-Chain Transfer Protocol
+cctp
+
 EXCLUDEFROMCAPTURE
 
 # KeyTag punch/verify domain terms
@@ -1585,8 +1591,15 @@ lookback
 # @rehookify/datepicker package name
 rehookify
 
+# bStocks (BEP-677 scaled-UI tokens on BSC), lowercase form as it appears in
+# plan doc filenames (e.g. docs/superpowers/plans/2026-08-21-bstocks-*.md)
+bstocks
+
 # Otsu's method (wallpaper black/white threshold algorithm)
 otsu
 Otsu
 OTSU
 binarize
+
+# password manager brand referenced in Input suppression comment
+Dashlane

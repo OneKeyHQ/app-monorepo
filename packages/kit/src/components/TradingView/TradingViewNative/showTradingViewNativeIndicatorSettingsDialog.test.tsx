@@ -4,12 +4,18 @@ import type { ReactElement } from 'react';
 
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 
+import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
 import type {
   ITradingViewIndicatorSettingsProps,
   ITradingViewIndicatorSettingsValue,
 } from '../TradingViewChartControls/chartSettings';
 
 type IDialogConfig = {
+  onOpenAutoFocus?: (event: Event) => void;
+  floatingPanelProps: {
+    maxWidth: number | string;
+    width: number | string;
+  };
   renderContent: ReactElement<ITradingViewIndicatorSettingsProps>;
 };
 
@@ -35,16 +41,60 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
     jest.clearAllMocks();
   });
 
+  it('moves opening focus to the container and leaves inputs available for manual focus', () => {
+    showTradingViewNativeIndicatorSettingsDialog({
+      intl: { formatMessage: ({ id }) => id },
+      onConfirm: jest.fn(),
+      value: { indicators: [], schemaVersion: 1 },
+    });
+    const { onOpenAutoFocus } = mockShowDialog.mock.calls[0][0];
+    const trigger = document.createElement('button');
+    const container = document.createElement('div');
+    const input = document.createElement('input');
+    container.append(input);
+    document.body.append(trigger, container);
+    trigger.focus();
+
+    const event = new Event('dialog-open', { cancelable: true });
+    container.addEventListener('dialog-open', (openEvent) =>
+      onOpenAutoFocus?.(openEvent),
+    );
+    container.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(container);
+    expect(container.tabIndex).toBe(-1);
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    container.remove();
+    trigger.remove();
+  });
+
   it('closes only after the child has committed a successful confirmation', async () => {
     const value: ITradingViewIndicatorSettingsValue = {
       indicators: [],
       schemaVersion: 1,
     };
     const onConfirm = jest.fn(() => Promise.resolve());
+    const intl: IIndicatorSettingsIntl = {
+      formatMessage: ({ id }) => id,
+    };
 
-    showTradingViewNativeIndicatorSettingsDialog({ onConfirm, value });
+    showTradingViewNativeIndicatorSettingsDialog({
+      displayMode: 'focused',
+      initialIndicatorId: 'RSI',
+      intl,
+      onConfirm,
+      value,
+    });
     const props = mockShowDialog.mock.calls[0][0].renderContent.props;
     expect(props.maxActiveSubIndicatorCount).toBeNull();
+    expect(props.displayMode).toBe('focused');
+    expect(props.initialIndicatorId).toBe('RSI');
+    expect(mockShowDialog.mock.calls[0][0].floatingPanelProps).toEqual(
+      expect.objectContaining({ maxWidth: '100%', width: '100%' }),
+    );
 
     await props.onConfirm?.(value);
     expect(onConfirm).toHaveBeenCalledTimes(1);

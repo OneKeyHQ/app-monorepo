@@ -177,6 +177,10 @@ export type IDecodedTx = {
   txParseType?: EParseTxType;
   txABI?: ITransactionData;
   isLocalParsed?: boolean;
+  // Set when txDisplay was locally built but a server parse DID run and its
+  // risk alerts were retained (scaled-UI forced-local path) — security UI
+  // must not report such txs as unverified.
+  hasServerSecurityAnalysis?: boolean;
   isConfirmationRequired?: boolean;
 
   isPsbt?: boolean;
@@ -210,6 +214,10 @@ export type IDecodedTxTransferInfo = {
   price?: string;
   networkId?: string;
   NFTType?: ENFTType;
+  // Scaled-UI (rebase) tokens: multiplier applied to `amount` (display
+  // basis) at decode time; lets the signature-confirm service detect
+  // rebase involvement and force the local display path.
+  balanceMultiplier?: string;
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
@@ -252,6 +260,9 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   tokenIdOnNetwork: string;
   label?: string;
   approveType?: EApproveType;
+  // Scaled-UI (rebase) tokens: multiplier used to convert `amount` to
+  // display basis at decode time; lets UI converters fail-close editing.
+  balanceMultiplier?: string;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {

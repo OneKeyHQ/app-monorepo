@@ -1,4 +1,4 @@
-import type { IMarketStockInfo } from './marketV2';
+import type { IMarketStockInfo, IMarketTokenKLineResponse } from './marketV2';
 
 export interface IMarketCategory {
   categoryId: string;
@@ -41,6 +41,82 @@ export interface IMarketToken {
   priceChangePercentage7D: number;
   sparkline: number[];
   lastUpdated: string;
+}
+
+export interface IMarketAssetListItem {
+  assetId: string;
+  symbol: string;
+  // Optional because only some list projections carry it; top_coins does.
+  name?: string;
+  logoUrl: string;
+  price: string;
+  priceChange24hPercent: string;
+  priceChange7dPercent: string;
+  marketCap: string;
+  volume24h: string;
+  sparkline24h: number[];
+}
+
+export interface IMarketAssetListData {
+  list: IMarketAssetListItem[];
+  total: number;
+}
+
+export interface IMarketAssetIdentity {
+  assetId: string;
+  name: string;
+  symbol: string;
+  logoUrl: string;
+}
+
+export interface IMarketAssetVariant {
+  variantId: string;
+  networkId: string;
+  tokenAddress: string;
+  networkName: string;
+  networkSymbol: string;
+  networkLogoUrl: string;
+  isNative: boolean;
+  isDefault: boolean;
+}
+
+export interface IMarketAssetMarket {
+  price: string;
+  priceChange24h: string;
+  priceChange24hPercent: string;
+  marketCap: string;
+  marketCapRank: number | null;
+  volume24h: string;
+  circulatingSupply: string;
+  fdv: string;
+  totalSupply: string;
+  maxSupply: string;
+}
+
+export interface IMarketAssetPerformance {
+  priceChange7dPercent: string;
+  price7dAgo: string;
+  priceChange30dPercent: string;
+  price30dAgo: string;
+  priceChange3mPercent: string;
+  price3mAgo: string;
+  priceChange1yPercent: string;
+  price1yAgo: string;
+  allTimeHighChangePercent: string;
+  allTimeHighPrice: string;
+}
+
+export interface IMarketAssetDetailData {
+  about: string;
+  asset: IMarketAssetIdentity;
+  variants: IMarketAssetVariant[];
+  selectedVariant: IMarketAssetVariant;
+  market: IMarketAssetMarket;
+  performance: IMarketAssetPerformance;
+}
+
+export interface IMarketAssetKLineData extends IMarketTokenKLineResponse {
+  pointType: 'ohlc' | 'single';
 }
 
 export interface IMarketDetailAthOrAtl {
@@ -240,14 +316,26 @@ export enum ESpeedSwapSwitchType {
   SELL = 'sell',
 }
 
-// Market Watch List V2 Types (using chainId + contractAddress)
+// Spot tokens, asset listings, stock listings and perps retain distinct identities.
 export interface IMarketWatchListItemV2 {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   sortIndex?: number;
   isNative?: boolean;
   // Perps watchlist: coin name (e.g. "BTC", "ETH"). When set, chainId/contractAddress are empty.
   perpsCoin?: string;
+}
+
+export interface IMarketListingWatchlistQuote {
+  symbol: string;
+  name: string;
+  logoUrl: string;
+  price?: string;
+  priceChange24hPercent?: string;
+  marketCap?: string;
+  volume24h?: string;
 }
 
 export interface IMarketWatchListDataV2 {

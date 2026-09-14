@@ -115,7 +115,7 @@ function TokenDetailsFooter(props: {
   }
 
   return (
-    <Page.Footer>
+    <Page.Footer safeAreaBottomMode="content">
       <XStack
         testID={AssetDetailsTestIDs.marketFooter}
         alignItems="center"

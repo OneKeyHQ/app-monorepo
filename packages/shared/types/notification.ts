@@ -35,6 +35,63 @@ export type INotificationPermissionDetail = {
   permission: ENotificationPermission;
   isSupported: boolean;
 };
+
+export enum ENotificationPermissionRecoverySource {
+  homeStartup = 'homeStartup',
+  appActive = 'appActive',
+  settings = 'settings',
+  qaManual = 'qaManual',
+}
+
+export enum ENotificationPermissionRecoveryReason {
+  permissionRequired = 'permissionRequired',
+  permissionGranted = 'permissionGranted',
+  permissionUnsupported = 'permissionUnsupported',
+  pushDisabled = 'pushDisabled',
+  cooldown = 'cooldown',
+  serverSettingsUnavailable = 'serverSettingsUnavailable',
+  queryFailed = 'queryFailed',
+  nonNative = 'nonNative',
+}
+
+export enum ENotificationPermissionRecoveryAction {
+  none = 'none',
+  requestPermission = 'requestPermission',
+  openSettings = 'openSettings',
+}
+
+export enum ENotificationPermissionRecoveryTestScenario {
+  real = 'real',
+  pushOnGranted = 'pushOnGranted',
+  pushOnDefault = 'pushOnDefault',
+  pushOnDenied = 'pushOnDenied',
+  pushOff = 'pushOff',
+  unsupported = 'unsupported',
+  queryFailed = 'queryFailed',
+}
+
+export type INotificationPermissionRecoveryCheckParams = {
+  source: ENotificationPermissionRecoverySource;
+  ignoreCooldown?: boolean;
+  pushEnabled?: boolean;
+};
+
+export type INotificationPermissionRecoveryResult = {
+  shouldShow: boolean;
+  reason: ENotificationPermissionRecoveryReason;
+  permission: ENotificationPermission | undefined;
+  isSupported: boolean | undefined;
+  pushEnabled: boolean | undefined;
+  isTestMode: boolean;
+  checkedAt: number;
+};
+
+export type INotificationPermissionRecoveryActionResult = {
+  action: ENotificationPermissionRecoveryAction;
+  permission: ENotificationPermission;
+  isSupported: boolean;
+  isTestMode: boolean;
+};
 export type INotificationSetBadgeParams = {
   // null: clear badge
   // undefined: dot badge

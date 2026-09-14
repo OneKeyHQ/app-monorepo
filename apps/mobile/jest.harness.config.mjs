@@ -1,3 +1,6 @@
+export const LSE_MMKV_RESTART_TEST_PATH_PATTERN =
+  'apps/mobile/e2e/local-secret-envelope-mmkv-restart\\.(write|read)\\.harness\\.ts';
+
 /** @type {import('jest').Config} */
 export default {
   preset: 'react-native-harness',
@@ -21,6 +24,11 @@ export default {
     '**/*.test.{ts,tsx}',
   ],
   testPathIgnorePatterns: [
+    'packages/kit/src/views/Market/MarketDetailV2/components/MarketDetailEmbeddedSwap\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage\\.test\\.tsx',
+    // The two-phase MMKV suite has a dedicated config that guarantees write,
+    // native app restart, then read ordering.
+    LSE_MMKV_RESTART_TEST_PATH_PATTERN,
     // Keep harness tests in apps/mobile/e2e discoverable; only ignore the
     // perf guard that runs under its own Jest setup.
     'apps/mobile/e2e/perf-regression-guard\\.test\\.js',
@@ -51,14 +59,14 @@ export default {
     'packages/kit/src/states/jotai/contexts/earn/actions\\.test\\.tsx',
     'packages/kit/src/views/Discovery/hooks/useSearchModalData\\.test\\.tsx',
     'packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket\\.test\\.ts',
-    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/MarketSwapReviewDialog\\.test\\.tsx',
-    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/MarketSwapReviewInitializer\\.test\\.tsx',
-    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/SwapPanelContent\\.test\\.tsx',
-    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapReviewActions\\.test\\.tsx',
-    'packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapActions\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketDetailV2/components/MarketDetailEmbeddedSwap\\.test\\.tsx',
+    'packages/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage\\.test\\.tsx',
     'packages/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery\\.test\\.ts',
+    'packages/kit/src/views/Onboarding/pages/ImportWallet/hooks/useImportAddressForm\\.test\\.tsx',
+    'packages/kit/src/views/Onboardingv2/pages/ConfirmPinPage\\.test\\.tsx',
     'packages/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useFetchWalletsWithBoundStatus\\.test\\.tsx',
     'packages/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useWalletBoundReferralCode\\.test\\.tsx',
+    'packages/kit/src/views/Setting/pages/Notifications/ManageAccountActivity\\.test\\.tsx',
     'packages/kit/src/views/Swap/hooks/useSwapIncognitoRecipientInput\\.test\\.ts',
     'packages/kit/src/views/Swap/pages/components/SwapReviewDialog\\.test\\.tsx',
   ],

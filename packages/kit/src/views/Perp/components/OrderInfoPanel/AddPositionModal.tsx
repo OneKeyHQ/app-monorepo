@@ -47,6 +47,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
+import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -97,6 +98,7 @@ const AddPositionForm = memo(
     const intl = useIntl();
     const keyboardHeight = useKeyboardHeight();
     const actions = useHyperliquidActions();
+    const ensureTradingEnabled = useEnsureTradingEnabled();
     const [activeAccount] = usePerpsActiveAccountAtom();
     const [{ isConnected }] = useConnectionStateAtom();
     const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -520,7 +522,7 @@ const AddPositionForm = memo(
       }
       setIsSubmitting(true);
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const latestTargetData = await fetchTargetAssetData();
         const latestAssetData = latestTargetData.data;
         if (
@@ -603,11 +605,14 @@ const AddPositionForm = memo(
           tpTriggerPx,
           slTriggerPx,
         } as const;
-        const placeOrder = async () => {
+        try {
           await actions.current.placeOrderByCoin(orderParams);
           onClose();
-        };
-        await placeOrder();
+        } catch {
+          // placeOrderByCoin already reports the failure through withToast,
+          // which localizes the HyperLiquid rejection; toasting error.message
+          // here repeated the same rejection in raw English.
+        }
       } catch (error) {
         Toast.error({
           title:
@@ -626,6 +631,7 @@ const AddPositionForm = memo(
       amount,
       coin,
       effectivePrice,
+      ensureTradingEnabled,
       fetchTargetAssetData,
       hasAssetDataError,
       hasTpsl,

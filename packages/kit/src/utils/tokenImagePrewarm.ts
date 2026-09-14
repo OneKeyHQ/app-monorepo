@@ -1,8 +1,4 @@
-import { PixelRatio } from 'react-native';
-
-import { primeCachedImageRefs } from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
-import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
 import { getTokenImageResizeWidth } from '../components/Token/tokenSize';
 
@@ -12,7 +8,7 @@ export type ITokenImagePrewarmSource = {
 };
 
 const TOKEN_IMAGE_PREWARM_LIMIT = 4;
-const TOKEN_IMAGE_DECODE_TIMEOUT_MS = 350;
+const TOKEN_IMAGE_PREWARM_RESIZE_WIDTH = getTokenImageResizeWidth('md');
 const MAX_TRACKED_TOKEN_IMAGE_URIS = 600;
 
 const prewarmedTokenImageUris = new Set<string>();
@@ -29,41 +25,20 @@ function rememberPrewarmedUris(uris: string[]) {
   uris.forEach((uri) => prewarmedTokenImageUris.add(uri));
 }
 
-export function getTokenImagePrewarmUri({
+export function getTokenImagePrewarmSource({
   uri,
   pixelRatio,
 }: {
   uri: string;
   pixelRatio?: number;
 }) {
-  const result = buildTosImageResizeUrl({
+  return {
     uri,
-    resizeWidth: getTokenImageResizeWidth('md'),
-    pixelRatio:
-      pixelRatio ??
-      (PixelRatio as { get?: () => number } | undefined)?.get?.() ??
-      1,
-  });
-
-  // Keep non-TOS URLs unchanged because ImageV2 renders them without rewriting.
-  return result.optimized && result.uri ? result.uri : uri;
+    resizeWidth: TOKEN_IMAGE_PREWARM_RESIZE_WIDTH,
+    pixelRatio,
+  };
 }
 
-/**
- * Warm a token logo before the screen that renders it mounts.
- *
- * Mirrors MarketDetailV2/utils/marketDetailImagePreload, which keeps its own
- * copy and its own de-dup set on purpose: unifying them would change market's
- * prewarm behavior for an earn-only fix. Worth collapsing into one helper in
- * a follow-up, outside a release QA round.
- *
- * `primeCachedImageRefs` fills the decoded ImageRef cache that `useImage()`
- * reads synchronously, so on iOS the logo is on screen at the first frame
- * instead of after a skeleton. It is a no-op on Android by design (reusing a
- * decoded Glide SharedRef across views crashes — see Image/cache.ts), so
- * Android relies on `preloadImages` -> `Image.prefetch` warming Glide's native
- * memory/disk cache, which shortens but does not remove the skeleton frame.
- */
 export function prewarmTokenImages(
   source?: ITokenImagePrewarmSource,
   options?: {
@@ -72,11 +47,10 @@ export function prewarmTokenImages(
 ) {
   if (!source) return;
 
-  const uris = uniqueImageUris(
-    [source.tokenImageUri, ...(source.tokenImageUris ?? [])].map((uri) =>
-      uri ? getTokenImagePrewarmUri({ uri }) : undefined,
-    ),
-  )
+  const uris = uniqueImageUris([
+    source.tokenImageUri,
+    ...(source.tokenImageUris ?? []),
+  ])
     .filter(
       (uri) =>
         !prewarmedTokenImageUris.has(uri) && !prewarmingTokenImageUris.has(uri),
@@ -87,15 +61,9 @@ export function prewarmTokenImages(
 
   uris.forEach((uri) => prewarmingTokenImageUris.add(uri));
 
-  void Promise.allSettled([
-    preloadImages(uris.map((uri) => ({ uri, optimize: false }))),
-    primeCachedImageRefs({
-      uris,
-      timeoutMs: TOKEN_IMAGE_DECODE_TIMEOUT_MS,
-    }),
-  ])
-    .then(([preloadResult]) => {
-      if (preloadResult.status === 'fulfilled' && preloadResult.value) {
+  void preloadImages(uris.map((uri) => getTokenImagePrewarmSource({ uri })))
+    .then((success) => {
+      if (success) {
         rememberPrewarmedUris(uris);
       }
     })

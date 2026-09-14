@@ -114,6 +114,134 @@ describe('addPrimeInfiniDiscardedPaymentBindingId', () => {
 });
 
 describe('resolvePrimeInfiniPaymentReplacement', () => {
+  it.each([false, true])(
+    'allows an explicitly requested fresh quote after the transfer changes only without progress (%s)',
+    async (hasProgress) => {
+      const latest = {
+        ...payment,
+        amountDue: '0.3',
+        amountConfirming: hasProgress ? '0.01' : '0',
+      };
+      const discardPaymentSession = jest.fn(async () => true);
+      const persistTracked = jest.fn(persistTrackedPayment);
+      const result = await resolvePrimeInfiniPaymentReplacement({
+        currentPayment: payment,
+        selectedAsset: asset,
+        sendStarted: false,
+        captureSessionRevision: async () => ({
+          updatedAt: 1000,
+          sendStarted: false,
+        }),
+        fetchLatestPayment: async () => latest,
+        discardPaymentSession,
+        discardTerminalPaymentSession: async () => true,
+        fetchPersistedPaymentSession: async () => undefined,
+        persistTrackedPayment: persistTracked,
+        shouldContinue: () => true,
+        allowTerminalRelease: false,
+        allowChangedUnsentQuote: true,
+      });
+      expect(result.type).toBe(hasProgress ? 'track' : 'replace');
+      expect(discardPaymentSession).toHaveBeenCalledTimes(hasProgress ? 0 : 1);
+      if (hasProgress) {
+        expect(persistTracked).toHaveBeenCalledWith(payment);
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'requires the latest external-checkout warning consent before discarding (%s)',
+    async (confirmed) => {
+      const warningMessages = ['Latest first warning', 'Latest second warning'];
+      const confirmLatestPayment = jest.fn(async () => confirmed);
+      const discardPaymentSession = jest.fn(async () => true);
+      const result = await resolvePrimeInfiniPaymentReplacement({
+        currentPayment: {
+          ...payment,
+          warningMessages: ['Stale cached warning'],
+        },
+        selectedAsset: asset,
+        sendStarted: false,
+        captureSessionRevision: async () => ({
+          updatedAt: 1000,
+          sendStarted: false,
+        }),
+        fetchLatestPayment: async () => ({ ...payment, warningMessages }),
+        discardPaymentSession,
+        discardTerminalPaymentSession: async () => false,
+        fetchPersistedPaymentSession: async () => undefined,
+        persistTrackedPayment,
+        shouldContinue: () => true,
+        allowTerminalRelease: false,
+        confirmLatestPayment,
+      });
+      expect(confirmLatestPayment).toHaveBeenCalledWith({
+        ...payment,
+        warningMessages,
+      });
+      expect(discardPaymentSession).toHaveBeenCalledTimes(confirmed ? 1 : 0);
+      expect(result.type).toBe(confirmed ? 'replace' : 'cancelled');
+    },
+  );
+
+  it.each([true, false])(
+    'Retry never releases a server-closed payment with a durable send claim (%s)',
+    async (uiSendStarted) => {
+      const discardPaymentSession = jest.fn(async () => true);
+      const discardTerminalPaymentSession = jest.fn(async () => true);
+      const latest = {
+        ...payment,
+        status: 'expired',
+        expiresAt: Date.now() - 1,
+      };
+      const result = await resolvePrimeInfiniPaymentReplacement({
+        currentPayment: latest,
+        selectedAsset: asset,
+        sendStarted: uiSendStarted,
+        captureSessionRevision: async () => ({
+          updatedAt: 1000,
+          sendStarted: true,
+        }),
+        fetchLatestPayment: async () => latest,
+        discardPaymentSession,
+        discardTerminalPaymentSession,
+        fetchPersistedPaymentSession: async () => undefined,
+        persistTrackedPayment,
+        shouldContinue: () => true,
+        allowTerminalRelease: false,
+      });
+      expect(result.type).toBe('track');
+      expect(discardPaymentSession).not.toHaveBeenCalled();
+      expect(discardTerminalPaymentSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it('Retry keeps tracking when a previously unsent expired quote gains progress', async () => {
+    const expired = { ...payment, expiresAt: Date.now() - 1 };
+    const discardPaymentSession = jest.fn(async () => true);
+    const result = await resolvePrimeInfiniPaymentReplacement({
+      currentPayment: expired,
+      selectedAsset: asset,
+      sendStarted: false,
+      captureSessionRevision: async () => ({
+        updatedAt: 1000,
+        sendStarted: false,
+      }),
+      fetchLatestPayment: async () => ({
+        ...expired,
+        amountConfirming: '0.01',
+      }),
+      discardPaymentSession,
+      discardTerminalPaymentSession: async () => true,
+      fetchPersistedPaymentSession: async () => undefined,
+      persistTrackedPayment,
+      shouldContinue: () => true,
+      allowTerminalRelease: false,
+    });
+    expect(result.type).toBe('track');
+    expect(discardPaymentSession).not.toHaveBeenCalled();
+  });
+
   it('queries and atomically discards an unsent payment before replacement', async () => {
     const calls: string[] = [];
     const fetchLatestPayment = jest.fn(async () => {
@@ -657,6 +785,7 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
           primeSubscription: {
             isActive: true,
             expiresAt: Date.now() + 60_000,
+            subscriptions: [{ channel: 'infini' }],
           },
           infiniSubscription: undefined,
         }),
@@ -721,6 +850,7 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
           primeSubscription: {
             isActive: true,
             expiresAt: Date.now() + 60_000,
+            subscriptions: [{ channel: 'infini' }],
           },
           infiniSubscription: undefined,
         }),

@@ -22,6 +22,21 @@ function testWithRandomAccountIndexes(
   }
 }
 
+describe('HyperLiquid agent credential ids', () => {
+  test('recognizes only the dedicated credential namespace', () => {
+    expect(
+      accountUtils.isHyperLiquidAgentCredentialId({
+        credentialId: 'hyperliquid-agent--0xabc--OneKeyAgent1',
+      }),
+    ).toBe(true);
+    expect(
+      accountUtils.isHyperLiquidAgentCredentialId({
+        credentialId: 'hyperliquid-agent-backup--0xabc--OneKeyAgent1',
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('hasNoUsableWallet', () => {
   type IWallet = Parameters<typeof accountUtils.hasNoUsableWallet>[0]['wallet'];
 

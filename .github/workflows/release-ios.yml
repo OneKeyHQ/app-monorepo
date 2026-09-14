@@ -89,6 +89,33 @@ jobs:
           echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > apps/mobile/ios/certs/dist.p12
           echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > apps/mobile/ios/certs/profile.mobileprovision
           echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > apps/mobile/ios/certs/serviceextension-profile.mobileprovision
+          echo ${{ secrets.ADHOC_APP_CLIP_PROFILE }} | base64 -d > apps/mobile/ios/certs/appclip-profile.mobileprovision
+          python3 << 'PYEOF'
+          import json
+
+          path = 'apps/mobile/credentials.json'
+          with open(path, encoding='utf-8') as file:
+              credentials = json.load(file)
+          ios_credentials = credentials.get('ios')
+          wallet_credentials = (
+              ios_credentials.get('OneKeyWallet')
+              if isinstance(ios_credentials, dict)
+              else None
+          )
+          if not isinstance(wallet_credentials, dict):
+              raise RuntimeError('Missing iOS credentials for OneKeyWallet')
+          distribution_certificate = wallet_credentials.get(
+              'distributionCertificate'
+          )
+          if not isinstance(distribution_certificate, dict):
+              raise RuntimeError('Missing OneKeyWallet distribution certificate')
+          ios_credentials['OneKeyAppClip'] = {
+              'distributionCertificate': distribution_certificate,
+              'provisioningProfilePath': 'ios/certs/appclip-profile.mobileprovision',
+          }
+          with open(path, 'w', encoding='utf-8') as file:
+              json.dump(credentials, file)
+          PYEOF
 
       - name: Modify OneKeyWallet info.plist
         uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
@@ -104,6 +131,14 @@ jobs:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ env.BUILD_APP_VERSION }}
           projectName: ServiceExtension
+          dir: ./apps/mobile
+
+      - name: Modify OneKeyAppClip info.plist
+        uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ env.BUILD_APP_VERSION }}
+          projectName: OneKeyAppClip
           dir: ./apps/mobile
 
       - name: Set BUNDLE_VERSION in Info.plist
@@ -159,6 +194,7 @@ jobs:
             # replace APP STORE provision
             echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
             echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
+            echo ${{ secrets.APPSTORE_APP_CLIP_PROFILE }} | base64 -d > ./ios/certs/appclip-profile.mobileprovision
 
             eas build --profile="${STORE_PROFILE}" --platform ios --non-interactive --no-wait --auto-submit
           fi
@@ -177,9 +213,3 @@ jobs:
             PROFILE="production"
           fi
           eas build --profile="${PROFILE}" --platform ios --non-interactive --no-wait
-
-      - name: Build Simulator on EAS
-        if: ${{ env.ENABLE_STARTUP_PROFILE != 'true' }}
-        run: |
-          cd apps/mobile
-          eas build --profile=simulator --platform ios --non-interactive --no-wait

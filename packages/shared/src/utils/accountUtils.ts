@@ -1058,6 +1058,14 @@ function buildHyperLiquidAgentCredentialId({
   return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}--${agentName}`;
 }
 
+function isHyperLiquidAgentCredentialId({
+  credentialId,
+}: {
+  credentialId: string;
+}): boolean {
+  return credentialId.startsWith(`${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--`);
+}
+
 function buildCustomEvmNetworkId({ chainId }: { chainId: string }): string {
   return `evm--${chainId}`;
 }
@@ -1438,6 +1446,7 @@ export default {
   buildTonMnemonicCredentialId,
   getAccountIdFromTonMnemonicCredentialId,
   buildHyperLiquidAgentCredentialId,
+  isHyperLiquidAgentCredentialId,
   buildCustomEvmNetworkId,
   buildFullXfp,
   getShortXfp,

@@ -16,11 +16,13 @@ import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 
 export interface ITradingViewNativeCanvasPriceScale {
   mode: ITradingViewNativePriceScaleMode;
+  pinnedPriceRange?: ITradingViewNativePriceRange | null;
   rangeScale: number;
 }
 
 export interface ITradingViewNativeCanvasPriceAxisLabels {
   autoPriceRange: ITradingViewNativePriceRange | null;
+  chartComponentPrice: string;
   currentPrice: string;
   widestIndicatorPrice: string;
   widestPrice: string;
@@ -33,6 +35,7 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
   canvas: HTMLCanvasElement,
   labels: ITradingViewNativeCanvasPriceAxisLabels,
   priceScale: ITradingViewNativeCanvasPriceScale,
+  priceAxisFontSize?: number,
 ) {
   if (!labels.yAxisVisible) {
     return 0;
@@ -47,10 +50,11 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
       widestPriceLabelWidth: 0,
     });
   }
-  context.font = getTradingViewNativeCanvasFont('priceAxis');
-  const scaledPriceLabel = labels.autoPriceRange
+  context.font = getTradingViewNativeCanvasFont('priceAxis', priceAxisFontSize);
+  const priceRange = priceScale.pinnedPriceRange ?? labels.autoPriceRange;
+  const scaledPriceLabel = priceRange
     ? getTradingViewNativeScaledPriceAxisLabel({
-        autoPriceRange: labels.autoPriceRange,
+        autoPriceRange: priceRange,
         baseLabel: labels.widestPrice,
         priceRangeScale: priceScale.rangeScale,
         priceScaleMode: priceScale.mode,
@@ -62,6 +66,7 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
       PRICE_SCALE_CONTROL_WEB_SIZING,
     ),
     widestPriceLabelWidth: Math.max(
+      context.measureText(labels.chartComponentPrice).width,
       context.measureText(labels.widestPrice).width,
       context.measureText(scaledPriceLabel).width,
       context.measureText(labels.widestIndicatorPrice).width,
@@ -75,10 +80,16 @@ export function getTradingViewNativeCanvasChartWidth(
   canvas: HTMLCanvasElement,
   labels: ITradingViewNativeCanvasPriceAxisLabels,
   priceScale: ITradingViewNativeCanvasPriceScale,
+  priceAxisFontSize?: number,
 ) {
   return getTradingViewNativeChartWidth(
     canvas.getBoundingClientRect().width,
-    getTradingViewNativeCanvasPriceAxisWidth(canvas, labels, priceScale),
+    getTradingViewNativeCanvasPriceAxisWidth(
+      canvas,
+      labels,
+      priceScale,
+      priceAxisFontSize,
+    ),
   );
 }
 
@@ -88,20 +99,27 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
   clientY,
   labels,
   paneCount,
+  priceAxisFontSize,
   priceScale,
+  timeAxisHeight,
 }: {
   canvas: HTMLCanvasElement;
   clientX: number;
   clientY: number;
   labels: ITradingViewNativeCanvasPriceAxisLabels;
   paneCount: number;
+  priceAxisFontSize?: number;
   priceScale: ITradingViewNativeCanvasPriceScale;
+  timeAxisHeight?: number;
 }) {
   const canvasRect = canvas.getBoundingClientRect();
+  // Measure with the rendered font, otherwise the compact axis gets a hit
+  // region sized for the default font and steals wheel input from the chart.
   const priceAxisWidth = getTradingViewNativeCanvasPriceAxisWidth(
     canvas,
     labels,
     priceScale,
+    priceAxisFontSize,
   );
   const x = clientX - canvasRect.left;
   const y = clientY - canvasRect.top;
@@ -109,6 +127,7 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
     height: canvasRect.height,
     paneCount,
     priceAxisWidth,
+    timeAxisHeight,
     width: canvasRect.width,
     x,
     y,

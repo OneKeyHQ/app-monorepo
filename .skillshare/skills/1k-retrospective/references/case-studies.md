@@ -164,3 +164,206 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `getCompatibleConnectId` triggered the USB→BLE pairing repair purely from DB bookkeeping (device record missing `bleConnectId` — recreated that way by a USB wallet creation after wallet removal deleted the record), never recognizing the caller's incoming connectId as the live BLE endpoint. DB binding state is neither necessary nor sufficient evidence of OS pairing state.
 **Fix**: Before the dialog fallback, silently verify and persist the caller-held connectId, gated by runtime evidence: id differs from the record's USB identifiers, carried real device traffic within 60s (stamped by DEVICE.STATE/DEVICE.CONNECT, invalidated on DEVICE.DISCONNECT), probed with silentMode (no global error dialog from error constructors), a bounded 10s timeout, and the session's remembered protocol pinned (forced re-detection sends a V2 Ping into an active V1 session, which the device may not answer — SDK error 713); the probed deviceId must match before persisting.
 **Catchable by**: NEW — not covered (interactive dialog triggered from persistence bookkeeping instead of live transport evidence)
+
+## Case: Daily backup advanced its throttle while agent-secret scrub failed
+**Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime; canBackup() targets only)
+**Symptom**: Review finding on PR #12990 — stale (possibly plaintext |HLP|) HyperLiquid agent credential rows could stay in the backupAccount bucket forever: scrub failures were logged and swallowed, then the put-by-id daily snapshot completed and advanced lastDBBackupTime.
+**Root Cause**: `removeBackupHyperLiquidAgentCredentials` reported nothing, so `_backupDatabaseDaily` could not distinguish a clean scrub from a failed one, and the snapshot itself never deletes stale rows (put-by-id).
+**Fix**: Stale agent rows are deleted inside the same IndexedDB transaction as the daily snapshot, so a successful backup can never leave stale rows while a scrub problem can never block the backup (backup availability outranks agent-row hygiene: wallet credentials are unrecoverable, agent keys are re-approvable). The standalone scrub returns a boolean and remains best-effort cleanup on credential removal.
+**Catchable by**: Section 4: Data flow end-to-end (a best-effort cleanup feeding a state-advancing step must report its outcome)
+
+## Case: One undecryptable agent credential aborted the whole Perps status batch
+**Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime)
+**Symptom**: Review finding on PR #12990 — after agent credentials moved to session-encrypted storage, a single unreadable credential (locked session or transient LSE layer outage) made the `checkAgentStatus` Promise.all reject, skipped remaining status checks, and popped one error toast per failing agent during Perps polling.
+**Root Cause**: `getHyperLiquidAgentCredentialInfo` propagated new throw paths (session getKeyOrThrow, LocalSecretEnvelopeUnavailable, durable-upgrade write) that the legacy decrypt path had surfaced as `undefined`, while the caller and its `@toastIfError` decorator were built around the never-throw contract.
+**Fix**: The info getter catches read errors, logs, and returns `undefined` (restoring the graceful re-approval flow); `@toastIfError` was removed from this polled getter. The signing path stays fail-closed.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (an error-contract change must be audited at every call site)
+
+## Case: Proxy signer advertised one agent address while signing with another key
+**Date**: 2026-08-25 | **Platforms**: desktop, web, extension (bg runtime; Perps agent signing)
+**Symptom**: Review finding on PR #12990 — `WalletHyperliquidProxy.getAddress()` returned the setup-time agentAddress while `signTypedData()` signed with whatever private key the per-signature localDb fetch returned, so a re-approval race (record swapped to a new key while an exchange client held an old proxy) or an inconsistent record could silently sign under a different agent identity than advertised.
+**Root Cause**: Moving from a captured-key wallet to per-signature key fetching removed the implicit key↔address binding that constructing `ethers.Wallet` at setup time used to provide; no explicit check replaced it.
+**Fix**: `signTypedData` derives the address from the fetched key (already computed by ethers) and fails closed with a re-enable-trading error when it does not match the advertised agentAddress, case-insensitively.
+**Catchable by**: Section 5: No stale closures capturing outdated state (identity captured at setup must be re-validated against data fetched later)
+
+## Case: onekeyIdLogout analytics flood with user IDs embedded in server-bound reason text
+**Date**: 2026-08-25 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime emits; analytics is a shared server-side resource)
+**Symptom**: PostHog showed 1.76M `onekeyIdLogout` events in 30 days across ~70k persons — the highest-volume Prime event — drowning genuine logout signals and inflating analytics cost. Several `reason` strings carried Privy DIDs (`did:privy:…` = onekeyUserId), leaking account identifiers into server-bound free text; single users emitted 1000+ events in loops.
+**Root Cause**: `onekeyIdLogout` is decorated `@LogToServer`, but state-maintenance code paths (`setPrimePersistAtomNotLoggedIn` before/after clears on hot startup paths, `updatePrimeAtomByServerUserInfo` before/after every user-info refresh, discarded-response diagnostics) reused it as a general trace channel, interpolating atom values including `onekeyUserId` into `reason`.
+**Fix**: Added local-only `onekeyIdStateTrace` (`@LogToLocal`) and demoted 11 state-maintenance call sites; removed user ids from reason templates; reserved server `onekeyIdLogout` for genuine logout actions; also scrubbed `onekeyIdInvalidToken` (url query/hash + message) and `fetchPackagesFailed` free text at the scene level so every call site inherits the sanitization.
+**Catchable by**: Section 1: no sensitive/identifier interpolation into server-bound free text (scrub at the scene method, not call sites); NEW — @LogToServer methods called from hot/state-maintenance paths need a volume review (dedup or LogToLocal)
+
+## Case: PrimeLoginInvalidToken still counted as onekeyIdLogout
+**Date**: 2026-08-25 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: After demoting hot-path `onekeyIdLogout` traces, invalid-token bus handling still emitted a server `onekeyIdLogout` before the stale-generation gate, so retries and superseded clears kept polluting the genuine logout event.
+**Root Cause**: `PrimeGlobalEffectView` logged logout at handler entry, then separately local-traced stale events. Background already emits `onekeyIdInvalidToken` for the server signal.
+**Fix**: Remove the server logout emit; log a local `onekeyIdStateTrace` only after the stale gate when the handler actually proceeds.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope (a reserved server event must stay behind the same skip gate as the handler body)
+
+## Case: Prime profile/identity TTL written before analytics delivery
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 — a failed or out-of-order `updateUserProfile` POST left membership attributes missing for up to 7 days, and `onekeyIdIdentityLinked` could skip after a fire-and-forget emit.
+**Root Cause**: `markPrimeProfileReported` / `markIdentityLinkReported` persisted the TTL before the network send, and `updateUserProfile` / `@LogToServer()` did not await delivery. `lastHandledPrimeProfileKey` was also set before persist, so the same session would not retry.
+**Fix**: Peek due without writing; await `updateUserProfileAsync` / `@LogToServer({ waitForServer: true })`; record the TTL only after success; set `lastHandledPrimeProfileKey` after the cycle completes.
+**Catchable by**: Section 4: Data flow end-to-end (a best-effort cleanup or send feeding a state-advancing step must report its outcome); Section 5: No race conditions in async operations
+
+## Case: Native restore success rewritten as failed by user-info refresh
+**Date**: 2026-08-26 | **Platforms**: iOS, Android (native main runtime)
+**Symptom**: Review on PR #13008 — RevenueCat restore already had an active Prime entitlement, but a later `apiFetchPrimeUserInfo()` throw reported `primeRestorePurchaseResult({ result: 'failed' })` and skipped the success toast.
+**Root Cause**: Success tracking sat after the user-info refresh inside one try/catch, so a transient server/network error rewrote a real store restore as failed.
+**Fix**: Emit success and show the success toast after the local entitlement check; wrap the user-info refresh in its own try and keep the failure as a local state trace.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope (a success signal must stay behind the same store-outcome gate, not a later refresh)
+
+## Case: Bind/restore login committed without identity or profile analytics
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 — `apiBindLegacyOneKeyIdOAuth` and auth-state restore wrote `isLoggedIn: true` through `updatePrimeAtomByOneKeyIdAccount` but never emitted `onekeyIdIdentityLinked` or membership profile attributes when the later user-info refresh failed or was skipped.
+**Root Cause**: Identity/profile reporting was only attached to `updatePrimeAtomByServerUserInfo` / `updatePrimeAtomByOAuthLoginResponse`, not the shared OneKey-account commit path.
+**Fix**: After `primePersistAtom.set`, the account commit path also tracks the identity link and enqueues the membership profile report.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (every login-commit writer needs the same analytics pair)
+
+## Case: Identity-link races and unbounded analytics init wait
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 after the reporter extract — one login emitted `onekeyIdIdentityLinked` twice (atom commit + user-info refresh); cold-start `waitForServer` identity throws before `analytics.init`; a hung `whenInitialized()` blocked every later profile report.
+**Root Cause**: Persist-after-send deleted the session Set without an in-flight replacement; identity used `trackEventAsync` (no `cacheEvents`) without waiting for init; `whenInitialized()` has no timeout and sat on the serial profile chain.
+**Fix**: Module-level in-flight Map plus session Set (clear in-flight only); `waitForAnalyticsInitialized()` (30s) before identity and profile send; timeout logs, skips TTL, and lets the chain continue.
+**Catchable by**: Section 5: No race conditions in async operations; Section 4: Logic moved between files carries its surrounding guard/condition and scope; NEW — `waitForServer` / `trackEventAsync` callers must wait for analytics init with a bounded timeout
+
+## Case: Session Set written on not-due blocked 7-day identity re-assert
+**Date**: 2026-08-26 | **Platforms**: desktop, web (single-runtime, long-lived); iOS/Android/extension less exposed because bg restarts
+**Symptom**: Review on PR #13008 — a desktop session that started while `onekeyIdIdentityLinked` TTL was still valid never re-emitted after the 7-day mark, even though Dashboard / user-info refresh kept calling the reporter.
+**Root Cause**: The not-due branch wrote `onekeyUserId` into `identityLinkReportedThisSession`, and the entry gate returned before reading simpleDb again. Profile `lastHandledPrimeProfileKey` had the same not-due write.
+**Fix**: Write the session guard only after confirmed delivery. Not-due returns without touching the Set / lastHandled key so a later TTL expiry can report.
+**Catchable by**: Section 4: Data flow end-to-end (a persisted TTL meant to re-assert must not be shadowed by a never-expiring in-memory guard)
+
+## Case: Site-scan usage event only remembered the last OneKey account
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (main runtime)
+**Symptom**: Review on PR #13008 — `siteScanRiskWarned` used a single `reportedUserId`. A → B → A in one JS session re-emitted A and broke the once-per-account-per-session volume bound.
+**Root Cause**: The session guard stored one ID instead of the set of accounts already reported.
+**Fix**: Session-scoped Set of OneKey user IDs; add before emit. Account switch still reports the new account; switching back does not.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (a per-user session guard must keep every seen user, not only the last)
+
+## Case: iOS Infini subscription management opened a OneKey invite page
+**Date**: 2026-08-30 | **Platforms**: iOS, Android Google Play, desktop, web
+**Symptom**: Tapping Prime 订阅管理 on iOS opened Safari to a OneKey Perps invite/marketing page instead of Infini or store subscription management (OK-61464).
+**Root Cause**: Infini has no web portal. The router fell through to `subscriptions[].managementUrl`, which was a OneKey marketing page.
+**Fix**: Infini channel always opens the in-app Infini cancel-renewal page and never uses that marketing URL. Redemption-only still shows 管理订阅 and toasts that the activation method cannot be managed.
+**Catchable by**: Section 4: Edge cases — a channel without a real management portal must not fall through to another destination
+
+## Case: Channel-less Prime managementUrl opened a marketing page
+**Date**: 2026-08-30 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: A Prime row with no `channel` but a leftover `managementUrl` (often the OneKey invite page) would open that URL and skip the legacy Infini probe.
+**Root Cause**: Router treated any non-empty nested `managementUrl` as a real portal, including records that never declared a payment channel.
+**Fix**: Only trust a nested management URL when the same row declares a non-Infini, non-redemption channel. Channel-less rows stay on the Infini probe / unsupported toast path.
+**Catchable by**: Section 4: Edge cases — a URL without a declared channel is not a management portal
+
+## Case: Settings dApp Connection opened a second Bottom Sheet
+**Date**: 2026-08-31 | **Platforms**: iOS, Android
+**Symptom**: Tapping dApp 连接 from Settings stacked a second Bottom Sheet on top of the settings sheet (OK-61439).
+**Root Cause**: The settings entry used `pushModal(DAppConnectionModal)` instead of in-stack `push()` like sibling pages.
+**Fix**: Added `SettingDAppConnectionList` to the SettingModal stack and changed the entry to `navigation.push`.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (settings entries that open a page should use the same stack as siblings)
+
+## Case: Protection Prime badge misaligned on mobile
+**Date**: 2026-08-31 | **Platforms**: iOS, Android
+**Symptom**: The Prime badge on 收款风险监控 sat between subtitle and switch, aligned with neither (OK-61456).
+**Root Cause**: Badge was a `ListItem` child next to the switch instead of inline in the title.
+**Fix**: Render the badge in `ListItem.Text` primary via an `XStack` with the title.
+**Catchable by**: Section 3: UI changes verified on mobile — trailing children of a two-line ListItem do not vertically align with the title
+
+## Case: Union-build ownership promotion dropped runtime-divergent modules from every bundle
+**Date**: 2026-08-26 | **Platforms**: iOS, Android (split-bundle union build)
+**Symptom**: CI "Native startup graph budget" failed: 38 `react-native-mmkv/src/*` modules were reachable via sync edges in the background graph but landed in no eager bundle and no segment, which would crash the bg runtime with "Requiring unknown module".
+**Root Cause**: `buildRuntimeOwnership` promoted every sync dep of a shared-startup module into the common-bundle set, but the common bundle is serialized from the MAIN graph only. A dep that resolves differently per runtime (react-native-mmkv → real package in bg, guard shim in main) exists only in the bg graph, so promotion removed it from bg-only ownership while the common bundle could never emit it.
+**Fix**: The shared-startup expansion only promotes deps that are shared-equivalent (present in both graphs with identical signatures); runtime-divergent deps stay runtime-owned so each eager bundle ships its own variant under the same stable module id.
+**Catchable by**: NEW — not covered (build allocator invariants need a cross-runtime completeness gate; the union build's assertBundleCompleteness caught it only in CI)
+
+## Case: Jest suite mocking platformEnv as native crashed the whole shard via WebStorage
+**Date**: 2026-08-26 | **Platforms**: CI unit tests (all shards at risk)
+**Symptom**: Unit Tests shard crashed the Node process: `IndexedDBPromised.open` threw "Cannot read properties of undefined (reading 'open')" inside `new WebStorage()`'s async promise executor, killing jest before any suite result was reported.
+**Root Cause**: A test mocked `platformEnv` with `isNative: true` but without `isJest: true`; after a base-branch merge extended ServiceApp's import graph to `webStorageInstance.ts`, the falsy `isJest` made the module construct real IndexedDB-backed WebStorage singletons in Node, and the unhandled rejection killed the worker process.
+**Fix**: The test mock keeps `isJest: true`; platform-file seams (`nativeSyncStorageParts`, `jotaiStorageNativeMMKV`) are mapped to their `.native` implementations via jest `moduleNameMapper` so native-mocked suites construct jest-safe storage.
+**Catchable by**: Section 6: Tests cover happy path AND edge cases (platformEnv mocks must preserve `isJest`); NEW — a platformEnv test mock omitting `isJest` is a systemic hazard worth a lint/setup guard
+
+## Case: Shared stock balance atom loop and stale restore
+**Date**: 2026-09-01 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: Navigating from a stock Market detail page to a Trending/Top Coins token caused `Maximum update depth exceeded` (white screen, OK-61600). After breaking the loop, returning to the retained stock page left trading disabled until its balance changed.
+**Root Cause**: Two retained Market detail screens share `marketSwap`. Each `useSwapStockSelectedBalanceSync` instance wrote the same atom and listed `storedBalance` as an effect dep, so write → rerender → write ping-ponged. Removing that dep stopped the loop, but the retained stock instance no longer republished on return, and an unfocused stock instance could still overwrite the current screen when its fetch completed.
+**Fix**: Keep the functional atom update (skip unchanged values) and publish only while `useRouteIsFocused()` is true, so blur stops overwrites and focus restores the current screen's balance.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: "Not loaded" vs later async updates on a retained screen; NEW — shared context atoms plus retained navigation screens need an active-owner or focus write lock, not only a skip-if-equal setter
+
+## Case: Desktop More menu always scrolled
+**Date**: 2026-09-01 | **Platforms**: desktop
+**Symptom**: Default zh/en More popover needed vertical scroll even though content almost fit (OK-61457).
+**Root Cause**: Popover used a fixed `height: 600`. Content was slightly over 600, so it always scrolled.
+**Fix**: Use `maxHeight: 680` and hug content. Desktop skips the inner flex `ScrollView` (it collapsed height); outer `overflow: scroll` scrolls only when over the cap.
+**Catchable by**: Section 1: a fixed height that almost matches content will always overflow; express as maxHeight so short locales hug.
+
+## Case: Desktop More menu dark tiles used `$theme-dark` which never matched
+**Date**: 2026-09-01 | **Platforms**: desktop, web
+**Symptom**: Grid icon tiles and Prime badges looked like the popover background in dark mode. Pink debug color also did not show.
+**Root Cause**: Tamagui 2.7 compiles `$theme-dark` to `:root.t_dark` (`<html>`), but `t_dark` is stamped on `<body>`. Pinning the class to html re-enabled overrides app-wide and washed out Home.
+**Fix**: Set rest/hover/press colors from `useThemeVariant()` instead of `$theme-dark`. Do not change `addThemeClassName`.
+**Catchable by**: NEW — web `$theme-*` CSS must match where Tamagui puts the theme class; a global class move is not a local widget fix.
+
+## Case: Notifications row leaked into More → Preferences
+**Date**: 2026-09-01 | **Platforms**: desktop
+**Symptom**: Opening Preferences from the More menu showed a Notifications row even though Notifications is its own settings tab.
+**Root Cause**: Promoted `desktopTab` items were hidden only when `insideTabNavigator` was true. `SettingListSubModal` has no sidebar, so the source item stayed visible.
+**Fix**: Hide any item with `desktopTab` on every category host. Mobile home still shows it via `mobileHome`.
+**Catchable by**: Section 4: a hide rule gated on "has sidebar" will re-show the item on standalone hosts.
+
+## Case: Desktop More overflow scrolled Menu header and About
+**Date**: 2026-09-01 | **Platforms**: desktop, wide web
+**Symptom**: When the popover exceeded `maxHeight`, Menu title and About scrolled away with the body.
+**Root Cause**: `overflow: scroll` was on the outer stack that also owns header and the pinned footer. Inner `ScrollView` + `flex={1}` had collapsed, so the whole panel became the scroller.
+**Fix**: Clip the outer stack. Scroll only the body with `flexGrow` / `flexShrink` / `flexBasis: auto` so short menus still hug and chrome stays pinned when content overflows.
+**Catchable by**: Section 3: header/footer that look pinned must live outside the scrollport, not just sit at the ends of an overflowing column
+
+## Case: Hiding every desktopTab item removed extension Notifications
+**Date**: 2026-09-01 | **Platforms**: extension, narrow web
+**Symptom**: Preferences / Security category pages lost Notifications and Connections. Search could still open them; the list could not.
+**Root Cause**: `desktopTab` means "also a sidebar tab", but the sidebar only exists when `useIsTabNavigator()` is true. Always hiding the source row deleted the only entry on extension popup and narrow web.
+**Fix**: Hide `desktopTab` items only on tab-navigator hosts. Phone still hides them via `mobileHome`.
+**Catchable by**: Section 4: a hide rule must keep the host that still needs the list entry; Section 6: layout-visibility helpers need a host-matrix test
+
+## Case: More menu source growth failed web startup graph budget
+**Date**: 2026-09-01 | **Platforms**: web (startup graph)
+**Symptom**: CI `Web startup graph budget` failed: `sourceSizeBytes` 13173627 / 13172736 (+891 B).
+**Root Cause**: `HeaderRight`, `MDHeader`, and `BottomMenu` statically imported `MoreActionButton/index.tsx` (~56 KiB). Layout and theme work in that file entered the first-visit graph.
+**Fix**: Load the trigger through `LazyMoreActionButton` so the popover module is a separate chunk. Desktop body uses `overflow-y: auto`.
+**Catchable by**: Section 3: header-mounted widgets that grow must stay behind a lazy import; NEW — do not add first-screen source to a file already in the web startup graph
+
+## Case: New lazy native module missing module-id registry
+**Date**: 2026-09-01 | **Platforms**: iOS/Android (native union build)
+**Symptom**: Native startup graph CI failed: `LazyMoreActionButton.tsx` is not registered in `module-id-registry.json`.
+**Root Cause**: Native three-bundle allocation requires every module path in the graph to have a stable ID. Adding a new file under `packages/kit` without `module-id:update` breaks unionBuild.
+**Fix**: Run `yarn workspace @onekeyhq/mobile module-id:update --map` for the new path and commit the registry row (`7931`).
+**Catchable by**: NEW — new files that enter the native graph must be added to `apps/mobile/bundle-registry/module-id-registry.json` before push
+
+## Case: localTokens/localHistory IndexedDB blob self-heal
+**Date**: 2026-09-03 | **Platforms**: desktop (Electron/Chromium storage; web/ext share the code path)
+**Symptom**: Desktop users hit permanent SimpleDB read failures on `simple_db_v5:localTokens` / `localHistory` with `UnknownError: Failed to read large IndexedDB value` (OK-61648), blocking builder-based writes the same way as OK-59997 perp.
+**Root Cause**: Large Chromium IndexedDB values are external blobs; corruption leaves the record forever unreadable. Self-heal was opt-in and only enabled for `perp`.
+**Fix**: Default-on self-heal for the exact Chromium unreadable-blob signature (`UnknownError` + message `includes`); backoff retries (50/500/1000ms) + write-overlap veto before delete; `defaultLogger.app.storage.simpleDbUnreadableSelfHeal` local trail for export. The dead record is already unrecoverable — leaving it blocks builder writes and the app.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — durable unreadable storage errors need a default recovery path, not per-entity opt-in
+
+## Case: Prime logout tombstone is not equivalent to a missing SimpleDB record
+**Date**: 2026-09-03 | **Platforms**: desktop / web / extension (IndexedDB self-heal path)
+**Symptom**: Default-on SimpleDB self-heal would delete an unreadable `simple_db_v5:prime` record; a leftover Supabase session then rebuilt `oneKeyIdAuthState: loggedIn` (silent re-login after logout).
+**Root Cause**: `markOneKeyIdLoggedOutPreservingSessions` writes a tombstone in SimpleDB while keeping credentials in `supabaseStorageInstance`. After delete, `getRawData()` is `null`, so `persistMigratedLegacyAuthSessionSourceIfUnset` treats "empty" as "never logged out" and commits LegacyEmailSupabase + `loggedIn`. Unreadable ≠ empty.
+**Fix**: `SimpleDbEntityPrime` opts out of unreadable-record self-heal so the Chromium blob error stays loud-fail; other SimpleDB entities remain default-on.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — tombstone / monotonic-epoch records must not treat self-heal `null` as "never written"
+
+## Case: Prime web redeem URL rewritten off `/prime/redeem`
+**Date**: 2026-09-06 | **Platforms**: Web
+**Symptom**: Email link `https://app.onekey.so/prime/redeem?code=` would not stay in the address bar after navigation sync; refresh landed on Home (or Market in dapp mode).
+**Root Cause**: `buildAllowList` `pagePath()` runs `removeExtraSlash` (`path.replace(/\/+/g, '')`) then prepends `/`. The rewrite `/prime/redeem` became allowlist key `/primeredeem`, which never matched `getPathFromState`'s real URL, so the path was rewritten to `/`.
+**Fix**: Register the public path as literal `PRIME_REDEEM_LANDING_PATH` (`/prime/redeem`) instead of a `pagePath()` key. Regression test calls real `buildAllowList()` and asserts `/primeredeem` is absent.
+**Catchable by**: NEW — web public URLs with an inner slash cannot use `pagePath()`; allowlist tests must call `buildAllowList()`, not a handwritten path
+
+## Case: Browser search submits on Chinese IME Enter when typing English
+**Date**: 2026-09-08 | **Platforms**: desktop, web, extension
+**Symptom**: In Discovery search, using a Chinese IME to type English and pressing Enter once committed the letters and immediately started a Google search (e.g. query `fou r`).
+**Root Cause**: `useSearchPopover` treated every Enter as submit. IME confirmation Enter was not ignored, and Chromium fires that keydown after `compositionend` with `isComposing` already false.
+**Fix**: Shared IME composition lock ignores composing / keyCode 229 events and holds the lock until after the confirming Enter. Input forwards React composition props through the repository's existing RN-web ESM patch. Discovery inputs disable submit auto-blur; non-native SearchBar defaults to retaining focus while honoring an explicit blurOnSubmit setting.
+**Catchable by**: NEW — web/desktop inputs that submit on Enter must ignore IME composition (including the post-compositionend confirming Enter), retain focus, and test the patched production ESM entry rather than the unpatched CJS entry

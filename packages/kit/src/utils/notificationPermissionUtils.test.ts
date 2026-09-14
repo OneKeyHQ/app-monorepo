@@ -1,16 +1,44 @@
 import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
-import { isNotificationFullyEnabled } from './notificationPermissionUtils';
+import {
+  canSendOsNotificationTest,
+  enableNotificationsBestEffort,
+  getOsNotificationPermissionSafe,
+  isNotificationFullyEnabled,
+  isOsNotificationPermissionPending,
+  recoverOsNotificationPermission,
+  resolveOsNotificationPermissionAction,
+} from './notificationPermissionUtils';
+
+import type { IAppNavigation } from '../hooks/useAppNavigation';
 
 const mockFetchServerNotificationSettingsWithCache: jest.Mock<
   Promise<unknown>,
   unknown[]
 > = jest.fn();
+const mockUpdateServerNotificationSettings: jest.Mock<
+  Promise<unknown>,
+  unknown[]
+> = jest.fn();
 const mockGetPermission: jest.Mock<Promise<unknown>, unknown[]> = jest.fn();
+const mockGetPermissionWithoutLog: jest.Mock<
+  Promise<unknown>,
+  unknown[]
+> = jest.fn();
+const mockRequestPermission: jest.Mock<Promise<unknown>, unknown[]> = jest.fn();
+const mockOpenPermissionSettings: jest.Mock<
+  Promise<unknown>,
+  unknown[]
+> = jest.fn();
 
-const mockPlatformEnv: { isWebDappMode: boolean; isDesktop: boolean } = {
+const mockPlatformEnv: {
+  isWebDappMode: boolean;
+  isDesktop: boolean;
+  isNativeIOS: boolean;
+} = {
   isWebDappMode: false,
   isDesktop: false,
+  isNativeIOS: true,
 };
 
 // Factories must reference the mocks lazily: they run while the module under
@@ -24,6 +52,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isDesktop() {
       return mockPlatformEnv.isDesktop;
     },
+    get isNativeIOS() {
+      return mockPlatformEnv.isNativeIOS;
+    },
   },
 }));
 
@@ -33,10 +64,239 @@ jest.mock('../background/instance/backgroundApiProxy', () => ({
     serviceNotification: {
       fetchServerNotificationSettingsWithCache: (...args: unknown[]) =>
         mockFetchServerNotificationSettingsWithCache(...args),
+      updateServerNotificationSettings: (...args: unknown[]) =>
+        mockUpdateServerNotificationSettings(...args),
       getPermission: (...args: unknown[]) => mockGetPermission(...args),
+      getPermissionWithoutLog: (...args: unknown[]) =>
+        mockGetPermissionWithoutLog(...args),
+      requestPermission: (...args: unknown[]) => mockRequestPermission(...args),
+      openPermissionSettings: (...args: unknown[]) =>
+        mockOpenPermissionSettings(...args),
     },
   },
 }));
+
+const granted = {
+  isSupported: true,
+  permission: ENotificationPermission.granted,
+};
+const undetermined = {
+  isSupported: true,
+  permission: ENotificationPermission.default,
+};
+const denied = {
+  isSupported: true,
+  permission: ENotificationPermission.denied,
+};
+
+describe('resolveOsNotificationPermissionAction', () => {
+  it('leaves Android on its existing notification permission flow', () => {
+    const androidPermissionContext = {
+      permission: denied,
+      isNativeIOS: false,
+    };
+
+    expect(
+      resolveOsNotificationPermissionAction(androidPermissionContext),
+    ).toBe('none');
+  });
+
+  it('requests the system prompt while authorization is still undetermined', () => {
+    expect(
+      resolveOsNotificationPermissionAction({
+        permission: undetermined,
+        isNativeIOS: true,
+      }),
+    ).toBe('request');
+  });
+
+  it('opens Settings after the system prompt has already been denied', () => {
+    expect(
+      resolveOsNotificationPermissionAction({
+        permission: denied,
+        isNativeIOS: true,
+      }),
+    ).toBe('openSettings');
+  });
+
+  it('hides the CTA when the OS permission is already granted', () => {
+    expect(
+      resolveOsNotificationPermissionAction({
+        permission: granted,
+        isNativeIOS: true,
+      }),
+    ).toBe('none');
+  });
+
+  it('skips unsupported or missing permission payloads', () => {
+    expect(
+      resolveOsNotificationPermissionAction({
+        permission: { isSupported: false, permission: denied.permission },
+        isNativeIOS: true,
+      }),
+    ).toBe('none');
+    expect(
+      resolveOsNotificationPermissionAction({
+        permission: undefined,
+        isNativeIOS: true,
+      }),
+    ).toBe('none');
+  });
+});
+
+describe('isOsNotificationPermissionPending', () => {
+  it('does not wait for OS permission outside iOS', () => {
+    const androidPermissionContext = {
+      permission: undefined,
+      isLoading: true,
+      isNativeIOS: false,
+    };
+
+    expect(isOsNotificationPermissionPending(androidPermissionContext)).toBe(
+      false,
+    );
+  });
+
+  it('waits while the OS permission has not been read yet', () => {
+    expect(
+      isOsNotificationPermissionPending({
+        permission: undefined,
+        isLoading: undefined,
+        isNativeIOS: true,
+      }),
+    ).toBe(true);
+    expect(
+      isOsNotificationPermissionPending({
+        permission: undefined,
+        isLoading: true,
+        isNativeIOS: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('stops waiting once the read finishes, even if the payload is missing', () => {
+    expect(
+      isOsNotificationPermissionPending({
+        permission: undefined,
+        isLoading: false,
+        isNativeIOS: true,
+      }),
+    ).toBe(false);
+    expect(
+      isOsNotificationPermissionPending({
+        permission: undetermined,
+        isLoading: true,
+        isNativeIOS: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('getOsNotificationPermissionSafe', () => {
+  beforeEach(() => {
+    mockGetPermissionWithoutLog.mockReset();
+    mockPlatformEnv.isNativeIOS = true;
+  });
+
+  it('returns undefined instead of throwing when the provider cannot report permission', async () => {
+    mockGetPermissionWithoutLog.mockRejectedValue(new Error('unsupported'));
+
+    await expect(getOsNotificationPermissionSafe()).resolves.toBeUndefined();
+  });
+});
+
+describe('recoverOsNotificationPermission', () => {
+  beforeEach(() => {
+    mockGetPermissionWithoutLog.mockReset();
+    mockRequestPermission.mockReset();
+    mockOpenPermissionSettings.mockReset();
+    mockPlatformEnv.isWebDappMode = false;
+    mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isNativeIOS = true;
+  });
+
+  it('only requests authorization when the OS status is still undetermined', async () => {
+    mockRequestPermission.mockResolvedValue(granted);
+
+    await expect(
+      recoverOsNotificationPermission(undetermined),
+    ).resolves.toEqual(granted);
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+    expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
+  });
+
+  it('does not open Settings if the user denies the first system prompt', async () => {
+    mockRequestPermission.mockResolvedValue(denied);
+
+    await expect(
+      recoverOsNotificationPermission(undetermined),
+    ).resolves.toEqual(denied);
+    expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
+  });
+
+  it('opens Settings when the OS permission is already denied', async () => {
+    mockOpenPermissionSettings.mockResolvedValue(undefined);
+    mockGetPermissionWithoutLog.mockResolvedValue(denied);
+
+    await expect(recoverOsNotificationPermission(denied)).resolves.toEqual(
+      denied,
+    );
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+    expect(mockOpenPermissionSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('is a no-op when the permission is already granted', async () => {
+    await expect(recoverOsNotificationPermission(granted)).resolves.toEqual(
+      granted,
+    );
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+    expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('canSendOsNotificationTest', () => {
+  beforeEach(() => {
+    mockGetPermissionWithoutLog.mockReset();
+    mockRequestPermission.mockReset();
+    mockOpenPermissionSettings.mockReset();
+    mockPlatformEnv.isWebDappMode = false;
+    mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isNativeIOS = true;
+  });
+
+  it('sends the test without prompting when the OS permission is granted', async () => {
+    mockGetPermissionWithoutLog.mockResolvedValue(granted);
+
+    await expect(canSendOsNotificationTest()).resolves.toBe(true);
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+  });
+
+  it('requests permission then sends the test if the user grants it', async () => {
+    mockGetPermissionWithoutLog.mockResolvedValue(undetermined);
+    mockRequestPermission.mockResolvedValue(granted);
+
+    await expect(canSendOsNotificationTest()).resolves.toBe(true);
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send the test when the user leaves the system prompt denied', async () => {
+    mockGetPermissionWithoutLog.mockResolvedValue(undetermined);
+    mockRequestPermission.mockResolvedValue(denied);
+
+    await expect(canSendOsNotificationTest()).resolves.toBe(false);
+    expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
+  });
+
+  it('keeps the existing Test behavior outside iOS', async () => {
+    mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isDesktop = true;
+    mockGetPermissionWithoutLog.mockResolvedValue(undetermined);
+
+    await expect(canSendOsNotificationTest()).resolves.toBe(true);
+    expect(mockGetPermissionWithoutLog).not.toHaveBeenCalled();
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+  });
+});
 
 describe('isNotificationFullyEnabled', () => {
   beforeEach(() => {
@@ -44,6 +304,7 @@ describe('isNotificationFullyEnabled', () => {
     mockGetPermission.mockReset();
     mockPlatformEnv.isWebDappMode = false;
     mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isNativeIOS = true;
   });
 
   it('returns false when the master switch is off', async () => {
@@ -92,5 +353,73 @@ describe('isNotificationFullyEnabled', () => {
     });
 
     await expect(isNotificationFullyEnabled()).resolves.toBe(true);
+  });
+});
+
+describe('notification setup on the Prime gift success page', () => {
+  const pushModal = jest.fn();
+  const navigation = { pushModal } as unknown as IAppNavigation;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isNativeIOS = true;
+    mockFetchServerNotificationSettingsWithCache.mockResolvedValue({
+      pushEnabled: false,
+      accountActivityPushEnabled: true,
+    });
+    mockGetPermission.mockResolvedValue(undetermined);
+    mockRequestPermission.mockResolvedValue(denied);
+    mockUpdateServerNotificationSettings.mockResolvedValue({
+      pushEnabled: true,
+      accountActivityPushEnabled: true,
+    });
+  });
+
+  it('preserves notification settings and stays on the success page after an OS denial', async () => {
+    await enableNotificationsBestEffort({
+      navigation,
+      stayOnCurrentPage: true,
+    });
+    expect(mockUpdateServerNotificationSettings).toHaveBeenCalledWith({
+      pushEnabled: true,
+      accountActivityPushEnabled: true,
+    });
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+    expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
+  });
+
+  it('keeps an optional notification failure from failing the gift flow', async () => {
+    mockRequestPermission.mockRejectedValueOnce(
+      new Error('permission provider unavailable'),
+    );
+    await expect(
+      enableNotificationsBestEffort({ navigation, stayOnCurrentPage: true }),
+    ).resolves.toBeUndefined();
+    expect(mockOpenPermissionSettings).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
+  });
+
+  it('defers missing server settings without overwriting defaults or leaving success', async () => {
+    mockFetchServerNotificationSettingsWithCache.mockResolvedValue({});
+    await enableNotificationsBestEffort({
+      navigation,
+      stayOnCurrentPage: true,
+    });
+    expect(mockUpdateServerNotificationSettings).not.toHaveBeenCalled();
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
+  });
+
+  it('abandons notification setup when the recipient is no longer current', async () => {
+    await enableNotificationsBestEffort({
+      navigation,
+      stayOnCurrentPage: true,
+      shouldContinue: () => false,
+    });
+    expect(mockUpdateServerNotificationSettings).not.toHaveBeenCalled();
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+    expect(pushModal).not.toHaveBeenCalled();
   });
 });

@@ -1,38 +1,22 @@
-import { useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
+  Checkbox,
   Icon,
   ScrollView,
   SizableText,
-  Stack,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import {
-  OKX_CHART_BG,
-  OKX_CHART_DIVIDER,
-  OKX_CHART_SIDE_ACTIVE_BG,
-  OKX_CHART_TEXT,
-  OKX_CHART_TEXT_SUBDUED,
-  OkxChartCheckbox,
-} from './TradingViewSettingsShared';
 
 import type {
   ITradingViewSettingsMockIndicator,
   ITradingViewSettingsMockIndicatorScope,
 } from './TradingViewSettingsMockState';
 
-const OKX_INDICATOR_TABS_HEIGHT = 41;
-const OKX_INDICATOR_BODY_HEIGHT = 418;
-const OKX_INDICATOR_SIDEBAR_WIDTH = 184;
-const OKX_INDICATOR_SIDEBAR_ROW_PADDING_X = 16;
-const OKX_INDICATOR_SIDEBAR_LABEL_WIDTH = 86;
-
-export function OkxIndicatorScopeTabs({
+export function TradingViewIndicatorScopeTabs({
   value,
   indicators,
   maxActiveSubIndicatorCount,
@@ -67,49 +51,35 @@ export function OkxIndicatorScopeTabs({
   ];
 
   return (
+    // Figma 26652:31723: underline tabs with no rule below the row.
     <XStack
-      h={OKX_INDICATOR_TABS_HEIGHT}
-      px={24}
-      gap={24}
-      alignItems="flex-end"
-      borderBottomWidth={1}
-      borderBottomColor={OKX_CHART_DIVIDER}
-      bg={OKX_CHART_BG}
+      testID="trading-view-indicator-scope-tabs"
+      flexShrink={0}
+      px="$5"
+      gap="$5"
+      mb="$2"
     >
-      {tabs.map((tab) => {
-        const selected = value === tab.value;
-        return (
-          <YStack
-            key={tab.value}
-            h={OKX_INDICATOR_TABS_HEIGHT}
-            justifyContent="center"
-            cursor="pointer"
-            onPress={() => onChange(tab.value)}
-          >
-            <SizableText
-              fontSize={14}
-              lineHeight={18}
-              fontWeight={selected ? '700' : '400'}
-              color={selected ? OKX_CHART_TEXT : OKX_CHART_TEXT_SUBDUED}
-            >
-              {tab.label}
-            </SizableText>
-            <Stack
-              position="absolute"
-              left={0}
-              right={0}
-              bottom={0}
-              h={2}
-              bg={selected ? '$text' : 'transparent'}
-            />
-          </YStack>
-        );
-      })}
+      {tabs.map((tab, index) => (
+        <Tabs.TabBarItem
+          key={tab.value}
+          testID={`trading-view-indicator-scope-${tab.value}`}
+          name={tab.value}
+          label={tab.label}
+          index={index}
+          isFocused={value === tab.value}
+          textSize="$bodyMdMedium"
+          // Drop the item's page-padding offset (the row sets its own inset) and
+          // keep the arrow cursor and unselectable label the full TabBar
+          // container gives its items.
+          tabItemStyle={{ ml: '$0', cursor: 'default', userSelect: 'none' }}
+          onPress={() => onChange(tab.value)}
+        />
+      ))}
     </XStack>
   );
 }
 
-export function OkxIndicatorSidebar({
+export function TradingViewIndicatorSidebar({
   indicators,
   selectedIndicatorId,
   onSelect,
@@ -120,140 +90,72 @@ export function OkxIndicatorSidebar({
   onSelect: (indicatorId: string) => void;
   onToggle: (indicatorId: string, active: boolean) => void;
 }) {
-  const [scrollMetrics, setScrollMetrics] = useState({
-    contentHeight: OKX_INDICATOR_BODY_HEIGHT,
-    viewportHeight: OKX_INDICATOR_BODY_HEIGHT,
-    scrollY: 0,
-  });
-  const hasScrollableContent =
-    scrollMetrics.contentHeight > scrollMetrics.viewportHeight;
-  const scrollbarThumbHeight = hasScrollableContent
-    ? Math.max(
-        34,
-        (scrollMetrics.viewportHeight / scrollMetrics.contentHeight) *
-          scrollMetrics.viewportHeight,
-      )
-    : 0;
-  const scrollbarThumbTop = hasScrollableContent
-    ? Math.min(
-        scrollMetrics.viewportHeight - scrollbarThumbHeight,
-        (scrollMetrics.scrollY /
-          (scrollMetrics.contentHeight - scrollMetrics.viewportHeight)) *
-          (scrollMetrics.viewportHeight - scrollbarThumbHeight),
-      )
-    : 0;
-
   return (
-    <Stack
-      w={OKX_INDICATOR_SIDEBAR_WIDTH}
-      h={OKX_INDICATOR_BODY_HEIGHT}
-      position="relative"
-      overflow="hidden"
+    <ScrollView
+      testID="trading-view-indicator-sidebar"
+      flex={1}
+      minHeight={0}
+      contentContainerStyle={{ px: '$3', py: '$4', gap: '$1' }}
     >
-      <ScrollView
-        w={OKX_INDICATOR_SIDEBAR_WIDTH}
-        h={OKX_INDICATOR_BODY_HEIGHT}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onContentSizeChange={(_, contentHeight) =>
-          setScrollMetrics((current) => ({ ...current, contentHeight }))
-        }
-        onLayout={(event) =>
-          setScrollMetrics((current) => ({
-            ...current,
-            viewportHeight: event.nativeEvent.layout.height,
-          }))
-        }
-        onScroll={(event) =>
-          setScrollMetrics((current) => ({
-            ...current,
-            scrollY: event.nativeEvent.contentOffset.y,
-          }))
-        }
-      >
-        <YStack pt={15} pb={24} bg={OKX_CHART_BG}>
-          {indicators.map((indicator, index) => {
-            const selected = indicator.id === selectedIndicatorId;
-            const previousIndicator = indicators[index - 1];
-            const showGroupLabel =
-              indicator.groupLabel &&
-              indicator.groupLabel !== previousIndicator?.groupLabel;
-            return (
-              <YStack key={indicator.id} w="100%">
-                {showGroupLabel ? (
-                  <SizableText
-                    mt={index === 0 ? 0 : 19}
-                    mb={12}
-                    px={OKX_INDICATOR_SIDEBAR_ROW_PADDING_X}
-                    fontSize={12}
-                    lineHeight={14}
-                    color={OKX_CHART_TEXT_SUBDUED}
-                  >
-                    {indicator.groupLabel}
-                  </SizableText>
-                ) : null}
-                <XStack
-                  testID={`trading-view-indicator-sidebar-${indicator.id}`}
-                  w="100%"
-                  h={41}
-                  px={OKX_INDICATOR_SIDEBAR_ROW_PADDING_X}
-                  gap={8}
-                  alignItems="center"
-                  bg={selected ? OKX_CHART_SIDE_ACTIVE_BG : OKX_CHART_BG}
-                  hoverStyle={{
-                    bg: selected ? OKX_CHART_SIDE_ACTIVE_BG : '$bgHover',
-                  }}
-                  cursor="pointer"
-                  onPress={() => onSelect(indicator.id)}
-                >
-                  <OkxChartCheckbox
-                    checked={indicator.active}
-                    onChange={(checked) => onToggle(indicator.id, checked)}
-                  />
-                  <Stack
-                    w={OKX_INDICATOR_SIDEBAR_LABEL_WIDTH}
-                    maxWidth={OKX_INDICATOR_SIDEBAR_LABEL_WIDTH}
-                    flexShrink={0}
-                    overflow="hidden"
-                  >
-                    <SizableText
-                      fontSize={14}
-                      lineHeight={18}
-                      color={OKX_CHART_TEXT}
-                      numberOfLines={1}
-                      style={{
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {indicator.label}
-                    </SizableText>
-                  </Stack>
-                  <Icon
-                    name="ChevronRightSmallOutline"
-                    size="$4"
-                    color="$icon"
-                    flexShrink={0}
-                  />
-                </XStack>
-              </YStack>
-            );
-          })}
-        </YStack>
-      </ScrollView>
-      {hasScrollableContent ? (
-        <Stack
-          position="absolute"
-          top={scrollbarThumbTop}
-          right={1}
-          w={3}
-          h={scrollbarThumbHeight}
-          borderRadius={2}
-          bg="$iconSubdued"
-          pointerEvents="none"
-        />
-      ) : null}
-    </Stack>
+      {indicators.map((indicator, index) => {
+        const selected = indicator.id === selectedIndicatorId;
+        const previousIndicator = indicators[index - 1];
+        const showGroupLabel =
+          indicator.groupLabel &&
+          indicator.groupLabel !== previousIndicator?.groupLabel;
+        return (
+          <YStack key={indicator.id} gap="$1">
+            {showGroupLabel ? (
+              <SizableText
+                px="$2"
+                pt={index === 0 ? '$0' : '$3'}
+                pb="$1"
+                size="$bodySm"
+                color="$textSubdued"
+              >
+                {indicator.groupLabel}
+              </SizableText>
+            ) : null}
+            {/* Mirrors DesktopTabItem, which the chart settings navigation
+                column is built from, with the checkbox in the icon slot. */}
+            <XStack
+              testID={`trading-view-indicator-sidebar-${indicator.id}`}
+              px="$2"
+              py="$2"
+              gap="$2"
+              alignItems="center"
+              borderRadius="$2"
+              bg={selected ? '$bgActive' : undefined}
+              hoverStyle={{ bg: selected ? '$bgActive' : '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              cursor="pointer"
+              userSelect="none"
+              onPress={() => onSelect(indicator.id)}
+            >
+              <Checkbox
+                testID={`trading-view-indicator-sidebar-toggle-${indicator.id}`}
+                value={indicator.active}
+                containerProps={{ py: '$0', alignItems: 'center' }}
+                onChange={(checked) => onToggle(indicator.id, Boolean(checked))}
+              />
+              <SizableText
+                flex={1}
+                numberOfLines={1}
+                size="$bodyMd"
+                color="$text"
+              >
+                {indicator.label}
+              </SizableText>
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$4.5"
+                color="$iconSubdued"
+                flexShrink={0}
+              />
+            </XStack>
+          </YStack>
+        );
+      })}
+    </ScrollView>
   );
 }

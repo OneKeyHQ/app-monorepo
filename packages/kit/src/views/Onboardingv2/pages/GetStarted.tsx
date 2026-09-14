@@ -500,6 +500,7 @@ function GetStarted() {
                 bg="$bgStrong"
                 p="$6"
                 key={action.labelId}
+                testID={action.testID}
                 onPress={action.onPress}
                 borderRadius="$6"
                 borderCurve="continuous"

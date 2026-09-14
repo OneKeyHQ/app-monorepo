@@ -4,7 +4,7 @@ import { Semaphore } from 'async-mutex';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
-import { cloneDeep, has, isEqual } from 'lodash';
+import { cloneDeep, has, isEqual, omit } from 'lodash';
 
 import {
   getBtcForkNetwork,
@@ -30,6 +30,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -48,6 +49,7 @@ import {
   isSamePrivateSendSwapHistoryItem,
   isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
+  isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   getDenyBridgeProviderString,
@@ -119,6 +121,7 @@ import {
   ESwapFetchCancelCause,
   ESwapLimitOrderStatus,
   ESwapLimitOrderUpdateInterval,
+  ESwapQuoteSource,
   ESwapTabSwitchType,
   ESwapTradeSource,
   ESwapTxHistoryStatus,
@@ -138,11 +141,11 @@ import {
   buildSwapReferralBuildTxParams,
   mergeSwapTokenLists,
   normalizeSwapTokenListCurrency,
+  resolveSwapRequestAccountContext,
   shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
-  isSwapTxHistoryStatusTerminal,
   mergeSwapOrderHash,
   shouldEmitSwapHistoryBalanceUpdate,
   shouldShowSwapHistoryStatusToast,
@@ -439,7 +442,7 @@ function getPrivateSendAnalyticsFinalStatus(status: ESwapTxHistoryStatus) {
   ) {
     return 'done';
   }
-  return isSwapTxHistoryStatusTerminal(status) ? 'failed' : undefined;
+  return isSwapHistoryTerminalStatus(status) ? 'failed' : undefined;
 }
 
 function getPrivateSendHistoryDurationSeconds(swapTxHistory: ISwapTxHistory) {
@@ -469,7 +472,7 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
 }) {
   if (
     !isPrivateSendHistory ||
-    isSwapTxHistoryStatusTerminal(previousSwapTxHistory.status)
+    isSwapHistoryTerminalStatus(previousSwapTxHistory.status)
   ) {
     return;
   }
@@ -755,7 +758,21 @@ export default class ServiceSwap extends ServiceBase {
     lpToken,
     currency,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
-    if (!isAllNetworkFetchAccountTokens) {
+    const accountContext = resolveSwapRequestAccountContext({
+      accountAddress,
+      accountId,
+      accountNetworkId,
+      isAllNetworkFetchAccountTokens,
+      isTravelMode: await travelModeManager.isActive(),
+      onlyAccountTokens,
+    });
+    const requestAccountAddress = accountContext.accountAddress;
+    const requestAccountId = accountContext.accountId;
+    const requestAccountNetworkId = accountContext.accountNetworkId;
+    const requestIsAllNetworkFetchAccountTokens =
+      accountContext.isAllNetworkFetchAccountTokens;
+    const requestOnlyAccountTokens = accountContext.onlyAccountTokens;
+    if (!requestIsAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
     }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
@@ -766,15 +783,15 @@ export default class ServiceSwap extends ServiceBase {
       keywords,
       limit,
       accountAddress: !networkUtils.isAllNetwork({ networkId: targetNetworkId })
-        ? accountAddress
+        ? requestAccountAddress
         : undefined,
-      accountNetworkId,
+      accountNetworkId: requestAccountNetworkId,
       skipReservationValue: true,
-      onlyAccountTokens,
+      onlyAccountTokens: requestOnlyAccountTokens,
       onlySwapTokens,
       ...(shouldSendSwapLpTokenParam(lpToken) ? { lpToken } : {}),
     };
-    if (!isAllNetworkFetchAccountTokens) {
+    if (!requestIsAllNetworkFetchAccountTokens) {
       this._tokenListAbortController = new AbortController();
     }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -783,8 +800,8 @@ export default class ServiceSwap extends ServiceBase {
       (await settingsPersistAtom.get())?.currencyInfo?.id ??
       USD_CURRENCY_ID;
     if (
-      accountId &&
-      accountAddress &&
+      requestAccountId &&
+      requestAccountAddress &&
       networkId &&
       !networkUtils.isAllNetwork({
         networkId,
@@ -793,13 +810,15 @@ export default class ServiceSwap extends ServiceBase {
       try {
         const accountAddressForAccountId =
           await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-            accountId,
+            accountId: requestAccountId,
             networkId,
           });
-        if (equalsIgnoreCase(accountAddressForAccountId, accountAddress)) {
+        if (
+          equalsIgnoreCase(accountAddressForAccountId, requestAccountAddress)
+        ) {
           params.accountXpub =
             await this.backgroundApi.serviceAccount.getAccountXpub({
-              accountId,
+              accountId: requestAccountId,
               networkId,
             });
         } else {
@@ -819,7 +838,7 @@ export default class ServiceSwap extends ServiceBase {
           await this.backgroundApi.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
-              accountId,
+              accountId: requestAccountId,
             },
           );
         params.withCheckInscription = withCheckInscription;
@@ -828,13 +847,13 @@ export default class ServiceSwap extends ServiceBase {
     try {
       const requestConfig = {
         params,
-        signal: !isAllNetworkFetchAccountTokens
+        signal: !requestIsAllNetworkFetchAccountTokens
           ? this._tokenListAbortController?.signal
           : undefined,
         headers: {
           ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
             {
-              accountId,
+              accountId: requestAccountId,
             },
           )),
           'x-onekey-request-currency': requestCurrency,
@@ -1001,10 +1020,17 @@ export default class ServiceSwap extends ServiceBase {
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
+      const accountContext = resolveSwapRequestAccountContext({
+        accountAddress,
+        accountId,
+        isTravelMode: await travelModeManager.isActive(),
+      });
+      const requestAccountAddress = accountContext.accountAddress;
+      const requestAccountId = accountContext.accountId;
       const params: IFetchTokenDetailParams = {
         protocol,
         networkId,
-        accountAddress,
+        accountAddress: requestAccountAddress,
         contractAddress,
         currency,
       };
@@ -1016,17 +1042,17 @@ export default class ServiceSwap extends ServiceBase {
         }
       }
       const client = await this.getClient(EServiceEndpointEnum.Swap);
-      if (accountId && accountAddress && networkId) {
+      if (requestAccountId && requestAccountAddress && networkId) {
         try {
           const accountAddressForAccountId =
             await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-              accountId,
+              accountId: requestAccountId,
               networkId,
             });
-          if (accountAddressForAccountId === accountAddress) {
+          if (accountAddressForAccountId === requestAccountAddress) {
             params.xpub =
               await this.backgroundApi.serviceAccount.getAccountXpub({
-                accountId,
+                accountId: requestAccountId,
                 networkId,
               });
           }
@@ -1037,7 +1063,7 @@ export default class ServiceSwap extends ServiceBase {
           await this.backgroundApi.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
-              accountId,
+              accountId: requestAccountId,
             },
           );
         params.withCheckInscription = withCheckInscription;
@@ -1056,7 +1082,7 @@ export default class ServiceSwap extends ServiceBase {
           headers: {
             ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
-                accountId,
+                accountId: requestAccountId,
               },
             )),
             ...(currency ? { 'x-onekey-request-currency': currency } : {}),
@@ -1174,7 +1200,7 @@ export default class ServiceSwap extends ServiceBase {
       source,
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
-      fromTokenAmount,
+      ...(fromTokenAmount ? { fromTokenAmount } : {}),
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
       protocol: getProtocolOfExchangeFromSwapTab(protocol),
@@ -1186,18 +1212,27 @@ export default class ServiceSwap extends ServiceBase {
       receivingAddress,
       limitPartiallyFillable,
       kind,
-      toTokenAmount,
+      ...(toTokenAmount ? { toTokenAmount } : {}),
       userMarketPriceRate,
       denyCrossChainProvider,
       denySingleSwapProvider,
       walletDeviceType: walletDevice?.deviceType,
       ...(incognito ? { incognito } : {}),
     };
+    // Keep Market event ownership while restoring the legacy provider pool for
+    // native BTC outbound routes, which the Market-approved pool cannot quote.
+    const requestParams =
+      source === ESwapQuoteSource.MARKET &&
+      fromToken.isNative &&
+      fromToken.networkId !== toToken.networkId &&
+      networkUtils.isBTCNetwork(fromToken.networkId)
+        ? omit(params, 'source')
+        : params;
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
     ).getUri({
       url: '/swap/v1/quote/events',
-      params,
+      params: requestParams,
     });
     let headers = await getRequestHeaders();
     const walletType =
@@ -2893,7 +2928,7 @@ export default class ServiceSwap extends ServiceBase {
         const rawStatus = txStatusRes.state;
         const shouldPreserveExistingExtraStatus =
           fetchResult?.shouldPreserveExistingExtraStatus &&
-          !isSwapTxHistoryStatusTerminal(rawStatus);
+          !isSwapHistoryTerminalStatus(rawStatus);
         currentSwapTxHistory = {
           ...currentSwapTxHistory,
           status: rawStatus,
@@ -2952,6 +2987,8 @@ export default class ServiceSwap extends ServiceBase {
         });
         if (
           finalStatus === ESwapTxHistoryStatus.FAILED ||
+          finalStatus === ESwapTxHistoryStatus.REFUNDED ||
+          finalStatus === ESwapTxHistoryStatus.EXPIRED ||
           finalStatus === ESwapTxHistoryStatus.CANCELED
         ) {
           await this.clearLocalPendingTxForTerminalSwap(currentSwapTxHistory);
@@ -2974,7 +3011,7 @@ export default class ServiceSwap extends ServiceBase {
             orderToToken: currentSwapTxHistory.baseInfo.toToken,
           });
         }
-        if (isSwapTxHistoryStatusTerminal(finalStatus)) {
+        if (isSwapHistoryTerminalStatus(finalStatus)) {
           enableInterval = false;
           await this.cleanSwapHistoryStateIntervals(
             previousSwapTxHistory,
@@ -3573,7 +3610,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSpeedSwapConfig(params: { networkId: string }) {
-    const defaultConfig = {
+    const defaultConfig: ISpeedSwapConfig = {
       provider: '',
       speedConfig: {
         slippage: 0.5,
@@ -3586,6 +3623,7 @@ export default class ServiceSwap extends ServiceBase {
       onlySupportCrossChain: false,
       onlySupportSingleChain: false,
       speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
+      unavailable: true,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);

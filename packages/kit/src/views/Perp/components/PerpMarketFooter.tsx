@@ -53,9 +53,7 @@ function PerpMarketFooter() {
     <Page.Footer
       px="$5"
       pt="$3"
-      // $10 clears the native iOS home indicator; the browser manages its own
-      // safe area on web, where it just reads as a dead band under the buttons.
-      pb={platformEnv.isNative ? '$10' : '$3'}
+      pb={platformEnv.isNative ? '$5' : '$3'}
       cancelButton={
         <Page.CancelButton
           flex={1}

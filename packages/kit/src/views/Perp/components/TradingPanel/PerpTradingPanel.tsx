@@ -18,6 +18,7 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useHyperLiquidAgentPasswordStatusAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAssetDataAtom,
@@ -264,6 +265,8 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     snapshotLookupIndexedAccountId,
   } = usePerpsAccountDisplayState();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const [hyperLiquidAgentPasswordStatus] =
+    useHyperLiquidAgentPasswordStatusAtom();
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const [isSubmitting] = useTradingLoadingAtom();
@@ -276,8 +279,11 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     return getPerpsOrderPanelEnableTradingModeByAccount({
       accountId: snapshotEntry?.account.accountId,
       indexedAccountId: snapshotEntry?.account.indexedAccountId,
+      requiresPasswordSetupOrVerify:
+        hyperLiquidAgentPasswordStatus.requiresPasswordSetupOrVerify,
     });
   }, [
+    hyperLiquidAgentPasswordStatus.requiresPasswordSetupOrVerify,
     isLiveStatusPending,
     snapshotEntry?.account.accountId,
     snapshotEntry?.account.indexedAccountId,

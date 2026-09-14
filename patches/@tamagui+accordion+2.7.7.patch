@@ -1,0 +1,85 @@
+diff --git a/node_modules/@tamagui/accordion/dist/cjs/Accordion.cjs b/node_modules/@tamagui/accordion/dist/cjs/Accordion.cjs
+index c6a7c2f..8cd0ab2 100644
+--- a/node_modules/@tamagui/accordion/dist/cjs/Accordion.cjs
++++ b/node_modules/@tamagui/accordion/dist/cjs/Accordion.cjs
+@@ -313,6 +313,7 @@ const AccordionTriggerFrame = (0, import_core.styled)(import_collapsible.Collaps
+   variants: {
+     unstyled: {
+       false: {
++        width: "100%",
+         cursor: "pointer",
+         backgroundColor: "$background",
+         padding: "$true",
+diff --git a/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js b/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
+index 5893889..607a12e 100644
+--- a/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
++++ b/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
+@@ -332,6 +332,7 @@ var AccordionTriggerFrame = (0, import_core.styled)(import_collapsible.Collapsib
+   variants: {
+     unstyled: {
+       false: {
++        width: "100%",
+         cursor: "pointer",
+         backgroundColor: "$background",
+         padding: "$true",
+diff --git a/node_modules/@tamagui/accordion/dist/esm/Accordion.mjs b/node_modules/@tamagui/accordion/dist/esm/Accordion.mjs
+index a948efe..7d0ab9d 100644
+--- a/node_modules/@tamagui/accordion/dist/esm/Accordion.mjs
++++ b/node_modules/@tamagui/accordion/dist/esm/Accordion.mjs
+@@ -275,6 +275,7 @@ const AccordionTriggerFrame = styled(Collapsible.Trigger, {
+   variants: {
+     unstyled: {
+       false: {
++        width: "100%",
+         cursor: "pointer",
+         backgroundColor: "$background",
+         padding: "$true",
+diff --git a/node_modules/@tamagui/accordion/dist/esm/Accordion.native.js b/node_modules/@tamagui/accordion/dist/esm/Accordion.native.js
+index 37ba11c..077bcc2 100644
+--- a/node_modules/@tamagui/accordion/dist/esm/Accordion.native.js
++++ b/node_modules/@tamagui/accordion/dist/esm/Accordion.native.js
+@@ -292,6 +292,7 @@ var AccordionTriggerFrame = styled(Collapsible.Trigger, {
+   variants: {
+     unstyled: {
+       false: {
++        width: "100%",
+         cursor: "pointer",
+         backgroundColor: "$background",
+         padding: "$true",
+diff --git a/node_modules/@tamagui/accordion/dist/jsx/Accordion.mjs b/node_modules/@tamagui/accordion/dist/jsx/Accordion.mjs
+index a948efe..7d0ab9d 100644
+--- a/node_modules/@tamagui/accordion/dist/jsx/Accordion.mjs
++++ b/node_modules/@tamagui/accordion/dist/jsx/Accordion.mjs
+@@ -275,6 +275,7 @@ const AccordionTriggerFrame = styled(Collapsible.Trigger, {
+   variants: {
+     unstyled: {
+       false: {
++        width: "100%",
+         cursor: "pointer",
+         backgroundColor: "$background",
+         padding: "$true",
+diff --git a/node_modules/@tamagui/accordion/dist/jsx/Accordion.native.js b/node_modules/@tamagui/accordion/dist/jsx/Accordion.native.js
+index 5893889..607a12e 100644
+--- a/node_modules/@tamagui/accordion/dist/jsx/Accordion.native.js
++++ b/node_modules/@tamagui/accordion/dist/jsx/Accordion.native.js
+@@ -332,6 +332,7 @@ var AccordionTriggerFrame = (0, import_core.styled)(import_collapsible.Collapsib
+   variants: {
+     unstyled: {
+       false: {
++        width: "100%",
+         cursor: "pointer",
+         backgroundColor: "$background",
+         padding: "$true",
+diff --git a/node_modules/@tamagui/accordion/src/Accordion.tsx b/node_modules/@tamagui/accordion/src/Accordion.tsx
+index c9a4fd8..8ac4617 100644
+--- a/node_modules/@tamagui/accordion/src/Accordion.tsx
++++ b/node_modules/@tamagui/accordion/src/Accordion.tsx
+@@ -479,6 +479,8 @@ const AccordionTriggerFrame = styled(Collapsible.Trigger, {
+   variants: {
+     unstyled: {
+       false: {
++        // OneKey patch: Keep accordion triggers full width across platforms.
++        width: '100%',
+         cursor: 'pointer',
+         backgroundColor: '$background',
+         padding: '$true',

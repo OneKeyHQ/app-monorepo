@@ -194,6 +194,7 @@ export { default as ChartLine } from './ChartLine';
 export { default as ChartLine2 } from './ChartLine2';
 export { default as ChartPieDashboard } from './ChartPieDashboard';
 export { default as ChartPieDashboard2 } from './ChartPieDashboard2';
+export { default as ChartPosition } from './ChartPosition';
 export { default as ChartTrendingUp } from './ChartTrendingUp';
 export { default as ChartTrendingUp2 } from './ChartTrendingUp2';
 export { default as ChartTrending } from './ChartTrending';

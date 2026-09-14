@@ -73,7 +73,9 @@ const EncryptPrefixImportedCredential = '|PK|'; // private key
 const EncryptPrefixHdCredential = '|RP|'; // recovery phrase
 const EncryptPrefixVerifyString = '|VS|'; // verify string
 const EncryptPrefixHyperLiquidAgentCredential = '|HL|'; // legacy encrypted
-const EncryptPrefixHyperLiquidAgentCredentialPlain = '|HLP|'; // plaintext (new)
+// Plaintext inner payload. Native and Web DApp persistence without a lock
+// password wrap it directly in LSE; other browser targets convert it to HLE first.
+const EncryptPrefixHyperLiquidAgentCredentialPlain = '|HLP|';
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
@@ -950,7 +952,7 @@ async function decryptHyperLiquidAgentCredential({
   return undefined;
 }
 
-// Plaintext |HLP| prefix + JSON. Synchronous — no AES encryption involved.
+// Synchronous serializer only. Persistence callers must wrap the result in LSE.
 function encryptHyperLiquidAgentCredential({
   credential,
 }: {

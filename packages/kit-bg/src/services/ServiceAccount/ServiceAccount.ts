@@ -88,7 +88,12 @@ import {
   DeviceNotOpenedPassphrase,
   DeviceNotSame,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyHardwareErrorPayload,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -357,11 +362,31 @@ class ServiceAccount extends ServiceBase {
       swrCacheUtils.removeByPrefix(
         prefixOf(swrCacheNamespaces.accountSelectorList),
       );
+    // Bulk copy / bulk send snapshot wallet objects, account groups and the
+    // seeded sender (names, addresses, xpubs) with no TTL, so they follow the
+    // same contract: a mutation drops the namespaces and the next mount
+    // repopulates, instead of painting (and exporting) a deleted or renamed
+    // wallet / account left over from the previous run.
+    const dropBulkAddressSwr = () => {
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesWallets),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesNetworkIds),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkCopyAddressesAccounts),
+      );
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.bulkSendAddressesInputSeed),
+      );
+    };
 
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
@@ -369,30 +394,35 @@ class ServiceAccount extends ServiceBase {
       // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
       void this.clearAccountCache();
       // sidebar doesn't show account names, only the right-panel sectionData does
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     // Defensive WalletClear handler. ServiceE2E.clearWalletsAndAccounts
@@ -405,6 +435,7 @@ class ServiceAccount extends ServiceBase {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
     // Drop derived-address / xpub memoizee caches on critical memory
@@ -1876,9 +1907,17 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: params.userAddress,
+      agentName: params.agentName,
+    });
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (_error) {
+    } catch (error) {
+      const existingCredential = await localDb.getCredentialSafe(credentialId);
+      if (!existingCredential) {
+        throw error;
+      }
       return this.updateHyperLiquidAgentCredential(params);
     }
   }
@@ -1916,18 +1955,38 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
-  async getHyperLiquidAgentCredential({
+  async getHyperLiquidAgentCredentialInfo({
     userAddress,
     agentName,
   }: {
     userAddress: string;
     agentName: EHyperLiquidAgentName;
-  }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
-    return localDb.getHyperLiquidAgentCredential({
-      userAddress,
-      agentName,
-    });
+  }): Promise<Omit<ICoreHyperLiquidAgentCredential, 'privateKey'> | undefined> {
+    // Status checks treat a missing/unreadable credential as `undefined` so the
+    // caller can gracefully fall back to the re-approval flow. The signing path
+    // (WalletHyperliquidProxy -> localDb.getHyperLiquidAgentCredential) stays
+    // fail-closed and is intentionally NOT affected by this catch.
+    let credential: ICoreHyperLiquidAgentCredential | undefined;
+    try {
+      credential = await localDb.getHyperLiquidAgentCredential({
+        userAddress,
+        agentName,
+      });
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent credential info read failed',
+      );
+      return undefined;
+    }
+    if (!credential) {
+      return undefined;
+    }
+    return {
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+      agentAddress: credential.agentAddress,
+      validUntil: credential.validUntil,
+    };
   }
 
   private extractUserAddressFromCredentialId(credentialId: string): string {
@@ -1960,25 +2019,78 @@ class ServiceAccount extends ServiceBase {
       return false;
     }
 
-    // Check if the deleted wallet is in the address record's wallets
-    if (deletedInfo.walletId && addressRecord.wallets[deletedInfo.walletId]) {
-      return true;
+    const addressOwners = Object.entries(addressRecord.wallets);
+    const isDeletedOwner = ([walletId, accountOrIndexedAccountId]: [
+      string,
+      string,
+    ]) =>
+      Boolean(
+        (deletedInfo.walletId && walletId === deletedInfo.walletId) ||
+        (deletedInfo.accountId &&
+          accountOrIndexedAccountId === deletedInfo.accountId) ||
+        (deletedInfo.indexedAccountId &&
+          accountOrIndexedAccountId === deletedInfo.indexedAccountId),
+      );
+
+    if (!addressOwners.some(isDeletedOwner)) {
+      return false;
     }
 
-    // Check if any of the wallet values match deleted account/indexedAccount IDs
-    if (deletedInfo.accountId || deletedInfo.indexedAccountId) {
-      const walletValues = Object.values(addressRecord.wallets);
+    for (const [walletId, accountOrIndexedAccountId] of addressOwners) {
+      if (isDeletedOwner([walletId, accountOrIndexedAccountId])) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const wallet = await localDb.getWalletSafe({ walletId });
       if (
-        (deletedInfo.accountId &&
-          walletValues.includes(deletedInfo.accountId)) ||
-        (deletedInfo.indexedAccountId &&
-          walletValues.includes(deletedInfo.indexedAccountId))
+        !wallet ||
+        localDb.isTempWalletRemoved({ wallet }) ||
+        accountUtils.isWalletDeprecatedOrMocked(wallet)
       ) {
-        return true;
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const [account, indexedAccount] = await Promise.all([
+        localDb.getAccountSafe({ accountId: accountOrIndexedAccountId }),
+        localDb.getIndexedAccountSafe({ id: accountOrIndexedAccountId }),
+      ]);
+      if (account || indexedAccount) {
+        return false;
       }
     }
 
-    return false;
+    return true;
+  }
+
+  @backgroundMethod()
+  async removeHyperLiquidAgentCredentialsByUserAddresses({
+    userAddresses,
+  }: {
+    userAddresses: string[];
+  }): Promise<number> {
+    const normalizedUserAddresses = new Set(
+      userAddresses
+        .map((address) => address.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    if (!normalizedUserAddresses.size) {
+      return 0;
+    }
+
+    const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
+    const credentialsToDelete = allCredentials.filter((credential) => {
+      try {
+        return normalizedUserAddresses.has(
+          this.extractUserAddressFromCredentialId(credential.id).toLowerCase(),
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (credentialsToDelete.length) {
+      await localDb.removeCredentials({ credentials: credentialsToDelete });
+    }
+    return credentialsToDelete.length;
   }
 
   @backgroundMethod()
@@ -3527,7 +3639,10 @@ class ServiceAccount extends ServiceBase {
     dbDevice,
     compatibleConnectId,
   }: {
-    dbDevice: IDBDevice;
+    dbDevice: Pick<
+      IDBDevice,
+      'vendor' | 'deviceId' | 'deviceStateInfo' | 'featuresInfo'
+    >;
     compatibleConnectId: string;
   }): Promise<IOneKeyDeviceFeatures> {
     let features: IOneKeyDeviceFeatures | undefined;
@@ -3539,22 +3654,39 @@ class ServiceAccount extends ServiceBase {
         await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
+          deviceId: dbDevice.deviceId,
         });
+      if (dbDevice.vendor === EHardwareVendor.trezor) {
+        if (!connected.success) {
+          throw convertDeviceError(
+            connected.payload as IOneKeyHardwareErrorPayload,
+            { vendor: dbDevice.vendor },
+          );
+        }
+        // Reject reset devices before creating wallet records.
+        if (
+          !connected.payload.deviceId ||
+          connected.payload.deviceId !== dbDevice.deviceId
+        ) {
+          throw new ThirdPartyDeviceMismatch({
+            vendor: dbDevice.vendor,
+            payload: {},
+          });
+        }
+      }
       if (connected.success) {
         features = connected.payload.features as IOneKeyDeviceFeatures;
       }
     } else {
       const persistedState = dbDevice.deviceStateInfo;
-      const protocol = dbDevice.connectProtocol ?? persistedState?.protocol;
-      // Pro 1 already opened the hidden-wallet session in the previous step.
-      // Reading live state without its passphrase context would restore the
-      // standard Protocol V1 session and prompt again while deriving the XFP.
+      // Hidden-wallet creation has already waited for the post-unlock
+      // DEVICE.STATE snapshot. Reuse it here so Protocol V1 keeps its active
+      // passphrase session and Protocol V2 avoids a duplicate status read.
       const state =
-        protocol === 'V1' && persistedState
-          ? persistedState
-          : await this.backgroundApi.serviceHardware.getDeviceState({
-              connectId: compatibleConnectId,
-            });
+        persistedState ||
+        (await this.backgroundApi.serviceHardware.getDeviceState({
+          connectId: compatibleConnectId,
+        }));
       features = projectLegacyDeviceFeaturesFromState(state);
     }
     if (features) {
@@ -3635,10 +3767,13 @@ class ServiceAccount extends ServiceBase {
         // standard session, so reading it after getPassphraseState would
         // clobber the hidden session and cost extra device round trips to
         // re-establish it (see getFeaturesForHwWalletCreate). Known-V2 devices
-        // are excluded — their flow always reads live state by design. An
-        // unknown-protocol device that turns out V2 pays one redundant read,
-        // but that class is practically empty: V2 device records have always
-        // stored connectProtocol since the protocol field was introduced.
+        // are excluded because openWalletSession reads authoritative live status
+        // and emits DEVICE.STATE. The flow below waits for that event to persist
+        // and reuses its post-unlock snapshot; createHWWalletBase falls back to a
+        // live state read only when no snapshot was persisted. An unknown-protocol
+        // device that turns out V2 pays one redundant read, but that class is
+        // practically empty: V2 device records have always stored connectProtocol
+        // since the protocol field was introduced.
         let seededDbDevice = dbDevice;
         let seededConnectProtocol = connectProtocol;
         const hiddenWalletVendorProfile = getVendorProfile(
@@ -3680,6 +3815,15 @@ class ServiceAccount extends ServiceBase {
             seededConnectProtocol = seededState.protocol;
           }
         }
+
+        // Check identity before requesting the passphrase.
+        const trezorFeatures =
+          dbDevice.vendor === EHardwareVendor.trezor
+            ? await this.getFeaturesForHwWalletCreate({
+                dbDevice,
+                compatibleConnectId,
+              })
+            : undefined;
 
         const passphraseState = await getHwHiddenWalletPassphraseState({
           vendor: dbDevice.vendor,
@@ -3724,6 +3868,7 @@ class ServiceAccount extends ServiceBase {
           const postUnlockDbDevice =
             await this.backgroundApi.serviceHardware.getDeviceByConnectId({
               connectId,
+              featuresDeviceId: dbDevice.deviceId,
             });
           if (postUnlockDbDevice?.deviceStateInfo) {
             seededDbDevice = {
@@ -3734,10 +3879,12 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
-          dbDevice: seededDbDevice,
-          compatibleConnectId,
-        });
+        const resolvedFeatures =
+          trezorFeatures ||
+          (await this.getFeaturesForHwWalletCreate({
+            dbDevice: seededDbDevice,
+            compatibleConnectId,
+          }));
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(seededDbDevice),
           features: resolvedFeatures,
@@ -3771,13 +3918,9 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
-        // resolvedFeatures already reflects the post-unlock snapshot refreshed
-        // above, but the XFP / address derivation calls inside
-        // createHWWalletBase may have emitted newer DEVICE.STATE events; drain
-        // the persistence queue once more and prefer the latest stored status.
+        // Derivation calls inside createHWWalletBase may emit a newer
+        // DEVICE.STATE event, so prefer the latest persisted attach-PIN state.
         let isAttachPinMode = resolvedFeatures.unlockedAttachPin;
-        // Same gate as the post-unlock refresh above: attach-PIN is
-        // OneKey-specific, and an empty connectId must not reach the lookup.
         if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
           try {
             await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
@@ -3791,6 +3934,7 @@ class ServiceAccount extends ServiceBase {
             const latestDbDevice =
               await this.backgroundApi.serviceHardware.getDeviceByConnectId({
                 connectId,
+                featuresDeviceId: dbDevice.deviceId,
               });
             const latestUnlockedAttachPin =
               latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
@@ -3798,7 +3942,7 @@ class ServiceAccount extends ServiceBase {
               isAttachPinMode = latestUnlockedAttachPin;
             }
           } catch {
-            // keep the resolved-features fallback
+            // Keep the resolved-features fallback.
           }
         }
 
@@ -3930,6 +4074,21 @@ class ServiceAccount extends ServiceBase {
       isThirdParty: vendorProfile?.isThirdParty,
     });
 
+    if (
+      vendor === EHardwareVendor.trezor &&
+      !passphraseState &&
+      !isMockedStandardHwWallet
+    ) {
+      await this.getFeaturesForHwWalletCreate({
+        dbDevice: {
+          vendor,
+          deviceId: params.device.deviceId || deviceId,
+          featuresInfo: features,
+        },
+        compatibleConnectId,
+      });
+    }
+
     const getDeviceStateForHwWalletCreate = (
       connectId: string,
       stateParams: { scope: 'runtime' },
@@ -3947,7 +4106,7 @@ class ServiceAccount extends ServiceBase {
       existingState: params.deviceState,
       preserveWalletSession:
         !vendorProfile?.isThirdParty &&
-        params.connectProtocol === 'V1' &&
+        (params.connectProtocol === 'V1' || params.connectProtocol === 'V2') &&
         Boolean(passphraseState),
       isThirdParty: Boolean(vendorProfile?.isThirdParty),
       isMocked: Boolean(isMockedStandardHwWallet),
@@ -4160,9 +4319,11 @@ class ServiceAccount extends ServiceBase {
       seed: revealableSeed.seed,
     });
 
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
       rs: revealableSeed,
       password,
+      ...kdfParams,
     });
 
     return this.createHDWalletWithRs({
@@ -4217,9 +4378,11 @@ class ServiceAccount extends ServiceBase {
       seed: revealableSeed.seed,
     });
 
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
       rs: revealableSeed,
       password,
+      ...kdfParams,
     });
 
     return this.createHDWalletWithRs({
@@ -4461,9 +4624,12 @@ class ServiceAccount extends ServiceBase {
           if (shouldRunPostCommitEffects) {
             // Derive and persist keyless cloud sync credential from wallet seed
             try {
+              // localDb.createHDWallet() has committed before this KDF starts.
+              const kdfParams = getPbkdf2KdfParamsForNonDbTx();
               const revealableSeed = await decryptRevealableSeed({
                 rs,
                 password,
+                ...kdfParams,
               });
               const seedBuffer = bufferUtils.toBuffer(
                 revealableSeed.seed,
@@ -5384,7 +5550,8 @@ class ServiceAccount extends ServiceBase {
     walletId,
     skipBackupWalletRemove,
     isRemoveToMocked,
-  }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
+    removeSameDeviceWallets,
+  }: IDBRemoveWalletParams & { removeSameDeviceWallets?: boolean }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
     }
@@ -5394,26 +5561,51 @@ class ServiceAccount extends ServiceBase {
       );
     }
 
-    let wallet = await this.getWalletSafe({ walletId });
-    assertWalletCanUseGenericRemoval(wallet);
-
-    const shouldSkipUnavailableHardwareCheck =
-      accountUtils.isHwWallet({ walletId }) &&
-      accountUtils.isWalletDeprecatedOrMocked(wallet);
-    if (!shouldSkipUnavailableHardwareCheck) {
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+    let relatedWalletIds: string[] | undefined;
+    if (removeSameDeviceWallets) {
+      if (!accountUtils.isHwWallet({ walletId }) || isRemoveToMocked) {
+        throw new OneKeyLocalError('Only hardware wallets can forget a device');
+      }
+      const wallets = await this.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: true,
+        filterQrWallet: true,
       });
+      const device = wallets[walletId]?.device;
+      if (!device) {
+        throw new OneKeyLocalError('Hardware wallet device not found');
+      }
+      relatedWalletIds = Object.values(wallets)
+        .filter((item) => deviceUtils.isSamePhysicalDevice(item.device, device))
+        .map((item) => item.wallet.id)
+        .filter((id) => id !== walletId);
     }
 
-    wallet = await this.getWalletSafe({ walletId });
-    assertWalletCanUseGenericRemoval(wallet);
+    const walletIds = [walletId, ...(relatedWalletIds ?? [])];
+    // Complete every device/password check before starting the DB transaction.
+    for (const id of walletIds) {
+      const wallet = await this.getWalletSafe({ walletId: id });
+      assertWalletCanUseGenericRemoval(wallet);
+      const shouldSkipUnavailableHardwareCheck =
+        accountUtils.isHwWallet({ walletId: id }) &&
+        accountUtils.isWalletDeprecatedOrMocked(wallet);
+      if (!shouldSkipUnavailableHardwareCheck) {
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+          walletId: id,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        });
+      }
+    }
+    for (const id of walletIds) {
+      assertWalletCanUseGenericRemoval(
+        await this.getWalletSafe({ walletId: id }),
+      );
+    }
 
     return this.removeWalletCore({
       walletId,
       skipBackupWalletRemove,
       isRemoveToMocked,
+      relatedWalletIds,
     });
   }
 
@@ -5554,7 +5746,8 @@ class ServiceAccount extends ServiceBase {
     walletId,
     skipBackupWalletRemove,
     isRemoveToMocked,
-  }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>): Promise<void> {
+    relatedWalletIds,
+  }: IDBRemoveWalletParams & { relatedWalletIds?: string[] }): Promise<void> {
     const isBotWallet = accountUtils.isBotWallet({ walletId });
     // OK-53558: capture bot wallet metadata before localDb.removeWallet so we
     // can push a deletion tombstone with the original payload after removal.
@@ -5562,10 +5755,10 @@ class ServiceAccount extends ServiceBase {
       ? await simpleDb.botWallet.getMetadata(walletId)
       : undefined;
 
-    const result = await localDb.removeWallet({
-      walletId,
-      isRemoveToMocked,
-    });
+    const walletIds = [walletId, ...(relatedWalletIds ?? [])];
+    const result = relatedWalletIds?.length
+      ? await localDb.removeWallets({ walletIds, isRemoveToMocked })
+      : await localDb.removeWallet({ walletId, isRemoveToMocked });
     if (isBotWallet) {
       await this.cleanupRemovedBotWalletCloudSyncState({
         walletId,
@@ -5580,19 +5773,31 @@ class ServiceAccount extends ServiceBase {
       await timerUtils.wait(1500);
     }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
-      walletId,
-    });
+    for (const id of walletIds) {
+      try {
+        await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove(
+          {
+            walletId: id,
+          },
+        );
+      } catch (error) {
+        // Wallet deletion has committed; continue the remaining cleanup.
+        console.error(
+          'Failed to cleanup DApp connections after wallet removal:',
+          error,
+        );
+      }
 
-    // Cleanup orphaned HyperLiquid agent credentials
-    void this.cleanupOrphanedHyperLiquidAgentCredentials({
-      walletId,
-    });
-
-    if (!skipBackupWalletRemove) {
-      void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
-        walletId,
+      // Cleanup orphaned HyperLiquid agent credentials
+      void this.cleanupOrphanedHyperLiquidAgentCredentials({
+        walletId: id,
       });
+
+      if (!skipBackupWalletRemove) {
+        void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
+          walletId: id,
+        });
+      }
     }
     return result;
   }
@@ -5982,6 +6187,9 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
     customReceiveAddressPath?: string;
+    /** DeviceStage confirm channel: the address the person expects, shown
+     * on the confirm card to check against the device screen. */
+    expectedAddress?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -6048,6 +6256,21 @@ class ServiceAccount extends ServiceBase {
         hideCheckingDeviceLoading: isThirdPartyVendor,
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
+        stageConfirmContent: params.expectedAddress
+          ? {
+              details: [
+                {
+                  label: appLocale.intl.formatMessage({
+                    id: ETranslations.global_address,
+                  }),
+                  value: params.expectedAddress,
+                  highlightEnds: true,
+                },
+              ],
+            }
+          : // Blank registration, not undefined: within a grace-window burst
+            // an undefined would leave the previous call's card standing.
+            {},
       },
     );
   }
@@ -6824,6 +7047,7 @@ class ServiceAccount extends ServiceBase {
     const walletsHashXfpMap: {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     for (const wallet of hdWallets) {
       const isKeylessWallet = wallet.isKeyless;
       if (isKeylessWallet) {
@@ -6850,6 +7074,7 @@ class ServiceAccount extends ServiceBase {
           const realMnemonic = await mnemonicFromEntropy(
             credentialInfo.credential,
             password,
+            kdfParams,
           );
           const walletHashXfp = await this.hdWalletHashAndXfpBuilder({
             realMnemonic,
@@ -7189,6 +7414,8 @@ class ServiceAccount extends ServiceBase {
           deviceParams: {
             dbDevice: device,
           },
+          debugMethodName:
+            'serviceAccount.generateWalletsMissingMetaWithUserInteraction',
         },
       );
     }

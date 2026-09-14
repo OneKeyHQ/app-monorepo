@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/authConsts';
@@ -15,6 +15,47 @@ import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 const DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS = 150_000;
 const desktopBleConnectedOnlyScopes = new Map<string, Map<number, number>>();
 let desktopBleConnectedOnlyScopeId = 0;
+
+type INobleBleIpcErrorResponse = {
+  type: 'NobleBleIpcError';
+  success: false;
+  error: {
+    name: string;
+    message: string;
+    errorCode: number;
+    params?: unknown;
+  };
+};
+
+function isNobleBleIpcErrorResponse(
+  response: unknown,
+): response is INobleBleIpcErrorResponse {
+  if (!response || typeof response !== 'object') {
+    return false;
+  }
+  const candidate = response as Partial<INobleBleIpcErrorResponse>;
+  return (
+    candidate.type === 'NobleBleIpcError' &&
+    candidate.success === false &&
+    Boolean(candidate.error) &&
+    typeof candidate.error?.name === 'string' &&
+    typeof candidate.error.message === 'string' &&
+    typeof candidate.error.errorCode === 'number'
+  );
+}
+
+async function invokeNobleBle<T>(channel: string, ...args: unknown[]) {
+  const response = (await ipcRenderer.invoke(channel, ...args)) as
+    | T
+    | INobleBleIpcErrorResponse;
+  if (isNobleBleIpcErrorResponse(response)) {
+    // A plain object keeps its structured fields when proxied through
+    // contextBridge; Error instances lose custom properties at this boundary.
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw response.error;
+  }
+  return response;
+}
 
 function isDesktopBleConnectedOnlyScopeActive(uuid: string) {
   const scopes = desktopBleConnectedOnlyScopes.get(uuid);
@@ -98,6 +139,8 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   arch: string;
   platform: string;
   systemVersion: string;
+  logicalProcessorCount: number;
+  totalMemoryBytes: number;
   isMas: boolean;
   channel?: string;
   deskChannel: string;
@@ -133,6 +176,8 @@ const desktopApi = {
   logDirectory: ipcRenderer.sendSync(ipcMessageKeys.LOG_DIRECTORY),
   deskChannel: platformInfo.deskChannel,
   systemVersion: platformInfo.systemVersion,
+  logicalProcessorCount: platformInfo.logicalProcessorCount,
+  totalMemoryBytes: platformInfo.totalMemoryBytes,
   isMas: platformInfo.isMas,
   processStartAt: platformInfo.processStartAt,
   supportsShareImageFile: platformInfo.supportsShareImageFile,
@@ -271,18 +316,16 @@ const desktopApi = {
         desktopBleConnectedOnlyScopes.delete(uuid);
       }
     },
-    enumerate: () =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE),
-    stopScan: () =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN),
+    enumerate: () => invokeNobleBle(EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE),
+    stopScan: () => invokeNobleBle(EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN),
     getDevice: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE, uuid),
+      invokeNobleBle(EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE, uuid),
     connect: (uuid: string) =>
       isDesktopBleConnectedOnlyScopeActive(uuid)
         ? Promise.resolve()
-        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid),
+        : invokeNobleBle(EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT, uuid),
     release: (uuid: string, keepSession?: boolean) =>
-      ipcRenderer.invoke(
+      invokeNobleBle(
         EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE,
         uuid,
         keepSession,
@@ -290,22 +333,22 @@ const desktopApi = {
     disconnect: (uuid: string) =>
       isDesktopBleConnectedOnlyScopeActive(uuid)
         ? Promise.resolve()
-        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT, uuid),
+        : invokeNobleBle(EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT, uuid),
     subscribe: (uuid: string) =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE, uuid),
+      invokeNobleBle(EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE, uuid),
     unsubscribe: (uuid: string) =>
       isDesktopBleConnectedOnlyScopeActive(uuid)
         ? Promise.resolve()
-        : ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
+        : invokeNobleBle(EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE, uuid),
     write: (uuid: string, data: string, options?: { pacingDelayMs?: number }) =>
-      ipcRenderer.invoke(
+      invokeNobleBle(
         EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
         uuid,
         data,
         options,
       ),
     cancelPairing: () =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING),
+      invokeNobleBle(EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING),
     onNotification: (callback: (deviceId: string, data: string) => void) => {
       const subscription = (_: unknown, deviceId: string, data: string) => {
         callback(deviceId, data);
@@ -363,7 +406,7 @@ const desktopApi = {
       };
     },
     checkAvailability: () =>
-      ipcRenderer.invoke(EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK),
+      invokeNobleBle(EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK),
   } as NobleBleAPI,
   // Vendor-neutral BLE channel for third-party hardware (Trezor today,
   // Ledger / other vendors can plug in the same shape later). The shape

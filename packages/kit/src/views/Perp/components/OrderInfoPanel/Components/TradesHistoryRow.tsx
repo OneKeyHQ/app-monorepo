@@ -31,6 +31,10 @@ import {
   getColumnStyle,
   getFillDirectionDisplayInfo,
 } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import {
   getTradeFillClosePnlBN,
@@ -345,8 +349,8 @@ const TradesHistoryRow = memo(
       <XStack
         flex={1}
         py="$1.5"
-        pl="$5"
-        pr="$3"
+        pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+        pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
         alignItems="center"
         backgroundColor={bgColor}
         onHoverIn={() => onHoverChange?.(index)}
@@ -399,7 +403,6 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[2])}
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
-              minWidth={0}
             >
               <XStack gap="$1.5" alignItems="center" width="100%" minWidth={0}>
                 <SizableText

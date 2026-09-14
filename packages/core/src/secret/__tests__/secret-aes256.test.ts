@@ -21,6 +21,7 @@ import {
   decodeSensitiveTextAsyncWithMetadata,
   decryptAsync,
   decryptStringAsync,
+  encodeKeyPrefix,
   encodePasswordAsync,
   encodeSensitiveTextAsync,
   encryptAsync,
@@ -496,6 +497,83 @@ describe('AES256 Encryption Tests', () => {
       expect(result.version).toBe(ESecretEncryptPayloadVersion.v2);
       expect(result.iterations).toBe(PBKDF2_CURRENT_NUM_OF_ITERATIONS);
       expect(result.needsUpgrade).toBe(false);
+    });
+
+    it('should use one KDF iteration for the runtime sensitive-text key', async () => {
+      const encoded = await encodeSensitiveTextAsync({
+        text: TEST_DATA,
+      });
+
+      const result = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: encoded,
+      });
+
+      expect(result.text).toBe(TEST_DATA);
+      expect(result.format).toBe(ESecretEncryptPayloadFormat.v2);
+      expect(result.iterations).toBe(1);
+      expect(result.needsUpgrade).toBe(false);
+    });
+
+    it('should migrate persisted sensitive-text keys to one KDF iteration', async () => {
+      const persistedKey = `${encodeKeyPrefix}00000000-0000-4000-8000-000000000000`;
+      const encoded = await encodeSensitiveTextAsync({
+        text: TEST_DATA,
+        key: persistedKey,
+      });
+      const currentResult = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: encoded,
+        key: persistedKey,
+      });
+
+      expect(currentResult.iterations).toBe(1);
+      expect(currentResult.needsUpgrade).toBe(false);
+
+      const previousPayload = await encryptAsync({
+        password: persistedKey,
+        data: Buffer.from(TEST_DATA, 'utf-8'),
+        allowRawPassword: true,
+        format: ESecretEncryptPayloadFormat.v2,
+        iterations: PBKDF2_CURRENT_NUM_OF_ITERATIONS,
+      });
+      const previousResult = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: `SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::${previousPayload.toString(
+          'hex',
+        )}`,
+        key: persistedKey,
+      });
+
+      expect(previousResult.text).toBe(TEST_DATA);
+      expect(previousResult.iterations).toBe(PBKDF2_CURRENT_NUM_OF_ITERATIONS);
+      expect(previousResult.needsUpgrade).toBe(true);
+
+      const legacyPayload = await encryptAsync({
+        password: persistedKey,
+        data: Buffer.from(TEST_DATA, 'utf-8'),
+        allowRawPassword: true,
+        format: ESecretEncryptPayloadFormat.legacy,
+      });
+      const legacyResult = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: `SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::${legacyPayload.toString(
+          'hex',
+        )}`,
+        key: persistedKey,
+      });
+
+      expect(legacyResult.text).toBe(TEST_DATA);
+      expect(legacyResult.iterations).toBe(PBKDF2_LEGACY_NUM_OF_ITERATIONS);
+      expect(legacyResult.needsUpgrade).toBe(true);
+
+      const rewritten = await encodeSensitiveTextAsync({
+        text: legacyResult.text,
+        key: persistedKey,
+      });
+      const rewrittenResult = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: rewritten,
+        key: persistedKey,
+      });
+
+      expect(rewrittenResult.iterations).toBe(1);
+      expect(rewrittenResult.needsUpgrade).toBe(false);
     });
 
     it('should mark legacy sensitive text as needing upgrade', async () => {

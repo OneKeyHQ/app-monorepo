@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EOnChainHistoryTxStatus,
@@ -64,6 +64,7 @@ export function useTrackTokenAllowance({
   networkId,
   accountId,
   initialValue,
+  refreshOnMount = false,
   tokenAddress,
   spenderAddress,
   approveType,
@@ -71,6 +72,8 @@ export function useTrackTokenAllowance({
   networkId: string;
   accountId: string;
   initialValue?: string;
+  /** Fetch the current chain allowance even when a seeded value is provided. */
+  refreshOnMount?: boolean;
   tokenAddress: string;
   spenderAddress: string;
   approveType?: EApproveType;
@@ -78,7 +81,7 @@ export function useTrackTokenAllowance({
   const isLegacyApprove = approveType === EApproveType.Legacy;
   const isExistApproveTarget = !!spenderAddress;
   const shouldFetchInitialAllowance =
-    initialValue === undefined && isExistApproveTarget;
+    isExistApproveTarget && (initialValue === undefined || refreshOnMount);
   const allowanceTargetKey = [
     accountId,
     networkId,
@@ -109,11 +112,10 @@ export function useTrackTokenAllowance({
   useEffect(() => {
     setTrackTxId('');
     setLoading(shouldFetchInitialAllowance);
-    setAllowanceState((prev) => ({
+    setAllowanceState({
       targetKey: allowanceTargetKey,
-      value:
-        prev.targetKey === allowanceTargetKey ? (initialValue ?? '0') : '0',
-    }));
+      value: initialValue ?? '0',
+    });
   }, [allowanceTargetKey, initialValue, shouldFetchInitialAllowance]);
   const fetchAllowanceResponse = useCallback(
     async () =>
@@ -121,10 +123,11 @@ export function useTrackTokenAllowance({
         networkId,
         accountId,
         tokenAddress,
-        spenderAddress:
-          approveType === EApproveType.Permit
-            ? MorphoBundlerContract
-            : spenderAddress,
+        spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          networkId,
+          approveType,
+          approveSpenderAddress: spenderAddress,
+        }),
       }),
     [accountId, approveType, networkId, spenderAddress, tokenAddress],
   );
@@ -175,6 +178,7 @@ export function useTrackTokenAllowance({
     allowanceTargetKey,
     isLegacyApprove,
     isExistApproveTarget,
+    initialValue,
     shouldFetchInitialAllowance,
   ]);
   const trackAllowance = useCallback((txid: string) => {

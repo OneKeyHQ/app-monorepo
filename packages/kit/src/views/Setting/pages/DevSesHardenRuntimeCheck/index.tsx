@@ -911,7 +911,7 @@ function CollapsibleSection({
           <>
             <SizableText size="$headingLg">{title}</SizableText>
             <Stack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '-180deg' : '0deg'}
             >
@@ -924,10 +924,10 @@ function CollapsibleSection({
           </>
         )}
       </Accordion.Trigger>
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
           unstyled
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}

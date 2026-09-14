@@ -32,7 +32,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
@@ -444,29 +443,20 @@ export default function ICloudBackup() {
                   },
                   onCancelText: 'Cancel',
                   onConfirm: async () => {
-                    await backgroundApiProxy.servicePassword.promptPasswordVerify(
-                      {
-                        reason: EReasonForNeedPassword.Security,
-                      },
-                    );
-                    for (const item of items) {
-                      try {
-                        await backgroundApiProxy.serviceCloudBackupV2.deleteSilently(
-                          {
-                            recordId: item.recordID,
-                            skipManifestUpdate: false,
-                          },
-                        );
-                      } catch (_e) {
-                        // continue deleting other items; errors are already toasted by @toastIfError
-                      }
-                    }
+                    const result =
+                      await backgroundApiProxy.serviceCloudBackupV2.deleteAllBackups();
                     await onboardingCloudBackupListRefreshAtom.set(
                       (v) => v + 1,
                     );
-                    Toast.success({
-                      title: 'All backups deleted',
-                    });
+                    if (result.failedCount) {
+                      Toast.error({
+                        title: 'Some backups could not be deleted',
+                      });
+                    } else {
+                      Toast.success({
+                        title: 'All backups deleted',
+                      });
+                    }
                   },
                 });
               }}

@@ -3,6 +3,7 @@ import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid'
 import { EAtomNames, atomsConfig } from '../atomNames';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
+import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
@@ -17,6 +18,7 @@ import {
   perpsActiveAccountStatusInfoAtom,
   perpsActiveAccountSummaryAtom,
   perpsComputedAccountValueAtom,
+  perpsCustomSettingsAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
   tradingModeAtom,
@@ -43,6 +45,17 @@ describe('tradingModeAtom', () => {
     expect(atomsConfig[EAtomNames.tradingModeAtom]?.mergeInitialValue).toBe(
       false,
     );
+  });
+});
+
+describe('perpsCustomSettingsAtom', () => {
+  it('persists Arbitrum as the initial USDC withdrawal destination', () => {
+    const atom = perpsCustomSettingsAtom.atom() as unknown as IJotaiAtomPro<{
+      lastUsdcWithdrawDestinationId: string;
+    }>;
+
+    expect(atom.persist).toBe(true);
+    expect(atom.initialValue.lastUsdcWithdrawDestinationId).toBe('arbitrum');
   });
 });
 
@@ -388,6 +401,13 @@ describe('perpsActiveAccountStatusAtom', () => {
 });
 
 describe('perpsActiveAccountEnableTradingModeAtom', () => {
+  beforeEach(() => {
+    jotaiDefaultStore.set(hyperLiquidAgentPasswordStatusAtom.atom(), {
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: false,
+    });
+  });
+
   afterEach(() => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: null,
@@ -419,6 +439,29 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
       canAutoEnableInOrderPanel: true,
       requiresEnableTradingDialogInOrderPanel: false,
       requiresExplicitEnableTrading: false,
+    });
+  });
+
+  it('routes software accounts through the dialog when agent password verification is required', () => {
+    jotaiDefaultStore.set(hyperLiquidAgentPasswordStatusAtom.atom(), {
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: true,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: true,
+      isHardwareAccount: false,
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
+      requiresExplicitEnableTrading: true,
     });
   });
 

@@ -77,6 +77,9 @@ export function EModeCategorySelect({
       items={items}
       value={value ?? undefined}
       disabled={disabled}
+      sheetProps={{
+        disableDrag: true,
+      }}
       onChange={(next) => {
         if (typeof next === 'number') {
           onChange(next);

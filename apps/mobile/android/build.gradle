@@ -88,6 +88,8 @@ allprojects {
     // querying remote repos (jitpack.io) which can time out on EAS builds.
     configurations.all {
         resolutionStrategy.force 'app.notifee:core:202108261754'
+        // Keep native modules' compileOnly MMKV dependency aligned with the app runtime.
+        resolutionStrategy.force 'io.github.zhongwuzw:mmkv:2.4.1'
     }
 }
 

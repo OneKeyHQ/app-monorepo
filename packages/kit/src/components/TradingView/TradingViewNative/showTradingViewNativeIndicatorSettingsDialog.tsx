@@ -10,18 +10,31 @@ import {
   createTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeIndicatorSettings,
 } from './indicatorSettingsAdapter';
+import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
 
-const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH = 690;
+import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
+import type { ITradingViewNativeAnyIndicator } from './utils/chartIndicators';
+
+// Full mode matches the chart settings dialog (`$160`, 640px); focused mode
+// fills its sheet.
+const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH = '$160';
 
 export function showTradingViewNativeIndicatorSettingsDialog({
+  displayMode = 'full',
+  initialIndicatorId,
+  intl,
   onConfirm,
   value,
 }: {
+  displayMode?: 'focused' | 'full';
+  initialIndicatorId?: ITradingViewNativeAnyIndicator;
+  intl: IIndicatorSettingsIntl;
   onConfirm: (
     value: ITradingViewNativeIndicatorSettings,
   ) => void | Promise<void>;
   value: ITradingViewIndicatorSettingsValue;
 }) {
+  const isFocused = displayMode === 'focused';
   const dialogInstanceRef: {
     current: ReturnType<typeof Dialog.show> | undefined;
   } = {
@@ -30,24 +43,54 @@ export function showTradingViewNativeIndicatorSettingsDialog({
   const closeDialog = () => dialogInstanceRef.current?.close();
 
   const dialogInstance = Dialog.show({
-    showHeader: false,
+    title: isFocused
+      ? value.indicators.find(
+          (indicator) => indicator.id === initialIndicatorId,
+        )?.title
+      : undefined,
+    showHeader: isFocused,
     showFooter: false,
     testID: 'trading-view-native-indicator-settings-dialog',
-    contentContainerProps: {
-      p: '$0',
+    onOpenAutoFocus: (event) => {
+      const container = event.currentTarget;
+      if (
+        typeof HTMLElement !== 'undefined' &&
+        container instanceof HTMLElement
+      ) {
+        event.preventDefault();
+        container.tabIndex = -1;
+        container.focus({ preventScroll: true });
+      }
     },
+    contentContainerProps: isFocused ? undefined : { p: '$0' },
     floatingPanelProps: {
-      width: TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH,
-      maxWidth: TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH,
-      overflow: 'visible',
-      borderRadius: 0,
-      outlineWidth: 0,
-      bg: 'transparent',
+      width: isFocused
+        ? '100%'
+        : TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH,
+      maxWidth: isFocused
+        ? '100%'
+        : TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH,
+      ...(isFocused
+        ? {}
+        : {
+            overflow: 'visible',
+            borderRadius: 0,
+            outlineWidth: 0,
+            bg: 'transparent',
+          }),
     },
     renderContent: (
       <TradingViewIndicatorSettings
+        displayMode={displayMode}
+        mobileLayout={isFocused}
+        initialIndicatorId={initialIndicatorId}
         value={value}
-        createDefaultValue={createTradingViewNativeIndicatorSettingsValue}
+        createDefaultValue={() =>
+          localizeTradingViewNativeIndicatorSettingsValue(
+            createTradingViewNativeIndicatorSettingsValue(),
+            intl,
+          )
+        }
         maxActiveSubIndicatorCount={null}
         onClose={() => {
           void closeDialog();

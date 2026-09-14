@@ -9,4 +9,5 @@ export function Tooltip({ renderTrigger }: ITooltipProps) {
 Tooltip.Text = TooltipText;
 
 export * from './context';
+export { closeAllTooltips } from './tooltipRegistry';
 export * from './type';

@@ -82,6 +82,55 @@ describe('ServiceMarketWS native token price routing', () => {
     jest.clearAllMocks();
   });
 
+  test.each([
+    ['1H', '1H'],
+    ['1h', '1H'],
+    ['4h', '4H'],
+    ['1d', '1D'],
+    ['1w', '1W'],
+  ])(
+    'routes %s candles to the %s subscription',
+    (incomingInterval, chartType) => {
+      const service = buildService();
+      service.subscriptionTracker.addSubscription({
+        address: '0xabc',
+        type: EChannel.ohlcv,
+        networkId: 'evm--1',
+        chartType,
+        currency: 'usd',
+      });
+
+      (service as unknown as IMarketWSMessageHarness).handleMarketMessage({
+        type: EMessageType.PRICE_DATA,
+        data: [
+          {
+            address: '0xabc',
+            symbol: 'TEST',
+            type: incomingInterval,
+            eventType: 'ohlcv',
+            unixTime: 1_782_821_411_000,
+            o: '100',
+            h: '110',
+            l: '90',
+            c: '105',
+            v: '20',
+            dataSource: 'okx',
+          },
+        ],
+      });
+
+      expect(globalMockBag.__marketWsEventBus?.emit).toHaveBeenCalledTimes(1);
+      expect(globalMockBag.__marketWsEventBus?.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.MarketWSDataUpdate,
+        expect.objectContaining({
+          networkId: 'evm--1',
+          channel: 'ohlcv',
+          data: expect.objectContaining({ c: 105, unixTime: 1_782_821_411 }),
+        }),
+      );
+    },
+  );
+
   test('routes empty-address price data by subscription symbol and network id', () => {
     const service = buildService();
     service.subscriptionTracker.addSubscription({

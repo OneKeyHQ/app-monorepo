@@ -1,8 +1,11 @@
+import { EFirmwareUpdateSteps } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
 import {
   getFirmwareUpdateWorkflowAlivePageCountForTest,
   releaseFirmwareUpdateWorkflowPage,
   resetFirmwareUpdateWorkflowLifetimeForTest,
   retainFirmwareUpdateWorkflowPage,
+  shouldCancelDeviceWhenLeavingFirmwareUpdate,
 } from './firmwareUpdateWorkflowLifetime';
 
 describe('firmwareUpdateWorkflowLifetime', () => {
@@ -69,5 +72,35 @@ describe('firmwareUpdateWorkflowLifetime', () => {
 
     expect(installLeave).toHaveBeenCalledTimes(1);
     expect(changelogLeave).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the latest step when an Extension cleanup callback runs', async () => {
+    let currentStep = EFirmwareUpdateSteps.installing;
+    const getCurrentStep = jest.fn(async () => currentStep);
+
+    currentStep = EFirmwareUpdateSteps.updateDone;
+
+    await expect(
+      shouldCancelDeviceWhenLeavingFirmwareUpdate(true, getCurrentStep),
+    ).resolves.toBe(false);
+    expect(getCurrentStep).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps canceling an incomplete Extension firmware update', async () => {
+    await expect(
+      shouldCancelDeviceWhenLeavingFirmwareUpdate(
+        true,
+        async () => EFirmwareUpdateSteps.installing,
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it('keeps canceling on non-Extension platforms without reading the step', async () => {
+    const getCurrentStep = jest.fn(async () => EFirmwareUpdateSteps.updateDone);
+
+    await expect(
+      shouldCancelDeviceWhenLeavingFirmwareUpdate(false, getCurrentStep),
+    ).resolves.toBe(true);
+    expect(getCurrentStep).not.toHaveBeenCalled();
   });
 });

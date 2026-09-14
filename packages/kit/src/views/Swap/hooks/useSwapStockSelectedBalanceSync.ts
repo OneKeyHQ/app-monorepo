@@ -1,5 +1,6 @@
 import { useLayoutEffect } from 'react';
 
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSwapStockSelectedFromTokenBalanceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 
 export function useSwapStockSelectedBalanceSync({
@@ -11,13 +12,16 @@ export function useSwapStockSelectedBalanceSync({
   enabled: boolean;
   ownerScope: string;
 }) {
-  const [storedBalance, setStoredBalance] =
-    useSwapStockSelectedFromTokenBalanceAtom();
+  const [, setStoredBalance] = useSwapStockSelectedFromTokenBalanceAtom();
+  const isFocused = useRouteIsFocused();
 
   useLayoutEffect(() => {
-    const nextBalance = enabled ? (balance ?? '') : '';
-    if (storedBalance !== nextBalance) {
-      setStoredBalance(nextBalance);
+    if (!isFocused) {
+      return;
     }
-  }, [balance, enabled, ownerScope, setStoredBalance, storedBalance]);
+    const nextBalance = enabled ? (balance ?? '') : '';
+    setStoredBalance((storedBalance) =>
+      storedBalance === nextBalance ? storedBalance : nextBalance,
+    );
+  }, [balance, enabled, isFocused, ownerScope, setStoredBalance]);
 }

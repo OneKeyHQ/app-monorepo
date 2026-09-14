@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import * as hardwareInstance from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
@@ -101,7 +102,12 @@ jest.mock('../../dbs/simple/simpleDb', () => ({
 }));
 
 jest.mock('../../states/jotai/atoms', () => ({
-  EHardwareUiStateAction: {},
+  // The real enum: the service builds its skipped/dialog event sets at
+  // module scope, so an empty stub collapses both into Set{undefined}
+  // and every event-routing assertion below stops proving anything.
+  EHardwareUiStateAction: jest.requireActual(
+    '@onekeyhq/shared/types/hardwareUi',
+  ).EHardwareUiStateAction,
   hardwareForceTransportAtom: {
     get: jest.fn(async () => ({ forceTransportType: undefined })),
   },
@@ -179,6 +185,43 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     mockedHardwareForceTransportAtomGet.mockResolvedValue({
       forceTransportType: undefined,
     });
+  });
+
+  it('Protocol V2 硬件调用边界不再固定等待', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    }) as unknown as {
+      getKnownDeviceProtocol: jest.Mock;
+      waitForLegacyHardwareCallBoundary(connectId: string): Promise<void>;
+    };
+    service.getKnownDeviceProtocol = jest.fn().mockResolvedValue('V2');
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await service.waitForLegacyHardwareCallBoundary('PRO2_USB');
+
+    expect(waitSpy).not.toHaveBeenCalled();
+    waitSpy.mockRestore();
+  });
+
+  it('Protocol V1 和未知协议保留硬件调用边界等待', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    }) as unknown as {
+      getKnownDeviceProtocol: jest.Mock;
+      waitForLegacyHardwareCallBoundary(connectId: string): Promise<void>;
+    };
+    service.getKnownDeviceProtocol = jest
+      .fn()
+      .mockResolvedValueOnce('V1')
+      .mockResolvedValueOnce(undefined);
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await service.waitForLegacyHardwareCallBoundary('PRO_USB');
+    await service.waitForLegacyHardwareCallBoundary('UNKNOWN_USB');
+
+    expect(waitSpy).toHaveBeenNthCalledWith(1, 600);
+    expect(waitSpy).toHaveBeenNthCalledWith(2, 600);
+    waitSpy.mockRestore();
   });
 
   it('升级时仅迁移历史 OneKey 硬件设备的连接协议', async () => {
@@ -579,6 +622,48 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(getDeviceState).not.toHaveBeenCalled();
     expect(getFeatures).toHaveBeenCalledWith(connectId, {
       connectProtocol: 'V1',
+    });
+  });
+
+  it('后台 device-state probe 不持久化临时 transport', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const connectId = 'PRO2_CONNECT_ID';
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        protocol: 'V2',
+        status: { unlocked: true },
+      },
+    });
+    const getSDKInstance = jest
+      .spyOn(service, 'getSDKInstance')
+      .mockResolvedValue({
+        getDeviceState,
+      } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    (
+      service as unknown as {
+        deviceProtocolByConnectId: Map<string, 'V1' | 'V2'>;
+      }
+    ).deviceProtocolByConnectId.set(connectId, 'V2');
+
+    await service._getDeviceStateLowLevel({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+      persistTransportType: false,
+      params: { scope: 'runtime' },
+      silentMode: true,
+    });
+
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId,
+      connectProtocol: 'V2',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+      persistTransportType: false,
     });
   });
 
@@ -1001,7 +1086,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
   });
 
-  it('桌面后台显式 transport 优先于遗留的 BLE force transport', async () => {
+  it('桌面后台显式 transport 可跳过持久化用户偏好', async () => {
     mutablePlatformEnv.isSupportDesktopBle = true;
     mockedHardwareForceTransportAtomGet.mockResolvedValue({
       forceTransportType: EHardwareTransportType.DesktopWebBle,
@@ -1041,6 +1126,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
         connectId: undefined,
         hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
         hardwareTransportType: EHardwareTransportType.WEBUSB,
+        persistTransportType: false,
       }),
     ).resolves.toBe(sdkInstance);
 
@@ -1049,10 +1135,59 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
         hardwareTransportType: EHardwareTransportType.WEBUSB,
       }),
     );
-    expect(setCurrentTransportType).toHaveBeenCalledWith(
-      EHardwareTransportType.WEBUSB,
-    );
+    expect(setCurrentTransportType).not.toHaveBeenCalled();
     expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
+  });
+
+  it('后台 transport 探测不会改写用户持久化设置', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const getTransportTypeForChannel = jest
+      .spyOn(service.connectionManager, 'getTransportTypeForChannel')
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    const shouldSwitchTransportType = jest
+      .spyOn(service.connectionManager, 'shouldSwitchTransportType')
+      .mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+    const resolveTransportType = jest.spyOn(
+      service.connectionManager,
+      'resolveTransportType',
+    );
+    const setCurrentTransportType = jest.spyOn(
+      service.connectionManager,
+      'setCurrentTransportType',
+    );
+
+    await expect(
+      service.prepareHardwareTransport({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        persistTransportType: false,
+        requestedTransportType: 'usb',
+      }),
+    ).resolves.toBe(EHardwareTransportType.WEBUSB);
+    await expect(
+      service.prepareHardwareTransport({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        persistTransportType: false,
+      }),
+    ).resolves.toBe(EHardwareTransportType.DesktopWebBle);
+
+    expect(getTransportTypeForChannel).toHaveBeenCalledWith({
+      connectProtocol: undefined,
+      transportType: 'usb',
+    });
+    expect(shouldSwitchTransportType).toHaveBeenCalledWith({
+      connectId: 'PRO2_CONNECT_ID',
+      connectProtocol: undefined,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+    });
+    expect(resolveTransportType).not.toHaveBeenCalled();
+    expect(setCurrentTransportType).not.toHaveBeenCalled();
   });
 
   it('Passphrase 回包直接发送给当前 SDK，不重新执行传输选择', async () => {

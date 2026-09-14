@@ -1,3 +1,4 @@
+/* cspell:ignore hoverable */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -100,6 +101,12 @@ function LazyPopoverFrame(props: IPopoverProps) {
       ensureLoaded();
     }
   }, [actualOpen, ensureLoaded, PopoverComponent]);
+
+  useEffect(() => {
+    if (props.hoverable && !PopoverComponent) {
+      ensureLoaded();
+    }
+  }, [ensureLoaded, PopoverComponent, props.hoverable]);
 
   const handleTriggerPress = useCallback(() => {
     if (PopoverComponent) {

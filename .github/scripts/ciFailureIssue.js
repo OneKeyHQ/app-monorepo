@@ -5,6 +5,8 @@ const DEFAULT_CONSTRAINTS = [
   'Validate with the listed focused command, then run yarn agent:check --profile commit for changed TypeScript files.',
 ];
 
+const jestShardTotal = process.env.JEST_SHARD_TOTAL || '3';
+
 const RUNTIME_NOTES = {
   ciOnly:
     'Scope: CI-only diagnostics. This helper does not change app runtime behavior, native resources, or per-runtime JS heap state.',
@@ -77,7 +79,8 @@ const ciFailureConfigs = {
     commands: [
       'yarn install --immutable',
       'FAILED_SHARD=1',
-      `yarn test --coverage --shard="\${FAILED_SHARD}/3" --coverageDirectory="coverage/shard-\${FAILED_SHARD}" --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}`,
+      `JEST_SHARD_TOTAL=${jestShardTotal}`,
+      `yarn test --coverage --shard="\${FAILED_SHARD}/\${JEST_SHARD_TOTAL}" --coverageDirectory="coverage/shard-\${FAILED_SHARD}" --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold={}`,
       'yarn agent:check --profile commit',
     ],
     constraints: [

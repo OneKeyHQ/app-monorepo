@@ -4,17 +4,28 @@ import { useIsFocused } from '@react-navigation/native';
 
 import {
   EPageType,
+  Spinner,
+  Stack,
   Theme,
+  popToMainRoute,
   setGlassHeaderUIStyle,
+  setSystemBarsOverride,
   useThemeName,
 } from '@onekeyhq/components';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
+import {
   EModalRoutes,
-  EOnboardingV2Routes,
+  EModalSettingRoutes,
+  type EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes';
 import type { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
+
+import useAppNavigation from '../../hooks/useAppNavigation';
+import {
+  openTravelModeSettingsWithAdmission,
+  shouldRedirectOnboardingToTravelMode,
+} from '../../utils/onboardingEntryGate';
 
 import {
   fullScreenPushRouterConfig,
@@ -44,7 +55,38 @@ export function FullScreenPushNavigator() {
   );
 }
 
-export function OnboardingNavigator() {
+function TravelModeOnboardingRedirect() {
+  const navigation = useAppNavigation();
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (startedRef.current) {
+      return;
+    }
+    startedRef.current = true;
+    void openTravelModeSettingsWithAdmission({
+      openTravelModeSettings: async ({ admissionId }) => {
+        await popToMainRoute();
+        navigation.pushModal(EModalRoutes.SettingModal, {
+          screen: EModalSettingRoutes.SettingTravelModeModal,
+          params: { admissionId },
+        });
+      },
+    }).then((opened) => {
+      if (!opened) {
+        void popToMainRoute();
+      }
+    });
+  }, [navigation]);
+
+  return (
+    <Stack flex={1} alignItems="center" justifyContent="center">
+      <Spinner size="large" />
+    </Stack>
+  );
+}
+
+function StandardOnboardingNavigator() {
   // Onboarding forces a dark Theme for its content, so the iOS 26 glass header
   // bar must use the dark variant while onboarding is the foreground route —
   // otherwise it flashes the light variant (the app theme is usually light).
@@ -63,6 +105,17 @@ export function OnboardingNavigator() {
   if (platformEnv.isNativeIOS26Plus) {
     setGlassHeaderUIStyle(isFocused ? 'dark' : appGlassStyle);
   }
+  // Android's system bars have the same foreground problem the glass
+  // header does: they are painted globally from the app theme (see
+  // useAppearanceTheme), so a light-themed app shows white bars around
+  // this dark-locked content. Same focus-driven fix — pin the bars dark
+  // while onboarding is foreground, hand them back on blur. The pin
+  // lives as an override slot inside the bars' own module, so an app
+  // theme change mid-onboarding repaints through the same effective
+  // value instead of racing this write (no stale-capture ref needed).
+  if (platformEnv.isNativeAndroid) {
+    setSystemBarsOverride(isFocused ? 'dark' : null);
+  }
   // The render-time write above already handles focus AND blur (useIsFocused
   // re-renders on both, relinquishing to appGlassStyle when not focused). The
   // ONLY case it can't reach is unmount-without-blur (onboarding replaced by
@@ -80,6 +133,17 @@ export function OnboardingNavigator() {
       setGlassHeaderUIStyle(appGlassStyleRef.current);
     };
   }, []);
+  // The bars' own unmount-without-blur cover, same shape as the glass
+  // cleanup above; `null` reads the live app variant inside the module,
+  // so no ref ride-along is needed here.
+  useEffect(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return undefined;
+    }
+    return () => {
+      setSystemBarsOverride(null);
+    };
+  }, []);
   return (
     <Theme name="dark">
       <RootModalNavigator<EOnboardingV2Routes>
@@ -88,4 +152,11 @@ export function OnboardingNavigator() {
       />
     </Theme>
   );
+}
+
+export function OnboardingNavigator() {
+  if (shouldRedirectOnboardingToTravelMode()) {
+    return <TravelModeOnboardingRedirect />;
+  }
+  return <StandardOnboardingNavigator />;
 }

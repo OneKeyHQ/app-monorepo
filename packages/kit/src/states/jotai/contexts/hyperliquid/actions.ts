@@ -7,7 +7,6 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
 import { buildPerpsAssetCtxsByDexFromAllDexsSnapshot } from '@onekeyhq/kit/src/views/Perp/utils/tokenSelectorInitialListCache';
 import {
   appIsLocked,
@@ -85,6 +84,7 @@ import type {
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { SUB_DEX_LIST } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -169,6 +169,7 @@ type IChStateLite = {
 
 type IChPositionLite = HL.IPerpsAssetPosition;
 type IAccountModeAbstraction = 'unifiedAccount' | 'portfolioMargin';
+type IRunEnableTradingFlow = () => Promise<unknown>;
 
 const MAX_LEDGER_UPDATES = 200;
 const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
@@ -1507,11 +1508,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       payload: null | {
         symbol: string;
         option: IPerpOrderBookTickOptionPersist | null;
+        source?: 'seed';
       },
     ) => {
       if (!payload?.symbol) return;
-      const { symbol, option } = payload;
-      const prev = get(orderBookTickOptionsAtom());
+      const { symbol, option, source } = payload;
+      const prev = getPerpsOrderBookTickOptionsWithCache(
+        get(orderBookTickOptionsAtom()),
+      );
+      if (source === 'seed' && option && prev[symbol]) {
+        return;
+      }
       const next: Record<string, IPerpOrderBookTickOptionPersist> = {
         ...prev,
       };
@@ -3531,7 +3538,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         userAccountId: string;
         amount: string;
-        destination: `0x${string}`;
+        destinationId: IUsdcWithdrawDestinationId;
+        expectedRoute?: 'bridge' | 'cctp';
+        expectedCctpFee?: string;
       },
     ) => {
       return withToast({
@@ -3539,7 +3548,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
             userAccountId: params.userAccountId,
             amount: params.amount,
-            destination: params.destination,
+            destinationId: params.destinationId,
+            expectedRoute: params.expectedRoute,
+            expectedCctpFee: params.expectedCctpFee,
           });
         },
         actionType: EActionType.WITHDRAW,
@@ -3548,13 +3559,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  ensureTradingEnabled = contextAtomMethod(async (_get, _set) => {
-    const info = await perpsActiveAccountIsAgentReadyAtom.get();
-    if (info.isAgentReady === false) {
-      showEnableTradingDialog();
-      throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
-    }
-  });
+  ensureTradingEnabled = contextAtomMethod(
+    async (_get, _set, runEnableTradingFlow: IRunEnableTradingFlow) => {
+      const info = await perpsActiveAccountIsAgentReadyAtom.get();
+      if (info.isAgentReady === false) {
+        await runEnableTradingFlow();
+        throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
+      }
+    },
+  );
 
   tokenSzDecimalsCache: {
     [coin: string]: number | null | undefined;
@@ -3620,7 +3633,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) => {
       return withToast({
         asyncFn: async () => {
-          await this.ensureTradingEnabled.call(set);
           const { activePositions: positions } = get(perpsActivePositionAtom());
 
           // Apply filter if specified
@@ -3639,20 +3651,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               coins: filteredPositions.map((p) => p.position.coin),
             });
 
-          // Get current mid prices for all positions
+          // The main-runtime atom carries no age marker, so every coin is
+          // priced by the background owner (fresh snapshot or per-dex REST),
+          // matching the single close submit path.
           const midPrices = await Promise.all(
             filteredPositions.map(async (p) => {
+              const { coin } = p.position;
               try {
-                const midPriceInfo = await this.getMidPrice.call(set, {
-                  coin: p.position.coin,
-                });
-                return { coin: p.position.coin, midPrice: midPriceInfo.mid };
+                return {
+                  coin,
+                  midPrice:
+                    await backgroundApiProxy.serviceHyperliquid.getMarketOrderReferencePrice(
+                      coin,
+                    ),
+                };
               } catch (error) {
-                console.warn(
-                  `Failed to get mid price for ${p.position.coin}:`,
-                  error,
-                );
-                return { coin: p.position.coin, midPrice: null };
+                console.warn(`Failed to get mid price for ${coin}:`, error);
+                return { coin, midPrice: null };
               }
             }),
           );
@@ -3660,6 +3675,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const midPriceMap = Object.fromEntries(
             midPrices.map((item) => [item.coin, item.midPrice]),
           );
+
+          // Never close a subset silently: a position without a price would
+          // be dropped while the rest reports success.
+          const unpricedCoins = filteredPositions
+            .map((p) => p.position.coin)
+            .filter((coin) => !symbolsMetaMap[coin] || !midPriceMap[coin]);
+          if (unpricedCoins.length > 0) {
+            // TODO(i18n): same pre-existing literal as ClosePositionModal.
+            const message = 'Unable to get current market price';
+            Toast.error({ title: message });
+            throw new OneKeyLocalError(
+              `${message}: ${unpricedCoins.join(', ')}`,
+            );
+          }
 
           // Prepare close orders for all positions
           const positionsToClose = filteredPositions

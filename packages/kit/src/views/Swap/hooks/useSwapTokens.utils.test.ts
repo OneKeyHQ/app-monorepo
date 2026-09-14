@@ -3,8 +3,38 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildServerAuthoritativeSearchResults,
+  isSwapSupportAllAccountsRequestCurrent,
   releaseSwapTokenListFetchEffectKey,
 } from './useSwapTokens.utils';
+
+describe('isSwapSupportAllAccountsRequestCurrent', () => {
+  it('accepts the active request from the current cache generation', () => {
+    expect(
+      isSwapSupportAllAccountsRequestCurrent({
+        isCancelled: false,
+        requestGeneration: 2,
+        currentGeneration: 2,
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects cancelled and stale-generation requests', () => {
+    expect(
+      isSwapSupportAllAccountsRequestCurrent({
+        isCancelled: true,
+        requestGeneration: 2,
+        currentGeneration: 2,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapSupportAllAccountsRequestCurrent({
+        isCancelled: false,
+        requestGeneration: 1,
+        currentGeneration: 2,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('releaseSwapTokenListFetchEffectKey', () => {
   it('releases the active key so a cancelled request can restart', () => {

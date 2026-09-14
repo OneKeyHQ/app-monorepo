@@ -1,5 +1,12 @@
 import { EEarnProviderEnum } from '../../types/earn';
 import { normalizeToEarnProvider } from '../../types/earn/earnProvider.constants';
+import { EApproveType } from '../../types/staking';
+import { getNetworkIdsMap } from '../config/networkIds';
+import {
+  MorphoBaseBundlerContract,
+  MorphoBundlerContract,
+  MorphoKatanaBundlerContract,
+} from '../consts/addresses';
 
 import earnUtils from './earnUtils';
 
@@ -43,6 +50,27 @@ describe('earnUtils Spark provider integration', () => {
       }),
     ).toBe(true);
   });
+});
+
+describe('earnUtils permit allowance spender', () => {
+  const approveSpenderAddress = '0x1111111111111111111111111111111111111111';
+
+  it.each([
+    [getNetworkIdsMap().eth, MorphoBundlerContract],
+    [getNetworkIdsMap().base, MorphoBaseBundlerContract],
+    [getNetworkIdsMap().katana, MorphoKatanaBundlerContract],
+  ])(
+    'uses the network-specific Morpho bundler on %s',
+    (networkId, expected) => {
+      expect(
+        earnUtils.resolveEarnAllowanceSpenderAddress({
+          networkId,
+          approveType: EApproveType.Permit,
+          approveSpenderAddress,
+        }),
+      ).toBe(expected);
+    },
+  );
 });
 
 describe('earnUtils Bitway provider behavior', () => {

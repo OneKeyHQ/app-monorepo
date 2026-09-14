@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
+import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -256,6 +257,14 @@ type IKeylessBackendShareV2MigrationIdentity = {
 };
 @backgroundClass()
 class ServiceKeylessWallet extends ServiceBase {
+  /**
+   * Keyless payload crypto runs outside IndexedDB transaction callbacks. Keep
+   * callers outside those callbacks before selecting the async WebCrypto KDF.
+   */
+  private getKeylessNonDbKdfParams() {
+    return getPbkdf2KdfParamsForNonDbTx();
+  }
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -440,6 +449,7 @@ class ServiceKeylessWallet extends ServiceBase {
       iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_MNEMONIC_GCM_AAD,
+      ...this.getKeylessNonDbKdfParams(),
     });
   }
 
@@ -461,6 +471,7 @@ class ServiceKeylessWallet extends ServiceBase {
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_MNEMONIC_GCM_AAD,
       sharedScene: EAppCryptoSharedEncryptScene.keylessMnemonic,
+      ...this.getKeylessNonDbKdfParams(),
     });
   }
 
@@ -713,6 +724,7 @@ class ServiceKeylessWallet extends ServiceBase {
       iterations: KEYLESS_ENCRYPTION_ITERATIONS,
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
+      ...this.getKeylessNonDbKdfParams(),
     });
 
     return this.assertKeylessBackendSharePayload(JSON.parse(decryptedJson));
@@ -734,6 +746,7 @@ class ServiceKeylessWallet extends ServiceBase {
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_BACKEND_SHARE_PAYLOAD_GCM_AAD,
       sharedScene: EAppCryptoSharedEncryptScene.keylessBackendSharePayload,
+      ...this.getKeylessNonDbKdfParams(),
     });
 
     return `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX}${encryptedPayload}`;
@@ -790,6 +803,7 @@ class ServiceKeylessWallet extends ServiceBase {
           iterations: KEYLESS_ENCRYPTION_ITERATIONS,
           mode: EAppCryptoAesEncryptionMode.gcm,
           aad,
+          ...this.getKeylessNonDbKdfParams(),
         });
         return {
           backendShareData: this.assertKeylessBackendSharePayload(
@@ -824,6 +838,7 @@ class ServiceKeylessWallet extends ServiceBase {
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: this.getKeylessBackendSharePayloadV2Aad({ hashId }),
       sharedScene: EAppCryptoSharedEncryptScene.keylessBackendSharePayload,
+      ...this.getKeylessNonDbKdfParams(),
     });
 
     return `${KEYLESS_BACKEND_SHARE_PAYLOAD_ENCRYPTION_PREFIX_V2}${encryptedPayload}`;

@@ -142,6 +142,14 @@ const jsRules = {
 };
 const restrictedImportsPatterns = [
   {
+    group: [
+      '@react-native-async-storage/async-storage',
+      '@react-native-async-storage/async-storage/**',
+    ],
+    message:
+      'Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned.',
+  },
+  {
     allowTypeImports: true,
     group: ['@onekeyfe/hd-core'],
     message: 'using `const {} = await CoreSDKLoader()` instead',

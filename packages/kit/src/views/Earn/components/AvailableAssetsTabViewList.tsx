@@ -352,14 +352,6 @@ export function AvailableAssetsTabViewList({
     [navigateToAsset, selectedTabType],
   );
 
-  const totalLiquidityLabel = useMemo(
-    () =>
-      intl.formatMessage({
-        id: ETranslations.dexmarket_details_liquidity_change_total,
-      }),
-    [intl],
-  );
-
   // Mobile custom renderer
   const mobileRenderItem = useCallback(
     (asset: IEarnAvailableAsset) => {
@@ -403,7 +395,7 @@ export function AvailableAssetsTabViewList({
                   color="$textSubdued"
                   numberOfLines={1}
                 >
-                  {`${totalLiquidityLabel} ${asset.liquidity ?? ''}`}
+                  {asset.liquidity}
                 </SizableText>
               ) : undefined
             }
@@ -417,7 +409,7 @@ export function AvailableAssetsTabViewList({
         </ListItem>
       );
     },
-    [handleRowPress, isFixedRateTab, totalLiquidityLabel],
+    [handleRowPress, isFixedRateTab],
   );
 
   // Memoize keyExtractor for TableList

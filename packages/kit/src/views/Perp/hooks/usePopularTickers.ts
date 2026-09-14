@@ -14,8 +14,9 @@ import {
   isPerpsUniverseCacheComplete,
   toCtxIndex,
 } from '@onekeyhq/shared/src/utils/perpsDexUtils';
-import {
+import perpsUtils, {
   formatSpotPairDisplayName,
+  formatSpotPriceEntry,
   getSpotMarketCapValue,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -26,13 +27,15 @@ import type {
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
-  type IPopularTickerItem,
-  POPULAR_TICKER_COUNT,
+  type IPopularTickerItem as IPopularTickerRankItem,
   pickPopularPerpTickers,
 } from '../utils/popularTickers';
 import { getPerpTokenSelectorHotTab } from '../utils/tokenSelectorTabs';
 
-export type { IPopularTickerItem };
+export type IPopularTickerItem = IPopularTickerRankItem & {
+  change24hPercent: number;
+  markPrice?: string;
+};
 
 /**
  * Computes top popular tickers ranked by turnover rate:
@@ -128,15 +131,20 @@ export function usePopularTickers(): IPopularTickerItem[] {
       scored.sort(
         (a, b) => b.hotScore - a.hotScore || b.marketCap - a.marketCap,
       );
-      return scored
-        .slice(0, POPULAR_TICKER_COUNT)
-        .map(({ marketCap, ...item }) => item);
+      return scored.map(({ marketCap, ...item }) => {
+        const displayCtx = formatSpotPriceEntry(spotPriceMap[item.coinName]);
+        return {
+          ...item,
+          change24hPercent: displayCtx?.change24hPercent ?? 0,
+          markPrice: displayCtx?.markPrice,
+        };
+      });
     }
 
     const perpUniverse = taggedUniverse.data;
     if (!perpUniverse?.length) return [];
     const { assetCtxsByDex } = allAssetCtxs;
-    const items: IPopularTickerItem[] = [];
+    const items: IPopularTickerRankItem[] = [];
 
     for (let dexIndex = 0; dexIndex < perpUniverse.length; dexIndex += 1) {
       const assets = perpUniverse[dexIndex] ?? [];
@@ -178,6 +186,17 @@ export function usePopularTickers(): IPopularTickerItem[] {
     return pickPopularPerpTickers({
       items,
       hotTabTokens: hotTab?.tokens,
+    }).map((item) => {
+      const ctx =
+        assetCtxsByDex[item.dexIndex]?.[
+          toCtxIndex(item.assetId, item.dexIndex)
+        ] ?? null;
+      const displayCtx = perpsUtils.formatAssetCtx(ctx);
+      return {
+        ...item,
+        change24hPercent: displayCtx?.change24hPercent ?? 0,
+        markPrice: displayCtx?.markPrice,
+      };
     });
   }, [
     allAssetCtxs,

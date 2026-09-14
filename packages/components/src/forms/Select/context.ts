@@ -12,7 +12,8 @@ export type IContextType = {
   items?: ISelectItem[];
   onValueChange?: (
     value: string | number | boolean | undefined | ISelectItem,
-  ) => void;
+  ) => void | Promise<void>;
+  waitForChangeBeforeClose?: boolean;
   placeholder?: string;
   title?: string;
   disabled?: boolean;

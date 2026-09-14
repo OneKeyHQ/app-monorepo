@@ -1,6 +1,7 @@
 /* eslint-disable no-continue */
 import { Semaphore } from 'async-mutex';
 
+import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -582,9 +583,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
           await import('@onekeyhq/core/src/secret');
         const { default: bufferUtils } =
           await import('@onekeyhq/shared/src/utils/bufferUtils');
+        // The credential read has completed, so no IndexedDB transaction is
+        // active while WebCrypto derives the wallet-password key.
+        const kdfParams = getPbkdf2KdfParamsForNonDbTx();
         const revealableSeed = await decryptRevealableSeed({
           rs: credentialRecord.credential,
           password,
+          ...kdfParams,
         });
         const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
         const credential = await keylessCloudSyncUtils.deriveKeylessCredential({

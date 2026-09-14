@@ -1,11 +1,110 @@
+import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
+
+import {
+  createTradingViewNativeChartRuntime,
+  resizeTradingViewNativeChartRuntime,
+} from './chartRuntime';
 import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
   getTradingViewNativeSubIndicatorPanesStructureKey,
   getTradingViewNativeSubIndicatorPanesUpdate,
+  shouldReplaceTradingViewNativeChartPoints,
   shouldReplaceTradingViewNativeIndicatorSeries,
 } from './chartRuntimeData';
 
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
+
+describe('TradingViewNativeChart resizing', () => {
+  function createRuntime() {
+    const runtime = createTradingViewNativeChartRuntime({
+      candleIntervalSeconds: 60,
+      chartComponents: [],
+      chartSettings: createTradingViewNativeChartSettings(),
+      chartType: 'candlestick',
+      currentPriceLabel: '12',
+      hasVolume: false,
+      indicatorSeries: [
+        {
+          indicator: 'MA',
+          key: 'ma',
+          kind: 'line',
+          paint: 'indicatorCyanStroke',
+          values: Array.from({ length: 200 }, () => 12),
+        },
+      ],
+      points: Array.from({ length: 200 }, (_, index) => ({
+        c: 12,
+        h: 15,
+        l: 10,
+        o: 11,
+        t: index * 60,
+        v: 1,
+      })),
+      subIndicatorPanes: [createPane()],
+    });
+    runtime.size = { width: 390, height: 320 };
+    runtime.viewport = {
+      initialRightOffsetResolved: true,
+      offset: 100,
+      zoomScale: 2,
+    };
+    runtime.panGesture.startOffset = 100;
+    runtime.priceRangeScale = 1.5;
+    return runtime;
+  }
+
+  it('preserves data, zoom and historical position through fullscreen and back', () => {
+    const runtime = createRuntime();
+    const landscape = resizeTradingViewNativeChartRuntime(
+      runtime,
+      { width: 760, height: 300 },
+      60,
+    );
+    const portrait = resizeTradingViewNativeChartRuntime(
+      landscape,
+      runtime.size,
+      60,
+    );
+    for (const resized of [landscape, portrait]) {
+      expect(resized.points).toBe(runtime.points);
+      expect(resized.indicatorSeries).toBe(runtime.indicatorSeries);
+      expect(resized.indicatorSeries[0].values).toBe(
+        runtime.indicatorSeries[0].values,
+      );
+      expect(resized.subIndicatorPanes).toBe(runtime.subIndicatorPanes);
+      expect(resized.viewport).toEqual(runtime.viewport);
+      expect(resized.priceRangeScale).toBe(1.5);
+    }
+    expect(landscape.size).toEqual({ width: 760, height: 300 });
+    expect(portrait.size).toEqual(runtime.size);
+  });
+
+  it('ignores transient zero bounds and unchanged measurements', () => {
+    const runtime = createRuntime();
+    expect(
+      resizeTradingViewNativeChartRuntime(runtime, { width: 0, height: 0 }, 60),
+    ).toBe(runtime);
+    expect(resizeTradingViewNativeChartRuntime(runtime, runtime.size, 60)).toBe(
+      runtime,
+    );
+  });
+
+  it('clamps the viewport and adjusts the gesture origin when a wider chart reaches the history boundary', () => {
+    const runtime = createRuntime();
+    runtime.viewport.offset = 10_000;
+    runtime.panGesture.startOffset = 10_000;
+    runtime.crosshair = { visible: true, x: 120, y: 200 };
+    const resized = resizeTradingViewNativeChartRuntime(
+      runtime,
+      { width: 760, height: 300 },
+      60,
+    );
+    expect(resized.viewport.offset).toBeLessThan(10_000);
+    expect(resized.panGesture.startOffset).toBe(resized.viewport.offset);
+    expect(resized.crosshair.visible).toBe(false);
+    expect(runtime.crosshair.visible).toBe(true);
+  });
+});
 
 function createPane({
   inputLength = 14,
@@ -74,20 +173,75 @@ function createPane({
 }
 
 function createPictureInput({
-  chartPictureVersion = 1,
   panes,
   pointCount = 3,
+  renderDataRevision = '1:identity',
 }: {
-  chartPictureVersion?: number;
   panes: readonly ITradingViewNativeSubIndicatorRenderPane[];
   pointCount?: number;
+  renderDataRevision?: string;
 }) {
   return {
-    chartPictureVersion,
     pointCount,
+    renderDataRevision,
     structureKey: getTradingViewNativeSubIndicatorPanesStructureKey(panes),
   };
 }
+
+describe('TradingViewNativeChart point-derived data updates', () => {
+  const previous = {
+    pointCount: 100,
+    renderDataRevision: '1:identity',
+  };
+
+  it('keeps the constant-time latest-point path for unchanged data semantics', () => {
+    expect(
+      shouldReplaceTradingViewNativeChartPoints({
+        current: previous,
+        previous,
+      }),
+    ).toBe(false);
+  });
+
+  it('fully replaces points and indicators after a point transform change', () => {
+    const current = {
+      ...previous,
+      renderDataRevision: '1:heikinAshi',
+    };
+    expect(
+      shouldReplaceTradingViewNativeChartPoints({ current, previous }),
+    ).toBe(true);
+    expect(
+      shouldReplaceTradingViewNativeIndicatorSeries({
+        current: {
+          ...current,
+          seriesKey: 'ma-1',
+          settingsKey: 'ma-settings',
+        },
+        previous: {
+          ...previous,
+          seriesKey: 'ma-1',
+          settingsKey: 'ma-settings',
+        },
+      }),
+    ).toBe(true);
+
+    const panes = [createPane()];
+    expect(
+      getTradingViewNativeSubIndicatorPanesUpdate({
+        current: createPictureInput({
+          panes,
+          renderDataRevision: current.renderDataRevision,
+        }),
+        panes,
+        previous: createPictureInput({
+          panes,
+          renderDataRevision: previous.renderDataRevision,
+        }),
+      }).replacementPanes,
+    ).toBe(panes);
+  });
+});
 
 describe('TradingViewNativeChart sub-indicator realtime updates', () => {
   it('transfers and applies only latest values for an unchanged structure', () => {
@@ -183,8 +337,8 @@ describe('TradingViewNativeChart sub-indicator realtime updates', () => {
 
 describe('TradingViewNativeChart main-indicator updates', () => {
   const previous = {
-    chartPictureVersion: 1,
     pointCount: 100,
+    renderDataRevision: '1:identity',
     seriesKey: 'ma-1|ma-2',
     settingsKey: '{"MA":{"period":5}}',
   };

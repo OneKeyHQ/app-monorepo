@@ -279,7 +279,9 @@ export class HyperLiquidScene extends BaseScene {
   @LogToServer()
   public withdraw(
     params: IHyperLiquidLogParams<
-      IWithdrawParams,
+      // The two new branch points: rails fail differently and charge
+      // differently, and neither choice is visible anywhere else.
+      IWithdrawParams & { route?: string; sourceDex?: string },
       { success: true } | IApiErrorResponse
     >,
   ) {

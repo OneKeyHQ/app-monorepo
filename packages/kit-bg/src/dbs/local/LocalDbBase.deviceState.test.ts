@@ -381,6 +381,130 @@ describe('LocalDb DeviceState persistence', () => {
     expect(persisted.settings.autoLockDelayMs).toBe(300_000);
   });
 
+  it('persists complete V1 device-info versions without matching changedKeys', async () => {
+    const current = createState({
+      revision: 1,
+      updatedAt: 100,
+      label: 'Classic',
+      language: 'en-US',
+      firmware: '4.16.1',
+    });
+    current.protocol = 'V1';
+    current.identity.firmwareType = EFirmwareType.Universal;
+    current.versions.ble = '2.3.4';
+    current.versions.bootloader = '2.8.2';
+    current.securityElements = {
+      se01: { type: 'old-type', state: 'old-state' },
+    };
+
+    const incoming = createState({
+      revision: 2,
+      updatedAt: 200,
+      label: 'Classic',
+      language: 'en-US',
+      firmware: '4.21.0',
+    });
+    incoming.protocol = 'V1';
+    incoming.identity.firmwareType = EFirmwareType.BitcoinOnly;
+    incoming.versions.ble = '2.3.7';
+    incoming.versions.bootloader = '2.8.4';
+    incoming.securityElements = {
+      se01: { type: 'new-type', state: 'new-state' },
+    };
+    const db = new DeviceStateTestLocalDb(current);
+
+    await db.updateDeviceState({
+      connectId: 'ABC-DEF',
+      state: incoming,
+      revision: incoming.revision,
+      source: 'device-info',
+      changedKeys: ['status.unlocked'],
+    });
+
+    const persisted = JSON.parse(db.device.deviceState || '{}');
+    expect(persisted.versions).toEqual(incoming.versions);
+    expect(persisted.identity.firmwareType).toBe(EFirmwareType.Universal);
+    expect(persisted.securityElements).toEqual(current.securityElements);
+  });
+
+  it.each(['V1', 'V2'] as const)(
+    'persists a %s firmware read-back when only versions differ at the same revision',
+    async (protocol) => {
+      const current = createState({
+        revision: 2,
+        updatedAt: 200,
+        label: 'Classic',
+        language: 'en-US',
+        firmware: '4.16.1',
+      });
+      current.protocol = protocol;
+      current.versions.ble = '2.3.4';
+      current.versions.bootloader = '2.8.2';
+
+      const incoming = createState({
+        revision: 2,
+        updatedAt: 200,
+        label: 'Classic',
+        language: 'en-US',
+        firmware: '4.21.0',
+      });
+      incoming.protocol = protocol;
+      incoming.versions.ble = '2.3.7';
+      incoming.versions.bootloader = '2.8.4';
+      const db = new DeviceStateTestLocalDb(current);
+
+      await expect(
+        db.updateDeviceState({
+          connectId: 'ABC-DEF',
+          state: incoming,
+          revision: incoming.revision,
+          source: 'device-info',
+          changedKeys: [
+            'versions.firmware',
+            'versions.ble',
+            'versions.bootloader',
+          ],
+        }),
+      ).resolves.toMatchObject({ kind: 'updated' });
+
+      const persisted = JSON.parse(db.device.deviceState || '{}');
+      expect(persisted.versions).toEqual(incoming.versions);
+    },
+  );
+
+  it('rejects an older V1 firmware read-back even when versions differ', async () => {
+    const current = createState({
+      revision: 3,
+      updatedAt: 300,
+      label: 'Classic',
+      language: 'en-US',
+      firmware: '4.21.0',
+    });
+    current.protocol = 'V1';
+    const incoming = createState({
+      revision: 2,
+      updatedAt: 200,
+      label: 'Classic',
+      language: 'en-US',
+      firmware: '4.22.0',
+    });
+    incoming.protocol = 'V1';
+    const db = new DeviceStateTestLocalDb(current);
+
+    await expect(
+      db.updateDeviceState({
+        connectId: 'ABC-DEF',
+        state: incoming,
+        revision: incoming.revision,
+        source: 'device-info',
+        changedKeys: [],
+      }),
+    ).resolves.toEqual({ kind: 'ignored', reason: 'stale' });
+
+    const persisted = JSON.parse(db.device.deviceState || '{}');
+    expect(persisted.versions.firmware).toBe('4.21.0');
+  });
+
   it('ignores an event older than the persisted state', async () => {
     const current = createState({
       revision: 3,

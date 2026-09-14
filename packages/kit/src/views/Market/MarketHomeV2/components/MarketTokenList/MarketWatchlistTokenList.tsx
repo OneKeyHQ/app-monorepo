@@ -49,11 +49,13 @@ type IMarketWatchlistTokenListProps = {
     paddingBottom: number;
   };
   hidePerps?: boolean;
+  hideListings?: boolean;
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
   enableWebSocket?: boolean;
   pollingInterval?: number;
   rowBg?: string;
+  centerDesktopPortalContent?: boolean;
 };
 
 function MarketWatchlistTokenList({
@@ -65,11 +67,13 @@ function MarketWatchlistTokenList({
   tabName,
   listContainerProps,
   hidePerps,
+  hideListings,
   hiddenDesktopColumns,
   liveTokenOverride,
   enableWebSocket,
   pollingInterval,
   rowBg,
+  centerDesktopPortalContent,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
   // Get watchlist from atom if not provided externally
@@ -128,6 +132,7 @@ function MarketWatchlistTokenList({
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data, {
     hideNativeToken,
     hidePerps,
+    hideListings,
   });
 
   const filteredResult = useMemo(() => {
@@ -143,6 +148,12 @@ function MarketWatchlistTokenList({
     };
   }, [watchlistResult, filteredGroups, selectedFilter]);
 
+  const showInitialLoadingFallback =
+    !watchlistState.isMounted ||
+    (watchlist.length > 0 &&
+      filteredResult.data.length === 0 &&
+      Boolean(filteredResult.isLoading));
+
   // Disable drag reorder when the list is filtered (hidePerps or category filter).
   // Dragging in a filtered view would pass visible-only neighbors to
   // sortWatchListV2Items, which computes sortIndex against the full watchlist,
@@ -156,6 +167,8 @@ function MarketWatchlistTokenList({
       sortIndex: token.sortIndex,
       isNative: token.isNative,
       perpsCoin: token.perpsCoin,
+      assetId: token.assetId,
+      stockId: token.stockId,
     }),
     [],
   );
@@ -226,6 +239,7 @@ function MarketWatchlistTokenList({
                   await actions.current.removeFromWatchListV2(
                     item.networkId,
                     item.address,
+                    { assetId: item.assetId, stockId: item.stockId },
                   );
                 }
                 Toast.success({
@@ -280,6 +294,7 @@ function MarketWatchlistTokenList({
                     void actions.current.removeFromWatchListV2(
                       item.networkId,
                       item.address,
+                      { assetId: item.assetId, stockId: item.stockId },
                     );
                   }
                 },
@@ -312,9 +327,11 @@ function MarketWatchlistTokenList({
     ),
     [selectedFilter, handleSelectFilter],
   );
-  // Wait for data to be loaded before rendering anything
-  // This prevents flashing the recommend list while data is still loading
-  if (!watchlistState.isMounted) {
+  // Keep one explicit skeleton across both cold-start phases: hydrating the
+  // watchlist from bg and resolving its first batch of market rows. Rendering
+  // MarketTokenListBase during the hand-off can otherwise leave an empty table
+  // frame before the transformed rows are committed.
+  if (showInitialLoadingFallback) {
     // When tab-integrated on native, register a scroll view with collapsible tabs
     // even during loading, so the tab system has a valid scroll ref.
     if (tabIntegrated && platformEnv.isNative) {
@@ -369,6 +386,7 @@ function MarketWatchlistTokenList({
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}
       rowBg={rowBg}
+      centerDesktopPortalContent={centerDesktopPortalContent}
     />
   );
 }

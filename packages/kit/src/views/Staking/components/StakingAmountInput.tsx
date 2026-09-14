@@ -89,7 +89,7 @@ export function StakingAmountInput({
           !disabled &&
           (percentageInputStageShow || !!value) ? (
             <XStack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{
                 opacity: 0,

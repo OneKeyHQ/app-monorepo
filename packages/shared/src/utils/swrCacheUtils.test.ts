@@ -1,4 +1,31 @@
-import { getPerpsL2BookSnapshotCacheKeys, swrKeys } from './swrCacheUtils';
+import {
+  SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+  SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
+} from './swrCacheLimits';
+import {
+  SWR_CACHE_MAX_ENTRIES,
+  SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  SWR_CACHE_MAX_KEY_CHARS,
+  SWR_CACHE_MAX_KEY_UTF8_BYTES,
+  SWR_CACHE_MAX_SERIALIZED_CHARS,
+  getPerpsL2BookSnapshotCacheKeys,
+  pruneSWRCacheStore,
+  swrKeys,
+} from './swrCacheUtils';
+
+const mockSWRCacheCapacityLimit = jest.fn();
+
+jest.mock('../logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      perf: {
+        swrCacheCapacityLimit: (params: unknown) => {
+          mockSWRCacheCapacityLimit(params);
+        },
+      },
+    },
+  },
+}));
 
 // On globalThis so jest.resetModules() rebuilds the module (a fresh runtime)
 // while the "MMKV file" persists — exactly the cross-runtime setup under test.
@@ -6,6 +33,8 @@ type IFakeDisk = Record<string, string>;
 const fakeDiskGlobal = globalThis as typeof globalThis & {
   __swrFakeDisk?: IFakeDisk;
   __swrFakeDiskReadCount?: number;
+  __swrPatches?: unknown[];
+  __swrUsePatch?: boolean;
 };
 
 jest.mock('../storage/instance/syncStorageInstance', () => {
@@ -46,6 +75,49 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
       Object.keys(disk).forEach((key) => delete disk[key]);
     },
     getAllKeys: () => Object.keys(readDisk()),
+    ...((globalThis as { __swrUsePatch?: boolean }).__swrUsePatch
+      ? {
+          applySWRCachePatch: (patch: {
+            clearBefore?: number;
+            removePrefixes: Array<{ at: number; prefix: string }>;
+            removals: Array<readonly [string, number]>;
+            updates: Array<readonly [string, string]>;
+          }) => {
+            const globalState = globalThis as {
+              __swrPatches?: unknown[];
+            };
+            globalState.__swrPatches ??= [];
+            globalState.__swrPatches.push(patch);
+            const disk = readDisk();
+            const store = disk.onekey_swr_cache
+              ? (JSON.parse(disk.onekey_swr_cache) as Record<
+                  string,
+                  { t: number }
+                >)
+              : {};
+            const removeIfOlder = (key: string, at: number) => {
+              if (store[key] && store[key].t <= at) {
+                delete store[key];
+              }
+            };
+            if (patch.clearBefore !== undefined) {
+              Object.keys(store).forEach((key) =>
+                removeIfOlder(key, patch.clearBefore as number),
+              );
+            }
+            patch.removePrefixes.forEach(({ at, prefix }) => {
+              Object.keys(store).forEach((key) => {
+                if (key.startsWith(prefix)) removeIfOlder(key, at);
+              });
+            });
+            patch.removals.forEach(([key, at]) => removeIfOlder(key, at));
+            patch.updates.forEach(([key, entry]) => {
+              store[key] = JSON.parse(entry) as { t: number };
+            });
+            disk.onekey_swr_cache = JSON.stringify(store);
+          },
+        }
+      : {}),
   };
   return {
     __esModule: true,
@@ -84,10 +156,24 @@ describe('SWR cache keys', () => {
     expect(swrKeys.perpsOrderBookTickOptions()).toBe('perpsOrderBookTicks:v1');
   });
 
+  it('scopes the buy crypto token list by network, direction and account', () => {
+    expect(
+      swrKeys.fiatCryptoTokenList({
+        networkId: 'onekeyall--0',
+        type: 'buy',
+        accountId: 'hd-1--m/44h/0h/0h/0/0',
+      }),
+    ).toBe('fiatCryptoTokenList:v1:onekeyall--0:buy:hd-1--m/44h/0h/0h/0/0');
+    expect(
+      swrKeys.fiatCryptoTokenList({ networkId: 'evm--1', type: 'buy' }),
+    ).toBe('fiatCryptoTokenList:v1:evm--1:buy:');
+  });
+
   it('uses stable keys for cached market bootstrap requests', () => {
     expect(
       swrKeys.marketHomeTokenList({
         networkId: '',
+        locale: 'en-US',
         sortBy: 'v24hUSD',
         sortType: 'desc',
         pageSize: 20,
@@ -95,10 +181,11 @@ describe('SWR cache keys', () => {
         type: 'trending',
         timeFrame: '2',
       }),
-    ).toBe('marketHomeTokenList:v1::v24hUSD:desc:20:5000:trending:2');
+    ).toBe('marketHomeTokenList:v2::en-US:v24hUSD:desc:20:5000:trending:2');
     expect(
       swrKeys.marketHomeTokenList({
         networkId: '',
+        locale: 'zh-CN',
         sortBy: 'v24hUSD',
         sortType: 'desc',
         pageSize: 20,
@@ -107,7 +194,7 @@ describe('SWR cache keys', () => {
         category: 'tech',
         timeFrame: '2',
       }),
-    ).toBe('marketHomeTokenList:v1::v24hUSD:desc:20:5000:stocks:2:tech');
+    ).toBe('marketHomeTokenList:v2::zh-CN:v24hUSD:desc:20:5000:stocks:2:tech');
     expect(
       swrKeys.swapStockTokenDetail({
         tokenScope: 'evm--1:0xstock',
@@ -242,8 +329,11 @@ describe('SWR cache cross-runtime flush merge', () => {
   const setNow = (ms: number) => nowSpy.mockReturnValue(ms);
 
   beforeEach(() => {
+    fakeDiskGlobal.__swrUsePatch = false;
+    fakeDiskGlobal.__swrPatches = [];
     fakeDiskGlobal.__swrFakeDisk = {};
     fakeDiskGlobal.__swrFakeDiskReadCount = 0;
+    mockSWRCacheCapacityLimit.mockReset();
     nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
   });
 
@@ -473,7 +563,7 @@ describe('SWR cache cross-runtime flush merge', () => {
 
   it('enforces the entry cap on the merged result', () => {
     const bulk: Record<string, { d: unknown; t: number }> = {};
-    for (let i = 0; i < 300; i += 1) {
+    for (let i = 0; i < SWR_CACHE_MAX_ENTRIES; i += 1) {
       bulk[`bulk:${i}`] = { d: i, t: 10_000 + i };
     }
     otherRuntimeFlush(bulk);
@@ -483,10 +573,177 @@ describe('SWR cache cross-runtime flush merge', () => {
     swr.flushNow();
 
     const disk = readDiskStore();
-    expect(Object.keys(disk).length).toBe(300);
+    expect(Object.keys(disk).length).toBe(SWR_CACHE_MAX_ENTRIES);
     expect(disk.fresh).toMatchObject({ d: 'kept' });
     // The oldest merged entry is the one evicted.
     expect(disk['bulk:0']).toBeUndefined();
+  });
+
+  it('keeps the newest entries within count and total budgets', () => {
+    const result = pruneSWRCacheStore(
+      {
+        old: { d: 'a'.repeat(40), t: 1 },
+        newer: { d: 'b'.repeat(40), t: 2 },
+        oversized: { d: 'x'.repeat(200), t: 3 },
+      },
+      {
+        maxEntries: 3,
+        maxSerializedChars: 100,
+      },
+    );
+
+    expect(result.store).toEqual({ newer: { d: 'b'.repeat(40), t: 2 } });
+    expect(result.removedKeys).toHaveLength(2);
+    expect(result.removedKeys).toEqual(
+      expect.arrayContaining(['old', 'oversized']),
+    );
+    expect(JSON.parse(result.serialized)).toEqual(result.store);
+  });
+
+  it('uses the configured count and total cache budgets', () => {
+    expect(SWR_CACHE_MAX_ENTRIES).toBe(1000);
+    expect(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS).toBe(5 * 1024 * 1024);
+    expect(SWR_CACHE_MAX_KEY_CHARS).toBe(20_000);
+    expect(SWR_CACHE_MAX_KEY_UTF8_BYTES).toBe(59_000);
+    expect(SWR_CACHE_MAX_SERIALIZED_CHARS).toBe(100 * 1024 * 1024);
+  });
+
+  it('bounds account scopes during hydration without evicting other namespaces', () => {
+    const accounts = Object.fromEntries(
+      Array.from({ length: 8 }, (_, i) => [
+        `accSelList:v1:hd-${i}:default:::1`,
+        { d: { walletId: `hd-${i}` }, t: i + 1 },
+      ]),
+    );
+    otherRuntimeFlush({ ...accounts, walletList: { d: 'keep', t: 0 } });
+    const swr = loadFreshRuntime();
+
+    expect(swr.get('accSelList:v1:hd-0:default:::1')).toBeUndefined();
+    expect(swr.get('accSelList:v1:hd-7:default:::1')).toEqual({
+      walletId: 'hd-7',
+    });
+    expect(swr.get('walletList')).toBe('keep');
+    swr.flushNow();
+    expect(
+      Object.keys(readDiskStore()).filter((key) =>
+        key.startsWith('accSelList:'),
+      ),
+    ).toHaveLength(SWR_ACCOUNT_SELECTOR_MAX_ENTRIES);
+  });
+
+  it('keeps recent account scopes bounded through updates and cross-runtime merges', () => {
+    const swr = loadFreshRuntime();
+    swr.set('walletList', 'keep');
+    for (let i = 0; i < 6; i += 1) {
+      setNow(1000 + i);
+      swr.set(`accSelList:v1:hd-${i}:default:::1`, i);
+    }
+    expect(swr.get('accSelList:v1:hd-2:default:::1')).toBeUndefined();
+    expect(swr.get('accSelList:v1:hd-3:default:::1')).toBe(3);
+    setNow(2000);
+    swr.set('accSelList:v1:hd-3:default:::1', 'refreshed');
+    swr.flushNow();
+    otherRuntimeFlush({
+      ...readDiskStore(),
+      'accSelList:v1:hd-0:default:::1': { d: 'stale', t: 500 },
+      'accSelList:v1:hd-6:default:::1': { d: 6, t: 3000 },
+      unrelated: { d: 'other runtime', t: 0 },
+    });
+    setNow(4000);
+    swr.set('unrelated-local', 'new');
+    swr.flushNow();
+
+    expect(swr.get('accSelList:v1:hd-0:default:::1')).toBeUndefined();
+    expect(swr.get('accSelList:v1:hd-4:default:::1')).toBeUndefined();
+    expect(swr.get('accSelList:v1:hd-3:default:::1')).toBe('refreshed');
+    expect(swr.get('accSelList:v1:hd-6:default:::1')).toBe(6);
+    expect(readDiskStore().walletList.d).toBe('keep');
+    expect(readDiskStore().unrelated.d).toBe('other runtime');
+    expect(
+      Object.keys(readDiskStore()).filter((key) =>
+        key.startsWith('accSelList:'),
+      ),
+    ).toHaveLength(SWR_ACCOUNT_SELECTOR_MAX_ENTRIES);
+  });
+
+  it('enforces the account serialized budget on writes and persistence pruning', () => {
+    const swr = loadFreshRuntime();
+    const value = 'x'.repeat(SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS / 2);
+    swr.set('unrelated', 'keep');
+    swr.set('accSelList:v1:first', value);
+    setNow(2000);
+    swr.set('accSelList:v1:second', value);
+    expect(swr.get('accSelList:v1:first')).toBeUndefined();
+    expect(swr.get('accSelList:v1:second')).toBe(value);
+    swr.flushNow();
+    const result = pruneSWRCacheStore({
+      'accSelList:v1:first': { d: value, t: 1 },
+      'accSelList:v1:second': { d: value, t: 2 },
+      unrelated: { d: 'keep', t: 0 },
+    });
+    expect(Object.keys(result.store)).toEqual([
+      'accSelList:v1:second',
+      'unrelated',
+    ]);
+    expect(readDiskStore().unrelated.d).toBe('keep');
+  });
+
+  it('retains a value larger than the former per-entry budget', () => {
+    const swr = loadFreshRuntime();
+    const value = 'x'.repeat(1024 * 1024);
+
+    swr.set('large', value);
+
+    expect(swr.get('large')).toBe(value);
+    swr.flushNow();
+    expect(readDiskStore().large?.d).toBe(value);
+  });
+
+  it('does not retain a value beyond the per-entry budget', () => {
+    const swr = loadFreshRuntime();
+
+    swr.set('too-large', 'x'.repeat(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS));
+
+    expect(swr.get('too-large')).toBeUndefined();
+    swr.flushNow();
+    expect(readDiskStore()['too-large']).toBeUndefined();
+  });
+
+  it('rate-limits and aggregates capacity logs without exposing cache keys', () => {
+    const swr = loadFreshRuntime();
+    const oversizedValue = 'x'.repeat(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS);
+
+    setNow(1000);
+    swr.set('marketHomeTokenList:first-account', oversizedValue);
+    setNow(2000);
+    swr.set('marketHomeTokenList:second-account', oversizedValue);
+
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledTimes(1);
+    expect(mockSWRCacheCapacityLimit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        affectedEntryCount: 1,
+        eventCount: 1,
+        namespaces: ['marketHomeTokenList'],
+        reason: 'entryLimit',
+      }),
+    );
+
+    setNow(10 * 60_000 + 1001);
+    swr.set('marketHomeTokenList:third-account', oversizedValue);
+
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledTimes(2);
+    expect(mockSWRCacheCapacityLimit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        affectedEntryCount: 2,
+        eventCount: 2,
+        namespaces: ['marketHomeTokenList'],
+        reason: 'entryLimit',
+      }),
+    );
+    expect(JSON.stringify(mockSWRCacheCapacityLimit.mock.calls)).not.toContain(
+      'account',
+    );
+    swr.flushNow();
   });
 
   it('reloads for a target the other runtime wrote after an unrelated reload', () => {
@@ -609,5 +866,94 @@ describe('SWR cache cross-runtime flush merge', () => {
 
     swr.reloadFromStorage();
     expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(3);
+  });
+});
+
+describe('SWR cache native incremental persistence', () => {
+  beforeEach(() => {
+    fakeDiskGlobal.__swrFakeDisk = {};
+    fakeDiskGlobal.__swrPatches = [];
+    fakeDiskGlobal.__swrUsePatch = true;
+    mockSWRCacheCapacityLimit.mockReset();
+  });
+
+  afterEach(() => {
+    fakeDiskGlobal.__swrUsePatch = false;
+  });
+
+  it('includes account eviction intents in the native patch', () => {
+    const swr = loadFreshRuntime();
+    const clock = jest.spyOn(Date, 'now');
+    try {
+      for (let i = 0; i < 5; i += 1) {
+        clock.mockReturnValue(1000 + i);
+        swr.set(`accSelList:v1:hd-${i}`, i);
+        swr.flushNow();
+      }
+      const disk = readDiskStore();
+      expect(Object.keys(disk).toSorted()).toEqual([
+        'accSelList:v1:hd-2',
+        'accSelList:v1:hd-3',
+        'accSelList:v1:hd-4',
+      ]);
+      expect(fakeDiskGlobal.__swrPatches?.at(-1)).toMatchObject({
+        removals: [['accSelList:v1:hd-1', 1004]],
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('flushes only the changed entry instead of the hydrated store', () => {
+    otherRuntimeFlush({
+      existing: { d: 'x'.repeat(100_000), t: 1 },
+    });
+    const swr = loadFreshRuntime();
+    expect(swr.get('existing')).toHaveLength(100_000);
+
+    jest.spyOn(Date, 'now').mockReturnValue(2);
+    swr.set('changed', 'small');
+    swr.flushNow();
+
+    expect(fakeDiskGlobal.__swrPatches).toEqual([
+      {
+        removePrefixes: [],
+        removals: [],
+        updates: [['changed', JSON.stringify({ d: 'small', t: 2 })]],
+      },
+    ]);
+    expect(JSON.stringify(fakeDiskGlobal.__swrPatches)).not.toContain(
+      'x'.repeat(100),
+    );
+    expect(readDiskStore()).toEqual({
+      existing: { d: 'x'.repeat(100_000), t: 1 },
+      changed: { d: 'small', t: 2 },
+    });
+    jest.restoreAllMocks();
+  });
+
+  it('drops invalid mutation keys without blocking a later flush', () => {
+    const swr = loadFreshRuntime();
+    const invalidKey = 'x'.repeat(SWR_CACHE_MAX_KEY_CHARS + 1);
+
+    swr.set(invalidKey, 'poison');
+    swr.remove(invalidKey);
+    swr.removeByPrefix(invalidKey);
+    swr.set('valid', 'persisted');
+    swr.flushNow();
+
+    const patches = fakeDiskGlobal.__swrPatches as Array<{
+      removePrefixes: Array<{ at: number; prefix: string }>;
+      removals: Array<readonly [string, number]>;
+      updates: Array<readonly [string, string]>;
+    }>;
+    expect(patches).toHaveLength(1);
+    expect(patches[0].removePrefixes).toEqual([]);
+    expect(patches[0].removals).toEqual([]);
+    expect(patches[0].updates.map(([key]) => key)).toEqual(['valid']);
+    expect(readDiskStore().valid?.d).toBe('persisted');
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'keyLimit' }),
+    );
   });
 });

@@ -762,7 +762,7 @@ describe('TradingViewNative data providers', () => {
       networkId: 'evm--1',
       tokenAddress: '0xabc',
       symbol: 'TOKEN',
-      chartType: '1h',
+      chartType: '1H',
       currency: 'usd',
     };
     expect(mocks?.marketService.subscribeOHLCV).toHaveBeenCalledWith(
@@ -906,5 +906,16 @@ describe('TradingViewNative data providers', () => {
       timeFrom: 100,
       timeTo: 200,
     });
+  });
+
+  it('routes stock sources to a history-only provider', () => {
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'stock',
+      stockId: 'AAPL',
+    });
+
+    expect(provider.key).toBe('stock:AAPL');
+    expect(provider.isReady).toBe(true);
+    expect(provider.supportsRealtime).toBe(false);
   });
 });

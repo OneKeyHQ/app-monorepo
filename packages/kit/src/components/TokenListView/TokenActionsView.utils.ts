@@ -12,29 +12,17 @@ type ITokenActionSwapSupport = {
   isSupportSwap?: boolean;
 };
 
-type IOwnedAggregateTokenListMap = Record<
-  string,
-  {
-    tokens: IAccountToken[];
-  }
->;
-
 export function buildTokenActionSwapFromToken({
-  accountAddress,
-  balanceParsed,
   token,
   networkId,
   networkLogoURI,
 }: {
-  accountAddress?: string;
-  balanceParsed?: string;
   token: IAccountToken;
   networkId: string;
   networkLogoURI?: string;
 }): ISwapToken {
+  // Home owns the token selection intent; Swap resolves address-scoped balance.
   return {
-    accountAddress,
-    balanceParsed,
     contractAddress: token.isNative ? '' : token.address,
     symbol: token.symbol,
     networkId,
@@ -43,6 +31,7 @@ export function buildTokenActionSwapFromToken({
     name: token.name,
     logoURI: token.logoURI,
     networkLogoURI,
+    balanceMultiplier: token.balanceMultiplier,
   };
 }
 
@@ -78,29 +67,6 @@ export function getTokenActionSameNetworkSwapToToken({
     return defaultTokens.fromToken;
   }
   return undefined;
-}
-
-export function findTokenActionAggregateKey({
-  ownedAggregateTokenListMap,
-  targetToken,
-}: {
-  ownedAggregateTokenListMap?: IOwnedAggregateTokenListMap;
-  targetToken?: ISwapToken;
-}) {
-  if (!ownedAggregateTokenListMap || !targetToken) {
-    return undefined;
-  }
-  return Object.entries(ownedAggregateTokenListMap).find(([, entry]) =>
-    entry.tokens.some((token) =>
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId: token.networkId,
-          contractAddress: token.isNative ? '' : token.address,
-        },
-        token2: targetToken,
-      }),
-    ),
-  )?.[0];
 }
 
 export function getResolvedTokenActionToken({

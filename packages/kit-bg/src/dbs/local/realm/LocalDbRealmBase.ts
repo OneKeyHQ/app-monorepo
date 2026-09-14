@@ -15,6 +15,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { ensureLocalDbNotOnNativeMainThread } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -22,17 +23,33 @@ import { localDbOpenErrorAtom } from '../../../states/jotai/atoms/localDb';
 import { REALM_DB_NAME, REALM_DB_VERSION } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
-import { EIndexedDBBucketNames, type IDBWalletIdSingleton } from '../types';
+import { maskedLocalDbAgent } from '../MaskedLocalDbAgent';
+import {
+  EIndexedDBBucketNames,
+  type IDBWalletIdSingleton,
+  type ILocalDBAgent,
+} from '../types';
 
 import { RealmDBAgent } from './RealmDBAgent';
 import { realmDBSchemas } from './schemas';
 
 export abstract class LocalDbRealmBase extends LocalDbBase {
-  override readyDb: Promise<RealmDBAgent>;
+  private realDbPromise: Promise<RealmDBAgent> | undefined;
 
-  constructor() {
-    super();
-    this.readyDb = this._openDb();
+  override get readyDb(): Promise<ILocalDBAgent> {
+    return this.getReadyDb();
+  }
+
+  private async getReadyDb(): Promise<ILocalDBAgent> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () => this.getRealDb(),
+      onBlocked: () => maskedLocalDbAgent,
+    });
+  }
+
+  protected override getReadyDbForAdmittedOperation(): Promise<ILocalDBAgent> {
+    return this.getRealDb();
   }
 
   // ---------------------------------------------- private methods
@@ -140,13 +157,24 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
   }
 
   async deleteDb() {
-    try {
-      const db = await this.readyDb;
-      db.realm.close();
-      Realm.deleteFile({ path: REALM_DB_NAME });
-    } catch (error: any) {
-      console.error(error);
-      return Promise.reject(error);
-    }
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => {
+        try {
+          const db = await this.getRealDb();
+          db.realm.close();
+          Realm.deleteFile({ path: REALM_DB_NAME });
+        } catch (error: any) {
+          console.error(error);
+          return Promise.reject(error);
+        }
+      },
+      onBlocked: () => undefined,
+    });
+  }
+
+  protected async getRealDb(): Promise<RealmDBAgent> {
+    this.realDbPromise ??= this._openDb();
+    return this.realDbPromise;
   }
 }

@@ -29,7 +29,8 @@ const themeColors = {
   [TRADING_VIEW_NATIVE_THEME_COLORS.positiveSubdued]: '#131313',
   [TRADING_VIEW_NATIVE_THEME_COLORS.quaternary]: '#141414',
   [TRADING_VIEW_NATIVE_THEME_COLORS.quinary]: '#151515',
-  [TRADING_VIEW_NATIVE_THEME_COLORS.warning]: '#161616',
+  [TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine]: '#161616',
+  [TRADING_VIEW_NATIVE_THEME_COLORS.warning]: '#171717',
 } satisfies ITradingViewSettingsThemeColorMap;
 
 describe('TradingViewNative theme colors', () => {

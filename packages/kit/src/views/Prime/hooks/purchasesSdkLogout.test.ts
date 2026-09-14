@@ -12,11 +12,18 @@ const mockGetSharedInstance = jest.fn(() => ({
 jest.mock('../purchasesSdk/purchasesSdkWebLoader', () => ({
   loadPurchasesSdkWeb: jest.fn(async () => ({
     Purchases: {
-      generateRevenueCatAnonymousAppUserId: mockGenerateAnonymousAppUserId,
       getSharedInstance: mockGetSharedInstance,
       isConfigured: mockIsConfigured,
     },
   })),
+}));
+
+jest.mock('../purchasesSdk/purchaseSdkUtils', () => ({
+  __esModule: true,
+  default: {
+    generateRevenueCatAnonymousAppUserId: () =>
+      mockGenerateAnonymousAppUserId(),
+  },
 }));
 
 import { logoutPurchasesSdk } from './purchasesSdkLogout';

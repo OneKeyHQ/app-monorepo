@@ -14,10 +14,12 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
+import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useTrackTokenAllowance } from '@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
@@ -126,6 +128,7 @@ function getBorrowApprovalTxid(
 
 export function useBorrowApproval({
   action,
+  providerName,
   amountValue,
   repayAll,
   withdrawAll,
@@ -133,12 +136,16 @@ export function useBorrowApproval({
   approveTarget,
   borrowDelegationApproveTarget,
   currentAllowance = '0',
+  refreshAllowanceOnMount = false,
   stakingInfo,
   onApprovedSubmit,
   onBeforeNavigateConfirm,
   allowApprovalContinuationAfterUnmount = false,
 }: {
   action: IBorrowActionType;
+  // Only used to label the risk-disclaimer analytics; the approve target itself
+  // carries no provider.
+  providerName?: string;
   amountValue: string;
   repayAll?: boolean;
   withdrawAll?: boolean;
@@ -146,6 +153,8 @@ export function useBorrowApproval({
   approveTarget?: IBorrowApproveTarget;
   borrowDelegationApproveTarget?: IBorrowDelegationApproveTarget;
   currentAllowance?: string;
+  /** Reconcile a seeded allowance with the latest chain value on mount. */
+  refreshAllowanceOnMount?: boolean;
   stakingInfo?: IStakingInfo;
   onApprovedSubmit: () => Promise<void>;
   // Runs right before any approval confirm screen opens, so modal hosts (the
@@ -166,6 +175,9 @@ export function useBorrowApproval({
     (action === 'repay' && !!repayAll) ||
     (action === 'withdraw' && !!withdrawAll);
   const [approving, setApproving] = useState(false);
+  const [approvalProgressScopeKey, setApprovalProgressScopeKey] = useState<
+    string | undefined
+  >(undefined);
   const mountedRef = useRef(false);
   const approvalSettlementAbortRef = useRef<AbortController | undefined>(
     undefined,
@@ -212,6 +224,7 @@ export function useBorrowApproval({
     scopeKey: approvalScopeKey,
     submit: onApprovedSubmit,
   });
+  const ensureRiskAccepted = useEarnRiskWarningGate();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId:
       approveTarget?.accountId ??
@@ -264,6 +277,7 @@ export function useBorrowApproval({
     if (!isSameRequest) {
       detachedApprovalRequestRef.current = undefined;
       approvalInFlightRef.current = false;
+      setApprovalProgressScopeKey(undefined);
       stopApprovalSettlement();
       setApprovingSafe(false);
     }
@@ -326,6 +340,7 @@ export function useBorrowApproval({
         return false;
       }
       approvalInFlightRef.current = true;
+      setApprovalProgressScopeKey(request.scopeKey);
       return true;
     },
     [isCurrentApprovalRequest],
@@ -433,6 +448,7 @@ export function useBorrowApproval({
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
     initialValue: currentAllowance,
+    refreshOnMount: refreshAllowanceOnMount,
     approveType: effectiveApproveType,
   });
 
@@ -778,6 +794,35 @@ export function useBorrowApproval({
   );
 
   const onApprove = useCallback(async () => {
+    // OK-59196: the approve step is the user's first on-chain action in the
+    // two-step borrow flow and never reaches the borrow hooks, so the one-time
+    // risk disclaimer has to gate here too (mirrors the earn approve step).
+    // Bails out silently: ensureReadyToSubmit already reports "not ready" after
+    // calling this, so a rejection just leaves the form as it was.
+    const riskGateProvider =
+      borrowDelegationApproveTarget?.provider ?? providerName;
+    if (!riskGateProvider && platformEnv.isDev) {
+      // Fail open in production — a broken gate must not block a trade — but a
+      // new call site that forgets `providerName` has to be loud, otherwise the
+      // disclaimer is skipped here and nobody notices (that is exactly how the
+      // lending action dialog and the eMode flow shipped without it).
+      console.error(
+        '[useBorrowApproval] risk disclaimer skipped: pass providerName from the call site',
+      );
+    }
+    if (riskGateProvider) {
+      const riskAccepted = await ensureRiskAccepted({
+        provider: riskGateProvider,
+        symbol:
+          stakingInfo?.send?.token.symbol ?? stakingInfo?.receive?.token.symbol,
+        networkId:
+          approveTarget?.networkId ?? borrowDelegationApproveTarget?.networkId,
+      });
+      if (!riskAccepted) {
+        return;
+      }
+    }
+
     if (delegationApprovalEnabled && borrowDelegationApproveTarget) {
       const request = getApprovalRequest();
       if (!beginApprovalRequest(request)) {
@@ -940,6 +985,8 @@ export function useBorrowApproval({
       }
     }
   }, [
+    ensureRiskAccepted,
+    providerName,
     allowance,
     amountValue,
     approvalEnabled,
@@ -1050,6 +1097,7 @@ export function useBorrowApproval({
   return {
     approveType: effectiveApproveType,
     approving,
+    approvalProgressStarted: approvalProgressScopeKey === approvalScopeKey,
     loadingAllowance: !!loadingAllowance,
     shouldApprove,
     ensureReadyToSubmit,

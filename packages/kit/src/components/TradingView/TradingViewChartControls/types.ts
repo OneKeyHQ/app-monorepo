@@ -1,3 +1,5 @@
+import type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
+
 export interface ITradingViewIntervalOption {
   label: string;
   value: string;
@@ -23,6 +25,7 @@ export interface ITradingViewNativeIndicatorSelection {
 }
 
 export interface ITradingViewChartTypeOption {
+  id?: ITradingViewNativeChartType;
   label: string;
   value: number;
 }
@@ -70,6 +73,7 @@ export interface ITradingViewNativeChartControlsConfigData {
 
 export type IChartSettingsSegmentValue = number | string;
 export type ITradingViewNativeChartTypeControlMode = 'toggle' | 'select';
+export type ITradingViewNativeIntervalControlMode = 'dialog' | 'popover';
 export type ITradingViewNativeIndicatorControlMode = 'dialog' | 'popover';
 export type ITradingViewNativePriceMarketCapControlMode = 'settings' | 'select';
 export type ITradingViewNativeControlsLayoutMode = 'mobile' | 'desktop';

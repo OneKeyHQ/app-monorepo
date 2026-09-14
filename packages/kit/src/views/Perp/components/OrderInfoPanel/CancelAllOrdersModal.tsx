@@ -16,6 +16,7 @@ import {
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
+import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -41,6 +42,7 @@ function CancelAllOrdersContent({
   scopedAccountAddress,
 }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const currentScopedAccountAddress = usePerpsAccountScopedCacheAddress();
@@ -91,7 +93,7 @@ function CancelAllOrdersContent({
 
     setIsSubmitting(true);
     try {
-      await actions.current.ensureTradingEnabled();
+      await ensureTradingEnabled();
       const symbolsMetaMap =
         await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
           coins: ordersToProcess.map((o) => o.coin),
@@ -123,7 +125,14 @@ function CancelAllOrdersContent({
     } finally {
       setIsSubmitting(false);
     }
-  }, [actions, canSubmit, isSubmitting, onClose, ordersToProcess]);
+  }, [
+    actions,
+    canSubmit,
+    ensureTradingEnabled,
+    isSubmitting,
+    onClose,
+    ordersToProcess,
+  ]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {

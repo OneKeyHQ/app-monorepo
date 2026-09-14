@@ -52,9 +52,11 @@ export type IFirmwareChangeLog = {
 
 export type IFirmwareUpdatesDetectResult = {
   lastDetectAt?: number;
+  detectResultResolved?: boolean;
   updateInfo?: {
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
+    targetsToUpdate?: IPro2FirmwareUpdateTarget[];
   };
 };
 
@@ -62,16 +64,23 @@ export type IFirmwareUpdatesDetectMap = Partial<{
   [connectId: string]: IFirmwareUpdatesDetectResult;
 }>;
 
-export type IFirmwareUpdatesDetectStatus = Partial<{
-  [connectId: string]: {
-    connectId: string;
-    hasUpgrade: boolean;
-    toVersion: string | undefined;
-    toFirmwareType: EFirmwareType | undefined;
-    toVersionBle: string | undefined;
-    // hasUpgradeForce: boolean;
-  };
-}>;
+export type IFirmwareUpdateDetectStatus = {
+  connectId: string;
+  hasUpgrade: boolean;
+  toVersion: string | undefined;
+  toFirmwareType: EFirmwareType | undefined;
+  toVersionBle: string | undefined;
+};
+
+export type IFirmwareUpdatesDetectStatus = Partial<
+  Record<string, IFirmwareUpdateDetectStatus>
+>;
+
+export type IFirmwareUpdateDetectStatusSnapshot = {
+  requestedConnectId: string;
+  resolved: boolean;
+  status?: IFirmwareUpdateDetectStatus;
+};
 
 export type IFirmwareReleasePayload = Omit<ReleaseInfoPayload, 'device'> & {
   features: IOneKeyDeviceFeatures | undefined;

@@ -477,6 +477,7 @@ export const WithdrawSection = ({
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,
           }),
@@ -1026,15 +1027,16 @@ export const WithdrawSection = ({
       onEthenaCooldownUnstakeReady?: () => void;
       withdrawType?: IEarnWithdrawType;
     }) => {
-      if (!hasRequiredData) return;
+      // Nothing was started, so the form keeps what the user typed.
+      if (!hasRequiredData) return false;
 
-      if (borrowApiCtx.isBorrow) return;
+      if (borrowApiCtx.isBorrow) return false;
 
       withdrawAbortRef.current?.abort();
       const abortController = new AbortController();
       withdrawAbortRef.current = abortController;
 
-      await handleWithdraw({
+      return handleWithdraw({
         amount,
         // identity,
         protocolVault: earnUtils.shouldSendEarnProtocolVault({
@@ -1110,7 +1112,8 @@ export const WithdrawSection = ({
         unsupportedAaveNativeReserve ||
         !isSelectedBorrowAssetValid
       ) {
-        return;
+        // Nothing was started, so the form keeps what the user typed.
+        return false;
       }
 
       const { provider, marketAddress, action } = borrowApiCtx.borrowApiParams;
@@ -1145,7 +1148,7 @@ export const WithdrawSection = ({
       };
 
       if (action === 'repay') {
-        await handleBorrowRepay({
+        return handleBorrowRepay({
           amount,
           provider,
           marketAddress,
@@ -1164,10 +1167,9 @@ export const WithdrawSection = ({
             onSuccess?.();
           },
         });
-        return;
       }
 
-      await handleBorrowWithdraw({
+      return handleBorrowWithdraw({
         amount,
         provider,
         marketAddress,
@@ -1377,7 +1379,7 @@ export const WithdrawSection = ({
         accountId={accountId}
         networkId={networkId}
         providerName=""
-        onConfirm={async () => {}}
+        onConfirm={async () => false}
         protocolVault=""
         isDisabled
         isInModalContext={isInModalContext}

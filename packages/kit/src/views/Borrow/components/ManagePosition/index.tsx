@@ -109,11 +109,15 @@ export function ManagePosition(props: IManagePositionProps) {
   const submitBorrowAction = useCallback(async () => {
     if (!onConfirm) return;
 
-    await onConfirm({
+    const started = await onConfirm({
       amount: amountValue,
       withdrawAll: baseState.isWithdrawAll,
       repayAll: baseState.isRepayAll,
     });
+
+    if (started === false) {
+      return;
+    }
 
     setAmountValue('');
   }, [
@@ -126,6 +130,7 @@ export function ManagePosition(props: IManagePositionProps) {
 
   const approval = useBorrowApproval({
     action,
+    providerName,
     amountValue,
     repayAll: baseState.isRepayAll,
     withdrawAll: baseState.isWithdrawAll,

@@ -26,6 +26,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceStageExit';
 
 import type {
   IEnsureLedgerCoreAppsReadyResult,
@@ -174,6 +175,12 @@ export async function showLedgerInstallCoreAppsDialog(params: {
     connectId =
       device?.connectId || device?.usbConnectId || device?.bleConnectId || '';
   }
+
+  // A flow's hold (onboarding's, the accounts phase's) spans this dialog,
+  // and on a phone the stage's capsule docks exactly where the sheet's
+  // Install button sits (OK-62656): the stage leaves before the sheet
+  // rises; the install's progress brings it back.
+  await yieldDeviceStageToDialog();
 
   return new Promise<IInstallCoreAppsResult>((resolve) => {
     let settled = false;

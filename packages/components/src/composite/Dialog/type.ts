@@ -1,4 +1,5 @@
 import type {
+  ComponentProps,
   Dispatch,
   MutableRefObject,
   PropsWithChildren,
@@ -10,6 +11,7 @@ import type {
 import type {
   DialogContentProps as TMDialogContentProps,
   DialogProps as TMDialogProps,
+  Sheet as TMSheet,
   SheetProps as TMSheetProps,
 } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -19,7 +21,6 @@ import type {
   IKeyOfIcons,
   IStackProps,
   IXStackProps,
-  IYStackProps,
 } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 
@@ -77,6 +78,8 @@ interface IBasicDialogProps extends TMDialogProps {
   /* If true, the content will be rendered later and fit content height. */
   isAsync?: boolean;
   onOpen?: () => void;
+  /** Controls initial focus for both the floating panel and sheet on web. */
+  onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];
   onHeaderCloseButtonPress?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
   isExist?: () => boolean;
@@ -91,10 +94,16 @@ interface IBasicDialogProps extends TMDialogProps {
   // Close on overlay or backdrop press
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
-  sheetOverlayProps?: IYStackProps;
+  sheetOverlayProps?: ComponentProps<typeof TMSheet.Overlay>;
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
+  // Where a swipe can drag the phone sheet away. 'sheet' (default) is the
+  // whole sheet, which is what Tamagui does; 'header' limits it to the grabber and the
+  // title row, so a scrollable body never competes with the sheet for the
+  // vertical drag (OK-61140). No effect on the floating dialog or with
+  // disableDrag.
+  sheetDragArea?: 'sheet' | 'header';
   // When true, system-level close paths (Android hardware back, Escape) do
   // not trigger onClose. Use for blocking dialogs (force-update, etc.) that
   // already opt out of dismissOnOverlayPress + disableDrag.
@@ -154,12 +163,21 @@ export type IDialogCancelProps = Omit<
   'onConfirm' | 'onConfirmText' | 'ConfirmButtonProps' | 'showFooter'
 >;
 
-type IDialogForm = ReturnType<typeof useForm>;
+export type IDialogForm = ReturnType<typeof useForm>;
 
 export interface IDialogInstanceRef {
   close: (extra?: { flag?: string }) => Promise<void>;
   ref: MutableRefObject<IDialogForm | undefined>;
   isExist: () => boolean;
+  /**
+   * Announce the form `Dialog.Form` has just mounted onto this dialog. It is
+   * lazy, so it registers after the rest of the dialog has rendered and
+   * registers again whenever it remounts; anything reading `ref` needs to hear
+   * about that rather than keep whatever it saw first.
+   */
+  registerForm?: (form: IDialogForm | undefined) => void;
+  /** Subscribe to `registerForm`. Returns the unsubscribe function. */
+  subscribeFormChange?: (listener: () => void) => () => void;
 }
 
 export interface IDialogInstance {

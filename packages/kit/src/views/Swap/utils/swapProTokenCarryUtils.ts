@@ -1,3 +1,4 @@
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -20,31 +21,6 @@ function isStableToken(
   return Boolean(key && stableTokenKeys.has(key));
 }
 
-export function isSwapTokenSelectionCurrent({
-  currentFromToken,
-  currentToToken,
-  selectedFromToken,
-  selectedToToken,
-}: {
-  currentFromToken?: ISwapCarryToken;
-  currentToToken?: ISwapCarryToken;
-  selectedFromToken?: ISwapCarryToken;
-  selectedToToken?: ISwapCarryToken;
-}) {
-  const areEqual = (
-    token1: ISwapCarryToken | undefined,
-    token2: ISwapCarryToken | undefined,
-  ) =>
-    token1 && token2
-      ? equalTokenNoCaseSensitive({ token1, token2 })
-      : token1 === token2;
-
-  return (
-    areEqual(currentFromToken, selectedFromToken) &&
-    areEqual(currentToToken, selectedToToken)
-  );
-}
-
 export function resolveSwapToProCarryToken<T extends ISwapCarryToken>({
   fromToken,
   proSupportedNetworkIds,
@@ -59,10 +35,13 @@ export function resolveSwapToProCarryToken<T extends ISwapCarryToken>({
   const targetToken = isStableToken(toToken, stableTokenKeys)
     ? fromToken
     : toToken;
+  const isNativeBitcoin = Boolean(
+    targetToken?.isNative && networkUtils.isBTCMainnet(targetToken.networkId),
+  );
   if (
     !targetToken ||
     isStableToken(targetToken, stableTokenKeys) ||
-    !proSupportedNetworkIds.has(targetToken.networkId)
+    (!proSupportedNetworkIds.has(targetToken.networkId) && !isNativeBitcoin)
   ) {
     return undefined;
   }
@@ -109,13 +88,11 @@ export function resolveProToSwapCarryPair<T extends ISwapToken>({
 }
 
 export type ISwapProTokenCarryUtils = {
-  isSwapTokenSelectionCurrent: typeof isSwapTokenSelectionCurrent;
   resolveProToSwapCarryPair: typeof resolveProToSwapCarryPair;
   resolveSwapToProCarryToken: typeof resolveSwapToProCarryToken;
 };
 
 export const swapProTokenCarryUtils: ISwapProTokenCarryUtils = {
-  isSwapTokenSelectionCurrent,
   resolveProToSwapCarryPair,
   resolveSwapToProCarryToken,
 };

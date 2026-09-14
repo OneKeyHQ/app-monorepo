@@ -2,9 +2,15 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketBannerListSortAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IMarketStockPublicItem,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
+  buildMarketNetworkLogoUriMap,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
@@ -23,12 +29,45 @@ function isBannerDetailSortBy(
 type IUseMarketBannerDetailParams = {
   tokenListId: string;
   isPerps: boolean;
+  isStock?: boolean;
+  isIndex?: boolean;
 };
+
+function mapStockBannerItemToToken(
+  item: IMarketStockPublicItem,
+): IMarketTokenListItem {
+  return {
+    address: '',
+    name: item.name,
+    symbol: item.symbol,
+    decimals: 0,
+    logoUrl: item.logoUrl,
+    price: item.price,
+    priceChange24hPercent: item.priceChange24hPercent,
+    marketCap: item.marketCap,
+    stockId: item.stockId,
+    stock: {
+      stockId: item.stockId,
+      subtitle: item.name,
+      source: item.assetType,
+      sourceLogoUri: item.logoUrl,
+      marketCap: item.marketCap,
+      assetAnalysis: { volume24h: item.volume24h },
+    },
+  };
+}
 
 export function useMarketBannerDetail({
   tokenListId,
   isPerps,
+  isStock = false,
+  isIndex = false,
 }: IUseMarketBannerDetailParams) {
+  const { networkList } = useMarketBasicConfig();
+  const networkLogoUriMap = useMemo(
+    () => buildMarketNetworkLogoUriMap(networkList),
+    [networkList],
+  );
   const [bannerSort, setBannerSort] = useMarketBannerListSortAtom();
   const sortRef = useRef(bannerSort);
   sortRef.current = bannerSort;
@@ -36,13 +75,20 @@ export function useMarketBannerDetail({
   const { result: tickerResult, isLoading: tickerIsLoading } = usePromiseResult(
     async () => {
       if (isPerps) return null;
-      const data =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketBannerTokenList({
-          tokenListId,
-        });
-      return data;
+      // Index quotes are display-only; restored legacy routes have no tradable rows.
+      if (isIndex) return [];
+      if (isStock) {
+        const data =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketBannerStockTokenList(
+            { id: tokenListId },
+          );
+        return data.map(mapStockBannerItemToToken);
+      }
+      return backgroundApiProxy.serviceMarketV2.fetchMarketBannerTokenList({
+        tokenListId,
+      });
     },
-    [tokenListId, isPerps],
+    [tokenListId, isPerps, isStock, isIndex],
     {
       watchLoading: true,
     },
@@ -52,14 +98,16 @@ export function useMarketBannerDetail({
     if (!tickerResult) return [];
     return tickerResult.map((item, index) => {
       const chainId = item.networkId || '';
-      const networkLogoUri = getNetworkLogoUri(chainId);
+      const networkLogoUri =
+        networkLogoUriMap.get(chainId) || getNetworkLogoUri(chainId);
       return transformApiItemToToken(item, {
         chainId,
+        networkLogoUriMap,
         networkLogoUri,
         sortIndex: index,
       });
     });
-  }, [tickerResult]);
+  }, [networkLogoUriMap, tickerResult]);
 
   const currentSortBy = isBannerDetailSortBy(bannerSort.sortBy)
     ? bannerSort.sortBy

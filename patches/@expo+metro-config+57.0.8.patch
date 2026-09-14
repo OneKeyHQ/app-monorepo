@@ -1,0 +1,35 @@
+diff --git a/node_modules/@expo/metro-config/build/transform-plugins/helpers.js b/node_modules/@expo/metro-config/build/transform-plugins/helpers.js
+index 5ba93d8..2ff6f32 100644
+--- a/node_modules/@expo/metro-config/build/transform-plugins/helpers.js
++++ b/node_modules/@expo/metro-config/build/transform-plugins/helpers.js
+@@ -15,11 +15,13 @@ const namespaceWrapHelper = ({ statement }, name) => {
+       if (e && e.__esModule) return e;
+       var n = {};
+       if (e) Object.keys(e).forEach(function (k) {
+-        var d = Object.getOwnPropertyDescriptor(e, k);
+-        Object.defineProperty(n, k, d.get ? d : {
+-          enumerable: true,
+-          get: function () { return e[k]; }
+-        });
++        if (k !== 'default') {
++          var d = Object.getOwnPropertyDescriptor(e, k);
++          Object.defineProperty(n, k, d.get ? d : {
++            enumerable: true,
++            get: function () { return e[k]; }
++          });
++        }
+       });
+       n.default = e;
+       return n;
+diff --git a/node_modules/@expo/metro-config/build/babel-transformer.js b/node_modules/@expo/metro-config/build/babel-transformer.js
+index 10458b9..142e079 100644
+--- a/node_modules/@expo/metro-config/build/babel-transformer.js
++++ b/node_modules/@expo/metro-config/build/babel-transformer.js
+@@ -190,6 +190,7 @@ function getCacheKey(options) {
+     const partialConfig = (0, babel_core_1.loadPartialConfigSync)({
+         cwd: options.projectRoot,
+         root: options.projectRoot,
++        filename: node_path_1.default.resolve(options.projectRoot, 'index.js'),
+         extends: node_path_1.default.resolve(options.projectRoot, configName),
+         configFile: false,
+         babelrc: false,
