@@ -21,6 +21,7 @@ import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
@@ -250,6 +251,7 @@ export function TokenDesktopLayout({
           width={TOKEN_DETAIL_TRADE_COLUMN_WIDTH}
           flexShrink={0}
         >
+          <PerpetualTradingBanner px="$5" py="$5" />
           <MarketEmbeddedSwap
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}

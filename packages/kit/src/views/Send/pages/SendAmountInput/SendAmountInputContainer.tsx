@@ -886,7 +886,10 @@ function SendAmountInputContainer() {
     defaultValues: {
       accountId,
       networkId,
-      amount: prefillAmount || '0',
+      // Seed an empty amount and let the placeholder draw the "0": a literal
+      // "0" is real text, so the first keystroke lands as "01" natively and
+      // is only normalized to "1" after the JS round trip (visible flash).
+      amount: prefillAmount || '',
       nftAmount: isNFT && nft?.collectionType === ENFTType.ERC1155 ? '' : '1',
       txMessage: '',
     },
@@ -1755,8 +1758,12 @@ function SendAmountInputContainer() {
     // Don't validate here — the validator closes over the stale isUseFiat
     // value, causing false min-amount errors (OK-52679). A useEffect below
     // re-triggers validation after isUseFiat state has propagated.
-    form.setValue('amount', amountValue);
+    // An empty amount stays empty: `linkedAmount` treats '' as 0 on both
+    // sides, and writing that '0' back would re-seed the literal text that
+    // makes the next keystroke flash as "01" on native.
+    form.setValue('amount', amount ? amountValue : '');
   }, [
+    amount,
     form,
     hasUsablePrice,
     isLightningNetwork,
@@ -2416,8 +2423,14 @@ function SendAmountInputContainer() {
       if (!inputValue && hadUserInput) {
         return '0';
       }
+      // A fully cleared field stays empty so the placeholder draws the "0";
+      // the integer branch below would otherwise turn '' into a literal '0'
+      // (Lightning sats) and bring back the "01" first-keystroke flash.
+      if (!inputValue) {
+        return '';
+      }
 
-      const valueBN = new BigNumber(inputValue || 0);
+      const valueBN = new BigNumber(inputValue);
       if (valueBN.isNaN()) {
         return '0';
       }
