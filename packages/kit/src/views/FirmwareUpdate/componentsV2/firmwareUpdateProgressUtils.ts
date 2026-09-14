@@ -1,4 +1,5 @@
 import type { IFirmwareTransferMetrics } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import type { IntlShape } from 'react-intl';
@@ -18,30 +19,29 @@ function formatBytes(bytes: number) {
 
 function formatDuration(
   durationMs: number,
-  intl: Pick<IntlShape, 'formatNumber'>,
+  intl: Pick<IntlShape, 'formatMessage'>,
 ) {
   const totalSeconds = Math.max(Math.round(durationMs / 1000), 0);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const secondsText = intl.formatNumber(seconds, {
-    style: 'unit',
-    unit: 'second',
-    unitDisplay: 'short',
-  });
+  // iOS Hermes can convert minute units to seconds in Intl.NumberFormat.
+  const secondsText = intl.formatMessage(
+    { id: ETranslations.earn_number_seconds },
+    { number: seconds },
+  );
   if (minutes === 0) {
     return secondsText;
   }
-  const minutesText = intl.formatNumber(minutes, {
-    style: 'unit',
-    unit: 'minute',
-    unitDisplay: 'short',
-  });
+  const minutesText = intl.formatMessage(
+    { id: ETranslations.earn_number_minutes },
+    { number: minutes },
+  );
   return `${minutesText} ${secondsText}`;
 }
 
 export function getFirmwareTransferDisplayMetrics(
   metrics: IFirmwareTransferMetrics | undefined,
-  intl: Pick<IntlShape, 'formatNumber'>,
+  intl: Pick<IntlShape, 'formatMessage'>,
 ) {
   const transferredBytes = metrics?.transferredBytes;
   const totalBytes = metrics?.totalBytes;
