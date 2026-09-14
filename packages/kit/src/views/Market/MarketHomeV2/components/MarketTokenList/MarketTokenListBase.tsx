@@ -569,8 +569,11 @@ function MarketTokenListBase({
   });
   const useTrendingDesktopColumns = desktopColumnVariant === 'trending' && !md;
   // The watchlist mirrors each row's sibling list on desktop; its mobile
-  // column set stays shared with the other spot lists.
-  const useWatchlistDesktopColumns = isWatchlistMode && !md;
+  // column set stays shared with the other spot lists. Native tablets clear
+  // `md` too, so gate on the platform as well: native only renders the
+  // mobile table (see useMarketTokenColumns.native.tsx).
+  const useWatchlistDesktopColumns =
+    isWatchlistMode && !md && !platformEnv.isNative;
   let baseMarketTokenColumns = defaultMarketTokenColumns;
   if (useTrendingDesktopColumns) {
     baseMarketTokenColumns = trendingColumnsDesktop;
