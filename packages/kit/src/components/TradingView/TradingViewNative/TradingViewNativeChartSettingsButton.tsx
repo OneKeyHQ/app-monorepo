@@ -29,12 +29,15 @@ export function TradingViewNativeChartSettingsButton({
   enablePreviousClose = false,
   isChartSwitchDisabled = false,
   onChartSwitch,
+  placement = 'chart',
 }: {
   priceAxisWidth: number;
   enablePreviousClose?: boolean;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
+  placement?: 'chart' | 'toolbar';
 }) {
+  const isToolbar = placement === 'toolbar';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const openChartSettingsModal = useCallback(() => {
@@ -69,23 +72,27 @@ export function TradingViewNativeChartSettingsButton({
   return (
     <IconButton
       testID="trading-view-native-chart-settings-trigger"
-      position="absolute"
-      right={getTradingViewNativeChartSettingsButtonRight(priceAxisWidth)}
-      bottom={0}
+      position={isToolbar ? undefined : 'absolute'}
+      right={
+        isToolbar
+          ? undefined
+          : getTradingViewNativeChartSettingsButtonRight(priceAxisWidth)
+      }
+      bottom={isToolbar ? undefined : 0}
       zIndex={3}
-      width={SETTINGS_BUTTON_SIZE}
-      height={SETTINGS_BUTTON_SIZE}
+      width={isToolbar ? 32 : SETTINGS_BUTTON_SIZE}
+      height={isToolbar ? 32 : SETTINGS_BUTTON_SIZE}
       p="$1"
       size="small"
       variant="tertiary"
-      icon="SettingsOutline"
-      iconSize="$4"
+      icon={isToolbar ? 'SliderHorOutline' : 'SettingsOutline'}
+      iconSize={isToolbar ? '$5' : '$4'}
       accessibilityLabel={intl.formatMessage({
         id: ETranslations.market_chart_settings,
       })}
       onPress={handlePress}
       {...HEADER_ICON_BUTTON_STYLE_PROPS}
-      bg="$bgApp"
+      bg={isToolbar ? '$transparent' : '$bgApp'}
       borderWidth={0}
     />
   );

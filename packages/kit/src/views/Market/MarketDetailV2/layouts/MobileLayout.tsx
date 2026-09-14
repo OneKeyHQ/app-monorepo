@@ -571,7 +571,7 @@ export function MobileLayout({
   useEffect(() => {
     setIsTradingViewIndicatorsDialogOpen(false);
     setIsTradingViewInteractionOverlayOpen(false);
-    if (isTradingViewNative) {
+    if (isTradingViewNative && !platformEnv.isNative) {
       setNativeIndicatorQuickBarState({
         status: 'loading',
         quickBar: null,
@@ -631,7 +631,6 @@ export function MobileLayout({
 
   const shouldReserveNativeIndicatorQuickBar =
     platformEnv.isNative &&
-    !isTradingViewNative &&
     shouldReserveTradingViewNativeIndicatorQuickBar(
       nativeIndicatorQuickBarState,
     );
@@ -765,6 +764,13 @@ export function MobileLayout({
                       enablePreviousClose={isStockDetailChart}
                       previousClose={stockPreviousClose}
                       enableNativeChartSettings
+                      nativeChartSettingsInToolbar={platformEnv.isNative}
+                      showNativeIndicatorQuickBar={platformEnv.isNative}
+                      onNativeIndicatorQuickBarChange={
+                        platformEnv.isNative
+                          ? handleNativeIndicatorQuickBarChange
+                          : undefined
+                      }
                       maxSelectableSubIndicatorCount={
                         MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                       }
