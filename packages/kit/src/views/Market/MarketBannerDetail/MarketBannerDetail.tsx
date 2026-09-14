@@ -236,6 +236,13 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         <BannerDetailTokenFlatList
           data={mobileData}
           isLoading={tickerIsLoading}
+          primaryColumnTitle={
+            useStockColumns
+              ? intl.formatMessage({ id: ETranslations.market_stock_company })
+              : `${intl.formatMessage({ id: ETranslations.global_name })} / ${intl.formatMessage({ id: ETranslations.market_mcap })}`
+          }
+          showMarketCap={!useStockColumns}
+          showVolume={!useStockColumns}
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={handleChangeSortPress}

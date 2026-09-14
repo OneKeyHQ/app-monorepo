@@ -17,7 +17,6 @@ import { TokenListItem } from '../MarketTokenList/components/TokenListItem';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
-import { MarketTopCoinStar } from './MarketTopCoinStar';
 
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 import type { FlatListProps } from 'react-native';
@@ -72,7 +71,6 @@ function MobileMarketTopCoinsFlatListBase({
       ({ item }) => (
         <TokenListItem
           item={toMobileMarketToken(item)}
-          leading={<MarketTopCoinStar token={item} />}
           onPress={() => {
             if (shouldSuppressItemPress?.()) {
               return;

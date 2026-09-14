@@ -242,6 +242,7 @@ export function useAccountEditActionListOptionsV2({
             />
           ) : null}
           <AccountRenameButton
+            nativeSheet
             name={name}
             wallet={wallet}
             indexedAccount={indexedAccount}
@@ -305,6 +306,7 @@ export function useAccountEditActionListOptionsV2({
             <>
               <Divider mx="$2" my="$1" />
               <AccountRemoveButton
+                nativeSheet
                 accountsCount={accountsCount}
                 name={name}
                 indexedAccount={indexedAccount}

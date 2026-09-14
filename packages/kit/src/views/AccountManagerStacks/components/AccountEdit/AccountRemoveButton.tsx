@@ -2,7 +2,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Dialog } from '@onekeyhq/components';
+import {
+  ActionList,
+  Dialog,
+  runAfterActionListClose,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -101,6 +105,7 @@ export function showAccountRemoveDialog({
   config,
   indexedAccount,
   account,
+  nativeSheet = false,
 }: {
   title: string;
   description: string;
@@ -108,12 +113,14 @@ export function showAccountRemoveDialog({
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   config: IAccountSelectorContextData | undefined;
+  nativeSheet?: boolean;
 }) {
   if (indexedAccount && !account) {
     shouldShowHdOrHwAccountRemoveDialog = false;
   }
 
   return Dialog.show({
+    nativeSheet,
     icon: 'ErrorOutline',
     tone: indexedAccount && !account ? 'default' : 'destructive',
     title,
@@ -136,12 +143,14 @@ export function AccountRemoveButton({
   indexedAccount,
   account,
   onClose,
+  nativeSheet = false,
 }: {
   name: string;
   accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   onClose: () => void;
+  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
@@ -189,7 +198,7 @@ export function AccountRemoveButton({
       destructive
       isLoading={loading}
       onClose={onClose}
-      onPress={async () => {
+      onPress={async (close) => {
         let shouldShowDialog = true;
 
         if (account && !indexedAccount) {
@@ -208,25 +217,32 @@ export function AccountRemoveButton({
         }
 
         if (shouldShowDialog) {
-          showAccountRemoveDialog({
-            accountsCount,
-            config,
-            title: intl.formatMessage(
-              { id: ETranslations.global_remove_account_name },
-              {
-                account: name,
-              },
-            ),
-            description: desc,
-            account,
-            indexedAccount,
-          });
+          await runAfterActionListClose(
+            close,
+            () => {
+              showAccountRemoveDialog({
+                nativeSheet,
+                accountsCount,
+                config,
+                title: intl.formatMessage(
+                  { id: ETranslations.global_remove_account_name },
+                  {
+                    account: name,
+                  },
+                ),
+                description: desc,
+                account,
+                indexedAccount,
+              });
+            },
+            { waitForAnimation: nativeSheet && platformEnv.isNative },
+          );
         } else {
           await removeFn({
             account,
             indexedAccount,
             accountsCount,
-            closeDialog: onClose,
+            closeDialog: close,
           });
         }
       }}

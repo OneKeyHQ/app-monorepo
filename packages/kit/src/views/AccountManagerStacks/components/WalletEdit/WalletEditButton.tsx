@@ -278,6 +278,7 @@ function WalletEditButtonView({
 
           {showMockedWalletBulkCopyAddressesButton ? (
             <BulkCopyAddressesButton
+              nativeSheet
               wallet={wallet}
               networkId={network?.id || ''}
               isPrimeActive={isPrimeActive}
@@ -331,6 +332,7 @@ function WalletEditButtonView({
 
           {showRemoveWalletButton ? (
             <WalletRemoveButton
+              nativeSheet
               isRemoveToMocked
               wallet={wallet}
               onClose={handleActionListClose}
@@ -339,6 +341,7 @@ function WalletEditButtonView({
 
           {showRemoveDeviceButton ? (
             <WalletRemoveButton
+              nativeSheet
               wallet={wallet}
               onClose={handleActionListClose}
             />
@@ -377,6 +380,7 @@ function WalletEditButtonView({
 
   return (
     <ActionList
+      nativeSheet
       title={intl.formatMessage({ id: ETranslations.global_more })}
       renderTrigger={
         <ListItem.IconButton
