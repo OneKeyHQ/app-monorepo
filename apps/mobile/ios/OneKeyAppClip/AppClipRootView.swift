@@ -704,7 +704,7 @@ struct AppClipRootView: View {
 
   private func unifiedMarketDetail(_ detail: AppClipMarketDetail) -> some View {
     VStack(spacing: 0) {
-      HStack(spacing: 12) {
+      HStack {
         Button {
           selectedCandleID = nil
           model.showMarket()
@@ -718,18 +718,20 @@ struct AppClipRootView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("app-clip-market-back")
-        marketDetailLogo(detail)
-          .frame(width: 44, height: 44)
         Spacer()
       }
       .frame(height: 64)
       .padding(.horizontal, 20)
 
       VStack(alignment: .leading, spacing: 5) {
-        Text(marketDetailTitle(detail))
-          .font(.system(size: 32, weight: .bold))
-          .foregroundColor(.primary)
-          .lineLimit(1)
+        HStack(spacing: 10) {
+          marketDetailLogo(detail)
+            .frame(width: 32, height: 32)
+          Text(marketDetailTitle(detail))
+            .font(.system(size: 32, weight: .bold))
+            .foregroundColor(.primary)
+            .lineLimit(1)
+        }
         Text(marketDetailSubtitle(detail))
           .font(.system(size: 14, weight: .medium))
           .foregroundColor(.appClipSecondaryText)
