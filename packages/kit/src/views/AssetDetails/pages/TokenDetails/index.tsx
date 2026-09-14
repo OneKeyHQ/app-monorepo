@@ -963,6 +963,7 @@ function TokenDetailsView() {
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter
         isNative={activeFooterToken?.isNative}
+        isAggregateToken={activeFooterToken?.isAggregateToken}
         networkId={activeFooterNetworkId}
         networkName={activeFooterToken?.networkName}
         symbol={activeFooterToken?.symbol}
