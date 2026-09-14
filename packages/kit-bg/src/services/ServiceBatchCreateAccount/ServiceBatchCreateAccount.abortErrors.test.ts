@@ -3,7 +3,12 @@ import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapte
 
 import ServiceBatchCreateAccount from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  ThirdPartyAppNotInstalled,
+  ThirdPartyInstallAppUserCancelled,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { classifyThirdPartyHwCreateFailures } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
   backgroundMethod:
@@ -65,7 +70,7 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   default: { showLocalSecretEnvelopeErrorDialogIfNeeded: jest.fn() },
 }));
 
-function setup(failure: unknown) {
+function setup(failure: unknown, failAllNetworks = false) {
   const attempted: string[] = [];
   const saved: string[] = [];
   const service = new ServiceBatchCreateAccount({
@@ -74,7 +79,7 @@ function setup(failure: unknown) {
         getWalletDeviceParams: async () => undefined,
         prepareHdOrHwAccounts: async ({ networkId }: { networkId: string }) => {
           attempted.push(networkId);
-          if (networkId === 'btc--0') throw failure;
+          if (failAllNetworks || networkId === 'btc--0') throw failure;
           return {
             vault: {
               getNetworkInfo: async () => ({}),
@@ -176,6 +181,40 @@ it('preserves explicit fail-fast mode for other callers', async () => {
   const { run, attempted } = setup(error);
   await expect(run(false)).rejects.toBe(error);
   expect(attempted).toEqual(['evm--1', 'btc--0']);
+});
+
+it.each([
+  new ThirdPartyAppNotInstalled(),
+  new ThirdPartyInstallAppUserCancelled(),
+])('preserves per-chain installation outcomes ($code)', async (error) => {
+  const { run, attempted, saved } = setup(error);
+  const result = await run();
+  expect(attempted).toEqual(['evm--1', 'btc--0', 'sol--101']);
+  expect(saved).toEqual(['evm--1', 'sol--101']);
+  expect(result.failedAccounts).toEqual([
+    expect.objectContaining({
+      error: expect.objectContaining({ code: error.code }),
+    }),
+  ]);
+  expect(
+    classifyThirdPartyHwCreateFailures({
+      addedCount: result.addedAccounts.length,
+      failedAccounts: result.failedAccounts,
+    }),
+  ).toEqual({ allAppNotInstalled: false, genuineFailures: [] });
+});
+
+it('returns all missing apps so callers can offer Ledger app installation', async () => {
+  const { run, attempted } = setup(new ThirdPartyAppNotInstalled(), true);
+  const result = await run();
+  expect(attempted).toEqual(['evm--1', 'btc--0', 'sol--101']);
+  expect(result.failedAccounts).toHaveLength(3);
+  expect(
+    classifyThirdPartyHwCreateFailures({
+      addedCount: result.addedAccounts.length,
+      failedAccounts: result.failedAccounts,
+    }),
+  ).toEqual({ allAppNotInstalled: true, genuineFailures: [] });
 });
 
 it('does not repeat authentication after a masked authorization failure', async () => {

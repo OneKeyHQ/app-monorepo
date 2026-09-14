@@ -549,16 +549,22 @@ export default function PagePrimeTransferPreview() {
         selectedTransferData.importedAccounts.find(
           (item) => item.credential,
         )?.credential;
+      // The shared payload can contain private credentials even when only
+      // watching accounts are selected. They require no source-device password.
+      const selectedPrivateItems = [
+        ...selectedTransferData.wallets,
+        ...selectedTransferData.importedAccounts,
+      ];
+      const decryptedCredentialsHex = selectedPrivateItems.length
+        ? transferData?.privateData?.decryptedCredentialsHex
+        : undefined;
 
       let localPassword = '';
       if (
         firstWalletCredential ||
         firstImportedAccountCredential ||
-        transferData?.privateData?.decryptedCredentialsHex ||
-        [
-          ...selectedTransferData.wallets,
-          ...selectedTransferData.importedAccounts,
-        ].some((item) => item.credentialDecrypted)
+        decryptedCredentialsHex ||
+        selectedPrivateItems.some((item) => item.credentialDecrypted)
       ) {
         const { password } =
           await backgroundApiProxy.servicePassword.promptPasswordVerify();
@@ -615,8 +621,7 @@ export default function PagePrimeTransferPreview() {
             : localPasswordEncoded;
           const { success, errorsInfo, taskUUID } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
-              decryptedCredentialsHex:
-                transferData?.privateData?.decryptedCredentialsHex,
+              decryptedCredentialsHex,
               selectedTransferData,
               password: usedPasswordEncoded,
               localPassword: localPasswordEncoded,

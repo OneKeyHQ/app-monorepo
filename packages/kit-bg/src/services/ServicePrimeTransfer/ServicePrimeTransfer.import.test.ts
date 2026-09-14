@@ -950,3 +950,146 @@ describe('cloud restore password preparation', () => {
     },
   );
 });
+
+describe('watching-only password preparation', () => {
+  it.each(['', 'synthetic recipient password'])(
+    'ignores unselected wrapped private credentials with password %j',
+    async (password) => {
+      const { service, serviceAccount: a } = setup();
+      const result = await service.startImport({
+        selectedTransferData: data({
+          watchingAccounts: [{ id: 'watching', item: account('watching') }],
+        }),
+        decryptedCredentialsHex: 'synthetic unselected private credentials',
+        password,
+        localPassword: password,
+      });
+      expect(result.errorsInfo).toEqual([]);
+      expect(decryptStringAsync).not.toHaveBeenCalled();
+      expect(a.restoreWatchingAccountByInput).toHaveBeenCalledTimes(1);
+      expect(a.getPrivateKeyOfImportedAccountCredential).not.toHaveBeenCalled();
+    },
+  );
+
+  it('still requires password preparation for selected wrapped private credentials', async () => {
+    const { service } = setup();
+    await expect(
+      service.startImport({
+        selectedTransferData: data({
+          importedAccounts: [{ id: 'private', item: account('private') }],
+        }),
+        decryptedCredentialsHex: 'synthetic selected private credentials',
+        password: '',
+      }),
+    ).rejects.toThrow('Password is required');
+    expect(service.currentImportTaskUUID).toBeUndefined();
+  });
+});
+
+describe('exhausted restore candidates', () => {
+  it('records one private-account failure when all candidates return empty without throwing', async () => {
+    const { run, serviceAccount: a } = setup();
+    a.restoreImportedAccountByInput
+      .mockResolvedValueOnce({ addedAccounts: [] })
+      .mockResolvedValueOnce({ addedAccounts: [] });
+    const result = await run(
+      data({
+        importedAccounts: [
+          selectedAccount('mismatch'),
+          selectedAccount('next'),
+        ],
+      }),
+    );
+    expect(result.errorsInfo).toEqual([
+      expect.objectContaining({
+        accountId: 'mismatch',
+        category: 'importPrivateKeyAccount',
+        error: 'No matching account restored',
+      }),
+    ]);
+    expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(3);
+    expect(a.restoreImportedAccountByInput).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        importedAccount: expect.objectContaining({ id: 'next' }),
+      }),
+    );
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledTimes(1);
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'importPrivateKeyAccount',
+        itemIndex: 0,
+        error: 'No matching account restored',
+      }),
+    );
+    const logged = JSON.stringify(
+      jest.mocked(defaultLogger.prime.transfer.importError).mock.calls,
+    );
+    expect(logged).not.toContain('address-mismatch');
+    expect(logged).not.toContain('synthetic key');
+  });
+
+  it('does not report a private candidate mismatch when a later fallback succeeds', async () => {
+    const { run, serviceAccount: a } = setup();
+    a.restoreImportedAccountByInput.mockResolvedValueOnce({
+      addedAccounts: [],
+    });
+    const result = await run(
+      data({ importedAccounts: [selectedAccount('fallback')] }),
+    );
+    expect(result.errorsInfo).toEqual([]);
+    expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(2);
+    expect(defaultLogger.prime.transfer.importError).not.toHaveBeenCalled();
+  });
+
+  it('records one watching-account failure after all input fallbacks are exhausted', async () => {
+    const { run, serviceAccount: a } = setup();
+    for (let i = 0; i < 4; i += 1) {
+      a.restoreWatchingAccountByInput.mockResolvedValueOnce({
+        addedAccounts: [],
+      });
+    }
+    const result = await run(
+      data({
+        watchingAccounts: [
+          selectedAccount('mismatch', {
+            pub: 'synthetic pub',
+            xpub: 'synthetic xpub',
+            xpubSegwit: 'synthetic segwit xpub',
+          }),
+          selectedAccount('next'),
+        ],
+      }),
+    );
+    expect(result.errorsInfo).toEqual([
+      expect.objectContaining({
+        accountId: 'mismatch',
+        category: 'importWatchingAccount',
+        error: 'No matching account restored',
+      }),
+    ]);
+    expect(a.restoreWatchingAccountByInput).toHaveBeenCalledTimes(5);
+    expect(a.restoreWatchingAccountByInput).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        watchingAccount: expect.objectContaining({ id: 'next' }),
+      }),
+    );
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not report a watching candidate mismatch when the address fallback succeeds', async () => {
+    const { run, serviceAccount: a } = setup();
+    a.restoreWatchingAccountByInput.mockResolvedValueOnce({
+      addedAccounts: [],
+    });
+    const result = await run(
+      data({
+        watchingAccounts: [
+          selectedAccount('fallback', { pub: 'synthetic pub' }),
+        ],
+      }),
+    );
+    expect(result.errorsInfo).toEqual([]);
+    expect(a.restoreWatchingAccountByInput).toHaveBeenCalledTimes(2);
+    expect(defaultLogger.prime.transfer.importError).not.toHaveBeenCalled();
+  });
+});

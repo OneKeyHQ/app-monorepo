@@ -4,6 +4,7 @@ import {
   HardwareErrorCode as ThirdPartyHwErrorCode,
 } from '@onekeyfe/hwk-adapter-core/errors';
 
+import { THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareErrorByCode,
@@ -61,7 +62,8 @@ export function shouldAbortAccountCreation(error: unknown): boolean {
   ) {
     return true;
   }
-  // Only an explicitly unsupported chain/method/path is local to one account.
+  // Unsupported derivations and per-chain app installation outcomes can be
+  // returned in failedAccounts for the caller's existing recovery flow.
   // Unknown device, transport, permission and authentication failures must not
   // restart the same interaction for every remaining network.
   return !isHardwareErrorByCode({
@@ -72,6 +74,8 @@ export function shouldAbortAccountCreation(error: unknown): boolean {
       ThirdPartyHwErrorCode.MethodNotSupported,
       ThirdPartyHwErrorCode.ChainNotSupported,
       ThirdPartyHwErrorCode.DevicePathForbidden,
+      ThirdPartyHwErrorCode.AppNotInstalled,
+      THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
     ],
   });
 }

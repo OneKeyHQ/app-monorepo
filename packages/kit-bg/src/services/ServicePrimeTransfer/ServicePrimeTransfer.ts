@@ -324,6 +324,7 @@ class ServicePrimeTransfer extends ServiceBase {
       'Invalid mnemonic',
       'Invalid checksum',
       'Invalid private key',
+      'No matching account restored',
     ];
     const safeMessage = safeMessages.find(
       (value) => typeof message === 'string' && message.includes(value),
@@ -3122,12 +3123,17 @@ class ServicePrimeTransfer extends ServiceBase {
     }
     // Require task-level password preparation before any item can prompt or
     // mutate storage. Missing credentials alone remain per-item failures.
+    const selectedPrivateItems = [
+      ...selectedTransferData.wallets,
+      ...selectedTransferData.importedAccounts,
+    ];
+    const needsWrappedCredentials =
+      selectedPrivateItems.length > 0 && Boolean(decryptedCredentialsHex);
     const hasPrivateCredentials =
-      Boolean(decryptedCredentialsHex) ||
-      [
-        ...selectedTransferData.wallets,
-        ...selectedTransferData.importedAccounts,
-      ].some((item) => Boolean(item.credential || item.credentialDecrypted));
+      needsWrappedCredentials ||
+      selectedPrivateItems.some((item) =>
+        Boolean(item.credential || item.credentialDecrypted),
+      );
     if (hasPrivateCredentials && !password) {
       throw new OneKeyLocalError('Password is required');
     }
@@ -3155,7 +3161,7 @@ class ServicePrimeTransfer extends ServiceBase {
     });
     const devSettings = await devSettingsPersistAtom.get();
     let decryptedCredentials: IPrimeTransferDecryptedCredentials | undefined;
-    if (decryptedCredentialsHex && password) {
+    if (needsWrappedCredentials && decryptedCredentialsHex && password) {
       decryptedCredentials = await this.withImportTaskLog(
         {
           stage: 'decryptTransferCredentials',
@@ -3766,7 +3772,7 @@ class ServicePrimeTransfer extends ServiceBase {
           }
           // An unsuccessful candidate may still recover through another input or
           // derivation. Count the item as failed only after all fallbacks finish.
-          if (!addedAccountsUsed?.length && restoreFailure) {
+          if (!addedAccountsUsed?.length) {
             errorsInfo.push(
               this.recordImportItemError(
                 {
@@ -3776,7 +3782,8 @@ class ServicePrimeTransfer extends ServiceBase {
                   itemIndex,
                   networkId,
                 },
-                restoreFailure.error,
+                restoreFailure?.error ??
+                  new OneKeyLocalError('No matching account restored'),
               ),
             );
           }
@@ -4059,7 +4066,7 @@ class ServicePrimeTransfer extends ServiceBase {
           }
           // An unsuccessful candidate may still recover through another input or
           // derivation. Count the item as failed only after all fallbacks finish.
-          if (!addedAccounts?.length && restoreFailure) {
+          if (!addedAccounts?.length) {
             errorsInfo.push(
               this.recordImportItemError(
                 {
@@ -4069,7 +4076,8 @@ class ServicePrimeTransfer extends ServiceBase {
                   itemIndex,
                   networkId,
                 },
-                restoreFailure.error,
+                restoreFailure?.error ??
+                  new OneKeyLocalError('No matching account restored'),
               ),
             );
           }
