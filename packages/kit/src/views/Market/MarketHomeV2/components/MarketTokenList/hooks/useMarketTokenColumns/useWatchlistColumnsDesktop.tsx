@@ -25,12 +25,14 @@ import {
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
+  MARKET_LIST_METRIC_COLUMN_PROPS,
   MARKET_LIST_NAME_COLUMN_WIDTH,
   MARKET_LIST_STAR_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
 import { MarketHoverRevealLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import {
+  EMPTY_MARKET_VALUE,
   MARKET_CELL_LOGO_GAP,
   MARKET_CELL_PRIMARY_SIZE,
   MARKET_CELL_SUBTITLE_LINE_HEIGHT,
@@ -50,7 +52,6 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
-  EMPTY_MARKET_VALUE,
   renderLightweightText,
   renderLightweightTokenIdentity,
   shouldUseLightweightCell,
@@ -84,15 +85,6 @@ export function getMarketWatchlistRowKind(
   }
   return 'token';
 }
-
-// The metric columns share the row's remaining width evenly, on the same 8px
-// padding the other list pages use.
-const METRIC_COLUMN_PROPS = {
-  flexGrow: 1,
-  flexShrink: 1,
-  flexBasis: 0,
-  px: '$2',
-} as const;
 
 function WatchlistMetricValue({
   value,
@@ -518,7 +510,7 @@ export function useWatchlistColumnsDesktop({
       {
         title: intl.formatMessage({ id: ETranslations.global_price }),
         dataIndex: 'price',
-        columnProps: METRIC_COLUMN_PROPS,
+        columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
         render: (_: unknown, record: IMarketToken, index?: number) =>
           isRichRow(index) ? (
             <WatchlistMetricValue value={record.price} formatter="price" />
@@ -535,7 +527,7 @@ export function useWatchlistColumnsDesktop({
           { range: MARKET_FIXED_24H_RANGE },
         ),
         dataIndex: 'change24h',
-        columnProps: METRIC_COLUMN_PROPS,
+        columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
         render: (_: unknown, record: IMarketToken, index?: number) =>
           isRichRow(index) ? (
             <WatchlistChangeValue
@@ -554,7 +546,7 @@ export function useWatchlistColumnsDesktop({
       {
         title: intl.formatMessage({ id: ETranslations.market_mcap }),
         dataIndex: 'marketCap',
-        columnProps: METRIC_COLUMN_PROPS,
+        columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
         render: (_: unknown, record: IMarketToken, index?: number) =>
           isRichRow(index) ? (
             <WatchlistMetricValue
@@ -572,7 +564,7 @@ export function useWatchlistColumnsDesktop({
           { range: MARKET_FIXED_24H_RANGE },
         ),
         dataIndex: 'turnover',
-        columnProps: METRIC_COLUMN_PROPS,
+        columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
         render: (_: unknown, record: IMarketToken, index?: number) =>
           isRichRow(index) ? (
             <WatchlistMetricValue

@@ -27,7 +27,10 @@ import {
   MARKET_LIST_STAR_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
-import { MARKET_CELL_LINE_GAP } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
+import {
+  EMPTY_MARKET_VALUE,
+  MARKET_CELL_LINE_GAP,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
 import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -46,7 +49,6 @@ import {
 } from '../../utils/tokenListHelpers';
 
 import {
-  EMPTY_MARKET_VALUE,
   renderLightweightText,
   renderLightweightTokenIdentity,
   shouldUseLightweightCell,
@@ -59,9 +61,10 @@ function getDefaultMarketValue(text: number) {
   return !Number.isFinite(text) || text === 0 ? EMPTY_MARKET_VALUE : text;
 }
 
+// Spot lists other than the watchlist: the desktop watchlist renders
+// `useWatchlistColumnsDesktop` instead (see MarketTokenListBase).
 export const useColumnsDesktop = (
   networkId?: string,
-  isWatchlistMode?: boolean,
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
@@ -78,7 +81,6 @@ export const useColumnsDesktop = (
   const intl = useIntl();
 
   return useMemo<ITableColumn<IMarketToken>[]>(() => {
-    const watchlistNameWidth = gtLg ? 340 : 260;
     const shouldRenderRichCell = (index?: number) =>
       !shouldUseLightweightCell(index, deferRichRowAfterIndex);
 
@@ -97,7 +99,7 @@ export const useColumnsDesktop = (
         dataIndex: 'star',
         // No right padding: the column's trailing space IS the design's 6px gap
         // to the name group, so the logo lands on the shared offset the other
-        // list pages use. The name column keeps its own responsive width.
+        // list pages use.
         columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
         columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken, index?: number) => {
@@ -136,12 +138,7 @@ export const useColumnsDesktop = (
       {
         title: intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
-        columnWidth: (() => {
-          // The watchlist keeps its own responsive width; every other spot
-          // list shares the first-column frame with Trending and Stocks.
-          if (isWatchlistMode) return watchlistNameWidth;
-          return MARKET_LIST_NAME_COLUMN_WIDTH;
-        })(),
+        columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken, index?: number) => {
           const renderRichCell = shouldRenderRichCell(index);
           if (!renderRichCell) {
@@ -281,79 +278,65 @@ export const useColumnsDesktop = (
         },
         renderSkeleton: () => <Skeleton width={60} height={16} />,
       },
-      isWatchlistMode && !useStockMetadataColumns
-        ? undefined
-        : {
-            title: intl.formatMessage({ id: ETranslations.global_market_cap }),
-            dataIndex: 'marketCap',
-            columnProps: { flex: 1 },
-            render: (text: number, record: IMarketToken, index?: number) => {
-              const value = useStockMetadataColumns
-                ? (getStockMarketCapValue(record) ?? EMPTY_MARKET_VALUE)
-                : getDefaultMarketValue(text);
-
-              if (!shouldRenderRichCell(index)) {
-                return renderLightweightText(value);
-              }
-
-              return (
-                <NumberSizeableText
-                  size="$bodyLgMedium"
-                  formatter="marketCap"
-                  formatterOptions={{ currency: '$', capAtMaxT: true }}
-                >
-                  {value}
-                </NumberSizeableText>
-              );
-            },
-            renderSkeleton: () => <Skeleton width={80} height={16} />,
-          },
-      isWatchlistMode && !useStockMetadataColumns
-        ? undefined
-        : {
-            title: useStockMetadataColumns
-              ? intl.formatMessage(
-                  { id: ETranslations.market_volume_in_range },
-                  { range: MARKET_FIXED_24H_RANGE },
-                )
-              : intl.formatMessage({ id: ETranslations.global_liquidity }),
-            dataIndex: 'liquidity',
-            columnProps: { flex: 1.2 },
-            render: (text: number, record: IMarketToken, index?: number) => {
-              const value = useStockMetadataColumns
-                ? (getStockVolume24hValue(record) ?? EMPTY_MARKET_VALUE)
-                : getDefaultMarketValue(text);
-
-              if (!shouldRenderRichCell(index)) {
-                return renderLightweightText(value);
-              }
-
-              return (
-                <NumberSizeableText
-                  size="$bodyLgMedium"
-                  formatter="marketCap"
-                  formatterOptions={{ currency: '$' }}
-                >
-                  {value}
-                </NumberSizeableText>
-              );
-            },
-            renderSkeleton: () => <Skeleton width={100} height={16} />,
-          },
       {
-        title: (() => {
-          if (useStockMetadataColumns) {
-            return intl.formatMessage({
-              id: ETranslations.dexmarket_stock_pe_ttm,
-            });
+        title: intl.formatMessage({ id: ETranslations.global_market_cap }),
+        dataIndex: 'marketCap',
+        columnProps: { flex: 1 },
+        render: (text: number, record: IMarketToken, index?: number) => {
+          const value = useStockMetadataColumns
+            ? (getStockMarketCapValue(record) ?? EMPTY_MARKET_VALUE)
+            : getDefaultMarketValue(text);
+
+          if (!shouldRenderRichCell(index)) {
+            return renderLightweightText(value);
           }
-          return isWatchlistMode
-            ? intl.formatMessage(
-                { id: ETranslations.market_volume_in_range },
-                { range: MARKET_FIXED_24H_RANGE },
-              )
-            : intl.formatMessage({ id: ETranslations.dexmarket_turnover });
-        })(),
+
+          return (
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="marketCap"
+              formatterOptions={{ currency: '$', capAtMaxT: true }}
+            >
+              {value}
+            </NumberSizeableText>
+          );
+        },
+        renderSkeleton: () => <Skeleton width={80} height={16} />,
+      },
+      {
+        title: useStockMetadataColumns
+          ? intl.formatMessage(
+              { id: ETranslations.market_volume_in_range },
+              { range: MARKET_FIXED_24H_RANGE },
+            )
+          : intl.formatMessage({ id: ETranslations.global_liquidity }),
+        dataIndex: 'liquidity',
+        columnProps: { flex: 1.2 },
+        render: (text: number, record: IMarketToken, index?: number) => {
+          const value = useStockMetadataColumns
+            ? (getStockVolume24hValue(record) ?? EMPTY_MARKET_VALUE)
+            : getDefaultMarketValue(text);
+
+          if (!shouldRenderRichCell(index)) {
+            return renderLightweightText(value);
+          }
+
+          return (
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="marketCap"
+              formatterOptions={{ currency: '$' }}
+            >
+              {value}
+            </NumberSizeableText>
+          );
+        },
+        renderSkeleton: () => <Skeleton width={100} height={16} />,
+      },
+      {
+        title: useStockMetadataColumns
+          ? intl.formatMessage({ id: ETranslations.dexmarket_stock_pe_ttm })
+          : intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
         dataIndex: 'turnover',
         columnProps: { flex: 1.1 },
         render: (text: number, record: IMarketToken, index?: number) => {
@@ -379,29 +362,27 @@ export const useColumnsDesktop = (
         },
         renderSkeleton: () => <Skeleton width={100} height={16} />,
       },
-      isWatchlistMode
-        ? undefined
-        : {
-            title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
-            dataIndex: 'transactions',
-            columnProps: { flex: 1 },
-            render: (text: number, record: IMarketToken, index?: number) =>
-              shouldRenderRichCell(index) ? (
-                <Txns transactions={text} walletInfo={record.walletInfo} />
-              ) : (
-                renderLightweightText(text)
-              ),
-            renderSkeleton: () => (
-              <YStack gap="$1" alignItems="flex-start">
-                <Skeleton width={50} height={14} />
-                <XStack gap="$1">
-                  <Skeleton width={20} height={12} />
-                  <Skeleton width={20} height={12} />
-                </XStack>
-              </YStack>
-            ),
-          },
-      gtLg && !isWatchlistMode
+      {
+        title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
+        dataIndex: 'transactions',
+        columnProps: { flex: 1 },
+        render: (text: number, record: IMarketToken, index?: number) =>
+          shouldRenderRichCell(index) ? (
+            <Txns transactions={text} walletInfo={record.walletInfo} />
+          ) : (
+            renderLightweightText(text)
+          ),
+        renderSkeleton: () => (
+          <YStack gap="$1" alignItems="flex-start">
+            <Skeleton width={50} height={14} />
+            <XStack gap="$1">
+              <Skeleton width={20} height={12} />
+              <Skeleton width={20} height={12} />
+            </XStack>
+          </YStack>
+        ),
+      },
+      gtLg
         ? {
             title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
             dataIndex: 'uniqueTraders',
@@ -417,7 +398,7 @@ export const useColumnsDesktop = (
             renderSkeleton: () => <Skeleton width={60} height={16} />,
           }
         : undefined,
-      gtXl && !isWatchlistMode
+      gtXl
         ? {
             title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
             dataIndex: 'holders',
@@ -433,7 +414,7 @@ export const useColumnsDesktop = (
             renderSkeleton: () => <Skeleton width={60} height={16} />,
           }
         : undefined,
-      gtXl && !isWatchlistMode && !hideTokenAge
+      gtXl && !hideTokenAge
         ? {
             title: intl.formatMessage({
               id: ETranslations.dexmarket_token_age,
@@ -474,7 +455,6 @@ export const useColumnsDesktop = (
     hiddenDesktopColumns,
     hideTokenAge,
     intl,
-    isWatchlistMode,
     networkId,
     showStockSubtitle,
     useStockMetadataColumns,

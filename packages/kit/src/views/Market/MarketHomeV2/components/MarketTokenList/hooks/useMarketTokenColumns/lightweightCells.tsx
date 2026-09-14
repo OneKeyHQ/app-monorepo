@@ -1,13 +1,13 @@
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
-import {
-  MARKET_CELL_LINE_GAP,
-  MARKET_CELL_LOGO_GAP,
-} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import type { IMarketToken } from '../../MarketTokenData';
+import {
+  EMPTY_MARKET_VALUE,
+  MARKET_CELL_LINE_GAP,
+  MARKET_CELL_LOGO_GAP,
+} from '../../../MarketListCell';
 
-export const EMPTY_MARKET_VALUE = '--';
+import type { IMarketToken } from '../../MarketTokenData';
 
 /**
  * Web cold start keeps only the first rows rich and renders the rest as plain

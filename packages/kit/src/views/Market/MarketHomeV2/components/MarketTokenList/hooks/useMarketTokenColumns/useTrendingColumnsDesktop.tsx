@@ -20,6 +20,7 @@ import {
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
 import {
+  EMPTY_MARKET_VALUE,
   MARKET_CELL_LINE_GAP,
   MarketCellPrimary,
   MarketIdentityCell,
@@ -40,8 +41,6 @@ import { Txns } from '../../components/Txns';
 import { getTokenAgeLabel } from './tokenAgeLabel';
 
 import type { IMarketToken } from '../../MarketTokenData';
-
-const EMPTY_MARKET_VALUE = '--';
 
 function MarketValue({
   value,

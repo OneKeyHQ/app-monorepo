@@ -3,10 +3,7 @@ import { useMemo } from 'react';
 import type { IMarketToken } from '../MarketTokenData';
 import type { IWatchlistFilterType } from '../MarketWatchlistCategorySelector';
 
-export type IWatchlistFilteredGroups = Record<
-  IWatchlistFilterType,
-  IMarketToken[]
->;
+type IWatchlistFilteredGroups = Record<IWatchlistFilterType, IMarketToken[]>;
 
 /**
  * Stock listings (starred on the Stocks tab) and tokenized stocks (chain

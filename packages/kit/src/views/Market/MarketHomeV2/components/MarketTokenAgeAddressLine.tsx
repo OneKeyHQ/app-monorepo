@@ -14,13 +14,12 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { MarketHoverRevealLine } from './MarketHoverRevealLine';
 import {
+  EMPTY_MARKET_VALUE,
   MARKET_CELL_SECONDARY_LINE_HEIGHT,
   MarketCellSecondary,
 } from './MarketListCell';
 
 import type { GestureResponderEvent } from 'react-native';
-
-const EMPTY_MARKET_VALUE = '--';
 
 // The token age and the contract address share one line-height window and the
 // pair slides up on hover, so the age is pushed out by the address rather than

@@ -14,7 +14,8 @@ import { useColumnsMobile } from './useColumnsMobile';
 
 export const useMarketTokenColumns = (
   networkId?: string,
-  isWatchlistMode?: boolean,
+  // The desktop watchlist has its own column hook (see MarketTokenListBase).
+  _isWatchlistMode?: boolean,
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
@@ -27,7 +28,6 @@ export const useMarketTokenColumns = (
 ): ITableColumn<IMarketToken>[] => {
   const desktopColumns = useColumnsDesktop(
     networkId,
-    isWatchlistMode,
     hideTokenAge,
     watchlistFrom,
     copyFrom,
