@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import {
   Input,
@@ -21,19 +22,23 @@ import {
   validatePriceInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { InputAccessoryDoneButton } from './TradingFormInput';
+
 const TpslInputWithDone = (inputProps: ComponentProps<typeof Input>) => {
-  const intl = useIntl();
+  const accessoryId = useId();
   return (
-    <Input
-      {...inputProps}
-      returnKeyType={platformEnv.isNativeIOS ? 'done' : undefined}
-      inputAccessoryViewButtonLabel={
-        platformEnv.isNativeIOS
-          ? intl.formatMessage({ id: ETranslations.global_done })
-          : undefined
-      }
-      testID="perp-tpsl-input-with-done-input"
-    />
+    <>
+      <Input
+        {...inputProps}
+        inputAccessoryViewID={platformEnv.isNativeIOS ? accessoryId : undefined}
+        testID="perp-tpsl-input-with-done-input"
+      />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={accessoryId}>
+          <InputAccessoryDoneButton />
+        </InputAccessoryView>
+      ) : null}
+    </>
   );
 };
 

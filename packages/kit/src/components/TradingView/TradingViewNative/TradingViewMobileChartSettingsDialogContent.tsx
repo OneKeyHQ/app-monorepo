@@ -18,7 +18,6 @@ import type {
   ITradingViewNativeChartTypePreference,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../constants';
 import {
   type ITradingViewChartMode,
   TradingViewChartModeSelect,
@@ -38,10 +37,11 @@ const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = [
 ];
 
 const OPTION_TRANSLATION_IDS: Record<
-  Exclude<keyof IQuickSettingOptions, 'previousClose'>,
+  keyof IQuickSettingOptions,
   ETranslations
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
+  previousClose: ETranslations.market_prev_close,
 };
 
 function SettingsEntry({ onPress }: { onPress: () => void }) {
@@ -195,13 +195,9 @@ export function TradingViewMobileChartSettingsDialogContent({
               <QuickSettingOption
                 key={option}
                 option={option}
-                label={
-                  option === 'previousClose'
-                    ? TRADING_VIEW_PREVIOUS_CLOSE_LABEL
-                    : intl.formatMessage({
-                        id: OPTION_TRANSLATION_IDS[option],
-                      })
-                }
+                label={intl.formatMessage({
+                  id: OPTION_TRANSLATION_IDS[option],
+                })}
                 value={normalizedSettings.options[option]}
                 onChange={(value) => handleOptionChange(option, value)}
               />
