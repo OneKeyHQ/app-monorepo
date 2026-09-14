@@ -263,9 +263,11 @@ private struct MarketScalar: Decodable {
 }
 
 actor AppClipMarketService {
-  // Keep stock pagination, refreshes, and charts on one backend for this App Clip process.
-  private var resolvedStockBaseURLs: [URL: URL] = [:]
-  private var pendingStockBaseURLResolutions: [URL: StockBaseURLResolution] = [:]
+  // Keep each stock pagination chain and the chart endpoint stable for this App Clip process.
+  private var resolvedStockListBaseURLs: [URL: URL] = [:]
+  private var pendingStockListBaseURLResolutions: [URL: StockBaseURLResolution] = [:]
+  private var resolvedStockChartBaseURLs: [URL: URL] = [:]
+  private var pendingStockChartBaseURLResolutions: [URL: StockBaseURLResolution] = [:]
 
   func fetchConfiguration(baseURL: URL) async throws -> AppClipMarketConfiguration {
     var components = URLComponents(
@@ -301,7 +303,7 @@ actor AppClipMarketService {
     cursor: String? = nil,
     limit: Int = 20
   ) async throws -> AppClipMarketStockPage {
-    let resolvedBaseURL = try await resolveStockBaseURL(for: baseURL)
+    let resolvedBaseURL = try await resolveStockListBaseURL(for: baseURL)
     return try await fetchStockPage(
       baseURL: resolvedBaseURL,
       category: category,
@@ -477,7 +479,11 @@ actor AppClipMarketService {
     period: String,
     baseURL: URL
   ) async throws -> AppClipKlineResult {
-    let resolvedBaseURL = try await resolveStockBaseURL(for: baseURL)
+    let resolvedBaseURL = try await resolveStockChartBaseURL(
+      for: baseURL,
+      stockID: stockID,
+      period: period
+    )
     return try await fetchStockCandles(
       stockID: stockID,
       period: period,
@@ -646,35 +652,35 @@ actor AppClipMarketService {
     let task: Task<URL, Error>
   }
 
-  private func resolveStockBaseURL(for baseURL: URL) async throws -> URL {
-    if let resolvedBaseURL = resolvedStockBaseURLs[baseURL] {
+  private func resolveStockListBaseURL(for baseURL: URL) async throws -> URL {
+    if let resolvedBaseURL = resolvedStockListBaseURLs[baseURL] {
       return resolvedBaseURL
     }
     let resolution: StockBaseURLResolution
-    if let pendingResolution = pendingStockBaseURLResolutions[baseURL] {
+    if let pendingResolution = pendingStockListBaseURLResolutions[baseURL] {
       resolution = pendingResolution
     } else {
       let resolutionID = UUID()
-      let task = Task { try await self.findWorkingStockBaseURL(for: baseURL) }
+      let task = Task { try await self.findWorkingStockListBaseURL(for: baseURL) }
       resolution = StockBaseURLResolution(id: resolutionID, task: task)
-      pendingStockBaseURLResolutions[baseURL] = resolution
+      pendingStockListBaseURLResolutions[baseURL] = resolution
     }
     do {
       let resolvedBaseURL = try await resolution.task.value
-      if pendingStockBaseURLResolutions[baseURL]?.id == resolution.id {
-        resolvedStockBaseURLs[baseURL] = resolvedBaseURL
-        pendingStockBaseURLResolutions[baseURL] = nil
+      if pendingStockListBaseURLResolutions[baseURL]?.id == resolution.id {
+        resolvedStockListBaseURLs[baseURL] = resolvedBaseURL
+        pendingStockListBaseURLResolutions[baseURL] = nil
       }
-      return resolvedStockBaseURLs[baseURL] ?? resolvedBaseURL
+      return resolvedStockListBaseURLs[baseURL] ?? resolvedBaseURL
     } catch {
-      if pendingStockBaseURLResolutions[baseURL]?.id == resolution.id {
-        pendingStockBaseURLResolutions[baseURL] = nil
+      if pendingStockListBaseURLResolutions[baseURL]?.id == resolution.id {
+        pendingStockListBaseURLResolutions[baseURL] = nil
       }
       throw error
     }
   }
 
-  private func findWorkingStockBaseURL(for baseURL: URL) async throws -> URL {
+  private func findWorkingStockListBaseURL(for baseURL: URL) async throws -> URL {
     do {
       _ = try await fetchStockPage(baseURL: baseURL, category: nil, cursor: nil, limit: 1)
       return baseURL
@@ -690,32 +696,91 @@ actor AppClipMarketService {
     }
   }
 
+  private func resolveStockChartBaseURL(
+    for baseURL: URL,
+    stockID: String,
+    period: String
+  ) async throws -> URL {
+    if let resolvedBaseURL = resolvedStockChartBaseURLs[baseURL] {
+      return resolvedBaseURL
+    }
+    if
+      let resolvedListBaseURL = resolvedStockListBaseURLs[baseURL],
+      resolvedListBaseURL != baseURL
+    {
+      resolvedStockChartBaseURLs[baseURL] = resolvedListBaseURL
+      return resolvedListBaseURL
+    }
+    let resolution: StockBaseURLResolution
+    if let pendingResolution = pendingStockChartBaseURLResolutions[baseURL] {
+      resolution = pendingResolution
+    } else {
+      let resolutionID = UUID()
+      let task = Task {
+        try await self.findWorkingStockChartBaseURL(
+          for: baseURL,
+          stockID: stockID,
+          period: period
+        )
+      }
+      resolution = StockBaseURLResolution(id: resolutionID, task: task)
+      pendingStockChartBaseURLResolutions[baseURL] = resolution
+    }
+    do {
+      let resolvedBaseURL = try await resolution.task.value
+      if pendingStockChartBaseURLResolutions[baseURL]?.id == resolution.id {
+        resolvedStockChartBaseURLs[baseURL] = resolvedBaseURL
+        pendingStockChartBaseURLResolutions[baseURL] = nil
+      }
+      return resolvedStockChartBaseURLs[baseURL] ?? resolvedBaseURL
+    } catch {
+      if pendingStockChartBaseURLResolutions[baseURL]?.id == resolution.id {
+        pendingStockChartBaseURLResolutions[baseURL] = nil
+      }
+      throw error
+    }
+  }
+
+  private func findWorkingStockChartBaseURL(
+    for baseURL: URL,
+    stockID: String,
+    period: String
+  ) async throws -> URL {
+    do {
+      _ = try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: baseURL
+      )
+      return baseURL
+    } catch {
+      guard
+        Self.shouldFallbackStockRequest(after: error),
+        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
+      else {
+        throw error
+      }
+      _ = try await fetchStockCandles(
+        stockID: stockID,
+        period: period,
+        requestBaseURL: fallbackBaseURL
+      )
+      return fallbackBaseURL
+    }
+  }
+
   private static func shouldFallbackStockRequest(after error: Error) -> Bool {
     if let serviceError = error as? AppClipMarketServiceError {
       switch serviceError {
       case .business(let code, _):
         return code == 404
       case .httpStatus(let statusCode):
-        return statusCode == 404 || (500..<600).contains(statusCode)
+        return statusCode == 404
       case .missingData:
         return false
       }
     }
-    guard let urlError = error as? URLError else {
-      return false
-    }
-    switch urlError.code {
-    case .timedOut,
-         .cannotFindHost,
-         .cannotConnectToHost,
-         .dnsLookupFailed,
-         .networkConnectionLost,
-         .resourceUnavailable,
-         .badServerResponse:
-      return true
-    default:
-      return false
-    }
+    return false
   }
 
   private static let pathSegmentAllowed = CharacterSet(
