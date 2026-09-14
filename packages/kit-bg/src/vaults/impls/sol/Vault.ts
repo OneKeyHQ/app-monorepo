@@ -83,6 +83,7 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
@@ -107,6 +108,7 @@ import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import {
   buildBubblegumTransferInstruction,
+  decodeBubblegumTransferInstruction,
   parseConcurrentMerkleTreeAccount,
   truncateProofForCanopy,
 } from './sdkSol/bubblegum';
@@ -128,6 +130,7 @@ import {
   tokenRecordAddress,
 } from './utils';
 
+import type { IBubblegumTransferDecoded } from './sdkSol/bubblegum';
 import type {
   IAssociatedTokenInfo,
   IDasAsset,
@@ -1357,6 +1360,18 @@ export default class Vault extends VaultBase {
         hasCustomProgram = true;
       }
 
+      const bubblegumTransfer = decodeBubblegumTransferInstruction(instruction);
+      if (bubblegumTransfer) {
+        actions.push(
+          await this._buildCompressedNFTTransferAction({
+            transfer: bubblegumTransfer,
+            amountToSend,
+          }),
+        );
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
@@ -1570,6 +1585,45 @@ export default class Vault extends VaultBase {
     }
 
     return actions;
+  }
+
+  async _buildCompressedNFTTransferAction({
+    transfer,
+    amountToSend,
+  }: {
+    transfer: IBubblegumTransferDecoded;
+    amountToSend: string | undefined;
+  }): Promise<IDecodedTxAction> {
+    // Metadata comes from DAS; the wallet NFT detail API cannot address a
+    // cNFT (no itemId), so degrade to an unnamed NFT transfer if DAS fails.
+    let name = '';
+    let symbol = '';
+    let icon = '';
+    try {
+      const client = await this.getClient();
+      const asset = await client.getAsset(transfer.assetId);
+      name = asset.content?.metadata?.name ?? '';
+      symbol = asset.content?.metadata?.symbol ?? name;
+      icon = asset.content?.links?.image ?? '';
+    } catch {
+      // keep empty metadata
+    }
+    const transferInfo: IDecodedTxTransferInfo = {
+      from: transfer.leafOwner,
+      to: transfer.newLeafOwner,
+      tokenIdOnNetwork: transfer.assetId,
+      icon,
+      name,
+      symbol,
+      amount: amountToSend ?? '1',
+      isNFT: true,
+      NFTType: ENFTType.ERC721,
+    };
+    return this.buildTxTransferAssetAction({
+      from: transfer.leafOwner,
+      to: transfer.newLeafOwner,
+      transfers: [transferInfo],
+    });
   }
 
   override async buildUnsignedTx(

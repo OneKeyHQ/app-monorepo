@@ -302,3 +302,77 @@ describe('SolVault._buildInstructionsForTransfer routing', () => {
     expect(getTokenAccountsByOwner).not.toHaveBeenCalled();
   });
 });
+
+describe('SolVault._decodeNativeTxActions for Bubblegum transfers', () => {
+  async function buildGoldenInstruction() {
+    const getAssetProof = jest.fn().mockResolvedValue(assetProof);
+    const getAccountInfo = jest.fn().mockResolvedValue(buildTreeAccountInfo());
+    const builder = buildVault({ getAssetProof, getAccountInfo });
+    const [ix] = await builder._buildCompressedNFTInstructions({
+      asset: compressedAsset,
+      source: new PublicKey(OWNER),
+      destination: new PublicKey(TO),
+    });
+    return ix;
+  }
+
+  function buildDecodeVault(getAsset: jest.Mock) {
+    const vault = buildVault({ getAsset });
+    vault.getAccountAddress = jest.fn().mockResolvedValue(OWNER) as never;
+    vault.getNetwork = jest
+      .fn()
+      .mockResolvedValue({ decimals: 9, symbol: 'SOL' }) as never;
+    return vault;
+  }
+
+  it('produces an NFT asset transfer action with DAS metadata', async () => {
+    const ix = await buildGoldenInstruction();
+    const getAsset = jest.fn().mockResolvedValue(compressedAsset);
+    const vault = buildDecodeVault(getAsset);
+
+    const actions = await vault._decodeNativeTxActions({
+      instructions: [ix],
+      isNFT: true,
+      amountToSend: '1',
+      sendTokenInfo: undefined,
+    });
+
+    expect(getAsset).toHaveBeenCalledWith(ASSET_ID);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].type).toBe('ASSET_TRANSFER');
+    expect(actions[0].assetTransfer?.sends).toEqual([
+      expect.objectContaining({
+        from: OWNER,
+        to: TO,
+        tokenIdOnNetwork: ASSET_ID,
+        amount: '1',
+        name: 'Redeem #511',
+        symbol: 'MyNF',
+        icon: 'https://example.com/redeem.png',
+        isNFT: true,
+      }),
+    ]);
+  });
+
+  it('still produces the transfer when DAS metadata cannot be loaded', async () => {
+    const ix = await buildGoldenInstruction();
+    const getAsset = jest.fn().mockRejectedValue(new Error('Method not found'));
+    const vault = buildDecodeVault(getAsset);
+
+    const actions = await vault._decodeNativeTxActions({
+      instructions: [ix],
+      isNFT: true,
+      amountToSend: '1',
+      sendTokenInfo: undefined,
+    });
+
+    expect(actions[0].type).toBe('ASSET_TRANSFER');
+    expect(actions[0].assetTransfer?.sends[0]).toEqual(
+      expect.objectContaining({
+        tokenIdOnNetwork: ASSET_ID,
+        isNFT: true,
+        name: '',
+      }),
+    );
+  });
+});
