@@ -72,14 +72,17 @@ export async function showUpdateHardwareWalletLegacyXfpDialog({
   walletId,
   onConfirm,
   intl,
+  nativeSheet = false,
 }: {
   walletId: string;
   onConfirm?: () => void;
   intl: IntlShape;
+  nativeSheet?: boolean;
 }) {
   const status = await hardwareWalletXfpStatusAtom.get();
   if (status?.[walletId]?.xfpMissing) {
     Dialog.show({
+      nativeSheet,
       icon: 'CubeOutline',
       title: intl.formatMessage({
         id: ETranslations.global_hardware_legacy_data_update_dialog_title,
