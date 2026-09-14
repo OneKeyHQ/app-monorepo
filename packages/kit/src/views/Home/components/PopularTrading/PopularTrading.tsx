@@ -897,14 +897,23 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           });
           return;
         }
-        void backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
-          tokenAddress: record.contractAddress,
-          network: shortCode || record.chainId,
-          isNative: record.isNative,
-          marketTokenId: record.marketTokenId,
-          marketVariantId: record.marketVariantId,
-          marketTokenCategory,
-        });
+        void backgroundApiProxy.serviceApp
+          .openExtensionMarketTokenDetail({
+            tokenAddress: record.contractAddress,
+            network: shortCode || record.chainId,
+            isNative: record.isNative,
+            marketTokenId: record.marketTokenId,
+            marketVariantId: record.marketVariantId,
+            marketTokenCategory,
+          })
+          .catch(() => {
+            if (requestId !== navigationRequestIdRef.current) return;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+          });
         return;
       }
 
@@ -947,6 +956,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       setTimeout(navigateToTokenDetail, 300);
     },
     [
+      intl,
       marketTab,
       navigateToMarketTab,
       navigation,

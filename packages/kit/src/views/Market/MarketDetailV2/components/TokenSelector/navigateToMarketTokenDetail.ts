@@ -26,7 +26,10 @@ export async function navigateToMarketTokenDetail(
     tokenDetailActions: {
       current: Pick<
         ReturnType<typeof useTokenDetailActions>['current'],
-        'clearTokenDetail' | 'changeActiveToken' | 'prepareTokenDetailPreview'
+        | 'prepareStockTokenDetail'
+        | 'changeActiveToken'
+        | 'prepareTokenDetailPreview'
+        | 'clearTokenDetail'
       >;
     };
     beforeNavigate?: () => void;
@@ -79,7 +82,11 @@ export async function navigateToMarketTokenDetail(
   );
 
   if (stockId) {
-    opts.tokenDetailActions.current.clearTokenDetail();
+    opts.tokenDetailActions.current.prepareStockTokenDetail({
+      tokenAddress: token.address,
+      networkId: token.networkId,
+      isNative: token.isNative,
+    });
   } else if (shouldResolveMarketAsset) {
     if (opts.tokenDetailPreview) {
       opts.tokenDetailActions.current.prepareTokenDetailPreview(

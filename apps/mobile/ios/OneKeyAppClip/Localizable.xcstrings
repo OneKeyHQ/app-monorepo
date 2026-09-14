@@ -37,10 +37,88 @@
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "立即交易 %@" } }
       }
     },
+    "global.all" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部" } }
+      }
+    },
+    "global.all_networks" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All Networks" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "所有网络" } }
+      }
+    },
+    "global.close" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭" } }
+      }
+    },
     "global.retry" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Retry" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重试" } }
+      }
+    },
+    "global.search" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "搜索" } }
+      }
+    },
+    "global.select_network" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Select Network" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择网络" } }
+      }
+    },
+    "global.selected" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Selected" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已选择" } }
+      }
+    },
+    "market.column.change" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Change" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "涨跌" } }
+      }
+    },
+    "market.column.name_turnover" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Name / Volume" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "名称 / 交易额" } }
+      }
+    },
+    "market.column.price" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Price" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "价格" } }
+      }
+    },
+    "market.crypto" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Crypto" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "加密货币" } }
+      }
+    },
+    "market.end" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "End" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "到底了" } }
+      }
+    },
+    "market.no_network" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No network connection" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网络连接不可用" } }
+      }
+    },
+    "market.no_results" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No market data" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无行情数据" } }
       }
     },
     "market.powered_by" : {
@@ -59,6 +137,24 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Updating market data…" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在更新行情…" } }
+      }
+    },
+    "market.tab.perps" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Perpetuals" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "合约" } }
+      }
+    },
+    "market.tab.stocks" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Stocks" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "美股" } }
+      }
+    },
+    "market.tab.trending" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Trending" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "热门" } }
       }
     },
     "market.title" : {

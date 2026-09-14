@@ -7,6 +7,18 @@ import ServiceMarketV2 from './ServiceMarketV2';
 const mockGet = jest.fn();
 let mockPauseMemoizationTasks = false;
 
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/kit-bg/src/states/jotai/atoms')
+  >('@onekeyhq/kit-bg/src/states/jotai/atoms');
+  return {
+    ...actual,
+    settingsPersistAtom: {
+      get: jest.fn(async () => ({ locale: 'en-US' })),
+    },
+  };
+});
+
 jest.mock('next-tick', () => (callback: () => void) => {
   if (!mockPauseMemoizationTasks) queueMicrotask(callback);
 });
@@ -61,6 +73,27 @@ describe('ServiceMarketV2 public stock APIs', () => {
   afterEach(() => {
     mockPauseMemoizationTasks = false;
     jest.restoreAllMocks();
+  });
+
+  it('deduplicates stock banner requests and clears cached quotes explicitly', async () => {
+    const service = createService();
+    mockGet.mockResolvedValue({
+      data: { data: [{ stockId: 'AAPL', price: '100' }] },
+    });
+    const [first, second] = await Promise.all([
+      service.fetchMarketBannerStockTokenList({ id: 'stocks' }),
+      service.fetchMarketBannerStockTokenList({ id: 'stocks' }),
+    ]);
+    expect(first).toEqual(second);
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    await service.clearMarketBannerCache();
+    mockGet.mockResolvedValue({
+      data: { data: [{ stockId: 'AAPL', price: '101' }] },
+    });
+    await expect(
+      service.fetchMarketBannerStockTokenList({ id: 'stocks' }),
+    ).resolves.toEqual([{ stockId: 'AAPL', price: '101' }]);
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
   it('does not reuse an Android offline failure after an explicit token retry', async () => {
@@ -391,6 +424,32 @@ describe('ServiceMarketV2 public stock APIs', () => {
     );
     expect(result.items[0]).not.toHaveProperty('networkId');
     expect(result.items[0]).not.toHaveProperty('contractAddress');
+  });
+
+  it('sorts the stock list by 24h volume descending by default', async () => {
+    const service = createService();
+    mockGet.mockResolvedValueOnce({
+      data: {
+        data: {
+          items: [],
+          total: 0,
+        },
+      },
+    });
+
+    await service.fetchMarketStockList();
+
+    expect(mockGet).toHaveBeenCalledWith('/utility/v1/stocks', {
+      params: {
+        cursor: undefined,
+        limit: 20,
+        category: undefined,
+        sortBy: 'volume24h',
+        sortType: 'desc',
+      },
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    });
   });
 
   it('searches stocks through the stock search endpoint', async () => {

@@ -328,6 +328,9 @@ function NativeMarketList({
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
+  const nativeRefreshEnabled = Boolean(
+    onRefresh && !platformEnv.isNativeAndroid,
+  );
   const refreshingRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   useEffect(
@@ -375,7 +378,7 @@ function NativeMarketList({
         }),
         retryMessage: intl.formatMessage({ id: ETranslations.global_retry }),
         canLoadMore,
-        canRefresh: Boolean(onRefresh),
+        canRefresh: nativeRefreshEnabled,
         showEnd,
         contentPaddingBottom,
         emptyContentHeight,
@@ -392,7 +395,7 @@ function NativeMarketList({
       loadMoreError,
       loading,
       loadingMore,
-      onRefresh,
+      nativeRefreshEnabled,
       presentation,
       refreshing,
       rows,
@@ -410,7 +413,7 @@ function NativeMarketList({
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
       onRefresh={
-        onRefresh
+        nativeRefreshEnabled
           ? () => void handleRefresh().catch(() => undefined)
           : undefined
       }
@@ -669,6 +672,7 @@ type ISharedListProps = {
   listContainerProps: {
     emptyContentPaddingTop?: number;
     emptyContentHeight?: number;
+    emptyScrollContentMinHeight?: number;
     paddingBottom: number;
   };
   shouldSuppressItemPress?: () => boolean;
@@ -731,6 +735,10 @@ function MobileMarketNativeTokenListImpl({
         void result.refetch().catch(() => undefined);
         return;
       }
+      if (event.actionKey === 'load-more-retry') {
+        void result.loadMore();
+        return;
+      }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
       if (!item) return;
       if (event.actionKey === 'prewarm-detail') {
@@ -773,6 +781,7 @@ function MobileMarketNativeTokenListImpl({
             : undefined
         }
         loadingMore={result.isLoadingMore}
+        loadMoreError={result.isLoadMoreError}
         canLoadMore={result.canLoadMore}
         contentPaddingBottom={listContainerProps.paddingBottom}
         emptyContentHeight={listContainerProps.emptyContentHeight}
@@ -782,6 +791,7 @@ function MobileMarketNativeTokenListImpl({
           if (
             result.canLoadMore &&
             !result.isLoadingMore &&
+            !result.isLoadMoreError &&
             !result.isProvisionalFirstPageResult
           ) {
             void result.loadMore();
@@ -1026,6 +1036,7 @@ function MobileMarketNativeWatchlistImpl({
         testID="market-favorites-empty-scroll"
         contentContainerStyle={{
           paddingTop: listContainerProps.emptyContentPaddingTop ?? 16,
+          minHeight: listContainerProps.emptyScrollContentMinHeight,
         }}
       >
         <Stack alignItems="center">
@@ -1122,7 +1133,7 @@ function MobileMarketNativeStockListImpl({
         return;
       }
       if (event.actionKey === 'load-more-retry') {
-        void result.loadMore();
+        void (result.isRefreshError ? result.refresh() : result.loadMore());
         return;
       }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
@@ -1159,14 +1170,17 @@ function MobileMarketNativeStockListImpl({
       listRef={listRef}
       rows={rows}
       loading={result.isLoading}
-      loadingMore={result.isLoadingMore}
-      loadMoreError={result.isLoadMoreError}
+      loadingMore={
+        result.isLoadingMore || (result.isRefreshing && result.isRefreshError)
+      }
+      loadMoreError={result.isLoadMoreError || result.isRefreshError}
       errorMessage={
         result.isError
           ? intl.formatMessage({ id: ETranslations.global_no_data })
           : undefined
       }
       canLoadMore={result.canLoadMore}
+      showEnd={!result.isRevalidatingFirstPage}
       contentPaddingBottom={listContainerProps.paddingBottom}
       emptyContentHeight={listContainerProps.emptyContentHeight}
       testID={MarketTestIDs.stockList}
@@ -1175,7 +1189,8 @@ function MobileMarketNativeStockListImpl({
         if (
           result.canLoadMore &&
           !result.isLoadingMore &&
-          !result.isLoadMoreError
+          !result.isLoadMoreError &&
+          !result.isRefreshError
         ) {
           void result.loadMore();
         }

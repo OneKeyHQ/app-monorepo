@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,6 +18,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
@@ -29,22 +29,16 @@ import type {
   IEarnTokenItem,
 } from '@onekeyhq/shared/types/staking';
 
-function formatFiatValue(fiatValue?: string) {
-  const fiatValueBN = new BigNumber(fiatValue || '0');
-  if (fiatValueBN.isNaN() || fiatValueBN.lte(0)) {
-    return '$0.00';
-  }
-  return `$${fiatValueBN.toFixed(2)}`;
-}
-
 function TokenRow({
   item,
   isSelected,
   onPress,
+  currencySymbol,
 }: {
   item: IEarnTokenItem;
   isSelected: boolean;
   onPress: () => void;
+  currencySymbol: string;
 }) {
   return (
     <XStack
@@ -79,9 +73,14 @@ function TokenRow({
         <NumberSizeableText size="$bodyMd" formatter="balance">
           {item.balanceParsed || '0'}
         </NumberSizeableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {formatFiatValue(item.fiatValue)}
-        </SizableText>
+        <NumberSizeableText
+          size="$bodySm"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{ currency: currencySymbol }}
+        >
+          {item.fiatValue || '0'}
+        </NumberSizeableText>
       </YStack>
     </XStack>
   );
@@ -125,6 +124,11 @@ export default function EarnTokenSelectModal() {
     currentTokenAddress,
     onSelect,
   } = route.params;
+  const [
+    {
+      currencyInfo: { symbol: currencySymbol },
+    },
+  ] = useSettingsPersistAtom();
   const [searchKeyword, setSearchKeyword] = useState('');
 
   const { result: assetsList, isLoading } = usePromiseResult<IEarnAssetsList>(
@@ -207,9 +211,10 @@ export default function EarnTokenSelectModal() {
         item={item}
         isSelected={isTokenSelected(item)}
         onPress={() => handleSelect(item)}
+        currencySymbol={currencySymbol}
       />
     ),
-    [handleSelect, isTokenSelected],
+    [currencySymbol, handleSelect, isTokenSelected],
   );
 
   const keyExtractor = useCallback(
