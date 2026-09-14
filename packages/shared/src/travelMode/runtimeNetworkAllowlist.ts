@@ -37,6 +37,7 @@ const TRAVEL_MODE_ALLOWED_REQUESTS = new Set(
       ['utility', 'get', '/utility/v2/market/token/list'],
       ['utility', 'get', '/utility/v2/market/banner/list'],
       ['utility', 'get', '/utility/v2/market/banner/token-list'],
+      ['utility', 'get', '/utility/v2/market/banner/stock-token-list'],
       ['utility', 'get', '/utility/v2/market/banner/perps-token-list'],
       ['swap', 'post', '/swap/v1/check-stable-coins-list'],
       ['utility', 'post', '/utility/v2/market/token/list/batch'],
@@ -55,6 +56,7 @@ const TRAVEL_MODE_ALLOWED_REQUESTS = new Set(
 const TRAVEL_MODE_ALLOWED_REQUEST_PREFIXES = new Set(
   [
     ['utility', 'get', '/utility/v2/market/banner/token-list'],
+    ['utility', 'get', '/utility/v2/market/banner/stock-token-list'],
     ['utility', 'get', '/utility/v2/market/banner/perps-token-list'],
   ].flatMap(([service, method, path]) =>
     [ONEKEY_API_HOST, ONEKEY_TEST_API_HOST].map(

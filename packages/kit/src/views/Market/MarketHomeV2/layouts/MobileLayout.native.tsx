@@ -57,15 +57,20 @@ import {
   MarketWatchlistCategorySelector,
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
-import { isMarketStockCategoryById } from '../utils';
+import {
+  isMarketStockCategoryById,
+  shouldShowSpotNetworkSelector,
+} from '../utils';
 
 import { useMarketTabsLogic } from './hooks';
 import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 import { shouldHandleMarketPagerPageSelected } from './marketTabSelectionGuards';
 import {
   MARKET_MOBILE_COLUMN_HEADER_HEIGHT,
+  getMarketMobileBannerHeaderHeight,
   getMarketMobileSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
+  resolveMarketBannerHeaderHeight,
 } from './mobileLayoutUtils';
 
 import type { IMarketPerpsDataCache } from '../components/MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -118,7 +123,6 @@ const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 const MARKET_TAB_ITEM_PRESS_DRAG_GUARD_MS = platformEnv.isNativeIOS ? 700 : 350;
 const MARKET_TAB_ITEM_PRESS_IDLE_GUARD_MS = platformEnv.isNativeIOS ? 180 : 120;
 const MARKET_TAB_BAR_HEIGHT = 44;
-const MARKET_BANNER_HEADER_HEIGHT = 134;
 
 const STYLES = StyleSheet.create({
   pager: { flex: 1 },
@@ -162,6 +166,9 @@ function MarketHomeTabBar({
     currentSpotCategoryId &&
     currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
     !currentSpotCategoryHasStockData,
+  );
+  const showSpotNetworkSelector = shouldShowSpotNetworkSelector(
+    currentSpotCategoryId,
   );
   const showStockCategorySelector = Boolean(
     currentSpotCategoryId &&
@@ -222,6 +229,7 @@ function MarketHomeTabBar({
           <MarketFilterBarSmall
             selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
             timeRange={ctx.filterBarProps.timeRange}
+            showNetworkSelector={showSpotNetworkSelector}
             onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
             onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
           />
@@ -245,6 +253,7 @@ function MarketHomeTabBar({
       ctx.selectedStockCategoryId,
       ctx.stockCategories,
       showSpotFilterBar,
+      showSpotNetworkSelector,
       showStockCategorySelector,
       useNativeStockSubHeader,
     ],
@@ -410,6 +419,16 @@ function MobileLayoutComponent({
     isDecided: false,
     hasBanners: false,
   });
+  const bannerHeaderHeightRef = useRef({
+    scope: bannerScope,
+    height: getMarketMobileBannerHeaderHeight(bannerList),
+  });
+  bannerHeaderHeightRef.current = resolveMarketBannerHeaderHeight({
+    current: bannerHeaderHeightRef.current,
+    scope: bannerScope,
+    isFetched: isBannerFetched,
+    bannerList,
+  });
   bannerDecisionRef.current = resolveMarketBannerHeaderDecision({
     current: bannerDecisionRef.current,
     scope: bannerScope,
@@ -417,7 +436,7 @@ function MobileLayoutComponent({
     bannerCount: bannerList.length,
   });
   const headerHeight = bannerDecisionRef.current.hasBanners
-    ? MARKET_BANNER_HEADER_HEIGHT
+    ? bannerHeaderHeightRef.current.height
     : 1;
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(
     MARKET_TAB_BAR_HEIGHT + getMarketMobileSecondaryHeaderHeight(),
@@ -680,6 +699,11 @@ function MobileLayoutComponent({
         0,
         pagerHeight - stickyHeaderHeight - contentPaddingBottom,
       ),
+      // Android ScrollView only intercepts drags when its content exceeds the
+      // viewport. The native pager extends that viewport by the header height.
+      emptyScrollContentMinHeight: platformEnv.isNativeAndroid
+        ? pagerHeight + headerHeight + 1
+        : undefined,
     }),
     [contentPaddingBottom, headerHeight, pagerHeight, stickyHeaderHeight],
   );

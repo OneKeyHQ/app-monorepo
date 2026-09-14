@@ -36,6 +36,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   compactMobileLayout?: boolean;
   enableNativeChartSettings?: boolean;
+  enablePreviousClose?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
@@ -55,7 +56,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   onIndicatorSettingsPress: () => void;
   onIndicatorSelectionConfirm: (
     selection: ITradingViewNativeIndicatorSelection,
-  ) => void;
+  ) => void | Promise<void>;
   onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
   onCalendarPanelSubmit?: ITradingViewChartControlsProps['onCalendarPanelSubmit'];
   onFullscreenChange?: (isFullscreen: boolean) => void;
@@ -68,6 +69,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     calendarAvailableTimeRange,
     compactMobileLayout = false,
     enableNativeChartSettings = false,
+    enablePreviousClose = false,
     intervalConfig,
     maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
@@ -95,6 +97,9 @@ export const TradingViewNativeChartControlsContainer = memo(
       getTradingViewNativeChartTypeValue(activeChartType);
     const settingsEnabled =
       enableNativeChartSettings && layoutMode === 'desktop';
+    const handleSettingsPress = useCallback(() => {
+      showMarketChartSettingsDialog({ showPreviousClose: enablePreviousClose });
+    }, [enablePreviousClose]);
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
         TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({
@@ -157,6 +162,7 @@ export const TradingViewNativeChartControlsContainer = memo(
             onSelect={handleIndicatorSelect}
             onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
+            onSettingsPress={onIndicatorSettingsPress}
           />
         ),
       });
@@ -227,7 +233,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         onPriceMarketCapModeChange={noop}
         onCalendarPanelOpen={onCalendarPanelOpen}
         onCalendarPanelSubmit={onCalendarPanelSubmit}
-        onSettingsPress={showMarketChartSettingsDialog}
+        onSettingsPress={handleSettingsPress}
         onFullscreenToggle={
           onFullscreenChange ? handleFullscreenToggle : undefined
         }

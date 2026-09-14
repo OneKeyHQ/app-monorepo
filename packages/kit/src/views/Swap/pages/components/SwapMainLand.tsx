@@ -97,6 +97,8 @@ import type {
   ISwapInitParams,
   ISwapPreSwapData,
   ISwapStep,
+  ISwapStockSpeedConfig,
+  ISwapStockTradeConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -174,6 +176,13 @@ interface ISwapMainLoadProps {
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
+  /** Render the shared stock ticket without Swap's page-level market/K-line shell. */
+  embeddedStockTrade?: boolean;
+  /** Optional Market-provided config; regular Swap loads its own config. */
+  stockSpeedConfig?: ISwapStockSpeedConfig;
+  stockTradeConfig?: ISwapStockTradeConfig;
+  stockTradeHeader?: React.ReactNode;
+  stockTradeToken?: ISwapToken;
   initialInputAmountDraft?: ISwapInputAmountDraft;
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
 }
@@ -182,6 +191,11 @@ const SwapMainLoad = ({
   swapInitParams,
   pageType,
   singleSwapBridgeHeader,
+  embeddedStockTrade,
+  stockSpeedConfig,
+  stockTradeConfig,
+  stockTradeHeader,
+  stockTradeToken,
   onInputDraftChange,
 }: ISwapMainLoadProps) => {
   const dialogRef = useRef<IDialogInstance>(null);
@@ -1390,6 +1404,37 @@ const SwapMainLoad = ({
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
+      embeddedStockTrade &&
+      swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+      gtLg
+    ) {
+      return (
+        <SwapStockDesktopContainer
+          pageType={pageType}
+          storeName={storeName}
+          onSelectToken={onSelectToken}
+          onTokenPress={onTokenPress}
+          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
+          fetchLoading={fetchLoading}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
+          stockSpeedConfig={stockSpeedConfig}
+          stockTradeConfig={stockTradeConfig}
+          stockTradeHeader={stockTradeHeader}
+          stockTradeToken={stockTradeToken}
+          embedded
+        />
+      );
+    }
+    if (
       swapTypeSwitch === ESwapTabSwitchType.STOCK &&
       gtLg &&
       pageType !== EPageType.modal &&
@@ -1413,6 +1458,10 @@ const SwapMainLoad = ({
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           alerts={alerts}
+          stockSpeedConfig={stockSpeedConfig}
+          stockTradeConfig={stockTradeConfig}
+          stockTradeHeader={stockTradeHeader}
+          stockTradeToken={stockTradeToken}
           headerContent={
             <SwapHeaderContainer
               pageType={pageType}
@@ -1444,6 +1493,7 @@ const SwapMainLoad = ({
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           alerts={alerts}
+          stockSpeedConfig={stockSpeedConfig}
         />
       );
     }
@@ -1512,6 +1562,11 @@ const SwapMainLoad = ({
     );
   }, [
     swapTypeSwitch,
+    embeddedStockTrade,
+    stockSpeedConfig,
+    stockTradeConfig,
+    stockTradeHeader,
+    stockTradeToken,
     pageType,
     onSelectToken,
     fetchLoading,
@@ -1601,9 +1656,10 @@ const SwapMainLoad = ({
             pt: '$0',
           }}
         >
-          {gtLg &&
-          pageType !== EPageType.modal &&
-          !platformEnv.isNative ? null : (
+          {embeddedStockTrade ||
+          (gtLg &&
+            pageType !== EPageType.modal &&
+            !platformEnv.isNative) ? null : (
             <SwapHeaderContainer
               pageType={pageType}
               defaultSwapType={swapInitParams?.swapTabSwitchType}
@@ -1657,7 +1713,12 @@ const SwapMainLoad = ({
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
-  const { pageType, singleSwapBridgeHeader, swapInitParams } = props;
+  const {
+    initialInputAmountDraft,
+    pageType,
+    singleSwapBridgeHeader,
+    swapInitParams,
+  } = props;
   const shouldSeedMarketEmbeddedPair = Boolean(
     singleSwapBridgeHeader &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
@@ -1673,7 +1734,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           fromToken: swapInitParams?.importFromToken,
           toToken: swapInitParams?.importToToken,
           inputAmountDraft: shouldSeedMarketEmbeddedPair
-            ? (props.initialInputAmountDraft ?? {
+            ? (initialInputAmountDraft ?? {
                 fromTokenAmount: { value: '', isInput: false },
                 toTokenAmount: { value: '', isInput: false },
               })

@@ -28,7 +28,10 @@ type IMockDialogConfig = {
 };
 const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
-const mockShowMarketChartSettingsDialog = jest.fn<void, []>();
+const mockShowMarketChartSettingsDialog = jest.fn<
+  void,
+  [{ showPreviousClose?: boolean } | undefined]
+>();
 const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
 const defaultIndicatorSettingsProps = {
   activeChartType: 'candlestick' as const,
@@ -65,7 +68,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal',
   () => ({
-    showMarketChartSettingsDialog: () => mockShowMarketChartSettingsDialog(),
+    showMarketChartSettingsDialog: (options?: {
+      showPreviousClose?: boolean;
+    }) => mockShowMarketChartSettingsDialog(options),
   }),
 );
 
@@ -279,6 +284,9 @@ describe('TradingViewNative chart controls', () => {
       controlsProps.onSettingsPress();
 
       expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledTimes(1);
+      expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledWith({
+        showPreviousClose: false,
+      });
       expect(mockPushModal).not.toHaveBeenCalled();
       expect(handleFullscreenChange).not.toHaveBeenCalled();
     },
