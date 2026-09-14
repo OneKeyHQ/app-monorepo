@@ -3457,6 +3457,7 @@
   "perp_trade_account_overview_avbl": "उपलब्ध",
   "perp_trade_deposit_to_trade__action": "ट्रेड करने के लिए जमा करें",
   "perp_trade_first_deposit_ready__desc": "आपका पहला जमा आपके खाते को ट्रेडिंग के लिए तैयार करता है।",
+  "perp_trade_settlement__title": "निपटान",
   "perp_trades_history_recent_range_desc": "पिछले अधिकतम 2 वर्षों तक के ट्रेड दिखाए जाते हैं।",
   "perp_trading_adjust_margin": "मार्जिन समायोजित करें",
   "perp_trading_adjust_margin_max": "अधिकतम जोड़",
