@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { ActionList } from '@onekeyhq/components';
 import { WalletBackupActions } from '@onekeyhq/kit/src/components/WalletBackup';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { AccountManagerTestIDs } from '../../testIDs';
@@ -19,7 +20,7 @@ export function HdWalletBackupButton({
     <WalletBackupActions
       wallet={wallet}
       actionListProps={{
-        nativeSheet: true,
+        nativeSheet: platformEnv.isNativeAndroid,
         offset: {
           mainAxis: 0,
           crossAxis: 18,
