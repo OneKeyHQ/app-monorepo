@@ -1758,8 +1758,12 @@ function SendAmountInputContainer() {
     // Don't validate here — the validator closes over the stale isUseFiat
     // value, causing false min-amount errors (OK-52679). A useEffect below
     // re-triggers validation after isUseFiat state has propagated.
-    form.setValue('amount', amountValue);
+    // An empty amount stays empty: `linkedAmount` treats '' as 0 on both
+    // sides, and writing that '0' back would re-seed the literal text that
+    // makes the next keystroke flash as "01" on native.
+    form.setValue('amount', amount ? amountValue : '');
   }, [
+    amount,
     form,
     hasUsablePrice,
     isLightningNetwork,
