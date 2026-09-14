@@ -4,13 +4,17 @@ import type { ReactElement } from 'react';
 
 import { renderHook } from '@testing-library/react';
 
-import { MarketPerpsStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
+import {
+  MarketPerpsStarV2,
+  MarketStarV2,
+} from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import { MarketHoverRevealLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { MarketTokenAgeAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
 import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { renderLightweightTokenIdentity } from './lightweightCells';
 import {
   WatchlistAssetIdentity,
   WatchlistPerpsIdentity,
@@ -159,7 +163,7 @@ describe('getMarketWatchlistRowKind', () => {
     ['asset', assetListing],
     // A legacy chain favorite keeps its stored stockId next to its address.
     ['token', { ...spotToken, stockId: 'AAPL' }],
-  ])('resolves %s', (kind, record) => {
+  ])('resolves %s (%#)', (kind, record) => {
     expect(getMarketWatchlistRowKind(record)).toBe(kind);
   });
 });
@@ -197,15 +201,31 @@ describe('useWatchlistColumnsDesktop', () => {
     ).not.toContain('turnover');
   });
 
-  test('renders every row kind with a 16px star', () => {
-    const perpsStar = renderCell('star', perpsRow).props
-      .children as ReactElement<{ customIconSize?: string }>;
-    expect(perpsStar.type).toBe(MarketPerpsStarV2);
-    expect(perpsStar.props.customIconSize).toBe('$4');
+  test('renders every row kind with a 16px star that targets its own entity', () => {
+    const star = (record: IMarketToken) =>
+      renderCell('star', record).props.children as ReactElement<{
+        size?: string;
+        customIconSize?: string;
+        assetId?: string;
+        stockId?: string;
+        perpsCoin?: string;
+        contractAddress?: string;
+      }>;
 
-    const spotStar = renderCell('star', spotToken).props
-      .children as ReactElement<{ customIconSize?: string }>;
+    const perpsStar = star(perpsRow);
+    expect(perpsStar.type).toBe(MarketPerpsStarV2);
+    expect(perpsStar.props.size).toBe('small');
+    expect(perpsStar.props.customIconSize).toBe('$4');
+    expect(perpsStar.props.perpsCoin).toBe('ETH');
+
+    const spotStar = star(spotToken);
+    expect(spotStar.type).toBe(MarketStarV2);
+    expect(spotStar.props.size).toBe('small');
     expect(spotStar.props.customIconSize).toBe('$4');
+    expect(spotStar.props.contractAddress).toBe(spotToken.address);
+
+    expect(star(stockListing).props.stockId).toBe('AAPL');
+    expect(star(assetListing).props.assetId).toBe('ethereum');
   });
 
   test('routes each row kind to its sibling-list identity cell', () => {
@@ -293,6 +313,7 @@ describe('useWatchlistColumnsDesktop', () => {
       3,
     );
 
+    expect(name.type).toBe(renderLightweightTokenIdentity(spotToken).type);
     expect(name.type).not.toBe(WatchlistTokenIdentity);
   });
 });
