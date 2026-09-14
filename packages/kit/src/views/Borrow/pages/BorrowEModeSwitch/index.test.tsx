@@ -525,16 +525,19 @@ describe('BorrowEModeSwitch status rendering', () => {
       expect(mockRunCheck).toHaveBeenCalledTimes(1);
     });
 
-    it('skips focus refreshes on picker cancellation while preserving a checked target', () => {
+    // Backing out of the picker reports nothing, but the picker's own request
+    // may have seen a newer status than this page holds. The status is
+    // refreshed on its own: the pending-history reload is what locks the
+    // footer, and no transaction could have started while the picker was up.
+    it('refreshes only the status on picker cancellation while preserving a checked target', () => {
       mockCheckState.current = { canSwitch: true };
       const view = render(<BorrowEModeSwitch />);
       pick(0, 1);
       fireEvent.click(screen.getByTestId('e-mode-selector'));
       jest.clearAllMocks();
-      mockIsFocused.current = false;
-      view.rerender(<BorrowEModeSwitch />);
-      mockIsFocused.current = true;
-      view.rerender(<BorrowEModeSwitch />);
+      blurAndFocus(view);
+      expect(mockRefresh).toHaveBeenCalledTimes(1);
+      // One request: the explicit refresh, not a focus revalidation on top.
       expect(mockStatusOptions).toHaveBeenLastCalledWith(
         expect.objectContaining({ revalidateOnFocus: false }),
       );
@@ -546,6 +549,24 @@ describe('BorrowEModeSwitch status rendering', () => {
       ).toBe('false');
       view.rerender(<BorrowEModeSwitch />);
       expect(mockRunCheck).not.toHaveBeenCalled();
+      expect(
+        screen.getByTestId('e-mode-selector').getAttribute('data-value'),
+      ).toBe('0');
+    });
+
+    it('re-checks the retained target when a cancelled picker return finds the current id moved', () => {
+      mockCheckState.current = { canSwitch: true };
+      const view = render(<BorrowEModeSwitch />);
+      pick(0, 1);
+      fireEvent.click(screen.getByTestId('e-mode-selector'));
+      jest.clearAllMocks();
+      blurAndFocus(view);
+      expect(mockRefresh).toHaveBeenCalledTimes(1);
+
+      moveCurrentTo(view, 2);
+
+      expect(mockRunCheck).toHaveBeenCalledTimes(1);
+      expect(mockRunCheck).toHaveBeenCalledWith(0);
       expect(
         screen.getByTestId('e-mode-selector').getAttribute('data-value'),
       ).toBe('0');

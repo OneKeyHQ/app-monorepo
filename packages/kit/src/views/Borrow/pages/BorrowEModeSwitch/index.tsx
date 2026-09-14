@@ -70,6 +70,9 @@ function BorrowEModeSwitchView() {
   const [pendingPickerSelection, setPendingPickerSelection] =
     useState<IPendingPickerSelection | null>(null);
   const pickerScopeRef = useRef<string | null>(null);
+  // Whether the picker reported a pick before it popped. Its onSelect fires
+  // ahead of the pop, so the answer is known by the time this page refocuses.
+  const pickerPickedRef = useRef(false);
   const clearPickerScope = useCallback(() => {
     pickerScopeRef.current = null;
   }, []);
@@ -209,7 +212,18 @@ function BorrowEModeSwitchView() {
     if (!focusActivationPending) {
       return;
     }
+    const cancelledPicker = returningFromPicker && !pickerPickedRef.current;
     pickerScopeRef.current = null;
+    if (cancelledPicker) {
+      // A cancelled picker reported nothing, yet its own request may have seen
+      // a newer status than this page holds. Refresh the status alone: a moved
+      // current id re-runs the retained check through the revalidation effect
+      // below, while the pending-history reload, which is what locks the
+      // footer, stays skipped because no transaction could have started while
+      // the picker was up.
+      void refresh();
+      return;
+    }
     if (
       !returningFromPicker &&
       !pendingSelection &&
@@ -220,6 +234,7 @@ function BorrowEModeSwitchView() {
   }, [
     focusActivationPending,
     pendingSelection,
+    refresh,
     returningFromPicker,
     runCheck,
     selection.userSelection,
@@ -344,12 +359,14 @@ function BorrowEModeSwitchView() {
 
   const onSelectCategory = useCallback(
     (eModeId: number, observedCurrentEModeId: number | null) => {
+      pickerPickedRef.current = true;
       selectCategoryRef.current(eModeId, observedCurrentEModeId, scopeKey);
     },
     [scopeKey],
   );
   const onOpenCategoryPicker = useCallback(() => {
     pickerScopeRef.current = scopeKey;
+    pickerPickedRef.current = false;
   }, [scopeKey]);
 
   const categorySelectScope = useMemo(
