@@ -26,7 +26,13 @@ function formatChartPrice(price, maxCharacters) {
       : digits.slice(0, decimalPosition) + '.' + digits.slice(decimalPosition);
   }
   var zeroCount = -exponent - 1;
-  if (value > 0 && !unit && zeroCount > 5 && body.length > limit) {
+  const plainWouldLoseAllDigits = zeroCount >= Math.max(1, limit - 2) - 2;
+  if (
+    value > 0 &&
+    !unit &&
+    body.length > limit &&
+    (zeroCount > 5 || plainWouldLoseAllDigits)
+  ) {
     var zeros = String(zeroCount).replace(/[0-9]/g, function (digit) {
       return '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit));
     });

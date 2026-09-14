@@ -265,10 +265,11 @@ export function FinancialChart({
                 ) : (
                   series
                     .map((item, index) => ({ item, index }))
-                    .toSorted((a, b) => {
-                      if (a.item.kind === b.item.kind) return 0;
-                      return a.item.kind === 'estimate' ? -1 : 1;
-                    })
+                    .toSorted(
+                      (a, b) =>
+                        (a.item.kind === 'estimate' ? 0 : 1) -
+                        (b.item.kind === 'estimate' ? 0 : 1),
+                    )
                     .map(({ item, index }) => {
                       const value = row.values[index];
                       if (!isFinancialNumber(value)) return null;
