@@ -159,7 +159,7 @@ function PerpDesktopLayout() {
 
   const accountPanel = useMemo(() => {
     return (
-      <YStack h="100%" alignSelf="stretch" style={{ overflowY: 'auto' }}>
+      <YStack alignSelf="stretch">
         <YStack minHeight={layout.bottomPanelHeight}>
           <XStack alignItems="center">
             <XStack py="$3" px="$2.5">
@@ -304,13 +304,14 @@ function PerpDesktopLayout() {
 
           <Stack
             flex={chartExpanded ? 1 : undefined}
-            h={chartExpanded ? undefined : leftContentHeight}
+            minHeight={chartExpanded ? undefined : leftContentHeight}
             overflow="hidden"
           >
-            <XStack h="100%" overflow="hidden">
+            <XStack flex={1} overflow="hidden">
               <YStack
                 flex={1}
                 minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}
+                h={chartExpanded ? undefined : leftContentHeight}
                 overflow="hidden"
               >
                 <Allotment
@@ -352,8 +353,7 @@ function PerpDesktopLayout() {
                 </YStack>
                 <YStack
                   testID={PerpTestIDs.DesktopAccountBoundary}
-                  h={layout.bottomPanelHeight}
-                  overflow="hidden"
+                  minHeight={layout.bottomPanelHeight}
                   style={{
                     borderTopColor: theme.borderSubdued.val,
                     borderTopStyle: 'solid',
