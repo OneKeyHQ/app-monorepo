@@ -118,10 +118,7 @@ function renderLightweightText(value: unknown) {
   );
 }
 
-function renderLightweightTokenIdentity(
-  record: IMarketToken,
-  loadImages = false,
-) {
+function renderLightweightTokenIdentity(record: IMarketToken) {
   const subtitle = record.address
     ? accountUtils.shortenAddress({
         address: record.address,
@@ -138,18 +135,7 @@ function renderLightweightTokenIdentity(
       minWidth={0}
       overflow="hidden"
     >
-      {loadImages ? (
-        <Token
-          size="lg"
-          borderRadius="$full"
-          tokenImageUri={record.tokenImageUri}
-          tokenImageUris={record.tokenImageUris}
-          networkImageUri={record.networkLogoUri}
-          fallbackIcon="CryptoCoinOutline"
-        />
-      ) : (
-        <Stack width={40} height={40} borderRadius="$full" bg="$bgStrong" />
-      )}
+      <Stack width={40} height={40} borderRadius="$full" bg="$bgStrong" />
       <Stack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
         <SizableText
           size="$bodyLgMedium"
@@ -259,7 +245,7 @@ export const useColumnsDesktop = (
         render: (_: unknown, record: IMarketToken, index?: number) => {
           const renderRichCell = shouldRenderRichCell(index);
           if (!renderRichCell) {
-            return renderLightweightTokenIdentity(record, isWatchlistMode);
+            return renderLightweightTokenIdentity(record);
           }
 
           return record.perpsCoin ? (
