@@ -28,7 +28,7 @@ export function formatChartPrice(price: number, maxCharacters = 8): string {
         : `${digits.slice(0, decimalPosition)}.${digits.slice(decimalPosition)}`;
   }
   const zeroCount = -exponent - 1;
-  if (value > 0 && !unit && zeroCount >= 2 && body.length > limit) {
+  if (value > 0 && !unit && zeroCount > 5 && body.length > limit) {
     const zeros = String(zeroCount).replace(/[0-9]/g, (digit) =>
       '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit)),
     );

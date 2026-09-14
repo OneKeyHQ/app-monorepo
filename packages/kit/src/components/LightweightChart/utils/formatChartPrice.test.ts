@@ -4,9 +4,9 @@ import { runInNewContext } from 'vm';
 import { formatChartPrice } from './formatChartPrice';
 
 describe('chart axis prices', () => {
-  it('compresses only when there are multiple leading decimal zeros', () => {
+  it('compresses only when there are more than five leading decimal zeros', () => {
     expect(formatChartPrice(0.000_000_12)).toBe('$0.0₆12');
-    expect(formatChartPrice(0.000_001_2)).toBe('$0.0₅12');
+    expect(formatChartPrice(0.000_001_2)).toBe('$0.0000...');
     expect(formatChartPrice(0.000_001_2, 20)).toBe('$0.0000012');
     expect(formatChartPrice(1e-30)).toBe('$0.0₂₉1');
     expect(formatChartPrice(0.123_456_789)).toBe('$0.1234...');

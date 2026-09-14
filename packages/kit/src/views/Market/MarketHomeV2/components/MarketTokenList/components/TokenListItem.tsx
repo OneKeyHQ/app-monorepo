@@ -25,6 +25,7 @@ interface ITokenListItemProps {
   item: IMarketToken;
   onPress: () => void;
   leading?: ReactNode;
+  showVolume?: boolean;
   onLongPress?: (event: GestureResponderEvent) => void;
   onPressIn?: (event: GestureResponderEvent) => void;
   onTouchMove?: (event: GestureResponderEvent) => void;
@@ -61,6 +62,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   item,
   onPress,
   leading,
+  showVolume = true,
   onLongPress,
   onPressIn,
   onTouchMove,
@@ -125,7 +127,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           networkId={item.networkId}
           symbol={item.symbol}
           address={item.address}
-          showVolume
+          showVolume={showVolume}
           volume={item.turnover}
           communityRecognized={item.communityRecognized}
           stock={item.stock}

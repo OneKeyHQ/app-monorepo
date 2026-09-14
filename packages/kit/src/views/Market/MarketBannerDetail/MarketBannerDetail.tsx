@@ -236,6 +236,13 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         <BannerDetailTokenFlatList
           data={mobileData}
           isLoading={tickerIsLoading}
+          primaryColumnTitle={
+            isStock
+              ? intl.formatMessage({ id: ETranslations.market_stock_company })
+              : `${intl.formatMessage({ id: ETranslations.global_name })} / ${intl.formatMessage({ id: ETranslations.market_mcap })}`
+          }
+          showMarketCap={!isStock}
+          showVolume={!isStock}
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={handleChangeSortPress}
@@ -284,6 +291,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     changeSortType,
     handleChangeSortPress,
     intl,
+    isStock,
   ]);
 
   let bodyTopInset: number;
