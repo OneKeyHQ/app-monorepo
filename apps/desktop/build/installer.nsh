@@ -234,6 +234,7 @@ FunctionEnd
 !ifdef BUILD_UNINSTALLER
 
   Var OneKeyModernUninstallAccepted
+  Var OneKeyModernUninstallOriginalDirectory
   !define MUI_CUSTOMFUNCTION_UNGUIINIT un.OneKeyModernOnGuiInit
   Function un.OneKeyModernOnGuiInit
     ${IfNot} ${Silent}
@@ -278,9 +279,9 @@ FunctionEnd
   # The uninstaller path identifies the exact per-user or per-machine entry
   # launched by Windows, so the native scope page never needs to be displayed.
   !macro customInstallMode
-    ${If} $INSTDIR == $perMachineInstallationFolder
+    ${If} $OneKeyModernUninstallOriginalDirectory == $perMachineInstallationFolder
       StrCpy $isForceMachineInstall "1"
-    ${ElseIf} $INSTDIR == $perUserInstallationFolder
+    ${ElseIf} $OneKeyModernUninstallOriginalDirectory == $perUserInstallationFolder
       StrCpy $isForceCurrentInstall "1"
     ${ElseIf} $hasPerUserInstallation == "1"
     ${AndIf} $hasPerMachineInstallation == "1"
@@ -296,12 +297,14 @@ FunctionEnd
   # This hook runs before initMultiUser can elevate a per-machine uninstall.
   # The modern confirmation therefore remains the first visible frame.
   !macro customUnPreInit
+    StrCpy $OneKeyModernUninstallOriginalDirectory "$INSTDIR"
     StrCpy $OneKeyModernUiActive "0"
     StrCpy $OneKeyModernIsInner "0"
     StrCpy $OneKeyModernUninstallAccepted "0"
     ${If} ${UAC_IsInnerInstance}
       StrCpy $OneKeyModernIsInner "1"
       !insertmacro UAC_AsUser_GetGlobal $OneKeyModernUninstallAccepted $OneKeyModernUninstallAccepted
+      !insertmacro UAC_AsUser_GetGlobal $OneKeyModernUninstallOriginalDirectory $OneKeyModernUninstallOriginalDirectory
     ${EndIf}
 
     ${IfNot} ${Silent}
