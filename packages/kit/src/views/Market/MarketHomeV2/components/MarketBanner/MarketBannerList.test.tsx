@@ -32,6 +32,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: true },
 }));
 jest.mock('@onekeyhq/components', () => ({
+  s: (value: number) => value,
   ScrollGuard: ({ children }: PropsWithChildren) => <div>{children}</div>,
   ScrollView: ({
     children,

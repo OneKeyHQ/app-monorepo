@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import { Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { s } from '@onekeyhq/components/src/utils/scale';
 
 import { MarketTestIDs } from '../../testIDs';
 
@@ -19,7 +20,7 @@ function MarketBannerItemSkeletonComponent() {
       <XStack h="$6" alignItems="center">
         <Skeleton w="$40" h="$4" />
       </XStack>
-      <YStack gap="$4" minHeight={104}>
+      <YStack gap="$4" minHeight={s(104)}>
         {[0, 1, 2].map((index) => (
           <XStack key={index} h="$6" gap="$2" alignItems="center">
             <Skeleton w="$6" h="$6" radius="round" />
