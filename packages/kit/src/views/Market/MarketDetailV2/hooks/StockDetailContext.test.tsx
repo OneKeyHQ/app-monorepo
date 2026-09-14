@@ -399,6 +399,85 @@ describe('StockDetailProvider', () => {
     expect(result.current.selectedTokenId).toBe('aapl-ondo');
   });
 
+  it.each([
+    {
+      networkId: 'evm--1',
+      address: '0xaabb',
+      updatedAddress: '0xAaBb',
+      expected: 'manual',
+    },
+    {
+      networkId: 'sol--101',
+      address: 'AAPLx',
+      updatedAddress: 'AAPLX',
+      expected: 'updated',
+    },
+  ])(
+    'compares route addresses using $networkId identity rules',
+    async ({ networkId, address, updatedAddress, expected }) => {
+      serviceMarketV2.fetchMarketStockDetail.mockResolvedValue(null);
+      serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+        stockId: 'AAPL',
+        defaultTokenId: 'initial',
+        items: [
+          {
+            tokenId: 'initial',
+            issuer: 'xstock',
+            networkId,
+            contractAddress: address,
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+          {
+            tokenId: 'manual',
+            issuer: 'ondo',
+            networkId,
+            contractAddress: 'manual-address',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+          ...(networkId === 'sol--101'
+            ? [
+                {
+                  tokenId: 'updated',
+                  issuer: 'xstock',
+                  networkId,
+                  contractAddress: updatedAddress,
+                  currency: 'USD' as const,
+                  status: 'active',
+                  tradingEnabled: true,
+                },
+              ]
+            : []),
+        ],
+      });
+      let routeAddress = address;
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <StockDetailProvider
+          stockId="AAPL"
+          initialNetworkId={networkId}
+          initialTokenAddress={routeAddress}
+        >
+          {children}
+        </StockDetailProvider>
+      );
+      const { result, rerender } = renderHook(() => useStockDetail(), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.selectedTokenId).toBe('initial'),
+      );
+      act(() => result.current.setSelectedTokenId('manual'));
+      routeAddress = updatedAddress;
+      rerender();
+      await waitFor(() =>
+        expect(result.current.selectedTokenId).toBe(expected),
+      );
+    },
+  );
+
   it('matches EVM route addresses without checksum casing', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
       stockId: 'AAPL',

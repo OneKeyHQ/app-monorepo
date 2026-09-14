@@ -11,7 +11,10 @@ import type { PropsWithChildren } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
   IMarketStockPublicDetail,
@@ -104,7 +107,12 @@ export function StockDetailProvider({
   const tokenRouteKey = JSON.stringify([
     normalizedStockId,
     initialNetworkId,
-    initialTokenAddress,
+    initialNetworkId
+      ? normalizeTokenContractAddress({
+          networkId: initialNetworkId,
+          contractAddress: initialTokenAddress,
+        })
+      : initialTokenAddress,
   ]);
   // Keep the last successful detail per stock so a superseded response cannot
   // replace the fallback used by the currently selected stock.
