@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvoiceExpiredError,
+  OneKeyInternalError,
   OneKeyLocalError,
   PendingQueueTooLong,
   ReplaceTxNonceConsumedError,
@@ -97,6 +98,16 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
+
+const assertAccountCanSign = (accountId: string) => {
+  if (accountUtils.isWatchingAccount({ accountId })) {
+    throw new OneKeyInternalError(
+      appLocale.intl.formatMessage({
+        id: ETranslations.wallet_error_trade_with_watched_account,
+      }),
+    );
+  }
+};
 
 @backgroundClass()
 class ServiceSend extends ServiceBase {
@@ -347,6 +358,7 @@ class ServiceSend extends ServiceBase {
       },
   ) {
     const { networkId, accountId, unsignedTx, signOnly, stageFeeInfo } = params;
+    assertAccountCanSign(accountId);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password, deviceParams } =
       params.prefetchedCredentials ??
@@ -1607,6 +1619,7 @@ class ServiceSend extends ServiceBase {
     accountId: string;
     useNonBlockingKdf?: boolean;
   }) {
+    assertAccountCanSign(accountId);
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
