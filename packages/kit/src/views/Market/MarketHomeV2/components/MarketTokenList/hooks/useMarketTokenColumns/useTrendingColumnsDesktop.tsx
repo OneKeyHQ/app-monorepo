@@ -1,18 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
-  Icon,
-  NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
@@ -22,12 +19,9 @@ import {
   MARKET_LIST_STAR_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
-import { MarketHoverRevealLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import {
   MARKET_CELL_LINE_GAP,
-  MARKET_CELL_SECONDARY_LINE_HEIGHT,
   MarketCellPrimary,
-  MarketCellSecondary,
   MarketIdentityCell,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
 import { MarketSplitSortHeader } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketSplitSortHeader';
@@ -35,44 +29,19 @@ import type {
   IMarketSortOrder,
   IMarketSortState,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketSplitSortHeader';
+import { MarketTokenAgeAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
 import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  ECopyFrom,
-  EWatchlistFrom,
-} from '@onekeyhq/shared/src/logger/scopes/dex';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { Txns } from '../../components/Txns';
-import { getTokenAgeInfo } from '../../utils/tokenListHelpers';
+
+import { getTokenAgeLabel } from './tokenAgeLabel';
 
 import type { IMarketToken } from '../../MarketTokenData';
-import type { GestureResponderEvent } from 'react-native';
 
 const EMPTY_MARKET_VALUE = '--';
-
-// The token age and the contract address share one line-height window and the
-// pair slides up on hover, so the age is pushed out by the address rather than
-// dissolving underneath it. 20px is the `$bodyMd` line box both lines use — the
-// same subtitle size the Stocks table first column uses.
-const TOKEN_SECONDARY_LINE_HEIGHT = MARKET_CELL_SECONDARY_LINE_HEIGHT;
-
-// The age reads at full strength; the address that replaces it on hover is
-// the design's regular, subdued face.
-const AGE_TEXT_COLOR = '$text';
-const ADDRESS_TEXT_PROPS = {
-  size: '$bodySm',
-  color: '$textSubdued',
-} as const;
-
-const TOKEN_AGE_TRANSLATION_MAP = {
-  hour: ETranslations.dexmarket_token_age_h,
-  day: ETranslations.dexmarket_token_age_d,
-  month: ETranslations.dexmarket_token_age_m,
-  year: ETranslations.dexmarket_token_age_y,
-} as const;
 
 function MarketValue({
   value,
@@ -105,101 +74,6 @@ function MarketValue({
     >
       {value}
     </NumberSizeableText>
-  );
-}
-
-/**
- * Shortened contract address plus a copy button. Kept as its own component
- * because a column `render` callback is a plain function and cannot use hooks.
- */
-function TokenContractAddressLine({ address }: { address: string }) {
-  const { copyText } = useClipboard();
-
-  const handleCopy = useCallback(
-    (event: GestureResponderEvent) => {
-      // Pressing anywhere on the row navigates to the token detail page.
-      event.stopPropagation();
-      copyText(address);
-      defaultLogger.dex.actions.dexCopyCA({
-        copyFrom: ECopyFrom.Homepage,
-        copiedContent: address,
-      });
-    },
-    [address, copyText],
-  );
-
-  return (
-    <XStack
-      height={TOKEN_SECONDARY_LINE_HEIGHT}
-      alignItems="center"
-      gap="$0.5"
-      minWidth={0}
-    >
-      <MarketCellSecondary {...ADDRESS_TEXT_PROPS}>
-        {accountUtils.shortenAddress({
-          address,
-          leadingLength: 6,
-          trailingLength: 4,
-        })}
-      </MarketCellSecondary>
-      <Stack
-        cursor="pointer"
-        hitSlop={NATIVE_HIT_SLOP}
-        hoverStyle={{ opacity: 0.75 }}
-        pressStyle={{ opacity: 0.5 }}
-        onPress={handleCopy}
-      >
-        <Icon name="Copy3Outline" size="$3.5" color="$iconSubdued" />
-      </Stack>
-    </XStack>
-  );
-}
-
-/**
- * Name-column subtitle for the Trending desktop table. It normally shows the
- * token age; while the row is hovered it slides up to reveal the copyable
- * contract address.
- *
- * The swap is CSS-only: the data row carries a Tamagui `group`, so both lines
- * render once and only the sliding wrapper reacts to the group's hover state.
- * Row-level JS hover state would mean a setState per row on every pointer move,
- * and the shared Table component exposes no row hover hook to piggyback on.
- */
-function TrendingTokenSecondaryLine({
-  address,
-  ageLabel,
-}: {
-  address: string;
-  ageLabel?: string;
-}) {
-  const ageLine = (
-    <XStack
-      height={TOKEN_SECONDARY_LINE_HEIGHT}
-      alignItems="center"
-      minWidth={0}
-    >
-      <MarketCellSecondary color={AGE_TEXT_COLOR}>
-        {ageLabel ?? EMPTY_MARKET_VALUE}
-      </MarketCellSecondary>
-    </XStack>
-  );
-
-  if (!address) {
-    return ageLine;
-  }
-
-  // With no age there is nothing to slide away from, so the address stands on
-  // its own and its copy button stays reachable.
-  if (!ageLabel) {
-    return <TokenContractAddressLine address={address} />;
-  }
-
-  return (
-    <MarketHoverRevealLine
-      lineHeight={TOKEN_SECONDARY_LINE_HEIGHT}
-      resting={ageLine}
-      revealed={<TokenContractAddressLine address={address} />}
-    />
   );
 }
 
@@ -269,13 +143,7 @@ export function useTrendingColumnsDesktop({
         dataIndex: 'nameTokenAge',
         columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken) => {
-          const ageInfo = getTokenAgeInfo(record.firstTradeTime);
-          const ageLabel = ageInfo
-            ? intl.formatMessage(
-                { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
-                { amount: ageInfo.amount },
-              )
-            : undefined;
+          const ageLabel = getTokenAgeLabel(intl, record.firstTradeTime);
 
           return (
             <MarketIdentityCell
@@ -300,7 +168,7 @@ export function useTrendingColumnsDesktop({
                 </XStack>
               }
               secondary={
-                <TrendingTokenSecondaryLine
+                <MarketTokenAgeAddressLine
                   address={record.address}
                   ageLabel={ageLabel}
                 />

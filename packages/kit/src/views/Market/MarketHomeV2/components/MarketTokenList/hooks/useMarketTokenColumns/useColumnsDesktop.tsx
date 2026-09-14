@@ -27,17 +27,13 @@ import {
   MARKET_LIST_STAR_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
-import {
-  MARKET_CELL_LINE_GAP,
-  MARKET_CELL_LOGO_GAP,
-} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
+import { MARKET_CELL_LINE_GAP } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
 import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -47,116 +43,20 @@ import {
   getStockMarketCapValue,
   getStockPeRatioValue,
   getStockVolume24hValue,
-  getTokenAgeInfo,
 } from '../../utils/tokenListHelpers';
+
+import {
+  EMPTY_MARKET_VALUE,
+  renderLightweightText,
+  renderLightweightTokenIdentity,
+  shouldUseLightweightCell,
+} from './lightweightCells';
+import { getTokenAgeLabel } from './tokenAgeLabel';
 
 import type { IMarketToken } from '../../MarketTokenData';
 
-const TOKEN_AGE_TRANSLATION_MAP = {
-  hour: ETranslations.dexmarket_token_age_h,
-  day: ETranslations.dexmarket_token_age_d,
-  month: ETranslations.dexmarket_token_age_m,
-  year: ETranslations.dexmarket_token_age_y,
-} as const;
-
-const EMPTY_MARKET_VALUE = '--';
-
 function getDefaultMarketValue(text: number) {
   return !Number.isFinite(text) || text === 0 ? EMPTY_MARKET_VALUE : text;
-}
-
-function shouldUseLightweightCell(
-  index: number | undefined,
-  deferRichRowAfterIndex: number | undefined,
-) {
-  return (
-    deferRichRowAfterIndex !== undefined &&
-    (index ?? 0) >= deferRichRowAfterIndex
-  );
-}
-
-function formatLightweightMarketValue(value: unknown) {
-  if (
-    value === undefined ||
-    value === null ||
-    value === '' ||
-    (typeof value === 'number' && !Number.isFinite(value))
-  ) {
-    return EMPTY_MARKET_VALUE;
-  }
-
-  const numericValue =
-    typeof value === 'number' ? value : Number.parseFloat(String(value));
-  if (!Number.isFinite(numericValue)) {
-    return String(value);
-  }
-
-  const absValue = Math.abs(numericValue);
-  if (absValue >= 1_000_000_000) {
-    return `${(numericValue / 1_000_000_000).toFixed(absValue >= 10_000_000_000 ? 0 : 1)}B`;
-  }
-  if (absValue >= 1_000_000) {
-    return `${(numericValue / 1_000_000).toFixed(absValue >= 10_000_000 ? 0 : 1)}M`;
-  }
-  if (absValue >= 1000) {
-    return `${(numericValue / 1000).toFixed(absValue >= 10_000 ? 0 : 1)}K`;
-  }
-  if (absValue > 0 && absValue < 0.01) {
-    return numericValue.toPrecision(3);
-  }
-  if (absValue % 1 === 0) {
-    return String(numericValue);
-  }
-  return numericValue.toFixed(absValue >= 100 ? 1 : 2);
-}
-
-function renderLightweightText(value: unknown) {
-  return (
-    <SizableText size="$bodyLgMedium" numberOfLines={1} ellipsizeMode="tail">
-      {formatLightweightMarketValue(value)}
-    </SizableText>
-  );
-}
-
-function renderLightweightTokenIdentity(record: IMarketToken) {
-  const subtitle = record.address
-    ? accountUtils.shortenAddress({
-        address: record.address,
-        leadingLength: 6,
-        trailingLength: 4,
-      })
-    : record.name;
-
-  return (
-    <XStack
-      alignItems="center"
-      gap={MARKET_CELL_LOGO_GAP}
-      userSelect="none"
-      minWidth={0}
-      overflow="hidden"
-    >
-      <Stack width={40} height={40} borderRadius="$full" bg="$bgStrong" />
-      <Stack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
-        <SizableText
-          size="$bodyLgMedium"
-          numberOfLines={1}
-          maxWidth="$32"
-          flexShrink={1}
-          ellipsizeMode="tail"
-        >
-          {record.symbol}
-        </SizableText>
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {subtitle}
-        </SizableText>
-      </Stack>
-    </XStack>
-  );
 }
 
 export const useColumnsDesktop = (
@@ -545,18 +445,13 @@ export const useColumnsDesktop = (
                 return renderLightweightText(EMPTY_MARKET_VALUE);
               }
 
-              const ageInfo = getTokenAgeInfo(record.firstTradeTime);
+              const ageLabel = getTokenAgeLabel(intl, record.firstTradeTime);
 
-              if (!ageInfo) {
-                return <SizableText size="$bodyMd">--</SizableText>;
-              }
-
-              const ageLabel = intl.formatMessage(
-                { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
-                { amount: ageInfo.amount },
+              return (
+                <SizableText size="$bodyMd">
+                  {ageLabel ?? EMPTY_MARKET_VALUE}
+                </SizableText>
               );
-
-              return <SizableText size="$bodyMd">{ageLabel}</SizableText>;
             },
             renderSkeleton: () => <Skeleton width={60} height={16} />,
           }
