@@ -403,7 +403,6 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[2])}
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
-              minWidth={0}
             >
               <XStack gap="$1.5" alignItems="center" width="100%" minWidth={0}>
                 <SizableText
