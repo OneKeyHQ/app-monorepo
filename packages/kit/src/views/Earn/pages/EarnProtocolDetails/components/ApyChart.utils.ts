@@ -84,14 +84,20 @@ function filterByTimeWindow(
     return [];
   }
 
-  // The window ends at the anchor when one is given. The second line is cut
-  // from the primary line's newest point, so a campaign or reward line whose
-  // data stops earlier shows its tail inside the same days as the base line
-  // instead of being shifted to its own last week (OK-62946).
+  // The window ends at the anchor when one is given and starts windowMs
+  // before it. The second line is cut from the primary line's newest point, so
+  // a campaign or reward line whose data stops earlier shows its tail inside
+  // the same days as the base line instead of being shifted to its own last
+  // week, and a point newer than the base line is left out rather than drawn
+  // past it (OK-62946). Without an anchor the upper bound is the series' own
+  // newest point, so it never removes anything.
   const latestTimestamp =
     anchorTimestamp ?? history[history.length - 1].timestamp;
   const minTimestamp = latestTimestamp - windowMs;
-  return history.filter((item) => item.timestamp >= minTimestamp);
+  return history.filter(
+    (item) =>
+      item.timestamp >= minTimestamp && item.timestamp <= latestTimestamp,
+  );
 }
 
 export function buildChartHistory(

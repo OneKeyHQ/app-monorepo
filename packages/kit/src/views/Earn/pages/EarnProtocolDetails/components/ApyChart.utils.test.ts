@@ -55,6 +55,21 @@ describe('buildChartHistory', () => {
     expect(points[points.length - 1].timestamp).toBe(NOW_MS - 3 * DAY_MS);
   });
 
+  it('drops second line points newer than the base line', () => {
+    // A line that keeps updating after the base line's newest snapshot would
+    // otherwise be drawn past the end of the base line.
+    const rewardLine = hourly(NOW_MS - 10 * DAY_MS, NOW_MS + 2 * DAY_MS, '2');
+
+    const points = buildChartHistory(
+      rewardLine,
+      '1h',
+      getLatestTimestamp(baseLine),
+    );
+
+    expect(points[0].timestamp).toBe(NOW_MS - 7 * DAY_MS);
+    expect(points[points.length - 1].timestamp).toBe(NOW_MS);
+  });
+
   it('anchors the daily and weekly buckets the same way', () => {
     const campaignLine = hourly(
       NOW_MS - 60 * DAY_MS,
