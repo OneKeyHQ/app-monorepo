@@ -332,6 +332,73 @@ describe('StockDetailProvider', () => {
     });
   });
 
+  it('applies a new route variant once and preserves subsequent manual selection', async () => {
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    });
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      defaultTokenId: 'aapl-ondo',
+      items: [
+        {
+          tokenId: 'aapl-xstock',
+          issuer: 'xstock',
+          networkId: 'sol--101',
+          contractAddress: 'AAPLx',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+        {
+          tokenId: 'aapl-ondo',
+          issuer: 'ondo',
+          networkId: 'evm--1',
+          contractAddress: '0xaapl',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+      ],
+    });
+
+    let routeNetwork = 'evm--1';
+    let routeAddress = '0xaapl';
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        initialNetworkId={routeNetwork}
+        initialTokenAddress={routeAddress}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result, rerender } = renderHook(() => useStockDetail(), {
+      wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-ondo'),
+    );
+    routeNetwork = 'sol--101';
+    routeAddress = 'AAPLx';
+    rerender();
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-xstock'),
+    );
+    act(() => result.current.setSelectedTokenId('aapl-ondo'));
+    await act(async () => {
+      await result.current.retryTokenVariants();
+    });
+    expect(result.current.selectedTokenId).toBe('aapl-ondo');
+  });
+
   it('matches EVM route addresses without checksum casing', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
       stockId: 'AAPL',
