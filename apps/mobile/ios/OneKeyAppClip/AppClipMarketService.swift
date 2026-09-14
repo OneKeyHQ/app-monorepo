@@ -102,7 +102,6 @@ struct AppClipKlineResult {
 
 enum AppClipMarketServiceError: Error {
   case business(code: Int, message: String?)
-  case httpStatus(Int)
   case missingData
 }
 
@@ -263,14 +262,6 @@ private struct MarketScalar: Decodable {
 }
 
 actor AppClipMarketService {
-  // Keep each stock pagination chain and the chart endpoint stable for this App Clip process.
-  private var resolvedStockListBaseURLs: [StockListBaseURLKey: URL] = [:]
-  private var pendingStockListBaseURLResolutions:
-    [StockListBaseURLKey: StockListBaseURLResolution] = [:]
-  private var resolvedStockChartBaseURLs: [StockChartBaseURLKey: URL] = [:]
-  private var pendingStockChartBaseURLResolutions:
-    [StockChartBaseURLKey: StockChartBaseURLResolution] = [:]
-
   func fetchConfiguration(baseURL: URL) async throws -> AppClipMarketConfiguration {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("utility/v2/market/basic-config"),
@@ -305,63 +296,6 @@ actor AppClipMarketService {
     cursor: String? = nil,
     limit: Int = 20
   ) async throws -> AppClipMarketStockPage {
-    let key = StockListBaseURLKey(baseURL: baseURL, category: category)
-    if let resolvedBaseURL = resolvedStockListBaseURLs[key] {
-      return try await fetchStockPage(
-        baseURL: resolvedBaseURL,
-        category: category,
-        cursor: cursor,
-        limit: limit
-      )
-    }
-    let resolution: StockListBaseURLResolution
-    let ownsResolution: Bool
-    if let pendingResolution = pendingStockListBaseURLResolutions[key] {
-      resolution = pendingResolution
-      ownsResolution = false
-    } else {
-      let resolutionID = UUID()
-      let task = Task {
-        try await self.fetchStockPageResolvingBaseURL(
-          baseURL: baseURL,
-          category: category,
-          cursor: cursor,
-          limit: limit
-        )
-      }
-      resolution = StockListBaseURLResolution(id: resolutionID, task: task)
-      pendingStockListBaseURLResolutions[key] = resolution
-      ownsResolution = true
-    }
-    do {
-      let result = try await resolution.task.value
-      if pendingStockListBaseURLResolutions[key]?.id == resolution.id {
-        resolvedStockListBaseURLs[key] = result.baseURL
-        pendingStockListBaseURLResolutions[key] = nil
-      }
-      if ownsResolution {
-        return result.page
-      }
-      return try await fetchStockPage(
-        baseURL: resolvedStockListBaseURLs[key] ?? result.baseURL,
-        category: category,
-        cursor: cursor,
-        limit: limit
-      )
-    } catch {
-      if pendingStockListBaseURLResolutions[key]?.id == resolution.id {
-        pendingStockListBaseURLResolutions[key] = nil
-      }
-      throw error
-    }
-  }
-
-  private func fetchStockPage(
-    baseURL: URL,
-    category: String?,
-    cursor: String?,
-    limit: Int
-  ) async throws -> AppClipMarketStockPage {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("utility/v1/stocks"),
       resolvingAgainstBaseURL: false
@@ -391,37 +325,6 @@ actor AppClipMarketService {
       },
       nextCursor: payload.nextCursor.flatMap { $0.isEmpty ? nil : $0 }
     )
-  }
-
-  private func fetchStockPageResolvingBaseURL(
-    baseURL: URL,
-    category: String?,
-    cursor: String?,
-    limit: Int
-  ) async throws -> (baseURL: URL, page: AppClipMarketStockPage) {
-    do {
-      let page = try await fetchStockPage(
-        baseURL: baseURL,
-        category: category,
-        cursor: cursor,
-        limit: limit
-      )
-      return (baseURL, page)
-    } catch {
-      guard
-        Self.shouldFallbackStockRequest(after: error),
-        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
-      else {
-        throw error
-      }
-      let page = try await fetchStockPage(
-        baseURL: fallbackBaseURL,
-        category: category,
-        cursor: cursor,
-        limit: limit
-      )
-      return (fallbackBaseURL, page)
-    }
   }
 
   func fetchPerps(
@@ -554,59 +457,6 @@ actor AppClipMarketService {
     period: String,
     baseURL: URL
   ) async throws -> AppClipKlineResult {
-    let key = StockChartBaseURLKey(baseURL: baseURL, stockID: stockID)
-    if let resolvedBaseURL = resolvedStockChartBaseURLs[key] {
-      return try await fetchStockCandles(
-        stockID: stockID,
-        period: period,
-        requestBaseURL: resolvedBaseURL
-      )
-    }
-    let resolution: StockChartBaseURLResolution
-    let ownsResolution: Bool
-    if let pendingResolution = pendingStockChartBaseURLResolutions[key] {
-      resolution = pendingResolution
-      ownsResolution = false
-    } else {
-      let resolutionID = UUID()
-      let task = Task {
-        try await self.fetchStockCandlesResolvingBaseURL(
-          stockID: stockID,
-          period: period,
-          baseURL: baseURL
-        )
-      }
-      resolution = StockChartBaseURLResolution(id: resolutionID, task: task)
-      pendingStockChartBaseURLResolutions[key] = resolution
-      ownsResolution = true
-    }
-    do {
-      let result = try await resolution.task.value
-      if pendingStockChartBaseURLResolutions[key]?.id == resolution.id {
-        resolvedStockChartBaseURLs[key] = result.baseURL
-        pendingStockChartBaseURLResolutions[key] = nil
-      }
-      if ownsResolution {
-        return result.result
-      }
-      return try await fetchStockCandles(
-        stockID: stockID,
-        period: period,
-        requestBaseURL: resolvedStockChartBaseURLs[key] ?? result.baseURL
-      )
-    } catch {
-      if pendingStockChartBaseURLResolutions[key]?.id == resolution.id {
-        pendingStockChartBaseURLResolutions[key] = nil
-      }
-      throw error
-    }
-  }
-
-  private func fetchStockCandles(
-    stockID: String,
-    period: String,
-    requestBaseURL: URL
-  ) async throws -> AppClipKlineResult {
     let normalizedPeriod = period.lowercased()
     guard ["1h", "1d", "1w", "1m", "1y", "all"].contains(normalizedPeriod) else {
       throw URLError(.badURL)
@@ -617,7 +467,7 @@ actor AppClipMarketService {
         withAllowedCharacters: Self.pathSegmentAllowed
       ),
       var components = URLComponents(
-        url: requestBaseURL.appendingPathComponent("utility/v1/stocks"),
+        url: baseURL.appendingPathComponent("utility/v1/stocks"),
         resolvingAgainstBaseURL: false
       )
     else {
@@ -635,34 +485,6 @@ actor AppClipMarketService {
       timeTo: Double.greatestFiniteMagnitude,
       samplingStrategy: .evenlySpaced(maximumPointCount: 300)
     )
-  }
-
-  private func fetchStockCandlesResolvingBaseURL(
-    stockID: String,
-    period: String,
-    baseURL: URL
-  ) async throws -> (baseURL: URL, result: AppClipKlineResult) {
-    do {
-      let result = try await fetchStockCandles(
-        stockID: stockID,
-        period: period,
-        requestBaseURL: baseURL
-      )
-      return (baseURL, result)
-    } catch {
-      guard
-        Self.shouldFallbackStockRequest(after: error),
-        let fallbackBaseURL = Self.stockFallbackBaseURL(for: baseURL)
-      else {
-        throw error
-      }
-      let result = try await fetchStockCandles(
-        stockID: stockID,
-        period: period,
-        requestBaseURL: fallbackBaseURL
-      )
-      return (fallbackBaseURL, result)
-    }
   }
 
   func fetchPerpCandles(
@@ -746,11 +568,11 @@ actor AppClipMarketService {
     request.setValue(requestId, forHTTPHeaderField: "X-Onekey-Request-ID")
     request.setValue(requestId, forHTTPHeaderField: "X-Amzn-Trace-Id")
     let (data, response) = try await URLSession.shared.data(for: request)
-    guard let response = response as? HTTPURLResponse else {
+    guard
+      let response = response as? HTTPURLResponse,
+      (200..<300).contains(response.statusCode)
+    else {
       throw URLError(.badServerResponse)
-    }
-    guard (200..<300).contains(response.statusCode) else {
-      throw AppClipMarketServiceError.httpStatus(response.statusCode)
     }
     return data
   }
@@ -770,54 +592,6 @@ actor AppClipMarketService {
   private static var requestLocale: String {
     let localization = Bundle.main.preferredLocalizations.first?.lowercased() ?? "en"
     return localization.hasPrefix("zh-hans") ? "zh-cn" : "en-us"
-  }
-
-  // Temporary fallback until the production stock endpoints are available.
-  private static func stockFallbackBaseURL(for baseURL: URL) -> URL? {
-    guard
-      baseURL.scheme?.lowercased() == "https",
-      baseURL.host?.lowercased() == "utility.onekeycn.com",
-      baseURL.user == nil,
-      baseURL.password == nil,
-      baseURL.port == nil || baseURL.port == 443
-    else {
-      return nil
-    }
-    return URL(string: "https://utility.onekeytest.com")
-  }
-
-  private struct StockListBaseURLKey: Hashable {
-    let baseURL: URL
-    let category: String?
-  }
-
-  private struct StockChartBaseURLKey: Hashable {
-    let baseURL: URL
-    let stockID: String
-  }
-
-  private struct StockListBaseURLResolution {
-    let id: UUID
-    let task: Task<(baseURL: URL, page: AppClipMarketStockPage), Error>
-  }
-
-  private struct StockChartBaseURLResolution {
-    let id: UUID
-    let task: Task<(baseURL: URL, result: AppClipKlineResult), Error>
-  }
-
-  private static func shouldFallbackStockRequest(after error: Error) -> Bool {
-    if let serviceError = error as? AppClipMarketServiceError {
-      switch serviceError {
-      case .business(let code, _):
-        return code == 404
-      case .httpStatus(let statusCode):
-        return statusCode == 404
-      case .missingData:
-        return false
-      }
-    }
-    return false
   }
 
   private static let pathSegmentAllowed = CharacterSet(
