@@ -79,7 +79,6 @@ import type {
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   PageFrame,
-  isErrorState,
   isLoadingState,
 } from '../../../Staking/components/PageFrame';
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
@@ -868,6 +867,7 @@ const DetailsPartComponent = ({
   tokenInfo,
   protocolInfo,
   isLoading,
+  isError,
   keepSkeletonVisible,
   onRefresh,
   networkId,
@@ -884,6 +884,8 @@ const DetailsPartComponent = ({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isLoading: boolean;
+  // the detail fetch for the current inputs ran and failed
+  isError: boolean;
   keepSkeletonVisible: boolean;
   onRefresh: () => void;
   networkId: string;
@@ -933,7 +935,7 @@ const DetailsPartComponent = ({
             isLoadingState({ result: detailInfo, isLoading }) ||
             keepSkeletonVisible
           }
-          error={isErrorState({ result: detailInfo, isLoading })}
+          error={isError}
           onRefresh={onRefresh}
         >
           {detailInfo ? (
@@ -1032,7 +1034,7 @@ const DetailsPartComponent = ({
           isLoadingState({ result: detailInfo, isLoading }) ||
           keepSkeletonVisible
         }
-        error={isErrorState({ result: detailInfo, isLoading })}
+        error={isError}
         onRefresh={onRefresh}
       >
         {detailInfo ? (
@@ -1208,6 +1210,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     tokenInfo,
     protocolInfo,
     isLoading,
+    isError,
     refreshData,
     refreshAccount,
   } = useProtocolDetailData({
@@ -1570,6 +1573,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             tokenInfo={tokenInfo}
             protocolInfo={protocolInfo}
             isLoading={isLoading ?? false}
+            isError={isError}
             keepSkeletonVisible={keepSkeletonVisible}
             onRefresh={refreshData}
             networkId={networkId}
