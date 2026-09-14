@@ -56,7 +56,7 @@ declare -a PR_CACHE_URLS=()
 declare -a PR_CACHE_HEAD_OIDS=()
 GH_PR_LOOKUP_STATE="unknown"
 GH_PR_LOOKUP_REASON=""
-PATCH_ID_MODE="--stable"
+PATCH_ID_MODE=""
 if git patch-id --verbatim </dev/null >/dev/null 2>&1; then
   PATCH_ID_MODE="--verbatim"
 fi
@@ -482,7 +482,7 @@ find_squashed_patch_match() {
       printf '%s\n' "$commit"
       return 0
     fi
-  done < <(git -C "$wt" rev-list --no-merges "$base..origin/x")
+  done < <(git -C "$wt" rev-list --first-parent --no-merges "$base..origin/x")
 
   return 1
 }
@@ -577,14 +577,13 @@ check_one_worktree() {
 
   dirty_output="$(collect_dirty_files "$wt" || true)"
   head_oid="$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null || true)"
-  case "${WT_PR_LABELS[$idx]}" in
-    MERGED\ #*|NONE|DETACHED)
-      patch_id_allowed="yes"
-      ;;
-    UNAVAILABLE*)
-      [[ "$PATCH_ID_MODE" == "--verbatim" ]] && patch_id_allowed="yes"
-      ;;
-  esac
+  if [[ "$PATCH_ID_MODE" == "--verbatim" ]]; then
+    case "${WT_PR_LABELS[$idx]}" in
+      MERGED\ #*|NONE|DETACHED|UNAVAILABLE*)
+        patch_id_allowed="yes"
+        ;;
+    esac
+  fi
 
   if [[ -z "$head_oid" ]]; then
     candidate_output=""
@@ -619,13 +618,17 @@ check_one_worktree() {
     elif [[ $unmatched_count -eq 0 ]]; then
       result="MERGED_TO_ORIGIN_X_BY_CODE"
       merge_evidence="all branch-side candidate blobs match origin/x"
-  elif [[ "$patch_id_allowed" == "yes" ]] && \
+    elif [[ "$patch_id_allowed" == "yes" ]] && \
     squashed_commit="$(find_squashed_patch_match "$wt" 2>/dev/null)"; then
       result="MERGED_TO_ORIGIN_X_BY_PATCH_ID"
       merge_evidence="matching squash commit ${squashed_commit:0:12} (patch-id mode: ${PATCH_ID_MODE})"
     else
       result="NEEDS_MANUAL_REVIEW"
-      merge_evidence="branch-side files differ from origin/x after later changes"
+      if [[ -z "$PATCH_ID_MODE" ]]; then
+        merge_evidence="branch-side files differ; Git does not support whitespace-preserving patch-id --verbatim"
+      else
+        merge_evidence="branch-side files differ from origin/x after later changes"
+      fi
     fi
   fi
 

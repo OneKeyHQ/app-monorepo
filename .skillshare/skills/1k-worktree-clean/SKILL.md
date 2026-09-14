@@ -13,7 +13,7 @@ Use this skill to list local worktrees, surface clean or dirty state, and judge 
 - Always start by listing every local worktree with numeric choices.
 - Ask the user to reply with `1`, `2,4`, or `A`.
 - Always fetch the latest `origin/x` before running the check.
-- Use layered evidence for the final judgment: commit ancestry, a merged PR into `x`, a stable patch-id match for squash merges, and finally content equality between branch-side candidate files and `origin/x`. If these checks disagree or cannot prove the result, report `NEEDS_MANUAL_REVIEW` instead of guessing.
+- Use layered evidence for the final judgment: commit ancestry, a merged PR into `x` with matching HEAD and file content, content equality, and a whitespace-preserving patch-id match for squash merges. If these checks cannot prove the result, report `NEEDS_MANUAL_REVIEW` instead of guessing.
 - Surface metadata that helps cleanup decisions: last commit time, upstream branch, PR status, and whether the worktree is nested under another linked worktree.
 - PR status is best-effort only. Use `gh` when available; if auth or network is unavailable, report that explicitly and continue the local git-based check.
 - If a worktree is dirty, report that separately and make it clear the committed-branch result does not cover uncommitted local edits.
@@ -119,7 +119,7 @@ rtk proxy rm -rf <path>
 
 - `MERGED_TO_ORIGIN_X_BY_ANCESTOR`: the worktree HEAD is an ancestor of `origin/x`.
 - `MERGED_TO_ORIGIN_X_BY_PR`: GitHub reports a merged PR from this branch into `x`, its `headRefOid` matches the current worktree `HEAD`, and the branch-side candidate blobs match `origin/x`.
-- `MERGED_TO_ORIGIN_X_BY_PATCH_ID`: the branch's aggregate patch matches a non-merge commit in `origin/x`, covering squash merges. This local check also runs for detached worktrees and when PR lookup is unavailable with a whitespace-preserving `--verbatim` implementation.
+- `MERGED_TO_ORIGIN_X_BY_PATCH_ID`: the branch's aggregate patch matches a non-merge commit on the first-parent history of `origin/x`, covering squash merges. This local check also runs for detached worktrees and when PR lookup is unavailable. If Git does not support whitespace-preserving `--verbatim`, skip patch-id inference and explicitly report the missing capability when local code checks cannot prove the result; never fall back to whitespace-insensitive matching.
 - `MERGED_TO_ORIGIN_X_BY_CODE`: every branch-side candidate file now matches `origin/x`.
 - `NEEDS_MANUAL_REVIEW`: later edits or conflict resolution prevent the script from proving equivalence.
 - Worktrees without a committed `HEAD` are reported as `NEEDS_MANUAL_REVIEW` and do not abort the full audit.
