@@ -962,9 +962,6 @@ export function CommonTableListView<T>({
       <PerpTableScrollView
         ref={scrollViewRef}
         testID="perp-desktop-table-body"
-        dataSet={
-          !platformEnv.isNative ? { perpTableScrollbar: 'true' } : undefined
-        }
         style={{
           flex: 1,
         }}
@@ -1095,9 +1092,6 @@ export function CommonTableListView<T>({
     <YStack flex={1} testID="perp-desktop-table">
       {desktopHeader}
       <PerpTableScrollView
-        dataSet={
-          !platformEnv.isNative ? { perpTableScrollbar: 'true' } : undefined
-        }
         contentContainerStyle={
           !platformEnv.isNative || showDesktopEmptyState
             ? { flexGrow: 1 }
