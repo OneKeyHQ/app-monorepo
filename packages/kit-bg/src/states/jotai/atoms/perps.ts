@@ -39,6 +39,15 @@ import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
+// Shared by Market entries and Web Perps, including expanded extension windows.
+export const {
+  target: webviewPerpTradeTargetAtom,
+  use: useWebviewPerpTradeTargetAtom,
+} = globalAtom<{ coin?: string; revision: number }>({
+  name: EAtomNames.webviewPerpTradeTargetAtom,
+  initialValue: { revision: 0 },
+});
+
 // #region Active Account
 export interface IPerpsActiveAccountAtom {
   accountId: string | null;

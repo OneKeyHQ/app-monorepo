@@ -270,7 +270,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     const topCoinsFallbackName =
       marketCategories.find(
         (category) => category.id === MARKET_TOP_COINS_CATEGORY_ID,
-      )?.name ?? 'Top Coins';
+      )?.name ?? intl.formatMessage({ id: ETranslations.market_top_coins });
 
     return buildHomeMarketCategories({
       apiHomeTabs,
@@ -279,7 +279,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       homePerpsHotCategory,
       topCoinsFallbackName,
     });
-  }, [apiHomeTabs, favoritesCategory, homePerpsHotCategory, marketCategories]);
+  }, [
+    apiHomeTabs,
+    favoritesCategory,
+    homePerpsHotCategory,
+    intl,
+    marketCategories,
+  ]);
 
   const resolvedSelectedCategoryId = useMemo(() => {
     if (homeCategories.some((category) => category.id === selectedCategoryId)) {

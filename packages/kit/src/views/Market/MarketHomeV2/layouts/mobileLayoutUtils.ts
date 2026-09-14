@@ -1,8 +1,10 @@
+import { s } from '@onekeyhq/components/src/utils/scale';
+
 export const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 export const MARKET_MOBILE_COLUMN_HEADER_HEIGHT = 32;
 export const MARKET_MOBILE_CONTENT_TOP_GAP = 16;
 
-const MARKET_MOBILE_BANNER_MODERN_HEIGHT = 204;
+const MARKET_MOBILE_BANNER_MODERN_HEIGHT = s(204);
 const MARKET_MOBILE_BANNER_LEGACY_HEIGHT = 134;
 
 export function getMarketMobileBannerHeaderHeight(
