@@ -119,7 +119,7 @@ rtk proxy rm -rf <path>
 
 - `MERGED_TO_ORIGIN_X_BY_ANCESTOR`: the worktree HEAD is an ancestor of `origin/x`.
 - `MERGED_TO_ORIGIN_X_BY_PR`: GitHub reports a merged PR from this branch into `x`, its `headRefOid` matches the current worktree `HEAD`, and the branch-side candidate blobs match `origin/x`.
-- `MERGED_TO_ORIGIN_X_BY_PATCH_ID`: the branch's aggregate patch matches a non-merge commit in `origin/x`, covering squash merges.
+- `MERGED_TO_ORIGIN_X_BY_PATCH_ID`: the branch's aggregate patch matches a non-merge commit in `origin/x`, covering squash merges. This local check also runs when PR lookup is unavailable; `--verbatim` is used when supported, otherwise the script falls back to `--stable`.
 - `MERGED_TO_ORIGIN_X_BY_CODE`: every branch-side candidate file now matches `origin/x`.
 - `NEEDS_MANUAL_REVIEW`: later edits or conflict resolution prevent the script from proving equivalence.
 - `NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE`: the worktree has no committed branch-only code delta relative to the common base with `origin/x`. If it is also `clean` and is neither the main worktree nor the current worktree, treat it as a removable cleanup candidate.

@@ -56,6 +56,10 @@ declare -a PR_CACHE_URLS=()
 declare -a PR_CACHE_HEAD_OIDS=()
 GH_PR_LOOKUP_STATE="unknown"
 GH_PR_LOOKUP_REASON=""
+PATCH_ID_MODE="--stable"
+if git patch-id --verbatim </dev/null >/dev/null 2>&1; then
+  PATCH_ID_MODE="--verbatim"
+fi
 LAST_SUMMARY_LINE=""
 DETAIL_OUTPUT=""
 LAST_RESULT=""
@@ -447,7 +451,7 @@ patch_id_for_range() {
   local range="$2"
 
   git -C "$wt" diff --binary --no-ext-diff "$range" -- |
-    git -C "$wt" patch-id --verbatim |
+    git -C "$wt" patch-id "$PATCH_ID_MODE" |
     awk 'NR == 1 { print $1; exit }'
 }
 
@@ -456,7 +460,7 @@ patch_id_for_commit() {
   local commit="$2"
 
   git -C "$wt" show --format= --binary --no-ext-diff "$commit" -- |
-    git -C "$wt" patch-id --verbatim |
+    git -C "$wt" patch-id "$PATCH_ID_MODE" |
     awk 'NR == 1 { print $1; exit }'
 }
 
@@ -600,10 +604,12 @@ check_one_worktree() {
   elif [[ $unmatched_count -eq 0 ]]; then
     result="MERGED_TO_ORIGIN_X_BY_CODE"
     merge_evidence="all branch-side candidate blobs match origin/x"
-  elif [[ "${WT_PR_LABELS[$idx]}" == MERGED\ #* ]] && \
+  elif [[ "${WT_PR_LABELS[$idx]}" == MERGED\ #* ||
+    "${WT_PR_LABELS[$idx]}" == NONE ||
+    "${WT_PR_LABELS[$idx]}" == UNAVAILABLE\ \(* ]] && \
     squashed_commit="$(find_squashed_patch_match "$wt" 2>/dev/null)"; then
     result="MERGED_TO_ORIGIN_X_BY_PATCH_ID"
-    merge_evidence="matching squash commit ${squashed_commit:0:12}"
+    merge_evidence="matching squash commit ${squashed_commit:0:12} (patch-id mode: ${PATCH_ID_MODE})"
   else
     result="NEEDS_MANUAL_REVIEW"
     merge_evidence="branch-side files differ from origin/x after later changes"
