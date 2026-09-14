@@ -18,10 +18,13 @@ export function MarketAboutDescription({
   description,
   testID,
   toggleTestID,
+  collapsedLines = MARKET_ABOUT_DESCRIPTION_COLLAPSED_LINES,
 }: {
   description: string;
   testID?: string;
   toggleTestID?: string;
+  // Narrow columns need more lines to show a comparable amount of text.
+  collapsedLines?: number;
 }) {
   const intl = useIntl();
   // Remember which text was expanded rather than a bare flag, so switching to
@@ -37,11 +40,7 @@ export function MarketAboutDescription({
         testID={testID}
         size="$bodyMd"
         color="$textSubdued"
-        numberOfLines={
-          canExpand && !isExpanded
-            ? MARKET_ABOUT_DESCRIPTION_COLLAPSED_LINES
-            : undefined
-        }
+        numberOfLines={canExpand && !isExpanded ? collapsedLines : undefined}
       >
         {description}
       </SizableText>

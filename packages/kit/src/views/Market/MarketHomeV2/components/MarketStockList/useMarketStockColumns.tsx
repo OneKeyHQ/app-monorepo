@@ -27,7 +27,6 @@ import {
   MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '../../../marketDesktopLayoutConstants';
-import { MARKET_FIXED_24H_RANGE } from '../../utils';
 import { MarketHoverRevealLine } from '../MarketHoverRevealLine';
 import {
   MARKET_CELL_SUBTITLE_LINE_HEIGHT,
@@ -262,10 +261,9 @@ export function useMarketStockColumns({
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: intl.formatMessage(
-          { id: ETranslations.market_change_in_range },
-          { range: MARKET_FIXED_24H_RANGE },
-        ),
+        title: intl.formatMessage({
+          id: ETranslations.market_stock_change__title,
+        }),
         dataIndex: 'priceChange24hPercent',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
@@ -312,10 +310,9 @@ export function useMarketStockColumns({
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: intl.formatMessage(
-          { id: ETranslations.market_volume_in_range },
-          { range: MARKET_FIXED_24H_RANGE },
-        ),
+        title: intl.formatMessage({
+          id: ETranslations.market_stock_volume__title,
+        }),
         dataIndex: 'volume24h',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
@@ -339,7 +336,7 @@ export function useMarketStockColumns({
     if (showSparkline) {
       columns.push({
         title: intl.formatMessage({
-          id: ETranslations.market_24h_price_range,
+          id: ETranslations.market_stock_day_range__title,
         }),
         dataIndex: 'sparkline',
         columnWidth: metricColumnWidth,

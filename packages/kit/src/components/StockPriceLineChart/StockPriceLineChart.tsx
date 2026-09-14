@@ -98,6 +98,7 @@ export function StockPriceLineChart({
   showCurrentPriceLabel,
   testID,
   hoverLabelShowsPrice = true,
+  hoverLabelLargePrice = false,
   onHoverChange,
 }: {
   data: IMarketTokenChart;
@@ -114,6 +115,8 @@ export function StockPriceLineChart({
   // The hover card answers "when" and, by default, "how much". Hosts that must
   // not repeat the figure pass false to keep the card time-only.
   hoverLabelShowsPrice?: boolean;
+  // Lifts the card's price to $bodyMdMedium, 2px under the time.
+  hoverLabelLargePrice?: boolean;
   // Called with undefined when the pointer leaves the plot, and on unmount.
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
@@ -347,6 +350,7 @@ export function StockPriceLineChart({
           borderColor="$borderSubdued"
           px="$2"
           py="$1.5"
+          gap={hoverLabelLargePrice ? '$0.5' : undefined}
           pointerEvents="none"
           zIndex={HOVER_TOOLTIP_Z_INDEX}
         >
@@ -356,7 +360,7 @@ export function StockPriceLineChart({
           {hoverLabelShowsPrice ? (
             <SizableText
               testID="stock-price-line-chart-hover-label-price"
-              size="$bodySmMedium"
+              size={hoverLabelLargePrice ? '$bodyMdMedium' : '$bodySmMedium'}
               color="$text"
               numberOfLines={1}
             >
