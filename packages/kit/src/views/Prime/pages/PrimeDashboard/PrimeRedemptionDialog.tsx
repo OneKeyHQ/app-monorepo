@@ -6,7 +6,10 @@ import { useIntl } from 'react-intl';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPrimeGiftAnalyticsSource } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { PrimeDarkDialogContainer } from '../../components/PrimeDarkDialogContainer';
 import {
   PrimeRedemptionFormView,
   PrimeRedemptionSuccessView,
@@ -24,13 +27,23 @@ async function readInfiniPaymentEntryGuard() {
   }
 }
 
+type IPrimeRedemptionDialogParams = {
+  expectedOneKeyUserId: string;
+  isPrimeActiveBeforeRedeem: boolean;
+  initialCode?: string;
+  primeGiftSerialNo?: string;
+  giftSource?: IPrimeGiftAnalyticsSource;
+  onRedeemed?: (result: IPrimeRedemptionResult) => void;
+};
+
 function PrimeRedemptionDialogContent({
   expectedOneKeyUserId,
   isPrimeActiveBeforeRedeem,
-}: {
-  expectedOneKeyUserId: string;
-  isPrimeActiveBeforeRedeem: boolean;
-}) {
+  initialCode,
+  primeGiftSerialNo,
+  giftSource,
+  onRedeemed,
+}: IPrimeRedemptionDialogParams) {
   const intl = useIntl();
   const {
     codeValue,
@@ -42,6 +55,10 @@ function PrimeRedemptionDialogContent({
   } = usePrimeRedemptionSubmit({
     expectedOneKeyUserId,
     isPrimeActiveBeforeRedeem,
+    initialCode,
+    primeGiftSerialNo,
+    giftSource,
+    onRedeemed,
   });
   const [isPendingPaymentConfirmation, setIsPendingPaymentConfirmation] =
     useState(false);
@@ -131,7 +148,10 @@ function PrimeRedemptionDialogContent({
     <YStack mx="$-5">
       <Dialog.Header />
       <YStack px="$5" py="$5">
-        <PrimeRedemptionFormView form={form} />
+        <PrimeRedemptionFormView
+          form={form}
+          isCodeReadOnly={Boolean(primeGiftSerialNo)}
+        />
       </YStack>
       <Dialog.Footer
         showCancelButton={false}
@@ -148,20 +168,27 @@ function PrimeRedemptionDialogContent({
   );
 }
 
-export function showPrimeRedemptionDialog({
-  expectedOneKeyUserId,
-  isPrimeActiveBeforeRedeem,
-}: {
-  expectedOneKeyUserId: string;
-  isPrimeActiveBeforeRedeem: boolean;
-}): IDialogInstance {
+export function showPrimeRedemptionDialog(
+  params: IPrimeRedemptionDialogParams,
+): IDialogInstance {
+  const renderContent = <PrimeRedemptionDialogContent {...params} />;
+  const isHardwarePrimeGift = Boolean(params.primeGiftSerialNo);
   return Dialog.show({
+    testID: 'prime-redemption-dialog',
     showFooter: false,
-    renderContent: (
-      <PrimeRedemptionDialogContent
-        expectedOneKeyUserId={expectedOneKeyUserId}
-        isPrimeActiveBeforeRedeem={isPrimeActiveBeforeRedeem}
-      />
-    ),
+    renderContent,
+    ...(isHardwarePrimeGift
+      ? {
+          dialogContainer: ({ ref }) => (
+            <PrimeDarkDialogContainer
+              ref={ref}
+              testID="prime-redemption-dialog"
+              showFooter={false}
+              renderContent={renderContent}
+              onClose={async () => undefined}
+            />
+          ),
+        }
+      : {}),
   });
 }

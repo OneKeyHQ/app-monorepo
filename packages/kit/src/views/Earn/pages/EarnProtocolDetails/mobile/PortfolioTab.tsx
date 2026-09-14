@@ -6,11 +6,13 @@ import {
   Badge,
   Button,
   Icon,
+  NumberSizeableText,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -83,6 +85,7 @@ function PortfolioRow({
   onActionSuccess?: () => void;
 }) {
   const intl = useIntl();
+  const currencyInfo = useCurrency();
   return (
     <XStack
       minHeight={40}
@@ -98,12 +101,28 @@ function PortfolioRow({
           {item.txHash ? (
             <TransactionLink networkId={networkId} txHash={item.txHash} />
           ) : (
-            <EarnText
-              text={item.description}
-              size="$bodySm"
-              color={item.description?.color || '$textSubdued'}
-              numberOfLines={1}
-            />
+            <XStack ai="center" gap="$1.5" flexWrap="wrap">
+              <EarnText
+                text={item.description}
+                size="$bodySm"
+                color={item.description?.color || '$textSubdued'}
+                numberOfLines={1}
+              />
+              {/* The row shows the token amount; the design puts its fiat
+                  value beside the status (OK-62408). Both server paths emit
+                  fiatValue, so an empty string is the only case to skip. */}
+              {item.fiatValue ? (
+                <NumberSizeableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  formatter="value"
+                  formatterOptions={{ currency: currencyInfo.symbol }}
+                  numberOfLines={1}
+                >
+                  {item.fiatValue}
+                </NumberSizeableText>
+              ) : null}
+            </XStack>
           )}
         </YStack>
       </XStack>
@@ -152,6 +171,7 @@ export function PortfolioTab({
   protocolInfo,
   tokenInfo,
   onActionSuccess,
+  onRedeem,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -163,34 +183,13 @@ export function PortfolioTab({
   // Claiming and redeeming both change the balances this tab renders, and both
   // hand off to a modal; this is how they report back.
   onActionSuccess?: () => void;
+  // The page owns the Redeem destination (ManagePosition, or the position
+  // picker for per-position providers) so the row and the footer cannot drift.
+  onRedeem?: () => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const accountId = protocolInfo?.earnAccount?.accountId;
-
-  // Same destination as the page footer's Redeem, so the two cannot drift.
-  const openRedeem = useCallback(() => {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.ManagePosition,
-      params: {
-        networkId,
-        symbol,
-        provider,
-        vault,
-        tab: 'withdraw',
-        tokenImageUri: tokenInfo?.token?.logoURI,
-        onStakeWithdrawSuccess: onActionSuccess,
-      },
-    });
-  }, [
-    navigation,
-    networkId,
-    symbol,
-    provider,
-    vault,
-    tokenInfo?.token?.logoURI,
-    onActionSuccess,
-  ]);
 
   // Only the distributed rows carry a history entry worth opening; the other
   // rows describe live state that this page already shows in full.
@@ -230,15 +229,17 @@ export function PortfolioTab({
             })}
           </SizableText>
           {/* GridItem is already two-per-row on phone; the server sends exactly
-              the two cells the design shows, 24h earnings then APY. */}
+              the two cells the design shows, 24h earnings then APY. They are
+              the wide layout's cells reused as-is, so the tooltip and the popup
+              trigger they carry are deliberately not forwarded: the phone
+              design shows plain figures, and the APY breakdown already opens
+              from the headline above (OK-62393, OK-62391). */}
           <XStack flexWrap="wrap" m="$-3">
             {portfolio.summary.items.map((cell, index) => (
               <GridItem
                 key={cell.title?.text || `summary-${index}`}
                 title={cell.title}
                 description={cell.description}
-                actionIcon={cell.button}
-                tooltip={cell.tooltip}
                 type={cell.type}
               />
             ))}
@@ -269,7 +270,7 @@ export function PortfolioTab({
               }
               onRedeem={
                 item.redeemable && portfolio.capabilities.redeem
-                  ? openRedeem
+                  ? onRedeem
                   : undefined
               }
               onActionSuccess={onActionSuccess}

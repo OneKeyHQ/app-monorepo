@@ -388,7 +388,7 @@ final class RecoveryViewController: UIViewController {
         return
       }
 
-      let logFiles = try fm.contentsOfDirectory(atPath: logDir).filter { $0.hasSuffix(".log") }
+      let logFiles = try eligibleLogPaths(in: logDir)
       guard !logFiles.isEmpty else {
         showAlert(title: RecoveryStrings.current.error, message: RecoveryStrings.current.noLogs)
         return
@@ -407,6 +407,7 @@ final class RecoveryViewController: UIViewController {
       }
 
       let zipURL = URL(fileURLWithPath: zipPath)
+      try fm.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: zipPath)
       let activityVC = UIActivityViewController(activityItems: [zipURL], applicationActivities: nil)
       activityVC.popoverPresentationController?.sourceView = exportLogsButton
       activityVC.popoverPresentationController?.sourceRect = exportLogsButton.bounds
@@ -506,6 +507,29 @@ final class RecoveryViewController: UIViewController {
     return (cacheDir as NSString).appendingPathComponent("logs")
   }
 
+  private func eligibleLogPaths(in directory: String) throws -> [String] {
+    let rootURL = URL(fileURLWithPath: directory, isDirectory: true)
+    guard let enumerator = FileManager.default.enumerator(
+      at: rootURL,
+      includingPropertiesForKeys: [.isRegularFileKey],
+      options: [.skipsHiddenFiles]
+    ) else {
+      return []
+    }
+
+    var paths: [String] = []
+    for case let fileURL as URL in enumerator {
+      let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+      guard values.isRegularFile == true else { continue }
+      let relativePath = String(fileURL.path.dropFirst(rootURL.path.count + 1))
+      if fileURL.pathExtension == "log" ||
+        (fileURL.pathExtension == "json" && relativePath.hasPrefix("crashes/")) {
+        paths.append(relativePath)
+      }
+    }
+    return paths
+  }
+
   /// Creates a zip archive of the given files using NSFileCoordinator (forUploading).
   /// This produces a valid .zip without any third-party library.
   private func createZip(atPath zipPath: String, withFilesInDirectory directory: String, fileNames: [String]) -> Bool {
@@ -516,11 +540,21 @@ final class RecoveryViewController: UIViewController {
     if fm.fileExists(atPath: stagingDir) {
       try? fm.removeItem(atPath: stagingDir)
     }
-    try? fm.createDirectory(atPath: stagingDir, withIntermediateDirectories: true)
+    try? fm.createDirectory(
+      atPath: stagingDir,
+      withIntermediateDirectories: true,
+      attributes: [.protectionKey: FileProtectionType.complete]
+    )
 
     for name in fileNames {
       let src = (directory as NSString).appendingPathComponent(name)
       let dst = (stagingDir as NSString).appendingPathComponent(name)
+      let destinationDirectory = (dst as NSString).deletingLastPathComponent
+      try? fm.createDirectory(
+        atPath: destinationDirectory,
+        withIntermediateDirectories: true,
+        attributes: [.protectionKey: FileProtectionType.complete]
+      )
       try? fm.copyItem(atPath: src, toPath: dst)
     }
 

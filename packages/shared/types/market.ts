@@ -316,14 +316,26 @@ export enum ESpeedSwapSwitchType {
   SELL = 'sell',
 }
 
-// Market Watch List V2 Types (using chainId + contractAddress)
+// Spot tokens, asset listings, stock listings and perps retain distinct identities.
 export interface IMarketWatchListItemV2 {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   sortIndex?: number;
   isNative?: boolean;
   // Perps watchlist: coin name (e.g. "BTC", "ETH"). When set, chainId/contractAddress are empty.
   perpsCoin?: string;
+}
+
+export interface IMarketListingWatchlistQuote {
+  symbol: string;
+  name: string;
+  logoUrl: string;
+  price?: string;
+  priceChange24hPercent?: string;
+  marketCap?: string;
+  volume24h?: string;
 }
 
 export interface IMarketWatchListDataV2 {

@@ -86,6 +86,7 @@ function isChartPriceUpdateForCurrentToken({
 }
 
 export interface IMarketTradingViewProps {
+  loadingIdentity?: string;
   tokenAddress: string;
   networkId: string;
   tokenSymbol?: string;

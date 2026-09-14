@@ -199,7 +199,7 @@ export const useColumnsMobile = (
                   currency: '$',
                 }}
               >
-                {record.price}
+                {Number.isFinite(record.price) ? record.price : '--'}
               </NumberSizeableText>
               <PriceChangeBadge change={priceChange} />
             </XStack>

@@ -46,7 +46,7 @@ index 7a739fc..60d1ba0 100644
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..dd98965 100644
+index e782b90..17fa960 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,9 +1,15 @@
@@ -137,7 +137,7 @@ index e782b90..dd98965 100644
        )
  
        // derived from scrollX
-@@ -193,7 +209,19 @@ export const Container = React.memo(
+@@ -193,7 +209,18 @@ export const Container = React.memo(
            return nextIndex
          },
          (nextIndex) => {
@@ -145,20 +145,19 @@ index e782b90..dd98965 100644
 +          if (nextIndex === null) {
 +            return
 +          }
-+          // OneKey patch: release the programmatic target as soon as the pager
-+          // visually reaches it, even when `index` was already synced by the
-+          // early Android onPageSelected, so the guard never outlives the scroll.
++          // OneKey patch: keep the latest programmatic target until a terminal
++          // native event confirms it. Releasing it while the pager is still
++          // scrolling lets callbacks from superseded requests update `index`.
 +          if (programmaticPageTarget.value !== null) {
 +            if (nextIndex !== programmaticPageTarget.value) {
 +              return
 +            }
-+            programmaticPageTarget.value = null
 +          }
 +          if (nextIndex !== index.value) {
              calculateNextOffset.value = nextIndex
            }
          },
-@@ -212,25 +240,46 @@ export const Container = React.memo(
+@@ -212,25 +239,46 @@ export const Container = React.memo(
          'worklet'
  
          const name = tabNamesArray[index.value]
@@ -211,7 +210,7 @@ index e782b90..dd98965 100644
            runOnJS(toggleSyncScrollFrame)(false)
          }
        }, false)
-@@ -241,54 +290,334 @@ export const Container = React.memo(
+@@ -241,60 +289,368 @@ export const Container = React.memo(
          },
          (i) => {
            if (i !== index.value) {
@@ -385,8 +384,7 @@ index e782b90..dd98965 100644
 +          }
 +          // Start first attempt after a short delay
 +          setTimeout(() => scrollToPosition(0), 16)
-         }
--      }, [revealHeaderOnScroll])
++        }
 +      }, [useNativeHeaderAnimation, nativeScrollY, contentInset])
 +
 +      // Only sync nativeScrollY when focused tab changes, not on every scroll
@@ -441,7 +439,8 @@ index e782b90..dd98965 100644
 +              extrapolate: 'clamp',
 +            })
 +          }]
-+        }
+         }
+-      }, [revealHeaderOnScroll])
 +      }, [useNativeHeaderAnimation, nativeScrollY, headerScrollDist, contentInset])
 +
 +      const pendingPageFallbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -464,14 +463,21 @@ index e782b90..dd98965 100644
 +        (event: PagerViewOnPageSelectedEvent) => {
 +          const selectedIndex = event.nativeEvent.position
 +          const pendingTarget = programmaticPageTarget.value
++          // OneKey patch: iOS queues animated page commands. A selection from
++          // the previous command may therefore arrive after a newer tab press.
++          // Only the latest target is allowed to complete the transition.
++          if (pendingTarget !== null && selectedIndex !== pendingTarget) {
++            pagerProps?.onPageSelected?.(event)
++            return
++          }
 +          if (pendingTarget !== null || pendingPageFallbackTimerRef.current) {
 +            // OneKey patch: Android's ViewPager2 reports the selected page as
 +            // soon as a programmatic smooth scroll starts, before the pager has
 +            // moved. Sync `index` right away (keeps the tab highlight instant)
 +            // but keep the programmatic target alive until the pager visually
 +            // reaches the page; otherwise every page the scroll passes through
-+            // would be propagated as an index change. Landing on a different
-+            // page (the user interrupted the scroll) still releases the target.
++            // would be propagated as an index change. A direct user drag
++            // cancels the target in the scroll-state handler.
 +            const isEarlyProgrammaticSelect =
 +              pendingTarget !== null &&
 +              selectedIndex === pendingTarget &&
@@ -489,34 +495,47 @@ index e782b90..dd98965 100644
 +          }
 +          pagerProps?.onPageSelected?.(event)
 +        },
-+        [calculateNextOffset, clearPendingPageFallback, index, indexDecimal, pagerProps, programmaticPageTarget]
++        [
++          calculateNextOffset,
++          clearPendingPageFallback,
++          index,
++          indexDecimal,
++          pagerProps,
++          programmaticPageTarget,
++        ]
 +      )
 +
 +      const handlePageScrollStateChanged = React.useCallback(
 +        (event: PageScrollStateChangedNativeEvent) => {
 +          const pendingTarget = programmaticPageTarget.value
 +          const pageScrollState = event.nativeEvent.pageScrollState
-+          // OneKey patch: `settling` is dispatched while the programmatic scroll
-+          // is still in flight (Android emits it right before the early
-+          // onPageSelected), so only a non-settling state marks the pager as
-+          // done with the programmatic target.
-+          if (
-+            pendingTarget !== null &&
-+            index.value === pendingTarget &&
-+            pageScrollState !== 'settling'
-+          ) {
-+            if (
-+              pageScrollState === 'idle' &&
-+              Math.round(indexDecimal.value) !== pendingTarget
-+            ) {
++          // OneKey patch: a direct user gesture supersedes a programmatic tab
++          // request. Programmatic settling itself must keep the latest target.
++          if (pendingTarget !== null && pageScrollState === 'dragging') {
++            programmaticPageTarget.value = null
++            clearPendingPageFallback()
++          } else if (pendingTarget !== null && pageScrollState === 'idle') {
++            if (Math.round(indexDecimal.value) !== pendingTarget) {
++              containerRef.current?.setPageWithoutAnimation(pendingTarget)
 +              indexDecimal.value = pendingTarget
++            }
++            if (index.value !== pendingTarget) {
++              calculateNextOffset.value = pendingTarget
 +            }
 +            programmaticPageTarget.value = null
 +            clearPendingPageFallback()
 +          }
 +          pagerProps?.onPageScrollStateChanged?.(event)
 +        },
-+        [clearPendingPageFallback, index, indexDecimal, pagerProps, programmaticPageTarget]
++        [
++          calculateNextOffset,
++          clearPendingPageFallback,
++          containerRef,
++          index,
++          indexDecimal,
++          pagerProps,
++          programmaticPageTarget,
++        ]
 +      )
 +
 +      const setPageWithFallback = React.useCallback(
@@ -540,38 +559,54 @@ index e782b90..dd98965 100644
 +
 +          pendingPageFallbackTimerRef.current = setTimeout(() => {
 +            pendingPageFallbackTimerRef.current = null
-+            if (index.value === nextIndex) {
-+              // OneKey patch: `index` may have been synced by an early
-+              // onPageSelected while the pager never scrolled; finish the
-+              // arrival here so the tab indicator lands on the target too.
-+              if (Math.round(indexDecimal.value) !== nextIndex) {
-+                indexDecimal.value = nextIndex
-+              }
-+              programmaticPageTarget.value = null
++            // OneKey patch: a newer press owns the transition and its timer.
++            if (programmaticPageTarget.value !== nextIndex) {
 +              return
 +            }
-+            programmaticPageTarget.value = null
-+            calculateNextOffset.value = nextIndex
++            if (index.value !== nextIndex) {
++              calculateNextOffset.value = nextIndex
++            }
 +            indexDecimal.value = nextIndex
 +            containerRef.current?.setPageWithoutAnimation(nextIndex)
 +          }, 300)
 +        },
-+        [calculateNextOffset, clearPendingPageFallback, containerRef, index, indexDecimal, programmaticPageTarget]
++        [
++          calculateNextOffset,
++          clearPendingPageFallback,
++          containerRef,
++          index,
++          indexDecimal,
++          programmaticPageTarget,
++        ]
 +      )
 +
 +      const syncToTabIndex = React.useCallback(
 +        (nextIndex: number, animated = true) => {
-+          if (nextIndex === index.value) {
++          if (
++            nextIndex === index.value &&
++            programmaticPageTarget.value === null
++          ) {
 +            return
 +          }
 +          setPageWithFallback(nextIndex, animated)
 +        },
-+        [index, setPageWithFallback]
++        [index, programmaticPageTarget, setPageWithFallback]
 +      )
  
        const onTabPress = React.useCallback(
          (name: TabName) => {
-@@ -303,11 +632,11 @@ export const Container = React.memo(
+           const i = tabNames.value.findIndex((n) => n === name)
+-
+-          if (name === focusedTab.value) {
++          // OneKey patch: only a settled focused page is a vertical reselect.
++          if (
++            name === focusedTab.value &&
++            programmaticPageTarget.value === null
++          ) {
+             const ref = refMap[name]
+             runOnUI(scrollToImpl)(
+               ref,
+@@ -303,11 +659,11 @@ export const Container = React.memo(
                true
              )
            } else {
@@ -585,7 +620,7 @@ index e782b90..dd98965 100644
        )
  
        useAnimatedReaction(
-@@ -344,57 +673,96 @@ export const Container = React.memo(
+@@ -344,57 +700,96 @@ export const Container = React.memo(
            getCurrentIndex: () => {
              return index.value
            },
@@ -721,7 +756,7 @@ index e782b90..dd98965 100644
                  pointerEvents="box-none"
                >
                  {renderHeader &&
-@@ -407,10 +775,11 @@ export const Container = React.memo(
+@@ -407,10 +802,11 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -735,7 +770,7 @@ index e782b90..dd98965 100644
                  pointerEvents="box-none"
                >
                  {renderTabBar &&
-@@ -425,13 +794,15 @@ export const Container = React.memo(
+@@ -425,13 +821,15 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>

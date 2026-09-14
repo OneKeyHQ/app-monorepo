@@ -58,6 +58,9 @@ const getLogFilePath = async (filename: string) => {
   throw new OneKeyLocalError('Not implemented');
 };
 
+const removeLogFilePath = async () => {};
+const cleanupLogArchives = async (_createdBefore: number) => {};
+
 const getDeviceInfo = () =>
   [
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
@@ -71,6 +74,8 @@ const getDeviceInfo = () =>
 const utils: IUtilsType = {
   getDeviceInfo,
   getLogFilePath,
+  removeLogFilePath,
+  cleanupLogArchives,
   consoleFunc,
   flushPendingRepeat,
 };

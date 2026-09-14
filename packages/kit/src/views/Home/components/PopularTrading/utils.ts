@@ -6,6 +6,7 @@ import type {
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   getNativeTokenInfo,
   normalizeStockMetadataValue,
@@ -18,11 +19,15 @@ import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 
 function getTokenKey(token: {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   perpsCoin?: string;
   marketAsset?: Pick<IMarketAssetListItem, 'assetId'>;
 }) {
+  if (token.assetId) return `asset:${token.assetId}`;
+  if (token.stockId) return `stock:${token.stockId}`;
   if (token.marketAsset) {
     return `market:${token.marketAsset.assetId}`;
   }
@@ -84,6 +89,7 @@ function mapMarketTokenToDisplay(
   const { isNative } = getNativeTokenInfo(item.isNative, item.address);
 
   return {
+    stockId: resolveMarketStockId(item),
     chainId,
     contractAddress: isNative ? '' : (item.address ?? ''),
     isNative,
@@ -131,6 +137,7 @@ function mapMarketAssetToDisplay(
   item: IMarketAssetListItem,
 ): IFavoriteTokenDisplay {
   return {
+    assetId: item.assetId,
     chainId: '',
     contractAddress: '',
     isNative: false,

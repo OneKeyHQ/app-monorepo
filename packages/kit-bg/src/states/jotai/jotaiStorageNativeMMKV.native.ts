@@ -28,7 +28,6 @@ import {
   buildTravelModeManualLockPersistView,
   buildTravelModePasswordPersistView,
   buildTravelModeSettingsPersistView,
-  mergeTravelModeManualLockPersistWrite,
   mergeTravelModePasswordPersistWrite,
   mergeTravelModeSettingsPersistWrite,
   travelModeManager,
@@ -531,6 +530,9 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         persistedValue,
         proposedValue: newValue,
       });
+      if (isEqual(mergedValue, persistedValue)) {
+        return;
+      }
       void this.store.set(
         PASSWORD_CONTROL_STORAGE_KEY,
         JSON.stringify(mergedValue),
@@ -571,30 +573,6 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     if (environment.persistence.kind === 'real') {
       return this.setItem(MANUAL_LOCK_CONTROL_STORAGE_KEY, newValue);
-    }
-    const rawPersistedValue = this.mmkv.getString(
-      MANUAL_LOCK_CONTROL_STORAGE_KEY,
-    );
-    try {
-      const persistedValue: unknown = rawPersistedValue
-        ? JSON.parse(rawPersistedValue)
-        : undefined;
-      const mergedValue = mergeTravelModeManualLockPersistWrite({
-        persistedValue,
-        proposedValue: newValue,
-      });
-      const serializedValue = JSON.stringify(mergedValue);
-      if (!serializedValue) {
-        return;
-      }
-      void this.store.set(MANUAL_LOCK_CONTROL_STORAGE_KEY, serializedValue);
-      await syncNativeStorageMMKV('onekey-jotai-states');
-    } catch (error) {
-      this.log(
-        `Travel Mode manual lock state write skipped: ${
-          (error as Error)?.message
-        }`,
-      );
     }
   }
 

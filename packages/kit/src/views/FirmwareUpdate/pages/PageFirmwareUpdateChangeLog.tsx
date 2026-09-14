@@ -71,7 +71,10 @@ function PageFirmwareUpdateChangeLog() {
         const resolvedTransport =
           await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
             connectId,
-            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+            // Preserve anonymous USB/bootloader discovery from the legacy flow.
+            hardwareCallContext: connectId
+              ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+              : EHardwareCallContext.UPDATE_FIRMWARE,
           });
         const compatibleConnectId = resolvedTransport.connectId;
         setActiveConnectId(compatibleConnectId);

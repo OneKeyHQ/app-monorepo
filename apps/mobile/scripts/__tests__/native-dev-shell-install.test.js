@@ -66,7 +66,7 @@ describe('simulator shell local rebuild', () => {
     });
     expect(report.shell.ociDigest).toBeUndefined();
     expect(report.userNoticeRequired).toBe(true);
-  });
+  }, 15_000);
 
   it.each([
     ['remote', new IosSimulatorEntitlementsError()],

@@ -10,7 +10,7 @@ import type {
 } from './types';
 
 const MAX_FIXED_PRECISION = 20;
-const INHERITED_PRICE_PLAIN_DECIMAL_BOUNDARY = 0.000_088_88;
+const INHERITED_PRICE_PLAIN_DECIMAL_BOUNDARY = 0.000_888_8;
 
 function getNormalizedPrecision(precision: number | undefined) {
   'worklet';
@@ -26,7 +26,11 @@ function formatSignedTradingViewNativeVolume(value: number) {
   if (!Number.isFinite(value)) {
     return '--';
   }
-  const formattedValue = formatTradingViewNativeVolume(Math.abs(value));
+  const absoluteValue = Math.abs(value);
+  if (absoluteValue > 0 && absoluteValue < 0.0001) {
+    return formatTradingViewNativePriceTick(value, 6);
+  }
+  const formattedValue = formatTradingViewNativeVolume(absoluteValue);
   return value < 0 && formattedValue !== '--'
     ? `-${formattedValue}`
     : formattedValue;
@@ -137,9 +141,6 @@ export function getTradingViewNativeSubIndicatorAxisLabel(
           includeValue(range.maxValue - valueSpan * progress, pane.format);
         }
         if (pane.format.type === 'volume') {
-          if (range.minValue < 0 && range.maxValue > 0) {
-            includeLabel('-8.88888e-888');
-          }
           const maxAbsoluteValue = Math.max(
             Math.abs(range.minValue),
             Math.abs(range.maxValue),
@@ -203,9 +204,6 @@ export function getTradingViewNativeSubIndicatorAxisLabel(
             }
           }
         } else if (pane.format.type === 'inherit') {
-          if (range.minValue < 0 && range.maxValue > 0) {
-            includeLabel('-8.888e-888');
-          }
           const maxAbsoluteValue = Math.max(
             Math.abs(range.minValue),
             Math.abs(range.maxValue),

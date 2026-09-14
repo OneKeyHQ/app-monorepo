@@ -7,6 +7,8 @@ import {
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
 
+import { getMarketStockPreviousClose } from '../../utils/marketStockPreviousClose';
+
 export type IStockSimpleChartRange = '1H' | '1D' | '1W' | '1M' | '1Y' | 'All';
 
 export const TOKEN_SIMPLE_CHART_RANGES = [
@@ -22,6 +24,52 @@ export const STOCK_SHARE_SIMPLE_CHART_RANGES =
   TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
 
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
+
+// The previous session close frames the within-day ranges. On longer ranges
+// it is one of the many closes already on the line, so it stays off.
+const STOCK_SIMPLE_CHART_PREVIOUS_CLOSE_RANGES =
+  new Set<IStockSimpleChartRange>(['1H', '1D']);
+
+export function resolveStockSimpleChartPreviousClose({
+  priceMode,
+  range,
+  stockDetail,
+}: {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
+}): number | undefined {
+  // Only the share quote reports the figure; a tokenized share trades on its
+  // own price and has no session close to compare against.
+  if (
+    priceMode !== 'share' ||
+    !STOCK_SIMPLE_CHART_PREVIOUS_CLOSE_RANGES.has(range)
+  ) {
+    return undefined;
+  }
+  return getMarketStockPreviousClose(stockDetail);
+}
+
+// The line ends on a live pulse while the asset is trading. Crypto trades
+// around the clock, so it always pulses; a stock only pulses while its market
+// is open.
+export function resolveStockSimpleChartPulseLastPoint({
+  stockDetail,
+  stockId,
+  tokenStock,
+}: {
+  stockDetail?: { marketStatus?: { isOpen?: boolean } } | null;
+  stockId?: string;
+  tokenStock?: { isOpen?: boolean } | null;
+}): boolean {
+  const isStock = Boolean(stockId) || Boolean(tokenStock);
+  if (!isStock) {
+    return true;
+  }
+  return (
+    stockDetail?.marketStatus?.isOpen === true || tokenStock?.isOpen === true
+  );
+}
 
 type IStockSimpleChartRequestParams = {
   coinGeckoId?: string;
@@ -126,7 +174,7 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   '1H': '1h',
   '1D': '1d',
   '1W': '1w',
-  '1M': '1y',
+  '1M': '1m',
   '1Y': '1y',
   All: 'all',
 };
@@ -191,7 +239,6 @@ export async function fetchStockSimpleChartPoints(
       await backgroundApiProxy.serviceMarketV2.fetchMarketStockChart({
         stockId,
         period: STOCK_SHARE_CHART_PERIODS[range],
-        points: range === '1M' ? 180 : 100,
       });
     const points = response.points
       .map((point) => [Number(point.t), Number(point.c)] as [number, number])
@@ -201,17 +248,7 @@ export async function fetchStockSimpleChartPoints(
       )
       .toSorted((a, b) => a[0] - b[0]);
 
-    if (range !== '1M') {
-      return points;
-    }
-
-    const latestTimestamp = points.at(-1)?.[0];
-    if (latestTimestamp === undefined) {
-      return points;
-    }
-
-    const timeFrom = latestTimestamp - STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS;
-    return points.filter(([timestamp]) => timestamp >= timeFrom);
+    return points;
   }
 
   const rangeSeconds = STOCK_SIMPLE_CHART_RANGE_SECONDS[range];

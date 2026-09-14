@@ -3,6 +3,7 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import {
   appendUniqueMarketStocks,
   buildStockSparklinePoints,
+  getMarketStockSortByColumn,
   parseMarketStockNumber,
 } from './utils';
 
@@ -21,6 +22,17 @@ const createStock = (
 });
 
 describe('market stock list utils', () => {
+  it('maps the four sortable stock columns to server fields', () => {
+    expect(getMarketStockSortByColumn('price')).toBe('price');
+    expect(getMarketStockSortByColumn('priceChange24hPercent')).toBe(
+      'priceChange24hPercent',
+    );
+    expect(getMarketStockSortByColumn('marketCap')).toBe('marketCap');
+    expect(getMarketStockSortByColumn('volume24h')).toBe('volume24h');
+    expect(getMarketStockSortByColumn('company')).toBeUndefined();
+    expect(getMarketStockSortByColumn('sparkline')).toBeUndefined();
+  });
+
   it('parses only finite stock values', () => {
     expect(parseMarketStockNumber('12.5')).toBe(12.5);
     expect(parseMarketStockNumber('')).toBeUndefined();

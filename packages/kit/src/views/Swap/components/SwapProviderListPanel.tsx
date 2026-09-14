@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { AnimatePresence, MotiView } from 'moti';
@@ -139,6 +139,67 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
   </MotiView>
 ));
 AnimatedSkeletonItem.displayName = 'AnimatedSkeletonItem';
+
+const SWAP_PANEL_FEATURES = [
+  {
+    icon: 'Shield2CheckSolid',
+    id: ETranslations.description_sim_swap_mev_protection,
+  },
+  {
+    icon: 'SplitSolid',
+    id: ETranslations.description_sim_swap_smart_routing,
+  },
+  {
+    icon: 'HandCoinsSolid',
+    id: ETranslations.description_sim_swap_high_liquidity,
+  },
+] as const;
+
+const SWAP_PANEL_TITLE_IDS = [
+  ETranslations.swap_provider_panel_title_line1,
+  ETranslations.swap_provider_panel_title_line2,
+] as const;
+
+const swapPanelStyles = StyleSheet.create({
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    lineHeight: 38,
+    letterSpacing: -0.5,
+  },
+});
+
+const SwapPanelBadge = ({
+  highlighted,
+  children,
+}: {
+  highlighted?: boolean;
+  children: string;
+}) => (
+  <XStack
+    px="$2.5"
+    py="$1"
+    borderRadius="$full"
+    borderWidth={1}
+    borderColor={highlighted ? '$borderSuccessSubdued' : '$borderSubdued'}
+    bg={highlighted ? '$bgSuccessSubdued' : undefined}
+    alignItems="center"
+    gap="$2"
+  >
+    {highlighted ? (
+      <Stack width={8} height={8} borderRadius="$full" bg="$iconSuccess" />
+    ) : null}
+    <SizableText
+      color={highlighted ? '$textSuccess' : '$textSubdued'}
+      fontSize={10}
+      fontWeight="700"
+      textTransform="uppercase"
+      letterSpacing={0.8}
+    >
+      {children}
+    </SizableText>
+  </XStack>
+);
 
 const SwapProviderListPanel = ({
   refreshAction,
@@ -487,214 +548,64 @@ const SwapProviderListPanel = ({
         justifyContent="space-between"
       >
         {/* Left Column */}
-        <YStack width="40%" justifyContent="space-between">
-          {/* Top Content */}
-          <YStack gap="$5" mt="$2" justifyContent="space-between">
-            {/* Title */}
-            <YStack>
+        <YStack width="45%" gap="$9" mt="$2">
+          {/* Title */}
+          <YStack>
+            {SWAP_PANEL_TITLE_IDS.map((id) => (
               <SizableText
+                key={id}
                 color="$text"
-                style={{
-                  fontSize: 32,
-                  fontWeight: '900',
-                  lineHeight: 38,
-                  letterSpacing: -0.5,
-                }}
+                style={swapPanelStyles.title}
                 $platform-web={{
                   // @ts-ignore
                   WebkitTextStroke: '0.3px currentColor',
                 }}
               >
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_title_line1,
-                })}
+                {intl.formatMessage({ id })}
               </SizableText>
-              <SizableText
-                color="$text"
-                style={{
-                  fontSize: 32,
-                  fontWeight: '900',
-                  lineHeight: 38,
-                  letterSpacing: -0.5,
-                }}
-                $platform-web={{
-                  // @ts-ignore
-                  WebkitTextStroke: '0.3px currentColor',
-                }}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_title_line2,
-                })}
-              </SizableText>
-            </YStack>
-
-            {/* Description */}
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              style={{ lineHeight: 20 }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.swap_provider_panel_desc,
-              })}
-            </SizableText>
-
-            {/* Badges */}
-            <XStack gap="$2" mt={60} flexWrap="wrap">
-              <XStack
-                alignSelf="flex-start"
-                px="$2.5"
-                py="$1"
-                borderRadius="$full"
-                borderWidth={1}
-                borderColor="$borderSuccessSubdued"
-                bg="$bgSuccessSubdued"
-                alignItems="center"
-                gap="$2"
-              >
-                <Stack
-                  width={8}
-                  height={8}
-                  borderRadius="$full"
-                  bg="$iconSuccess"
-                />
-                <SizableText
-                  color="$textSuccess"
-                  style={{
-                    fontSize: 10,
-                    fontWeight: '700',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.8,
-                  }}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_badge_dexs,
-                  })}
-                </SizableText>
-              </XStack>
-
-              <XStack
-                alignSelf="flex-start"
-                px="$2.5"
-                py="$1"
-                borderRadius="$full"
-                borderWidth={1}
-                borderColor="$borderSubdued"
-                alignItems="center"
-              >
-                <SizableText
-                  color="$textSubdued"
-                  style={{
-                    fontSize: 10,
-                    fontWeight: '700',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.8,
-                  }}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_badge_chains,
-                  })}
-                </SizableText>
-              </XStack>
-
-              <XStack
-                alignSelf="flex-start"
-                px="$2.5"
-                py="$1"
-                borderRadius="$full"
-                borderWidth={1}
-                borderColor="$borderSubdued"
-                alignItems="center"
-              >
-                <SizableText
-                  color="$textSubdued"
-                  style={{
-                    fontSize: 10,
-                    fontWeight: '700',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.8,
-                  }}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.swap_provider_panel_badge_availability,
-                  })}
-                </SizableText>
-              </XStack>
-            </XStack>
+            ))}
           </YStack>
+
+          {/* Badges */}
+          <XStack gap="$1.5" flexWrap="wrap" alignItems="center">
+            <SwapPanelBadge highlighted>
+              {intl.formatMessage({
+                id: ETranslations.swap_provider_panel_badge_dexs,
+              })}
+            </SwapPanelBadge>
+            <SwapPanelBadge>
+              {intl.formatMessage({
+                id: ETranslations.swap_provider_panel_badge_chains,
+              })}
+            </SwapPanelBadge>
+          </XStack>
         </YStack>
 
         {/* Right Column - Feature List */}
         <YStack width="50%" justifyContent="center" gap="$6">
-          {/* MEV Shield */}
-          <XStack alignItems="flex-start" gap="$3">
-            <Icon
-              name="Shield2CheckSolid"
-              size="$7"
-              color="$iconSuccess"
-              flexShrink={0}
-            />
-            <YStack flex={1} gap="$1">
-              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_mev,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_mev_desc,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
-
-          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
-
-          {/* Smart Routing */}
-          <XStack alignItems="flex-start" gap="$3">
-            <Icon
-              name="SplitSolid"
-              size="$7"
-              color="$iconSuccess"
-              flexShrink={0}
-            />
-            <YStack flex={1} gap="$1">
-              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_routing,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_routing_desc,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
-
-          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
-
-          {/* High Liquidity */}
-          <XStack alignItems="flex-start" gap="$3">
-            <Icon
-              name="HandCoinsSolid"
-              size="$7"
-              color="$iconSuccess"
-              flexShrink={0}
-            />
-            <YStack flex={1} gap="$1">
-              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_liquidity,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.swap_provider_panel_feature_liquidity_desc,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
+          {SWAP_PANEL_FEATURES.map(({ icon, id }, index) => (
+            <Fragment key={id}>
+              {index > 0 ? (
+                <Stack
+                  ml="$10"
+                  height={0.5}
+                  bg="$borderSubdued"
+                  opacity={0.5}
+                />
+              ) : null}
+              <XStack alignItems="center" gap="$3">
+                <Icon
+                  name={icon}
+                  size="$7"
+                  color="$iconSuccess"
+                  flexShrink={0}
+                />
+                <SizableText flex={1} size="$headingSm" color="$text">
+                  {intl.formatMessage({ id })}
+                </SizableText>
+              </XStack>
+            </Fragment>
+          ))}
         </YStack>
       </XStack>
     ),

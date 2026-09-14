@@ -9,6 +9,7 @@ type IPrimeRedemptionErrorPayload = Partial<
 export type IPrimeRedemptionErrorPresentation = {
   errorCode: number | undefined;
   isExpiredSession: boolean;
+  isLocalPreflightFailure: boolean;
   message: string;
 };
 
@@ -34,10 +35,16 @@ export function getPrimeRedemptionErrorPresentation({
       ? (error as IOneKeyError<unknown, IPrimeRedemptionErrorPayload>)
       : undefined;
   const payload = apiError?.data;
+  const key = apiError?.key;
+  const isExpiredSession = key === ETranslations.id_login_expired_description;
+  // Empty-code preflight only. Session-changed errors are thrown both before
+  // and after POST, so they must not be treated as known failures by key.
+  const isLocalPreflightFailure =
+    key === ETranslations.redemption_invalid_code_error;
   return {
     errorCode: readErrorCode(payload?.code ?? apiError?.code),
-    isExpiredSession:
-      apiError?.key === ETranslations.id_login_expired_description,
+    isExpiredSession,
+    isLocalPreflightFailure,
     message:
       readErrorText(payload?.translatedMessage) ||
       readErrorText(payload?.message) ||

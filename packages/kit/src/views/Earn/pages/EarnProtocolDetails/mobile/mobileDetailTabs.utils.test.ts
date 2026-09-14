@@ -1,24 +1,34 @@
 import {
+  interpolatePageHeight,
   resolveActiveTabKey,
   resolveDefaultTabKey,
+  resolveSettleIndex,
   resolveVisibleTabKeys,
 } from './mobileDetailTabs.utils';
 
 describe('mobileDetailTabs.utils', () => {
   describe('resolveVisibleTabKeys', () => {
     it('hides portfolio when there is no position', () => {
-      expect(resolveVisibleTabKeys({ hasPortfolio: false })).toEqual([
-        'info',
-        'protocol',
-      ]);
+      expect(
+        resolveVisibleTabKeys({ hasPortfolio: false, hasProtocol: true }),
+      ).toEqual(['info', 'protocol']);
     });
 
     it('shows portfolio first when there is a position', () => {
-      expect(resolveVisibleTabKeys({ hasPortfolio: true })).toEqual([
-        'portfolio',
-        'info',
-        'protocol',
-      ]);
+      expect(
+        resolveVisibleTabKeys({ hasPortfolio: true, hasProtocol: true }),
+      ).toEqual(['portfolio', 'info', 'protocol']);
+    });
+  });
+
+  describe('resolveVisibleTabKeys without protocol data', () => {
+    it('drops the protocol tab when the provider sends no intro', () => {
+      expect(
+        resolveVisibleTabKeys({ hasPortfolio: true, hasProtocol: false }),
+      ).toEqual(['portfolio', 'info']);
+      expect(
+        resolveVisibleTabKeys({ hasPortfolio: false, hasProtocol: false }),
+      ).toEqual(['info']);
     });
   });
 
@@ -71,6 +81,70 @@ describe('mobileDetailTabs.utils', () => {
           defaultKey: 'portfolio',
         }),
       ).toBe('portfolio');
+    });
+  });
+
+  describe('resolveSettleIndex', () => {
+    it('lands on the nearest page after a slow release', () => {
+      expect(
+        resolveSettleIndex({ progress: 0.4, velocityX: 0, count: 3 }),
+      ).toBe(0);
+      expect(
+        resolveSettleIndex({ progress: 0.6, velocityX: 0, count: 3 }),
+      ).toBe(1);
+    });
+
+    it('moves one page in the flick direction however short the drag', () => {
+      expect(
+        resolveSettleIndex({ progress: 0.1, velocityX: -900, count: 3 }),
+      ).toBe(1);
+      expect(
+        resolveSettleIndex({ progress: 1.9, velocityX: 900, count: 3 }),
+      ).toBe(1);
+    });
+
+    it('never settles past either end', () => {
+      expect(
+        resolveSettleIndex({ progress: 2.3, velocityX: -900, count: 3 }),
+      ).toBe(2);
+      expect(
+        resolveSettleIndex({ progress: -0.3, velocityX: 900, count: 3 }),
+      ).toBe(0);
+    });
+  });
+
+  describe('interpolatePageHeight', () => {
+    it('blends the two neighbouring heights by progress', () => {
+      expect(
+        interpolatePageHeight({
+          progress: 0.25,
+          heights: [100, 300, 500],
+          fallback: 200,
+        }),
+      ).toBe(150);
+    });
+
+    it('uses the fallback for a page that has not been measured', () => {
+      expect(
+        interpolatePageHeight({
+          progress: 1,
+          heights: [100, 0, 500],
+          fallback: 200,
+        }),
+      ).toBe(200);
+      expect(
+        interpolatePageHeight({ progress: 0, heights: [], fallback: 200 }),
+      ).toBe(200);
+    });
+
+    it('clamps progress that ran past the ends during overscroll', () => {
+      expect(
+        interpolatePageHeight({
+          progress: 2.4,
+          heights: [100, 300, 500],
+          fallback: 200,
+        }),
+      ).toBe(500);
     });
   });
 });

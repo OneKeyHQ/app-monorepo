@@ -63,16 +63,22 @@ export type IDeviceStageErrorReasonValue =
   | 'disconnected'
   | 'busy';
 
-/** What ended the authenticity check. The first three are terminal (the
- * device or its firmware is the problem, Support is the only exit); the
- * last three are recoverable (Retry plus the gated Continue-anyway). */
+/** What ended the authenticity check, by whose fault the check did not
+ * stand. Terminal (the device or its firmware is the problem, Support is
+ * the only exit): unofficialDevice, unofficialFirmware, defective. The
+ * device stayed on the line but the check still failed (Retry and
+ * Support, never a bypass): unknown. The device vanished mid-check
+ * (Retry only — nothing to continue with): disconnected. The device did
+ * its part and our side could not finish (Retry, or Continue anyway
+ * behind a NOTE): network, unavailable. */
 export type IDeviceStageAuthFailureReasonValue =
   | 'unofficialDevice'
   | 'unofficialFirmware'
   | 'defective'
   | 'network'
   | 'unknown'
-  | 'unavailable';
+  | 'unavailable'
+  | 'disconnected';
 
 /** One row of the authenticity checklist — certificate first, then each
  * firmware component. */

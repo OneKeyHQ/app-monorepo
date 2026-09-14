@@ -55,6 +55,10 @@ export type IReceiveKytIntroEntryPoint =
   | 'homeAutoIntro'
   | 'primeSubscribeSuccess';
 
+export type IReceiveKytIntroTrackingEntryPoint =
+  | IReceiveKytIntroEntryPoint
+  | 'primeGiftSuccess';
+
 export type IKytIntroClaimLease = {
   claimId: string;
   onekeyUserId: string;

@@ -46,6 +46,12 @@ import { PreferenceCapsule } from './PreferenceCapsule';
 
 /** Classic-family PINs cap at nine digits (the production keypad's cap). */
 const MAX_PIN_LENGTH = 9;
+/** ...and run at least four (OK-62090): the pad refuses a shorter confirm
+ * in the same refusal grammar as the empty one. */
+const MIN_PIN_LENGTH = 4;
+
+/** Why a confirm was refused — each speaks its own line in the strip. */
+type IPinRefusal = 'empty' | 'short';
 
 /**
  * Key values double as the wire encoding: the grid position pressed, laid
@@ -150,6 +156,10 @@ export interface IPinPadProps {
   /** The Trezor matrix shape: nine positions, no 0 key — the slot
    * between delete and confirm renders empty. */
   noZeroKey?: boolean;
+  /** The shortest PIN Confirm accepts. OneKey's own floor is four digits
+   * (OK-62090); a vendor pad passes its own — a Trezor PIN may be a
+   * single position. */
+  minLength?: number;
 }
 
 export function PinPad({
@@ -158,6 +168,7 @@ export function PinPad({
   error,
   resetSignal,
   noZeroKey,
+  minLength = MIN_PIN_LENGTH,
 }: IPinPadProps) {
   const intl = useIntl();
   const [value, setValue] = useState('');
@@ -166,19 +177,19 @@ export function PinPad({
   // The failure line lives until the person starts correcting: the first
   // new digit retires it, so "wrong" and "new entry" never coexist.
   const [errorRetired, setErrorRetired] = useState(false);
-  // The local refusal: confirm pressed on an empty entry.
-  const [emptyPrompt, setEmptyPrompt] = useState(false);
+  // The local refusal: confirm pressed on an empty or too-short entry.
+  const [refusal, setRefusal] = useState<IPinRefusal | undefined>();
   useEffect(() => {
     if (error) {
       setValue('');
       setErrorRetired(false);
-      setEmptyPrompt(false);
+      setRefusal(undefined);
     }
   }, [error]);
   useEffect(() => {
     setValue('');
     setErrorRetired(false);
-    setEmptyPrompt(false);
+    setRefusal(undefined);
   }, [resetSignal]);
 
   const shakeX = useSharedValue(0);
@@ -208,10 +219,12 @@ export function PinPad({
         return;
       }
       if (key === 'confirm') {
-        // An empty confirm is refused like any refusal — prompt plus
-        // shake. The ratified call: better usability than a disabled key.
-        if (!valueRef.current.length) {
-          setEmptyPrompt(true);
+        // An empty or too-short confirm is refused like any refusal —
+        // prompt plus shake. The ratified call: better usability than a
+        // disabled key.
+        const entered = valueRef.current.length;
+        if (entered < minLength) {
+          setRefusal(entered ? 'short' : 'empty');
           shake();
           return;
         }
@@ -219,7 +232,7 @@ export function PinPad({
         return;
       }
       setErrorRetired(true);
-      setEmptyPrompt(false);
+      setRefusal(undefined);
       // Full is full: refuse the tenth digit with the same shake the
       // refusal beat uses, instead of silently swallowing the press.
       if (valueRef.current.length >= MAX_PIN_LENGTH) {
@@ -228,7 +241,7 @@ export function PinPad({
       }
       setValue((v) => (v.length >= MAX_PIN_LENGTH ? v : v + key));
     },
-    [onSubmit, shake],
+    [minLength, onSubmit, shake],
   );
 
   const dots = useMemo(
@@ -236,12 +249,15 @@ export function PinPad({
     [value.length],
   );
   const externalError = error && !errorRetired ? error : undefined;
-  // Refusing an empty confirm: a prompt in place of a disabled key.
+  // Refusing a confirm: a prompt in place of a disabled key.
   const shownError =
     externalError ??
-    (emptyPrompt
+    (refusal
       ? intl.formatMessage({
-          id: ETranslations.device_stage_enter_pin_first__msg,
+          id:
+            refusal === 'short'
+              ? ETranslations.device_stage_pin_too_short__msg
+              : ETranslations.device_stage_enter_pin_first__msg,
         })
       : undefined);
   return (

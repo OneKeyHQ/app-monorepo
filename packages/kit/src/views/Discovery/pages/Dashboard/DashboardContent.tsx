@@ -17,6 +17,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { useBannerData } from '../../hooks/useBannerData';
@@ -82,6 +83,10 @@ function DashboardContent({
 
   // Use the useBannerData hook to get processed banner data
   const { hasActiveBanners } = useBannerData(homePageData?.banners || []);
+  const showBanners =
+    hasActiveBanners &&
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind !==
+      'travel-mode';
 
   // Add usePromiseResult hooks to get bookmark and trending data
   const { result: bookmarksData, run: refreshBookmarks } = usePromiseResult(
@@ -132,7 +137,7 @@ function DashboardContent({
         <Welcome
           tabId={tabId}
           banner={
-            hasActiveBanners ? (
+            showBanners ? (
               <View
                 style={{ width: '100%', alignItems: 'center' }}
                 onTouchStart={(e) => e.stopPropagation()}
@@ -176,7 +181,7 @@ function DashboardContent({
       </>
     ),
     [
-      hasActiveBanners,
+      showBanners,
       homePageData,
       isInitialLoading,
       showDiveInDescription,
