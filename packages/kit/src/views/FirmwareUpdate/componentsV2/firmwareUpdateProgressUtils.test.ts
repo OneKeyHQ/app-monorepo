@@ -1,6 +1,4 @@
-import { createIntl } from 'react-intl';
-
-import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
@@ -11,12 +9,11 @@ import {
 } from './firmwareUpdateProgressUtils';
 
 describe('firmwareUpdateProgressUtils', () => {
-  let intl: ReturnType<typeof createIntl>;
-  beforeAll(async () => {
-    intl = createIntl({
-      locale: 'en-US',
-      messages: await loadLocaleMessages('en-US'),
-    });
+  beforeEach(() => {
+    jest.spyOn(appLocale, 'getLocale').mockReturnValue('en-US');
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
   test('将 bootloader 就绪事件归一到重启阶段，避免 UI 直接进入传输阶段', () => {
     expect(
@@ -73,35 +70,29 @@ describe('firmwareUpdateProgressUtils', () => {
 
   test('formats stable transfer speed and ETA after warm-up', () => {
     expect(
-      getFirmwareTransferDisplayMetrics(
-        {
-          transferredBytes: 1_220_281,
-          totalBytes: 2_440_562,
-          rateBytesPerSecond: 16_760,
-          elapsedMs: 72_810,
-        },
-        intl,
-      ),
+      getFirmwareTransferDisplayMetrics({
+        transferredBytes: 1_220_281,
+        totalBytes: 2_440_562,
+        rateBytesPerSecond: 16_760,
+        elapsedMs: 72_810,
+      }),
     ).toEqual({
       transferredText: '1.2 MiB',
       totalText: '2.3 MiB',
       speedText: '16.4 KiB/s',
-      elapsedText: '1 minutes 13 seconds',
-      estimatedRemainingText: '1 minutes 13 seconds',
+      elapsedText: '1 minute 13 seconds',
+      estimatedRemainingText: '1 minute 13 seconds',
     });
   });
 
   test('hides ETA until enough transfer data has been sampled', () => {
     expect(
-      getFirmwareTransferDisplayMetrics(
-        {
-          transferredBytes: 32 * 1024,
-          totalBytes: 2_440_562,
-          rateBytesPerSecond: 9380,
-          elapsedMs: 1500,
-        },
-        intl,
-      ),
+      getFirmwareTransferDisplayMetrics({
+        transferredBytes: 32 * 1024,
+        totalBytes: 2_440_562,
+        rateBytesPerSecond: 9380,
+        elapsedMs: 1500,
+      }),
     ).toEqual(
       expect.objectContaining({
         speedText: '9.2 KiB/s',
@@ -112,15 +103,12 @@ describe('firmwareUpdateProgressUtils', () => {
 
   test('rejects incomplete or zero-rate transfer samples', () => {
     expect(
-      getFirmwareTransferDisplayMetrics(
-        {
-          transferredBytes: 1024,
-          totalBytes: 2048,
-          rateBytesPerSecond: 0,
-          elapsedMs: 1000,
-        },
-        intl,
-      ),
+      getFirmwareTransferDisplayMetrics({
+        transferredBytes: 1024,
+        totalBytes: 2048,
+        rateBytesPerSecond: 0,
+        elapsedMs: 1000,
+      }),
     ).toBeUndefined();
   });
 
@@ -131,33 +119,24 @@ describe('firmwareUpdateProgressUtils', () => {
     [1200, '20 分钟 0 秒'],
     [1213, '20 分钟 13 秒'],
   ])(
-    'preserves localized duration units for %i seconds on iOS Hermes',
-    async (durationSeconds, expectedText) => {
-      const chineseIntl = createIntl({
-        locale: 'zh-CN',
-        messages: await loadLocaleMessages('zh-CN'),
-      });
-      const formatNumber = chineseIntl.formatNumber.bind(chineseIntl);
-      // iOS Hermes converts minutes to seconds when formatting unit numbers.
+    'formats %i seconds with the app locale without Intl unit formatting',
+    (durationSeconds, expectedText) => {
+      jest.spyOn(appLocale, 'getLocale').mockReturnValue('zh-CN');
+      const NativeNumberFormat = Intl.NumberFormat;
       jest
-        .spyOn(chineseIntl, 'formatNumber')
-        .mockImplementation((value, options) =>
-          formatNumber(
-            options?.unit === 'minute' ? Number(value) * 60 : value,
-            { ...options, unit: 'second' },
-          ),
-        );
+        .spyOn(Intl, 'NumberFormat')
+        .mockImplementation((locales, options) => {
+          expect(options?.style).not.toBe('unit');
+          return new NativeNumberFormat(locales, options);
+        });
 
       expect(
-        getFirmwareTransferDisplayMetrics(
-          {
-            transferredBytes: 128 * 1024,
-            totalBytes: 256 * 1024,
-            rateBytesPerSecond: (128 * 1024) / durationSeconds,
-            elapsedMs: durationSeconds * 1000,
-          },
-          chineseIntl,
-        ),
+        getFirmwareTransferDisplayMetrics({
+          transferredBytes: 128 * 1024,
+          totalBytes: 256 * 1024,
+          rateBytesPerSecond: (128 * 1024) / durationSeconds,
+          elapsedMs: durationSeconds * 1000,
+        }),
       ).toMatchObject({
         elapsedText: expectedText,
         estimatedRemainingText: expectedText,
