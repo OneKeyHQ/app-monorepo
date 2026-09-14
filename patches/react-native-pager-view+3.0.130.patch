@@ -42,7 +42,7 @@ index b7c6014..79d174e 100644
  typedef void (^RNCCollapsiblePagerNativeTabPressHandler)(NSInteger index, NSString *key);
  
  static CGFloat RNCClamp(CGFloat value, CGFloat minimum, CGFloat maximum)
-@@ -989,6 +1016,9 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -989,6 +1016,9 @@ @implementation RNCCollapsiblePagerViewComponentView {
    NSMapTable<UIScrollView *, NSValue *> *_originalIndicatorInsets;
    NSMapTable<UIScrollView *, NSNumber *> *_originalAlwaysBounceVertical;
    NSMapTable<UIScrollView *, NSNumber *> *_originalInsetAdjustmentBehavior;
@@ -52,7 +52,7 @@ index b7c6014..79d174e 100644
    __weak UIScrollView *_observedScrollView;
    __weak UIScrollView *_sharedHeaderScrollView;
    __weak UIScrollView *_pendingFallbackScrollView;
-@@ -1023,6 +1053,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1023,6 +1053,7 @@ - (instancetype)initWithFrame:(CGRect)frame
      _logicalChildren = [NSMutableArray new];
      _pageControllers = [NSMutableArray new];
      _pageOffsets = [NSMutableDictionary new];
@@ -60,7 +60,7 @@ index b7c6014..79d174e 100644
      _originalInsets = [NSMapTable weakToStrongObjectsMapTable];
      _appliedTopInsets = [NSMapTable weakToStrongObjectsMapTable];
      _originalIndicatorInsets = [NSMapTable weakToStrongObjectsMapTable];
-@@ -1132,6 +1163,19 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1132,6 +1163,19 @@ - (void)didMoveToWindow
        !_pagerScrollView.dragging && !_pagerScrollView.decelerating) {
      [self finishPagerScrollEmittingSelection:NO];
    }
@@ -80,7 +80,7 @@ index b7c6014..79d174e 100644
  }
  
  - (void)dealloc
-@@ -1375,6 +1419,63 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1375,6 +1419,63 @@ - (void)preparePageForHorizontalTransitionAtIndex:(NSInteger)pageIndex
  
  #pragma mark - React mounting
  
@@ -144,7 +144,7 @@ index b7c6014..79d174e 100644
  - (void)mountingTransactionDidMount:(const MountingTransaction &)transaction
                 withSurfaceTelemetry:(const SurfaceTelemetry &)surfaceTelemetry
  {
-@@ -1382,16 +1483,55 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1382,16 +1483,55 @@ - (void)mountingTransactionDidMount:(const MountingTransaction &)transaction
        _isPagerDragging || _isBeingRecycled || self.window == nil ||
        _currentIndex < 0 || _currentIndex >= _pageControllers.count) return;
  
@@ -209,7 +209,7 @@ index b7c6014..79d174e 100644
  }
  
  - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView
-@@ -1573,6 +1713,8 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1573,6 +1713,8 @@ - (void)prepareForRecycle
  {
    _isBeingRecycled = YES;
    _generation++;
@@ -218,7 +218,7 @@ index b7c6014..79d174e 100644
    [self detachSharedHeaderPressCancellationGesture];
    [self detachScrollObserver];
    [self restoreSharedHeadersToContainer];
-@@ -1943,6 +2085,18 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1943,6 +2085,18 @@ - (void)scheduleScrollObserverRetryForCurrentPage
  
  - (void)attachScrollObserverForCurrentPage
  {
@@ -237,7 +237,7 @@ index b7c6014..79d174e 100644
    [self restoreDetachedScrollInsets];
    if (_scrollResolveRetryPageIndex != _currentIndex) {
      _scrollResolveRetryToken += 1;
-@@ -1956,7 +2110,18 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1956,7 +2110,18 @@ - (void)attachScrollObserverForCurrentPage
    if (candidate == nil) {
      [self detachScrollObserver];
      [self restoreSharedHeadersToContainer];
@@ -257,7 +257,7 @@ index b7c6014..79d174e 100644
      return;
    }
    if ([candidate isKindOfClass:UICollectionView.class] &&
-@@ -1966,7 +2131,8 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1966,7 +2131,8 @@ - (void)attachScrollObserverForCurrentPage
        _pendingFallbackScrollViewDetectedAt = CACurrentMediaTime();
        _scrollResolveRetryAttempt = 0;
      }
@@ -267,7 +267,7 @@ index b7c6014..79d174e 100644
        [self scheduleScrollObserverRetryForCurrentPage];
        return;
      }
-@@ -1983,6 +2149,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -1983,6 +2149,7 @@ - (void)attachScrollObserverForCurrentPage
      [candidate.panGestureRecognizer requireGestureRecognizerToFail:_pagerScrollView.panGestureRecognizer];
    }
    if (candidate == _observedScrollView) {
@@ -275,7 +275,7 @@ index b7c6014..79d174e 100644
      [self attachSharedHeadersToScrollView:candidate];
      [self updateSharedHeaderPressCancellationGesture];
      return;
-@@ -2006,6 +2173,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2006,6 +2173,7 @@ - (void)attachScrollObserverForCurrentPage
                   context:RNCCollapsiblePagerContentOffsetContext];
    [candidate.panGestureRecognizer addTarget:self action:@selector(observedListPanChanged:)];
    _observingContentOffset = YES;
@@ -283,7 +283,7 @@ index b7c6014..79d174e 100644
    _currentLogicalOffset = candidate.contentOffset.y + candidate.contentInset.top;
    [self attachSharedHeadersToScrollView:candidate];
    [self updateSharedHeaderPressCancellationGesture];
-@@ -2235,6 +2403,39 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2235,6 +2403,39 @@ - (void)observedListPanChanged:(UIPanGestureRecognizer *)recognizer
    }
  }
  
@@ -323,7 +323,7 @@ index b7c6014..79d174e 100644
  - (void)restoreDetachedScrollInsets
  {
    for (UIScrollView *scrollView in _originalInsets.keyEnumerator.allObjects) {
-@@ -2246,32 +2447,8 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2246,32 +2447,8 @@ - (void)restoreDetachedScrollInsets
        }
      }
      if (belongsToPage) continue;
@@ -358,7 +358,7 @@ index b7c6014..79d174e 100644
    }
  }
  
-@@ -2279,6 +2456,57 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2279,6 +2456,57 @@ - (void)applyInsetsToScrollView:(UIScrollView *)scrollView
                        pageIndex:(NSInteger)pageIndex
                          restore:(BOOL)restore
  {
@@ -416,7 +416,7 @@ index b7c6014..79d174e 100644
    NSValue *storedOriginal = [_originalInsets objectForKey:scrollView];
    UIEdgeInsets original = storedOriginal == nil
      ? scrollView.contentInset
-@@ -2327,7 +2555,9 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2327,7 +2555,9 @@ - (void)applyInsetsToScrollView:(UIScrollView *)scrollView
      NSNumber *saved = _pageOffsets[[self pageKeyForIndex:pageIndex]];
      // The sticky slot can change height between pages. Cache offsets relative
      // to content start so a round trip does not add that height difference.
@@ -427,7 +427,7 @@ index b7c6014..79d174e 100644
      // While the shared header is visible, retained pages must agree on its
      // collapse position. Deep offsets remain independent after full collapse.
      if (_nativeSmoothHeaderScrollEnabled && _headerOffset < _headerHeight) {
-@@ -2483,7 +2713,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2483,7 +2713,7 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated
          self->_currentIndex = index;
          self->_destinationIndex = index;
          [self->_nativeTabBarView setProgress:index];
@@ -436,7 +436,7 @@ index b7c6014..79d174e 100644
          [self emitPageSelected:index];
          [self emitDiagnostics:@"page-selected"];
        } else if (self->_pendingGoToIndex < 0) {
-@@ -2520,7 +2750,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2520,7 +2750,7 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated
        self->_currentIndex = index;
        self->_destinationIndex = index;
        [self->_nativeTabBarView setProgress:index];
@@ -445,7 +445,7 @@ index b7c6014..79d174e 100644
        [self emitPageSelected:index];
        [self emitDiagnostics:@"page-selected"];
      } else {
-@@ -2660,7 +2890,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2660,7 +2890,7 @@ - (void)finishPagerScrollEmittingSelection:(BOOL)emitSelection
        0
      ) animated:NO];
      [_nativeTabBarView setProgress:index];
@@ -454,7 +454,7 @@ index b7c6014..79d174e 100644
      if (emitSelection &&
          (_pendingGoToIndex < 0 || _pendingGoToIndex == index)) {
        [self emitPageSelected:index];
-@@ -2711,7 +2941,7 @@ static void RNCLogNativeTabScrollBoundary(NSString *owner,
+@@ -2711,7 +2941,7 @@ - (void)finishPagerScrollEmittingSelection:(BOOL)emitSelection
        _currentIndex = index;
        _destinationIndex = index;
        [_nativeTabBarView setProgress:index];
