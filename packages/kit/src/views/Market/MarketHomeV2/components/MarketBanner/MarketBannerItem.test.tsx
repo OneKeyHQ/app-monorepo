@@ -61,6 +61,29 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
   LeverageBadge: () => null,
 }));
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
+jest.mock('@onekeyhq/kit/src/components/Token', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    Token: ({
+      tokenImageUri,
+      fallbackIcon,
+    }: {
+      tokenImageUri?: string;
+      fallbackIcon?: string;
+    }) =>
+      React.createElement('span', {
+        'data-token-uri': tokenImageUri,
+        'data-token-fallback': fallbackIcon,
+      }),
+  };
+});
+
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true },
@@ -94,7 +117,7 @@ const makeBanner = (
 });
 
 describe('Market theme banner', () => {
-  it('renders index quotes using the Figma labels, order, and unitless prices', () => {
+  it('renders index quotes with the Figma labels, order, icons, and unitless prices', () => {
     render(
       <MarketBannerItem
         item={{
@@ -110,11 +133,20 @@ describe('Market theme banner', () => {
 
     const rows = screen.getAllByTestId('market-banner-token-row');
     expect(rows.map((row) => row.textContent)).toEqual([
-      'S&P 5007656.980.8',
-      'NASDAQ26333.040.9',
-      'Dow Jones52573.291',
+      'market.index_sp500__title7656.980.8',
+      'market.index_nasdaq__title26333.040.9',
+      'market.index_dow30__title52573.291',
     ]);
-    expect(rows[0].querySelector('[data-icon-name]')).toBeNull();
+    expect(
+      rows.map((row) =>
+        row.querySelector('[data-token-uri]')?.getAttribute('data-token-uri'),
+      ),
+    ).toEqual([
+      'https://uni.onekey-asset.com/static/stock/s-and-p-500.png',
+      'https://uni.onekey-asset.com/static/stock/nasdaq-100.png',
+      'https://uni.onekey-asset.com/static/stock/dow-30.png',
+    ]);
+    expect(screen.queryByText('global.more')).toBeNull();
   });
 
   it.each([EMarketBannerType.Index, EMarketBannerType.StockIndex])(
@@ -214,6 +246,15 @@ describe('Market theme banner', () => {
     },
   );
 
+  it('shows the More affordance on pressable theme cards', () => {
+    render(<MarketBannerItem item={makeBanner([makeToken('TOKEN', '1')])} />);
+    const title = screen.getByTestId('market-banner-title');
+    expect(within(title).getByText('global.more')).toBeTruthy();
+    expect(
+      title.querySelector('[data-icon-name="ChevronRightSmallOutline"]'),
+    ).toBeTruthy();
+  });
+
   it.each([EMarketBannerType.Ticker, EMarketBannerType.Perps])(
     'opens the original %s list from anywhere in the card',
     (type) => {
@@ -268,7 +309,7 @@ it.each(['指数报价', 'Index Quotes'])(
     );
     fireEvent.click(screen.getByTestId('market-banner-item'));
     expect(onPress).not.toHaveBeenCalled();
-    expect(screen.getByText('S&P 500')).toBeTruthy();
+    expect(screen.getByText('market.index_sp500__title')).toBeTruthy();
   },
 );
 it('does not infer index semantics from a translated title alone', () => {

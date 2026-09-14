@@ -176,18 +176,18 @@ it.each([true, false])(
       bannerList: [{ ...populated('modern').bannerList[0], tokens: [] }],
     };
     rerender(<Page />);
-    expectHeight(204);
+    expectHeight(196);
     mockState = {
       ...mockState,
       bannerList: [...mockState.bannerList, ...populated('legacy').bannerList],
     };
     rerender(<Page />);
-    expectHeight(204);
+    expectHeight(196);
     if (native) {
       mockState = { ...mockState, bannerList: [] };
       rerender(<Page />);
       expect(screen.getByTestId('mobile-banner-container').dataset.height).toBe(
-        '204',
+        '196',
       );
     }
     mockState = populated('legacy');

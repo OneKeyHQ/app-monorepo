@@ -13,6 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
 import { MarketTestIDs } from '../../testIDs';
 
+import { MarketBannerDesktopScroller } from './MarketBannerDesktopScroller';
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
 import { useMarketBannerList } from './useMarketBannerList';
@@ -71,18 +72,28 @@ function BannerContainerMobile({
 
 function BannerContainerDesktop({
   children,
+  itemCount,
   hidden = false,
 }: {
   children: ReactNode;
+  itemCount: number;
   hidden?: boolean;
 }) {
+  if (!platformEnv.isNative) {
+    // Web never renders a hidden desktop banner; it unmounts the row instead.
+    return (
+      <MarketBannerDesktopScroller itemCount={itemCount}>
+        {children}
+      </MarketBannerDesktopScroller>
+    );
+  }
   return (
     <XStack
       opacity={hidden ? 0 : 1}
       pointerEvents={hidden ? 'none' : 'auto'}
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
-      pt={platformEnv.isNative ? '$2' : '$4'}
+      pt="$2"
       pb="$2"
       px="$5"
       gap="$3"
@@ -108,7 +119,11 @@ function MarketBannerListSkeletonComponent({
     return <BannerContainerMobile>{skeletonItems}</BannerContainerMobile>;
   }
 
-  return <BannerContainerDesktop>{skeletonItems}</BannerContainerDesktop>;
+  return (
+    <BannerContainerDesktop itemCount={skeletonCount}>
+      {skeletonItems}
+    </BannerContainerDesktop>
+  );
 }
 
 const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
@@ -167,7 +182,7 @@ function MarketBannerListComponent() {
   }
 
   return (
-    <BannerContainerDesktop hidden={hidden}>
+    <BannerContainerDesktop itemCount={bannerItems.length} hidden={hidden}>
       {bannerItems}
     </BannerContainerDesktop>
   );

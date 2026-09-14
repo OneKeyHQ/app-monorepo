@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 // cspell:ignore GSPC IXIC DJIA
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -14,7 +15,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_BORDER_COLOR } from '@onekeyhq/components/src/utils/animationConstants';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { LeverageBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EMarketBannerType,
@@ -24,6 +27,11 @@ import {
 
 import { isMarketIndexQuoteBanner } from '../../../utils/marketBannerUtils';
 import { MarketTestIDs } from '../../testIDs';
+
+import {
+  MARKET_BANNER_ITEM_WIDTH,
+  MARKET_BANNER_LIST_MIN_HEIGHT,
+} from './marketBannerLayout';
 
 type IMarketBannerItemProps = {
   item: IMarketBannerItem;
@@ -184,20 +192,46 @@ function normalizeMarketValue(value?: string | null) {
   return normalized && Number.isFinite(Number(normalized)) ? normalized : '--';
 }
 
-function isMarketIndexToken(token: IMarketBannerTokenPreview) {
-  return token.symbol.trim().startsWith('^');
-}
+const MARKET_INDEX_LOGO_URLS = {
+  sp500: 'https://uni.onekey-asset.com/static/stock/s-and-p-500.png',
+  nasdaq: 'https://uni.onekey-asset.com/static/stock/nasdaq-100.png',
+  dow30: 'https://uni.onekey-asset.com/static/stock/dow-30.png',
+} as const;
 
 const MARKET_INDEX_DISPLAY_CONFIG: Record<
   string,
-  { label: string; order: number }
+  { labelId: ETranslations; order: number; logoUrl: string }
 > = {
-  GSPC: { label: 'S&P 500', order: 0 },
-  SPX: { label: 'S&P 500', order: 0 },
-  IXIC: { label: 'NASDAQ', order: 1 },
-  COMP: { label: 'NASDAQ', order: 1 },
-  DJI: { label: 'Dow Jones', order: 2 },
-  DJIA: { label: 'Dow Jones', order: 2 },
+  GSPC: {
+    labelId: ETranslations.market_index_sp500__title,
+    order: 0,
+    logoUrl: MARKET_INDEX_LOGO_URLS.sp500,
+  },
+  SPX: {
+    labelId: ETranslations.market_index_sp500__title,
+    order: 0,
+    logoUrl: MARKET_INDEX_LOGO_URLS.sp500,
+  },
+  IXIC: {
+    labelId: ETranslations.market_index_nasdaq__title,
+    order: 1,
+    logoUrl: MARKET_INDEX_LOGO_URLS.nasdaq,
+  },
+  COMP: {
+    labelId: ETranslations.market_index_nasdaq__title,
+    order: 1,
+    logoUrl: MARKET_INDEX_LOGO_URLS.nasdaq,
+  },
+  DJI: {
+    labelId: ETranslations.market_index_dow30__title,
+    order: 2,
+    logoUrl: MARKET_INDEX_LOGO_URLS.dow30,
+  },
+  DJIA: {
+    labelId: ETranslations.market_index_dow30__title,
+    order: 2,
+    logoUrl: MARKET_INDEX_LOGO_URLS.dow30,
+  },
 };
 
 function getMarketIndexDisplayConfig(token: IMarketBannerTokenPreview) {
@@ -205,7 +239,14 @@ function getMarketIndexDisplayConfig(token: IMarketBannerTokenPreview) {
   return MARKET_INDEX_DISPLAY_CONFIG[symbol];
 }
 
-function BannerIndexColumn({ token }: { token: IMarketBannerTokenPreview }) {
+function BannerQuoteRow({
+  token,
+  isIndex,
+}: {
+  token: IMarketBannerTokenPreview;
+  isIndex: boolean;
+}) {
+  const intl = useIntl();
   const price = normalizeMarketValue(token.price);
   const change = normalizeMarketValue(token.priceChange24hPercent);
   const numericChange = Number(change);
@@ -216,115 +257,71 @@ function BannerIndexColumn({ token }: { token: IMarketBannerTokenPreview }) {
     if (numericChange > 0) changeColor = '$textSuccess';
     if (numericChange < 0) changeColor = '$textCritical';
   }
-  const displayConfig = getMarketIndexDisplayConfig(token);
-
-  return (
-    <YStack
-      flex={1}
-      minWidth={0}
-      gap="$1"
-      testID={MarketTestIDs.bannerTokenRow}
-    >
-      <SizableText size="$headingSm" numberOfLines={1}>
-        {displayConfig?.label || token.name || token.symbol}
-      </SizableText>
-      <NumberSizeableText
-        size="$bodyMd"
-        formatter="price"
-        numberOfLines={1}
-        testID={MarketTestIDs.bannerTokenPrice}
-      >
-        {price}
-      </NumberSizeableText>
-      <NumberSizeableText
-        size="$bodyMdMedium"
-        formatter="priceChange"
-        formatterOptions={{ showPlusMinusSigns: numericChange > 0 }}
-        color={changeColor}
-        numberOfLines={1}
-        testID={MarketTestIDs.bannerTokenChange}
-      >
-        {change}
-      </NumberSizeableText>
-    </YStack>
-  );
-}
-
-function BannerTokenRow({ token }: { token: IMarketBannerTokenPreview }) {
-  const price = normalizeMarketValue(token.price);
-  const change = normalizeMarketValue(token.priceChange24hPercent);
-  const numericChange = Number(change);
-  const isIndex = isMarketIndexToken(token);
-  let changeColor: '$textSubdued' | '$textSuccess' | '$textCritical' | '$text' =
-    '$textSubdued';
-  if (Number.isFinite(numericChange)) {
-    changeColor = '$text';
-    if (numericChange > 0) changeColor = '$textSuccess';
-    if (numericChange < 0) changeColor = '$textCritical';
+  const indexConfig = isIndex ? getMarketIndexDisplayConfig(token) : undefined;
+  let label = token.symbol || token.name;
+  if (isIndex) {
+    label = indexConfig
+      ? intl.formatMessage({ id: indexConfig.labelId })
+      : token.name || token.symbol;
   }
 
   return (
     <XStack
       alignItems="center"
       gap="$2"
-      h="$6"
+      h="$5"
       testID={MarketTestIDs.bannerTokenRow}
     >
-      <Image
-        size="$6"
-        borderRadius="$full"
-        source={{ uri: token.logo }}
-        fallback={
-          <Stack
-            w="$6"
-            h="$6"
-            bg="$bgStrong"
-            borderRadius="$full"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Icon
-              size="$4"
-              name={isIndex ? 'ChartColumnarOutline' : 'CryptoCoinOutline'}
-              color="$iconSubdued"
-            />
-          </Stack>
-        }
+      <Token
+        size="xs"
+        tokenImageUri={indexConfig?.logoUrl || token.logo}
+        fallbackIcon={isIndex ? 'ChartColumnarOutline' : 'CryptoCoinOutline'}
       />
-      <SizableText size="$bodyMdMedium" flex={1} minWidth={0} numberOfLines={1}>
-        {token.symbol || token.name}
-      </SizableText>
-      <NumberSizeableText
-        size="$bodyMd"
-        color="$textSubdued"
-        formatter="price"
-        formatterOptions={{ currency: '$' }}
-        numberOfLines={1}
-        maxWidth="$24"
-        flexShrink={0}
-        testID={MarketTestIDs.bannerTokenPrice}
-      >
-        {price}
-      </NumberSizeableText>
-      <NumberSizeableText
-        size="$bodyMdMedium"
-        formatter="priceChange"
-        formatterOptions={{ showPlusMinusSigns: numericChange > 0 }}
-        color={changeColor}
-        numberOfLines={1}
-        width="$20"
-        textAlign="right"
-        flexShrink={0}
-        testID={MarketTestIDs.bannerTokenChange}
-      >
-        {change}
-      </NumberSizeableText>
+      <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
+        <SizableText size="$bodyMdMedium" width={80} numberOfLines={1}>
+          {label}
+        </SizableText>
+        {/* A zero basis splits the space evenly regardless of the text, so the
+            right edges line up across rows. Avoid the `flex` shorthand here:
+            NumberSizeableText applies it after other props, and on web it
+            expands to `flex-basis: auto`, overriding this basis. */}
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="price"
+          formatterOptions={isIndex ? undefined : { currency: '$' }}
+          flexGrow={1}
+          flexShrink={1}
+          flexBasis={0}
+          minWidth={0}
+          textAlign="right"
+          numberOfLines={1}
+          testID={MarketTestIDs.bannerTokenPrice}
+        >
+          {price}
+        </NumberSizeableText>
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="priceChange"
+          formatterOptions={{ showPlusMinusSigns: numericChange > 0 }}
+          color={changeColor}
+          flexGrow={1}
+          flexShrink={1}
+          flexBasis={0}
+          minWidth={0}
+          textAlign="right"
+          numberOfLines={1}
+          testID={MarketTestIDs.bannerTokenChange}
+        >
+          {change}
+        </NumberSizeableText>
+      </XStack>
     </XStack>
   );
 }
 
 function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   const { item, onPress } = props;
+  const intl = useIntl();
   const isIndexBanner = isMarketIndexQuoteBanner(item);
   const tokens = useMemo(() => {
     const bannerTokens = item.tokens ?? [];
@@ -363,71 +360,74 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   return (
     <YStack
       testID={MarketTestIDs.bannerItem}
+      group="marketBannerCard"
       onPress={isIndexBanner ? undefined : handlePress}
       role={isIndexBanner ? undefined : 'button'}
       aria-label={item.title}
       bg={convertThemeToken(item.backgroundColor, '$bgSubdued')}
       borderRadius="$3"
-      px="$4"
-      py="$5"
-      width={336}
+      borderCurve="continuous"
+      pt="$3.5"
+      px="$3.5"
+      pb="$5"
+      width={MARKET_BANNER_ITEM_WIDTH}
       flexShrink={0}
-      gap="$5"
+      gap="$6"
       userSelect="none"
-      hoverStyle={isIndexBanner ? undefined : { opacity: 0.8 }}
-      pressStyle={isIndexBanner ? undefined : { opacity: 0.6 }}
+      hoverStyle={isIndexBanner ? undefined : { bg: '$bgHover' }}
+      pressStyle={isIndexBanner ? undefined : { bg: '$bgActive' }}
     >
       <XStack
         alignItems="center"
-        gap="$2"
-        h="$6"
+        gap="$1"
+        h={30}
         testID={MarketTestIDs.bannerTitle}
-        borderRadius="$1"
       >
-        <SizableText
-          size="$headingSm"
-          numberOfLines={1}
-          flexShrink={1}
-          minWidth={0}
-        >
-          {item.title}
-        </SizableText>
-        {item.type === EMarketBannerType.Perps ? (
-          <LeverageBadge leverage={10} />
-        ) : null}
+        <XStack flex={1} minWidth={0} alignItems="center" gap="$2">
+          <SizableText
+            size="$headingSm"
+            numberOfLines={1}
+            flexShrink={1}
+            minWidth={0}
+          >
+            {item.title}
+          </SizableText>
+          {item.type === EMarketBannerType.Perps ? (
+            <LeverageBadge leverage={10} />
+          ) : null}
+        </XStack>
         {isIndexBanner ? null : (
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$4"
-            color="$iconSubdued"
-            flexShrink={0}
-          />
+          <XStack alignItems="center" gap="$1" flexShrink={0}>
+            {/* Hidden rather than unmounted so the chevron keeps its place. */}
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              opacity={0}
+              $group-marketBannerCard-hover={{ opacity: 1 }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_more })}
+            </SizableText>
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$4"
+              color="$iconSubdued"
+            />
+          </XStack>
         )}
       </XStack>
-      {isIndexBanner ? (
-        <XStack gap="$3" minHeight={104} alignItems="flex-start">
-          {tokens.length ? (
-            tokens.map((token, index) => (
-              <BannerIndexColumn
-                key={`${token.symbol}-${index}`}
-                token={token}
-              />
-            ))
-          ) : (
-            <SizableText color="$textSubdued">--</SizableText>
-          )}
-        </XStack>
-      ) : (
-        <YStack gap="$4" minHeight={104}>
-          {tokens.length ? (
-            tokens.map((token, index) => (
-              <BannerTokenRow key={`${token.symbol}-${index}`} token={token} />
-            ))
-          ) : (
-            <SizableText color="$textSubdued">--</SizableText>
-          )}
-        </YStack>
-      )}
+      <YStack gap="$4" pr="$1.5" minHeight={MARKET_BANNER_LIST_MIN_HEIGHT}>
+        {tokens.length ? (
+          tokens.map((token, index) => (
+            <BannerQuoteRow
+              key={`${token.symbol}-${index}`}
+              token={token}
+              isIndex={isIndexBanner}
+            />
+          ))
+        ) : (
+          <SizableText color="$textSubdued">--</SizableText>
+        )}
+      </YStack>
     </YStack>
   );
 }

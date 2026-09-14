@@ -17,7 +17,7 @@ describe('getMarketMobileBannerHeaderHeight', () => {
   it('uses the modern height when every banner renders token previews', () => {
     expect(
       getMarketMobileBannerHeaderHeight([{ tokens: [] }, { tokens: [] }]),
-    ).toBe(204);
+    ).toBe(196);
   });
 });
 
@@ -30,11 +30,11 @@ describe('resolveMarketBannerHeaderHeight', () => {
         isFetched: true,
         bannerList: [{ tokens: [] }],
       }),
-    ).toEqual({ scope: 'en-US:false', height: 204 });
+    ).toEqual({ scope: 'en-US:false', height: 196 });
   });
 
   it('preserves the occupied height when a refresh returns no banners', () => {
-    const current = { scope: 'en-US:false', height: 204 };
+    const current = { scope: 'en-US:false', height: 196 };
     expect(
       resolveMarketBannerHeaderHeight({
         current,

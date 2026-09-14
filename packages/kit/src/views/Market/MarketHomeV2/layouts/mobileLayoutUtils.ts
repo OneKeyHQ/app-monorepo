@@ -2,7 +2,8 @@ export const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 export const MARKET_MOBILE_COLUMN_HEADER_HEIGHT = 32;
 export const MARKET_MOBILE_CONTENT_TOP_GAP = 16;
 
-const MARKET_MOBILE_BANNER_MODERN_HEIGHT = 204;
+// 180pt modern banner card plus the mobile scroller's 8pt top and bottom padding.
+const MARKET_MOBILE_BANNER_MODERN_HEIGHT = 196;
 const MARKET_MOBILE_BANNER_LEGACY_HEIGHT = 134;
 
 export function getMarketMobileBannerHeaderHeight(

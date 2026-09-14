@@ -7,10 +7,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
+import {
+  MARKET_BANNER_ITEM_HEIGHT,
+  MARKET_BANNER_ITEM_WIDTH,
+} from './MarketBanner/marketBannerLayout';
+
 const MARKET_HOME_TAB_BAR_HEIGHT = 44;
-const MARKET_HOME_BANNER_HEIGHT = 204;
-const MARKET_HOME_BANNER_ITEM_HEIGHT = 188;
-const MARKET_HOME_BANNER_ITEM_WIDTH = 336;
+const MARKET_HOME_BANNER_HEIGHT = 196;
 const BANNER_SKELETON_COUNT = 3;
 const TAB_LABEL_SKELETON_WIDTHS = [32, 32, 32, 32] as const;
 
@@ -30,8 +33,8 @@ export function MarketHomeLoadingFallback() {
         {Array.from({ length: BANNER_SKELETON_COUNT }, (_, index) => (
           <Skeleton
             key={index}
-            h={MARKET_HOME_BANNER_ITEM_HEIGHT}
-            w={MARKET_HOME_BANNER_ITEM_WIDTH}
+            h={MARKET_BANNER_ITEM_HEIGHT}
+            w={MARKET_BANNER_ITEM_WIDTH}
             flexShrink={0}
             radius={12}
           />
