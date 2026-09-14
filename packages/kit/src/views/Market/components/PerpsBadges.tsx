@@ -200,6 +200,11 @@ const SubtitleText = memo(
     size: sizeOverride,
   }: {
     subtitle: string;
+    /**
+     * Caps the name so it can ellipsize, as the selector rows do; only a capped
+     * name gets the full-name hover tooltip. Uncapped, the name fills its row
+     * and already reads in full.
+     */
     maxWidth?: number;
     /** Opt out of the shared size where a surface has its own scale — the
      *  Market list tables run their subtitle at the row's own secondary size. */
@@ -210,6 +215,11 @@ const SubtitleText = memo(
     // 11px on desktop, 12px on mobile. Keep this the single source of truth so
     // the localized name never diverges between lists.
     const size = sizeOverride ?? (gtMd ? '$bodyXs' : '$bodySm');
+    // The uncapped list rows also skip the layout-driven measurement: it could
+    // record "truncated" mid-layout and never re-measure, popping the tooltip
+    // over a name that fits.
+    const hasTruncationTooltip =
+      !platformEnv.isNative && maxWidth !== undefined;
     const textRef = useRef<HTMLElement | null>(null);
     const tooltipRef = useRef<ITooltipRef>({
       closeTooltip: () => Promise.resolve(),
@@ -228,9 +238,6 @@ const SubtitleText = memo(
     // On web the name is clipped via CSS ellipsis, so detect truncation by
     // comparing the full content width against the clamped layout width.
     const measureTruncation = useCallback(() => {
-      if (platformEnv.isNative) {
-        return;
-      }
       const el = textRef.current;
       if (el && typeof el.scrollWidth === 'number') {
         const nextIsTruncated = el.scrollWidth > el.clientWidth + 1;
@@ -243,7 +250,11 @@ const SubtitleText = memo(
     // The View wrapper carries onLayout (not exposed on SizableText) so we can
     // re-measure truncation whenever the row is laid out or resized.
     const textElement = (
-      <Stack minWidth={0} flexShrink={1} onLayout={measureTruncation}>
+      <Stack
+        minWidth={0}
+        flexShrink={1}
+        onLayout={hasTruncationTooltip ? measureTruncation : undefined}
+      >
         <SizableText
           // SizableText forwards its ref to the underlying DOM node on web, but
           // the public prop types don't expose `ref`; attach it via spread so
@@ -262,7 +273,7 @@ const SubtitleText = memo(
       </Stack>
     );
 
-    if (platformEnv.isNative) {
+    if (!hasTruncationTooltip) {
       return textElement;
     }
 
