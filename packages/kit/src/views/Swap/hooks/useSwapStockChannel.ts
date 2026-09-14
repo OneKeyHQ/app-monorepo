@@ -21,6 +21,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IFetchUSMarketStatusResult,
+  ISwapStockSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
@@ -46,6 +47,7 @@ import {
   resolveStockExecutionTokensToSync,
   resolveStockPayTokenState,
   shouldResetStockTradeReceiveAmount,
+  shouldSyncControlledStockTokenMetadata,
 } from './swapStockChannelUtils';
 import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
@@ -77,7 +79,10 @@ type ISelectStockSwapTokenOptions = {
   resetReceiveAmount?: boolean;
 };
 
-export function useSwapStockChannel() {
+export function useSwapStockChannel(
+  stockSpeedConfig?: ISwapStockSpeedConfig,
+  controlledStockToken?: ISwapToken,
+) {
   const locale = useLocaleVariant().toLowerCase();
   const localeRef = useRef(locale);
   localeRef.current = locale;
@@ -181,17 +186,31 @@ export function useSwapStockChannel() {
   const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
   const currentStockToken = selectedStockToken;
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
+  const controlledStockTokenKey = getTokenIdentityKey(controlledStockToken);
+  const isStockTokenChanging = Boolean(
+    controlledStockTokenKey && controlledStockTokenKey !== currentStockTokenKey,
+  );
   const swapPairStockPayToken = useMemo(
     () =>
       filterStockPayTokenCandidates(
         swapPairPayToken ? [swapPairPayToken] : [],
-      )[0],
-    [swapPairPayToken],
+      ).find(
+        (token) =>
+          !currentStockToken?.networkId ||
+          token.networkId === currentStockToken.networkId,
+      ),
+    [currentStockToken?.networkId, swapPairPayToken],
   );
   const stockPairPayToken =
-    stockPair.tradeSide === tradeSide ? stockPair.payToken : undefined;
+    stockPair.tradeSide === tradeSide &&
+    (!currentStockToken?.networkId ||
+      stockPair.payToken?.networkId === currentStockToken.networkId)
+      ? stockPair.payToken
+      : undefined;
   const coldStartStockPairPayToken =
-    coldStartStockPair.tradeSide === tradeSide
+    coldStartStockPair.tradeSide === tradeSide &&
+    (!currentStockToken?.networkId ||
+      coldStartStockPair.payToken?.networkId === currentStockToken.networkId)
       ? coldStartStockPair.payToken
       : undefined;
   const payTokenStateParams = {
@@ -205,6 +224,20 @@ export function useSwapStockChannel() {
     selectionToken: payTokenSelectionSeed,
   } = resolveStockPayTokenState(payTokenStateParams);
   const stockNetworkId = currentStockToken?.networkId ?? '';
+  const stockNetworkIdRef = useRef(stockNetworkId);
+  useEffect(() => {
+    if (stockNetworkIdRef.current === stockNetworkId) {
+      return;
+    }
+    // A pay token is network-scoped. Clear the previous selection as soon as
+    // the stock variant changes chain so the pay-token selector can resolve
+    // against the new chain's candidates instead of briefly displaying the
+    // old USDC/token and its stale popup data.
+    stockNetworkIdRef.current = stockNetworkId;
+    setPayTokenState(undefined);
+    payTokenSnapshotRef.current = undefined;
+    manualStockPayTokenKeyRef.current = '';
+  }, [stockNetworkId]);
   const {
     displayTokenDetail: cachedStockTokenDetail,
     pending: stockTokenDetailPending,
@@ -221,30 +254,43 @@ export function useSwapStockChannel() {
     });
   const displayStockTokenDetail =
     activeStockTokenDetail ?? cachedStockTokenDetail;
-  const disableNativePayToken = isOndoStockSource(
-    activeStockTokenDetail?.stock?.source,
-  );
+  const disableNativePayToken =
+    tradeSide === ESwapStockTradeSide.Buy &&
+    isOndoStockSource(activeStockTokenDetail?.stock?.source);
 
   const syncStockExecutionTokens = useCallback(
     async ({
       nextTradeSide = tradeSide,
-      stockToken = stockTokenSnapshotRef.current ?? currentStockToken,
-      payToken: nextPayToken = payTokenSnapshotRef.current ??
-        stockOwnedPayToken,
+      stockToken: nextStockToken = stockTokenSnapshotRef.current ??
+        currentStockToken,
+      payToken,
     }: {
       nextTradeSide?: ESwapStockTradeSide;
       stockToken?: ISwapToken;
       payToken?: ISwapToken;
     } = {}) => {
+      const candidatePayToken =
+        payToken ?? payTokenSnapshotRef.current ?? stockOwnedPayToken;
+      // Pay tokens are scoped to the stock network. During a controlled
+      // variant switch the callback still closes over the previous render's
+      // pay token; never publish that token alongside a stock on another
+      // network. The pay-token hook will sync the new network on its next
+      // ready transition.
+      const nextPayToken =
+        nextStockToken?.networkId &&
+        candidatePayToken?.networkId &&
+        nextStockToken.networkId !== candidatePayToken.networkId
+          ? undefined
+          : candidatePayToken;
       // The stock channel token is authoritatively the stock side of the trade.
       // Stock metadata (token.stock) loads asynchronously and may be missing at
       // selection time, which left isStock unset and made the history list label
       // the trade as "Swap" instead of Buy/Sell. Flag it here so the recorded
       // execution tokens carry isStock end-to-end.
       const flaggedStockToken =
-        stockToken && !stockToken.isStock
-          ? { ...stockToken, isStock: true }
-          : stockToken;
+        nextStockToken && !nextStockToken.isStock
+          ? { ...nextStockToken, isStock: true }
+          : nextStockToken;
       const nextFromToken =
         nextTradeSide === ESwapStockTradeSide.Buy
           ? nextPayToken
@@ -257,6 +303,10 @@ export function useSwapStockChannel() {
       await selectStockExecutionTokens({
         fromToken: nextFromToken,
         toToken: nextToToken,
+        clearFromToken:
+          nextTradeSide === ESwapStockTradeSide.Buy && !nextPayToken,
+        clearToToken:
+          nextTradeSide === ESwapStockTradeSide.Sell && !nextPayToken,
         syncId: nextStockExecutionTokenSyncId(),
       });
     },
@@ -330,7 +380,12 @@ export function useSwapStockChannel() {
       if (!nextStockToken || nextStockToken === currentToken) {
         return;
       }
-      stockTokenMetadataLocaleRef.current = localeRef.current;
+      // Controlled Market tokens carry execution metadata only. Do not mark
+      // persisted stock labels as current-locale until localized stock detail
+      // has actually contributed metadata.
+      if (tokenDetail.stock) {
+        stockTokenMetadataLocaleRef.current = localeRef.current;
+      }
       setStockTokenState(nextStockToken);
       setStockSelectedToken(nextStockToken);
       stockTokenSnapshotRef.current = nextStockToken;
@@ -340,6 +395,42 @@ export function useSwapStockChannel() {
     },
     [currentStockToken, setStockSelectedToken, syncStockExecutionTokens],
   );
+
+  // Market can switch a stock variant in place while the embedded Swap stays
+  // mounted. Follow the new execution pair and clear the previous network's
+  // pay-token override so the pay-token hook resolves the correct scoped
+  // USDC/USDT list and selector state. A resolved metadata update for the same
+  // controlled token must also reach the execution channel without resetting
+  // the user's receive amount.
+  useEffect(() => {
+    const nextStockToken = controlledStockToken ?? stockPair.stockToken;
+    if (!nextStockToken) {
+      return;
+    }
+    if (getTokenIdentityKey(nextStockToken) === currentStockTokenKey) {
+      if (
+        controlledStockToken &&
+        shouldSyncControlledStockTokenMetadata({
+          controlledStockToken,
+          currentStockToken,
+        })
+      ) {
+        syncStockTokenDetail(controlledStockToken);
+      }
+      return;
+    }
+    setPayTokenState(undefined);
+    payTokenSnapshotRef.current = undefined;
+    manualStockPayTokenKeyRef.current = '';
+    selectStockSwapToken(nextStockToken, { resetReceiveAmount: true });
+  }, [
+    controlledStockToken,
+    currentStockToken,
+    currentStockTokenKey,
+    selectStockSwapToken,
+    stockPair.stockToken,
+    syncStockTokenDetail,
+  ]);
 
   useEffect(() => {
     const detail = stockTokenDetail;
@@ -463,6 +554,7 @@ export function useSwapStockChannel() {
     payToken: payTokenSelectionSeed,
     selectPayToken,
     stockNetworkId,
+    stockSpeedConfig,
     syncPayTokenDetail,
   });
   const { displayToken: payToken } = resolveStockPayTokenState({
@@ -679,6 +771,7 @@ export function useSwapStockChannel() {
       displayStockTokenDetail,
       realtimeChartPoint,
       currentStockToken,
+      isStockTokenChanging,
       hasCurrentLocaleStockMetadata,
       payToken,
       fromToken,
@@ -699,6 +792,7 @@ export function useSwapStockChannel() {
     [
       channelStage,
       currentStockToken,
+      isStockTokenChanging,
       hasCurrentLocaleStockMetadata,
       defaultStockTokenLoading,
       fromToken,

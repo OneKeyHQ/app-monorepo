@@ -47,7 +47,7 @@ export function getFinancialRows<T extends IStockFinancialReportingPeriod>(
 export function getFinancialPeriodLabel(row: IStockFinancialReportingPeriod) {
   return /^Q[1-4]$/.test(row.fiscalPeriod ?? '')
     ? `${row.fiscalPeriod} '${row.fiscalYear.slice(-2)}`
-    : `FY${row.fiscalYear}`;
+    : row.fiscalYear;
 }
 
 export function getFinancialEarningsRows(

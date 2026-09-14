@@ -3,20 +3,12 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, IconButton, SizableText, XStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EPerpPageEnterSource,
-  setPerpPageEnterSource,
-} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -38,7 +30,10 @@ export function PerpetualTradingBanner({
   disabled?: boolean;
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.MarketBanner,
+  );
+  const { perpDisabled } = usePerpTabConfig();
   const { tokenDetail, perpsInfo } = useTokenDetail();
   const [bannerClose, setBannerClose] = useBannerClosePersistAtom();
 
@@ -59,43 +54,21 @@ export function PerpetualTradingBanner({
   }, [bannerClose.ids, setBannerClose]);
 
   const handlePress = useCallback(() => {
-    if (!hlTicker) return;
+    if (!hlTicker || perpDisabled) return;
     defaultLogger.market.token.perpsBannerClick({
       tokenSymbol: tokenDetail?.symbol ?? '',
       hlTicker,
     });
-    setTimeout(async () => {
-      setPerpPageEnterSource(EPerpPageEnterSource.MarketBanner);
-      try {
-        // A missing intent only costs the first-mount restore, so this
-        // must not be able to abort the tap. Recorded before the navigation
-        // that mounts the Perp tab, so the claiming initial-select cannot
-        // run ahead of it.
-        await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
-          {
-            coin: hlTicker,
-            mode: 'perp',
-          },
-        );
-      } catch {
-        // ignore
-      }
-      navigation.switchTab(ETabRoutes.Perp);
-      try {
-        await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-          coin: hlTicker,
-        });
-        appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
-          mode: 'perp',
-          coin: hlTicker,
-        });
-      } catch (error) {
-        console.error('Failed to change active asset:', error);
-      }
-    }, 80);
-  }, [hlTicker, navigation, tokenDetail?.symbol]);
+    navigateToPerps(hlTicker);
+  }, [hlTicker, navigateToPerps, perpDisabled, tokenDetail?.symbol]);
 
-  if (disabled || dismissed || (stableLayout && !initiallyVisible)) return null;
+  if (
+    disabled ||
+    perpDisabled ||
+    dismissed ||
+    (stableLayout && !initiallyVisible)
+  )
+    return null;
   if (!hlTicker && !stableLayout) return null;
 
   const title = intl.formatMessage(

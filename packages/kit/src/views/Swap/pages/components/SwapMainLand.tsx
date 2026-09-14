@@ -97,6 +97,8 @@ import type {
   ISwapInitParams,
   ISwapPreSwapData,
   ISwapStep,
+  ISwapStockSpeedConfig,
+  ISwapStockTradeConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -147,6 +149,7 @@ import {
   resolveSwapReviewTokenAmounts,
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
+import { buildSwapPositionPrefetchScopes } from '../../utils/swapPositionPrefetchUtils';
 import { compareSwapProPositionNetworkIds } from '../../utils/swapProPositionsKeyUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import {
@@ -174,6 +177,13 @@ interface ISwapMainLoadProps {
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
+  /** Render the shared stock ticket without Swap's page-level market/K-line shell. */
+  embeddedStockTrade?: boolean;
+  /** Optional Market-provided config; regular Swap loads its own config. */
+  stockSpeedConfig?: ISwapStockSpeedConfig;
+  stockTradeConfig?: ISwapStockTradeConfig;
+  stockTradeHeader?: React.ReactNode;
+  stockTradeToken?: ISwapToken;
   initialInputAmountDraft?: ISwapInputAmountDraft;
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
 }
@@ -182,6 +192,11 @@ const SwapMainLoad = ({
   swapInitParams,
   pageType,
   singleSwapBridgeHeader,
+  embeddedStockTrade,
+  stockSpeedConfig,
+  stockTradeConfig,
+  stockTradeHeader,
+  stockTradeToken,
   onInputDraftChange,
 }: ISwapMainLoadProps) => {
   const dialogRef = useRef<IDialogInstance>(null);
@@ -1324,45 +1339,19 @@ const SwapMainLoad = ({
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
   const positionPrefetchScopes = useMemo(() => {
-    const scopes = [
-      {
-        key: 'swap',
-        networkList: positionSupportNetworkLists.swap,
-        ready: !fetchLoading,
-        stockOnly: false,
-      },
-      {
-        key: 'stock',
-        networkList: positionSupportNetworkLists.stock,
-        ready: !fetchLoading,
-        stockOnly: true,
-      },
-      {
-        key: 'pro',
-        networkList: SwapProSupportNetworksList,
-        ready: swapProSupportNetworksReady,
-        stockOnly: false,
-      },
-    ].filter((scope) => scope.ready && scope.networkList.length > 0);
-    let activeKey = 'swap';
-    if (focusSwapPro) {
-      activeKey = 'pro';
-    } else if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
-      activeKey = 'stock';
-    }
-    return scopes.toSorted((left, right) => {
-      if (left.key === activeKey) return -1;
-      if (right.key === activeKey) return 1;
-      return 0;
+    return buildSwapPositionPrefetchScopes({
+      swapNetworksReady: !fetchLoading,
+      proNetworksReady: swapProSupportNetworksReady,
+      swapNetworkList: positionSupportNetworkLists.swap,
+      stockNetworkList: positionSupportNetworkLists.stock,
+      proNetworkList: SwapProSupportNetworksList,
     });
   }, [
     SwapProSupportNetworksList,
     fetchLoading,
-    focusSwapPro,
     positionSupportNetworkLists.stock,
     positionSupportNetworkLists.swap,
     swapProSupportNetworksReady,
-    swapTypeSwitch,
   ]);
   useEffect(() => {
     const [primaryScope, ...additionalScopes] = positionPrefetchScopes;
@@ -1376,7 +1365,14 @@ const SwapMainLoad = ({
         stockOnly: scope.stockOnly,
       })),
     });
-  }, [positionPrefetchScopes, swapProLoadSupportNetworksTokenListRun]);
+    // Activation still checks freshness; the loader owns in-flight and TTL
+    // deduplication independently of the stable prefetch scope order.
+  }, [
+    focusSwapPro,
+    positionPrefetchScopes,
+    swapProLoadSupportNetworksTokenListRun,
+    swapTypeSwitch,
+  ]);
 
   useSwapProErrorAlert({
     isSwapProActive: Boolean(focusSwapPro),
@@ -1389,6 +1385,37 @@ const SwapMainLoad = ({
   });
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
+    if (
+      embeddedStockTrade &&
+      swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+      gtLg
+    ) {
+      return (
+        <SwapStockDesktopContainer
+          pageType={pageType}
+          storeName={storeName}
+          onSelectToken={onSelectToken}
+          onTokenPress={onTokenPress}
+          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
+          fetchLoading={fetchLoading}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
+          stockSpeedConfig={stockSpeedConfig}
+          stockTradeConfig={stockTradeConfig}
+          stockTradeHeader={stockTradeHeader}
+          stockTradeToken={stockTradeToken}
+          embedded
+        />
+      );
+    }
     if (
       swapTypeSwitch === ESwapTabSwitchType.STOCK &&
       gtLg &&
@@ -1413,6 +1440,10 @@ const SwapMainLoad = ({
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           alerts={alerts}
+          stockSpeedConfig={stockSpeedConfig}
+          stockTradeConfig={stockTradeConfig}
+          stockTradeHeader={stockTradeHeader}
+          stockTradeToken={stockTradeToken}
           headerContent={
             <SwapHeaderContainer
               pageType={pageType}
@@ -1444,6 +1475,7 @@ const SwapMainLoad = ({
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           alerts={alerts}
+          stockSpeedConfig={stockSpeedConfig}
         />
       );
     }
@@ -1512,6 +1544,11 @@ const SwapMainLoad = ({
     );
   }, [
     swapTypeSwitch,
+    embeddedStockTrade,
+    stockSpeedConfig,
+    stockTradeConfig,
+    stockTradeHeader,
+    stockTradeToken,
     pageType,
     onSelectToken,
     fetchLoading,
@@ -1601,9 +1638,10 @@ const SwapMainLoad = ({
             pt: '$0',
           }}
         >
-          {gtLg &&
-          pageType !== EPageType.modal &&
-          !platformEnv.isNative ? null : (
+          {embeddedStockTrade ||
+          (gtLg &&
+            pageType !== EPageType.modal &&
+            !platformEnv.isNative) ? null : (
             <SwapHeaderContainer
               pageType={pageType}
               defaultSwapType={swapInitParams?.swapTabSwitchType}
@@ -1657,7 +1695,12 @@ const SwapMainLoad = ({
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
-  const { pageType, singleSwapBridgeHeader, swapInitParams } = props;
+  const {
+    initialInputAmountDraft,
+    pageType,
+    singleSwapBridgeHeader,
+    swapInitParams,
+  } = props;
   const shouldSeedMarketEmbeddedPair = Boolean(
     singleSwapBridgeHeader &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
@@ -1673,7 +1716,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           fromToken: swapInitParams?.importFromToken,
           toToken: swapInitParams?.importToToken,
           inputAmountDraft: shouldSeedMarketEmbeddedPair
-            ? (props.initialInputAmountDraft ?? {
+            ? (initialInputAmountDraft ?? {
                 fromTokenAmount: { value: '', isInput: false },
                 toTokenAmount: { value: '', isInput: false },
               })

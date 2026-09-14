@@ -416,12 +416,10 @@ function SendAutoSizeAmountInputComponent(
     4,
     Math.ceil(estimateTextWidthPx(' ', fontSize)),
   );
-  // Keep one unified value prop for web/native.
-  // iOS native needs "0" when empty to keep caret behavior stable.
-  let autoSizeValue = effectiveValueRaw;
-  if (effectiveValue === '') {
-    autoSizeValue = platformEnv.isNativeIOS ? '0' : '';
-  }
+  // Keep one unified value prop for web/native. An empty value stays empty on
+  // every platform so the native placeholder draws the "0": seeding a literal
+  // "0" made the first keystroke render as "01" until JS normalized it.
+  const autoSizeValue = effectiveValueRaw;
 
   const amountInputNode = isLoading ? (
     <Stack py="$4">

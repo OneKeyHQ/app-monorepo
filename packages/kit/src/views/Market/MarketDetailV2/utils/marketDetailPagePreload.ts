@@ -76,19 +76,18 @@ function preloadMarketDetailV2TradingView() {
 
 function preloadMarketDetailV2SwapPanel(
   target: IMarketDetailLayoutPreloadTarget,
-  isStockRoute?: boolean,
 ) {
   if (target === 'mobile') {
     void import(
       /* webpackChunkName: "market-detail-v2-embedded-swap" */ '../components/MarketDetailEmbeddedSwap'
     ).catch(() => undefined);
   }
-  if (target === 'mobile' || isStockRoute) {
+  if (target === 'mobile') {
     void import(
       /* webpackChunkName: "market-detail-v2-swap-panel" */ '../components/SwapPanel/SwapPanel'
     ).catch(() => undefined);
   }
-  if (target === 'mobile' || !isStockRoute) {
+  if (target === 'mobile' || target === 'desktop') {
     void import(
       /* webpackChunkName: "market-embedded-swap" */ '../../../Swap/pages/components/SwapMainLand'
     ).catch(() => undefined);
@@ -108,7 +107,6 @@ function preloadMarketDetailV2InfoPanel(
 export function preloadMarketDetailV2BodyModules({
   layout = resolveDefaultLayoutTarget(),
   includeHeavyModules,
-  isStockRoute,
 }: IPreloadOptions) {
   if (shouldSkipMarketDetailPreload()) {
     return;
@@ -123,7 +121,7 @@ export function preloadMarketDetailV2BodyModules({
   if (layout === 'mobile') {
     preloadMarketDetailV2TradingView();
   }
-  preloadMarketDetailV2SwapPanel(layout, isStockRoute);
+  preloadMarketDetailV2SwapPanel(layout);
   preloadMarketDetailV2InfoPanel(layout);
 }
 

@@ -28,6 +28,8 @@ import {
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
+import { fetchMarketTokenListBatchForPlatform } from './marketTokenBatchPlatformApi';
+
 import type { IMarketToken } from '../MarketTokenData';
 
 // Cached token list shared with the edit dialog so it opens instantly.
@@ -94,7 +96,6 @@ export function useMarketWatchlistTokenList({
     [networkList],
   );
   const [currentPage, setCurrentPage] = useState(1);
-  const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     initialSortType,
@@ -174,16 +175,21 @@ export function useMarketWatchlistTokenList({
       if (spotItems.length === 0) {
         return { list: [], failed: false } as const;
       }
-      const tokenAddressList = spotItems.map((item) => ({
-        chainId: item.chainId,
-        contractAddress: item.contractAddress,
-        isNative: item.isNative ?? false,
-      }));
+      const tokenAddressList = spotItems.map((item) => {
+        const { isNative } = getNativeTokenInfo(
+          item.isNative,
+          item.contractAddress,
+        );
+        return {
+          chainId: item.chainId,
+          contractAddress: item.contractAddress,
+          isNative,
+        };
+      });
       try {
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-            tokenAddressList,
-          });
+        const response = await fetchMarketTokenListBatchForPlatform({
+          tokenAddressList,
+        });
         return { ...response, failed: false };
       } catch (error) {
         if (!platformEnv.isNative) throw error;
@@ -229,7 +235,7 @@ export function useMarketWatchlistTokenList({
     [perpsItems.length],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
-      watchLoading: platformEnv.isNative,
+      watchLoading: true,
       revalidateOnReconnect: platformEnv.isNative,
     },
   );
@@ -287,6 +293,7 @@ export function useMarketWatchlistTokenList({
     isInitialLoad ||
     apiLoading ||
     listingLoading ||
+    (perpsItems.length > 0 && Boolean(perpsLoading)) ||
     (platformEnv.isNative &&
       ((spotItems.length > 0 && apiLoading !== false && !spotResult) ||
         (perpsItems.length > 0 && perpsLoading !== false && !perpsResult)));
@@ -332,7 +339,7 @@ export function useMarketWatchlistTokenList({
   }, [perpsApiResult]);
 
   // ── Merge spot + perps into transformedData ──
-  useEffect(() => {
+  const transformedData = useMemo(() => {
     // Transform spot items
     const spotTransformed: IMarketToken[] = [];
     if (apiResult?.list) {
@@ -451,19 +458,31 @@ export function useMarketWatchlistTokenList({
       })
       .filter(Boolean);
 
-    setTransformedData(merged);
-
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-    }
+    return merged;
   }, [
     apiResult,
     listingQuotes,
     watchlist,
     spotItems,
     perpsTokenMap,
-    isInitialLoad,
     networkLogoUriMap,
+  ]);
+
+  useEffect(() => {
+    if (
+      isInitialLoad &&
+      apiLoading === false &&
+      listingLoading === false &&
+      (perpsItems.length === 0 || perpsLoading === false)
+    ) {
+      setIsInitialLoad(false);
+    }
+  }, [
+    apiLoading,
+    isInitialLoad,
+    listingLoading,
+    perpsItems.length,
+    perpsLoading,
   ]);
 
   // Sorting

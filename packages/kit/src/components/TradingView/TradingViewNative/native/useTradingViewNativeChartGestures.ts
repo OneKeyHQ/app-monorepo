@@ -185,9 +185,12 @@ export function useTradingViewNativeChartGestures({
 
         updateCrosshair(event.x, event.y);
       })
-      .onFinalize(() => {
+      .onFinalize((_event, success) => {
         'worklet';
 
+        if (success) {
+          return;
+        }
         const runtime = chartRuntime.value;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
           type: 'crosshairHidden',

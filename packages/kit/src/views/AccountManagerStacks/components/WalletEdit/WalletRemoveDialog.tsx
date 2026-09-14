@@ -151,6 +151,7 @@ export function showWalletRemoveDialog({
   showCheckBox,
   isRemoveToMocked,
   onConfirmRemove,
+  nativeSheet = false,
 }: {
   defaultChecked: boolean;
   title: string;
@@ -160,8 +161,10 @@ export function showWalletRemoveDialog({
   showCheckBox: boolean;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
   onConfirmRemove?: () => void;
+  nativeSheet?: boolean;
 }) {
   return Dialog.show({
+    nativeSheet,
     icon: 'ErrorOutline',
     tone: 'destructive',
     title,

@@ -9,18 +9,26 @@ import {
 describe('mobileDetailTabs.utils', () => {
   describe('resolveVisibleTabKeys', () => {
     it('hides portfolio when there is no position', () => {
-      expect(resolveVisibleTabKeys({ hasPortfolio: false })).toEqual([
-        'info',
-        'protocol',
-      ]);
+      expect(
+        resolveVisibleTabKeys({ hasPortfolio: false, hasProtocol: true }),
+      ).toEqual(['info', 'protocol']);
     });
 
     it('shows portfolio first when there is a position', () => {
-      expect(resolveVisibleTabKeys({ hasPortfolio: true })).toEqual([
-        'portfolio',
-        'info',
-        'protocol',
-      ]);
+      expect(
+        resolveVisibleTabKeys({ hasPortfolio: true, hasProtocol: true }),
+      ).toEqual(['portfolio', 'info', 'protocol']);
+    });
+  });
+
+  describe('resolveVisibleTabKeys without protocol data', () => {
+    it('drops the protocol tab when the provider sends no intro', () => {
+      expect(
+        resolveVisibleTabKeys({ hasPortfolio: true, hasProtocol: false }),
+      ).toEqual(['portfolio', 'info']);
+      expect(
+        resolveVisibleTabKeys({ hasPortfolio: false, hasProtocol: false }),
+      ).toEqual(['info']);
     });
   });
 

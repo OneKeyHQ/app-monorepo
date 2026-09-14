@@ -179,6 +179,58 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(perpsInfoAtom(), undefined);
   });
 
+  prepareStockTokenDetail = contextAtomMethod(
+    (
+      get,
+      set,
+      target: { tokenAddress: string; networkId: string; isNative?: boolean },
+    ) => {
+      // A stock route can be entered before its token variant is resolved.
+      // Clear the previous identity so it cannot be rendered for the new stock.
+      if (!target.networkId || (!target.tokenAddress && !target.isNative)) {
+        set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
+        set(tokenDetailAtom(), undefined);
+        set(tokenDetailPreviewAtom(), undefined);
+        set(tokenDetailLoadingAtom(), false);
+        set(tokenAddressAtom(), '');
+        set(networkIdAtom(), '');
+        set(isNativeAtom(), false);
+        set(tokenDetailWebsocketAtom(), undefined);
+        set(perpsInfoAtom(), undefined);
+        return;
+      }
+
+      // Re-entering the same stock variant must preserve loaded data and any
+      // in-flight request. Clearing here would leave the existing request key
+      // unchanged, so useAutoRefreshTokenDetail would not start it again.
+      if (
+        get(isNativeAtom()) === Boolean(target.isNative) &&
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: get(networkIdAtom()),
+            contractAddress: get(tokenAddressAtom()),
+          },
+          token2: {
+            networkId: target.networkId,
+            contractAddress: target.tokenAddress,
+          },
+        })
+      ) {
+        return;
+      }
+
+      set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
+      set(tokenDetailAtom(), undefined);
+      set(tokenDetailPreviewAtom(), undefined);
+      set(tokenDetailLoadingAtom(), false);
+      set(tokenAddressAtom(), target.tokenAddress);
+      set(networkIdAtom(), target.networkId);
+      set(isNativeAtom(), Boolean(target.isNative));
+      set(tokenDetailWebsocketAtom(), undefined);
+      set(perpsInfoAtom(), undefined);
+    },
+  );
+
   applyChartPriceUpdate = contextAtomMethod(
     (
       get,
@@ -480,10 +532,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           (currentAddress === tokenAddress || currentAddress === '') &&
           (currentNetworkId === networkId || currentNetworkId === '')
         ) {
-          set(tokenDetailAtom(), undefined);
-          set(tokenDetailPreviewAtom(), undefined);
-          set(tokenDetailWebsocketAtom(), undefined);
-          set(perpsInfoAtom(), undefined);
+          // A failed refresh must not unmount the current quotes and chart.
+          // Never retain details belonging to a different token or network.
+          if (
+            !isSameMarketTokenDetail({
+              tokenDetail: get(tokenDetailAtom()),
+              tokenAddress,
+              networkId,
+            })
+          ) {
+            set(tokenDetailAtom(), undefined);
+            set(tokenDetailPreviewAtom(), undefined);
+            set(tokenDetailWebsocketAtom(), undefined);
+            set(perpsInfoAtom(), undefined);
+          }
         } else {
           isStale = true;
         }
@@ -893,6 +955,7 @@ export function useTokenDetailActions() {
   const setPerpsInfo = actions.setPerpsInfo.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
+  const prepareStockTokenDetail = actions.prepareStockTokenDetail.use();
   const changeActiveToken = actions.changeActiveToken.use();
   const applyChartPriceUpdate = actions.applyChartPriceUpdate.use();
 
@@ -909,6 +972,7 @@ export function useTokenDetailActions() {
     setPerpsInfo,
     fetchTokenDetail,
     clearTokenDetail,
+    prepareStockTokenDetail,
     changeActiveToken,
     applyChartPriceUpdate,
   });
