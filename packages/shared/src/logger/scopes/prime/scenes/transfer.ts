@@ -2,6 +2,24 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
 export class PrimeTransferScene extends BaseScene {
+  @LogToLocal({ level: 'error' })
+  public importError(
+    this: void,
+    params: {
+      taskUUID?: string;
+      flow?: 'transfer' | 'cloudBackupRestore';
+      stage: string;
+      targetType?: string;
+      itemIndex?: number;
+      pathIndex?: number;
+      networkId?: string;
+      error: string;
+      code?: number;
+    },
+  ) {
+    return params;
+  }
+
   @LogToLocal({ level: 'info' })
   public endpointResolved({
     endpoint,
