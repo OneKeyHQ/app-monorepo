@@ -99,6 +99,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: {
+    getNetworkImpl: jest.fn(() => 'evm'),
     isBTCMainnet: jest.fn(() => false),
     isBTCNetwork: jest.fn(() => false),
   },
