@@ -351,6 +351,7 @@ function BorrowEModeNeedActionView() {
     indexedAccountId,
   });
   const accountId = earnAccount?.account?.id || routeAccountId || '';
+  const isWatchingAccount = accountUtils.isWatchingAccount({ accountId });
 
   const {
     steps,
@@ -714,6 +715,16 @@ function BorrowEModeNeedActionView() {
           })}
         </SizableText>
 
+        {isWatchingAccount ? (
+          <Alert
+            type="critical"
+            icon="ErrorOutline"
+            title={intl.formatMessage({
+              id: ETranslations.wallet_error_trade_with_watched_account,
+            })}
+          />
+        ) : null}
+
         {blockerDataUnavailable ? (
           <Alert
             type="critical"
@@ -814,6 +825,7 @@ function BorrowEModeNeedActionView() {
           loading: isBusy || pendingGuardBlocksAction || isChecking,
           disabled:
             isBusy ||
+            isWatchingAccount ||
             pendingGuardBlocksAction ||
             (!canRetryCheck &&
               (!check ||
