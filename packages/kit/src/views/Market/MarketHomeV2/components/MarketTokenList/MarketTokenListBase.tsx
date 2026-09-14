@@ -55,6 +55,7 @@ import {
 } from './hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useTrendingColumnsDesktop } from './hooks/useMarketTokenColumns/useTrendingColumnsDesktop';
+import { useWatchlistColumnsDesktop } from './hooks/useMarketTokenColumns/useWatchlistColumnsDesktop';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 import {
@@ -559,10 +560,23 @@ function MarketTokenListBase({
     sort: trendingSort,
     onSort: handleTrendingSort,
   });
+  const watchlistColumnsDesktop = useWatchlistColumnsDesktop({
+    networkId,
+    watchlistFrom,
+    copyFrom,
+    hiddenDesktopColumns,
+    deferRichRowAfterIndex,
+  });
   const useTrendingDesktopColumns = desktopColumnVariant === 'trending' && !md;
-  const baseMarketTokenColumns = useTrendingDesktopColumns
-    ? trendingColumnsDesktop
-    : defaultMarketTokenColumns;
+  // The watchlist mirrors each row's sibling list on desktop; its mobile
+  // column set stays shared with the other spot lists.
+  const useWatchlistDesktopColumns = isWatchlistMode && !md;
+  let baseMarketTokenColumns = defaultMarketTokenColumns;
+  if (useTrendingDesktopColumns) {
+    baseMarketTokenColumns = trendingColumnsDesktop;
+  } else if (useWatchlistDesktopColumns) {
+    baseMarketTokenColumns = watchlistColumnsDesktop;
+  }
   const {
     columns: marketTokenColumns,
     handleContainerLayout: handleResponsiveContainerLayout,
@@ -588,12 +602,14 @@ function MarketTokenListBase({
       setTrendingSort({});
     }
   }, [marketTokenColumns, trendingSort.field, useTrendingDesktopColumns]);
-  // Trending desktop rows expose a hover group so the name cell can swap the
-  // token age for the contract address. Only data rows opt in: `rowProps` below
-  // is shared with the header row, which must not become a hover group.
-  const rowHoverGroupName = useTrendingDesktopColumns
-    ? MARKET_TOKEN_ROW_GROUP_NAME
-    : undefined;
+  // Trending and watchlist desktop rows expose a hover group so the name cell
+  // can swap its subtitle: the token age for the contract address, a company
+  // name for the tokens issued against it. Only data rows opt in: `rowProps`
+  // below is shared with the header row, which must not become a hover group.
+  const rowHoverGroupName =
+    useTrendingDesktopColumns || useWatchlistDesktopColumns
+      ? MARKET_TOKEN_ROW_GROUP_NAME
+      : undefined;
 
   const data = useMemo(() => {
     const dataWithLiveOverrides = liveTokenOverride
