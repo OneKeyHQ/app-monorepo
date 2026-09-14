@@ -65,14 +65,6 @@ const BANNER_INFO_GLASS_EDGE = 'rgba(255,255,255,0.22)';
 const BANNER_BUTTON_LABEL_NUDGE = {
   transform: [{ translateY: -1.5 }],
 } as const;
-// Matches the admin dashboard BannerPreview text-shadow so copy stays
-// readable on both light and dark background images. Not in Figma: the design
-// only ever shows the one hand-picked artwork, ops can upload any image.
-const BANNER_IMAGE_COPY_SHADOW = {
-  textShadowColor: 'rgba(0,0,0,0.45)',
-  textShadowRadius: 4,
-  textShadowOffset: { width: 0, height: 1 },
-} as const;
 // Figma default text colors (double fallback: prefer server-configured
 // colors, fall back to these when absent)
 const BANNER_DEFAULT_COLORS = {
@@ -164,8 +156,8 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
         <Stack flex={1} />
         {/* Campaign copy at the image's bottom-left. Long i18n copy: line
             clamp + wrapping so it never overflows the card. Color double
-            fallback: prefer admin-configured colors, else Figma default dark;
-            a light shadow keeps it readable on light/dark images (OK-58503). */}
+            fallback: prefer admin-configured colors, else Figma default dark.
+            Keep the copy shadow-free so dark text does not look embossed. */}
         {hasImageCopy ? (
           // Figma: padding 12, gap 10. The gap prop is $0.5, not $2.5,
           // because the prop only adds to what line-height already
@@ -181,7 +173,6 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                 size="$headingLg"
                 color={item.imageTitleColor || BANNER_DEFAULT_COLORS.imageTitle}
                 numberOfLines={2}
-                style={BANNER_IMAGE_COPY_SHADOW}
               >
                 {item.imageTitle}
               </SizableText>
@@ -193,7 +184,6 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                   item.imageSubtitleColor || BANNER_DEFAULT_COLORS.imageSubtitle
                 }
                 numberOfLines={1}
-                style={BANNER_IMAGE_COPY_SHADOW}
               >
                 {item.imageSubtitle}
               </SizableText>
@@ -242,16 +232,13 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                 resizeMode="contain"
               />
             ) : null}
-            {/* Same shadow the image copy carries. An ultra-thin pane only
-                darkens a bright photo so far, and titleColor/subtitleColor are
-                admin-configurable, so the shadow is what keeps this copy
-                legible on artwork the design never saw. */}
+            {/* Keep the bottom-bar copy shadow-free as well. Contrast remains
+                controlled by the server colors and the frosted material. */}
             <YStack flex={1} minWidth={0} jc="center">
               <SizableText
                 size="$bodyMdMedium"
                 color={item.titleColor || BANNER_DEFAULT_COLORS.title}
                 numberOfLines={1}
-                style={BANNER_IMAGE_COPY_SHADOW}
               >
                 {item.title}
               </SizableText>
@@ -259,7 +246,6 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
                 size="$bodySm"
                 color={item.subtitleColor || BANNER_DEFAULT_COLORS.subtitle}
                 numberOfLines={1}
-                style={BANNER_IMAGE_COPY_SHADOW}
               >
                 {item.subtitle}
               </SizableText>
