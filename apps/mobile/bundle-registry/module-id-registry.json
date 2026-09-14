@@ -22193,6 +22193,7 @@
     "packages/kit/src/views/Perp/components/OrderInfoPanel/List/PerpFundingHistoryList.tsx": 10133,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/List/PerpOpenOrdersList.tsx": 11972,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/List/PerpPositionsList.tsx": 11834,
+    "packages/kit/src/views/Perp/components/OrderInfoPanel/List/PerpTableScrollView.tsx": 1142,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/List/PerpTradesHistoryList.tsx": 8384,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/List/PerpTwapList.tsx": 17741,
     "packages/kit/src/views/Perp/components/OrderInfoPanel/List/SpotBalanceList.tsx": 21996,
