@@ -22387,6 +22387,7 @@
     "packages/kit/src/views/Perp/utils/unifoldDestination.ts": 20642,
     "packages/kit/src/views/Perp/utils/unifoldExecution.ts": 11347,
     "packages/kit/src/views/Perp/utils/unifoldRecipient.ts": 15978,
+    "packages/kit/src/views/PerpTrade/components/WebviewPerpTradeWebView.tsx": 11970,
     "packages/kit/src/views/PerpTrade/pages/PageWebviewPerpTrade.tsx": 13343,
     "packages/kit/src/views/PerpTrade/router/index.ts": 20262,
     "packages/kit/src/views/PerpTrade/testIDs.ts": 23345,
