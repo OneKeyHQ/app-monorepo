@@ -32,16 +32,16 @@ import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/trading
 
 import { useTradingViewSettingsThemeColors } from '../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
 import {
-  TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
-  TradingViewIndicatorQuickBar,
-} from '../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
-import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
-import {
   canToggleTradingViewNativeIndicatorOn,
   getAppNativeIndicators,
   getIndicatorSections,
-} from '../TradingViewV2/components/indicatorControls/hooks/useNativeIndicatorActiveValues';
-import { resolveTradingViewNativeIndicatorQuickBarState } from '../TradingViewV2/components/tradingViewV2/nativeIndicatorQuickBarState';
+} from '../TradingViewChartControls/indicatorSelector/indicatorUtils';
+import {
+  TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
+  TradingViewIndicatorQuickBar,
+} from '../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
+import { resolveTradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
+import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import {
   TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT,
@@ -691,9 +691,15 @@ const TradingViewNativeContent = memo(
       },
       [setIndicatorSettings],
     );
+    const handleExitFullscreen = useCallback(() => {
+      if (isNativeChartFullscreen) {
+        onNativeChartFullscreenChange?.(false);
+      }
+    }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
     const handleIndicatorSettingsPress = useCallback(
       (indicator?: ITradingViewNativeAnyIndicator) => {
         if (nativeControlsLayoutMode !== 'desktop' && !indicator) {
+          handleExitFullscreen();
           navigation.pushModal(EModalRoutes.MarketModal, {
             screen: EModalMarketRoutes.MarketIndicatorSettings,
             params: { storageNamespace: storageNamespace ?? 'market' },
@@ -715,6 +721,7 @@ const TradingViewNativeContent = memo(
         });
       },
       [
+        handleExitFullscreen,
         indicatorSettingsValue,
         intl,
         nativeControlsLayoutMode,
@@ -891,6 +898,31 @@ const TradingViewNativeContent = memo(
       points.length === 0 && dataState.status !== 'error';
     const priceAxisWidth =
       chartWidth > 0 ? Math.max(chartAreaWidth - chartWidth, 0) : 0;
+    const mobileSettingsControl = useMemo(
+      () =>
+        isMobileControlsLayout &&
+        enableNativeChartSettings &&
+        nativeChartSettingsInToolbar ? (
+          <TradingViewNativeChartSettingsButton
+            placement="toolbar"
+            priceAxisWidth={priceAxisWidth}
+            enablePreviousClose={enablePreviousClose}
+            isChartSwitchDisabled={isChartSwitchDisabled}
+            onChartSwitch={onChartSwitch}
+            onBeforeOpenSettings={handleExitFullscreen}
+          />
+        ) : undefined,
+      [
+        enableNativeChartSettings,
+        enablePreviousClose,
+        handleExitFullscreen,
+        isChartSwitchDisabled,
+        isMobileControlsLayout,
+        nativeChartSettingsInToolbar,
+        onChartSwitch,
+        priceAxisWidth,
+      ],
+    );
     const chartRuntimeRef = useMemo<ITradingViewNativeChartProps['runtimeRef']>(
       () => ({ current: null }),
       // A new symbol or interval owns a fresh viewport; presentation changes reuse it.
@@ -908,19 +940,7 @@ const TradingViewNativeContent = memo(
             calendarAvailableTimeRange={calendarAvailableTimeRange}
             compactMobileLayout={isCompactDisplayMode}
             enableNativeChartSettings={enableNativeChartSettings}
-            mobileSettingsControl={
-              isMobileControlsLayout &&
-              enableNativeChartSettings &&
-              nativeChartSettingsInToolbar ? (
-                <TradingViewNativeChartSettingsButton
-                  placement="toolbar"
-                  priceAxisWidth={priceAxisWidth}
-                  enablePreviousClose={enablePreviousClose}
-                  isChartSwitchDisabled={isChartSwitchDisabled}
-                  onChartSwitch={onChartSwitch}
-                />
-              ) : undefined
-            }
+            mobileSettingsControl={mobileSettingsControl}
             enablePreviousClose={enablePreviousClose}
             intervalConfig={intervalConfig}
             activeIndicatorValues={activeIndicatorValues}

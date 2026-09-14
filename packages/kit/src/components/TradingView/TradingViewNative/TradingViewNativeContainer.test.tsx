@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import type { ReactNode, SetStateAction } from 'react';
+import type { ReactElement, ReactNode, SetStateAction } from 'react';
 import { Suspense, startTransition, use, useState } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -31,7 +31,7 @@ import type {
   ITradingViewNativeDataState,
 } from './types';
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
-import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewV2/components/tradingViewV2/nativeIndicatorQuickBarState';
+import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
 
 const mockHandleRetry = jest.fn();
 const mockPushModal = jest.fn();
@@ -516,21 +516,78 @@ describe('TradingViewNativeContainer', () => {
     expect(screen.queryByTestId(quickBarTestId)).toBeNull();
   });
 
-  it('opens the Market indicator settings from the quick bar', () => {
-    render(
+  it.each([false, true])(
+    'opens indicator settings after leaving fullscreen when fullscreen is %s',
+    (isFullscreen) => {
+      const onFullscreenChange = jest.fn();
+      render(
+        <TradingViewNativeContainer
+          source={{ kind: 'hyperliquid', coin: 'ETH', environment: 'mainnet' }}
+          nativeControlsLayoutMode="mobile"
+          showNativeIndicatorQuickBar
+          isNativeChartFullscreen={isFullscreen}
+          onNativeChartFullscreenChange={onFullscreenChange}
+        />,
+      );
+      fireEvent.click(
+        screen.getByTestId('trading-view-native-indicator-settings-trigger'),
+      );
+      expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
+        screen: 'MarketIndicatorSettings',
+        params: { storageNamespace: 'market' },
+      });
+      if (isFullscreen) {
+        expect(onFullscreenChange).toHaveBeenCalledWith(false);
+        expect(onFullscreenChange.mock.invocationCallOrder[0]).toBeLessThan(
+          mockPushModal.mock.invocationCallOrder[0],
+        );
+      } else {
+        expect(onFullscreenChange).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('preserves the toolbar settings element across chart updates and exits fullscreen before navigation', () => {
+    const onFullscreenChange = jest.fn();
+    const source = {
+      kind: 'market',
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'websocket',
+    } as const;
+    const chart = (isFullscreen = false) => (
       <TradingViewNativeContainer
-        source={{ kind: 'hyperliquid', coin: 'ETH', environment: 'mainnet' }}
+        source={source}
         nativeControlsLayoutMode="mobile"
-        showNativeIndicatorQuickBar
-      />,
+        enableNativeChartSettings
+        nativeChartSettingsInToolbar
+        isNativeChartFullscreen={isFullscreen}
+        onNativeChartFullscreenChange={onFullscreenChange}
+      />
     );
-    fireEvent.click(
-      screen.getByTestId('trading-view-native-indicator-settings-trigger'),
-    );
-    expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
-      screen: 'MarketIndicatorSettings',
-      params: { storageNamespace: 'market' },
-    });
+    const getSettingsControl = () => {
+      const props = mockTradingViewNativeChartControlsContainer.mock.calls.at(
+        -1,
+      )?.[0] as {
+        mobileSettingsControl: ReactElement<{
+          onBeforeOpenSettings: () => void;
+        }>;
+      };
+      return props.mobileSettingsControl;
+    };
+    const { rerender } = render(chart());
+    const settingsControl = getSettingsControl();
+    act(() => settingsControl.props.onBeforeOpenSettings());
+    expect(onFullscreenChange).not.toHaveBeenCalled();
+
+    mockPoints = [{ o: 100, h: 110, l: 99, c: 105, v: 10, t: 1000 }];
+    rerender(chart());
+    expect(getSettingsControl()).toBe(settingsControl);
+
+    rerender(chart(true));
+    act(() => getSettingsControl().props.onBeforeOpenSettings());
+    expect(onFullscreenChange).toHaveBeenCalledWith(false);
   });
 
   it('syncs quick bar selections with chart indicators, settings, and the sub-indicator cap', () => {

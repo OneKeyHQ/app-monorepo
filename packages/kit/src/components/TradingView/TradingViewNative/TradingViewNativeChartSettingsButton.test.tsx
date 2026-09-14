@@ -147,4 +147,32 @@ describe('TradingViewNativeChartSettingsButton', () => {
       params: { showPreviousClose: true },
     });
   });
+
+  it('exits the fullscreen overlay before pushing the chart settings page', () => {
+    const onBeforeOpenSettings = jest.fn();
+    render(
+      <TradingViewNativeChartSettingsButton
+        priceAxisWidth={52}
+        placement="toolbar"
+        onBeforeOpenSettings={onBeforeOpenSettings}
+      />,
+    );
+
+    const buttonProps = mockIconButton.mock.calls[0][0] as {
+      onPress: () => void;
+    };
+    buttonProps.onPress();
+    expect(onBeforeOpenSettings).not.toHaveBeenCalled();
+    expect(mockPushModal).not.toHaveBeenCalled();
+
+    mockDialogShow.mock.calls[0][0].renderContent.props.onOpenSettings();
+    expect(onBeforeOpenSettings).toHaveBeenCalledTimes(1);
+    expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
+      screen: 'MarketChartSettings',
+      params: { showPreviousClose: false },
+    });
+    expect(onBeforeOpenSettings.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPushModal.mock.invocationCallOrder[0],
+    );
+  });
 });

@@ -6,7 +6,7 @@ import type {
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
-import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewV2/components/tradingViewV2/nativeIndicatorQuickBarState';
+import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
 
 export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
 

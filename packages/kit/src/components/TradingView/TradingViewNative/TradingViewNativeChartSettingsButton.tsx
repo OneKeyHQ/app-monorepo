@@ -29,23 +29,26 @@ export function TradingViewNativeChartSettingsButton({
   enablePreviousClose = false,
   isChartSwitchDisabled = false,
   onChartSwitch,
+  onBeforeOpenSettings,
   placement = 'chart',
 }: {
   priceAxisWidth: number;
   enablePreviousClose?: boolean;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
+  onBeforeOpenSettings?: () => void;
   placement?: 'chart' | 'toolbar';
 }) {
   const isToolbar = placement === 'toolbar';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const openChartSettingsModal = useCallback(() => {
+    onBeforeOpenSettings?.();
     navigation.pushModal(EModalRoutes.MarketModal, {
       screen: EModalMarketRoutes.MarketChartSettings,
       params: { showPreviousClose: enablePreviousClose },
     });
-  }, [enablePreviousClose, navigation]);
+  }, [enablePreviousClose, navigation, onBeforeOpenSettings]);
   const handlePress = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_settings }),
