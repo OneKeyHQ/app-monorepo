@@ -45,6 +45,7 @@ jest.mock('@onekeyhq/components', () => {
       fallback ?? children,
     );
   return {
+    s: (value: number) => value,
     Stack: Component,
     XStack: Component,
     YStack: Component,

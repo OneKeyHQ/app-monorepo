@@ -15,6 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_BORDER_COLOR } from '@onekeyhq/components/src/utils/animationConstants';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { LeverageBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -387,7 +388,7 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
       <XStack
         alignItems="center"
         gap="$1"
-        h={30}
+        h={s(30)}
         testID={MarketTestIDs.bannerTitle}
       >
         <XStack flex={1} minWidth={0} alignItems="center" gap="$2">

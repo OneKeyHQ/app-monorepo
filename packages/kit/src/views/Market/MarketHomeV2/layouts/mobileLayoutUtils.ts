@@ -1,10 +1,13 @@
+import { s } from '@onekeyhq/components/src/utils/scale';
+
 export const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 export const MARKET_MOBILE_COLUMN_HEADER_HEIGHT = 32;
 export const MARKET_MOBILE_CONTENT_TOP_GAP = 16;
 
 // Banner card height plus the mobile scroller's 16pt top and bottom padding:
-// 180pt modern cards and 118pt legacy cards.
-const MARKET_MOBILE_BANNER_MODERN_HEIGHT = 212;
+// 180pt modern cards and 118pt legacy cards. Modern cards follow the Android UI
+// scale, so their height does too.
+const MARKET_MOBILE_BANNER_MODERN_HEIGHT = s(212);
 const MARKET_MOBILE_BANNER_LEGACY_HEIGHT = 150;
 
 export function getMarketMobileBannerHeaderHeight(

@@ -24,6 +24,7 @@ import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
   MARKET_DETAIL_TRADE_COLUMN_PROPS,
 } from '../../marketDesktopLayoutConstants';
+import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
@@ -251,6 +252,7 @@ export function TokenDesktopLayout({
           testID="market-token-detail-standard-trade"
           {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
         >
+          <PerpetualTradingBanner px="$5" py="$5" />
           <MarketEmbeddedSwap
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}

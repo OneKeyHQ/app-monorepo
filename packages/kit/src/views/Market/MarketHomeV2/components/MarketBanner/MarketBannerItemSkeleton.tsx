@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import { Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { s } from '@onekeyhq/components/src/utils/scale';
 
 import { MarketTestIDs } from '../../testIDs';
 
@@ -32,7 +33,7 @@ function MarketBannerItemSkeletonComponent({
       flexShrink={0}
       gap="$6"
     >
-      <XStack h={30} alignItems="center">
+      <XStack h={s(30)} alignItems="center">
         <Skeleton w="$24" h="$4" />
       </XStack>
       <YStack gap="$4" pr="$1.5" minHeight={MARKET_BANNER_LIST_MIN_HEIGHT}>

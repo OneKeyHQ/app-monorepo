@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
-import { ListEndIndicator, SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -90,9 +90,6 @@ export function BannerDetailTokenFlatList({
           maxToRenderPerBatch={20}
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
           ListEmptyComponent={emptyComponent}
-          ListFooterComponent={
-            sortedData.length > 0 ? <ListEndIndicator /> : null
-          }
         />
       )}
     </Stack>

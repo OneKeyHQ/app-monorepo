@@ -6,6 +6,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { s } from '@onekeyhq/components/src/utils/scale';
 
 import {
   MARKET_BANNER_ITEM_HEIGHT,
@@ -13,7 +14,7 @@ import {
 } from './MarketBanner/marketBannerLayout';
 
 const MARKET_HOME_TAB_BAR_HEIGHT = 44;
-const MARKET_HOME_BANNER_HEIGHT = 212;
+const MARKET_HOME_BANNER_HEIGHT = s(212);
 const BANNER_SKELETON_COUNT = 3;
 const TAB_LABEL_SKELETON_WIDTHS = [32, 32, 32, 32] as const;
 
