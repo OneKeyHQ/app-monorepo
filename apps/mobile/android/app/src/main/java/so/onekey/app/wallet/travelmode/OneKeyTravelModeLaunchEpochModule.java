@@ -81,10 +81,11 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
                 if (!committed) {
                     throw new IllegalStateException("Launch epoch commit failed");
                 }
-                OneKeyTravelModeSplashScreen.synchronize(
+                // Appearance updates must not reject a committed restart.
+                OneKeyTravelModeSplashScreen.synchronizeBestEffort(
                     getReactApplicationContext().getCurrentActivity(), "travel-mode".equals(profile)
                 );
-                OneKeyTravelModeAppIcon.synchronize(
+                OneKeyTravelModeAppIcon.synchronizeBestEffort(
                     getReactApplicationContext(), "travel-mode".equals(profile)
                 );
                 promise.resolve((double) epoch);
@@ -106,9 +107,11 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
     private void forceDisableWithSplashScreen(Promise promise) {
         try {
             boolean didChange = forceDisableTravelModeForRecovery(getReactApplicationContext());
-            OneKeyTravelModeSplashScreen.synchronizeBestEffort(
-                getReactApplicationContext().getCurrentActivity(), false
-            );
+            if (didChange) {
+                OneKeyTravelModeSplashScreen.synchronizeBestEffort(
+                    getReactApplicationContext().getCurrentActivity(), false
+                );
+            }
             promise.resolve(didChange);
         } catch (Exception error) {
             promise.reject("TRAVEL_MODE_RECOVERY_FAILED", error.getMessage(), error);
@@ -179,7 +182,9 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
             if (!committed || preferences.contains(PENDING_EPOCH_KEY)) {
                 throw new IllegalStateException("Launch recovery commit failed");
             }
-            OneKeyTravelModeAppIcon.synchronizeBestEffort(context, false);
+            if (didChange) {
+                OneKeyTravelModeAppIcon.synchronizeBestEffort(context, false);
+            }
             return didChange;
         }
     }

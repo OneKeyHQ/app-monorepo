@@ -21,7 +21,6 @@ public final class OneKeyTravelModeSplashScreen {
         activity.setTheme(enabled
             ? R.style.Theme_App_SplashScreen_TravelMode
             : R.style.Theme_App_SplashScreen);
-        synchronizeBestEffort(activity, enabled);
         return enabled;
     }
 

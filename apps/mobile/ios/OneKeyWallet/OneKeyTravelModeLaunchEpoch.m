@@ -53,54 +53,26 @@ static BOOL OneKeyTravelModeControlRecordIsValid(NSDictionary *record)
          [record[@"version"] isEqual:@1];
 }
 
-static void OneKeyUpdateTravelModeAppIcon(void (^completion)(NSError *))
+static void OneKeyUpdateTravelModeAppIcon(BOOL enabled)
 {
-  // Both RN runtimes share the application's icon. Read the committed native
-  // record on the UI queue instead of trusting a runtime's cached profile.
   dispatch_async(dispatch_get_main_queue(), ^{
     UIApplication *application = UIApplication.sharedApplication;
-    [MMKV initializeMMKV:nil];
-    MMKV *mmkv = [MMKV mmkvWithID:OneKeyTravelModeMMKVID];
-    NSString *rawValue = [mmkv getStringForKey:OneKeyTravelModeControlKey];
-    BOOL enabled = NO;
-    NSError *error = nil;
-    if (mmkv == nil) {
-      error = [NSError errorWithDomain:@"OneKeyTravelModeAppIcon" code:1 userInfo:nil];
-    } else if (rawValue.length > 0) {
-      id record = [NSJSONSerialization JSONObjectWithData:[rawValue dataUsingEncoding:NSUTF8StringEncoding]
-                                                options:0 error:&error];
-      if (![record isKindOfClass:NSDictionary.class] ||
-          !OneKeyTravelModeControlRecordIsValid(record)) {
-        error = error ?: [NSError errorWithDomain:@"OneKeyTravelModeAppIcon" code:2 userInfo:nil];
-      } else {
-        enabled = [record[@"enabled"] boolValue];
-      }
-    }
     NSString *iconName = enabled ? @"TravelModeIcon" : nil;
     BOOL matches = (application.alternateIconName == nil && iconName == nil) ||
         [application.alternateIconName isEqualToString:iconName];
-    if (error != nil || matches) {
-      if (completion != nil) completion(error);
+    if (matches) {
       return;
     }
     if (!application.supportsAlternateIcons) {
-      if (completion != nil) {
-        completion([NSError errorWithDomain:@"OneKeyTravelModeAppIcon" code:3 userInfo:nil]);
-      }
+      NSLog(@"[TravelModeAppIcon] Alternate app icons are unavailable");
       return;
     }
     [application setAlternateIconName:iconName completionHandler:^(NSError *updateError) {
       if (updateError != nil) {
         NSLog(@"[TravelModeAppIcon] Icon update failed: %@", updateError.domain);
       }
-      if (completion != nil) completion(updateError);
     }];
   });
-}
-
-void OneKeySynchronizeTravelModeAppIcon(void)
-{
-  OneKeyUpdateTravelModeAppIcon(nil);
 }
 
 static BOOL OneKeyForceDisableTravelModeControl(BOOL *didChange)
@@ -192,7 +164,9 @@ static BOOL OneKeyForceDisableTravelModeForRecoveryWithChange(BOOL *didChange)
       if (didChange != NULL) {
         *didChange = controlChanged;
       }
-      OneKeySynchronizeTravelModeAppIcon();
+      if (controlChanged) {
+        OneKeyUpdateTravelModeAppIcon(NO);
+      }
       return YES;
     }
   } @catch (NSException *exception) {
@@ -292,13 +266,9 @@ RCT_REMAP_METHOD(prepareRestart,
       reject(@"TRAVEL_MODE_LAUNCH_PREPARE_FAILED", @"Launch epoch commit failed", nil);
       return;
     }
-    OneKeyUpdateTravelModeAppIcon(^(NSError *error) {
-      if (error != nil) {
-        reject(@"TRAVEL_MODE_ICON_UPDATE_FAILED", @"App icon update failed", error);
-      } else {
-        resolve(@(epoch));
-      }
-    });
+    // A failed or missing icon callback must not block the committed restart.
+    OneKeyUpdateTravelModeAppIcon([profile isEqualToString:@"travel-mode"]);
+    resolve(@(epoch));
   }
 }
 

@@ -328,10 +328,12 @@ public class RecoveryActivity extends AppCompatActivity {
 
     private void forceDisableTravelModeForRecoveryBestEffort() {
         try {
-            OneKeyTravelModeLaunchEpochModule.forceDisableTravelModeForRecovery(
+            boolean didChange = OneKeyTravelModeLaunchEpochModule.forceDisableTravelModeForRecovery(
                 getApplicationContext()
             );
-            runOnUiThread(() -> OneKeyTravelModeSplashScreen.synchronizeBestEffort(this, false));
+            if (didChange) {
+                runOnUiThread(() -> OneKeyTravelModeSplashScreen.synchronizeBestEffort(this, false));
+            }
         } catch (Exception ignored) {
             // The original recovery action must continue if this safeguard fails.
         }

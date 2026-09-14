@@ -49,7 +49,6 @@ import org.json.JSONObject;
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
 import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
-import so.onekey.app.wallet.travelmode.OneKeyTravelModeAppIcon;
 
 public class BaseMainApplication extends Application implements ReactApplication {
   public boolean isTravelModeMaskingData() {
@@ -612,7 +611,6 @@ public class BaseMainApplication extends Application implements ReactApplication
     );
 
     boolean isTravelModeActive = isTravelModeMaskingData();
-    OneKeyTravelModeAppIcon.synchronizeBestEffort(this, isTravelModeActive);
     setJPushSuppressed(isTravelModeActive);
     if (!isTravelModeActive) {
       JPushModule.registerActivityLifecycle(this);
