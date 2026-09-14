@@ -81,9 +81,11 @@ jest.mock('@onekeyhq/components', () => {
   return {
     __esModule: true,
     Badge: asDom('span'),
+    Button: asDom('button'),
     Icon: asDom('i'),
     Page: MockPage,
     SizableText: asDom('span'),
+    Skeleton: asDom('div'),
     Stack: asDom('div'),
     XStack: asDom('div'),
     YStack: asDom('div'),
@@ -173,14 +175,34 @@ const scope = {
   accountId: 'acc-1',
 };
 
+function statusState({
+  status = eModeStatus,
+  isInitialLoading = false,
+  isError = false,
+  refresh = jest.fn(),
+}: {
+  status?: IBorrowEModeStatus | null;
+  isInitialLoading?: boolean;
+  isError?: boolean;
+  refresh?: jest.Mock;
+} = {}) {
+  return { eModeStatus: status, isInitialLoading, isError, refresh };
+}
+
 function renderModal({
   selectedEModeId = 1,
   onSelect = jest.fn(),
   status = eModeStatus,
+  isInitialLoading = false,
+  isError = false,
+  refresh = jest.fn(),
 }: {
   selectedEModeId?: number | null;
   onSelect?: jest.Mock;
   status?: IBorrowEModeStatus | null;
+  isInitialLoading?: boolean;
+  isError?: boolean;
+  refresh?: jest.Mock;
 } = {}) {
   (globalThis as Record<string, any>).__eModeRouteParams = {
     ...scope,
@@ -188,8 +210,14 @@ function renderModal({
     onSelect,
   };
   (globalThis as Record<string, any>).__eModePop = pop;
-  mockUseBorrowEModeStatus.mockReturnValue({ eModeStatus: status });
-  return { onSelect, ...render(<BorrowEModeCategorySelectModal />) };
+  mockUseBorrowEModeStatus.mockReturnValue(
+    statusState({ status, isInitialLoading, isError, refresh }),
+  );
+  return {
+    onSelect,
+    refresh,
+    ...render(<BorrowEModeCategorySelectModal />),
+  };
 }
 
 const rowOf = (container: HTMLElement, eModeId: number) =>
@@ -392,13 +420,58 @@ describe('BorrowEModeCategorySelectModal', () => {
     expect(rowOf(container, 2).textContent).toContain('global_current');
   });
 
-  it('renders nothing to pick while the status is still resolving', () => {
-    const { container } = renderModal({ status: null });
+  it('shows a skeleton, not an empty list, while the status is still resolving', () => {
+    const { container } = renderModal({ status: null, isInitialLoading: true });
 
+    expect(
+      container.querySelector(
+        '[data-testid="borrow-e-mode-category-skeleton"]',
+      ),
+    ).not.toBeNull();
     expect(
       container.querySelectorAll(
         '[data-testid^="borrow-e-mode-category-row-"]',
       ),
     ).toHaveLength(0);
+    expect(
+      container.querySelector('[data-testid="borrow-e-mode-category-retry"]'),
+    ).toBeNull();
+  });
+
+  // The cache normally seeds this screen, but a request that comes back empty
+  // leaves it with no rows at all. Without a way back in that is a dead end.
+  it('offers a retry when the status fails with nothing cached, then lists the categories once it recovers', () => {
+    const refresh = jest.fn();
+    const { container, rerender } = renderModal({
+      status: null,
+      isError: true,
+      refresh,
+    });
+
+    expect(container.textContent).toContain('defi_emode_load_error');
+    expect(
+      container.querySelectorAll(
+        '[data-testid^="borrow-e-mode-category-row-"]',
+      ),
+    ).toHaveLength(0);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-testid="borrow-e-mode-category-retry"]',
+      ) as HTMLElement,
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    mockUseBorrowEModeStatus.mockReturnValue(statusState({ refresh }));
+    rerender(<BorrowEModeCategorySelectModal />);
+
+    expect(
+      container.querySelector('[data-testid="borrow-e-mode-category-retry"]'),
+    ).toBeNull();
+    expect(
+      container.querySelectorAll(
+        '[data-testid^="borrow-e-mode-category-row-"]',
+      ),
+    ).toHaveLength(3);
   });
 });

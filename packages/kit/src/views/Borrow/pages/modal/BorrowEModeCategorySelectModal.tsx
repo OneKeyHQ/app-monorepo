@@ -4,9 +4,11 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   Icon,
   Page,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -119,13 +121,14 @@ export default function BorrowEModeCategorySelectModal() {
 
   // Same scope key as the switch page that pushed this screen, so this reads
   // straight out of the cache and then keeps following it.
-  const { eModeStatus } = useBorrowEModeStatus({
-    networkId,
-    provider,
-    marketAddress,
-    accountId,
-    enabled: !!accountId,
-  });
+  const { eModeStatus, isInitialLoading, isError, refresh } =
+    useBorrowEModeStatus({
+      networkId,
+      provider,
+      marketAddress,
+      accountId,
+      enabled: !!accountId,
+    });
 
   const rows = useMemo(
     () =>
@@ -153,28 +156,62 @@ export default function BorrowEModeCategorySelectModal() {
     id: ETranslations.defi_emode_select_category,
   });
 
+  // The cache normally seeds this screen before it paints, so these states
+  // only appear when the request comes back empty or the cache is cold.
+  const showError = isError && !eModeStatus;
+  const showSkeleton = !showError && isInitialLoading;
+
   return (
     <Page scrollEnabled>
       <Page.Header title={title} />
       <Page.Body>
-        <YStack
-          py="$2"
-          accessibilityRole="radiogroup"
-          accessibilityLabel={title}
-          {...(platformEnv.isRuntimeBrowser
-            ? { role: 'radiogroup' as const, 'aria-label': title }
-            : {})}
-        >
-          {rows.map((row) => (
-            <EModeCategoryRow
-              key={row.eModeId}
-              row={row}
-              currentEModeId={currentEModeId}
-              isSelected={row.eModeId === resolvedSelection}
-              onPress={handleSelect}
-            />
-          ))}
-        </YStack>
+        {showError ? (
+          <YStack gap="$4" py="$8" px="$5" ai="center">
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.defi_emode_load_error })}
+            </SizableText>
+            <Button
+              size="medium"
+              variant="secondary"
+              testID="borrow-e-mode-category-retry"
+              onPress={() => void refresh()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+          </YStack>
+        ) : null}
+        {showSkeleton ? (
+          <YStack py="$2" testID="borrow-e-mode-category-skeleton">
+            {[0, 1, 2].map((key) => (
+              <XStack key={key} ai="center" gap="$3" px="$5" py="$3">
+                <YStack flex={1} gap="$2">
+                  <Skeleton w={120} h="$5" borderRadius="$2" />
+                  <Skeleton w={180} h="$4" borderRadius="$2" />
+                </YStack>
+              </XStack>
+            ))}
+          </YStack>
+        ) : null}
+        {showError || showSkeleton ? null : (
+          <YStack
+            py="$2"
+            accessibilityRole="radiogroup"
+            accessibilityLabel={title}
+            {...(platformEnv.isRuntimeBrowser
+              ? { role: 'radiogroup' as const, 'aria-label': title }
+              : {})}
+          >
+            {rows.map((row) => (
+              <EModeCategoryRow
+                key={row.eModeId}
+                row={row}
+                currentEModeId={currentEModeId}
+                isSelected={row.eModeId === resolvedSelection}
+                onPress={handleSelect}
+              />
+            ))}
+          </YStack>
+        )}
       </Page.Body>
     </Page>
   );
