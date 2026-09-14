@@ -3457,6 +3457,7 @@
   "perp_trade_account_overview_avbl": "Доступно",
   "perp_trade_deposit_to_trade__action": "Пополнить для торговли",
   "perp_trade_first_deposit_ready__desc": "Первое пополнение подготовит ваш аккаунт к торговле.",
+  "perp_trade_settlement__title": "Расчёт",
   "perp_trades_history_recent_range_desc": "Отображаются сделки максимум за последние 2 года.",
   "perp_trading_adjust_margin": "Изменить маржу",
   "perp_trading_adjust_margin_max": "Макс. добавление",

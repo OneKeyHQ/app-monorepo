@@ -15,6 +15,7 @@ import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
 import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
 
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
+import { ToastOverlayContainer } from './ToastOverlayContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
 export function FullWindowOverlayContainer() {
@@ -101,11 +102,11 @@ export function FullWindowOverlayContainer() {
           right after each stage raise, so a toast during a hardware flow
           still paints and taps above the stage on iOS. Elsewhere
           OverlayContainer is a pass-through and z-index keeps the order. */}
-      <OverlayContainer bringToFrontToken={toastRaiseToken}>
+      <ToastOverlayContainer bringToFrontToken={toastRaiseToken}>
         <ShowToastProvider />
         {/* E2E mode, enable tap in iOS */}
         {platformEnv.isE2E ? <></> : <Toaster />}
-      </OverlayContainer>
+      </ToastOverlayContainer>
       <DevOverlayWindowContainer />
       <TradingViewNativeDebugPanelContainer />
       <ScreenshotBranding />
