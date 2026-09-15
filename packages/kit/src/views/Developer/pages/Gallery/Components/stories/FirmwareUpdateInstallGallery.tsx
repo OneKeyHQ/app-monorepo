@@ -50,7 +50,6 @@ const switchItems: IFirmwareUpdateInstallViewProps['items'] = [
 const base: IFirmwareUpdateInstallViewProps = {
   mode: 'updating',
   deviceType: EDeviceType.Neo,
-  deviceName: 'OneKey Neo',
   items: neoItems,
   stage: 'installing',
   progress: 72,
@@ -70,7 +69,6 @@ const SCENES: Array<{
     label: 'Updating · multi item (pill)',
     props: {
       deviceType: EDeviceType.Pro,
-      deviceName: 'OneKey Pro',
       items: proItems,
       progress: 46,
       remainingTimeText: 'About 2 min left',
@@ -81,7 +79,6 @@ const SCENES: Array<{
     label: 'Details expanded',
     props: {
       deviceType: EDeviceType.Pro,
-      deviceName: 'OneKey Pro',
       items: proItems,
       progress: 46,
       remainingTimeText: 'About 2 min left',
@@ -107,7 +104,6 @@ const SCENES: Array<{
     label: 'Universal → Bitcoin-only',
     props: {
       deviceType: EDeviceType.Pro,
-      deviceName: 'OneKey Pro',
       items: switchItems,
       progress: 30,
       remainingTimeText: undefined,
@@ -131,7 +127,6 @@ const SCENES: Array<{
     props: {
       mode: 'error',
       deviceType: EDeviceType.Classic1s,
-      deviceName: 'OneKey Classic 1S',
       items: [
         {
           key: 'firmware',
@@ -175,7 +170,6 @@ const SCENES: Array<{
     props: {
       mode: 'done',
       deviceType: EDeviceType.Pro,
-      deviceName: 'OneKey Pro',
       items: switchItems,
       progress: 100,
       doneVersionText: 'Bitcoin-only 4.21.0',

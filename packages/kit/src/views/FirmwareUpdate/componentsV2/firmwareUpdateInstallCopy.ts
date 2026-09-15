@@ -6,37 +6,17 @@ import type {
 } from './firmwareUpdateInstallViewModel';
 import type { IntlShape } from 'react-intl';
 
-/** Copy for the unified install page, keyed for every locale. */
+/**
+ * Copy of the install page that is computed from state (stage words, time
+ * buckets, the title with the model name). Plain keys are formatted inline
+ * where they render.
+ */
 export const firmwareUpdateInstallCopy = {
-  pageTitle: (intl: IntlShape) =>
-    intl.formatMessage({
-      id: ETranslations.firmware_update_install_page__title,
-    }),
   updatingDevice: (intl: IntlShape, deviceName: string) =>
     intl.formatMessage(
       { id: ETranslations.firmware_update_updating_device__title },
       { device: deviceName },
     ),
-  firmwareUpdated: (intl: IntlShape) =>
-    intl.formatMessage({ id: ETranslations.firmware_update_done__title }),
-  keepDeviceConnected: (intl: IntlShape) =>
-    intl.formatMessage({
-      id: ETranslations.firmware_update_keep_device_connected__msg,
-    }),
-  getHelp: (intl: IntlShape) =>
-    intl.formatMessage({ id: ETranslations.firmware_update_get_help__action }),
-  grantUsbAccess: (intl: IntlShape) =>
-    intl.formatMessage({ id: ETranslations.device_grant_usb_access }),
-  details: (intl: IntlShape) =>
-    intl.formatMessage({ id: ETranslations.global_details }),
-  retry: (intl: IntlShape) =>
-    intl.formatMessage({ id: ETranslations.global_retry }),
-  done: (intl: IntlShape) =>
-    intl.formatMessage({ id: ETranslations.global_done }),
-  importWallet: (intl: IntlShape) =>
-    intl.formatMessage({ id: ETranslations.global_import_wallet }),
-  /** Product name, not translated. */
-  safeOS: 'SafeOS',
   stage: (intl: IntlShape, stage: IFirmwareUpdateStage): string => {
     switch (stage) {
       case 'preparing':
@@ -87,12 +67,4 @@ export const firmwareUpdateInstallCopy = {
       id: ETranslations.firmware_update_time_left_under_one_min__msg,
     });
   },
-  webUsbBootloaderInstruction: (intl: IntlShape) =>
-    intl.formatMessage({
-      id: ETranslations.firmware_update_grant_usb_instruction,
-    }),
-  webUsbSwitchFirmwareInstruction: (intl: IntlShape) =>
-    intl.formatMessage({
-      id: ETranslations.firmware_update_switch_firmware_reconnect_device,
-    }),
 };

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, Stack } from '@onekeyhq/components';
+import { Button, Page, SizableText, Stack } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   firmwareUpdateStepInfoAtom,
@@ -13,7 +13,6 @@ import {
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   EFirmwareUpdateTipMessages,
@@ -22,12 +21,19 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { FirmwareUpdateExitPrevent } from '../components/FirmwareUpdateExitPrevent';
-import { FirmwareUpdatePageFooter } from '../components/FirmwareUpdatePageLayout';
+import {
+  FirmwareUpdateExitPrevent,
+  ForceExtensionUpdatingFromExpandTab,
+} from '../components/FirmwareUpdateExitPrevent';
+import {
+  FirmwareUpdatePageFooter,
+  FirmwareUpdatePageLayout,
+} from '../components/FirmwareUpdatePageLayout';
 import { useGrantWebUsbAccess } from '../components/FirmwareUpdatePromptWebUsbDevice';
 import { resolveFirmwareUpdateErrorPresentation } from '../componentsV2/firmwareUpdateErrorPresentation';
 import { firmwareUpdateInstallCopy as copy } from '../componentsV2/firmwareUpdateInstallCopy';
 import { FirmwareUpdateInstallView } from '../componentsV2/FirmwareUpdateInstallView';
+import { getPrimaryFirmwareUpdateItem } from '../componentsV2/firmwareUpdateInstallViewModel';
 import { useFirmwareUpdateInstallState } from '../componentsV2/useFirmwareUpdateInstallState';
 import { useFirmwareUpdateItems } from '../componentsV2/useFirmwareUpdateItems';
 import { shouldCancelDeviceWhenLeavingFirmwareUpdate } from '../firmwareUpdateWorkflowLifetime';
@@ -39,21 +45,46 @@ import { FirmwareUpdateTestIDs } from '../testIDs';
 import type { IFirmwareUpdateInstallViewMode } from '../componentsV2/FirmwareUpdateInstallView';
 
 const DONE_TRANSITION_MS = 1500;
+/** Product name, not translated. */
+const SAFE_OS_PRODUCT_NAME = 'SafeOS';
 
-/**
- * Body of the install page shared by the legacy and V2 routes. Every state
- * (updating, task failure, workflow failure, done) replaces the content in
- * place; nothing pops back to the changelog page.
- */
 /**
  * The page scrolls only when the content overflows; otherwise the scroll
  * content must fill the viewport so the body can centre the device block
  * and pin the message slot above the footer.
  */
-export const INSTALL_PAGE_SCROLL_PROPS = {
+const INSTALL_PAGE_SCROLL_PROPS = {
   contentContainerStyle: { flexGrow: 1 },
 } as const;
+const INSTALL_PAGE_CONTAINER_STYLE = { py: '0', px: '$5', flex: 1 } as const;
 
+/** Shell shared by the legacy and V2 install routes. */
+export function FirmwareUpdateInstallPage({
+  result,
+}: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+}) {
+  const intl = useIntl();
+  return (
+    <Page scrollEnabled scrollProps={INSTALL_PAGE_SCROLL_PROPS}>
+      <FirmwareUpdatePageLayout
+        title={intl.formatMessage({
+          id: ETranslations.firmware_update_install_page__title,
+        })}
+        containerStyle={INSTALL_PAGE_CONTAINER_STYLE}
+      >
+        <ForceExtensionUpdatingFromExpandTab />
+        <FirmwareUpdateInstallPageContent result={result} />
+      </FirmwareUpdatePageLayout>
+    </Page>
+  );
+}
+
+/**
+ * Body of the install page. Every state (updating, task failure, workflow
+ * failure, done) replaces the content in place; nothing pops back to the
+ * changelog page.
+ */
 export function FirmwareUpdateInstallPageContent({
   result,
 }: {
@@ -104,8 +135,12 @@ export function FirmwareUpdateInstallPageContent({
       : false;
   const [isDoneInternal, setIsDoneInternal] = useState(false);
   useEffect(() => {
+    if (!isDone) {
+      setIsDoneInternal(false);
+      return undefined;
+    }
     const timer = setTimeout(() => {
-      setIsDoneInternal(isDone);
+      setIsDoneInternal(true);
     }, DONE_TRANSITION_MS);
     return () => clearTimeout(timer);
   }, [isDone]);
@@ -126,7 +161,6 @@ export function FirmwareUpdateInstallPageContent({
     useFirmwareUpdateInstallState({
       isDone,
       lastFirmwareTipMessage,
-      intl,
     });
   const { items, hideDebugInfo } = useFirmwareUpdateItems(result);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -208,24 +242,18 @@ export function FirmwareUpdateInstallPageContent({
 
   const { grantAccess, isConnecting: isGrantingUsb } = useGrantWebUsbAccess({
     previousStepInfo: previousStepInfo.current,
-    requestType: webUsbRequest ?? 'bootloader',
+    requestType: webUsbRequest,
   });
 
-  // Model name only ("OneKey Pro"); the Bluetooth name stays in the header.
-  const deviceName = result?.deviceType
-    ? deviceUtils.getDeviceModelNameByType(result.deviceType)
-    : '';
   const doneVersion = useMemo(() => {
-    const primary =
-      items.find((item) => item.key === 'firmware' || item.key === 'safeos') ??
-      items[0];
+    const primary = getPrimaryFirmwareUpdateItem(items);
     if (!primary?.toVersion) {
       return undefined;
     }
     const productName =
       primary.toTypeLabel ??
       (primary.key === 'safeos'
-        ? copy.safeOS
+        ? SAFE_OS_PRODUCT_NAME
         : intl.formatMessage({ id: ETranslations.global_firmware }));
     return {
       text: `${productName} ${primary.toVersion}`,
@@ -235,9 +263,13 @@ export function FirmwareUpdateInstallPageContent({
 
   let webUsbInstruction: string | undefined;
   if (webUsbRequest === 'bootloader') {
-    webUsbInstruction = copy.webUsbBootloaderInstruction(intl);
+    webUsbInstruction = intl.formatMessage({
+      id: ETranslations.firmware_update_grant_usb_instruction,
+    });
   } else if (webUsbRequest === 'switchFirmware') {
-    webUsbInstruction = copy.webUsbSwitchFirmwareInstruction(intl);
+    webUsbInstruction = intl.formatMessage({
+      id: ETranslations.firmware_update_switch_firmware_reconnect_device,
+    });
   }
 
   const [showDebugInfo, setShowDebugInfo] = useState(false);
@@ -264,7 +296,11 @@ export function FirmwareUpdateInstallPageContent({
   // would shrink the body and make the centred block jump.
   const doneAction = useMemo(
     () => ({
-      text: needOnboarding ? copy.importWallet(intl) : copy.done(intl),
+      text: intl.formatMessage({
+        id: needOnboarding
+          ? ETranslations.global_import_wallet
+          : ETranslations.global_done,
+      }),
       onPress: needOnboarding ? onRestartOnboarding : onCloseUpdateModal,
       testID: FirmwareUpdateTestIDs.doneConfirmBtn,
     }),
@@ -278,11 +314,13 @@ export function FirmwareUpdateInstallPageContent({
         onConfirmText={
           taskError.action.kind === 'retry' && taskError.action.text
             ? taskError.action.text
-            : copy.retry(intl)
+            : intl.formatMessage({ id: ETranslations.global_retry })
         }
         onConfirm={onRetryTask}
         confirmButtonProps={{ testID: FirmwareUpdateTestIDs.retryBtn }}
-        onCancelText={copy.getHelp(intl)}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.firmware_update_get_help__action,
+        })}
         onCancel={onGetHelp}
         cancelButtonProps={{
           variant: 'tertiary',
@@ -297,7 +335,10 @@ export function FirmwareUpdateInstallPageContent({
     if (workflowError.action.kind === 'retry') {
       footer = (
         <FirmwareUpdatePageFooter
-          onConfirmText={workflowError.action.text ?? copy.retry(intl)}
+          onConfirmText={
+            workflowError.action.text ??
+            intl.formatMessage({ id: ETranslations.global_retry })
+          }
           onConfirm={onRestartWorkflow}
           confirmButtonProps={{ testID: FirmwareUpdateTestIDs.retryBtn }}
         />
@@ -318,7 +359,9 @@ export function FirmwareUpdateInstallPageContent({
   } else if (mode === 'updating' && webUsbRequest) {
     footer = (
       <FirmwareUpdatePageFooter
-        onConfirmText={copy.grantUsbAccess(intl)}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.device_grant_usb_access,
+        })}
         onConfirm={() => {
           void grantAccess();
         }}
@@ -349,7 +392,6 @@ export function FirmwareUpdateInstallPageContent({
       <FirmwareUpdateInstallView
         mode={mode}
         deviceType={result?.deviceType}
-        deviceName={deviceName}
         items={items}
         stage={stage}
         progress={progress}

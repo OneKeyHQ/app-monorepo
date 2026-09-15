@@ -2,30 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNumber } from 'lodash';
 
-import type { IFirmwareUpdateStepInfo } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
   useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
+import { useWebUsbReconnectRequests } from '../components/FirmwareUpdatePromptWebUsbDevice';
+
 import {
-  canShowRemainingTime,
   getFirmwareUpdateStage,
   getRemainingTimeBucket,
   sliceOverallProgress,
 } from './firmwareUpdateInstallViewModel';
 import {
   calculateProgressInRange,
-  getFirmwareTransferDisplayMetrics,
+  getFirmwareTransferEtaMs,
   normalizeFirmwareUpdateProgressType,
   resolveFirmwareInstallProgress,
 } from './firmwareUpdateProgressUtils';
@@ -35,7 +31,6 @@ import type {
   IFirmwareUpdateStage,
   IRemainingTimeBucket,
 } from './firmwareUpdateInstallViewModel';
-import type { IntlShape } from 'react-intl';
 
 export type IWebUsbRequestType = 'bootloader' | 'switchFirmware';
 
@@ -136,13 +131,11 @@ function getUnifiedProgress(
 export function useFirmwareUpdateInstallState({
   isDone,
   lastFirmwareTipMessage,
-  intl,
 }: {
   isDone: boolean;
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
-  intl: IntlShape;
 }) {
-  const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [stepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
   const [completedState] = useHardwareUiStateCompletedAtom();
 
@@ -302,55 +295,14 @@ export function useFirmwareUpdateInstallState({
     if (firmwareProgressType !== 'transferData') {
       return undefined;
     }
-    if (!canShowRemainingTime(displayStage)) {
+    if (displayStage !== 'downloading' && displayStage !== 'installing') {
       return undefined;
     }
-    const metrics = getFirmwareTransferDisplayMetrics(
-      firmwareTransferMetrics,
-      intl,
-    );
-    if (metrics?.estimatedRemainingMs === undefined) {
-      return undefined;
-    }
-    return getRemainingTimeBucket(metrics.estimatedRemainingMs);
-  }, [displayStage, firmwareProgressType, firmwareTransferMetrics, intl]);
+    const etaMs = getFirmwareTransferEtaMs(firmwareTransferMetrics);
+    return etaMs === undefined ? undefined : getRemainingTimeBucket(etaMs);
+  }, [displayStage, firmwareProgressType, firmwareTransferMetrics]);
 
-  // WebUSB must be re-granted after the device re-enumerates in bootloader.
-  const previousStepInfo = useRef<IFirmwareUpdateStepInfo>(stepInfo);
-  useEffect(() => {
-    const onBootloaderRequest = () => {
-      previousStepInfo.current = stepInfo;
-      setStepInfo({
-        step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice,
-        payload: undefined,
-      });
-    };
-    const onSwitchFirmwareRequest = () => {
-      previousStepInfo.current = stepInfo;
-      setStepInfo({
-        step: EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice,
-        payload: undefined,
-      });
-    };
-    appEventBus.on(
-      EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
-      onBootloaderRequest,
-    );
-    appEventBus.on(
-      EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
-      onSwitchFirmwareRequest,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
-        onBootloaderRequest,
-      );
-      appEventBus.off(
-        EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
-        onSwitchFirmwareRequest,
-      );
-    };
-  }, [setStepInfo, stepInfo]);
+  const previousStepInfo = useWebUsbReconnectRequests();
 
   let webUsbRequest: IWebUsbRequestType | undefined;
   if (
@@ -370,9 +322,5 @@ export function useFirmwareUpdateInstallState({
     remainingTime,
     webUsbRequest,
     previousStepInfo,
-    debug: {
-      firmwareProgress,
-      lastFirmwareTipMessage,
-    },
   };
 }

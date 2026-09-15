@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -30,12 +30,16 @@ import {
 import { ShimmerTitle } from '@onekeyhq/components/src/composite/DeviceStage/ShimmerTitle';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 
 import { FirmwareUpdateDeviceImage } from './FirmwareUpdateDeviceImage';
 import { firmwareUpdateInstallCopy as copy } from './firmwareUpdateInstallCopy';
-import { formatFirmwareUpdateVersionRange } from './firmwareUpdateInstallViewModel';
+import {
+  formatFirmwareUpdateVersionRange,
+  getPrimaryFirmwareUpdateItem,
+} from './firmwareUpdateInstallViewModel';
 
 import type {
   IFirmwareUpdateItem,
@@ -52,7 +56,6 @@ export type IFirmwareUpdateInstallViewMode =
 export type IFirmwareUpdateInstallViewProps = {
   mode: IFirmwareUpdateInstallViewMode;
   deviceType: IDeviceType | undefined;
-  deviceName: string;
   items: IFirmwareUpdateItem[];
   stage: IFirmwareUpdateStage;
   progress: number;
@@ -205,7 +208,9 @@ function VersionLink({
   );
 }
 
-function VersionLine({
+// Memoized: the install view re-renders on every progress tick while the
+// versions never change during an install.
+const VersionLine = memo(function VersionLine({
   items,
   detailsExpanded,
   onToggleDetails,
@@ -216,16 +221,13 @@ function VersionLine({
 }) {
   const intl = useIntl();
   const { versionValid } = useFirmwareVersionValid();
-  const isVersionValid = (version: string) => versionValid(version);
-  const primary =
-    items.find((item) => item.key === 'firmware' || item.key === 'safeos') ??
-    items[0];
+  const primary = getPrimaryFirmwareUpdateItem(items);
   if (!primary) {
     return null;
   }
   if (items.length <= 1) {
     return (
-      <VersionText item={primary} isVersionValid={isVersionValid} emphasize />
+      <VersionText item={primary} isVersionValid={versionValid} emphasize />
     );
   }
   if (!detailsExpanded) {
@@ -244,7 +246,7 @@ function VersionLine({
         userSelect="none"
         testID="firmware-update-details-pill"
       >
-        <VersionText item={primary} isVersionValid={isVersionValid} emphasize />
+        <VersionText item={primary} isVersionValid={versionValid} emphasize />
       </XStack>
     );
   }
@@ -265,7 +267,7 @@ function VersionLine({
           color="$textDisabled"
           textTransform="uppercase"
         >
-          {copy.details(intl)}
+          {intl.formatMessage({ id: ETranslations.global_details })}
         </SizableText>
         <IconButton
           icon="CrossedSmallOutline"
@@ -289,7 +291,7 @@ function VersionLine({
           {item.noVersion ? null : (
             <VersionText
               item={item}
-              isVersionValid={isVersionValid}
+              isVersionValid={versionValid}
               emphasize={false}
             />
           )}
@@ -297,12 +299,11 @@ function VersionLine({
       ))}
     </YStack>
   );
-}
+});
 
 export function FirmwareUpdateInstallView({
   mode,
   deviceType,
-  deviceName,
   items,
   stage,
   progress,
@@ -320,21 +321,23 @@ export function FirmwareUpdateInstallView({
 }: IFirmwareUpdateInstallViewProps) {
   const intl = useIntl();
   const isDone = mode === 'done';
+  // Model name only ("OneKey Pro"); the Bluetooth name stays in the header.
+  const deviceName = deviceType
+    ? deviceUtils.getDeviceModelNameByType(deviceType)
+    : '';
   // The success badge pops only after the progress block has collapsed;
   // a page that mounts already done shows it at once.
   const [revealDoneBadge, setRevealDoneBadge] = useState(isDone);
-  const isDoneRef = useRef(isDone);
-  isDoneRef.current = isDone;
   useEffect(() => {
     if (!isDone) {
       setRevealDoneBadge(false);
     }
   }, [isDone]);
+  // HeightTransition re-captures this callback whenever `hide` flips, which
+  // is exactly the `isDone` transition.
   const handleProgressCollapsed = useCallback(() => {
-    if (isDoneRef.current) {
-      setRevealDoneBadge(true);
-    }
-  }, []);
+    setRevealDoneBadge(isDone);
+  }, [isDone]);
 
   if (mode === 'workflowError' && workflowError) {
     return (
@@ -379,7 +382,9 @@ export function FirmwareUpdateInstallView({
         <YStack alignItems="center" gap="$1.5" w="100%" pt="$6">
           <SizableText size="$heading2xl" textAlign="center">
             {isDone
-              ? copy.firmwareUpdated(intl)
+              ? intl.formatMessage({
+                  id: ETranslations.firmware_update_done__title,
+                })
               : copy.updatingDevice(intl, deviceName)}
           </SizableText>
           {isDone && doneVersionText ? (
@@ -420,7 +425,7 @@ export function FirmwareUpdateInstallView({
                   <ShimmerTitle
                     size="$headingSm"
                     band="text"
-                    paused={mode === 'error'}
+                    paused={mode !== 'updating'}
                   >
                     {copy.stage(intl, stage)}
                   </ShimmerTitle>
@@ -528,7 +533,9 @@ function MessageSlot({
     <XStack alignItems="center" justifyContent="center" gap="$2" pt="$8">
       <LiveDot />
       <SizableText size="$bodyMd" color="$textSubdued">
-        {copy.keepDeviceConnected(intl)}
+        {intl.formatMessage({
+          id: ETranslations.firmware_update_keep_device_connected__msg,
+        })}
       </SizableText>
     </XStack>
   );

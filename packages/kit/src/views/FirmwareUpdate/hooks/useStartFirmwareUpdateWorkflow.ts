@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 
 import {
   EFirmwareUpdateSteps,
+  settingsPersistAtom,
   useFirmwareUpdateStepInfoAtom,
   useFirmwareUpdateWorkflowRunningAtom,
-  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -31,7 +31,6 @@ export function useStartFirmwareUpdateWorkflow() {
   const navigation = useAppNavigation();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
-  const [{ hardwareTransportType }] = useSettingsPersistAtom();
 
   const start = useCallback(
     async ({
@@ -46,6 +45,9 @@ export function useStartFirmwareUpdateWorkflow() {
         await deviceUtils.shouldUseV2FirmwareUpdateFlow({
           features: result?.features,
         });
+      // Analytics only; read at call time so the hook does not subscribe
+      // every mounted page to the whole settings atom.
+      const { hardwareTransportType } = await settingsPersistAtom.get();
       const updateFirmwareInfo = result?.updateInfos?.firmware;
       let shouldResetWorkflowRunningInUi = true;
       try {
@@ -185,7 +187,7 @@ export function useStartFirmwareUpdateWorkflow() {
         }
       }
     },
-    [hardwareTransportType, navigation, setStepInfo, setWorkflowIsRunning],
+    [navigation, setStepInfo, setWorkflowIsRunning],
   );
 
   return { start };

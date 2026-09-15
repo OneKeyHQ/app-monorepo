@@ -20,13 +20,6 @@ import { FirmwareChangeLogContentView } from './components/FirmwareChangeLogView
 import { useFirmwareUpdateItems } from './componentsV2/useFirmwareUpdateItems';
 
 let mockDeveloperMode = true;
-let mockVerifyVersions:
-  | {
-      finalFirmwareVersion: string;
-      finalBootloaderVersion: string;
-      finalBleVersion: string;
-    }
-  | undefined;
 let mockFirmwareSettings: Partial<IFirmwareUpdateDevSettings>;
 const mockUpdateFirmwareSettings = jest.fn(
   async (values: Partial<IFirmwareUpdateDevSettings>) => {
@@ -80,11 +73,6 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     Markdown: Div,
     Page: Object.assign(Div, { Header: () => null }),
-    Progress: ({ value }: { value: number }) =>
-      React.createElement('div', {
-        role: 'progressbar',
-        'aria-valuenow': value,
-      }),
     SizableText: ({
       children,
       color,
@@ -139,10 +127,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
     EFirmwareUpdateSteps: {},
     useDevSettingsPersistAtom: () => [{ enabled: mockDeveloperMode }],
     useFirmwareUpdateDevSettingsPersistAtom: () => [mockFirmwareSettings],
-    useFirmwareUpdateResultVerifyAtom: () => [mockVerifyVersions],
     useFirmwareUpdateStepInfoAtom: () => [step, setStep],
-    useHardwareUiStateAtom: () => [undefined],
-    useHardwareUiStateCompletedAtom: () => [undefined],
     useSettingsPersistAtom: () => [{ locale: 'en-US' }],
   };
 });
@@ -157,9 +142,6 @@ jest.mock('./components/FirmwareUpdatePageLayout', () => ({
 }));
 jest.mock('./components/FirmwareUpdateIntroduction', () => ({
   FirmwareUpdateIntroduction: () => null,
-}));
-jest.mock('./components/FirmwareUpdatePromptWebUsbDevice', () => ({
-  FirmwareUpdatePromptWebUsbDevice: () => null,
 }));
 jest.mock('./hooks/useFirmwareUpdateActions', () => ({
   useFirmwareUpdateActions: () => ({}),
@@ -196,7 +178,6 @@ describe('Pro2 firmware debug information visibility', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockDeveloperMode = true;
-    mockVerifyVersions = undefined;
     mockFirmwareSettings = { pro2ForceUpdateTargets: ['boot'] };
   });
 
@@ -273,19 +254,16 @@ describe('Pro2 firmware debug information visibility', () => {
     expect(result.current.hideDebugInfo).toBe(true);
   });
 
-  it.each([EDeviceType.Neo])(
-    'does not hide another device (%s) component rows',
-    (deviceType) => {
-      mockFirmwareSettings.hidePro2FirmwareDebugInfo = true;
-      const { result } = renderHook(() =>
-        useFirmwareUpdateItems({ ...release, deviceType }),
-      );
-      expect(result.current.items.map((item) => item.key)).toEqual([
-        'safeos',
-        'boot',
-        'resource',
-      ]);
-      expect(result.current.hideDebugInfo).toBe(false);
-    },
-  );
+  it('does not hide Neo component rows', () => {
+    mockFirmwareSettings.hidePro2FirmwareDebugInfo = true;
+    const { result } = renderHook(() =>
+      useFirmwareUpdateItems({ ...release, deviceType: EDeviceType.Neo }),
+    );
+    expect(result.current.items.map((item) => item.key)).toEqual([
+      'safeos',
+      'boot',
+      'resource',
+    ]);
+    expect(result.current.hideDebugInfo).toBe(false);
+  });
 });

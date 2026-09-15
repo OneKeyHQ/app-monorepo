@@ -117,6 +117,10 @@ function PageFirmwareUpdateChangeLog() {
   const isWorkflowError =
     stepInfo.step === EFirmwareUpdateSteps.error ||
     stepInfo.step === EFirmwareUpdateSteps.checkReleaseError;
+  // Once the update was confirmed the install page owns every failure (it
+  // renders workflow errors in place), so this page stays on the changelog
+  // and its exit guard does not fire when the install page closes.
+  const installPageOwnsErrors = Boolean(confirmUpdateResult.current);
 
   useFirmwareUpdateWorkflowLifetime({
     onReallyLeave: () =>
@@ -154,10 +158,7 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
-    // Once the update was confirmed the install page owns every failure
-    // (it renders workflow errors in place); keep the changelog underneath
-    // so that its exit guard does not fire when the install page closes.
-    if (confirmUpdateResult.current) {
+    if (installPageOwnsErrors) {
       return (
         <FirmwareChangeLogView
           result={confirmUpdateResult.current}
@@ -194,6 +195,7 @@ function PageFirmwareUpdateChangeLog() {
     return <FirmwareLatestVersionInstalled />;
   }, [
     activeConnectId,
+    installPageOwnsErrors,
     isLoading,
     result,
     retryInfo,
@@ -213,7 +215,7 @@ function PageFirmwareUpdateChangeLog() {
           ) : undefined
         }
         containerStyle={{
-          p: isWorkflowError && !confirmUpdateResult.current ? '$5' : 0,
+          p: isWorkflowError && !installPageOwnsErrors ? '$5' : 0,
         }}
       >
         <ForceExtensionUpdatingFromExpandTab />

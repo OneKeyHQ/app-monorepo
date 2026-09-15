@@ -59,13 +59,13 @@ export function resolveFirmwareUpdateErrorPresentation({
     title: string,
     message: string | undefined,
     action: IFirmwareUpdateErrorAction,
-    extra: Partial<IFirmwareUpdateErrorPresentation> = {},
+    tutorialUrl?: string,
   ): IFirmwareUpdateErrorPresentation => ({
     title,
     message,
     sentence: message || title,
     action,
-    ...extra,
+    tutorialUrl,
   });
 
   const is = (code: number | number[]) =>
@@ -144,21 +144,21 @@ export function resolveFirmwareUpdateErrorPresentation({
       lastFirmwareTipMessage ===
         EFirmwareUpdateTipMessages.AutoRebootToBootloader)
   ) {
-    const isMini = result?.deviceType === EDeviceType.Mini;
+    if (result?.deviceType === EDeviceType.Mini) {
+      return build(
+        t(ETranslations.update_manually_entering_bootloader_mode),
+        t(ETranslations.update_manually_entering_bootloader_mode_desc),
+        {
+          kind: 'retry',
+          text: t(ETranslations.update_verify_status_and_continue),
+        },
+      );
+    }
     return build(
       t(ETranslations.update_manually_entering_bootloader_mode),
-      isMini
-        ? t(ETranslations.update_manually_entering_bootloader_mode_desc)
-        : undefined,
-      {
-        kind: 'retry',
-        text: isMini
-          ? t(ETranslations.update_verify_status_and_continue)
-          : undefined,
-      },
-      isMini
-        ? {}
-        : { tutorialUrl: FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE },
+      undefined,
+      retry,
+      FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE,
     );
   }
   if (is(HardwareErrorCode.BridgeNetworkError)) {

@@ -84,10 +84,6 @@ export function getFirmwareUpdateStage({
 }
 
 /** Stages during which the remaining-time estimate may be shown. */
-export function canShowRemainingTime(stage: IFirmwareUpdateStage) {
-  return stage === 'downloading' || stage === 'installing';
-}
-
 export type IRemainingTimeBucket =
   | { kind: 'minutes'; minutes: number }
   | { kind: 'oneMinute' }
@@ -145,10 +141,6 @@ export type IFirmwareUpdateItem = {
   releaseUrl?: string;
 };
 
-function withReleaseUrl(releaseUrl: string | undefined) {
-  return releaseUrl ? { releaseUrl } : {};
-}
-
 export function getFirmwareUpdateItems({
   result,
   protocolV2Items,
@@ -189,7 +181,7 @@ export function getFirmwareUpdateItems({
       name: bootloaderLabel,
       fromVersion: bootloader.fromVersion,
       toVersion: bootloader.toVersion,
-      ...withReleaseUrl(bootloader.githubReleaseUrl),
+      releaseUrl: bootloader.githubReleaseUrl,
     });
   }
   if (firmware?.hasUpgrade) {
@@ -202,7 +194,7 @@ export function getFirmwareUpdateItems({
       name: firmwareLabel,
       fromVersion: firmware.fromVersion,
       toVersion: firmware.toVersion,
-      ...withReleaseUrl(firmware.githubReleaseUrl),
+      releaseUrl: firmware.githubReleaseUrl,
       ...(isSwitchingType
         ? {
             fromTypeLabel: getFirmwareTypeLabel(
@@ -221,7 +213,7 @@ export function getFirmwareUpdateItems({
       name: bluetoothLabel,
       fromVersion: ble.fromVersion,
       toVersion: ble.toVersion,
-      ...withReleaseUrl(ble.githubReleaseUrl),
+      releaseUrl: ble.githubReleaseUrl,
     });
   }
   return items;

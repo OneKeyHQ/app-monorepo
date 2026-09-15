@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import {
@@ -25,13 +24,9 @@ import {
 } from '../components/FirmwareUpdateExitPrevent';
 import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
-import { firmwareUpdateInstallCopy } from '../componentsV2/firmwareUpdateInstallCopy';
 import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 
-import {
-  FirmwareUpdateInstallPageContent,
-  INSTALL_PAGE_SCROLL_PROPS,
-} from './FirmwareUpdateInstallPageContent';
+import { FirmwareUpdateInstallPage } from './FirmwareUpdateInstallPageContent';
 
 /**
  * Legacy install page, kept only for Mini: its manual-bootloader guide with
@@ -58,18 +53,6 @@ function PageFirmwareUpdateInstallMini({
     },
   });
 
-  /*
-     await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(
-              {
-                backuped: true,
-                usbConnected: true,
-                connectId: firmwareUpdateInfo.connectId,
-                updateFirmware: firmwareUpdateInfo,
-                updateBle: bleUpdateInfo,
-              },
-            )
-
-            */
   const content = useMemo(() => {
     if (
       stepInfo.step === EFirmwareUpdateSteps.updateStart ||
@@ -119,7 +102,6 @@ function PageFirmwareUpdateInstallMini({
 }
 
 function PageFirmwareUpdateInstall() {
-  const intl = useIntl();
   const route = useAppRoute<
     IModalFirmwareUpdateParamList,
     EModalFirmwareUpdateRoutes.Install
@@ -130,17 +112,7 @@ function PageFirmwareUpdateInstall() {
     return <PageFirmwareUpdateInstallMini result={result} />;
   }
 
-  return (
-    <Page scrollEnabled scrollProps={INSTALL_PAGE_SCROLL_PROPS}>
-      <FirmwareUpdatePageLayout
-        title={firmwareUpdateInstallCopy.pageTitle(intl)}
-        containerStyle={{ py: '0', px: '$5', flex: 1 }}
-      >
-        <ForceExtensionUpdatingFromExpandTab />
-        <FirmwareUpdateInstallPageContent result={result} />
-      </FirmwareUpdatePageLayout>
-    </Page>
-  );
+  return <FirmwareUpdateInstallPage result={result} />;
 }
 
 export default PageFirmwareUpdateInstall;
