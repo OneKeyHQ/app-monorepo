@@ -159,6 +159,10 @@ export const OnboardingTestIDs = {
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',
+  connectionFlowLedgerUsbTab: 'onboarding-connection-flow-ledger-usb-tab',
+  connectionFlowLedgerBleTab: 'onboarding-connection-flow-ledger-ble-tab',
+  connectionFlowLedgerDeviceOption: (index: number) =>
+    `onboarding-connection-flow-ledger-device-${index}`,
   connectionFlowKeystoneUsbBtn: 'onboarding-connection-flow-keystone-usb-btn',
   connectionFlowKeystoneQrBtn: 'onboarding-connection-flow-keystone-qr-btn',
   connectionFlowKeystoneDeviceOption: (index: number) =>

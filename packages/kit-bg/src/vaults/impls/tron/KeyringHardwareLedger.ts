@@ -88,8 +88,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
                 ...ledgerCommonCallParamsForCreateScene(params),
               }),
             {
-              interactionId:
-                params.deviceParams.deviceCommonParams?.interactionId,
+              operationId: params.deviceParams.deviceCommonParams?.operationId,
               allowFingerprintBootstrap:
                 params.deviceParams.deviceCommonParams
                   ?.allowDeviceIdentityBootstrap === true,
@@ -159,7 +158,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
           rawTxHex,
         }),
       {
-        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        operationId: checkedDeviceParams.deviceCommonParams?.operationId,
         allowFingerprintBootstrap: false,
       },
     );
@@ -215,8 +214,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               messageHex: message.message,
             }),
           {
-            interactionId:
-              checkedDeviceParams.deviceCommonParams?.interactionId,
+            operationId: checkedDeviceParams.deviceCommonParams?.operationId,
             allowFingerprintBootstrap: false,
           },
         );

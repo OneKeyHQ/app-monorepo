@@ -98,8 +98,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
                   ...ledgerCommonCallParamsForCreateScene(params),
                 }),
               {
-                interactionId:
-                  params.deviceParams.deviceCommonParams?.interactionId,
+                operationId:
+                  params.deviceParams.deviceCommonParams?.operationId,
                 allowFingerprintBootstrap:
                   params.deviceParams.deviceCommonParams
                     ?.allowDeviceIdentityBootstrap === true,
@@ -123,7 +123,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
                 {
                   connectId:
-                    params.deviceParams.deviceCommonParams?.interactionId ||
+                    params.deviceParams.deviceCommonParams?.operationId ||
                     dbDevice.connectId,
                   deviceId: effectiveDeviceId,
                   path,
@@ -182,7 +182,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
           serializedTx,
         }),
       {
-        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        operationId: checkedDeviceParams.deviceCommonParams?.operationId,
         allowFingerprintBootstrap: false,
       },
     );
@@ -249,7 +249,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
         dbDevice,
         path,
         message,
-        deviceParams.deviceCommonParams?.interactionId,
+        deviceParams.deviceCommonParams?.operationId,
       );
     }
 
@@ -262,7 +262,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
         dbDevice,
         path,
         message,
-        deviceParams.deviceCommonParams?.interactionId,
+        deviceParams.deviceCommonParams?.operationId,
       );
     }
 
@@ -277,7 +277,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     dbDevice: IDBDevice,
     path: string,
     message: IUnsignedMessageEth,
-    interactionId?: string,
+    operationId?: string,
   ): Promise<string> {
     // Convert message to hex (same logic as OneKey KeyringHardware)
     let messageHex = message.message;
@@ -295,7 +295,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
           path,
           message: messageHex,
         }),
-      { interactionId, allowFingerprintBootstrap: false },
+      { operationId, allowFingerprintBootstrap: false },
     );
 
     if (!result.success) {
@@ -312,7 +312,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     dbDevice: IDBDevice,
     path: string,
     message: IUnsignedMessageEth,
-    interactionId?: string,
+    operationId?: string,
   ): Promise<string> {
     const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
     const data = JSON.parse(message.message);
@@ -328,7 +328,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
           data,
           metamaskV4Compat: !!useV4,
         }),
-      { interactionId, allowFingerprintBootstrap: false },
+      { operationId, allowFingerprintBootstrap: false },
     );
 
     if (!result.success) {

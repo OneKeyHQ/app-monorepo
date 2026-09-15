@@ -137,15 +137,13 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     const { tx, serializedTx } = packUnsignedTxForSignEvm(unsignedTx);
 
     const result = await adapter.hw.evmSignTransaction(
-      checkedDeviceParams.deviceCommonParams?.interactionId ??
-        dbDevice.connectId,
+      checkedDeviceParams.deviceCommonParams?.operationId ?? dbDevice.connectId,
       dbDevice.deviceId,
       {
         ...thirdPartyConnectionContextFromDevice(dbDevice),
-        ...(checkedDeviceParams.deviceCommonParams?.interactionId
+        ...(checkedDeviceParams.deviceCommonParams?.operationId
           ? {
-              interactionId:
-                checkedDeviceParams.deviceCommonParams.interactionId,
+              operationId: checkedDeviceParams.deviceCommonParams.operationId,
             }
           : {}),
         path,
@@ -175,7 +173,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
       const signature = await this._handleSignMessage(
         message as IUnsignedMessageEth,
         checkedDeviceParams.dbDevice,
-        checkedDeviceParams.deviceCommonParams?.interactionId,
+        checkedDeviceParams.deviceCommonParams?.operationId,
       );
       signatures.push(signature);
     }
@@ -185,7 +183,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
   private async _handleSignMessage(
     message: IUnsignedMessageEth,
     dbDevice: IDBDevice,
-    interactionId?: string,
+    operationId?: string,
   ): Promise<string> {
     const adapter = await this._getAdapter();
     const path = await this.vault.getAccountPath();
@@ -207,11 +205,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
         ? message.message
         : Buffer.from(message.message, 'utf-8').toString('hex');
       const result = await adapter.hw.evmSignMessage(
-        interactionId ?? dbDevice.connectId,
+        operationId ?? dbDevice.connectId,
         dbDevice.deviceId,
         {
           ...thirdPartyConnectionContextFromDevice(dbDevice),
-          ...(interactionId ? { interactionId } : {}),
+          ...(operationId ? { operationId } : {}),
           path,
           message: messageHex,
           hex: true,
@@ -234,11 +232,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
       // struct for on-device review and rejects pre-hashed (`mode: 'hash'`)
       // signing outright.
       const result = await adapter.hw.evmSignTypedData(
-        interactionId ?? dbDevice.connectId,
+        operationId ?? dbDevice.connectId,
         dbDevice.deviceId,
         {
           ...thirdPartyConnectionContextFromDevice(dbDevice),
-          ...(interactionId ? { interactionId } : {}),
+          ...(operationId ? { operationId } : {}),
           path,
           data: JSON.parse(message.message) as EvmSignTypedDataFull['data'],
           // Keystone signs the serialized payload, so send the dApp's own

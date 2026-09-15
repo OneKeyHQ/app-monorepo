@@ -57,7 +57,7 @@ describe('KeyringHardwareLedger Solana OCMS v1 signing', () => {
             }),
           },
           deviceCommonParams: {
-            interactionId: 'hwk-ledger-selected',
+            operationId: 'hwk-ledger-selected',
           },
         },
       } as unknown as Parameters<KeyringHardwareLedger['signMessage']>[0]),

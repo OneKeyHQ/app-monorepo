@@ -220,11 +220,9 @@ function DeviceDetailsModalV2Cmp({
                   their own hasLoadedDevice. */}
               <DeviceBasicInfo
                 showFirmwareVersion={Boolean(
-                  vendorProfile?.supportsFirmwareVersionDisplay,
+                  vendorProfile?.firmware.showVersion,
                 )}
-                showDeviceVerification={Boolean(
-                  vendorProfile?.supportsFirmwareVerify,
-                )}
+                showDeviceVerification={Boolean(vendorProfile?.firmware.verify)}
               />
               {device && !isQrWallet ? (
                 <PrimeGiftOffer device={device} source="deviceDetails" />
@@ -234,12 +232,8 @@ function DeviceDetailsModalV2Cmp({
               {showDeviceSupport ? (
                 <DeviceSectionSupport
                   onPressCheckForUpdates={onPressCheckForUpdates}
-                  showFirmwareVerify={Boolean(
-                    vendorProfile?.supportsFirmwareVerify,
-                  )}
-                  showFirmwareUpdate={Boolean(
-                    vendorProfile?.supportsFirmwareUpdate,
-                  )}
+                  showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
+                  showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
                 />
               ) : null}
               {showDeviceSettings && showInteractiveSections ? (

@@ -47,17 +47,17 @@ type IKeystoneLifecycleHw = IHardwareWallet & {
       }
     >
   >;
-  releaseInteraction(interactionId: string): Promise<void>;
+  releaseOperation(operationId: string): Promise<void>;
 };
 
 function toConnectedDevicePayload(
   info: DeviceInfo,
   fallbackConnectId: string,
-  interactionId: string,
+  operationId: string,
 ): IThirdPartyConnectedDevicePayload | undefined {
   if (!info.deviceId) return undefined;
   return {
-    interactionId,
+    operationId,
     connectId: info.connectId || fallbackConnectId,
     deviceId: info.deviceId,
     model: info.model,
@@ -92,7 +92,7 @@ export class KeystoneAdapter
 
   readonly hw: IHardwareWallet;
 
-  private activeInteractionId: string | undefined;
+  private activeOperationId: string | undefined;
 
   // Keystone cold-start jobs serialize; a replacement cancels and waits so
   // two first-contact flows never share the adapter's QR/USB state.
@@ -158,16 +158,16 @@ export class KeystoneAdapter
       }
     });
 
-    this.hw.on('interaction-ended', (event) => {
-      const interactionId = (event as { payload?: { interactionId?: string } })
-        .payload?.interactionId;
-      if (!interactionId) return;
-      this.emitConnectionStateChange({ type: 'disconnected', interactionId });
-      if (this.activeInteractionId !== interactionId) return;
+    this.hw.on('operation-ended', (event) => {
+      const operationId = (event as { payload?: { operationId?: string } })
+        .payload?.operationId;
+      if (!operationId) return;
+      this.emitConnectionStateChange({ type: 'disconnected', operationId });
+      if (this.activeOperationId !== operationId) return;
       void (async () => {
         await this.clearUiState();
-        if (this.activeInteractionId === interactionId) {
-          this.activeInteractionId = undefined;
+        if (this.activeOperationId === operationId) {
+          this.activeOperationId = undefined;
         }
       })();
     });
@@ -251,7 +251,7 @@ export class KeystoneAdapter
   private async connectDeviceTarget(
     searchTargetId: string,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
-    this.activeInteractionId = undefined;
+    this.activeOperationId = undefined;
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Keystone] connectDevice');
     const connected = await (this.hw as IKeystoneLifecycleHw).connectDevice(
       searchTargetId,
@@ -259,23 +259,23 @@ export class KeystoneAdapter
     if (!connected.success) {
       return { success: false, payload: connected.payload };
     }
-    const interactionId = connected.payload;
-    this.activeInteractionId = interactionId;
-    const info = await this.hw.getDeviceInfo(interactionId, '');
+    const operationId = connected.payload;
+    this.activeOperationId = operationId;
+    const info = await this.hw.getDeviceInfo(operationId, '');
     if (!info.success) {
       await (this.hw as IKeystoneLifecycleHw)
-        .releaseInteraction(interactionId)
+        .releaseOperation(operationId)
         .catch(() => undefined);
       return { success: false, payload: info.payload };
     }
     const device = toConnectedDevicePayload(
       info.payload,
       searchTargetId,
-      interactionId,
+      operationId,
     );
     if (!device) {
       await (this.hw as IKeystoneLifecycleHw)
-        .releaseInteraction(interactionId)
+        .releaseOperation(operationId)
         .catch(() => undefined);
       return {
         success: false,
@@ -292,20 +292,20 @@ export class KeystoneAdapter
     };
   }
 
-  async releaseInteraction(interactionId: string): Promise<void> {
+  async releaseOperation(operationId: string): Promise<void> {
     defaultLogger.hardware.sdkLog.log(
-      '[3rdPartyHW][Keystone] releaseInteraction',
+      '[3rdPartyHW][Keystone] releaseOperation',
     );
-    await (this.hw as IKeystoneLifecycleHw).releaseInteraction(interactionId);
-    this.emitConnectionStateChange({ type: 'disconnected', interactionId });
+    await (this.hw as IKeystoneLifecycleHw).releaseOperation(operationId);
+    this.emitConnectionStateChange({ type: 'disconnected', operationId });
   }
 
   async reset(): Promise<void> {
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Keystone] reset()');
-    const interactionId = this.activeInteractionId;
-    this.activeInteractionId = undefined;
-    if (interactionId) {
-      this.emitConnectionStateChange({ type: 'disconnected', interactionId });
+    const operationId = this.activeOperationId;
+    this.activeOperationId = undefined;
+    if (operationId) {
+      this.emitConnectionStateChange({ type: 'disconnected', operationId });
     }
     this.pendingConnect = undefined;
     // Clear the UI state first, same as Ledger/Trezor. A reset mid-QR-round-

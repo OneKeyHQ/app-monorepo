@@ -10,6 +10,7 @@ import {
   HeightTransition,
   type IVideoSource,
   LottieView,
+  SegmentControl,
   SizableText,
   Stack,
   Toast,
@@ -116,10 +117,33 @@ export default function LedgerConnectionFlow() {
   const { promptHidDeviceAccess } = usePromptWebDeviceAccess();
 
   const vendor = EHardwareVendor.ledger;
-  const tabValue = EConnectDeviceChannel.usbOrBle;
+  const tabOptions = useMemo(
+    () => [
+      {
+        label: platformEnv.isNative
+          ? intl.formatMessage({ id: ETranslations.global_bluetooth })
+          : 'USB',
+        value: EConnectDeviceChannel.usbOrBle,
+        testID: OnboardingTestIDs.connectionFlowLedgerUsbTab,
+      },
+      ...(platformEnv.isSupportDesktopBle
+        ? [
+            {
+              label: intl.formatMessage({ id: ETranslations.global_bluetooth }),
+              value: EConnectDeviceChannel.bluetooth,
+              testID: OnboardingTestIDs.connectionFlowLedgerBleTab,
+            },
+          ]
+        : []),
+    ],
+    [intl],
+  );
+  const [tabValue, setTabValue] = useState(EConnectDeviceChannel.usbOrBle);
   const deviceLabel = 'Ledger';
-  // Mobile (iOS/Android) uses BLE; extension and desktop use USB.
-  const isBle = Boolean(platformEnv.isNative);
+  const isBle =
+    Boolean(platformEnv.isNative) ||
+    tabValue === EConnectDeviceChannel.bluetooth;
+  const transportType = isBle ? 'ble' : 'usb';
 
   // --- Device connection state (copied from useDeviceConnection) ---
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
@@ -127,6 +151,8 @@ export default function LedgerConnectionFlow() {
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const isSearchingRef = useRef(false);
+  const scanGenerationRef = useRef(0);
+  const [scanRequest, setScanRequest] = useState(0);
 
   const deviceScanner = useMemo(
     () =>
@@ -142,10 +168,8 @@ export default function LedgerConnectionFlow() {
       return;
     }
 
-    // No setForceTransportType() here: Ledger's connector is platform-fixed
-    // and SDK-routed (vendorProfile.appManagesTransportSwitching = false).
-    // The atom only steers OneKey/Trezor calls, and this page never cleared
-    // it, so the write pinned OTHER vendors' later sessions to a stale channel.
+    // Scope discovery to this tab; never change another vendor's transport atom.
+    const generation = scanGenerationRef.current;
 
     const MAX_TRY_COUNT = 60;
     let pollsCompleted = 0;
@@ -153,6 +177,7 @@ export default function LedgerConnectionFlow() {
     isSearchingRef.current = true;
     deviceScanner.startDeviceScan(
       (response) => {
+        if (generation !== scanGenerationRef.current) return;
         pollsCompleted += 1;
         if (!response.success) {
           const error = convertDeviceError(response.payload);
@@ -173,12 +198,20 @@ export default function LedgerConnectionFlow() {
           return;
         }
 
-        const sortedDevices = response.payload.toSorted((a, b) =>
-          natsort({ insensitive: true })(
-            a.name || a.connectId || a.deviceId || a.uuid,
-            b.name || b.connectId || b.deviceId || b.uuid,
-          ),
-        );
+        const sortedDevices = response.payload
+          .filter((device) => {
+            const connectionType =
+              getThirdPartySearchTarget(device)?.connectionType;
+            return connectionType
+              ? connectionType === transportType
+              : !platformEnv.isSupportDesktopBle || !isBle;
+          })
+          .toSorted((a, b) =>
+            natsort({ insensitive: true })(
+              a.name || a.connectId || a.deviceId || a.uuid,
+              b.name || b.connectId || b.deviceId || b.uuid,
+            ),
+          );
 
         setSearchedDevices(sortedDevices);
 
@@ -196,6 +229,7 @@ export default function LedgerConnectionFlow() {
         }
       },
       (state) => {
+        if (generation !== scanGenerationRef.current) return;
         searchStateRef.current = state;
       },
       1, // pollIntervalRate — no backoff, fixed interval
@@ -205,23 +239,36 @@ export default function LedgerConnectionFlow() {
       {
         resetSession: true,
         discoveryMethod: 'searchDeviceTargets',
+        transportType,
+        waitForAllTransports: true,
+        onError: (error) => {
+          if (generation !== scanGenerationRef.current) return;
+          isSearchingRef.current = false;
+          deviceScanner.stopScan();
+          setSearchedDevices([]);
+          setConnectStatus(EConnectionStatus.init);
+          if (!(error instanceof ThirdPartyDevicePermissionDenied)) {
+            Toast.error({ title: error.message });
+          }
+        },
       },
     );
-  }, [deviceScanner, vendor, intl]);
+  }, [deviceScanner, vendor, intl, transportType, isBle]);
 
   const stopScan = useCallback(() => {
+    scanGenerationRef.current += 1;
     isSearchingRef.current = false;
     deviceScanner.stopScan();
   }, [deviceScanner]);
 
   const ensureStopScan = useCallback(async () => {
-    isSearchingRef.current = false;
+    stopScan();
     try {
       await deviceScanner.stopScanAndWait();
     } catch {
       deviceScanner.stopScan();
     }
-  }, [deviceScanner]);
+  }, [deviceScanner, stopScan]);
 
   // --- Device list data ---
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
@@ -256,7 +303,10 @@ export default function LedgerConnectionFlow() {
   const handleDeviceSelect = useCallback(
     async (data: IConnectYourDeviceItem) => {
       if (!data.device) return;
-      await ensureStopScan();
+      const stopping = ensureStopScan();
+      const generation = scanGenerationRef.current;
+      await stopping;
+      if (generation !== scanGenerationRef.current) return;
 
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         deviceData: {
@@ -270,24 +320,21 @@ export default function LedgerConnectionFlow() {
     [ensureStopScan, navigation, tabValue],
   );
 
-  // --- Listing mode ---
-  const listingDevice = useCallback(async () => {
-    setConnectStatus(EConnectionStatus.listing);
-    await scanDevice();
-  }, [scanDevice]);
-
   // --- Start connection ---
   // Extension: HID permission popup first, then listing
   // Desktop: directly start listing (no permission needed)
   const onStartConnection = useCallback(async () => {
-    if (platformEnv.isExtension) {
+    const generation = scanGenerationRef.current;
+    if (!isBle && platformEnv.isExtension) {
       // Extension needs user gesture to call navigator.hid.requestDevice()
       setIsChecking(true);
       try {
         const hidDevice = await promptHidDeviceAccess();
         if (hidDevice) {
           setIsChecking(false);
-          void listingDevice();
+          if (generation === scanGenerationRef.current) {
+            setScanRequest((value) => value + 1);
+          }
         } else {
           setIsChecking(false);
         }
@@ -297,31 +344,60 @@ export default function LedgerConnectionFlow() {
       }
     } else {
       // Desktop / Web: start searching directly
-      void listingDevice();
+      setScanRequest((value) => value + 1);
     }
-  }, [promptHidDeviceAccess, listingDevice]);
+  }, [promptHidDeviceAccess, isBle]);
 
-  // --- Focus / unfocus ---
-  useEffect(() => {
-    if (isFocused) {
-      if (connectStatus === EConnectionStatus.listing) {
-        void listingDevice();
-      }
-    } else {
+  const onTabChange = useCallback(
+    (value: string | number) => {
+      if (
+        value === tabValue ||
+        !tabOptions.some((option) => option.value === value)
+      )
+        return;
       stopScan();
-    }
-  }, [connectStatus, isFocused, listingDevice, stopScan]);
-
-  useEffect(
-    () => () => {
-      stopScan();
+      setSearchedDevices([]);
+      setConnectStatus(EConnectionStatus.init);
+      setTabValue(value as EConnectDeviceChannel);
+      setScanRequest((request) => request + 1);
     },
-    [stopScan],
+    [tabValue, tabOptions, stopScan],
   );
+
+  // Drain the old native scan before starting the selected tab. Rapid tab
+  // changes and blur invalidate pending starts as well as late scan results.
+  useEffect(() => {
+    if (!isFocused || scanRequest === 0) return;
+    let cancelled = false;
+    void (async () => {
+      await ensureStopScan();
+      if (cancelled) return;
+      setSearchedDevices([]);
+      setConnectStatus(EConnectionStatus.listing);
+      await scanDevice();
+    })();
+    return () => {
+      cancelled = true;
+      stopScan();
+    };
+  }, [isFocused, scanRequest, ensureStopScan, scanDevice, stopScan]);
+
+  useEffect(() => {
+    if (!isFocused) stopScan();
+    return stopScan;
+  }, [isFocused, stopScan]);
 
   // --- Render ---
   return (
     <>
+      {tabOptions.length > 1 ? (
+        <SegmentControl
+          fullWidth
+          value={tabValue}
+          onChange={onTabChange}
+          options={tabOptions}
+        />
+      ) : null}
       <ConnectionIndicator>
         <ConnectionIndicator.Card>
           <ConnectionIndicator.Animation>
@@ -393,6 +469,9 @@ export default function LedgerConnectionFlow() {
                 <>
                   {sortedDevicesData.map((data, index) => (
                     <ListItem
+                      testID={OnboardingTestIDs.connectionFlowLedgerDeviceOption(
+                        index,
+                      )}
                       key={
                         data.searchTarget?.searchTargetId ||
                         data.device?.deviceId ||

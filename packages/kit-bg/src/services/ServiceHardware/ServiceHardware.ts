@@ -2274,7 +2274,7 @@ class ServiceHardware extends ServiceBase {
             payload: targets.payload.map((target) =>
               mapThirdPartySearchTargetToSearchDevice({
                 target,
-                defaultDeviceName: vendorProfile.defaultDeviceName,
+                defaultDeviceName: vendorProfile.presentation.defaultName,
               }),
             ),
           };

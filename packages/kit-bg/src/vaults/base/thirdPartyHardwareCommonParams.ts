@@ -24,17 +24,26 @@ export function thirdPartyConnectionContextFromDevice(device?: {
   if (!device) return {};
   const knownConnections: KnownDeviceConnection[] = [];
   let { usbConnectId, bleConnectId } = device;
-  // Legacy records only stored the endpoint for their original platform.
+  // Legacy records only stored the endpoint for their original platform, and
+  // which platform that was is not recoverable from the value — so the guess
+  // is "whatever channel this platform uses".
+  //
+  // Only guess when there is nothing better. A record that already carries any
+  // per-channel locator has been written by the current code, which means its
+  // legacy column is a leftover: after a BLE rebind it still holds the
+  // PREVIOUS address, and promoting that into the empty USB slot would hand
+  // the SDK a BLE address as a USB locator.
+  //
   // Logical wallet identities must never be promoted to physical locators.
   if (
-    getVendorProfile(device.vendor as EHardwareVendor | undefined)
-      .connectIdRole === 'transportLocator' &&
-    device.connectId &&
-    device.connectId !== usbConnectId &&
-    device.connectId !== bleConnectId
+    !usbConnectId &&
+    !bleConnectId &&
+    getVendorProfile(device.vendor as EHardwareVendor | undefined).identity
+      .role === 'transportLocator' &&
+    device.connectId
   ) {
-    if (platformEnv.isNative) bleConnectId ||= device.connectId;
-    else usbConnectId ||= device.connectId;
+    if (platformEnv.isNative) bleConnectId = device.connectId;
+    else usbConnectId = device.connectId;
   }
   if (usbConnectId)
     knownConnections.push({ transport: 'usb', connectId: usbConnectId });
@@ -44,6 +53,29 @@ export function thirdPartyConnectionContextFromDevice(device?: {
     knownConnections,
     ...(device.id ? { extra: { dbDeviceId: device.id } } : {}),
   };
+}
+
+/**
+ * The transport locators for one device, with a legacy `connectId` folded into
+ * whichever channel it belongs to. Read locators through this rather than off
+ * the record: new records leave the legacy column empty, and old ones put
+ * either channel in it depending on how the wallet was first onboarded.
+ */
+export function thirdPartyTransportLocators(device?: {
+  vendor?: string;
+  connectId?: string;
+  usbConnectId?: string;
+  bleConnectId?: string;
+}): { usbConnectId?: string; bleConnectId?: string } {
+  const context = thirdPartyConnectionContextFromDevice(device);
+  const locators: { usbConnectId?: string; bleConnectId?: string } = {};
+  for (const connection of context.knownConnections ?? []) {
+    if (connection.transport === 'usb')
+      locators.usbConnectId = connection.connectId;
+    if (connection.transport === 'ble')
+      locators.bleConnectId = connection.connectId;
+  }
+  return locators;
 }
 
 export function thirdPartyCommonCallParamsForCreateScene(scene: {
@@ -79,16 +111,16 @@ export function thirdPartyPassphraseParamsFromDeviceParams(
 ): IHardwareConnectionContext & {
   passphraseState?: string;
   useEmptyPassphrase?: boolean;
-  interactionId?: string;
+  operationId?: string;
 } {
   const passphraseState = deviceParams?.deviceCommonParams?.passphraseState;
   const useEmptyPassphrase =
     deviceParams?.deviceCommonParams?.useEmptyPassphrase;
-  const interactionId = deviceParams?.deviceCommonParams?.interactionId;
+  const operationId = deviceParams?.deviceCommonParams?.operationId;
   return {
     ...thirdPartyConnectionContextFromDevice(deviceParams?.dbDevice),
     ...(passphraseState ? { passphraseState } : {}),
     ...(useEmptyPassphrase !== undefined ? { useEmptyPassphrase } : {}),
-    ...(interactionId ? { interactionId } : {}),
+    ...(operationId ? { operationId } : {}),
   };
 }
