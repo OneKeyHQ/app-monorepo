@@ -121,7 +121,7 @@ describe('navigateToMarketTokenDetail', () => {
     },
   );
 
-  it('routes xStock search results without stock metadata to stock detail', async () => {
+  it('routes xStock search results without a stock id to token detail', async () => {
     const preview = {
       address: '0xaapl',
       networkId: 'evm--1',
@@ -137,23 +137,21 @@ describe('navigateToMarketTokenDetail', () => {
     });
     jest.runAllTimers();
 
-    expect(prepareStockTokenDetailMock).toHaveBeenCalledWith({
-      tokenAddress: '0xaapl',
-      networkId: 'evm--1',
-      isNative: undefined,
-    });
+    expect(prepareTokenDetailPreviewMock).toHaveBeenCalledWith(preview);
+    expect(prepareStockTokenDetailMock).not.toHaveBeenCalled();
     expect(clearTokenDetailMock).not.toHaveBeenCalled();
     expect(changeActiveTokenMock).not.toHaveBeenCalled();
-    expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith('main', {
       screen: 'Market',
       params: {
-        screen: 'MarketStockDetail',
+        screen: 'MarketDetailV2',
         params: {
-          stockId: 'AAPL',
           tokenAddress: '0xaapl',
           network: 'eth',
           isNative: undefined,
+          resolveMarketAsset: true,
+          marketTokenSymbol: 'AAPLx',
+          legacyTokenPreview: preview,
         },
       },
     });
@@ -297,6 +295,7 @@ describe('navigateToMarketTokenDetail', () => {
       {
         address: '0xaapl',
         networkId: 'evm--1',
+        stockId: 'AAPL',
       },
       {
         tokenDetailActions,
@@ -305,6 +304,7 @@ describe('navigateToMarketTokenDetail', () => {
           stock: {
             subtitle: 'Apple Inc.',
             sourceLogoUri: '',
+            stockId: 'AAPL',
             underlyingAssetTicker: 'AAPL',
           },
         } as never,

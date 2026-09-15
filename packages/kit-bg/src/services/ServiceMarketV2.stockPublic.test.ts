@@ -431,7 +431,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(result.items[0]).not.toHaveProperty('contractAddress');
   });
 
-  it('sorts the stock list by 24h volume descending by default', async () => {
+  it('sorts the stock list by market cap descending by default', async () => {
     const service = createService();
     mockGet.mockResolvedValueOnce({
       data: {
@@ -449,7 +449,7 @@ describe('ServiceMarketV2 public stock APIs', () => {
         cursor: undefined,
         limit: 20,
         category: undefined,
-        sortBy: 'volume24h',
+        sortBy: 'marketCap',
         sortType: 'desc',
       },
       headers: { 'x-onekey-request-currency': 'usd' },

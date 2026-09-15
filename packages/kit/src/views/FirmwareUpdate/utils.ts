@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -10,6 +10,7 @@ import type {
   IPro2FirmwareUpdateTarget,
 } from '@onekeyhq/shared/types/device';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { IntlShape } from 'react-intl';
 
 export function selectFirmwareUpdateDetectStatus({
@@ -183,4 +184,24 @@ export function getTargetFirmwareTypeLabel({
         ? ETranslations.device_firmware_type_btc_only__label
         : ETranslations.device_firmware_type_multichain__label,
   });
+}
+
+/**
+ * Developer mode lists the Pro 2 component targets unless the Pro 2 debug
+ * preference hides them. Shared by the changelog and the install page.
+ */
+export function shouldHidePro2FirmwareDebugInfo({
+  developerModeEnabled,
+  hidePro2FirmwareDebugInfo,
+  deviceType,
+}: {
+  developerModeEnabled: boolean;
+  hidePro2FirmwareDebugInfo: boolean | undefined;
+  deviceType: IDeviceType | undefined;
+}) {
+  return (
+    developerModeEnabled &&
+    deviceType === EDeviceType.Pro2 &&
+    hidePro2FirmwareDebugInfo === true
+  );
 }
