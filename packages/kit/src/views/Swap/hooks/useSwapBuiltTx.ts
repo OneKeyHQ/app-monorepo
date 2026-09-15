@@ -2251,6 +2251,8 @@ export function useSwapBuildTx({
         fromAddress: fromUserAddress ?? '',
         toAddress: toUserAddress ?? '',
         status: ESwapEventAPIStatus.SUCCESS,
+        walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? 'unknown',
+        deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
         swapProvider: buildSwapRes.result?.info.provider ?? '',
         swapProviderName: buildSwapRes.result?.info.providerName ?? '',
         swapType,
@@ -2293,6 +2295,8 @@ export function useSwapBuildTx({
       toUserAddress,
       syncRecentTokenPairs,
       toToken,
+      swapFromAddressInfo.accountInfo?.wallet?.type,
+      swapFromAddressInfo.accountInfo?.device?.deviceType,
     ],
   );
 
@@ -2404,6 +2408,9 @@ export function useSwapBuildTx({
             fromAddress: fromUserAddress ?? '',
             toAddress: toUserAddress ?? '',
             status: ESwapEventAPIStatus.FAIL,
+            walletType:
+              swapFromAddressInfo.accountInfo?.wallet?.type ?? 'unknown',
+            deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             message: e?.message ?? 'unknown error',
             swapProvider: data?.info.provider ?? '',
@@ -2704,6 +2711,7 @@ export function useSwapBuildTx({
       checkLatestFromTokenBalance,
       checkOtherFee,
       swapFromAddressInfo.accountInfo?.wallet?.type,
+      swapFromAddressInfo.accountInfo?.device?.deviceType,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       focusSwapPro,
       isFirstTimeSwap,
