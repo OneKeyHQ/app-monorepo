@@ -10,7 +10,10 @@ import {
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
-import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBannerItem,
+  IMarketBannerTokenPreview,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   isMarketIndexQuoteBanner,
@@ -22,6 +25,28 @@ import {
   fetchMarketBannerStockTokenListForPlatform,
   fetchMarketBannerTokenListForPlatform,
 } from './marketBannerListPlatformApi';
+
+function bannerPreviewLogos(
+  tokens: IMarketBannerTokenPreview[] | undefined,
+): Map<string, string> {
+  return new Map(tokens?.map((token) => [token.symbol, token.logo]));
+}
+
+function mapBannerQuoteToken({
+  logo,
+  name,
+  symbol,
+  price,
+  priceChange24hPercent,
+}: {
+  logo: string;
+  name: string;
+  symbol: string;
+  price?: string;
+  priceChange24hPercent?: string;
+}): IMarketBannerTokenPreview {
+  return { logo, name, symbol, price, priceChange24hPercent };
+}
 
 export async function hydrateMarketBannerQuotes(
   banners: IMarketBannerItem[],
@@ -43,24 +68,24 @@ export async function hydrateMarketBannerQuotes(
       }
 
       try {
+        const previewLogos = bannerPreviewLogos(banner.tokens);
         if (isStockBanner || banner.type === EMarketBannerType.Stock) {
           const assets = await fetchMarketBannerStockTokenListForPlatform(
             banner.tokenListId,
           );
           // Keep the banner artwork while refreshing quotes: the stock endpoint
           // can provide a different rendition of the same company's logo.
-          const previewLogos = new Map(
-            banner.tokens?.map((token) => [token.symbol, token.logo]),
-          );
           return {
             ...banner,
-            tokens: assets.map((asset) => ({
-              logo: previewLogos.get(asset.symbol) || asset.logoUrl,
-              name: asset.name,
-              symbol: asset.symbol,
-              price: asset.price,
-              priceChange24hPercent: asset.priceChange24hPercent,
-            })),
+            tokens: assets.map((asset) =>
+              mapBannerQuoteToken({
+                logo: previewLogos.get(asset.symbol) || asset.logoUrl,
+                name: asset.name,
+                symbol: asset.symbol,
+                price: asset.price,
+                priceChange24hPercent: asset.priceChange24hPercent,
+              }),
+            ),
           };
         }
 
@@ -71,13 +96,19 @@ export async function hydrateMarketBannerQuotes(
 
         return {
           ...banner,
-          tokens: tokens.map((token) => ({
-            logo: token.logoUrl ?? token.logoUrls?.[0] ?? '',
-            name: token.name,
-            symbol: token.symbol,
-            price: token.price,
-            priceChange24hPercent: token.priceChange24hPercent,
-          })),
+          tokens: tokens.map((token) =>
+            mapBannerQuoteToken({
+              logo:
+                previewLogos.get(token.symbol) ||
+                token.logoUrl ||
+                token.logoUrls?.[0] ||
+                '',
+              name: token.name,
+              symbol: token.symbol,
+              price: token.price,
+              priceChange24hPercent: token.priceChange24hPercent,
+            }),
+          ),
         };
       } catch {
         return banner;
@@ -91,15 +122,15 @@ export async function hydrateMarketBannerQuotes(
 function mergeBannerQuotes(
   banners: IMarketBannerItem[],
   previous: IMarketBannerItem[] | undefined,
-  preferQuotes = false,
 ): IMarketBannerItem[] {
   const quotes = new Map(previous?.map((banner) => [banner._id, banner]));
   return banners.map((banner) => {
     const cached = quotes.get(banner._id);
+    // Keep the last hydrated rows across list polls. Preview `tokens` on a
+    // fresh list would otherwise replace the visible set before quotes return.
     if (
       banner.type !== EMarketBannerType.Perps &&
       !isMarketIndexQuoteBanner(banner) &&
-      (preferQuotes || banner.tokens === undefined) &&
       cached?.tokens &&
       cached.tokenListId === banner.tokenListId &&
       cached.type === banner.type &&
@@ -203,7 +234,7 @@ export function useMarketBannerList(): {
   );
   const normalizedBanners = useMemo(() => {
     let previous: IMarketBannerItem[] | undefined;
-    // Only hydration for this response may replace its explicit quote rows.
+    // Hydration for this list response may replace rows; list polls keep them.
     const hasCurrentQuotes =
       liveQuotes?.scope === requestScope && liveQuotes.source === bannerList;
     if (hasCurrentQuotes) {
@@ -213,7 +244,7 @@ export function useMarketBannerList(): {
     }
     const banners = enableMockMarketBanner
       ? (bannerList ?? [])
-      : mergeBannerQuotes(bannerList ?? [], previous, hasCurrentQuotes);
+      : mergeBannerQuotes(bannerList ?? [], previous);
     return banners.map((banner) =>
       isMarketIndexQuoteBanner(banner) && banner.indices?.length
         ? {
