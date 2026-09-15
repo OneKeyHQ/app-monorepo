@@ -80,7 +80,7 @@ function DeviceListItem({
     item.device?.vendor ?? EHardwareVendor.onekey,
   );
   const isThirdParty = vendorProfile.isThirdParty;
-  const canShowFirmwareVersion = vendorProfile.supportsFirmwareVersionDisplay;
+  const canShowFirmwareVersion = vendorProfile.firmware.showVersion;
   const canOpenDetails = canOpenDeviceManagementDetails(item.device?.vendor);
   const walletAvatarProps: IWalletAvatarProps = {
     img: item.wallet.avatarInfo?.img,
@@ -323,7 +323,7 @@ function DeviceManagementV2ListWeb() {
         const vendorProfile = getVendorProfile(
           item.device?.vendor ?? EHardwareVendor.onekey,
         );
-        return vendorProfile.supportsFirmwareUpdate && item.device?.connectId
+        return vendorProfile.firmware.update && item.device?.connectId
           ? [item.device.connectId]
           : [];
       });
@@ -341,7 +341,7 @@ function DeviceManagementV2ListWeb() {
         const vendorProfile = getVendorProfile(
           item.device?.vendor ?? EHardwareVendor.onekey,
         );
-        if (!vendorProfile.supportsFirmwareVersionDisplay) {
+        if (!vendorProfile.firmware.showVersion) {
           // eslint-disable-next-line no-continue
           continue;
         }
@@ -364,7 +364,7 @@ function DeviceManagementV2ListWeb() {
             });
         const deviceConnectId = item.device?.connectId;
         const detectStatusSnapshot =
-          vendorProfile.supportsFirmwareUpdate && deviceConnectId
+          vendorProfile.firmware.update && deviceConnectId
             ? detectStatusSnapshots[deviceConnectId]
             : undefined;
         const deviceDetectStatus = deviceConnectId
@@ -374,10 +374,10 @@ function DeviceManagementV2ListWeb() {
               snapshot: detectStatusSnapshot,
             })
           : undefined;
-        const shouldUpdate = vendorProfile.supportsFirmwareUpdate
+        const shouldUpdate = vendorProfile.firmware.update
           ? deviceDetectStatus?.hasUpgrade
           : false;
-        const updateVersionDisplay = vendorProfile.supportsFirmwareUpdate
+        const updateVersionDisplay = vendorProfile.firmware.update
           ? deviceDetectStatus?.toVersion
           : undefined;
         item.firmwareTypeBadge = firmwareTypeBadge;

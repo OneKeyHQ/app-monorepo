@@ -113,8 +113,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
                   ...ledgerCommonCallParamsForCreateScene(params),
                 }),
               {
-                interactionId:
-                  params.deviceParams.deviceCommonParams?.interactionId,
+                operationId:
+                  params.deviceParams.deviceCommonParams?.operationId,
                 allowFingerprintBootstrap:
                   params.deviceParams.deviceCommonParams
                     ?.allowDeviceIdentityBootstrap === true,
@@ -292,7 +292,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         (deviceId, connectId, context) =>
           adapter.hw.btcGetMasterFingerprint(connectId, deviceId, context),
         {
-          interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+          operationId: checkedDeviceParams.deviceCommonParams?.operationId,
           allowFingerprintBootstrap: false,
         },
       );
@@ -472,7 +472,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           })),
         }),
       {
-        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        operationId: checkedDeviceParams.deviceCommonParams?.operationId,
         allowFingerprintBootstrap: false,
       },
     );
@@ -537,8 +537,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           (deviceId, connectId, context) =>
             adapter.hw.btcGetMasterFingerprint(connectId, deviceId, context),
           {
-            interactionId:
-              checkedDeviceParams.deviceCommonParams?.interactionId,
+            operationId: checkedDeviceParams.deviceCommonParams?.operationId,
             allowFingerprintBootstrap: false,
           },
         );
@@ -589,7 +588,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           path: dbAccount.path,
         }),
       {
-        interactionId: checkedDeviceParams.deviceCommonParams?.interactionId,
+        operationId: checkedDeviceParams.deviceCommonParams?.operationId,
         allowFingerprintBootstrap: false,
       },
     );
@@ -679,8 +678,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
               coin: networkInfo.networkChainCode?.toLowerCase() || 'bitcoin',
             }),
           {
-            interactionId:
-              checkedDeviceParams.deviceCommonParams?.interactionId,
+            operationId: checkedDeviceParams.deviceCommonParams?.operationId,
             allowFingerprintBootstrap: false,
           },
         );
@@ -752,7 +750,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
             change,
           }),
         {
-          interactionId: deviceParams.deviceCommonParams?.interactionId,
+          operationId: deviceParams.deviceCommonParams?.operationId,
         },
       );
 

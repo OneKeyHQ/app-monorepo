@@ -1,7 +1,5 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { OneKeyInternalError } from '../../errors';
-
 export type IHardwareVendorAddAccountDefaultNetworkMode =
   | 'onekeyDefault'
   | 'ledgerAppAware';
@@ -17,174 +15,160 @@ export interface IHardwareVendorProfile {
   vendor: EHardwareVendor;
   /** Whether this is a third-party (non-OneKey) vendor */
   isThirdParty: boolean;
-  /** Default device name when no label is available */
-  defaultDeviceName: string;
-  /** Avatar key used for wallet avatar; empty means derived from deviceType */
-  avatarKey: string;
+  /** How this vendor's devices are named and pictured. */
+  presentation: {
+    /** Default device name when no label is available; empty means the device reports its own. */
+    defaultName: string;
+    /** Empty means derived from deviceType. */
+    avatarKey: string;
+    /** Label writes and validation are independent of settings-page visibility. */
+    label: { mode: 'local' } | { mode: 'device'; asciiOnly: boolean };
+  };
+  /**
+   * What this vendor's ids mean. These five answer one question together —
+   * "given an id, what have I actually got?" — so they are read as a set
+   * rather than one at a time. `role` is the load-bearing one: DB writes,
+   * locator normalization and device dedup all branch on it.
+   */
+  identity: {
+    /** Meaning of the legacy primary connectId, independent of its persistence. */
+    role: 'transportLocator' | 'walletIdentity';
+    /** Vendor-level fallback used when a scanned device reports no capability. */
+    persistentConnectId(transport: 'usb' | 'ble'): boolean;
+    /** Whether the deviceId persists across sessions for the given transport */
+    persistentDeviceId(transport: 'usb' | 'ble'): boolean;
+    /** Whether a connectId can be used to identify an existing device. */
+    matchDeviceByConnectId(connectId: string): boolean;
+    /**
+     * Whether a connectId-based match must be confirmed by an independent seed
+     * check before the record is reused — a connectId that isn't a stable
+     * per-device identity (see `persistentConnectId`) can coincide across
+     * different physical devices/seeds.
+     */
+    seedVerifyOnConnectIdMatch: boolean;
+  };
+  /** What Device Manager may show for this vendor. */
+  deviceManager: {
+    /** Whether Device Manager can open the detail page */
+    details: boolean;
+    /** Whether Device Manager can show the About Device support section */
+    about: boolean;
+    /** Whether Device Manager can show vendor-routed device settings */
+    settings: boolean;
+  };
+  firmware: {
+    /** Whether firmware version should be shown in Device Manager */
+    showVersion: boolean;
+    /** Whether OneKey firmware authenticity verification is supported */
+    verify: boolean;
+    /** Whether OneKey firmware update checking is supported */
+    update: boolean;
+  };
+  passphrase: {
+    /** Whether passphrase can be enabled/disabled from Device Manager */
+    setting: boolean;
+    /** Whether wallet UI can expose hidden-wallet creation */
+    hiddenWallet: boolean;
+  };
   /** Whether the device supports entering PIN via software (on-screen) */
   supportsSoftwarePin: boolean;
   /** Whether an app must be open on the device before operations */
   requiresAppOpen: boolean;
-  /** Vendor-level fallback used when a scanned device reports no capability. */
-  hasPersistentConnectId(transport: 'usb' | 'ble'): boolean;
-  /** Whether the deviceId persists across sessions for the given transport */
-  hasPersistentDeviceId(transport: 'usb' | 'ble'): boolean;
-  /** Meaning of the legacy primary connectId, independent of its persistence. */
-  connectIdRole: 'transportLocator' | 'walletIdentity';
-  /** Whether the app arbitrates USB/BLE for this vendor via the global
-   *  force-transport atom (`setForceTransportType`). Vendors whose SDK routes
-   *  transports itself, or whose connector is fixed per platform, must never
-   *  write that atom — it only steers OneKey/Trezor calls, so a stray write
-   *  pins OTHER vendors' sessions to the wrong channel. */
-  appManagesTransportSwitching: boolean;
   /** Whether this vendor's wallets support cloud sync */
   supportsCloudSync: boolean;
-  /** Whether Device Manager can open the detail page */
-  supportsDeviceManagementDetails: boolean;
-  /** Whether Device Manager can show the About Device support section */
-  supportsDeviceAbout: boolean;
-  /** Whether firmware version should be shown in Device Manager */
-  supportsFirmwareVersionDisplay: boolean;
-  /** Whether OneKey firmware authenticity verification is supported */
-  supportsFirmwareVerify: boolean;
   /** Verification method and the event channel used while awaiting confirmation. */
   addressVerification: IHardwareAddressVerificationCapability;
-  /** Whether OneKey firmware update checking is supported */
-  supportsFirmwareUpdate: boolean;
-  /** Whether OneKey device settings sections are supported */
-  supportsOneKeyDeviceSettings: boolean;
-  /** Whether Device Manager can show vendor-routed device settings */
-  supportsDeviceSettings: boolean;
-  /** Device-label writes and validation are independent of settings-page visibility. */
-  deviceLabel: { mode: 'local' } | { mode: 'device'; asciiOnly: boolean };
-  /** Whether passphrase can be enabled/disabled from Device Manager */
-  supportsPassphraseSetting: boolean;
-  /** Whether wallet UI can expose hidden-wallet creation */
-  supportsHiddenWalletCreation: boolean;
   /** How default networks are created during add-account flows */
   addAccountDefaultNetworkMode: IHardwareVendorAddAccountDefaultNetworkMode;
-  /** Whether a connectId can be used to identify an existing device.
-   *  BLE: persistent (MAC/UUID). USB: ephemeral, won't match anything anyway. */
-  canMatchDeviceByConnectId(connectId: string): boolean;
-  /**
-   * Whether a connectId-based match must be confirmed by an independent seed
-   * check before the record is reused — a connectId that isn't a stable
-   * per-device identity (see `hasPersistentConnectId`) can coincide across
-   * different physical devices/seeds.
-   */
-  requiresSeedVerifyOnConnectIdMatch: boolean;
 }
 
 const onekeyProfile: IHardwareVendorProfile = {
   vendor: EHardwareVendor.onekey,
   isThirdParty: false,
-  defaultDeviceName: '',
-  avatarKey: '',
+  presentation: {
+    defaultName: '',
+    avatarKey: '',
+    label: { mode: 'device', asciiOnly: false },
+  },
+  identity: {
+    role: 'transportLocator',
+    persistentConnectId: () => true,
+    persistentDeviceId: () => true,
+    // OneKey always has device_id, so this path isn't used
+    matchDeviceByConnectId: () => true,
+    // OneKey always matches by deviceId, never by connectId alone.
+    seedVerifyOnConnectIdMatch: false,
+  },
+  deviceManager: { details: true, about: true, settings: true },
+  firmware: { showVersion: true, verify: true, update: true },
+  passphrase: { setting: true, hiddenWallet: true },
   supportsSoftwarePin: true,
   requiresAppOpen: false,
-  hasPersistentConnectId: () => true,
-  hasPersistentDeviceId: () => true,
-  connectIdRole: 'transportLocator',
-  appManagesTransportSwitching: true,
   supportsCloudSync: true,
-  supportsDeviceManagementDetails: true,
-  supportsDeviceAbout: true,
-  supportsFirmwareVersionDisplay: true,
-  supportsFirmwareVerify: true,
   addressVerification: { mode: 'device', confirmationEvent: 'buttonRequest' },
-  supportsFirmwareUpdate: true,
-  supportsOneKeyDeviceSettings: true,
-  supportsDeviceSettings: true,
-  deviceLabel: { mode: 'device', asciiOnly: false },
-  supportsPassphraseSetting: true,
-  supportsHiddenWalletCreation: true,
   addAccountDefaultNetworkMode: 'onekeyDefault',
-  // OneKey always has device_id, so this path isn't used
-  canMatchDeviceByConnectId: () => true,
-  // OneKey always matches by deviceId, never by connectId alone.
-  requiresSeedVerifyOnConnectIdMatch: false,
 };
 
 const ledgerProfile: IHardwareVendorProfile = {
   vendor: EHardwareVendor.ledger,
   isThirdParty: true,
-  defaultDeviceName: 'Ledger',
-  avatarKey: 'ledger',
+  presentation: {
+    defaultName: 'Ledger',
+    avatarKey: 'ledger',
+    label: { mode: 'local' },
+  },
+  identity: {
+    role: 'transportLocator',
+    persistentConnectId: (transport) => transport === 'ble',
+    persistentDeviceId: () => false,
+    // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
+    matchDeviceByConnectId: (connectId) => Boolean(connectId),
+    // USB connectId is ephemeral and BLE's, while persistent, isn't a proof of
+    // identity by itself — require a seed check before reusing the record.
+    seedVerifyOnConnectIdMatch: true,
+  },
+  deviceManager: { details: true, about: false, settings: false },
+  firmware: { showVersion: false, verify: false, update: false },
+  passphrase: { setting: false, hiddenWallet: false },
   supportsSoftwarePin: false,
   requiresAppOpen: true,
-  hasPersistentConnectId: (transport) => transport === 'ble',
-  hasPersistentDeviceId: () => false,
-  connectIdRole: 'transportLocator',
-  // Connector is fixed per platform (webhid on desktop/web, ble on native)
-  // and DMK routes sessions internally — nothing for the app to switch.
-  appManagesTransportSwitching: false,
   supportsCloudSync: false,
-  supportsDeviceManagementDetails: true,
-  supportsDeviceAbout: false,
-  supportsFirmwareVersionDisplay: false,
-  supportsFirmwareVerify: false,
-  addressVerification: {
-    mode: 'device',
-    confirmationEvent: 'confirmOnDevice',
-  },
-  supportsFirmwareUpdate: false,
-  supportsOneKeyDeviceSettings: false,
-  supportsDeviceSettings: false,
-  deviceLabel: { mode: 'local' },
-  supportsPassphraseSetting: false,
-  supportsHiddenWalletCreation: false,
+  addressVerification: { mode: 'device', confirmationEvent: 'confirmOnDevice' },
   addAccountDefaultNetworkMode: 'ledgerAppAware',
-  // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
-  canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
-  // USB connectId is ephemeral and BLE's, while persistent, isn't a proof of
-  // identity by itself — require a seed check before reusing the record.
-  requiresSeedVerifyOnConnectIdMatch: true,
 };
 
-// Trezor USB covers the supported v1 models and Safe 7 THP; BLE is currently
-// gated to Safe 7. PIN is entered on-device for the shipped model set.
-// A Trezor USB serial is normally sticky, but the connector reports the
-// per-device truth because WebUSB without a serial and BLE locators are ephemeral.
 const trezorProfile: IHardwareVendorProfile = {
   vendor: EHardwareVendor.trezor,
   isThirdParty: true,
-  defaultDeviceName: 'Trezor',
-  avatarKey: 'trezor',
+  presentation: {
+    defaultName: 'Trezor',
+    avatarKey: 'trezor',
+    label: { mode: 'device', asciiOnly: true },
+  },
+  identity: {
+    role: 'transportLocator',
+    // USB devices normally publish a stable serial. BLE locators are only
+    // discovery handles; a live connector capability overrides this fallback.
+    persistentConnectId: (transport) => transport === 'usb',
+    // `device_id` from Features is a stable 24-char hex, persists across
+    // reconnects, only changes on full device wipe.
+    persistentDeviceId: () => true,
+    matchDeviceByConnectId: (connectId) => Boolean(connectId),
+    // Trezor always matches by deviceId, never by connectId alone.
+    seedVerifyOnConnectIdMatch: false,
+  },
+  deviceManager: { details: true, about: false, settings: true },
+  firmware: { showVersion: true, verify: false, update: false },
+  passphrase: { setting: true, hiddenWallet: true },
   // THP firmware reads PIN on its own touchscreen during handshake. The host
   // SDK never holds a PIN matrix — different from Trezor T1 (legacy) where
   // PIN was entered host-side. We don't ship the T1 path, so always false.
   supportsSoftwarePin: false,
   // Trezor has no Ledger-style per-chain "app" concept.
   requiresAppOpen: false,
-  // USB devices normally publish a stable serial. BLE locators are only
-  // discovery handles; a live connector capability overrides this fallback.
-  hasPersistentConnectId: (transport) => transport === 'usb',
-  // `device_id` from Features is a stable 24-char hex, persists across
-  // reconnects, only changes on full device wipe.
-  hasPersistentDeviceId: () => true,
-  connectIdRole: 'transportLocator',
-  // Explicit UI transport choices use the app's force-transport setting.
-  // Operation-first discovery and binding remain owned by the SDK.
-  appManagesTransportSwitching: true,
   supportsCloudSync: false,
-  supportsDeviceManagementDetails: true,
-  supportsDeviceAbout: false,
-  supportsFirmwareVersionDisplay: true,
-  supportsFirmwareVerify: false,
-  addressVerification: {
-    mode: 'device',
-    confirmationEvent: 'confirmOnDevice',
-  },
-  supportsFirmwareUpdate: false,
-  supportsOneKeyDeviceSettings: false,
-  supportsDeviceSettings: true,
-  deviceLabel: { mode: 'device', asciiOnly: true },
-  supportsPassphraseSetting: true,
-  supportsHiddenWalletCreation: true,
+  addressVerification: { mode: 'device', confirmationEvent: 'confirmOnDevice' },
   addAccountDefaultNetworkMode: 'onekeyDefault',
-  canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
-  // Trezor always matches by deviceId, never by connectId alone.
-  requiresSeedVerifyOnConnectIdMatch: false,
 };
 
 // Keystone identifies a *wallet* (seed), not a physical unit: `deviceId` is
@@ -193,38 +177,38 @@ const trezorProfile: IHardwareVendorProfile = {
 // kept only as protocol metadata. A different mnemonic or passphrase becomes
 // a different logical device. No PIN matrix, no Ledger-style "app",
 // no host-side passphrase toggle — the device handles all of that on its own
-// screen. `supportsFirmwareVersionDisplay`/`supportsDeviceSettings` are left
-// `false` for now: the SDK surfaces a `deviceVersion` string, but no App UI
-// consumes it yet — flip these once that lands, not preemptively.
+// screen. `deviceManager.settings` stays `false`: there is no vendor-routed
+// settings surface for Keystone. `firmware.showVersion` is also `false`, and
+// not for want of plumbing: both channels report the version only optionally —
+// the QR export carries `deviceVersion` when the device feels like sending it,
+// and the USB `getAppConfig` reply falls back to '0.0.0' when it does not. A
+// fabricated 0.0.0, or a blank row on a QR-only wallet, is worse than not
+// offering the row. Flip it once the firmware reports reliably on both channels.
 const keystoneProfile: IHardwareVendorProfile = {
   vendor: EHardwareVendor.keystone,
   isThirdParty: true,
-  defaultDeviceName: 'Keystone',
-  avatarKey: 'keystone',
+  presentation: {
+    defaultName: 'Keystone',
+    avatarKey: 'keystone',
+    label: { mode: 'local' },
+  },
+  identity: {
+    role: 'walletIdentity',
+    persistentConnectId: () => true,
+    persistentDeviceId: () => true,
+    // The wallet-id-derived connectId is stable across QR and USB, unlike
+    // Ledger's ephemeral session handles.
+    matchDeviceByConnectId: (connectId) => Boolean(connectId),
+    seedVerifyOnConnectIdMatch: false,
+  },
+  deviceManager: { details: true, about: false, settings: false },
+  firmware: { showVersion: false, verify: false, update: false },
+  passphrase: { setting: false, hiddenWallet: false },
   supportsSoftwarePin: false,
   requiresAppOpen: false,
-  hasPersistentConnectId: () => true,
-  hasPersistentDeviceId: () => true,
-  connectIdRole: 'walletIdentity',
-  // QR/USB routing happens per call inside the SDK adapter (`_resolveUr`).
-  appManagesTransportSwitching: false,
   supportsCloudSync: false,
-  supportsDeviceManagementDetails: true,
-  supportsDeviceAbout: false,
-  supportsFirmwareVersionDisplay: false,
-  supportsFirmwareVerify: false,
   addressVerification: { mode: 'manual', confirmationEvent: 'none' },
-  supportsFirmwareUpdate: false,
-  supportsOneKeyDeviceSettings: false,
-  supportsDeviceSettings: false,
-  deviceLabel: { mode: 'local' },
-  supportsPassphraseSetting: false,
-  supportsHiddenWalletCreation: false,
   addAccountDefaultNetworkMode: 'onekeyDefault',
-  // The wallet-id-derived connectId is stable across QR and USB, unlike
-  // Ledger's ephemeral session handles.
-  canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
-  requiresSeedVerifyOnConnectIdMatch: false,
 };
 
 const vendorProfiles: Record<EHardwareVendor, IHardwareVendorProfile> = {
@@ -246,7 +230,7 @@ export function resolvePersistentConnectIdCapability({
   const explicitCapability = capabilities?.persistentDeviceIdentity;
   return typeof explicitCapability === 'boolean'
     ? explicitCapability
-    : profile.hasPersistentConnectId(transport);
+    : profile.identity.persistentConnectId(transport);
 }
 
 export function isHardwareVendorSupported(vendor: unknown): boolean {
@@ -258,17 +242,59 @@ export function isHardwareVendorSupported(vendor: unknown): boolean {
   );
 }
 
+/**
+ * A read-only profile for a vendor this build has never heard of. Reached when
+ * a newer build wrote a device row and the user then downgraded: the row names
+ * a vendor whose profile does not exist here. Throwing would crash every
+ * surface that merely lists wallets, so the unknown device degrades to
+ * "present but inert" instead — nothing is offered that could act on it.
+ */
+function buildUnknownVendorProfile(vendor: string): IHardwareVendorProfile {
+  return {
+    vendor: vendor as EHardwareVendor,
+    isThirdParty: true,
+    presentation: {
+      defaultName: vendor,
+      avatarKey: '',
+      label: { mode: 'local' },
+    },
+    identity: {
+      role: 'transportLocator',
+      persistentConnectId: () => false,
+      persistentDeviceId: () => false,
+      matchDeviceByConnectId: () => false,
+      seedVerifyOnConnectIdMatch: true,
+    },
+    deviceManager: { details: false, about: false, settings: false },
+    firmware: { showVersion: false, verify: false, update: false },
+    passphrase: { setting: false, hiddenWallet: false },
+    supportsSoftwarePin: false,
+    requiresAppOpen: false,
+    supportsCloudSync: false,
+    addressVerification: { mode: 'manual', confirmationEvent: 'none' },
+    addAccountDefaultNetworkMode: 'onekeyDefault',
+  };
+}
+
+const unknownVendorProfiles = new Map<string, IHardwareVendorProfile>();
+
 export function getVendorProfile(
   vendor: EHardwareVendor | undefined | null,
 ): IHardwareVendorProfile {
   // No vendor field means OneKey (legacy rows + callers that don't deal with
   // third-party). Explicit `EHardwareVendor.onekey` also lands here via the
-  // lookup below. Any other value must have its profile registered.
+  // lookup below.
   if (!vendor) return onekeyProfile;
   if (!isHardwareVendorSupported(vendor)) {
-    throw new OneKeyInternalError(
-      `Unknown hardware vendor: "${vendor}". Register its profile in packages/shared/src/hardware/config/vendorProfile.ts`,
-    );
+    let profile = unknownVendorProfiles.get(vendor);
+    if (!profile) {
+      profile = buildUnknownVendorProfile(vendor);
+      unknownVendorProfiles.set(vendor, profile);
+      console.error(
+        `Unknown hardware vendor: "${vendor}". Register its profile in packages/shared/src/hardware/config/vendorProfile.ts`,
+      );
+    }
+    return profile;
   }
   return vendorProfiles[vendor];
 }

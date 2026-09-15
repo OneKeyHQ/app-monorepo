@@ -362,7 +362,8 @@ function getDeviceLabel(vendor: string | undefined): string {
   const fallback = 'Device';
   if (!vendor) return fallback;
   return (
-    getVendorProfile(vendor as EHardwareVendor).defaultDeviceName || fallback
+    getVendorProfile(vendor as EHardwareVendor).presentation.defaultName ||
+    fallback
   );
 }
 

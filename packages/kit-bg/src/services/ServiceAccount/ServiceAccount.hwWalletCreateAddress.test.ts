@@ -224,7 +224,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
       isMockedStandardHwWallet: true,
       transportType: EHardwareTransportType.WEBUSB,
       vendor: EHardwareVendor.trezor,
-      hardwareOperationContext: { interactionId: 'interaction-id' },
+      hardwareOperationContext: { operationId: 'interaction-id' },
     });
 
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
@@ -486,7 +486,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
       features: { deviceId: '' },
       vendor: EHardwareVendor.ledger,
       hardwareOperationContext: {
-        interactionId: 'hwk-ledger-interaction',
+        operationId: 'hwk-ledger-interaction',
       },
       fillingXfpByCallingSdk: false,
     });

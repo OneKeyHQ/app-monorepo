@@ -96,7 +96,7 @@ export default function PickYourDevice() {
           },
       {
         name: intl.formatMessage({ id: ETranslations.use_another_device }),
-        tags: ['Ledger', 'Trezor'],
+        tags: ['Ledger', 'Trezor', 'Keystone'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
         colors: SHIMMER_NEUTRAL,

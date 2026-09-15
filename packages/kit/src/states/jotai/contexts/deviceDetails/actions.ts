@@ -117,7 +117,7 @@ async function buildDeviceMetaStatic(
     ? thirdPartyDeviceUtils.getDeviceName({
         device,
         features,
-        defaultDeviceName: vendorProfile.defaultDeviceName,
+        defaultDeviceName: vendorProfile.presentation.defaultName,
       })
     : await deviceUtils.buildDeviceName({
         device,

@@ -69,10 +69,10 @@ export function hasStoredLedgerChainFingerprint(settingsRaw: string): boolean {
 }
 
 /** Keep the device call and fingerprint checks on one acquired connection. */
-export async function withNewLedgerInteraction<T>(
+export async function withNewLedgerOperation<T>(
   backgroundApi: IBackgroundApi,
   connectId: string,
-  run: (interactionId: string) => Promise<T>,
+  run: (operationId: string) => Promise<T>,
   context: ICommonCallParams,
 ): Promise<T> {
   const adapter =
@@ -84,11 +84,11 @@ export async function withNewLedgerInteraction<T>(
   if (!connected.success) {
     throw convertThirdPartyDeviceError(connected.payload, { vendor: 'Ledger' });
   }
-  const { interactionId } = connected.payload;
+  const { operationId } = connected.payload;
   try {
-    return await run(interactionId);
+    return await run(operationId);
   } finally {
-    await adapter.releaseInteraction(interactionId);
+    await adapter.releaseOperation(operationId);
   }
 }
 
@@ -269,7 +269,7 @@ export async function callLedgerWithFingerprint<T>(
     context: ICommonCallParams,
   ) => Promise<Response<T>>,
   options?: {
-    interactionId?: string;
+    operationId?: string;
     allowFingerprintBootstrap?: boolean;
   },
 ): Promise<Response<T>> {
@@ -281,23 +281,26 @@ export async function callLedgerWithFingerprint<T>(
   );
   if (
     !deviceId &&
-    !options?.interactionId &&
+    !options?.operationId &&
     (!ledgerConfig.enableCrossChainFingerprintVerification ||
       options?.allowFingerprintBootstrap === true ||
       hasStoredLedgerChainFingerprint(dbDevice.settingsRaw))
   ) {
-    return withNewLedgerInteraction(
+    return withNewLedgerOperation(
       backgroundApi,
-      dbDevice.connectId,
-      (interactionId) =>
+      // Locators travel in knownConnections, where each one is tagged with its
+      // channel; acquireOperation picks the one matching the live transport.
+      // Passing one positionally would be guessing the channel again.
+      '',
+      (operationId) =>
         callLedgerWithFingerprint(backgroundApi, dbDevice, chain, fn, {
           ...options,
-          interactionId,
+          operationId,
         }),
       thirdPartyConnectionContextFromDevice(dbDevice),
     );
   }
-  const connectId = options?.interactionId || dbDevice.connectId;
+  const connectId = options?.operationId || '';
   if (
     ledgerConfig.enableCrossChainFingerprintVerification &&
     !deviceId &&

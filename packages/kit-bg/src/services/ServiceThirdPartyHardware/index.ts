@@ -1,4 +1,4 @@
-import { isHardwareInteractionId } from '@onekeyfe/hwk-adapter-core';
+import { isHardwareOperationId } from '@onekeyfe/hwk-adapter-core';
 
 import {
   backgroundClass,
@@ -205,7 +205,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   >();
 
   /** Background-runtime-only connection state; never persisted to the device table. */
-  private thirdPartyConnectionStateByInteraction = new Map<
+  private thirdPartyConnectionStateByOperation = new Map<
     string,
     { vendor: IThirdPartyVendor; identityKeys: Set<string> }
   >();
@@ -293,9 +293,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     event: IThirdPartyHardwareConnectionStateEvent,
   ): void {
     if (event.type === 'disconnected') {
-      if (
-        this.thirdPartyConnectionStateByInteraction.delete(event.interactionId)
-      ) {
+      if (this.thirdPartyConnectionStateByOperation.delete(event.operationId)) {
         appEventBus.emit(
           EAppEventBusNames.HardwareConnectionStateUpdate,
           undefined,
@@ -312,8 +310,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
       ),
     );
     if (identityKeys.size === 0) return;
-    const previous = this.thirdPartyConnectionStateByInteraction.get(
-      device.interactionId,
+    const previous = this.thirdPartyConnectionStateByOperation.get(
+      device.operationId,
     );
     const changed =
       !previous ||
@@ -321,7 +319,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       previous.identityKeys.size !== identityKeys.size ||
       [...identityKeys].some((key) => !previous.identityKeys.has(key));
     if (!changed) return;
-    this.thirdPartyConnectionStateByInteraction.set(device.interactionId, {
+    this.thirdPartyConnectionStateByOperation.set(device.operationId, {
       vendor,
       identityKeys,
     });
@@ -333,10 +331,10 @@ class ServiceThirdPartyHardware extends ServiceBase {
 
   private clearThirdPartyConnectionState(vendor: IThirdPartyVendor): void {
     let changed = false;
-    for (const [interactionId, state] of this
-      .thirdPartyConnectionStateByInteraction) {
+    for (const [operationId, state] of this
+      .thirdPartyConnectionStateByOperation) {
       if (state.vendor === vendor) {
-        this.thirdPartyConnectionStateByInteraction.delete(interactionId);
+        this.thirdPartyConnectionStateByOperation.delete(operationId);
         changed = true;
       }
     }
@@ -461,7 +459,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     });
     if (!result.success) {
       throw convertThirdPartyDeviceError(result.payload, {
-        vendor: getVendorProfile(vendor).defaultDeviceName || vendor,
+        vendor: getVendorProfile(vendor).presentation.defaultName || vendor,
       });
     }
   }
@@ -657,8 +655,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
       ? await callTrezorWithDevice(dbDevice, (cid) =>
           getPassphraseState(cid, passphraseState, {
             ...thirdPartyConnectionContextFromDevice(dbDevice),
-            ...(isHardwareInteractionId(connectId)
-              ? { interactionId: connectId }
+            ...(isHardwareOperationId(connectId)
+              ? { operationId: connectId }
               : {}),
             expectedDeviceIdentity: {
               vendor: 'trezor',
@@ -786,13 +784,13 @@ class ServiceThirdPartyHardware extends ServiceBase {
       const payload = filteredDevices.map((d) =>
         mapThirdPartyDeviceToSearchDevice({
           device: d,
-          defaultDeviceName: vendorProfile.defaultDeviceName,
+          defaultDeviceName: vendorProfile.presentation.defaultName,
           canMatchDeviceByConnectId: (connectId) =>
-            vendorProfile.canMatchDeviceByConnectId(connectId),
+            vendorProfile.identity.matchDeviceByConnectId(connectId),
           hasPersistentConnectId: (transport) =>
-            vendorProfile.hasPersistentConnectId(transport),
+            vendorProfile.identity.persistentConnectId(transport),
           hasPersistentDeviceId: (transport) =>
-            vendorProfile.hasPersistentDeviceId(transport),
+            vendorProfile.identity.persistentDeviceId(transport),
         }),
       );
       defaultLogger.hardware.sdkLog.log(
@@ -972,7 +970,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   @toastIfError()
   async createKeystoneWalletWithDefaultAccounts(params: {
     usb?: {
-      interactionId: string;
+      operationId: string;
       device: Omit<SearchDevice, 'commType'>;
     };
   }): Promise<{
@@ -985,19 +983,20 @@ class ServiceThirdPartyHardware extends ServiceBase {
     if (!adapter) {
       throw createThirdPartyAdapterNotRegisteredError(vendor);
     }
-    const vendorName = getVendorProfile(vendor).defaultDeviceName || vendor;
+    const vendorName =
+      getVendorProfile(vendor).presentation.defaultName || vendor;
     const hw = adapter.hw as unknown as IThirdPartyAllNetworkGetAddressHw;
     const { usb } = params;
 
     const bundle = await this.buildThirdPartyDefaultNetworkBundle();
     const response = await hw.allNetworkGetAddress(
-      usb?.interactionId ?? '',
+      usb?.operationId ?? '',
       usb?.device.deviceId ?? '',
       {
         ...thirdPartyCommonCallParamsForCreateScene({
           isAutoCreateMultiNetwork: true,
         }),
-        ...(usb ? { interactionId: usb.interactionId } : {}),
+        ...(usb ? { operationId: usb.operationId } : {}),
         bundle,
       },
     );
@@ -1065,7 +1064,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       } as Omit<SearchDevice, 'commType'>;
     }
     const hardwareOperationContext = usb
-      ? { interactionId: usb.interactionId }
+      ? { operationId: usb.operationId }
       : undefined;
     const created = await this.backgroundApi.serviceAccount.createHWWallet({
       device,
@@ -1118,21 +1117,21 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async releaseInteraction(params: {
+  async releaseOperation(params: {
     vendor: EHardwareVendor;
-    interactionId: string;
+    operationId: string;
   }): Promise<void> {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) return;
-    await adapter.releaseInteraction(params.interactionId);
+    await adapter.releaseOperation(params.operationId);
   }
 
   @backgroundMethod()
   async getConnectedHardwareDeviceIdentityKeys(): Promise<string[]> {
     return [
       ...new Set(
-        [...this.thirdPartyConnectionStateByInteraction.values()].flatMap(
+        [...this.thirdPartyConnectionStateByOperation.values()].flatMap(
           ({ identityKeys }) => [...identityKeys],
         ),
       ),

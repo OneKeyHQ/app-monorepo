@@ -219,23 +219,17 @@ function DeviceDetailsModalV2Cmp({
                   their own hasLoadedDevice. */}
               <DeviceBasicInfo
                 showFirmwareVersion={Boolean(
-                  vendorProfile?.supportsFirmwareVersionDisplay,
+                  vendorProfile?.firmware.showVersion,
                 )}
-                showDeviceVerification={Boolean(
-                  vendorProfile?.supportsFirmwareVerify,
-                )}
+                showDeviceVerification={Boolean(vendorProfile?.firmware.verify)}
               />
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
               {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}
               {showDeviceSupport ? (
                 <DeviceSectionSupport
                   onPressCheckForUpdates={onPressCheckForUpdates}
-                  showFirmwareVerify={Boolean(
-                    vendorProfile?.supportsFirmwareVerify,
-                  )}
-                  showFirmwareUpdate={Boolean(
-                    vendorProfile?.supportsFirmwareUpdate,
-                  )}
+                  showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
+                  showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
                 />
               ) : null}
               {showDeviceSettings && showInteractiveSections ? (

@@ -261,6 +261,7 @@ function FinalizeWalletSetupPage({
         messageId: ETranslations;
         code?: number;
         recovery?: IHardwareErrorRecoveryHint;
+        operationMayHaveCompleted?: boolean;
       }
     | undefined
   >(undefined);
@@ -280,10 +281,10 @@ function FinalizeWalletSetupPage({
   // the unmount cancel to the first-contact window: cancelling later phases
   // would abort wallet/account creation that used to finish in background.
   const keystoneFirstContactInFlightRef = useRef(false);
-  const activeThirdPartyInteractionRef = useRef<
+  const activeThirdPartyOperationRef = useRef<
     | {
         vendor: EHardwareVendor;
-        interactionId: string;
+        operationId: string;
       }
     | undefined
   >(undefined);
@@ -602,9 +603,9 @@ function FinalizeWalletSetupPage({
               );
             }
             const connectedDevice = connected.payload;
-            activeThirdPartyInteractionRef.current = {
+            activeThirdPartyOperationRef.current = {
               vendor: deviceData.vendor,
-              interactionId: connectedDevice.interactionId,
+              operationId: connectedDevice.operationId,
             };
             const rawThirdPartyDevice = (
               thirdPartyDevice as SearchDevice & {
@@ -645,7 +646,7 @@ function FinalizeWalletSetupPage({
               },
             } as SearchDevice;
             const ensureResult = await ensureLedgerCoreAppsReady({
-              connectId: connectedDevice.interactionId,
+              connectId: connectedDevice.operationId,
             });
             if (!ensureResult.ok) {
               throw (
@@ -756,9 +757,9 @@ function FinalizeWalletSetupPage({
               }
               const connectedDevice: IThirdPartyConnectedDevicePayload =
                 connected.payload;
-              activeThirdPartyInteractionRef.current = {
+              activeThirdPartyOperationRef.current = {
                 vendor: deviceData.vendor,
-                interactionId: connectedDevice.interactionId,
+                operationId: connectedDevice.operationId,
               };
               const rawThirdPartyDevice = (
                 thirdPartyDevice as SearchDevice & {
@@ -779,6 +780,12 @@ function FinalizeWalletSetupPage({
                 ...thirdPartyDevice,
                 connectId: connectedDevice.connectId,
                 deviceId: connectedDevice.deviceId,
+                // Keystone's connectId is the wallet identity, so the USB
+                // handle has to be carried separately. The enumeration serial
+                // is the only thing that identifies the unit before it is
+                // opened, and it is what lets the wallet list show this wallet
+                // as present while its unit is plugged in.
+                usbConnectId: keystoneSearchTarget.serialNumber,
                 name: connectedDeviceName,
                 vendorModel: connectedDevice.model,
                 vendorModelName: connectedDevice.modelName,
@@ -798,7 +805,7 @@ function FinalizeWalletSetupPage({
               // USB: same one-call flow over the interaction just opened.
               await actions.current.createKeystoneWalletWithDefaultAccounts({
                 usb: {
-                  interactionId: connectedDevice.interactionId,
+                  operationId: connectedDevice.operationId,
                   device: thirdPartyDevice,
                 },
               });
@@ -826,9 +833,9 @@ function FinalizeWalletSetupPage({
                 );
               }
               const connected = connectedResult.payload;
-              activeThirdPartyInteractionRef.current = {
+              activeThirdPartyOperationRef.current = {
                 vendor: deviceData.vendor,
-                interactionId: connected.interactionId,
+                operationId: connected.operationId,
               };
               const connectedFeatures = connected.features;
               const legacyConnectedFeatures = connectedFeatures as
@@ -919,8 +926,8 @@ function FinalizeWalletSetupPage({
                 defaultIsTemp: true,
                 vendor: deviceData.vendor,
                 hardwareOperationContext: {
-                  interactionId:
-                    activeThirdPartyInteractionRef.current?.interactionId,
+                  operationId:
+                    activeThirdPartyOperationRef.current?.operationId,
                 },
               });
             }
@@ -990,11 +997,14 @@ function FinalizeWalletSetupPage({
         message: string;
         payload?: {
           recovery?: IHardwareErrorRecoveryHint;
+          params?: { operationMayHaveCompleted?: boolean };
         };
       };
       setSetupError({
         code: hardwareError?.code,
         recovery: hardwareError?.payload?.recovery,
+        operationMayHaveCompleted:
+          hardwareError?.payload?.params?.operationMayHaveCompleted,
         messageId: fixErrorString(
           hardwareError
             ? hardwareError.messageId ||
@@ -1004,14 +1014,14 @@ function FinalizeWalletSetupPage({
         ) as ETranslations,
       });
     } finally {
-      const activeInteraction = activeThirdPartyInteractionRef.current;
-      activeThirdPartyInteractionRef.current = undefined;
-      if (activeInteraction) {
+      const activeOperation = activeThirdPartyOperationRef.current;
+      activeThirdPartyOperationRef.current = undefined;
+      if (activeOperation) {
         await backgroundApiProxy.serviceThirdPartyHardware
-          .releaseInteraction(activeInteraction)
+          .releaseOperation(activeOperation)
           .catch((endError: unknown) => {
             defaultLogger.hardware.sdkLog.log(
-              '[3rdPartyHW] releaseInteraction failed',
+              '[3rdPartyHW] releaseOperation failed',
               (endError as Error)?.message ?? String(endError),
             );
           });
@@ -1088,6 +1098,7 @@ function FinalizeWalletSetupPage({
         errorCode: setupError?.code,
         recovery: setupError?.recovery,
         searchTarget: deviceData.searchTarget,
+        operationMayHaveCompleted: setupError?.operationMayHaveCompleted,
       })
     : EThirdPartyHardwareRetryAction.retrySelectedSearchTarget;
 

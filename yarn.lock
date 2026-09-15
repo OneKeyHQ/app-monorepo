@@ -7620,6 +7620,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ledgerhq/device-signer-kit-tron@npm:0.2.0":
+  version: 0.2.0
+  resolution: "@ledgerhq/device-signer-kit-tron@npm:0.2.0"
+  dependencies:
+    "@ledgerhq/signer-utils": "npm:^1.3.0"
+    inversify: "npm:7.5.1"
+    purify-ts: "npm:2.1.0"
+    reflect-metadata: "npm:0.2.2"
+    xstate: "npm:5.19.2"
+  peerDependencies:
+    "@ledgerhq/device-management-kit": ^1.9.0
+  checksum: 10/a383e101ec2db298d90b16810f52969e943b062701c72736425db15f3344ce33bfb2f14546a93b9cf42bcde1180136efe4c81bd157a444fccafccbaacfd65d4e
+  languageName: node
+  linkType: hard
+
 "@ledgerhq/device-signer-kit-zcash@npm:0.7.1":
   version: 0.7.1
   resolution: "@ledgerhq/device-signer-kit-zcash@npm:0.7.1"
@@ -9224,14 +9239,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-ble-sdk@npm:1.2.3-alpha.1"
+"@onekeyfe/hd-ble-sdk@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-ble-sdk@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport-react-native": "npm:1.2.3-alpha.1"
-  checksum: 10/b6974d22038084df503edd7fa38b021c004dbeb1b2e4677e262b18d4a2169508738fd627d6063227904170edf805c885d2e08a6b1f8a59fb96c809c0cb53b031
+    "@onekeyfe/hd-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-react-native": "npm:1.2.3-alpha.3"
+  checksum: 10/129c9b8216f6f0cfe74131c8e7640832a1b99ac13ab224c2413ddba3dfa6c63885b8c12e9423a5b3bd8948fce25877d6a89db73591b80be7b2c13a05d813941d
   languageName: node
   linkType: hard
 
@@ -9250,12 +9265,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-core@npm:1.2.3-alpha.1"
+"@onekeyfe/hd-common-connect-sdk@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.1"
+    "@onekeyfe/hd-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-emulator": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-http": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-lowlevel": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-usb": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-web-device": "npm:1.2.3-alpha.3"
+  checksum: 10/60123389521a59415699ff8586f8b855655eb591b80cbf9ed044c814b3e3bf91486cb5beb6e84773afd794b5cb29f6efc8368c2a1c0857eca7d908ac2958d5ea
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hd-core@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-core@npm:1.2.3-alpha.3"
+  dependencies:
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
     axios: "npm:1.15.2"
     bignumber.js: "npm:^9.0.2"
     buffer: "npm:^6.0.3"
@@ -9266,30 +9296,30 @@ __metadata:
     semver: "npm:^7.3.7"
   peerDependencies:
     "@noble/hashes": ^1.1.3
-  checksum: 10/e437a0c76973abebde45fa16294a2b0c972e699d05b5efaf17ee3e7780f7a4df51279bf28fc731ace1b6293a871e0cfd1a4a175ab9fac14aa3fdea98854ed387
+  checksum: 10/cc0737cb365c29028414c19dacd9c8e4eed2285a68009fa8f2340fc3fec30256b13b1da124aa19d7ecb186b6d9e06a457d7164ce28bb54f4dd05fb5d4569c8d9
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-shared@npm:1.2.3-alpha.1"
-  checksum: 10/2e8258ab34029778b23df229ac2f575a3e955f18bd3b61e92f0246395f12ad55f42f650029a7591a02dcac5767bfb85aa8668d9bd5985b2a4c8751b4526e7f43
+"@onekeyfe/hd-shared@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-shared@npm:1.2.3-alpha.3"
+  checksum: 10/ff7c6ee92f5fdac1bbea96038ad842ceb5c41a2be465dcef5c66cb1a2dc83bf718439a2980cfa33eafa1ab894fa0444262b3e0d4a31b73b75113edf174147da1
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-electron@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-transport-electron@npm:1.2.3-alpha.1"
+"@onekeyfe/hd-transport-electron@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-transport-electron@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.1"
+    "@onekeyfe/hd-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
     "@stoprocent/noble": "npm:2.3.16"
     p-retry: "npm:^4.6.2"
   peerDependencies:
     electron: ">=25.0.0"
     electron-log: ">=4.0.0"
-  checksum: 10/fd4ceea0c8a75cbf785ceccc5519501d93dfa5888dd23b9a5cc90f486ae59c7c1c61ddc402b19d0fde3213927fb0c72c89df4b4019884035232bae56bd717afc
+  checksum: 10/18ebe275520ec71496a7bf68892be465c755b74a460b7940010f0fedcdb1e98b90f74a311867db70a42db52f778e1e04344178f4633159869e7d04aba960afc0
   languageName: node
   linkType: hard
 
@@ -9305,15 +9335,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-http@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-transport-http@npm:1.2.3-alpha.1"
+"@onekeyfe/hd-transport-emulator@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-transport-emulator@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.1"
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
     axios: "npm:1.15.2"
     secure-json-parse: "npm:^4.0.0"
-  checksum: 10/1ddc76fff0b3a14c253f288017f90a84b8fe8870ab6f3e1853008963044cad48b1e1037e298af74e9a80336a7fafb50f16873ef8c1e7bd9a5cdd5fdd7b57a115
+  checksum: 10/806b3ff784fb04bd3e8aff9b3a9066422d70516897e651f5733f0b4c06f02bd15e35fbde124d61399451025d9679381c55b95a4d6b6f0802b8bc6fb8de7c2690
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hd-transport-http@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-transport-http@npm:1.2.3-alpha.3"
+  dependencies:
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
+    axios: "npm:1.15.2"
+    secure-json-parse: "npm:^4.0.0"
+  checksum: 10/06c73092d3973c1bac4751cc0c4b8d8975543050ea38de1ee7bc3c8272d765ad38a4d5e4090259e15fbb921e3e617ab6ab8b144c7e1861f57c34ee63f6fc3cbc
   languageName: node
   linkType: hard
 
@@ -9327,16 +9369,26 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-react-native@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-transport-react-native@npm:1.2.3-alpha.1"
+"@onekeyfe/hd-transport-lowlevel@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-transport-lowlevel@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.1"
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
+  checksum: 10/af5d3c883fe5a04e27f7032b46262749de73c60ac4ab908917bb3a78199788b8e6b45c64d6da0ae979e6eb275ef74dee354115ca52ac6805bd2514f1934f50f8
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hd-transport-react-native@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-transport-react-native@npm:1.2.3-alpha.3"
+  dependencies:
+    "@onekeyfe/hd-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
     "@onekeyfe/react-native-ble-utils": "npm:^0.1.6"
     react-native-ble-plx: "npm:3.5.1"
-  checksum: 10/0ee6d1a0d0eba53c21252ceb8c303c3d34bc47f3140046c59e97e1bd7369c4a03d3eebb8855c319a5f43f763ae769a904cf662dd71ce9a8df1ba7172ce50d244
+  checksum: 10/9482aaa72e0c4baacb58bf9b6a836950f3692ddd47c1f59406f807b452d2b8ae84690f8bcd978bd2c4640c09205788b67f52c4453e7902f1cc889283cc33f8d8
   languageName: node
   linkType: hard
 
@@ -9352,171 +9404,66 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-web-device@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-transport-web-device@npm:1.2.3-alpha.1"
+"@onekeyfe/hd-transport-usb@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-transport-usb@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.1"
-  checksum: 10/401249fcc7d1af6ed0c7832a7869525ea06a532d10ca8c72c955eb9e68c9bd241c79ddc241b6e2eebfe6f2d2dc5755cd17d7a5c508f7468e91e75e088dcd2e95
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
+    bytebuffer: "npm:^5.0.1"
+    usb: "npm:^2.14.0"
+  checksum: 10/4f9114284116637d32568883a00e5d91feca4c48e44de1ba20571bc59e119743b42ccf55d1b544a3671e9603378069dfbb71dbb779d4f1fa0233e3d74f59f159
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-transport@npm:1.2.3-alpha.1"
+"@onekeyfe/hd-transport-web-device@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-transport-web-device@npm:1.2.3-alpha.3"
+  dependencies:
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
+  checksum: 10/84882ffd9c4be3f9a4f8b37376f690a4ff9c561071d74a81a823137e8cca80ed807e7a498e5c419ce35ba5a97caca9692577a73deabc28db71ab74eb9e410940
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hd-transport@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-transport@npm:1.2.3-alpha.3"
   dependencies:
     bytebuffer: "npm:^5.0.1"
     long: "npm:^4.0.0"
     protobufjs: "npm:^6.11.2"
-  checksum: 10/86b8fd7685554338102b7d369432bc115eec8531f42f0f79049b0c9742e47798e25018d321fd7719dd39bf75757c8933ed247d23871157a5eda03f068dd0253f
+  checksum: 10/602cd5d6e05ff8fcb9ded95318f9808df59c551c417619690a0c0d86dad9359058c529f1aedce91a381a3ab3fabd227c77a1521165ba3b538226f705dff8cbc4
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hd-web-sdk@npm:1.2.3-alpha.1"
+"@onekeyfe/hd-web-sdk@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hd-web-sdk@npm:1.2.3-alpha.3"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": "npm:2.2.67"
-    "@onekeyfe/hd-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport-http": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport-web-device": "npm:1.2.3-alpha.1"
-  checksum: 10/e63762add03badb8eff1d99eec36a69e98253c843ef5cd6382177a6d94b553df4c081b712ed8b6710e7989fc2b01828791fbc115752fa259331719a815cd4198
+    "@onekeyfe/hd-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-http": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-web-device": "npm:1.2.3-alpha.3"
+  checksum: 10/db9bd57a734565b62e7777633336fad56f3248af11092781d2d7e379af7b8c55dcfb6de87a628a6b895eee5fab3ba8b8a6651b4e71a853c9c43e4e1af7c1c541
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-adapter-core@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-adapter-core@npm:1.2.3-alpha.1"
+"@onekeyfe/hwk-adapter-core@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-adapter-core@npm:1.2.3-alpha.3"
   dependencies:
     "@noble/hashes": "npm:^1.7.1"
-  checksum: 10/35adf8fd0fdf086d9b95e60cb747fe31b484ef6d088d4429f1ce2c499b1369d63c18200ac09d0056f3262c0bc712ba042ffea89662cc5d602c7f5b19e97ac615
+  checksum: 10/ade146179730c9845ec75b878e1e356f73bfe43296a6bd23872142586f43c6f5fab5031019ad0840da9eb9d9d7d1e395abe4c0cb4cfb60e5ce5db5067d5aec7c
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-keystone-adapter@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-keystone-adapter@npm:1.2.3-alpha.1"
+"@onekeyfe/hwk-desktop-noble-ble@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-desktop-noble-ble@npm:1.2.3-alpha.3"
   dependencies:
-    "@keystonehq/bc-ur-registry": "npm:0.8.0"
-    "@keystonehq/bc-ur-registry-eth": "npm:0.22.1"
-    "@keystonehq/keystone-sdk": "npm:0.12.3"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
-    bs58: "npm:5.0.0"
-    bs58check: "npm:3.0.1"
-    hdkey: "npm:2.1.0"
-    uuid: "npm:8.3.2"
-  checksum: 10/d45e64368f0add16aa5546b8066e7bbfbc7a77c1a48be6d4251fe8bafc953e1ef67229919b8c64be89ef40ee66e0fd1c46968e4e55049df2835331f6668a07c2
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hwk-keystone-connector-usb@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-keystone-connector-usb@npm:1.2.3-alpha.1"
-  dependencies:
-    "@keystonehq/hw-transport-error": "npm:0.0.2"
-    "@keystonehq/hw-transport-usb": "npm:0.2.0"
-    "@keystonehq/hw-transport-webusb": "npm:0.5.3"
-    "@ngraveio/bc-ur": "npm:1.1.13"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-  peerDependencies:
-    "@keystonehq/hw-transport-nodeusb": 0.2.0
-  peerDependenciesMeta:
-    "@keystonehq/hw-transport-nodeusb":
-      optional: true
-  checksum: 10/a5e158d4f65a0e42099c46088c5ab807ffd3e07600a1e0a4cbd00368294324cc1f8daa80ede9c11087ba7b434f88989fd94c465f726428b2c1d1926b6fedea29
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hwk-ledger-adapter@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.2.3-alpha.1"
-  dependencies:
-    "@ledgerhq/context-module": "npm:2.2.0"
-    "@ledgerhq/device-management-kit": "npm:1.9.0"
-    "@ledgerhq/device-signer-kit-bitcoin": "npm:1.3.3"
-    "@ledgerhq/device-signer-kit-ethereum": "npm:1.16.0"
-    "@ledgerhq/device-signer-kit-solana": "npm:1.10.0"
-    "@ledgerhq/device-signer-kit-zcash": "npm:0.7.1"
-    "@ledgerhq/hw-app-trx": "npm:^6.34.1"
-    "@ledgerhq/hw-transport": "npm:^6.34.1"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
-    bs58: "npm:6.0.0"
-    rxjs: "npm:7.8.2"
-  checksum: 10/ab84654f6289ad55b921bdeefca2cc3aae2f5fbe31cc8b4b0ae15a7dbdd88de4ffb9c01ed3667da6efda343a7860b3aaed04108f1fca6022d1efe4a08454d1a2
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hwk-ledger-connector-ble@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.2.3-alpha.1"
-  dependencies:
-    "@ledgerhq/device-management-kit": "npm:1.9.0"
-    "@ledgerhq/device-signer-kit-bitcoin": "npm:1.3.3"
-    "@ledgerhq/device-signer-kit-ethereum": "npm:1.16.0"
-    "@ledgerhq/device-signer-kit-solana": "npm:1.10.0"
-    "@ledgerhq/device-transport-kit-react-native-ble": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.3-alpha.1"
-    rxjs: "npm:7.8.2"
-  peerDependencies:
-    react-native: "*"
-  checksum: 10/ebae559979d3d93e41a556e2ea41359a5a34e53390cfca19d00e444bc865feeb6720ea93ef5540184a92ef813b6ae93671ddf4c3e5a0afca8f0e7b1fc054650f
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hwk-ledger-connector-electron-ble@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-ledger-connector-electron-ble@npm:1.2.3-alpha.1"
-  dependencies:
-    "@ledgerhq/device-management-kit": "npm:1.9.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.3-alpha.1"
-    purify-ts: "npm:2.1.0"
-    rxjs: "npm:7.8.2"
-  checksum: 10/deb74f4e90faed2badfcff20c4be635df5e76afecb25b8406f1e2a790771f76fe0505ae1217d161b09a236125d1dc2bec0da6145979e5a236d33b95d8327f30f
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hwk-ledger-connector-webhid@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.2.3-alpha.1"
-  dependencies:
-    "@ledgerhq/device-management-kit": "npm:1.9.0"
-    "@ledgerhq/device-signer-kit-bitcoin": "npm:1.3.3"
-    "@ledgerhq/device-signer-kit-ethereum": "npm:1.16.0"
-    "@ledgerhq/device-signer-kit-solana": "npm:1.10.0"
-    "@ledgerhq/device-transport-kit-web-hid": "npm:^1.0.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.3-alpha.1"
-    rxjs: "npm:7.8.2"
-  checksum: 10/ef7dd02da1b50ad771b4726b155eec725f8677b504e9498330167d72d4d97a229f35a5cb16990a85692447c961c9f85b44d1685f77fb6ad65116f654a7b4b88d
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hwk-trezor-adapter@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-trezor-adapter@npm:1.2.3-alpha.1"
-  dependencies:
-    "@noble/curves": "npm:^1.9.7"
-    "@noble/hashes": "npm:^1.3.3"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-core": "npm:1.2.3-alpha.1"
-    tslib: "npm:^2.6.2"
-  checksum: 10/8e699070be9dd027506768af8d51170b55b83c94936df8f8fda00e22ec79d354058248dedb8b0ebfedd1f1d76c273dbd667fd8beae3d75bb5538ae4b81f32e7a
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hwk-trezor-connector-electron-ble@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-trezor-connector-electron-ble@npm:1.2.3-alpha.1"
-  dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-connector": "npm:1.2.3-alpha.1"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
     buffer: "npm:^6.0.3"
   peerDependencies:
     "@stoprocent/noble": "*"
@@ -9526,48 +9473,185 @@ __metadata:
       optional: true
     electron:
       optional: true
-  checksum: 10/0de52ec91bbc0e0e8482f741c52d5d083b50620d1c0bdc33e9c856e5953baeb945bd773894298d5c4d61060278597b0989ab5bc316f2dff7b1003c67da5356e7
+  checksum: 10/4a3d635213713056d80b333ca2616d4e48c7af410c30bce7e3921dcd88ff556451aca0ec27d8e3a1f72e9a1343a796f50b42e4394bb7bddecc34717123b9b0ce
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-connector-rn-ble@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-trezor-connector-rn-ble@npm:1.2.3-alpha.1"
+"@onekeyfe/hwk-keystone-adapter@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-keystone-adapter@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-connector": "npm:1.2.3-alpha.1"
+    "@keystonehq/bc-ur-registry": "npm:0.8.0"
+    "@keystonehq/bc-ur-registry-eth": "npm:0.22.1"
+    "@keystonehq/keystone-sdk": "npm:0.12.3"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
+    bs58: "npm:5.0.0"
+    bs58check: "npm:3.0.1"
+    hdkey: "npm:2.1.0"
+    uuid: "npm:8.3.2"
+  checksum: 10/c0a5e142b9e4096820126e971bcf6d7d902c79d80e0ec8d20f8943ceda8e4684f748ac9799e0c2a3595945a59093f8738a524ca01eb037443b2f246ea97eb891
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hwk-keystone-connector-usb@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-keystone-connector-usb@npm:1.2.3-alpha.3"
+  dependencies:
+    "@keystonehq/hw-transport-error": "npm:0.0.2"
+    "@keystonehq/hw-transport-usb": "npm:0.2.0"
+    "@keystonehq/hw-transport-webusb": "npm:0.5.3"
+    "@ngraveio/bc-ur": "npm:1.1.13"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+  peerDependencies:
+    "@keystonehq/hw-transport-nodeusb": 0.2.0
+  peerDependenciesMeta:
+    "@keystonehq/hw-transport-nodeusb":
+      optional: true
+  checksum: 10/e6343f196dcd2c19f9243283d74f888fb8dbc923c27a3e8ced59f88da0f40887bf0a2d4c11906b24f98507ce796d10b9cca3ec23fa0ea093d2d5370f880a307e
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hwk-ledger-adapter@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.2.3-alpha.3"
+  dependencies:
+    "@ledgerhq/context-module": "npm:2.2.0"
+    "@ledgerhq/device-management-kit": "npm:1.9.0"
+    "@ledgerhq/device-signer-kit-bitcoin": "npm:1.3.3"
+    "@ledgerhq/device-signer-kit-ethereum": "npm:1.16.0"
+    "@ledgerhq/device-signer-kit-solana": "npm:1.10.0"
+    "@ledgerhq/device-signer-kit-tron": "npm:0.2.0"
+    "@ledgerhq/device-signer-kit-zcash": "npm:0.7.1"
+    "@ledgerhq/hw-app-trx": "npm:^6.34.1"
+    "@ledgerhq/hw-transport": "npm:^6.34.1"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
+    bs58: "npm:6.0.0"
+    rxjs: "npm:7.8.2"
+  checksum: 10/89f4eb5fce85756d6074cc4ab5fd39d7c8af46c5ca0a28b5e635913de23707c9c29aba04d079efbee33e7b67c29b8ac8f2d64e2df2d146b6e220f489591c2d3b
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hwk-ledger-connector-ble@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.2.3-alpha.3"
+  dependencies:
+    "@ledgerhq/device-management-kit": "npm:1.9.0"
+    "@ledgerhq/device-signer-kit-bitcoin": "npm:1.3.3"
+    "@ledgerhq/device-signer-kit-ethereum": "npm:1.16.0"
+    "@ledgerhq/device-signer-kit-solana": "npm:1.10.0"
+    "@ledgerhq/device-transport-kit-react-native-ble": "npm:^1.0.0"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.3-alpha.3"
+    rxjs: "npm:7.8.2"
+  peerDependencies:
+    react-native: "*"
+  checksum: 10/573dd4062b93193858bd118ed7ba0612a5c2c655c72978883b36048a2225dd2c6eba03c262d8f9d497ee6eb83a1c54fc7d6559cb9da836f313c1c2a37b30c044
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hwk-ledger-connector-electron-ble@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-ledger-connector-electron-ble@npm:1.2.3-alpha.3"
+  dependencies:
+    "@ledgerhq/device-management-kit": "npm:1.9.0"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.3-alpha.3"
+    purify-ts: "npm:2.1.0"
+    rxjs: "npm:7.8.2"
+  checksum: 10/d736987dd59af4f0b8d9b7812b9de12ef116abce117d6e5ed3e55eb2b91f2fa15660456d883fb677addd986df77661337f4419d252ce1758c8ac0b9318ecd099
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hwk-ledger-connector-webhid@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.2.3-alpha.3"
+  dependencies:
+    "@ledgerhq/device-management-kit": "npm:1.9.0"
+    "@ledgerhq/device-signer-kit-bitcoin": "npm:1.3.3"
+    "@ledgerhq/device-signer-kit-ethereum": "npm:1.16.0"
+    "@ledgerhq/device-signer-kit-solana": "npm:1.10.0"
+    "@ledgerhq/device-transport-kit-web-hid": "npm:^1.0.0"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.3-alpha.3"
+    rxjs: "npm:7.8.2"
+  checksum: 10/c7af4d376d8f62b991947bd72ff7faf174b7df12a74e7dfc92f4693981d4a047d660496280bf11a965332c5d4a462f643be4ea97ed4fe75945af034f0ffd4c18
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hwk-trezor-adapter@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-trezor-adapter@npm:1.2.3-alpha.3"
+  dependencies:
+    "@noble/curves": "npm:^1.9.7"
+    "@noble/hashes": "npm:^1.3.3"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-core": "npm:1.2.3-alpha.3"
+    tslib: "npm:^2.6.2"
+  checksum: 10/d2cd8e4386dbaec8c3a8dfb0d6cf0ee5b3f42f164876abbcf64629cd28f2432fd2493ca1f4b350e2a46b45e322dc55444e3f8a5bfeae06db70f2cf91a434ba19
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hwk-trezor-connector-electron-ble@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-trezor-connector-electron-ble@npm:1.2.3-alpha.3"
+  dependencies:
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-desktop-noble-ble": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-connector": "npm:1.2.3-alpha.3"
+    buffer: "npm:^6.0.3"
+  peerDependencies:
+    "@stoprocent/noble": "*"
+    electron: "*"
+  peerDependenciesMeta:
+    "@stoprocent/noble":
+      optional: true
+    electron:
+      optional: true
+  checksum: 10/1dbb8486eed706c70577f18a78ded164de2afe0bf15cb5e4fd3c800b3798e13dc3c527068401f1f5ef4751c32cd2abb58cfde9216b55b42ff5740fe4bd9259c8
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hwk-trezor-connector-rn-ble@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-trezor-connector-rn-ble@npm:1.2.3-alpha.3"
+  dependencies:
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-connector": "npm:1.2.3-alpha.3"
     buffer: "npm:^6.0.3"
     react-native-ble-plx: "npm:^3.5.1"
-  checksum: 10/a0e881835efe23f6ca6764d9afac93ccb2403ed689808d3518e64b82c800d72bac80f235f1e6bf530e7ff379b125579196004e35642793b9eb5db27dea4706e2
+  checksum: 10/122cf0685e38eb855daf988728eb2f4edcbbbd65632599dfd61665303f6605653370e93c66d4fe8785c8389c301590bee25ff1e91e00310eccf8a4f20ab69765
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-connector-webusb@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-trezor-connector-webusb@npm:1.2.3-alpha.1"
+"@onekeyfe/hwk-trezor-connector-webusb@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-trezor-connector-webusb@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-connector": "npm:1.2.3-alpha.1"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-connector": "npm:1.2.3-alpha.3"
     buffer: "npm:^6.0.3"
-  checksum: 10/4577ec1512d3111e34c7746b05efbed054c5854148c7e09dda66fe2d2f51705d5a9aeaacf9afee0f4323bb7423cac04b80bc13cab914591c4c8cd73b98a9b152
+  checksum: 10/1a4ab0f9af24c818b2d995ff8e50202b1e46ccdaab3347811b366bcf198133f57ce0c88262970e274518cb4ea2e651ed29e7b14f5dae3c5688a9414e359700fe
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-connector@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-trezor-connector@npm:1.2.3-alpha.1"
+"@onekeyfe/hwk-trezor-connector@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-trezor-connector@npm:1.2.3-alpha.3"
   dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-core": "npm:1.2.3-alpha.1"
-  checksum: 10/26d658c6064b46493dbedcd5980860e996f0bcbe331098428638f2601475f8507af310a73706b89fe10af43a2d82b754a2b230c9cc5294e2696509bc6d25fef7
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-core": "npm:1.2.3-alpha.3"
+  checksum: 10/7154dd397f4dc47f82be99abd1d743350894cc2974ef476fcd462cc43418a1a23ed6055b2466ab66fe00baa6b8bc7ae33022c011d184ce85b49502e97905e6cc
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-core@npm:1.2.3-alpha.1":
-  version: 1.2.3-alpha.1
-  resolution: "@onekeyfe/hwk-trezor-core@npm:1.2.3-alpha.1"
-  checksum: 10/1e8e7038ab9dd2147e928c05ea1608edd9e84db11a60a450dd31b2ee0823ba42cc9b6905f5e73d678df82801c0783c1aa659d78ef377cac3eb6c48df4b88123a
+"@onekeyfe/hwk-trezor-core@npm:1.2.3-alpha.3":
+  version: 1.2.3-alpha.3
+  resolution: "@onekeyfe/hwk-trezor-core@npm:1.2.3-alpha.3"
+  checksum: 10/5a9ef01a4ce12ede3749274989646ea2a727a552ae30f794e392829d0bc06c0da02416c57e49075d204f73285ae5e43e240778fc6a3b5fa5a0c4cd6c2eee3600
   languageName: node
   linkType: hard
 
@@ -10259,24 +10343,25 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": "npm:2.2.75"
     "@onekeyfe/cross-inpage-provider-types": "npm:2.2.75"
     "@onekeyfe/extension-bridge-hosted": "npm:2.2.75"
-    "@onekeyfe/hd-ble-sdk": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-transport-electron": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hd-web-sdk": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-keystone-adapter": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-keystone-connector-usb": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-ledger-connector-electron-ble": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-connector-electron-ble": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-connector-rn-ble": "npm:1.2.3-alpha.1"
-    "@onekeyfe/hwk-trezor-connector-webusb": "npm:1.2.3-alpha.1"
+    "@onekeyfe/hd-ble-sdk": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-shared": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-transport-electron": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hd-web-sdk": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-desktop-noble-ble": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-keystone-adapter": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-keystone-connector-usb": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-ledger-connector-electron-ble": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-connector-electron-ble": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-connector-rn-ble": "npm:1.2.3-alpha.3"
+    "@onekeyfe/hwk-trezor-connector-webusb": "npm:1.2.3-alpha.3"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.75"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"

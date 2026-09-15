@@ -124,8 +124,8 @@ export type IOneKeyHardwareErrorPayload = {
 // structural until the first SDK version exporting HwkRecoveryHint is consumed.
 export type IHardwareErrorRecoveryHint = {
   scope:
+    | 'call'
     | 'operation'
-    | 'interaction'
     | 'search-target'
     | 'transport'
     | 'not-recoverable'

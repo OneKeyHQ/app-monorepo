@@ -1,9 +1,6 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import {
-  isKeystoneWebUsbDevice,
-  isSupportedHardwareWebUsbDevice,
-} from './webDeviceFilters';
+import { isSupportedHardwareWebUsbDevice } from './webDeviceFilters';
 
 export { isSupportedHardwareWebUsbDevice };
 
@@ -33,12 +30,11 @@ export function getWebUsbConnectedDeviceKey(
   if (!device.serialNumber) {
     return undefined;
   }
-  // A Keystone USB descriptor identifies a physical transport endpoint, not
-  // the wallet currently loaded on it. Only a completed SDK handshake can
-  // provide the stable wallet identity used by wallet connection status.
-  if (isKeystoneWebUsbDevice(device)) {
-    return undefined;
-  }
+  // The serial identifies the unit, not the wallet loaded on it. That is
+  // enough: a wallet stores the serial of the unit it was created on, so the
+  // indicator answers "the unit this wallet lives on is here". Where one unit
+  // holds several wallets — a Keystone under a different passphrase is a
+  // separate wallet, not a hidden one — all of them light up together.
   return device.serialNumber;
 }
 
