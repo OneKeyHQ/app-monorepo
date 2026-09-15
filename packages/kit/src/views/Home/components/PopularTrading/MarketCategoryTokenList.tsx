@@ -40,6 +40,9 @@ function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
   if (item.perpsCoin) {
     return `perps-${item.perpsCoin}`;
   }
+  if (item.stockId) {
+    return `stock-${item.stockId}`;
+  }
   return `${item.chainId}-${item.contractAddress}`;
 }
 

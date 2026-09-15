@@ -4,6 +4,8 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { isMarketStockCategory } from '../../../Market/MarketHomeV2/utils';
+
 import {
   HOME_MARKET_CATEGORY_REQUEST_LIMIT,
   HOME_PERPS_HOT_CATEGORY_ID,
@@ -13,6 +15,7 @@ import {
   EMPTY_DISPLAY_TOKENS,
   mapMarketAssetToDisplay,
   mapMarketPerpsTokenToDisplay,
+  mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
 } from './utils';
 
@@ -99,6 +102,25 @@ function useHomeMarketCategoryTokens({
           return {
             requestKey: currentRequestKey,
             tokens: response.list.map(mapMarketAssetToDisplay),
+          };
+        }
+
+        if (
+          isMarketStockCategory({
+            id: selectedMarketCategoryId,
+            name: '',
+          })
+        ) {
+          const response =
+            await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
+              limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+            });
+
+          return {
+            requestKey: currentRequestKey,
+            tokens: response.items
+              .map(mapMarketStockToDisplay)
+              .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
           };
         }
 

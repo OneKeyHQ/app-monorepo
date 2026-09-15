@@ -37,7 +37,11 @@ function renderPopularTradingTokenIdentity(
     <TokenIdentityItem
       tokenLogoURI={record.logoUrl}
       tokenLogoURIs={record.logoUrls}
-      networkId={record.perpsCoin ? undefined : record.chainId}
+      networkId={
+        record.perpsCoin || record.stockId
+          ? undefined
+          : record.chainId || undefined
+      }
       symbol={record.symbol}
       address={record.contractAddress}
       showVolume={showVolume}
@@ -45,6 +49,7 @@ function renderPopularTradingTokenIdentity(
       showCopyButton={!showVolume}
       communityRecognized={record.communityRecognized}
       stock={record.stock}
+      stockListingName={record.stockListingName}
       maxLeverage={record.maxLeverage}
       perpsSubtitle={record.perpsSubtitle}
       perpsDexLabel={record.perpsDexLabel}
