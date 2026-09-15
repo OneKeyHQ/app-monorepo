@@ -128,13 +128,7 @@ function getUnifiedProgress(
   }
 }
 
-export function useFirmwareUpdateInstallState({
-  isDone,
-  lastFirmwareTipMessage,
-}: {
-  isDone: boolean;
-  lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
-}) {
+export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
   const [completedState] = useHardwareUiStateCompletedAtom();
@@ -143,6 +137,41 @@ export function useFirmwareUpdateInstallState({
   const progressRef = useRef(progress);
   progressRef.current = progress;
   const [stage, setStage] = useState<IFirmwareUpdateStage>('preparing');
+
+  // The SDK clears its tip between events; keep the last one so the stage
+  // word and error copy can still refer to it.
+  const firmwareTipMessage = state?.payload?.firmwareTipData?.message as
+    | EFirmwareUpdateTipMessages
+    | undefined;
+  const [lastFirmwareTipMessage, setLastFirmwareTipMessage] = useState<
+    EFirmwareUpdateTipMessages | undefined
+  >();
+  useEffect(() => {
+    if (firmwareTipMessage) {
+      setLastFirmwareTipMessage(firmwareTipMessage);
+    }
+  }, [firmwareTipMessage]);
+
+  // A retry or restart reuses this hook instance, so a new attempt must drop
+  // the bar back to the start instead of holding the failed attempt's percent.
+  const startAtTime =
+    stepInfo.step === EFirmwareUpdateSteps.updateStart
+      ? stepInfo.payload.startAtTime
+      : undefined;
+  const seenStartAtTimeRef = useRef(startAtTime);
+  useEffect(() => {
+    if (
+      startAtTime === undefined ||
+      startAtTime === seenStartAtTimeRef.current
+    ) {
+      return;
+    }
+    seenStartAtTimeRef.current = startAtTime;
+    progressRef.current = 1;
+    setProgress(1);
+    setStage('preparing');
+    setLastFirmwareTipMessage(undefined);
+  }, [startAtTime]);
 
   // The active state may be cleared when the confirmation dialog closes.
   // Use the latest completed event so the page can still consume it.
@@ -320,6 +349,7 @@ export function useFirmwareUpdateInstallState({
     progress,
     stage: displayStage,
     remainingTime,
+    lastFirmwareTipMessage,
     webUsbRequest,
     previousStepInfo,
   };

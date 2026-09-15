@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
+
 import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
@@ -49,6 +51,7 @@ function PageFirmwareUpdateChangeLog() {
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [retryInfo] = useFirmwareUpdateRetryAtom();
   const navigation = useAppNavigation();
+  const isFocused = useIsFocused();
 
   const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
 
@@ -120,10 +123,13 @@ function PageFirmwareUpdateChangeLog() {
   const isWorkflowError =
     stepInfo.step === EFirmwareUpdateSteps.error ||
     stepInfo.step === EFirmwareUpdateSteps.checkReleaseError;
-  // Once the update was confirmed the install page owns every failure (it
-  // renders workflow errors in place), so this page stays on the changelog
-  // and its exit guard does not fire when the install page closes.
-  const installPageOwnsErrors = Boolean(confirmUpdateResult.current);
+  // While the install page is on top it renders workflow errors in place, so
+  // this page stays on the changelog and its exit guard does not fire when
+  // the install page closes the modal. Once this page is focused again (Back
+  // from the error, or Mini's legacy page popping) the error is shown here
+  // with Retry re-checking the release, as before the unified page.
+  const installPageOwnsErrors =
+    Boolean(confirmUpdateResult.current) && !isFocused;
 
   useFirmwareUpdateWorkflowLifetime({
     onReallyLeave: () =>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,15 +8,16 @@ import {
   firmwareUpdateStepInfoAtom,
   useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
-  useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type {
-  EFirmwareUpdateTipMessages,
-  ICheckAllFirmwareReleaseResult,
+import {
+  EHardwareCallContext,
+  type ICheckAllFirmwareReleaseResult,
 } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -58,6 +59,31 @@ const INSTALL_PAGE_SCROLL_PROPS = {
 } as const;
 const INSTALL_PAGE_CONTAINER_STYLE = { py: '0', px: '$5', flex: 1 } as const;
 
+/**
+ * A workflow-level failure (battery, Bridge, transport, version gate) is
+ * validated from the release result, so Retry must re-check the device
+ * instead of replaying the result that already failed.
+ */
+async function recheckFirmwareRelease(
+  result: ICheckAllFirmwareReleaseResult,
+): Promise<ICheckAllFirmwareReleaseResult> {
+  const transport =
+    await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
+      connectId: result.originalConnectId,
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+    });
+  const firmware = result.updateInfos.firmware;
+  const isSwitchingFirmwareType =
+    firmware?.fromFirmwareType !== undefined &&
+    firmware.toFirmwareType !== undefined &&
+    firmware.fromFirmwareType !== firmware.toFirmwareType;
+  return backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
+    connectId: transport.connectId,
+    firmwareType: isSwitchingFirmwareType ? firmware.toFirmwareType : undefined,
+    resolvedTransportType: transport.transportType,
+  });
+}
+
 /** Shell shared by the legacy and V2 install routes. */
 export function FirmwareUpdateInstallPage({
   result,
@@ -86,7 +112,7 @@ export function FirmwareUpdateInstallPage({
  * changelog page.
  */
 export function FirmwareUpdateInstallPageContent({
-  result,
+  result: routeResult,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
@@ -95,33 +121,26 @@ export function FirmwareUpdateInstallPageContent({
   const actions = useFirmwareUpdateActions();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [retryInfo] = useFirmwareUpdateRetryAtom();
-  const [hardwareUiState] = useHardwareUiStateAtom();
   const { start: startWorkflow } = useStartFirmwareUpdateWorkflow();
 
-  const firmwareTipMessage = hardwareUiState?.payload?.firmwareTipData?.message;
-  const [lastFirmwareTipMessage, setLastFirmwareTipMessage] = useState<
-    EFirmwareUpdateTipMessages | undefined
-  >();
-  useEffect(() => {
-    if (firmwareTipMessage) {
-      setLastFirmwareTipMessage(
-        firmwareTipMessage as EFirmwareUpdateTipMessages,
-      );
-    }
-  }, [firmwareTipMessage]);
+  // Replaced by a fresh check when a workflow failure is retried.
+  const [result, setResult] = useState(routeResult);
+  const resultRef = useRef(result);
+  resultRef.current = result;
 
   useFirmwareUpdateWorkflowLifetime({
     onReallyLeave: async () => {
       await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+      const connectId = resultRef.current?.originalConnectId;
       if (
-        result?.originalConnectId &&
+        connectId &&
         (await shouldCancelDeviceWhenLeavingFirmwareUpdate(
           platformEnv.isExtension === true,
           async () => (await firmwareUpdateStepInfoAtom.get()).step,
         ))
       ) {
         await backgroundApiProxy.serviceHardware.cancel({
-          connectId: result.originalConnectId,
+          connectId,
           forceDeviceResetToHome: true,
         });
       }
@@ -157,11 +176,14 @@ export function FirmwareUpdateInstallPageContent({
     }
   }, [navigation, shouldReturnToChangeLog]);
 
-  const { progress, stage, remainingTime, webUsbRequest, previousStepInfo } =
-    useFirmwareUpdateInstallState({
-      isDone,
-      lastFirmwareTipMessage,
-    });
+  const {
+    progress,
+    stage,
+    remainingTime,
+    lastFirmwareTipMessage,
+    webUsbRequest,
+    previousStepInfo,
+  } = useFirmwareUpdateInstallState({ isDone });
   const { items, hideDebugInfo } = useFirmwareUpdateItems(result);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
@@ -221,12 +243,28 @@ export function FirmwareUpdateInstallPageContent({
   }, [result, retryInfo, setStepInfo]);
 
   const onRestartWorkflow = useCallback(async () => {
-    if (!result) {
+    const current = resultRef.current;
+    if (!current) {
       return;
     }
     await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
-    await startWorkflow({ result, navigateToInstallPage: false });
-  }, [result, startWorkflow]);
+    let fresh: ICheckAllFirmwareReleaseResult;
+    try {
+      fresh = await recheckFirmwareRelease(current);
+    } catch (error) {
+      setStepInfo({
+        step: EFirmwareUpdateSteps.error,
+        payload: {
+          error: toUserFacingFirmwareUpdateError(
+            toPlainErrorObject(error as any),
+          ),
+        },
+      });
+      return;
+    }
+    setResult(fresh);
+    await startWorkflow({ result: fresh, navigateToInstallPage: false });
+  }, [setStepInfo, startWorkflow]);
 
   // Declared with a parameter so the footer does not auto-pop the page.
   const onGetHelp = useCallback((_close: unknown) => {
@@ -309,28 +347,49 @@ export function FirmwareUpdateInstallPageContent({
 
   let footer = null;
   if (mode === 'error' && taskError) {
-    footer = (
-      <FirmwareUpdatePageFooter
-        onConfirmText={
-          taskError.action.kind === 'retry' && taskError.action.text
-            ? taskError.action.text
-            : intl.formatMessage({ id: ETranslations.global_retry })
-        }
-        onConfirm={onRetryTask}
-        confirmButtonProps={{ testID: FirmwareUpdateTestIDs.retryBtn }}
-        onCancelText={intl.formatMessage({
-          id: ETranslations.firmware_update_get_help__action,
-        })}
-        onCancel={onGetHelp}
-        cancelButtonProps={{
-          variant: 'tertiary',
-          testID: 'firmware-update-get-help-btn',
-        }}
-        buttonContainerProps={{
-          $md: { flexDirection: 'column-reverse', gap: '$3' },
-        }}
-      />
-    );
+    // Get help is always offered; the primary action follows the error's
+    // declared action (a downgrade refusal has none, a tutorial is a link).
+    const getHelpProps = {
+      onCancelText: intl.formatMessage({
+        id: ETranslations.firmware_update_get_help__action,
+      }),
+      onCancel: onGetHelp,
+      cancelButtonProps: {
+        variant: 'tertiary',
+        testID: 'firmware-update-get-help-btn',
+      },
+      buttonContainerProps: {
+        $md: { flexDirection: 'column-reverse', gap: '$3' },
+      },
+    } as const;
+    if (taskError.action.kind === 'retry') {
+      footer = (
+        <FirmwareUpdatePageFooter
+          onConfirmText={
+            taskError.action.text ??
+            intl.formatMessage({ id: ETranslations.global_retry })
+          }
+          onConfirm={onRetryTask}
+          confirmButtonProps={{ testID: FirmwareUpdateTestIDs.retryBtn }}
+          {...getHelpProps}
+        />
+      );
+    } else if (taskError.action.kind === 'link') {
+      const { url, text } = taskError.action;
+      footer = (
+        <FirmwareUpdatePageFooter
+          onConfirmText={text}
+          onConfirm={() => openUrlExternal(url)}
+          confirmButtonProps={{
+            iconAfter: 'ArrowTopRightOutline',
+            testID: FirmwareUpdateTestIDs.viewTutorialBtn,
+          }}
+          {...getHelpProps}
+        />
+      );
+    } else {
+      footer = <FirmwareUpdatePageFooter {...getHelpProps} />;
+    }
   } else if (mode === 'workflowError' && workflowError) {
     if (workflowError.action.kind === 'retry') {
       footer = (
