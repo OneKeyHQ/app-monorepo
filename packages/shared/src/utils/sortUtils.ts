@@ -99,9 +99,11 @@ function buildTopSortIndexes({
   oldList: { sortIndex?: number }[];
   count: number;
 }): number[] {
+  // A missing index counts as 0, matching how the watchlist sorts, so legacy
+  // favorites without one still sit below a new favorite.
   const existingSortIndexes = oldList
-    .map((item) => item.sortIndex)
-    .filter((sortIndex): sortIndex is number => Number.isFinite(sortIndex));
+    .map((item) => item.sortIndex ?? 0)
+    .filter((sortIndex) => Number.isFinite(sortIndex));
   const topSortIndex = existingSortIndexes.length
     ? Math.min(...existingSortIndexes)
     : 1000;

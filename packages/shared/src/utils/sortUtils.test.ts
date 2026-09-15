@@ -10,10 +10,21 @@ describe('sortUtils.buildTopSortIndexes', () => {
     ).toEqual([4, 3]);
   });
 
-  test('ignores items without a finite index', () => {
+  test('treats a missing index as 0, the way the watchlist sorts it', () => {
+    // Legacy favorites without a sortIndex sort as 0, so a new favorite has to
+    // land below 0 to reach the top.
     expect(
       sortUtils.buildTopSortIndexes({
-        oldList: [{}, { sortIndex: Number.NaN }, { sortIndex: 12 }],
+        oldList: [{}, { sortIndex: 12 }],
+        count: 1,
+      }),
+    ).toEqual([-1]);
+  });
+
+  test('ignores a non-finite index', () => {
+    expect(
+      sortUtils.buildTopSortIndexes({
+        oldList: [{ sortIndex: Number.NaN }, { sortIndex: 12 }],
         count: 1,
       }),
     ).toEqual([11]);
