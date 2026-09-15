@@ -30,6 +30,8 @@ import java.util.List;
 import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
 
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeSplashScreen;
+
 public class MainActivity extends ReactActivity {
   private static boolean hasCreatedInstance;
 
@@ -110,6 +112,7 @@ public class MainActivity extends ReactActivity {
       return;
     }
 
+    boolean isTravelModeActive = OneKeyTravelModeSplashScreen.configureLaunch(this);
     hasCreatedInstance = true;
     long tActivityStart = System.currentTimeMillis();
     OneKeyLog.info(
@@ -158,7 +161,7 @@ public class MainActivity extends ReactActivity {
       "android.activity.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms (ReactActivity init)"
     );
 
-    setTheme(R.style.AppTheme);
+    setTheme(isTravelModeActive ? R.style.AppTheme_TravelMode : R.style.AppTheme);
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         SplashScreenBridge.show(this);
     }

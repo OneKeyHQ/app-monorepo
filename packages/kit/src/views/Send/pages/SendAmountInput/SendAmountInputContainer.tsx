@@ -9,7 +9,11 @@ import {
   useState,
 } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -2510,13 +2514,50 @@ function SendAmountInputContainer() {
   // Ref to track submit disabled state for keyboard shortcuts
   const isSubmitDisabledRef = useRef(true);
 
-  // Auto-focus the amount input after page transition animation completes
+  // Auto-focus the amount input after the page transition animation completes.
+  // Non-Android targets only auto-focus once, on the initial focus (the
+  // previous mount-only behavior), so returning from a child route does not
+  // steal focus from the active control or reopen the iOS keyboard. Android
+  // (react-native-screens) detaches this screen while the confirm page is on
+  // top, which drops the native focus, so it re-focuses on every route focus
+  // to bring the keyboard back.
+  const hasAutoFocusedAmountInputRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (
+        hasAutoFocusedAmountInputRef.current &&
+        !platformEnv.isNativeAndroid
+      ) {
+        return undefined;
+      }
+      hasAutoFocusedAmountInputRef.current = true;
+      const timer = setTimeout(() => {
+        amountInputRef.current?.focus();
+      }, 300);
+      return () => clearTimeout(timer);
+    }, []),
+  );
+
+  // Blur the amount input and dismiss the IME before this screen is popped.
+  // The input is a Nitro HybridView that, unlike RN's TextInput, does not hide
+  // the keyboard when Android clears its focus during the exit transition; the
+  // focus recovery then hands the still-visible keyboard to the next focusable
+  // input in the window, so header back with the keyboard up left it open on
+  // the previous page. Blurring alone is not guaranteed to hide the IME for
+  // this input, so follow it with the global `Keyboard.dismiss()`
+  // (KeyboardController) like the overlay-open path does. `beforeRemove` fires
+  // while the native view is still alive; by the time the unmount cleanup runs
+  // the ref is already detached.
+  const reactNavigation = useNavigation();
   useEffect(() => {
-    const timer = setTimeout(() => {
-      amountInputRef.current?.focus();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!platformEnv.isNative) {
+      return undefined;
+    }
+    return reactNavigation.addListener('beforeRemove', () => {
+      amountInputRef.current?.blur();
+      Keyboard.dismiss();
+    });
+  }, [reactNavigation]);
 
   const handleAmountInputFocus = useCallback(() => {
     setIsAmountInputFocused(true);

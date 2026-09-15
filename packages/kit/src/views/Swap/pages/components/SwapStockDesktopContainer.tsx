@@ -159,6 +159,7 @@ import {
   getStockDisabledActionButtonProps,
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
+  isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
   shouldDeferStockInitialContent,
   shouldShowStockMarketHeaderSkeleton,
@@ -1825,9 +1826,10 @@ function StockPriceChart({
   const chartCacheReady = Boolean(
     networkId && (tokenAddress || isNative) && activeRange,
   );
-  const chartRequestReady = Boolean(
-    chartCacheReady && normalizedCoinGeckoId && activeRange,
-  );
+  const chartRequestReady = isStockChartRequestReady({
+    chartCacheReady,
+    coinGeckoIdLoading,
+  });
   const [visibleChartState, setVisibleChartState] = useState<IStockChartState>({
     assetScope: '',
     data: [],
@@ -1841,7 +1843,7 @@ function StockPriceChart({
     run: retryChart,
   } = usePromiseResult(
     async () => {
-      if (!chartRequestReady || !activeRange || !normalizedCoinGeckoId) {
+      if (!chartRequestReady || !activeRange) {
         return (
           (chartCacheReady
             ? swrCacheUtils.get<IStockChartState>(chartScope)
@@ -1917,9 +1919,8 @@ function StockPriceChart({
         status: 'pending',
       },
       swrKey: chartCacheReady ? chartScope : undefined,
-      // A missing CoinGecko lookup id is a request-readiness gap, not a real
-      // empty chart response. Keep the existing display snapshot untouched
-      // until the request can actually run.
+      // Wait for the CoinGecko lookup to settle before choosing between the
+      // preferred id and the network/address fallback.
       swrShouldPersist: (state) =>
         chartRequestReady &&
         state.status !== 'pending' &&

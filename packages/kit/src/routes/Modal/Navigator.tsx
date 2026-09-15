@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
@@ -7,7 +7,9 @@ import {
   Spinner,
   Stack,
   Theme,
+  acquireNativeTabletRealWidthMedia,
   popToMainRoute,
+  releaseNativeTabletRealWidthMedia,
   setGlassHeaderUIStyle,
   setSystemBarsOverride,
   useThemeName,
@@ -87,6 +89,18 @@ function TravelModeOnboardingRedirect() {
 }
 
 function StandardOnboardingNavigator() {
+  const isFocused = useIsFocused();
+  // Full-screen onboarding uses the real iPad width only while focused.
+  // Keep this inside the standard route so travel-mode admission is unchanged.
+  useLayoutEffect(() => {
+    if (!isFocused) {
+      return undefined;
+    }
+    acquireNativeTabletRealWidthMedia();
+    return () => {
+      releaseNativeTabletRealWidthMedia();
+    };
+  }, [isFocused]);
   // Onboarding forces a dark Theme for its content, so the iOS 26 glass header
   // bar must use the dark variant while onboarding is the foreground route —
   // otherwise it flashes the light variant (the app theme is usually light).
@@ -100,7 +114,6 @@ function StandardOnboardingNavigator() {
   // tracks whoever is actually foreground; the unmount cleanup covers the
   // onboarding-replaced-by-main case where we never blur first.
   const appThemeName = useThemeName();
-  const isFocused = useIsFocused();
   const appGlassStyle = appThemeName === 'dark' ? 'dark' : 'light';
   if (platformEnv.isNativeIOS26Plus) {
     setGlassHeaderUIStyle(isFocused ? 'dark' : appGlassStyle);

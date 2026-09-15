@@ -62,6 +62,7 @@ export function MarketDetailResponsiveLayout({
 
   return (
     <MobileLayout
+      isLayoutPending={isLayoutPending}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}
       disableTrade={disableTrade}
