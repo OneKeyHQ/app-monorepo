@@ -5,6 +5,9 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeGiftEligibilityCache } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   IPrimeGiftDevice,
   IPrimeGiftEligibility,
@@ -70,10 +73,19 @@ jest.mock('../pages/PrimeDashboard/PrimeRedemptionDialog', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
-  __esModule: true,
-  default: { isUserCancelStyleError: () => false },
-}));
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => {
+  const actual = jest.requireActual(
+    '@onekeyhq/shared/src/errors/utils/errorToastUtils',
+  ) as {
+    default: { isUserCancelStyleError: (error: unknown) => boolean };
+  };
+  return {
+    __esModule: true,
+    default: {
+      isUserCancelStyleError: actual.default.isUserCancelStyleError,
+    },
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -378,6 +390,64 @@ describe('usePrimeGiftClaim', () => {
       expect(showDialog).not.toHaveBeenCalled();
     },
   );
+
+  it('shows the returned verify-failed message instead of a raw SDK diagnostic', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+      new OneKeyLocalError({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      }),
+    );
+    const { result } = renderClaim();
+    await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.error).toBe(
+      ETranslations.prime_gift_verify_failed__msg,
+    );
+    expect(result.current.isSubmitting).toBe(false);
+    expect(showDialog).not.toHaveBeenCalled();
+    expect(mockPrimeGiftStage.mock.calls).toEqual([
+      [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'failed' }],
+    ]);
+  });
+
+  it('does not treat a plain Device cancelled Error as user cancellation', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+      new Error('Device cancelled'),
+    );
+    const { result } = renderClaim();
+    await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.error).toBe('Device cancelled');
+    expect(mockPrimeGiftStage.mock.calls.at(-1)).toEqual([
+      { source: 'onboarding', stage: 'verify', status: 'failed' },
+    ]);
+  });
+
+  it('does not surface a verify error when the helper reports user cancellation', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce({
+      className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+      message: 'Protocol V2 USB read failed: transferIn',
+    });
+    const { result } = renderClaim();
+    await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.isSubmitting).toBe(false);
+    expect(showDialog).not.toHaveBeenCalled();
+    expect(mockPrimeGiftStage.mock.calls).toEqual([
+      [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'cancel' }],
+    ]);
+  });
 
   it('re-verifies after a failed attempt and after closing the redemption dialog', async () => {
     servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(

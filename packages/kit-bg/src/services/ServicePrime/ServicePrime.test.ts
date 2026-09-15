@@ -44,6 +44,7 @@ const mockOneKeyIdAuthStateMigrationLog = jest.fn();
 const mockOneKeyIdAuthStateRepairLog = jest.fn();
 const mockOneKeyIdLoginFailedReasonLog = jest.fn();
 const mockPrimeCryptoPaymentFlowLog = jest.fn();
+const mockHardwareSdkServiceEvent = jest.fn();
 const mockToastIfErrorMethods = new Set<string>();
 
 const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
@@ -118,6 +119,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
         }
         if (loggerMethod === 'prime.subscription.onekeyIdLoginFailedReason') {
           return mockOneKeyIdLoginFailedReasonLog;
+        }
+        if (loggerMethod === 'hardware.sdkLog.serviceEvent') {
+          return mockHardwareSdkServiceEvent;
         }
         return createLoggerProxy(nextPath);
       },
@@ -301,6 +305,7 @@ const {
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
   OneKeyServerApiError,
+  UserCancelFromOutside,
 } = require('@onekeyhq/shared/src/errors');
 const {
   EOneKeyErrorClassNames,
@@ -315,9 +320,15 @@ const {
   appEventBus,
 } = require('@onekeyhq/shared/src/eventBus/appEventBus');
 const {
+  ETranslations,
+} = require('@onekeyhq/shared/src/locale/enum/translations');
+const {
   stashRequestAuthTokenOfError,
   takeRequestAuthTokenOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
+const {
+  getSanitizedErrorLogText,
+} = require('@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils');
 const stringUtils = require('@onekeyhq/shared/src/utils/stringUtils').default;
 const {
   EPrimeAuthSessionSource,
@@ -7309,9 +7320,15 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
     const { service, verify, simpleDbPrime, legacyRead, legacyWrite } =
       createGiftService();
     verify.mockRejectedValueOnce(new Error('Device cancelled'));
-    await expect(
-      service.apiPreparePrimeGiftRedemption(prepareParams),
-    ).rejects.toThrow('Device cancelled');
+    const failedPrepare = await service
+      .apiPreparePrimeGiftRedemption(prepareParams)
+      .catch((error: unknown) => error);
+    expect(failedPrepare).toBeInstanceOf(OneKeyLocalError);
+    expect(failedPrepare).toMatchObject({
+      message: ETranslations.prime_gift_verify_failed__msg,
+      key: ETranslations.prime_gift_verify_failed__msg,
+      autoToast: false,
+    });
     await service.apiPreparePrimeGiftRedemption(prepareParams);
     expect(simpleDbPrime.getAuthSessionSource).not.toHaveBeenCalled();
     expect(
@@ -7344,10 +7361,155 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
       service.apiPreparePrimeGiftRedemption(prepareParams),
     ).resolves.toMatchObject({ code: 'TEST_CODE' });
     mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
-    await expect(
-      service.apiPreparePrimeGiftRedemption(prepareParams),
-    ).rejects.toThrow();
+    const loginExpired = await service
+      .apiPreparePrimeGiftRedemption(prepareParams)
+      .catch((error: unknown) => error);
+    expect(loginExpired).toBeInstanceOf(OneKeyLocalError);
+    expect(loginExpired).toMatchObject({
+      message: ETranslations.id_login_expired_description,
+      key: ETranslations.id_login_expired_description,
+      autoToast: false,
+    });
     expect(verify).toHaveBeenCalledTimes(1);
+    expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+  });
+
+  describe('device verification failures during gift prepare', () => {
+    function expectFriendlyVerifyFailedError(error: unknown) {
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      expect(error).toMatchObject({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      });
+      expect(toPlainErrorObject(error)).toMatchObject({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      });
+    }
+
+    function expectSafeOriginalDiagnosticLog(
+      originalError: unknown,
+      expectedSnippet: string,
+    ) {
+      const sanitized = getSanitizedErrorLogText(originalError);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledWith(
+        'firmwareAuthenticateForPrimeGift',
+        sanitized,
+      );
+      expect(sanitized).toContain(expectedSnippet);
+      expect(sanitized).not.toContain('DEVICE_SERIAL');
+      expect(sanitized).not.toContain('TEST_CODE');
+      expect(sanitized).not.toContain('user-a');
+      expect(sanitized).not.toContain('receiver@example.com');
+    }
+
+    it.each([
+      {
+        name: 'USB SDK failure',
+        error: new Error('Protocol V2 USB read failed: transferIn'),
+        snippet: 'Protocol V2 USB read failed: transferIn',
+      },
+      {
+        name: 'firmware verification failure',
+        error: new OneKeyServerApiError({
+          code: 500,
+          message: 'Firmware verification failed',
+        }),
+        snippet: 'Firmware verification failed',
+      },
+      {
+        name: 'plain serialized error',
+        error: {
+          name: 'Error',
+          message: 'Protocol V2 USB read failed: transferIn',
+        },
+        snippet: 'Protocol V2 USB read failed: transferIn',
+      },
+    ])(
+      'converts $name into a friendly verify-failed error and logs a sanitized diagnostic',
+      async ({ error: originalError, snippet }) => {
+        const { service, verify } = createGiftService();
+        verify.mockRejectedValueOnce(originalError);
+
+        const error = await service
+          .apiPreparePrimeGiftRedemption(prepareParams)
+          .catch((caught: unknown) => caught);
+
+        expect(error).not.toBe(originalError);
+        expectFriendlyVerifyFailedError(error);
+        expectSafeOriginalDiagnosticLog(originalError, snippet);
+        expect(verify).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('retries successfully after a converted verification failure', async () => {
+      const { service, verify } = createGiftService();
+      verify.mockRejectedValueOnce(
+        new Error('Protocol V2 USB read failed: transferIn'),
+      );
+
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).rejects.toBeInstanceOf(OneKeyLocalError);
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({
+        serialNo: 'DEVICE_SERIAL',
+        onekeyUserId: 'user-a',
+        code: 'TEST_CODE',
+        verification: { hasCode: true, status: 'available' },
+      });
+      expect(verify).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      {
+        name: 'UserCancelFromOutside instance',
+        error: new UserCancelFromOutside(),
+      },
+      {
+        name: 'serialized HardwareUserCancelFromOutside',
+        error: {
+          className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+          message: 'UserCancelFromOutside',
+        },
+      },
+    ])(
+      'rethrows $name without converting it or writing a failure log',
+      async ({ error: originalError }) => {
+        const { service, verify } = createGiftService();
+        verify.mockRejectedValueOnce(originalError);
+
+        const error = await service
+          .apiPreparePrimeGiftRedemption(prepareParams)
+          .catch((caught: unknown) => caught);
+
+        expect(error).toBe(originalError);
+        expect(error).not.toMatchObject({
+          key: ETranslations.prime_gift_verify_failed__msg,
+        });
+        expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+        expect(verify).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('does not treat a plain Device cancelled Error as user cancellation', async () => {
+      const { service, verify } = createGiftService();
+      const originalError = new Error('Device cancelled');
+      verify.mockRejectedValueOnce(originalError);
+
+      const error = await service
+        .apiPreparePrimeGiftRedemption(prepareParams)
+        .catch((caught: unknown) => caught);
+
+      expect(error).not.toBe(originalError);
+      expectFriendlyVerifyFailedError(error);
+      expectSafeOriginalDiagnosticLog(originalError, 'Device cancelled');
+      expect(verify).toHaveBeenCalledTimes(1);
+    });
   });
 
   it.each([

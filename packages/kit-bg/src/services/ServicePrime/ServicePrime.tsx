@@ -74,6 +74,7 @@ import type {
   IPrimeGiftClaimResult,
   IPrimeGiftEligibility,
   IPrimeGiftPreparedRedemption,
+  IPrimeGiftVerifyV2Result,
 } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
   IOneKeyIdAccount,
@@ -540,10 +541,28 @@ class ServicePrime extends ServiceBase {
   }: IPrimeGiftClaimParams): Promise<IPrimeGiftPreparedRedemption> {
     return this.primeGiftMutex.runExclusive(async () => {
       await this.getPrimeGiftUser();
-      const verification =
-        await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
-          { device, serialNo },
+      let verification: IPrimeGiftVerifyV2Result;
+      try {
+        verification =
+          await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
+            { device, serialNo },
+          );
+      } catch (error) {
+        if (errorToastUtils.isUserCancelStyleError(error)) {
+          throw error;
+        }
+        defaultLogger.hardware.sdkLog.serviceEvent(
+          'firmwareAuthenticateForPrimeGift',
+          getSanitizedErrorLogText(error),
         );
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.prime_gift_verify_failed__msg,
+          }),
+          key: ETranslations.prime_gift_verify_failed__msg,
+          autoToast: false,
+        });
+      }
       return {
         serialNo,
         onekeyUserId: expectedOneKeyUserId,
