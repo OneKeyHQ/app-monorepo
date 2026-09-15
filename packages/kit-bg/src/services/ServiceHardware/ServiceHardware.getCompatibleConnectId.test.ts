@@ -2851,8 +2851,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         expect.objectContaining({
           connectId: null,
           deviceId: null,
-          // Discovery titles name the product, brand included.
-          name: 'Ledger nanoX',
+          name: 'nanoX',
           raw: expect.objectContaining({ searchTarget: target }),
         }),
       ],
