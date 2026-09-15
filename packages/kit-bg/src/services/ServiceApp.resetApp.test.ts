@@ -46,6 +46,7 @@ jest.mock(
 
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -205,5 +206,28 @@ describe('ServiceApp.resetApp', () => {
 
     expect(endResetting).toHaveBeenCalledTimes(1);
     expect(restartApp).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceApp privacy database reset ordering', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('preserves host storage when the external privacy database cannot be erased', async () => {
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    const dropAllLocalWalletData = jest
+      .fn()
+      .mockRejectedValue(new Error('privacy database erase failed'));
+    const service = new ServiceApp({
+      backgroundApi: {
+        servicePrivacyChain: { dropAllLocalWalletData },
+      },
+    });
+
+    await expect(
+      (service as unknown as { resetData: () => Promise<void> }).resetData(),
+    ).rejects.toThrow('privacy database erase failed');
+    expect(clear).not.toHaveBeenCalled();
   });
 });

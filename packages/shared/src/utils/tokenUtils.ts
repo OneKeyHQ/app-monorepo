@@ -26,6 +26,7 @@ import type { IServerNetwork } from '../../types';
 import type {
   IAccountToken,
   IAggregateToken,
+  IBalanceStatus,
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
   IToken,
@@ -1856,6 +1857,39 @@ export function filterAccountTokenListByLimit({
     filteredRiskyTokenList,
     filteredTokenListMap,
   };
+}
+
+export function isAccountTokensBalanceIncomplete({
+  accountId,
+  networkId,
+  tokensWorth,
+  mergeDeriveAssetsEnabled,
+}: {
+  accountId: string;
+  networkId: string;
+  tokensWorth: {
+    worth: Record<string, string>;
+    worthStatus?: Record<string, IBalanceStatus>;
+  };
+  mergeDeriveAssetsEnabled: boolean;
+}): boolean {
+  const keys = Object.keys(tokensWorth.worth);
+  const requestedKey = accountUtils.buildAccountValueKey({
+    accountId,
+    networkId,
+  });
+  const includedKeys =
+    networkUtils.isAllNetwork({ networkId }) || mergeDeriveAssetsEnabled
+      ? keys
+      : [
+          Object.prototype.hasOwnProperty.call(tokensWorth.worth, requestedKey)
+            ? requestedKey
+            : keys[0],
+        ];
+  return includedKeys.some((key) => {
+    const status = key ? tokensWorth.worthStatus?.[key] : undefined;
+    return status !== undefined && status !== 'complete';
+  });
 }
 
 export function calculateAccountTokensValue({

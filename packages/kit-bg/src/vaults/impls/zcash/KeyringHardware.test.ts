@@ -36,7 +36,10 @@ function createKeyring({
     vault: { accountId: 'hw-1--acc', ...vault },
     backgroundApi: {
       simpleDb: { zcash: simpleDbZcash ?? {} },
-      serviceAccount: serviceAccount ?? {},
+      serviceAccount: {
+        getDBAccountSafe: jest.fn().mockResolvedValue({ id: 'hw-1--acc' }),
+        ...serviceAccount,
+      },
     },
   }) as KeyringHardware;
 }
@@ -154,18 +157,132 @@ describe('Zcash KeyringHardware', () => {
     expect(vault.zcashCommitSignedPczt).not.toHaveBeenCalled();
   });
 
-  it('refuses transparent sends without touching the device', async () => {
-    const zcashSignPczt = jest.fn();
-    const keyring = createKeyring({ sdk: { zcashSignPczt } });
-
-    await expect(
-      keyring.signTransaction({
-        unsignedTx: { encodedTx: { zcashMode: 'transparent' } },
+  it.each([
+    ['t1-recipient', false],
+    ['t1-recipient', true],
+    ['u1-recipient', false],
+    ['u1-recipient', true],
+  ])(
+    'signs transparent funds to %s (max=%s) without privacy setup',
+    async (address, sendMax) => {
+      const request = {
+        network: 'main',
+        accountIndex: 0,
+        targetHeight: 3_500_000,
+        expiryHeight: 3_500_020,
+        sendMax,
+        recipients: [{ address }],
+        selectedOutpoints: [{ txid: '11'.repeat(32), vout: 0 }],
+      };
+      const build = {
+        rawTx: 'abcd',
+        txid: '22'.repeat(32),
+        feeZat: '15000',
+        expiryHeight: request.expiryHeight,
+        spentOutpoints: request.selectedOutpoints,
+      };
+      const sdk = {
+        zcashGetUnifiedAddress: jest.fn().mockResolvedValue({
+          success: true,
+          payload: [
+            {
+              path: "m/32'/133'/0'",
+              address: 'u1-device',
+              ufvk: 'viewing',
+              seedFingerprint: '01'.repeat(32),
+            },
+          ],
+        }),
+        zcashSignPczt: jest.fn().mockResolvedValue({
+          success: true,
+          payload: { pczt: 'device-signed' },
+        }),
+      };
+      const api = {
+        deriveTransparentXpubFromUfvk: jest
+          .fn()
+          .mockResolvedValue({ xpub: 'account-xpub' }),
+        createTransparentHardwarePczt: jest
+          .fn()
+          .mockResolvedValue({ pcztHex: 'original' }),
+        finalizeTransparentHardwarePczt: jest.fn().mockResolvedValue(build),
+      };
+      mockGetZcashApi.mockResolvedValue(api);
+      const simpleDbZcash = {
+        reserveTransparentOutpoints: jest.fn(),
+        saveTransparentPendingTx: jest.fn(),
+        releaseTransparentReservation: jest.fn(),
+        getAccountMeta: jest.fn(),
+        isPrivacyModeEnabled: jest.fn().mockResolvedValue(false),
+      };
+      const keyring = createKeyring({
+        sdk,
+        simpleDbZcash,
+        vault: {
+          zcashPrepareFreshTransparentRequest: jest
+            .fn()
+            .mockResolvedValue(request),
+        },
+        serviceAccount: {
+          getDBAccount: jest
+            .fn()
+            .mockResolvedValue({ pathIndex: 0, xpub: 'account-xpub' }),
+        },
+      });
+      const result = await keyring.signTransaction({
+        unsignedTx: {
+          encodedTx: {
+            zcashMode: 'transparent',
+            fee: '15000',
+            zcashTransparentPlan: { ownerId: 'owner' },
+          },
+        },
         deviceParams,
-      } as never),
-    ).rejects.toThrow('not supported');
-    expect(zcashSignPczt).not.toHaveBeenCalled();
-  });
+      } as never);
+      expect(result.rawTx).toBe('abcd');
+      expect(simpleDbZcash.getAccountMeta).not.toHaveBeenCalled();
+      expect(simpleDbZcash.isPrivacyModeEnabled).not.toHaveBeenCalled();
+      expect(api.finalizeTransparentHardwarePczt).toHaveBeenCalledWith({
+        request,
+        accountXpub: 'account-xpub',
+        originalPcztHex: 'original',
+        signedPcztHex: 'device-signed',
+      });
+      expect(simpleDbZcash.saveTransparentPendingTx).toHaveBeenCalledWith({
+        accountId: 'hw-1--acc',
+        requireLiveReservation: true,
+        tx: expect.objectContaining({
+          rawTx: 'abcd',
+          broadcastAuthorized: false,
+        }),
+      });
+      expect(
+        simpleDbZcash.releaseTransparentReservation,
+      ).not.toHaveBeenCalled();
+      sdk.zcashSignPczt.mockResolvedValue({
+        success: false,
+        payload: { code: 800, error: 'Action cancelled by user' },
+      });
+      simpleDbZcash.saveTransparentPendingTx.mockClear();
+      await expect(
+        keyring.signTransaction({
+          unsignedTx: {
+            encodedTx: {
+              zcashMode: 'transparent',
+              fee: '15000',
+              zcashTransparentPlan: { ownerId: 'owner' },
+            },
+          },
+          deviceParams,
+        } as never),
+      ).rejects.toBeDefined();
+      expect(simpleDbZcash.saveTransparentPendingTx).not.toHaveBeenCalled();
+      expect(simpleDbZcash.releaseTransparentReservation).toHaveBeenCalledWith({
+        accountId: 'hw-1--acc',
+        ownerId: 'owner',
+      });
+    },
+  );
 
   it('saves device-provided viewing metadata on privacy setup', async () => {
     const saveAccountMeta = jest.fn();
@@ -227,6 +344,7 @@ describe('Zcash KeyringHardware', () => {
     );
     expect(saveAccountMeta).toHaveBeenCalledWith({
       accountId: 'hw-1--acc',
+      expectedPrivacyModeState: { intent: 'on', birthdayHeight: 2_500_000 },
       meta: expect.objectContaining({
         ufvk: 'uview1device',
         unifiedAddress: 'u1device',
@@ -337,5 +455,187 @@ describe('Zcash KeyringHardware', () => {
       keyring.retryLocalWalletSetup({ deviceParams: deviceParams as never }),
     ).rejects.toThrow('does not match');
     expect(saveAccountMeta).not.toHaveBeenCalled();
+  });
+});
+
+// The transparent path carries four assertions that only fail on a device:
+// account drift, a viewing key that is not this account's, a signed result
+// that no longer matches what was reviewed, and an account removed mid-signing.
+// Each of them must also let the input reservation go.
+describe('Zcash KeyringHardware transparent signing', () => {
+  const accountId = 'hw-1--acc';
+  const request = {
+    accountIndex: 0,
+    network: 'main',
+    selectedOutpoints: [{ txid: 'aa'.repeat(32), vout: 0 }],
+    targetHeight: 2_000_000,
+    expiryHeight: 2_000_040,
+  };
+  const encodedTx = {
+    fee: '10000',
+    zcashMode: 'transparent',
+    zcashTransparentPlan: { ownerId: 'owner-1' },
+  };
+  const buildResult = {
+    feeZat: '10000',
+    expiryHeight: request.expiryHeight,
+    spentOutpoints: request.selectedOutpoints,
+    rawTx: 'raw',
+    txid: 'bb'.repeat(32),
+  };
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    mockGetZcashApi.mockReset();
+  });
+
+  function createTransparentKeyring({
+    accountXpub = 'xpub-account',
+    devicePubkeyXpub = 'xpub-account',
+    pathIndex = 0,
+    accountStillExists = true,
+    result = buildResult,
+    deviceResponse = { success: true, payload: { pczt: 'signed' } },
+  } = {}) {
+    const reserveTransparentOutpoints = jest.fn(async () => undefined);
+    const releaseTransparentReservation = jest.fn(async () => undefined);
+    const saveTransparentPendingTx = jest.fn(async () => undefined);
+    const zcashSignPczt = jest.fn(async () => deviceResponse);
+    mockGetZcashApi.mockResolvedValue({
+      deriveTransparentXpubFromUfvk: jest.fn(async () => ({
+        xpub: devicePubkeyXpub,
+      })),
+      createTransparentHardwarePczt: jest.fn(async () => ({
+        pcztHex: 'original',
+      })),
+      finalizeTransparentHardwarePczt: jest.fn(async () => result),
+    });
+    const keyring = createKeyring({
+      sdk: { zcashSignPczt },
+      vault: {
+        accountId,
+        zcashPrepareFreshTransparentRequest: jest.fn(async () => request),
+      },
+      simpleDbZcash: {
+        reserveTransparentOutpoints,
+        releaseTransparentReservation,
+        saveTransparentPendingTx,
+      },
+      serviceAccount: {
+        getDBAccount: jest.fn(async () => ({
+          id: accountId,
+          pathIndex,
+          xpub: accountXpub,
+        })),
+        getDBAccountSafe: jest.fn(async () =>
+          accountStillExists ? { id: accountId } : undefined,
+        ),
+      },
+    });
+    jest
+      .spyOn(
+        keyring as unknown as {
+          fetchDeviceViewingKeys: () => Promise<unknown>;
+        },
+        'fetchDeviceViewingKeys',
+      )
+      .mockResolvedValue([{ ufvk: 'device-ufvk', seedFingerprint: '00' }]);
+    const sign = () =>
+      (
+        keyring as unknown as {
+          signTransparentTransaction: (params: {
+            encodedTx: unknown;
+            deviceParams: unknown;
+          }) => Promise<{ txid: string; rawTx: string }>;
+        }
+      ).signTransparentTransaction({ encodedTx, deviceParams });
+    return {
+      sign,
+      reserveTransparentOutpoints,
+      releaseTransparentReservation,
+      saveTransparentPendingTx,
+      zcashSignPczt,
+    };
+  }
+
+  it('records the signed transaction as not yet authorized to broadcast', async () => {
+    const { sign, saveTransparentPendingTx, releaseTransparentReservation } =
+      createTransparentKeyring();
+
+    await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
+
+    expect(saveTransparentPendingTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId,
+        requireLiveReservation: true,
+        tx: expect.objectContaining({ broadcastAuthorized: false }),
+      }),
+    );
+    expect(releaseTransparentReservation).not.toHaveBeenCalled();
+  });
+
+  it('refuses an account whose derivation no longer matches the request', async () => {
+    const { sign, reserveTransparentOutpoints, zcashSignPczt } =
+      createTransparentKeyring({ pathIndex: 7 });
+
+    await expect(sign()).rejects.toThrow('hardware signing account changed');
+
+    // Refused before anything was reserved, so there is nothing to release.
+    expect(reserveTransparentOutpoints).not.toHaveBeenCalled();
+    expect(zcashSignPczt).not.toHaveBeenCalled();
+  });
+
+  it('refuses a device viewing key that is not this account', async () => {
+    const { sign, releaseTransparentReservation, zcashSignPczt } =
+      createTransparentKeyring({ devicePubkeyXpub: 'xpub-someone-else' });
+
+    await expect(sign()).rejects.toThrow(
+      'device viewing key does not match this account',
+    );
+
+    expect(zcashSignPczt).not.toHaveBeenCalled();
+    expect(releaseTransparentReservation).toHaveBeenCalledWith({
+      accountId,
+      ownerId: 'owner-1',
+    });
+  });
+
+  it('refuses a signed result that differs from the reviewed transaction', async () => {
+    const { sign, releaseTransparentReservation, saveTransparentPendingTx } =
+      createTransparentKeyring({
+        result: { ...buildResult, feeZat: '20000' },
+      });
+
+    await expect(sign()).rejects.toThrow(
+      'did not match the reviewed transaction',
+    );
+
+    expect(saveTransparentPendingTx).not.toHaveBeenCalled();
+    expect(releaseTransparentReservation).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to record a transaction for an account removed while signing', async () => {
+    const { sign, releaseTransparentReservation, saveTransparentPendingTx } =
+      createTransparentKeyring({ accountStillExists: false });
+
+    await expect(sign()).rejects.toThrow('account removed during signing');
+
+    expect(saveTransparentPendingTx).not.toHaveBeenCalled();
+    expect(releaseTransparentReservation).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the reservation when the device rejects the signature', async () => {
+    const { sign, releaseTransparentReservation, saveTransparentPendingTx } =
+      createTransparentKeyring({
+        deviceResponse: {
+          success: false,
+          payload: { error: 'user cancelled', code: 1 },
+        } as never,
+      });
+
+    await expect(sign()).rejects.toBeDefined();
+
+    expect(saveTransparentPendingTx).not.toHaveBeenCalled();
+    expect(releaseTransparentReservation).toHaveBeenCalledTimes(1);
   });
 });

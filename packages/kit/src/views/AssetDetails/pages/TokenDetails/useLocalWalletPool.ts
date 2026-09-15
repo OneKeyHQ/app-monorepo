@@ -249,7 +249,8 @@ export function useLocalWalletPool({
     const next = {
       ownerKey: privacyChainPoolOwnerKey({ accountId, networkId, poolId }),
       address: poolAddress,
-      balanceParsed: balance ? (poolBalance?.totalParsed ?? '0') : undefined,
+      balanceParsed: poolBalance?.totalParsed,
+      balanceStatus: poolBalance?.balanceStatus,
       balanceSettled: hasAttemptedBalance,
       action: move
         ? {

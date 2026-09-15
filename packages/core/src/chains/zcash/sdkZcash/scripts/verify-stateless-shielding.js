@@ -78,6 +78,71 @@ async function main() {
     console.log(
       'PASS: installed WASM quotes, creates, proves, signs and verifies shielding without wallet/storage/scan; changed request rejected.',
     );
+    const payload = Buffer.alloc(78);
+    payload.writeUInt32BE(0x04_88_b2_1e, 0);
+    payload[4] = 3;
+    payload.writeUInt32BE(0x80_00_00_00, 9);
+    Buffer.from(
+      keys.transparentAccountPubKeyFromUfvk('main', ufvk),
+      'hex',
+    ).copy(payload, 13);
+    const accountXpub = bs58check.encode(payload);
+    for (const address of [transparent, recipient]) {
+      for (const sendMax of [false, true]) {
+        const hardwareRequest = {
+          ...request,
+          recipients: [{ address }],
+          sendMax: true,
+        };
+        const hardwareQuote = JSON.parse(
+          keys.transparentTxQuote(JSON.stringify(hardwareRequest)),
+        );
+        if (!sendMax) {
+          hardwareRequest.sendMax = false;
+          hardwareRequest.recipients[0].amountZat = hardwareQuote.sendAmountZat;
+        }
+        const approved = JSON.stringify(hardwareRequest);
+        const hardwareOriginal = keys.transparentTxCreateWithAccountXpub(
+          approved,
+          accountXpub,
+          keys.seedFingerprint(seed),
+        );
+        // Synthetic software signer models device signatures; native tests separately cover redaction and device metadata.
+        const deviceSigned = keys.pcztSignWithSeed(
+          'main',
+          seed,
+          0,
+          hardwareOriginal,
+        );
+        let combined;
+        let hardwareProved;
+        try {
+          combined = keys.transparentTxCombineHardwareSigned(
+            approved,
+            accountXpub,
+            hardwareOriginal,
+            deviceSigned,
+          );
+          hardwareProved = runtime.pcztProveAtHeight(
+            request.targetHeight,
+            combined,
+          );
+          const result = JSON.parse(
+            runtime.pcztExtractStateless(hardwareProved),
+          );
+          assert.match(result.txid, /^[0-9a-f]{64}$/);
+          assert.match(result.rawTx, /^[0-9a-f]+$/);
+          console.log(
+            `PASS: installed hardware path destination=${address.startsWith('u1') ? 'UA' : 'transparent'} max=${sendMax}, verified extraction.`,
+          );
+        } finally {
+          hardwareOriginal.fill(0);
+          deviceSigned.fill(0);
+          combined?.fill(0);
+          hardwareProved?.fill(0);
+        }
+      }
+    }
   } finally {
     seed.fill(0);
     original?.fill(0);

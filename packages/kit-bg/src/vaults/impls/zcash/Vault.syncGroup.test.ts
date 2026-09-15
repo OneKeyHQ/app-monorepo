@@ -41,9 +41,13 @@ it('refreshes queued scans and serializes enable rescans with every active key',
       accountIds.map((id) => ({ ufvk: id })),
   );
   const vault = Object.assign(
-    Object.create(Vault.prototype) as Pick<Vault, 'syncLocalWalletGroup'>,
+    Object.create(Vault.prototype) as Pick<
+      Vault,
+      'syncLocalWalletGroup' | 'zcashPreparePrivacyModeAccount'
+    >,
     {
       backgroundApi: {
+        servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
         simpleDb: {
           privacyChain: {
             getRuntimeSchemaVersion: async () => '0.22.0',
@@ -75,17 +79,16 @@ it('refreshes queued scans and serializes enable rescans with every active key',
   await started;
   const staleScheduler = vault.syncLocalWalletGroup({ accountIds: ['a'] });
   states.b = { intent: 'off', operation: { type: 'enable', requestedAt: 1 } };
-  const enable = vault.syncLocalWalletGroup({
-    accountIds: ['b'],
-    rescanFrom: { accountId: 'b', fromHeight: 2_000_000 },
+  const enable = vault.zcashPreparePrivacyModeAccount({
+    accountId: 'b',
+    fromHeight: 2_000_000,
   });
   expect(queueLocalWalletRescanFrom).not.toHaveBeenCalled();
   finishFirst?.();
   await Promise.all([first, staleScheduler, enable]);
   expect(syncWallet.mock.calls.map((call) => call[1].activeUfvks)).toEqual([
     ['a'],
-    ['a', 'b'],
-    ['a', 'b'],
+    ['a'],
   ]);
   expect(queueLocalWalletRescanFrom).toHaveBeenCalledWith({
     accountId: 'b',
@@ -94,4 +97,22 @@ it('refreshes queued scans and serializes enable rescans with every active key',
   expect(
     queueLocalWalletRescanFrom.mock.invocationCallOrder[0],
   ).toBeGreaterThan(syncWallet.mock.invocationCallOrder[1]);
+  states.b = { intent: 'on' };
+  await vault.syncLocalWalletGroup({ accountIds: ['a'] });
+  expect(syncWallet.mock.calls[2][1].activeUfvks).toEqual(['a', 'b']);
+});
+
+it('does not open the scanner when cellular permission is unavailable', async () => {
+  const zcashEnsureRuntimeSchemaCompatible = jest.fn();
+  const vault = Object.create(Vault.prototype) as Vault;
+  Object.assign(vault, {
+    backgroundApi: {
+      servicePrivacyChain: { isLocalWalletScanAllowed: async () => false },
+    },
+    zcashEnsureRuntimeSchemaCompatible,
+  });
+  await expect(
+    vault.syncLocalWalletGroup({ accountIds: ['a'] }),
+  ).resolves.toEqual({ synced: false });
+  expect(zcashEnsureRuntimeSchemaCompatible).not.toHaveBeenCalled();
 });

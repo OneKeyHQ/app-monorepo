@@ -48,6 +48,7 @@ import type {
   ILocalWalletCapability,
   ILocalWalletPoolDescriptor,
   ILocalWalletSendPool,
+  ILocalWalletSlotUsage,
   ILocalWalletSyncProgress,
 } from '../vaults/localWallet/types';
 
@@ -218,6 +219,7 @@ class ServicePrivacyChain extends ServiceBase {
       this.initPromise = (async () => {
         // Primed here so the tick's gate-two check can stay synchronous.
         await this.isPrivacySyncOnCellularAllowed();
+        await this.loadScanPausedNetworks();
         await this.forEachLocalWalletCapability((capability) =>
           capability.resumePendingOperations(),
         );
@@ -273,14 +275,15 @@ class ServicePrivacyChain extends ServiceBase {
   // not start one -- looking at a balance is not a request to spend battery.
   foregroundBoostRequestedByNetwork: Record<string, boolean> = {};
 
-  // Networks the user explicitly paused from the always-on light.
+  // Networks the user paused. A pause stops scanning outright -- not just the
+  // foreground pace -- and survives a restart, so the battery and data it was
+  // pressed to stop stay stopped. Only an explicit resume clears it.
   //
-  // In memory on purpose, like the boost itself: a boost is a session bound to
-  // someone being present, so "I don't want this right now" is scoped the same
-  // way. Surviving a restart would leave a user who paused once wondering, a
-  // week later, why the chain never catches up -- with the control that would
-  // explain it (the light) hidden, because nothing is boosting.
+  // Mirrors simpleDb so the scheduler can answer synchronously; primed in
+  // init().
   boostPausedByNetwork: Record<string, boolean> = {};
+
+  scanPauseLoaded = false;
 
   // Blocks left in this account's backfill, from what the scheduler last
   // published. Read off the atom on purpose: the wallet's own lane is the one
@@ -349,7 +352,13 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     // Reached only by an explicit press, which IS the resume.
-    delete this.boostPausedByNetwork[networkId];
+    if (this.boostPausedByNetwork[networkId]) {
+      delete this.boostPausedByNetwork[networkId];
+      await this.backgroundApi.simpleDb.privacyChain.saveScanPaused({
+        networkId,
+        paused: false,
+      });
+    }
     // The shared UI control is capability-based, so verify the selected
     // network before asking its vault to sync.
     const wasRequested = this.foregroundBoostRequestedByNetwork[networkId];
@@ -410,17 +419,21 @@ class ServicePrivacyChain extends ServiceBase {
   //
   // Stops the extra power, not the sync: the background pace keeps the chain
   // moving, which is why nothing here touches the scheduler.
+  //
+  // The request is kept on purpose: dropping it took the light -- and the
+  // resume -- off screen at the moment the user asked about it.
   @backgroundMethod()
-  async pauseForegroundBoost({
+  async pauseLocalWalletScan({
     networkId,
   }: {
     networkId: string;
   }): Promise<void> {
     this.boostPausedByNetwork[networkId] = true;
-    delete this.foregroundBoostRequestedByNetwork[networkId];
-    console.log('[privacy-chain:sched] foreground pace PAUSED by user', {
+    await this.backgroundApi.simpleDb.privacyChain.saveScanPaused({
       networkId,
+      paused: true,
     });
+    console.log('[privacy-chain:sched] scanning PAUSED by user', { networkId });
     await this.publishBoostingNetworks();
   }
 
@@ -436,6 +449,18 @@ class ServicePrivacyChain extends ServiceBase {
 
   allowPrivacySyncOnCellularCache: boolean | undefined;
 
+  // The scheduler asks this every pass, so it reads the primed mirror.
+  async loadScanPausedNetworks(): Promise<void> {
+    if (this.scanPauseLoaded) {
+      return;
+    }
+    this.boostPausedByNetwork = {
+      ...(await this.backgroundApi.simpleDb.privacyChain.getScanPausedNetworks()),
+      ...this.boostPausedByNetwork,
+    };
+    this.scanPauseLoaded = true;
+  }
+
   // Touches arrive on a poll, so this must not hit the db every time.
   async isPrivacySyncOnCellularAllowed(): Promise<boolean> {
     if (this.allowPrivacySyncOnCellularCache === undefined) {
@@ -443,6 +468,13 @@ class ServicePrivacyChain extends ServiceBase {
         await this.backgroundApi.simpleDb.privacyChain.getAllowCellularSync();
     }
     return this.allowPrivacySyncOnCellularCache;
+  }
+
+  async isLocalWalletScanAllowed(): Promise<boolean> {
+    return isPrivacySyncSchedulingAllowed({
+      deviceIsCellular: this.deviceIsCellular,
+      allowPrivacySyncOnCellular: await this.isPrivacySyncOnCellularAllowed(),
+    });
   }
 
   @backgroundMethod()
@@ -515,6 +547,10 @@ class ServicePrivacyChain extends ServiceBase {
     if (!this.foregroundBoostRequestedByNetwork[networkId]) {
       return false;
     }
+    // A pause is its own state, not a missing request: the light needs it.
+    if (this.boostPausedByNetwork[networkId]) {
+      return false;
+    }
     return !this.isNetworkBoostBlockedByData(networkId);
   }
 
@@ -550,6 +586,12 @@ class ServicePrivacyChain extends ServiceBase {
       });
     }
     await this.init();
+    if (backfillActive && !this.boostPausedByNetwork[networkId]) {
+      // An explicit enable needs a visible progress/consent control even
+      // before the scheduler can publish the first scanned block.
+      this.foregroundBoostRequestedByNetwork[networkId] = true;
+      await this.publishBoostingNetworks();
+    }
     this.scheduleBackgroundSync(0);
     appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
@@ -565,15 +607,8 @@ class ServicePrivacyChain extends ServiceBase {
     }
     const networkIds = await this.getLocalWalletNetworkIds();
     for (const networkId of networkIds) {
-      try {
-        const vault = await vaultFactory.getChainOnlyVault({ networkId });
-        await vault.getLocalWalletCapability()?.dropLocalData?.();
-      } catch (e) {
-        console.error('[privacy-chain] drop local data failed', {
-          networkId,
-          message: e instanceof Error ? e.message : String(e),
-        });
-      }
+      const vault = await vaultFactory.getChainOnlyVault({ networkId });
+      await vault.getLocalWalletCapability()?.dropLocalData?.();
     }
   }
 
@@ -642,13 +677,7 @@ class ServicePrivacyChain extends ServiceBase {
     const tickStartedAt = Date.now();
     let continueDelayMs: number | undefined;
     try {
-      if (
-        !isPrivacySyncSchedulingAllowed({
-          deviceIsCellular: this.deviceIsCellular,
-          allowPrivacySyncOnCellular:
-            await this.isPrivacySyncOnCellularAllowed(),
-        })
-      ) {
+      if (!(await this.isLocalWalletScanAllowed())) {
         return;
       }
       let anyStateChanged = false;
@@ -697,6 +726,13 @@ class ServicePrivacyChain extends ServiceBase {
           // authorizes destructive pruning of its old UI state. A later tip
           // failure must preserve the accounts and foreground boost.
           prunableNetworkIds.add(networkId);
+          // A paused chain does no work at all, not even the tip request.
+          // Every scan trigger funnels through this loop, so one check here
+          // stops all of them; the bookkeeping above has already run.
+          if (this.boostPausedByNetwork[networkId]) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
           // One cheap head request per network. A full WebWallet sync is only
           // queued when this value advances or birthday work remains.
           // eslint-disable-next-line no-await-in-loop
@@ -1358,6 +1394,8 @@ class ServicePrivacyChain extends ServiceBase {
     return capability.getAccountState({ accountId });
   }
 
+  enableMutexByNetwork = new Map<string, Mutex>();
+
   @backgroundMethod()
   async enableLocalWalletAccount({
     networkId,
@@ -1370,12 +1408,23 @@ class ServicePrivacyChain extends ServiceBase {
     birthdayHeight?: number;
     birthdayTimestamp?: number;
   }): Promise<void> {
-    const capability = await this.requireAccountCapability(networkId);
-    await this.assertEnabledAccountLimit({ networkId, accountId, capability });
-    await capability.enableAccount({
-      accountId,
-      birthdayHeight,
-      birthdayTimestamp,
+    let mutex = this.enableMutexByNetwork.get(networkId);
+    if (!mutex) {
+      mutex = new Mutex();
+      this.enableMutexByNetwork.set(networkId, mutex);
+    }
+    await mutex.runExclusive(async () => {
+      const capability = await this.requireAccountCapability(networkId);
+      await this.assertEnabledAccountLimit({
+        networkId,
+        accountId,
+        capability,
+      });
+      await capability.enableAccount({
+        accountId,
+        birthdayHeight,
+        birthdayTimestamp,
+      });
     });
   }
 
@@ -1417,6 +1466,64 @@ class ServicePrivacyChain extends ServiceBase {
         autoToast: true,
       });
     }
+  }
+
+  // The same count the ceiling is enforced against, shaped for a page.
+  // Enforcement stays in assertEnabledAccountLimit.
+  @backgroundMethod()
+  async getLocalWalletSlotUsage({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<ILocalWalletSlotUsage> {
+    const settings = await getVaultSettings({ networkId });
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const capability = requireLocalWalletCapability(vault);
+    const [{ accounts }, visibleAccounts] = await Promise.all([
+      capability.listAccounts(),
+      this.listLocalWalletAccounts(),
+    ]);
+    const visible = new Map(
+      visibleAccounts.map((account) => [account.accountId, account]),
+    );
+    type IOccupant = ILocalWalletSlotUsage['occupants'][number];
+    // Null marks an identity held only by wallets this session cannot see.
+    const byIdentity = new Map<string, IOccupant | null>();
+    for (const account of accounts) {
+      if (!account.syncEnabled) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const item = visible.get(account.accountId);
+      if (!item) {
+        if (!byIdentity.has(account.accountRuntimeKey)) {
+          byIdentity.set(account.accountRuntimeKey, null);
+        }
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const occupant = byIdentity.get(account.accountRuntimeKey);
+      if (occupant) {
+        occupant.aliasCount += 1;
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      byIdentity.set(account.accountRuntimeKey, {
+        accountId: item.accountId,
+        accountName: item.accountName,
+        walletName: item.walletName,
+        aliasCount: 1,
+      });
+    }
+    const occupants = Array.from(byIdentity.values()).filter(
+      (occupant): occupant is IOccupant => occupant !== null,
+    );
+    return {
+      used: byIdentity.size,
+      max: settings.localWallet?.maxEnabledAccounts,
+      occupants,
+      hiddenCount: byIdentity.size - occupants.length,
+    };
   }
 
   @backgroundMethod()
@@ -1546,7 +1653,10 @@ class ServicePrivacyChain extends ServiceBase {
       const isCandidate =
         !!networkId &&
         networkIds.includes(networkId) &&
-        accountUtils.isHdAccount({ accountId: account.id }) &&
+        // Same set the enable path asserts on: HD or hardware, never an
+        // imported key or a watching account.
+        (accountUtils.isHdAccount({ accountId: account.id }) ||
+          accountUtils.isHwAccount({ accountId: account.id })) &&
         walletNames.has(accountWalletId) &&
         (!walletId || accountWalletId === walletId);
       if (isCandidate) {
@@ -1678,13 +1788,19 @@ class ServicePrivacyChain extends ServiceBase {
     const boostingNetworkIds = requested.filter((id) =>
       this.isNetworkForegroundHot(id),
     );
-    const dataBlockedNetworkIds = requested.filter((id) =>
-      this.isNetworkBoostBlockedByData(id),
+    // A paused network is never also waiting for data consent.
+    const pausedNetworkIds = requested.filter(
+      (id) => !!this.boostPausedByNetwork[id],
+    );
+    const dataBlockedNetworkIds = requested.filter(
+      (id) =>
+        !this.boostPausedByNetwork[id] && this.isNetworkBoostBlockedByData(id),
     );
     await privacyChainAtom.set((v) => ({
       ...v,
       boostingNetworkIds,
       dataBlockedNetworkIds,
+      pausedNetworkIds,
     }));
   }
 
@@ -1721,6 +1837,11 @@ class ServicePrivacyChain extends ServiceBase {
         candidate.capability.syncPolicy.autoBoostMinRemainingBlocks,
     });
     const wasRequested = !!this.foregroundBoostRequestedByNetwork[networkId];
+    // While paused `wanted` is false, and dropping the request here would
+    // erase the paused light on the next pass.
+    if (this.boostPausedByNetwork[networkId]) {
+      return;
+    }
     if (wanted === wasRequested) {
       return;
     }

@@ -16,6 +16,8 @@
 > 逐条替代决策见 `05-decisions-and-open-questions.md` 的 D14–D17。网络身份、
 > 透明/隐私数据归属与广播恢复的当前约束见 `adr/0001-*`、`adr/0002-*`。
 
+当前本地产物构建、硬件透明签名和 CI 恢复边界见 [09-local-artifacts-and-ci.md](09-local-artifacts-and-ci.md)。
+
 一页看全所有机制。每节 = 一个机制:干什么 / 谁触发 / 状态存哪 / 代码在哪。
 决策依据在 `05-decisions-and-open-questions.md`(D1~D12),这里只画"现在是什么样"。
 坑的病理在 `04-pitfalls.md`。**改任何机制前先改这页,对不上就是漂移。**

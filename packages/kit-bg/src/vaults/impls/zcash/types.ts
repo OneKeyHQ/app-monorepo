@@ -20,8 +20,6 @@ export type IEncodedTxZcash = IEncodedTxBtc & {
   // Shield sweep (transparent -> own shielded pool): create goes through
   // pcztShield instead of pcztCreate; amount is display intent only (the
   // sweep proposer takes no amount and deducts the fee itself).
-  isShielding?: boolean;
-  zcashShieldingGrossValue?: string; // zatoshi before the exact ZIP-317 fee
   // Per-pool withdraw: note selection limited to this pool (see createPczt).
   zcashSpendSource?: IZcashSpendSource;
   // Account preference captured when this transaction is built. Keeping it on

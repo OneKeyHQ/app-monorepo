@@ -47,7 +47,11 @@ describe('Local wallet receive addresses', () => {
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: (): Partial<ILocalWalletCapability> => ({
         getAccountAddresses,
-        getAccountState: async () => ({ enabled, preferPublicSends: false }),
+        getAccountState: async () => ({
+          enabled,
+          paused: false,
+          preferPublicSends: false,
+        }),
       }),
     });
     return Object.assign(

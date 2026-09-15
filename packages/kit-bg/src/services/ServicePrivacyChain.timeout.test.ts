@@ -152,3 +152,61 @@ describe('Privacy sync timeout recovery', () => {
     expect(service.quarantinedSyncs.get(stateKey)).toBe(newerWriter);
   });
 });
+
+describe('Privacy enable scan visibility', () => {
+  it.each([false, true])(
+    'publishes an initial scan request without clearing manual pause (%s)',
+    async (paused) => {
+      const publishBoostingNetworks = jest.fn();
+      const service = Object.assign(
+        Object.create(ServicePrivacyChain.prototype) as InstanceType<
+          typeof ServicePrivacyChain
+        >,
+        {
+          backfillActiveByAccount: {},
+          boostPausedByNetwork: { 'zec--0': paused },
+          foregroundBoostRequestedByNetwork: {},
+          init: jest.fn(),
+          scheduleBackgroundSync: jest.fn(),
+          publishBoostingNetworks,
+        },
+      );
+      await service.onLocalWalletAccountsChanged({
+        networkId: 'zec--0',
+        accountIds: ['account'],
+        backfillActive: true,
+      });
+      expect(service.foregroundBoostRequestedByNetwork['zec--0']).toBe(
+        paused ? undefined : true,
+      );
+      expect(service.boostPausedByNetwork['zec--0']).toBe(paused);
+      expect(publishBoostingNetworks).toHaveBeenCalledTimes(paused ? 0 : 1);
+    },
+  );
+});
+
+describe('Privacy database erasure', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('propagates erasure failure so App reset retains its cleanup index', async () => {
+    const dropLocalData = jest
+      .fn()
+      .mockRejectedValue(new Error('privacy database erase failed'));
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({ dropLocalData }),
+    });
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      { getLocalWalletNetworkIds: async () => ['zec--0'] },
+    );
+
+    await expect(service.dropAllLocalWalletData()).rejects.toThrow(
+      'privacy database erase failed',
+    );
+    expect(dropLocalData).toHaveBeenCalledTimes(1);
+  });
+});

@@ -59,6 +59,9 @@ export type IPrivacyChainScanState = {
   // pause, the other holds nothing and offers consent. Refusing silently
   // would leave a scan that never finishes with nothing on screen saying why.
   dataBlockedNetworkIds: string[];
+  // Networks the user paused. Published so the light can stay on screen in a
+  // paused state instead of removing its own control.
+  pausedNetworkIds: string[];
 };
 
 export const { target: privacyChainAtom, use: usePrivacyChainAtom } =
@@ -69,5 +72,6 @@ export const { target: privacyChainAtom, use: usePrivacyChainAtom } =
       progress: {},
       boostingNetworkIds: [],
       dataBlockedNetworkIds: [],
+      pausedNetworkIds: [],
     },
   });

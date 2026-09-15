@@ -2,28 +2,36 @@
 
 Status: accepted for implementation
 
+Current capability alignment is recorded in
+[ADR 0007](adr/0007-align-payment-capabilities-and-balance-language.md).
+
 This document is the product and test contract for the Zcash integration. It
 supersedes older assumptions that every Zcash HD account initializes and scans
 a local shielded wallet automatically.
 
 ## Product modes
 
-Every Zcash account has an independent product mode. There is no persisted
-chain-wide master switch.
+Every Zcash account has an independent product mode. A scan-execution control
+is separate from these account modes; it does not change account opt-in intent.
 
 - **Transparent Mode** is the default. It exposes the transparent address,
   backend balance, backend history, and supported transparent sends. It does
   not derive or register a UFVK, create WalletDb state, scan compact blocks, or
-  initialize the wallet runtime.
+  initialize a scan wallet. Stateless proof computation does not enable scanning.
 - **Privacy Mode** is opt-in. It derives and stores viewing metadata locally,
   registers the UFVK, and enables Orchard and Ironwood scanning and actions.
-- The network scheduler runs only while at least one privacy identity is
-  enabled. Network activity is a derived state, not a user setting.
+- The network scheduler may scan only while at least one privacy identity is
+  enabled, scanning is not manually paused, and network policy permits it.
 
 Software HD accounts, including wallets restored from a mnemonic, may enable
 Privacy Mode. Imported xprv accounts and watch-only transparent accounts remain
-transparent-only in the first implementation. Hardware and single-WIF support
-are future work.
+transparent-source-only in the first implementation; supported UA recipients do
+not give those accounts private-source spending or private discovery. OneKey
+hardware support is required in the current delivery, including transparent
+payments to transparent addresses and supported UAs without scanning or enabling
+Privacy Mode, plus Shield All and supported private-source payments. Verify the
+device/protocol and sending matrix against the companion hardware SDK. Single-WIF
+support remains future work.
 
 ## State and ownership
 
@@ -67,8 +75,9 @@ unknown rather than zero.
 
 - Transparent balance, history, and receive do not initialize either Zcash
   WASM package.
-- Transparent software signing lazily initializes only the stateless keys
-  signer for the current process or WebEmbed lifetime.
+- Transparent software signing lazily initializes the stateless keys signer.
+  A supported UA output may additionally load stateless proof computation; it
+  must not initialize scan storage, register a viewing identity, or scan blocks.
 - Privacy sync and private transaction work lazily initialize the wallet
   runtime.
 - Closing Privacy Mode stops scheduling new bounded scan steps. An in-flight
@@ -102,12 +111,12 @@ enabled, transparent inputs are selected first and the selected shielded pool
 only covers a shortfall. It has no effect on transparent destinations or the
 explicit transparent-only send path.
 
-| Source | Destination | First implementation |
+| Source | Destination | Current product contract |
 | --- | --- | --- |
 | Transparent regular UTXO | transparent address | Supported by stateless Zcash signer |
 | Transparent coinbase UTXO | any | Visible but locked; unsupported |
-| Transparent | own Ironwood | Supported only by explicit Shield All after enabling Privacy Mode |
-| Transparent | external UA/Ironwood | Unsupported |
+| Explicit Shield All | own Ironwood | Requires Privacy Mode; all eligible regular transparent funds less fee |
+| Transparent regular UTXO | supported UA | Supported without scanning; distinct from the Shield All product action |
 | Transparent | Sapling | Unsupported |
 | Orchard | transparent address | Supported by Withdraw/private runtime path |
 | Ironwood | transparent address | Supported by Withdraw/private runtime path |
@@ -137,6 +146,10 @@ must remain unselectable, and ZIP-317 must be recomputed by the Zcash builder.
 
 ## Pause, delete, and reset
 
+- **Pause Scanning** in the floating progress window stops scan execution until
+  an explicit manual resume. It does not change account Privacy Mode, viewing
+  metadata, birthday, or cached private surfaces. Stopping only foreground boost
+  while continuing base scans does not satisfy this action.
 - **Pause Privacy Mode** stops future scanning and hides private surfaces while
   retaining viewing metadata, birthday, and runtime cache.
 - **Delete Local Privacy Data** is a separate destructive account action. It
@@ -170,8 +183,8 @@ summary, and local-storage information. Its Zcash section exposes developer
 diagnostics only when Developer Mode is enabled. Account Settings owns the
 account mode, birthday, pause, and local-data deletion.
 
-The Zcash Transparent pool page also owns the account-level **Use transparent
-funds first** preference. Its disclosure explains that a private send may put
+Account Settings owns the account-level **Use transparent funds first**
+preference, disabled by default. Its disclosure explains that a private send may put
 the transparent address on-chain alongside shielded outputs and that change is
 returned to Ironwood. This is opportunistic during a user-initiated private
 send; it does not schedule or broadcast a background shielding transaction.
@@ -179,6 +192,21 @@ send; it does not schedule or broadcast a background shielding transaction.
 Cellular privacy sync uses one global permission, default false. Without
 permission no fast or slow private scan runs on cellular. An explicit user
 attempt may request permission; Wi-Fi sync remains available.
+
+Enabling Privacy Mode displays the scan-progress floating window. If cellular
+permission is absent, it shows that scanning is waiting for an allowed network;
+the blocked scan is not itself a reason to discard completed account setup.
+Manual scan pause and account Privacy Mode are independent. Automatic foreground
+boost or ordinary background scheduling must not resume a manually paused scan.
+
+## Balance presentation
+
+Spendable transparent funds are not frozen merely because Privacy Mode is on.
+Account presentation distinguishes total, available, and unknown amounts. The
+aggregate available figure does not override the source-pool, recipient,
+confirmation, reservation, or fee constraints of an individual payment.
+Unavailable or incomplete private observations must not be presented as a known
+zero; displaying a separate partial-discovery figure requires an explicit label.
 
 ## History projection
 
@@ -221,8 +249,6 @@ enabled account being unrecoverable on any supported platform.
 - App-visible Zcash testnet network.
 - Sapling discovery, display, receive, or spend.
 - Scheduled/background automatic shielding.
-- Transparent-to-external-UA sends.
 - Single-WIF imported sending.
-- Hardware Zcash sending.
 - Per-transaction WASM unloading.
 - Compatibility migration for current development-only local data.

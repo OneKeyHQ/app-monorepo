@@ -19,9 +19,11 @@ import {
 import {
   buildTransparentTxWithAccountXprv,
   buildTransparentTxWithSeed,
+  createTransparentHardwarePczt,
   deriveAccount,
   deriveAddressFromUfvk,
   deriveTransparentXpubFromUfvk,
+  finalizeTransparentHardwarePczt,
   getChainTip,
   quoteTransparentTx,
   signPczt,
@@ -52,6 +54,7 @@ import {
   readBalance,
   readHistory,
   readSyncProgress,
+  refreshTransparentUtxos,
   syncWallet,
 } from './wallet';
 
@@ -159,9 +162,8 @@ async function capabilities(): Promise<IZcashCapabilities> {
 function leased<A extends unknown[], R>(
   fn: (...args: A) => Promise<R>,
 ): (...args: A) => Promise<R> {
-  // The one choke point every wallet operation passes through, so it also
-  // feeds the endpoint pool: consecutive NETWORK_ERRORs rotate to the next
-  // lightwalletd (carrier.noteNetworkOutcome), any success resets the count.
+  // Escaping failures are counted once here. Only operations with actual
+  // network work report success; local reads must not reset endpoint failures.
   return (...args: A) => {
     const queuedAt = Date.now();
     return withWalletLease(async () => {
@@ -169,7 +171,6 @@ function leased<A extends unknown[], R>(
       const startedAt = Date.now();
       try {
         const result = await fn(...args);
-        noteNetworkOutcome(null);
         privacyChainPerfLog(`carrier leased ${fn.name}`, {
           waitedMs,
           ranMs: Date.now() - startedAt,
@@ -271,10 +272,14 @@ const api: IZcashSdkApi = {
   buildTransparentTxWithSeed,
   buildTransparentTxWithAccountXprv,
 
+  createTransparentHardwarePczt,
+  finalizeTransparentHardwarePczt,
+
   // Leased: every one of these opens or uses the wallet database.
   prepareWalletAccounts: leased(prepareWalletAccounts),
   syncWallet: leased(syncWallet),
   queueRescanFrom: leased(queueRescanFrom),
+  refreshTransparentUtxos: leased(refreshTransparentUtxos),
   // Lock-free when the wallet database is already open -- see
   // readOnlyOrLeased above. These are the three surfaces a user stares at.
   getSyncProgress: (account) =>

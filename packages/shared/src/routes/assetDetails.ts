@@ -96,6 +96,9 @@ export type IModalAssetDetailsParamList = {
     notificationId?: string;
     notificationAccountId?: string;
     historyTx: IAccountHistoryTx | undefined;
+    // Which pool tab this was opened from, for chains whose public and private
+    // history come from different sources.
+    privacyChainPoolId?: number;
     isAllNetworks?: boolean;
     checkIsFocused?: boolean;
     allowClickAccountNameSwitch?: boolean;

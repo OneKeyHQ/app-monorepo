@@ -339,6 +339,9 @@ export type IFetchHistoryTxDetailsParams = {
   // caller holds), lets vaults narrow per-request extra params such as the
   // btc find-address `accountAddressArray`
   txInvolvedAddresses?: string[];
+  // Which pool tab the user opened this transaction from, for chains whose
+  // public and private sides are owned by different sources.
+  privacyChainPoolId?: number;
 };
 
 export type IFetchTxDetailsParams = {
@@ -387,6 +390,8 @@ export interface IServerFetchAccountHistoryDetailParams {
   // requests carry only the addresses the tx involves when the caller has
   // tx context; otherwise the full claimed set is sent as a safe superset.
   accountAddressArray?: string[];
+  // See IFetchHistoryTxDetailsParams.
+  privacyChainPoolId?: number;
 }
 
 export interface IChangedPendingTxInfo {

@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -20,6 +21,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const KEEP_AWAKE_TAG = 'privacy-chain-sync';
 
@@ -68,14 +71,16 @@ function KeepScreenAwake() {
 // pass while it still holds the wallet; polling for this instead put the read
 // into the same FIFO lane as the scan, for the entire life of the app.
 function BasicPrivacyChainSyncLight() {
-  const [{ boostingNetworkIds, dataBlockedNetworkIds, progress }] =
-    usePrivacyChainAtom();
+  const [
+    { boostingNetworkIds, dataBlockedNetworkIds, pausedNetworkIds, progress },
+  ] = usePrivacyChainAtom();
   // Anchored opposite the toasts, which sit top-center when narrow and
   // bottom-right when wide (components/actions/Toast/Toaster.tsx). A toast is
   // transient and fires at any moment; this light is persistent, so sharing an
   // anchor would mean a toast eventually lands on top of the one control that
   // stops the battery drain. Narrow also keeps the top clear for the page
   // header and balance, and puts the buttons in thumb reach.
+  const intl = useIntl();
   const media = useMedia();
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const isCellular = useIsCellularNetwork();
@@ -83,7 +88,8 @@ function BasicPrivacyChainSyncLight() {
 
   const boostingNetworkId = boostingNetworkIds[0];
   const blockedNetworkId = dataBlockedNetworkIds[0];
-  const networkId = boostingNetworkId ?? blockedNetworkId;
+  const pausedNetworkId = pausedNetworkIds[0];
+  const networkId = boostingNetworkId ?? blockedNetworkId ?? pausedNetworkId;
 
   // Only the UI can see the connection type, and this surface is the one that
   // exists app-wide -- reporting it from a page meant the scheduler's view of
@@ -109,8 +115,17 @@ function BasicPrivacyChainSyncLight() {
 
   const onPause = useCallback(() => {
     if (!networkId) return;
-    void backgroundApiProxy.servicePrivacyChain.pauseForegroundBoost({
+    void backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
       networkId,
+    });
+  }, [networkId]);
+
+  // 'manual-sync' is what clears the pause -- the press IS the resume.
+  const onResume = useCallback(() => {
+    if (!networkId) return;
+    void backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
+      networkId,
+      trigger: 'manual-sync',
     });
   }, [networkId]);
 
@@ -144,7 +159,20 @@ function BasicPrivacyChainSyncLight() {
       };
       return remaining(right) - remaining(left);
     })[0];
-  const isRunning = Boolean(boostingNetworkId);
+  const isRunning = boostingNetworkIds.includes(networkId);
+  const isPaused = !isRunning && pausedNetworkIds.includes(networkId);
+  // A pause is only worth reporting while there is still a backfill to resume.
+  if (isPaused && !entry) {
+    return null;
+  }
+  // Only native can tell metered from not; elsewhere the label would guess.
+  const connection = platformEnv.isNative
+    ? ` · ${intl.formatMessage({
+        id: isCellular
+          ? ETranslationsMock.privacy_scan_on_cellular
+          : ETranslationsMock.privacy_scan_on_wifi,
+      })}`
+    : '';
   const pct =
     entry?.backfillProgress === null || entry?.backfillProgress === undefined
       ? ''
@@ -194,7 +222,9 @@ function BasicPrivacyChainSyncLight() {
             <KeepScreenAwake />
             <Icon name="RefreshCcwOutline" size="$4" color="$iconSubdued" />
             <SizableText size="$bodySmMedium" color="$textSubdued">
-              {entry ? `Syncing ${pct}${heights}` : 'Starting sync…'}
+              {entry
+                ? `Syncing ${pct}${heights}${connection}`
+                : `Starting sync…${connection}`}
             </SizableText>
             <SizableText size="$bodySm" color="$textCaution">
               Using extra power
@@ -208,12 +238,36 @@ function BasicPrivacyChainSyncLight() {
               size="small"
               variant="tertiary"
               icon="PauseOutline"
-              title="Stop fast sync (keeps syncing slowly)"
+              title={intl.formatMessage({
+                id: ETranslationsMock.privacy_scan_pause_title,
+              })}
               onPress={onPause}
               pointerEvents="auto"
             />
           </>
-        ) : (
+        ) : null}
+        {isPaused ? (
+          <>
+            <Icon name="PauseOutline" size="$4" color="$iconSubdued" />
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {`${intl.formatMessage({
+                id: ETranslationsMock.privacy_scan_paused,
+              })} · ${pct}${heights}${connection}`}
+            </SizableText>
+            <Button
+              testID="privacy-chain-sync-light-resume-btn"
+              size="small"
+              variant="primary"
+              onPress={onResume}
+              pointerEvents="auto"
+            >
+              {intl.formatMessage({
+                id: ETranslationsMock.privacy_scan_resume,
+              })}
+            </Button>
+          </>
+        ) : null}
+        {!isRunning && !isPaused ? (
           <>
             <Icon name="LockOutline" size="$4" color="$iconCaution" />
             <SizableText size="$bodySmMedium" color="$textSubdued">
@@ -231,7 +285,7 @@ function BasicPrivacyChainSyncLight() {
               Continue
             </Button>
           </>
-        )}
+        ) : null}
       </XStack>
     </Stack>
   );

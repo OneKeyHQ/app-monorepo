@@ -8,7 +8,13 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 
 function parsed(value: string, decimals: number): string {
-  return new BigNumber(value).shiftedBy(-decimals).toFixed();
+  const amount = new BigNumber(value);
+  return amount.isFinite() ? amount.shiftedBy(-decimals).toFixed() : '';
+}
+
+function fiatValueOf(value: string, price: number): string {
+  const amount = new BigNumber(value);
+  return amount.isFinite() ? amount.multipliedBy(price).toFixed() : '';
 }
 
 export function applyZcashBalanceToBackendTokenList({
@@ -33,13 +39,12 @@ export function applyZcashBalanceToBackendTokenList({
   const balanceParsed = parsed(balance.total, decimals);
   const frozenBalanceParsed = parsed(balance.frozen, decimals);
   const price = nativeFiat.price || 0;
-  const fiatValue = new BigNumber(balanceParsed).multipliedBy(price).toFixed();
-  const frozenBalanceFiatValue = new BigNumber(frozenBalanceParsed)
-    .multipliedBy(price)
-    .toFixed();
+  const fiatValue = fiatValueOf(balanceParsed, price);
+  const frozenBalanceFiatValue = fiatValueOf(frozenBalanceParsed, price);
   response.data.data.tokens.map[nativeToken.$key] = {
     ...nativeFiat,
     balance: balance.total,
+    balanceStatus: balance.balanceStatus,
     balanceParsed,
     frozenBalance: balance.frozen,
     frozenBalanceParsed,
@@ -77,18 +82,15 @@ export function applyZcashBalanceToBackendTokenDetails({
   const price = nativeToken.price || 0;
   Object.assign(nativeToken, {
     balance: balance.spendable,
+    balanceStatus: balance.balanceStatus,
     balanceParsed: spendableParsed,
     frozenBalance: balance.frozen,
     frozenBalanceParsed,
     totalBalance: balance.total,
     totalBalanceParsed,
-    fiatValue: new BigNumber(spendableParsed).multipliedBy(price).toFixed(),
-    frozenBalanceFiatValue: new BigNumber(frozenBalanceParsed)
-      .multipliedBy(price)
-      .toFixed(),
-    totalBalanceFiatValue: new BigNumber(totalBalanceParsed)
-      .multipliedBy(price)
-      .toFixed(),
+    fiatValue: fiatValueOf(spendableParsed, price),
+    frozenBalanceFiatValue: fiatValueOf(frozenBalanceParsed, price),
+    totalBalanceFiatValue: fiatValueOf(totalBalanceParsed, price),
   });
   return true;
 }

@@ -1,3 +1,5 @@
+import { isEqual } from 'lodash';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -32,6 +34,8 @@ export type IZcashTransparentPendingTx = {
   expiryHeight: number;
   createdAt: number;
   broadcastState: 'accepted' | 'unknown';
+  // A signature alone is not authorization to submit or recover by rebroadcast.
+  broadcastAuthorized?: boolean;
 };
 
 export type IZcashShieldedReservation = {
@@ -149,15 +153,27 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
   async saveAccountMeta({
     accountId,
     meta,
+    expectedPrivacyModeState,
+    expectedMeta,
   }: {
     accountId: string;
     meta: IZcashAccountMeta;
+    expectedPrivacyModeState?: IZcashPrivacyModeStateView;
+    expectedMeta?: IZcashAccountMeta;
   }) {
     // setRawData replaces the whole record with whatever the builder
     // returns (no implicit merge) -- every method here must spread
     // ...rawData first or it silently wipes the OTHER top-level key.
     await this.setRawData((rawData) => {
       const privacyModeState = rawData?.privacyModeAccounts?.[accountId];
+      if (
+        (expectedPrivacyModeState !== undefined &&
+          !isEqual(privacyModeState, expectedPrivacyModeState)) ||
+        (expectedMeta !== undefined &&
+          !isEqual(rawData?.accounts?.[accountId], expectedMeta))
+      ) {
+        throw new OneKeyLocalError('zcash: privacy state changed during setup');
+      }
       return {
         ...rawData,
         accounts: {
@@ -308,8 +324,10 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
 
   async completePrivacyModeEnable({
     accountId,
+    maxEnabledAccounts,
   }: {
     accountId: string;
+    maxEnabledAccounts?: number;
   }): Promise<void> {
     await this.setRawData((rawData) => {
       const current = rawData?.privacyModeAccounts?.[accountId];
@@ -317,6 +335,35 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         throw new OneKeyLocalError(
           'zcash: privacy enable operation is not pending',
         );
+      }
+      if (maxEnabledAccounts !== undefined) {
+        const targetKey = rawData?.accounts?.[accountId]?.ufvk;
+        if (!targetKey) {
+          throw new OneKeyLocalError(
+            'zcash: viewing identity missing during enable',
+          );
+        }
+        const enabledKeys = new Set(
+          Object.entries(rawData?.privacyModeAccounts ?? {}).flatMap(
+            ([id, state]) => {
+              const ufvk = rawData?.accounts?.[id]?.ufvk;
+              return state.intent === 'on' &&
+                state.operation === undefined &&
+                ufvk
+                ? [ufvk]
+                : [];
+            },
+          ),
+        );
+        if (
+          !enabledKeys.has(targetKey) &&
+          enabledKeys.size >= maxEnabledAccounts
+        ) {
+          throw new OneKeyLocalError({
+            message: `Privacy Mode is limited to ${maxEnabledAccounts} accounts at a time. Turn one off before enabling another.`,
+            autoToast: true,
+          });
+        }
       }
       const { operation: _operation, ...retained } = current;
       const { resumeFromHeight: _resumeFromHeight, ...completed } = retained;
@@ -401,12 +448,17 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
     );
   }
 
-  async cancelPendingPrivacyModeEnables(): Promise<string[]> {
+  async cancelPendingPrivacyModeEnables(options?: {
+    accountId: string;
+  }): Promise<string[]> {
     const cancelledAccountIds: string[] = [];
     await this.setRawData((rawData) => {
       const privacyModeAccounts = { ...rawData?.privacyModeAccounts };
       for (const [accountId, state] of Object.entries(privacyModeAccounts)) {
-        if (state.operation?.type === 'enable') {
+        if (
+          state.operation?.type === 'enable' &&
+          (options === undefined || options.accountId === accountId)
+        ) {
           const { operation: _operation, ...retained } = state;
           privacyModeAccounts[accountId] = {
             ...retained,
@@ -664,8 +716,20 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
     }));
   }
 
-  async removePendingRescan({ accountId }: { accountId: string }) {
+  async removePendingRescan({
+    accountId,
+    expectedRepair,
+  }: {
+    accountId: string;
+    expectedRepair?: IZcashPendingRescan;
+  }) {
     await this.setRawData((rawData) => {
+      if (
+        expectedRepair !== undefined &&
+        !isEqual(rawData?.pendingRescans?.[accountId], expectedRepair)
+      ) {
+        return rawData ?? { accounts: {} };
+      }
       const pendingRescans = { ...rawData?.pendingRescans };
       delete pendingRescans[accountId];
       return {
@@ -742,6 +806,9 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
     ownerId: string;
   }): Promise<void> {
     await this.setRawData((rawData) => {
+      if (!rawData?.transparentReservations?.[accountId]) {
+        return rawData ?? { accounts: {} };
+      }
       const reservations = {
         ...rawData?.transparentReservations?.[accountId],
       };
@@ -764,21 +831,43 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
   async saveTransparentPendingTx({
     accountId,
     tx,
+    requireLiveReservation,
   }: {
     accountId: string;
     tx: IZcashTransparentPendingTx;
+    requireLiveReservation?: boolean;
   }): Promise<void> {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      accounts: rawData?.accounts ?? {},
-      transparentPendingTxs: {
-        ...rawData?.transparentPendingTxs,
-        [accountId]: {
-          ...rawData?.transparentPendingTxs?.[accountId],
-          [tx.txid]: tx,
+    await this.setRawData((rawData) => {
+      if (requireLiveReservation) {
+        const reservations = rawData?.transparentReservations?.[accountId];
+        if (
+          tx.spentOutpoints.length === 0 ||
+          tx.spentOutpoints.some((outpoint) => {
+            const reservation =
+              reservations?.[`${outpoint.txid}:${outpoint.vout}`];
+            return (
+              reservation?.ownerId !== tx.ownerId ||
+              reservation.expiryHeight !== tx.expiryHeight
+            );
+          })
+        ) {
+          throw new OneKeyLocalError(
+            'zcash: transparent signing reservation was removed or replaced',
+          );
+        }
+      }
+      return {
+        ...rawData,
+        accounts: rawData?.accounts ?? {},
+        transparentPendingTxs: {
+          ...rawData?.transparentPendingTxs,
+          [accountId]: {
+            ...rawData?.transparentPendingTxs?.[accountId],
+            [tx.txid]: tx,
+          },
         },
-      },
-    }));
+      };
+    });
   }
 
   async listTransparentPendingTxs({
@@ -788,6 +877,37 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
   }): Promise<IZcashTransparentPendingTx[]> {
     const rawData = await this.getRawData();
     return Object.values(rawData?.transparentPendingTxs?.[accountId] ?? {});
+  }
+
+  async authorizeTransparentPendingTx({
+    accountId,
+    txid,
+    rawTx,
+  }: {
+    accountId: string;
+    txid: string;
+    rawTx: string;
+  }): Promise<void> {
+    await this.setRawData((rawData) => {
+      const pending = rawData?.transparentPendingTxs?.[accountId];
+      const tx = pending?.[txid];
+      if (!tx || tx.rawTx !== rawTx) {
+        throw new OneKeyLocalError(
+          'zcash: signed transaction journal mismatch',
+        );
+      }
+      return {
+        ...rawData,
+        accounts: rawData?.accounts ?? {},
+        transparentPendingTxs: {
+          ...rawData?.transparentPendingTxs,
+          [accountId]: {
+            ...pending,
+            [txid]: { ...tx, broadcastAuthorized: true },
+          },
+        },
+      };
+    });
   }
 
   async markTransparentPendingTxAccepted({

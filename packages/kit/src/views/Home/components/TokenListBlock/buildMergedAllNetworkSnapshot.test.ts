@@ -10,6 +10,7 @@ import BigNumber from 'bignumber.js';
 
 import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isAccountTokensBalanceIncomplete } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { buildMergedAllNetworkSnapshot } from './buildMergedAllNetworkSnapshot';
@@ -406,4 +407,53 @@ describe('buildMergedAllNetworkSnapshot', () => {
     ]);
     expect(snap.smallBalanceFiatValue).toBe('1');
   });
+});
+
+it('carries incomplete balance status through cached worth and only masks included accounts', () => {
+  const round = makeRound({
+    networkId: 'zec--0',
+    accountWorth: '0',
+    tokens: {
+      data: [makeToken('zec')],
+      keys: 'zec',
+      map: { zec: makeFiat('', { balanceStatus: 'partial' }) },
+    },
+  });
+  const snapshot = buildMergedAllNetworkSnapshot({
+    rounds: [round],
+    accountId: 'acc1',
+    mergeDeriveAssetsByNetworkId: {},
+  });
+  const key = accountUtils.buildAccountValueKey({
+    accountId: 'acc1',
+    networkId: 'zec--0',
+  });
+  expect(snapshot.accountsWorthStatus[key]).toBe('partial');
+  const tokensWorth = {
+    worth: {
+      ...snapshot.accountsWorth,
+      [accountUtils.buildAccountValueKey({
+        accountId: 'acc1',
+        networkId: 'evm--1',
+      })]: '10',
+    },
+    worthStatus: snapshot.accountsWorthStatus,
+  };
+  const params = {
+    accountId: 'acc1',
+    networkId: 'zec--0',
+    tokensWorth,
+    mergeDeriveAssetsEnabled: false,
+  };
+  expect(isAccountTokensBalanceIncomplete(params)).toBe(true);
+  expect(
+    isAccountTokensBalanceIncomplete({ ...params, networkId: 'evm--1' }),
+  ).toBe(false);
+  expect(
+    isAccountTokensBalanceIncomplete({
+      ...params,
+      networkId: 'evm--1',
+      mergeDeriveAssetsEnabled: true,
+    }),
+  ).toBe(true);
 });

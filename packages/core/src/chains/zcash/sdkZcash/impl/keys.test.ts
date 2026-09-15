@@ -8,8 +8,10 @@ import { getZcashAccountIndexFromXpub } from '..';
 import {
   buildTransparentTxWithAccountXprv,
   buildTransparentTxWithSeed,
+  createTransparentHardwarePczt,
   deriveAccount,
   deriveTransparentXpubFromUfvk,
+  finalizeTransparentHardwarePczt,
   getChainTip,
   quoteTransparentTx,
 } from './keys';
@@ -24,6 +26,8 @@ const mockTransparentTxQuote = jest.fn();
 const mockTransparentTxBuildWithAccountXprv = jest.fn();
 const mockShieldCreate = jest.fn();
 const mockShieldSign = jest.fn();
+const mockHardwareCreate = jest.fn();
+const mockHardwareCombine = jest.fn();
 const mockProveAtHeight = jest.fn();
 const mockExtractStateless = jest.fn();
 const mockGetRuntime = jest.fn(async () => ({ chainTipAt: mockChainTipAt }));
@@ -40,6 +44,8 @@ const mockGetKeys = jest.fn(async () => ({
   transparentTxQuote: mockTransparentTxQuote,
   transparentShieldCreateWithSeed: mockShieldCreate,
   transparentShieldSignWithSeed: mockShieldSign,
+  transparentTxCreateWithAccountXpub: mockHardwareCreate,
+  transparentTxCombineHardwareSigned: mockHardwareCombine,
   transparentTxBuildWithAccountXprv: mockTransparentTxBuildWithAccountXprv,
 }));
 
@@ -201,6 +207,65 @@ describe('transparent keys-only transaction API', () => {
       expect(mockShieldCreate.mock.calls.at(-1)?.[1]).toEqual(
         new Uint8Array(32),
       );
+    },
+  );
+
+  it.each([false, true])(
+    'finalizes device signatures without opening wallet storage (failure=%s)',
+    async (fails) => {
+      const order: string[] = [];
+      mockGetRuntime.mockClear();
+      mockGetRuntimeWasm.mockClear();
+      const original = new Uint8Array([1, 2]);
+      const combined = new Uint8Array([3, 4]);
+      const proved = new Uint8Array([5, 6]);
+      mockHardwareCreate.mockReturnValue(original);
+      const created = await createTransparentHardwarePczt({
+        request,
+        accountXpub: 'public',
+        seedFingerprintHex: '01'.repeat(32),
+      });
+      expect(created.pcztHex).toBe('0102');
+      expect([...original]).toEqual([0, 0]);
+      mockHardwareCombine.mockImplementation(() => {
+        order.push('verify');
+        if (fails) throw new OneKeyLocalError('signature rejected');
+        return combined;
+      });
+      mockProveAtHeight.mockImplementation(() => {
+        order.push('prove');
+        return proved;
+      });
+      mockExtractStateless.mockImplementation(() => {
+        order.push('extract');
+        return JSON.stringify({ rawTx: 'abcd', txid: '11'.repeat(32) });
+      });
+      mockTransparentTxQuote.mockReturnValue(
+        JSON.stringify({
+          feeZat: '10000',
+          expiryHeight: request.expiryHeight,
+          spentOutpoints: request.selectedOutpoints,
+        }),
+      );
+      const result = finalizeTransparentHardwarePczt({
+        request,
+        accountXpub: 'public',
+        originalPcztHex: created.pcztHex,
+        signedPcztHex: 'aabb',
+      });
+      if (fails) {
+        await expect(result).rejects.toThrow('signature rejected');
+        expect(order).toEqual(['verify']);
+        expect(mockGetRuntimeWasm).not.toHaveBeenCalled();
+      } else {
+        await expect(result).resolves.toMatchObject({
+          rawTx: 'abcd',
+          feeZat: '10000',
+        });
+        expect(order).toEqual(['verify', 'prove', 'extract']);
+        expect([...combined, ...proved]).toEqual([0, 0, 0, 0]);
+      }
+      expect(mockGetRuntime).not.toHaveBeenCalled();
     },
   );
 

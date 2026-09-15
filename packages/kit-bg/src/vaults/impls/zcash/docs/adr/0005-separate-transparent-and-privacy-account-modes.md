@@ -2,6 +2,10 @@
 
 Status: accepted
 
+The initial external-UA restriction and keys-module-only loading promise below
+are superseded by [ADR 0007](0007-align-payment-capabilities-and-balance-language.md).
+The account-mode, pause, and ownership decisions remain in force.
+
 OneKey will model Transparent Mode and Privacy Mode as distinct account capabilities rather than treating shielded support as an always-on extension of every Zcash account. Transparent Mode uses OneKey backend data and a stateless Zcash signer without WalletDb or scanning; Privacy Mode is opt-in for supported accounts and activates UFVK-based local scanning. Pausing Privacy Mode retains its rebuildable cache and birthday, while deleting local privacy data is a separate destructive action that retains birthday for recovery. This boundary prevents UI-only disabling from continuing to use a viewing key in the network-shared runtime and allows transparent accounts to avoid loading the wallet runtime.
 
 There is no persisted chain-wide switch and no compatibility migration while the feature remains under development. The network scheduler runs exactly when at least one privacy identity is enabled. Product intent and birthday belong to the App database per account, while the Rust database owns only deduplicated, rebuildable scan state per `(network, UFVK)`. Multiple enabled accounts may share that scan state without forcing disabled aliases or transparent watch-only accounts to display private data.

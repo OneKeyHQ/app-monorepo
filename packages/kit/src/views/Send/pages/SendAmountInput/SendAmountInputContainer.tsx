@@ -3848,7 +3848,12 @@ function SendAmountInputContainer() {
           items={sendPools.map((pool) => ({
             label: pool.label,
             value: pool.key,
-            description: `${pool.spendableParsed} ${tokenSymbol}`.trim(),
+            description: [
+              `${pool.spendableParsed ?? '—'} ${tokenSymbol}`.trim(),
+              pool.hintId ? intl.formatMessage({ id: pool.hintId }) : '',
+            ]
+              .filter(Boolean)
+              .join(' · '),
           }))}
           onChange={(value) => {
             if (!isSubmitting && value !== selectedSendPool?.key) {

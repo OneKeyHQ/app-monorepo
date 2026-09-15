@@ -7,6 +7,7 @@ import { isZcashRuntimeError, zcashErrorAmount } from '../runtimeError';
 import {
   forgetOpenWallet,
   getRuntime,
+  noteNetworkOutcome,
   walletDbName,
   walletDbNameForNetwork,
   withWallet,
@@ -144,14 +145,14 @@ export async function getRuntimeVersions(): Promise<Record<string, string>> {
 // every pass forever, with its history on disk and no code path to remove it.
 async function purgeAccountsUnknownToHost(
   rt: Awaited<ReturnType<typeof withWallet>>['rt'],
-  known: IZcashWalletAccount[],
+  knownUfvks: string[],
 ): Promise<void> {
   const knownUuids = new Set(
-    known
+    knownUfvks
       .map(
-        (account) =>
+        (ufvk) =>
           (
-            JSON.parse(rt.accountByUfvk(account.ufvk)) as {
+            JSON.parse(rt.accountByUfvk(ufvk)) as {
               uuid: string;
             } | null
           )?.uuid,
@@ -178,6 +179,7 @@ async function purgeAccountsUnknownToHost(
 
 export async function prepareWalletAccounts(
   accounts: IZcashWalletAccount[],
+  options?: { retainedUfvks: string[] },
 ): Promise<void> {
   // Opening each account's database runs its schema migrations and imports the
   // viewing key, so later calls do not pay that cost inside a user-visible
@@ -186,9 +188,14 @@ export async function prepareWalletAccounts(
   for (const account of canonical) {
     await withWallet(account);
   }
-  if (canonical.length > 0) {
+  if (canonical.length > 0 && options) {
     const { rt } = await withWallet(canonical[0]);
-    await purgeAccountsUnknownToHost(rt, canonical);
+    // Active scan keys are not the host's ownership set: paused accounts keep
+    // their cache. Without an explicit retention set, prepare cannot purge.
+    await purgeAccountsUnknownToHost(rt, [
+      ...options.retainedUfvks,
+      ...canonical.map(({ ufvk }) => ufvk),
+    ]);
   }
 }
 
@@ -204,6 +211,7 @@ const subtreeRootsFreshUntil = new Map<string, number>();
 
 export async function rebroadcastUnmined(
   rt: Awaited<ReturnType<typeof withWallet>>['rt'],
+  recordOutcome?: (error: unknown | null) => void,
 ): Promise<{ accepted: string[]; rejected: string[] }> {
   let accountUuids: string[];
   try {
@@ -234,9 +242,13 @@ export async function rebroadcastUnmined(
         // Runtime validates and persists the intent/outcome in its own DB.
         // eslint-disable-next-line no-await-in-loop
         await rt.broadcastTransaction(txid);
+        recordOutcome?.(null);
         accepted.push(txid);
         console.log('[zcash] rebroadcast pending tx', { txid });
       } catch (e) {
+        recordOutcome?.(
+          isZcashRuntimeError(e, 'BROADCAST_REJECTED') ? null : e,
+        );
         if (isZcashRuntimeError(e, 'BROADCAST_REJECTED')) {
           rejected.push(txid);
           console.log('[zcash] rebroadcast rejected, giving up', { txid });
@@ -255,6 +267,18 @@ export async function syncWallet(
   account: IZcashWalletAccount,
   options: { activeUfvks: string[]; chainTip?: number | null },
 ): Promise<IZcashSyncResult> {
+  let networkSucceeded = false;
+  let networkFailure: unknown;
+  const recordOutcome = (error: unknown | null) => {
+    if (error === null) {
+      networkSucceeded = true;
+    } else if (
+      networkFailure === undefined ||
+      isZcashRuntimeError(error, 'NETWORK_ERROR')
+    ) {
+      networkFailure = error;
+    }
+  };
   const activeUfvks = Array.from(new Set(options.activeUfvks));
   if (activeUfvks.length === 0) {
     const error = new OneKeyLocalError(
@@ -290,7 +314,8 @@ export async function syncWallet(
     const t = Date.now();
     try {
       liveTip = await rt.chainTip();
-    } catch {
+    } catch (e) {
+      recordOutcome(e);
       // Offline: fall through and let the real sync path report the failure.
     }
     timing.tipMs = Date.now() - t;
@@ -330,12 +355,14 @@ export async function syncWallet(
   const prepareStartedAt = Date.now();
   if (Date.now() > (subtreeRootsFreshUntil.get(dbName) ?? 0)) {
     await rt.syncPrepare();
+    recordOutcome(null);
     subtreeRootsFreshUntil.set(dbName, Date.now() + SUBTREE_ROOTS_TTL_MS);
   } else if (
     liveTip !== null &&
     (before.chainTip === null || liveTip > before.chainTip)
   ) {
     await rt.syncTip();
+    recordOutcome(null);
   }
   timing.prepareMs = Date.now() - prepareStartedAt;
   let scanned = 0;
@@ -414,6 +441,7 @@ export async function syncWallet(
       // Nothing scanned means this lane has no queued ranges; move to the next
       // one rather than burning the budget on empty calls.
       if (r.blocksScanned === 0) break;
+      recordOutcome(null);
       if (lane === 'historic' && !r.done) backfillRemaining = true;
       // Hand the thread back between batches. The scan is synchronous inside
       // the wasm and on desktop/web it shares a thread with the UI, so without
@@ -498,16 +526,20 @@ export async function syncWallet(
         } | null;
         if (runtimeAccount?.uuid) {
           // eslint-disable-next-line no-await-in-loop
-          await rt.syncTransparentUtxos(runtimeAccount.uuid);
+          const refresh = JSON.parse(
+            await rt.syncTransparentUtxos(runtimeAccount.uuid),
+          ) as { addresses: number };
+          if (refresh.addresses > 0) recordOutcome(null);
         }
       }
-    } catch {
+    } catch (e) {
+      recordOutcome(e);
       transparentCurrent = false;
     }
     timing.utxoMs = Date.now() - utxoStartedAt;
     // Same cadence as the UTXO refresh (a new block is both a fresh chance
     // that the network works and a new expiry check). Never fails the pass.
-    const rebroadcast = await rebroadcastUnmined(rt);
+    const rebroadcast = await rebroadcastUnmined(rt, recordOutcome);
     rebroadcastAcceptedTxids = rebroadcast.accepted;
     rebroadcastRejectedTxids = rebroadcast.rejected;
   }
@@ -530,6 +562,13 @@ export async function syncWallet(
       } queued=${queuedAfter ?? '?'} steps=${timing.steps}`,
   );
 
+  // Failure wins over earlier successes in this pass. Tip-only and empty
+  // local passes do not establish that the scan endpoint is healthy.
+  if (networkFailure !== undefined) {
+    noteNetworkOutcome(networkFailure);
+  } else if (networkSucceeded) {
+    noteNetworkOutcome(null);
+  }
   return {
     transparentCurrent,
     // Always true now. The old implementation reported false when the carrier
@@ -634,21 +673,23 @@ export function readBalance(
   rt: Awaited<ReturnType<typeof withWallet>>['rt'],
   accountUuid: string,
 ): IZcashBalance {
-  let raw: IRuntimeBalance;
+  // NOT_SYNCED must remain unavailable; it is not evidence of an empty wallet.
+  const raw = JSON.parse(
+    rt.accountBalance(
+      accountUuid,
+      TRUSTED_CONFIRMATIONS,
+      UNTRUSTED_CONFIRMATIONS,
+      ALLOW_ZERO_CONF_SHIELDING,
+    ),
+  ) as IRuntimeBalance;
+  let isComplete = false;
   try {
-    raw = JSON.parse(
-      rt.accountBalance(
-        accountUuid,
-        TRUSTED_CONFIRMATIONS,
-        UNTRUSTED_CONFIRMATIONS,
-        ALLOW_ZERO_CONF_SHIELDING,
-      ),
-    ) as IRuntimeBalance;
-  } catch (e) {
-    // Nothing scanned yet is a state, not a fault: report zeroes so the UI can
-    // render an account that simply has no data behind it.
-    if (isZcashRuntimeError(e, 'NOT_SYNCED')) return zeroBalance();
-    throw e;
+    const status = JSON.parse(rt.accountSyncStatus(accountUuid)) as {
+      isComplete: boolean;
+    };
+    isComplete = status.isComplete === true;
+  } catch {
+    // The amounts already read are useful, but cannot be presented as totals.
   }
 
   // The runtime reports each pool separately and never merges them, because
@@ -686,6 +727,7 @@ export function readBalance(
   const spendable = shieldedSpendable;
 
   return {
+    isComplete,
     shielded: shielded.toString(),
     transparent: transparent.toString(),
     spendable: spendable.toString(),
@@ -880,6 +922,18 @@ export async function getTxDetails(
   };
 }
 
+// Re-reads this account's transparent UTXOs and lets the runtime mark the ones
+// spent elsewhere. The scan only does this on a new tip, which leaves a window
+// where another wallet's spend still looks spendable here.
+export async function refreshTransparentUtxos(
+  account: IZcashWalletAccount,
+): Promise<{ addresses: number }> {
+  const { rt, accountUuid } = await withWallet(account);
+  return JSON.parse(await rt.syncTransparentUtxos(accountUuid)) as {
+    addresses: number;
+  };
+}
+
 // Drops this account's scanned state so it can be rebuilt from its UFVK and
 // birthday. Everything here is derived cache; nothing unrecoverable is lost.
 //
@@ -889,8 +943,21 @@ export async function getTxDetails(
 // button that silently makes the whole wallet rescan. The database is deleted
 // only once it holds nothing.
 export async function purgeWallet(account: IZcashWalletAccount): Promise<void> {
-  const { rt, accountUuid } = await withWallet(account);
-  await rt.removeAccount(accountUuid);
+  // Registering it in order to remove it would rewind the shared database and
+  // requeue every other account's scanned range. An account the runtime never
+  // registered has no scanned state to drop.
+  let registered: Awaited<ReturnType<typeof withWallet>> | undefined;
+  try {
+    registered = await withWallet(account, { registerIfMissing: false });
+  } catch (e) {
+    if (!isZcashRuntimeError(e, 'ACCOUNT_NOT_FOUND')) throw e;
+  }
+  // Open either way: withWallet opens the database before resolving the
+  // account, so the emptiness check below still sees the truth.
+  const rt = registered?.rt ?? (await getRuntime());
+  if (registered) {
+    await rt.removeAccount(registered.accountUuid);
+  }
 
   const remaining = JSON.parse(rt.listAccounts()) as string[];
   if (remaining.length > 0) return;
@@ -955,39 +1022,4 @@ function ratio(
   const span = target - from;
   if (span <= 0) return 1;
   return Math.min(1, Math.max(0, (current - from) / span));
-}
-
-function zeroPoolDetail() {
-  const z = '0';
-  return {
-    spendable: z,
-    pendingChange: z,
-    pendingSpendable: z,
-    locked: z,
-    total: z,
-  };
-}
-
-function zeroBalance(): IZcashBalance {
-  const z = '0';
-  return {
-    shielded: z,
-    transparent: z,
-    spendable: z,
-    pendingChange: z,
-    pendingSpendable: z,
-    total: z,
-    orchardBalance: z,
-    ironwoodBalance: z,
-    transparentBalance: z,
-    shieldedSpendable: z,
-    poolsDetail: {
-      orchard: zeroPoolDetail(),
-      ironwood: zeroPoolDetail(),
-      transparentRegular: zeroPoolDetail(),
-      transparentCoinbase: zeroPoolDetail(),
-    },
-    transparentRegularBalance: z,
-    transparentCoinbaseBalance: z,
-  };
 }

@@ -34,6 +34,7 @@ const runtime = {
 };
 
 jest.mock('./carrier', () => ({
+  noteNetworkOutcome: jest.fn(),
   getRuntime: jest.fn(async () => runtime),
   getKeys: jest.fn(async () => ({
     keysCapabilities: mockKeysCapabilities,

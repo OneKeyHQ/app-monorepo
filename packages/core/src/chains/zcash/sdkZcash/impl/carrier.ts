@@ -538,8 +538,8 @@ export function resetCarrierState(): void {
 let lastFailureSignature: string | undefined;
 let sameFailureCount = 0;
 
-// Called by the leased wrapper (impl/index.ts) with the outcome of every
-// wallet operation -- one choke point instead of instrumenting each call.
+// Count one outcome per operation. Network operations report their aggregate
+// outcome, including caught failures; the leased wrapper reports escaping errors.
 export function noteNetworkOutcome(e: unknown | null): void {
   if (e === null) {
     consecutiveNetworkFailures = 0;

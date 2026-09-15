@@ -497,6 +497,14 @@ function TokenDetailsHeaderContent({
   } else if (isPrivatePool) {
     fiatValue = undefined;
   }
+  if (
+    !shouldUsePoolBalance &&
+    tokenDetails?.balanceStatus &&
+    tokenDetails.balanceStatus !== 'complete'
+  ) {
+    balanceParsed = undefined;
+    fiatValue = undefined;
+  }
   let isBalanceLoading = showLoadingState;
   if (shouldUsePoolBalance) {
     isBalanceLoading = !poolDisplay?.balanceSettled;
@@ -801,6 +809,12 @@ function TokenDetailsHeaderContent({
               fiatValue={fiatValue}
               balanceParsed={balanceParsed}
             />
+            {shouldUsePoolBalance &&
+            poolDisplay?.balanceStatus === 'partial' ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                Partial balance · scan incomplete
+              </SizableText>
+            ) : null}
             {/* Orchard is a legacy pool that can no longer receive. Its only
               move is the pool-pinned withdraw, so that is the only action
               shown; account-level Send, Swap, and Buy would otherwise look

@@ -14,18 +14,18 @@ import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import type {
-  IDeviceCommonParams,
-  IDeviceResponse,
-  IDeviceSharedCallParams,
-} from '@onekeyhq/shared/types/device';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
 import { getZcashLifecycleMutex } from './lifecycle';
 
-import type { IEncodedTxZcash, IZcashVaultPcztApi } from './types';
+import type {
+  IEncodedTxZcash,
+  IZcashVaultPcztApi,
+  IZcashVaultTransparentApi,
+} from './types';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildPrepareAccountsPrefixedPathParams,
@@ -33,46 +33,16 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { ZcashUnifiedAddress } from '@onekeyfe/hd-core';
 
 // ZIP-32 account path the device derives shielded keys from.
 const buildZcashShieldedPath = (index: number) => `m/32'/133'/${index}'`;
-
-type IZcashDeviceUnifiedAddress = {
-  path: string;
-  address: string;
-  ufvk?: string;
-  seedFingerprint?: string;
-};
-
-// hd-core methods added for zcash (ZcashGetUnifiedAddress / ZcashSignPczt,
-// protocol V2 only). Typed locally until the SDK release carrying them is
-// pinned by the app.
-type IZcashHardwareSdk = {
-  zcashGetUnifiedAddress: (
-    connectId: string,
-    deviceId: string,
-    params: Partial<IDeviceCommonParams> & {
-      bundle: Array<{
-        path: string;
-        showOnOneKey?: boolean;
-        includeUfvk?: boolean;
-        includeSeedFingerprint?: boolean;
-      }>;
-    },
-  ) => IDeviceResponse<IZcashDeviceUnifiedAddress[]>;
-  zcashSignPczt: (
-    connectId: string,
-    deviceId: string,
-    params: Partial<IDeviceCommonParams> & { pczt: string },
-  ) => IDeviceResponse<{ pczt: string }>;
-};
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.zec.hd;
 
   private async getZcashSdk({ connectId }: { connectId: string }) {
-    const sdk = await this.getHardwareSDKInstance({ connectId });
-    return sdk as unknown as IZcashHardwareSdk;
+    return this.getHardwareSDKInstance({ connectId });
   }
 
   private async getZcashApi() {
@@ -106,7 +76,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     deviceParams: IDeviceSharedCallParams;
     indexes: number[];
     showOnOnekeyFn: (arrIndex: number) => boolean | undefined;
-  }): Promise<IZcashDeviceUnifiedAddress[]> {
+  }): Promise<ZcashUnifiedAddress[]> {
     const { connectId, deviceId } = deviceParams.dbDevice;
     const sdk = await this.getZcashSdk({ connectId });
     const response = await sdk.zcashGetUnifiedAddress(connectId, deviceId, {
@@ -287,11 +257,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxZcash;
     if (encodedTx.zcashMode === 'transparent') {
-      // The keys runtime assembles transparent txs from the seed; the device
-      // needs per-input sighashes, which it does not expose yet.
-      throw new NotImplemented(
-        'Zcash transparent sends from hardware are not supported yet',
-      );
+      return this.signTransparentTransaction({
+        encodedTx,
+        deviceParams: checkIsDefined(params.deviceParams),
+      });
     }
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
@@ -371,6 +340,131 @@ export class KeyringHardware extends KeyringHardwareBase {
         encodedTx: signedEncodedTx,
       };
     });
+  }
+
+  private async signTransparentTransaction({
+    encodedTx,
+    deviceParams,
+  }: {
+    encodedTx: IEncodedTxZcash;
+    deviceParams: IDeviceSharedCallParams;
+  }): Promise<ISignedTxPro> {
+    const accountId = this.vault.accountId;
+    const vault = this.vault as unknown as IZcashVaultTransparentApi;
+    const request = await vault.zcashPrepareFreshTransparentRequest({
+      encodedTx,
+    });
+    const plan = checkIsDefined(encodedTx.zcashTransparentPlan);
+    const account = await this.backgroundApi.serviceAccount.getDBAccount({
+      accountId,
+    });
+    const accountXpub = 'xpub' in account ? account.xpub : undefined;
+    if (account.pathIndex !== request.accountIndex || !accountXpub) {
+      throw new OneKeyLocalError('zcash: hardware signing account changed');
+    }
+    await this.backgroundApi.simpleDb.zcash.reserveTransparentOutpoints({
+      accountId,
+      ownerId: plan.ownerId,
+      outpoints: request.selectedOutpoints,
+      currentHeight: request.targetHeight,
+      expiryHeight: request.expiryHeight,
+    });
+    let pendingSaved = false;
+    try {
+      const [viewingKeys] = await this.fetchDeviceViewingKeys({
+        deviceParams,
+        indexes: [request.accountIndex],
+        showOnOnekeyFn: () => false,
+      });
+      const api = await this.getZcashApi();
+      const { xpub } = await api.deriveTransparentXpubFromUfvk({
+        network: request.network,
+        ufvk: checkIsDefined(viewingKeys.ufvk),
+        hdIndex: request.accountIndex,
+      });
+      if (xpub !== accountXpub) {
+        throw new OneKeyLocalError(
+          'zcash: device viewing key does not match this account',
+        );
+      }
+      const original = await api.createTransparentHardwarePczt({
+        request,
+        accountXpub: xpub,
+        seedFingerprintHex: checkIsDefined(viewingKeys.seedFingerprint),
+      });
+      const { connectId, deviceId } = deviceParams.dbDevice;
+      const sdk = await this.getZcashSdk({ connectId });
+      const response = await sdk.zcashSignPczt(connectId, deviceId, {
+        ...deviceParams.deviceCommonParams,
+        pczt: original.pcztHex,
+      });
+      if (!response.success) {
+        throw convertDeviceError(response.payload);
+      }
+      const result = await api.finalizeTransparentHardwarePczt({
+        request,
+        accountXpub: xpub,
+        originalPcztHex: original.pcztHex,
+        signedPcztHex: response.payload.pczt,
+      });
+      const expectedOutpoints = new Set(
+        request.selectedOutpoints.map(
+          (outpoint) => `${outpoint.txid}:${outpoint.vout}`,
+        ),
+      );
+      if (
+        result.feeZat !== encodedTx.fee ||
+        result.expiryHeight !== request.expiryHeight ||
+        result.spentOutpoints.length !== expectedOutpoints.size ||
+        result.spentOutpoints.some(
+          (outpoint) =>
+            !expectedOutpoints.has(`${outpoint.txid}:${outpoint.vout}`),
+        )
+      ) {
+        throw new OneKeyLocalError(
+          'Zcash transparent signing result did not match the reviewed transaction',
+        );
+      }
+      if (
+        !(await this.backgroundApi.serviceAccount.getDBAccountSafe({
+          accountId,
+        }))
+      ) {
+        throw new OneKeyLocalError('zcash: account removed during signing');
+      }
+      await this.backgroundApi.simpleDb.zcash.saveTransparentPendingTx({
+        accountId,
+        requireLiveReservation: true,
+        tx: {
+          ownerId: plan.ownerId,
+          rawTx: result.rawTx,
+          txid: result.txid,
+          spentOutpoints: result.spentOutpoints,
+          expiryHeight: result.expiryHeight,
+          createdAt: Date.now(),
+          broadcastState: 'unknown',
+          broadcastAuthorized: false,
+        },
+      });
+      pendingSaved = true;
+      const signedEncodedTx: IEncodedTxZcash = {
+        ...encodedTx,
+        zcashTransparentBuild: result,
+      };
+      return {
+        txid: result.txid,
+        rawTx: result.rawTx,
+        encodedTx: signedEncodedTx,
+      };
+    } catch (error) {
+      if (!pendingSaved) {
+        await this.backgroundApi.simpleDb.zcash.releaseTransparentReservation({
+          accountId,
+          ownerId: plan.ownerId,
+        });
+      }
+      throw error;
+    }
   }
 
   override signMessage(
