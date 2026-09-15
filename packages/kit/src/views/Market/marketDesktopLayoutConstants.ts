@@ -86,6 +86,16 @@ export const MARKET_LIST_FIRST_COLUMN_MAX_WIDTH = 320;
 export const MARKET_LIST_FIRST_COLUMN_MIN_WIDTH = 256;
 export const MARKET_LIST_METRIC_COLUMN_MIN_WIDTH = 104;
 
+// Metric columns share the row's remaining width evenly, on the same 8px
+// padding every list page uses. `flexBasis: 0` keeps the split independent of
+// each column's own content width.
+export const MARKET_LIST_METRIC_COLUMN_PROPS = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  px: '$2',
+} as const;
+
 // Keep the maximum-width alias for compact surfaces that do not participate in
 // the responsive list layout.
 export const MARKET_LIST_FIRST_COLUMN_WIDTH =
