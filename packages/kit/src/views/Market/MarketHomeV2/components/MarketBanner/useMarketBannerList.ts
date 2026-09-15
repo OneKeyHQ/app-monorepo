@@ -32,6 +32,31 @@ function bannerPreviewLogos(
   return new Map(tokens?.map((token) => [token.symbol, token.logo]));
 }
 
+function canReuseBannerQuotes(
+  banner: IMarketBannerItem,
+  cached: IMarketBannerItem | undefined,
+): cached is IMarketBannerItem & { tokens: IMarketBannerTokenPreview[] } {
+  return (
+    banner.type !== EMarketBannerType.Perps &&
+    !isMarketIndexQuoteBanner(banner) &&
+    !!cached?.tokens &&
+    cached.tokenListId === banner.tokenListId &&
+    cached.type === banner.type &&
+    cached.assetType === banner.assetType
+  );
+}
+
+function applyPreviewLogos(
+  tokens: IMarketBannerTokenPreview[],
+  previewLogos: Map<string, string>,
+): IMarketBannerTokenPreview[] {
+  if (previewLogos.size === 0) return tokens;
+  return tokens.map((token) => {
+    const logo = previewLogos.get(token.symbol) || token.logo;
+    return logo === token.logo ? token : { ...token, logo };
+  });
+}
+
 function mapBannerQuoteToken({
   logo,
   name,
@@ -50,7 +75,9 @@ function mapBannerQuoteToken({
 
 export async function hydrateMarketBannerQuotes(
   banners: IMarketBannerItem[],
+  previous?: IMarketBannerItem[],
 ): Promise<IMarketBannerItem[]> {
+  const previousById = new Map(previous?.map((banner) => [banner._id, banner]));
   const hydratedBanners = await Promise.all(
     banners.map(async (banner) => {
       // Index banners expose quote rows in `indices`; they do not have a
@@ -111,6 +138,16 @@ export async function hydrateMarketBannerQuotes(
           ),
         };
       } catch {
+        const cached = previousById.get(banner._id);
+        if (canReuseBannerQuotes(banner, cached)) {
+          return {
+            ...banner,
+            tokens: applyPreviewLogos(
+              cached.tokens,
+              bannerPreviewLogos(banner.tokens),
+            ),
+          };
+        }
         return banner;
       }
     }),
@@ -126,17 +163,16 @@ function mergeBannerQuotes(
   const quotes = new Map(previous?.map((banner) => [banner._id, banner]));
   return banners.map((banner) => {
     const cached = quotes.get(banner._id);
-    // Keep the last hydrated rows across list polls. Preview `tokens` on a
-    // fresh list would otherwise replace the visible set before quotes return.
-    if (
-      banner.type !== EMarketBannerType.Perps &&
-      !isMarketIndexQuoteBanner(banner) &&
-      cached?.tokens &&
-      cached.tokenListId === banner.tokenListId &&
-      cached.type === banner.type &&
-      cached.assetType === banner.assetType
-    ) {
-      return { ...banner, tokens: cached.tokens };
+    // Keep hydrated quote rows across list polls so preview membership does
+    // not flash. Overlay the latest preview logos onto those rows.
+    if (canReuseBannerQuotes(banner, cached)) {
+      return {
+        ...banner,
+        tokens: applyPreviewLogos(
+          cached.tokens,
+          bannerPreviewLogos(banner.tokens),
+        ),
+      };
     }
     return banner;
   });
@@ -220,12 +256,10 @@ export function useMarketBannerList(): {
         source: bannerList,
         scope: requestScope,
         banners: await hydrateMarketBannerQuotes(
-          mergeBannerQuotes(
-            bannerList,
-            committedResultRef.current?.requestScope === requestScope
-              ? committedResultRef.current.bannerList
-              : undefined,
-          ),
+          bannerList,
+          committedResultRef.current?.requestScope === requestScope
+            ? committedResultRef.current.bannerList
+            : undefined,
         ),
       };
     },
