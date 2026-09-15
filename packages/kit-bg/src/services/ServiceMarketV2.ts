@@ -1,5 +1,5 @@
 // cspell:ignore financials
-import { isNil } from 'lodash';
+import { chunk, isNil } from 'lodash';
 import pLimit from 'p-limit';
 
 import {
@@ -9,6 +9,7 @@ import {
 import {
   DEFAULT_MARKET_STOCK_SORT_BY,
   DEFAULT_MARKET_STOCK_SORT_TYPE,
+  MARKET_STOCK_BATCH_MAX_IDS,
 } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
@@ -1204,6 +1205,40 @@ class ServiceMarketV2 extends ServiceBase {
     return response.data.data;
   }
 
+  // Same item shape as the Stocks list, variants included. Unknown IDs are
+  // omitted from the response rather than failing the request.
+  @backgroundMethod()
+  async fetchMarketStockBatch({
+    stockIds,
+  }: {
+    stockIds: string[];
+  }): Promise<IMarketStockPublicItem[]> {
+    if (stockIds.length === 0) {
+      return [];
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    };
+    const responses = await Promise.all(
+      chunk(stockIds, MARKET_STOCK_BATCH_MAX_IDS).map((stockIdsChunk) =>
+        client.post<{
+          code: number;
+          message: string;
+          data: IMarketStockPublicListResponse | null;
+        }>(
+          '/utility/v1/stocks/batch',
+          { stockIds: stockIdsChunk },
+          requestConfig,
+        ),
+      ),
+    );
+    return responses.flatMap((response) => response.data.data?.items ?? []);
+  }
+
   @backgroundMethod()
   async fetchMarketStockFinancials({
     stockId,
@@ -1387,8 +1422,16 @@ class ServiceMarketV2 extends ServiceBase {
         );
 
       if (action === 'add' && !existing) {
+        const { data } =
+          await this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
+        const [sortIndex] = sortUtils.buildTopSortIndexes({
+          oldList: data,
+          count: 1,
+        });
         await this.addMarketWatchListV2({
-          watchList: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          watchList: [
+            { chainId: '', contractAddress: '', perpsCoin: coin, sortIndex },
+          ],
           callerName: 'syncToMarketWatchList',
         });
       } else if (action === 'remove' && existing) {
@@ -1468,11 +1511,17 @@ class ServiceMarketV2 extends ServiceBase {
 
       // Sync missing items to Market watchlist
       if (missingInMarket.length > 0) {
+        // Perps favorites are stored oldest-first, so the newest lands on top.
+        const sortIndexes = sortUtils.buildTopSortIndexes({
+          oldList: watchListData.data,
+          count: missingInMarket.length,
+        });
         await this.addMarketWatchListV2({
-          watchList: missingInMarket.map((coin) => ({
+          watchList: missingInMarket.map((coin, index) => ({
             chainId: '',
             contractAddress: '',
             perpsCoin: coin,
+            sortIndex: sortIndexes[index],
           })),
           callerName: 'reconcilePerpsFavorites',
         });

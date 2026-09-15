@@ -746,10 +746,17 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      const [sortIndex] = sortUtils.buildTopSortIndexes({
+        oldList: prev.data,
+        count: 1,
+      });
       const item: IMarketWatchListItemV2 = {
         chainId: '',
         contractAddress: '',
         perpsCoin,
+        // Without an index the save fills in "after the last item", which
+        // sank every perps favorite below the spot ones.
+        sortIndex,
       };
 
       this.invalidateWatchListV2Refresh.call(set);

@@ -37,3 +37,60 @@ it('keeps chain tokens and native coins selectable while excluding listings and 
     ...listings,
   ]);
 });
+
+it('keeps spot as every non-perps row and adds a stocks lens over it', () => {
+  const token = transformApiItemToToken(
+    { address: '0xtoken', name: 'Token', symbol: 'TOK', decimals: 18 },
+    { chainId: 'evm--1', networkLogoUri: '' },
+  );
+  const tokenizedStock = transformApiItemToToken(
+    {
+      address: 'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh',
+      name: 'NVDAx',
+      symbol: 'NVDAx',
+      decimals: 8,
+      stock: { subtitle: 'NVIDIA', source: 'xstock', sourceLogoUri: '' },
+    },
+    { chainId: 'sol--101', networkLogoUri: '' },
+  );
+  const legacyStockToken = { ...token, id: 'legacy', stockId: 'AAPL' };
+  const stockListing = {
+    ...token,
+    id: 'stock:AAPL',
+    address: '',
+    networkId: '',
+    stockId: 'AAPL',
+  };
+  const assetListing = {
+    ...token,
+    id: 'asset:bitcoin',
+    address: '',
+    networkId: '',
+    assetId: 'bitcoin',
+  };
+  const perps = { ...token, id: 'perps', perpsCoin: 'BTC' };
+  const { result } = renderHook(() =>
+    useWatchlistFilteredGroups([
+      token,
+      tokenizedStock,
+      legacyStockToken,
+      stockListing,
+      assetListing,
+      perps,
+    ]),
+  );
+  expect(result.current.all).toHaveLength(6);
+  expect(result.current.spot).toEqual([
+    token,
+    tokenizedStock,
+    legacyStockToken,
+    stockListing,
+    assetListing,
+  ]);
+  expect(result.current.stocks).toEqual([
+    tokenizedStock,
+    legacyStockToken,
+    stockListing,
+  ]);
+  expect(result.current.perps).toEqual([perps]);
+});
