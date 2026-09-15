@@ -116,12 +116,14 @@ function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
       return;
     }
     refreshingRef.current = true;
-    onRefresh?.();
     setRefreshing(true);
+    // Arm the reset before invoking onRefresh so a synchronous throw cannot
+    // leave the guard stuck and silently disable every later pull.
     setTimeout(() => {
       refreshingRef.current = false;
       setRefreshing(false);
     }, REFRESHING_INDICATOR_DURATION_MS);
+    onRefresh?.();
     defaultLogger.account.wallet.walletPullToRefresh();
   }, [onRefresh]);
 
