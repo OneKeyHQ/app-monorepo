@@ -19,8 +19,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
-import { firmwareUpdateInstallCopy } from './firmwareUpdateInstallCopy';
-
 import type { IntlShape } from 'react-intl';
 
 export type IFirmwareUpdateErrorAction =
@@ -107,7 +105,7 @@ export function resolveFirmwareUpdateErrorPresentation({
   ) {
     return build(
       t(ETranslations.global_update_failed),
-      firmwareUpdateInstallCopy.versionMismatch,
+      t(ETranslations.firmware_update_version_mismatch__msg),
       retry,
     );
   }
@@ -232,21 +230,21 @@ export function resolveFirmwareUpdateErrorPresentation({
   if (is(ECustomOneKeyHardwareError.FirmwareUpdateBatteryTooLow)) {
     return build(
       t(ETranslations.update_insufficient_battery_power),
-      firmwareUpdateInstallCopy.batteryTooLowDesc,
+      t(ETranslations.firmware_update_battery_low__desc),
       retry,
     );
   }
   if (is(ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport)) {
     return build(
-      firmwareUpdateInstallCopy.usbRequiredTitle,
-      firmwareUpdateInstallCopy.usbRequiredDesc,
+      t(ETranslations.firmware_update_usb_required__title),
+      t(ETranslations.firmware_update_usb_required__desc),
       retry,
     );
   }
   if (is(ECustomOneKeyHardwareError.FirmwareUpdateUnsupportedDevice)) {
     return build(
-      firmwareUpdateInstallCopy.updateNotAvailableTitle,
-      firmwareUpdateInstallCopy.updateNotAvailableDesc,
+      t(ETranslations.firmware_update_not_available__title),
+      t(ETranslations.firmware_update_not_available__desc),
       { kind: 'none' },
     );
   }

@@ -6,16 +6,25 @@ import type {
 } from './firmwareUpdateInstallViewModel';
 import type { IntlShape } from 'react-intl';
 
-/**
- * Copy for the unified install page. Strings without a Lokalise key yet are
- * kept here in one place so the i18n pass can replace them together.
- */
+/** Copy for the unified install page, keyed for every locale. */
 export const firmwareUpdateInstallCopy = {
-  pageTitle: 'Firmware update',
-  updatingDevice: (deviceName: string) => `Updating ${deviceName}`,
-  firmwareUpdated: 'Firmware updated',
-  keepDeviceConnected: 'Keep your device connected',
-  getHelp: 'Get help',
+  pageTitle: (intl: IntlShape) =>
+    intl.formatMessage({
+      id: ETranslations.firmware_update_install_page__title,
+    }),
+  updatingDevice: (intl: IntlShape, deviceName: string) =>
+    intl.formatMessage(
+      { id: ETranslations.firmware_update_updating_device__title },
+      { device: deviceName },
+    ),
+  firmwareUpdated: (intl: IntlShape) =>
+    intl.formatMessage({ id: ETranslations.firmware_update_done__title }),
+  keepDeviceConnected: (intl: IntlShape) =>
+    intl.formatMessage({
+      id: ETranslations.firmware_update_keep_device_connected__msg,
+    }),
+  getHelp: (intl: IntlShape) =>
+    intl.formatMessage({ id: ETranslations.firmware_update_get_help__action }),
   grantUsbAccess: (intl: IntlShape) =>
     intl.formatMessage({ id: ETranslations.device_grant_usb_access }),
   details: (intl: IntlShape) =>
@@ -26,22 +35,35 @@ export const firmwareUpdateInstallCopy = {
     intl.formatMessage({ id: ETranslations.global_done }),
   importWallet: (intl: IntlShape) =>
     intl.formatMessage({ id: ETranslations.global_import_wallet }),
+  /** Product name, not translated. */
   safeOS: 'SafeOS',
-  stage: (stage: IFirmwareUpdateStage): string => {
+  stage: (intl: IntlShape, stage: IFirmwareUpdateStage): string => {
     switch (stage) {
       case 'preparing':
-        return 'Preparing update…';
+        return intl.formatMessage({
+          id: ETranslations.firmware_update_stage_preparing__msg,
+        });
       case 'downloading':
-        return 'Downloading update…';
+        return intl.formatMessage({
+          id: ETranslations.firmware_update_stage_downloading__msg,
+        });
       case 'enteringUpdateMode':
-        return 'Entering update mode…';
+        return intl.formatMessage({
+          id: ETranslations.firmware_update_stage_entering_update_mode__msg,
+        });
       case 'waitingForDevice':
-        return 'Waiting for device…';
+        return intl.formatMessage({
+          id: ETranslations.firmware_update_stage_waiting_for_device__msg,
+        });
       case 'installing':
-        return 'Installing firmware…';
+        return intl.formatMessage({
+          id: ETranslations.firmware_update_stage_installing__msg,
+        });
       case 'verifying':
       default:
-        return 'Verifying…';
+        return intl.formatMessage({
+          id: ETranslations.firmware_update_stage_verifying__msg,
+        });
     }
   },
   /** Right side of the progress row: "74%" or "74% · About 1 min left". */
@@ -49,21 +71,22 @@ export const firmwareUpdateInstallCopy = {
     remainingTimeText
       ? `${Math.round(percent)}% · ${remainingTimeText}`
       : `${Math.round(percent)}%`,
-  remainingTime: (bucket: IRemainingTimeBucket): string => {
+  remainingTime: (intl: IntlShape, bucket: IRemainingTimeBucket): string => {
     if (bucket.kind === 'minutes') {
-      return `About ${bucket.minutes} min left`;
+      return intl.formatMessage(
+        { id: ETranslations.firmware_update_time_left_about_min__msg },
+        { count: bucket.minutes },
+      );
     }
     if (bucket.kind === 'oneMinute') {
-      return 'About 1 min left';
+      return intl.formatMessage({
+        id: ETranslations.firmware_update_time_left_about_one_min__msg,
+      });
     }
-    return 'Under 1 min left';
+    return intl.formatMessage({
+      id: ETranslations.firmware_update_time_left_under_one_min__msg,
+    });
   },
-  versionMismatch: 'Installed version doesn’t match. Retry the update.',
-  usbRequiredTitle: 'USB required for update',
-  usbRequiredDesc: 'Connect your device with a USB cable and try again.',
-  updateNotAvailableTitle: 'Update not available',
-  updateNotAvailableDesc: 'This device can’t be updated from this app.',
-  batteryTooLowDesc: 'Charge your device to at least 25% and try again.',
   webUsbBootloaderInstruction: (intl: IntlShape) =>
     intl.formatMessage({
       id: ETranslations.firmware_update_grant_usb_instruction,

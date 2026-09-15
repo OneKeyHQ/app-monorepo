@@ -282,7 +282,7 @@ export function FirmwareUpdateInstallPageContent({
         }
         onConfirm={onRetryTask}
         confirmButtonProps={{ testID: FirmwareUpdateTestIDs.retryBtn }}
-        onCancelText={copy.getHelp}
+        onCancelText={copy.getHelp(intl)}
         onCancel={onGetHelp}
         cancelButtonProps={{
           variant: 'tertiary',
@@ -355,7 +355,7 @@ export function FirmwareUpdateInstallPageContent({
         progress={progress}
         remainingTimeText={
           mode === 'updating' && remainingTime
-            ? copy.remainingTime(remainingTime)
+            ? copy.remainingTime(intl, remainingTime)
             : undefined
         }
         errorSentence={taskError?.sentence}

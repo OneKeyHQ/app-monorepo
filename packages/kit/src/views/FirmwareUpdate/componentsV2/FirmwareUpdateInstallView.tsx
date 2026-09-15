@@ -318,6 +318,7 @@ export function FirmwareUpdateInstallView({
   onToggleDetails,
   debugInfo,
 }: IFirmwareUpdateInstallViewProps) {
+  const intl = useIntl();
   const isDone = mode === 'done';
   // The success badge pops only after the progress block has collapsed;
   // a page that mounts already done shows it at once.
@@ -377,7 +378,9 @@ export function FirmwareUpdateInstallView({
         />
         <YStack alignItems="center" gap="$1.5" w="100%" pt="$6">
           <SizableText size="$heading2xl" textAlign="center">
-            {isDone ? copy.firmwareUpdated : copy.updatingDevice(deviceName)}
+            {isDone
+              ? copy.firmwareUpdated(intl)
+              : copy.updatingDevice(intl, deviceName)}
           </SizableText>
           {isDone && doneVersionText ? (
             <VersionLink
@@ -419,7 +422,7 @@ export function FirmwareUpdateInstallView({
                     band="text"
                     paused={mode === 'error'}
                   >
-                    {copy.stage(stage)}
+                    {copy.stage(intl, stage)}
                   </ShimmerTitle>
                 </Stack>
               </AnimatePresence>
@@ -481,6 +484,7 @@ function MessageSlot({
   IFirmwareUpdateInstallViewProps,
   'mode' | 'errorSentence' | 'tutorialUrl' | 'webUsbInstruction'
 >) {
+  const intl = useIntl();
   if (mode === 'error' && errorSentence) {
     return (
       <YStack alignItems="center" gap="$2" w="100%" pt="$8">
@@ -524,7 +528,7 @@ function MessageSlot({
     <XStack alignItems="center" justifyContent="center" gap="$2" pt="$8">
       <LiveDot />
       <SizableText size="$bodyMd" color="$textSubdued">
-        {copy.keepDeviceConnected}
+        {copy.keepDeviceConnected(intl)}
       </SizableText>
     </XStack>
   );

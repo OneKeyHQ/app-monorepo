@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import { Page } from '@onekeyhq/components';
 import type {
   EModalFirmwareUpdateRoutes,
@@ -15,6 +17,7 @@ import {
 } from './FirmwareUpdateInstallPageContent';
 
 function PageFirmwareUpdateInstallV2() {
+  const intl = useIntl();
   const route = useAppRoute<
     IModalFirmwareUpdateParamList,
     EModalFirmwareUpdateRoutes.InstallV2
@@ -24,7 +27,7 @@ function PageFirmwareUpdateInstallV2() {
   return (
     <Page scrollEnabled scrollProps={INSTALL_PAGE_SCROLL_PROPS}>
       <FirmwareUpdatePageLayout
-        title={firmwareUpdateInstallCopy.pageTitle}
+        title={firmwareUpdateInstallCopy.pageTitle(intl)}
         containerStyle={{ py: '0', px: '$5', flex: 1 }}
       >
         <ForceExtensionUpdatingFromExpandTab />

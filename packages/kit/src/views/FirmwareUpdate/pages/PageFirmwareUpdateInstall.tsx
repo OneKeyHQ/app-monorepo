@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import {
@@ -118,6 +119,7 @@ function PageFirmwareUpdateInstallMini({
 }
 
 function PageFirmwareUpdateInstall() {
+  const intl = useIntl();
   const route = useAppRoute<
     IModalFirmwareUpdateParamList,
     EModalFirmwareUpdateRoutes.Install
@@ -131,7 +133,7 @@ function PageFirmwareUpdateInstall() {
   return (
     <Page scrollEnabled scrollProps={INSTALL_PAGE_SCROLL_PROPS}>
       <FirmwareUpdatePageLayout
-        title={firmwareUpdateInstallCopy.pageTitle}
+        title={firmwareUpdateInstallCopy.pageTitle(intl)}
         containerStyle={{ py: '0', px: '$5', flex: 1 }}
       >
         <ForceExtensionUpdatingFromExpandTab />
