@@ -24,7 +24,16 @@ jest.mock('./sniRequest', () => ({
   sniRequest: jest.fn(),
 }));
 
-const mockedLogger = jest.requireMock('../../logger/logger');
+const mockedLogger = jest.requireMock('../../logger/logger') as {
+  defaultLogger: {
+    ipTable: {
+      request: {
+        warn: jest.Mock;
+        error: jest.Mock;
+      };
+    };
+  };
+};
 
 const mockedGetSelectedIpForHost = getSelectedIpForHost as unknown as jest.Mock;
 const mockedIsProxyActiveForUrl = isProxyActiveForUrl as jest.Mock;

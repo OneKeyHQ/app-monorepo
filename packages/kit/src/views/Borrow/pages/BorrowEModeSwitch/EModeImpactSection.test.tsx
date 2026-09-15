@@ -7,7 +7,9 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const { Text, View } = jest.requireActual('react-native');
+  const { Text, View } = jest.requireActual(
+    'react-native',
+  ) as typeof import('react-native');
 
   return {
     Alert: View,
@@ -20,8 +22,10 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/views/Borrow/components/BorrowInfoItem', () => {
-  const React = jest.requireActual('react');
-  const { View } = jest.requireActual('react-native');
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual(
+    'react-native',
+  ) as typeof import('react-native');
 
   return {
     BorrowInfoItem: ({ children }: { children: import('react').ReactNode }) =>
@@ -32,8 +36,10 @@ jest.mock('@onekeyhq/kit/src/views/Borrow/components/BorrowInfoItem', () => {
 jest.mock(
   '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText',
   () => {
-    const React = jest.requireActual('react');
-    const { Text } = jest.requireActual('react-native');
+    const React = jest.requireActual('react') as typeof import('react');
+    const { Text } = jest.requireActual(
+      'react-native',
+    ) as typeof import('react-native');
 
     return {
       EarnText: ({ text }: { text?: { text?: string } }) =>

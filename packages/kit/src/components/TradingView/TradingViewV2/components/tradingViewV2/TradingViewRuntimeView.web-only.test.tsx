@@ -138,7 +138,7 @@ describe('TradingViewRuntimeView web fallback', () => {
     jest.mocked(loadTradingViewEmbedModule).mockReturnValue(
       new Promise((resolve) => {
         resolveModule = resolve;
-      }),
+      }) as ReturnType<typeof loadTradingViewEmbedModule>,
     );
     render(<TradingViewRuntimeView src="https://tradingview.onekeytest.com" />);
 
@@ -379,7 +379,11 @@ describe('TradingViewRuntimeView web fallback', () => {
     });
     jest
       .mocked(loadTradingViewEmbedModule)
-      .mockReturnValue(new Promise(() => undefined));
+      .mockReturnValue(
+        new Promise(() => undefined) as ReturnType<
+          typeof loadTradingViewEmbedModule
+        >,
+      );
 
     render(<TradingViewRuntimeView src="https://tradingview.onekeytest.com" />);
 

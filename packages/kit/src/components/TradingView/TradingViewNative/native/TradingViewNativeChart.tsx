@@ -90,7 +90,6 @@ const PRICE_AXIS_FONT_SOURCE =
   require('@onekeyhq/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf') as number;
 const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
-
 const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPane[] =
   [];
 export const TradingViewNativeChart = memo(

@@ -97,7 +97,7 @@ export function TradingViewNativePriceScaleControls({
           disabled: !isLogScaleAvailable,
           selected: isLogarithmic,
         }}
-        focusable={isVisible ? isLogScaleAvailable : null}
+        focusable={isVisible && isLogScaleAvailable}
         alignItems="center"
         justifyContent="center"
         width={layout.buttonSize}

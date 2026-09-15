@@ -171,7 +171,7 @@ function normalizeSource(
     }
     return resolved ?? null;
   }
-  return candidate ?? null;
+  return (candidate as ImageURISource | undefined) ?? null;
 }
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
@@ -372,9 +372,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       recyclingKey={effectiveRecyclingKey}
       autoplay={autoplay}
       optimizeTos={
-        !hasCustomSourceIdentity(rawSource) && !optimizedSourceResult.optimized
-          ? !shouldUseRawSourceFallback
-          : null
+        !hasCustomSourceIdentity(rawSource) &&
+        !optimizedSourceResult.optimized &&
+        !shouldUseRawSourceFallback
       }
       loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
       onError={handleError}

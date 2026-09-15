@@ -55,7 +55,10 @@ export type IHardwareDeviceType =
  * offered. A device may implement a scene as a dark screen when that is
  * what the physical device shows at that moment.
  */
-export type IHardwareDeviceScene = IClassicDeviceScene & IProDeviceScene;
+export type IHardwareDeviceScene = IClassicDeviceScene &
+  IMiniDeviceScene &
+  IProDeviceScene &
+  ITouchDeviceScene;
 
 export interface IHardwareDeviceProps {
   /**

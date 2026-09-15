@@ -44,10 +44,19 @@ jest.mock('../hooks/useFirmwareUpdateHooks', () => ({
 }));
 
 const { exitUpdateWorkflow: mockExitUpdateWorkflow, cancel: mockCancel } =
-  jest.requireMock('../../../background/instance/backgroundApiProxy');
+  jest.requireMock('../../../background/instance/backgroundApiProxy') as {
+    exitUpdateWorkflow: jest.MockedFunction<() => Promise<void>>;
+    cancel: jest.MockedFunction<
+      (params: { immediate: boolean }) => Promise<void>
+    >;
+  };
 const { useModalExitPrevent: mockUseModalExitPrevent } = jest.requireMock(
   '../hooks/useFirmwareUpdateHooks',
-);
+) as {
+  useModalExitPrevent: jest.MockedFunction<
+    typeof import('../hooks/useFirmwareUpdateHooks').useModalExitPrevent
+  >;
+};
 
 describe('cancelFirmwareUpdateWorkflow', () => {
   beforeEach(() => {

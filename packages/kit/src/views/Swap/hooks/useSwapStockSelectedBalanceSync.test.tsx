@@ -24,7 +24,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
 
 const { FocusContext } = jest.requireMock(
   '@onekeyhq/kit/src/hooks/useRouteIsFocused',
-);
+) as {
+  FocusContext: Context<boolean>;
+};
 
 function SyncRunner({
   balance,

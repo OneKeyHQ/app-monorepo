@@ -2994,7 +2994,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     accountId,
                   } = networkDataString;
                   return async () =>
-                    this.updateAllNetworkTokenList.call(
+                    (await this.updateAllNetworkTokenList.call(
                       set,
                       accountNetworkId,
                       swapTypeSwitchValue,
@@ -3004,7 +3004,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       tokenListCacheKey,
                       lpToken,
                       currency,
-                    );
+                    )) as ISwapToken[] | undefined;
                 });
 
               // Execute requests in batches of 3 to prevent UI thread blocking

@@ -45,7 +45,6 @@ import type {
   ISubscriptionPeriod,
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
-
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
     await PurchasesReactNative.setLogLevel(LOG_LEVEL.VERBOSE);

@@ -5372,9 +5372,8 @@ function PrimeInfiniWalletPaymentRoot({
         fallbackWarningMessages={fallbackWarningMessages}
         onEnableMockPaymentWarnings={handleEnableMockPaymentWarnings}
         shouldCreatePayment={
-          !paymentContextErrorTitle
-            ? result.shouldCreatePayment || paymentCreationIntentRef.current
-            : null
+          !paymentContextErrorTitle &&
+          (result.shouldCreatePayment || paymentCreationIntentRef.current)
         }
       />
     );

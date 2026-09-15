@@ -17,7 +17,9 @@ export function useSettingsPageStyle(enabled: boolean) {
     enabled,
     themeName,
   });
-  const pageBackgroundColor = tokenKey ? `$${tokenKey}` : undefined;
+  const pageBackgroundColor = tokenKey
+    ? (`$${tokenKey}` as '$bgApp' | '$bgSubdued')
+    : undefined;
   const headerTokenKey = resolveSettingsHeaderBackgroundTokenKey({
     isNativeIOS: Boolean(platformEnv.isNativeIOS),
     pageBackgroundTokenKey: tokenKey,

@@ -464,7 +464,7 @@ export function DesktopLayout({
           swapToken={swapToken}
           chartMode={isTradingViewNative ? 'native' : 'tradingView'}
           isChartSwitchDisabled={
-            !effectiveMarketTradingViewParams ? !isStockSharePrice : null
+            !effectiveMarketTradingViewParams && !isStockSharePrice
           }
           disableTrade={shouldDisableTrade}
           showFavoriteButton={showFavoriteButton}

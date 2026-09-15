@@ -37,7 +37,15 @@ const getInstallReferrerMock = jest.mocked(getInstallReferrerAsync);
 const getInstallationTimeMock = jest.mocked(getInstallationTimeAsync);
 const getReportedMock = jest.mocked(appStorage.getItem);
 const markReportedMock = jest.mocked(appStorage.setItem);
-const mockedLoggerModule = jest.requireMock('../../logger/logger');
+const mockedLoggerModule = jest.requireMock('../../logger/logger') as {
+  defaultLogger: {
+    app: {
+      install: {
+        reportGooglePlayInstallAttribution: jest.Mock;
+      };
+    };
+  };
+};
 const logAttributionMock =
   mockedLoggerModule.defaultLogger.app.install
     .reportGooglePlayInstallAttribution;

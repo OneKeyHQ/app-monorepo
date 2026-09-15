@@ -610,7 +610,7 @@ function MarketTokenListBase({
       } else if (isTrendingDesktopColumns) {
         columnsMap = TRENDING_SORTABLE_COLUMNS;
       }
-      const sortKey = columnsMap[column.dataIndex];
+      const sortKey = columnsMap[column.dataIndex as keyof typeof columnsMap];
 
       if (sortKey) {
         const isCurrentSort = currentSortBy === sortKey;

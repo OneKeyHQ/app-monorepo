@@ -30,9 +30,20 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-const mockPrefetch = jest.requireMock('react-native').Image.prefetch;
-const mockNativePreload = jest.requireMock('@onekeyfe/react-native-image')
-  .OneKeyImageCache.preload;
+const mockPrefetch = (
+  jest.requireMock('react-native') as {
+    Image: {
+      prefetch: jest.Mock<Promise<boolean>, [string]>;
+    };
+  }
+).Image.prefetch;
+const mockNativePreload = (
+  jest.requireMock('@onekeyfe/react-native-image') as {
+    OneKeyImageCache: {
+      preload: jest.Mock;
+    };
+  }
+).OneKeyImageCache.preload;
 
 describe('preloadImages', () => {
   beforeEach(() => {

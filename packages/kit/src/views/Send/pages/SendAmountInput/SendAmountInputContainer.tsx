@@ -4123,15 +4123,12 @@ function SendAmountInputContainer() {
           size="small"
           ml="$2"
           disabled={
-            isPrivateSendNativeToken
-              ? privateSendMaxInputAmount === undefined
-              : null
+            isPrivateSendNativeToken && privateSendMaxInputAmount === undefined
           }
           loading={
-            isPrivateSendNativeToken
-              ? isPrivateSendNativeTokenConfigLoading ||
-                !isPrivateSendNativeTokenConfigReady
-              : null
+            isPrivateSendNativeToken &&
+            (isPrivateSendNativeTokenConfigLoading ||
+              !isPrivateSendNativeTokenConfigReady)
           }
           onPress={() => {
             let maxInputAmount: string | undefined = isUseFiat

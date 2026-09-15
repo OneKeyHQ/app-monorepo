@@ -426,7 +426,7 @@ function OuterTabPagerViewComponent({
       ref={outerPagerRef}
       style={styles.pager}
       initialPage={initialPage}
-      scrollEnabled={showDiscoveryPage ? !isEarnBannerDragging : null}
+      scrollEnabled={showDiscoveryPage && !isEarnBannerDragging}
       overdrag
       overScrollMode="always"
       scrollSensitivity={4}

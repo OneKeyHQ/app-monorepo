@@ -305,7 +305,7 @@ function validateInfiniPaymentResponse(
     infiniStatus: payment.infiniStatus,
     amountConfirmed: payment.amountConfirmed,
     amountConfirming: payment.amountConfirming,
-    warningMessages: payment.warningMessages,
+    warningMessages: payment.warningMessages as string[] | undefined,
   };
 }
 

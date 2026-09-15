@@ -466,7 +466,6 @@ export function useSceneScreen<TScene extends string>(
         { duration: SCREEN_SWAP_OUT_MS, easing: easeInFn },
         (finished) => {
           'worklet';
-
           if (finished) runOnJS(setDisplayed)(target);
         },
       );

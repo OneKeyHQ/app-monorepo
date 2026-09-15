@@ -60,8 +60,10 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => {
-  const actual = jest.requireActual('@onekeyhq/shared/src/locale/appLocale');
-  const appLocale = Object.create(actual.appLocale);
+  const actual = jest.requireActual(
+    '@onekeyhq/shared/src/locale/appLocale',
+  ) as typeof import('@onekeyhq/shared/src/locale/appLocale');
+  const appLocale = Object.create(actual.appLocale) as typeof actual.appLocale;
   appLocale.intl = {
     ...actual.appLocale.intl,
     formatMessage: ({ id }: { id?: string }) => id ?? '',
@@ -74,7 +76,7 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => {
 });
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react');
+  const React = jest.requireActual('react') as typeof import('react');
 
   function Container({
     children,

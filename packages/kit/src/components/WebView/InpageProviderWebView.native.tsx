@@ -30,7 +30,6 @@ import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewProps } from 'react-native-webview';
 
 const injectedNativeAsset = require('./injectedNative.js.txt') as number;
-
 let injectedNativeCodePromise: Promise<string> | undefined;
 
 function loadInjectedNativeCode() {
