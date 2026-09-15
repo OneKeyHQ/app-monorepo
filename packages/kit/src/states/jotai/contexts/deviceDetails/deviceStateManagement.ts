@@ -1,5 +1,3 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import {
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
@@ -13,6 +11,7 @@ import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export type IDeviceStateSnapshot = {
   state: IOneKeyDeviceState;
@@ -273,9 +272,7 @@ export function getDeviceSecondaryIdentifier(
     'bleName' | 'deviceType' | 'serialNo'
   >,
 ) {
-  return deviceMetaStatic.deviceType === EDeviceType.Pro2
-    ? deviceMetaStatic.bleName || deviceMetaStatic.serialNo
-    : deviceMetaStatic.serialNo;
+  return deviceMetaStatic.bleName || deviceMetaStatic.serialNo;
 }
 
 export function buildDeviceMetaStateFromState({
