@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { uniq } from 'lodash';
 import pLimit from 'p-limit';
 
 import { useCarouselIndex } from '@onekeyhq/components';
@@ -18,7 +19,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketListingWatchlistQuote,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 
 import {
   SORT_MAP,
@@ -130,23 +134,52 @@ export function useMarketWatchlistTokenList({
     run: refetchListings,
   } = usePromiseResult(
     async () => {
-      const limit = pLimit(4);
-      return Promise.all(
-        listingItems.map((item) =>
-          limit(async () => {
-            try {
-              const quote =
-                await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
-                  item,
-                );
-              return { key: getMarketWatchlistKey(item), quote };
-            } catch {
-              // Keep unavailable listings removable from the watchlist.
-              return { key: getMarketWatchlistKey(item), quote: undefined };
-            }
-          }),
-        ),
+      const assetItems = listingItems.filter((item) => item.assetId);
+      const stockItems = listingItems.filter(
+        (item) => !item.assetId && item.stockId,
       );
+      const limit = pLimit(4);
+      // Unavailable listings get no quote but stay removable from the watchlist.
+      const [assetQuotes, stockQuoteById] = await Promise.all([
+        Promise.all(
+          assetItems.map((item) =>
+            limit(async () => {
+              try {
+                const quote =
+                  await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                    item,
+                  );
+                return { key: getMarketWatchlistKey(item), quote };
+              } catch {
+                return { key: getMarketWatchlistKey(item), quote: undefined };
+              }
+            }),
+          ),
+        ),
+        // The batch API returns the Stocks list item, which carries the
+        // variants the stock row reveals on hover; the detail API does not.
+        (async () => {
+          const quoteById = new Map<string, IMarketListingWatchlistQuote>();
+          if (stockItems.length === 0) return quoteById;
+          try {
+            const stocks =
+              await backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch({
+                stockIds: uniq(stockItems.map((item) => item.stockId ?? '')),
+              });
+            stocks.forEach((stock) => {
+              quoteById.set(stock.stockId.toUpperCase(), stock);
+            });
+          } catch {
+            // Fall through with no stock quotes.
+          }
+          return quoteById;
+        })(),
+      ]);
+      const stockQuotes = stockItems.map((item) => ({
+        key: getMarketWatchlistKey(item),
+        quote: stockQuoteById.get((item.stockId ?? '').toUpperCase()),
+      }));
+      return [...assetQuotes, ...stockQuotes];
     },
     [listingItems],
     {
@@ -424,6 +457,7 @@ export function useMarketWatchlistTokenList({
             uniqueTraders: 0,
             holders: 0,
             tokenImageUri: quote?.logoUrl ?? '',
+            stockVariants: quote?.variants,
             networkLogoUri: '',
             sortIndex: watchlistItem.sortIndex ?? 0,
           } satisfies IMarketToken;

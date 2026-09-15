@@ -22,6 +22,7 @@ import {
   PerpDexBadge,
   StockSourceLogo,
   SubtitleText,
+  getSubtitleTextSize,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -103,6 +104,10 @@ interface ITokenIdentityItemProps {
    */
   perpsSubtitle?: string;
   /**
+   * Company name of a stock listing, which has no `stock` info to carry it.
+   */
+  stockListingName?: string;
+  /**
    * HIP-3 DEX source label for perpetual tokens (e.g. "xyz", "para").
    */
   perpsDexLabel?: string;
@@ -130,6 +135,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   stock,
   maxLeverage,
   perpsSubtitle,
+  stockListingName,
   perpsDexLabel,
   showStockSubtitle = true,
   tokenSize = 'md',
@@ -162,9 +168,17 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     localizedName = stock.subtitle;
   } else if (!stock?.subtitle && perpsSubtitle) {
     localizedName = perpsSubtitle;
+  } else if (!stock?.subtitle && stockListingName) {
+    localizedName = stockListingName;
   }
   const shouldShowSecondRow =
     shouldShowVolume || shouldShowAddress || !!localizedName;
+  // The volume runs at the 12px subtitle size. Beside a localized name it takes
+  // the name's size, which is the same on mobile and a step smaller on desktop.
+  const volumeTextSize = localizedName ? getSubtitleTextSize(gtMd) : '$bodySm';
+  // The volume row keeps the 16px line box when the smaller desktop name size
+  // fills it, so the two lines sit where they do on every other row.
+  const volumeRowHeight = 16;
 
   const handleCopy = (e: GestureResponderEvent) => {
     e.stopPropagation();
@@ -244,7 +258,12 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
           )}
         </XStack>
         {shouldShowSecondRow ? (
-          <XStack alignItems="center" gap="$1.5" minWidth={0}>
+          <XStack
+            alignItems="center"
+            gap="$1.5"
+            minWidth={0}
+            height={showVolume ? volumeRowHeight : undefined}
+          >
             {localizedName ? (
               // Cap the localized name so long names truncate with an
               // ellipsis, e.g. "Circle Int...", keeping the row compact.
@@ -259,7 +278,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
             ) : null}
             {shouldShowVolume ? (
               <NumberSizeableText
-                size={gtMd ? '$bodySm' : '$bodyMd'}
+                size={volumeTextSize}
                 color="$textSubdued"
                 numberOfLines={1}
                 formatter="marketCap"

@@ -327,6 +327,44 @@ describe('market native list rows', () => {
     expect(withoutName.subtitlePrefix).toBeUndefined();
   });
 
+  it('names a favorited stock listing by its company, but not an asset listing', () => {
+    const listing: IMarketToken = {
+      ...token,
+      id: 'stock:AAPL',
+      stockId: 'AAPL',
+      name: 'Apple',
+      symbol: 'AAPL',
+      address: '',
+      networkId: '',
+      networkLogoUri: '',
+      stock: undefined,
+    };
+    const stockRow = buildTokenMarketRow({
+      item: listing,
+      presentation,
+      watchlist: true,
+    });
+    expect(stockRow.subtitle).toBe('$123.46K');
+    expect(stockRow.subtitlePrefix).toMatchObject({
+      text: 'Apple',
+      gap: 6,
+      maxWidth: 66,
+      style: { fontSize: 12, lineHeight: 16 },
+    });
+    const assetRow = buildTokenMarketRow({
+      item: {
+        ...listing,
+        id: 'asset:bitcoin',
+        stockId: undefined,
+        assetId: 'bitcoin',
+        name: 'Bitcoin',
+      },
+      presentation,
+      watchlist: true,
+    });
+    expect(assetRow.subtitlePrefix).toBeUndefined();
+  });
+
   it('preserves the distinct standalone and watchlist perpetual row layouts', () => {
     const standalone = buildPerpsMarketRow({ item: perp, presentation });
     const watchlist = buildTokenMarketRow({
@@ -347,7 +385,7 @@ describe('market native list rows', () => {
       horizontalPadding: 20,
       leadingGap: 14,
       lineGap: 4,
-      subtitle: { fontSize: 14, lineHeight: 20 },
+      subtitle: { fontSize: 12, lineHeight: 16 },
     });
     expect(
       watchlist.badges?.map((badge) => badge.style?.horizontalPadding),
@@ -384,13 +422,67 @@ describe('market native list rows', () => {
     ]);
   });
 
+  it('gives stock rows the token row frame', () => {
+    const stock = buildStockMarketRow({
+      item: {
+        stockId: 'SPY',
+        symbol: 'SPY',
+        name: 'SPDR S&P 500 ETF Trust',
+        logoUrl: 'https://example.com/spy.png',
+        assetType: 'etf',
+        currency: 'USD',
+        price: '762',
+        priceChange24hPercent: '-0.24',
+      },
+      presentation,
+    });
+    const tokenRow = buildTokenMarketRow({ item: token, presentation });
+
+    expect(stock.leading).toMatchObject({
+      kind: 'token',
+      image: { width: 32, height: 32 },
+    });
+    expect(stock.style).toMatchObject({
+      lineGap: tokenRow.style?.lineGap,
+      leadingGap: tokenRow.style?.leadingGap,
+      trailingGap: tokenRow.style?.trailingGap,
+      image: tokenRow.style?.image,
+      subtitle: tokenRow.style?.subtitle,
+    });
+  });
+
+  it('fits a token row into 72dp on Android without fractional edges', () => {
+    const row = buildTokenMarketRow({ item: token, presentation });
+    const snapshot = buildMarketNativeSnapshot({
+      rows: [row, row, row],
+      generation: 1,
+      presentation: { ...presentation, androidPixelRatio: 2.625 },
+      loading: false,
+      canLoadMore: true,
+      noDataMessage: 'No data',
+      retryMessage: 'Retry',
+      contentPaddingBottom: 20,
+    });
+
+    expect(snapshot.rows.map((item) => item.height)).toEqual([72, 72, 72]);
+  });
+
   it('preserves Android fractional token row edges across appended pages', () => {
-    const rows = Array.from({ length: 20 }, (_, index) =>
-      buildTokenMarketRow({
+    // The 12/16 subtitle fits a token row into 72dp exactly, so a taller 20px
+    // subtitle line stands in for any row whose text rounds past its height.
+    const rows = Array.from({ length: 20 }, (_, index) => {
+      const row = buildTokenMarketRow({
         item: { ...token, address: `0x${index}` },
         presentation,
-      }),
-    );
+      });
+      return {
+        ...row,
+        style: {
+          ...row.style,
+          subtitle: { ...row.style?.subtitle, lineHeight: 20 },
+        },
+      };
+    });
     const androidPresentation = { ...presentation, androidPixelRatio: 2.625 };
     const snapshot = (
       count: number,
