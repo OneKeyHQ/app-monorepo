@@ -70,6 +70,9 @@ function PageFirmwareUpdateChangeLog() {
 
   const { result, run, isLoading } = usePromiseResult(
     async () => {
+      // A re-check (Retry on a workflow error) supersedes the release the
+      // user confirmed earlier; the fresh result must drive the next start.
+      confirmUpdateResult.current = undefined;
       try {
         const resolvedTransport =
           await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
