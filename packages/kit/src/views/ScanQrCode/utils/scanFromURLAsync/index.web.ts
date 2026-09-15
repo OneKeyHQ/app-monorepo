@@ -40,5 +40,7 @@ export async function scanFromURLAsync(base64Url: string) {
   const { scanImageData } = require('zbar.wasm') as typeof import('zbar.wasm');
 
   const res = await scanImageData(imgData);
-  return res[0].decode();
+  // Match the native implementation: an image without a QR code yields null
+  // instead of throwing on the missing first symbol.
+  return res[0]?.decode() ?? null;
 }
