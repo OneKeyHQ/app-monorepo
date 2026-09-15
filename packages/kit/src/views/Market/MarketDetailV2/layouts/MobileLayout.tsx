@@ -447,6 +447,7 @@ export function MobileLayout({
 
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(0);
+  const [pageViewportHeight, setPageViewportHeight] = useState(0);
   const { top, bottom } = useSafeAreaInsets();
 
   // Skip top inset for iOS modal pages, as modal has its own safe area handling
@@ -470,7 +471,11 @@ export function MobileLayout({
     }
     return windowWidth;
   }, [containerWidth, width, windowWidth]);
-  const layoutHeight = height;
+  // Android overlays hide the main tab bar, so use the actual page viewport.
+  const layoutHeight =
+    platformEnv.isNativeAndroid && isModalPage && pageViewportHeight > 0
+      ? pageViewportHeight
+      : height;
   const layoutPageWidth = effectivePageWidth;
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
@@ -549,6 +554,21 @@ export function MobileLayout({
     [],
   );
 
+  const handlePageViewportLayout = useCallback(
+    (event: { nativeEvent: { layout: { height: number } } }) => {
+      if (!platformEnv.isNativeAndroid || !isModalPage) {
+        return;
+      }
+      const { height: nextHeight } = event.nativeEvent.layout;
+      if (nextHeight > 0) {
+        setPageViewportHeight((previousHeight) =>
+          previousHeight === nextHeight ? previousHeight : nextHeight,
+        );
+      }
+    },
+    [isModalPage],
+  );
+
   useEffect(() => {
     const activeTabIndex = tabNames.indexOf(focusedTab.value);
     if (
@@ -615,7 +635,8 @@ export function MobileLayout({
   const tradingViewHeight = useMemo(() => {
     if (platformEnv.isNative) {
       const baseChartHeight = Math.round(
-        Number(height) * MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO,
+        Number(layoutHeight) *
+          MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO,
       );
       const fixedMainChartHeight =
         baseChartHeight +
@@ -629,7 +650,7 @@ export function MobileLayout({
       );
     }
     return 'calc(100vh - 96px - 74px - 250px)';
-  }, [height, tradingViewSubIndicatorCount]);
+  }, [layoutHeight, tradingViewSubIndicatorCount]);
 
   const shouldReserveNativeIndicatorQuickBar =
     platformEnv.isNative &&
@@ -1019,7 +1040,13 @@ export function MobileLayout({
         tabNames={tabNames}
         focusedTab={focusedTab}
       />
-      <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
+      <ScrollView
+        horizontal
+        ref={scrollViewRef}
+        flex={1}
+        scrollEnabled={false}
+        onLayout={handlePageViewportLayout}
+      >
         {tabNames.map((_, index) => (
           <YStack
             key={index}
