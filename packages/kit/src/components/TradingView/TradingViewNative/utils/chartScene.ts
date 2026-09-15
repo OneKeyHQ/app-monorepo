@@ -113,7 +113,11 @@ import type {
   ITradingViewNativePriceScaleMode,
 } from '../types';
 
-export type ITradingViewNativeChartSceneFont = 'axis' | 'legend' | 'priceAxis';
+export type ITradingViewNativeChartSceneFont =
+  | 'axis'
+  | 'legend'
+  | 'priceAxis'
+  | 'referenceLineLabel';
 
 export type ITradingViewNativeChartScenePaint =
   | 'axisText'
