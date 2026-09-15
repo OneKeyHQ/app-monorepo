@@ -230,7 +230,6 @@ const mockCreateQrWalletService = jest.fn<
 const mockCreateHWWalletService = jest.fn();
 const mockCreateHWHiddenWalletService = jest.fn();
 const mockRestoreTempCreatedWallet = jest.fn();
-const mockGetWalletDevice = jest.fn();
 const mockGetAllHwQrWalletWithDevice = jest.fn();
 const mockUpdateWalletsDeprecatedState = jest.fn();
 const mockShowQrHiddenCreateGuideDialogIfErrorMatched = jest.fn();
@@ -353,7 +352,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceAccount: {
-      isThirdPartyHwByWalletId: jest.fn().mockResolvedValue(true),
       addTonImportedAccountByMnemonic: (
         ...args: Parameters<typeof mockAddTonImportedAccountByMnemonic>
       ) => mockAddTonImportedAccountByMnemonic(...args),
@@ -365,8 +363,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockCreateHWHiddenWalletService(...args) as Promise<unknown>,
       restoreTempCreatedWallet: (...args: unknown[]): Promise<unknown> =>
         mockRestoreTempCreatedWallet(...args) as Promise<unknown>,
-      getWalletDevice: (...args: unknown[]): Promise<unknown> =>
-        mockGetWalletDevice(...args) as Promise<unknown>,
       getAllHwQrWalletWithDevice: (...args: unknown[]) =>
         mockGetAllHwQrWalletWithDevice(...args) as Promise<unknown>,
       updateWalletsDeprecatedState: (...args: unknown[]) =>
@@ -540,7 +536,7 @@ describe('useAccountSelectorActions', () => {
     mockClearAccountCache.mockResolvedValue(undefined);
     mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [] });
     mockGetAllHwQrWalletWithDevice.mockResolvedValue({});
-    mockGetWalletDevice.mockResolvedValue(undefined);
+    mockGetWalletDevice.mockResolvedValue(undefined as unknown as IDBDevice);
     mockUpdateWalletsDeprecatedState.mockResolvedValue(true);
     mockRestoreTempCreatedWallet.mockResolvedValue(undefined);
     mockIsSoftwareWalletOnlyUser.mockResolvedValue(false);
@@ -966,7 +962,7 @@ describe('useAccountSelectorActions', () => {
         addedAccounts: [],
         failedAccounts: [],
       });
-      mockGetWalletDevice.mockResolvedValue(currentDevice);
+      mockGetWalletDevice.mockResolvedValue(currentDevice as IDBDevice);
     });
 
     it('selects the new hidden wallet before committing reset isolation', async () => {

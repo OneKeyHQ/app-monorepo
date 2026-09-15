@@ -917,10 +917,11 @@ class ServiceThirdPartyHardware extends ServiceBase {
         vendor: params.vendor,
       });
       if (dbDevice) {
-        return callTrezorWithBleFallback(
-          dbDevice,
-          (connectId) => adapter.connectDevice(connectId),
-          buildTrezorBleFallbackOptions(this.backgroundApi),
+        // Same intent as the ladder this replaced: address the device by its
+        // stored locator rather than the raw search target. Transport recovery
+        // now happens in the SDK, which receives both channel locators.
+        return callTrezorWithDevice(dbDevice, (connectId) =>
+          adapter.connectDevice(connectId),
         );
       }
     }

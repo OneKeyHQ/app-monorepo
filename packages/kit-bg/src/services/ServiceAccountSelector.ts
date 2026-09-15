@@ -227,7 +227,13 @@ class ServiceAccountSelector extends ServiceBase {
     );
 
     if (walletId) {
-      wallet = await serviceAccount.getWalletSafe({ walletId });
+      try {
+        wallet = await serviceAccount.getWallet({
+          walletId,
+        });
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     if (indexedAccountId && wallet) {
@@ -243,7 +249,6 @@ class ServiceAccountSelector extends ServiceBase {
     let dbAccountId = othersWalletAccountId || '';
     if (
       !dbAccountId &&
-      wallet &&
       indexedAccountId &&
       networkId &&
       deriveType &&
@@ -778,7 +783,12 @@ class ServiceAccountSelector extends ServiceBase {
     }
     const walletId = focusedWallet;
 
-    if (!(await serviceAccount.getWalletSafe({ walletId }))) {
+    // make sure wallet exists
+    try {
+      await serviceAccount.getWallet({ walletId });
+    } catch (error) {
+      // wallet may be removed
+      console.error(error);
       return [];
     }
 
@@ -863,13 +873,11 @@ class ServiceAccountSelector extends ServiceBase {
     const isHwOrQr = accountUtils.isHwOrQrWallet({
       walletId: focusedWallet,
     });
-    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
-      walletId: focusedWallet,
-    });
-    if (!wallet) {
-      return undefined;
-    }
     try {
+      const wallet = await this.backgroundApi.serviceAccount.getWallet({
+        walletId: focusedWallet,
+      });
+
       let device: IDBDevice | undefined;
       if (isHwOrQr) {
         device = await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
