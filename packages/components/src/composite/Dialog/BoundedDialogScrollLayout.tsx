@@ -1,8 +1,13 @@
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
 import { useSafeAreaInsets } from '../../hooks';
+import {
+  restoreAndroidSoftInputMode,
+  suspendAndroidSoftInputPan,
+} from '../../hooks/useKeyboardController';
 import { Stack } from '../../primitives';
 
 import { getBoundedDialogScrollMaxHeight } from './boundedDialogLayout';
@@ -34,6 +39,14 @@ export function BoundedDialogScrollLayout({
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const { top: topInset } = useSafeAreaInsets();
+  // Android adjustPan would lift the window on top of Dialog's own keyboard
+  // padding. Adjust-nothing while this layout is mounted; restore on leave.
+  useEffect(() => {
+    suspendAndroidSoftInputPan();
+    return () => {
+      restoreAndroidSoftInputMode();
+    };
+  }, []);
   const scrollMaxHeight = getBoundedDialogScrollMaxHeight({
     windowHeight,
     topInset,

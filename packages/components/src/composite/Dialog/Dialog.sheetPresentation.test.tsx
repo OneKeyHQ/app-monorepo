@@ -8,6 +8,10 @@ import type { ReactNode } from 'react';
 import { Dialog, DialogContainer } from '.';
 
 import { act, render, screen } from '@testing-library/react';
+import {
+  AndroidSoftInputModes,
+  KeyboardController,
+} from 'react-native-keyboard-controller';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -59,6 +63,7 @@ jest.mock('../../shared/tamagui', () => ({
     }) => (
       <div
         data-testid={testID || 'sheet-scroll-view'}
+        data-scroll-kind="sheet"
         data-max-height={maxHeight === undefined ? '' : String(maxHeight)}
         data-height={height === undefined ? '' : String(height)}
         data-keyboard-persist={keyboardShouldPersistTaps || ''}
@@ -81,6 +86,7 @@ jest.mock('../../layouts/ScrollView', () => ({
   }) => (
     <div
       data-testid={testID || 'plain-scroll-view'}
+      data-scroll-kind="plain"
       data-max-height={maxHeight === undefined ? '' : String(maxHeight)}
     >
       {children}
@@ -152,6 +158,21 @@ jest.mock('../../hooks', () => ({
   useOverlayZIndex: () => 1,
   useSafeAreaInsets: () => mockSafeAreaInsets.current,
 }));
+jest.mock('react-native-keyboard-controller', () => ({
+  KeyboardController: {
+    setInputMode: jest.fn(),
+    setDefaultMode: jest.fn(),
+  },
+  AndroidSoftInputModes: {
+    SOFT_INPUT_ADJUST_NOTHING: 48,
+  },
+}));
+jest.mock('../../hooks/useKeyboardController', () => {
+  const actual = jest.requireActual(
+    '../../hooks/useKeyboardController.native.ts',
+  ) as typeof import('../../hooks/useKeyboardController.native');
+  return actual;
+});
 jest.mock('../../layouts/Page/PageContext', () => ({
   usePageContext: () => ({}),
 }));
@@ -236,6 +257,8 @@ beforeEach(() => {
     scale: 1,
     fontScale: 1,
   };
+  jest.mocked(KeyboardController.setInputMode).mockClear();
+  jest.mocked(KeyboardController.setDefaultMode).mockClear();
 });
 
 describe('Dialog sheet scroll view presentation', () => {
@@ -264,6 +287,7 @@ describe('Dialog bounded sheet layout opt-in', () => {
     const scroll = screen.getByTestId('dialog-bounded-scroll');
     const close = screen.getByTestId('dialog-bounded-close');
 
+    expect(scroll.getAttribute('data-scroll-kind')).toBe('sheet');
     expect(screen.getByTestId('header-drag-zone')).toBeTruthy();
     expect(screen.getByTestId('sheet-grabber')).toBeTruthy();
     expect(
@@ -364,11 +388,59 @@ describe('Dialog bounded sheet layout opt-in', () => {
     ).toBe('309');
   });
 
+  it('suspends Android window pan for bounded dialogs and restores it on unmount', () => {
+    platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeIOS = false;
+
+    const { unmount } = render(<DialogContainer {...boundedDialogProps} />);
+    expect(KeyboardController.setInputMode).toHaveBeenCalledTimes(1);
+    expect(KeyboardController.setInputMode).toHaveBeenCalledWith(
+      AndroidSoftInputModes.SOFT_INPUT_ADJUST_NOTHING,
+    );
+    expect(KeyboardController.setDefaultMode).not.toHaveBeenCalled();
+
+    unmount();
+    expect(KeyboardController.setDefaultMode).toHaveBeenCalledTimes(1);
+
+    const reopened = render(<DialogContainer {...boundedDialogProps} />);
+    expect(KeyboardController.setInputMode).toHaveBeenCalledTimes(2);
+    reopened.unmount();
+    expect(KeyboardController.setDefaultMode).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not change native input mode for ordinary Android dialogs or iOS', () => {
+    platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeIOS = false;
+    const { unmount } = render(<DialogContainer {...dialogProps} />);
+    expect(KeyboardController.setInputMode).not.toHaveBeenCalled();
+    expect(KeyboardController.setDefaultMode).not.toHaveBeenCalled();
+    unmount();
+
+    platformEnv.isNativeAndroid = false;
+    platformEnv.isNativeIOS = true;
+    const ios = render(<DialogContainer {...boundedDialogProps} />);
+    expect(KeyboardController.setInputMode).not.toHaveBeenCalled();
+    expect(KeyboardController.setDefaultMode).not.toHaveBeenCalled();
+    ios.unmount();
+
+    platformEnv.isNative = false;
+    platformEnv.isNativeIOS = false;
+    const web = render(<DialogContainer {...boundedDialogProps} />);
+    expect(KeyboardController.setInputMode).not.toHaveBeenCalled();
+    expect(KeyboardController.setDefaultMode).not.toHaveBeenCalled();
+    web.unmount();
+  });
+
   it('keeps a tablet floating dialog on a single bounded scroll view', () => {
     mockMediaMd.current = false;
     render(<DialogContainer {...boundedDialogProps} />);
 
     expect(screen.getByTestId('dialog-bounded-scroll')).toBeTruthy();
+    expect(
+      screen
+        .getByTestId('dialog-bounded-scroll')
+        .getAttribute('data-scroll-kind'),
+    ).toBe('plain');
     expect(
       screen
         .getByTestId('dialog-bounded-scroll')
