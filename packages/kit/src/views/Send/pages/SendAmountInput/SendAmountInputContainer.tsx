@@ -42,6 +42,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  usePageMounted,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -2514,16 +2515,28 @@ function SendAmountInputContainer() {
   // Ref to track submit disabled state for keyboard shortcuts
   const isSubmitDisabledRef = useRef(true);
 
-  // Auto-focus the amount input after the page transition animation completes.
-  // Non-Android targets only auto-focus once, on the initial focus (the
-  // previous mount-only behavior), so returning from a child route does not
-  // steal focus from the active control or reopen the iOS keyboard. Android
-  // (react-native-screens) detaches this screen while the confirm page is on
-  // top, which drops the native focus, so it re-focuses on every route focus
-  // to bring the keyboard back.
+  // iOS uses a native slide-from-right push for modal stack screens. Wait for
+  // that transition to finish before focusing so the keyboard rises from the
+  // bottom instead of entering sideways with the screen. Keep this initial
+  // focus one-shot so returning from a child route does not reopen the iOS
+  // keyboard.
   const hasAutoFocusedAmountInputRef = useRef(false);
+  usePageMounted(() => {
+    if (!platformEnv.isNativeIOS || hasAutoFocusedAmountInputRef.current) {
+      return;
+    }
+    hasAutoFocusedAmountInputRef.current = true;
+    amountInputRef.current?.focus();
+  });
+
+  // Android (react-native-screens) detaches this screen while the confirm page
+  // is on top, which drops the native focus, so it re-focuses on every route
+  // focus. Web and desktop keep the previous once-only delayed auto-focus.
   useFocusEffect(
     useCallback(() => {
+      if (platformEnv.isNativeIOS) {
+        return undefined;
+      }
       if (
         hasAutoFocusedAmountInputRef.current &&
         !platformEnv.isNativeAndroid
@@ -4238,6 +4251,15 @@ function SendAmountInputContainer() {
         py="$2.5"
         alignItems="center"
         width="100%"
+        {...(platformEnv.isNativeIOS
+          ? {
+              // Keep the card on one native layer while its ancestors follow
+              // the keyboard. Fabric can otherwise commit flattened child
+              // frames before the card background during the layout animation.
+              collapsable: false,
+              shouldRasterizeIOS: true,
+            }
+          : {})}
       >
         {renderBalanceRowContent()}
       </XStack>
