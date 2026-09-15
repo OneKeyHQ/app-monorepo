@@ -24,6 +24,16 @@ jest.mock('./MarketBannerItem', () => ({
     <div data-testid="banner">{item._id}</div>
   ),
 }));
+jest.mock('./MarketBannerDesktopScroller', () => ({
+  MarketBannerDesktopScroller: ({
+    children,
+    divided,
+  }: PropsWithChildren<{ divided: boolean }>) => (
+    <div data-testid="desktop-web-scroller" data-divided={String(divided)}>
+      {children}
+    </div>
+  ),
+}));
 jest.mock('./MarketBannerItemSkeleton', () => ({
   MarketBannerItemSkeleton: () => <div data-testid="skeleton" />,
 }));
@@ -81,6 +91,27 @@ it('keeps native tablet banner padding aligned with the fixed header height', ()
   mockState = populated();
   render(<Page />);
   expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$4');
+});
+
+it('divides desktop web banners only when every card has token previews', () => {
+  platformEnv.isNative = false;
+  mockIsSmallScreen = false;
+  mockState = populated('legacy');
+  const { rerender } = render(<Page />);
+  const scroller = () => screen.getByTestId('desktop-web-scroller');
+  expect(scroller().dataset.divided).toBe('false');
+  mockState = {
+    ...populated(),
+    bannerList: [{ ...populated('modern').bannerList[0], tokens: [] }],
+  };
+  rerender(<Page />);
+  expect(scroller().dataset.divided).toBe('true');
+  mockState = {
+    ...mockState,
+    bannerList: [...mockState.bannerList, ...populated('legacy').bannerList],
+  };
+  rerender(<Page />);
+  expect(scroller().dataset.divided).toBe('false');
 });
 
 it('does not insert a banner after the native page has started without one', () => {
