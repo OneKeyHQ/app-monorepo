@@ -15,6 +15,8 @@ export const MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID = 'robinhood_meme';
 export const DEFAULT_MARKET_STOCK_SORT_BY: IMarketStockPublicListSortBy =
   'volume24h';
 export const DEFAULT_MARKET_STOCK_SORT_TYPE = 'desc' as const;
+// `/utility/v1/stocks/batch` rejects requests with more IDs than this.
+export const MARKET_STOCK_BATCH_MAX_IDS = 100;
 
 // Check if a network supports holders tab
 export function isHoldersTabSupported(networkId: string): boolean {

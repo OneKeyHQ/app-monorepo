@@ -1,32 +1,49 @@
 import { memo } from 'react';
 
 import { Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { s } from '@onekeyhq/components/src/utils/scale';
 
 import { MarketTestIDs } from '../../testIDs';
 
-function MarketBannerItemSkeletonComponent() {
+import {
+  MARKET_BANNER_ITEM_WIDTH,
+  MARKET_BANNER_LIST_MIN_HEIGHT,
+  MARKET_BANNER_MOBILE_ITEM_WIDTH,
+} from './marketBannerLayout';
+
+function MarketBannerItemSkeletonComponent({
+  isSmallScreen = false,
+}: {
+  isSmallScreen?: boolean;
+}) {
   return (
     <YStack
       testID={MarketTestIDs.bannerItemSkeleton}
       bg="$bgSubdued"
       borderRadius="$3"
-      px="$4"
-      py="$5"
-      width={336}
+      borderCurve="continuous"
+      pt="$3.5"
+      px="$3.5"
+      pb="$5"
+      width={
+        isSmallScreen
+          ? MARKET_BANNER_MOBILE_ITEM_WIDTH
+          : MARKET_BANNER_ITEM_WIDTH
+      }
       flexShrink={0}
-      gap="$5"
+      gap="$6"
     >
-      <XStack h="$6" alignItems="center">
-        <Skeleton w="$40" h="$4" />
+      <XStack h={s(30)} alignItems="center">
+        <Skeleton w="$24" h="$4" />
       </XStack>
-      <YStack gap="$4" minHeight={104}>
+      <YStack gap="$4" pr="$1.5" minHeight={MARKET_BANNER_LIST_MIN_HEIGHT}>
         {[0, 1, 2].map((index) => (
-          <XStack key={index} h="$6" gap="$2" alignItems="center">
-            <Skeleton w="$6" h="$6" radius="round" />
-            <Skeleton w="$16" h="$3" />
+          <XStack key={index} h="$5" gap="$2" alignItems="center">
+            <Skeleton w="$5" h="$5" radius="round" />
+            <Skeleton w="$12" h="$3" />
             <XStack flex={1} />
-            <Skeleton w="$16" h="$3" />
-            <Skeleton w="$20" h="$3" />
+            <Skeleton w="$14" h="$3" />
+            <Skeleton w="$12" h="$3" />
           </XStack>
         ))}
       </YStack>

@@ -277,6 +277,8 @@ export function DesktopLayout({
     return (
       <Tooltip
         placement="top"
+        // Interactive mode for its hover-intent delay, not for interactive content.
+        hovering
         renderTrigger={tabItem}
         renderContent={<SizableText size="$bodySm">{tooltip}</SizableText>}
       />
@@ -320,9 +322,13 @@ export function DesktopLayout({
           <XStack
             {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}
             alignItems="center"
+            // Controls follow the last tab instead of pinning to the right, set
+            // apart by the design's 32px gap between the tabs and their controls
+            // (tabs themselves sit 20px apart).
+            gap="$8"
             testID={MarketTestIDs.marketTabs}
           >
-            <XStack flex={1}>
+            <XStack flexShrink={1} minWidth={0}>
               <Tabs.TabBar
                 {...tabBarProps}
                 onTabPress={handleTabPress}
@@ -341,7 +347,7 @@ export function DesktopLayout({
               display={showSpotControls ? 'flex' : 'none'}
               gap="$3"
               alignItems="center"
-              pr="$5"
+              flexShrink={0}
             >
               <TimeRangeDropdown
                 value={currentFilterBarProps.timeRange}

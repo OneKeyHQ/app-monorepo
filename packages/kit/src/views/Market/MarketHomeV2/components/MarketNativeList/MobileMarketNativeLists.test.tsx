@@ -307,6 +307,7 @@ jest.mock('../MarketTokenList/hooks/useWatchlistFilteredGroups', () => ({
   useWatchlistFilteredGroups: () => ({
     all: mockWatchlistData,
     spot: mockWatchlistData,
+    stocks: [],
     perps: [],
   }),
 }));
@@ -710,96 +711,27 @@ describe('native market listing favorites', () => {
     },
   );
 
-  it('adds a stock favorite without opening its detail row', async () => {
-    const previous = [...mockWatchlistData];
-    let resolveFavorite: (value: boolean) => void = () => undefined;
-    mockListingActions.addIntoWatchListV2.mockImplementationOnce(
-      () =>
-        new Promise<boolean>((resolve) => {
-          resolveFavorite = resolve;
-        }),
+  it('hides favorites from stock and top-coin rows', () => {
+    render(
+      <MobileMarketNativeStockList
+        selectedCategoryId="all"
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
     );
-    mockWatchlistData.splice(0);
-    try {
-      render(
-        <MobileMarketNativeStockList
-          selectedCategoryId="all"
-          listContainerProps={{ paddingBottom: 20 }}
-        />,
-      );
-      expect(mockNativeSnapshot?.rows[0]).toMatchObject({
-        key: 'AAPL',
-        leadingAction: {
-          name: 'StarOutline',
-          disabled: false,
-          actionKey: 'toggle-favorite',
-        },
-      });
-
-      act(() => {
-        mockRowAction?.({ rowKey: 'AAPL', actionKey: 'toggle-favorite' });
-      });
-      expect(mockNativeSnapshot?.rows[0]).toMatchObject({
-        leadingAction: { disabled: true },
-      });
-      expect(mockListingActions.addIntoWatchListV2).toHaveBeenCalledWith([
-        {
-          chainId: '',
-          contractAddress: '',
-          stockId: 'AAPL',
-          isNative: false,
-        },
-      ]);
-      expect(mockStockDetail).not.toHaveBeenCalled();
-      await act(async () => resolveFavorite(true));
-      expect(mockNativeSnapshot?.rows[0]).toMatchObject({
-        leadingAction: { disabled: false },
-      });
-    } finally {
-      mockWatchlistData.splice(0, mockWatchlistData.length, ...previous);
-    }
-  });
-
-  it('removes an active top-coin favorite without opening its detail row', async () => {
-    const previous = [...mockWatchlistData];
-    mockWatchlistData.splice(0, mockWatchlistData.length, {
-      ...previous[0],
-      id: 'bitcoin',
-      address: '',
-      networkId: '',
-      assetId: 'bitcoin',
+    expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+      key: 'AAPL',
+      leadingAction: undefined,
     });
-    try {
-      render(
-        <MobileMarketNativeTopCoinsList
-          dataCacheRef={{ current: undefined }}
-          listContainerProps={{ paddingBottom: 20 }}
-        />,
-      );
-      expect(mockNativeSnapshot?.rows[0]).toMatchObject({
-        key: 'bitcoin',
-        leadingAction: {
-          name: 'StarSolid',
-          disabled: false,
-          actionKey: 'toggle-favorite',
-        },
-      });
 
-      await act(async () => {
-        mockRowAction?.({ rowKey: 'bitcoin', actionKey: 'toggle-favorite' });
-      });
-      expect(mockListingActions.removeFromWatchListV2).toHaveBeenCalledWith(
-        '',
-        '',
-        {
-          chainId: '',
-          contractAddress: '',
-          assetId: 'bitcoin',
-        },
-      );
-      expect(mockTopCoinDetail).not.toHaveBeenCalled();
-    } finally {
-      mockWatchlistData.splice(0, mockWatchlistData.length, ...previous);
-    }
+    render(
+      <MobileMarketNativeTopCoinsList
+        dataCacheRef={{ current: undefined }}
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+    expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+      key: 'bitcoin',
+      leadingAction: undefined,
+    });
   });
 });

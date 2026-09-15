@@ -109,6 +109,34 @@ body {
   height: 8px;
 }
 
+.perp-table-overlay-scrollbar {
+  display: none;
+  position: absolute;
+  border-radius: 2px;
+  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
+    var(--bgApp);
+  touch-action: none;
+  user-select: none;
+}
+
+.perp-table-overlay-scrollbar[data-orientation='vertical'] {
+  top: 0;
+  right: 0;
+  width: 4px;
+}
+
+.perp-table-overlay-scrollbar[data-orientation='horizontal'] {
+  bottom: 0;
+  left: 0;
+  height: 4px;
+}
+
+.perp-table-overlay-scrollbar:hover,
+.perp-table-overlay-scrollbar:active {
+  background: linear-gradient(var(--textDisabled), var(--textDisabled)),
+    var(--bgApp);
+}
+
 .show-scrollbar ::-webkit-scrollbar {
   width: 8px;
   height: unset;
@@ -513,9 +541,7 @@ w3m-modal {
 
 /* Keep header movement compositor-driven; unsupported browsers use the JS mirror. */
 @supports (animation-timeline: --x) and (timeline-scope: --x) and
-  (scroll-timeline: --x x) and (overflow: clip) and
-  (container-type: inline-size) and
-  (transform: translateX(calc(-100% + 100cqw))) {
+  (scroll-timeline: --x x) and (overflow: clip) {
   [data-testid='perp-desktop-table'] {
     timeline-scope: --perp-desktop-table-x;
   }
@@ -526,10 +552,9 @@ w3m-modal {
 
   [data-testid='perp-desktop-table-header'] {
     overflow: clip !important;
-    container-type: inline-size;
   }
 
-  /* Match the body's maximum scroll offset without JS measurement. */
+  /* Use the same measured range as the body's scroll timeline. */
   [data-testid='perp-desktop-table-header-content'] {
     animation: perp-desktop-table-header-x linear both;
     animation-timeline: --perp-desktop-table-x;
@@ -541,6 +566,6 @@ w3m-modal {
     transform: translateX(0);
   }
   to {
-    transform: translateX(calc(-100% + 100cqw));
+    transform: translateX(var(--perp-desktop-table-scroll-end, 0px));
   }
 }

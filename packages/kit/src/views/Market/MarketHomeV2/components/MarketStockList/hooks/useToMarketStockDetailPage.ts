@@ -4,18 +4,14 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
   rootNavigationRef,
+  switchTabAsync,
   useIsModalPage,
   useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
-import {
-  EModalMarketRoutes,
-  type IModalMarketParamList,
-} from '@onekeyhq/kit/src/views/Market/router/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -143,11 +139,22 @@ export function useToMarketStockDetailPage(
             : undefined),
         };
         if (isModalPage) {
-          (
-            navigation as unknown as IModalNavigationProp<IModalMarketParamList>
-          ).replace(EModalMarketRoutes.MarketDetailV2, stockDetailParams);
+          const marketTab = platformEnv.isNative
+            ? ETabRoutes.Discovery
+            : ETabRoutes.Market;
+          await switchTabAsync(marketTab);
+          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+            screen: marketTab,
+            params: {
+              screen: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            },
+          });
         } else {
-          navigation.replace(
+          // Reset the tab stack so returning from the selected stock does not
+          // reveal the previously viewed stock detail.
+          navigation.popToTop();
+          navigation.push(
             ETabMarketRoutes.MarketStockDetail,
             stockDetailParams,
           );

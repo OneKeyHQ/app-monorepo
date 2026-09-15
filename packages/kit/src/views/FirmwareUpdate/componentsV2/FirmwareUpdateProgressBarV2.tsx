@@ -340,7 +340,6 @@ export function FirmwareUpdateProgressBarV2({
     }
     const displayMetrics = getFirmwareTransferDisplayMetrics(
       firmwareTransferMetrics,
-      intl,
     );
     if (!displayMetrics) {
       return undefined;

@@ -8,6 +8,7 @@ import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiv
 export function MarketDetailResponsiveLayout({
   isLayoutPending,
   isInitialContentPending,
+  isTokenDetailRequestPending,
   disablePerpsBanner,
   isDesktopLayout,
   isChartFullscreen,
@@ -48,6 +49,7 @@ export function MarketDetailResponsiveLayout({
         isNative={isNative}
         networkId={networkId}
         tokenAddress={tokenAddress}
+        isTokenDetailRequestPending={isTokenDetailRequestPending}
         marketTokenId={marketTokenId}
         marketAssetDetail={marketAssetDetail}
         isMarketAssetDetailLoading={isMarketAssetDetailLoading}
@@ -60,6 +62,7 @@ export function MarketDetailResponsiveLayout({
 
   return (
     <MobileLayout
+      isLayoutPending={isLayoutPending}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}
       disableTrade={disableTrade}

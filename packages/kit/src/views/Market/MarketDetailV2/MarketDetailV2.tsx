@@ -49,11 +49,15 @@ import {
   useAutoRefreshTokenDetail,
   useResolvedMarketAssetRouteIdentity,
   useStockDetail,
+  useTokenDetail,
 } from './hooks';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
-import { buildMarketStockDetailPreview } from './utils/marketDetailPreview';
+import {
+  buildMarketStockDetailPreview,
+  hasValidMarketDetailPreview,
+} from './utils/marketDetailPreview';
 
 import type { NavigationAction } from '@react-navigation/routers';
 
@@ -117,8 +121,13 @@ function MarketDetail({
     | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
 
-  const { isStockRoute, selectedTokenVariant, isTokenVariantPending } =
-    useStockDetail();
+  const {
+    isStockRoute,
+    selectedTokenVariant,
+    isTokenVariantPending,
+    stockPreview,
+  } = useStockDetail();
+  const { tokenDetailPreview: currentTokenDetailPreview } = useTokenDetail();
   const isRouteFocused = useIsFocused();
   const routeNetwork = ('network' in params ? params.network : '') ?? '';
   const routeNetworkId =
@@ -194,11 +203,16 @@ function MarketDetail({
         : tokenDetailPreview,
     [resolvedMarketAssetIdentity, tokenDetailPreview],
   );
-  const hasValidTokenDetailPreview = Boolean(
-    resolvedTokenDetailPreview &&
-    resolvedTokenDetailPreview.address === tokenAddress &&
-    resolvedTokenDetailPreview.networkId === networkId,
-  );
+  // Stock navigation carries a separate stock preview instead of the token
+  // preview atom. It already provides enough content for the native shell to
+  // render while the stock variant and token detail requests settle.
+  const hasValidInitialContentPreview = hasValidMarketDetailPreview({
+    isStockRoute,
+    stockPreview,
+    previews: [resolvedTokenDetailPreview, currentTokenDetailPreview],
+    tokenAddress,
+    networkId,
+  });
   const stockTokenDetailTarget = useMemo(
     () =>
       isStockRoute
@@ -293,7 +307,7 @@ function MarketDetail({
             isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
-              !hasValidTokenDetailPreview &&
+              !hasValidInitialContentPreview &&
               (isTokenVariantPending || isInitialTokenDetailPending)
             }
             isDesktopLayout={isDesktopLayout}
@@ -304,6 +318,7 @@ function MarketDetail({
             isNative={isNativeBoolean}
             networkId={networkId}
             tokenAddress={tokenAddress}
+            isTokenDetailRequestPending={isInitialTokenDetailPending}
             marketTokenId={marketTokenId}
             marketAssetDetail={marketAssetDetail}
             isMarketAssetDetailLoading={isMarketAssetDetailLoading}

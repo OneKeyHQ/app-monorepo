@@ -55,6 +55,7 @@ import {
 } from './hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useTrendingColumnsDesktop } from './hooks/useMarketTokenColumns/useTrendingColumnsDesktop';
+import { useWatchlistColumnsDesktop } from './hooks/useMarketTokenColumns/useWatchlistColumnsDesktop';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 import {
@@ -77,7 +78,6 @@ const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
 const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
-const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
 const MARKET_HOME_WEB_MOBILE_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
@@ -531,15 +531,6 @@ function MarketTokenListBase({
       }),
     [forceStockMetadataColumns, isWatchlistMode, rawData, showStockSubtitle],
   );
-  // Web tab integration gives the inner FlatList the full tab height so the
-  // outer Tabs.Container can own vertical scroll. During cold start, keep only
-  // the first rows rich and defer extra media/interactive decoration until
-  // after the measured startup window.
-  const deferRichRowAfterIndex =
-    platformEnv.isWeb && webTabIntegrated && !enableDeferredWebFeatures
-      ? MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT
-      : undefined;
-
   const defaultMarketTokenColumns = useMarketTokenColumns(
     networkId,
     isWatchlistMode,
@@ -551,7 +542,6 @@ function MarketTokenListBase({
     hiddenDesktopColumns,
     change24hColumnTitle,
     useStockMetadataColumns,
-    deferRichRowAfterIndex,
   );
   const trendingColumnsDesktop = useTrendingColumnsDesktop({
     networkId,
@@ -559,10 +549,25 @@ function MarketTokenListBase({
     sort: trendingSort,
     onSort: handleTrendingSort,
   });
+  const watchlistColumnsDesktop = useWatchlistColumnsDesktop({
+    networkId,
+    watchlistFrom,
+    copyFrom,
+    hiddenDesktopColumns,
+  });
   const useTrendingDesktopColumns = desktopColumnVariant === 'trending' && !md;
-  const baseMarketTokenColumns = useTrendingDesktopColumns
-    ? trendingColumnsDesktop
-    : defaultMarketTokenColumns;
+  // The watchlist mirrors each row's sibling list on desktop; its mobile
+  // column set stays shared with the other spot lists. Native tablets clear
+  // `md` too, so gate on the platform as well: native only renders the
+  // mobile table (see useMarketTokenColumns.native.tsx).
+  const useWatchlistDesktopColumns =
+    isWatchlistMode && !md && !platformEnv.isNative;
+  let baseMarketTokenColumns = defaultMarketTokenColumns;
+  if (useTrendingDesktopColumns) {
+    baseMarketTokenColumns = trendingColumnsDesktop;
+  } else if (useWatchlistDesktopColumns) {
+    baseMarketTokenColumns = watchlistColumnsDesktop;
+  }
   const {
     columns: marketTokenColumns,
     handleContainerLayout: handleResponsiveContainerLayout,
@@ -588,12 +593,14 @@ function MarketTokenListBase({
       setTrendingSort({});
     }
   }, [marketTokenColumns, trendingSort.field, useTrendingDesktopColumns]);
-  // Trending desktop rows expose a hover group so the name cell can swap the
-  // token age for the contract address. Only data rows opt in: `rowProps` below
-  // is shared with the header row, which must not become a hover group.
-  const rowHoverGroupName = useTrendingDesktopColumns
-    ? MARKET_TOKEN_ROW_GROUP_NAME
-    : undefined;
+  // Trending and watchlist desktop rows expose a hover group so the name cell
+  // can swap its subtitle: the token age for the contract address, a company
+  // name for the tokens issued against it. Only data rows opt in: `rowProps`
+  // below is shared with the header row, which must not become a hover group.
+  const rowHoverGroupName =
+    useTrendingDesktopColumns || useWatchlistDesktopColumns
+      ? MARKET_TOKEN_ROW_GROUP_NAME
+      : undefined;
 
   const data = useMemo(() => {
     const dataWithLiveOverrides = liveTokenOverride

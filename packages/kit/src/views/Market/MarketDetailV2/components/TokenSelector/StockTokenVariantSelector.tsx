@@ -35,7 +35,17 @@ import { getStockPortfolioVariantKey } from '../../utils/stockTokenVariant';
 // (25884:24154) so the Issuer and Token Price labels line up with their values.
 const AVATAR_SLOT_WIDTH = 32;
 const HEADER_SPACER_HEIGHT = 16;
-const POPOVER_WIDTH = 384;
+// Unlike Figma's equal thirds, the name column takes the largest share: it
+// carries the symbol, the 24/7 tag and the balance, while the price column only
+// ever holds one figure. Header and rows share these weights to stay aligned.
+const NAME_COLUMN_FLEX = 1.3;
+const ISSUER_COLUMN_FLEX = 1;
+const PRICE_COLUMN_FLEX = 0.9;
+// 8 narrower than Figma's 384: opened from the trigger's left edge, a 384 panel
+// ends 4px short of the window on a gutter-limited layout, inside the popper's
+// 10px frame padding, so it got pushed left. 376 keeps a 12px margin while the
+// name column still fits a symbol plus the 24/7 tag.
+const POPOVER_WIDTH = 376;
 const ROW_MIN_HEIGHT = 62;
 // Figma 25672:54928: the trigger avatar is 28 with a 12 chain badge. The shared
 // Token size scale steps 24 -> 32, so the badge is composed here instead.
@@ -168,7 +178,7 @@ function StockTokenVariantRow({
         placeholder={<Stack width="100%" height="100%" />}
       />
 
-      <YStack flex={1} flexBasis={0} minWidth={0} gap="$0.5">
+      <YStack flex={NAME_COLUMN_FLEX} flexBasis={0} minWidth={0} gap="$0.5">
         <XStack alignItems="center" gap="$1">
           <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
             {variant.symbol || variant.name || VALUE_FALLBACK}
@@ -204,14 +214,25 @@ function StockTokenVariantRow({
         )}
       </YStack>
 
-      <XStack flex={1} flexBasis={0} minWidth={0} alignItems="center" gap="$1">
+      <XStack
+        flex={ISSUER_COLUMN_FLEX}
+        flexBasis={0}
+        minWidth={0}
+        alignItems="center"
+        gap="$1"
+      >
         <Token size="xxs" tokenImageUri={variant.issuerLogoUrl} />
         <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
           {getIssuerLabel(variant.issuer)}
         </SizableText>
       </XStack>
 
-      <XStack flex={1} flexBasis={0} minWidth={0} alignItems="center">
+      <XStack
+        flex={PRICE_COLUMN_FLEX}
+        flexBasis={0}
+        minWidth={0}
+        alignItems="center"
+      >
         {variant.price ? (
           <NumberSizeableText
             size="$bodyMdMedium"
@@ -260,7 +281,7 @@ function StockTokenVariantSelectorContent({
     >
       <XStack px="$2.5" py="$2" gap="$3" alignItems="center">
         <SizableText
-          flex={1}
+          flex={NAME_COLUMN_FLEX}
           flexBasis={0}
           minWidth={0}
           size="$bodySmMedium"
@@ -279,7 +300,7 @@ function StockTokenVariantSelectorContent({
           pointerEvents="none"
         />
         <SizableText
-          flex={1}
+          flex={ISSUER_COLUMN_FLEX}
           flexBasis={0}
           minWidth={0}
           size="$bodySmMedium"
@@ -291,12 +312,11 @@ function StockTokenVariantSelectorContent({
           })}
         </SizableText>
         <SizableText
-          flex={1}
+          flex={PRICE_COLUMN_FLEX}
           flexBasis={0}
           minWidth={0}
           size="$bodySmMedium"
           color="$textSubdued"
-          textDecorationLine="underline"
           numberOfLines={1}
         >
           {intl.formatMessage({ id: ETranslations.global_price })}
@@ -381,6 +401,9 @@ export function StockTokenVariantSelector({
         id: ETranslations.trade_stocks_token_details,
       })}
       placement="bottom-start"
+      // Flip above/below when needed, but never swap to end alignment: the
+      // panel always opens rightward from the trigger.
+      allowFlip={{ flipAlignment: false }}
       floatingPanelProps={{ width: POPOVER_WIDTH }}
       renderTrigger={
         // Figma 26230:23589. The pressable area is tight to its content (32
