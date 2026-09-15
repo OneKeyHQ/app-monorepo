@@ -19,6 +19,7 @@ import {
   APY_PRICE_SCALE_MARGINS,
   LightweightChart,
 } from '@onekeyhq/kit/src/components/LightweightChart';
+import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { buildChartHistory, getLatestTimestamp } from './ApyChart.utils';
@@ -59,6 +60,7 @@ const ApyChartComponent = ({
   controlsPlacement = 'top',
 }: IApyChartProps) => {
   const intl = useIntl();
+  const timeZone = useDeviceTimeZone();
 
   const resolvedPrimaryLabel =
     primaryApyLabel || intl.formatMessage({ id: ETranslations.global_apy });
@@ -392,6 +394,11 @@ const ApyChartComponent = ({
             priceScaleEntireTextOnly
             priceScaleMargins={APY_PRICE_SCALE_MARGINS}
             showHorzGridLines
+            // The wrapper only localizes the time axis when both are given;
+            // otherwise lightweight-charts labels it in the system language,
+            // not the app language (OK-63219).
+            timeZone={timeZone}
+            locale={intl.locale}
           />
         </YStack>
       ) : null}

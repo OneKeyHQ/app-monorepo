@@ -22,11 +22,14 @@ function MarketFilterBarSmall({
 }: IMarketFilterBarSmallProps) {
   return (
     <YStack>
+      {/* Both filters sit together on the left, so a tab without the network
+          selector keeps its time range in the same place. */}
       <XStack
         px="$5"
         pt="$3"
         pb="$2"
-        justifyContent={showNetworkSelector ? 'space-between' : 'flex-end'}
+        gap="$4"
+        justifyContent="flex-start"
         alignItems="center"
       >
         <XStack display={showNetworkSelector ? 'flex' : 'none'}>
