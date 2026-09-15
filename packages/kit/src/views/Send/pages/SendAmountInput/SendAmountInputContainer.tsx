@@ -9,7 +9,11 @@ import {
   useState,
 } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -2510,13 +2514,36 @@ function SendAmountInputContainer() {
   // Ref to track submit disabled state for keyboard shortcuts
   const isSubmitDisabledRef = useRef(true);
 
-  // Auto-focus the amount input after page transition animation completes
+  // Auto-focus the amount input after the page transition animation completes.
+  // Runs on every route focus rather than only on mount: Android
+  // (react-native-screens) detaches this screen while the confirm page is on
+  // top, which drops the native focus, so returning from it needs a fresh
+  // focus() to bring the keyboard back.
+  useFocusEffect(
+    useCallback(() => {
+      const timer = setTimeout(() => {
+        amountInputRef.current?.focus();
+      }, 300);
+      return () => clearTimeout(timer);
+    }, []),
+  );
+
+  // Blur the amount input before this screen is popped. The input is a Nitro
+  // HybridView that, unlike RN's TextInput, does not hide the keyboard when
+  // Android clears its focus during the exit transition; the focus recovery
+  // then hands the still-visible keyboard to the next focusable input in the
+  // window, so header back with the keyboard up left it open on the previous
+  // page. `beforeRemove` fires while the native view is still alive; by the
+  // time the unmount cleanup runs the ref is already detached.
+  const reactNavigation = useNavigation();
   useEffect(() => {
-    const timer = setTimeout(() => {
-      amountInputRef.current?.focus();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!platformEnv.isNative) {
+      return undefined;
+    }
+    return reactNavigation.addListener('beforeRemove', () => {
+      amountInputRef.current?.blur();
+    });
+  }, [reactNavigation]);
 
   const handleAmountInputFocus = useCallback(() => {
     setIsAmountInputFocused(true);
