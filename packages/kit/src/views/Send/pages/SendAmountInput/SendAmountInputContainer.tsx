@@ -2538,13 +2538,16 @@ function SendAmountInputContainer() {
     }, []),
   );
 
-  // Blur the amount input before this screen is popped. The input is a Nitro
-  // HybridView that, unlike RN's TextInput, does not hide the keyboard when
-  // Android clears its focus during the exit transition; the focus recovery
-  // then hands the still-visible keyboard to the next focusable input in the
-  // window, so header back with the keyboard up left it open on the previous
-  // page. `beforeRemove` fires while the native view is still alive; by the
-  // time the unmount cleanup runs the ref is already detached.
+  // Blur the amount input and dismiss the IME before this screen is popped.
+  // The input is a Nitro HybridView that, unlike RN's TextInput, does not hide
+  // the keyboard when Android clears its focus during the exit transition; the
+  // focus recovery then hands the still-visible keyboard to the next focusable
+  // input in the window, so header back with the keyboard up left it open on
+  // the previous page. Blurring alone is not guaranteed to hide the IME for
+  // this input, so follow it with the global `Keyboard.dismiss()`
+  // (KeyboardController) like the overlay-open path does. `beforeRemove` fires
+  // while the native view is still alive; by the time the unmount cleanup runs
+  // the ref is already detached.
   const reactNavigation = useNavigation();
   useEffect(() => {
     if (!platformEnv.isNative) {
@@ -2552,6 +2555,7 @@ function SendAmountInputContainer() {
     }
     return reactNavigation.addListener('beforeRemove', () => {
       amountInputRef.current?.blur();
+      Keyboard.dismiss();
     });
   }, [reactNavigation]);
 
