@@ -5,6 +5,7 @@ import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   ENotificationPermission,
+  ENotificationPermissionRecoverySource,
   type INotificationPermissionDetail,
 } from '@onekeyhq/shared/types/notification';
 
@@ -17,18 +18,18 @@ export type IOsNotificationPermissionAction =
   | 'request'
   | 'openSettings';
 
-// iOS shows the system prompt only the first time requestAuthorization runs
-// (status still notDetermined). After a deny, the prompt never returns and
-// Settings is the only recovery path. Other platforms keep their existing
-// notification permission flows.
+// Native iOS and Android show the system prompt while status is still
+// undetermined (iOS notDetermined; Android DENIED + canAskAgain, mapped to
+// default). After a terminal deny, the prompt never returns and Settings is
+// the only recovery path. Non-native platforms keep Test / existing flows.
 export function resolveOsNotificationPermissionAction({
   permission,
-  isNativeIOS,
+  isNative,
 }: {
   permission: INotificationPermissionDetail | undefined;
-  isNativeIOS: boolean;
+  isNative: boolean;
 }): IOsNotificationPermissionAction {
-  if (!isNativeIOS) {
+  if (!isNative) {
     return 'none';
   }
   if (!permission?.isSupported) {
@@ -43,20 +44,20 @@ export function resolveOsNotificationPermissionAction({
   return 'request';
 }
 
-// The iOS first paint has `permission === undefined`. Treating that as `'none'`
+// Native first paint has `permission === undefined`. Treating that as `'none'`
 // flashes Test before Enable / Go to Settings. Stay pending until the read
-// finishes (`isLoading === false`) or a payload arrives. Other platforms keep
-// their existing Test / permission-guide behavior and skip this state machine.
+// finishes (`isLoading === false`) or a payload arrives. Non-native platforms
+// keep Test and skip this state machine.
 export function isOsNotificationPermissionPending({
   permission,
   isLoading,
-  isNativeIOS,
+  isNative,
 }: {
   permission: INotificationPermissionDetail | undefined;
   isLoading: boolean | undefined;
-  isNativeIOS: boolean;
+  isNative: boolean;
 }): boolean {
-  if (!isNativeIOS) {
+  if (!isNative) {
     return false;
   }
   return permission === undefined && isLoading !== false;
@@ -65,7 +66,7 @@ export function isOsNotificationPermissionPending({
 export async function getOsNotificationPermissionSafe(): Promise<
   INotificationPermissionDetail | undefined
 > {
-  if (!platformEnv.isNativeIOS) {
+  if (!platformEnv.isNative) {
     return undefined;
   }
   try {
@@ -81,12 +82,12 @@ function currentOsPermissionAction(
 ): IOsNotificationPermissionAction {
   return resolveOsNotificationPermissionAction({
     permission,
-    isNativeIOS: !!platformEnv.isNativeIOS,
+    isNative: !!platformEnv.isNative,
   });
 }
 
 // Do not reuse enableNotificationPermissions() here: after a fresh deny it
-// immediately opens Settings. notDetermined should only requestAuthorization.
+// immediately opens Settings. Undetermined should only request permission.
 export async function recoverOsNotificationPermission(
   knownPermission?: INotificationPermissionDetail,
 ): Promise<INotificationPermissionDetail | undefined> {
@@ -97,11 +98,27 @@ export async function recoverOsNotificationPermission(
     return permission;
   }
   try {
+    let nextPermission: INotificationPermissionDetail | undefined;
     if (action === 'request') {
-      return await backgroundApiProxy.serviceNotification.requestPermission();
+      nextPermission =
+        await backgroundApiProxy.serviceNotification.requestPermission();
+    } else {
+      await backgroundApiProxy.serviceNotification.openPermissionSettings();
+      nextPermission = await getOsNotificationPermissionSafe();
     }
-    await backgroundApiProxy.serviceNotification.openPermissionSettings();
-    return await getOsNotificationPermissionSafe();
+    if (nextPermission?.permission === ENotificationPermission.granted) {
+      try {
+        await backgroundApiProxy.serviceNotification.checkNotificationPermissionRecovery(
+          {
+            ignoreCooldown: true,
+            source: ENotificationPermissionRecoverySource.settings,
+          },
+        );
+      } catch {
+        // Registration check is best-effort; keep the granted OS result.
+      }
+    }
+    return nextPermission;
   } catch {
     // requestPermission / openPermissionSettings can throw from the native module.
     return permission;

@@ -254,8 +254,12 @@ export function NotificationDevSettings() {
             Notification Permission Recovery QA
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
-            Apply a scenario, return to Home, and wait 6 seconds. Test mode
-            never opens system settings or registers a real push client.
+            Apply a scenario, then run a recovery check here. Home and Settings
+            keep invisible permission-restoration checks. The only visible
+            recovery CTA in Settings is the bottom permission button, which
+            follows real OS permission state rather than the scenario. The
+            scenario checker on this page still reports shouldShow. Scenario
+            checks never open system settings or register a real push client.
           </SizableText>
           <Select
             testID="notification-permission-recovery-scenario"
