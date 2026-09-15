@@ -28,6 +28,19 @@ jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Container = ({ children }: import('react').PropsWithChildren) =>
     React.createElement('div', null, children);
+  const Frame = ({
+    children,
+    maxWidth,
+    testID,
+  }: import('react').PropsWithChildren<{
+    maxWidth?: number;
+    testID?: string;
+  }>) =>
+    React.createElement(
+      'div',
+      { 'data-testid': testID, 'data-max-width': maxWidth },
+      children,
+    );
   return {
     Tabs: {
       TabBarItem: ({
@@ -50,9 +63,9 @@ jest.mock('@onekeyhq/components', () => {
         ),
     },
     Page: Object.assign(Container, { Header: () => null, Body: Container }),
-    Stack: Container,
+    Stack: Frame,
     XStack: Container,
-    YStack: Container,
+    YStack: Frame,
     SizableText: Container,
     NavBackButton: () => null,
     HeaderButtonGroup: () => null,
@@ -92,14 +105,23 @@ jest.mock(
     MarketTokenListBase: ({
       hiddenDesktopColumns,
       forceStockMetadataColumns,
+      desktopColumnVariant,
+      timeRange,
+      result,
     }: {
       hiddenDesktopColumns?: readonly string[];
       forceStockMetadataColumns?: boolean;
+      desktopColumnVariant?: string;
+      timeRange?: string;
+      result: { currentSortBy?: string };
     }) => (
       <div
-        data-testid="stocks"
-        data-hidden-columns={hiddenDesktopColumns?.join(',')}
-        data-stock-columns={forceStockMetadataColumns}
+        data-testid="tokens"
+        data-hidden-columns={hiddenDesktopColumns?.join(',') ?? ''}
+        data-stock-columns={String(Boolean(forceStockMetadataColumns))}
+        data-column-variant={desktopColumnVariant}
+        data-time-range={timeRange}
+        data-current-sort-by={result.currentSortBy ?? ''}
       />
     ),
   }),
@@ -109,8 +131,16 @@ jest.mock('../MarketWatchListProviderMirrorV2', () => ({
     children,
   }: import('react').PropsWithChildren) => children,
 }));
+jest.mock('./BannerDetailStockTable', () => ({
+  BannerDetailStockTable: ({ items }: { items: { stockId: string }[] }) => (
+    <div
+      data-testid="stocks"
+      data-stock-ids={items.map((item) => item.stockId).join(',')}
+    />
+  ),
+}));
 jest.mock('./BannerDetailTokenFlatList', () => ({
-  BannerDetailTokenFlatList: () => <div data-testid="stocks" />,
+  BannerDetailTokenFlatList: () => <div data-testid="mobile-list" />,
 }));
 jest.mock('./PerpsTokenListSection', () => ({
   PerpsTokenListSection: ({ tokenListId }: { tokenListId: string }) => (
@@ -129,8 +159,16 @@ jest.mock('./useMarketBannerDetail', () => ({
               : []),
           ]
         : [],
+      currentSortBy: 'change24h',
+      currentSortType: 'desc',
+      setSortBy: jest.fn(),
+      setSortType: jest.fn(),
     },
     mobileData: [],
+    stockItems: mockStockTokens
+      ? [{ stockId: 'AAPL' }, { stockId: 'TSLA' }]
+      : [],
+    tickerIsLoading: false,
   })),
 }));
 
@@ -138,17 +176,71 @@ beforeEach(() => {
   mockTokenListId = 'composite';
   mockStockTokens = false;
   mockIncludeNonStockToken = false;
+  mockWide = false;
+  mockType = EMarketBannerType.Mixed;
 });
 
-it('keeps token columns for a ticker banner containing stock and crypto rows', () => {
+// The spot section is the desktop stock table on wide layouts and the compact
+// list on narrow ones.
+const spotTestId = () => (mockWide ? 'stocks' : 'mobile-list');
+
+it.each([
+  { name: 'stock and crypto rows', includeNonStock: true },
+  { name: 'tokenized stocks only', includeNonStock: false },
+])(
+  'renders a ticker banner with trending columns ($name)',
+  ({ includeNonStock }) => {
+    mockType = EMarketBannerType.Ticker;
+    mockWide = true;
+    mockStockTokens = true;
+    mockIncludeNonStockToken = includeNonStock;
+    render(<MarketBannerDetail />);
+    const list = screen.getByTestId('tokens');
+    expect(list.getAttribute('data-column-variant')).toBe('trending');
+    expect(list.getAttribute('data-time-range')).toBe('24h');
+    expect(list.getAttribute('data-hidden-columns')).toBe('');
+    expect(list.getAttribute('data-stock-columns')).toBe('false');
+    // Desktop sorts in memory; the persisted mobile sort must not reorder rows.
+    expect(list.getAttribute('data-current-sort-by')).toBe('');
+    expect(screen.queryByTestId('stocks')).toBeNull();
+    expect(useMarketBannerDetail).toHaveBeenLastCalledWith({
+      tokenListId: 'composite',
+      isPerps: false,
+      isStock: false,
+      isIndex: false,
+    });
+  },
+);
+
+it('frames the desktop page with the shared content width', () => {
   mockType = EMarketBannerType.Ticker;
   mockWide = true;
-  mockStockTokens = true;
-  mockIncludeNonStockToken = true;
   render(<MarketBannerDetail />);
-  const list = screen.getByTestId('stocks');
-  expect(list.getAttribute('data-stock-columns')).toBe('false');
-  expect(list.getAttribute('data-hidden-columns')).toBe('liquidity');
+  expect(
+    screen
+      .getByTestId('market-banner-detail-body')
+      .getAttribute('data-max-width'),
+  ).toBe('1440');
+});
+
+it('renders the raw stock rows in the desktop stock table', () => {
+  mockType = EMarketBannerType.Stock;
+  mockWide = true;
+  mockStockTokens = true;
+  render(<MarketBannerDetail />);
+  expect(screen.getByTestId('stocks').getAttribute('data-stock-ids')).toBe(
+    'AAPL,TSLA',
+  );
+  expect(screen.queryByTestId('tokens')).toBeNull();
+});
+
+it('keeps the compact list on narrow layouts', () => {
+  mockType = EMarketBannerType.Stock;
+  mockWide = false;
+  mockStockTokens = true;
+  render(<MarketBannerDetail />);
+  expect(screen.getByTestId('mobile-list')).toBeTruthy();
+  expect(screen.queryByTestId('stocks')).toBeNull();
 });
 
 it.each([
@@ -166,48 +258,31 @@ it.each([
     isStock: true,
     isIndex: false,
   });
-  expect(screen.getByTestId('stocks')).toBeTruthy();
+  expect(screen.getByTestId(spotTestId())).toBeTruthy();
   expect(screen.queryByTestId('perps')).toBeNull();
   expect(
     screen.getByRole('tab', { name: 'spot' }).getAttribute('aria-selected'),
   ).toBe('true');
   fireEvent.click(screen.getByRole('tab', { name: 'perps' }));
-  expect(screen.queryByTestId('stocks')).toBeNull();
+  expect(screen.queryByTestId(spotTestId())).toBeNull();
   expect(screen.getByTestId('perps').textContent).toBe('composite');
   expect(
     screen.getByRole('tab', { name: 'perps' }).getAttribute('aria-selected'),
   ).toBe('true');
   fireEvent.click(screen.getByRole('tab', { name: 'spot' }));
-  expect(screen.getByTestId('stocks')).toBeTruthy();
+  expect(screen.getByTestId(spotTestId())).toBeTruthy();
   expect(screen.queryByTestId('perps')).toBeNull();
 });
 
 it('resets the selected category for another banner', () => {
   mockType = EMarketBannerType.Mixed;
+  mockWide = true;
   const { rerender } = render(<MarketBannerDetail />);
   fireEvent.click(screen.getByRole('tab', { name: 'perps' }));
   mockTokenListId = 'another-banner';
   rerender(<MarketBannerDetail />);
-  expect(screen.getByTestId('stocks')).toBeTruthy();
+  expect(screen.getByTestId(spotTestId())).toBeTruthy();
   expect(screen.queryByTestId('perps')).toBeNull();
-});
-
-it('uses stock columns for tokenized stocks in a ticker banner', () => {
-  mockType = EMarketBannerType.Ticker;
-  mockWide = true;
-  mockStockTokens = true;
-  render(<MarketBannerDetail />);
-  const list = screen.getByTestId('stocks');
-  expect(list.getAttribute('data-hidden-columns')).toBe(
-    'transactions,uniqueTraders,holders,tokenAge',
-  );
-  expect(list.getAttribute('data-stock-columns')).toBe('true');
-  expect(useMarketBannerDetail).toHaveBeenLastCalledWith({
-    tokenListId: 'composite',
-    isPerps: false,
-    isStock: false,
-    isIndex: false,
-  });
 });
 
 it.each([
@@ -221,15 +296,11 @@ it.each([
   expect(screen.queryByRole('tab')).toBeNull();
   if (type === EMarketBannerType.Perps) {
     expect(screen.getByTestId('perps')).toBeTruthy();
+  } else if (type === EMarketBannerType.Stock) {
+    expect(screen.getByTestId('stocks')).toBeTruthy();
   } else {
-    const list = screen.getByTestId('stocks');
-    expect(list.getAttribute('data-hidden-columns')).toBe(
-      type === EMarketBannerType.Stock
-        ? 'transactions,uniqueTraders,holders,tokenAge,turnover'
-        : 'liquidity',
-    );
-    expect(list.getAttribute('data-stock-columns')).toBe(
-      String(type === EMarketBannerType.Stock),
-    );
+    expect(
+      screen.getByTestId('tokens').getAttribute('data-column-variant'),
+    ).toBe('trending');
   }
 });

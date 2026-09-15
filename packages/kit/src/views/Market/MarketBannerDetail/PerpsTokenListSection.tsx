@@ -13,12 +13,22 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePerpsNavigation } from '../hooks/usePerpsNavigation';
 import {
+  MARKET_LIST_HEADER_ROW_HEIGHT,
+  MARKET_LIST_ROW_HEIGHT,
+} from '../marketDesktopLayoutConstants';
+import {
+  PERPS_METRIC_COLUMN_MINIMUM_WIDTHS,
+  PERPS_SORTABLE_FIELDS,
+} from '../MarketHomeV2/components/MarketPerpsList/constants';
+import {
   type IMarketPerpsToken,
   mapServerToken,
 } from '../MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from '../MarketHomeV2/components/MarketPerpsList/hooks/usePerpsColumns';
+import { useMarketDesktopResponsiveColumns } from '../MarketHomeV2/components/useMarketDesktopResponsiveColumns';
 
 import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
+import { useBannerDetailTableSort } from './useBannerDetailTableSort';
 
 import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -42,8 +52,17 @@ export function PerpsTokenListSection({
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.MarketBanner,
   );
-  const perpsColumns = usePerpsColumns();
+  const basePerpsColumns = usePerpsColumns();
   const { gtMd, md } = useMedia();
+  const {
+    columns: perpsColumns,
+    handleContainerLayout: handleResponsiveContainerLayout,
+  } = useMarketDesktopResponsiveColumns({
+    columns: basePerpsColumns,
+    enabled: !platformEnv.isNative && !md,
+    firstColumnCount: 2,
+    metricColumnMinimumWidths: PERPS_METRIC_COLUMN_MINIMUM_WIDTHS,
+  });
   const tabBarHeight = useTabBarHeight();
   const intl = useIntl();
 
@@ -70,6 +89,13 @@ export function PerpsTokenListSection({
       mapServerToken(t, perpsResult.tokenSearchAliases),
     );
   }, [perpsResult]);
+
+  const { sortedData: sortedTokens, handleHeaderRow } =
+    useBannerDetailTableSort({
+      data: tokens,
+      columns: perpsColumns,
+      sortableFields: PERPS_SORTABLE_FIELDS,
+    });
 
   const mobileTokens = useMemo<IMarketToken[]>(
     () =>
@@ -134,12 +160,11 @@ export function PerpsTokenListSection({
   }
 
   return (
-    <Stack flex={1} width="100%">
+    <Stack flex={1} width="100%" onLayout={handleResponsiveContainerLayout}>
       <Stack
         flex={1}
         className="normal-scrollbar"
         style={{
-          paddingTop: 4,
           overflowX: 'auto',
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
@@ -149,16 +174,19 @@ export function PerpsTokenListSection({
             <Table.Skeleton
               columns={perpsColumns}
               count={20}
-              rowProps={{ minHeight: '$14' }}
+              rowProps={{ height: MARKET_LIST_ROW_HEIGHT }}
             />
           ) : (
             <Table<IMarketPerpsToken>
               stickyHeader
               columns={perpsColumns}
-              dataSource={tokens}
+              dataSource={sortedTokens}
               keyExtractor={(item) => item.name}
-              estimatedItemSize="$14"
+              rowProps={{ height: MARKET_LIST_ROW_HEIGHT }}
+              headerRowProps={{ height: MARKET_LIST_HEADER_ROW_HEIGHT }}
+              estimatedItemSize={MARKET_LIST_ROW_HEIGHT}
               extraData={tokens.length}
+              onHeaderRow={handleHeaderRow}
               TableEmptyComponent={TableEmptyComponent}
               contentContainerStyle={{
                 paddingBottom: tabBarHeight,

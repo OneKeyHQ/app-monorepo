@@ -33,9 +33,13 @@ type IUseMarketBannerDetailParams = {
   isIndex?: boolean;
 };
 
+type IBannerStockToken = IMarketTokenListItem & {
+  bannerStockItem: IMarketStockPublicItem;
+};
+
 function mapStockBannerItemToToken(
   item: IMarketStockPublicItem,
-): IMarketTokenListItem {
+): IBannerStockToken {
   return {
     address: '',
     name: item.name,
@@ -55,7 +59,15 @@ function mapStockBannerItemToToken(
       assetAnalysis: { volume24h: item.volume24h },
       tradingActivity: { peRatio: item.peRatio },
     },
+    // The desktop stock table renders the server row as-is.
+    bannerStockItem: item,
   };
+}
+
+function isBannerStockToken(
+  item: IMarketTokenListItem,
+): item is IBannerStockToken {
+  return 'bannerStockItem' in item;
 }
 
 export function useMarketBannerDetail({
@@ -109,6 +121,13 @@ export function useMarketBannerDetail({
       });
     });
   }, [networkLogoUriMap, tickerResult]);
+
+  const stockItems = useMemo<IMarketStockPublicItem[]>(() => {
+    // The request resolves to one of two row types; widen to the shared base
+    // so the filter is callable on the union.
+    const items: IMarketTokenListItem[] = tickerResult ?? [];
+    return items.filter(isBannerStockToken).map((item) => item.bannerStockItem);
+  }, [tickerResult]);
 
   const currentSortBy = isBannerDetailSortBy(bannerSort.sortBy)
     ? bannerSort.sortBy
@@ -187,6 +206,7 @@ export function useMarketBannerDetail({
     handleChangeSortPress,
     listResult,
     mobileData: transformedData,
+    stockItems,
     tickerIsLoading,
   };
 }

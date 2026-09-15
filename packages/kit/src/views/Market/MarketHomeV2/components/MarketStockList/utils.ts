@@ -21,6 +21,13 @@ export function getMarketStockSortByColumn(columnName: string) {
   ];
 }
 
+// Metric columns the responsive layout must keep wide enough to read; the
+// banner detail stock table shares them with the Stocks tab.
+export const STOCK_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  priceChange24hPercent: 128,
+  sparkline: 148,
+} as const;
+
 export function parseMarketStockNumber(
   value?: string | number | null,
 ): number | undefined {

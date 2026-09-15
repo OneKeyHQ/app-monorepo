@@ -66,18 +66,22 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 describe('useMarketBannerDetail network logos', () => {
   it('uses dynamic Market config logos for banner rows', () => {
     let latestNetworkLogoUri: string | undefined;
+    let latestStockItems: IMarketStockPublicItem[] | undefined;
 
     function Probe() {
-      latestNetworkLogoUri = useMarketBannerDetail({
+      const { mobileData, stockItems } = useMarketBannerDetail({
         tokenListId: 'dynamic-network-list',
         isPerps: false,
-      }).mobileData[0]?.networkLogoUri;
+      });
+      latestNetworkLogoUri = mobileData[0]?.networkLogoUri;
+      latestStockItems = stockItems;
       return null;
     }
 
     render(<Probe />);
 
     expect(latestNetworkLogoUri).toBe('https://example.com/monad.png');
+    expect(latestStockItems).toEqual([]);
   });
 });
 
@@ -115,5 +119,37 @@ it.each(['27.46', '0', '-3.5', undefined])(
     expect(getStockPeRatioValue(result.current.listResult.data[0])).toBe(
       peRatio,
     );
+    expect(result.current.stockItems).toHaveLength(1);
   },
 );
+
+it('returns raw stock rows for the desktop stock table', async () => {
+  const stock: IMarketStockPublicItem = {
+    stockId: 'TSLA',
+    name: 'Tesla',
+    symbol: 'TSLA',
+    logoUrl: '',
+    price: '250',
+    priceChange24hPercent: '-1.2',
+    marketCap: '800000000000',
+    volume24h: '9000000000',
+    assetType: 'stock',
+    currency: 'USD',
+    sparkline: [249, 250],
+  };
+  mockFetchStocks.mockResolvedValue([stock]);
+  const { result, rerender } = renderHook(() =>
+    useMarketBannerDetail({
+      tokenListId: 'stocks',
+      isPerps: false,
+      isStock: true,
+    }),
+  );
+  const response = await mockRequest();
+  mockTickerResult = response as typeof mockTickerResult;
+  rerender();
+  expect(result.current.stockItems).toEqual([stock]);
+  // The desktop table must receive the untouched API row, not a mapped copy.
+  expect(result.current.stockItems[0]).toBe(stock);
+  expect(result.current.mobileData[0].stock?.stockId).toBe('TSLA');
+});
