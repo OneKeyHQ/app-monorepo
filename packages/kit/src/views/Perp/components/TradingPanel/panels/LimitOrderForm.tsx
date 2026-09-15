@@ -1335,6 +1335,7 @@ export function LimitOrderForm({
         sliderPercent={sizePercent}
         onRequestManualMode={switchToManual}
         allowMarginInput={!isSpot}
+        ifOnDialog
         leverage={leverage}
         inputRef={sizeInputRef}
         minimumOrderActionRef={minimumOrderActionRef}

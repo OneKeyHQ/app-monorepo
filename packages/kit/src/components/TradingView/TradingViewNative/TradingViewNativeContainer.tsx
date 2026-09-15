@@ -10,7 +10,13 @@ import {
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  IconButton,
+  SizableText,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import {
@@ -25,6 +31,16 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { useTradingViewSettingsThemeColors } from '../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
+import {
+  canToggleTradingViewNativeIndicatorOn,
+  getAppNativeIndicators,
+  getIndicatorSections,
+} from '../TradingViewChartControls/indicatorSelector/indicatorUtils';
+import {
+  TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
+  TradingViewIndicatorQuickBar,
+} from '../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
+import { resolveTradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
 import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import {
@@ -69,6 +85,7 @@ import {
   TRADING_VIEW_NATIVE_SUB_INDICATORS,
   buildTradingViewNativeIndicatorSeries,
 } from './utils/chartIndicators';
+import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators/indicatorCatalog';
 import { getTradingViewNativeCurrentPriceLabel } from './utils/chartLayout';
 import {
   resolveTradingViewNativeChartThemeColors,
@@ -96,7 +113,10 @@ import type {
 import type { ITradingViewNativeViewportTarget } from './utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
 import type { ICalendarPanelSubmitPayload } from '../TradingViewChartControls/calendarControls/CalendarPanelPopover';
-import type { ITradingViewNativeIndicatorSelection } from '../TradingViewChartControls/types';
+import type {
+  ITradingViewIndicatorOption,
+  ITradingViewNativeIndicatorSelection,
+} from '../TradingViewChartControls/types';
 import type { LayoutChangeEvent } from 'react-native';
 
 export function updateTradingViewNativeSubIndicatorInstances(
@@ -195,12 +215,14 @@ const TradingViewNativeContent = memo(
     previousClose,
     enablePreviousClose = false,
     enableNativeChartSettings,
+    nativeChartSettingsInToolbar = false,
     initialRightOffset,
     nativeChartDisplayMode,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
     nativeControlsFlushHorizontalInset,
     showNativeChartCloseControl,
+    showNativeIndicatorQuickBar = false,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     isChartSwitchDisabled,
@@ -209,6 +231,7 @@ const TradingViewNativeContent = memo(
     onIntervalChange,
     onNativeChartClose,
     onNativeSubIndicatorCountChange,
+    onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
     onPriceUpdate,
   }: ITradingViewNativeContentProps) => {
@@ -326,6 +349,19 @@ const TradingViewNativeContent = memo(
       });
       return values;
     }, [activeMainIndicatorValues, subIndicatorInstances]);
+    const { mainIndicators, subIndicators } = useMemo(
+      () => getIndicatorSections(getAppNativeIndicators(activeIndicatorValues)),
+      [activeIndicatorValues],
+    );
+    const canToggleIndicatorOn = useCallback(
+      (indicatorValue: string) =>
+        canToggleTradingViewNativeIndicatorOn({
+          indicatorValue,
+          activeIndicatorValues,
+          maxSelectableSubIndicatorCount,
+        }),
+      [activeIndicatorValues, maxSelectableSubIndicatorCount],
+    );
     const visibleSubIndicatorCount = useMemo(
       () =>
         subIndicatorInstances.reduce(
@@ -627,6 +663,17 @@ const TradingViewNativeContent = memo(
       },
       [maxSelectableSubIndicatorCount, setIndicatorSettings],
     );
+    const handleQuickBarIndicatorPress = useCallback(
+      (indicator: ITradingViewIndicatorOption) => {
+        if (isTradingViewNativeAnyIndicator(indicator.value)) {
+          handleIndicatorChange(
+            indicator.value,
+            !activeIndicatorValues.has(indicator.value),
+          );
+        }
+      },
+      [activeIndicatorValues, handleIndicatorChange],
+    );
     const handleIndicatorSelectionConfirm = useCallback(
       ({
         activeIndicatorValues: selectedIndicatorValues,
@@ -644,9 +691,15 @@ const TradingViewNativeContent = memo(
       },
       [setIndicatorSettings],
     );
+    const handleExitFullscreen = useCallback(() => {
+      if (isNativeChartFullscreen) {
+        onNativeChartFullscreenChange?.(false);
+      }
+    }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
     const handleIndicatorSettingsPress = useCallback(
       (indicator?: ITradingViewNativeAnyIndicator) => {
         if (nativeControlsLayoutMode !== 'desktop' && !indicator) {
+          handleExitFullscreen();
           navigation.pushModal(EModalRoutes.MarketModal, {
             screen: EModalMarketRoutes.MarketIndicatorSettings,
             params: { storageNamespace: storageNamespace ?? 'market' },
@@ -668,6 +721,7 @@ const TradingViewNativeContent = memo(
         });
       },
       [
+        handleExitFullscreen,
         indicatorSettingsValue,
         intl,
         nativeControlsLayoutMode,
@@ -759,6 +813,65 @@ const TradingViewNativeContent = memo(
     }, [onNativeSubIndicatorCountChange, visibleSubIndicatorCount]);
 
     const isMobileControlsLayout = nativeControlsLayoutMode !== 'desktop';
+    const nativeIndicatorQuickBar = useMemo(
+      () =>
+        showNativeIndicatorQuickBar && isMobileControlsLayout ? (
+          <TradingViewIndicatorQuickBar
+            activeIndicatorValues={activeIndicatorValues}
+            mainIndicators={mainIndicators}
+            subIndicators={subIndicators}
+            canToggleIndicatorOn={canToggleIndicatorOn}
+            onIndicatorPress={handleQuickBarIndicatorPress}
+            settingsControl={
+              <IconButton
+                testID="trading-view-native-indicator-settings-trigger"
+                size="small"
+                variant="tertiary"
+                icon="ChartTrending2Outline"
+                iconSize="$5"
+                width="$10"
+                height={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+                accessibilityLabel={intl.formatMessage({
+                  id: ETranslations.market_indicators,
+                })}
+                onPress={() => handleIndicatorSettingsPress()}
+              />
+            }
+          />
+        ) : null,
+      [
+        activeIndicatorValues,
+        canToggleIndicatorOn,
+        handleIndicatorSettingsPress,
+        handleQuickBarIndicatorPress,
+        intl,
+        isMobileControlsLayout,
+        mainIndicators,
+        showNativeIndicatorQuickBar,
+        subIndicators,
+      ],
+    );
+    useEffect(() => {
+      onNativeIndicatorQuickBarChange?.(
+        resolveTradingViewNativeIndicatorQuickBarState({
+          isAvailabilityResolved: true,
+          quickBar: isNativeChartFullscreen ? null : nativeIndicatorQuickBar,
+        }),
+      );
+    }, [
+      isNativeChartFullscreen,
+      nativeIndicatorQuickBar,
+      onNativeIndicatorQuickBarChange,
+    ]);
+    useEffect(
+      () => () => {
+        onNativeIndicatorQuickBarChange?.({
+          status: 'loading',
+          quickBar: null,
+        });
+      },
+      [onNativeIndicatorQuickBarChange],
+    );
     const handleChartAreaLayout = useCallback((event: LayoutChangeEvent) => {
       const { height, width } = event.nativeEvent.layout;
       const nextChartHeight = Math.round(height);
@@ -785,6 +898,31 @@ const TradingViewNativeContent = memo(
       points.length === 0 && dataState.status !== 'error';
     const priceAxisWidth =
       chartWidth > 0 ? Math.max(chartAreaWidth - chartWidth, 0) : 0;
+    const mobileSettingsControl = useMemo(
+      () =>
+        isMobileControlsLayout &&
+        enableNativeChartSettings &&
+        nativeChartSettingsInToolbar ? (
+          <TradingViewNativeChartSettingsButton
+            placement="toolbar"
+            priceAxisWidth={priceAxisWidth}
+            enablePreviousClose={enablePreviousClose}
+            isChartSwitchDisabled={isChartSwitchDisabled}
+            onChartSwitch={onChartSwitch}
+            onBeforeOpenSettings={handleExitFullscreen}
+          />
+        ) : undefined,
+      [
+        enableNativeChartSettings,
+        enablePreviousClose,
+        handleExitFullscreen,
+        isChartSwitchDisabled,
+        isMobileControlsLayout,
+        nativeChartSettingsInToolbar,
+        onChartSwitch,
+        priceAxisWidth,
+      ],
+    );
     const chartRuntimeRef = useMemo<ITradingViewNativeChartProps['runtimeRef']>(
       () => ({ current: null }),
       // A new symbol or interval owns a fresh viewport; presentation changes reuse it.
@@ -802,6 +940,7 @@ const TradingViewNativeContent = memo(
             calendarAvailableTimeRange={calendarAvailableTimeRange}
             compactMobileLayout={isCompactDisplayMode}
             enableNativeChartSettings={enableNativeChartSettings}
+            mobileSettingsControl={mobileSettingsControl}
             enablePreviousClose={enablePreviousClose}
             intervalConfig={intervalConfig}
             activeIndicatorValues={activeIndicatorValues}
@@ -906,6 +1045,7 @@ const TradingViewNativeContent = memo(
             ) : null}
             {isMobileControlsLayout &&
             enableNativeChartSettings &&
+            !nativeChartSettingsInToolbar &&
             !isNativeChartFullscreen ? (
               <TradingViewNativeChartSettingsButton
                 priceAxisWidth={priceAxisWidth}
@@ -927,6 +1067,9 @@ const TradingViewNativeContent = memo(
               />
             ) : null}
           </Stack>
+          {onNativeIndicatorQuickBarChange && !isNativeChartFullscreen
+            ? null
+            : nativeIndicatorQuickBar}
         </Stack>
       </TradingViewNativePresentation>
     );
