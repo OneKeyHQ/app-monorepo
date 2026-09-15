@@ -19,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ThirdPartyWalletAvatarImages,
   getThirdPartyDeviceAvatarImage,
@@ -288,9 +289,12 @@ const FOG_LOCATIONS = [0, 0.58, 0.87] as const;
  * fractional pixel leaves the fog's last row half-covered and the
  * keypad underneath showing through as a hairline (OK-63384). Ending
  * the fog below the clip hands that edge to the clip instead; the
- * fade's stops are rescaled so they stay put over the port.
+ * fade's stops are rescaled so they stay put over the port. Android
+ * only: iOS's gradient layer has no edge anti-aliasing and the web
+ * draws a CSS gradient, so elsewhere the fog keeps the port's own
+ * height and the stops as authored.
  */
-const FOG_BLEED = 2;
+const FOG_BLEED = platformEnv.isNativeAndroid ? 2 : 0;
 
 /**
  * Which arrangement a card step gives the standing replica: the full
