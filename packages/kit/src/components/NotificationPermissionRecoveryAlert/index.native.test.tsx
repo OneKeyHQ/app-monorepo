@@ -245,6 +245,67 @@ describe('NotificationPermissionRecoveryAlert', () => {
     );
   });
 
+  it('keeps hidden home checks on startup and app-active without rendering the alert', async () => {
+    notificationService.checkNotificationPermissionRecovery.mockResolvedValue(
+      visibleResult,
+    );
+
+    render(
+      <NotificationPermissionRecoveryAlert
+        scene="home"
+        initialDelayMs={6000}
+        showAlert={false}
+      />,
+    );
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).not.toHaveBeenCalled();
+    expect(mockAlertProps).toBeUndefined();
+
+    await act(async () => {
+      jest.advanceTimersByTime(6000);
+      await Promise.resolve();
+    });
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ignoreCooldown: false,
+        source: ENotificationPermissionRecoverySource.homeStartup,
+      }),
+    );
+    expect(mockAlertProps).toBeUndefined();
+
+    const onActive = mockUseHandleAppStateActive.mock.calls.at(-1)?.[0] as
+      | (() => void)
+      | undefined;
+    act(() => {
+      onActive?.();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      notificationService.checkNotificationPermissionRecovery,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        ignoreCooldown: false,
+        source: ENotificationPermissionRecoverySource.appActive,
+      }),
+    );
+    expect(mockAlertProps).toBeUndefined();
+  });
+
   it('does not render the alert when showAlert is false, but still checks the settings snapshot', async () => {
     notificationService.checkNotificationPermissionRecovery.mockResolvedValueOnce(
       visibleResult,

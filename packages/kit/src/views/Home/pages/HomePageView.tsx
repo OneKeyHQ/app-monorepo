@@ -52,6 +52,7 @@ import { useUnifiedNetworkSelectorTrigger } from '../../../components/AccountSel
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
+import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
@@ -139,6 +140,11 @@ function HomeAlerts() {
       <RiskApprovalAlert />
       <WatchOnlyAlert />
       <NetworkAlert />
+      <NotificationPermissionRecoveryAlert
+        scene="home"
+        initialDelayMs={6000}
+        showAlert={false}
+      />
     </>
   );
 }

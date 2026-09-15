@@ -439,7 +439,7 @@ export default function NotificationsSettings() {
           <NotificationPermissionRecoveryAlert
             scene="settings"
             pushEnabled={settings.pushEnabled}
-            showAlert={!platformEnv.isNativeIOS}
+            showAlert={false}
           />
         ) : null}
 
