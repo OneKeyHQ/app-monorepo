@@ -113,10 +113,7 @@ function useHomeMarketCategoryTokens({
         }
 
         if (
-          isMarketStockCategoryById(
-            marketCategories,
-            selectedMarketCategoryId,
-          )
+          isMarketStockCategoryById(marketCategories, selectedMarketCategoryId)
         ) {
           const response =
             await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({

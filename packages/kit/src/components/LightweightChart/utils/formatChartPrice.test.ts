@@ -42,9 +42,12 @@ describe('chart axis prices', () => {
   });
   it('converts K/M/B without inserting an ellipsis in front of the unit', () => {
     expect(formatChartPrice(999)).toBe('$999');
+    expect(formatChartPrice(999.995)).toBe('$1K');
     expect(formatChartPrice(1000)).toBe('$1K');
     expect(formatChartPrice(77_250)).toBe('$77.25K');
     expect(formatChartPrice(76_819.04)).toBe('$76.82K');
+    expect(formatChartPrice(999_999)).toBe('$1M');
+    expect(formatChartPrice(999_999.995)).toBe('$1M');
     expect(formatChartPrice(1_000_000)).toBe('$1M');
     expect(formatChartPrice(1_000_000_000)).toBe('$1B');
     expect(formatChartPrice(1_234_567)).toBe('$1.23M');
@@ -75,6 +78,9 @@ describe('chart axis prices', () => {
       77_250,
       76_819.04,
       716.681_23,
+      999.995,
+      999_999,
+      999_999.995,
       1_234_567,
       1_234_567.89,
     ]) {

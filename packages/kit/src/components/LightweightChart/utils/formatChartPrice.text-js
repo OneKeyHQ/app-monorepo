@@ -40,6 +40,16 @@ function formatChartPrice(price, maxCharacters) {
   }
   if (body.includes('.') && (unit || value >= 1)) {
     body = String(Math.round(Number(body) * 100) / 100);
+    if (Number(body) >= 1000) {
+      var nextUnit = '';
+      if (unit === '') nextUnit = 'K';
+      else if (unit === 'K') nextUnit = 'M';
+      else if (unit === 'M') nextUnit = 'B';
+      if (nextUnit) {
+        unit = nextUnit;
+        body = String(Number(body) / 1000);
+      }
+    }
   }
   if (body.length <= limit) return prefix + body + unit;
   if (body.indexOf('.') >= 0) {
