@@ -297,6 +297,8 @@ jest.mock('./primeAuthSessionAccess', () => ({
   clearSupabaseStorageLocalCache: jest.fn(),
 }));
 
+const { HardwareErrorCode } = require('@onekeyfe/hd-shared');
+
 const {
   EOAuthSocialLoginProvider,
 } = require('@onekeyhq/shared/src/consts/authConsts');
@@ -305,11 +307,17 @@ const {
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
   OneKeyServerApiError,
+  PinCancelled,
+  UserCancel,
   UserCancelFromOutside,
 } = require('@onekeyhq/shared/src/errors');
 const {
   EOneKeyErrorClassNames,
 } = require('@onekeyhq/shared/src/errors/types/errorTypes');
+const {
+  convertDeviceError,
+  convertDeviceResponse,
+} = require('@onekeyhq/shared/src/errors/utils/deviceErrorUtils');
 const errorToastUtils =
   require('@onekeyhq/shared/src/errors/utils/errorToastUtils').default;
 const {
@@ -327,8 +335,8 @@ const {
   takeRequestAuthTokenOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
 const {
-  getSanitizedErrorLogText,
-} = require('@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils');
+  getPrimeGiftVerifyFailureLogPayload,
+} = require('@onekeyhq/shared/src/utils/primeGiftVerifyError');
 const stringUtils = require('@onekeyhq/shared/src/utils/stringUtils').default;
 const {
   EPrimeAuthSessionSource,
@@ -7389,48 +7397,101 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
       });
     }
 
-    function expectSafeOriginalDiagnosticLog(
+    const SENSITIVE_LOG_VALUES = [
+      'DEVICE_SERIAL',
+      'TEST_CODE',
+      'user-a',
+      'receiver@example.com',
+      'access_token=',
+      'secret-auth-material',
+    ];
+
+    function leakText(prefix: string) {
+      return `${prefix} DEVICE_SERIAL TEST_CODE user-a receiver@example.com access_token=secret-auth-material`;
+    }
+
+    function expectSafeVerifyFailureLog(
       originalError: unknown,
-      expectedSnippet: string,
+      expected: Record<string, unknown>,
     ) {
-      const sanitized = getSanitizedErrorLogText(originalError);
+      const logged = getPrimeGiftVerifyFailureLogPayload(originalError);
+      expect(logged).toEqual(expected);
       expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
       expect(mockHardwareSdkServiceEvent).toHaveBeenCalledWith(
         'firmwareAuthenticateForPrimeGift',
-        sanitized,
+        expected,
       );
-      expect(sanitized).toContain(expectedSnippet);
-      expect(sanitized).not.toContain('DEVICE_SERIAL');
-      expect(sanitized).not.toContain('TEST_CODE');
-      expect(sanitized).not.toContain('user-a');
-      expect(sanitized).not.toContain('receiver@example.com');
+      const serialized = JSON.stringify(
+        mockHardwareSdkServiceEvent.mock.calls[0][1],
+      );
+      for (const value of SENSITIVE_LOG_VALUES) {
+        expect(serialized).not.toContain(value);
+      }
     }
 
     it.each([
       {
         name: 'USB SDK failure',
-        error: new Error('Protocol V2 USB read failed: transferIn'),
-        snippet: 'Protocol V2 USB read failed: transferIn',
+        error: Object.assign(
+          new Error(leakText('Protocol V2 USB read failed: transferIn')),
+          {
+            name: 'TransportError DEVICE_SERIAL',
+            code: 'TEST_CODE',
+            requestId: 'user-a',
+            cause: { message: leakText('usb cause') },
+            payload: {
+              serialNo: 'DEVICE_SERIAL',
+              primeCode: 'TEST_CODE',
+              userId: 'user-a',
+              email: 'receiver@example.com',
+              code: 'TEST_CODE',
+            },
+          },
+        ),
+        expectedLog: { reason: 'usbReadFailed' },
       },
       {
         name: 'firmware verification failure',
-        error: new OneKeyServerApiError({
-          code: 500,
-          message: 'Firmware verification failed',
-        }),
-        snippet: 'Firmware verification failed',
+        error: Object.assign(
+          new OneKeyServerApiError({
+            code: 500,
+            message: leakText('Firmware verification failed'),
+            requestId: 'user-a',
+          }),
+          {
+            cause: { message: leakText('verify cause') },
+            payload: {
+              serialNo: 'DEVICE_SERIAL',
+              primeCode: 'TEST_CODE',
+              code: 'TEST_CODE',
+            },
+          },
+        ),
+        expectedLog: {
+          reason: 'firmwareVerificationFailed',
+          errorName: EOneKeyErrorClassNames.OneKeyServerApiError,
+          errorCode: 500,
+        },
       },
       {
         name: 'plain serialized error',
         error: {
           name: 'Error',
-          message: 'Protocol V2 USB read failed: transferIn',
+          message: leakText('Protocol V2 USB read failed: transferIn'),
+          code: 'TEST_CODE',
+          requestId: 'user-a',
+          cause: { message: leakText('serialized usb cause') },
+          payload: {
+            serialNo: 'DEVICE_SERIAL',
+            userId: 'user-a',
+            email: 'receiver@example.com',
+          },
         },
-        snippet: 'Protocol V2 USB read failed: transferIn',
+        expectedLog: { reason: 'usbReadFailed', errorName: 'Error' },
       },
     ])(
-      'converts $name into a friendly verify-failed error and logs a sanitized diagnostic',
-      async ({ error: originalError, snippet }) => {
+      'converts $name into a friendly verify-failed error and logs a structured diagnostic',
+      async ({ error: originalError, expectedLog }) => {
         const { service, verify } = createGiftService();
         verify.mockRejectedValueOnce(originalError);
 
@@ -7440,7 +7501,7 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
 
         expect(error).not.toBe(originalError);
         expectFriendlyVerifyFailedError(error);
-        expectSafeOriginalDiagnosticLog(originalError, snippet);
+        expectSafeVerifyFailureLog(originalError, expectedLog);
         expect(verify).toHaveBeenCalledTimes(1);
       },
     );
@@ -7467,20 +7528,78 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
 
     it.each([
       {
+        name: 'converted ActionCancelled UserCancel',
+        createError: () =>
+          convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),
+      },
+      {
+        name: 'converted PinCancelled',
+        createError: () =>
+          convertDeviceError({ code: HardwareErrorCode.PinCancelled }),
+      },
+      {
+        name: 'UserCancel instance',
+        createError: () => new UserCancel(),
+      },
+      {
+        name: 'PinCancelled instance',
+        createError: () => new PinCancelled(),
+      },
+      {
+        name: 'convertDeviceResponse CallQueueActionCancelled',
+        createError: async () => {
+          const error = await convertDeviceResponse(async () => ({
+            success: false,
+            payload: {
+              code: HardwareErrorCode.CallQueueActionCancelled,
+              error: 'Action cancelled by user on call queue',
+            },
+          })).then(
+            () => undefined,
+            (caught: unknown) => caught,
+          );
+          expect(error).toBeDefined();
+          return error;
+        },
+      },
+      {
+        name: 'serialized ActionCancelled',
+        createError: () => ({
+          $isHardwareError: true,
+          code: HardwareErrorCode.ActionCancelled,
+        }),
+      },
+      {
+        name: 'serialized CallQueueActionCancelled payload.code',
+        createError: () => ({
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          payload: { code: HardwareErrorCode.CallQueueActionCancelled },
+        }),
+      },
+      {
+        name: 'serialized PinCancelled',
+        createError: () => ({
+          $isHardwareError: true,
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          payload: { code: HardwareErrorCode.PinCancelled },
+        }),
+      },
+      {
         name: 'UserCancelFromOutside instance',
-        error: new UserCancelFromOutside(),
+        createError: () => new UserCancelFromOutside(),
       },
       {
         name: 'serialized HardwareUserCancelFromOutside',
-        error: {
+        createError: () => ({
           className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
           message: 'UserCancelFromOutside',
-        },
+        }),
       },
     ])(
       'rethrows $name without converting it or writing a failure log',
-      async ({ error: originalError }) => {
+      async ({ createError }) => {
         const { service, verify } = createGiftService();
+        const originalError = await createError();
         verify.mockRejectedValueOnce(originalError);
 
         const error = await service
@@ -7507,7 +7626,10 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
 
       expect(error).not.toBe(originalError);
       expectFriendlyVerifyFailedError(error);
-      expectSafeOriginalDiagnosticLog(originalError, 'Device cancelled');
+      expectSafeVerifyFailureLog(originalError, {
+        reason: 'unknown',
+        errorName: 'Error',
+      });
       expect(verify).toHaveBeenCalledTimes(1);
     });
   });

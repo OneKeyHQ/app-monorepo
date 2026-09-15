@@ -1,12 +1,17 @@
 /** @jest-environment jsdom */
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeGiftEligibilityCache } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  PinCancelled,
+  UserCancel,
+} from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   IPrimeGiftDevice,
@@ -430,22 +435,80 @@ describe('usePrimeGiftClaim', () => {
     ]);
   });
 
-  it('does not surface a verify error when the helper reports user cancellation', async () => {
-    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce({
-      className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
-      message: 'Protocol V2 USB read failed: transferIn',
-    });
+  it.each([
+    {
+      name: 'converted ActionCancelled',
+      error: convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),
+    },
+    {
+      name: 'UserCancel instance',
+      error: new UserCancel(),
+    },
+    {
+      name: 'PinCancelled instance',
+      error: new PinCancelled(),
+    },
+    {
+      name: 'serialized CallQueueActionCancelled',
+      error: {
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        payload: { code: HardwareErrorCode.CallQueueActionCancelled },
+      },
+    },
+    {
+      name: 'serialized PinCancelled',
+      error: {
+        $isHardwareError: true,
+        payload: { code: HardwareErrorCode.PinCancelled },
+      },
+    },
+    {
+      name: 'HardwareUserCancelFromOutside',
+      error: {
+        className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+        message: 'Protocol V2 USB read failed: transferIn',
+      },
+    },
+  ])(
+    'does not surface a verify error for $name and keeps verify/cancel analytics',
+    async ({ error }) => {
+      servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(error);
+      const { result } = renderClaim();
+      await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+      await act(async () => {
+        await result.current.submit();
+      });
+      expect(result.current.error).toBeUndefined();
+      expect(result.current.isSubmitting).toBe(false);
+      expect(showDialog).not.toHaveBeenCalled();
+      expect(mockPrimeGiftStage.mock.calls).toEqual([
+        [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+        [{ source: 'onboarding', stage: 'verify', status: 'cancel' }],
+      ]);
+    },
+  );
+
+  it('retries after a device cancellation without a failed verify state', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+      convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),
+    );
     const { result } = renderClaim();
     await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
     await act(async () => {
       await result.current.submit();
     });
     expect(result.current.error).toBeUndefined();
-    expect(result.current.isSubmitting).toBe(false);
     expect(showDialog).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(showDialog).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeUndefined();
     expect(mockPrimeGiftStage.mock.calls).toEqual([
       [{ source: 'onboarding', stage: 'verify', status: 'start' }],
       [{ source: 'onboarding', stage: 'verify', status: 'cancel' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'success' }],
     ]);
   });
 

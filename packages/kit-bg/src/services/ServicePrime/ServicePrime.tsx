@@ -51,6 +51,10 @@ import {
   isOneKeyIdOAuthIdentityBound,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import {
+  getPrimeGiftVerifyFailureLogPayload,
+  isPrimeGiftVerifyCancellationError,
+} from '@onekeyhq/shared/src/utils/primeGiftVerifyError';
 import { isValidPrimeInfiniPaymentContract } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
@@ -548,12 +552,12 @@ class ServicePrime extends ServiceBase {
             { device, serialNo },
           );
       } catch (error) {
-        if (errorToastUtils.isUserCancelStyleError(error)) {
+        if (isPrimeGiftVerifyCancellationError(error)) {
           throw error;
         }
         defaultLogger.hardware.sdkLog.serviceEvent(
           'firmwareAuthenticateForPrimeGift',
-          getSanitizedErrorLogText(error),
+          getPrimeGiftVerifyFailureLogPayload(error),
         );
         throw new OneKeyLocalError({
           message: appLocale.intl.formatMessage({
