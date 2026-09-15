@@ -212,14 +212,14 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     shouldUseRawSourceFallback,
   ]);
 
-  useResetError(resolvedSource, hasError, setHasError);
+  const resolvedSourceIdentity = `${resolvedSource?.uri ?? ''}|${JSON.stringify(
+    resolvedSource?.headers ?? {},
+  )}`;
+  useResetError(resolvedSourceIdentity, hasError, setHasError);
 
   const retryLimit = Number.isFinite(retryTimes)
     ? Math.max(0, Math.floor(retryTimes))
     : 1;
-  const resolvedSourceIdentity = `${resolvedSource?.uri ?? ''}|${JSON.stringify(
-    resolvedSource?.headers ?? {},
-  )}`;
   const clearRetryTimer = useCallback(() => {
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
