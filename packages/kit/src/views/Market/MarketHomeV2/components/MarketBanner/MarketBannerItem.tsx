@@ -30,6 +30,8 @@ import { isMarketIndexQuoteBanner } from '../../../utils/marketBannerUtils';
 import { MarketTestIDs } from '../../testIDs';
 
 import {
+  MARKET_BANNER_DESKTOP_WEB_ITEM_WIDTH,
+  MARKET_BANNER_DESKTOP_WEB_LIST_MIN_HEIGHT,
   MARKET_BANNER_ITEM_WIDTH,
   MARKET_BANNER_LIST_MIN_HEIGHT,
   MARKET_BANNER_MOBILE_ITEM_WIDTH,
@@ -288,7 +290,7 @@ function BannerQuoteRow({
             NumberSizeableText applies it after other props, and on web it
             expands to `flex-basis: auto`, overriding this basis. */}
         <NumberSizeableText
-          size="$bodyMd"
+          size="$bodyMdMedium"
           formatter="price"
           formatterOptions={isIndex ? undefined : { currency: '$' }}
           flexGrow={1}
@@ -302,7 +304,7 @@ function BannerQuoteRow({
           {price}
         </NumberSizeableText>
         <NumberSizeableText
-          size="$bodyMd"
+          size="$bodyMdMedium"
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns: numericChange > 0 }}
           color={changeColor}
@@ -324,9 +326,14 @@ function BannerQuoteRow({
 function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   const { item, isSmallScreen, onPress } = props;
   const intl = useIntl();
-  // Touch layouts have no hover, so only the desktop web card hides More.
-  const revealMoreOnHover = !isSmallScreen && !platformEnv.isNative;
+  // Desktop web renders cards without a background, separated by dividers.
+  // Touch layouts have no hover, so they keep the filled card and always show
+  // More.
+  const isDesktopWeb = !isSmallScreen && !platformEnv.isNative;
   const isIndexBanner = isMarketIndexQuoteBanner(item);
+  let cardWidth = MARKET_BANNER_ITEM_WIDTH;
+  if (isSmallScreen) cardWidth = MARKET_BANNER_MOBILE_ITEM_WIDTH;
+  if (isDesktopWeb) cardWidth = MARKET_BANNER_DESKTOP_WEB_ITEM_WIDTH;
   const tokens = useMemo(() => {
     const bannerTokens = item.tokens ?? [];
     if (isIndexBanner) {
@@ -368,32 +375,38 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
       onPress={isIndexBanner ? undefined : handlePress}
       role={isIndexBanner ? undefined : 'button'}
       aria-label={item.title}
-      bg={convertThemeToken(item.backgroundColor, '$bgSubdued')}
+      bg={
+        isDesktopWeb
+          ? undefined
+          : convertThemeToken(item.backgroundColor, '$bgSubdued')
+      }
       borderRadius="$3"
       borderCurve="continuous"
-      pt="$3.5"
-      px="$3.5"
-      pb="$5"
-      width={
-        isSmallScreen
-          ? MARKET_BANNER_MOBILE_ITEM_WIDTH
-          : MARKET_BANNER_ITEM_WIDTH
-      }
+      pt={isDesktopWeb ? '$1' : '$3.5'}
+      px={isDesktopWeb ? '$0' : '$3.5'}
+      pb={isDesktopWeb ? '$2' : '$5'}
+      width={cardWidth}
       flexShrink={0}
-      gap="$6"
+      gap={isDesktopWeb ? '$5' : '$6'}
       userSelect="none"
-      hoverStyle={isIndexBanner ? undefined : { bg: '$bgHover' }}
-      pressStyle={isIndexBanner ? undefined : { bg: '$bgActive' }}
+      cursor={isDesktopWeb && !isIndexBanner ? 'pointer' : undefined}
+      hoverStyle={
+        isIndexBanner || isDesktopWeb ? undefined : { bg: '$bgHover' }
+      }
+      pressStyle={
+        isIndexBanner || isDesktopWeb ? undefined : { bg: '$bgActive' }
+      }
     >
       <XStack
         alignItems="center"
         gap="$1"
-        h={s(30)}
+        h={isDesktopWeb ? '$5' : s(30)}
         testID={MarketTestIDs.bannerTitle}
       >
         <XStack flex={1} minWidth={0} alignItems="center" gap="$2">
           <SizableText
-            size="$headingSm"
+            size="$bodyMdMedium"
+            color="$textSubdued"
             numberOfLines={1}
             flexShrink={1}
             minWidth={0}
@@ -410,22 +423,30 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
             <SizableText
               size="$bodySm"
               color="$textSubdued"
-              opacity={revealMoreOnHover ? 0 : 1}
+              opacity={isDesktopWeb ? 0 : 1}
               $group-marketBannerCard-hover={
-                revealMoreOnHover ? { opacity: 1 } : undefined
+                isDesktopWeb ? { opacity: 1 } : undefined
               }
             >
               {intl.formatMessage({ id: ETranslations.global_more })}
             </SizableText>
             <Icon
               name="ChevronRightSmallOutline"
-              size="$4"
+              size={isDesktopWeb ? '$4.5' : '$4'}
               color="$iconSubdued"
             />
           </XStack>
         )}
       </XStack>
-      <YStack gap="$4" pr="$1.5" minHeight={MARKET_BANNER_LIST_MIN_HEIGHT}>
+      <YStack
+        gap={isDesktopWeb ? '$5' : '$4'}
+        pr="$1.5"
+        minHeight={
+          isDesktopWeb
+            ? MARKET_BANNER_DESKTOP_WEB_LIST_MIN_HEIGHT
+            : MARKET_BANNER_LIST_MIN_HEIGHT
+        }
+      >
         {tokens.length ? (
           tokens.map((token, index) => (
             <BannerQuoteRow
