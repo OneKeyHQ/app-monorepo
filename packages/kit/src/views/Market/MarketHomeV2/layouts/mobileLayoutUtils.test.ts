@@ -116,7 +116,7 @@ describe('getMarketEmptyWatchlistContainerProps', () => {
         isNativeAndroid: true,
         isWeb: false,
       }),
-    ).toEqual({ y: -58 });
+    ).toEqual({ y: -72 });
   });
 
   it('uses the recommendation list intrinsic spacing on mobile Web', () => {
@@ -134,14 +134,14 @@ describe('getMarketEmptyWatchlistContainerProps', () => {
         isNativeAndroid: false,
         isWeb: false,
       }),
-    ).toEqual({ y: -58 });
+    ).toEqual({ y: -72 });
   });
 });
 
 describe('getMarketNativeCompactListStyle', () => {
   it('visually reclaims the unused space without overriding list padding', () => {
     expect(getMarketNativeCompactListStyle(true)).toEqual({
-      transform: [{ translateY: -42 }],
+      transform: [{ translateY: -44 }],
     });
   });
 
@@ -181,7 +181,7 @@ describe('getMarketRecommendContainerPaddingTop', () => {
 
 describe('getMarketMobileSecondaryHeaderHeight', () => {
   it('keeps one stable height while the pager changes tabs', () => {
-    expect(getMarketMobileSecondaryHeaderHeight()).toBe(74);
+    expect(getMarketMobileSecondaryHeaderHeight()).toBe(88);
   });
 });
 
@@ -197,7 +197,7 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
     ).toBe(0);
   });
 
-  it('uses only the column header height for stock data without controls', () => {
+  it('leaves a 12px lead above the column header for tabs without controls', () => {
     expect(
       getMarketWebSecondaryHeaderHeight({
         isWatchlistEmpty: false,
@@ -205,7 +205,7 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
         showSpotSubHeader: true,
         hasSpotSecondaryControls: false,
       }),
-    ).toBe(32);
+    ).toBe(44);
   });
 
   it('keeps the full height when spot controls are visible', () => {
@@ -216,7 +216,7 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
         showSpotSubHeader: true,
         hasSpotSecondaryControls: true,
       }),
-    ).toBe(74);
+    ).toBe(88);
   });
 
   it('keeps the full height for non-spot tabs with secondary controls', () => {
@@ -227,6 +227,6 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
         showSpotSubHeader: false,
         hasSpotSecondaryControls: false,
       }),
-    ).toBe(74);
+    ).toBe(88);
   });
 });
