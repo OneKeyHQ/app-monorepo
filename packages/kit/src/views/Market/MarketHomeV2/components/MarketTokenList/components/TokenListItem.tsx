@@ -15,6 +15,7 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { PriceChangeBadge } from '../../PriceChangeBadge';
+import { getStockListingName } from '../utils/marketWatchlistRowKind';
 
 import { TokenIdentityItem } from './TokenIdentityItem';
 
@@ -142,6 +143,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           stock={item.stock}
           maxLeverage={item.maxLeverage}
           perpsSubtitle={item.perpsSubtitle}
+          stockListingName={getStockListingName(item)}
           perpsDexLabel={
             item.perpsCoin ? parseDexCoin(item.perpsCoin).dexLabel : undefined
           }

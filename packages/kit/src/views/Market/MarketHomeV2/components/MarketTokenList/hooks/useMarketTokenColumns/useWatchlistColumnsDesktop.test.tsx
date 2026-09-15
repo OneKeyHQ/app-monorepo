@@ -15,12 +15,16 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  getMarketWatchlistRowKind,
+  getStockListingName,
+} from '../../utils/marketWatchlistRowKind';
+
+import {
   WatchlistAssetIdentity,
   WatchlistPerpsIdentity,
   WatchlistStockIdentity,
   WatchlistTokenIdentity,
   WatchlistTokenSubtitle,
-  getMarketWatchlistRowKind,
   useWatchlistColumnsDesktop,
 } from './useWatchlistColumnsDesktop';
 
@@ -155,6 +159,25 @@ describe('getMarketWatchlistRowKind', () => {
     ['token', { ...spotToken, stockId: 'AAPL' }],
   ])('resolves %s (%#)', (kind, record) => {
     expect(getMarketWatchlistRowKind(record)).toBe(kind);
+  });
+});
+
+describe('getStockListingName', () => {
+  test('names a stock listing by its company', () => {
+    expect(getStockListingName(stockListing)).toBe('Apple Inc.');
+  });
+
+  test.each<[string, IMarketToken]>([
+    ['a spot token', spotToken],
+    ['an asset listing', assetListing],
+    ['a perps row', perpsRow],
+    [
+      'a legacy chain favorite with a stockId',
+      { ...spotToken, stockId: 'AAPL' },
+    ],
+    ['a stock listing without a name', { ...stockListing, name: ' ' }],
+  ])('leaves %s unnamed', (_label, record) => {
+    expect(getStockListingName(record)).toBeUndefined();
   });
 });
 

@@ -104,6 +104,10 @@ interface ITokenIdentityItemProps {
    */
   perpsSubtitle?: string;
   /**
+   * Company name of a stock listing, which has no `stock` info to carry it.
+   */
+  stockListingName?: string;
+  /**
    * HIP-3 DEX source label for perpetual tokens (e.g. "xyz", "para").
    */
   perpsDexLabel?: string;
@@ -131,6 +135,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   stock,
   maxLeverage,
   perpsSubtitle,
+  stockListingName,
   perpsDexLabel,
   showStockSubtitle = true,
   tokenSize = 'md',
@@ -163,6 +168,8 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     localizedName = stock.subtitle;
   } else if (!stock?.subtitle && perpsSubtitle) {
     localizedName = perpsSubtitle;
+  } else if (!stock?.subtitle && stockListingName) {
+    localizedName = stockListingName;
   }
   const shouldShowSecondRow =
     shouldShowVolume || shouldShowAddress || !!localizedName;

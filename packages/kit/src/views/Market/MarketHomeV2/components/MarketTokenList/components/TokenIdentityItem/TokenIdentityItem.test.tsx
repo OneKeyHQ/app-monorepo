@@ -81,6 +81,45 @@ describe('TokenIdentityItem volume line', () => {
     );
   });
 
+  test('shows a stock listing company name beside the volume', () => {
+    render(
+      <TokenIdentityItem
+        symbol="AAPL"
+        address=""
+        showVolume
+        volume={12_890_000_000}
+        stockListingName="Apple"
+      />,
+    );
+
+    expect(screen.getByText('Apple')).toBeTruthy();
+    expect(screen.getByTestId('volume-number').getAttribute('data-size')).toBe(
+      '$bodySm',
+    );
+  });
+
+  test('prefers the tokenized stock subtitle over a listing name', () => {
+    render(
+      <TokenIdentityItem
+        symbol="AAPLon"
+        address=""
+        showVolume
+        volume={1}
+        stock={{
+          subtitle: 'Apple (Ondo)',
+          source: 'ondo',
+          sourceLogoUri: '',
+          title: 'Ondo',
+          isOpen: true,
+        }}
+        stockListingName="Apple"
+      />,
+    );
+
+    expect(screen.getByText('Apple (Ondo)')).toBeTruthy();
+    expect(screen.queryByText('Apple')).toBeNull();
+  });
+
   test('leaves the volume out until it loads, with no placeholder', () => {
     render(
       <TokenIdentityItem symbol="AAPL" address="" showVolume volume={NaN} />,

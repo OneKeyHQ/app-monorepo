@@ -51,34 +51,10 @@ import {
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import { getMarketWatchlistRowKind } from '../../utils/marketWatchlistRowKind';
+
 import type { IMarketToken } from '../../MarketTokenData';
 import type { IntlShape } from 'react-intl';
-
-export type IMarketWatchlistRowKind = 'token' | 'asset' | 'stock' | 'perps';
-
-/**
- * Which sibling list a watchlist row mirrors. Spot tokens always carry a
- * network and listings never do, so the network check comes before the id
- * checks: a legacy chain favorite keeps its stored `stockId` next to its
- * address and must still render as a token.
- */
-export function getMarketWatchlistRowKind(
-  record: Pick<IMarketToken, 'perpsCoin' | 'networkId' | 'stockId' | 'assetId'>,
-): IMarketWatchlistRowKind {
-  if (record.perpsCoin) {
-    return 'perps';
-  }
-  if (record.networkId) {
-    return 'token';
-  }
-  if (record.stockId) {
-    return 'stock';
-  }
-  if (record.assetId) {
-    return 'asset';
-  }
-  return 'token';
-}
 
 function WatchlistMetricValue({
   value,

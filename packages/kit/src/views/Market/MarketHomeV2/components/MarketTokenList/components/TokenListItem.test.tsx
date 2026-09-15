@@ -39,8 +39,12 @@ jest.mock('../../PriceChangeBadge', () => ({
   PriceChangeBadge: () => null,
 }));
 
+const mockIdentityProps = jest.fn<null, [{ stockListingName?: string }]>(
+  () => null,
+);
 jest.mock('./TokenIdentityItem', () => ({
-  TokenIdentityItem: () => null,
+  TokenIdentityItem: (props: { stockListingName?: string }) =>
+    mockIdentityProps(props),
 }));
 
 const listing: IMarketToken = {
@@ -79,5 +83,35 @@ describe('TokenListItem', () => {
     expect(
       screen.getByTestId('market-token-item-AAPL').getAttribute('data-gap'),
     ).toBe('$2');
+  });
+
+  test('names a stock listing by its company on the second line', () => {
+    render(<TokenListItem item={listing} onPress={jest.fn()} />);
+
+    expect(mockIdentityProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ stockListingName: 'Apple' }),
+    );
+  });
+
+  test.each<[string, IMarketToken]>([
+    [
+      'an asset listing',
+      {
+        ...listing,
+        id: 'asset:bitcoin',
+        stockId: undefined,
+        assetId: 'bitcoin',
+      },
+    ],
+    [
+      'an on-chain token',
+      { ...listing, id: 'evm--1:0x1', stockId: undefined, networkId: 'evm--1' },
+    ],
+  ])('adds no company name to %s', (_label, item) => {
+    render(<TokenListItem item={item} onPress={jest.fn()} />);
+
+    expect(mockIdentityProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ stockListingName: undefined }),
+    );
   });
 });

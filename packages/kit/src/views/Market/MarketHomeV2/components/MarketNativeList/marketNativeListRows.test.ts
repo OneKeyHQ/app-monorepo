@@ -327,6 +327,44 @@ describe('market native list rows', () => {
     expect(withoutName.subtitlePrefix).toBeUndefined();
   });
 
+  it('names a favorited stock listing by its company, but not an asset listing', () => {
+    const listing: IMarketToken = {
+      ...token,
+      id: 'stock:AAPL',
+      stockId: 'AAPL',
+      name: 'Apple',
+      symbol: 'AAPL',
+      address: '',
+      networkId: '',
+      networkLogoUri: '',
+      stock: undefined,
+    };
+    const stockRow = buildTokenMarketRow({
+      item: listing,
+      presentation,
+      watchlist: true,
+    });
+    expect(stockRow.subtitle).toBe('$123.46K');
+    expect(stockRow.subtitlePrefix).toMatchObject({
+      text: 'Apple',
+      gap: 6,
+      maxWidth: 66,
+      style: { fontSize: 12, lineHeight: 16 },
+    });
+    const assetRow = buildTokenMarketRow({
+      item: {
+        ...listing,
+        id: 'asset:bitcoin',
+        stockId: undefined,
+        assetId: 'bitcoin',
+        name: 'Bitcoin',
+      },
+      presentation,
+      watchlist: true,
+    });
+    expect(assetRow.subtitlePrefix).toBeUndefined();
+  });
+
   it('preserves the distinct standalone and watchlist perpetual row layouts', () => {
     const standalone = buildPerpsMarketRow({ item: perp, presentation });
     const watchlist = buildTokenMarketRow({

@@ -9,6 +9,7 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { parseMarketStockNumber } from '../MarketStockList/utils';
+import { getStockListingName } from '../MarketTokenList/utils/marketWatchlistRowKind';
 import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
 
 import type { IMarketPerpsToken } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -314,7 +315,8 @@ export function buildTokenMarketRow({
   const dexLabel = item.perpsCoin
     ? parseDexCoin(item.perpsCoin).dexLabel
     : undefined;
-  const subtitlePrefix = item.stock?.subtitle ?? item.perpsSubtitle;
+  const subtitlePrefix =
+    item.stock?.subtitle ?? item.perpsSubtitle ?? getStockListingName(item);
   return {
     key,
     type: 'market',
