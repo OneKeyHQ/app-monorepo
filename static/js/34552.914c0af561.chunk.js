@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[34552],{739691(e,t,s){var r=s(43462);let SimpleDbEntityNetworkSelector=class SimpleDbEntityNetworkSelector extends r.t{constructor(...e){super(...e),this.entityName="networkSelector",this.enableCache=!1}async setPinnedNetworkIds({networkIds:e}){return this.setRawData(t=>({...t,pinnedNetworkIds:e}))}async getPinnedNetworkIds(){let e=await this.getRawData();return e?.pinnedNetworkIds}};s.d(t,{SimpleDbEntityNetworkSelector:()=>SimpleDbEntityNetworkSelector})}}]);
+//# sourceMappingURL=34552.914c0af561.chunk.js.map

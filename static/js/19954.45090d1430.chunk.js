@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[19954],{398569(t,r,e){var a=e(514041),h=e(388758);function ThirdPartyHardwareUiStateAtomWatcherCmp({onShouldMount:t}){let[r]=(0,h.V$)(),[e]=(0,h.qg)(),[c]=(0,h.tg)();return(0,a.useEffect)(()=>{(r||e||c)&&t()},[e,c,t,r]),null}let c=(0,a.memo)(ThirdPartyHardwareUiStateAtomWatcherCmp);e.d(r,{},{ThirdPartyHardwareUiStateAtomWatcher:c})}}]);
+//# sourceMappingURL=19954.45090d1430.chunk.js.map

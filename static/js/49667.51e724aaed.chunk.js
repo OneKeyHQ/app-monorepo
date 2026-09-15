@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[49667],{753230(t,e,r){r.r(e);var n=r(849380),a=r(927092);let lightningNetwork=async(t,e)=>{if(t&&t.startsWith("lnurl")){let r=await e?.backgroundApi?.serviceNetwork?.getNetwork?.({networkId:(0,n.V$)().lightning}),i=await e?.backgroundApi?.serviceLightning?.findAndValidateLnurl?.({toVal:t,networkId:r?.id??""});return{type:a.Wb.LIGHTNING_NETWORK,data:{address:t,network:r,tag:i?.tag,k1:i?.url}}}return null};r.d(e,{},{default:lightningNetwork})}}]);
+//# sourceMappingURL=49667.51e724aaed.chunk.js.map
