@@ -127,6 +127,81 @@ describe('useRecentRecipientsData session cache', () => {
     expect(getRecentRecipients).not.toHaveBeenCalled();
   });
 
+  it('keeps the cached list when a background refresh fails', async () => {
+    fetchTransferRecipients.mockResolvedValueOnce({
+      supported: true,
+      data: [{ address: RECIPIENT, time: 1, networkId: ETH }],
+    });
+    const first = mountHook(ETH);
+    await waitFor(() =>
+      expect(first.result.current.recentRecipients).toHaveLength(1),
+    );
+    first.unmount();
+
+    fetchTransferRecipients.mockResolvedValueOnce({
+      supported: false,
+      data: [],
+      errored: true,
+    });
+    const second = mountHook(ETH);
+    await waitFor(() =>
+      expect(fetchTransferRecipients).toHaveBeenCalledTimes(2),
+    );
+    await flushBackgroundLoad();
+    expect(second.result.current.isLoadingRecent).toBe(false);
+    expect(second.result.current.recentRecipients[0]?.input).toBe(RECIPIENT);
+    // The empty local store never replaces the cached API list.
+    expect(getRecentRecipients).not.toHaveBeenCalled();
+    second.unmount();
+
+    fetchTransferRecipients.mockRejectedValueOnce(new Error('network'));
+    const third = mountHook(ETH);
+    await waitFor(() =>
+      expect(fetchTransferRecipients).toHaveBeenCalledTimes(3),
+    );
+    await flushBackgroundLoad();
+    expect(third.result.current.recentRecipients[0]?.input).toBe(RECIPIENT);
+    expect(getRecentRecipients).not.toHaveBeenCalled();
+  });
+
+  it('ignores a slower load from an earlier instance', async () => {
+    const NEWER = '0x2222222222222222222222222222222222222222';
+    let resolveSlow: (value: unknown) => void = () => {};
+    fetchTransferRecipients.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSlow = resolve;
+        }),
+    );
+    const first = mountHook(ETH);
+    await waitFor(() => expect(fetchTransferRecipients).toHaveBeenCalled());
+    first.unmount();
+
+    fetchTransferRecipients.mockResolvedValueOnce({
+      supported: true,
+      data: [{ address: NEWER, time: 2, networkId: ETH }],
+    });
+    const second = mountHook(ETH);
+    await waitFor(() =>
+      expect(second.result.current.recentRecipients[0]?.input).toBe(NEWER),
+    );
+
+    // The obsolete answer arrives last and must not win.
+    await act(async () => {
+      resolveSlow({
+        supported: true,
+        data: [{ address: RECIPIENT, time: 1, networkId: ETH }],
+      });
+    });
+    await flushBackgroundLoad();
+    expect(second.result.current.recentRecipients[0]?.input).toBe(NEWER);
+    second.unmount();
+
+    const third = mountHook(ETH);
+    expect(third.result.current.recentRecipients[0]?.input).toBe(NEWER);
+    await flushBackgroundLoad();
+  });
+
   it('does not reuse a cache entry across accounts or networks', async () => {
     fetchTransferRecipients.mockResolvedValue({
       supported: true,

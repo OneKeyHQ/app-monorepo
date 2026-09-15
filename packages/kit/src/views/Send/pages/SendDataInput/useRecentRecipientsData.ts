@@ -253,6 +253,11 @@ type IRecentRecipientsCacheEntry = {
 // in the background (stale-while-revalidate).
 const recentRecipientsCache = new Map<string, IRecentRecipientsCacheEntry>();
 
+// Latest load version per cache key, shared by every hook instance, so a
+// slower load started by an earlier Send page cannot overwrite the cache
+// with an older answer after a newer load has committed.
+const recentRecipientsLoadVersion = new Map<string, number>();
+
 function getRecentRecipientsCacheKey({
   accountId,
   networkId,
@@ -265,6 +270,7 @@ function getRecentRecipientsCacheKey({
 
 export function clearRecentRecipientsCache() {
   recentRecipientsCache.clear();
+  recentRecipientsLoadVersion.clear();
 }
 
 export function useRecentRecipientsData({
@@ -290,7 +296,6 @@ export function useRecentRecipientsData({
   const load = useCallback(async () => {
     loadIdRef.current += 1;
     const currentLoadId = loadIdRef.current;
-    const isStale = () => loadIdRef.current !== currentLoadId;
 
     setIsLoadingMore(false);
 
@@ -302,6 +307,14 @@ export function useRecentRecipientsData({
     }
 
     const cacheKey = getRecentRecipientsCacheKey({ accountId, networkId });
+    const loadVersion = (recentRecipientsLoadVersion.get(cacheKey) ?? 0) + 1;
+    recentRecipientsLoadVersion.set(cacheKey, loadVersion);
+    // Stale when this instance started a newer load, unmounted, or another
+    // instance started a newer load for the same account + network.
+    const isStale = () =>
+      loadIdRef.current !== currentLoadId ||
+      recentRecipientsLoadVersion.get(cacheKey) !== loadVersion;
+
     const cached = recentRecipientsCache.get(cacheKey);
     if (cached) {
       setRecentRecipients(cached.recipients);
@@ -322,6 +335,7 @@ export function useRecentRecipientsData({
 
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
     let apiUnsupported = cached?.apiUnsupported ?? false;
+    let apiFailed = false;
 
     // Phase 1: try the indexer API. When the API is supported, it is the
     // single source of truth — we do not fall back to local storage or
@@ -366,9 +380,19 @@ export function useRecentRecipientsData({
         // Only a server-side "unsupported" answer is memoized; a failed
         // request must be retried on the next load.
         apiUnsupported = !errored;
+        apiFailed = Boolean(errored);
       } catch {
         // API call failed — fall through to local fallback.
+        apiFailed = true;
       }
+    }
+
+    // A failed background refresh keeps the cached API list on screen; the
+    // local store is only a substitute for a cold load or for a network the
+    // server reported as unsupported (OK-53284: never mix sources).
+    if (apiFailed && cached && !cached.apiUnsupported) {
+      setIsLoadingRecent(false);
+      return;
     }
 
     // Phase 2: indexer API not supported — show only locally-confirmed
@@ -408,6 +432,15 @@ export function useRecentRecipientsData({
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  // Invalidate this instance's in-flight load on unmount so it can neither
+  // update state nor write the shared cache after the page has closed.
+  useEffect(
+    () => () => {
+      loadIdRef.current += 1;
+    },
+    [],
+  );
 
   return {
     recentRecipients,

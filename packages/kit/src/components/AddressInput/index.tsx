@@ -236,6 +236,11 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
     );
   }
   if (result) {
+    // While re-validating an existing input only the stable wallet and
+    // address-book labels stay on screen; a resolved name (ENS etc.) and
+    // server-derived badges may have changed, so they are replaced by a
+    // spinner until the new query lands.
+    const isRevalidating = Boolean(loading);
     return (
       <XStack gap="$2" mb="$1" flex={1} flexWrap="wrap" overflow="hidden">
         {result.walletAccountName ? (
@@ -260,7 +265,8 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             </XStack>
           </Badge>
         ) : null}
-        {result.resolveAddress ? (
+        {isRevalidating ? <Spinner /> : null}
+        {!isRevalidating && result.resolveAddress ? (
           <Stack>
             <ResolvedAddress
               value={result.resolveAddress}
@@ -272,17 +278,21 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
         {/* Label badges (OKX, CEX, etc.) stay inside the input.
             Interaction badges (Transferred, First transfer) are rendered
             below the input by AddressInputWarnings. */}
-        {result.addressBadges
-          ?.filter((badge) => badge.type === 'default' || badge.type === 'info')
-          .map((badge) => (
-            <AddressBadge
-              key={badge.label}
-              title={badge.label}
-              badgeType={badge.type}
-              content={badge.tip}
-              icon={badge.icon}
-            />
-          ))}
+        {isRevalidating
+          ? null
+          : result.addressBadges
+              ?.filter(
+                (badge) => badge.type === 'default' || badge.type === 'info',
+              )
+              .map((badge) => (
+                <AddressBadge
+                  key={badge.label}
+                  title={badge.label}
+                  badgeType={badge.type}
+                  content={badge.tip}
+                  icon={badge.icon}
+                />
+              ))}
       </XStack>
     );
   }
