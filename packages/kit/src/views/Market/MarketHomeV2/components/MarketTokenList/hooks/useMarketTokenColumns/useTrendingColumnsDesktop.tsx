@@ -33,12 +33,16 @@ import type {
 import { MarketTokenAgeAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
 import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { Txns } from '../../components/Txns';
 
 import { getTokenAgeLabel } from './tokenAgeLabel';
+import { WatchlistTokenIdentity } from './useWatchlistColumnsDesktop';
 
 import type { IMarketToken } from '../../MarketTokenData';
 
@@ -82,14 +86,17 @@ export function useTrendingColumnsDesktop({
   sort,
   onSort,
   hideTokenAge = false,
+  copyFrom = ECopyFrom.Homepage,
 }: {
   networkId?: string;
   timeRange?: IMarketTimeRangeValue;
   sort: IMarketSortState;
   onSort: (field: string, order: IMarketSortOrder) => void;
   /** Lists whose rows carry no `firstTradeTime` (banner detail) title the
-   *  column "Name" and show the contract address without the hover swap. */
+   *  column "Name" and render the watchlist's spot-token cell: the token
+   *  name at rest, the contract address on hover. */
   hideTokenAge?: boolean;
+  copyFrom?: ECopyFrom;
 }): ITableColumn<IMarketToken>[] {
   const intl = useIntl();
 
@@ -148,9 +155,12 @@ export function useTrendingColumnsDesktop({
         dataIndex: 'nameTokenAge',
         columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken) => {
-          const ageLabel = hideTokenAge
-            ? undefined
-            : getTokenAgeLabel(intl, record.firstTradeTime);
+          if (hideTokenAge) {
+            return (
+              <WatchlistTokenIdentity record={record} copyFrom={copyFrom} />
+            );
+          }
+          const ageLabel = getTokenAgeLabel(intl, record.firstTradeTime);
 
           return (
             <MarketIdentityCell
@@ -301,6 +311,6 @@ export function useTrendingColumnsDesktop({
         renderSkeleton: () => <Skeleton width={90} height={16} />,
       },
     ],
-    [hideTokenAge, intl, networkId, onSort, sort, timeRange],
+    [copyFrom, hideTokenAge, intl, networkId, onSort, sort, timeRange],
   );
 }
