@@ -141,6 +141,21 @@ function formatNumber(
   return toTextSegments(rendered) ?? ({ text: '--' } as const);
 }
 
+// The second line of a token or stock row: a capped localized name before the
+// volume, matching the web identity cell.
+function buildNameSubtitlePrefix(
+  text: string | undefined,
+): MarketRow['subtitlePrefix'] {
+  return text
+    ? {
+        text,
+        gap: 6,
+        maxWidth: 66,
+        style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
+      }
+    : undefined;
+}
+
 function formatVolume(
   volume: string | number | undefined,
   includeZero = false,
@@ -335,14 +350,7 @@ export function buildTokenMarketRow({
     },
     title: item.symbol,
     subtitle: formatVolume(item.turnover),
-    subtitlePrefix: subtitlePrefix
-      ? {
-          text: subtitlePrefix,
-          gap: 6,
-          maxWidth: 66,
-          style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
-        }
-      : undefined,
+    subtitlePrefix: buildNameSubtitlePrefix(subtitlePrefix),
     price: price.text,
     priceSegments: price.textSegments,
     change,
@@ -408,7 +416,8 @@ export function buildStockMarketRow({
       borderColor: presentation.tokenBorderColor,
     },
     title: item.symbol,
-    subtitle: item.name,
+    subtitle: formatVolume(item.volume24h),
+    subtitlePrefix: buildNameSubtitlePrefix(item.name),
     price: price.text,
     priceSegments: price.textSegments,
     change,

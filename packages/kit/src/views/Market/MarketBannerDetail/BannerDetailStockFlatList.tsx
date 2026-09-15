@@ -77,9 +77,13 @@ export function BannerDetailStockFlatList({
   return (
     <Stack flex={1}>
       <BannerDetailListColumnHeader
-        primaryColumnTitle={intl.formatMessage({
-          id: ETranslations.market_stock_company,
-        })}
+        // Same label as the mobile home lists: the row's second line is the
+        // company name and the volume.
+        primaryColumnTitle={`${intl.formatMessage({
+          id: ETranslations.global_name,
+        })} / ${intl.formatMessage({
+          id: ETranslations.market_stock_volume__title,
+        })}`}
         changeSortType={changeSortType}
         change24hColumnTitle={intl.formatMessage({
           id: ETranslations.market_stock_change__title,

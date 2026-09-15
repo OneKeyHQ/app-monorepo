@@ -7,6 +7,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
+import { SubtitleText } from '../../../components/PerpsBadges';
 import { MarketTestIDs } from '../../../testIDs';
 import { MARKET_CELL_LINE_GAP, MARKET_CELL_LOGO_GAP } from '../MarketListCell';
 import { PriceChangeBadge } from '../PriceChangeBadge';
@@ -24,6 +25,7 @@ export function MobileMarketStockListItem({
 }) {
   const price = parseMarketStockNumber(item.price);
   const priceChange = parseMarketStockNumber(item.priceChange24hPercent);
+  const volume = parseMarketStockNumber(item.volume24h);
   return (
     // Same frame as the Trending row (`TokenListItem`): fixed 72px height,
     // 32px logo, 14px to the text, 4px between the two lines, and 8px
@@ -55,14 +57,24 @@ export function MobileMarketStockListItem({
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {item.symbol}
           </SizableText>
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {item.name}
-          </SizableText>
+          {/* Same second line as a watchlist stock row (`TokenIdentityItem`):
+              the capped company name, then the 24h volume. */}
+          <XStack alignItems="center" gap="$1.5" minWidth={0} height={16}>
+            {item.name ? (
+              <SubtitleText subtitle={item.name} maxWidth={66} />
+            ) : null}
+            {volume ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+                formatter="marketCap"
+                formatterOptions={{ currency: '$' }}
+              >
+                {volume}
+              </NumberSizeableText>
+            ) : null}
+          </XStack>
         </YStack>
       </XStack>
       <XStack alignItems="center" gap="$2">

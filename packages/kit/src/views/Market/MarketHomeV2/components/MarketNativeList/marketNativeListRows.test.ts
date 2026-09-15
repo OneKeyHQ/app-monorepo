@@ -433,10 +433,21 @@ describe('market native list rows', () => {
         currency: 'USD',
         price: '762',
         priceChange24hPercent: '-0.24',
+        volume24h: '45000000000',
       },
       presentation,
     });
     const tokenRow = buildTokenMarketRow({ item: token, presentation });
+
+    // The second line is the watchlist stock row's: the capped name, then the
+    // volume.
+    expect(stock.subtitlePrefix).toEqual({
+      text: 'SPDR S&P 500 ETF Trust',
+      gap: 6,
+      maxWidth: 66,
+      style: { fontSize: 12, fontWeight: 'regular', lineHeight: 16 },
+    });
+    expect(stock.subtitle).toBe('$45B');
 
     expect(stock.leading).toMatchObject({
       kind: 'token',
