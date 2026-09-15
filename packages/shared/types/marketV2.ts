@@ -25,6 +25,13 @@ export interface IMarketTokenHistoricalPriceFields {
   price24hAgo?: string;
 }
 
+export interface IMarketTokenLaunchpad {
+  protocolId?: string;
+  logoUrl?: string;
+  isInternal?: boolean;
+  progress?: string;
+}
+
 export interface IMarketTokenDetail {
   networkId?: string;
   isNative?: boolean;
@@ -123,6 +130,7 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  launchpad?: IMarketTokenLaunchpad | null;
   stock?: IMarketStockInfo;
   btcMetadata?: IBtcMetadata;
   [key: string]: unknown;
