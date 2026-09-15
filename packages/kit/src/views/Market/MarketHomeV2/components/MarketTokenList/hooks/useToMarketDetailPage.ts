@@ -178,7 +178,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
         : options?.marketTokenCategory;
-      const stockId = resolveMarketStockId(resolvedItem);
+      const stockId = resolveMarketStockId({
+        stockId: resolvedItem.stockId,
+      });
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
