@@ -307,9 +307,6 @@ function BaseMarketTokenSelectorContent({
 
       const stockId = resolveMarketStockId({
         stockId: token.stockId,
-        stock: token.tokenDetailPreview?.stock ?? token.stock,
-        name: token.tokenDetailPreview?.name ?? token.name,
-        symbol: token.tokenDetailPreview?.symbol ?? token.symbol,
       });
       if (stockId) {
         void closePopover?.();
