@@ -4,7 +4,13 @@ import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/networkFilter';
 import systemTimeUtils from '../utils/systemTimeUtils';
 
+import {
+  createApiAvailabilityTiming,
+  reportApiAvailabilityError,
+  reportApiAvailabilityResponse,
+} from './availabilityMetrics';
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
+import { AVAILABILITY_COUNTED_FETCH_OPTION } from './requestConst';
 import requestHelper from './requestHelper';
 
 function getUrlFromResource(resource: RequestInfo | URL | string) {
@@ -79,6 +85,11 @@ const newFetch = async function (
     defaultLogger.app.network.start('fetch', options.method, url, requestId);
   }
 
+  const availabilityTiming = (options as Record<string, unknown>)[
+    AVAILABILITY_COUNTED_FETCH_OPTION
+  ]
+    ? undefined
+    : createApiAvailabilityTiming({ url });
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
   return (
     fetchOrigin
@@ -100,9 +111,14 @@ const newFetch = async function (
             requestId,
           });
         }
+        reportApiAvailabilityResponse({
+          timing: availabilityTiming,
+          httpStatus: res.status,
+        });
         return res.clone();
       })
       .catch((e: unknown) => {
+        reportApiAvailabilityError(availabilityTiming, e);
         if (e) {
           defaultLogger.app.network.error({
             requestType: 'fetch',

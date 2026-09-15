@@ -30,6 +30,11 @@ import {
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import {
+  createApiAvailabilityTiming,
+  reportApiAvailabilityError,
+  reportApiAvailabilityResponse,
+} from './availabilityMetrics';
+import {
   HEADER_REQUEST_ID_KEY,
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
@@ -294,10 +299,13 @@ axios.interceptors.request.use(async (config) => {
         defaultLogger.app.network.start('axios', config.method, config.url);
       }
       await markNetworkThrottleRequestTiming(config);
+      // Set last, so client-side header building is not in the duration.
+      config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
       return config;
     }
   } catch (_e) {
     await markNetworkThrottleRequestTiming(config);
+    config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
     return config;
   }
 
@@ -323,6 +331,7 @@ axios.interceptors.request.use(async (config) => {
     );
   }
   await markNetworkThrottleRequestTiming(config);
+  config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
   return config;
 });
 
@@ -343,6 +352,12 @@ axios.interceptors.response.use(
 
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
+      reportApiAvailabilityResponse({
+        timing: config.$oneKeyAvailabilityTiming,
+        httpStatus: response.status,
+        isOneKeyApi: isOneKeyDomain,
+        apiCode: response.data?.code,
+      });
       if (!isOneKeyDomain) {
         if (isEnableLogNetwork(config.url)) {
           defaultLogger.app.network.end({
@@ -445,6 +460,7 @@ axios.interceptors.response.use(
     if (error?.config?.signal?.aborted) {
       throw new axios.CanceledError('canceled');
     }
+    reportApiAvailabilityError(error?.config?.$oneKeyAvailabilityTiming, error);
     const { response } = error;
 
     if (response?.status && response?.config) {

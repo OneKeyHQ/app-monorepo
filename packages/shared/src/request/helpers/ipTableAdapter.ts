@@ -6,6 +6,12 @@ import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
 import {
+  markApiAvailabilityProxy,
+  markApiAvailabilityRoute,
+  reportApiAvailabilityError,
+  setAvailabilityIpTableState,
+} from '../availabilityMetrics';
+import {
   DEFAULT_IP_TABLE_CONFIG,
   IP_TABLE_ADAPTER_FAILOVER_TTL_MS,
   IP_TABLE_DOMAIN_FAILOVER_THRESHOLD,
@@ -27,6 +33,7 @@ import {
 } from './sniRequestAbort';
 
 import type { IIpTableRequestOutcomeState } from './ipTableRequestOutcome';
+import type { IAvailabilityIpTableState } from '../availabilityMetrics';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -289,10 +296,24 @@ function getHostOutcomeState(
 
 const adapterFailoverStates = new Map<string, IAdapterFailoverState>();
 
+/** IP Table state for availability metrics, from the inputs selection uses. */
+const readIpTableAvailabilityState = memoizee(
+  async (): Promise<IAvailabilityIpTableState> => {
+    if (!(await shouldUseIpTable())) return 'disabled';
+    const configWithRuntime = await requestHelper.getIpTableConfig();
+    if (!configWithRuntime) return 'no_config';
+    return configWithRuntime.runtime?.enabled === false
+      ? 'disabled'
+      : 'enabled';
+  },
+  { promise: true, maxAge: 5000 },
+);
+
 /** Test-only helper: clears fail-open state and the selection memo cache. */
 export function resetAdapterFailoverStatesForTesting(): void {
   adapterFailoverStates.clear();
   getSelectedIpForHost.clear();
+  void readIpTableAvailabilityState.clear();
 }
 
 /**
@@ -880,6 +901,10 @@ export function createIpTableAdapter(
     rootDomain?: string;
   }): Promise<AxiosResponse> => {
     const { config, isFallback = false, hostname, rootDomain } = options;
+    markApiAvailabilityRoute(
+      config.$oneKeyAvailabilityTiming,
+      isFallback ? 'fallback' : 'domain',
+    );
     const requestSequence = nextIpTableRequestSequence();
     debugLog('[IpTableAdapter] About to call original adapter...');
     debugLog(
@@ -1028,7 +1053,16 @@ export function createIpTableAdapter(
     }
   };
 
-  return async (config: InternalAxiosRequestConfig) => {
+  const ipTableAdapter = async (config: InternalAxiosRequestConfig) => {
+    // Every route taken below overwrites this.
+    markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, 'none');
+    if (config.$oneKeyAvailabilityTiming) {
+      // Read on every route: proxy-on requests never reach IP selection.
+      void readIpTableAvailabilityState().then(
+        setAvailabilityIpTableState,
+        () => undefined,
+      );
+    }
     throwIfSniRequestAborted(config.signal);
     const sniSupported = isSniSupported();
     // Check if SNI is supported on current platform
@@ -1147,6 +1181,7 @@ export function createIpTableAdapter(
       preflightError = error;
       proxyActive = null;
     }
+    markApiAvailabilityProxy(config.$oneKeyAvailabilityTiming, proxyActive);
     const shouldUseSni = proxyActive !== true && !preflightError;
     let fallbackReason = 'none';
     let preflightReason = 'confirmed_direct';
@@ -1278,6 +1313,7 @@ export function createIpTableAdapter(
       requestBody ? requestBody.substring(0, 200) : 'null',
     );
 
+    markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, 'sni');
     const sniRequestSequence = nextIpTableRequestSequence();
     // One SNI attempt must produce at most one ip-failure report: the
     // null-response branch throws for non-idempotent requests and that
@@ -1445,6 +1481,19 @@ export function createIpTableAdapter(
         hostname,
         rootDomain,
       });
+    }
+  };
+
+  return async (config: InternalAxiosRequestConfig) => {
+    try {
+      return await ipTableAdapter(config);
+    } catch (error) {
+      // Errors raised by this adapter (SNI fail-closed, blocked fallback)
+      // carry no axios config, so the axios interceptor cannot count them.
+      if (!(error as { config?: unknown } | undefined)?.config) {
+        reportApiAvailabilityError(config.$oneKeyAvailabilityTiming, error);
+      }
+      throw error;
     }
   };
 }
