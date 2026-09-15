@@ -1062,6 +1062,63 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     }
   });
 
+  it.each([
+    [EDeviceType.Pro2, 'webusb'],
+    [EDeviceType.Neo, 'electron-ble'],
+    [EDeviceType.Touch, 'webusb'],
+  ])(
+    'tracks previously excluded %s connections via %s with device details',
+    async (deviceType, commType) => {
+      const trackConnection = jest
+        .spyOn(defaultLogger.hardware.connection, 'hwDeviceConnected')
+        .mockImplementation((params) => params);
+      try {
+        const listeners = new Map<string, (payload: unknown) => void>();
+        const service = new ServiceHardware({
+          backgroundApi: {} as unknown as IBackgroundApi,
+        });
+        await service.registerSdkEvents({
+          on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+            listeners.set(event, listener),
+          ),
+        } as unknown as Parameters<ServiceHardware['registerSdkEvents']>[0]);
+        const deviceId = `${deviceType}_DEVICE_ID`;
+        const serialNo = `${deviceType}_SERIAL`;
+        listeners.get(DEVICE.CONNECT)?.({
+          device: {
+            connectId: `${deviceType}_CONNECT_ID`,
+            deviceId,
+            commType,
+            features: {
+              deviceType,
+              firmwareType: EFirmwareType.Universal,
+              serialNo,
+            },
+            state: {
+              identity: { serialNo },
+              versions: { firmware: '1.0.0' },
+            },
+          },
+        });
+        await new Promise<void>((resolve) => {
+          setImmediate(resolve);
+        });
+
+        expect(trackConnection).toHaveBeenCalledTimes(1);
+        expect(trackConnection).toHaveBeenCalledWith({
+          deviceType,
+          firmwareType: 'universal',
+          deviceId,
+          serialNo,
+          firmwareVersion: '1.0.0',
+          transportType: commType,
+        });
+      } finally {
+        trackConnection.mockRestore();
+      }
+    },
+  );
+
   it('按设备身份跟踪连接状态，而不是把任意硬件设备视为目标设备在线', async () => {
     const listeners = new Map<string, (payload: unknown) => void>();
     const service = new ServiceHardware({
