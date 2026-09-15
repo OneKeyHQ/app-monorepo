@@ -85,7 +85,7 @@ export function BannerDetailTokenFlatList({
       <BannerDetailListColumnHeader
         primaryColumnTitle={
           primaryColumnTitle ??
-          `${intl.formatMessage({ id: ETranslations.global_name })} / ${intl.formatMessage({ id: ETranslations.dexmarket_turnover })}`
+          `${intl.formatMessage({ id: ETranslations.global_name })} / ${intl.formatMessage({ id: ETranslations.market_stock_volume__title })}`
         }
         changeSortType={changeSortType}
         change24hColumnTitle={change24hColumnTitle}
