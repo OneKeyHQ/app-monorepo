@@ -2741,6 +2741,9 @@ class ServiceHistory extends ServiceBase {
     supported: boolean;
     data: ITransferRecipient[];
     lastUsedDeriveType?: string;
+    // True when `supported: false` comes from a failed request rather than
+    // the server, so callers do not memoize the network as unsupported.
+    errored?: boolean;
   }> {
     const { accountId, networkId, limit = 10 } = params;
 
@@ -2786,7 +2789,11 @@ class ServiceHistory extends ServiceBase {
         return { supported: supported ?? true, data: data ?? [] };
       } catch (error) {
         console.error('Failed to fetch transfer recipients:', error);
-        return { supported: false, data: [] as ITransferRecipient[] };
+        return {
+          supported: false,
+          data: [] as ITransferRecipient[],
+          errored: true,
+        };
       }
     };
 
@@ -2811,6 +2818,7 @@ class ServiceHistory extends ServiceBase {
         deriveType: IAccountDeriveTypes;
         supported: boolean;
         data: ITransferRecipient[];
+        errored?: boolean;
       } => !!r,
     );
 
@@ -2845,6 +2853,7 @@ class ServiceHistory extends ServiceBase {
       supported: anySupported,
       data: merged.slice(0, limit),
       lastUsedDeriveType: newestDeriveType,
+      errored: responses.length > 0 && responses.every((r) => r.errored),
     };
   }
 
