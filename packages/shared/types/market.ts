@@ -368,6 +368,8 @@ export interface IMarketSearchV2Token {
   symbol: string;
   address: string;
   network: string;
+  // Present only for stock listings from `/utility/v1/stocks/search`.
+  stockId?: string;
   logoUrl: string;
   logoUrls?: string[];
   isNative: boolean;

@@ -15,6 +15,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { mapMarketStockPublicItemToSearchToken } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildCoinFromSearchAssetType,
@@ -63,6 +64,7 @@ const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
 // such as `nasdaq` are the point, and a non-ASCII one is where the localized
 // aliases the server may hold beyond our cached map are.
 const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
+const UNIVERSAL_SEARCH_STOCK_LIMIT = 10;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -211,7 +213,9 @@ class ServiceUniversalSearch extends ServiceBase {
         ? this.universalSearchOfAddress({ input, networkId })
         : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.V2MarketToken)
-        ? this.universalSearchOfV2MarketToken(input)
+        ? this.universalSearchOfV2MarketToken(input, {
+            includeStockListings: true,
+          })
         : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
@@ -326,8 +330,27 @@ class ServiceUniversalSearch extends ServiceBase {
   }
 
   @backgroundMethod()
-  async universalSearchOfV2MarketToken(query: string) {
-    return this.backgroundApi.serviceMarket.searchV2Token(query);
+  async universalSearchOfV2MarketToken(
+    query: string,
+    options?: { includeStockListings?: boolean },
+  ) {
+    if (!options?.includeStockListings) {
+      return this.backgroundApi.serviceMarket.searchV2Token(query);
+    }
+    const [tokenResult, stockResult] = await Promise.allSettled([
+      this.backgroundApi.serviceMarket.searchV2Token(query),
+      this.backgroundApi.serviceMarketV2.searchMarketStocks({
+        query,
+        limit: UNIVERSAL_SEARCH_STOCK_LIMIT,
+      }),
+    ]);
+    const tokens = tokenResult.status === 'fulfilled' ? tokenResult.value : [];
+    const stocks =
+      stockResult.status === 'fulfilled' &&
+      Array.isArray(stockResult.value?.items)
+        ? stockResult.value.items.map(mapMarketStockPublicItemToSearchToken)
+        : [];
+    return [...stocks, ...tokens];
   }
 
   async universalSearchOfAccountAssets({

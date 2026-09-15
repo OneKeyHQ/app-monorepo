@@ -66,14 +66,6 @@ describe('PopularTrading market token display utils', () => {
   test.each<Partial<IMarketTokenListItem>>([
     { stockId: ' aapl ' },
     { stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' } },
-    {
-      stock: {
-        underlyingAssetTicker: 'aapl',
-        subtitle: 'Apple',
-        sourceLogoUri: '',
-      },
-    },
-    { name: 'Apple xStock', symbol: 'AAPLx' },
   ])(
     'preserves the stock favorite identity in Home display data: %j',
     (identity) => {

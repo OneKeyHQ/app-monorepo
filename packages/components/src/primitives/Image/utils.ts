@@ -31,18 +31,21 @@ export const isEmptyResolvedSource = (source?: ImageSourcePropType | null) => {
   );
 };
 
+// Keyed by request identity rather than object identity: callers commonly pass
+// a fresh `{ uri }` object on every render, which must not clear a failed load
+// and remount the image (visible as a placeholder flash plus a refetch).
 export const useResetError = (
-  resolvedSource: ImageSourcePropType | null,
+  sourceIdentity: string,
   hasError: boolean,
   onResetError: (hasError: boolean) => void,
 ) => {
   const hasErrorRef = useRef(hasError);
-  const resolvedSourceRef = useRef<ImageSourcePropType | null>(resolvedSource);
+  const sourceIdentityRef = useRef(sourceIdentity);
   hasErrorRef.current = hasError;
   useEffect(() => {
-    if (hasErrorRef.current && resolvedSourceRef.current !== resolvedSource) {
+    if (hasErrorRef.current && sourceIdentityRef.current !== sourceIdentity) {
       onResetError(false);
     }
-    resolvedSourceRef.current = resolvedSource;
-  }, [resolvedSource, hasError, onResetError]);
+    sourceIdentityRef.current = sourceIdentity;
+  }, [sourceIdentity, hasError, onResetError]);
 };

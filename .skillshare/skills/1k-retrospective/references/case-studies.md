@@ -375,6 +375,34 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Hydrate from the raw banner list; overlay latest preview logos onto cached quote rows for display and hydrate-failure fallback. Quote membership still only changes after a completed hydrate.
 **Catchable by**: Section 4: Data flow end-to-end; NEW — an anti-flash cache must not become the source of truth for poll fields that are allowed to update
 
+## Case: Stock list defaulted to 24h volume instead of market cap
+**Date**: 2026-09-15 | **Platforms**: all Market stock lists
+**Symptom**: Opening the Stocks tab sorted by 24h volume on first load (OK-63392).
+**Root Cause**: `DEFAULT_MARKET_STOCK_SORT_BY` was `'volume24h'`.
+**Fix**: Default sort is `'marketCap'` descending; list hook tests assert the first request and the cleared-column restore.
+**Catchable by**: Section 4: Implementation matches original requirement; Section 6: default sort covered by tests
+
+## Case: Favoriting AAPL listing starred chain aapl in search
+**Date**: 2026-09-15 | **Platforms**: all (universal search)
+**Symptom**: Starring the AAPL collection made other-network aapl tokens appear favorited (OK-63400).
+**Root Cause**: Search rows used nested/inferred `stock.stockId` for `MarketStarV2`, so chain tokens shared the `stock:AAPL` watchlist key with the listing.
+**Fix**: Only listings from `/utility/v1/stocks/search` (top-level `stockId`, no chain identity) pass `stockId` to star/nav; chain tokens keep chain identity even when nested stock metadata is present.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — listing identity and chain-token identity must not share watchlist keys
+
+## Case: Tokens without API stock ID opened stock detail
+**Date**: 2026-09-15 | **Platforms**: all Market/search navigation
+**Symptom**: xStock / ticker-named tokens without a server stock ID opened MarketStockDetail (OK-63401).
+**Root Cause**: `resolveMarketStockId` inferred IDs from `underlyingAssetTicker` and xStock naming.
+**Fix**: Resolve stock routes only from explicit `stockId` / `stock.stockId`. Search navigation additionally requires a top-level listing `stockId`.
+**Catchable by**: Section 4: identity heuristics; NEW — do not infer product identity from display names or related tickers
+
+## Case: Global search omitted `/utility/v1/stocks/search`
+**Date**: 2026-09-15 | **Platforms**: all (universal search)
+**Symptom**: Searching a ticker in global search returned tokenized chain tokens only, not the stock listing.
+**Root Cause**: `universalSearchOfV2MarketToken` only called `searchV2Token`.
+**Fix**: Universal search also calls `searchMarketStocks` and prepends mapped listings. Swap Pro keeps token-only search via `includeStockListings`.
+**Catchable by**: Section 4: Data flow end-to-end API → state → UI; NEW — new identity APIs must be wired into every search surface that presents that product
+
 ## Case: K-line last-value badge used mid-amount ellipsis
 **Date**: 2026-09-15 | **Platforms**: desktop, mobile, web, extension
 **Symptom**: Chart last-value labels showed `$77,250...K` instead of OKX-style `$77.25K`.
@@ -388,4 +416,3 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Stocks category reused `fetchMarketTokenList` (`/utility/v2/market/tokens?type=stocks`) instead of the public stocks API used by Market Stocks.
 **Fix**: Detect the stocks category and load `fetchMarketStockList`; map `stockId` / `stockListingName` for display and hide network icons.
 **Catchable by**: Section 4: shared hook/utility modified → check all category consumers; NEW — a Market category named like another product surface must use that surface's list API, not the generic token list
-
