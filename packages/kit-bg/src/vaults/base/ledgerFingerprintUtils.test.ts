@@ -305,7 +305,11 @@ describe('callLedgerWithFingerprint', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('rejects bootstrap success when binding confirmation fails', async () => {
+  it('keeps bootstrap success when the binding confirmation cannot complete', async () => {
+    // The user already approved this on the device and the anchor is persisted
+    // before the confirmation runs. A confirmation round trip that fails to
+    // complete says nothing about which device answered, so discarding the
+    // result here would throw away a signature over a bookkeeping call.
     const getChainFingerprint = jest
       .fn()
       .mockResolvedValueOnce(success('new-evm-fingerprint'))
@@ -330,14 +334,44 @@ describe('callLedgerWithFingerprint', () => {
       },
     );
     expect(result).toMatchObject({
-      success: false,
-      payload: { code: HardwareErrorCode.DeviceMismatch },
+      success: true,
+      payload: { address: 'synthetic-address' },
     });
     expect(getChainFingerprint).toHaveBeenLastCalledWith(
       'hwk-ledger-confirmation-failure',
       'new-evm-fingerprint',
       'evm',
     );
+  });
+
+  it('rejects bootstrap success when the binding confirmation names another device', async () => {
+    const getChainFingerprint = jest
+      .fn()
+      .mockResolvedValueOnce(success('new-evm-fingerprint'))
+      .mockResolvedValueOnce(
+        failure(HardwareErrorCode.DeviceMismatch, 'Different device'),
+      );
+    const backgroundApi = {
+      serviceThirdPartyHardware: {
+        getAdapterForVendor: jest
+          .fn()
+          .mockResolvedValue({ hw: { getChainFingerprint } }),
+      },
+    };
+    const result = await callLedgerWithFingerprint(
+      backgroundApi as unknown as IBackgroundApi,
+      buildDevice('ledger-confirmation-mismatch'),
+      'evm',
+      jest.fn().mockResolvedValue(success({ address: 'synthetic-address' })),
+      {
+        operationId: 'hwk-ledger-confirmation-mismatch',
+        allowFingerprintBootstrap: true,
+      },
+    );
+    expect(result).toMatchObject({
+      success: false,
+      payload: { code: HardwareErrorCode.DeviceMismatch },
+    });
   });
 
   it('preserves an SDK fingerprint mismatch during cross-chain verification', async () => {
