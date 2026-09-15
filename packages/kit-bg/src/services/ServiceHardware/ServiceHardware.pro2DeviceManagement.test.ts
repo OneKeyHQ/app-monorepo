@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   LogLevel,
   NativeLogger,
@@ -1009,6 +1010,57 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 });
 
 describe('ServiceHardware SDK DeviceState synchronization', () => {
+  it('enriches connection analytics once for concurrent connect events', async () => {
+    const trackConnection = jest
+      .spyOn(defaultLogger.hardware.connection, 'hwDeviceConnected')
+      .mockImplementation((params) => params);
+    try {
+      const listeners = new Map<string, (payload: unknown) => void>();
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      await service.registerSdkEvents({
+        on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+          listeners.set(event, listener),
+        ),
+      } as unknown as Parameters<ServiceHardware['registerSdkEvents']>[0]);
+      const message = {
+        device: {
+          connectId: 'PRO_USB',
+          deviceId: 'PRO_DEVICE_ID',
+          serialNo: 'LEGACY_SERIAL',
+          commType: 'webusb',
+          features: {
+            deviceType: EDeviceType.Pro,
+            firmwareType: EFirmwareType.Universal,
+          },
+          state: {
+            identity: { serialNo: 'PRO_SERIAL' },
+            versions: { firmware: '4.16.0' },
+          },
+        },
+      };
+
+      listeners.get(DEVICE.CONNECT)?.(message);
+      listeners.get(DEVICE.CONNECT)?.(message);
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(trackConnection).toHaveBeenCalledTimes(1);
+      expect(trackConnection).toHaveBeenCalledWith({
+        deviceType: EDeviceType.Pro,
+        firmwareType: 'universal',
+        deviceId: 'PRO_DEVICE_ID',
+        serialNo: 'PRO_SERIAL',
+        firmwareVersion: '4.16.0',
+        transportType: 'webusb',
+      });
+    } finally {
+      trackConnection.mockRestore();
+    }
+  });
+
   it('按设备身份跟踪连接状态，而不是把任意硬件设备视为目标设备在线', async () => {
     const listeners = new Map<string, (payload: unknown) => void>();
     const service = new ServiceHardware({

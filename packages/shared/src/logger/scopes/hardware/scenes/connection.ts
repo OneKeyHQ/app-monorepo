@@ -9,7 +9,7 @@ import type {
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
 
-import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { IDeviceType, KnownDevice } from '@onekeyfe/hd-core';
 
 export class HardwareConnectionScene extends BaseScene {
   @LogToServer()
@@ -17,6 +17,9 @@ export class HardwareConnectionScene extends BaseScene {
     deviceType: IDeviceType;
     firmwareType: 'btconly' | 'universal';
     deviceId: string;
+    serialNo?: string;
+    firmwareVersion?: string;
+    transportType?: NonNullable<KnownDevice['commType']>;
   }) {
     return params;
   }

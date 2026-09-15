@@ -1935,12 +1935,24 @@ class ServiceHardware extends ServiceBase {
               firmwareType === EFirmwareType.BitcoinOnly
                 ? 'btconly'
                 : 'universal';
+            const { firmwareVersion } = await deviceUtils.getDeviceVersion({
+              device: { ...message.device, deviceType },
+              features,
+            });
             const trackingKey = `${deviceId}_${firmwareTypeStr}`;
             if (this.connectedDeviceTracked.has(trackingKey)) return;
             defaultLogger.hardware.connection.hwDeviceConnected({
               deviceType,
               firmwareType: firmwareTypeStr,
               deviceId,
+              serialNo:
+                message.device.state?.identity.serialNo ||
+                serialNo ||
+                deviceUtils.getDeviceSerialNoFromFeatures(features) ||
+                message.device.uuid ||
+                undefined,
+              firmwareVersion: firmwareVersion || undefined,
+              transportType: message.device.commType ?? undefined,
             });
             this.connectedDeviceTracked.add(trackingKey);
           } catch (_e) {
