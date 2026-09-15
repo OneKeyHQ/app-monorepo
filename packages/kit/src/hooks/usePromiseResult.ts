@@ -482,6 +482,8 @@ export function usePromiseResult<T>(
   const isLoadingRef = useRef(isLoading);
   const runWithPollingNonce = useCallback(() => {
     isDepsChangedOnBlur.current = false;
+    // Recovery must replace the old polling chain instead of starting another.
+    pollingNonceRef.current += 1;
     void runRef.current({ pollingNonce: pollingNonceRef.current });
   }, [runRef]);
 

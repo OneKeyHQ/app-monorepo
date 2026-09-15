@@ -504,10 +504,11 @@ describe('usePromiseResult', () => {
     });
   });
 
-  describe('setStopPolling', () => {
+  describe('polling', () => {
     const POLLING_MS = 1000;
 
     beforeEach(() => {
+      focusControl.__resetFocus();
       jest.useFakeTimers();
     });
 
@@ -527,6 +528,47 @@ describe('usePromiseResult', () => {
         }
       });
     };
+
+    it.each(['route readiness', 'focus', 'reconnect'] as const)(
+      'keeps one polling chain after %s revalidation',
+      async (trigger) => {
+        const method = jest.fn(async () => 'ok');
+        const { rerender, unmount } = renderHook(
+          ({ enabled }: { enabled: boolean }) =>
+            usePromiseResult(method, [enabled], {
+              pollingInterval: POLLING_MS,
+              overrideIsFocused: (focused) => focused && enabled,
+              watchLoading: true,
+              undefinedResultIfReRun: true,
+              undefinedResultIfError: true,
+              revalidateOnFocus: true,
+              revalidateOnReconnect: true,
+            }),
+          { initialProps: { enabled: trigger !== 'route readiness' } },
+        );
+        await tick();
+
+        for (let i = 0; i < 3; i += 1) {
+          if (trigger === 'route readiness') {
+            rerender({ enabled: false });
+            rerender({ enabled: true });
+          } else if (trigger === 'focus') {
+            act(() => focusControl.__setFocus(false));
+            act(() => focusControl.__setFocus(true));
+          } else {
+            act(() =>
+              globalNetInfo.updateState({ isInternetReachable: false }),
+            );
+            act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+          }
+          await tick();
+          const callsAfterRevalidation = method.mock.calls.length;
+          await tick(POLLING_MS);
+          expect(method).toHaveBeenCalledTimes(callsAfterRevalidation + 1);
+        }
+        unmount();
+      },
+    );
 
     it('skips the next polling tick once setStopPolling(true) is called', async () => {
       const method = jest.fn(async () => 'ok');
