@@ -762,7 +762,7 @@ describe('DeviceState metadata projection', () => {
   );
 
   it.each([EDeviceType.Pro2, EDeviceType.Pro, EDeviceType.ClassicPure])(
-    'falls back to the %s serial number when the BLE name is unavailable',
+    'does not use the %s serial number when the BLE name is unavailable',
     (deviceType) => {
       for (const bleName of ['', undefined]) {
         expect(
@@ -771,7 +771,7 @@ describe('DeviceState metadata projection', () => {
             bleName,
             serialNo: 'SERIAL',
           }),
-        ).toBe('SERIAL');
+        ).toBe(bleName);
       }
     },
   );

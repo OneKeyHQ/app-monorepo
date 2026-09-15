@@ -272,7 +272,7 @@ export function getDeviceSecondaryIdentifier(
     'bleName' | 'deviceType' | 'serialNo'
   >,
 ) {
-  return deviceMetaStatic.bleName || deviceMetaStatic.serialNo;
+  return deviceMetaStatic.bleName;
 }
 
 export function buildDeviceMetaStateFromState({
