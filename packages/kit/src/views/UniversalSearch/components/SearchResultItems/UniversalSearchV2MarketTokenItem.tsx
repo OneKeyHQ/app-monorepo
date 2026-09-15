@@ -230,7 +230,7 @@ export function UniversalSearchV2MarketTokenItem({
         source,
         searchText,
         type: item.type,
-        itemId: address ?? symbol ?? '',
+        itemId: listingStockId || address || symbol || '',
         itemTitle: symbol ?? '',
       });
     }

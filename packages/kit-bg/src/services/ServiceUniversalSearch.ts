@@ -346,7 +346,8 @@ class ServiceUniversalSearch extends ServiceBase {
     ]);
     const tokens = tokenResult.status === 'fulfilled' ? tokenResult.value : [];
     const stocks =
-      stockResult.status === 'fulfilled'
+      stockResult.status === 'fulfilled' &&
+      Array.isArray(stockResult.value?.items)
         ? stockResult.value.items.map(mapMarketStockPublicItemToSearchToken)
         : [];
     return [...stocks, ...tokens];

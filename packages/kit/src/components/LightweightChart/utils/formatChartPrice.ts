@@ -40,17 +40,10 @@ export function formatChartPrice(price: number, maxCharacters = 8): string {
     );
     body = `0.0${zeros}${digits}`;
   }
-  // Compact units follow OKX: "$76.82K", not an 8-character dump like "$76.81904K".
-  // Dollar amounts >= 1 also stay at 2 decimals so "$716.68..." never appears.
-  if (body.includes('.') && (unit || value >= 1)) {
-    body = String(Math.round(Number(body) * 100) / 100);
-  }
   if (body.length <= limit) return `${prefix}${body}${unit}`;
-  // Prefer dropping extra decimals over inserting "...". Trailing ellipsis is
-  // only for integer/unit bodies that still cannot fit.
-  if (body.includes('.')) {
-    body = body.slice(0, limit).replace(/\.$/, '');
-    if (body.length <= limit) return `${prefix}${body}${unit}`;
-  }
-  return `${prefix}${body.slice(0, limit)}${unit}...`;
+  // Replace the last two amount positions with an ellipsis; keep currency and unit.
+  let end = Math.max(1, limit - 2);
+  // A zero-count subscript is indivisible, including counts with multiple digits.
+  while (/[₀₁₂₃₄₅₆₇₈₉]/.test(body.charAt(end))) end += 1;
+  return `${prefix}${body.slice(0, end)}...${unit}`;
 }

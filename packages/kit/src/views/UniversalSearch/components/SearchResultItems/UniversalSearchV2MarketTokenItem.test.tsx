@@ -117,6 +117,16 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+const mockUniversalSearchClick = (
+  jest.requireMock('@onekeyhq/shared/src/logger/logger') as {
+    defaultLogger: {
+      universalSearch: {
+        search: { universalSearchClick: jest.Mock };
+      };
+    };
+  }
+).defaultLogger.universalSearch.search.universalSearchClick;
+
 jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
   formatTokenSymbolForDisplay: (symbol: string) => symbol,
   getTokenPriceChangeStyle: () => ({
@@ -178,6 +188,12 @@ describe('UniversalSearchV2MarketTokenItem', () => {
     });
 
     expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(mockUniversalSearchClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: '0xabnb',
+        itemTitle: 'ABNBon',
+      }),
+    );
     expect(mockToMarketDetailPage).toHaveBeenCalledWith({
       tokenAddress: '0xabnb',
       networkId: 'evm--56',
@@ -241,6 +257,12 @@ describe('UniversalSearchV2MarketTokenItem', () => {
       jest.advanceTimersByTime(80);
     });
 
+    expect(mockUniversalSearchClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: 'AAPL',
+        itemTitle: 'AAPL',
+      }),
+    );
     expect(mockToMarketDetailPage).toHaveBeenCalledWith({
       tokenAddress: '',
       networkId: '',
