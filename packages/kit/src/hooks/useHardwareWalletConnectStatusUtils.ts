@@ -27,15 +27,8 @@ export function getWebUsbConnectedDeviceKey(
   if (!isSupportedHardwareWebUsbDevice(device)) {
     return undefined;
   }
-  if (!device.serialNumber) {
-    return undefined;
-  }
-  // The serial identifies the unit, not the wallet loaded on it. That is
-  // enough: a wallet stores the serial of the unit it was created on, so the
-  // indicator answers "the unit this wallet lives on is here". Where one unit
-  // holds several wallets — a Keystone under a different passphrase is a
-  // separate wallet, not a hidden one — all of them light up together.
-  return device.serialNumber;
+  // Keyed by unit, not by wallet: every wallet created on this unit lights up.
+  return device.serialNumber || undefined;
 }
 
 export function buildHardwareConnectedDeviceKeys({

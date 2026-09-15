@@ -281,11 +281,18 @@ export function QRCode({
         // Guard against unmount/deps-change during the async import so we
         // don't create an interval that no cleanup will ever reach.
         if (cancelled) return;
-        const { nextPart } = airGapUrUtils.createAnimatedUREncoder({
-          ur: valueUr,
-          maxFragmentLength: 30,
-          firstSeqNum: 0,
-        });
+        const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder(
+          {
+            ur: valueUr,
+            maxFragmentLength: 30,
+            firstSeqNum: 0,
+          },
+        );
+        if (process.env.NODE_ENV !== 'production') {
+          const wholeParts = encodeWhole();
+          console.log('QRCode >>>> encodeWhole', wholeParts);
+          console.log(`\n\n ${wholeParts.join('\n\n').toUpperCase()} \n\n`);
+        }
         timerId = setInterval(() => {
           const part = nextPart();
           setPartValue(part);
