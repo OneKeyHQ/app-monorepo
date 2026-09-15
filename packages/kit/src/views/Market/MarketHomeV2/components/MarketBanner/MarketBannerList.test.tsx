@@ -80,7 +80,7 @@ it('keeps native tablet banner padding aligned with the fixed header height', ()
   mockIsSmallScreen = false;
   mockState = populated();
   render(<Page />);
-  expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$2');
+  expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$4');
 });
 
 it('does not insert a banner after the native page has started without one', () => {
@@ -171,28 +171,28 @@ it.each([true, false])(
         String(height),
       );
     };
-    expectHeight(134);
+    expectHeight(150);
     mockState = {
       ...populated(),
       bannerList: [{ ...populated('modern').bannerList[0], tokens: [] }],
     };
     rerender(<Page />);
-    expectHeight(204);
+    expectHeight(212);
     mockState = {
       ...mockState,
       bannerList: [...mockState.bannerList, ...populated('legacy').bannerList],
     };
     rerender(<Page />);
-    expectHeight(204);
+    expectHeight(212);
     if (native) {
       mockState = { ...mockState, bannerList: [] };
       rerender(<Page />);
       expect(screen.getByTestId('mobile-banner-container').dataset.height).toBe(
-        '204',
+        '212',
       );
     }
     mockState = populated('legacy');
     rerender(<Page />);
-    expectHeight(134);
+    expectHeight(150);
   },
 );
