@@ -1,11 +1,14 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
-import { debounce, uniq } from 'lodash';
+import BigNumber from 'bignumber.js';
+import { chunk, debounce, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   BluetoothUnavailableWhileUsbConnectedError,
   DeviceNotSame,
@@ -19,10 +22,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
+import type { IPortfolioCategoryFiat } from '@onekeyhq/shared/src/utils/portfolioPayload';
 import {
   EAccountSelectorSceneName,
   EHardwareTransportType,
 } from '@onekeyhq/shared/types';
+import type { IFetchAccountDeFiPositionsResp } from '@onekeyhq/shared/types/defi';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -33,6 +38,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import localDb from '../../../dbs/local/localDb';
 import {
   currencyPersistAtom,
+  perpsCommonConfigPersistAtom,
   settingsPersistAtom,
 } from '../../../states/jotai/atoms';
 import ServiceBase from '../../ServiceBase';
@@ -41,6 +47,7 @@ import serviceHardwareUtils from '../serviceHardwareUtils';
 import {
   buildPortfolioSyncArtifacts,
   getPortfolioDisplayTimestamp,
+  getPortfolioSchemaVersion,
   getPortfolioSyncCooldownRemainingMs,
 } from './serviceHardwarePortfolioSyncUtils';
 
@@ -1995,6 +2002,165 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     };
   }
 
+  private async getPortfolioCategoryFiat(
+    eventPayload: IPortfolioSyncSettledPayload,
+    signal?: AbortSignal,
+  ): Promise<IPortfolioCategoryFiat> {
+    try {
+      const accountId = eventPayload.accountId;
+      const indexedAccountId = eventPayload.indexedAccountId;
+      const networkId = eventPayload.networkId;
+      if (!accountId || !indexedAccountId || !networkId) {
+        return {};
+      }
+      const [
+        { enabledNetworksMap, isReady },
+        { networks },
+        allNetworksState,
+        { perpConfigCommon, perpConfigLoaded },
+        { buildHomeWalletTabSupport },
+      ] = await Promise.all([
+        this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState(),
+        this.backgroundApi.serviceNetwork.getAllNetworks({
+          excludeTestNetwork: true,
+          excludeAllNetworkItem: true,
+        }),
+        this.backgroundApi.serviceAllNetwork.getAllNetworksState(),
+        perpsCommonConfigPersistAtom.get(),
+        import('@onekeyhq/shared/src/utils/homeWalletTabSupportUtils'),
+      ]);
+      if (!isReady || signal?.aborted) {
+        return {};
+      }
+      const support = buildHomeWalletTabSupport({
+        network: {
+          id: networkId,
+          isAllNetworks: networkId === getNetworkIdsMap().onekeyall,
+          isTestnet: false,
+        },
+        allNetworks: networks,
+        allNetworksState,
+        deFiEnabledNetworksMap: enabledNetworksMap,
+        perpDisabled:
+          perpConfigLoaded === true && perpConfigCommon?.disablePerp === true,
+      });
+
+      const fetchDeFi = async (): Promise<string | undefined> => {
+        if (!support.isDeFiSupported) {
+          return '0';
+        }
+        const { accountsInfo } =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+            accountId,
+            indexedAccountId,
+            networkId,
+            DeFiEnabledOnly: true,
+            networksEnabledOnly: true,
+            excludeTestNetwork: true,
+          });
+        if (!accountsInfo.length) {
+          return undefined;
+        }
+        const client = await this.getClient(EServiceEndpointEnum.Wallet);
+        let total = new BigNumber(0);
+        // Read fresh, unfiltered totals. The local DeFi cache can be partial
+        // and has no timestamp, so it cannot establish a complete valuation.
+        const accounts = uniqBy(
+          accountsInfo,
+          (account) => `${account.networkId}:${account.apiAddress}`,
+        );
+        for (const batch of chunk(accounts, 4)) {
+          const values = await Promise.all(
+            batch.map(async (account) => {
+              const response = await client.post<{
+                data: IFetchAccountDeFiPositionsResp;
+              }>(
+                '/wallet/v1/portfolio/positions',
+                {
+                  networkId: account.networkId,
+                  accountAddress: account.apiAddress,
+                },
+                {
+                  signal,
+                  headers: {
+                    ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+                      {
+                        accountId: account.accountId,
+                      },
+                    )),
+                    'x-onekey-request-currency': 'usd',
+                  },
+                },
+              );
+              const result = response.data?.data;
+              const value = new BigNumber(
+                result?.data?.totals?.netWorth ?? NaN,
+              );
+              if (
+                !result?.success ||
+                result.meta?.degraded !== false ||
+                !result.meta.networkIds.includes(account.networkId) ||
+                !value.isFinite()
+              ) {
+                throw new OneKeyLocalError(
+                  'Incomplete Portfolio DeFi valuation',
+                );
+              }
+              return value;
+            }),
+          );
+          total = total.plus(BigNumber.sum(...values));
+        }
+        return total.toFixed();
+      };
+      const fetchPerps = async (): Promise<string | undefined> => {
+        if (!support.isPerpsSupported) {
+          return '0';
+        }
+        const deriveType =
+          await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: PERPS_NETWORK_ID,
+          });
+        if (!deriveType) {
+          return undefined;
+        }
+        const account =
+          await this.backgroundApi.serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId,
+            deriveType,
+            networkId: PERPS_NETWORK_ID,
+          });
+        const address =
+          account?.addressDetail?.normalizedAddress || account?.address;
+        if (!address) {
+          return undefined;
+        }
+        const snapshot =
+          await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+            {
+              address,
+              force: true,
+            },
+          );
+        return snapshot && !snapshot.isDegraded
+          ? snapshot.netWorthUsd
+          : undefined;
+      };
+      const [defi, perps] = await Promise.allSettled([
+        fetchDeFi(),
+        fetchPerps(),
+      ]);
+      return {
+        defiFiat: defi.status === 'fulfilled' ? defi.value : undefined,
+        perpsFiat: perps.status === 'fulfilled' ? perps.value : undefined,
+      };
+    } catch {
+      // Unavailable data stays unknown; it must never become a zero balance.
+      return {};
+    }
+  }
+
   private buildResultBase({
     artifacts,
     eventPayload,
@@ -2708,11 +2874,32 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
         return;
       }
+      const device = eventPayload.deviceDbId
+        ? await localDb.getDeviceSafe(eventPayload.deviceDbId)
+        : undefined;
+      const schemaVersion = getPortfolioSchemaVersion(
+        device?.deviceStateInfo?.versions?.firmware ?? undefined,
+      );
+      const categoryFiat =
+        schemaVersion === 2
+          ? await this.getPortfolioCategoryFiat(
+              eventPayload,
+              options?.oneKeyOperationLease?.signal,
+            )
+          : undefined;
+      if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+        return;
+      }
       const artifacts = buildPortfolioSyncArtifacts({
+        categoryFiat,
         currencyMap,
         displayCurrency,
         eventPayload,
-        timestamp: getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
+        schemaVersion,
+        timestamp:
+          schemaVersion === 2
+            ? updatedAt
+            : getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
       });
       telemetry.portfolioJsonBytes = artifacts.portfolioJsonBytes.byteLength;
       telemetry.tokenCount = artifacts.portfolio.tokens.length;
