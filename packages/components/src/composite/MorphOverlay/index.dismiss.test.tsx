@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { MorphOverlay, useMorphOverlay } from '.';
 
 import { act, fireEvent, render, renderHook } from '@testing-library/react';
+import { useWindowDimensions } from 'react-native';
 import {
   GestureDetector,
   PointerType,
@@ -14,11 +15,31 @@ import {
 } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  isDualScreenDevice,
+  useIsSpanningInDualScreen,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useMedia } from '../../hooks/useStyle';
+
 import type { IMorphOverlayPose, IMorphOverlayProps } from '.';
 import type { Gesture } from 'react-native-gesture-handler';
 
 // This UI suite needs RN Web, not the CLI's repository-wide manual mock.
-jest.unmock('react-native');
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  useWindowDimensions: jest.fn(),
+}));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false, isNativeAndroid: false, isNativeIOS: false },
+}));
+jest.mock('@onekeyhq/shared/src/modules/DualScreenInfo', () => ({
+  isDualScreenDevice: jest.fn(),
+  useIsSpanningInDualScreen: jest.fn(),
+}));
 
 jest.mock('react-native-gesture-handler', () => ({
   ...jest.requireActual<typeof import('react-native-gesture-handler')>(
@@ -49,7 +70,7 @@ jest.mock('../../hooks/useLayout', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 jest.mock('../../hooks/useStyle', () => ({
-  useMedia: () => ({ md: true }),
+  useMedia: jest.fn(),
 }));
 jest.mock('../../content/deviceScene', () => ({
   easeInFn: (value: number) => value,
@@ -100,6 +121,25 @@ const dragEvent = {
   velocityX: 0,
   velocityY: 0,
 };
+
+beforeEach(() => {
+  Object.assign(platformEnv, {
+    isNative: false,
+    isNativeAndroid: false,
+    isNativeIOS: false,
+  });
+  jest.mocked(useWindowDimensions).mockReturnValue({
+    width: 390,
+    height: 844,
+    scale: 1,
+    fontScale: 1,
+  });
+  jest
+    .mocked(useMedia)
+    .mockReturnValue({ md: true } as ReturnType<typeof useMedia>);
+  jest.mocked(isDualScreenDevice).mockReturnValue(false);
+  jest.mocked(useIsSpanningInDualScreen).mockReturnValue(false);
+});
 
 function setup() {
   const onDismiss = jest.fn();
@@ -235,4 +275,112 @@ describe('MorphOverlay dismiss gesture', () => {
     fireEvent.click(view.getByTestId('morph-overlay-close'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
+});
+
+describe('MorphOverlay viewport posture', () => {
+  it.each([
+    {
+      name: 'Android spanning with phone media',
+      platform: 'android',
+      dual: true,
+      spanning: true,
+      md: true,
+      width: 850,
+      cardWidth: 400,
+      bottom: true,
+    },
+    {
+      name: 'Android spanning with wide media',
+      platform: 'android',
+      dual: true,
+      spanning: true,
+      md: false,
+      width: 850,
+      cardWidth: 400,
+      bottom: true,
+    },
+    {
+      name: 'Android folded',
+      platform: 'android',
+      dual: true,
+      spanning: false,
+      md: true,
+      width: 440,
+      cardWidth: 424,
+      bottom: true,
+    },
+    {
+      name: 'ordinary Android phone',
+      platform: 'android',
+      dual: false,
+      spanning: false,
+      md: true,
+      width: 440,
+      cardWidth: 424,
+      bottom: true,
+    },
+    {
+      name: 'desktop',
+      platform: 'desktop',
+      dual: false,
+      spanning: false,
+      md: false,
+      width: 1200,
+      cardWidth: 400,
+      bottom: false,
+    },
+    {
+      name: 'iOS phone',
+      platform: 'ios',
+      dual: false,
+      spanning: false,
+      md: true,
+      width: 440,
+      cardWidth: 424,
+      bottom: true,
+    },
+    {
+      name: 'iOS wide window',
+      platform: 'ios',
+      dual: false,
+      spanning: false,
+      md: false,
+      width: 1024,
+      cardWidth: 400,
+      bottom: false,
+    },
+  ])(
+    '$name preserves its width and anchor',
+    ({ platform, dual, spanning, md, width, cardWidth, bottom }) => {
+      Object.assign(platformEnv, {
+        isNative: platform !== 'desktop',
+        isNativeAndroid: platform === 'android',
+        isNativeIOS: platform === 'ios',
+      });
+      jest.mocked(isDualScreenDevice).mockReturnValue(dual);
+      jest.mocked(useIsSpanningInDualScreen).mockReturnValue(spanning);
+      jest
+        .mocked(useMedia)
+        .mockReturnValue({ md } as ReturnType<typeof useMedia>);
+      jest
+        .mocked(useWindowDimensions)
+        .mockReturnValue({ width, height: 900, scale: 1, fontScale: 1 });
+
+      const { state, view, gesture, onDismiss } = setup();
+      expect(state.result.current.width.value).toBe(cardWidth);
+      const layer = view.container.firstElementChild;
+      expect(layer).not.toBeNull();
+      if (!layer) throw new OneKeyLocalError('Missing overlay layer');
+      expect(globalThis.getComputedStyle(layer).justifyContent).toBe(
+        bottom ? 'flex-end' : 'flex-start',
+      );
+      act(() => {
+        gesture.handlers.onEnd?.(
+          { ...dragEvent, translationY: bottom ? 300 : -300 },
+          true,
+        );
+      });
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+    },
+  );
 });

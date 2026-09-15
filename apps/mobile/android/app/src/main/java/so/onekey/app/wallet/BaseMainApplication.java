@@ -51,7 +51,7 @@ import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
-  private boolean isTravelModeMaskingData() {
+  public boolean isTravelModeMaskingData() {
     MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
     if (mmkv == null) {
       return true;
