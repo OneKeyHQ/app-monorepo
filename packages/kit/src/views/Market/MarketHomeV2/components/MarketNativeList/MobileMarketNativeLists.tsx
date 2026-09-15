@@ -58,6 +58,7 @@ import {
 } from '../MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from '../MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../MarketTokenList/hooks/useWatchlistFilteredGroups';
+import { DEFAULT_WATCHLIST_FILTER } from '../MarketTokenList/MarketWatchlistCategorySelector';
 import {
   marketTokenKey,
   shouldUseStockMetadataColumnsForTokens,
@@ -720,7 +721,7 @@ export type IMobileMarketNativeWatchlistProps = ISharedListProps & {
 };
 
 function MobileMarketNativeWatchlistImpl({
-  selectedFilter = 'all',
+  selectedFilter = DEFAULT_WATCHLIST_FILTER,
   dataCacheRef,
   listContainerProps,
   shouldSuppressItemPress,

@@ -14,7 +14,8 @@ import { useColumnsMobile } from './useColumnsMobile';
 
 export const useMarketTokenColumns = (
   networkId?: string,
-  isWatchlistMode?: boolean,
+  // The desktop watchlist has its own column hook (see MarketTokenListBase).
+  _isWatchlistMode?: boolean,
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
@@ -23,11 +24,9 @@ export const useMarketTokenColumns = (
   hiddenDesktopColumns?: readonly string[],
   change24hColumnTitle?: string,
   useStockMetadataColumns?: boolean,
-  deferRichRowAfterIndex?: number,
 ): ITableColumn<IMarketToken>[] => {
   const desktopColumns = useColumnsDesktop(
     networkId,
-    isWatchlistMode,
     hideTokenAge,
     watchlistFrom,
     copyFrom,
@@ -36,7 +35,6 @@ export const useMarketTokenColumns = (
     hiddenDesktopColumns,
     change24hColumnTitle,
     useStockMetadataColumns,
-    deferRichRowAfterIndex,
   );
   const mobileColumns = useColumnsMobile(
     showStockSubtitle,
