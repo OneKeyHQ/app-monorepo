@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
+import { ETranslationsMock } from '../../locale/enum/translationsMock';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -25,10 +26,10 @@ export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
   ThirdPartyHwErrorCode.PinMismatch;
 // Literal until the SDK bump lands: HardwareErrorCode.BlePairingCancelled.
 export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE = 10_310;
-export const THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE =
-  ThirdPartyHwErrorCode.InteractionNotFound;
-export const THIRD_PARTY_HW_INTERACTION_ENDED_CODE =
-  ThirdPartyHwErrorCode.InteractionEnded;
+export const THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE =
+  ThirdPartyHwErrorCode.OperationNotFound;
+export const THIRD_PARTY_HW_OPERATION_ENDED_CODE =
+  ThirdPartyHwErrorCode.OperationEnded;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -294,7 +295,7 @@ export class ThirdPartyDeviceDisconnected extends ThirdPartyHardwareError {
 }
 
 /** The runtime interaction cannot be resolved by the current adapter instance. */
-export class ThirdPartyInteractionNotFound extends ThirdPartyHardwareError {
+export class ThirdPartyOperationNotFound extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
@@ -305,11 +306,11 @@ export class ThirdPartyInteractionNotFound extends ThirdPartyHardwareError {
     this.vendor = props?.vendor;
   }
 
-  override code = THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE;
+  override code = THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE;
 }
 
 /** The runtime interaction ended and the operation must start a new connection. */
-export class ThirdPartyInteractionEnded extends ThirdPartyHardwareError {
+export class ThirdPartyOperationEnded extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
@@ -320,7 +321,7 @@ export class ThirdPartyInteractionEnded extends ThirdPartyHardwareError {
     this.vendor = props?.vendor;
   }
 
-  override code = THIRD_PARTY_HW_INTERACTION_ENDED_CODE;
+  override code = THIRD_PARTY_HW_OPERATION_ENDED_CODE;
 }
 
 /** Chain app wedged (e.g. Ledger BTC 0x6901). User must exit app on device. */
@@ -353,6 +354,25 @@ export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.DeviceMismatch;
+}
+
+/**
+ * Discovery found devices but none is the wallet being looked for. Milder than
+ * ThirdPartyDeviceMismatch: the known wallet is unchanged, the wrong unit is
+ * simply connected, and the remedy is a cable swap rather than re-selecting
+ * from a scan list.
+ */
+export class ThirdPartyDeviceSearchMismatch extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.hardware_third_party_usb_wrong_device,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceSearchMismatch;
 }
 
 /** Operation timed out */

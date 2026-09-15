@@ -96,7 +96,7 @@ describe('KeyringHardwareTrezor Solana OCMS v1 signing', () => {
             deviceId: 'FEATURES_DEVICE_ID',
           },
           deviceCommonParams: {
-            interactionId: 'hwk-trezor-selected',
+            operationId: 'hwk-trezor-selected',
           },
         },
       } as unknown as Parameters<KeyringHardwareTrezor['signMessage']>[0]),
@@ -106,7 +106,7 @@ describe('KeyringHardwareTrezor Solana OCMS v1 signing', () => {
       'FEATURES_DEVICE_ID',
       {
         knownConnections: [{ transport: 'usb', connectId: 'USB_ID' }],
-        interactionId: 'hwk-trezor-selected',
+        operationId: 'hwk-trezor-selected',
         path: "m/44'/501'/0'/0'",
         message: Buffer.from('Hello, Solana').toString('hex'),
         messageVersion: 1,

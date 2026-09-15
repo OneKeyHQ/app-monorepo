@@ -29,9 +29,9 @@ import type {
   Response,
 } from './types';
 
-type IInteractionHardwareWallet = IHardwareWallet & {
+type IOperationHardwareWallet = IHardwareWallet & {
   connectDevice(searchTargetId: string): Promise<Response<string>>;
-  releaseInteraction(interactionId: string): Promise<void>;
+  releaseOperation(operationId: string): Promise<void>;
 };
 
 const APP_INSTALL_PROGRESS_LOG_INTERVAL_MS = 5000;
@@ -59,7 +59,7 @@ export class LedgerAdapter
     IAppInstallProgressLogState
   >();
 
-  private activeInteractionId: string | undefined;
+  private activeOperationId: string | undefined;
 
   constructor(hw: IHardwareWallet) {
     super();
@@ -231,23 +231,23 @@ export class LedgerAdapter
       void thirdPartyAppInstallAtom.set(undefined);
     });
 
-    this.hw.on('interaction-ended', (event) => {
-      const interactionId = (event as { payload?: { interactionId?: string } })
-        .payload?.interactionId;
-      if (!interactionId) return;
-      this.emitConnectionStateChange({ type: 'disconnected', interactionId });
-      if (this.activeInteractionId !== interactionId) return;
+    this.hw.on('operation-ended', (event) => {
+      const operationId = (event as { payload?: { operationId?: string } })
+        .payload?.operationId;
+      if (!operationId) return;
+      this.emitConnectionStateChange({ type: 'disconnected', operationId });
+      if (this.activeOperationId !== operationId) return;
       void Promise.all([
         this.clearUiState(),
         thirdPartyAppInstallAtom.set((state) =>
-          this.activeInteractionId === interactionId &&
+          this.activeOperationId === operationId &&
           state?.vendor === EHardwareVendor.ledger
             ? undefined
             : state,
         ),
       ]).finally(() => {
-        if (this.activeInteractionId === interactionId) {
-          this.activeInteractionId = undefined;
+        if (this.activeOperationId === operationId) {
+          this.activeOperationId = undefined;
         }
       });
     });
@@ -341,21 +341,21 @@ export class LedgerAdapter
     searchTargetId: string,
     operationContext?: IHardwareConnectionContext,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
-    this.activeInteractionId = undefined;
+    this.activeOperationId = undefined;
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Ledger] connectDevice searchTargetId=${searchTargetId}`,
     );
     try {
-      if (operationContext && !this.hw.acquireInteraction) {
+      if (operationContext && !this.hw.acquireOperation) {
         return failure(
           HardwareErrorCode.MethodNotSupported,
           'Ledger operation-scoped acquire is unavailable',
         );
       }
       const result =
-        operationContext && this.hw.acquireInteraction
-          ? await this.hw.acquireInteraction(searchTargetId, operationContext)
-          : await (this.hw as IInteractionHardwareWallet).connectDevice(
+        operationContext && this.hw.acquireOperation
+          ? await this.hw.acquireOperation(searchTargetId, operationContext)
+          : await (this.hw as IOperationHardwareWallet).connectDevice(
               searchTargetId,
             );
       defaultLogger.hardware.sdkLog.log(
@@ -364,16 +364,16 @@ export class LedgerAdapter
         )}`,
       );
       if (result.success) {
-        const interactionId = result.payload;
-        this.activeInteractionId = interactionId;
-        const info = await this.hw.getDeviceInfo(interactionId, '');
+        const operationId = result.payload;
+        this.activeOperationId = operationId;
+        const info = await this.hw.getDeviceInfo(operationId, '');
         defaultLogger.hardware.sdkLog.log(
           `[3rdPartyHW][Ledger] getDeviceInfo success=${String(info.success)}`,
         );
         void this.clearUiState();
         if (info.success) {
           const payload: IThirdPartyConnectedDevicePayload = {
-            interactionId,
+            operationId,
             connectId: info.payload.connectId,
             deviceId: info.payload.deviceId,
             model: info.payload.model,
@@ -393,8 +393,8 @@ export class LedgerAdapter
             payload,
           };
         }
-        await (this.hw as IInteractionHardwareWallet)
-          .releaseInteraction(interactionId)
+        await (this.hw as IOperationHardwareWallet)
+          .releaseOperation(operationId)
           .catch(() => undefined);
         return { success: false, payload: info.payload };
       }
@@ -411,22 +411,20 @@ export class LedgerAdapter
     }
   }
 
-  async releaseInteraction(interactionId: string): Promise<void> {
+  async releaseOperation(operationId: string): Promise<void> {
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Ledger] releaseInteraction interactionId=${interactionId}`,
+      `[3rdPartyHW][Ledger] releaseOperation operationId=${operationId}`,
     );
-    await (this.hw as IInteractionHardwareWallet).releaseInteraction(
-      interactionId,
-    );
-    this.emitConnectionStateChange({ type: 'disconnected', interactionId });
+    await (this.hw as IOperationHardwareWallet).releaseOperation(operationId);
+    this.emitConnectionStateChange({ type: 'disconnected', operationId });
   }
 
   async reset(): Promise<void> {
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] reset()');
-    const interactionId = this.activeInteractionId;
-    this.activeInteractionId = undefined;
-    if (interactionId) {
-      this.emitConnectionStateChange({ type: 'disconnected', interactionId });
+    const operationId = this.activeOperationId;
+    this.activeOperationId = undefined;
+    if (operationId) {
+      this.emitConnectionStateChange({ type: 'disconnected', operationId });
     }
     void this.clearUiState();
     await this.hw.dispose();

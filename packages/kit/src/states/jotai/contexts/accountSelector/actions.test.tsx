@@ -3466,7 +3466,7 @@ describe('useAccountSelectorActions', () => {
         } as IIndexedAccount,
         isCreateWallet: true,
         hardwareOperationContext: {
-          interactionId: 'hwk-ledger-interaction',
+          operationId: 'hwk-ledger-interaction',
         },
       }),
     ).rejects.toBe(interactionError);

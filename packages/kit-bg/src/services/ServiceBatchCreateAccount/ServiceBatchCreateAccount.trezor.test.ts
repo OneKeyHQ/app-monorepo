@@ -1,8 +1,8 @@
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import {
-  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
-  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
 } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { LEDGER_CONFIG } from '@onekeyhq/shared/src/hardware/config/ledger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -67,8 +67,8 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
   });
 
   it.each([
-    THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
-    THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+    THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+    THIRD_PARTY_HW_OPERATION_ENDED_CODE,
   ])('aborts a hardware batch when interaction %s is lost', (code) => {
     const service = new ServiceBatchCreateAccount({ backgroundApi: {} });
     const error = Object.assign(new Error('interaction lost'), { code });
@@ -253,7 +253,7 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
       commonParams: {
         passphraseState: undefined,
         useEmptyPassphrase: true,
-        interactionId: 'hwk-trezor-interaction',
+        operationId: 'hwk-trezor-interaction',
       },
       createSceneParams: {},
       bundleParams: [],
@@ -265,7 +265,7 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
       'hwk-trezor-interaction',
       'FEATURES_DEVICE_ID',
       expect.objectContaining({
-        interactionId: 'hwk-trezor-interaction',
+        operationId: 'hwk-trezor-interaction',
       }),
     );
   });
@@ -378,11 +378,11 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
         'enableCrossChainFingerprintVerification',
         true,
       );
-      const interactionId = 'hwk-ledger-batch-verification';
+      const operationId = 'hwk-ledger-batch-verification';
       const connectDevice = jest
         .fn()
-        .mockResolvedValue({ success: true, payload: { interactionId } });
-      const releaseInteraction = jest.fn().mockResolvedValue(undefined);
+        .mockResolvedValue({ success: true, payload: { operationId } });
+      const releaseOperation = jest.fn().mockResolvedValue(undefined);
       const getChainFingerprint = jest.fn().mockResolvedValue({
         success: true,
         payload: mismatch ? 'wrong-evm' : 'stored-evm',
@@ -395,7 +395,7 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
           serviceThirdPartyHardware: {
             getAdapterForVendor: jest.fn().mockResolvedValue({
               connectDevice,
-              releaseInteraction,
+              releaseOperation,
               hw: { getChainFingerprint },
             }),
           },
@@ -434,9 +434,9 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
       } else {
         await operation;
         expect(allNetworkGetAddress).toHaveBeenCalledWith(
-          interactionId,
+          operationId,
           '',
-          expect.objectContaining({ interactionId }),
+          expect.objectContaining({ operationId }),
         );
       }
       expect(connectDevice).toHaveBeenCalledWith(
@@ -447,11 +447,11 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
         }),
       );
       expect(getChainFingerprint).toHaveBeenCalledWith(
-        interactionId,
+        operationId,
         'stored-evm',
         'evm',
       );
-      expect(releaseInteraction).toHaveBeenCalledWith(interactionId);
+      expect(releaseOperation).toHaveBeenCalledWith(operationId);
     },
   );
 
@@ -482,7 +482,7 @@ describe('ServiceBatchCreateAccount third-party all-network', () => {
       dbDevice,
       vendor: EHardwareVendor.ledger,
       commonParams: {
-        interactionId: 'hwk-ledger-onboarding',
+        operationId: 'hwk-ledger-onboarding',
         allowDeviceIdentityBootstrap: true,
       },
       createSceneParams: {},

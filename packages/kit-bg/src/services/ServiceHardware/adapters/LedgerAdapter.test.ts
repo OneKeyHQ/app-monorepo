@@ -83,7 +83,7 @@ describe('LedgerAdapter', () => {
     await expect(adapter.connectDevice('')).resolves.toMatchObject({
       success: true,
       payload: {
-        interactionId: 'hwk-ledger-interaction',
+        operationId: 'hwk-ledger-interaction',
         connectId: '',
         deviceId: '',
       },
@@ -97,7 +97,7 @@ describe('LedgerAdapter', () => {
       activeTransport: 'ble',
       on: jest.fn(),
       connectDevice: jest.fn(),
-      acquireInteraction: jest
+      acquireOperation: jest
         .fn()
         .mockResolvedValue({ success: true, payload: 'hwk-ledger-operation' }),
       getDeviceInfo: jest.fn().mockResolvedValue({
@@ -113,11 +113,11 @@ describe('LedgerAdapter', () => {
     await expect(adapter.connectDevice('', context)).resolves.toMatchObject({
       success: true,
       payload: {
-        interactionId: 'hwk-ledger-operation',
+        operationId: 'hwk-ledger-operation',
         connectId: 'selected-ble',
       },
     });
-    expect(hw.acquireInteraction).toHaveBeenCalledWith('', context);
+    expect(hw.acquireOperation).toHaveBeenCalledWith('', context);
     expect(hw.connectDevice).not.toHaveBeenCalled();
     expect(hw.getDeviceInfo).toHaveBeenCalledWith('hwk-ledger-operation', '');
   });
@@ -134,7 +134,7 @@ describe('LedgerAdapter', () => {
         success: false,
         payload: { code: 10_113 },
       }),
-      releaseInteraction: jest.fn().mockResolvedValue(undefined),
+      releaseOperation: jest.fn().mockResolvedValue(undefined),
     };
     const adapter = new LedgerAdapter(hw as never);
 
@@ -142,9 +142,7 @@ describe('LedgerAdapter', () => {
       success: false,
       payload: { code: 10_113 },
     });
-    expect(hw.releaseInteraction).toHaveBeenCalledWith(
-      'hwk-ledger-interaction',
-    );
+    expect(hw.releaseOperation).toHaveBeenCalledWith('hwk-ledger-interaction');
   });
 
   it('only clears Ledger UI for the interaction that currently owns it', () => {
@@ -161,18 +159,18 @@ describe('LedgerAdapter', () => {
       .spyOn(thirdPartyAppInstallAtom, 'set')
       .mockResolvedValue(undefined);
     const adapter = new LedgerAdapter(hw as never) as unknown as {
-      activeInteractionId?: string;
+      activeOperationId?: string;
     };
-    adapter.activeInteractionId = 'hwk-ledger-current';
+    adapter.activeOperationId = 'hwk-ledger-current';
 
-    listeners.get('interaction-ended')?.({
-      payload: { interactionId: 'hwk-ledger-stale' },
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'hwk-ledger-stale' },
     });
     expect(setUiState).not.toHaveBeenCalled();
     expect(setInstallState).not.toHaveBeenCalled();
 
-    listeners.get('interaction-ended')?.({
-      payload: { interactionId: 'hwk-ledger-current' },
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'hwk-ledger-current' },
     });
     expect(setUiState).toHaveBeenCalledWith(expect.any(Function));
     expect(setInstallState).toHaveBeenCalledWith(expect.any(Function));

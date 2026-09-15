@@ -577,13 +577,13 @@ describe('ServiceThirdPartyHardware Keystone lifecycle', () => {
           | {
               type: 'connected';
               device: {
-                interactionId: string;
+                operationId: string;
                 connectId: string;
                 deviceId: string;
                 connectionType: 'usb' | 'qr';
               };
             }
-          | { type: 'disconnected'; interactionId: string },
+          | { type: 'disconnected'; operationId: string },
       ) => void;
     };
     const walletId = 'ab'.repeat(32);
@@ -591,7 +591,7 @@ describe('ServiceThirdPartyHardware Keystone lifecycle', () => {
     testService.handleThirdPartyConnectionStateChange('keystone', {
       type: 'connected',
       device: {
-        interactionId: 'keystone-qr-interaction',
+        operationId: 'keystone-qr-interaction',
         connectId: `keystone-wallet:${walletId}`,
         deviceId: walletId,
         connectionType: 'qr',
@@ -604,7 +604,7 @@ describe('ServiceThirdPartyHardware Keystone lifecycle', () => {
     testService.handleThirdPartyConnectionStateChange('keystone', {
       type: 'connected',
       device: {
-        interactionId: 'keystone-usb-interaction',
+        operationId: 'keystone-usb-interaction',
         connectId: `keystone-wallet:${walletId}`,
         deviceId: walletId,
         connectionType: 'usb',
@@ -618,7 +618,7 @@ describe('ServiceThirdPartyHardware Keystone lifecycle', () => {
 
     testService.handleThirdPartyConnectionStateChange('keystone', {
       type: 'disconnected',
-      interactionId: 'keystone-usb-interaction',
+      operationId: 'keystone-usb-interaction',
     });
     await expect(
       service.getConnectedHardwareDeviceIdentityKeys(),

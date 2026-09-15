@@ -158,27 +158,6 @@ export const thirdPartyHardwareAdapterRegistry = {
     const { TrezorAdapter: HwkTrezorAdapter } = trezorAdapterModule;
     const disposeSdkEvents =
       ensureTrezorSdkLogSubscription(trezorAdapterModule);
-    // Temporary transport switch for desktop. Other platform loaders take no
-    // arguments, so they ignore the hint. Set in DevTools:
-    //   localStorage.setItem('debug.trezor.transport', 'ble')   // switch to BLE
-    //   localStorage.removeItem('debug.trezor.transport')       // back to USB
-    // Once the proper UI transport picker lands this hack goes away.
-    let transportHint: 'ble' | undefined;
-    try {
-      if (
-        typeof globalThis !== 'undefined' &&
-        (globalThis as { localStorage?: Storage }).localStorage?.getItem(
-          'debug.trezor.transport',
-        ) === 'ble'
-      ) {
-        transportHint = 'ble';
-      }
-    } catch {
-      // Ignored: kit-bg might run somewhere without DOM (worker/SW).
-    }
-    defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Registry] trezor transport hint=${transportHint ?? 'default(all)'}`,
-    );
     let connector: Awaited<ReturnType<typeof createTrezorConnector>>;
     if (platformEnv.isExtensionBackground) {
       const { getOffscreenHardwareBridgeClient } =
@@ -190,10 +169,8 @@ export const thirdPartyHardwareAdapterRegistry = {
       )({ bridge: getOffscreenHardwareBridgeClient() });
     } else {
       connector = await (
-        createTrezorConnector as (
-          t?: 'usb' | 'ble',
-        ) => ReturnType<typeof createTrezorConnector>
-      )(transportHint);
+        createTrezorConnector as () => ReturnType<typeof createTrezorConnector>
+      )();
     }
 
     // Warm-load persisted THP credentials before the first session. Credentials
@@ -213,12 +190,16 @@ export const thirdPartyHardwareAdapterRegistry = {
         await import('@onekeyhq/kit-bg/src/dbs/local/localDb');
       const localDb = localDbModule.default;
       const { devices } = await localDb.getAllDevices();
+      const { thirdPartyTransportLocators } =
+        await import('@onekeyhq/kit-bg/src/vaults/base/thirdPartyHardwareCommonParams');
       knownDeviceConnections = devices
         .filter((device) => device.vendor === EHardwareVendor.trezor)
         .map((device) => ({
           deviceId: device.deviceId,
-          usbConnectId: device.usbConnectId || undefined,
-          bleConnectId: device.bleConnectId || undefined,
+          // Through the helper, not off the record: a wallet onboarded before
+          // the per-channel columns existed keeps its locator in the legacy
+          // column, and reading raw would warm-load it as "no connections".
+          ...thirdPartyTransportLocators(device),
         }));
       // Only Trezor devices ever store thpCredentials, so presence is enough.
       const stored = devices.flatMap(

@@ -55,11 +55,11 @@ describe('callLedgerWithFingerprint', () => {
     'defaults to recording only the requested chain (hasOtherFingerprint=%s)',
     async (hasOtherFingerprint) => {
       expect(ledgerConfig.enableCrossChainFingerprintVerification).toBe(false);
-      const interactionId = 'hwk-ledger-default-bootstrap';
+      const operationId = 'hwk-ledger-default-bootstrap';
       const connectDevice = jest
         .fn()
-        .mockResolvedValue(success({ interactionId }));
-      const releaseInteraction = jest.fn().mockResolvedValue(undefined);
+        .mockResolvedValue(success({ operationId }));
+      const releaseOperation = jest.fn().mockResolvedValue(undefined);
       const getChainFingerprint = jest
         .fn()
         .mockResolvedValue(success('first-btc'));
@@ -67,7 +67,7 @@ describe('callLedgerWithFingerprint', () => {
         serviceThirdPartyHardware: {
           getAdapterForVendor: jest.fn().mockResolvedValue({
             connectDevice,
-            releaseInteraction,
+            releaseOperation,
             hw: { getChainFingerprint },
           }),
         },
@@ -91,15 +91,11 @@ describe('callLedgerWithFingerprint', () => {
 
       expect(result.success).toBe(true);
       expect(connectDevice).toHaveBeenCalledTimes(1);
-      expect(fn).toHaveBeenCalledWith('', interactionId, expect.any(Object));
+      expect(fn).toHaveBeenCalledWith('', operationId, expect.any(Object));
       expect(getChainFingerprint).toHaveBeenCalledTimes(2);
-      expect(getChainFingerprint).toHaveBeenCalledWith(
-        interactionId,
-        '',
-        'btc',
-      );
+      expect(getChainFingerprint).toHaveBeenCalledWith(operationId, '', 'btc');
       expect(getChainFingerprint).toHaveBeenLastCalledWith(
-        interactionId,
+        operationId,
         'first-btc',
         'btc',
       );
@@ -120,7 +116,7 @@ describe('callLedgerWithFingerprint', () => {
           fingerprint: 'first-btc',
         },
       ]);
-      expect(releaseInteraction).toHaveBeenCalledWith(interactionId);
+      expect(releaseOperation).toHaveBeenCalledWith(operationId);
     },
   );
 
@@ -154,7 +150,7 @@ describe('callLedgerWithFingerprint', () => {
         device,
         'btc',
         fn,
-        { interactionId: 'hwk-ledger-stored' },
+        { operationId: 'hwk-ledger-stored' },
       );
       expect(result).toBe(failureResult);
       expect(fn).toHaveBeenCalledWith(
@@ -185,7 +181,7 @@ describe('callLedgerWithFingerprint', () => {
       buildDevice('default-btc-generation-failure'),
       'btc',
       fn,
-      { interactionId: 'hwk-ledger-generation-failure' },
+      { operationId: 'hwk-ledger-generation-failure' },
     );
     expect(fn).toHaveBeenCalledTimes(1);
     expect(result.success).toBe(false);
@@ -206,11 +202,11 @@ describe('callLedgerWithFingerprint', () => {
         'enableCrossChainFingerprintVerification',
         true,
       );
-      const interactionId = 'hwk-ledger-usb-bootstrap';
+      const operationId = 'hwk-ledger-usb-bootstrap';
       const connectDevice = jest
         .fn()
-        .mockResolvedValue({ success: true, payload: { interactionId } });
-      const releaseInteraction = jest.fn().mockResolvedValue(undefined);
+        .mockResolvedValue({ success: true, payload: { operationId } });
+      const releaseOperation = jest.fn().mockResolvedValue(undefined);
       const evmFingerprint = mismatch ? 'wrong-fingerprint' : 'stored-evm';
       const getChainFingerprint = jest.fn(
         (_target: string, _deviceId: string, chain: string) =>
@@ -222,7 +218,7 @@ describe('callLedgerWithFingerprint', () => {
         serviceThirdPartyHardware: {
           getAdapterForVendor: jest.fn().mockResolvedValue({
             connectDevice,
-            releaseInteraction,
+            releaseOperation,
             hw: { getChainFingerprint },
           }),
         },
@@ -256,19 +252,19 @@ describe('callLedgerWithFingerprint', () => {
           extra: { dbDeviceId: device.id },
         }),
       );
-      expect(releaseInteraction).toHaveBeenCalledWith(interactionId);
+      expect(releaseOperation).toHaveBeenCalledWith(operationId);
       expect(getChainFingerprint).toHaveBeenNthCalledWith(
         1,
-        interactionId,
+        operationId,
         'stored-evm',
         'evm',
       );
       if (mismatch) expect(fn).not.toHaveBeenCalled();
       else {
-        expect(fn).toHaveBeenCalledWith('', interactionId, expect.any(Object));
+        expect(fn).toHaveBeenCalledWith('', operationId, expect.any(Object));
         expect(getChainFingerprint).toHaveBeenNthCalledWith(
           2,
-          interactionId,
+          operationId,
           '',
           'sol',
         );
@@ -295,7 +291,7 @@ describe('callLedgerWithFingerprint', () => {
       'evm',
       fn,
       {
-        interactionId: 'hwk-ledger-sign',
+        operationId: 'hwk-ledger-sign',
       },
     );
 
@@ -329,7 +325,7 @@ describe('callLedgerWithFingerprint', () => {
       'evm',
       jest.fn().mockResolvedValue(success({ address: 'synthetic-address' })),
       {
-        interactionId: 'hwk-ledger-confirmation-failure',
+        operationId: 'hwk-ledger-confirmation-failure',
         allowFingerprintBootstrap: true,
       },
     );
@@ -390,7 +386,7 @@ describe('callLedgerWithFingerprint', () => {
       'evm',
       fn,
       {
-        interactionId: 'hwk-ledger-address',
+        operationId: 'hwk-ledger-address',
         allowFingerprintBootstrap: true,
       },
     );
@@ -446,7 +442,7 @@ describe('callLedgerWithFingerprint', () => {
       device,
       'sol',
       fn,
-      { interactionId: 'hwk-ledger-cross-chain' },
+      { operationId: 'hwk-ledger-cross-chain' },
     );
 
     expect(result.success).toBe(true);

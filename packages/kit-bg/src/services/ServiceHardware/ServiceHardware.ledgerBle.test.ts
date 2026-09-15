@@ -3,7 +3,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { mapThirdPartyDeviceToSearchDevice } from './thirdPartyDeviceMapping';
 
 describe('ServiceHardware Ledger BLE device mapping', () => {
-  it('preserves the BLE connectId and actual name when connectionType is missing', () => {
+  it('preserves the BLE connectId and titles by product when connectionType is missing', () => {
     const ledgerDevice = {
       vendor: 'ledger',
       model: 'nanoX',
@@ -18,10 +18,12 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
       defaultDeviceName: 'Ledger',
     });
 
+    // The title names the product, not the label the user gave the device:
+    // a discovery list entry must not read as a wallet or transport identifier.
     expect(result).toMatchObject({
       connectId: '0738',
       deviceId: null,
-      name: 'Leo',
+      name: 'Ledger nanoX',
     });
   });
 
@@ -40,7 +42,7 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
 
     expect(result).toMatchObject({
       connectId: 'A58F',
-      name: 'nanoX',
+      name: 'Ledger nanoX',
     });
   });
 
@@ -61,7 +63,7 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
 
     expect(result).toMatchObject({
       connectId: null,
-      name: 'Andox',
+      name: 'Ledger nanoX',
     });
   });
 
@@ -84,7 +86,7 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
     expect(result).toMatchObject({
       connectId: 'A37803C61D8DCB1542D7AEE7',
       deviceId: 'TREZOR-FEATURES-DEVICE-ID',
-      name: 'Trezor Safe 7',
+      name: 'Trezor T3W1',
     });
   });
 
@@ -107,7 +109,7 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
     expect(result).toMatchObject({
       connectId: '81a6048ecf0d10bcf684e8a0b0b700b8',
       deviceId: 'TREZOR-FEATURES-DEVICE-ID',
-      name: 'n',
+      name: 'Trezor T3W1',
     });
     expect(result.deviceId).not.toBe(result.connectId);
   });
@@ -184,7 +186,7 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
 
     expect(result).toMatchObject({
       connectId: 'D5:75:7D:4B:51:E8',
-      name: 'Nano X 1456',
+      name: 'Ledger nanoX',
     });
   });
 
@@ -204,7 +206,7 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
 
     expect(result).toMatchObject({
       connectId: 'ACE4CF88-3DC0-E39F-1E5C-CC707B1E3F64',
-      name: 'Nano X 1456',
+      name: 'Ledger nanoX',
     });
   });
 });

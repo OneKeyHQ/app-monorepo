@@ -13,6 +13,7 @@ App 侧硬件钱包的静态策略、厂商差异和网络适配集中在本目�
 | Trezor BLE 支持的型号名 | `trezor.ts` → `TREZOR_BLE_SUPPORTED_MODEL_NAMES` |
 | OneKey / Trezor / Ledger / Keystone 的能力、身份匹配规则和账户创建默认模式 | `vendorProfile.ts` → 对应厂商 profile |
 | App 侧 BLE 连接等待时限 | `connectionTimeouts.ts` |
+| 设备定位字段按厂商怎么存怎么读 | [`CONNECT-ID.md`](./CONNECT-ID.md) |
 
 ## 默认策略
 

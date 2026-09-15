@@ -27,7 +27,7 @@ export function canOpenDeviceManagementDetails(
   vendor: EHardwareVendor | undefined,
 ) {
   const profile = getVendorProfile(vendor ?? EHardwareVendor.onekey);
-  return profile.supportsDeviceManagementDetails;
+  return profile.deviceManager.details;
 }
 
 export function buildDeviceDetailsVisibility({
@@ -42,13 +42,12 @@ export function buildDeviceDetailsVisibility({
   const profile = !isQrWallet && vendor ? getVendorProfile(vendor) : undefined;
   return {
     vendorProfile: profile,
-    showFirmwareActions:
-      Boolean(profile?.supportsFirmwareUpdate) && hasLoadedDevice,
+    showFirmwareActions: Boolean(profile?.firmware.update) && hasLoadedDevice,
     showDeviceSettings:
-      Boolean(profile?.supportsDeviceSettings) && hasLoadedDevice,
-    showDeviceSupport: Boolean(profile?.supportsDeviceAbout) && hasLoadedDevice,
+      Boolean(profile?.deviceManager.settings) && hasLoadedDevice,
+    showDeviceSupport: Boolean(profile?.deviceManager.about) && hasLoadedDevice,
     showPassphraseSettings:
-      Boolean(profile?.supportsPassphraseSetting) && hasLoadedDevice,
+      Boolean(profile?.passphrase.setting) && hasLoadedDevice,
     showDeviceConnection: !isQrWallet && hasLoadedDevice,
   };
 }

@@ -55,7 +55,7 @@ export type IThirdPartyHardwareSearchDeviceRaw = {
 
 export type IThirdPartyConnectedDevicePayload = {
   /** Runtime-only lifecycle id. It must never be written to the Device table. */
-  interactionId: string;
+  operationId: string;
   connectId: string;
   deviceId: string;
   model?: string;
@@ -75,7 +75,7 @@ export type IThirdPartyHardwareConnectionStateEvent =
     }
   | {
       type: 'disconnected';
-      interactionId: string;
+      operationId: string;
     };
 
 // =====================================================================
@@ -143,7 +143,7 @@ export interface IThirdPartyHardwareAdapter {
     searchTargetId: string,
     operationContext?: IHardwareConnectionContext,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>>;
-  releaseInteraction(interactionId: string): Promise<void>;
+  releaseOperation(operationId: string): Promise<void>;
   reset(): Promise<void>;
 
   deviceSettings?(

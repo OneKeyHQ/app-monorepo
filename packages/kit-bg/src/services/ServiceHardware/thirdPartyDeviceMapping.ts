@@ -28,7 +28,8 @@ export function mapThirdPartySearchTargetToSearchDevice({
     deviceId: null,
     name: getThirdPartyDeviceDisplayName({
       brand:
-        defaultDeviceName || getVendorProfile(target.vendor).defaultDeviceName,
+        defaultDeviceName ||
+        getVendorProfile(target.vendor).presentation.defaultName,
       modelName: target.modelName,
       model: target.model,
       name: target.label,
@@ -108,7 +109,7 @@ export function mapThirdPartyDeviceToSearchDevice({
   const stableConnectId =
     device.connectId &&
     (canMatchDeviceByConnectId?.(device.connectId) ??
-      profile.canMatchDeviceByConnectId(device.connectId))
+      profile.identity.matchDeviceByConnectId(device.connectId))
       ? device.connectId
       : null;
   const connectorClaimsPersistentIdentity =
@@ -129,7 +130,7 @@ export function mapThirdPartyDeviceToSearchDevice({
       connectId =
         (connectorClaimsPersistentIdentity ??
         hasPersistentConnectId?.('usb') ??
-        profile.hasPersistentConnectId('usb'))
+        profile.identity.persistentConnectId('usb'))
           ? stableConnectId
           : null;
       break;
@@ -139,14 +140,14 @@ export function mapThirdPartyDeviceToSearchDevice({
   }
 
   const displayName = getThirdPartyDeviceDisplayName({
-    brand: defaultDeviceName || profile.defaultDeviceName,
+    brand: defaultDeviceName || profile.presentation.defaultName,
     modelName: (device as DeviceInfo & { modelName?: string }).modelName,
     model: device.model,
     name: rawName,
   });
   const resolvePersistentDeviceId = (transport: 'usb' | 'ble') =>
     hasPersistentDeviceId?.(transport) ??
-    profile.hasPersistentDeviceId(transport);
+    profile.identity.persistentDeviceId(transport);
   const transport = device.connectionType;
   const hasStableDeviceId =
     transport === 'usb' || transport === 'ble'

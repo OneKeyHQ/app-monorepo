@@ -1,8 +1,8 @@
+import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble';
 import {
   isTrezorBleServiceUuid,
   isTrezorSafe7BleName,
 } from '@onekeyfe/hwk-trezor-adapter';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import { dialog } from 'electron';
 import logger from 'electron-log/main';
 
@@ -20,8 +20,8 @@ import type { IPairCeremonyToken } from './BlePair';
 import type { ElectronBleScanOptions } from '@onekeyfe/hwk-adapter-core';
 import type {
   IpcMainLike,
-  TrezorBleDeviceInfo,
-} from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+  ThirdPartyBleDeviceInfo,
+} from '@onekeyfe/hwk-desktop-noble-ble';
 import type { BrowserWindow } from 'electron';
 
 // App-side Trezor BLE pairing, inserted at the IPC seam the app already owns —
@@ -37,7 +37,7 @@ import type { BrowserWindow } from 'electron';
  * we just disabled in noble — matches on the ADV packet's name, or on the
  * service UUID once a scan response has merged into the peripheral.
  */
-function isTrezorDevice(device: TrezorBleDeviceInfo | undefined): boolean {
+function isTrezorDevice(device: ThirdPartyBleDeviceInfo | undefined): boolean {
   if (!device) return false;
   if (isTrezorSafe7BleName(device.name ?? device.localName)) return true;
   return (device.advertisedServiceUuids ?? []).some((uuid) =>
@@ -58,7 +58,7 @@ const RAW_WATCH_SECONDS_SCAN = 20;
 const RAW_WATCH_SECONDS_POST_PAIR = 25;
 
 // The SDK clears its discovered-peripheral cache this long after the last scan
-// call (TREZOR_BLE_SCAN_IDLE_STOP_MS in the SDK). Pairing runs with no scans in
+// call (THIRD_PARTY_BLE_SCAN_IDLE_STOP_MS in the SDK). Pairing runs with no scans in
 // flight, so a pairing that outlasts this window destroys the peripheral that
 // connect is about to need. Mirrored here only to make the log say so out loud.
 const SDK_SCAN_IDLE_STOP_MS = 10_000;
@@ -258,7 +258,7 @@ export function createTrezorBlePairingIpcMain(
 
   return {
     handle: (channel, listener) => {
-      if (channel === TREZOR_BLE_CHANNELS.scan) {
+      if (channel === THIRD_PARTY_BLE_CHANNELS.scan) {
         base.handle(channel, async (event, ...args) => {
           // The SDK now scans unfiltered by default and filters for Trezor itself
           // (NobleBleHandler, 1.1.32-alpha.1), so nothing is rewritten here. We
@@ -271,7 +271,7 @@ export function createTrezorBlePairingIpcMain(
           // The unfiltered scan sees every BLE device in range, so the Trezor
           // filter that used to happen in noble now happens here — the renderer
           // must still only ever see Trezor devices.
-          const all = result as TrezorBleDeviceInfo[];
+          const all = result as ThirdPartyBleDeviceInfo[];
           const scanOptions: ElectronBleScanOptions | undefined = args[0];
           // Ledger results were service-filtered in the SDK; retain their addresses
           // so the same Windows pairing ceremony can run before GATT discovery.
@@ -350,7 +350,7 @@ export function createTrezorBlePairingIpcMain(
         return;
       }
 
-      if (channel === TREZOR_BLE_CHANNELS.connect) {
+      if (channel === THIRD_PARTY_BLE_CHANNELS.connect) {
         base.handle(channel, async (event, ...args) => {
           const connectId = String(args[0]);
           const pairOutcome = await ensurePaired(connectId);
@@ -454,7 +454,7 @@ export function createTrezorBlePairingIpcMain(
         return;
       }
 
-      if (channel === TREZOR_BLE_CHANNELS.cancelPairing) {
+      if (channel === THIRD_PARTY_BLE_CHANNELS.cancelPairing) {
         base.handle(channel, async (event, ...args) => {
           // The SDK abandons its noble connect; the OS-pairing ceremony is ours.
           const declined = decideActivePairing('cancel');
@@ -468,7 +468,7 @@ export function createTrezorBlePairingIpcMain(
         return;
       }
 
-      if (channel === TREZOR_BLE_CHANNELS.disconnect) {
+      if (channel === THIRD_PARTY_BLE_CHANNELS.disconnect) {
         base.handle(channel, async (event, ...args) => {
           // Disconnect is the RPA-rotation trigger; timestamp it.
           const connectId = String(args[0]);

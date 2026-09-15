@@ -121,15 +121,13 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     }
 
     const result = await adapter.hw.tronSignTransaction(
-      checkedDeviceParams.deviceCommonParams?.interactionId ??
-        dbDevice.connectId,
+      checkedDeviceParams.deviceCommonParams?.operationId ?? dbDevice.connectId,
       dbDevice.deviceId,
       {
         ...thirdPartyConnectionContextFromDevice(dbDevice),
-        ...(checkedDeviceParams.deviceCommonParams?.interactionId
+        ...(checkedDeviceParams.deviceCommonParams?.operationId
           ? {
-              interactionId:
-                checkedDeviceParams.deviceCommonParams.interactionId,
+              operationId: checkedDeviceParams.deviceCommonParams.operationId,
             }
           : {}),
         path,
@@ -159,7 +157,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     const { dbDevice } = checkedDeviceParams;
     const account = await this.vault.getAccount();
     const adapter = await this._getAdapter();
-    const interactionId = checkedDeviceParams.deviceCommonParams?.interactionId;
+    const operationId = checkedDeviceParams.deviceCommonParams?.operationId;
 
     const signatures: ISignedMessagePro = [];
     for (const message of messages) {
@@ -169,11 +167,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
       }
       // eslint-disable-next-line no-await-in-loop
       const result = await adapter.hw.tronSignMessage(
-        interactionId ?? dbDevice.connectId,
+        operationId ?? dbDevice.connectId,
         dbDevice.deviceId,
         {
           ...thirdPartyConnectionContextFromDevice(dbDevice),
-          ...(interactionId ? { interactionId } : {}),
+          ...(operationId ? { operationId } : {}),
           path: account.path,
           messageHex: message.message,
           messageType: 'V2',

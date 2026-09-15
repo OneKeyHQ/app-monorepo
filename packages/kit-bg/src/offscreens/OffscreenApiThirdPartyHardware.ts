@@ -221,7 +221,15 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
 
   reset(params: { vendor: VendorType }): void {
     const connector = this.getConnectorSync(params.vendor);
-    connector?.reset();
+    if (!connector) return;
+    // Drop the cached connector as well. `reset()` clears the connector's own
+    // event handlers, and this is the only runtime that keeps a connector
+    // alive across adapter lifetimes — everywhere else a new adapter builds a
+    // new connector. Without this the next call reuses a connector nobody is
+    // subscribed to any more: requests still go out, but PIN, pairing and
+    // disconnect events never reach the service worker again.
+    this.connectors.delete(params.vendor);
+    connector.reset();
   }
 
   /**

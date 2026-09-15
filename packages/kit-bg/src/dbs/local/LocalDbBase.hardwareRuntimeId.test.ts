@@ -1,5 +1,5 @@
 import {
-  createHardwareInteractionId,
+  createHardwareOperationId,
   createHardwareSearchTargetId,
 } from '@onekeyfe/hwk-adapter-core';
 
@@ -29,18 +29,12 @@ describe('LocalDbBase hardware runtime id persistence guard', () => {
   it.each([
     [
       'search target',
-      buildParams(
-        'connectId',
-        createHardwareSearchTargetId({
-          vendor: 'keystone',
-          connectionType: 'usb',
-        }),
-      ),
+      buildParams('connectId', createHardwareSearchTargetId('keystone')),
       'device.connectId',
     ],
     [
       'interaction',
-      buildParams('deviceId', createHardwareInteractionId('keystone')),
+      buildParams('deviceId', createHardwareOperationId('keystone')),
       'device.deviceId',
     ],
   ])(
@@ -56,12 +50,12 @@ describe('LocalDbBase hardware runtime id persistence guard', () => {
 
   it('rejects runtime ids from direct transport locator updates', async () => {
     const db = Object.create(LocalDbBase.prototype) as LocalDbBase;
-    const interactionId = createHardwareInteractionId('trezor');
+    const operationId = createHardwareOperationId('trezor');
 
     await expect(
       db.updateDeviceConnectId({
         dbDeviceId: 'db-device-id',
-        connectId: interactionId,
+        connectId: operationId,
       }),
     ).rejects.toThrow(
       'updateDeviceConnectId ERROR: runtime hardware id cannot be persisted in connectId',
@@ -70,7 +64,7 @@ describe('LocalDbBase hardware runtime id persistence guard', () => {
     await expect(
       db.updateDeviceConnectId({
         dbDeviceId: 'db-device-id',
-        usbConnectId: interactionId,
+        usbConnectId: operationId,
       }),
     ).rejects.toThrow(
       'updateDeviceConnectId ERROR: runtime hardware id cannot be persisted in usbConnectId',
@@ -78,7 +72,7 @@ describe('LocalDbBase hardware runtime id persistence guard', () => {
     await expect(
       db.updateDeviceBleConnectIdAndCleanStaleAliases({
         dbDeviceId: 'db-device-id',
-        bleConnectId: interactionId,
+        bleConnectId: operationId,
         verifiedDeviceId: 'stable-device-id',
       }),
     ).rejects.toThrow(

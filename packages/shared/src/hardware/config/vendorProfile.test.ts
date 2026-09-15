@@ -22,22 +22,22 @@ describe('hardware vendor profile', () => {
     [EHardwareVendor.keystone, { mode: 'local' }, 'walletIdentity'],
   ] as const)(
     'describes label writes and connection identity independently for %s',
-    (vendor, deviceLabel, connectIdRole) => {
+    (vendor, label, role) => {
       expect(getVendorProfile(vendor)).toMatchObject({
-        deviceLabel,
-        connectIdRole,
+        presentation: { label },
+        identity: { role },
       });
     },
   );
   it('registers Trezor as OneKey-like and Ledger as app-aware', () => {
     expect(
-      getVendorProfile(EHardwareVendor.onekey).supportsHiddenWalletCreation,
+      getVendorProfile(EHardwareVendor.onekey).passphrase.hiddenWallet,
     ).toBe(true);
     expect(
-      getVendorProfile(EHardwareVendor.trezor).supportsHiddenWalletCreation,
+      getVendorProfile(EHardwareVendor.trezor).passphrase.hiddenWallet,
     ).toBe(true);
     expect(
-      getVendorProfile(EHardwareVendor.ledger).supportsHiddenWalletCreation,
+      getVendorProfile(EHardwareVendor.ledger).passphrase.hiddenWallet,
     ).toBe(false);
 
     expect(
@@ -56,16 +56,16 @@ describe('hardware vendor profile', () => {
     // connectId-matched record must be gated on a seed check. OneKey and
     // Trezor always match by deviceId and never reach that gate.
     expect(
-      getVendorProfile(EHardwareVendor.onekey)
-        .requiresSeedVerifyOnConnectIdMatch,
+      getVendorProfile(EHardwareVendor.onekey).identity
+        .seedVerifyOnConnectIdMatch,
     ).toBe(false);
     expect(
-      getVendorProfile(EHardwareVendor.trezor)
-        .requiresSeedVerifyOnConnectIdMatch,
+      getVendorProfile(EHardwareVendor.trezor).identity
+        .seedVerifyOnConnectIdMatch,
     ).toBe(false);
     expect(
-      getVendorProfile(EHardwareVendor.ledger)
-        .requiresSeedVerifyOnConnectIdMatch,
+      getVendorProfile(EHardwareVendor.ledger).identity
+        .seedVerifyOnConnectIdMatch,
     ).toBe(true);
   });
 
@@ -88,8 +88,8 @@ describe('hardware vendor profile', () => {
   it('lets per-device identity capability override the vendor transport fallback', () => {
     const trezor = getVendorProfile(EHardwareVendor.trezor);
 
-    expect(trezor.hasPersistentConnectId('usb')).toBe(true);
-    expect(trezor.hasPersistentConnectId('ble')).toBe(false);
+    expect(trezor.identity.persistentConnectId('usb')).toBe(true);
+    expect(trezor.identity.persistentConnectId('ble')).toBe(false);
     expect(
       resolvePersistentConnectIdCapability({
         profile: trezor,
@@ -106,14 +106,27 @@ describe('hardware vendor profile', () => {
     ).toBe(true);
   });
 
-  it('detects vendors introduced by a newer app without weakening strict lookups', () => {
+  it('degrades an unknown vendor to an inert profile instead of throwing', () => {
     const futureVendor = 'future-vendor' as EHardwareVendor;
 
     expect(isHardwareVendorSupported(undefined)).toBe(true);
     expect(isHardwareVendorSupported(EHardwareVendor.onekey)).toBe(true);
     expect(isHardwareVendorSupported(futureVendor)).toBe(false);
-    expect(() => getVendorProfile(futureVendor)).toThrow(
-      'Unknown hardware vendor: "future-vendor"',
-    );
+
+    // Downgrading past the build that introduced a vendor leaves its device
+    // rows behind. Reading one must not take down every screen that touches it.
+    const profile = getVendorProfile(futureVendor);
+    expect(profile.vendor).toBe(futureVendor);
+    expect(profile.isThirdParty).toBe(true);
+    expect(profile.deviceManager.details).toBe(false);
+    expect(profile.supportsCloudSync).toBe(false);
+    expect(profile.passphrase.hiddenWallet).toBe(false);
+    // Locator semantics are unknown, so never claim a device match.
+    expect(profile.identity.matchDeviceByConnectId('anything')).toBe(false);
+    expect(profile.identity.persistentConnectId('usb')).toBe(false);
+    expect(profile.identity.persistentDeviceId('ble')).toBe(false);
+    expect(profile.identity.seedVerifyOnConnectIdMatch).toBe(true);
+    // Same instance on repeat so callers can compare profiles by identity.
+    expect(getVendorProfile(futureVendor)).toBe(profile);
   });
 });

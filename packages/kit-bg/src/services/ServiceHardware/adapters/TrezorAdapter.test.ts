@@ -259,17 +259,17 @@ describe('TrezorAdapter', () => {
       }),
     };
     const adapter = new TrezorAdapter(hw as never) as unknown as {
-      activeInteractionId?: string;
+      activeOperationId?: string;
     };
-    adapter.activeInteractionId = 'hwk-trezor-current';
+    adapter.activeOperationId = 'hwk-trezor-current';
 
-    listeners.get('interaction-ended')?.({
-      payload: { interactionId: 'hwk-trezor-stale' },
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'hwk-trezor-stale' },
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).not.toHaveBeenCalled();
 
-    listeners.get('interaction-ended')?.({
-      payload: { interactionId: 'hwk-trezor-current' },
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'hwk-trezor-current' },
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith(
       expect.any(Function),
@@ -923,7 +923,7 @@ describe('TrezorAdapter', () => {
     await expect(adapter.connectDevice('USB-1')).resolves.toEqual({
       success: true,
       payload: {
-        interactionId: 'hwk-trezor-interaction',
+        operationId: 'hwk-trezor-interaction',
         connectId: 'USB-1',
         deviceId: 'TREZOR-DEVICE-ID',
         connectionType: 'usb',
@@ -1159,15 +1159,13 @@ describe('TrezorAdapter connectDevice zombie-link teardown', () => {
       getDeviceInfo: jest
         .fn()
         .mockResolvedValue({ success: false, payload: { code: 10_000 } }),
-      releaseInteraction: jest.fn().mockResolvedValue(undefined),
+      releaseOperation: jest.fn().mockResolvedValue(undefined),
     };
     const adapter = new TrezorAdapter(hw as never);
 
     await adapter.connectDevice('BLE-3');
 
-    expect(hw.releaseInteraction).toHaveBeenCalledWith(
-      'hwk-trezor-interaction',
-    );
+    expect(hw.releaseOperation).toHaveBeenCalledWith('hwk-trezor-interaction');
     expect(bleBridge.disconnect).toHaveBeenCalledWith('BLE-3');
   });
 

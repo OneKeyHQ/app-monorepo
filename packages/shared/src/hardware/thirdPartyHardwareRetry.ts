@@ -3,8 +3,8 @@ import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapte
 import type { IThirdPartyHardwareSearchTarget } from '@onekeyhq/shared/types/device';
 
 import {
-  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
-  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
 } from '../errors/errors/thirdPartyHardwareErrors';
 
 import type { IHardwareErrorRecoveryHint } from '../errors/types/errorTypes';
@@ -19,8 +19,9 @@ const RESCAN_DEVICE_ERROR_CODES = new Set<number>([
   ThirdPartyHwErrorCode.DeviceNotFound,
   ThirdPartyHwErrorCode.DeviceDisconnected,
   ThirdPartyHwErrorCode.DeviceMismatch,
-  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
-  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+  ThirdPartyHwErrorCode.DeviceSearchMismatch,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
   ThirdPartyHwErrorCode.TransportError,
   ThirdPartyHwErrorCode.BridgeNotFound,
   ThirdPartyHwErrorCode.TransportNotAvailable,
@@ -51,9 +52,20 @@ export function getThirdPartyHardwareRetryAction(params: {
   errorCode: number | undefined;
   recovery: IHardwareErrorRecoveryHint | undefined;
   searchTarget: IThirdPartyHardwareSearchTarget | undefined;
+  /**
+   * The SDK sets this when an unsafe request was dispatched and its response
+   * was lost, so whether the device executed it is unknowable. Nothing may
+   * retry on its own from here; only the user can decide to repeat the action.
+   */
+  operationMayHaveCompleted?: boolean;
 }): EThirdPartyHardwareRetryAction {
-  const { errorCode, recovery, searchTarget } = params;
+  const { errorCode, recovery, searchTarget, operationMayHaveCompleted } =
+    params;
   const targetReusePolicy = getSearchTargetReusePolicy(searchTarget);
+
+  if (operationMayHaveCompleted) {
+    return EThirdPartyHardwareRetryAction.doNotRetry;
+  }
 
   if (recovery) {
     if (recovery.scope === 'not-recoverable') {
@@ -63,12 +75,12 @@ export function getThirdPartyHardwareRetryAction(params: {
       return EThirdPartyHardwareRetryAction.restartDeviceSearch;
     }
     if (
-      recovery.scope === 'interaction' &&
+      recovery.scope === 'operation' &&
       targetReusePolicy !== 'reconnectable'
     ) {
       return EThirdPartyHardwareRetryAction.restartDeviceSearch;
     }
-    if (recovery.scope === 'operation' && targetReusePolicy === 'rediscover') {
+    if (recovery.scope === 'call' && targetReusePolicy === 'rediscover') {
       return EThirdPartyHardwareRetryAction.restartDeviceSearch;
     }
     if (recovery.scope !== 'unknown') {

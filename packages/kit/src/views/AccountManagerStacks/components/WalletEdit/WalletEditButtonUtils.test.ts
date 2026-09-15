@@ -37,11 +37,7 @@ describe('resolveWalletPassphraseProtection', () => {
 describe('shouldShowAddHiddenWalletButtonForWallet', () => {
   it('does not require a host-side passphrase settings toggle to create hidden wallets', () => {
     const profile = vendorProfiles.getVendorProfile(EHardwareVendor.trezor);
-    const setting = jest.replaceProperty(
-      profile,
-      'supportsPassphraseSetting',
-      false,
-    );
+    const setting = jest.replaceProperty(profile.passphrase, 'setting', false);
     try {
       expect(
         shouldShowAddHiddenWalletButtonForWallet({

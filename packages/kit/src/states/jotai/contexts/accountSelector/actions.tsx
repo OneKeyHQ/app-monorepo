@@ -47,8 +47,8 @@ import {
 } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
-  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
-  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
 } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import {
   EOneKeyErrorClassNames,
@@ -3654,8 +3654,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             error: error as IOneKeyError | undefined,
             code: [
               ...ORPHAN_ELIGIBLE_ERROR_CODES,
-              THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
-              THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+              THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+              THIRD_PARTY_HW_OPERATION_ENDED_CODE,
             ],
           })
         ) {
@@ -3733,7 +3733,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const isAutoCreateMultiNetwork =
         !!isCreateWallet || networkUtils.isAllNetwork({ networkId });
       const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-      const interactionId = params.hardwareOperationContext?.interactionId;
+      const operationId = params.hardwareOperationContext?.operationId;
       const customNetworks =
         networkId && deriveType ? [{ networkId, deriveType }] : undefined;
       let ledgerRequiredApps: ILedgerCoreAppName[] = [];
@@ -3772,7 +3772,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             if (ledgerRequiredApps.length > 0) {
               const ensureResult = await ensureLedgerCoreAppsReady({
                 walletId: wallet.id,
-                connectId: interactionId,
+                connectId: operationId,
                 requiredApps: ledgerRequiredApps,
               });
               if (
@@ -3829,7 +3829,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               ) {
                 const ensureResult = await ensureLedgerCoreAppsReady({
                   walletId: wallet.id,
-                  connectId: interactionId,
+                  connectId: operationId,
                   requiredApps: ledgerRequiredApps.length
                     ? ledgerRequiredApps
                     : undefined,
@@ -3920,7 +3920,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
           }
         })();
-        if (interactionId) {
+        if (operationId) {
           await handleFailedAccountsPromise;
         } else {
           void handleFailedAccountsPromise;

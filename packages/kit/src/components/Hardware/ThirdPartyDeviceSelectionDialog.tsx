@@ -164,7 +164,7 @@ function ThirdPartyDeviceSelectionContent({
             <WalletAvatar wallet={undefined} img={getTargetAvatar(target)} />
             <ListItem.Text
               primary={getThirdPartyDeviceDisplayName({
-                brand: getVendorProfile(target.vendor).defaultDeviceName,
+                brand: getVendorProfile(target.vendor).presentation.defaultName,
                 modelName: target.modelName,
                 model: target.model,
                 name: target.label,

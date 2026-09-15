@@ -29,7 +29,7 @@ export function shouldShowAddHiddenWalletButtonForWallet(params: {
   const { isKeyless, isHiddenWallet, isHwOrQrWallet, vendor } = params;
   if (isKeyless) return false;
   const profile = getVendorProfile(vendor);
-  if (!profile.supportsHiddenWalletCreation) {
+  if (!profile.passphrase.hiddenWallet) {
     return false;
   }
   return !isHiddenWallet && isHwOrQrWallet;
@@ -43,7 +43,7 @@ export function shouldShowDeviceManagementButtonForWallet(params: {
 }) {
   const { isKeyless, isHiddenWallet, isHwOrQrWallet, vendor } = params;
   if (isKeyless || isHiddenWallet || !isHwOrQrWallet) return false;
-  return getVendorProfile(vendor).supportsDeviceManagementDetails;
+  return getVendorProfile(vendor).deviceManager.details;
 }
 
 export function shouldShowCreateHiddenWalletSidebarButtonForWallet(params: {
