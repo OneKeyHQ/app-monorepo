@@ -294,6 +294,30 @@ it.each([
   expect(screen.queryByTestId('perps')).toBeNull();
 });
 
+it.each([
+  { wide: false, spotTestId: 'mobile-list' },
+  { wide: true, spotTestId: 'tokens' },
+])(
+  'pairs a ticker banner with a perps tab for ticker_perps (wide=$wide)',
+  ({ wide, spotTestId: tickerSpotTestId }) => {
+    mockType = EMarketBannerType.TickerPerps;
+    mockWide = wide;
+    render(<MarketBannerDetail />);
+    expect(useMarketBannerDetail).toHaveBeenLastCalledWith({
+      tokenListId: 'composite',
+      isPerps: false,
+      isStock: false,
+      isIndex: false,
+    });
+    expect(screen.getByTestId(tickerSpotTestId)).toBeTruthy();
+    expect(screen.queryByTestId('stocks')).toBeNull();
+    expect(screen.queryByTestId('mobile-stock-list')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'perps' }));
+    expect(screen.queryByTestId(tickerSpotTestId)).toBeNull();
+    expect(screen.getByTestId('perps').textContent).toBe('composite');
+  },
+);
+
 it('resets the selected category for another banner', () => {
   mockType = EMarketBannerType.Mixed;
   mockWide = true;

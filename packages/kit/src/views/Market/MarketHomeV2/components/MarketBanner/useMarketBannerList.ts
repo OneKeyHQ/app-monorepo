@@ -17,7 +17,7 @@ import type {
 
 import {
   isMarketIndexQuoteBanner,
-  isMarketMixedBanner,
+  isMarketStockPerpsBanner,
 } from '../../../utils/marketBannerUtils';
 
 import {
@@ -89,7 +89,7 @@ export async function hydrateMarketBannerQuotes(
       }
 
       const isStockBanner =
-        banner.assetType !== undefined || isMarketMixedBanner(banner.type);
+        banner.assetType !== undefined || isMarketStockPerpsBanner(banner.type);
       if (banner.type === EMarketBannerType.Perps) {
         return banner;
       }

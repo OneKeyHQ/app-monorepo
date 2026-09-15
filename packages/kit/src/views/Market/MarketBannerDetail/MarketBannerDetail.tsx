@@ -63,6 +63,7 @@ import { MarketTestIDs } from '../testIDs';
 import {
   isMarketIndexQuoteBanner,
   isMarketMixedBanner,
+  isMarketStockPerpsBanner,
 } from '../utils/marketBannerUtils';
 
 import { BannerDetailStockFlatList } from './BannerDetailStockFlatList';
@@ -111,7 +112,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const isIndex = isMarketIndexQuoteBanner({ type, assetType });
   const isStock =
     type === EMarketBannerType.Stock ||
-    isMixed ||
+    isMarketStockPerpsBanner(type) ||
     assetType === 'stock' ||
     assetType === 'etf' ||
     assetType === 'index';
