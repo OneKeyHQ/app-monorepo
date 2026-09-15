@@ -38,14 +38,6 @@ function matchesUsbFilter(
   return true;
 }
 
-export function isKeystoneWebUsbDevice(
-  device: Pick<USBDevice, 'productId' | 'vendorId'>,
-): boolean {
-  return KEYSTONE_WEBUSB_FILTERS.some((filter) =>
-    matchesUsbFilter(device, filter),
-  );
-}
-
 export function isSupportedHardwareWebUsbDevice(
   device: Pick<USBDevice, 'productId' | 'vendorId'>,
 ): boolean {

@@ -128,7 +128,31 @@ const SecureQRToastBase = ({
               1
             </SizableText>
           </Stack>
-          <SizableText flex={1} size="$bodyMd">
+          <SizableText
+            flex={1}
+            size="$bodyMd"
+            onPress={() => {
+              console.log('SecureQRToastContent', value, valueUr);
+              if (valueUr) {
+                void (async () => {
+                  const { airGapUrUtils: lazyAirGapUrUtils } =
+                    await import('@onekeyhq/qr-wallet-sdk');
+                  const qrcodeDetails = lazyAirGapUrUtils.urToQrcode(valueUr);
+                  console.log(qrcodeDetails);
+                  if (
+                    qrcodeDetails.single?.startsWith(
+                      'ur:onekey-app-call-device/',
+                    )
+                  ) {
+                    const { OneKeyRequestDeviceQR: LazyOneKeyRequestDeviceQR } =
+                      await import('@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR');
+                    const data = LazyOneKeyRequestDeviceQR.fromUR(valueUr);
+                    console.log(data);
+                  }
+                })();
+              }
+            }}
+          >
             {message ||
               intl.formatMessage({
                 id: ETranslations.scan_qr_code_to_verify_details,
@@ -148,7 +172,21 @@ const SecureQRToastBase = ({
               2
             </SizableText>
           </Stack>
-          <SizableText flex={1} size="$bodyMd">
+          <SizableText
+            flex={1}
+            size="$bodyMd"
+            onPress={() => {
+              console.log('SecureQRToastContent', value, valueUr);
+              if (valueUr) {
+                void (async () => {
+                  const { airGapUrUtils: lazyAirGapUrUtils2 } =
+                    await import('@onekeyhq/qr-wallet-sdk');
+                  const qrcodeDetails = lazyAirGapUrUtils2.urToQrcode(valueUr);
+                  console.log(qrcodeDetails);
+                })();
+              }
+            }}
+          >
             {intl.formatMessage({
               id: ETranslations.secure_qr_toast_scan_qr_code_on_device_text,
             })}
