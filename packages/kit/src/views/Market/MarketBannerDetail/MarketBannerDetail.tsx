@@ -360,6 +360,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             }}
             onItemPress={onItemPress}
             clientSort
+            // The banner endpoint carries no `firstTradeTime`.
+            hideTokenAge
             watchlistFrom={EWatchlistFrom.BannerList}
             copyFrom={ECopyFrom.BannerList}
             desktopColumnVariant="trending"

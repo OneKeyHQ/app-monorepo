@@ -81,11 +81,15 @@ export function useTrendingColumnsDesktop({
   timeRange = '1h',
   sort,
   onSort,
+  hideTokenAge = false,
 }: {
   networkId?: string;
   timeRange?: IMarketTimeRangeValue;
   sort: IMarketSortState;
   onSort: (field: string, order: IMarketSortOrder) => void;
+  /** Lists whose rows carry no `firstTradeTime` (banner detail) title the
+   *  column "Name" and show the contract address without the hover swap. */
+  hideTokenAge?: boolean;
 }): ITableColumn<IMarketToken>[] {
   const intl = useIntl();
 
@@ -134,15 +138,19 @@ export function useTrendingColumnsDesktop({
         ),
       },
       {
-        title: `${intl.formatMessage({
-          id: ETranslations.global_name,
-        })}/${intl.formatMessage({
-          id: ETranslations.dexmarket_token_age,
-        })}`,
+        title: hideTokenAge
+          ? intl.formatMessage({ id: ETranslations.global_name })
+          : `${intl.formatMessage({
+              id: ETranslations.global_name,
+            })}/${intl.formatMessage({
+              id: ETranslations.dexmarket_token_age,
+            })}`,
         dataIndex: 'nameTokenAge',
         columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken) => {
-          const ageLabel = getTokenAgeLabel(intl, record.firstTradeTime);
+          const ageLabel = hideTokenAge
+            ? undefined
+            : getTokenAgeLabel(intl, record.firstTradeTime);
 
           return (
             <MarketIdentityCell
@@ -293,6 +301,6 @@ export function useTrendingColumnsDesktop({
         renderSkeleton: () => <Skeleton width={90} height={16} />,
       },
     ],
-    [intl, networkId, onSort, sort, timeRange],
+    [hideTokenAge, intl, networkId, onSort, sort, timeRange],
   );
 }

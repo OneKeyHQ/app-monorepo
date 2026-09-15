@@ -64,4 +64,26 @@ describe('useTrendingColumnsDesktop', () => {
 
     expect(identityCell.props.secondary?.props.ageLabel).toBeUndefined();
   });
+
+  test('titles the column "Name" and drops the age when hideTokenAge is set', () => {
+    const { result } = renderHook(() =>
+      useTrendingColumnsDesktop({
+        sort: {},
+        onSort: jest.fn(),
+        hideTokenAge: true,
+      }),
+    );
+    expect(result.current[1]?.title).toBe('global.name');
+    const identityCell = result.current[1]?.render?.(
+      undefined,
+      { ...tokenWithoutAge, firstTradeTime: Date.now() - 86_400_000 },
+      0,
+    ) as ReactElement<{
+      secondary?: ReactElement<{ address: string; ageLabel?: string }>;
+    }>;
+    expect(identityCell.props.secondary?.props.ageLabel).toBeUndefined();
+    expect(identityCell.props.secondary?.props.address).toBe(
+      tokenWithoutAge.address,
+    );
+  });
 });
