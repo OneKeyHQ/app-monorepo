@@ -98,6 +98,7 @@ import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection'
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
+import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
@@ -879,6 +880,7 @@ const DetailsPartComponent = ({
   providerSubtitle,
   hasPortfolio,
   onRedeem,
+  onActionSuccess,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -897,6 +899,9 @@ const DetailsPartComponent = ({
   providerSubtitle?: string;
   hasPortfolio?: boolean;
   onRedeem?: () => void;
+  // A claim, stake or withdraw broadcast from the Portfolio tab. Falls back
+  // to onRefresh for callers that only have the plain reload.
+  onActionSuccess?: () => void;
 }) => {
   const now = useMemo(() => Date.now(), []);
 
@@ -981,7 +986,7 @@ const DetailsPartComponent = ({
                       symbol={symbol}
                       provider={provider}
                       vault={detailInfo.protocol?.vault ?? vault}
-                      onActionSuccess={onRefresh}
+                      onActionSuccess={onActionSuccess ?? onRefresh}
                       onRedeem={onRedeem}
                       protocolInfo={protocolInfo}
                       tokenInfo={tokenInfo}
@@ -1272,9 +1277,27 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     await refreshData();
   }, [refreshAccount, refreshData]);
 
-  const handleStakeWithdrawSuccess = useCallback(() => {
+  // A refresh at broadcast reads the numbers before the chain has the
+  // transaction, and nothing on this page polled history to refresh again
+  // once it landed: a principal claim picked from the claim list (SOL, ETH,
+  // Polygon) changes nothing server-side until then, so the claimable total
+  // stayed stale (OK-63229). Track the position's pending transactions the
+  // way the positions page does and reload once they clear. The wide layout
+  // has its own activity indicator, so this stays phone-only.
+  const { refreshPending } = useStakingPendingTxs({
+    accountId: isMobileLayout
+      ? protocolInfo?.earnAccount?.accountId
+      : undefined,
+    networkId,
+    stakeTag: protocolInfo?.stakeTag,
+    onRefresh: refreshData,
+  });
+  // Every broadcast reloads the page at once and re-reads the local pending
+  // list, so the poller picks the transaction up without waiting for focus.
+  const handleActionSuccess = useCallback(() => {
     void refreshData();
-  }, [refreshData]);
+    void refreshPending();
+  }, [refreshData, refreshPending]);
 
   // Claim, stake and withdraw refresh the page the moment their transaction
   // is broadcast, before the chain or the provider has seen it, so the numbers
@@ -1373,13 +1396,13 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           // Redeem leaves this page for the modal; without this the balances
           // and rewards below would still show the pre-redeem numbers when it
           // pops back.
-          onStakeWithdrawSuccess: refreshData,
+          onStakeWithdrawSuccess: handleActionSuccess,
         },
       });
     },
     [
       appNavigation,
-      refreshData,
+      handleActionSuccess,
       detailInfo?.protocol?.vault,
       networkId,
       symbol,
@@ -1576,6 +1599,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             isError={isError}
             keepSkeletonVisible={keepSkeletonVisible}
             onRefresh={refreshData}
+            onActionSuccess={handleActionSuccess}
             networkId={networkId}
             symbol={symbol}
             provider={provider}
@@ -1599,7 +1623,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               indexedAccountId={indexedAccountId}
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
               onCreateAddress={onCreateAddress}
-              onStakeWithdrawSuccess={handleStakeWithdrawSuccess}
+              onStakeWithdrawSuccess={handleActionSuccess}
             />
           </Stack>
         ) : null}
