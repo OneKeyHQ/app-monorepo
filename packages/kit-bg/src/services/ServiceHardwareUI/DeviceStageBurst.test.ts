@@ -769,10 +769,11 @@ describe('DeviceStageBurstScope', () => {
 
   it('keeps a yielded stage off the Trezor BLE binding list until the device asks', async () => {
     // OK-63224: the flow's SDK call waits on the binding list, the stage
-    // yields to it, and the probe's own waits (connecting, processing)
-    // must not put the touch wall back over the list. The pairing code
-    // is the device asking — that lifts the yield and rises over the
-    // list; from there the probe's beats play again.
+    // yields to it, and neither the probe's own waits (connecting,
+    // processing) nor a prior call's outcomes (the ✓ done with its hold,
+    // an error) may put the touch wall back over the list. The pairing
+    // code is the device asking — that lifts the yield and rises over
+    // the list; from there the probe's beats play again.
     const scope = new DeviceStageBurstScope();
     const token = await scope.beginExplicit({
       connectId: CONNECT_ID,
@@ -785,6 +786,8 @@ describe('DeviceStageBurstScope', () => {
     for (const action of [
       EThirdPartyHardwareUiAction.connecting,
       EThirdPartyHardwareUiAction.processing,
+      EThirdPartyHardwareUiAction.done,
+      EThirdPartyHardwareUiAction.error,
     ]) {
       await scope.onThirdPartyState({
         ui: { action, vendor: EHardwareVendor.trezor },

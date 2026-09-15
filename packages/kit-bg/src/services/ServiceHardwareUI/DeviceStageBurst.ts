@@ -169,12 +169,18 @@ const THIRD_PARTY_ACTION_TO_STEP: Partial<
   [EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm]: 'btcHighIndex',
 };
 
-/** The third-party rail's waits — beats that ask nothing of the person.
- * Behind a dialog the stage yielded to they stay off (see onThirdPartyState). */
-const THIRD_PARTY_WAIT_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
-  'searching',
-  'connecting',
-  'processing',
+/** The third-party rail's asks — the beats the device is waiting on the
+ * person for. Behind a dialog the stage yielded to, only these reclaim
+ * the stage (see onThirdPartyState); waits and outcomes stay off. */
+const THIRD_PARTY_ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
+  'confirmOnDevice',
+  'openApp',
+  'unlockDevice',
+  'pinOnApp',
+  'passphraseOnApp',
+  'pairingCode',
+  'deviceNotFound',
+  'btcHighIndex',
 ]);
 
 /** How long the third-party ✓ `done` beat rests before the exit. */
@@ -1369,6 +1375,19 @@ export class DeviceStageBurstScope {
       if (ui.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding) {
         return;
       }
+      if (this.yieldedToDialog) {
+        // The SDK rail's rule, on this rail: behind a dialog the stage
+        // yielded to (the Trezor BLE binding list, OK-63224) only the
+        // device asking again reclaims the stage — the pairing code
+        // above all. The interrupted call's waits, and its outcomes (the
+        // ✓ done with its hold, an error) are stragglers the dialog
+        // reports itself, and stay off it.
+        const askStep = THIRD_PARTY_ACTION_TO_STEP[ui.action];
+        if (!askStep || !THIRD_PARTY_ASK_STEPS.has(askStep)) {
+          return;
+        }
+        this.yieldedToDialog = false;
+      }
       if (ui.action === EThirdPartyHardwareUiAction.error) {
         await this.setStep('error', { vendor: ui.vendor });
         return;
@@ -1376,18 +1395,6 @@ export class DeviceStageBurstScope {
       const step = THIRD_PARTY_ACTION_TO_STEP[ui.action];
       if (!step) {
         return;
-      }
-      if (this.yieldedToDialog) {
-        // The SDK rail's rule, on this rail: behind a dialog the stage
-        // yielded to (the Trezor BLE binding list, OK-63224) a wait is
-        // the interrupted call's straggler — or the binding probe's own
-        // connecting beat — and stays off the dialog. Anything else is
-        // the device speaking (the pairing code ask above all) and lifts
-        // the yield.
-        if (THIRD_PARTY_WAIT_STEPS.has(step)) {
-          return;
-        }
-        this.yieldedToDialog = false;
       }
       this.clearOffTimer();
       await this.setStep(step, {
