@@ -2,117 +2,105 @@
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }, values?: { symbol?: string }) =>
-      values?.symbol ? `${id}:${values.symbol}` : id,
+    formatMessage: ({ id }: { id: string }) => id,
   }),
 }));
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual('react') as typeof import('react');
-  const { Text, View } = jest.requireActual(
-    'react-native',
-  ) as typeof import('react-native');
-  const renderActionList = jest.fn(
-    (props: { renderTrigger: import('react').ReactNode }) =>
-      React.createElement(
-        View,
-        { testID: 'mock-action-list' },
-        props.renderTrigger,
-      ),
-  );
-  const showActionList = jest.fn();
-  const ActionList = Object.assign(renderActionList, {
-    show: showActionList,
-  });
-  (globalThis as Record<string, unknown>).__eModeGetFundsActionListMock = {
-    renderActionList,
-    showActionList,
-  };
+  const buttonProps: Record<string, unknown>[] = [];
+  (globalThis as Record<string, unknown>).__eModeGetFundsButtonProps =
+    buttonProps;
 
-  return {
-    ActionList,
-    Button: Text,
-  };
+  // A bare host tag, so react-test-renderer keeps the props verbatim and the
+  // rendered tree shows exactly what wraps the button.
+  function MockButton(props: Record<string, unknown>) {
+    buttonProps.push(props);
+    return React.createElement(
+      'mock-button',
+      { testID: props.testID as string },
+      props.children as string,
+    );
+  }
+
+  return { Button: MockButton };
 });
 
-import type { ReactElement } from 'react';
-
 import { render } from '@testing-library/react-native';
-
-import type { IActionListItemProps } from '@onekeyhq/components';
 
 import { BorrowTestIDs } from '../../testIDs';
 
 import { EModeGetFundsAction } from './EModeGetFundsAction';
 
-const actionListMocks = (globalThis as Record<string, unknown>)
-  .__eModeGetFundsActionListMock as {
-  renderActionList: jest.Mock;
-  showActionList: jest.Mock;
-};
-
-type ITriggerProps = {
-  children: string;
-  iconAfter: string;
-  onPress: () => void;
-  testID: string;
-  variant: string;
-};
-
-function renderAction(onPress: () => void) {
-  const items: IActionListItemProps[] = [
-    { label: 'Swap', icon: 'SwitchHorOutline' },
-    { label: 'Receive', icon: 'ArrowBottomOutline' },
-  ];
-
-  render(<EModeGetFundsAction symbol="USDT" items={items} onPress={onPress} />);
-
-  return {
-    items,
-    props: actionListMocks.renderActionList.mock.calls[0]?.[0] as {
-      items: IActionListItemProps[];
-      placement: string;
-      renderTrigger: ReactElement<ITriggerProps>;
-      title: string;
-    },
-  };
-}
+const buttonProps = (globalThis as Record<string, unknown>)
+  .__eModeGetFundsButtonProps as Record<string, unknown>[];
 
 describe('EModeGetFundsAction', () => {
   beforeEach(() => {
-    actionListMocks.renderActionList.mockClear();
-    actionListMocks.showActionList.mockClear();
+    buttonProps.length = 0;
   });
 
-  it('uses a button as a declarative ActionList trigger', () => {
+  it('names the token it will swap into', () => {
+    render(<EModeGetFundsAction symbol="USDT" onPress={jest.fn()} />);
+
+    expect(buttonProps[0].children).toBe('global.swap USDT');
+  });
+
+  // Aave's native reserves carry no symbol.
+  it('drops the trailing space when the reserve has no symbol', () => {
+    render(<EModeGetFundsAction symbol="" onPress={jest.fn()} />);
+
+    expect(buttonProps[0].children).toBe('global.swap');
+  });
+
+  it('is the footer primary and shares the row', () => {
+    render(<EModeGetFundsAction symbol="USDT" onPress={jest.fn()} />);
+    const props = buttonProps[0];
+
+    expect(props.testID).toBe(BorrowTestIDs.eModeNeedActionGetFundsBtn);
+    // The one live control on a screen whose confirm is disabled.
+    expect(props.variant).toBe('primary');
+    expect(props.flexGrow).toBe(1);
+    expect(props.flexShrink).toBe(1);
+    // Without flexBasis 0 the pair takes content-proportional widths and the
+    // row comes out lopsided.
+    expect(props.flexBasis).toBe(0);
+    expect(props.textEllipsis).toBe(true);
+  });
+
+  // A recheck can land while this is on screen and move the shortfall out from
+  // under it, so the button waits the same way the plain footer does.
+  it('waits out a recheck instead of offering a swap against stale numbers', () => {
+    render(<EModeGetFundsAction symbol="USDT" loading onPress={jest.fn()} />);
+
+    expect(buttonProps[0].loading).toBe(true);
+  });
+
+  it('is live when nothing is in flight', () => {
+    render(<EModeGetFundsAction symbol="USDT" onPress={jest.fn()} />);
+
+    expect(buttonProps[0].loading).toBeUndefined();
+  });
+
+  // The flex props above only reach the footer row if the button is its direct
+  // child. An ActionList wrapper used to sit here and sized itself to its
+  // content, so the button never grew and the row came out lopsided.
+  it('puts the button at the root with nothing wrapping it', () => {
+    const tree = render(
+      <EModeGetFundsAction symbol="USDT" onPress={jest.fn()} />,
+    ).toJSON() as { props?: Record<string, unknown>; type?: string } | null;
+
+    expect(Array.isArray(tree)).toBe(false);
+    expect(tree?.type).toBe('mock-button');
+    expect(tree?.props?.testID).toBe(BorrowTestIDs.eModeNeedActionGetFundsBtn);
+  });
+
+  it('swaps on press instead of opening a picker', () => {
     const onPress = jest.fn();
-    const { items, props } = renderAction(onPress);
+    render(<EModeGetFundsAction symbol="USDT" onPress={onPress} />);
 
-    expect(actionListMocks.renderActionList).toHaveBeenCalledTimes(1);
-    expect(props).toEqual(
-      expect.objectContaining({
-        items,
-        placement: 'bottom-end',
-        renderTrigger: expect.anything(),
-        // The sheet keeps the symbol; only the button drops it.
-        title: 'defi_emode_get_symbol__action:USDT',
-      }),
-    );
-    expect(props.renderTrigger.props.testID).toBe(
-      BorrowTestIDs.eModeNeedActionGetFundsBtn,
-    );
-    expect(props.renderTrigger.props.variant).toBe('secondary');
-    expect(actionListMocks.showActionList).not.toHaveBeenCalled();
+    (buttonProps[0].onPress as () => void)();
 
-    props.renderTrigger.props.onPress();
     expect(onPress).toHaveBeenCalledTimes(1);
-  });
-
-  it('labels the button without the token symbol, and marks it expandable', () => {
-    const { props } = renderAction(jest.fn());
-
-    expect(props.renderTrigger.props.children).toBe('global.top_up');
-    expect(props.renderTrigger.props.children).not.toContain('USDT');
-    expect(props.renderTrigger.props.iconAfter).toBe('ChevronDownSmallOutline');
   });
 });
