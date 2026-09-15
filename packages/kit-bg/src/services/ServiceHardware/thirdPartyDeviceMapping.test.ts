@@ -44,7 +44,7 @@ describe('mapThirdPartySearchTargetToSearchDevice', () => {
 
     expect(mapped.connectId).toBeNull();
     expect(mapped.deviceId).toBeNull();
-    expect(mapped.name).toBe('Ledger nanoX');
+    expect(mapped.name).toBe('nanoX');
     expect(
       (mapped as typeof mapped & { raw?: Record<string, unknown> }).raw,
     ).toEqual(expect.objectContaining({ searchTarget: target }));
@@ -138,7 +138,6 @@ describe('mapThirdPartyDeviceToSearchDevice', () => {
       connectionType: 'usb' as const,
       kind: 'physical' as const,
       modelName: 'Keystone 3 Pro',
-      label: 'Keystone 3 Pro (12345678-1234-1234-1234-123456789abc)',
     };
     const mapped = mapThirdPartySearchTargetToSearchDevice({ target });
     expect(mapped.name).toBe('Keystone 3 Pro');

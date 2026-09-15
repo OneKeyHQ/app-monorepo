@@ -37,8 +37,10 @@ export type IThirdPartyDeviceSelectionDialogParams = {
 };
 
 function getTargetDescription(target: IThirdPartyHardwareSearchTarget) {
+  // Keystone's serial is neither printed on the unit nor shown in its UI, so
+  // it identifies nothing to the person choosing. Only the model is shown.
   if (target.vendor === EHardwareVendor.keystone) return undefined;
-  return target.serialNumber || target.modelName || target.model;
+  return target.serialNumber || target.modelName || target.model || undefined;
 }
 
 function getTargetAvatar(target: IThirdPartyHardwareSearchTarget) {
