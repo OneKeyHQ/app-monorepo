@@ -212,14 +212,14 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     shouldUseRawSourceFallback,
   ]);
 
-  useResetError(resolvedSource, hasError, setHasError);
+  // react-native-web loads images by URI and ignores `source.headers`, so the
+  // URI alone identifies the web request.
+  const resolvedSourceIdentity = resolvedSource?.uri ?? '';
+  useResetError(resolvedSourceIdentity, hasError, setHasError);
 
   const retryLimit = Number.isFinite(retryTimes)
     ? Math.max(0, Math.floor(retryTimes))
     : 1;
-  const resolvedSourceIdentity = `${resolvedSource?.uri ?? ''}|${JSON.stringify(
-    resolvedSource?.headers ?? {},
-  )}`;
   const clearRetryTimer = useCallback(() => {
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);

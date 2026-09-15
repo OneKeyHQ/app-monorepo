@@ -1,15 +1,50 @@
 package so.onekey.app.wallet.travelmode;
 
+import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.util.Log;
 
 import java.util.Arrays;
 
+import so.onekey.app.wallet.BaseMainApplication;
+import so.onekey.app.wallet.R;
+
 public final class OneKeyTravelModeAppIcon {
     private OneKeyTravelModeAppIcon() {}
+
+    @SuppressWarnings("deprecation")
+    public static void configureTaskDescription(Activity activity) {
+        try {
+            boolean enabled = ((BaseMainApplication) activity.getApplication())
+                .isTravelModeMaskingData();
+            if (!enabled) {
+                return;
+            }
+            CharSequence title = activity.getTitle();
+            String label = title == null ? null : title.toString();
+            // Some launchers ignore resource-only task icons, including on
+            // Android 16. Render the adaptive drawable for the bitmap API.
+            ActivityManager manager = activity.getSystemService(ActivityManager.class);
+            int size = manager.getLauncherLargeIconSize();
+            Drawable drawable = activity.getDrawable(R.mipmap.ic_launcher_travel);
+            if (drawable == null) {
+                throw new IllegalStateException("Task icon drawable is unavailable");
+            }
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            drawable.setBounds(0, 0, size, size);
+            drawable.draw(new Canvas(bitmap));
+            activity.setTaskDescription(new ActivityManager.TaskDescription(label, bitmap));
+        } catch (Exception error) {
+            Log.e("TravelModeAppIcon", "Task icon configuration failed", error);
+        }
+    }
 
     public static void synchronizeBestEffort(Context context, boolean enabled) {
         try {

@@ -17,6 +17,8 @@ export const SettingTestIDs = {
   officialChannelsItem: 'setting-official-channels',
   travelModeItem: 'setting-travel-mode-item',
   travelModeSwitch: 'setting-travel-mode-switch',
+  travelModeIconChangeNotice: 'setting-travel-mode-icon-change-notice',
+  travelModeIconPreview: 'setting-travel-mode-icon-preview',
   travelModeRestartButton: 'setting-travel-mode-restart-button',
 
   // Clear application cache
