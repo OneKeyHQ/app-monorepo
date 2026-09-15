@@ -17,12 +17,17 @@ type IWebImageProps = {
 const mockWebImage = jest.fn<null, [IWebImageProps]>(() => null);
 const fallback = <span>No image</span>;
 const failedUri = 'https://example.com/missing-icon.png';
-// Distinct objects with the same request identity, like an inline `{ uri }`.
+// Distinct objects with the same URI, like an inline `{ uri }` on each render.
 const failedSource = { uri: failedUri };
 const equalFailedSource = { uri: failedUri };
+const nextSource = { uri: 'https://example.com/next-icon.png' };
 const failedSourceWithHeaders = {
   uri: failedUri,
   headers: { Authorization: 'initial' },
+};
+const failedSourceWithNextHeaders = {
+  uri: failedUri,
+  headers: { Authorization: 'next' },
 };
 
 jest.mock('react-native', () => ({
@@ -90,16 +95,9 @@ describe('web ImageV2 error fallback', () => {
     expect(mockWebImage).not.toHaveBeenCalled();
   });
 
-  it.each<[string, ImageURISource]>([
-    ['uri', { uri: 'https://example.com/next-icon.png' }],
-    ['headers', { uri: failedUri, headers: { Authorization: 'next' } }],
-  ])('loads again when the failed request %s changes', (_, nextSource) => {
+  it('loads again when the failed source uri changes', () => {
     const { rerender, queryByText } = render(
-      <ImageV2
-        source={failedSourceWithHeaders}
-        fallback={fallback}
-        canRetry={false}
-      />,
+      <ImageV2 source={failedSource} fallback={fallback} canRetry={false} />,
     );
     failLastImageLoad();
     expect(queryByText('No image')).not.toBeNull();
@@ -112,5 +110,29 @@ describe('web ImageV2 error fallback', () => {
     expect(mockWebImage).toHaveBeenLastCalledWith(
       expect.objectContaining({ source: nextSource }),
     );
+  });
+
+  it('keeps the fallback when only headers change, which web image loading ignores', () => {
+    const { rerender, queryByText } = render(
+      <ImageV2
+        source={failedSourceWithHeaders}
+        fallback={fallback}
+        canRetry={false}
+      />,
+    );
+    failLastImageLoad();
+    expect(queryByText('No image')).not.toBeNull();
+
+    mockWebImage.mockClear();
+    rerender(
+      <ImageV2
+        source={failedSourceWithNextHeaders}
+        fallback={fallback}
+        canRetry={false}
+      />,
+    );
+
+    expect(queryByText('No image')).not.toBeNull();
+    expect(mockWebImage).not.toHaveBeenCalled();
   });
 });
