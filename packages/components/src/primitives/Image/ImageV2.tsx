@@ -11,7 +11,10 @@ import {
   StyleSheet,
 } from 'react-native';
 
-import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  usePropsAndStyle,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Skeleton } from '../Skeleton';
@@ -33,6 +36,8 @@ const fullSizeStyle = {
 
 const SHOULD_OPTIMIZE_RELATIVE_URL =
   platformEnv.isWeb || platformEnv.isWebEmbed;
+const IMAGE_LOADING_DELAY_MS = 100;
+const IMAGE_FADE_DURATION_MS = 140;
 
 const getRandomRetryDelay = () => Math.floor(Math.random() * 3) * 1000;
 
@@ -65,6 +70,7 @@ function getResizeMode({
 }
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
+  const theme = useTheme();
   const imageContainerRef = useRef<HTMLElement | null>(null);
   const [shouldLoadImage, setShouldLoadImage] = useState(!platformEnv.isWeb);
   const setImageContainerRef = useCallback((element: unknown) => {
@@ -147,9 +153,11 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     tintColor: _tintColor,
     cachePolicy: _cachePolicy,
     autoplay: _autoplay,
+    loadingStrategy = 'static',
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,6 +165,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   const placeholderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const loadStartedAtRef = useRef(0);
   const rawSource = useMemo(() => source ?? src, [source, src]);
   const rawResolvedSource = useMemo(
     () => resolveSource(rawSource),
@@ -246,17 +255,26 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
 
   const handleLoadStart = useCallback(() => {
     clearPlaceholderTimer();
+    setIsImageLoaded(false);
+    loadStartedAtRef.current =
+      typeof performance === 'undefined' ? Date.now() : performance.now();
     setIsPlaceholderVisible(false);
-    placeholderTimerRef.current = setTimeout(() => {
-      setIsPlaceholderVisible(true);
-    }, 150);
+    if (
+      (placeholder !== null && placeholder !== undefined) ||
+      loadingStrategy === 'skeleton'
+    ) {
+      placeholderTimerRef.current = setTimeout(() => {
+        setIsPlaceholderVisible(true);
+      }, IMAGE_LOADING_DELAY_MS);
+    }
     onLoadStart?.();
-  }, [clearPlaceholderTimer, onLoadStart]);
+  }, [clearPlaceholderTimer, loadingStrategy, onLoadStart, placeholder]);
 
   const handleLoad = useCallback(
     (event: ImageLoadEvent) => {
       clearPlaceholderTimer();
       setHasError(false);
+      setIsImageLoaded(true);
       setIsPlaceholderVisible(false);
       const nativeEvent = event.nativeEvent as unknown as {
         source?: { height?: number; uri?: string; width?: number };
@@ -283,6 +301,23 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
           height,
         },
       };
+      const now =
+        typeof performance === 'undefined' ? Date.now() : performance.now();
+      const reduceMotion =
+        typeof globalThis.matchMedia === 'function' &&
+        globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const imageElement = event.currentTarget as unknown as HTMLElement;
+      if (
+        !reduceMotion &&
+        loadStartedAtRef.current > 0 &&
+        now - loadStartedAtRef.current >= IMAGE_LOADING_DELAY_MS &&
+        typeof imageElement?.animate === 'function'
+      ) {
+        imageElement.animate([{ opacity: 0 }, { opacity: 1 }], {
+          duration: IMAGE_FADE_DURATION_MS,
+          easing: 'ease-out',
+        });
+      }
       onLoad?.(loadEvent);
       onDisplay?.();
     },
@@ -309,6 +344,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
         return;
       }
       clearPlaceholderTimer();
+      setIsImageLoaded(false);
       setIsPlaceholderVisible(false);
       setHasError(true);
       onError?.({ error: String(event.nativeEvent.error) });
@@ -338,6 +374,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
           {fallback as ReactElement}
         </Stack>
       );
+    }
+    if (hasError || isEmptyResolvedSource(resolvedSource)) {
+      return null;
     }
     return (
       <ImageComponent
@@ -377,15 +416,22 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       display: 'flex' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
+      backgroundColor:
+        loadingStrategy === 'none' || isImageLoaded
+          ? 'transparent'
+          : theme.bgStrong.val,
       ...style,
     }),
-    [style],
+    [isImageLoaded, loadingStrategy, style, theme.bgStrong.val],
   );
 
   return (
     <YStack ref={setImageContainerRef} style={containerStyle}>
       {content}
-      {isPlaceholderVisible ? (
+      {isPlaceholderVisible &&
+      (placeholder !== null && placeholder !== undefined
+        ? true
+        : loadingStrategy === 'skeleton') ? (
         <Stack position="absolute" width="100%" height="100%">
           {placeholder ?? <Skeleton width="100%" height="100%" />}
         </Stack>

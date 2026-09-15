@@ -2,156 +2,111 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 
 import {
   fetchMarketStockKLineData,
-  getMarketStockChartPeriod,
+  getMarketStockChartInterval,
 } from './fetchMarketStockKLineData';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {
-    serviceMarketV2: {
-      fetchMarketStockChart: jest.fn(),
-    },
-  },
+  default: { serviceMarketV2: { fetchMarketStockChart: jest.fn() } },
 }));
 
 const serviceMarketV2Mock = backgroundApiProxy.serviceMarketV2 as jest.Mocked<
   typeof backgroundApiProxy.serviceMarketV2
 >;
 
-afterEach(() => {
-  jest.clearAllMocks();
-  jest.restoreAllMocks();
-});
+afterEach(() => jest.clearAllMocks());
 
-describe('getMarketStockChartPeriod', () => {
+describe('stock K-line requests', () => {
   it.each([
-    ['1', '1h'],
-    ['3m', '1h'],
-    ['5m', '1d'],
-    ['15m', '1d'],
-    ['45m', '1d'],
-    ['30m', '1w'],
-    ['2H', '1w'],
-    ['1D', '1y'],
-    ['3D', '1y'],
-    ['1W', '1y'],
-    ['1M', '1y'],
-    ['1y', '1y'],
-  ] as const)(
-    'uses a source period with sufficient resolution for %s candles',
-    (interval, period) => {
-      expect(getMarketStockChartPeriod({ interval })).toBe(period);
+    ['1', '1min'],
+    ['1m', '1min'],
+    ['5m', '5min'],
+    ['15m', '15min'],
+    ['30m', '30min'],
+    ['1H', '1hour'],
+    ['4H', '4hour'],
+    ['1D', '1day'],
+    ['1W', '1week'],
+    ['1M', '1month'],
+  ])('maps %s to the backend interval %s', (interval, expected) => {
+    expect(getMarketStockChartInterval(interval)).toBe(expected);
+  });
+
+  it.each(['1s', '3m', '2H', '', 'invalid'])(
+    'rejects unsupported interval %s',
+    (interval) => {
+      expect(() => getMarketStockChartInterval(interval)).toThrow(
+        'Invalid stock K-line interval',
+      );
     },
   );
 
-  it('rejects unsupported interval units', () => {
-    expect(() => getMarketStockChartPeriod({ interval: '1s' })).toThrow(
-      'Invalid stock K-line interval: 1s',
-    );
-  });
-});
-
-describe('fetchMarketStockKLineData', () => {
-  it('aggregates source OHLC points into the selected interval', async () => {
+  it('requests seconds-based history and preserves backend OHLCV without aggregating it', async () => {
+    const first = { o: 1, h: 4, l: 0, c: 3, v: 10, t: 1_786_041_000 };
+    const second = { o: 3, h: 5, l: 2, c: 4, v: 20, t: 1_786_041_300 };
     serviceMarketV2Mock.fetchMarketStockChart.mockResolvedValue({
       stockId: 'AAPL',
-      period: '1d',
       currency: 'USD',
+      interval: '5min',
       points: [
-        { o: 2.5, h: 4, l: 2, c: 3.5, v: 30, t: 100_600 },
-        { o: 1, h: 2, l: 0, c: 1.5, v: 10, t: 100_000 },
-        { o: 3.5, h: 5, l: 3, c: 4.5, v: 40, t: 100_900 },
-        { o: 1.5, h: 3, l: 1, c: 2.5, v: 20, t: 100_300 },
+        second,
+        first,
+        { ...first, t: first.t - 300 },
+        { ...second, t: second.t + 300 },
       ],
     });
-
     const result = await fetchMarketStockKLineData({
-      interval: '15m',
+      interval: '5m',
       stockId: 'AAPL',
-      timeFrom: 100_000,
-      timeTo: 100_899,
+      timeFrom: first.t,
+      timeTo: second.t,
     });
-
     expect(serviceMarketV2Mock.fetchMarketStockChart.mock.calls).toEqual([
-      [{ stockId: 'AAPL', period: '1d', points: 500 }],
+      [{ stockId: 'AAPL', interval: '5min', from: first.t, to: second.t }],
     ]);
     expect(result).toEqual({
       pointType: 'ohlc',
-      points: [{ o: 1, h: 4, l: 0, c: 3.5, v: 60, t: 100_000 }],
-      total: 1,
+      points: [first, second],
+      total: 2,
     });
   });
 
-  it('anchors intraday candles to the market session start', async () => {
-    const sessionStart = 13 * 60 * 60 + 30 * 60;
+  it('requests successively older ranges without a point limit', async () => {
+    const points = Array.from({ length: 601 }, (_, index) => ({
+      t: 1_786_041_000 + index * 60,
+      o: 1,
+      h: 2,
+      l: 0,
+      c: 1,
+      v: 10,
+    }));
     serviceMarketV2Mock.fetchMarketStockChart.mockResolvedValue({
       stockId: 'AAPL',
-      period: '1w',
       currency: 'USD',
-      points: [
-        { o: 1, h: 2, l: 0, c: 1.5, v: 10, t: sessionStart },
-        {
-          o: 1.5,
-          h: 3,
-          l: 1,
-          c: 2.5,
-          v: 20,
-          t: sessionStart + 30 * 60,
-        },
-      ],
+      points,
     });
-
-    await expect(
-      fetchMarketStockKLineData({
-        interval: '1H',
-        stockId: 'AAPL',
-        timeFrom: sessionStart,
-        timeTo: sessionStart + 60 * 60,
-      }),
-    ).resolves.toEqual({
-      pointType: 'ohlc',
-      points: [{ o: 1, h: 3, l: 0, c: 2.5, v: 30, t: sessionStart }],
-      total: 1,
-    });
-    expect(
-      serviceMarketV2Mock.fetchMarketStockChart.mock.calls.at(-1)?.[0],
-    ).toEqual({
+    const from = points[0].t;
+    const to = points[600].t;
+    const result = await fetchMarketStockKLineData({
+      interval: '1m',
       stockId: 'AAPL',
-      period: '1w',
-      points: 500,
+      timeFrom: from,
+      timeTo: to,
     });
-  });
-
-  it('anchors weekly candles to Monday UTC', async () => {
-    const monday = Date.UTC(2026, 7, 24) / 1000;
+    expect(result.points).toHaveLength(601);
     serviceMarketV2Mock.fetchMarketStockChart.mockResolvedValue({
       stockId: 'AAPL',
-      period: '1y',
       currency: 'USD',
-      points: [
-        { o: 1, h: 2, l: 0, c: 1.5, v: 10, t: monday + 13 * 60 * 60 },
-        {
-          o: 1.5,
-          h: 3,
-          l: 1,
-          c: 2.5,
-          v: 20,
-          t: monday + 24 * 60 * 60 + 13 * 60 * 60,
-        },
-      ],
+      points: [],
     });
-
-    await expect(
-      fetchMarketStockKLineData({
-        interval: '1W',
-        stockId: 'AAPL',
-        timeFrom: monday,
-        timeTo: monday + 7 * 24 * 60 * 60,
-      }),
-    ).resolves.toEqual({
-      pointType: 'ohlc',
-      points: [{ o: 1, h: 3, l: 0, c: 2.5, v: 30, t: monday }],
-      total: 1,
+    await fetchMarketStockKLineData({
+      interval: '1m',
+      stockId: 'AAPL',
+      timeFrom: from - 3600,
+      timeTo: from - 1,
     });
+    expect(serviceMarketV2Mock.fetchMarketStockChart.mock.calls[1]).toEqual([
+      { stockId: 'AAPL', interval: '1min', from: from - 3600, to: from - 1 },
+    ]);
   });
 });

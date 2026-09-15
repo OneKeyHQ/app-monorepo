@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   LogLevel,
   NativeLogger,
@@ -308,11 +309,87 @@ describe('ServiceHardware SDK debug logging', () => {
 
 describe('ServiceHardware wallet session compatibility', () => {
   it.each([
-    { deviceType: EDeviceType.Pro2, connectId: 'PRO2_USB' },
-    { deviceType: EDeviceType.Neo, connectId: 'NEO_USB' },
+    {
+      deviceType: EDeviceType.Pro2,
+      connectId: 'PRO2_USB',
+      verificationData: {
+        sno: 'PRO2_SERIAL',
+        primeCode: 'TEST_CODE',
+        primeCodeStatus: 'available',
+      },
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Neo,
+      connectId: 'NEO_USB',
+      verificationData: {
+        sno: 'NEO_SERIAL',
+      },
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro2,
+      connectId: 'PRO2_USB',
+      verificationData: {
+        sno: 'PRO2_SERIAL',
+        primeCode: 'TEST_CODE',
+        primeCodeStatus: 'redeemed',
+      },
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: null,
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: undefined,
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: '' },
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: '   ' },
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: 123 },
+      verified: true,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: 'PRO_SERIAL' },
+      responseCode: 10_105,
+      verified: false,
+    },
+    {
+      deviceType: EDeviceType.Pro,
+      connectId: 'PRO_USB',
+      verificationData: { sno: '' },
+      responseCode: 10_105,
+      verified: false,
+    },
   ])(
-    'sends the same Pro-style UTF-8 challenge to the device and verify API for $deviceType',
-    async ({ deviceType, connectId }) => {
+    'uses the server verdict for genuine verification ($verified) with $deviceType: $verificationData',
+    async ({
+      deviceType,
+      connectId,
+      verificationData,
+      responseCode = 0,
+      verified,
+    }) => {
       const instanceId = '94537ae5-32e9-4417-860a-1d37c8decb3e';
       jest.mocked(settingsPersistAtom.get).mockResolvedValue({
         instanceId,
@@ -341,9 +418,9 @@ describe('ServiceHardware wallet session compatibility', () => {
           signature: 'signature',
         },
       });
-      const postMock = jest
-        .fn()
-        .mockResolvedValue({ data: { code: 0, message: 'OK' } });
+      const postMock = jest.fn().mockResolvedValue({
+        data: { code: responseCode, message: 'RESULT', data: verificationData },
+      });
       jest.spyOn(service, 'getClient').mockResolvedValue({
         post: postMock,
       } as never);
@@ -351,20 +428,28 @@ describe('ServiceHardware wallet session compatibility', () => {
         deviceVerify: deviceVerifySpy,
       } as never);
       service.getCompatibleConnectId = jest.fn().mockResolvedValue(connectId);
-      await expect(
-        service.firmwareAuthenticate({
-          device: {
-            connectId,
-            deviceType,
-          } as never,
-        }),
-      ).resolves.toMatchObject({
-        verified: true,
-        result: { code: 0, message: 'OK' },
-        payload: {
-          cert: 'cert',
-          signature: 'signature',
+      const result = await service.firmwareAuthenticate({
+        device: {
+          connectId,
+          deviceType,
+          deviceId: 'DEVICE_ID',
+          uuid: 'DEVICE_SERIAL',
+          name: 'OneKey',
+          commType: 'webusb',
         },
+      });
+      expect(result.verified).toBe(verified);
+      expect(result.result).toEqual({
+        code: responseCode,
+        message: 'RESULT',
+        data:
+          typeof verificationData?.sno === 'string'
+            ? verificationData.sno
+            : undefined,
+      });
+      expect(result.payload).toMatchObject({
+        cert: 'cert',
+        signature: 'signature',
       });
       expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
       const deviceVerifyArg = deviceVerifySpy.mock.calls[0]?.[1] as {
@@ -387,7 +472,7 @@ describe('ServiceHardware wallet session compatibility', () => {
         Buffer.from(data, 'utf8').toString('hex'),
       );
       expect(postMock).toHaveBeenCalledWith(
-        '/wallet/v1/hardware/verify',
+        '/wallet/v1/hardware/verify-v2',
         expect.objectContaining({
           deviceType,
           data: expect.stringMatching(
@@ -925,6 +1010,58 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 });
 
 describe('ServiceHardware SDK DeviceState synchronization', () => {
+  it('enriches connection analytics once for concurrent connect events', async () => {
+    const trackConnection = jest
+      .spyOn(defaultLogger.hardware.connection, 'hwDeviceConnected')
+      .mockImplementation((params) => params);
+    try {
+      const listeners = new Map<string, (payload: unknown) => void>();
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      await service.registerSdkEvents({
+        on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+          listeners.set(event, listener),
+        ),
+      } as unknown as Parameters<ServiceHardware['registerSdkEvents']>[0]);
+      const message = {
+        device: {
+          connectId: 'PRO_USB',
+          deviceId: 'PRO_DEVICE_ID',
+          serialNo: 'PRO_SERIAL',
+          commType: 'webusb',
+          features: {
+            deviceType: EDeviceType.Pro,
+            firmwareType: EFirmwareType.Universal,
+            serialNo: 'PRO_SERIAL',
+          },
+          state: {
+            identity: { serialNo: 'PRO_SERIAL' },
+            versions: { firmware: '4.16.0' },
+          },
+        },
+      };
+
+      listeners.get(DEVICE.CONNECT)?.(message);
+      listeners.get(DEVICE.CONNECT)?.(message);
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(trackConnection).toHaveBeenCalledTimes(1);
+      expect(trackConnection).toHaveBeenCalledWith({
+        deviceType: EDeviceType.Pro,
+        firmwareType: 'universal',
+        deviceId: 'PRO_DEVICE_ID',
+        serialNo: 'PRO_SERIAL',
+        firmwareVersion: '4.16.0',
+        transportType: 'webusb',
+      });
+    } finally {
+      trackConnection.mockRestore();
+    }
+  });
+
   it('按设备身份跟踪连接状态，而不是把任意硬件设备视为目标设备在线', async () => {
     const listeners = new Map<string, (payload: unknown) => void>();
     const service = new ServiceHardware({
@@ -2303,4 +2440,133 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
 
     expect(sdkCancel).not.toHaveBeenCalled();
   });
+});
+
+describe('Prime gift certificate verification', () => {
+  it.each([
+    [EDeviceType.Pro, { code: 0, data: { sno: 'DEVICE_SERIAL' } }, {}],
+    ...[EDeviceType.Pro, EDeviceType.Pro2].flatMap((deviceType) =>
+      (['available', 'processing', 'redeemed', 'future-status'] as const).map(
+        (status) =>
+          [
+            deviceType,
+            {
+              code: 0,
+              data: {
+                sno: 'DEVICE_SERIAL',
+                primeCode: 'TEST_CODE',
+                primeCodeStatus: status,
+              },
+            },
+            {
+              code: 'TEST_CODE',
+              status,
+            },
+          ] as const,
+      ),
+    ),
+    [
+      EDeviceType.Pro,
+      { code: 0, data: { sno: 'DEVICE_SERIAL', primeCodeStatus: 'redeemed' } },
+      {
+        status: 'redeemed',
+      },
+    ],
+    [
+      EDeviceType.Pro,
+      {
+        code: 0,
+        data: {
+          sno: 'DIFFERENT_SERIAL',
+          primeCode: 'TEST_CODE',
+          primeCodeStatus: 'available',
+        },
+      },
+      { code: 'TEST_CODE', status: 'available' },
+    ],
+    [
+      EDeviceType.Pro,
+      { code: 0, data: { primeCode: 'CODE_WITHOUT_SERIAL' } },
+      { code: 'CODE_WITHOUT_SERIAL' },
+    ],
+    [EDeviceType.Pro, { code: 0 }, {}],
+    [EDeviceType.Pro, { code: 0, data: null }, {}],
+    [
+      EDeviceType.Pro,
+      {
+        code: 10_104,
+        message: 'Device authentication failed',
+        data: {
+          sno: 'DEVICE_SERIAL',
+          primeCode: 'TEST_CODE',
+          primeCodeStatus: 'available',
+        },
+      },
+      undefined,
+    ],
+  ] as const)(
+    'uses server codes without serial or status gates for %s: %j',
+    async (deviceType, response, expected) => {
+      jest.mocked(settingsPersistAtom.get).mockResolvedValue({
+        instanceId: '94537ae5-32e9-4417-860a-1d37c8decb3e',
+      } as Awaited<ReturnType<typeof settingsPersistAtom.get>>);
+      jest.mocked(localDb.getExistingDevice).mockResolvedValue(undefined);
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (callback: () => Promise<unknown>) => callback(),
+          ),
+          closeHardwareUiStateDialog: jest.fn(async () => undefined),
+        },
+        serviceHardware: undefined as ServiceHardware | undefined,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as unknown as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      const deviceVerify = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { cert: 'certificate', signature: 'device-signature' },
+      });
+      const post = jest.fn().mockResolvedValue({ data: response });
+      jest
+        .spyOn(service, 'getClient')
+        .mockResolvedValue({ post } as unknown as Awaited<
+          ReturnType<typeof service.getClient>
+        >);
+      jest
+        .spyOn(service, 'getSDKInstance')
+        .mockResolvedValue({ deviceVerify } as unknown as Awaited<
+          ReturnType<typeof service.getSDKInstance>
+        >);
+      jest
+        .spyOn(service, 'getCompatibleConnectId')
+        .mockResolvedValue('DEVICE_USB');
+      const operation =
+        service.hardwareVerifyManager.firmwareAuthenticateForPrimeGift({
+          device: {
+            connectId: 'DEVICE_USB',
+            deviceId: 'DEVICE_ID',
+            uuid: 'DEVICE_SERIAL',
+            name: 'OneKey hardware wallet',
+            deviceType,
+          },
+          serialNo: 'DEVICE_SERIAL',
+        });
+      if (expected) {
+        await expect(operation).resolves.toEqual(expected);
+      } else {
+        await expect(operation).rejects.toThrow('Device authentication failed');
+      }
+      expect(deviceVerify).toHaveBeenCalledTimes(1);
+      expect(post).toHaveBeenCalledWith(
+        '/wallet/v1/hardware/verify-v2',
+        expect.objectContaining({
+          cert: 'certificate',
+          signature: 'device-signature',
+          deviceType,
+        }),
+      );
+    },
+  );
 });

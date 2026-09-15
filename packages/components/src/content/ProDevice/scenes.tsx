@@ -23,7 +23,7 @@ import type {
   IDeviceSceneContentProps,
   IDeviceSceneSpec,
 } from '../deviceSceneHost';
-import type { ViewStyle } from 'react-native';
+import type { ImageSourcePropType, ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
@@ -174,23 +174,31 @@ function EntryCounter({
  * suffix keeps the filename unique: webpack/rspack dev emits assets as bare
  * [name].[ext], where same-named files overwrite each other.
  *
+ * The wallpaper is the one per-model trait of these shared scenes: the
+ * Touch runs the same screens on its own glass but idles on its own art
+ * (OK-62203 — the Pro's wallpaper on a Touch read as a Pro), so the
+ * registry takes the source and the Pro's is only the default.
+ *
  * Decoded-size budget for this asset: iOS only keeps decoded bitmaps of
  * up to 2 MiB in its image cache (RCTImageCache), i.e. width x height must
  * stay under 524,288 px at 4 bytes per pixel. Past that every entrance
- * re-decodes the file and the pixels land mid-ramp. Current export is
- * 540x908 (~1.87 MiB) - keep any replacement under the line. */
+ * re-decodes the file and the pixels land mid-ramp. Current exports are
+ * 540x908 (Pro, ~1.87 MiB) and 480x800 (Touch, ~1.46 MiB) - keep any
+ * replacement under the line. */
 
 const WALLPAPER_SOURCE = require('./screen-connecting-pro.png');
 
-function ConnectingContent({ onReady }: IDeviceSceneContentProps) {
-  return (
-    <Image
-      source={WALLPAPER_SOURCE}
-      style={sceneStyles.wallpaper}
-      fadeDuration={0}
-      onLoad={onReady}
-    />
-  );
+function createConnectingContent(source: ImageSourcePropType) {
+  return function ConnectingContent({ onReady }: IDeviceSceneContentProps) {
+    return (
+      <Image
+        source={source}
+        style={sceneStyles.wallpaper}
+        fadeDuration={0}
+        onLoad={onReady}
+      />
+    );
+  };
 }
 
 /* ------------------------- enter PIN ------------------------- *
@@ -667,18 +675,23 @@ function PassphraseScreen({
 /**
  * The scene registry — the one table every per-scene trait lives in.
  * Adding a scene is adding one entry; nothing else consults a scene by
- * name. Built per panel color (see the header): a shell calls this once
- * at module scope with the black its screen composites over.
+ * name. Built per panel (see the header): a shell calls this once at
+ * module scope with the black its screen composites over and, when it
+ * idles on art of its own, the wallpaper the connecting scene shows.
  */
 export function createScenes(
   surface: string,
+  wallpaper: ImageSourcePropType = WALLPAPER_SOURCE,
 ): Record<IProDeviceScene, IDeviceSceneSpec> {
   const grilleNode = grille(surface);
   const PassphraseContent = ({ clock }: IDeviceSceneContentProps) => (
     <PassphraseScreen clock={clock} grilleNode={grilleNode} />
   );
   return {
-    connecting: { content: ConnectingContent, defersEntry: true },
+    connecting: {
+      content: createConnectingContent(wallpaper),
+      defersEntry: true,
+    },
     enterPin: { content: PinScreen, loop: PIN_LOOP },
     enterPassphrase: { content: PassphraseContent, loop: PASSPHRASE_LOOP },
     confirm: { content: ConfirmScreen, loop: CONFIRM_LOOP },

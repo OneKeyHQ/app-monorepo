@@ -19,6 +19,7 @@ import {
   usePerpsMaxBuilderFeeAtom,
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -92,6 +93,7 @@ function PerpCandleChartButtonMobile() {
         iconProps={{ color: '$iconSubdued' }}
         variant="tertiary"
         onPress={onPressCandleChart}
+        disabled={shouldRedirectOnboardingToTravelMode()}
       />
     </DebugRenderTracker>
   );
@@ -341,6 +343,7 @@ export function PerpTickerBarMobile({
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID={PerpTestIDs.MobileSettingsButton}
+          disabled={shouldRedirectOnboardingToTravelMode()}
           mr="$-4"
           showActivityCenterEntry
           showChartPositionSetting

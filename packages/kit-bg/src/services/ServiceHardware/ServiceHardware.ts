@@ -1935,12 +1935,19 @@ class ServiceHardware extends ServiceBase {
               firmwareType === EFirmwareType.BitcoinOnly
                 ? 'btconly'
                 : 'universal';
+            const { firmwareVersion } = await deviceUtils.getDeviceVersion({
+              device: { ...message.device, deviceType },
+              features,
+            });
             const trackingKey = `${deviceId}_${firmwareTypeStr}`;
             if (this.connectedDeviceTracked.has(trackingKey)) return;
             defaultLogger.hardware.connection.hwDeviceConnected({
               deviceType,
               firmwareType: firmwareTypeStr,
               deviceId,
+              serialNo: deviceUtils.getDeviceSerialNoFromFeatures(features),
+              firmwareVersion: firmwareVersion || undefined,
+              transportType: message.device.commType ?? undefined,
             });
             this.connectedDeviceTracked.add(trackingKey);
           } catch (_e) {
@@ -2611,8 +2618,11 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     refreshInfo?: boolean;
   }): Promise<IDeviceManagementSnapshot> {
-    const hardwareCallContext =
-      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    // The post-update refresh may run while USB is still re-enumerating.
+    // Keep it on the current transport without raising BLE pairing errors.
+    const hardwareCallContext = refreshInfo
+      ? EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+      : EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext,
@@ -3368,19 +3378,19 @@ class ServiceHardware extends ServiceBase {
     const resolvedTransport = await this.resolveHardwareTransport({
       connectId: params.connectId,
       featuresDeviceId: dbDevice.deviceId,
-      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      // Check the reachable device before the update page asks the user to connect USB.
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
     });
     const { connectId: compatibleConnectId, transportType } = resolvedTransport;
-    const forceProtocolDetection =
-      transportType === EHardwareTransportType.DesktopWebBle;
+    const isDesktopBle = transportType === EHardwareTransportType.DesktopWebBle;
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.getFeaturesWithoutCache({
           connectId: compatibleConnectId,
           params: {
             retryCount: 1,
-            forceProtocolDetection,
-            ...(forceProtocolDetection
+            // Update checks reuse the protocol confirmed during connection.
+            ...(isDesktopBle
               ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
               : {}),
           },
@@ -4508,6 +4518,8 @@ class ServiceHardware extends ServiceBase {
       return;
     }
 
+    // The dialog requested right before each throw is the one notice for
+    // that cause; the error itself stays quiet (no toast) — OK-62113.
     const hasBlePermission = !!(await checkBLEPermissions());
     if (!hasBlePermission) {
       appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
@@ -4515,6 +4527,7 @@ class ServiceHardware extends ServiceBase {
       });
       throw new deviceErrors.NeedBluetoothPermissions({
         payload: { connectId },
+        autoToast: false,
       });
     }
 
@@ -4525,6 +4538,7 @@ class ServiceHardware extends ServiceBase {
       });
       throw new deviceErrors.NeedBluetoothTurnedOn({
         payload: { connectId },
+        autoToast: false,
       });
     }
   }

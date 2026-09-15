@@ -5,7 +5,10 @@ describe('isTravelModeNetworkRequestAllowed', () => {
     ['utility', '/utility/v1/discover/dapp/homepage', 'get'],
     ['utility', '/utility/v2/market/basic-config', 'GET'],
     ['utility', '/utility/v1/market/tokens', 'get'],
+    ['utility', '/utility/v1/market/asset/list?type=top_coins', 'get'],
     ['utility', '/utility/v2/market/token/list/batch', 'post'],
+    ['utility', '/utility/v2/market/banner/token-list/banner-1', 'get'],
+    ['utility', '/utility/v2/market/banner/perps-token-list/banner-1', 'get'],
     ['swap', '/swap/v1/networks', undefined],
     ['swap', '/swap/v1/speed-config?networkId=evm--1', 'get'],
     ['swap', '/swap/v1/token/detail?networkId=evm--1', 'get'],
@@ -77,4 +80,31 @@ describe('isTravelModeNetworkRequestAllowed', () => {
       }),
     ).toBe(false);
   });
+
+  it.each(['token-list', 'stock-token-list'])(
+    'allows only the dynamic banner %s paths',
+    (endpoint) => {
+      expect(
+        isTravelModeNetworkRequestAllowed({
+          baseURL: 'https://utility.onekeycn.com',
+          method: 'get',
+          url: `/utility/v2/market/banner/${endpoint}/banner-1`,
+        }),
+      ).toBe(true);
+      expect(
+        isTravelModeNetworkRequestAllowed({
+          baseURL: 'https://utility.onekeycn.com',
+          method: 'get',
+          url: `/utility/v2/market/banner/${endpoint}`,
+        }),
+      ).toBe(true);
+      expect(
+        isTravelModeNetworkRequestAllowed({
+          baseURL: 'https://utility.onekeycn.com',
+          method: 'get',
+          url: `/utility/v2/market/banner/${endpoint}/banner-1/private`,
+        }),
+      ).toBe(false);
+    },
+  );
 });

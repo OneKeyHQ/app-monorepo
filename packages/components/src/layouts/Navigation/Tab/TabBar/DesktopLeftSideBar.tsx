@@ -298,6 +298,7 @@ function SidebarBottomItem({
   const renderTriggerMemo = useMemo(
     () => (
       <YStack
+        testID={route.name.toLowerCase()}
         p="$2"
         borderRadius="$2"
         bg={isActive ? '$bgActive' : undefined}
@@ -313,7 +314,7 @@ function SidebarBottomItem({
         />
       </YStack>
     ),
-    [isActive, onPress, iconName],
+    [isActive, onPress, iconName, route.name],
   );
 
   return (

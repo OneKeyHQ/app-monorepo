@@ -49,6 +49,7 @@ const mockPresentation = {
 let mockMissingNetworks = [{ networkId: 'a' }];
 let mockSearch = '';
 let mockIsNative = false;
+let mockIsDesktop = false;
 let mockState = {
   enabledNetworks: { a: true } as Record<string, boolean>,
   disabledNetworks: {} as Record<string, boolean>,
@@ -70,6 +71,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     get isNative() {
       return mockIsNative;
+    },
+    get isDesktop() {
+      return mockIsDesktop;
     },
   },
 }));
@@ -198,6 +202,7 @@ describe('portfolio NativeList selection adapter V2', () => {
     jest.clearAllMocks();
     mockSearch = '';
     mockIsNative = false;
+    mockIsDesktop = false;
     mockMissingNetworks = [{ networkId: 'a' }];
     mockState = { enabledNetworks: { a: true }, disabledNetworks: {} };
   });
@@ -229,6 +234,14 @@ describe('portfolio NativeList selection adapter V2', () => {
 
   it('centers the section index in the window on native platforms', () => {
     mockIsNative = true;
+    render(<HarnessV2 />);
+    expect(
+      getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,
+    ).toBe(true);
+  });
+
+  it('centers the section index in the window on desktop', () => {
+    mockIsDesktop = true;
     render(<HarnessV2 />);
     expect(
       getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,

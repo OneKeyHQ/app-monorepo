@@ -31,6 +31,7 @@ import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import { parseTokenDetailPreviewParam } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
@@ -48,11 +49,15 @@ import {
   useAutoRefreshTokenDetail,
   useResolvedMarketAssetRouteIdentity,
   useStockDetail,
+  useTokenDetail,
 } from './hooks';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
-import { buildMarketStockDetailPreview } from './utils/marketDetailPreview';
+import {
+  buildMarketStockDetailPreview,
+  hasValidMarketDetailPreview,
+} from './utils/marketDetailPreview';
 
 import type { NavigationAction } from '@react-navigation/routers';
 
@@ -68,16 +73,28 @@ function normalizeRouteBooleanParam(
 
 function LegacyTokenPreviewInitializer({
   preview,
+  stockTarget,
 }: {
   preview?: IMarketTokenDetailPreview;
+  stockTarget?: {
+    tokenAddress: string;
+    networkId: string;
+    isNative?: boolean;
+  };
 }) {
   const tokenDetailActions = useTokenDetailActions();
 
   useLayoutEffect(() => {
-    if (preview) {
+    if (stockTarget) {
+      // Stock navigation may intentionally retain an existing detail/request
+      // for the same variant. The action clears only when the identity changes.
+      tokenDetailActions.current.prepareStockTokenDetail(stockTarget);
+    } else if (preview) {
       tokenDetailActions.current.prepareTokenDetailPreview(preview);
+    } else if (!platformEnv.isNative) {
+      tokenDetailActions.current.clearTokenDetail();
     }
-  }, [preview, tokenDetailActions]);
+  }, [preview, stockTarget, tokenDetailActions]);
 
   return null;
 }
@@ -104,8 +121,13 @@ function MarketDetail({
     | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
 
-  const { isStockRoute, selectedTokenVariant, isTokenVariantPending } =
-    useStockDetail();
+  const {
+    isStockRoute,
+    selectedTokenVariant,
+    isTokenVariantPending,
+    stockPreview,
+  } = useStockDetail();
+  const { tokenDetailPreview: currentTokenDetailPreview } = useTokenDetail();
   const isRouteFocused = useIsFocused();
   const routeNetwork = ('network' in params ? params.network : '') ?? '';
   const routeNetworkId =
@@ -153,7 +175,8 @@ function MarketDetail({
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
   const marketTokenCategory = resolvedMarketAssetIdentity
     ? MARKET_TOP_COINS_CATEGORY_ID
-    : routeMarketTokenCategory;
+    : (routeMarketTokenCategory ??
+      (shouldSkipMarketDataFetch ? MARKET_TOP_COINS_CATEGORY_ID : undefined));
   const skipMarketDataFetch = normalizeRouteBooleanParam(
     'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
     false,
@@ -162,8 +185,12 @@ function MarketDetail({
     params.showFavoriteButton,
     true,
   );
-  const tokenDetailPreview =
+  const routeTokenDetailPreview =
     'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
+  const tokenDetailPreview = useMemo(
+    () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
+    [routeTokenDetailPreview],
+  );
   const resolvedTokenDetailPreview = useMemo(
     () =>
       resolvedMarketAssetIdentity && tokenDetailPreview
@@ -175,6 +202,27 @@ function MarketDetail({
           }
         : tokenDetailPreview,
     [resolvedMarketAssetIdentity, tokenDetailPreview],
+  );
+  // Stock navigation carries a separate stock preview instead of the token
+  // preview atom. It already provides enough content for the native shell to
+  // render while the stock variant and token detail requests settle.
+  const hasValidInitialContentPreview = hasValidMarketDetailPreview({
+    isStockRoute,
+    stockPreview,
+    previews: [resolvedTokenDetailPreview, currentTokenDetailPreview],
+    tokenAddress,
+    networkId,
+  });
+  const stockTokenDetailTarget = useMemo(
+    () =>
+      isStockRoute
+        ? {
+            tokenAddress,
+            networkId,
+            isNative: isNativeBoolean,
+          }
+        : undefined,
+    [isNativeBoolean, isStockRoute, networkId, tokenAddress],
   );
 
   // Track market entry analytics
@@ -240,7 +288,10 @@ function MarketDetail({
 
   return (
     <BtcMetadataProvider>
-      <LegacyTokenPreviewInitializer preview={resolvedTokenDetailPreview} />
+      <LegacyTokenPreviewInitializer
+        preview={resolvedTokenDetailPreview}
+        stockTarget={stockTokenDetailTarget}
+      />
       <Page>
         {isChartFullscreen && !platformEnv.isNative ? (
           <Page.Header headerShown={false} />
@@ -253,9 +304,11 @@ function MarketDetail({
           testID={MarketTestIDs.detailPage}
         >
           <MarketDetailResponsiveLayout
+            isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
-              isTokenVariantPending || isInitialTokenDetailPending
+              !hasValidInitialContentPreview &&
+              (isTokenVariantPending || isInitialTokenDetailPending)
             }
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}
@@ -265,6 +318,7 @@ function MarketDetail({
             isNative={isNativeBoolean}
             networkId={networkId}
             tokenAddress={tokenAddress}
+            isTokenDetailRequestPending={isInitialTokenDetailPending}
             marketTokenId={marketTokenId}
             marketAssetDetail={marketAssetDetail}
             isMarketAssetDetailLoading={isMarketAssetDetailLoading}

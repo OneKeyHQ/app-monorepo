@@ -153,6 +153,11 @@ const PortalGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Portal'),
 );
 
+const Pro2PrimeGiftGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Pro2PrimeGift'),
+);
+
 const AmountInputGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AmountInput'),
@@ -335,6 +340,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPortal,
     component: PortalGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPro2PrimeGift,
+    component: Pro2PrimeGiftGallery,
   },
   {
     name: EGalleryRoutes.ComponentToken,

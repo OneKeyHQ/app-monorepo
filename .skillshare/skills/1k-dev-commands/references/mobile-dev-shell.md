@@ -30,6 +30,9 @@ The selected simulator is booted if needed and awaited before app installation.
 An explicit `--device <UDID>` can also select a shutdown simulator. When the
 explicit UDID belongs to a connected physical device, the command prepares the
 iOS DevVendor artifacts and delegates to a local signed Xcode Debug build. The
+physical-device path checks for installed CocoaPods configuration before restoring
+vendor artifacts or starting Metro; if missing, run `yarn app:ios:pod-install`
+and retry. It never downloads a Simulator shell for a physical device. The
 physical-device path embeds the common HBC and manifest in the app instead of
 using a private Simulator DevSession. It owns an available Metro port, builds the
 signed app without letting Expo start another packager, installs it, and launches

@@ -8,7 +8,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  ETranslations,
+  isKnownTranslationKey,
+} from '@onekeyhq/shared/src/locale';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 
 import { getErrorAction } from './ErrorToasts';
@@ -46,6 +49,12 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
   ETranslations.hardware_device_passphrase_state_error,
   ETranslations.hardware_device_pin_state_error,
   ETranslations.update_update_in_official_web_tool_desc_copy,
+  // The Bluetooth readiness family is raised in the background runtime
+  // (the Android pre-check), whose fallback title is the bare class name
+  // (OK-62113).
+  ETranslations.hardware_bluetooth_need_turned_on_error,
+  ETranslations.hardware_bluetooth_requires_permission_error,
+  ETranslations.hardware_device_ble_location_disabled,
 ]);
 
 export function ErrorToastContainer() {
@@ -102,7 +111,8 @@ export function ErrorToastContainer() {
 
       const canLocalizeError =
         p.i18nKey &&
-        (MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
+        ((p.isHardwareError && isKnownTranslationKey(p.i18nKey)) ||
+          MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
           (p.i18nKey === ETranslations.wallet_action_failed &&
             typeof p.i18nInfo?.message === 'string'));
       const title = canLocalizeError

@@ -35,27 +35,6 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/kit/src/components/Loading', () => ({
   ListLoading: () => null,
 }));
-jest.mock(
-  '@onekeyhq/kit/src/views/Market/components/MarketListingStar',
-  () => ({
-    MarketListingStar: ({
-      renderButton,
-    }: {
-      renderButton: (identity: {
-        chainId: string;
-        contractAddress: string;
-        isNative: boolean;
-        tokenSymbol: string;
-      }) => ReactNode;
-    }) =>
-      renderButton({
-        chainId: 'btc--0',
-        contractAddress: '',
-        isNative: true,
-        tokenSymbol: 'BTC',
-      }),
-  }),
-);
 jest.mock('./metricColumns', () => ({
   getPopularTradingColumns: ({
     renderStarButton,
@@ -79,8 +58,9 @@ jest.mock('../RichTable', () => ({
   ),
 }));
 
-it('checks and toggles Home Top Coins with the resolved native token identity', () => {
+it('renders and toggles Home Top Coins without a Market provider', () => {
   const record: IFavoriteTokenDisplay = {
+    assetId: 'bitcoin',
     chainId: '',
     contractAddress: '',
     isNative: false,
@@ -116,15 +96,10 @@ it('checks and toggles Home Top Coins with the resolved native token identity', 
       onViewMore={jest.fn()}
     />,
   );
-  const resolvedRecord = {
-    ...record,
-    marketAsset: undefined,
-    chainId: 'btc--0',
-    isNative: true,
-  };
-  expect(isTokenInWatchList).toHaveBeenCalledWith(resolvedRecord);
-  fireEvent.click(
-    screen.getByRole('button', { name: 'market.remove_from_favorites' }),
-  );
-  expect(onStarPress).toHaveBeenCalledWith(resolvedRecord);
+  const star = screen.getByRole('button', {
+    name: 'market.remove_from_favorites',
+  });
+  expect(isTokenInWatchList).toHaveBeenCalledWith(record);
+  fireEvent.click(star);
+  expect(onStarPress).toHaveBeenCalledWith(record);
 });

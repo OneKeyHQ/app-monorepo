@@ -1348,7 +1348,7 @@ describe('ServiceHardwareUI.silenceDeviceStageForFirmwareWorkflow', () => {
     });
     const silence = jest
       .spyOn(service.deviceStageBurst, 'silence')
-      .mockResolvedValue();
+      .mockResolvedValue(true);
     return { service, silence, cancelStageAirGapScan };
   };
 

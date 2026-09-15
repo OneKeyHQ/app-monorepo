@@ -29,19 +29,6 @@ import {
 
 import type { ISimulationAsset, ISimulationGroup } from './utils';
 
-const DESKTOP_ASSET_LIST_STYLE = {
-  alignSelf: 'flex-start',
-  width: 'auto',
-} as const;
-const DESKTOP_ASSET_ROW_STYLE = { justifyContent: 'flex-start' } as const;
-const DESKTOP_NAME_SLOT_STYLE = { flexGrow: 0, flexShrink: 0 } as const;
-const DESKTOP_NAME_TEXT_STYLE = {
-  width: 56,
-  flexGrow: 0,
-  flexShrink: 0,
-} as const;
-const DESKTOP_AMOUNT_STYLE = { textAlign: 'left' } as const;
-
 type IProps = {
   simulationComponents?: IDisplayComponentSimulation[];
 };
@@ -60,21 +47,18 @@ function SignGuardMark() {
 function SimulationAssetText({ asset }: { asset: ISimulationAsset }) {
   const amount = getSimulationAssetAmount(asset);
   const direction = getSimulationAssetDirection(asset);
-  // Assets.tsx renders the direction sign unconditionally and hides only the
-  // numeric amount for non-ERC1155 NFTs — keep the lone '-'/'+' so an outgoing
-  // unique NFT still reads as leaving the wallet.
   const sign = getSimulationAssetSign(asset);
   const color = direction === ETransferDirection.In ? '$textSuccess' : '$text';
   return (
     <SizableText
       size="$bodyMdMedium"
       color={color}
-      numberOfLines={1}
-      textAlign="right"
-      flexShrink={0}
-      $gtMd={DESKTOP_AMOUNT_STYLE}
+      $platform-web={{
+        wordBreak: 'break-all',
+        overflowWrap: 'break-word',
+      }}
     >
-      {`${sign}${amount}`}
+      {`${sign}${amount}  ${getSimulationAssetLabel(asset)}`}
     </SizableText>
   );
 }
@@ -113,7 +97,7 @@ function SimulationAssetGroups({
   networkNameById: Record<string, string>;
 }) {
   return (
-    <YStack gap="$2.5" width="100%" $gtMd={DESKTOP_ASSET_LIST_STYLE}>
+    <YStack gap="$2.5" width="100%">
       {simulationGroups.map((group) => (
         <YStack key={group.id} gap="$2.5">
           {simulationGroups.length > 1 &&
@@ -127,38 +111,21 @@ function SimulationAssetGroups({
               key={`${group.id}-${asset.type}-${getSimulationAssetLabel(
                 asset,
               )}-${getSimulationAssetAmount(asset)}-${index}`}
-              justifyContent="space-between"
               alignItems="flex-start"
-              gap="$3"
-              $gtMd={DESKTOP_ASSET_ROW_STYLE}
+              gap="$2"
             >
-              <XStack
-                gap="$2"
-                alignItems="flex-start"
-                flex={1}
-                minWidth={0}
-                $gtMd={DESKTOP_NAME_SLOT_STYLE}
-              >
-                <Token
-                  size="xs"
-                  flexShrink={0}
-                  {...getSimulationAssetIconProps(asset)}
+              <Token
+                size="xs"
+                flexShrink={0}
+                {...getSimulationAssetIconProps(asset)}
+              />
+              <YStack flex={1} minWidth={0}>
+                <SimulationAssetText asset={asset} />
+                <SimulationAssetNetworkName
+                  asset={asset}
+                  networkNameById={networkNameById}
                 />
-                <YStack flex={1} minWidth={0} $gtMd={DESKTOP_NAME_TEXT_STYLE}>
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color="$text"
-                    numberOfLines={1}
-                  >
-                    {getSimulationAssetLabel(asset)}
-                  </SizableText>
-                  <SimulationAssetNetworkName
-                    asset={asset}
-                    networkNameById={networkNameById}
-                  />
-                </YStack>
-              </XStack>
-              <SimulationAssetText asset={asset} />
+              </YStack>
             </XStack>
           ))}
         </YStack>

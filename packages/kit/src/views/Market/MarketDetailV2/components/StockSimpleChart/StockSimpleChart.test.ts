@@ -4,6 +4,8 @@ import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
   fetchStockSimpleChartPoints,
+  resolveStockSimpleChartPreviousClose,
+  resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
@@ -48,6 +50,45 @@ describe('fetchStockSimpleChartPoints', () => {
     jest.restoreAllMocks();
   });
 
+  it.each([
+    ['1H', '1h'],
+    ['1D', '1d'],
+    ['1W', '1w'],
+    ['1M', '1m'],
+    ['1Y', '1y'],
+    ['All', 'all'],
+  ] as const)(
+    'requests %s without limiting or truncating points',
+    async (range, period) => {
+      const points = Array.from({ length: 601 }, (_, index) => ({
+        t: nowSeconds - (601 - index) * 86_400,
+        o: 100,
+        h: 102,
+        l: 99,
+        c: 101,
+        v: 1,
+      }));
+      serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+        stockId: 'AAPL',
+        period,
+        currency: 'USD',
+        points,
+      });
+      const result = await fetchStockSimpleChartPoints({
+        isNative: false,
+        networkId: '',
+        priceMode: 'share',
+        range,
+        stockId: 'AAPL',
+        tokenAddress: '',
+      });
+      expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
+        [{ stockId: 'AAPL', period }],
+      ]);
+      expect(result).toEqual(points.map((point) => [point.t, point.c]));
+    },
+  );
+
   it('keeps the latest trading hour after the stock market closes', async () => {
     const lastTradeSeconds = nowSeconds - 12 * 60 * 60;
     serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
@@ -84,7 +125,7 @@ describe('fetchStockSimpleChartPoints', () => {
     });
 
     expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
-      [{ stockId: 'AAPL', period: '1h', points: 100 }],
+      [{ stockId: 'AAPL', period: '1h' }],
     ]);
     expect(result).toEqual([
       [lastTradeSeconds - 30 * 60, 100],
@@ -122,11 +163,11 @@ describe('fetchStockSimpleChartPoints', () => {
     expect(result).toEqual([[lastTradeSeconds, 101]]);
   });
 
-  it('trims the one-month share chart from the latest trading point', async () => {
+  it('keeps every returned point in the one-month share chart', async () => {
     const lastTradeSeconds = nowSeconds - 15 * 24 * 60 * 60;
     serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
       stockId: 'AAPL',
-      period: '1y',
+      period: '1m',
       currency: 'USD',
       points: [
         {
@@ -166,10 +207,11 @@ describe('fetchStockSimpleChartPoints', () => {
     });
 
     expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
-      [{ stockId: 'AAPL', period: '1y', points: 180 }],
+      [{ stockId: 'AAPL', period: '1m' }],
     ]);
     expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toHaveLength(0);
     expect(result).toEqual([
+      [lastTradeSeconds - 31 * 24 * 60 * 60, 100],
       [lastTradeSeconds - 20 * 24 * 60 * 60, 101],
       [lastTradeSeconds, 102],
     ]);
@@ -446,7 +488,7 @@ describe('fetchStockSimpleChartPoints', () => {
     });
 
     expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
-      [{ stockId: 'AAPL', period: 'all', points: 100 }],
+      [{ stockId: 'AAPL', period: 'all' }],
     ]);
   });
 
@@ -523,5 +565,95 @@ describe('stock simple chart request identity', () => {
     });
 
     expect(secondVariant).not.toEqual(firstVariant);
+  });
+});
+
+describe('resolveStockSimpleChartPreviousClose', () => {
+  const stockDetail = { previousClose: '328.21' };
+
+  it('frames the intraday share ranges with the reported previous close', () => {
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail,
+      }),
+    ).toBe(328.21);
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1H',
+        stockDetail,
+      }),
+    ).toBe(328.21);
+  });
+
+  it('stays off for longer ranges, token price mode, and missing quotes', () => {
+    for (const range of ['1W', '1M', '1Y', 'All'] as const) {
+      expect(
+        resolveStockSimpleChartPreviousClose({
+          priceMode: 'share',
+          range,
+          stockDetail,
+        }),
+      ).toBeUndefined();
+    }
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'token',
+        range: '1D',
+        stockDetail,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail: undefined,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1D',
+        stockDetail: { previousClose: '' },
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('resolveStockSimpleChartPulseLastPoint', () => {
+  it('always pulses crypto, which trades around the clock', () => {
+    expect(resolveStockSimpleChartPulseLastPoint({})).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockDetail: null,
+        tokenStock: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('pulses a stock only while its market is open', () => {
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockId: 'AAPL',
+        stockDetail: { marketStatus: { isOpen: true } },
+      }),
+    ).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({
+        stockId: 'AAPL',
+        stockDetail: { marketStatus: { isOpen: false } },
+      }),
+    ).toBe(false);
+    expect(resolveStockSimpleChartPulseLastPoint({ stockId: 'AAPL' })).toBe(
+      false,
+    );
+    expect(
+      resolveStockSimpleChartPulseLastPoint({ tokenStock: { isOpen: true } }),
+    ).toBe(true);
+    expect(
+      resolveStockSimpleChartPulseLastPoint({ tokenStock: { isOpen: false } }),
+    ).toBe(false);
   });
 });

@@ -10,8 +10,9 @@ import {
   Toast,
   XStack,
   YStack,
+  useClipboard,
+  useDialogInstance,
 } from '@onekeyhq/components';
-import { useKeylessWalletExistsLocal } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -21,80 +22,77 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { downloadAsFile } from '../../../utils/downloadAsFile';
 import { OnboardingTestIDs } from '../testIDs';
 
-export function KeylessWalletBackupInfo({
+import { showCloudBackupPasswordDialog } from './CloudBackupDialogs';
+
+function KeylessWalletBackupDetails({
   backupRecordId,
 }: {
   backupRecordId?: string;
 }) {
   const intl = useIntl();
-  const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
-  const isCloudBackupSupportedPlatform =
-    platformEnv.isNativeIOS ||
-    platformEnv.isNativeAndroid ||
-    platformEnv.isDesktopMac;
+  const provider = platformEnv.isNativeAndroid ? 'Google Drive' : 'iCloud';
+  const dialog = useDialogInstance();
 
-  const handleShowDetails = useCallback(() => {
-    const provider = platformEnv.isNativeAndroid ? 'Google Drive' : 'iCloud';
-
-    Dialog.show({
-      testID: OnboardingTestIDs.iCloudBackupKeylessWalletDialog,
-      showHeader: false,
-      showFooter: false,
-      renderContent: (
-        <YStack alignItems="center" px="$3" pt="$8" pb="$8">
-          <Icon name="CloudOutline" size="$16" color="$iconSubdued" />
-          <SizableText
-            maxWidth="$80"
-            mt="$8"
-            size="$headingXl"
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.backup_keyless_no_cloud_title,
-            })}
-          </SizableText>
-          <SizableText
-            maxWidth="$80"
-            mt="$4"
-            size="$bodyLg"
-            color="$textSubdued"
-            textAlign="center"
-          >
-            {intl.formatMessage(
-              { id: ETranslations.backup_keyless_no_cloud_google_desc },
-              { provider },
-            )}
-          </SizableText>
-        </YStack>
-      ),
-    });
-  }, [intl]);
-
-  const handleDownload = useCallback(async () => {
+  const { copyText } = useClipboard();
+  const handleDownload = useCallback(() => {
     if (!backupRecordId) {
       throw new OneKeyLocalError('Backup record ID is required');
     }
-    const { default: backgroundApiProxy } =
-      await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-    const backup = await backgroundApiProxy.serviceCloudBackupV2.download({
-      recordId: backupRecordId,
+    const passwordDialog = showCloudBackupPasswordDialog({
+      intl,
+      isRestoreAction: true,
+      description:
+        'Enter your cloud backup password to export a ZIP with a new, random extraction password. The JSON inside contains decrypted wallet data.',
+      onSubmit: async (password) => {
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+        const { archiveBase64, password: zipPassword } =
+          await backgroundApiProxy.serviceCloudBackupV2.exportBackupArchive({
+            recordId: backupRecordId,
+            password,
+          });
+        if (!passwordDialog.isExist()) return;
+        await passwordDialog.close();
+        await downloadAsFile({
+          content: archiveBase64,
+          filename: `onekey-cloud-backup-${Date.now()}.zip`,
+          encoding: 'base64',
+          mimeType: 'application/zip',
+          UTI: 'public.zip-archive',
+        });
+        // Native sharing resolves on dismissal, including cancellation.
+        Dialog.show({
+          title: 'ZIP extraction password',
+          description:
+            'Copy and save this password to extract this ZIP. Every export generates a new password.',
+          dismissOnOverlayPress: false,
+          renderContent: (
+            <YStack gap="$4">
+              <SizableText userSelect="text" textAlign="center">
+                {zipPassword}
+              </SizableText>
+              <Button
+                testID="cloud-backup-copy-zip-password"
+                onPress={() => copyText(zipPassword)}
+              >
+                Copy password
+              </Button>
+            </YStack>
+          ),
+          showCancelButton: false,
+          onConfirmText: intl.formatMessage({ id: ETranslations.global_done }),
+        });
+      },
     });
-    if (!backup?.content) {
-      throw new OneKeyLocalError('Backup data is empty');
-    }
-    await downloadAsFile({
-      content: backup.content,
-      filename: `onekey-cloud-backup-${backupRecordId}.json`,
-    });
-  }, [backupRecordId]);
+  }, [backupRecordId, copyText, intl]);
 
   const [isDownloading, setIsDownloading] = useState(false);
   const handleDownloadPress = useCallback(async () => {
     if (isDownloading) return;
     setIsDownloading(true);
     try {
-      await handleDownload();
-      Toast.success({ title: 'Backup data downloaded' });
+      await dialog.close();
+      handleDownload();
     } catch (error) {
       errorToastUtils.toastIfErrorDisable(error);
       Toast.error({
@@ -103,16 +101,80 @@ export function KeylessWalletBackupInfo({
     } finally {
       setIsDownloading(false);
     }
-  }, [handleDownload, isDownloading]);
+  }, [dialog, handleDownload, isDownloading]);
 
-  if (!isCloudBackupSupportedPlatform || !isKeylessWalletExistsLocal) {
+  return (
+    <YStack alignItems="center" px="$3" pt="$8" pb="$8">
+      <Icon name="CloudOutline" size="$16" color="$iconSubdued" />
+      <MultipleClickStack
+        devSettingsOnly
+        mt="$8"
+        alignItems="center"
+        testID={OnboardingTestIDs.iCloudBackupKeylessWalletDialogTitle}
+        debugComponent={
+          backupRecordId ? (
+            <Button
+              mt="$4"
+              testID={OnboardingTestIDs.iCloudBackupDevDownloadDataBtn}
+              loading={isDownloading}
+              onPress={handleDownloadPress}
+            >
+              Download Backup Data
+            </Button>
+          ) : null
+        }
+      >
+        <SizableText maxWidth="$80" size="$headingXl" textAlign="center">
+          {intl.formatMessage({
+            id: ETranslations.backup_keyless_no_cloud_title,
+          })}
+        </SizableText>
+      </MultipleClickStack>
+      <SizableText
+        maxWidth="$80"
+        mt="$4"
+        size="$bodyLg"
+        color="$textSubdued"
+        textAlign="center"
+      >
+        {intl.formatMessage(
+          { id: ETranslations.backup_keyless_no_cloud_google_desc },
+          { provider },
+        )}
+      </SizableText>
+    </YStack>
+  );
+}
+
+export function KeylessWalletBackupInfo({
+  backupRecordId,
+}: {
+  backupRecordId?: string;
+}) {
+  const intl = useIntl();
+  const isCloudBackupSupportedPlatform =
+    platformEnv.isNativeIOS ||
+    platformEnv.isNativeAndroid ||
+    platformEnv.isDesktopMac;
+
+  const handleShowDetails = useCallback(() => {
+    Dialog.show({
+      testID: OnboardingTestIDs.iCloudBackupKeylessWalletDialog,
+      showHeader: false,
+      showFooter: false,
+      renderContent: (
+        <KeylessWalletBackupDetails backupRecordId={backupRecordId} />
+      ),
+    });
+  }, [backupRecordId]);
+
+  if (!isCloudBackupSupportedPlatform) {
     return null;
   }
 
   return (
-    <MultipleClickStack
-      devSettingsOnly
-      onSinglePress={handleShowDetails}
+    <YStack
+      onPress={handleShowDetails}
       testID={OnboardingTestIDs.iCloudBackupKeylessWalletHint}
       accessibilityRole="button"
       bg="$bgSubdued"
@@ -122,17 +184,6 @@ export function KeylessWalletBackupInfo({
       cursor="pointer"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
-      debugComponent={
-        platformEnv.isDev && backupRecordId ? (
-          <Button
-            testID={OnboardingTestIDs.iCloudBackupDevDownloadDataBtn}
-            loading={isDownloading}
-            onPress={handleDownloadPress}
-          >
-            Download Backup Data
-          </Button>
-        ) : null
-      }
     >
       <XStack userSelect="none" gap="$3" alignItems="flex-start">
         <Icon name="LockOutline" size="$5" color="$iconSubdued" mt="$0.5" />
@@ -148,6 +199,6 @@ export function KeylessWalletBackupInfo({
           mt="$0.5"
         />
       </XStack>
-    </MultipleClickStack>
+    </YStack>
   );
 }

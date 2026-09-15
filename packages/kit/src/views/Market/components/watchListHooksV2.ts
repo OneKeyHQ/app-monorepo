@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import {
@@ -31,12 +32,20 @@ export const useWatchListV2Action = () => {
   });
 
   const removeFromWatchListV2 = useCallback(
-    async (chainId: string, contractAddress: string) => {
+    async (
+      chainId: string,
+      contractAddress: string,
+      listing?: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
+    ) => {
       if (!isMounted) {
         return false;
       }
       try {
-        await actions.current.removeFromWatchListV2(chainId, contractAddress);
+        await actions.current.removeFromWatchListV2(
+          chainId,
+          contractAddress,
+          listing,
+        );
         return true;
       } catch (_error) {
         Toast.error({
@@ -56,22 +65,25 @@ export const useWatchListV2Action = () => {
         chainId: string;
         contractAddress: string;
         isNative?: boolean;
+        assetId?: string;
+        stockId?: string;
       }>,
     ) => {
       if (!isMounted) {
         return false;
       }
-      // Calculate sortIndex to make new items appear at the top
-      const firstSortIndex =
-        isMounted && watchListData.length > 0
-          ? (watchListData[0].sortIndex ?? 1000)
-          : 1000;
+      // New favorites go on top; perps stars share this rule.
+      const sortIndexes = sortUtils.buildTopSortIndexes({
+        oldList: watchListData,
+        count: items.length,
+      });
 
       const watchListItems: IMarketWatchListItemV2[] = items.map(
         (item, index) => ({
+          ...item,
           chainId: item.chainId,
           contractAddress: item.contractAddress,
-          sortIndex: firstSortIndex - (index + 1),
+          sortIndex: sortIndexes[index],
           isNative: item.isNative ?? false,
         }),
       );

@@ -11,12 +11,17 @@ import {
   ConnectTimeoutError,
   DeviceBondError,
   DeviceMethodCallTimeout,
+  NeedBluetoothTurnedOn,
   UserCancel,
 } from '../errors/hardwareErrors';
 import { OneKeyLocalError } from '../errors/localError';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
-import { convertDeviceError, isOneKeyHardwareError } from './deviceErrorUtils';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+  isOneKeyHardwareError,
+} from './deviceErrorUtils';
 import errorToastUtils from './errorToastUtils';
 
 describe('isOneKeyHardwareError', () => {
@@ -248,5 +253,29 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
       expect.anything(),
     );
     emitSpy.mockRestore();
+  });
+});
+
+describe('convertDeviceResponse thrown SDK errors', () => {
+  it('keeps the Bluetooth-off code and key when the transport throws', async () => {
+    const thrown = Object.assign(
+      new Error('Bluetooth required to be turned on'),
+      { errorCode: HardwareErrorCode.BlePermissionError },
+    );
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(
+      convertDeviceResponse(async () => {
+        throw thrown;
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.BlePermissionError,
+      key: 'hardware.bluetooth_need_turned_on_error',
+    });
+    await expect(
+      convertDeviceResponse(async () => {
+        throw thrown;
+      }),
+    ).rejects.toBeInstanceOf(NeedBluetoothTurnedOn);
   });
 });

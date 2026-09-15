@@ -15,7 +15,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
@@ -38,15 +37,18 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { MarketStarV2 } from '../../components/MarketStarV2';
 import { MarketTooltipLabel } from '../../components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
+} from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
+import { MarketAboutDescription } from '../components/MarketAboutDescription';
 import {
   STOCK_ANALYST_GAUGE_HEIGHT,
   STOCK_ANALYST_GAUGE_WIDTH,
   StockAnalystGauge,
   parseStockAnalystRatingCounts,
 } from '../components/StockAnalystGauge';
-import { stockFinancialLabels } from '../components/StockFinancials/stockFinancialLabels';
 import { StockFinancials } from '../components/StockFinancials/StockFinancials';
 import {
   type IStockSimpleChartRange,
@@ -54,7 +56,6 @@ import {
   StockSimpleChart,
   TOKEN_SIMPLE_CHART_RANGES,
 } from '../components/StockSimpleChart';
-import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
 import { useStockDetail } from '../hooks/StockDetailContext';
@@ -85,10 +86,10 @@ import {
 } from './components/marketSimpleChartConstants';
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
+import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import {
   STOCK_DETAIL_COLUMN_GAP,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
-  STOCK_DETAIL_TRADE_PANEL_WIDTH,
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
@@ -194,18 +195,19 @@ function StockPageHeader({
       />
 
       {/* The stock route can share the listing before any token variant
-          resolves, so the row also stands on a bare `stockId`. The favorite
-          button still needs a real chain/contract identity. */}
+          resolves, so the row also stands on a bare `stockId`.
+          Favorites use the stock ID independently of the selected token. */}
       {tokenActionIdentity || stockId ? (
         <XStack alignItems="center" gap="$4">
-          {showFavoriteButton && tokenActionIdentity ? (
+          {showFavoriteButton && (stockId || tokenActionIdentity) ? (
             <MarketStarV2
-              chainId={tokenActionIdentity.networkId}
-              contractAddress={tokenActionIdentity.address}
+              stockId={stockId}
+              chainId={tokenActionIdentity?.networkId ?? ''}
+              contractAddress={tokenActionIdentity?.address ?? ''}
               size="small"
               customIconSize="$5"
               from={EWatchlistFrom.Detail}
-              tokenSymbol={tokenActionIdentity.symbol}
+              tokenSymbol={stockDetail?.symbol ?? tokenActionIdentity?.symbol}
               isNative={isNative}
             />
           ) : null}
@@ -225,15 +227,14 @@ function StockPageHeader({
   );
 }
 
-// The design shows the move with two decimals ("+$9.46") while the derived and
-// scrubbed figures carry full precision, so clamp for display — but only above
-// one cent, sub-cent moves keep the price formatter's adaptive precision.
+// The design shows the move with two decimals ("+$9.46") while the derived
+// figure carries full precision, so clamp for display — but only above one
+// cent, sub-cent moves keep the price formatter's adaptive precision.
 function roundPriceChangeForDisplay(value: BigNumber) {
   return value.abs().gte(0.01) ? value.decimalPlaces(2) : value;
 }
 
-// Live headline price. Split out of the header so the scrub branch can render a
-// plain figure without ever reaching MarketTokenPrice's cache.
+// Live headline price.
 function StockLivePrice({
   price,
   priceMode,
@@ -278,13 +279,9 @@ function StockLivePrice({
 function StockPriceHeader({
   priceMode,
   onPriceModeChange,
-  hoverPoint,
 }: {
   priceMode: IMarketPriceSource;
   onPriceModeChange: (mode: IMarketPriceSource) => void;
-  // Set while the pointer scrubs the simple chart: the header then reads the
-  // point under the crosshair instead of the live quote.
-  hoverPoint?: IStockPriceLineChartHoverPoint;
 }) {
   const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
@@ -337,32 +334,7 @@ function StockPriceHeader({
     });
   }, [stockDetail, tokenDetail?.stock, selectedTokenVariant]);
 
-  // Scrubbing only redirects the two figures on the price line: the headline
-  // becomes the hovered price and the move beside it is measured from the first
-  // point of the range, both in the places they already occupy. The
-  // market-status badge stays put, and the moment being read is answered by the
-  // label that follows the crosshair inside the plot. The scrub price is
-  // rendered outside MarketTokenPrice on purpose — that component caches the
-  // last price it saw and would poison the live quote.
-  const { color: hoverChangeColor } = formatPriceChangeDisplay(
-    hoverPoint?.changePercent,
-  );
-  const hoverChangeValue = useMemo(() => {
-    if (!hoverPoint?.changeValue) {
-      return undefined;
-    }
-    const value = new BigNumber(hoverPoint.changeValue);
-    return value.isFinite()
-      ? roundPriceChangeForDisplay(value).toFixed()
-      : undefined;
-  }, [hoverPoint?.changeValue]);
-  const changeValueText = hoverPoint
-    ? hoverChangeValue
-    : priceChangeValue?.toFixed();
-  const changePercentText = hoverPoint
-    ? hoverPoint.changePercent
-    : priceChangePercent;
-  const changeColor = hoverPoint ? hoverChangeColor : priceChangeColor;
+  const changeValueText = priceChangeValue?.toFixed();
 
   return (
     <XStack
@@ -377,39 +349,29 @@ function StockPriceHeader({
           Reverse wrapping places the controls above the quote on narrow charts. */}
       <YStack flexGrow={1} flexShrink={1} minWidth={0} gap="$2">
         <XStack alignItems="baseline" flexWrap="wrap" gap="$3.5">
-          {hoverPoint ? (
-            <NumberSizeableText
-              testID="stock-price-hover-value"
-              size="$heading4xl"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-            >
-              {hoverPoint.price}
-            </NumberSizeableText>
-          ) : (
-            <MarketTooltipLabel
-              testID="stock-price-tooltip-trigger"
-              // The row baseline-aligns this figure with the change beside it.
-              alignSelf="baseline"
-              tooltip={intl.formatMessage({
-                id: isSharePrice
-                  ? ETranslations.market_stock_price_underlying_tooltip
-                  : ETranslations.market_token_price_onchain_tooltip,
-              })}
-            >
-              <StockLivePrice
-                price={price}
-                priceMode={priceMode}
-                isSharePrice={isSharePrice}
-              />
-            </MarketTooltipLabel>
-          )}
+          <MarketTooltipLabel
+            testID="stock-price-tooltip-trigger"
+            hovering
+            // The row baseline-aligns this figure with the change beside it.
+            alignSelf="baseline"
+            tooltip={intl.formatMessage({
+              id: isSharePrice
+                ? ETranslations.market_stock_price_underlying_tooltip
+                : ETranslations.market_token_price_onchain_tooltip,
+            })}
+          >
+            <StockLivePrice
+              price={price}
+              priceMode={priceMode}
+              isSharePrice={isSharePrice}
+            />
+          </MarketTooltipLabel>
           <XStack alignItems="baseline" flexShrink={0} gap="$1.5">
             {changeValueText ? (
               <NumberSizeableText
                 testID="stock-price-change-value"
                 size="$bodyLgMedium"
-                color={changeColor}
+                color={priceChangeColor}
                 formatter="price"
                 formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
               >
@@ -418,15 +380,15 @@ function StockPriceHeader({
             ) : null}
             <XStack alignItems="baseline">
               {changeValueText ? (
-                <SizableText size="$bodyLgMedium" color={changeColor}>
+                <SizableText size="$bodyLgMedium" color={priceChangeColor}>
                   (
                 </SizableText>
               ) : null}
               <PriceChangePercentage size="$bodyLgMedium">
-                {changePercentText ?? '--'}
+                {priceChangePercent ?? '--'}
               </PriceChangePercentage>
               {changeValueText ? (
-                <SizableText size="$bodyLgMedium" color={changeColor}>
+                <SizableText size="$bodyLgMedium" color={priceChangeColor}>
                   )
                 </SizableText>
               ) : null}
@@ -563,7 +525,6 @@ export function StockChart({
   priceMode,
   chartMode,
   isChartSwitchDisabled,
-  onHoverChange,
   onChartSwitch,
   isChartFullscreen,
   onEnterChartFullscreen,
@@ -575,7 +536,6 @@ export function StockChart({
   priceMode: IMarketPriceSource;
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
-  onHoverChange: (point: IStockPriceLineChartHoverPoint | undefined) => void;
   onChartSwitch: () => void;
   isChartFullscreen: boolean;
   onEnterChartFullscreen: () => void;
@@ -670,11 +630,7 @@ export function StockChart({
       ) : null}
       <YStack width="100%" flex={1} minHeight={0} position="relative">
         {isSimpleMode ? (
-          <StockSimpleChart
-            range={range}
-            priceMode={priceMode}
-            onHoverChange={onHoverChange}
-          />
+          <StockSimpleChart range={range} priceMode={priceMode} />
         ) : (
           <>
             <Stack flex={1} minWidth={0} overflow="hidden">
@@ -751,7 +707,7 @@ function StockOverviewGrid() {
       },
       {
         label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_24h_volume,
+          id: ETranslations.market_stock_volume__title,
         }),
         tooltip: intl.formatMessage({
           id: ETranslations.market_stock_volume_tooltip,
@@ -1086,20 +1042,11 @@ function StockAnalystRatings() {
   );
 }
 
-// react-native-web does not fire `onTextLayout` reliably, so the toggle is
-// gated on a character count that approximates two lines at this section width
-// instead of measuring the rendered text. Wider glyphs (CJK) can exceed the
-// approximation, so the clamp is only applied when the toggle is offered —
-// short-but-wide text renders unclamped rather than being cut with no way to
-// expand it.
-const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
-
 function StockAbout() {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const stock = tokenDetail?.stock;
   const ticker =
     stockDetail?.symbol ||
@@ -1116,8 +1063,6 @@ function StockAbout() {
     about?.description ??
     stockDetail?.introduction ??
     intl.formatMessage({ id: ETranslations.market_stock_about_unavailable });
-  const canExpandDescription =
-    description.length > STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH;
 
   return (
     <YStack
@@ -1172,33 +1117,11 @@ function StockAbout() {
             </SizableText>
           </YStack>
         </XStack>
-        <YStack gap="$2" alignItems="flex-start">
-          <SizableText
-            testID="stock-about-description"
-            size="$bodyMd"
-            color="$textSubdued"
-            numberOfLines={
-              canExpandDescription && !isDescriptionExpanded ? 2 : undefined
-            }
-          >
-            {description}
-          </SizableText>
-          {canExpandDescription ? (
-            <Button
-              testID="stock-about-description-toggle"
-              size="small"
-              variant="tertiary"
-              alignSelf="flex-start"
-              onPress={() => setIsDescriptionExpanded((value) => !value)}
-            >
-              {intl.formatMessage({
-                id: isDescriptionExpanded
-                  ? ETranslations.global_show_less
-                  : ETranslations.global_show_more,
-              })}
-            </Button>
-          ) : null}
-        </YStack>
+        <MarketAboutDescription
+          description={description}
+          testID="stock-about-description"
+          toggleTestID="stock-about-description-toggle"
+        />
       </YStack>
     </YStack>
   );
@@ -1273,9 +1196,7 @@ function StockOverview({
           </YStack>
           <StockEventsSection />
           <StockAnalystRatings />
-          {stockId ? (
-            <StockFinancials stockId={stockId} labels={stockFinancialLabels} />
-          ) : null}
+          {stockId ? <StockFinancials stockId={stockId} /> : null}
           <StockNewsSection />
           <StockAbout />
         </>
@@ -1296,9 +1217,11 @@ function StockOverview({
 export function StockDesktopLayout({
   marketTradingView,
   swapToken,
+  swapInputDraftKey,
   chartMode,
   isChartSwitchDisabled,
   disableTrade,
+  isTradeLoading,
   showFavoriteButton,
   isChartFullscreen,
   chartFullscreenZIndex,
@@ -1307,9 +1230,11 @@ export function StockDesktopLayout({
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
+  swapInputDraftKey: string;
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   disableTrade?: boolean;
+  isTradeLoading?: boolean;
   showFavoriteButton: boolean;
   isChartFullscreen: boolean;
   chartFullscreenZIndex: number;
@@ -1318,18 +1243,14 @@ export function StockDesktopLayout({
   // control row hands its trailing slots to this page's stable overlay.
   onEnterChartFullscreen: () => void;
 }) {
+  const { selectedTokenVariant, stockDetail } = useStockDetail();
   const {
     portfolioData: stockPortfolioData,
-    resolvedVariantKeys: resolvedStockVariantKeys,
+    resolvedVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange } = useStockPriceSource();
-  // Lives here rather than inside the chart so the price header above it can
-  // follow the crosshair; the chart clears it on pointer-out and on unmount.
-  const [chartHoverPoint, setChartHoverPoint] = useState<
-    IStockPriceLineChartHoverPoint | undefined
-  >(undefined);
 
   return (
     <Stack
@@ -1357,7 +1278,6 @@ export function StockDesktopLayout({
             <StockPriceHeader
               priceMode={priceMode}
               onPriceModeChange={handlePriceModeChange}
-              hoverPoint={chartHoverPoint}
             />
             <StockChart
               chartContainerTestID="stock-token-detail-tradingview"
@@ -1373,7 +1293,6 @@ export function StockDesktopLayout({
               priceMode={priceMode}
               chartMode={chartMode}
               isChartSwitchDisabled={isChartSwitchDisabled}
-              onHoverChange={setChartHoverPoint}
               onChartSwitch={onChartSwitch}
               isChartFullscreen={isChartFullscreen}
               onEnterChartFullscreen={onEnterChartFullscreen}
@@ -1391,17 +1310,22 @@ export function StockDesktopLayout({
 
         <Stack
           testID="stock-token-detail-trade"
-          width={STOCK_DETAIL_TRADE_PANEL_WIDTH}
-          pt="$6"
-          px={STOCK_DETAIL_HORIZONTAL_GUTTER}
-          flexShrink={0}
+          {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
+          mt="$6"
         >
-          <SwapPanel
+          <MarketEmbeddedSwap
             swapToken={swapToken}
-            disableTrade={disableTrade}
-            portfolioData={stockPortfolioData}
-            resolvedVariantKeys={resolvedStockVariantKeys}
-            stockDetailDesktopLayout
+            inputDraftKey={swapInputDraftKey}
+            disabled={disableTrade}
+            isTradeLoading={isTradeLoading}
+            embeddedStockTrade
+            stockTradeToken={swapToken}
+            stockTradePortfolioData={stockPortfolioData}
+            stockTradeResolvedVariantKeys={resolvedVariantKeys}
+            stockTradeConfig={{
+              tokenToAssetRatio: selectedTokenVariant?.tokenToAssetRatio,
+              underlyingSymbol: stockDetail?.symbol,
+            }}
           />
         </Stack>
       </XStack>

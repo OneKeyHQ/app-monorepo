@@ -28,3 +28,19 @@ export async function waitForDeviceStageExit() {
     await timerUtils.wait(DEVICE_STAGE_EXIT_BEAT_MS);
   }
 }
+
+/**
+ * A dialog is about to take the screen over a live stage (the Ledger
+ * install sheet, OK-62656): the stage yields first — its burst's
+ * bookkeeping untouched, so the hold's own end still releases it and the
+ * device's next word repaints — and when a stage really left, its exit
+ * beat plays before the dialog rises. One background hop: the yield
+ * already knows whether it wrote the off.
+ */
+export async function yieldDeviceStageToDialog() {
+  const left =
+    await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
+  if (left) {
+    await timerUtils.wait(DEVICE_STAGE_EXIT_BEAT_MS);
+  }
+}

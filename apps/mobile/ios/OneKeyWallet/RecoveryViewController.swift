@@ -1,3 +1,4 @@
+import CocoaLumberjack
 import UIKit
 
 // MARK: - i18n helper
@@ -175,9 +176,30 @@ private enum RecoveryStrings {
   }
 }
 
+private enum RecoveryLogExportError: LocalizedError {
+  case archiveCreationFailed
+  case noLogs
+
+  var errorDescription: String? {
+    switch self {
+    case .archiveCreationFailed:
+      return RecoveryStrings.current.exportError
+    case .noLogs:
+      return RecoveryStrings.current.noLogs
+    }
+  }
+}
+
 // MARK: - NitroModuleBridge for RecoveryViewController
 
 private enum RecoveryNitroModuleBridge {
+  static func flushLogs() {
+    if let cls = NSClassFromString("ReactNativeNativeLogger.OneKeyLog") as? NSObject.Type {
+      cls.perform(NSSelectorFromString("flushPendingRepeat"))
+    }
+    DDLog.flushLog()
+  }
+
   /// Calls BundleUpdateStore.clearUpdateBundleData() via dynamic dispatch
   static func clearUpdateBundleData() {
     guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return }
@@ -379,40 +401,26 @@ final class RecoveryViewController: UIViewController {
   // MARK: - Actions
 
   @objc private func exportLogsTapped() {
-    do {
-      let logDir = logDirectory()
-      let fm = FileManager.default
-
-      guard fm.fileExists(atPath: logDir) else {
-        showAlert(title: RecoveryStrings.current.error, message: RecoveryStrings.current.noLogs)
-        return
+    setRecoveryButtonsEnabled(false)
+    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+      guard let self else { return }
+      do {
+        OneKeyFlushNativeCrashDiagnostics(1.0)
+        RecoveryNitroModuleBridge.flushLogs()
+        let zipURL = try self.createLogArchive()
+        DispatchQueue.main.async {
+          self.setRecoveryButtonsEnabled(true)
+          let activityVC = UIActivityViewController(activityItems: [zipURL], applicationActivities: nil)
+          activityVC.popoverPresentationController?.sourceView = self.exportLogsButton
+          activityVC.popoverPresentationController?.sourceRect = self.exportLogsButton.bounds
+          self.present(activityVC, animated: true)
+        }
+      } catch {
+        DispatchQueue.main.async {
+          self.setRecoveryButtonsEnabled(true)
+          self.showAlert(title: RecoveryStrings.current.error, message: error.localizedDescription)
+        }
       }
-
-      let logFiles = try fm.contentsOfDirectory(atPath: logDir).filter { $0.hasSuffix(".log") }
-      guard !logFiles.isEmpty else {
-        showAlert(title: RecoveryStrings.current.error, message: RecoveryStrings.current.noLogs)
-        return
-      }
-
-      let zipPath = NSTemporaryDirectory().appending("onekey-logs.zip")
-      // Remove old zip if exists
-      if fm.fileExists(atPath: zipPath) {
-        try fm.removeItem(atPath: zipPath)
-      }
-
-      let success = createZip(atPath: zipPath, withFilesInDirectory: logDir, fileNames: logFiles)
-      guard success else {
-        showAlert(title: RecoveryStrings.current.error, message: "Failed to create log archive.")
-        return
-      }
-
-      let zipURL = URL(fileURLWithPath: zipPath)
-      let activityVC = UIActivityViewController(activityItems: [zipURL], applicationActivities: nil)
-      activityVC.popoverPresentationController?.sourceView = exportLogsButton
-      activityVC.popoverPresentationController?.sourceRect = exportLogsButton.bounds
-      present(activityVC, animated: true)
-    } catch {
-      showAlert(title: RecoveryStrings.current.error, message: error.localizedDescription)
     }
   }
 
@@ -496,6 +504,7 @@ final class RecoveryViewController: UIViewController {
   private func setRecoveryButtonsEnabled(_ enabled: Bool) {
     autoRepairButton.isEnabled = enabled
     tryAgainButton.isEnabled = enabled
+    exportLogsButton.isEnabled = enabled
   }
 
   private func logDirectory() -> String {
@@ -506,22 +515,67 @@ final class RecoveryViewController: UIViewController {
     return (cacheDir as NSString).appendingPathComponent("logs")
   }
 
-  /// Creates a zip archive of the given files using NSFileCoordinator (forUploading).
-  /// This produces a valid .zip without any third-party library.
-  private func createZip(atPath zipPath: String, withFilesInDirectory directory: String, fileNames: [String]) -> Bool {
+  private func eligibleLogPaths(in directory: String) throws -> [String] {
+    let rootURL = URL(fileURLWithPath: directory, isDirectory: true)
+    guard let enumerator = FileManager.default.enumerator(
+      at: rootURL,
+      includingPropertiesForKeys: [.isRegularFileKey],
+      options: [.skipsHiddenFiles]
+    ) else {
+      return []
+    }
+
+    var paths: [String] = []
+    for case let fileURL as URL in enumerator {
+      let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+      guard values.isRegularFile == true else { continue }
+      let relativePath = String(fileURL.path.dropFirst(rootURL.path.count + 1))
+      if fileURL.pathExtension == "log" ||
+        (fileURL.pathExtension == "json" && relativePath.hasPrefix("crashes/")) {
+        paths.append(relativePath)
+      }
+    }
+    return paths
+  }
+
+  private func createLogArchive() throws -> URL {
     let fm = FileManager.default
+    let logDir = logDirectory()
+    guard fm.fileExists(atPath: logDir) else {
+      throw RecoveryLogExportError.noLogs
+    }
+
+    let logFiles = try eligibleLogPaths(in: logDir)
+    guard !logFiles.isEmpty else {
+      throw RecoveryLogExportError.noLogs
+    }
+
+    let zipPath = NSTemporaryDirectory().appending("onekey-logs.zip")
     let stagingDir = (NSTemporaryDirectory() as NSString).appendingPathComponent("onekey-log-staging")
 
-    // Prepare a clean staging directory
-    if fm.fileExists(atPath: stagingDir) {
-      try? fm.removeItem(atPath: stagingDir)
+    if fm.fileExists(atPath: zipPath) {
+      try fm.removeItem(atPath: zipPath)
     }
-    try? fm.createDirectory(atPath: stagingDir, withIntermediateDirectories: true)
+    if fm.fileExists(atPath: stagingDir) {
+      try fm.removeItem(atPath: stagingDir)
+    }
+    try fm.createDirectory(
+      atPath: stagingDir,
+      withIntermediateDirectories: true,
+      attributes: [.protectionKey: FileProtectionType.complete]
+    )
+    defer { try? fm.removeItem(atPath: stagingDir) }
 
-    for name in fileNames {
-      let src = (directory as NSString).appendingPathComponent(name)
+    for name in logFiles {
+      let src = (logDir as NSString).appendingPathComponent(name)
       let dst = (stagingDir as NSString).appendingPathComponent(name)
-      try? fm.copyItem(atPath: src, toPath: dst)
+      let destinationDirectory = (dst as NSString).deletingLastPathComponent
+      try fm.createDirectory(
+        atPath: destinationDirectory,
+        withIntermediateDirectories: true,
+        attributes: [.protectionKey: FileProtectionType.complete]
+      )
+      try fm.copyItem(atPath: src, toPath: dst)
     }
 
     let sourceURL = URL(fileURLWithPath: stagingDir)
@@ -529,23 +583,29 @@ final class RecoveryViewController: UIViewController {
 
     // NSFileCoordinator with .forUploading on a directory produces a zip archive
     let coordinator = NSFileCoordinator()
-    var zipCreated = false
+    var archiveError: Error?
     var coordinatorError: NSError?
 
     coordinator.coordinate(readingItemAt: sourceURL, options: .forUploading, error: &coordinatorError) { tempURL in
       do {
-        if fm.fileExists(atPath: zipPath) {
-          try fm.removeItem(atPath: zipPath)
-        }
         try fm.moveItem(at: tempURL, to: destURL)
-        zipCreated = true
       } catch {
-        // zip move failed
+        archiveError = error
       }
     }
 
-    try? fm.removeItem(atPath: stagingDir)
-    return zipCreated && coordinatorError == nil
+    if let coordinatorError {
+      throw coordinatorError
+    }
+    if let archiveError {
+      throw archiveError
+    }
+    let attributes = try fm.attributesOfItem(atPath: zipPath)
+    guard (attributes[.size] as? NSNumber)?.int64Value ?? 0 > 0 else {
+      throw RecoveryLogExportError.archiveCreationFailed
+    }
+    try fm.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: zipPath)
+    return destURL
   }
 
   private func showAlert(title: String, message: String) {

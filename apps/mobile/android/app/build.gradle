@@ -9,16 +9,28 @@ apply plugin: 'com.google.gms.google-services'
 apply plugin: "io.sentry.android.gradle"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+def repositoryRoot = rootDir.getAbsoluteFile().getParentFile().getParentFile().getParentFile()
 def useDevShell = System.getenv('ONEKEY_DEV_SHELL') == 'true'
 def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
 def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
+def bip39EnglishWordList = new File(repositoryRoot, "node_modules/bip39/src/wordlists/english.json")
+def generatedSentryAssetsDir = file("${buildDir}/generated/assets/onekeySentry/main")
+def easBuildEnv = System.getenv('EAS_BUILD')
+def isEasAndroidBuild =
+    System.getenv('PLATFORM') == 'android' ||
+    (easBuildEnv != null && !easBuildEnv.isEmpty()) ||
+    System.getenv('EAS_BUILD_RUNNER') == 'eas-build'
+def shouldAutoUploadSentryNativeSymbols =
+    System.getenv('SENTRY_DISABLE_AUTO_UPLOAD') != 'true' &&
+    System.getenv('SENTRY_DISABLE_NATIVE_DEBUG_UPLOAD') != 'true'
 
 sentry {
     // Enables or disables the automatic configuration of Native Symbols
     // for Sentry. This executes sentry-cli automatically so
     // you don't need to do it manually.
     // Default is disabled.
-    uploadNativeSymbols = false
+    uploadNativeSymbols = true
+    autoUploadNativeSymbols = shouldAutoUploadSentryNativeSymbols
 
     // Enables or disables the automatic upload of the app's native source code to Sentry.
     // This executes sentry-cli with the --include-sources param automatically so
@@ -143,6 +155,8 @@ expoEnvConfig.each { key, value ->
 }
 def enableNativeBackgroundThread =
     defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
+def sentryDsnReactNative =
+    defEnvStr(appEnvConfig, 'SENTRY_DSN_REACT_NATIVE', '')
 
 apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
@@ -165,6 +179,11 @@ android {
         buildConfigField("boolean", "NO_FLIPPER", 'true')
         buildConfigField("String", "ANDROID_CHANNEL", "\"" + (System.getenv('ANDROID_CHANNEL') ?: 'direct') + "\"")
         buildConfigField("boolean", "ENABLE_NATIVE_BACKGROUND_THREAD", enableNativeBackgroundThread)
+        buildConfigField(
+            "String",
+            "SENTRY_DSN_REACT_NATIVE",
+            groovy.json.JsonOutput.toJson(sentryDsnReactNative),
+        )
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
         // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md
         buildConfigField(
@@ -244,6 +263,7 @@ android {
     }
 
     sourceSets {
+        main.assets.srcDir(generatedSentryAssetsDir)
         debug.assets.srcDir(generatedDevShellAssetsDir)
     }
 
@@ -258,6 +278,24 @@ android {
             }
         }
     }
+}
+
+def prepareSentryNativeAssets = tasks.register("prepareSentryNativeAssets") {
+    inputs.file(bip39EnglishWordList)
+    outputs.file(file("${generatedSentryAssetsDir}/onekey-bip39-english.json"))
+
+    doLast {
+        delete(generatedSentryAssetsDir)
+        copy {
+            from(bip39EnglishWordList)
+            into(generatedSentryAssetsDir)
+            rename { "onekey-bip39-english.json" }
+        }
+    }
+}
+
+tasks.matching { it.name.toLowerCase().contains("lintvital") }.configureEach {
+    dependsOn(prepareSentryNativeAssets)
 }
 
 def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
@@ -287,8 +325,22 @@ def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
 }
 
 android.applicationVariants.configureEach { variant ->
+    def targetName = capitalizeVariantName(variant.name)
+    tasks.named("merge${targetName}Assets").configure {
+        dependsOn(prepareSentryNativeAssets)
+    }
+    if (variant.buildType?.name?.equalsIgnoreCase("release")) {
+        variant.preBuildProvider.configure {
+            doFirst {
+                if (isEasAndroidBuild && sentryDsnReactNative.isEmpty()) {
+                    throw new GradleException(
+                        "SENTRY_DSN_REACT_NATIVE is required for EAS release builds",
+                    )
+                }
+            }
+        }
+    }
     if (variant.buildType?.name?.equalsIgnoreCase("debug")) {
-        def targetName = capitalizeVariantName(variant.name)
         tasks.named("merge${targetName}Assets").configure {
             dependsOn(prepareDevShellDebugAssets)
         }

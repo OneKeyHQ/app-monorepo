@@ -1,7 +1,6 @@
 import type { IFirmwareTransferMetrics } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
+import { formatDuration as formatDateDuration } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
-
-import type { IntlShape } from 'react-intl';
 
 const ETA_WARMUP_ELAPSED_MS = 2000;
 const ETA_WARMUP_TRANSFERRED_BYTES = 64 * 1024;
@@ -16,27 +15,14 @@ function formatBytes(bytes: number) {
   return `${Math.round(bytes)} B`;
 }
 
-function formatDuration(
-  durationMs: number,
-  intl: Pick<IntlShape, 'formatNumber'>,
-) {
+function formatDuration(durationMs: number) {
   const totalSeconds = Math.max(Math.round(durationMs / 1000), 0);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const secondsText = intl.formatNumber(seconds, {
-    style: 'unit',
-    unit: 'second',
-    unitDisplay: 'short',
-  });
-  if (minutes === 0) {
-    return secondsText;
-  }
-  const minutesText = intl.formatNumber(minutes, {
-    style: 'unit',
-    unit: 'minute',
-    unitDisplay: 'short',
-  });
-  return `${minutesText} ${secondsText}`;
+  return formatDateDuration(
+    minutes > 0 ? { minutes, seconds } : { seconds },
+    true,
+  );
 }
 
 function hasFirmwareTransferMetrics(
@@ -80,7 +66,6 @@ export function getFirmwareTransferEtaMs(
 
 export function getFirmwareTransferDisplayMetrics(
   metrics: IFirmwareTransferMetrics | undefined,
-  intl: Pick<IntlShape, 'formatNumber'>,
 ) {
   if (!hasFirmwareTransferMetrics(metrics)) {
     return undefined;
@@ -90,12 +75,12 @@ export function getFirmwareTransferDisplayMetrics(
     transferredText: formatBytes(metrics.transferredBytes),
     totalText: formatBytes(metrics.totalBytes),
     speedText: `${formatBytes(metrics.rateBytesPerSecond)}/s`,
-    elapsedText: formatDuration(metrics.elapsedMs, intl),
+    elapsedText: formatDuration(metrics.elapsedMs),
     estimatedRemainingMs,
     estimatedRemainingText:
       estimatedRemainingMs === undefined
         ? undefined
-        : formatDuration(estimatedRemainingMs, intl),
+        : formatDuration(estimatedRemainingMs),
   };
 }
 

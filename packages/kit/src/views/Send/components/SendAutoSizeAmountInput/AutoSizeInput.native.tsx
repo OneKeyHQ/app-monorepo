@@ -12,7 +12,7 @@ import {
   callback as nitroCallback,
 } from 'react-native-nitro-modules';
 
-import { Stack } from '@onekeyhq/components';
+import { Stack, useThemeName } from '@onekeyhq/components';
 
 import type {
   IAutoSizeInputProps,
@@ -68,6 +68,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
   ) => {
     const nativeInputRef = useRef<IAutoSizeNativeRef | null>(null);
     const [mostRecentEventCount, setMostRecentEventCount] = useState(0);
+    const themeName = useThemeName();
 
     useImperativeHandle(
       ref,
@@ -112,6 +113,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           fontWeight="500"
           editable={editable ?? true}
           keyboardType={mapAutoSizeKeyboardType(keyboardType ?? 'decimal-pad')}
+          keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           returnKeyType={returnKeyType}
           autoCorrect={false}
           autoCapitalize="none"

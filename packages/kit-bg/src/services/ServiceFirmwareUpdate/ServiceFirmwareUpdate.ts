@@ -428,7 +428,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           skipWebDevicePrompt: true,
           allowEmptyConnectId,
           forceProtocolDetection,
-          ...(forceProtocolDetection
+          ...(forceProtocolDetection ||
+          hardwareTransportType === EHardwareTransportType.DesktopWebBle
             ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
             : {}),
         },
@@ -825,7 +826,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? { connectId, transportType: resolvedTransportType }
         : await this.backgroundApi.serviceHardware.resolveHardwareTransport({
             connectId,
-            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+            hardwareCallContext:
+              EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
     }
     const originalConnectId = resolvedTransport?.connectId ?? connectId;
@@ -883,8 +885,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
-        forceProtocolDetection:
-          currentTransportType === EHardwareTransportType.DesktopWebBle,
         hardwareTransportType: currentTransportType,
       });
     let features: IOneKeyDeviceFeatures =
@@ -897,8 +897,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
           connectId: isBootloaderMode ? updatingConnectId : originalConnectId,
           params: {
             allowEmptyConnectId: true,
-            forceProtocolDetection:
-              currentTransportType === EHardwareTransportType.DesktopWebBle,
             ...(currentTransportType === EHardwareTransportType.DesktopWebBle
               ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
               : {}),
@@ -2321,7 +2319,32 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // Lock transport type during firmware update to prevent auto-switching
             // This prevents the system from switching to BLE when USB device is temporarily
             // unavailable during device reboot
-            const currentTransportType = await this.getActiveTransportType();
+            let currentTransportType = await this.getActiveTransportType();
+            if (platformEnv.isDesktop) {
+              // Release information may have been read over BLE before USB was connected.
+              const resolvedTransport =
+                await this.backgroundApi.serviceHardware.resolveHardwareTransport(
+                  {
+                    connectId:
+                      params.releaseResult.originalConnectId ??
+                      params.releaseResult.updatingConnectId,
+                    hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+                  },
+                );
+              currentTransportType = resolvedTransport.transportType;
+              params.releaseResult.updatingConnectId =
+                deviceUtils.getUpdatingConnectId({
+                  connectId: resolvedTransport.connectId,
+                  currentTransportType,
+                });
+              if (
+                currentTransportType === EHardwareTransportType.DesktopWebBle
+              ) {
+                throw new OneKeyLocalError(
+                  'Desktop firmware updates require a USB transport',
+                );
+              }
+            }
             this.recordUpdateWorkflowTransportType(
               workflowId,
               currentTransportType,

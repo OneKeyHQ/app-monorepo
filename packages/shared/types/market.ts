@@ -1,4 +1,8 @@
-import type { IMarketStockInfo, IMarketTokenKLineResponse } from './marketV2';
+import type {
+  IMarketStockInfo,
+  IMarketStockListVariant,
+  IMarketTokenKLineResponse,
+} from './marketV2';
 
 export interface IMarketCategory {
   categoryId: string;
@@ -140,6 +144,19 @@ export interface IMarketDetailPlatformNetwork {
   coingeckoNetworkId?: string;
   isNative?: true;
   tokenAddress?: string;
+}
+
+/**
+ * Identity of the wallet asset a caller launched Market from. Market data
+ * only knows a token per CoinGecko platform, so when the market service has
+ * not mapped that platform the trade actions rebuild the platform entry
+ * from this instead of guessing another chain. `tokenAddress` is the empty
+ * string for the native token.
+ */
+export interface IMarketPreferredToken {
+  networkId: string;
+  tokenAddress: string;
+  isNative?: boolean;
 }
 
 export interface IMarketDetailPlatform {
@@ -316,14 +333,29 @@ export enum ESpeedSwapSwitchType {
   SELL = 'sell',
 }
 
-// Market Watch List V2 Types (using chainId + contractAddress)
+// Spot tokens, asset listings, stock listings and perps retain distinct identities.
 export interface IMarketWatchListItemV2 {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   sortIndex?: number;
   isNative?: boolean;
   // Perps watchlist: coin name (e.g. "BTC", "ETH"). When set, chainId/contractAddress are empty.
   perpsCoin?: string;
+}
+
+export interface IMarketListingWatchlistQuote {
+  symbol: string;
+  name: string;
+  logoUrl: string;
+  price?: string;
+  priceChange24hPercent?: string;
+  marketCap?: string;
+  volume24h?: string;
+  // Stock listings only: the tokens issued against the stock, from the stocks
+  // batch API. Drives the Stocks-style hover reveal in the watchlist.
+  variants?: IMarketStockListVariant[];
 }
 
 export interface IMarketWatchListDataV2 {

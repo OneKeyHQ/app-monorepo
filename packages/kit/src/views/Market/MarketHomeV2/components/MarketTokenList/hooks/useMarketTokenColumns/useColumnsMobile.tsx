@@ -46,7 +46,7 @@ export const useColumnsMobile = (
                 : `${intl.formatMessage({
                     id: ETranslations.global_name,
                   })} / ${intl.formatMessage({
-                    id: ETranslations.dexmarket_turnover,
+                    id: ETranslations.market_stock_volume__title,
                   })}`}
             </SizableText>
             {sortIcon}
@@ -199,7 +199,7 @@ export const useColumnsMobile = (
                   currency: '$',
                 }}
               >
-                {record.price}
+                {Number.isFinite(record.price) ? record.price : '--'}
               </NumberSizeableText>
               <PriceChangeBadge change={priceChange} />
             </XStack>

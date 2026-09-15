@@ -42,7 +42,9 @@ interface IUseChartConfigProps {
   crosshairVertLineStyle?: number;
   patternColor?: string;
   pulseLastPointColor?: string;
+  priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
+  compactPriceMaxCharacters?: number;
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -52,9 +54,12 @@ interface IUseChartConfigProps {
   histogramOptions?: ILightweightChartHistogramOptions;
   referenceLine?: ILightweightChartReferenceLine;
   showLastValue?: boolean;
+  showLastValuePriceLine?: boolean;
+  lastValueLabelColor?: string;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
 }
@@ -80,7 +85,9 @@ export function useChartConfig({
   crosshairVertLineStyle,
   patternColor,
   pulseLastPointColor,
+  priceScaleMinimumWidth,
   priceFormatter,
+  compactPriceMaxCharacters,
   priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
@@ -90,9 +97,12 @@ export function useChartConfig({
   histogramOptions,
   referenceLine,
   showLastValue,
+  showLastValuePriceLine,
+  lastValueLabelColor,
   showLastPointMarker,
   showTimeScale = true,
   useTimeScaleTickMarkWithoutUnit,
+  timeScaleRightOffsetPixels,
   timeZone,
   locale,
 }: IUseChartConfigProps): ILightweightChartConfig {
@@ -161,8 +171,10 @@ export function useChartConfig({
       secondaryLineData: chartSecondaryLineData,
       secondaryLineColor,
       secondaryLineWidth,
+      priceScaleMinimumWidth,
       priceFormatter,
       priceFormatterType,
+      compactPriceMaxCharacters,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
@@ -172,9 +184,12 @@ export function useChartConfig({
       histogramOptions,
       referenceLine,
       showLastValue,
+      showLastValuePriceLine,
+      lastValueLabelColor,
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
+      timeScaleRightOffsetPixels,
       timeZone,
       locale,
     }),
@@ -201,8 +216,10 @@ export function useChartConfig({
       crosshairVertLineStyle,
       patternColor,
       pulseLastPointColor,
+      priceScaleMinimumWidth,
       priceFormatter,
       priceFormatterType,
+      compactPriceMaxCharacters,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
@@ -212,9 +229,12 @@ export function useChartConfig({
       histogramOptions,
       referenceLine,
       showLastValue,
+      showLastValuePriceLine,
+      lastValueLabelColor,
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
+      timeScaleRightOffsetPixels,
       timeZone,
       locale,
     ],

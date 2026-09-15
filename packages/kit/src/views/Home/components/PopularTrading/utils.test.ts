@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsTokenFromServer,
@@ -56,7 +58,51 @@ describe('PopularTrading market token display utils', () => {
     expect(Number.isNaN(displayToken?.priceChange24h)).toBe(false);
     expect(displayToken?.logoUrls).toEqual(item.logoUrls);
     expect(displayToken?.communityRecognized).toBe(true);
+    expect(displayToken?.stockId).toBeUndefined();
   });
+
+  test.each<Partial<IMarketTokenListItem>>([
+    { stockId: ' aapl ' },
+    { stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' } },
+    {
+      stock: {
+        underlyingAssetTicker: 'aapl',
+        subtitle: 'Apple',
+        sourceLogoUri: '',
+      },
+    },
+    { name: 'Apple xStock', symbol: 'AAPLx' },
+  ])(
+    'preserves the stock favorite identity in Home display data: %j',
+    (identity) => {
+      const item: IMarketTokenListItem = {
+        networkId: 'evm--1',
+        address: '0x1234567890123456789012345678901234567890',
+        isNative: false,
+        name: 'Apple',
+        symbol: 'AAPL',
+        decimals: 18,
+        ...identity,
+      };
+      const displayToken = mapMarketTokenToDisplay(item);
+      expect(displayToken).toMatchObject({
+        stockId: 'AAPL',
+        chainId: 'evm--1',
+        contractAddress: item.address,
+      });
+      expect(displayToken?.stock).toEqual(item.stock);
+      if (!displayToken)
+        throw new OneKeyLocalError('Expected a Home stock row');
+      expect(getMarketWatchlistKey(displayToken)).toBe(
+        getMarketWatchlistKey({
+          stockId: 'AAPL',
+          chainId: '',
+          contractAddress: '',
+        }),
+      );
+      expect(getTokenKey(displayToken)).toBe('stock:AAPL');
+    },
+  );
 
   test('maps Top Coins assets without inventing a token identity', () => {
     const item: IMarketAssetListItem = {
@@ -84,7 +130,7 @@ describe('PopularTrading market token display utils', () => {
       volume24h: 50_000_000_000,
       marketAsset: item,
     });
-    expect(getTokenKey(displayToken)).toBe('market:bitcoin');
+    expect(getTokenKey(displayToken)).toBe('asset:bitcoin');
   });
 
   test('inserts Top Coins after stocks in the wallet home tabs', () => {

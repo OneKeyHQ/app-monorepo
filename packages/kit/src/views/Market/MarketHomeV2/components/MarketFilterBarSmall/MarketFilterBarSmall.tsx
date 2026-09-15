@@ -8,6 +8,7 @@ import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 export interface IMarketFilterBarSmallProps {
   selectedNetworkId?: string;
   timeRange?: ITimeRangeSelectorValue;
+  showNetworkSelector?: boolean;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
 }
@@ -15,22 +16,28 @@ export interface IMarketFilterBarSmallProps {
 function MarketFilterBarSmall({
   selectedNetworkId,
   timeRange = '1h',
+  showNetworkSelector = true,
   onNetworkIdChange,
   onTimeRangeChange,
 }: IMarketFilterBarSmallProps) {
   return (
     <YStack>
+      {/* Both filters sit together on the left, so a tab without the network
+          selector keeps its time range in the same place. */}
       <XStack
         px="$5"
         pt="$3"
         pb="$2"
-        justifyContent="space-between"
+        gap="$4"
+        justifyContent="flex-start"
         alignItems="center"
       >
-        <MobileNetworkDropdown
-          selectedNetworkId={selectedNetworkId}
-          onNetworkIdChange={onNetworkIdChange}
-        />
+        <XStack display={showNetworkSelector ? 'flex' : 'none'}>
+          <MobileNetworkDropdown
+            selectedNetworkId={selectedNetworkId}
+            onNetworkIdChange={onNetworkIdChange}
+          />
+        </XStack>
         {onTimeRangeChange ? (
           <TimeRangeDropdown
             value={timeRange}

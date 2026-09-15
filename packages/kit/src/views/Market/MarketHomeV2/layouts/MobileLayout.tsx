@@ -28,6 +28,7 @@ import { MobileMarketStockFlatList } from '../components/MarketStockList/MobileM
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import {
+  DEFAULT_WATCHLIST_FILTER,
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
@@ -35,7 +36,10 @@ import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileM
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
 import { MobileMarketTopCoinsFlatList } from '../components/MarketTopCoinsList/MobileMarketTopCoinsFlatList';
-import { isMarketStockCategoryById } from '../utils';
+import {
+  isMarketStockCategoryById,
+  shouldShowSpotNetworkSelector,
+} from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
@@ -111,6 +115,9 @@ function MarketHomeTabBar({
     currentSpotCategoryId &&
     currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
     !currentSpotCategoryHasStockData,
+  );
+  const showSpotNetworkSelector = shouldShowSpotNetworkSelector(
+    currentSpotCategoryId,
   );
   const showStockCategorySelector = Boolean(
     currentSpotCategoryId &&
@@ -198,6 +205,7 @@ function MarketHomeTabBar({
             <MarketFilterBarSmall
               selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
               timeRange={ctx.filterBarProps.timeRange}
+              showNetworkSelector={showSpotNetworkSelector}
               onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
               onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
             />
@@ -260,6 +268,7 @@ function MobileLayoutComponent({
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
+    showWatchlistTab,
     spotTabItems,
     perpsTabName,
     showPerpsTab,
@@ -281,8 +290,9 @@ function MobileLayoutComponent({
     !watchlistState.data || watchlistState.data.length === 0;
 
   // Watchlist category filter state
-  const [watchlistFilter, setWatchlistFilter] =
-    useState<IWatchlistFilterType>('all');
+  const [watchlistFilter, setWatchlistFilter] = useState<IWatchlistFilterType>(
+    DEFAULT_WATCHLIST_FILTER,
+  );
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
   const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
@@ -433,12 +443,16 @@ function MobileLayoutComponent({
   );
 
   const tabElements = [
-    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <MobileMarketWatchlistFlatList
-        selectedFilter={watchlistFilter}
-        listContainerProps={listContainerProps}
-      />
-    </Tabs.Tab>,
+    ...(showWatchlistTab
+      ? [
+          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+            <MobileMarketWatchlistFlatList
+              selectedFilter={watchlistFilter}
+              listContainerProps={listContainerProps}
+            />
+          </Tabs.Tab>,
+        ]
+      : []),
     ...spotTabItems.map((item) => {
       const isStockCategory = isMarketStockCategoryById(
         filterBarProps.categories,

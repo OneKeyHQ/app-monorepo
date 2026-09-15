@@ -14,9 +14,7 @@ import {
 import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
-import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 
 import { RichTable } from '../RichTable';
 
@@ -94,25 +92,7 @@ function MarketCategoryTokenList({
     return getPopularTradingColumns({
       intl,
       shouldUseTableLayout,
-      renderStarButton: (record) =>
-        record.marketAsset ? (
-          <MarketListingStar
-            kind="asset"
-            listingId={record.marketAsset.assetId}
-            from={EWatchlistFrom.Homepage}
-            renderButton={(identity) =>
-              renderStarButton({
-                ...record,
-                marketAsset: undefined,
-                chainId: identity.chainId,
-                contractAddress: identity.contractAddress,
-                isNative: identity.isNative,
-              })
-            }
-          />
-        ) : (
-          renderStarButton(record)
-        ),
+      renderStarButton,
     });
   }, [intl, isTokenInWatchList, onStarPress, shouldUseTableLayout]);
 

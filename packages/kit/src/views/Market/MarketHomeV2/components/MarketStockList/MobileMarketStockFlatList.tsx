@@ -21,12 +21,12 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+import { MARKET_CELL_LINE_GAP, MARKET_CELL_LOGO_GAP } from '../MarketListCell';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
-import { MarketStockStar } from './MarketStockStar';
 import { parseMarketStockNumber } from './utils';
 
 import type { FlatListProps } from 'react-native';
@@ -54,7 +54,10 @@ function MobileMarketStockFlatListImpl({
     isLoadingMore,
     isError,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
     canLoadMore,
+    isRevalidatingFirstPage,
     loadMore,
     refresh,
   } = useMarketStockList({
@@ -67,11 +70,15 @@ function MobileMarketStockFlatListImpl({
         const price = parseMarketStockNumber(item.price);
         const priceChange = parseMarketStockNumber(item.priceChange24hPercent);
         return (
+          // Same frame as the Trending row (`TokenListItem`): fixed 72px height,
+          // 32px logo, 14px to the text, 4px between the two lines, and 8px
+          // before the price.
           <XStack
             testID={MarketTestIDs.stockRow(item.stockId)}
-            minHeight={72}
+            height={72}
             px="$5"
             py="$3"
+            gap="$2"
             alignItems="center"
             borderRadius="$3"
             pressStyle={{ bg: '$bgActive' }}
@@ -81,20 +88,24 @@ function MobileMarketStockFlatListImpl({
               }
             }}
           >
-            <XStack flex={1} minWidth={0} alignItems="center" gap="$3.5">
-              <MarketStockStar stock={item} />
+            <XStack
+              flex={1}
+              minWidth={0}
+              alignItems="center"
+              gap={MARKET_CELL_LOGO_GAP}
+            >
               <Token
-                size="lg"
+                size="md"
                 borderRadius="$full"
                 tokenImageUri={item.logoUrl}
                 fallbackIcon="CryptoCoinOutline"
               />
-              <YStack flex={1} minWidth={0}>
+              <YStack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
                 <SizableText size="$bodyLgMedium" numberOfLines={1}>
                   {item.symbol}
                 </SizableText>
                 <SizableText
-                  size="$bodyMd"
+                  size="$bodySm"
                   color="$textSubdued"
                   numberOfLines={1}
                   ellipsizeMode="tail"
@@ -133,41 +144,45 @@ function MobileMarketStockFlatListImpl({
     );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+    if (canLoadMore && !isLoadingMore && !isLoadMoreError && !isRefreshError) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadMoreError, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadMoreError, isRefreshError, isLoadingMore, loadMore]);
 
   const ListFooterComponent = useMemo(() => {
-    if (isLoadingMore) {
+    if (isLoadingMore || (isRefreshing && isRefreshError)) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Spinner size="small" />
         </Stack>
       );
     }
-    if (isLoadMoreError) {
+    if (isLoadMoreError || isRefreshError) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Button
             testID="market-stock-mobile-load-more-retry"
             size="small"
             variant="tertiary"
-            onPress={() => void loadMore()}
+            onPress={() => void (isRefreshError ? refresh() : loadMore())}
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
         </Stack>
       );
     }
-    if (!canLoadMore && items.length > 0) {
+    if (!canLoadMore && items.length > 0 && !isRevalidatingFirstPage) {
       return <ListEndIndicator />;
     }
     return null;
   }, [
     canLoadMore,
+    isRevalidatingFirstPage,
     intl,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
+    refresh,
     isLoadingMore,
     items.length,
     loadMore,

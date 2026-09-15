@@ -9,18 +9,22 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
+import { isMarketIndexQuoteBanner } from '../../../utils/marketBannerUtils';
+
 export function useToMarketBannerDetail() {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
 
   const toMarketBannerDetail = useCallback(
     (item: IMarketBannerItem) => {
+      if (isMarketIndexQuoteBanner(item)) return;
       defaultLogger.dex.banner.dexBannerEnter({ bannerId: item._id, ...item });
 
       const params = {
         tokenListId: item.tokenListId,
         title: item.title,
         type: item.type,
+        assetType: item.assetType,
       };
 
       // Push to page (works on all platforms including native via Discovery routes)

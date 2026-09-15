@@ -488,6 +488,16 @@ export interface IMarketTokenBatchListResponse {
   list: IMarketTokenListItem[];
 }
 
+export interface IMarketTokenBatchRequestParams {
+  tokenAddressList: {
+    contractAddress: string;
+    chainId: string;
+    isNative: boolean;
+  }[];
+  requestLocale?: string;
+  skipCache?: boolean;
+}
+
 export interface IMarketTokenSecurityItem {
   value: boolean | number | string;
   content: string;
@@ -708,11 +718,28 @@ export interface IMarketAccountPortfolioResponse {
 export enum EMarketBannerType {
   Ticker = 'ticker',
   Perps = 'perps',
+  Stock = 'stock',
+  Index = 'index',
+  Mixed = 'mixed',
+  StockPerps = 'stock_perps',
+  StockIndex = 'stock_index',
 }
 
 export interface IMarketBannerDescription {
   text: string;
   fontColor: string;
+}
+
+export interface IMarketBannerTokenPreview {
+  logo: string;
+  name: string;
+  symbol: string;
+  price?: string | null;
+  priceChange24hPercent?: string | null;
+}
+
+export interface IMarketBannerIndexPreview extends IMarketBannerTokenPreview {
+  sparkline?: number[];
 }
 
 export interface IMarketBannerItem {
@@ -726,7 +753,10 @@ export interface IMarketBannerItem {
   tokenListId: string;
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
+  tokens?: IMarketBannerTokenPreview[];
+  indices?: IMarketBannerIndexPreview[];
   type?: EMarketBannerType;
+  assetType?: IMarketStockAssetType;
 }
 
 export interface IMarketBannerListResponse {
@@ -784,6 +814,8 @@ export type IMarketStockPublicListSortBy =
   | 'default'
   | 'price'
   | 'priceChange24hPercent'
+  | 'marketCap'
+  | 'volume24h'
   | 'symbol';
 
 export interface IMarketStockPublicListRequest {
@@ -796,6 +828,7 @@ export interface IMarketStockPublicListRequest {
 
 export interface IMarketStockPublicSearchRequest {
   query: string;
+  cursor?: string;
   limit?: number;
 }
 
@@ -855,7 +888,39 @@ export interface IMarketStockPublicDetail extends IMarketStockPublicItem {
   } & Record<string, unknown>;
 }
 
-export type IMarketStockPublicChartPeriod = '1h' | '1d' | '1w' | '1y' | 'all';
+export type IMarketStockPublicChartPeriod =
+  | '1h'
+  | '1d'
+  | '1w'
+  | '1m'
+  | '1y'
+  | 'all';
+
+export type IMarketStockPublicChartInterval =
+  | '1min'
+  | '5min'
+  | '15min'
+  | '30min'
+  | '1hour'
+  | '4hour'
+  | '1day'
+  | '1week'
+  | '1month';
+
+export type IMarketStockPublicChartRequest = { stockId: string } & (
+  | {
+      period?: IMarketStockPublicChartPeriod;
+      interval?: undefined;
+      from?: undefined;
+      to?: undefined;
+    }
+  | {
+      period?: undefined;
+      interval: IMarketStockPublicChartInterval;
+      from: number;
+      to: number;
+    }
+);
 
 export interface IMarketStockPublicChartPoint {
   o: number;
@@ -868,7 +933,8 @@ export interface IMarketStockPublicChartPoint {
 
 export interface IMarketStockPublicChartResponse {
   stockId: string;
-  period: IMarketStockPublicChartPeriod;
+  period?: IMarketStockPublicChartPeriod;
+  interval?: IMarketStockPublicChartInterval;
   currency: 'USD';
   points: IMarketStockPublicChartPoint[];
 }

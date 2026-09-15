@@ -90,7 +90,9 @@ export function WalletDetailsHeader({
             {...(isAvatarEditable && {
               role: 'button',
               onPress: () =>
-                wallet ? showWalletAvatarEditDialog({ wallet }) : null,
+                wallet
+                  ? showWalletAvatarEditDialog({ wallet, nativeSheet: true })
+                  : null,
               hoverStyle: {
                 bg: '$bgHover',
               },
@@ -128,7 +130,12 @@ export function WalletDetailsHeader({
             </SizableText>
           ) : null}
           {!platformEnv.isWebDappMode && wallet ? (
-            <WalletRenameButton wallet={wallet} editable={editable} mr="$1.5" />
+            <WalletRenameButton
+              wallet={wallet}
+              editable={editable}
+              nativeSheet
+              mr="$1.5"
+            />
           ) : null}
         </XStack>
 

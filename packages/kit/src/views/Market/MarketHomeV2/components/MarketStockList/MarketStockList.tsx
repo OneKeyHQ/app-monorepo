@@ -23,10 +23,7 @@ import {
 import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IMarketStockPublicItem,
-  IMarketStockPublicListSortBy,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
@@ -43,6 +40,7 @@ import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsive
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
 import { useMarketStockColumns } from './useMarketStockColumns';
+import { getMarketStockSortByColumn } from './utils';
 
 import type { IMarketCategoryItem } from '../../types';
 
@@ -87,8 +85,11 @@ function MarketStockListImpl({
     isLoading,
     isLoadingMore,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
     isError,
     canLoadMore,
+    isRevalidatingFirstPage,
     sortBy,
     sortType,
     setSorting,
@@ -112,14 +113,7 @@ function MarketStockListImpl({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketStockPublicItem>) => {
-      let serverSortBy:
-        | Exclude<IMarketStockPublicListSortBy, 'default'>
-        | undefined;
-      if (column.dataIndex === 'price') {
-        serverSortBy = 'price';
-      } else if (column.dataIndex === 'priceChange24hPercent') {
-        serverSortBy = 'priceChange24hPercent';
-      }
+      const serverSortBy = getMarketStockSortByColumn(column.dataIndex);
       if (!serverSortBy) {
         return undefined;
       }
@@ -135,10 +129,10 @@ function MarketStockListImpl({
   );
 
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+    if (canLoadMore && !isLoadingMore && !isLoadMoreError && !isRefreshError) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadMoreError, isLoadingMore, loadMore]);
+  }, [canLoadMore, isLoadMoreError, isRefreshError, isLoadingMore, loadMore]);
 
   const webTabIntegrated = Boolean(tabIntegrated && !platformEnv.isNative);
   useEffect(() => {
@@ -233,21 +227,21 @@ function MarketStockListImpl({
   }, [intl, isError, isLoading, refresh]);
 
   const TableFooterComponent = useMemo(() => {
-    if (isLoadingMore) {
+    if (isLoadingMore || (isRefreshing && isRefreshError)) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Spinner size="small" />
         </Stack>
       );
     }
-    if (isLoadMoreError) {
+    if (isLoadMoreError || isRefreshError) {
       return (
         <Stack alignItems="center" justifyContent="center" py="$4">
           <Button
             testID="market-stock-list-load-more-retry"
             size="small"
             variant="tertiary"
-            onPress={() => void loadMore()}
+            onPress={() => void (isRefreshError ? refresh() : loadMore())}
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
@@ -257,14 +251,18 @@ function MarketStockListImpl({
     if (canLoadMore && webTabIntegrated) {
       return <div ref={endSentinelRef} style={{ height: 1 }} />;
     }
-    if (items.length > 0 && !canLoadMore) {
+    if (items.length > 0 && !canLoadMore && !isRevalidatingFirstPage) {
       return <ListEndIndicator />;
     }
     return null;
   }, [
     canLoadMore,
+    isRevalidatingFirstPage,
     intl,
     isLoadMoreError,
+    isRefreshing,
+    isRefreshError,
+    refresh,
     isLoadingMore,
     items.length,
     loadMore,
