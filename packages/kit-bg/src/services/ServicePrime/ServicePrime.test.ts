@@ -7595,6 +7595,24 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
           message: 'UserCancelFromOutside',
         }),
       },
+      {
+        name: 'hardware busy preflight',
+        createError: () =>
+          new OneKeyLocalError({
+            message: ETranslations.feedback_hardware_is_busy,
+            key: ETranslations.feedback_hardware_is_busy,
+            autoToast: false,
+          }),
+      },
+      {
+        name: 'missing connect preflight',
+        createError: () =>
+          new OneKeyLocalError({
+            message: ETranslations.prime_gift_connect_device__msg,
+            key: ETranslations.prime_gift_connect_device__msg,
+            autoToast: false,
+          }),
+      },
     ])(
       'rethrows $name without converting it or writing a failure log',
       async ({ createError }) => {
@@ -7614,6 +7632,44 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
         expect(verify).toHaveBeenCalledTimes(1);
       },
     );
+
+    it('retries successfully after a preserved hardware-busy preflight error', async () => {
+      const { service, verify } = createGiftService();
+      const busy = new OneKeyLocalError({
+        message: ETranslations.feedback_hardware_is_busy,
+        key: ETranslations.feedback_hardware_is_busy,
+        autoToast: false,
+      });
+      verify.mockRejectedValueOnce(busy);
+
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).rejects.toBe(busy);
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({ code: 'TEST_CODE' });
+      expect(verify).toHaveBeenCalledTimes(2);
+      expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+    });
+
+    it('still converts an unrelated OneKeyLocalError into a friendly verify-failed error', async () => {
+      const { service, verify } = createGiftService();
+      const originalError = new OneKeyLocalError({
+        message: 'Some other local failure',
+        key: ETranslations.prime_gift_user_info_failed__msg,
+        autoToast: false,
+      });
+      verify.mockRejectedValueOnce(originalError);
+
+      const error = await service
+        .apiPreparePrimeGiftRedemption(prepareParams)
+        .catch((caught: unknown) => caught);
+
+      expect(error).not.toBe(originalError);
+      expectFriendlyVerifyFailedError(error);
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
+    });
 
     it('does not treat a plain Device cancelled Error as user cancellation', async () => {
       const { service, verify } = createGiftService();

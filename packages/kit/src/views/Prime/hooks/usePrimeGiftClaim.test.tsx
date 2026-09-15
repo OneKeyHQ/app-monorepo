@@ -488,6 +488,64 @@ describe('usePrimeGiftClaim', () => {
     },
   );
 
+  it.each([
+    {
+      name: 'hardware busy',
+      message: 'Hardware is busy',
+      key: ETranslations.feedback_hardware_is_busy,
+    },
+    {
+      name: 'connect device',
+      message: 'Connect the device to continue',
+      key: ETranslations.prime_gift_connect_device__msg,
+    },
+  ])(
+    'shows original $name preflight guidance without wrapping it as reconnect',
+    async ({ message, key }) => {
+      servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+        new OneKeyLocalError({
+          message,
+          key,
+          autoToast: false,
+        }),
+      );
+      const { result } = renderClaim();
+      await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+      await act(async () => {
+        await result.current.submit();
+      });
+      expect(result.current.error).toBe(message);
+      expect(result.current.error).not.toMatch(/reconnect/i);
+      expect(result.current.isSubmitting).toBe(false);
+      expect(showDialog).not.toHaveBeenCalled();
+      expect(mockPrimeGiftStage.mock.calls.at(-1)).toEqual([
+        { source: 'onboarding', stage: 'verify', status: 'failed' },
+      ]);
+    },
+  );
+
+  it('retries after hardware-busy preflight and then opens the redemption dialog', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+      new OneKeyLocalError({
+        message: 'Hardware is busy',
+        key: ETranslations.feedback_hardware_is_busy,
+        autoToast: false,
+      }),
+    );
+    const { result } = renderClaim();
+    await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.error).toBe('Hardware is busy');
+    expect(showDialog).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(showDialog).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeUndefined();
+  });
+
   it('retries after a device cancellation without a failed verify state', async () => {
     servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
       convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),

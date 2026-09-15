@@ -552,7 +552,12 @@ class ServicePrime extends ServiceBase {
             { device, serialNo },
           );
       } catch (error) {
-        if (isPrimeGiftVerifyCancellationError(error)) {
+        if (
+          isPrimeGiftVerifyCancellationError(error) ||
+          (error instanceof OneKeyLocalError &&
+            (error.key === ETranslations.feedback_hardware_is_busy ||
+              error.key === ETranslations.prime_gift_connect_device__msg))
+        ) {
           throw error;
         }
         defaultLogger.hardware.sdkLog.serviceEvent(
