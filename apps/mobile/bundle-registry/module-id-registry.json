@@ -24198,6 +24198,7 @@
     "packages/shared/src/utils/portfolioArchive.ts": 9083,
     "packages/shared/src/utils/portfolioPayload.ts": 7776,
     "packages/shared/src/utils/portfolioTokenIcon.ts": 12045,
+    "packages/shared/src/utils/primeGiftVerifyError.ts": 22244,
     "packages/shared/src/utils/primeInfiniPaymentCacheUtils.ts": 6070,
     "packages/shared/src/utils/primeInfiniPaymentDiagnostics.ts": 16304,
     "packages/shared/src/utils/primeInfiniPaymentValidation.ts": 21178,
