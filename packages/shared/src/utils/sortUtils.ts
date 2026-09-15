@@ -87,8 +87,35 @@ function buildSortedList<T extends { sortIndex?: number }>({
   return newList;
 }
 
+/**
+ * Sort indexes that place `count` new items above everything already in the
+ * list: the watchlist's newest-favorite-first rule. Later entries land higher,
+ * so an oldest-first batch reads newest-first once sorted.
+ */
+function buildTopSortIndexes({
+  oldList,
+  count,
+}: {
+  oldList: { sortIndex?: number }[];
+  count: number;
+}): number[] {
+  // A missing index counts as 0, matching how the watchlist sorts, so legacy
+  // favorites without one still sit below a new favorite.
+  const existingSortIndexes = oldList
+    .map((item) => item.sortIndex ?? 0)
+    .filter((sortIndex) => Number.isFinite(sortIndex));
+  const topSortIndex = existingSortIndexes.length
+    ? Math.min(...existingSortIndexes)
+    : 1000;
+  return Array.from(
+    { length: count },
+    (_, index) => topSortIndex - (index + 1),
+  );
+}
+
 export default {
   buildNewSortIndex,
+  buildTopSortIndexes,
   buildSortedList,
   fillingSaveItemsSortIndex,
   fillingMissingSortIndex,
