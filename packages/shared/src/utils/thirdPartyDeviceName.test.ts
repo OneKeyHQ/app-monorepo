@@ -2,42 +2,43 @@ import { getThirdPartyDeviceDisplayName } from './thirdPartyDeviceName';
 
 describe('getThirdPartyDeviceDisplayName', () => {
   it.each([
-    {
-      modelName: 'Keystone 3 Pro',
-      name: 'Keystone 3 Pro (12345678-1234-1234-1234-123456789abc)',
-    },
-    { modelName: '3 Pro', name: 'Keystone' },
-    { model: 'Keystone 3 Pro', name: '12345678-1234-1234-1234-123456789abc' },
-    { name: 'Keystone 3 Pro (12345678-1234-1234-1234-123456789abc)' },
-    { modelName: 'Keystone Keystone 3 Pro' },
-    { modelName: 'unknown', model: '3 Pro' },
-  ])('shows only one Keystone brand and model: %j', (fields) => {
+    // Keystone's connector already returns a product name.
+    [{ name: 'Keystone 3 Pro' }, 'Keystone 3 Pro'],
+    // Trezor reports the label the user wrote onto the device.
+    [{ name: 'Leo', model: 'T3W1' }, 'Leo'],
+    // Ledger BLE reports the advertised name.
+    [{ name: 'Nano X 1456', model: 'nanoX' }, 'Nano X 1456'],
+  ])('keeps the name the vendor SDK reported: %j', (fields, expected) => {
+    expect(getThirdPartyDeviceDisplayName({ brand: 'Vendor', ...fields })).toBe(
+      expected,
+    );
+  });
+
+  it('falls back through modelName and model before the brand', () => {
     expect(
-      getThirdPartyDeviceDisplayName({ brand: 'Keystone', ...fields }),
-    ).toBe('Keystone 3 Pro');
+      getThirdPartyDeviceDisplayName({ brand: 'Ledger', modelName: 'Nano X' }),
+    ).toBe('Nano X');
+    expect(
+      getThirdPartyDeviceDisplayName({ brand: 'Ledger', model: 'nanoX' }),
+    ).toBe('nanoX');
+    expect(getThirdPartyDeviceDisplayName({ brand: 'Keystone' })).toBe(
+      'Keystone',
+    );
   });
 
   it.each([
     '',
     'unknown',
     '12345678-1234-1234-1234-123456789abc',
+    // A Trezor BLE connectId is exactly this shape.
+    '81a6048ecf0d10bcf684e8a0b0b700b8',
     'a'.repeat(64),
-  ])('never uses an identity as the fallback name: %s', (name) => {
-    expect(getThirdPartyDeviceDisplayName({ brand: 'Keystone', name })).toBe(
-      'Keystone',
-    );
-  });
-
-  it.each([
-    ['Ledger', 'Nano X', 'Ledger Nano X'],
-    ['Ledger', 'Ledger Nano X', 'Ledger Nano X'],
-    ['Trezor', 'Safe 7', 'Trezor Safe 7'],
-    ['Trezor', 'Trezor Safe 7', 'Trezor Safe 7'],
-    ['Keystone', 'Keystone3 Pro', 'Keystone3 Pro'],
-    ['Keystone', 'Keystone-3-Pro', 'Keystone-3-Pro'],
-  ])('deduplicates %s product names', (brand, modelName, expected) => {
-    expect(
-      getThirdPartyDeviceDisplayName({ brand, modelName, name: expected }),
-    ).toBe(expected);
-  });
+  ])(
+    'never shows a placeholder or a transport address as the name: %s',
+    (name) => {
+      expect(getThirdPartyDeviceDisplayName({ brand: 'Keystone', name })).toBe(
+        'Keystone',
+      );
+    },
+  );
 });
