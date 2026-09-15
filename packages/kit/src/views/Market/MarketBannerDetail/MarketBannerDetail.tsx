@@ -156,13 +156,20 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [handleBackPress],
   );
 
+  // Only the wide web/Electron title row keeps the large page title; every
+  // other layout (narrow screens, native headers, iPad) uses the default
+  // navigation header title size.
   const renderHeaderTitle = useCallback(
     () => (
-      <SizableText size="$heading2xl" numberOfLines={1} flexShrink={1}>
+      <SizableText
+        size={isWebDesktop ? '$heading2xl' : '$headingLg'}
+        numberOfLines={1}
+        flexShrink={1}
+      >
         {title}
       </SizableText>
     ),
-    [title],
+    [isWebDesktop, title],
   );
 
   const renderNotificationButton = useCallback(
