@@ -396,7 +396,10 @@ function MobileLayoutComponent({
             })),
             style: {
               height: MARKET_TAB_BAR_HEIGHT,
-              contentPaddingHorizontal: 20,
+              // Native tab buttons pad their label 8pt on each side, so a 12pt
+              // bar inset puts the first label on the 20pt edge the chips and
+              // column headers use.
+              contentPaddingHorizontal: 12,
               itemSpacing: 8,
               fontSize: 16,
               fontFamily: 'Roobert-Medium',
