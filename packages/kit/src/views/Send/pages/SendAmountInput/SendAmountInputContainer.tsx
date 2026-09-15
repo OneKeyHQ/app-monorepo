@@ -2515,12 +2515,22 @@ function SendAmountInputContainer() {
   const isSubmitDisabledRef = useRef(true);
 
   // Auto-focus the amount input after the page transition animation completes.
-  // Runs on every route focus rather than only on mount: Android
+  // Non-Android targets only auto-focus once, on the initial focus (the
+  // previous mount-only behavior), so returning from a child route does not
+  // steal focus from the active control or reopen the iOS keyboard. Android
   // (react-native-screens) detaches this screen while the confirm page is on
-  // top, which drops the native focus, so returning from it needs a fresh
-  // focus() to bring the keyboard back.
+  // top, which drops the native focus, so it re-focuses on every route focus
+  // to bring the keyboard back.
+  const hasAutoFocusedAmountInputRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
+      if (
+        hasAutoFocusedAmountInputRef.current &&
+        !platformEnv.isNativeAndroid
+      ) {
+        return undefined;
+      }
+      hasAutoFocusedAmountInputRef.current = true;
       const timer = setTimeout(() => {
         amountInputRef.current?.focus();
       }, 300);
