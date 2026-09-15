@@ -1322,6 +1322,7 @@ class ServiceHardwareUI extends ServiceBase {
         message: appLocale.intl.formatMessage({
           id: ETranslations.feedback_hardware_is_busy,
         }),
+        key: ETranslations.feedback_hardware_is_busy,
         autoToast: false,
       });
     }
