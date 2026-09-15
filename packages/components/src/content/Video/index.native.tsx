@@ -1,12 +1,13 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo } from 'react';
 import type { ForwardedRef } from 'react';
 
+import { StyleSheet } from 'react-native';
 import { VideoView, useVideoPlayer } from 'react-native-video';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IVideoProps, IVideoRef } from './type';
-import type { ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import type {
   AllPlayerEvents,
   VideoPlayer,
@@ -43,6 +44,7 @@ function VideoComponent(
     onError,
     onProgress,
     onReadyForDisplay,
+    style: callerStyle,
     ...rawProps
   }: IVideoProps,
   ref: ForwardedRef<IVideoRef>,
@@ -60,6 +62,14 @@ function VideoComponent(
     }
   });
   const [props, style] = usePropsAndStyle(rawProps);
+  const mergedStyle = useMemo<ViewStyle>(
+    () =>
+      StyleSheet.flatten<ViewStyle>([
+        style as ViewStyle,
+        callerStyle as StyleProp<ViewStyle>,
+      ]),
+    [style, callerStyle],
+  );
 
   useEffect(() => {
     player.muted = muted ?? false;
@@ -114,7 +124,7 @@ function VideoComponent(
     <VideoView
       player={player}
       {...(props as Partial<VideoViewProps>)}
-      style={style as ViewStyle}
+      style={mergedStyle}
       controls={controls}
       resizeMode={resizeMode}
     />
