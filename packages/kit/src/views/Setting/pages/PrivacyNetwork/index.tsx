@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -27,7 +27,8 @@ import {
   type IBirthdayFormState,
 } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ILocalWalletSlotUsage } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes/accountManagerStacks';
 import type {
@@ -47,6 +48,74 @@ const ZcashDebugSettings = LazyLoadPage(
   undefined,
   true,
 );
+
+type ISlotOccupant = ILocalWalletSlotUsage['occupants'][number];
+
+type ISlotSelection = { accountId?: string };
+
+// Which scanning account to turn off to make room for another. The list comes
+// from the background: slots are held across wallets this page cannot see.
+function SlotReplaceForm({
+  occupants,
+  hiddenCount,
+  selectionRef,
+}: {
+  occupants: ISlotOccupant[];
+  hiddenCount: number;
+  selectionRef: { current: ISlotSelection };
+}) {
+  const intl = useIntl();
+  const [selected, setSelected] = useState<string | undefined>(
+    occupants.length === 1 ? occupants[0].accountId : undefined,
+  );
+  useEffect(() => {
+    selectionRef.current.accountId = selected;
+  }, [selected, selectionRef]);
+  return (
+    <YStack>
+      {occupants.map((occupant) => (
+        <ListItem
+          key={occupant.accountId}
+          testID={`privacy-slot-occupant-${occupant.accountId}`}
+          title={occupant.accountName}
+          subtitle={[
+            occupant.walletName,
+            occupant.aliasCount > 1
+              ? intl.formatMessage(
+                  {
+                    id: ETranslationsMock.privacy_slots_shared_key,
+                    defaultMessage: ETranslationsMock.privacy_slots_shared_key,
+                  },
+                  { count: occupant.aliasCount },
+                )
+              : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          checkMark={selected === occupant.accountId}
+          onPress={() => setSelected(occupant.accountId)}
+        />
+      ))}
+      {hiddenCount > 0 ? (
+        <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$2">
+          {intl.formatMessage(
+            {
+              id: ETranslationsMock.privacy_slots_locked_wallet_note,
+              defaultMessage:
+                ETranslationsMock.privacy_slots_locked_wallet_note,
+            },
+            { count: hiddenCount },
+          )}
+        </SizableText>
+      ) : null}
+      <SizableText size="$bodySm" color="$textCaution" px="$5" pt="$2">
+        {intl.formatMessage({
+          id: ETranslationsMock.privacy_slots_replace_cost,
+        })}
+      </SizableText>
+    </YStack>
+  );
+}
 
 type IPrivacyAccountEntry = {
   accountId: string;
@@ -125,6 +194,23 @@ export default function PrivacyNetworkSettings({
       );
     }, [isFocused, walletId, networkIdFilter]);
 
+  // One line per network; the count includes slots this page cannot show.
+  const { result: slotUsages } = usePromiseResult(async () => {
+    if (!entries || entries.length === 0) return undefined;
+    const networkIds = Array.from(
+      new Set(entries.map((entry) => entry.networkId)),
+    );
+    return Promise.all(
+      networkIds.map(async (networkId) => ({
+        networkId,
+        usage:
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletSlotUsage({
+            networkId,
+          }),
+      })),
+    );
+  }, [entries]);
+
   const { result: allowCellularSync, run: refreshAllowCellularSync } =
     usePromiseResult(
       () =>
@@ -145,7 +231,7 @@ export default function PrivacyNetworkSettings({
     });
   }, [intl, refreshEntries]);
 
-  const enableAccount = useCallback(
+  const askBirthdayAndEnable = useCallback(
     (entry: IPrivacyAccountEntry) => {
       const formRef: { current: IBirthdayFormState } = {
         current: {
@@ -191,6 +277,91 @@ export default function PrivacyNetworkSettings({
       });
     },
     [intl, refreshEntries],
+  );
+
+  // At the ceiling, enabling is a swap rather than a refusal.
+  const enableAccount = useCallback(
+    async (entry: IPrivacyAccountEntry) => {
+      const usage =
+        await backgroundApiProxy.servicePrivacyChain.getLocalWalletSlotUsage({
+          networkId: entry.networkId,
+        });
+      if (entry.enabled || usage.max === undefined || usage.used < usage.max) {
+        askBirthdayAndEnable(entry);
+        return;
+      }
+      if (usage.occupants.length === 0) {
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslationsMock.privacy_slots_full_title,
+          }),
+          description: intl.formatMessage(
+            {
+              id: ETranslationsMock.privacy_slots_full_all_locked_desc,
+              defaultMessage:
+                ETranslationsMock.privacy_slots_full_all_locked_desc,
+            },
+            { max: usage.max },
+          ),
+          onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
+        });
+        return;
+      }
+      const selectionRef: { current: ISlotSelection } = { current: {} };
+      Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslationsMock.privacy_slots_full_title,
+        }),
+        description: intl.formatMessage(
+          {
+            id: ETranslationsMock.privacy_slots_full_desc,
+            defaultMessage: ETranslationsMock.privacy_slots_full_desc,
+          },
+          {
+            used: usage.used,
+            max: usage.max,
+            accountName: entry.accountName,
+          },
+        ),
+        renderContent: (
+          <SlotReplaceForm
+            occupants={usage.occupants}
+            hiddenCount={usage.hiddenCount}
+            selectionRef={selectionRef}
+          />
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslationsMock.privacy_slots_turn_off_and_continue,
+        }),
+        onConfirm: async ({ preventClose }) => {
+          const accountId = selectionRef.current.accountId;
+          if (!accountId) {
+            preventClose();
+            return;
+          }
+          setBusyAccountId(entry.accountId);
+          try {
+            await backgroundApiProxy.servicePrivacyChain.disableLocalWalletAccount(
+              {
+                networkId: entry.networkId,
+                accountId,
+              },
+            );
+            await refreshEntries();
+          } catch (error) {
+            if (isUnresolvedPrivacyChainBroadcastError(error)) {
+              showUnresolvedBroadcastDialog();
+              return;
+            }
+            throw error;
+          } finally {
+            setBusyAccountId(undefined);
+          }
+          askBirthdayAndEnable(entry);
+        },
+      });
+    },
+    [askBirthdayAndEnable, intl, refreshEntries, showUnresolvedBroadcastDialog],
   );
 
   const disableAccount = useCallback(
@@ -269,7 +440,7 @@ export default function PrivacyNetworkSettings({
             disabled={busy}
             onChange={(next) => {
               if (next) {
-                enableAccount(entry);
+                void enableAccount(entry);
               } else {
                 void disableAccount(entry);
               }
@@ -280,7 +451,7 @@ export default function PrivacyNetworkSettings({
           <ListItem
             pl="$16"
             title="Use transparent funds first"
-            subtitle="For sends to shielded addresses, spend transparent funds before the selected shielded pool."
+            subtitle="For sends to shielded addresses, spend transparent funds before the selected shielded pool. Change returns to the default shielded pool."
           >
             <Switch
               testID="privacy-network-prefer-public-switch"
@@ -307,11 +478,46 @@ export default function PrivacyNetworkSettings({
       <Page.Body>
         {entries ? (
           <ScrollView>
-            <Stack px="$5" pt="$4" pb="$2">
+            <Stack px="$5" pt="$4" pb="$2" gap="$1">
               <SizableText size="$bodySm" color="$textSubdued">
                 Local scanning runs only for the accounts you turn on. Turning
                 an account off pauses scanning and hides its shielded balance.
               </SizableText>
+              {slotUsages?.map(({ networkId, usage }) =>
+                usage.max === undefined ? null : (
+                  <SizableText
+                    key={networkId}
+                    testID={`privacy-slot-usage-${networkId}`}
+                    size="$bodySmMedium"
+                    color={
+                      usage.used >= usage.max ? '$textCaution' : '$textSubdued'
+                    }
+                  >
+                    {[
+                      intl.formatMessage(
+                        {
+                          id: ETranslationsMock.privacy_slots_in_use,
+                          defaultMessage:
+                            ETranslationsMock.privacy_slots_in_use,
+                        },
+                        { used: usage.used, max: usage.max },
+                      ),
+                      usage.hiddenCount > 0
+                        ? intl.formatMessage(
+                            {
+                              id: ETranslationsMock.privacy_slots_held_by_locked_wallet,
+                              defaultMessage:
+                                ETranslationsMock.privacy_slots_held_by_locked_wallet,
+                            },
+                            { count: usage.hiddenCount },
+                          )
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </SizableText>
+                ),
+              )}
             </Stack>
             {entries.length === 0 ? (
               <Stack px="$5" py="$4" testID="settings-privacy-network-empty">

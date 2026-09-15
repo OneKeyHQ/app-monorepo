@@ -76,6 +76,7 @@ export class KeyringImported extends KeyringImportedBtc {
       };
       await this.backgroundApi.simpleDb.zcash.saveTransparentPendingTx({
         accountId: this.vault.accountId,
+        requireLiveReservation: true,
         tx: {
           ownerId: plan.ownerId,
           rawTx: result.rawTx,
@@ -84,6 +85,7 @@ export class KeyringImported extends KeyringImportedBtc {
           expiryHeight: result.expiryHeight,
           createdAt: Date.now(),
           broadcastState: 'unknown',
+          broadcastAuthorized: false,
         },
       });
       pendingSaved = true;

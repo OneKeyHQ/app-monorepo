@@ -19,6 +19,7 @@ import {
   getZcashLifecycleMutex,
   getZcashPrivacyModeOperationMutex,
 } from '../vaults/impls/zcash/lifecycle';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -81,10 +82,11 @@ class ServiceZcash extends ServiceBase {
     if (
       !account ||
       account.impl !== IMPL_ZCASH ||
-      !accountUtils.isHdAccount({ accountId })
+      (!accountUtils.isHdAccount({ accountId }) &&
+        !accountUtils.isHwAccount({ accountId }))
     ) {
       throw new OneKeyLocalError(
-        'zcash: privacy mode is currently supported only for existing HD accounts',
+        'zcash: privacy mode requires an existing HD or hardware account',
       );
     }
   }
@@ -176,6 +178,7 @@ class ServiceZcash extends ServiceBase {
           reason: EReasonForNeedPassword.CreateTransaction,
         }));
     }
+    await this.assertZcashAccountContext({ networkId, accountId });
     await this.backgroundApi.simpleDb.zcash.beginPrivacyModeEnable({
       accountId,
       birthdayHeight: selectedBirthdayHeight,
@@ -185,53 +188,67 @@ class ServiceZcash extends ServiceBase {
           : undefined,
     });
 
-    const vault = (await vaultFactory.getVault({
-      networkId,
-      accountId,
-    })) as VaultZcash;
-    if (isHwWallet) {
-      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        () => vault.zcashRetryLocalWalletSetup({ deviceParams }),
-        { deviceParams, debugMethodName: 'serviceZcash.enablePrivacyMode' },
-      );
-    } else {
-      await vault.zcashRetryLocalWalletSetup({ password });
-    }
-    const capability = requireLocalWalletCapability(vault);
-    const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
-      accountId,
-    });
-    if (!meta) {
-      throw new OneKeyLocalError(
-        'zcash: viewing metadata was not persisted during privacy setup',
-      );
-    }
+    try {
+      const vault = (await vaultFactory.getVault({
+        networkId,
+        accountId,
+      })) as VaultZcash;
+      if (isHwWallet) {
+        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+          () => vault.zcashRetryLocalWalletSetup({ deviceParams }),
+          { deviceParams, debugMethodName: 'serviceZcash.enablePrivacyMode' },
+        );
+      } else {
+        await vault.zcashRetryLocalWalletSetup({ password });
+      }
+      const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
+        accountId,
+      });
+      if (!meta) {
+        throw new OneKeyLocalError(
+          'zcash: viewing metadata was not persisted during privacy setup',
+        );
+      }
 
-    const enableFromHeight =
-      state.resumeFromHeight ?? meta.birthdayHeight ?? selectedBirthdayHeight;
-    if (enableFromHeight === undefined) {
-      throw new OneKeyLocalError(
-        'zcash: privacy birthday was not resolved during setup',
+      const enableFromHeight =
+        state.resumeFromHeight ?? meta.birthdayHeight ?? selectedBirthdayHeight;
+      if (enableFromHeight === undefined) {
+        throw new OneKeyLocalError(
+          'zcash: privacy birthday was not resolved during setup',
+        );
+      }
+      await vault.zcashPreparePrivacyModeAccount({
+        accountId,
+        fromHeight: enableFromHeight,
+      });
+      await this.backgroundApi.simpleDb.zcash.completePrivacyModeEnable({
+        accountId,
+        maxEnabledAccounts: (await getVaultSettings({ networkId })).localWallet
+          ?.maxEnabledAccounts,
+      });
+    } catch (error) {
+      await this.backgroundApi.simpleDb.zcash.cancelPendingPrivacyModeEnables({
+        accountId,
+      });
+      throw error;
+    }
+    // The account is on, and the rollback above can no longer reach it: the
+    // pending operation it keys on is already cleared. Letting a notification
+    // throw reported "enable failed" over an account the database turned on.
+    try {
+      await this.backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged(
+        {
+          networkId,
+          accountIds: [accountId],
+          backfillActive: true,
+        },
+      );
+    } catch (error) {
+      console.error(
+        '[zcash] privacy enable completed but notification failed',
+        error instanceof Error ? error.message : '',
       );
     }
-    const result = await capability.syncGroup({
-      accountIds: [accountId],
-      rescanFrom: { accountId, fromHeight: enableFromHeight },
-      chainTip: await capability.getChainTip(),
-    });
-    if (!result.synced) {
-      throw new OneKeyLocalError(
-        'zcash: privacy runtime registration did not complete',
-      );
-    }
-    await this.backgroundApi.simpleDb.zcash.completePrivacyModeEnable({
-      accountId,
-    });
-    await this.backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged({
-      networkId,
-      accountIds: [accountId],
-      backfillActive: !!result.backfillRemaining,
-    });
   }
 
   @backgroundMethod()

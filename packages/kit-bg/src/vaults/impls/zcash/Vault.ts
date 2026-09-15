@@ -1,7 +1,7 @@
 /* cspell:ignore Ufvks */
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
-import { isEmpty } from 'lodash';
+import { isEmpty, isEqual } from 'lodash';
 
 import { getAddressFromXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IUtxoInfo } from '@onekeyhq/core/src/chains/btc/types';
@@ -58,6 +58,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -66,6 +67,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IPrivacyChainComposedBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import { composePrivacyChainBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import {
+  PRIVACY_CHAIN_PUBLIC_POOL_ID,
   appendMissingPrivacyChainHistoryTxs,
   isPrivacyChainHistoryComplete,
   mergePrivacyChainHistoryTxs,
@@ -190,6 +192,9 @@ export function isTerminalTransparentHistoryStatus(
   return status !== EDecodedTxStatus.Pending;
 }
 
+// The same bar the foreground boost uses: one constant so the two cannot drift.
+const ZCASH_SCAN_BEHIND_BLOCKS = 10_000;
+
 export function shouldPreferTransparentForShieldedSend({
   enabled,
   toAddress,
@@ -289,8 +294,8 @@ function zcashDescribeError(e: unknown): {
 
 // history, PCZT send) is computed client-side by the runtime carrier. The
 // OneKey backend owns the transparent half; the runtime owns every shielded
-// pool. Hardware and QR are deferred; signing goes through the PCZT/WASM path,
-// never BTC sighash.
+// pool. Software and hardware signing use the PCZT/WASM path, never BTC
+// sighash. QR signing is not supported.
 export default class Vault extends VaultBtc {
   override coreApi = coreChainApi.zec.hd;
 
@@ -423,6 +428,9 @@ export default class Vault extends VaultBtc {
     accountId: string;
     tx: IZcashTransparentPendingTx;
   }): Promise<void> {
+    if (tx.broadcastAuthorized !== true) {
+      return;
+    }
     try {
       const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId,
@@ -467,8 +475,12 @@ export default class Vault extends VaultBtc {
         // This is an indexer read and does not initialize the wallet runtime.
         // Consensus height is the only authority allowed to unlock an input;
         // if the tip cannot be fetched, the transaction stays fail-closed.
-        currentHeight = (await this.zcashFetchFreshTransparentUtxos())
-          .targetHeight;
+        const account = (await this.backgroundApi.serviceAccount.getDBAccount({
+          accountId,
+        })) as IDBUtxoAccount;
+        currentHeight = (
+          await this.zcashFetchFreshTransparentUtxos({ account })
+        ).targetHeight;
       } catch {
         currentHeight = undefined;
       }
@@ -632,6 +644,19 @@ export default class Vault extends VaultBtc {
       accountId: params.accountId,
     });
     const api = await this.zcashGetApi();
+    if (params.spendTransparent) {
+      // Selection reads the runtime's UTXO table, refreshed only on a new tip.
+      // A stale row survives quote, selection and proof -- the network is the
+      // first to disagree, after the user signed. Narrows that, never closes it.
+      try {
+        await api.refreshTransparentUtxos(account);
+      } catch (e) {
+        // Leaves exactly the staleness that shipped before this call existed.
+        console.error('[zcash] transparent utxo reconcile failed', {
+          ...zcashDescribeError(e),
+        });
+      }
+    }
     try {
       return await api.createPczt(account, {
         toAddress: params.toAddress,
@@ -679,9 +704,10 @@ export default class Vault extends VaultBtc {
               account: dbAccount,
             }).catch(() => null)
           : null;
-        const maturing = indexer
-          ? indexer.total.minus(indexer.spendable)
-          : new BigNumber(0);
+        const maturing =
+          indexer?.total && indexer.spendable
+            ? indexer.total.minus(indexer.spendable)
+            : new BigNumber(0);
         if (maturing.gt(0)) {
           throw ensureAutoToast(
             new Error(
@@ -743,7 +769,7 @@ export default class Vault extends VaultBtc {
           desktop: timerUtils.getTimeDurationMs({ seconds: 5 }),
           default: timerUtils.getTimeDurationMs({ seconds: 30 }),
         },
-        autoBoostMinRemainingBlocks: 10_000,
+        autoBoostMinRemainingBlocks: ZCASH_SCAN_BEHIND_BLOCKS,
       },
       listAccounts: () => this.listLocalWalletAccounts(),
       listSendPools: (params) => this.listLocalWalletSendPools(params),
@@ -780,6 +806,11 @@ export default class Vault extends VaultBtc {
         );
         return {
           enabled: state.intent === 'on' && state.operation === undefined,
+          // A pause keeps a resume position; a never-enabled account has none.
+          paused:
+            state.intent !== 'on' &&
+            state.operation === undefined &&
+            state.resumeFromHeight !== undefined,
           pendingOperation: state.operation?.type,
           preferPublicSends: state.preferTransparentForShieldedSends === true,
           birthdayHeight: state.birthdayHeight,
@@ -970,7 +1001,10 @@ export default class Vault extends VaultBtc {
     }
     await this.zcashHealOutOfRangeBirthdays({ accountIds, accounts, chainTip });
     const api = await this.zcashGetApi();
-    await api.prepareWalletAccounts(accounts);
+    const owned = await this.backgroundApi.simpleDb.zcash.listAccountMetas();
+    await api.prepareWalletAccounts(accounts, {
+      retainedUfvks: Array.from(new Set(owned.map(({ meta }) => meta.ufvk))),
+    });
 
     // A later import can add an alias of an already-registered UFVK with an
     // earlier birthday. The runtime intentionally treats UFVK as the identity,
@@ -1191,7 +1225,7 @@ export default class Vault extends VaultBtc {
       });
       return true;
     }
-    if (platformEnv.isDesktop) {
+    if (platformEnv.isDesktop || platformEnv.isWeb) {
       await this.resetLocalWalletCarrier();
       return true;
     }
@@ -1295,13 +1329,34 @@ export default class Vault extends VaultBtc {
     await this.zcashRebuildRuntimeDatabase();
   }
 
+  async zcashPreparePrivacyModeAccount({
+    accountId,
+    fromHeight,
+  }: {
+    accountId: string;
+    fromHeight: number;
+  }): Promise<void> {
+    const result = await this.syncLocalWalletGroupImpl({
+      accountIds: [accountId],
+      rescanFrom: { accountId, fromHeight },
+      prepareAccountId: accountId,
+    });
+    if (!result.synced) {
+      throw new OneKeyLocalError(
+        'zcash: privacy runtime registration did not complete',
+      );
+    }
+  }
+
   private async syncLocalWalletGroupImpl({
     chainTip,
     rescanFrom,
+    prepareAccountId,
   }: {
     accountIds: string[];
     rescanFrom?: { accountId: string; fromHeight: number };
     chainTip?: number | null;
+    prepareAccountId?: string;
   }): Promise<{
     synced: boolean;
     stateChanged?: boolean;
@@ -1309,6 +1364,16 @@ export default class Vault extends VaultBtc {
     backfillRemaining?: boolean;
   }> {
     return getZcashSyncMutex(ZCASH_NETWORK_MAIN).runExclusive(async () => {
+      // Enabling is exempt: it spends only the control plane (chain tip,
+      // birthday treestate). Block data is gated below, after it returns.
+      // Checked before the runtime loads, so a scan that cannot run opens
+      // nothing.
+      if (
+        prepareAccountId === undefined &&
+        !(await this.backgroundApi.servicePrivacyChain.isLocalWalletScanAllowed())
+      ) {
+        return { synced: false };
+      }
       await this.zcashEnsureRuntimeSchemaCompatible();
       // Refresh inside the scan lane: queued scheduler snapshots can predate
       // another account's enable. Every active key must share scan progress.
@@ -1323,7 +1388,8 @@ export default class Vault extends VaultBtc {
         if (
           candidate.runtimeKey === ZCASH_NETWORK_MAIN &&
           ((state.intent === 'on' && state.operation === undefined) ||
-            state.operation?.type === 'enable')
+            (candidate.accountId === prepareAccountId &&
+              state.operation?.type === 'enable'))
         ) {
           activeAccountIds.push(candidate.accountId);
         }
@@ -1349,6 +1415,17 @@ export default class Vault extends VaultBtc {
         accountIds,
         chainTip,
       });
+      // Enabling establishes viewing state and queues work. Only the scheduler
+      // may start scanning after admission and network policy checks.
+      if (prepareAccountId !== undefined) {
+        return { synced: true, backfillRemaining: true };
+      }
+      // The one metered-data gate: everything past it downloads block data.
+      if (
+        !(await this.backgroundApi.servicePrivacyChain.isLocalWalletScanAllowed())
+      ) {
+        return { synced: false };
+      }
       // The shared database trial-decrypts for every registered key in one
       // pass, so advancing any one account advances the whole group.
       const accountId = accountIds[0];
@@ -1494,10 +1571,16 @@ export default class Vault extends VaultBtc {
             accountId: alias.accountId,
           }),
         ]);
+        // Pausing promises the cache stays, so a paused alias still owns it.
+        const aliasIsPaused =
+          aliasPrivacyModeState.intent !== 'on' &&
+          aliasPrivacyModeState.operation === undefined &&
+          aliasPrivacyModeState.resumeFromHeight !== undefined;
         if (
           owner &&
           (aliasPrivacyModeState.intent === 'on' ||
-            aliasPrivacyModeState.operation !== undefined)
+            aliasPrivacyModeState.operation !== undefined ||
+            aliasIsPaused)
         ) {
           hasLiveAlias = true;
           break;
@@ -1512,6 +1595,12 @@ export default class Vault extends VaultBtc {
       // record. The next explicit enable can derive the UFVK again and reuse
       // the same recovery month without reviving any cached private data.
       await this.backgroundApi.simpleDb.zcash.removeAccountMeta({ accountId });
+      // What this device recorded about what the account signed goes too:
+      // leaving it would keep a local trail of private activity the user just
+      // asked to delete. Public chain history is unaffected.
+      await this.backgroundApi.serviceSignature.removeSignedTransactionsForAccount(
+        { networkId: this.networkId, accountId },
+      );
     });
   }
 
@@ -1612,8 +1701,8 @@ export default class Vault extends VaultBtc {
     });
     // Transparent spendable comes from the indexer's UTXO set (the same
     // input the transparent builder selects from), never from the runtime.
-    let transparentSpendable = '0';
-    let transparentTotal = '0';
+    let transparentSpendable: string | undefined;
+    let transparentTotal: string | undefined;
     try {
       const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
         accountId,
@@ -1621,8 +1710,8 @@ export default class Vault extends VaultBtc {
       const indexer = await this.zcashGetIndexerTransparentBalance({
         account: dbAccount,
       });
-      transparentSpendable = indexer.spendable.toFixed(0);
-      transparentTotal = indexer.total.toFixed(0);
+      transparentSpendable = indexer.spendable?.toFixed(0);
+      transparentTotal = indexer.total?.toFixed(0);
     } catch (e) {
       console.error('[zcash] transparent send pool balance failed', {
         ...zcashDescribeError(e),
@@ -1633,18 +1722,21 @@ export default class Vault extends VaultBtc {
     const pool = (
       key: 'transparent' | IZcashSpendSource,
       label: string,
-      spendable: string,
+      spendable: string | undefined,
       isDefault?: boolean,
       total?: string,
       eligible?: boolean,
+      hintId?: ILocalWalletSendPool['hintId'],
     ): ILocalWalletSendPool => ({
       key,
       label,
       spendable,
-      spendableParsed: toParsed(spendable),
+      spendableParsed:
+        spendable === undefined ? undefined : toParsed(spendable),
       isDefault,
       ...(eligible === undefined ? {} : { eligible }),
       ...(total === undefined ? {} : { total, totalParsed: toParsed(total) }),
+      ...(hintId === undefined ? {} : { hintId }),
     });
     if (!balance) {
       // Scanner readiness must not block spending indexer-owned transparent funds.
@@ -1659,6 +1751,23 @@ export default class Vault extends VaultBtc {
         ),
       ];
     }
+    // An unfinished scan gives a floor, and Max spends it as a total. Say so,
+    // but only once the gap is big enough to matter.
+    let partialScanHint: ILocalWalletSendPool['hintId'];
+    if (balance.isComplete === false) {
+      const progress = await this.backgroundApi.servicePrivacyChain
+        .getLocalWalletSyncProgress({ networkId: this.networkId, accountId })
+        .catch(() => undefined);
+      const scanned = progress?.backfillScannedHeight;
+      const target = progress?.backfillTargetHeight;
+      const remaining =
+        typeof scanned === 'number' && typeof target === 'number'
+          ? Math.max(0, target - scanned)
+          : undefined;
+      if (remaining === undefined || remaining > ZCASH_SCAN_BEHIND_BLOCKS) {
+        partialScanHint = ETranslationsMock.privacy_scan_partial_balance;
+      }
+    }
     // A transparent recipient defaults to transparent inputs. Unified recipients
     // can also be paid from the indexer's transparent UTXOs without scanning.
     const transparentRecipient = !!toAddress && !isShieldedAddress(toAddress);
@@ -1670,12 +1779,18 @@ export default class Vault extends VaultBtc {
         'Ironwood',
         getZcashSendSpendable(balance, 'ironwood', spendTransparent).toFixed(0),
         shieldedDefault('ironwood'),
+        undefined,
+        undefined,
+        partialScanHint,
       ),
       pool(
         'orchard',
         'Orchard',
         getZcashSendSpendable(balance, 'orchard', spendTransparent).toFixed(0),
         shieldedDefault('orchard'),
+        undefined,
+        undefined,
+        partialScanHint,
       ),
       pool(
         'transparent',
@@ -1696,9 +1811,6 @@ export default class Vault extends VaultBtc {
     accountId: string;
   }): Promise<ILocalWalletAccountBalance | null> {
     const balance = await this.getLocalWalletBalance({ accountId });
-    if (!balance) {
-      return null;
-    }
     let sendPools: ILocalWalletSendPool[] | undefined;
     try {
       sendPools = await this.listLocalWalletSendPools({ accountId });
@@ -1725,74 +1837,108 @@ export default class Vault extends VaultBtc {
       return hints;
     };
 
-    const transparentSpendable = zat(transparentPool?.spendable);
-    const transparentTotal = zat(
-      transparentPool?.total ?? transparentPool?.spendable,
-    );
+    const transparentSpendable =
+      transparentPool?.spendable === undefined
+        ? undefined
+        : zat(transparentPool.spendable);
+    const transparentTotal =
+      transparentPool?.total === undefined
+        ? undefined
+        : zat(transparentPool.total);
     const transparentHints: string[] = [];
-    if (zat(balance.transparentCoinbaseBalance).gt(0)) {
+    if (balance && zat(balance.transparentCoinbaseBalance).gt(0)) {
       transparentHints.push(
         `${parsed(
           balance.transparentCoinbaseBalance,
         )} mining coinbase (cannot be shielded here)`,
       );
     }
-    if (transparentTotal.minus(transparentSpendable).gt(0)) {
+    if (
+      transparentTotal &&
+      transparentSpendable &&
+      transparentTotal.minus(transparentSpendable).gt(0)
+    ) {
       transparentHints.push(
         `${parsed(transparentTotal.minus(transparentSpendable).toFixed())} confirming`,
       );
     }
+    const knownPrivateStatus = balance?.isComplete ? 'complete' : 'partial';
+    const incompleteStatus =
+      balance || transparentTotal !== undefined ? 'partial' : 'unavailable';
     const privatePool = (
       key: IZcashSpendSource,
-      total: string,
-      detail: IZcashPoolDetail,
+      total: string | undefined,
+      detail: IZcashPoolDetail | undefined,
       extraHints: string[],
     ): ILocalWalletPoolBalance => ({
       key,
+      balanceStatus: balance ? knownPrivateStatus : 'unavailable',
       total,
-      totalParsed: parsed(total),
-      spendable: detail.spendable,
-      spendableParsed: parsed(detail.spendable),
-      hints: [...extraHints, ...breakdownHints(detail)],
+      totalParsed: total === undefined ? undefined : parsed(total),
+      spendable: detail?.spendable,
+      spendableParsed:
+        detail === undefined ? undefined : parsed(detail.spendable),
+      hints: [...extraHints, ...(detail ? breakdownHints(detail) : [])],
       move: {
         type: 'withdraw',
-        amountParsed: zat(detail.spendable).gt(0)
-          ? parsed(detail.spendable)
-          : undefined,
-        enabled: zat(detail.spendable).gt(0),
+        amountParsed:
+          detail && zat(detail.spendable).gt(0)
+            ? parsed(detail.spendable)
+            : undefined,
+        enabled: !!detail && zat(detail.spendable).gt(0),
       },
     });
     return {
-      total: balance.total,
-      totalParsed: parsed(balance.total),
-      spendable: balance.spendable,
+      balanceStatus:
+        balance?.isComplete && transparentTotal !== undefined
+          ? 'complete'
+          : incompleteStatus,
+      total: balance?.isComplete
+        ? transparentTotal?.plus(balance.shielded).toFixed(0)
+        : undefined,
+      totalParsed:
+        !balance?.isComplete || transparentTotal === undefined
+          ? undefined
+          : parsed(transparentTotal.plus(balance.shielded).toFixed(0)),
+      spendable: balance
+        ? transparentSpendable?.plus(balance.shieldedSpendable).toFixed(0)
+        : undefined,
       pools: [
         {
           key: 'transparent',
-          total: transparentTotal.toFixed(0),
-          totalParsed: parsed(transparentTotal.toFixed(0)),
-          spendable: transparentSpendable.toFixed(0),
-          spendableParsed: parsed(transparentSpendable.toFixed(0)),
+          balanceStatus:
+            transparentTotal === undefined ? 'unavailable' : 'complete',
+          total: transparentTotal?.toFixed(0),
+          totalParsed:
+            transparentTotal === undefined
+              ? undefined
+              : parsed(transparentTotal.toFixed(0)),
+          spendable: transparentSpendable?.toFixed(0),
+          spendableParsed:
+            transparentSpendable === undefined
+              ? undefined
+              : parsed(transparentSpendable.toFixed(0)),
           hints: transparentHints,
           move: {
             type: 'shield',
-            amountParsed: transparentSpendable.gt(0)
+            amountParsed: transparentSpendable?.gt(0)
               ? parsed(transparentSpendable.toFixed(0))
               : undefined,
             // Dust below the threshold is rejected by the sweep proposer.
-            enabled: transparentSpendable.gte(ZCASH_SHIELDING_THRESHOLD_ZAT),
+            enabled:
+              transparentSpendable?.gte(ZCASH_SHIELDING_THRESHOLD_ZAT) ?? false,
           },
         },
         privatePool(
           'ironwood',
-          balance.ironwoodBalance,
-          balance.poolsDetail.ironwood,
+          balance?.ironwoodBalance,
+          balance?.poolsDetail.ironwood,
           [],
         ),
         privatePool(
           'orchard',
-          balance.orchardBalance,
-          balance.poolsDetail.orchard,
+          balance?.orchardBalance,
+          balance?.poolsDetail.orchard,
           ['Legacy pool — no longer receives funds.'],
         ),
       ],
@@ -1859,11 +2005,28 @@ export default class Vault extends VaultBtc {
     if (!meta) {
       await this.backgroundApi.simpleDb.zcash.removePendingRescan({
         accountId,
+        expectedRepair: repair,
       });
       return;
     }
     const lifecycleMutex = getZcashLifecycleMutex(meta.ufvk);
     await lifecycleMutex.runExclusive(async () => {
+      const [currentMeta, pendingRescans, owner] = await Promise.all([
+        this.backgroundApi.simpleDb.zcash.getAccountMeta({ accountId }),
+        this.backgroundApi.simpleDb.zcash.listPendingRescans(),
+        this.backgroundApi.serviceAccount.getDBAccountSafe({ accountId }),
+      ]);
+      const pending = pendingRescans.find(
+        (candidate) => candidate.accountId === accountId,
+      )?.repair;
+      if (
+        !owner ||
+        !currentMeta ||
+        currentMeta.ufvk !== meta.ufvk ||
+        !isEqual(pending, repair)
+      ) {
+        return;
+      }
       await this.zcashAssertNoUnresolvedBroadcast(accountId);
       // Write the corrected birthday BEFORE purging. The purge builds its
       // wallet handle from whatever meta is stored right now, and every runtime
@@ -1878,8 +2041,9 @@ export default class Vault extends VaultBtc {
       // anywhere in here is replayed by zcashResumePendingRescans.
       await this.backgroundApi.simpleDb.zcash.saveAccountMeta({
         accountId,
+        expectedMeta: currentMeta,
         meta: {
-          ...meta,
+          ...currentMeta,
           birthdayHeight: repair.birthdayHeight,
           birthdaySource: repair.birthdaySource,
           birthdayTimestamp: repair.birthdayTimestamp,
@@ -1890,6 +2054,7 @@ export default class Vault extends VaultBtc {
       await api.purgeWallet(account);
       await this.backgroundApi.simpleDb.zcash.removePendingRescan({
         accountId,
+        expectedRepair: repair,
       });
     });
   }
@@ -2068,6 +2233,7 @@ export default class Vault extends VaultBtc {
       // Silent no-op if the wallet isn't unlocked (see
       // tryAutoRepairLocalWalletSetupIfUnlocked) -- the account just stays
       // transparent-only-looking until an explicit unlock happens.
+      if (readZcashRuntimeError(e)?.code === 'NOT_SYNCED') return null;
       const repaired =
         await this.zcashTryAutoRepairLocalWalletSetupIfUnlocked();
       if (repaired) {
@@ -2078,6 +2244,7 @@ export default class Vault extends VaultBtc {
           const api = await this.zcashGetApi();
           return await api.getBalance(account);
         } catch (e2) {
+          if (readZcashRuntimeError(e2)?.code === 'NOT_SYNCED') return null;
           console.log('[zcash] getBalance still failing after auto repair', {
             accountId: this.accountId,
             ...zcashDescribeError(e2),
@@ -2089,20 +2256,13 @@ export default class Vault extends VaultBtc {
         accountId: this.accountId,
         ...zcashDescribeError(e),
       });
-      // Never-initialized is a STATE, not a fault: setup didn't complete (and
-      // auto-repair couldn't run because the wallet is locked), so there is no
-      // cached balance to protect and nothing transient to wait out. Report
-      // zero so the token list and details page still open -- the details page
-      // is where the Repair button that fixes this lives, and throwing here
-      // locked the key inside the room (real device, 2026-08-27).
+      // Keep setup unavailable so the details page and its Repair action open
+      // without claiming that a wallet awaiting scanning is empty.
       if (isZcashSetupIncompleteError(e)) {
         return null;
       }
-      // Everything else rethrows rather than degrading to null: callers turn
-      // null into a literal "0", so a transient carrier/wasm hiccup would
-      // overwrite the user's real balance on the home screen until the next
-      // poll. Throwing matches every other chain's fetch* failure semantics --
-      // upstream keeps the cached figure.
+      // Transient carrier failures preserve the upstream cache instead of
+      // replacing a previously successful snapshot.
       throw e;
     }
   }
@@ -2128,19 +2288,17 @@ export default class Vault extends VaultBtc {
     const balance = await this.zcashGetComposedBalanceSafe(
       serverResponse?.data.data.balance,
     );
-    if (!balance && serverResponse) {
-      return serverResponse;
-    }
-    const total = balance?.total ?? '0';
+    const total = balance.total;
     return {
       data: {
         data: {
           ...serverResponse?.data.data,
           address: params.accountAddress,
           balance: total,
-          balanceParsed: new BigNumber(total)
-            .shiftedBy(-ZCASH_DECIMALS)
-            .toFixed(),
+          balanceParsed:
+            total === ''
+              ? ''
+              : new BigNumber(total).shiftedBy(-ZCASH_DECIMALS).toFixed(),
         },
       },
     };
@@ -2175,13 +2333,11 @@ export default class Vault extends VaultBtc {
     const balance = await this.zcashGetComposedBalanceSafe(
       serverNativeFiat?.balance,
     );
-    if (!balance && serverResponse) {
-      return serverResponse;
-    }
-    const total = balance?.total ?? '0';
-    const balanceParsed = new BigNumber(total)
-      .shiftedBy(-ZCASH_DECIMALS)
-      .toFixed();
+    const total = balance.total;
+    const balanceParsed =
+      total === ''
+        ? ''
+        : new BigNumber(total).shiftedBy(-ZCASH_DECIMALS).toFixed();
 
     if (
       serverResponse &&
@@ -2203,7 +2359,8 @@ export default class Vault extends VaultBtc {
         price24h: 0,
         balance: total,
         balanceParsed,
-        fiatValue: '0',
+        balanceStatus: balance.balanceStatus,
+        fiatValue: total === '0' ? '0' : '',
       },
     };
     const data = [
@@ -2250,29 +2407,41 @@ export default class Vault extends VaultBtc {
     account,
   }: {
     account: IDBUtxoAccount;
-  }): Promise<{ total: BigNumber; spendable: BigNumber }> {
-    const fresh = await this.zcashFetchFreshTransparentUtxos({ account });
-    const spendable = fresh.utxos.reduce(
-      (sum, utxo) => sum.plus(utxo.valueZat),
-      new BigNumber(0),
-    );
-    let total = spendable;
-    try {
-      const response = await super.fetchTokenDetails({
+  }): Promise<{ total?: BigNumber; spendable?: BigNumber }> {
+    const [utxosResult, totalResult] = await Promise.allSettled([
+      this.zcashFetchFreshTransparentUtxos({ account }),
+      super.fetchTokenDetails({
         accountId: account.id,
         networkId: this.networkId,
         contractList: [''],
+      }),
+    ]);
+    let spendable: BigNumber | undefined;
+    let total: BigNumber | undefined;
+    if (utxosResult.status === 'fulfilled') {
+      spendable = utxosResult.value.utxos.reduce(
+        (sum, utxo) => sum.plus(utxo.valueZat),
+        new BigNumber(0),
+      );
+    } else {
+      console.error('[zcash] indexer transparent spendable failed', {
+        ...zcashDescribeError(utxosResult.reason),
       });
-      const nativeToken = response.data.data.find(
+    }
+    if (totalResult.status === 'fulfilled') {
+      const nativeToken = totalResult.value.data.data.find(
         (token) => token.info.isNative || token.info.address === '',
       );
       const indexerTotal = new BigNumber(nativeToken?.balance ?? '');
-      if (indexerTotal.isFinite()) {
-        total = BigNumber.max(indexerTotal, spendable);
+      if (indexerTotal.isFinite() && indexerTotal.gte(0)) {
+        total =
+          spendable === undefined
+            ? indexerTotal
+            : BigNumber.max(indexerTotal, spendable);
       }
-    } catch (e) {
+    } else {
       console.error('[zcash] indexer transparent total failed', {
-        ...zcashDescribeError(e),
+        ...zcashDescribeError(totalResult.reason),
       });
     }
     return { total, spendable };
@@ -2357,22 +2526,13 @@ export default class Vault extends VaultBtc {
       () => this.zcashGetComposedBalanceSafe(serverNativeToken?.balance),
       (res) => ({ hasBalance: !!res }),
     );
-    if (!balance && serverResponse) {
-      return serverResponse;
-    }
-    const total = new BigNumber(balance?.total ?? '0');
-    // `spendable` comes from the SDK, which computes it next to the constant
-    // that decides what a proposal will accept. Recomputing it here is how the
-    // two drift: this used to subtract only sapling and pending from the total,
-    // so the transparent balance counted as spendable even though a transfer
-    // never draws on it -- "max" then proposed an amount the same code refused.
-    //
-    // Both figures now arrive already reconciled from
-    // composePrivacyChainBalance; frozen is total-minus-spendable there, which
-    // is also where indexer-ahead-of-scan transparent value shows up.
-    const spendable = new BigNumber(balance?.spendable ?? '0');
-    const frozen = new BigNumber(balance?.frozen ?? '0');
-    const toParsed = (v: BigNumber) => v.shiftedBy(-ZCASH_DECIMALS).toFixed();
+    const total = new BigNumber(balance.total);
+    // Account availability includes independently spendable transparent funds.
+    // Send Max uses the explicitly selected pool, not this display aggregate.
+    const spendable = new BigNumber(balance.spendable);
+    const frozen = new BigNumber(balance.frozen);
+    const toParsed = (v: BigNumber) =>
+      v.isFinite() ? v.shiftedBy(-ZCASH_DECIMALS).toFixed() : '';
     const totalParsed = toParsed(total);
     if (
       serverResponse &&
@@ -2385,9 +2545,9 @@ export default class Vault extends VaultBtc {
     ) {
       return serverResponse;
     }
-    const spendableFiatValue = '0';
-    const frozenFiatValue = '0';
-    const totalFiatValue = '0';
+    const spendableFiatValue = spendable.isZero() ? '0' : '';
+    const frozenFiatValue = frozen.isZero() ? '0' : '';
+    const totalFiatValue = total.isZero() ? '0' : '';
     return {
       data: {
         data: [
@@ -2402,11 +2562,12 @@ export default class Vault extends VaultBtc {
             },
             price: 0,
             price24h: 0,
-            balance: spendable.toFixed(),
+            balance: balance.spendable,
+            balanceStatus: balance.balanceStatus,
             balanceParsed: toParsed(spendable),
-            frozenBalance: frozen.toFixed(),
+            frozenBalance: balance.frozen,
             frozenBalanceParsed: toParsed(frozen),
-            totalBalance: total.toFixed(),
+            totalBalance: balance.total,
             totalBalanceParsed: totalParsed,
             fiatValue: spendableFiatValue,
             frozenBalanceFiatValue: frozenFiatValue,
@@ -2427,6 +2588,23 @@ export default class Vault extends VaultBtc {
   private async zcashFetchBackendHistoryDetail(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
+    // A stale private detail page may still request this txid after Privacy
+    // Mode is disabled. Prove the public association without sending the
+    // requested txid, including when the wallet runtime must stay unloaded.
+    const publicHistory = await this.zcashFetchTransparentHistory({
+      accountId: params.accountId || this.accountId,
+      networkId: params.networkId,
+      accountAddress: params.accountAddress ?? '',
+      xpub: params.xpub,
+    });
+    if (
+      !publicHistory.txs.some(
+        ({ decodedTx }) =>
+          decodedTx.txid.toLowerCase() === params.txid.toLowerCase(),
+      )
+    ) {
+      throw new OneKeyLocalError('zcash: transaction not found');
+    }
     const response = await super.fetchAccountHistoryDetail(params);
     const detail = response.data.data.data;
     if (detail) {
@@ -2449,22 +2627,15 @@ export default class Vault extends VaultBtc {
     if (privacyModeState.intent !== 'on') {
       return this.zcashFetchBackendHistoryDetail(params);
     }
-    // Transparent history is backend-only: whenever the indexer knows this
-    // txid, its detail is the detail. The runtime is consulted only for a
-    // purely shielded transaction the indexer cannot see.
-    try {
-      const backendDetail = await this.zcashFetchBackendHistoryDetail(params);
-      if (backendDetail.data.data.data?.tx) {
-        privacyChainPerfLog('bg history detail', { source: 'backend' });
-        return backendDetail;
-      }
-    } catch (e) {
-      privacyChainPerfLog('bg history detail', {
-        source: 'runtime',
-        reason: 'backend-miss',
-        message: e instanceof Error ? e.message : String(e),
-      });
+    // Split by pool instead of merging two sources: the public side belongs to
+    // the backend, the private side to the runtime, and neither can answer for
+    // the other. The tab the user opened decides which one answers.
+    if (params.privacyChainPoolId === PRIVACY_CHAIN_PUBLIC_POOL_ID) {
+      return this.zcashFetchBackendHistoryDetail(params);
     }
+    // Resolve local history before disclosing a txid to the transparent
+    // indexer. A missing or failed local lookup is not evidence that a
+    // transaction is public.
     let item: IZcashHistoryItem | null;
     let details: IZcashTxDetails;
     try {
@@ -2475,7 +2646,17 @@ export default class Vault extends VaultBtc {
         fetchPage: (pagination) => api.getHistory(account, pagination),
       });
       if (!item) {
-        throw new OneKeyLocalError('zcash: transaction not found');
+        return this.zcashFetchBackendHistoryDetail(params);
+      }
+      // No pool tab in the request (a deep link, a notification): a row the
+      // runtime knows only as transparent is the backend's to describe.
+      if (
+        params.privacyChainPoolId === undefined &&
+        !(item.poolIds ?? []).some(
+          (poolId) => poolId !== PRIVACY_CHAIN_PUBLIC_POOL_ID,
+        )
+      ) {
+        return this.zcashFetchBackendHistoryDetail(params);
       }
       // Account-view inputs & outputs from the local note tables: our
       // consumed notes/UTXOs, our created notes/UTXOs, and (for our own
@@ -2802,22 +2983,33 @@ export default class Vault extends VaultBtc {
   // One composed balance for every display surface, so the token list, the
   // account details and the send page cannot disagree about what the user has.
   //
-  // Transparent value prefers the indexer (it answers in a second; the scan can
-  // be hours behind), shielded can only come from the scan, and `spendable`
-  // stays whatever the local wallet says -- the indexer never gets a vote on
-  // what a proposal will accept.
+  // Transparent availability uses the builder's validated indexer UTXO set;
+  // private availability comes from the runtime's note-selection policy.
   async zcashGetComposedBalanceSafe(
     publicSideBackend?: string,
-  ): Promise<IPrivacyChainComposedBalance | null> {
+  ): Promise<IPrivacyChainComposedBalance> {
     const balance = await this.zcashGetBalanceSafe();
-    if (!balance) {
-      return null;
+    let transparentSpendable: BigNumber | undefined;
+    try {
+      const account = (await this.getAccount()) as IDBUtxoAccount;
+      const fresh = await this.zcashFetchFreshTransparentUtxos({ account });
+      transparentSpendable = fresh.utxos.reduce(
+        (sum, utxo) => sum.plus(utxo.valueZat),
+        new BigNumber(0),
+      );
+    } catch (e) {
+      console.error('[zcash] account transparent availability failed', {
+        ...zcashDescribeError(e),
+      });
     }
     return composePrivacyChainBalance({
-      privateSide: balance.shielded,
-      publicSideLocal: balance.transparent,
+      privateSide: balance?.shielded,
+      privateSideComplete: balance?.isComplete === true,
+      publicSideLocal: balance?.transparent,
       publicSideIndexer: publicSideBackend,
-      spendable: balance.spendable,
+      spendable: balance
+        ? transparentSpendable?.plus(balance.shieldedSpendable).toFixed(0)
+        : undefined,
     });
   }
 
@@ -2844,8 +3036,14 @@ export default class Vault extends VaultBtc {
     const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
       accountId,
     });
-    const transparentAddress =
-      meta?.transparentAddress || params.accountAddress;
+    let transparentAddress = meta?.transparentAddress || params.accountAddress;
+    if (!transparentAddress) {
+      // Transparent Mode writes no metadata, and a raw input/output request
+      // carries no address. The account's own t-address answers both.
+      const dbAccount =
+        await this.backgroundApi.serviceAccount.getDBAccountSafe({ accountId });
+      transparentAddress = dbAccount?.address ?? '';
+    }
     if (!transparentAddress) {
       return { txs: [], snapshotComplete: true };
     }
@@ -3356,25 +3554,6 @@ export default class Vault extends VaultBtc {
       // Fixed at build time: the transparent plan, or the locked PCZT's own
       // ZIP-317 fee. No quote can be more exact than the proposal itself.
       feeZatValue = encodedTx.fee;
-    } else if (encodedTx?.isShielding && this.accountId) {
-      try {
-        const account = await this.zcashGetWalletAccount({
-          accountId: this.accountId,
-        });
-        const { feeZat } = await (
-          await this.zcashGetApi()
-        ).quoteShieldFunds(account);
-        feeZatValue = feeZat;
-      } catch (e) {
-        const runtime = readZcashRuntimeError(e);
-        if (runtime?.code === 'INSUFFICIENT_FUNDS') {
-          throw toUserFacingZcashError(e);
-        }
-        console.log(
-          '[zcash] shielding fee quote failed, using conventional estimate',
-          { ...zcashDescribeError(e) },
-        );
-      }
     } else if (
       encodedTx?.zcashTo &&
       encodedTx?.zcashAmountValue &&
@@ -3499,22 +3678,17 @@ export default class Vault extends VaultBtc {
           privacyMode.operation === undefined,
         toAddress: transferInfo.to,
       });
-    const hardwareShield =
-      transferInfo.localWalletShield === true &&
-      this.keyring instanceof KeyringHardware;
     debugZcashSendLog('bg.build-route', {
       privacyIntent: privacyMode.intent,
       sourcePool,
       requestedSpendSource,
       preferTransparentForShieldedSend,
-      hardwareShield,
       isShielding: transferInfo.localWalletShield === true,
       isMaxSend: params.transferPayload?.isMaxSend === true,
     });
     if (
       privacyMode.intent !== 'on' &&
-      (hardwareShield ||
-        sourcePool === 'orchard' ||
+      (sourcePool === 'orchard' ||
         sourcePool === 'ironwood' ||
         requestedSpendSource !== undefined)
     ) {
@@ -3523,45 +3697,10 @@ export default class Vault extends VaultBtc {
         'Enable Zcash Privacy Mode before using a shielded pool',
       );
     }
-    if (hardwareShield) {
-      // Preserve the device's existing PCZT shielding flow. Stateless transparent
-      // signing is currently supported by software keyrings only.
-      const spendableT = new BigNumber(
-        (await this.zcashGetBalanceSafe())?.poolsDetail.transparentRegular
-          .spendable ?? '0',
-      );
-      const netDisplay = BigNumber.max(
-        spendableT.minus(ZCASH_DISPLAY_FEE_ZAT),
-        0,
-      ).toFixed(0);
-      return {
-        inputs: [],
-        outputs: [{ address: transferInfo.to, value: netDisplay }],
-        inputsForCoinSelect: [],
-        outputsForCoinSelect: [],
-        fee: ZCASH_DISPLAY_FEE_ZAT,
-        txSize: 0,
-        zcashTo: transferInfo.to,
-        zcashAmountValue: netDisplay,
-        zcashShieldingGrossValue: spendableT.toFixed(0),
-        isShielding: true,
-        zcashMode: 'privacy',
-      };
-    }
     const buildsTransparentTx =
       transferInfo.localWalletShield ||
       sourcePool === 'transparent' ||
       privacyMode.intent !== 'on';
-    if (buildsTransparentTx && this.keyring instanceof KeyringHardware) {
-      // KeyringHardware.signTransaction rejects zcashMode 'transparent' (the
-      // device exposes no per-input sighash path yet). Refuse here instead:
-      // the old failure point was after the review page, the password and the
-      // device prompt.
-      throw zcashTransparentError(
-        'HARDWARE_TRANSPARENT_SEND_UNSUPPORTED',
-        'Zcash transparent sends from hardware wallets are not supported yet. Shield the funds first, then send from the private pool.',
-      );
-    }
     if (buildsTransparentTx) {
       return this.zcashBuildTransparentEncodedTx({
         transferInfo,
@@ -3581,6 +3720,8 @@ export default class Vault extends VaultBtc {
         ? sourcePool
         : (requestedSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL);
     if (params.transferPayload?.isMaxSend === true) {
+      // The proposer refuses anyway; asking first saves up to six quotes.
+      await this.zcashAssertNoUnresolvedBroadcast(this.accountId);
       const balanceForMax = await this.zcashGetBalanceSafe();
       debugZcashSendLog('bg.max-balance', {
         spendSource,
@@ -3613,7 +3754,10 @@ export default class Vault extends VaultBtc {
         preferTransparentForShieldedSend,
       );
       let feeGuess = new BigNumber(ZCASH_DISPLAY_FEE_ZAT);
-      let resolved: string | undefined;
+      let resolved: BigNumber | undefined;
+      // For the failure copy: dropping it left a bare "not enough" over a
+      // balance the previous screen showed as spendable.
+      let shortfallZat: number | null = null;
       for (let attempt = 0; attempt < 6; attempt += 1) {
         const candidate = spendable.minus(feeGuess);
         debugZcashSendLog('bg.max-probe', {
@@ -3622,7 +3766,12 @@ export default class Vault extends VaultBtc {
           candidatePositive: candidate.gt(0),
           feeGuessZat: feeGuess.toFixed(0),
         });
-        if (candidate.lte(0)) break;
+        if (candidate.lte(0)) {
+          if (shortfallZat === null) {
+            shortfallZat = feeGuess.minus(spendable).toNumber();
+          }
+          break;
+        }
         try {
           // eslint-disable-next-line no-await-in-loop
           const { feeZat } = await api.quotePczt(account, {
@@ -3637,8 +3786,18 @@ export default class Vault extends VaultBtc {
             feeCovered: new BigNumber(feeZat).lte(feeGuess),
           });
           if (new BigNumber(feeZat).lte(feeGuess)) {
-            resolved = candidate.toFixed(0);
-            break;
+            // Keep the largest: raising the guess later yields smaller ones.
+            if (resolved === undefined || candidate.gt(resolved)) {
+              resolved = candidate;
+            }
+            if (new BigNumber(feeZat).eq(feeGuess)) {
+              break;
+            }
+            // The difference is the user's money, but a larger amount may
+            // select more inputs -- so it needs its own quote.
+            feeGuess = new BigNumber(feeZat);
+            // eslint-disable-next-line no-continue
+            continue;
           }
           feeGuess = new BigNumber(feeZat);
         } catch (e) {
@@ -3656,6 +3815,7 @@ export default class Vault extends VaultBtc {
             shortfall !== null &&
             shortfall > 0
           ) {
+            shortfallZat = shortfall;
             feeGuess = feeGuess.plus(String(shortfall));
             // eslint-disable-next-line no-continue
             continue;
@@ -3668,11 +3828,12 @@ export default class Vault extends VaultBtc {
         throw toUserFacingZcashError(
           Object.assign(new Error('INSUFFICIENT_FUNDS'), {
             code: 'INSUFFICIENT_FUNDS',
-            params: {},
+            params:
+              shortfallZat !== null && shortfallZat > 0 ? { shortfallZat } : {},
           }),
         );
       }
-      amountValue = resolved;
+      amountValue = resolved.toFixed(0);
       debugZcashSendLog('bg.max-resolved', { spendSource });
     }
     return {
@@ -3861,21 +4022,20 @@ export default class Vault extends VaultBtc {
       let created: IZcashPcztReservation;
       try {
         debugZcashSendLog('bg.pczt-create', {
-          isShielding: encodedTx.isShielding === true,
           spendSource: encodedTx.zcashSpendSource,
           spendTransparent: encodedTx.zcashSpendTransparent,
         });
-        created = encodedTx.isShielding
-          ? await this.zcashShieldFunds({ accountId, reservationId })
-          : await this.zcashCreatePczt({
-              accountId,
-              toAddress: encodedTx.zcashTo,
-              valueZat: encodedTx.zcashAmountValue,
-              spendSource:
-                encodedTx.zcashSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL,
-              spendTransparent: encodedTx.zcashSpendTransparent,
-              reservationId,
-            });
+        // Shielding no longer reaches here: it builds a transparent-mode
+        // transaction from indexer UTXOs, the same as a software send.
+        created = await this.zcashCreatePczt({
+          accountId,
+          toAddress: encodedTx.zcashTo,
+          valueZat: encodedTx.zcashAmountValue,
+          spendSource:
+            encodedTx.zcashSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL,
+          spendTransparent: encodedTx.zcashSpendTransparent,
+          reservationId,
+        });
         if (created.reservationId !== reservationId) {
           throw new OneKeyLocalError(
             'zcash: runtime returned an unexpected reservation id',
@@ -3891,16 +4051,7 @@ export default class Vault extends VaultBtc {
         });
         throw error;
       }
-      // A shield sweep has no amount of its own: it is the swept value minus
-      // the fee the proposer just charged.
-      const amountValue = encodedTx.isShielding
-        ? BigNumber.max(
-            new BigNumber(encodedTx.zcashShieldingGrossValue ?? '0').minus(
-              created.feeZat,
-            ),
-            0,
-          ).toFixed(0)
-        : encodedTx.zcashAmountValue;
+      const amountValue = encodedTx.zcashAmountValue;
       return {
         ...encodedTx,
         fee: created.feeZat,
@@ -3996,25 +4147,11 @@ export default class Vault extends VaultBtc {
     const fee = new BigNumber(feeValue)
       .shiftedBy(network.feeMeta.decimals)
       .toFixed(0);
-    const shieldingNet = encodedTx.isShielding
-      ? BigNumber.max(
-          new BigNumber(encodedTx.zcashShieldingGrossValue ?? '0').minus(fee),
-          0,
-        ).toFixed(0)
-      : undefined;
     return {
       ...params.unsignedTx,
       encodedTx: {
         ...encodedTx,
         fee,
-        ...(shieldingNet === undefined
-          ? {}
-          : {
-              zcashAmountValue: shieldingNet,
-              outputs: encodedTx.outputs.map((output, index) =>
-                index === 0 ? { ...output, value: shieldingNet } : output,
-              ),
-            }),
       },
     };
   }
@@ -4028,6 +4165,7 @@ export default class Vault extends VaultBtc {
       const expectedTxid = encodedTx.zcashTransparentBuild?.txid;
       if (
         !expectedTxid ||
+        signedTx.txid.toLowerCase() !== expectedTxid.toLowerCase() ||
         signedTx.rawTx !== encodedTx.zcashTransparentBuild?.rawTx
       ) {
         throw zcashTransparentError(
@@ -4035,6 +4173,11 @@ export default class Vault extends VaultBtc {
           'Zcash transparent signed transaction is incomplete',
         );
       }
+      await this.backgroundApi.simpleDb.zcash.authorizeTransparentPendingTx({
+        accountId: this.accountId,
+        txid: expectedTxid,
+        rawTx: signedTx.rawTx,
+      });
       let broadcast: ISignedTxPro;
       try {
         broadcast = await super.broadcastTransaction(params);
@@ -4056,17 +4199,9 @@ export default class Vault extends VaultBtc {
           { expectedTxid, actualTxid: broadcast.txid },
         );
       }
-      await this.backgroundApi.simpleDb.zcash.saveTransparentPendingTx({
+      await this.backgroundApi.simpleDb.zcash.markTransparentPendingTxAccepted({
         accountId: this.accountId,
-        tx: {
-          ownerId: checkIsDefined(encodedTx.zcashTransparentPlan).ownerId,
-          rawTx: encodedTx.zcashTransparentBuild.rawTx,
-          txid: expectedTxid,
-          spentOutpoints: encodedTx.zcashTransparentBuild.spentOutpoints,
-          expiryHeight: encodedTx.zcashTransparentBuild.expiryHeight,
-          createdAt: Date.now(),
-          broadcastState: 'accepted',
-        },
+        txid: expectedTxid,
       });
       return { ...broadcast, txid: expectedTxid };
     }

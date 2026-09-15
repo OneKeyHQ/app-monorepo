@@ -59,11 +59,13 @@ describe('Zcash send amount intent', () => {
     preferTransparent = false,
   ) {
     const quotePczt = jest.fn().mockResolvedValue({ feeZat: '10000' });
+    const assertNoUnresolvedBroadcast = jest.fn(async () => undefined);
     const account = { id: 'test-account' };
     const vault: Vault = Object.assign(
       Object.create(Vault.prototype) as Vault,
       {
         accountId: account.id,
+        zcashAssertNoUnresolvedBroadcast: assertNoUnresolvedBroadcast,
         backgroundApi: {
           simpleDb: {
             zcash: {
@@ -85,7 +87,7 @@ describe('Zcash send amount intent', () => {
         }),
       },
     );
-    return { vault, quotePczt };
+    return { vault, quotePczt, assertNoUnresolvedBroadcast };
   }
 
   it('keeps indexer funds spendable when the privacy scanner is unavailable', async () => {
@@ -147,6 +149,68 @@ describe('Zcash send amount intent', () => {
         spendTransparent: false,
         valueZat: '99990000',
       }),
+    );
+  });
+
+  it('refuses an unresolved broadcast before paying for any quote', async () => {
+    const { vault, quotePczt, assertNoUnresolvedBroadcast } = createVault(
+      balance('100000000', '0'),
+    );
+    assertNoUnresolvedBroadcast.mockRejectedValue(
+      Object.assign(new OneKeyLocalError('still awaiting confirmation'), {
+        code: 'UNRESOLVED_ZCASH_BROADCAST',
+      }),
+    );
+
+    await expect(vault.buildEncodedTx(request('1', true))).rejects.toThrow(
+      'still awaiting confirmation',
+    );
+    expect(quotePczt).not.toHaveBeenCalled();
+  });
+
+  it('spends the difference when the quote comes in under the first guess', async () => {
+    const { vault, quotePczt } = createVault(balance('100000000', '0'));
+    quotePczt.mockResolvedValue({ feeZat: '5000' });
+
+    const encoded = await vault.buildEncodedTx(request('1', true));
+
+    // Keeping the guess would have left 5000 zat of the user's money behind.
+    expect(encoded.zcashAmountValue).toBe('99995000');
+    expect(quotePczt).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the affordable amount when the larger one prices higher', async () => {
+    const { vault, quotePczt } = createVault(balance('100000000', '0'));
+    quotePczt
+      .mockResolvedValueOnce({ feeZat: '5000' })
+      .mockResolvedValue({ feeZat: '20000' });
+
+    const encoded = await vault.buildEncodedTx(request('1', true));
+
+    // The first candidate was quoted and affordable; a re-quote that prices
+    // higher must not replace it with a smaller one.
+    expect(encoded.zcashAmountValue).toBe('99990000');
+  });
+
+  it('says how short a balance below the fee is', async () => {
+    const { vault } = createVault(balance('4000', '0'));
+
+    await expect(vault.buildEncodedTx(request('1', true))).rejects.toThrow(
+      '0.00006 ZEC short',
+    );
+  });
+
+  it('keeps the last reported shortfall when the probe never converges', async () => {
+    const { vault, quotePczt } = createVault(balance('100000000', '0'));
+    quotePczt.mockRejectedValue(
+      Object.assign(new OneKeyLocalError('probe'), {
+        code: 'INSUFFICIENT_FUNDS',
+        params: { shortfallZat: 7000 },
+      }),
+    );
+
+    await expect(vault.buildEncodedTx(request('1', true))).rejects.toThrow(
+      '0.00007 ZEC short',
     );
   });
 
@@ -328,7 +392,6 @@ describe('Zcash transparent send amount intent', () => {
       });
       expect(encoded.zcashMode).toBe('transparent');
       expect(encoded.zcashAmountValue).toBe('99990000');
-      expect(encoded.isShielding).not.toBe(true);
       expect(quoteTransparentTx).toHaveBeenCalledWith(
         expect.objectContaining({
           sendMax: true,

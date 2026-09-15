@@ -32,12 +32,15 @@ export const ZCASH_SDK_METHODS = [
   'quoteTransparentTx',
   'buildTransparentTxWithSeed',
   'buildTransparentTxWithAccountXprv',
+  'createTransparentHardwarePczt',
+  'finalizeTransparentHardwarePczt',
 
   // wallet side (watch-only)
   'prepareWalletAccounts',
   'syncWallet',
   'queueRescanFrom',
   'getSyncProgress',
+  'refreshTransparentUtxos',
   'diagnoseWalletDatabase',
   'runStorageBenchmark',
   'getBalance',

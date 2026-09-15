@@ -66,6 +66,7 @@ function createService({
         isPrivacyModeEnabled: jest.fn().mockResolvedValue(privacyModeEnabled),
         beginPrivacyModeEnable: jest.fn(),
         completePrivacyModeEnable: jest.fn(),
+        cancelPendingPrivacyModeEnables: jest.fn(),
         beginPrivacyModeDisable: jest.fn(),
         completePrivacyModeDisable: jest.fn(),
         getAccountMeta: jest.fn().mockResolvedValue({
@@ -114,7 +115,7 @@ describe('ServiceZcash context and receive gating', () => {
         accountId,
         birthdayHeight: 1,
       }),
-    ).rejects.toThrow('existing HD accounts');
+    ).rejects.toThrow('existing HD or hardware account');
     expect(
       backgroundApi.simpleDb.zcash.beginPrivacyModeEnable,
     ).not.toHaveBeenCalled();
@@ -131,7 +132,7 @@ describe('ServiceZcash context and receive gating', () => {
         accountId,
         birthdayHeight: 1,
       }),
-    ).rejects.toThrow('existing HD accounts');
+    ).rejects.toThrow('existing HD or hardware account');
     expect(
       backgroundApi.simpleDb.zcash.beginPrivacyModeEnable,
     ).not.toHaveBeenCalled();
@@ -211,14 +212,16 @@ describe('ServiceZcash privacy lifecycle', () => {
     expect(mutex.isLocked()).toBe(false);
   });
 
-  it('queues the enable rescan in the shared sync lane', async () => {
+  it('prepares the enable rescan without starting a scan before admission', async () => {
     const { backgroundApi, service } = createService();
     const syncGroup = jest
       .fn()
       .mockResolvedValue({ synced: true, backfillRemaining: true });
     const zcashRetryLocalWalletSetup = jest.fn();
+    const zcashPreparePrivacyModeAccount = jest.fn();
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup,
+      zcashPreparePrivacyModeAccount,
       getLocalWalletCapability: () => ({
         getChainTip: async () => 3_000_000,
         syncGroup,
@@ -231,14 +234,76 @@ describe('ServiceZcash privacy lifecycle', () => {
       birthdayHeight: 2_000_000,
     });
 
-    expect(syncGroup).toHaveBeenCalledWith({
-      accountIds: [accountId],
-      rescanFrom: { accountId, fromHeight: 2_000_000 },
-      chainTip: 3_000_000,
+    expect(syncGroup).not.toHaveBeenCalled();
+    expect(zcashPreparePrivacyModeAccount).toHaveBeenCalledWith({
+      accountId,
+      fromHeight: 2_000_000,
     });
     expect(
       backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
-    ).toHaveBeenCalledWith({ accountId });
+    ).toHaveBeenCalledWith({ accountId, maxEnabledAccounts: 5 });
+    expect(
+      zcashPreparePrivacyModeAccount.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      backgroundApi.simpleDb.zcash.completePrivacyModeEnable.mock
+        .invocationCallOrder[0],
+    );
     expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServiceZcash enable failure cleanup', () => {
+  it('clears only the failed enable operation when viewing setup rejects', async () => {
+    const { backgroundApi, service } = createService();
+    mockGetVault.mockResolvedValue({
+      zcashRetryLocalWalletSetup: jest
+        .fn()
+        .mockRejectedValue(new Error('setup failed')),
+    });
+
+    await expect(
+      service.enablePrivacyMode({
+        networkId: 'zec--0',
+        accountId,
+        birthdayHeight: 2_000_000,
+      }),
+    ).rejects.toThrow('setup failed');
+
+    expect(
+      backgroundApi.simpleDb.zcash.cancelPendingPrivacyModeEnables,
+    ).toHaveBeenCalledWith({ accountId });
+    expect(
+      backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not report a failed notification as a failed enable', async () => {
+    const { backgroundApi, service } = createService();
+    mockGetVault.mockResolvedValue({
+      zcashRetryLocalWalletSetup: jest.fn(),
+      zcashPreparePrivacyModeAccount: jest.fn(),
+    });
+    backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged.mockRejectedValue(
+      new Error('atom write failed'),
+    );
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(
+      service.enablePrivacyMode({
+        networkId: 'zec--0',
+        accountId,
+        birthdayHeight: 2_000_000,
+      }),
+    ).resolves.toBeUndefined();
+
+    // The rollback keys on a pending operation that completing the enable has
+    // already cleared, so running it here would leave the account on while
+    // telling the user it failed.
+    expect(
+      backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.simpleDb.zcash.cancelPendingPrivacyModeEnables,
+    ).not.toHaveBeenCalled();
   });
 });

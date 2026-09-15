@@ -115,11 +115,9 @@ class ServiceApp extends ServiceBase {
 
     // Client-scanned chains keep decrypted state in their own databases,
     // outside every store cleared below.
-    try {
-      await this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData();
-    } catch {
-      console.error('servicePrivacyChain.dropAllLocalWalletData() error');
-    }
+    // Keep the host cleanup index if an external scan database cannot be
+    // erased, so retrying reset can still locate and remove that data.
+    await this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData();
     defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
 
     // clean app storage

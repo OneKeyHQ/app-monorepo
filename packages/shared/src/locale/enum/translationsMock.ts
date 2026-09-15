@@ -35,4 +35,24 @@ export enum ETranslationsMock {
   prime_gift_verified = 'Verified',
   prime_gift_session_changed = 'Your account changed. Confirm the receiving account to continue.',
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
+  // ---------------------------------------------- privacy chains
+  // Values carrying {placeholders} must be passed as `defaultMessage` too:
+  // a missing message falls back to the id, and the id is not interpolated.
+  privacy_scan_paused = 'Scanning paused',
+  privacy_scan_pause_title = 'Pause scanning',
+  privacy_scan_resume = 'Resume',
+  privacy_scan_on_cellular = 'Mobile data',
+  privacy_scan_on_wifi = 'Wi-Fi',
+  privacy_local_scanning_paused_desc = 'Local scanning is paused. Resume to continue from where it stopped.',
+  privacy_scan_partial_balance = 'still scanning · may be incomplete',
+  privacy_slots_in_use = 'Scanning {used} of {max} accounts',
+  privacy_slots_held_by_locked_wallet = '{count} in a wallet that is not unlocked',
+  privacy_slots_full_title = 'Privacy scanning is full',
+  privacy_slots_full_desc = 'Scanning runs for {used} of {max} accounts. Choose one to turn off so {accountName} can scan.',
+  privacy_slots_full_all_locked_desc = 'All {max} scanning slots are held by wallets that are not unlocked. Unlock one to turn an account off there.',
+  privacy_slots_turn_off_and_continue = 'Turn off and continue',
+  privacy_slots_shared_key = '{count} accounts share this key',
+  privacy_slots_locked_wallet_note = 'Accounts scanning in a wallet that is not unlocked: {count}',
+  privacy_slots_replace_cost = 'The account you turn off keeps its data and resumes where it stopped. Turning this one on re-checks blocks from its recovery month for every scanning account, which can take a while.',
+  privacy_prefer_public_change_note = 'Change returns to the {poolLabel} pool.',
 }

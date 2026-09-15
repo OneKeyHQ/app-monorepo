@@ -55,6 +55,13 @@ export async function resolveAndSaveZcashAccountMeta({
   }
 
   const derived = await derive({ hdIndex });
+  if (
+    !(await backgroundApi.serviceAccount.getDBAccountSafe({
+      accountId: account.id,
+    }))
+  ) {
+    throw new OneKeyLocalError('zcash: account removed during privacy setup');
+  }
 
   let birthdayHeight: number;
   let birthdaySource: IZcashAccountMeta['birthdaySource'];
@@ -82,6 +89,7 @@ export async function resolveAndSaveZcashAccountMeta({
   }
   await backgroundApi.simpleDb.zcash.saveAccountMeta({
     accountId: account.id,
+    expectedPrivacyModeState: privacyModeState,
     meta: {
       ufvk: derived.ufvk,
       unifiedAddress: derived.unifiedAddress,

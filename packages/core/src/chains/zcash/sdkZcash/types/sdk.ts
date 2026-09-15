@@ -149,6 +149,19 @@ export type IZcashTransparentTxBuildResult = {
   spentOutpoints: IZcashTransparentOutpoint[];
 };
 
+export type IZcashTransparentHardwareCreateParams = {
+  request: IZcashTransparentTxRequest;
+  accountXpub: string;
+  seedFingerprintHex: string;
+};
+
+export type IZcashTransparentHardwareFinalizeParams = {
+  request: IZcashTransparentTxRequest;
+  accountXpub: string;
+  originalPcztHex: string;
+  signedPcztHex: string;
+};
+
 export type IZcashPcztReservation = {
   pcztHex: string;
   // Fee of the exact locked proposal represented by pcztHex.
@@ -473,6 +486,8 @@ export type IZcashPoolDetail = {
 };
 
 export type IZcashBalance = {
+  // Absent on older carriers; only true proves the account's backfill is complete.
+  isComplete?: boolean;
   // zatoshi strings (1 ZEC = 1e8 zatoshi); bigint-safe across the bridge
   shielded: string; // orchard + ironwood pools, summed
   transparent: string; // unshielded
@@ -648,9 +663,18 @@ export type IZcashSdkApi = {
   buildTransparentTxWithAccountXprv: (
     params: IZcashTransparentTxRequest & { accountXprvHex: string },
   ) => Promise<IZcashTransparentTxBuildResult>;
+  createTransparentHardwarePczt: (
+    params: IZcashTransparentHardwareCreateParams,
+  ) => Promise<{ pcztHex: string }>;
+  finalizeTransparentHardwarePczt: (
+    params: IZcashTransparentHardwareFinalizeParams,
+  ) => Promise<IZcashTransparentTxBuildResult>;
 
   // wallet side (watch-only)
-  prepareWalletAccounts: (accounts: IZcashWalletAccount[]) => Promise<void>;
+  prepareWalletAccounts: (
+    accounts: IZcashWalletAccount[],
+    options?: { retainedUfvks: string[] },
+  ) => Promise<void>;
   syncWallet: (
     account: IZcashWalletAccount,
     options: { activeUfvks: string[]; chainTip?: number | null },
@@ -662,6 +686,11 @@ export type IZcashSdkApi = {
   getSyncProgress: (
     account: IZcashWalletAccount,
   ) => Promise<IZcashSyncProgress>;
+  // Reconciles the runtime's transparent UTXO table with the server before a
+  // proposal selects from it. One round trip; no block data.
+  refreshTransparentUtxos: (
+    account: IZcashWalletAccount,
+  ) => Promise<{ addresses: number }>;
   // Developer diagnostics for the real persisted network database. It first
   // checks existence so an empty test run never creates a database.
   diagnoseWalletDatabase: (params: {

@@ -333,6 +333,53 @@ describe('SimpleDbEntityZcash privacy mode', () => {
 });
 
 describe('SimpleDbEntityZcash transparent transaction journal', () => {
+  it('does not restore a pending transaction after its account reservation was deleted', async () => {
+    const entity = createEntity({ accounts: {} });
+    const outpoint = { txid: '11'.repeat(32), vout: 0 };
+    const reserve = {
+      accountId: 'account',
+      ownerId: 'owner',
+      outpoints: [outpoint],
+      currentHeight: 100,
+      expiryHeight: 110,
+    };
+    const pending = {
+      accountId: 'account',
+      requireLiveReservation: true,
+      tx: {
+        ownerId: 'owner',
+        rawTx: '00',
+        txid: '22'.repeat(32),
+        spentOutpoints: [outpoint],
+        expiryHeight: 110,
+        createdAt: 1,
+        broadcastState: 'unknown' as const,
+        broadcastAuthorized: false,
+      },
+    };
+    await entity.reserveTransparentOutpoints(reserve);
+    await entity.saveTransparentPendingTx(pending);
+    await entity.removeAccountState({ accountId: 'account' });
+    await expect(entity.saveTransparentPendingTx(pending)).rejects.toThrow(
+      'reservation was removed or replaced',
+    );
+    await entity.releaseTransparentReservation({
+      accountId: 'account',
+      ownerId: 'owner',
+    });
+    await expect(
+      entity.listTransparentPendingTxs({ accountId: 'account' }),
+    ).resolves.toEqual([]);
+    await expect(entity.listCleanupAccountIds()).resolves.toEqual([]);
+    await entity.reserveTransparentOutpoints({
+      ...reserve,
+      ownerId: 'new-owner',
+    });
+    await expect(entity.saveTransparentPendingTx(pending)).rejects.toThrow(
+      'reservation was removed or replaced',
+    );
+  });
+
   it('keeps inputs reserved through unknown broadcast and releases on settlement', async () => {
     const entity = createEntity({ accounts: {} });
     const outpoint = { txid: '11'.repeat(32), vout: 0 };
@@ -541,4 +588,116 @@ describe('SimpleDbEntityZcash shielded lifecycle journal', () => {
       },
     ]);
   });
+});
+
+describe('SimpleDbEntityZcash targeted enable cancellation', () => {
+  it('leaves another account enable untouched when one setup fails', async () => {
+    const entity = createEntity();
+    await entity.beginPrivacyModeEnable({
+      accountId: 'failed',
+      birthdayHeight: 2_000_000,
+    });
+    await entity.beginPrivacyModeEnable({
+      accountId: 'other',
+      birthdayHeight: 2_000_000,
+    });
+
+    await entity.cancelPendingPrivacyModeEnables({ accountId: 'failed' });
+
+    await expect(
+      entity.getPrivacyModeState({ accountId: 'failed' }),
+    ).resolves.toMatchObject({ intent: 'off' });
+    expect(
+      (await entity.getPrivacyModeState({ accountId: 'failed' })).operation,
+    ).toBeUndefined();
+    expect(
+      (await entity.getPrivacyModeState({ accountId: 'other' })).operation
+        ?.type,
+    ).toBe('enable');
+  });
+});
+
+describe('SimpleDbEntityZcash atomic enable admission', () => {
+  it('enforces the viewing-identity limit when concurrent retries complete', async () => {
+    const entity = createEntity();
+    for (let index = 0; index < 6; index += 1) {
+      const accountId = `account-${index}`;
+      await entity.beginPrivacyModeEnable({
+        accountId,
+        birthdayHeight: 2_000_000,
+      });
+      await entity.saveAccountMeta({
+        accountId,
+        meta: {
+          ufvk: `key-${index}`,
+          unifiedAddress: 'u1',
+          transparentAddress: 't1',
+          seedFingerprintHex: '00',
+          hdIndex: index,
+          createdAt: 1,
+        },
+      });
+      if (index < 4)
+        await entity.completePrivacyModeEnable({
+          accountId,
+          maxEnabledAccounts: 5,
+        });
+    }
+
+    const outcomes = await Promise.allSettled(
+      [4, 5].map((index) =>
+        entity.completePrivacyModeEnable({
+          accountId: `account-${index}`,
+          maxEnabledAccounts: 5,
+        }),
+      ),
+    );
+
+    expect(outcomes.map(({ status }) => status)).toEqual([
+      'fulfilled',
+      'rejected',
+    ]);
+    expect(await entity.listPrivacyModeEnabledAccountIds()).toHaveLength(5);
+    await entity.beginPrivacyModeEnable({
+      accountId: 'alias',
+      birthdayHeight: 2_000_000,
+    });
+    await entity.saveAccountMeta({
+      accountId: 'alias',
+      meta: {
+        ufvk: 'key-0',
+        unifiedAddress: 'u1',
+        transparentAddress: 't1',
+        seedFingerprintHex: '00',
+        hdIndex: 0,
+        createdAt: 1,
+      },
+    });
+    await expect(
+      entity.completePrivacyModeEnable({
+        accountId: 'alias',
+        maxEnabledAccounts: 5,
+      }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+it('does not let an old rescan completion consume a newer repair journal', async () => {
+  const entity = createEntity();
+  const previous = {
+    birthdayHeight: 2_000_000,
+    birthdaySource: 'manual-height' as const,
+    requestedAt: 1,
+  };
+  const current = { ...previous, birthdayHeight: 3_000_000, requestedAt: 2 };
+  await entity.savePendingRescan({ accountId: 'account', repair: current });
+
+  await entity.removePendingRescan({
+    accountId: 'account',
+    expectedRepair: previous,
+  });
+
+  await expect(entity.listPendingRescans()).resolves.toEqual([
+    { accountId: 'account', repair: current },
+  ]);
 });

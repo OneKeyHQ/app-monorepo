@@ -80,3 +80,51 @@ describe('composePrivacyChainBalance', () => {
     expect(r.frozen).toBe('0');
   });
 });
+
+describe('privacy balance completeness', () => {
+  it('distinguishes an unscanned wallet from a confirmed empty wallet', () => {
+    expect(
+      composePrivacyChainBalance({
+        privateSide: undefined,
+        publicSideLocal: undefined,
+        publicSideIndexer: undefined,
+        spendable: undefined,
+        privateSideComplete: false,
+      }),
+    ).toMatchObject({
+      total: '',
+      spendable: '',
+      frozen: '',
+      balanceStatus: 'unavailable',
+    });
+    expect(
+      composePrivacyChainBalance({
+        privateSide: '0',
+        publicSideLocal: '0',
+        publicSideIndexer: '0',
+        spendable: '0',
+      }),
+    ).toMatchObject({
+      total: '0',
+      spendable: '0',
+      frozen: '0',
+      balanceStatus: 'complete',
+    });
+  });
+  it('keeps discovered spendable funds while withholding an incomplete total', () => {
+    expect(
+      composePrivacyChainBalance({
+        privateSide: '100',
+        publicSideLocal: '0',
+        publicSideIndexer: '50',
+        spendable: '120',
+        privateSideComplete: false,
+      }),
+    ).toMatchObject({
+      total: '',
+      spendable: '120',
+      frozen: '',
+      balanceStatus: 'partial',
+    });
+  });
+});

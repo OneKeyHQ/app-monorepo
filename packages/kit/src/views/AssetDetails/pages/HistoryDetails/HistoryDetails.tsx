@@ -394,6 +394,7 @@ function HistoryDetails() {
     notificationAccountId,
     allowClickAccountNameSwitch,
     historyTx: historyTxParam,
+    privacyChainPoolId,
     isAllNetworks,
     checkIsFocused = true,
   } = route.params;
@@ -474,6 +475,7 @@ function HistoryDetails() {
         networkId,
         accountAddress,
         txid,
+        privacyChainPoolId,
         fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
         // narrow vault extra params (btc find-address) to the addresses the
         // tapped tx involves; deep links have no tx context and fall back
@@ -529,6 +531,7 @@ function HistoryDetails() {
       accountId,
       networkId,
       txid,
+      privacyChainPoolId,
       vaultSettings?.fixConfirmedTxEnabled,
       historyTxParam,
       isInitialPrivateSendHistory,

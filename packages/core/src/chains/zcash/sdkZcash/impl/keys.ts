@@ -19,6 +19,8 @@ import type {
   IZcashGetChainTipParams,
   IZcashNetwork,
   IZcashSignPcztParams,
+  IZcashTransparentHardwareCreateParams,
+  IZcashTransparentHardwareFinalizeParams,
   IZcashTransparentTxBuildResult,
   IZcashTransparentTxQuote,
   IZcashTransparentTxRequest,
@@ -274,6 +276,58 @@ export async function buildTransparentTxWithAccountXprv(
     ) as IZcashTransparentTxBuildResult;
   } finally {
     accountXprvBytes.fill(0);
+  }
+}
+
+export async function createTransparentHardwarePczt(
+  params: IZcashTransparentHardwareCreateParams,
+): Promise<{ pcztHex: string }> {
+  const keys = await getKeys();
+  const pczt = keys.transparentTxCreateWithAccountXpub(
+    stringUtils.stableStringify(params.request),
+    params.accountXpub,
+    params.seedFingerprintHex,
+  );
+  try {
+    return { pcztHex: bytesToHex(pczt) };
+  } finally {
+    pczt.fill(0);
+  }
+}
+
+export async function finalizeTransparentHardwarePczt(
+  params: IZcashTransparentHardwareFinalizeParams,
+): Promise<IZcashTransparentTxBuildResult> {
+  const keys = await getKeys();
+  const quote = await quoteTransparentTx(params.request);
+  const original = hexToBytes(params.originalPcztHex);
+  const signed = hexToBytes(params.signedPcztHex);
+  let combined: Uint8Array | undefined;
+  let proved: Uint8Array | undefined;
+  try {
+    combined = keys.transparentTxCombineHardwareSigned(
+      stringUtils.stableStringify(params.request),
+      params.accountXpub,
+      original,
+      signed,
+    );
+    const runtime = await getRuntimeWasm();
+    proved = runtime.pcztProveAtHeight(params.request.targetHeight, combined);
+    const extracted = JSON.parse(runtime.pcztExtractStateless(proved)) as {
+      rawTx: string;
+      txid: string;
+    };
+    return {
+      ...extracted,
+      feeZat: quote.feeZat,
+      expiryHeight: quote.expiryHeight,
+      spentOutpoints: quote.spentOutpoints,
+    };
+  } finally {
+    original.fill(0);
+    signed.fill(0);
+    combined?.fill(0);
+    proved?.fill(0);
   }
 }
 

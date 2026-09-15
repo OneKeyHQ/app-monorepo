@@ -36,6 +36,7 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import {
   calculateAccountTokensValue,
   calculateAccountTotalValue,
+  isAccountTokensBalanceIncomplete,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
@@ -676,6 +677,16 @@ function HomeOverviewContainer() {
       accountDeFiOverview.networkId,
     ) === currentOverviewOwnerKey;
 
+  const isCurrentBalanceIncomplete =
+    (accountWorth.accountId === account?.id ||
+      accountWorth.accountId === account?.indexedAccountId) &&
+    isAccountTokensBalanceIncomplete({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
+
   // Returns a USD-basis string. DeFi data arrives in display currency from
   // DeFiListBlock, so it's converted back to USD here before summing.
   const resolvedBalanceString = useMemo(() => {
@@ -774,6 +785,7 @@ function HomeOverviewContainer() {
 
   useEffect(() => {
     if (
+      !isCurrentBalanceIncomplete &&
       resolvedBalanceString !== undefined &&
       currentOverviewOwnerKey &&
       isCurrentAllNetworksBalanceFullyReady
@@ -790,6 +802,7 @@ function HomeOverviewContainer() {
   }, [
     currentOverviewOwnerKey,
     isCurrentAllNetworksBalanceFullyReady,
+    isCurrentBalanceIncomplete,
     resolvedBalanceString,
     setLastConfirmedOverviewBalance,
   ]);
@@ -961,7 +974,9 @@ function HomeOverviewContainer() {
   ]);
 
   const showSkeleton =
-    !hasDisplayableOverviewBalance && !shouldDisplayZeroBalancePlaceholder;
+    !isCurrentBalanceIncomplete &&
+    !hasDisplayableOverviewBalance &&
+    !shouldDisplayZeroBalancePlaceholder;
 
   const debouncedBalanceString =
     debouncedBalancePayload.ownerKey === currentOverviewOwnerKey
@@ -1099,6 +1114,7 @@ function HomeOverviewContainer() {
       try {
         const balanceToPersist = renderedBalanceString;
         if (
+          !isCurrentBalanceIncomplete &&
           balanceToPersist !== undefined &&
           balanceToPersist !== null &&
           currentOverviewOwnerKey
@@ -1133,6 +1149,7 @@ function HomeOverviewContainer() {
     }
   }, [
     balanceReady,
+    isCurrentBalanceIncomplete,
     currentOverviewOwnerKey,
     renderedBalanceString,
     setLastConfirmedOverviewBalance,
@@ -1184,9 +1201,11 @@ function HomeOverviewContainer() {
                 // Large hero balance reads better with the font's natural
                 // proportional figures than equal-width tabular ones.
                 fontVariant={PROPORTIONAL_NUMS}
-                {...numberFormatter}
+                {...(isCurrentBalanceIncomplete ? {} : numberFormatter)}
               >
-                {renderedBalanceStringDisplay ?? '0'}
+                {isCurrentBalanceIncomplete
+                  ? '--'
+                  : (renderedBalanceStringDisplay ?? '0')}
               </NumberSizeableTextWrapper>
             </XStack>
             {refreshButton}

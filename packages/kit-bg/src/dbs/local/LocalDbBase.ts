@@ -10212,6 +10212,36 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
+  async removeSignedTransactionsByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    const all = await this.getAllRecords({
+      name: ELocalDBStoreNames.SignedTransaction,
+    });
+    const ids = all.records
+      .filter(
+        (item) => item.networkId === networkId && item.address === address,
+      )
+      .map((item) => item.id);
+    if (ids.length === 0) {
+      return;
+    }
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.archive,
+      async (tx) => {
+        await this.txRemoveRecords({
+          name: ELocalDBStoreNames.SignedTransaction,
+          tx,
+          ids,
+        });
+      },
+    );
+  }
+
   async removeAllConnectedSite() {
     const allConnectedSite = await this.getAllRecords({
       name: ELocalDBStoreNames.ConnectedSite,

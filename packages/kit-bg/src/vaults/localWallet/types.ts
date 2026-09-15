@@ -1,3 +1,9 @@
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
+import type { IBalanceStatus } from '@onekeyhq/shared/types/token';
+
 import type { IRescanLocalWalletFrom } from '../types';
 
 export type ILocalWalletAccount = {
@@ -8,6 +14,25 @@ export type ILocalWalletAccount = {
   // Runtime-owned account identity used to deduplicate repairs for aliases.
   accountRuntimeKey: string;
   syncEnabled: boolean;
+};
+
+// How many of a network's scan slots are taken, and by whom. Counts viewing
+// identities across every wallet, including ones this session cannot see -- a
+// page counting its own rows would promise room the service then refuses.
+export type ILocalWalletSlotUsage = {
+  used: number;
+  // Undefined when the chain sets no ceiling.
+  max?: number;
+  occupants: {
+    accountId: string;
+    accountName: string;
+    walletName: string;
+    // Visible accounts sharing this identity, and therefore its single slot.
+    aliasCount: number;
+  }[];
+  // Slots held by accounts no visible wallet owns right now, such as a locked
+  // passphrase wallet. They count, and this page cannot act on them.
+  hiddenCount: number;
 };
 
 export type ILocalWalletSyncProgress = {
@@ -44,12 +69,15 @@ export type ILocalWalletSendPool = {
   // hidden from the picker.
   eligible?: boolean;
   // Smallest unit, and its decimal-shifted form for the amount page.
-  spendable: string;
-  spendableParsed: string;
+  // Undefined means unavailable, distinct from a known zero.
+  spendable?: string;
+  spendableParsed?: string;
   // Full balance when it differs from spendable (unconfirmed, locked).
   total?: string;
   totalParsed?: string;
   isDefault?: boolean;
+  // Why this number may not be the whole story. Absent when there is none.
+  hintId?: ETranslations | ETranslationsMock;
 };
 
 export type ILocalWalletPoolKind = 'public' | 'private';
@@ -73,6 +101,9 @@ export type ILocalWalletPoolDescriptor = {
 export type ILocalWalletAccountState = {
   // Opted in and not mid-operation.
   enabled: boolean;
+  // Opted out after having been enabled, with the resume position still on
+  // disk. Distinct from never-enabled, which offers setup rather than a resume.
+  paused: boolean;
   pendingOperation?: 'enable' | 'disable';
   // Prefer spending public funds even when a private pool could pay.
   preferPublicSends: boolean;
@@ -87,10 +118,11 @@ export type ILocalWalletAccountState = {
 // pools); the UI only renders them.
 export type ILocalWalletPoolBalance = {
   key: string;
-  total: string;
-  totalParsed: string;
-  spendable: string;
-  spendableParsed: string;
+  balanceStatus?: IBalanceStatus;
+  total?: string;
+  totalParsed?: string;
+  spendable?: string;
+  spendableParsed?: string;
   hints: string[];
   // Public pool: shield (sweep into the default private pool). Private pool:
   // withdraw (everything spendable back to the public address).
@@ -102,9 +134,10 @@ export type ILocalWalletPoolBalance = {
 };
 
 export type ILocalWalletAccountBalance = {
-  total: string;
-  totalParsed: string;
-  spendable: string;
+  balanceStatus?: IBalanceStatus;
+  total?: string;
+  totalParsed?: string;
+  spendable?: string;
   pools: ILocalWalletPoolBalance[];
 };
 

@@ -97,6 +97,6 @@ export function useLocalWalletSendPool({
       !enabled ||
       (!!currentResult &&
         ((pools === undefined && preferredPool === undefined) ||
-          selectedPool !== undefined)),
+          selectedPool?.spendableParsed !== undefined)),
   };
 }

@@ -354,9 +354,17 @@ function TokenDetailsHistoryContent({
           networkId,
         }),
         historyTx: tx,
+        privacyChainPoolId: privacyHistoryPoolId,
       });
     },
-    [accountId, navigation, networkId, settings.currencyInfo.symbol, tokenInfo],
+    [
+      accountId,
+      navigation,
+      networkId,
+      privacyHistoryPoolId,
+      settings.currencyInfo.symbol,
+      tokenInfo,
+    ],
   );
 
   useEffect(() => {

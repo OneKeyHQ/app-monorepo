@@ -1,3 +1,5 @@
+import type { IBalanceStatus } from '@onekeyhq/shared/types/token';
+
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 // What one selected balance pool contributes to the page built around it.
@@ -35,6 +37,7 @@ export type IPrivacyChainPoolDisplayData = {
   ownerKey: string;
   address?: string;
   balanceParsed?: string;
+  balanceStatus?: IBalanceStatus;
   // A read has come back, successfully or not -- NOT "a balance is present".
   // A failed read is settled too, and renders as unavailable rather than as a
   // spinner that never stops or, worse, a zero.

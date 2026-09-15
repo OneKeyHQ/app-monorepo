@@ -26,6 +26,10 @@ export interface IPrivacyChainDB {
   // the chain's local database must be rebuilt from viewing keys; the
   // database file itself carries no app-readable tag.
   runtimeSchemaVersions?: Record<string, string>;
+  // networkId -> the user stopped scanning this chain. Persisted because a
+  // pause that a restart undid would keep costing the battery and data it was
+  // pressed to stop, and only an explicit resume may clear it.
+  scanPausedNetworks?: Record<string, boolean>;
 }
 
 export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChainDB> {
@@ -43,6 +47,29 @@ export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChain
       ...rawData,
       allowCellularSync: allow,
     }));
+  }
+
+  async getScanPausedNetworks(): Promise<Record<string, boolean>> {
+    const rawData = await this.getRawData();
+    return rawData?.scanPausedNetworks ?? {};
+  }
+
+  async saveScanPaused({
+    networkId,
+    paused,
+  }: {
+    networkId: string;
+    paused: boolean;
+  }) {
+    await this.setRawData((rawData) => {
+      const scanPausedNetworks = { ...rawData?.scanPausedNetworks };
+      if (paused) {
+        scanPausedNetworks[networkId] = true;
+      } else {
+        delete scanPausedNetworks[networkId];
+      }
+      return { ...rawData, scanPausedNetworks };
+    });
   }
 
   async getScanStartPrompted({

@@ -2997,6 +2997,7 @@ class ServiceHistory extends ServiceBase {
             accountId,
             networkId,
             txid,
+            privacyChainPoolId: params.privacyChainPoolId,
           }
         : {
             accountId,
@@ -3004,6 +3005,7 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
+            privacyChainPoolId: params.privacyChainPoolId,
             // skip account-scoped vault extras when the address lookup
             // failed: the server rejects `accountAddressArray` without an
             // accompanying `accountAddress`, and other vault extras (e.g.

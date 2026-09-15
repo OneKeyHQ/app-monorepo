@@ -202,6 +202,29 @@ describe('useLocalWalletSendPool', () => {
     expect(result.current.selectedPool?.key).toBe('ironwood');
   });
 
+  it('keeps the chosen pool but blocks sending while its spendable amount is unknown', () => {
+    mockSnapshot.result = { scope: scopeFor(props), pools };
+    const { result, rerender } = renderHook(() =>
+      useLocalWalletSendPool(props),
+    );
+    act(() => result.current.selectPool('transparent'));
+    mockSnapshot.result = {
+      scope: scopeFor(props),
+      pools: pools.map((item) =>
+        item.key === 'transparent'
+          ? { ...item, spendable: undefined, spendableParsed: undefined }
+          : item,
+      ),
+    };
+    rerender({});
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    expect(result.current.isReady).toBe(false);
+    mockSnapshot.result = { scope: scopeFor(props), pools };
+    rerender({});
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    expect(result.current.isReady).toBe(true);
+  });
+
   it('keeps flows without pools and non-local-wallet networks usable', () => {
     mockSnapshot.result = { scope: scopeFor(props), pools: undefined };
     const { result, rerender } = renderHook(

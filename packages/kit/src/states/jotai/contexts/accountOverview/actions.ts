@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import type { IBalanceStatus } from '@onekeyhq/shared/types/token';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -45,6 +46,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       set,
       payload: {
         worth: Record<string, string>;
+        worthStatus?: Record<string, IBalanceStatus>;
         createAtNetworkWorth?: string;
         initialized: boolean;
         accountId: string;
@@ -55,8 +57,14 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
     ) => {
       const currency = payload.currency ?? USD_CURRENCY_ID;
       if (payload.merge) {
-        const { worth, createAtNetworkWorth } = get(accountWorthAtom());
+        const { worth, worthStatus, createAtNetworkWorth } =
+          get(accountWorthAtom());
+        const nextWorthStatus = { ...worthStatus };
+        for (const key of Object.keys(payload.worth)) {
+          nextWorthStatus[key] = payload.worthStatus?.[key] ?? 'complete';
+        }
         set(accountWorthAtom(), {
+          worthStatus: nextWorthStatus,
           worth: {
             ...worth,
             ...payload.worth,
@@ -74,6 +82,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
 
       set(accountWorthAtom(), {
         worth: payload.worth,
+        worthStatus: payload.worthStatus,
         createAtNetworkWorth: payload.createAtNetworkWorth ?? '0',
         initialized: payload.initialized,
         accountId: payload.accountId,

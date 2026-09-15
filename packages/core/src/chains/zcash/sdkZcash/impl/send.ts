@@ -2,7 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { readZcashRuntimeError } from '../runtimeError';
 
-import { getKeys, getRuntime, withWallet } from './carrier';
+import { getKeys, getRuntime, noteNetworkOutcome, withWallet } from './carrier';
 import {
   ALLOW_ZERO_CONF_SHIELDING,
   FALLBACK_CHANGE_POOL,
@@ -298,9 +298,11 @@ export async function broadcastPczt(
   const { rt } = await withWallet(account, { registerIfMissing: false });
   try {
     await rt.broadcastTransaction(params.txid);
+    noteNetworkOutcome(null);
     return { txid: params.txid, broadcastState: 'accepted' };
   } catch (e) {
     const runtimeError = readZcashRuntimeError(e);
+    noteNetworkOutcome(runtimeError?.code === 'BROADCAST_REJECTED' ? null : e);
     if (runtimeError?.code === 'BROADCAST_REJECTED') {
       return {
         txid: params.txid,

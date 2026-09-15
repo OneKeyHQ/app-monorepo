@@ -281,3 +281,26 @@ describe('ServiceApp.resetApp', () => {
     expect(restartApp).not.toHaveBeenCalled();
   });
 });
+
+describe('ServiceApp privacy database reset ordering', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('preserves host storage when the external privacy database cannot be erased', async () => {
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    const dropAllLocalWalletData = jest
+      .fn()
+      .mockRejectedValue(new Error('privacy database erase failed'));
+    const service = new ServiceApp({
+      backgroundApi: {
+        servicePrivacyChain: { dropAllLocalWalletData },
+      },
+    });
+
+    await expect(
+      (service as unknown as { resetData: () => Promise<void> }).resetData(),
+    ).rejects.toThrow('privacy database erase failed');
+    expect(clear).not.toHaveBeenCalled();
+  });
+});

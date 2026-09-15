@@ -19,7 +19,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
@@ -135,6 +135,14 @@ export function LocalWalletPoolStatus({
     });
   }, [intl, lw]);
 
+  const handleResume = useCallback(async () => {
+    try {
+      await lw.enableAccount({});
+    } catch (error) {
+      if (!handleGuardError(error)) throw error;
+    }
+  }, [handleGuardError, lw]);
+
   const handleDisable = useCallback(async () => {
     try {
       await lw.disableAccount();
@@ -182,6 +190,8 @@ export function LocalWalletPoolStatus({
     return null;
   }
 
+  const isPaused = lw.state?.paused === true;
+
   if (!lw.enabled) {
     if (!settingsMode && lw.pool?.kind !== 'private') {
       return null;
@@ -211,22 +221,56 @@ export function LocalWalletPoolStatus({
                 {intl.formatMessage({ id: ETranslations.trade_privacy_mode })}
               </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                Local scanning is off. Enable it to view this pool&apos;s
-                balance, receive address, and history.
+                {isPaused
+                  ? intl.formatMessage({
+                      id: ETranslationsMock.privacy_local_scanning_paused_desc,
+                    })
+                  : `Local scanning is off. Enable it to view this pool's balance, receive address, and history.`}
               </SizableText>
             </YStack>
           </XStack>
-          <Button
-            testID="local-wallet-enable-button"
-            size="medium"
-            variant="primary"
-            loading={lw.busy}
-            disabled={!accountUtils.isHdAccount({ accountId })}
-            onPress={handleEnable}
-          >
-            {intl.formatMessage({ id: ETranslations.global_enable })}
-          </Button>
+          {/* A resume already has its recovery position on disk, so it must not
+              ask for the month again -- the answer would be ignored. */}
+          {isPaused ? (
+            <Button
+              testID="local-wallet-resume-button"
+              size="medium"
+              variant="primary"
+              loading={lw.busy}
+              onPress={handleResume}
+            >
+              {intl.formatMessage({
+                id: ETranslationsMock.privacy_scan_resume,
+              })}
+            </Button>
+          ) : (
+            <Button
+              testID="local-wallet-enable-button"
+              size="medium"
+              variant="primary"
+              loading={lw.busy}
+              disabled={
+                !accountUtils.isHdAccount({ accountId }) &&
+                !accountUtils.isHwAccount({ accountId })
+              }
+              onPress={handleEnable}
+            >
+              {intl.formatMessage({ id: ETranslations.global_enable })}
+            </Button>
+          )}
         </YStack>
+        {settingsMode ? (
+          <Button
+            testID="local-wallet-delete-btn"
+            mt="$4"
+            size="small"
+            variant="tertiary"
+            disabled={lw.busy}
+            onPress={handleDelete}
+          >
+            {intl.formatMessage({ id: ETranslations.global_delete })}
+          </Button>
+        ) : null}
       </YStack>
     );
   }
@@ -333,7 +377,19 @@ export function LocalWalletPoolStatus({
             <SizableText size="$bodySm" color="$textSubdued">
               For sends to private addresses, spend public funds before the
               selected private pool. This links the public address to that
-              transaction.
+              transaction.{' '}
+              {intl.formatMessage(
+                {
+                  id: ETranslationsMock.privacy_prefer_public_change_note,
+                  defaultMessage:
+                    ETranslationsMock.privacy_prefer_public_change_note,
+                },
+                {
+                  poolLabel:
+                    lw.settings?.pools.find((item) => item.isDefaultPrivate)
+                      ?.label ?? 'default private',
+                },
+              )}
             </SizableText>
           </YStack>
           <Switch
