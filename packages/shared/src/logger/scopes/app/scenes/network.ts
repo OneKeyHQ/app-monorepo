@@ -7,11 +7,12 @@ export { isEnableLogNetwork } from './networkFilter';
 
 export class NetworkScene extends BaseScene {
   /**
-   * Aggregated client availability counters for one or more time windows.
-   * Only availabilityAggregator emits it, under a per-runtime daily budget,
-   * so volume does not scale with request count or failure storms. Params
-   * are numeric counters plus sanitized failure details: no URLs, query
-   * strings, addresses, payloads, device identifiers or free-form errors.
+   * Aggregated client API availability counters for one or more time windows.
+   * Only availabilityAggregator emits it, at most once per
+   * AVAILABILITY_MIN_SEND_GAP_MS (2h) per runtime, so volume does not scale
+   * with request count or failure storms. Params are numeric counters plus
+   * sanitized failure details: no URLs, query strings, addresses, payloads,
+   * device identifiers or free-form errors.
    */
   @LogToServer({ level: 'info', waitForServer: true })
   @LogToLocal({ level: 'debug' })

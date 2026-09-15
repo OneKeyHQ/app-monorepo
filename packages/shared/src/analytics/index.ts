@@ -184,10 +184,6 @@ export class Analytics {
           platform: headerPlatform,
           appBuildNumber: platformEnv.buildNumber,
           appVersion: platformEnv.version,
-          runtimeScope:
-            platformEnv.runtimeRole === 'background'
-              ? 'bg'
-              : platformEnv.runtimeRole,
         };
       })();
       this.deviceInfoPromise = deviceInfoPromise;

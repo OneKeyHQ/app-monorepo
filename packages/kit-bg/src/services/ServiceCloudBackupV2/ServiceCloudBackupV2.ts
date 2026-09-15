@@ -16,7 +16,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { withAvailabilityFlow } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -85,12 +84,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
       this._backupProvider = new OneKeyBackupProvider(this.backgroundApi);
     }
     return this._backupProvider;
-  }
-
-  private getAvailabilityProvider(): 'google_drive' | 'icloud' | 'unsupported' {
-    if (platformEnv.isNativeAndroid) return 'google_drive';
-    if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) return 'icloud';
-    return 'unsupported';
   }
 
   @backgroundMethod()
@@ -221,16 +214,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async backup(params: {
-    data: IPrimeTransferData;
-    password: string;
-  }): Promise<{ recordID: string; content: string }> {
-    return withAvailabilityFlow('cloud_backup', () => this._backup(params), {
-      detail: this.getAvailabilityProvider(),
-      trackUnfinished: true,
-    });
-  }
-
-  private async _backup(params: {
     data: IPrimeTransferData;
     password: string;
   }): Promise<{ recordID: string; content: string }> {
@@ -430,27 +413,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async restore(params: {
-    payload: IBackupDataEncryptedPayload | undefined;
-    password: string;
-  }) {
-    return withAvailabilityFlow('cloud_restore', () => this._restore(params), {
-      detail: this.getAvailabilityProvider(),
-      trackUnfinished: true,
-      onSuccess: (result) => {
-        if (result.errorsInfo.length > 0) {
-          return { status: 'partial', errorCode: 'partial_restore' };
-        }
-        // startImport reports user cancellation and skipped imports as
-        // `success: false` without errors.
-        if (!result.success) {
-          return { status: 'cancelled' };
-        }
-        return undefined;
-      },
-    });
-  }
-
-  private async _restore(params: {
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
   }) {

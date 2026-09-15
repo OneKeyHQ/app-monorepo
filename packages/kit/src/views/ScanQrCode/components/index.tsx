@@ -14,10 +14,6 @@ import {
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getAvailabilityErrorCode,
-  startAvailabilityFlow,
-} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import {
   openSettings,
@@ -91,35 +87,22 @@ export function ScanQrCode({
   );
 
   const handlePermission = useCallback(async () => {
-    const permissionFlow = startAvailabilityFlow('camera_permission');
-    let status: PermissionStatus;
-    try {
-      const readSilentStatus =
-        platformEnv.isDesktopMac || platformEnv.isDesktopWin
-          ? await globalThis.desktopApiProxy?.system?.getMediaAccessStatus?.(
-              'camera',
-            )
-          : (await Camera.getCameraPermissionsAsync())?.status;
-      if (readSilentStatus === PermissionStatus.GRANTED) {
-        setCurrentPermission(PermissionStatus.GRANTED);
-        permissionFlow.finish({ status: 'existing_grant' });
-        return;
-      }
-      ({ status } = await Camera.requestCameraPermissionsAsync());
-      setCurrentPermission(status);
-    } catch (error) {
-      permissionFlow.finish({
-        status: 'error',
-        errorCode: getAvailabilityErrorCode(error),
-      });
-      throw error;
-    }
-
-    if (status === PermissionStatus.GRANTED) {
-      permissionFlow.finish({ status: 'request_grant' });
+    const readSilentStatus =
+      platformEnv.isDesktopMac || platformEnv.isDesktopWin
+        ? await globalThis.desktopApiProxy?.system?.getMediaAccessStatus?.(
+            'camera',
+          )
+        : (await Camera.getCameraPermissionsAsync())?.status;
+    if (readSilentStatus === PermissionStatus.GRANTED) {
+      setCurrentPermission(PermissionStatus.GRANTED);
       return;
     }
-    permissionFlow.finish({ status: 'denied', errorCode: 'permission_denied' });
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    setCurrentPermission(status);
+
+    if (status === PermissionStatus.GRANTED) {
+      return;
+    }
     const canRequestExpandView =
       platformEnv.isExtension && !platformEnv.isExtensionUiExpandTab;
     const canViewTutorial =

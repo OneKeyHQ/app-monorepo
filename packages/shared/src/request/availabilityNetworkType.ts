@@ -1,33 +1,17 @@
-import { normalizeAvailabilityConnectionType } from './availabilityNetworkTypeUtils';
-
-import type { IAvailabilityNetworkType } from './availabilityNetworkTypeUtils';
-
-export type { IAvailabilityNetworkType } from './availabilityNetworkTypeUtils';
-
-type IBrowserNavigator = {
-  onLine?: boolean;
-  connection?: { type?: unknown };
-};
-
 /**
- * Web, desktop renderer and extension realms (including the MV3 service
- * worker) read cheap synchronous getters at record time. Desktop Chromium
- * exposes no connection type, so those runtimes report only `offline` or
- * `unknown`; `offline` is high precision but misses VPN/captive portals.
+ * Browser realms (web, desktop renderer, extension pages and service worker)
+ * read synchronous getters at record time. Desktop Chromium exposes no
+ * connection type, so it reports only offline or unknown.
  */
-export function getAvailabilityNetworkType(): IAvailabilityNetworkType {
-  try {
-    const navigator = (globalThis as { navigator?: IBrowserNavigator })
-      .navigator;
-    if (navigator?.onLine === false) {
-      return 'offline';
+export function getAvailabilityNetworkType(): unknown {
+  const navigator = (
+    globalThis as {
+      navigator?: { onLine?: boolean; connection?: { type?: unknown } };
     }
-    return normalizeAvailabilityConnectionType(navigator?.connection?.type);
-  } catch {
-    return 'unknown';
-  }
+  ).navigator;
+  return navigator?.onLine === false ? 'none' : navigator?.connection?.type;
 }
 
 export function startAvailabilityNetworkTypeTracking() {
-  // Browser getters are read on demand; nothing to subscribe to.
+  // Nothing to subscribe to.
 }

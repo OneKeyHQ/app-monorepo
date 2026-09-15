@@ -54,11 +54,6 @@ import {
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getAvailabilityFlowErrorResult,
-  normalizeAvailabilityToken,
-  withAvailabilityFlow,
-} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -2260,36 +2255,6 @@ class ServiceHardware extends ServiceBase {
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
   }) {
-    const detail = `${normalizeAvailabilityToken(
-      params?.vendor ?? EHardwareVendor.onekey,
-    )}:${normalizeAvailabilityToken(params?.transportType ?? 'auto')}`;
-    return withAvailabilityFlow(
-      'hw_search',
-      () => this._searchDevices(params),
-      {
-        detail,
-        onSuccess: (response) => {
-          if (response?.success === false) {
-            return getAvailabilityFlowErrorResult(response.payload, detail);
-          }
-          const payload: unknown = response?.payload;
-          return {
-            status:
-              Array.isArray(payload) && payload.length > 0 ? 'found' : 'empty',
-            detail,
-          };
-        },
-      },
-    );
-  }
-
-  private async _searchDevices(params?: {
-    connectProtocol?: HardwareConnectProtocol;
-    vendor?: EHardwareVendor;
-    resetSession?: boolean;
-    waitForAllTransports?: boolean;
-    transportType?: 'usb' | 'ble';
-  }) {
     this.deviceSearchInProgressCount += 1;
     try {
       const vendorProfile = params?.vendor
@@ -2732,47 +2697,6 @@ class ServiceHardware extends ServiceBase {
     connectProtocol?: HardwareConnectProtocol;
     forceProtocolDetection?: boolean;
     /** Bypass SearchDevice.features after a firmware reboot and read the live device state. */
-    forceFeaturesRefresh?: boolean;
-    hardwareTransportType?: EHardwareTransportType;
-  }): Promise<Features | undefined> {
-    const deviceVendor = (device as SearchDevice & { vendor?: string }).vendor;
-    const detail = `${normalizeAvailabilityToken(
-      deviceVendor ?? EHardwareVendor.onekey,
-    )}:${normalizeAvailabilityToken(hardwareTransportType ?? 'auto')}`;
-    return withAvailabilityFlow(
-      'hw_connect',
-      () =>
-        this._connect({
-          device,
-          hardwareCallContext,
-          connectProtocol,
-          forceProtocolDetection,
-          forceFeaturesRefresh,
-          hardwareTransportType,
-        }),
-      {
-        detail,
-        trackUnfinished: true,
-        onSuccess: (features) =>
-          features
-            ? { status: 'ok', detail }
-            : { status: 'failed', errorCode: 'empty_result', detail },
-      },
-    );
-  }
-
-  private async _connect({
-    device,
-    hardwareCallContext,
-    connectProtocol,
-    forceProtocolDetection,
-    forceFeaturesRefresh,
-    hardwareTransportType,
-  }: {
-    device: SearchDevice;
-    hardwareCallContext?: EHardwareCallContext;
-    connectProtocol?: HardwareConnectProtocol;
-    forceProtocolDetection?: boolean;
     forceFeaturesRefresh?: boolean;
     hardwareTransportType?: EHardwareTransportType;
   }): Promise<Features | undefined> {

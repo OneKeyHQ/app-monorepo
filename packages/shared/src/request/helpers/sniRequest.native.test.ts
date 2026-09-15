@@ -1,18 +1,9 @@
-import {
-  isProxyActiveForUrl as nativeIsProxyActiveForUrl,
-  request as nativeSniRequest,
-} from '@onekeyfe/react-native-sni-connect';
+import { request as nativeSniRequest } from '@onekeyfe/react-native-sni-connect';
 import { NativeModules } from 'react-native';
 
-import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
-import {
-  getAvailabilityProxyState,
-  noteAvailabilityProxyPreflight,
-  resetAvailabilityContextForTest,
-} from '../availabilityContext';
 
-import { isProxyActiveForUrl, sniRequest } from './sniRequest.native';
+import { sniRequest } from './sniRequest.native';
 
 import type {
   ISniRequestCancelSettledResult,
@@ -51,32 +42,9 @@ jest.mock('../../utils/miscUtils', () => ({
   generateUUID: jest.fn(() => 'native-generated-request-id'),
 }));
 
-jest.mock('../availabilityContext', () => {
-  const actual = jest.requireActual<typeof import('../availabilityContext')>(
-    '../availabilityContext',
-  );
-  return {
-    ...actual,
-    noteAvailabilityProxyPreflight: jest.fn(
-      actual.noteAvailabilityProxyPreflight,
-    ),
-  };
-});
-
 const mockedNativeRequest = nativeSniRequest as jest.MockedFunction<
   typeof nativeSniRequest
 >;
-const mockedNativePreflight = nativeIsProxyActiveForUrl as jest.MockedFunction<
-  typeof nativeIsProxyActiveForUrl
->;
-// The module registry object, so deleting the export reaches the helper.
-const mockedSniConnectPackage = jest.requireMock<{
-  isProxyActiveForUrl?: typeof mockedNativePreflight;
-}>('@onekeyfe/react-native-sni-connect');
-const mockedNoteProxyPreflight =
-  noteAvailabilityProxyPreflight as jest.MockedFunction<
-    typeof noteAvailabilityProxyPreflight
-  >;
 type NativeCancelRequest = (requestId: string) => Promise<{ success: boolean }>;
 const mockedSniConnectModule = NativeModules.SniConnect as {
   cancelRequest?: jest.MockedFunction<NativeCancelRequest>;
@@ -246,100 +214,5 @@ describe('sniRequest.native AbortController compatibility', () => {
     expect(warning).toContain('capability=cancel_request');
     expect(warning).toContain('available=false');
     expect(warning).toContain('decision=transport_may_continue');
-  });
-});
-
-describe('sniRequest.native proxy preflight availability context', () => {
-  const targetUrl = 'https://example.com/health';
-  const targetHostname = 'example.com';
-  const otherHostname = 'other.example.com';
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockedNativePreflight.mockReset();
-    mockedSniConnectPackage.isProxyActiveForUrl = mockedNativePreflight;
-    resetAvailabilityContextForTest();
-  });
-
-  afterEach(() => {
-    mockedSniConnectPackage.isProxyActiveForUrl = mockedNativePreflight;
-    resetAvailabilityContextForTest();
-  });
-
-  test('notes an active proxy for the URL hostname only and returns true unchanged', async () => {
-    mockedNativePreflight.mockResolvedValue(true);
-
-    await expect(isProxyActiveForUrl(targetUrl)).resolves.toBe(true);
-
-    expect(mockedNativePreflight).toHaveBeenCalledWith(targetUrl);
-    expect(mockedNoteProxyPreflight).toHaveBeenCalledWith(targetHostname, true);
-    expect(getAvailabilityProxyState(targetHostname)).toBe('on');
-    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
-  });
-
-  test('notes a direct route for the URL hostname only and returns false unchanged', async () => {
-    mockedNativePreflight.mockResolvedValue(false);
-
-    await expect(isProxyActiveForUrl(targetUrl)).resolves.toBe(false);
-
-    expect(getAvailabilityProxyState(targetHostname)).toBe('off');
-    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
-  });
-
-  test('does not overwrite the state noted for another hostname', async () => {
-    noteAvailabilityProxyPreflight(otherHostname, true);
-    mockedNativePreflight.mockResolvedValue(false);
-
-    await expect(isProxyActiveForUrl(targetUrl)).resolves.toBe(false);
-
-    expect(getAvailabilityProxyState(targetHostname)).toBe('off');
-    expect(getAvailabilityProxyState(otherHostname)).toBe('on');
-  });
-
-  test('notes unknown when an older binary lacks the preflight', async () => {
-    noteAvailabilityProxyPreflight(targetHostname, true);
-    delete mockedSniConnectPackage.isProxyActiveForUrl;
-
-    await expect(isProxyActiveForUrl(targetUrl)).resolves.toBeNull();
-
-    expect(getAvailabilityProxyState(targetHostname)).toBe('unknown');
-    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
-    const warning = mockedRequestLogger.warn.mock.calls
-      .map(([entry]) => String(entry.info))
-      .join('\n');
-    expect(warning).toContain('decision=legacy_sni');
-  });
-
-  test('notes unknown and rethrows the same preflight error', async () => {
-    noteAvailabilityProxyPreflight(targetHostname, false);
-    const error = new Error('proxy lookup failed');
-    mockedNativePreflight.mockRejectedValue(error);
-
-    await expect(isProxyActiveForUrl(targetUrl)).rejects.toBe(error);
-
-    expect(getAvailabilityProxyState(targetHostname)).toBe('unknown');
-    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
-  });
-
-  test('does not label any hostname when the URL cannot be parsed', async () => {
-    mockedNativePreflight.mockResolvedValue(true);
-
-    await expect(isProxyActiveForUrl('not a url')).resolves.toBe(true);
-
-    expect(mockedNoteProxyPreflight).toHaveBeenCalledWith(undefined, true);
-    expect(getAvailabilityProxyState(targetHostname)).toBe('unknown');
-    expect(getAvailabilityProxyState(undefined)).toBe('unknown');
-  });
-
-  test('keeps the preflight result when noting the context throws', async () => {
-    mockedNativePreflight.mockResolvedValue(true);
-    mockedNoteProxyPreflight.mockImplementationOnce(() => {
-      throw new OneKeyLocalError('context unavailable');
-    });
-
-    await expect(isProxyActiveForUrl(targetUrl)).resolves.toBe(true);
-
-    expect(mockedNoteProxyPreflight).toHaveBeenCalledWith(targetHostname, true);
-    expect(getAvailabilityProxyState(targetHostname)).toBe('unknown');
   });
 });

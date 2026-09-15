@@ -19,11 +19,6 @@ import {
   markPerpsColdStartPerfOnce,
 } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getAvailabilityErrorCode,
-  recordWebSocketClosed,
-  recordWebSocketConnectResult,
-} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
@@ -193,51 +188,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _client: IHyperliquidWsClient | null = null;
 
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
-
-  private _webSocketAvailabilityAttempt: {
-    startedAt: number;
-    trigger: 'initial' | 'reconnect';
-  } | null = null;
-
-  private _webSocketConnectedAt: number | null = null;
-
-  private _isClosingWebSocket = false;
-
-  private _startWebSocketAvailabilityAttempt(trigger: 'initial' | 'reconnect') {
-    // An attempt that never produced a result (e.g. a reconnect pending on
-    // the previous transport) must not absorb the new socket's outcome.
-    this._finishWebSocketAvailabilityAttempt({ status: 'cancelled' });
-    this._webSocketAvailabilityAttempt = { startedAt: Date.now(), trigger };
-  }
-
-  // rews asks for the reconnect delay after dispatching close and then sleeps
-  // that long before creating the next socket; the backoff is not connect
-  // time. Runs inside the rews loop, where a throw terminates the transport.
-  private _deferWebSocketReconnectAttemptStart(delayMs: number) {
-    const attempt = this._webSocketAvailabilityAttempt;
-    if (attempt?.trigger === 'reconnect') {
-      attempt.startedAt = Date.now() + delayMs;
-    }
-  }
-
-  private _finishWebSocketAvailabilityAttempt({
-    errorCode,
-    status,
-  }: {
-    errorCode?: unknown;
-    status: 'cancelled' | 'failed' | 'ok' | 'timeout';
-  }) {
-    const attempt = this._webSocketAvailabilityAttempt;
-    if (!attempt) return;
-    this._webSocketAvailabilityAttempt = null;
-    recordWebSocketConnectResult({
-      transport: 'perps',
-      trigger: attempt.trigger,
-      status,
-      durationMs: Math.max(0, Date.now() - attempt.startedAt),
-      errorCode,
-    });
-  }
 
   // Public trades are owned by mounted Swap Pro consumers, independently of
   // the Perps connection lifecycle. The final unsubscribe closes this client.
@@ -1845,10 +1795,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
-    this._finishWebSocketAvailabilityAttempt({
-      errorCode: getAvailabilityErrorCode(event),
-      status: 'failed',
-    });
     // WS error event — readyState tracked via perpsWebSocketReadyStateAtom
   };
 
@@ -1860,21 +1806,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
-    this._finishWebSocketAvailabilityAttempt({
-      errorCode: event.code,
-      // rews closes a socket that is still CONNECTING after
-      // reconnect.connectionTimeout with code 3008.
-      status: event.code === 3008 ? 'timeout' : 'failed',
-    });
-    // Client-initiated closes are recorded by _closeClient, which clears
-    // _webSocketConnectedAt before dispose.
-    if (this._webSocketConnectedAt !== null) {
-      this._webSocketConnectedAt = null;
-      recordWebSocketClosed({ transport: 'perps', reason: 'transport_close' });
-    }
-    if (!this._isClosingWebSocket) {
-      this._startWebSocketAvailabilityAttempt('reconnect');
-    }
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
     this._activeSubscriptions.clear();
     this._invalidateFastL2RecoveryTask();
@@ -1901,8 +1832,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Catch-all here keeps the WS lifecycle robust regardless of which atom
     // write or update fails.
     try {
-      this._finishWebSocketAvailabilityAttempt({ status: 'ok' });
-      this._webSocketConnectedAt = Date.now();
       markPerpsColdStartPerfOnce('service_ws_open_first');
       const socket = event.target as WebSocket | undefined;
       const readyState = socket?.readyState;
@@ -2178,25 +2107,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
-          ) => {
-            const delayMs = Math.min(2 ** attempt * 150, 8000);
-            this._deferWebSocketReconnectAttemptStart(delayMs);
-            return delayMs;
-          },
+          ) => Math.min(2 ** attempt * 150, 8000),
         },
         /* spell-checker:enable */
       };
-      this._startWebSocketAvailabilityAttempt('initial');
-      let transport: WebSocketTransport;
-      try {
-        transport = new WebSocketTransport(transportOptions);
-      } catch (error) {
-        this._finishWebSocketAvailabilityAttempt({
-          errorCode: getAvailabilityErrorCode(error),
-          status: 'failed',
-        });
-        throw error;
-      }
+      const transport = new WebSocketTransport(transportOptions);
       // transport.socket.readyState
       const removeAllSocketEventListeners = () => {
         transport?.socket?.removeEventListener(
@@ -2386,17 +2301,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._unwatchSubscriptionAtoms();
     this._clearActiveL2BookSpec();
     if (this._client) {
-      // dispose() removes our socket listeners right after close(), before an
-      // OPEN socket emits close, so the close handler never sees this.
-      this._finishWebSocketAvailabilityAttempt({ status: 'cancelled' });
-      if (this._webSocketConnectedAt !== null) {
-        this._webSocketConnectedAt = null;
-        recordWebSocketClosed({
-          transport: 'perps',
-          reason: 'client_disconnect',
-        });
-      }
-      this._isClosingWebSocket = true;
       try {
         // TODO remove all eventListeners
         await this._client.dispose();
@@ -2405,8 +2309,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           '[ServiceHyperliquidSubscription.closeClient] Failed to close client:',
           error,
         );
-      } finally {
-        this._isClosingWebSocket = false;
       }
 
       this._client = null;

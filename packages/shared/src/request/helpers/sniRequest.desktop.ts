@@ -1,10 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
-import {
-  getAvailabilityHostname,
-  noteAvailabilityProxyPreflight,
-} from '../availabilityContext';
 
 import { isSniFailClosedError } from './sniFailClosedError';
 import { safeSniLogValue } from './sniLogRedaction';
@@ -98,7 +94,6 @@ export async function isProxyActiveForUrl(
   url: string,
 ): Promise<boolean | null> {
   if (!platformEnv.isDesktop) {
-    noteProxyPreflightOutcome(url, null);
     return null;
   }
 
@@ -112,16 +107,12 @@ export async function isProxyActiveForUrl(
       decision: 'legacy_sni',
       hostname: getHostnameForLog(url),
     });
-    noteProxyPreflightOutcome(url, null);
     return null;
   }
 
   try {
-    const proxyActive = await sniRequestProxy.isProxyActiveForUrl(url);
-    noteProxyPreflightOutcome(url, proxyActive);
-    return proxyActive;
+    return await sniRequestProxy.isProxyActiveForUrl(url);
   } catch (error) {
-    noteProxyPreflightOutcome(url, null);
     if (isDesktopSniPreflightCapabilityMissing(error)) {
       logAdapterCapability('warn', {
         adapter: 'desktop',
@@ -143,18 +134,6 @@ export async function isProxyActiveForUrl(
       errorMessage: getErrorMessage(error),
     });
     throw error;
-  }
-}
-
-// Feeds the per-hostname availability proxy cache: the preflight answer only
-// applies to this URL's hostname (PAC and bypass rules differ per host). The
-// hostname stays in memory and only the enum outcome is reported; proxy host,
-// port, PAC script and bypass rules are never read here.
-function noteProxyPreflightOutcome(url: string, result: boolean | null): void {
-  try {
-    noteAvailabilityProxyPreflight(getAvailabilityHostname(url), result);
-  } catch {
-    // Metrics context is best effort and must not change preflight results.
   }
 }
 

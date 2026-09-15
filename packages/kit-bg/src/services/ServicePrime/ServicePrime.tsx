@@ -42,10 +42,6 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
-import {
-  getAvailabilityFlowErrorResult,
-  startAvailabilityFlow,
-} from '@onekeyhq/shared/src/request/availabilityMetrics';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
@@ -381,12 +377,6 @@ type ICompleteOneKeyIdProfileResponse = IPrimeServerUserInfo & {
 type IPrimeApiClientResponse<T> = IApiClientResponse<T> & {
   messageId?: string;
 };
-
-type IOneKeyIdLoginFailureStage =
-  | 'local_commit'
-  | 'post_commit_cleanup'
-  | 'server_login'
-  | 'session_guard';
 
 type IKeylessOAuthSessionRollbackRecord = {
   expectedIdentityLifecycleRevision: number;
@@ -1517,33 +1507,6 @@ class ServicePrime extends ServiceBase {
     if (!accessToken) {
       return;
     }
-    const flow = startAvailabilityFlow('prime_login_email');
-    let failureStage: IOneKeyIdLoginFailureStage = 'server_login';
-    try {
-      const result = await this._apiLogin(
-        { accessToken, authSessionSource },
-        (stage) => {
-          failureStage = stage;
-        },
-      );
-      flow.finish({ status: 'ok' });
-      return result;
-    } catch (error) {
-      flow.finish(getAvailabilityFlowErrorResult(error, failureStage));
-      throw error;
-    }
-  }
-
-  private async _apiLogin(
-    {
-      accessToken,
-      authSessionSource,
-    }: {
-      accessToken: string;
-      authSessionSource?: EPrimeAuthSessionSource;
-    },
-    setFailureStage: (stage: IOneKeyIdLoginFailureStage) => void,
-  ) {
     // This endpoint (/prime/v1/user/login) only accepts legacy-realm
     // tokens, so the source is statically LegacyEmailSupabase. Never fall
     // back to the persisted source: a stale KeylessOAuth source would be
@@ -1578,7 +1541,6 @@ class ServicePrime extends ServiceBase {
       // observe — and wipe — a half-committed login, and any commit
       // failure rolls the pair back. The network POST above stays outside
       // this lock; it is held only for the few-ms local commit.
-      setFailureStage('local_commit');
       await this.authStateWriteMutex.runExclusive(async () => {
         await this.commitAuthSessionSourceAndPrimeAtom({
           authSessionSource: nextAuthSessionSource,
@@ -1796,35 +1758,7 @@ class ServicePrime extends ServiceBase {
     if (!accessToken) {
       throw new OneKeyLocalError(`${callerName} ERROR: Invalid accessToken`);
     }
-    const flow = startAvailabilityFlow('prime_login_oauth');
-    let failureStage: IOneKeyIdLoginFailureStage = 'session_guard';
-    try {
-      const result = await this._apiOAuthLogin(
-        { accessToken, callerName, expectedOneKeyUserId },
-        (stage) => {
-          failureStage = stage;
-        },
-      );
-      flow.finish({ status: 'ok' });
-      return result;
-    } catch (error) {
-      flow.finish(getAvailabilityFlowErrorResult(error, failureStage));
-      throw error;
-    }
-  }
 
-  private async _apiOAuthLogin(
-    {
-      accessToken,
-      callerName,
-      expectedOneKeyUserId,
-    }: {
-      accessToken: string;
-      callerName: string;
-      expectedOneKeyUserId?: string;
-    },
-    setFailureStage: (stage: IOneKeyIdLoginFailureStage) => void,
-  ): Promise<IOneKeyIdOAuthLoginResponse> {
     // Invalidation site (OAuth login): same as apiLogin — drop any
     // pre-login cached user info before the session changes.
     this.clearPrimeUserInfoCache();
@@ -1846,7 +1780,6 @@ class ServicePrime extends ServiceBase {
         callerName,
       });
     const client = await this.getPrimeClient();
-    setFailureStage('server_login');
     const result = await client.post<
       IApiClientResponse<IOneKeyIdOAuthLoginResponse>
     >(
@@ -1874,7 +1807,6 @@ class ServicePrime extends ServiceBase {
     // atom written as one atomic (local-only, rollback-on-failure) pair —
     // see apiLogin. The POST above and the legacy-session cleanup below
     // (Supabase signOut, network-capable) stay outside the lock.
-    setFailureStage('local_commit');
     await this.authStateWriteMutex.runExclusive(async () => {
       await this.commitAuthSessionSourceAndPrimeAtom({
         authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
@@ -1902,7 +1834,6 @@ class ServicePrime extends ServiceBase {
         )}`,
       });
     }
-    setFailureStage('post_commit_cleanup');
     await this.cleanupLegacyKeylessSessionStorageBestEffort({ callerName });
     return data;
   }

@@ -23,7 +23,6 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { startAvailabilityFlow } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import type {
   EScanQrCodeModalPages,
   IScanQrCodeModalParamList,
@@ -37,15 +36,7 @@ import { ScanQrCode } from '../components';
 import { ScanQrCodeTestIDs } from '../testIDs';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
-import {
-  getLibraryScanFlowResult,
-  getQrScanFlowErrorResult,
-  getScanQrCodeAvailabilityScene,
-} from './scanQrCodeAvailability';
-import { useCameraScanAvailabilityFlow } from './useCameraScanAvailabilityFlow';
-
 import type { RouteProp } from '@react-navigation/core';
-import type { ImagePickerResult } from 'expo-image-picker';
 
 appGlobals.$$scanNavigation = undefined;
 function DebugInput({ onText }: { onText: (text: string) => void }) {
@@ -221,9 +212,6 @@ export default function ScanQrCodeModal() {
     showProTutorial,
   } = route.params;
 
-  const availabilityScene = getScanQrCodeAvailabilityScene(qrWalletScene);
-  const trackCameraScan = useCameraScanAvailabilityFlow(availabilityScene);
-
   const callback = useCallback(
     async (value: string) => {
       if (process.env.NODE_ENV !== 'production') {
@@ -243,45 +231,23 @@ export default function ScanQrCodeModal() {
   const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
-    const libraryFlow = startAvailabilityFlow('qr_library', {
-      detail: availabilityScene,
+    const result = await launchImageLibraryAsync({
+      base64: !platformEnv.isNative,
+      allowsMultipleSelection: false,
     });
-    let result: ImagePickerResult;
-    try {
-      result = await launchImageLibraryAsync({
-        base64: !platformEnv.isNative,
-        allowsMultipleSelection: false,
-      });
-    } catch (error) {
-      libraryFlow.finish(getQrScanFlowErrorResult(error));
-      throw error;
-    }
 
     if (!result.canceled) {
       const uri = result?.assets?.[0]?.uri;
       let data: string | null = null;
-      let scanError: unknown;
       try {
         data = await scanFromURLAsync(uri);
-      } catch (error) {
-        scanError = error;
+      } catch {
         data = null;
       }
       if (data && data.length > 0) {
         isPickedImage.current = true;
-        try {
-          await callback(data);
-        } catch (error) {
-          libraryFlow.finish(getQrScanFlowErrorResult(error));
-          throw error;
-        }
-        libraryFlow.finish(
-          getLibraryScanFlowResult({ type: 'callbackResolved' }),
-        );
+        await callback(data);
       } else {
-        libraryFlow.finish(
-          getLibraryScanFlowResult({ type: 'noCode', scanError }),
-        );
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.scan_no_recognizable_qr_code_found,
@@ -292,10 +258,8 @@ export default function ScanQrCodeModal() {
         JSON.stringify(result),
         data,
       );
-    } else {
-      libraryFlow.finish(getLibraryScanFlowResult({ type: 'pickerCancelled' }));
     }
-  }, [availabilityScene, callback, intl]);
+  }, [callback, intl]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
@@ -303,9 +267,10 @@ export default function ScanQrCodeModal() {
         return {};
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      return trackCameraScan(value, callback);
+      const result = await callback(value);
+      return result;
     },
-    [callback, trackCameraScan],
+    [callback],
   );
 
   const headerRightCall = useCallback(
