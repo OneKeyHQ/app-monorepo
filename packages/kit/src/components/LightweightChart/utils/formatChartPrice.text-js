@@ -26,7 +26,7 @@ function formatChartPrice(price, maxCharacters) {
       : digits.slice(0, decimalPosition) + '.' + digits.slice(decimalPosition);
   }
   var zeroCount = -exponent - 1;
-  const plainWouldLoseAllDigits = zeroCount >= Math.max(1, limit - 2) - 2;
+  var plainWouldLoseAllDigits = zeroCount >= Math.max(1, limit - 2) - 2;
   if (
     value > 0 &&
     !unit &&
@@ -38,8 +38,13 @@ function formatChartPrice(price, maxCharacters) {
     });
     body = '0.0' + zeros + digits;
   }
+  if (body.includes('.') && (unit || value >= 1)) {
+    body = String(Math.round(Number(body) * 100) / 100);
+  }
   if (body.length <= limit) return prefix + body + unit;
-  var end = Math.max(1, limit - 2);
-  while (/[₀₁₂₃₄₅₆₇₈₉]/.test(body.charAt(end))) end += 1;
-  return prefix + body.slice(0, end) + '...' + unit;
+  if (body.indexOf('.') >= 0) {
+    body = body.slice(0, limit).replace(/\.$/, '');
+    if (body.length <= limit) return prefix + body + unit;
+  }
+  return prefix + body.slice(0, limit) + unit + '...';
 }

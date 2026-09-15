@@ -86,9 +86,17 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/TokenTagsPopover', () => ({
   TokenTagsPopover: () => null,
 }));
 
-jest.mock('../../../Market/components/MarketStarV2Deferred', () => ({
-  MarketStarV2Deferred: () => null,
-}));
+jest.mock('../../../Market/components/MarketStarV2Deferred', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  return {
+    MarketStarV2Deferred: (props: { stockId?: string; chainId: string }) =>
+      ReactModule.createElement('div', {
+        'data-testid': 'market-search-star',
+        'data-stock-id': props.stockId ?? '',
+        'data-chain-id': props.chainId,
+      }),
+  };
+});
 
 jest.mock('../../../Market/components/MarketTokenIcon', () => ({
   MarketTokenIcon: () => null,
@@ -127,7 +135,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
     jest.useRealTimers();
   });
 
-  it('preserves stock identity when opening a market search result', () => {
+  it('opens chain search results as tokens even when stock metadata is present', () => {
     const item: IUniversalSearchV2MarketToken = {
       type: EUniversalSearchType.V2MarketToken,
       payload: {
@@ -157,6 +165,13 @@ describe('UniversalSearchV2MarketTokenItem', () => {
       />,
     );
 
+    expect(
+      getByTestId('market-search-star').getAttribute('data-stock-id'),
+    ).toBe('');
+    expect(
+      getByTestId('market-search-star').getAttribute('data-chain-id'),
+    ).toBe('evm--56');
+
     fireEvent.click(getByTestId('market-search-result'));
     act(() => {
       jest.advanceTimersByTime(80);
@@ -169,7 +184,8 @@ describe('UniversalSearchV2MarketTokenItem', () => {
       name: 'Airbnb (Ondo Tokenized)',
       symbol: 'ABNBon',
       isNative: false,
-      stock: item.payload.stock,
+      stockId: undefined,
+      stock: undefined,
       tokenDetailPreview: expect.objectContaining({
         address: '0xabnb',
         networkId: 'evm--56',
@@ -181,6 +197,64 @@ describe('UniversalSearchV2MarketTokenItem', () => {
         turnover: 625_182_693.52,
         stock: item.payload.stock,
         selectedAt: expect.any(Number),
+      }),
+    });
+  });
+
+  it('opens stock listings from the stock search endpoint', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        stockId: 'AAPL',
+        name: 'Apple Inc.',
+        price: '190.12',
+        symbol: 'AAPL',
+        address: '',
+        network: '',
+        logoUrl: '',
+        isNative: false,
+        decimals: 0,
+        liquidity: '0',
+        volume_24h: '0',
+        stock: {
+          stockId: 'AAPL',
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+        },
+      },
+    };
+
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        getSearchInput={() => 'aapl'}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+
+    expect(
+      getByTestId('market-search-star').getAttribute('data-stock-id'),
+    ).toBe('AAPL');
+
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(80);
+    });
+
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith({
+      tokenAddress: '',
+      networkId: '',
+      name: 'Apple Inc.',
+      symbol: 'AAPL',
+      isNative: false,
+      stockId: 'AAPL',
+      stock: item.payload.stock,
+      tokenDetailPreview: expect.objectContaining({
+        address: '',
+        networkId: '',
+        name: 'Apple Inc.',
+        symbol: 'AAPL',
+        stock: item.payload.stock,
       }),
     });
   });
@@ -221,6 +295,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
       name: 'Airbnb xStock',
       symbol: 'ABNBx',
       isNative: false,
+      stockId: undefined,
       stock: undefined,
       tokenDetailPreview: expect.objectContaining({
         address: '0xc156',

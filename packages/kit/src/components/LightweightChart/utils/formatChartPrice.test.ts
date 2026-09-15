@@ -9,9 +9,9 @@ describe('chart axis prices', () => {
     expect(formatChartPrice(0.000_001_2)).toBe('$0.0₅12');
     expect(formatChartPrice(0.000_001_2, 20)).toBe('$0.0000012');
     expect(formatChartPrice(1e-30)).toBe('$0.0₂₉1');
-    expect(formatChartPrice(0.123_456_789)).toBe('$0.1234...');
-    expect(formatChartPrice(0.999_999_99)).toBe('$0.9999...');
-    expect(formatChartPrice(0.012_345_678_9)).toBe('$0.0123...');
+    expect(formatChartPrice(0.123_456_789)).toBe('$0.123456');
+    expect(formatChartPrice(0.999_999_99)).toBe('$0.999999');
+    expect(formatChartPrice(0.012_345_678_9)).toBe('$0.012345');
   });
   it.each([7, 8])('preserves small tick values at width %i', (limit) => {
     for (const price of [0.000_123_456, 0.000_012_345_6]) {
@@ -32,21 +32,24 @@ describe('chart axis prices', () => {
     expect(formatChartPrice(0.700_001)).toBe('$0.700001');
     expect(formatChartPrice(1.2e-16)).toBe('$0.0₁₅12');
   });
-  it('keeps eight amount positions and replaces the last two on overflow', () => {
-    expect(formatChartPrice(12.345_67)).toBe('$12.34567');
-    expect(formatChartPrice(12.345_678_9)).toBe('$12.345...');
-    expect(formatChartPrice(12.345_678_9, 7)).toBe('$12.34...');
-    expect(formatChartPrice(0.000_000_123_456)).toBe('$0.0₆12...');
-    expect(formatChartPrice(-1.234_567_89e-30, 7)).toBe('-$0.0₂₉...');
+  it('fits overflow by dropping decimals instead of appending an ellipsis', () => {
+    expect(formatChartPrice(12.345_67)).toBe('$12.35');
+    expect(formatChartPrice(12.345_678_9)).toBe('$12.35');
+    expect(formatChartPrice(12.345_678_9, 7)).toBe('$12.35');
+    expect(formatChartPrice(716.681_23)).toBe('$716.68');
+    expect(formatChartPrice(0.000_000_123_456)).toBe('$0.0₆1234');
+    expect(formatChartPrice(-1.234_567_89e-30, 7)).toBe('-$0.0₂₉12');
   });
-  it('converts K/M/B without discarding precision before truncation', () => {
+  it('converts K/M/B without inserting an ellipsis in front of the unit', () => {
     expect(formatChartPrice(999)).toBe('$999');
     expect(formatChartPrice(1000)).toBe('$1K');
+    expect(formatChartPrice(77_250)).toBe('$77.25K');
+    expect(formatChartPrice(76_819.04)).toBe('$76.82K');
     expect(formatChartPrice(1_000_000)).toBe('$1M');
     expect(formatChartPrice(1_000_000_000)).toBe('$1B');
-    expect(formatChartPrice(1_234_567)).toBe('$1.234567M');
-    expect(formatChartPrice(1_234_567.89)).toBe('$1.2345...M');
-    expect(formatChartPrice(1e30)).toBe('$100000...B');
+    expect(formatChartPrice(1_234_567)).toBe('$1.23M');
+    expect(formatChartPrice(1_234_567.89)).toBe('$1.23M');
+    expect(formatChartPrice(1e30)).toBe('$10000000B...');
     expect(formatChartPrice(0)).toBe('$0');
     expect(formatChartPrice(NaN)).toBe('--');
   });
@@ -69,7 +72,11 @@ describe('chart axis prices', () => {
       0.000_001_5,
       0.000_000_123,
       -1e-30,
+      77_250,
+      76_819.04,
+      716.681_23,
       1_234_567,
+      1_234_567.89,
     ]) {
       expect(
         runInNewContext(`(${formatChartPrice.toString()})(${price}, 7)`),
