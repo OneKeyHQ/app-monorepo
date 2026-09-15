@@ -8,7 +8,12 @@ import {
   useState,
 } from 'react';
 
-import { Canvas, Picture, useFont, useSVG } from '@shopify/react-native-skia';
+import {
+  Canvas,
+  Picture,
+  useSVG,
+  useTypeface,
+} from '@shopify/react-native-skia';
 import { Image } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import {
@@ -190,10 +195,7 @@ export const TradingViewNativeChart = memo(
     });
     const theme = useTheme();
     const themeName = useThemeName();
-    const priceAxisFont = useFont(
-      PRICE_AXIS_FONT_URI ?? null,
-      priceAxisFontSize,
-    );
+    const priceAxisTypeface = useTypeface(PRICE_AXIS_FONT_URI ?? null);
     const watermarkSvg = useSVG(ONEKEY_WATERMARK_URI ?? null);
     const background = chartSettings.background.colors[0];
     const grid = chartSettings.grid.horizontalColor;
@@ -267,7 +269,7 @@ export const TradingViewNativeChart = memo(
           },
           fontFamily: SYSTEM_FONT_FAMILY,
           legendFont,
-          priceAxisFont,
+          priceAxisTypeface,
           priceAxisFontSize,
           timeAxisFontSize,
           timeAxisBorderWidth,
@@ -281,7 +283,7 @@ export const TradingViewNativeChart = memo(
         grid,
         legendFont,
         line,
-        priceAxisFont,
+        priceAxisTypeface,
         priceAxisFontSize,
         timeAxisFontSize,
         timeAxisBorder,
