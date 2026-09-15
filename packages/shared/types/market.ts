@@ -353,8 +353,8 @@ export interface IMarketListingWatchlistQuote {
   priceChange24hPercent?: string;
   marketCap?: string;
   volume24h?: string;
-  // Stock listings only: the tokens issued against the stock, when the detail
-  // API includes them. Drives the Stocks-style hover reveal in the watchlist.
+  // Stock listings only: the tokens issued against the stock, from the stocks
+  // batch API. Drives the Stocks-style hover reveal in the watchlist.
   variants?: IMarketStockListVariant[];
 }
 

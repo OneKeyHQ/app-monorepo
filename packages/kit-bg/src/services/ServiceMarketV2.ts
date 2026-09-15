@@ -1,5 +1,5 @@
 // cspell:ignore financials
-import { isNil } from 'lodash';
+import { chunk, isNil } from 'lodash';
 import pLimit from 'p-limit';
 
 import {
@@ -9,6 +9,7 @@ import {
 import {
   DEFAULT_MARKET_STOCK_SORT_BY,
   DEFAULT_MARKET_STOCK_SORT_TYPE,
+  MARKET_STOCK_BATCH_MAX_IDS,
 } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
@@ -1202,6 +1203,40 @@ class ServiceMarketV2 extends ServiceBase {
       data: IMarketStockPublicDetail | null;
     }>(`/utility/v1/stocks/${encodeURIComponent(stockId)}`, requestConfig);
     return response.data.data;
+  }
+
+  // Same item shape as the Stocks list, variants included. Unknown IDs are
+  // omitted from the response rather than failing the request.
+  @backgroundMethod()
+  async fetchMarketStockBatch({
+    stockIds,
+  }: {
+    stockIds: string[];
+  }): Promise<IMarketStockPublicItem[]> {
+    if (stockIds.length === 0) {
+      return [];
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    };
+    const responses = await Promise.all(
+      chunk(stockIds, MARKET_STOCK_BATCH_MAX_IDS).map((stockIdsChunk) =>
+        client.post<{
+          code: number;
+          message: string;
+          data: IMarketStockPublicListResponse | null;
+        }>(
+          '/utility/v1/stocks/batch',
+          { stockIds: stockIdsChunk },
+          requestConfig,
+        ),
+      ),
+    );
+    return responses.flatMap((response) => response.data.data?.items ?? []);
   }
 
   @backgroundMethod()
