@@ -367,3 +367,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `useSearchPopover` treated every Enter as submit. IME confirmation Enter was not ignored, and Chromium fires that keydown after `compositionend` with `isComposing` already false.
 **Fix**: Shared IME composition lock ignores composing / keyCode 229 events and holds the lock until after the confirming Enter. Input forwards React composition props through the repository's existing RN-web ESM patch. Discovery inputs disable submit auto-blur; non-native SearchBar defaults to retaining focus while honoring an explicit blurOnSubmit setting.
 **Catchable by**: NEW — web/desktop inputs that submit on Enter must ignore IME composition (including the post-compositionend confirming Enter), retain focus, and test the patched production ESM entry rather than the unpatched CJS entry
+
+## Case: Cached banner quotes mask same-identity CMS logo updates
+**Date**: 2026-09-15 | **Platforms**: desktop, web, iOS, Android, extension (Market Home banners)
+**Symptom**: After keeping hydrated quote rows across 30s list polls (anti-flash), a CMS logo change on the same banner `_id` never appeared until remount or identity change.
+**Root Cause**: `mergeBannerQuotes` replaced the fresh list `tokens` with cached quote rows, then that merged list was passed into `hydrateMarketBannerQuotes`, so `previewLogos` was built from stale cached logos.
+**Fix**: Hydrate from the raw banner list; overlay latest preview logos onto cached quote rows for display and hydrate-failure fallback. Quote membership still only changes after a completed hydrate.
+**Catchable by**: Section 4: Data flow end-to-end; NEW — an anti-flash cache must not become the source of truth for poll fields that are allowed to update
