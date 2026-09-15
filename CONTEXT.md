@@ -131,3 +131,31 @@ against a real device rather than re-derived from the code each time.
   regular-expression data rather than running as a function; the patterns are
   equivalent on paper and in unit tests, but the advertisement content itself
   has only ever been confirmed on real Windows hardware.
+- **A locked-but-bonded Safe 7 still reads as "unlock me" on Windows BLE.** The
+  app used to tell a locked device (link up, GATT discovery fails) from a dead
+  address (link never came up) by matching noble's Windows string "unreachable
+  while discovering services"; that heuristic moved out of the app and has no
+  equivalent in the SDK, where `BleConnectFailed` is classified uniformly as a
+  transport error and lands in `RESCAN_DEVICE_ERROR_CODES`. A bonded Trezor
+  does not advertise, so a rescan may report "device not found" instead of
+  asking the user to unlock. Windows desktop only — the string comes from
+  noble's Windows binding and never appears on macOS. Check: bond a Safe 7 over
+  desktop BLE on Windows, lock it, then start an operation.
+- **Picking one of several BLE Trezors no longer pops a pairing dialog for the
+  wrong one.** `beginBindingProbe`/`endBindingProbe` suppressed the THP pairing
+  dialog while probing a candidate that turned out not to be the target; both
+  are gone from the app and the SDK, and the replacement design ("complete the
+  handshake, then compare device_id") was not traced onto the bare
+  `connectDevice` path that the probe uses. No automated test covers this any
+  more. Check: two bonded Safe 7s in range, connect to one, expect no pairing
+  prompt from the other.
+- **A Ledger's BLE binding still gets pinned after the first operation on a
+  chain.** The fingerprint anchor is persisted before the confirmation round
+  trip, and a confirmation that fails to complete no longer discards the user's
+  result. The cost is that the SDK never publishes the verified BLE binding for
+  that chain, so the wallet stays in the weaker "unverified binding" mode
+  indefinitely — a different device is still refused later by
+  `_verifyDeviceFingerprintWithSession`, but the "known device fails closed"
+  shortcut is missing and reselect/rediscovery may run every time. Check how
+  often that confirmation actually fails on real BLE before deciding whether it
+  needs a retry.
