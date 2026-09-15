@@ -719,6 +719,12 @@ function RawPopover({
           {shouldUseExternalNativeBackdrop ? (
             <Stack
               position="absolute"
+              // Android must paint this sibling backdrop above the parent dialog.
+              zIndex={
+                platformEnv.isNativeAndroid
+                  ? sheetProps?.zIndex || zIndex
+                  : undefined
+              }
               pointerEvents={isOpen ? 'auto' : 'none'}
               onPress={isOpen ? closePopover : undefined}
               bg={nativeBackdropBackgroundColor}
