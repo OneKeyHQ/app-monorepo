@@ -365,7 +365,7 @@ describe('market native list rows', () => {
     expect(assetRow.subtitlePrefix).toBeUndefined();
   });
 
-  it('preserves the distinct standalone and watchlist perpetual row layouts', () => {
+  it('gives standalone and watchlist perpetual rows the same row frame', () => {
     const standalone = buildPerpsMarketRow({ item: perp, presentation });
     const watchlist = buildTokenMarketRow({
       item: { ...token, perpsCoin: perp.name, maxLeverage: 40 },
@@ -373,20 +373,23 @@ describe('market native list rows', () => {
       watchlist: true,
     });
 
-    expect(standalone.height).toBe(64);
-    expect(standalone.style).toMatchObject({
-      horizontalPadding: 16,
-      leadingGap: 8,
-      lineGap: 0,
-      subtitle: { fontSize: 12, lineHeight: 16 },
-    });
-    expect(watchlist.height).toBe(72);
-    expect(watchlist.style).toMatchObject({
-      horizontalPadding: 20,
-      leadingGap: 14,
-      lineGap: 4,
-      subtitle: { fontSize: 12, lineHeight: 16 },
-    });
+    for (const row of [standalone, watchlist]) {
+      expect(row.height).toBe(72);
+      expect(row.style).toMatchObject({
+        horizontalPadding: 20,
+        verticalPadding: 12,
+        leadingGap: 14,
+        lineGap: 4,
+        trailingGap: 8,
+        subtitle: { fontSize: 12, lineHeight: 16 },
+      });
+      expect(row.style?.contentTrailingGap).toBeUndefined();
+      expect(row.style?.subtitleTrailingPadding).toBeUndefined();
+    }
+    // The Perps list keeps its compact badges.
+    expect(
+      standalone.badges?.map((badge) => badge.style?.horizontalPadding),
+    ).toEqual([4, 4]);
     expect(
       watchlist.badges?.map((badge) => badge.style?.horizontalPadding),
     ).toEqual([6, 6]);

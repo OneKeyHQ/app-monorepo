@@ -92,15 +92,6 @@ const TOKEN_ROW_STYLE: MarketRowStyle = {
   changeCornerRadius: 8,
 };
 
-const PERP_ROW_STYLE: MarketRowStyle = {
-  ...TOKEN_ROW_STYLE,
-  horizontalPadding: 16,
-  leadingGap: 8,
-  lineGap: 0,
-  contentTrailingGap: 12,
-  subtitleTrailingPadding: 12,
-};
-
 function toTextSegments(rendered: ReturnType<typeof numberFormatAsRenderText>):
   | Readonly<{
       text: string;
@@ -441,7 +432,7 @@ export function buildPerpsMarketRow({
     key: item.name,
     type: 'market',
     variant: 'perp',
-    height: 64,
+    height: 72,
     testID: `market-perps-row-${item.name}`,
     accessibilityLabel: `${item.displayName}, ${price.text}, ${change.text}`,
     leading: {
@@ -472,7 +463,8 @@ export function buildPerpsMarketRow({
       compact: true,
     }),
     pressActionKey: 'open-detail',
-    style: rowStyleForChange(PERP_ROW_STYLE, item.change24hPercent),
+    // Perps rows share the token row frame (72dp, 20dp padding, 4dp line gap).
+    style: rowStyleForChange(TOKEN_ROW_STYLE, item.change24hPercent),
   };
 }
 
