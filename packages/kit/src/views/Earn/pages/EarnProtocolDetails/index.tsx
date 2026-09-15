@@ -272,7 +272,7 @@ const ProtocolHeader = ({
                   numberOfLines={1}
                   flexShrink={1}
                 >
-                  {tokenInfo?.token.symbol || symbol}
+                  {earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol}
                 </SizableText>
                 {/* The provider name is the second line of the header, not a
                     caption: the design sets it in the body weight and default
@@ -292,7 +292,7 @@ const ProtocolHeader = ({
                 numberOfLines={1}
                 flexShrink={1}
               >
-                {tokenInfo?.token.symbol || symbol}
+                {earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol}
               </SizableText>
             )}
           </XStack>
@@ -1374,11 +1374,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           <Token size="md" tokenImageUri={headerTokenLogoURI} />
         )}
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
-          {symbol}
+          {/* The relabel only lands once the detail request resolves; until
+              then the route's symbol stands in, which is what it renders for
+              every token without a relabel anyway. */}
+          {earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol}
         </SizableText>
       </XStack>
     ),
-    [symbol, headerTokenLogoURI, isHeaderTokenLogoPending],
+    [symbol, tokenInfo?.token, headerTokenLogoURI, isHeaderTokenLogoPending],
   );
 
   const handleOpenManageModal = useCallback(

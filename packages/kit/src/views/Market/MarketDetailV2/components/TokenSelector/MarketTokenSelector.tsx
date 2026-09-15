@@ -96,7 +96,9 @@ function convertTopCoinToSelectorToken(
     networkLogoUri: '',
     networkId: '',
     chainId: '',
-    selectorSubtitle: item.symbol.toUpperCase(),
+    // The row title is already the symbol, so the subtitle carries the full
+    // name and stays empty rather than repeating the symbol when it is missing.
+    selectorSubtitle: item.name?.trim() || undefined,
   };
 }
 
@@ -255,9 +257,8 @@ function BaseMarketTokenSelectorContent({
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
-  const { searchLoading, searchTokenList } = useSwapProTokenSearch(
-    isStockSelection ? '' : searchValueDebounce,
-  );
+  const { searchLoading, searchTokenList } =
+    useSwapProTokenSearch(searchValueDebounce);
 
   const handleCategoryChange = useCallback(
     (categoryId: string) => {
@@ -447,7 +448,7 @@ function BaseMarketTokenSelectorContent({
         )}
 
         {/* List content */}
-        {isStockSelection ? (
+        {isStockSelection && !searchValueDebounce ? (
           <MarketStockSelectorList
             query={searchValueDebounce}
             onItemPress={handleSelectStock}

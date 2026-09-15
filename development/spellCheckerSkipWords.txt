@@ -1603,3 +1603,7 @@ binarize
 
 # password manager brand referenced in Input suppression comment
 Dashlane
+robinhood
+usdg
+USDG
+cyeth

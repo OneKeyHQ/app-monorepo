@@ -1,0 +1,8 @@
+<resources>
+  <style name="AppTheme.TravelMode" parent="AppTheme">
+    <item name="android:windowSplashScreenAnimatedIcon">@drawable/splashscreen_travel_icon</item>
+  </style>
+  <style name="Theme.App.SplashScreen.TravelMode" parent="AppTheme.TravelMode">
+    <item name="android:windowBackground">@drawable/splashscreen_travel</item>
+  </style>
+</resources>
