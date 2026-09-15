@@ -151,7 +151,10 @@ export function useToMarketStockDetailPage(
             },
           });
         } else {
-          navigation.replace(
+          // Reset the tab stack so returning from the selected stock does not
+          // reveal the previously viewed stock detail.
+          navigation.popToTop();
+          navigation.push(
             ETabMarketRoutes.MarketStockDetail,
             stockDetailParams,
           );
