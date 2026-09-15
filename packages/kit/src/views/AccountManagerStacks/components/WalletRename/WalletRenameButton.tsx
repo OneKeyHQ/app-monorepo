@@ -93,12 +93,12 @@ export function WalletRenameButton({
                 },
                 {
                   nativeSheet,
-                  maxLength: isProtocolV2Product
+                  maxLength: labelAsciiAlphanumericWithSpacesOnly
                     ? PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH
                     : undefined,
-                  disabledMaxLengthLabel: !isProtocolV2Product,
-                  trimOuterWhitespace: isProtocolV2Product,
-                  description: isProtocolV2Product
+                  disabledMaxLengthLabel: !labelAsciiAlphanumericWithSpacesOnly,
+                  trimOuterWhitespace: labelAsciiAlphanumericWithSpacesOnly,
+                  description: labelAsciiAlphanumericWithSpacesOnly
                     ? intl.formatMessage({
                         id: ETranslations.hardware_label_allowed_characters__desc,
                       })
@@ -106,7 +106,9 @@ export function WalletRenameButton({
                   onSubmit: async (name) => {
                     await backgroundApiProxy.serviceHardware.setDeviceLabel({
                       walletId: wallet?.id || '',
-                      label: isProtocolV2Product ? name.trim() : name,
+                      label: labelAsciiAlphanumericWithSpacesOnly
+                        ? name.trim()
+                        : name,
                     });
                   },
                 },
