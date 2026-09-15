@@ -966,11 +966,15 @@ function MarketTokenListBase({
   const tableRowProps = useMemo<IXStackProps | undefined>(() => {
     const hasWebRowStyle = platformEnv.isWeb && webTabIntegrated;
     const hasDesktopRowStyle = !md;
-    if (!rowBg && !hasWebRowStyle && !hasDesktopRowStyle) {
+    // Draggable Table rows show a grab cursor; watchlist rows keep the default
+    // arrow while still supporting drag-to-reorder.
+    const hasDefaultCursor = isWatchlistMode && !platformEnv.isNative;
+    if (!rowBg && !hasWebRowStyle && !hasDesktopRowStyle && !hasDefaultCursor) {
       return undefined;
     }
     return {
       ...(rowBg ? { bg: rowBg } : undefined),
+      ...(hasDefaultCursor ? { cursor: 'default' } : undefined),
       ...(hasDesktopRowStyle
         ? { height: MARKET_HOME_DESKTOP_ROW_HEIGHT_PX }
         : undefined),
@@ -982,7 +986,7 @@ function MarketTokenListBase({
           }
         : undefined),
     };
-  }, [md, rowBg, webTabIntegrated]);
+  }, [isWatchlistMode, md, rowBg, webTabIntegrated]);
 
   return (
     <Stack
