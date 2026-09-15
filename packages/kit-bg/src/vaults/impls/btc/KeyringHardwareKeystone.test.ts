@@ -66,7 +66,7 @@ describe('KeyringHardwareKeystone.prepareAccounts', () => {
           deviceId: walletId,
         },
         deviceCommonParams: {
-          interactionId: 'hwk-keystone-interaction',
+          operationId: 'hwk-keystone-interaction',
         },
       },
       hwAllNetworkPrepareAccountsResponse: {
@@ -138,7 +138,7 @@ describe('KeyringHardwareKeystone.prepareAccounts', () => {
             vendor: 'keystone',
           },
           deviceCommonParams: {
-            interactionId: 'hwk-keystone-interaction',
+            operationId: 'hwk-keystone-interaction',
           },
         },
         hwAllNetworkPrepareAccountsResponse: {
@@ -158,7 +158,7 @@ describe('KeyringHardwareKeystone.prepareAccounts', () => {
     expect(btcGetMasterFingerprint).toHaveBeenCalledWith(
       'hwk-keystone-interaction',
       walletId,
-      { interactionId: 'hwk-keystone-interaction', knownConnections: [] },
+      { operationId: 'hwk-keystone-interaction', knownConnections: [] },
     );
   });
 });

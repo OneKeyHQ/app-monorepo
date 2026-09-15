@@ -48,14 +48,14 @@ export function WalletRenameButton({
     const vendor = wallet?.associatedDeviceInfo?.vendor;
     if (!vendor) return false;
     const profile = getVendorProfile(vendor);
-    return profile.deviceLabel.mode === 'local';
+    return profile.presentation.label.mode === 'local';
   }, [wallet?.associatedDeviceInfo?.vendor]);
 
   const labelAsciiOnly = useMemo(() => {
-    const { deviceLabel } = getVendorProfile(
+    const { label } = getVendorProfile(
       wallet?.associatedDeviceInfo?.vendor,
-    );
-    return deviceLabel.mode === 'device' && deviceLabel.asciiOnly;
+    ).presentation;
+    return label.mode === 'device' && label.asciiOnly;
   }, [wallet?.associatedDeviceInfo?.vendor]);
 
   const labelAsciiAlphanumericWithSpacesOnly = useMemo(

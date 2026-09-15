@@ -6,8 +6,8 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import {
-  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
-  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
 } from '../errors/errors/thirdPartyHardwareErrors';
 
 import {
@@ -36,8 +36,8 @@ describe('third-party hardware retry policy', () => {
     ThirdPartyHwErrorCode.DeviceNotFound,
     ThirdPartyHwErrorCode.DeviceDisconnected,
     ThirdPartyHwErrorCode.DeviceMismatch,
-    THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
-    THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+    THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+    THIRD_PARTY_HW_OPERATION_ENDED_CODE,
     ThirdPartyHwErrorCode.TransportError,
     ThirdPartyHwErrorCode.BridgeNotFound,
     ThirdPartyHwErrorCode.TransportNotAvailable,
@@ -77,7 +77,7 @@ describe('third-party hardware retry policy', () => {
     expect(
       getThirdPartyHardwareRetryAction({
         errorCode: ThirdPartyHwErrorCode.DeviceDisconnected,
-        recovery: { scope: 'operation' },
+        recovery: { scope: 'call' },
         searchTarget: trezorUsbTarget,
       }),
     ).toBe(EThirdPartyHardwareRetryAction.retrySelectedSearchTarget);
@@ -87,7 +87,7 @@ describe('third-party hardware retry policy', () => {
     expect(
       getThirdPartyHardwareRetryAction({
         errorCode: ThirdPartyHwErrorCode.DeviceDisconnected,
-        recovery: { scope: 'interaction' },
+        recovery: { scope: 'operation' },
         searchTarget: trezorUsbTarget,
       }),
     ).toBe(EThirdPartyHardwareRetryAction.retrySelectedSearchTarget);
@@ -97,7 +97,7 @@ describe('third-party hardware retry policy', () => {
     expect(
       getThirdPartyHardwareRetryAction({
         errorCode: ThirdPartyHwErrorCode.DeviceLocked,
-        recovery: { scope: 'operation' },
+        recovery: { scope: 'call' },
         searchTarget: ledgerUsbTarget,
       }),
     ).toBe(EThirdPartyHardwareRetryAction.retrySelectedSearchTarget);
@@ -107,7 +107,7 @@ describe('third-party hardware retry policy', () => {
     expect(
       getThirdPartyHardwareRetryAction({
         errorCode: ThirdPartyHwErrorCode.DeviceDisconnected,
-        recovery: { scope: 'interaction' },
+        recovery: { scope: 'operation' },
         searchTarget: ledgerUsbTarget,
       }),
     ).toBe(EThirdPartyHardwareRetryAction.restartDeviceSearch);
@@ -136,6 +136,30 @@ describe('third-party hardware retry policy', () => {
     ).toBe(EThirdPartyHardwareRetryAction.doNotRetry);
   });
 
+  it('never retries on its own once an unsafe request may have reached the device', () => {
+    // scope 'unknown' alone falls through to the code-based compat path, so the
+    // ambiguity flag has to stop the decision before anything gets that far.
+    expect(
+      getThirdPartyHardwareRetryAction({
+        errorCode: ThirdPartyHwErrorCode.TransportError,
+        recovery: { scope: 'unknown' },
+        searchTarget: trezorUsbTarget,
+        operationMayHaveCompleted: true,
+      }),
+    ).toBe(EThirdPartyHardwareRetryAction.doNotRetry);
+  });
+
+  it('outranks a recovery hint that would otherwise allow a retry', () => {
+    expect(
+      getThirdPartyHardwareRetryAction({
+        errorCode: ThirdPartyHwErrorCode.TransportError,
+        recovery: { scope: 'call' },
+        searchTarget: trezorUsbTarget,
+        operationMayHaveCompleted: true,
+      }),
+    ).toBe(EThirdPartyHardwareRetryAction.doNotRetry);
+  });
+
   it('uses the compatibility table when SDK recovery is unknown', () => {
     expect(
       getThirdPartyHardwareRetryAction({
@@ -150,7 +174,7 @@ describe('third-party hardware retry policy', () => {
     expect(
       getThirdPartyHardwareRetryAction({
         errorCode: ThirdPartyHwErrorCode.DeviceLocked,
-        recovery: { scope: 'operation' },
+        recovery: { scope: 'call' },
         searchTarget: {
           ...ledgerUsbTarget,
           searchTargetReusePolicy: undefined,

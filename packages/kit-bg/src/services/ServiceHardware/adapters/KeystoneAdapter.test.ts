@@ -42,17 +42,17 @@ describe('KeystoneAdapter', () => {
       }),
     };
     const adapter = new KeystoneAdapter(hw as never) as unknown as {
-      activeInteractionId?: string;
+      activeOperationId?: string;
     };
-    adapter.activeInteractionId = 'hwk-keystone-current';
+    adapter.activeOperationId = 'hwk-keystone-current';
 
-    listeners.get('interaction-ended')?.({
-      payload: { interactionId: 'hwk-keystone-stale' },
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'hwk-keystone-stale' },
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).not.toHaveBeenCalled();
 
-    listeners.get('interaction-ended')?.({
-      payload: { interactionId: 'hwk-keystone-current' },
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'hwk-keystone-current' },
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith(
       expect.any(Function),
@@ -110,7 +110,7 @@ describe('KeystoneAdapter', () => {
       getDeviceInfo: jest.fn().mockResolvedValue({
         success: true,
         payload: {
-          interactionId: 'hwk-keystone-interaction',
+          operationId: 'hwk-keystone-interaction',
           connectId: `keystone-wallet:${'ab'.repeat(32)}`,
           deviceId: 'ab'.repeat(32),
           model: 'Keystone 3 Pro',
@@ -169,15 +169,15 @@ describe('KeystoneAdapter', () => {
     adapter.onConnectionStateChange((event) => events.push(event));
 
     await adapter.connectDevice('keystone-search-target');
-    listeners.get('interaction-ended')?.({
-      payload: { interactionId: 'keystone-usb-interaction' },
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'keystone-usb-interaction' },
     });
 
     expect(events).toEqual([
       {
         type: 'connected',
         device: expect.objectContaining({
-          interactionId: 'keystone-usb-interaction',
+          operationId: 'keystone-usb-interaction',
           connectId: `keystone-wallet:${walletId}`,
           deviceId: walletId,
           connectionType: 'usb',
@@ -185,7 +185,7 @@ describe('KeystoneAdapter', () => {
       },
       {
         type: 'disconnected',
-        interactionId: 'keystone-usb-interaction',
+        operationId: 'keystone-usb-interaction',
       },
     ]);
   });
@@ -286,7 +286,7 @@ describe('KeystoneAdapter', () => {
       {
         success: true,
         payload: {
-          interactionId: 'hwk-keystone-interaction',
+          operationId: 'hwk-keystone-interaction',
           connectId: `keystone-wallet:${walletId}`,
           deviceId: walletId,
           model: 'Keystone 3 Pro',
@@ -336,7 +336,7 @@ describe('KeystoneAdapter', () => {
           firmwareVersion: '2.0.0',
         },
       }),
-      releaseInteraction: jest.fn().mockResolvedValue(undefined),
+      releaseOperation: jest.fn().mockResolvedValue(undefined),
     };
     const adapter = new KeystoneAdapter(hw as never);
 
@@ -345,9 +345,7 @@ describe('KeystoneAdapter', () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.payload.code).toBe(HardwareErrorCode.DeviceMismatch);
-    expect(hw.releaseInteraction).toHaveBeenCalledWith(
-      'keystone-usb-session:1',
-    );
+    expect(hw.releaseOperation).toHaveBeenCalledWith('keystone-usb-session:1');
   });
 
   it('releases the interaction when connected device info cannot be loaded', async () => {
@@ -361,7 +359,7 @@ describe('KeystoneAdapter', () => {
         success: false,
         payload: { code: 10_113 },
       }),
-      releaseInteraction: jest.fn().mockResolvedValue(undefined),
+      releaseOperation: jest.fn().mockResolvedValue(undefined),
     };
     const adapter = new KeystoneAdapter(hw as never);
 
@@ -371,7 +369,7 @@ describe('KeystoneAdapter', () => {
         payload: { code: 10_113 },
       },
     );
-    expect(hw.releaseInteraction).toHaveBeenCalledWith(
+    expect(hw.releaseOperation).toHaveBeenCalledWith(
       'hwk-keystone-interaction',
     );
   });

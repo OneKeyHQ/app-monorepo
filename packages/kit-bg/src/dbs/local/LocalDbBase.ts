@@ -725,7 +725,7 @@ export function buildThirdPartyDeviceDisplayName({
     return label;
   }
   const model = getThirdPartyDeviceModelName({ device, features });
-  const vendorName = profile.defaultDeviceName;
+  const vendorName = profile.presentation.defaultName;
   if (model) {
     return model.toLowerCase().includes(vendorName.toLowerCase())
       ? model
@@ -4200,7 +4200,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               vendor: profile.vendor,
               vendorModel: deviceSettings.vendorModel,
               vendorModelName: deviceSettings.vendorModelName,
-              fallback: profile.avatarKey as IThirdPartyWalletAvatarImageNames,
+              fallback: profile.presentation
+                .avatarKey as IThirdPartyWalletAvatarImageNames,
             });
             if (avatarInfo?.img !== expectedImg) {
               wallet.avatarInfo = { ...avatarInfo, img: expectedImg };
@@ -4243,7 +4244,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             // Only vendors with device-label support synchronize wallet names.
             const label = device?.featuresInfo?.label;
             if (
-              profile.deviceLabel.mode === 'device' &&
+              profile.presentation.label.mode === 'device' &&
               device &&
               label &&
               label !== wallet.name
@@ -4257,7 +4258,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               wallet.name = label;
             } else if (wallet.name && wallet.name.startsWith('OneKey')) {
               // No settable label (Ledger): strip any leftover OneKey name.
-              const vendorLabel = profile.defaultDeviceName || deviceVendor;
+              const vendorLabel =
+                profile.presentation.defaultName || deviceVendor;
               wallet.name = vendorLabel;
             }
           } else {
@@ -7122,7 +7124,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           vendor: profile.vendor,
           vendorModel: getThirdPartyDeviceModelCode({ device, features }),
           vendorModelName: modelName,
-          fallback: profile.avatarKey as IThirdPartyWalletAvatarImageNames,
+          fallback: profile.presentation
+            .avatarKey as IThirdPartyWalletAvatarImageNames,
         }),
       },
       deviceName: finalDeviceName,
@@ -7268,6 +7271,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       transportType,
     });
 
+    // A vendor whose connectId is a transport locator keeps its locators in the
+    // per-transport columns only. Leaving the legacy `connectId` out of new
+    // records is what makes "which channel is this?" answerable by looking at
+    // the field name instead of guessing from the value. Vendors whose
+    // connectId carries wallet identity (Keystone) and OneKey are untouched.
+    const usesTransportLocatorConnectId =
+      profile.isThirdParty && profile.identity.role === 'transportLocator';
+
     if (transportType) {
       switch (transportType) {
         case EHardwareTransportType.WEBUSB:
@@ -7275,12 +7286,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // Bridge and WEBUSB are both USB-based connections
           if (hasPersistentUsbConnectId) {
             usbConnectId = connectId ?? undefined;
-            compatibleConnectId = connectId ?? undefined;
+            if (!usesTransportLocatorConnectId) {
+              compatibleConnectId = connectId ?? undefined;
+            }
           }
           break;
         case EHardwareTransportType.BLE:
           bleConnectId = resolvedBleConnectId;
-          compatibleConnectId = connectId ?? undefined;
+          if (!usesTransportLocatorConnectId) {
+            compatibleConnectId = connectId ?? undefined;
+          }
           break;
         case EHardwareTransportType.DesktopWebBle:
           bleConnectId = resolvedBleConnectId;
@@ -7300,8 +7315,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               }) ||
               deviceUtils.getDeviceSerialNoFromFeatures(features) ||
               getDeviceSerialNo(features);
-            compatibleConnectId = fallbackConnectId;
+            // The serial is a USB locator either way; only the legacy
+            // connectId column is withheld from transport-locator vendors.
             usbConnectId = fallbackConnectId;
+            if (!usesTransportLocatorConnectId) {
+              compatibleConnectId = fallbackConnectId;
+            }
           }
           break;
         default:
@@ -9758,12 +9777,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
     // Third-party devices may not have rawDeviceId.
-    // Use vendorProfile.canMatchDeviceByConnectId to determine if connectId
+    // Use vendorProfile.identity.matchDeviceByConnectId to determine if connectId
     // is reliable enough to identify an existing device.
     if (!rawDeviceId) {
       const profile = getVendorProfile(vendor ?? EHardwareVendor.onekey);
 
-      if (connectId && profile.canMatchDeviceByConnectId(connectId)) {
+      if (connectId && profile.identity.matchDeviceByConnectId(connectId)) {
         const normalizedVendor = vendor ?? EHardwareVendor.onekey;
         const { devices } = await this.getAllDevices();
         const connId = connectId.toLowerCase();

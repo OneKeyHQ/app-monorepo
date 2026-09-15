@@ -35,4 +35,9 @@ export enum ETranslationsMock {
   prime_gift_verified = 'Verified',
   prime_gift_session_changed = 'Your account changed. Confirm the receiving account to continue.',
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
+  // ----------------------------------------------
+  // Wrong device on a cable and wrong device in a list need different remedies;
+  // one shared "does not match" string can only be right for one of them.
+  hardware_third_party_usb_wrong_device = 'The connected device is not this wallet. Unplug it and connect the right device.',
+  hardware_third_party_ble_binding_not_saved = 'Bluetooth setup was not saved. You can set it up again later.',
 }

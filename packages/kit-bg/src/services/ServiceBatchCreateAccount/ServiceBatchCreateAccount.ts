@@ -15,8 +15,8 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
-  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
-  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
 } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type {
   IOneKeyError,
@@ -64,7 +64,7 @@ import {
   isLedgerFingerprintChain,
   persistLedgerChainFingerprint,
   verifySeedMatch,
-  withNewLedgerInteraction,
+  withNewLedgerOperation,
 } from '../../vaults/base/ledgerFingerprintUtils';
 import {
   thirdPartyCommonCallParamsForCreateScene,
@@ -986,13 +986,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
       });
       if (missingChains.length) {
         if (
-          !commonParams?.interactionId &&
+          !commonParams?.operationId &&
           hasStoredLedgerChainFingerprint(dbDevice.settingsRaw)
         ) {
-          return withNewLedgerInteraction(
+          return withNewLedgerOperation(
             this.backgroundApi,
             connectId,
-            (interactionId) =>
+            (operationId) =>
               this.callThirdPartyAllNetworkGetAddress({
                 allNetworkGetAddress,
                 connectId,
@@ -1002,7 +1002,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                   ...commonParams,
                   passphraseState: commonParams?.passphraseState,
                   useEmptyPassphrase: commonParams?.useEmptyPassphrase,
-                  interactionId,
+                  operationId,
                 },
                 createSceneParams,
                 bundleParams,
@@ -1017,7 +1017,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         const seedMatch = await verifySeedMatch(
           this.backgroundApi,
           dbDevice,
-          commonParams?.interactionId || connectId,
+          commonParams?.operationId || connectId,
         );
         if (seedMatch !== 'match') {
           throw convertThirdPartyDeviceError(
@@ -1044,11 +1044,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
       ...thirdPartyCommonParams,
       bundle,
     };
-    const interactionId = commonParams?.interactionId;
+    const operationId = commonParams?.operationId;
     let response: Awaited<ReturnType<IThirdPartyAllNetworkGetAddressFn>>;
-    if (interactionId) {
+    if (operationId) {
       response = await allNetworkGetAddress(
-        interactionId,
+        operationId,
         deviceId,
         requestParams,
       );
@@ -1267,7 +1267,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                     dbDevice: deviceParams.dbDevice,
                     vendor: thirdPartyAllNetworkAdapter.vendor,
                     vendorName:
-                      vendorProfile.defaultDeviceName ||
+                      vendorProfile.presentation.defaultName ||
                       thirdPartyAllNetworkAdapter.vendor,
                     shouldPersistLedgerFingerprints:
                       thirdPartyAllNetworkAdapter.vendor ===
@@ -1711,8 +1711,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
             HardwareErrorCode.DeviceInterruptedFromUser,
             // Third-party HW batch-abort codes from SDK.
             ...ORPHAN_ELIGIBLE_ERROR_CODES,
-            THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
-            THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+            THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+            THIRD_PARTY_HW_OPERATION_ENDED_CODE,
           ],
         })
       ) {

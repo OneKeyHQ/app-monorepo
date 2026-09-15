@@ -41,8 +41,8 @@ export function isThirdPartyInstallAppUserCancelCode(code: unknown): boolean {
 }
 
 const HWK_RECOVERY_SCOPES = new Set<IHardwareErrorRecoveryHint['scope']>([
+  'call',
   'operation',
-  'interaction',
   'search-target',
   'transport',
   'not-recoverable',
@@ -191,14 +191,19 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.DeviceDisconnected:
       return new ThirdPartyErrors.ThirdPartyDeviceDisconnected(props);
 
-    case ThirdPartyErrors.THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE:
-      return new ThirdPartyErrors.ThirdPartyInteractionNotFound(props);
+    case ThirdPartyErrors.THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE:
+      return new ThirdPartyErrors.ThirdPartyOperationNotFound(props);
 
-    case ThirdPartyErrors.THIRD_PARTY_HW_INTERACTION_ENDED_CODE:
-      return new ThirdPartyErrors.ThirdPartyInteractionEnded(props);
+    case ThirdPartyErrors.THIRD_PARTY_HW_OPERATION_ENDED_CODE:
+      return new ThirdPartyErrors.ThirdPartyOperationEnded(props);
 
     case ThirdPartyHwErrorCode.DeviceMismatch:
       return new ThirdPartyErrors.ThirdPartyDeviceMismatch(props);
+
+    // A cable swap and a re-scan are different remedies, so this is its own
+    // code rather than a flag on DeviceMismatch.
+    case ThirdPartyHwErrorCode.DeviceSearchMismatch:
+      return new ThirdPartyErrors.ThirdPartyDeviceSearchMismatch(props);
 
     case ThirdPartyHwErrorCode.DeviceAppStuck:
       return new ThirdPartyErrors.ThirdPartyDeviceAppStuck(props);

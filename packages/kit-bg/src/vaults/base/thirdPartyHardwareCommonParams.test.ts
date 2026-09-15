@@ -1,4 +1,5 @@
 import * as vendorProfiles from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EHardwareVendor,
   type IDeviceSharedCallParams,
@@ -13,8 +14,8 @@ describe('thirdPartyConnectionContextFromDevice', () => {
   it('uses the identity role rather than the vendor name', () => {
     const profile = vendorProfiles.getVendorProfile(EHardwareVendor.ledger);
     const role = jest.replaceProperty(
-      profile,
-      'connectIdRole',
+      profile.identity,
+      'role',
       'walletIdentity',
     );
     try {
@@ -47,6 +48,37 @@ describe('thirdPartyConnectionContextFromDevice', () => {
       ],
       extra: { dbDeviceId: 'db-device' },
     });
+  });
+
+  it('does not promote a stale legacy locator once a channel column exists', () => {
+    // An old BLE-onboarded wallet had the same address in both columns. After
+    // a rebind the channel column holds the new address while the legacy one
+    // still holds the previous — promoting that leftover would hand a BLE
+    // address to the USB slot on desktop.
+    expect(
+      thirdPartyConnectionContextFromDevice({
+        vendor: EHardwareVendor.ledger,
+        connectId: 'previous-ble-address',
+        bleConnectId: 'rebound-ble-address',
+      }),
+    ).toEqual({
+      knownConnections: [
+        { transport: 'ble', connectId: 'rebound-ble-address' },
+      ],
+    });
+  });
+
+  it('still promotes a legacy locator when the record has no channel column', () => {
+    const promoted = thirdPartyConnectionContextFromDevice({
+      vendor: EHardwareVendor.trezor,
+      connectId: 'only-legacy-locator',
+    });
+    expect(promoted.knownConnections).toEqual([
+      {
+        transport: platformEnv.isNative ? 'ble' : 'usb',
+        connectId: 'only-legacy-locator',
+      },
+    ]);
   });
 
   it('does not invent a DB id for legacy calls', () => {
@@ -85,16 +117,16 @@ describe('withHardwareOperationContext', () => {
 
     expect(
       withHardwareOperationContext(deviceParams, {
-        interactionId: 'hwk-trezor-interaction',
+        operationId: 'hwk-trezor-interaction',
       }),
     ).toEqual({
       ...deviceParams,
       deviceCommonParams: {
         ...deviceParams.deviceCommonParams,
-        interactionId: 'hwk-trezor-interaction',
+        operationId: 'hwk-trezor-interaction',
       },
     });
-    expect(deviceParams.deviceCommonParams).not.toHaveProperty('interactionId');
+    expect(deviceParams.deviceCommonParams).not.toHaveProperty('operationId');
   });
 
   it('returns the original parameters when no operation context is provided', () => {

@@ -10,9 +10,9 @@ import {
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
   THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
-  THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
-  THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
   THIRD_PARTY_HW_NETWORK_ERROR_CODE,
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
   THIRD_PARTY_HW_PIN_MISMATCH_CODE,
   ThirdPartyNetworkError,
 } from '../errors/thirdPartyHardwareErrors';
@@ -59,10 +59,10 @@ describe('convertThirdPartyDeviceError', () => {
     const error = convertThirdPartyDeviceError({
       code: ThirdPartyHwErrorCode.DeviceDisconnected,
       error: 'Device disconnected',
-      recovery: { scope: 'interaction' },
+      recovery: { scope: 'operation' },
     });
 
-    expect(error.payload?.recovery).toEqual({ scope: 'interaction' });
+    expect(error.payload?.recovery).toEqual({ scope: 'operation' });
   });
 
   it('preserves an ambiguous side-effect marker across the runtime boundary', () => {
@@ -180,8 +180,8 @@ describe('convertThirdPartyDeviceError', () => {
   });
 
   it.each([
-    THIRD_PARTY_HW_INTERACTION_NOT_FOUND_CODE,
-    THIRD_PARTY_HW_INTERACTION_ENDED_CODE,
+    THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+    THIRD_PARTY_HW_OPERATION_ENDED_CODE,
   ])('preserves interaction lifecycle error code %s', (code) => {
     const error = convertThirdPartyDeviceError({
       code,

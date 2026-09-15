@@ -150,7 +150,7 @@ function DialogDeviceSpecsContent({
         model = thirdPartyDeviceUtils.getDeviceModelName({
           device,
           features,
-          defaultDeviceName: vendorProfile.defaultDeviceName,
+          defaultDeviceName: vendorProfile.presentation.defaultName,
         });
       } else if (state) {
         model = deviceUtils.getDefaultDeviceLabel(state.identity.deviceType);

@@ -11,6 +11,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -21,9 +22,12 @@ import type {
 } from '@onekeyfe/hwk-adapter-core';
 
 /**
- * `skipped` (nothing to bind) and `mismatch` (the user picked another device)
- * both refuse the write, but only one of them is something the user did — the
- * SDK turns `mismatch` into a DeviceMismatch the app can translate.
+ * Why the write was refused. By the time the SDK asks us to store a binding it
+ * has already verified the wallet on the wire, so neither reason means the user
+ * is holding the wrong device: `skipped` is a record we could not find and
+ * `mismatch` is a record that does not carry that identity. Both leave the
+ * operation running and are reported to the user as a binding that was not
+ * saved.
  */
 type IBindingPersistResult =
   | { saved: true }
@@ -164,13 +168,30 @@ export function registerBleBindingUi({
         throw new OneKeyLocalError('BLE binding request is no longer active');
     };
     const dbDeviceId = request.extra?.dbDeviceId;
+    // The SDK verified this wallet before asking us to store it, so a refusal
+    // here is our own bookkeeping falling short, not the user holding the
+    // wrong device. Tell them the binding is missing and let the work finish.
+    const warnBindingNotSaved = () => {
+      defaultLogger.hardware.sdkLog.log(
+        '[3rdPartyHW] BLE binding was not persisted',
+      );
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'warning',
+        title: ETranslationsMock.hardware_third_party_ble_binding_not_saved,
+      });
+    };
     const persist = async (): Promise<IBindingPersistResult> => {
+      // Closing or superseding the dialog is the user's own doing; reporting
+      // it back as a failed binding would be crying wolf.
+      if (!isActive()) {
+        return { saved: false, reason: 'skipped' };
+      }
       if (
-        !isActive() ||
         !dbDeviceId ||
         request.identity.vendor !== vendor ||
         request.connection.transport !== 'ble'
       ) {
+        warnBindingNotSaved();
         return { saved: false, reason: 'skipped' };
       }
       const device = await localDb.getDevice(dbDeviceId);
@@ -198,8 +219,10 @@ export function registerBleBindingUi({
           },
           verifiedDeviceIdentity,
         )
-      )
+      ) {
+        warnBindingNotSaved();
         return { saved: false, reason: 'mismatch' };
+      }
       if (
         vendor === EHardwareVendor.trezor &&
         request.identity.type === 'deviceId'
@@ -211,9 +234,11 @@ export function registerBleBindingUi({
           assertBindingActive,
         });
       } else {
+        // Only the BLE column. Writing the same value into the legacy
+        // connectId as well is what made that column ambiguous in the first
+        // place — see config/CONNECT-ID.md.
         await localDb.updateDeviceConnectId({
           dbDeviceId,
-          connectId: request.connection.connectId,
           bleConnectId: request.connection.connectId,
           verifiedDeviceIdentity,
           assertBindingActive,

@@ -3669,7 +3669,7 @@ class ServiceAccount extends ServiceBase {
       dbDevice.vendor ?? EHardwareVendor.onekey,
     );
     if (dbDevice.vendor && vendorProfile.isThirdParty) {
-      let interactionId: string | undefined;
+      let operationId: string | undefined;
       try {
         const connected =
           await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
@@ -3680,7 +3680,7 @@ class ServiceAccount extends ServiceBase {
         // Claim the interaction before any rejection below, so a mismatch
         // throw cannot leave it held.
         if (connected.success) {
-          interactionId = connected.payload.interactionId;
+          operationId = connected.payload.operationId;
         }
         if (dbDevice.vendor === EHardwareVendor.trezor) {
           if (!connected.success) {
@@ -3704,11 +3704,11 @@ class ServiceAccount extends ServiceBase {
           features = connected.payload.features as IOneKeyDeviceFeatures;
         }
       } finally {
-        if (interactionId) {
+        if (operationId) {
           await this.backgroundApi.serviceThirdPartyHardware
-            .releaseInteraction({
+            .releaseOperation({
               vendor: dbDevice.vendor,
-              interactionId,
+              operationId,
             })
             .catch(() => undefined);
         }
@@ -4133,7 +4133,7 @@ class ServiceAccount extends ServiceBase {
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
     const hardwareCallConnectId =
-      params.hardwareOperationContext?.interactionId || compatibleConnectId;
+      params.hardwareOperationContext?.operationId || compatibleConnectId;
 
     let deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
@@ -4257,7 +4257,7 @@ class ServiceAccount extends ServiceBase {
       // Gated by vendor capability, not `vendor === ledger`, so a future vendor
       // with the same non-persistent-identity connectId opts in via its profile
       // instead of a new branch here.
-      verifySeedMatchFn: vendorProfile?.requiresSeedVerifyOnConnectIdMatch
+      verifySeedMatchFn: vendorProfile?.identity.seedVerifyOnConnectIdMatch
         ? async (matchedDevice) =>
             verifyLedgerSeedMatch(
               this.backgroundApi,

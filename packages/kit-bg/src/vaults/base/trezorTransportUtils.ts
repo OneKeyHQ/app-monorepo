@@ -2,6 +2,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import { thirdPartyTransportLocators } from './thirdPartyHardwareCommonParams';
+
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
 import type { IThirdPartyHardwareAdapter } from '../../services/ServiceHardware/adapters/types';
@@ -35,5 +37,8 @@ export async function callTrezorWithDevice<T>(
   if (!dbDevice.deviceId) {
     throw new OneKeyLocalError('Trezor device identity is required');
   }
-  return fn(dbDevice.usbConnectId || dbDevice.connectId || '');
+  // Never read the legacy column directly: it holds USB on some old records
+  // and BLE on others. The helper folds it into the right channel.
+  const { usbConnectId, bleConnectId } = thirdPartyTransportLocators(dbDevice);
+  return fn(usbConnectId || bleConnectId || '');
 }

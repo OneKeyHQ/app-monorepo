@@ -94,14 +94,14 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
   private async _getMasterFingerprint(
     adapter: IThirdPartyHardwareAdapter,
     dbDevice: IDBDevice,
-    interactionId?: string,
+    operationId?: string,
   ): Promise<string> {
     const result = await adapter.hw.btcGetMasterFingerprint(
-      interactionId ?? dbDevice.connectId,
+      operationId ?? dbDevice.connectId,
       dbDevice.deviceId,
       {
         ...thirdPartyConnectionContextFromDevice(dbDevice),
-        ...(interactionId ? { interactionId } : {}),
+        ...(operationId ? { operationId } : {}),
       },
     );
     if (!result.success) {
@@ -191,8 +191,8 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
           let xpubSegwit = bareXpubSegwit;
           if (addressEncoding === EAddressEncodings.P2TR) {
             const { dbDevice } = params.deviceParams;
-            const interactionId =
-              params.deviceParams.deviceCommonParams?.interactionId;
+            const operationId =
+              params.deviceParams.deviceCommonParams?.operationId;
             const bundledMasterFingerprint = this._formatRootFingerprint(
               account.__hwExtraInfo__?.rootFingerprint,
             );
@@ -201,7 +201,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
               (await this._getMasterFingerprint(
                 await this._getAdapter(),
                 dbDevice,
-                interactionId,
+                operationId,
               ));
             xpubSegwit = `tr([${masterFingerprint}${accountPath.substring(
               1,
@@ -246,7 +246,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
     const addressEncoding = params.deriveInfo?.addressEncoding;
     const adapter = await this._getAdapter();
-    const interactionId = deviceParams.deviceCommonParams?.interactionId;
+    const operationId = deviceParams.deviceCommonParams?.operationId;
 
     if (params.isVerifyAddressAction) {
       throw new OneKeyLocalError({
@@ -269,11 +269,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
       };
     });
     const result = await adapter.hw.allNetworkGetAddress(
-      interactionId ?? dbDevice.connectId,
+      operationId ?? dbDevice.connectId,
       dbDevice.deviceId,
       {
         ...thirdPartyConnectionContextFromDevice(dbDevice),
-        ...(interactionId ? { interactionId } : {}),
+        ...(operationId ? { operationId } : {}),
         bundle: requests.map(({ accountPath }) => ({
           methodName: 'btcGetPublicKey',
           network: this.hwSdkNetwork,
@@ -366,7 +366,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
     const masterFingerprint = await this._getMasterFingerprint(
       adapter,
       dbDevice,
-      checkedDeviceParams.deviceCommonParams?.interactionId,
+      checkedDeviceParams.deviceCommonParams?.operationId,
     );
     const derivedPublicKeys = new Map<string, string>();
     initBitcoinEcc();
@@ -480,7 +480,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
       const masterFingerprint = await this._getMasterFingerprint(
         adapter,
         dbDevice,
-        checkedDeviceParams.deviceCommonParams?.interactionId,
+        checkedDeviceParams.deviceCommonParams?.operationId,
       );
       const fp = Buffer.from(masterFingerprint, 'hex');
       const psbt = BitcoinJS.Psbt.fromHex(psbtHex, { network: btcNetwork });
@@ -511,15 +511,13 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
     }
 
     const result = await adapter.hw.btcSignPsbt(
-      checkedDeviceParams.deviceCommonParams?.interactionId ??
-        dbDevice.connectId,
+      checkedDeviceParams.deviceCommonParams?.operationId ?? dbDevice.connectId,
       dbDevice.deviceId,
       {
         ...thirdPartyConnectionContextFromDevice(dbDevice),
-        ...(checkedDeviceParams.deviceCommonParams?.interactionId
+        ...(checkedDeviceParams.deviceCommonParams?.operationId
           ? {
-              interactionId:
-                checkedDeviceParams.deviceCommonParams.interactionId,
+              operationId: checkedDeviceParams.deviceCommonParams.operationId,
             }
           : {}),
         psbt: enrichedPsbtHex,
@@ -586,15 +584,15 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
       const result =
         // eslint-disable-next-line no-await-in-loop
         await adapter.hw.btcSignMessage(
-          checkedDeviceParams.deviceCommonParams?.interactionId ??
+          checkedDeviceParams.deviceCommonParams?.operationId ??
             dbDevice.connectId,
           dbDevice.deviceId,
           {
             ...thirdPartyConnectionContextFromDevice(dbDevice),
-            ...(checkedDeviceParams.deviceCommonParams?.interactionId
+            ...(checkedDeviceParams.deviceCommonParams?.operationId
               ? {
-                  interactionId:
-                    checkedDeviceParams.deviceCommonParams.interactionId,
+                  operationId:
+                    checkedDeviceParams.deviceCommonParams.operationId,
                 }
               : {}),
             path,

@@ -127,15 +127,13 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
       : transaction.serializeMessage().toString('hex');
 
     const result = await adapter.hw.solSignTransaction(
-      checkedDeviceParams.deviceCommonParams?.interactionId ??
-        dbDevice.connectId,
+      checkedDeviceParams.deviceCommonParams?.operationId ?? dbDevice.connectId,
       dbDevice.deviceId,
       {
         ...thirdPartyConnectionContextFromDevice(dbDevice),
-        ...(checkedDeviceParams.deviceCommonParams?.interactionId
+        ...(checkedDeviceParams.deviceCommonParams?.operationId
           ? {
-              interactionId:
-                checkedDeviceParams.deviceCommonParams.interactionId,
+              operationId: checkedDeviceParams.deviceCommonParams.operationId,
             }
           : {}),
         path,

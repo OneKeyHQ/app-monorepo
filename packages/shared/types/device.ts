@@ -212,7 +212,7 @@ export type IDevicePreInitialize = {
  */
 export type IHardwareOperationContext = {
   /** Runtime-only third-party hardware binding returned by connectDevice. */
-  interactionId?: string;
+  operationId?: string;
   /** Expected stable identity for a reconnect-safe hardware operation. */
   expectedDeviceIdentity?: WalletIdentity;
   /** New-wallet creation may establish the first trusted device identity. */
