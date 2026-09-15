@@ -102,7 +102,7 @@ describe('useToMarketStockDetailPage', () => {
     mockIsModalPage = false;
   });
 
-  it('replaces the current detail with the selected stock', async () => {
+  it('resets the tab stack before opening the selected stock', async () => {
     const { result } = renderHook(() =>
       useToMarketStockDetailPage({ replaceCurrentDetail: true }),
     );
@@ -114,17 +114,14 @@ describe('useToMarketStockDetailPage', () => {
         logoUrl: 'aapl.png',
       });
     });
-    expect(mockReplace).toHaveBeenCalledWith(
-      ETabMarketRoutes.MarketStockDetail,
-      {
-        stockId: 'AAPL',
-        stockPreviewSymbol: 'AAPL',
-        stockPreviewName: 'Apple',
-        stockPreviewLogoUrl: 'aapl.png',
-      },
-    );
-    expect(mockPopToTop).not.toHaveBeenCalled();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockPopToTop).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith(ETabMarketRoutes.MarketStockDetail, {
+      stockId: 'AAPL',
+      stockPreviewSymbol: 'AAPL',
+      stockPreviewName: 'Apple',
+      stockPreviewLogoUrl: 'aapl.png',
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('dismisses the market modal before opening the selected stock', async () => {
