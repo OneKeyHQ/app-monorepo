@@ -42,7 +42,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  usePageMounted,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -169,6 +168,8 @@ import {
 import type { RouteProp } from '@react-navigation/core';
 
 export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
+
+const IOS_AUTO_FOCUS_FALLBACK_MS = 500;
 
 // Neutral, non-empty hint used to keep the amount error suppressed while the
 // user is typing on chains/tokens that have no min-amount hint (most EVM
@@ -2521,13 +2522,7 @@ function SendAmountInputContainer() {
   // focus one-shot so returning from a child route does not reopen the iOS
   // keyboard.
   const hasAutoFocusedAmountInputRef = useRef(false);
-  usePageMounted(() => {
-    if (!platformEnv.isNativeIOS || hasAutoFocusedAmountInputRef.current) {
-      return;
-    }
-    hasAutoFocusedAmountInputRef.current = true;
-    amountInputRef.current?.focus();
-  });
+  const reactNavigation = useNavigation();
 
   // Android (react-native-screens) detaches this screen while the confirm page
   // is on top, which drops the native focus, so it re-focuses on every route
@@ -2535,7 +2530,55 @@ function SendAmountInputContainer() {
   useFocusEffect(
     useCallback(() => {
       if (platformEnv.isNativeIOS) {
-        return undefined;
+        if (hasAutoFocusedAmountInputRef.current) {
+          return undefined;
+        }
+
+        let isActive = true;
+        let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+        let removeTransitionEndListener: (() => void) | undefined;
+
+        const clearFocusSchedule = () => {
+          if (fallbackTimer !== undefined) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = undefined;
+          }
+          removeTransitionEndListener?.();
+          removeTransitionEndListener = undefined;
+        };
+
+        const focusIfNeeded = () => {
+          const amountInput = amountInputRef.current;
+          if (
+            !isActive ||
+            hasAutoFocusedAmountInputRef.current ||
+            !reactNavigation.isFocused() ||
+            !amountInput
+          ) {
+            return;
+          }
+          clearFocusSchedule();
+          hasAutoFocusedAmountInputRef.current = true;
+          amountInput.focus();
+        };
+
+        removeTransitionEndListener = reactNavigation.addListener(
+          'transitionEnd' as any,
+          (event) => {
+            if (event.data?.closing === false) {
+              focusIfNeeded();
+            }
+          },
+        );
+
+        // A cold lazy load can attach after transitionEnd. Keep the fallback
+        // beyond the native push window and cancel it as soon as focus is lost.
+        fallbackTimer = setTimeout(focusIfNeeded, IOS_AUTO_FOCUS_FALLBACK_MS);
+
+        return () => {
+          isActive = false;
+          clearFocusSchedule();
+        };
       }
       if (
         hasAutoFocusedAmountInputRef.current &&
@@ -2548,7 +2591,7 @@ function SendAmountInputContainer() {
         amountInputRef.current?.focus();
       }, 300);
       return () => clearTimeout(timer);
-    }, []),
+    }, [reactNavigation]),
   );
 
   // Blur the amount input and dismiss the IME before this screen is popped.
@@ -2561,7 +2604,6 @@ function SendAmountInputContainer() {
   // (KeyboardController) like the overlay-open path does. `beforeRemove` fires
   // while the native view is still alive; by the time the unmount cleanup runs
   // the ref is already detached.
-  const reactNavigation = useNavigation();
   useEffect(() => {
     if (!platformEnv.isNative) {
       return undefined;
