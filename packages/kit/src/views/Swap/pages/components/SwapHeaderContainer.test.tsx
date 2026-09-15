@@ -4,9 +4,13 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapHeaderContainer from './SwapHeaderContainer';
 
@@ -122,7 +126,11 @@ jest.mock('../../hooks/useSwapAccount', () => ({
 jest.mock('../../hooks/useSwapProTokenCarry', () => ({
   useSwapProTokenCarryOptions: () => mockSwapProTokenCarryOptions,
 }));
-jest.mock('./SwapHeaderRightActionContainer', () => () => null);
+jest.mock('./SwapHeaderRightActionContainer', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  return () =>
+    createElement('div', { 'data-testid': 'swap-header-right-actions' });
+});
 
 describe('SwapHeaderContainer', () => {
   beforeEach(() => {
@@ -192,5 +200,18 @@ describe('SwapHeaderContainer', () => {
       num: 0,
       networkId: mockFromToken.networkId,
     });
+  });
+
+  it('hides the Swap & Bridge title in the Market embedded header', () => {
+    const { getByTestId, queryByText } = render(
+      <SwapHeaderContainer
+        singleSwapBridgeTab
+        enterFrom={ESwapSource.MARKET}
+      />,
+    );
+
+    // OK-62956: the Market detail trade panel keeps only the right actions.
+    expect(queryByText(ETranslations.swap_history_title)).toBeNull();
+    expect(getByTestId('swap-header-right-actions')).toBeTruthy();
   });
 });
