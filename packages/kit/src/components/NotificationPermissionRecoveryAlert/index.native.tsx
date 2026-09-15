@@ -23,6 +23,7 @@ function BasicNotificationPermissionRecoveryAlert({
   scene,
   initialDelayMs = 0,
   pushEnabled,
+  showAlert = true,
 }: INotificationPermissionRecoveryAlertProps) {
   const intl = useIntl();
   const isFocused = useRouteIsFocused();
@@ -172,7 +173,7 @@ function BasicNotificationPermissionRecoveryAlert({
     }
   }, [checkPermissionRecovery, invalidatePendingCheck, scene]);
 
-  if (!result?.shouldShow) {
+  if (!showAlert || !result?.shouldShow) {
     return null;
   }
 

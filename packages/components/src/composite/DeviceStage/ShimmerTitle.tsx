@@ -6,6 +6,8 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { useTheme } from '../../hooks/useStyle';
 import { SizableText, Stack } from '../../primitives';
 
+import type { ISizableTextProps } from '../../primitives';
+
 /**
  * The capsule's live title on web: the native sibling's sweep — a bright
  * band traveling through dimmed glyphs — spoken in CSS. No masked view
@@ -43,35 +45,45 @@ if (typeof document !== 'undefined') {
 export function ShimmerTitle({
   children,
   paused,
+  size = '$headingMd',
+  band = 'white',
 }: {
   children: string;
   /** The sweep stands down (band parked off the words) while the title
    * is mounted but hidden; clearing it restarts the sweep from the left. */
   paused?: boolean;
+  /** Text size; the capsule's heading by default. */
+  size?: ISizableTextProps['size'];
+  /**
+   * The bright band: plain white (the capsule's look) or the theme's
+   * text color, for titles that sit on the page surface.
+   */
+  band?: 'white' | 'text';
 }) {
   const reducedMotion = useReducedMotion();
   const theme = useTheme();
   const ink = theme.textSubdued.val;
+  const bandColor = band === 'text' ? theme.text.val : '#FFFFFF';
   const sweepStyle = useMemo<CSSProperties>(
     () => ({
-      backgroundImage: `linear-gradient(90deg, ${ink} 0%, ${ink} 40%, #FFFFFF 50%, ${ink} 60%, ${ink} 100%)`,
+      backgroundImage: `linear-gradient(90deg, ${ink} 0%, ${ink} 40%, ${bandColor} 50%, ${ink} 60%, ${ink} 100%)`,
       backgroundSize: '200% 100%',
       backgroundPosition: BAND_PARKED,
       backgroundClip: 'text',
       WebkitBackgroundClip: 'text',
     }),
-    [ink],
+    [bandColor, ink],
   );
   if (reducedMotion) {
     return (
-      <SizableText size="$headingMd" color="$textSubdued">
+      <SizableText size={size} color="$textSubdued">
         {children}
       </SizableText>
     );
   }
   return (
     <Stack className={paused ? undefined : SWEEP_CLASS} style={sweepStyle}>
-      <SizableText size="$headingMd" color="transparent">
+      <SizableText size={size} color="transparent">
         {children}
       </SizableText>
     </Stack>
