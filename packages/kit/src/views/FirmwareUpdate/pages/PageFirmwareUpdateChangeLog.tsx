@@ -167,18 +167,7 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
-    if (installPageOwnsErrors) {
-      return (
-        <FirmwareChangeLogView
-          result={confirmUpdateResult.current}
-          onRetryClick={retryInfo ? retryUpdate : undefined}
-        />
-      );
-    }
-    if (
-      stepInfo.step === EFirmwareUpdateSteps.error ||
-      stepInfo.step === EFirmwareUpdateSteps.checkReleaseError
-    ) {
+    if (isWorkflowError && !installPageOwnsErrors) {
       return (
         <>
           <FirmwareUpdateWarningMessage />
@@ -189,6 +178,16 @@ function PageFirmwareUpdateChangeLog() {
             result={result}
           />
         </>
+      );
+    }
+    // Keep the changelog behind the install page, and after a cancelled
+    // attempt popped back here, with Retry resuming the task.
+    if (confirmUpdateResult.current) {
+      return (
+        <FirmwareChangeLogView
+          result={confirmUpdateResult.current}
+          onRetryClick={retryInfo ? retryUpdate : undefined}
+        />
       );
     }
     if (shouldShowChangeLog) {
@@ -206,13 +205,13 @@ function PageFirmwareUpdateChangeLog() {
     activeConnectId,
     installPageOwnsErrors,
     isLoading,
+    isWorkflowError,
     result,
     retryInfo,
     retryUpdate,
     run,
     shouldShowChangeLog,
     stepInfo.payload,
-    stepInfo.step,
   ]);
 
   return (
