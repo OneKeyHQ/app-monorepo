@@ -86,6 +86,7 @@ export function useTrendingColumnsDesktop({
   sort,
   onSort,
   hideTokenAge = false,
+  watchlistFrom = EWatchlistFrom.Homepage,
   copyFrom = ECopyFrom.Homepage,
 }: {
   networkId?: string;
@@ -96,6 +97,7 @@ export function useTrendingColumnsDesktop({
    *  column "Name" and render the watchlist's spot-token cell: the token
    *  name at rest, the contract address on hover. */
   hideTokenAge?: boolean;
+  watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
 }): ITableColumn<IMarketToken>[] {
   const intl = useIntl();
@@ -132,7 +134,7 @@ export function useTrendingColumnsDesktop({
               stockId={record.stockId}
               chainId={record.chainId || networkId || ''}
               contractAddress={record.address}
-              from={EWatchlistFrom.Homepage}
+              from={watchlistFrom}
               tokenSymbol={record.symbol}
               size="small"
               customIconSize="$4"
@@ -311,6 +313,15 @@ export function useTrendingColumnsDesktop({
         renderSkeleton: () => <Skeleton width={90} height={16} />,
       },
     ],
-    [copyFrom, hideTokenAge, intl, networkId, onSort, sort, timeRange],
+    [
+      copyFrom,
+      hideTokenAge,
+      intl,
+      networkId,
+      onSort,
+      sort,
+      timeRange,
+      watchlistFrom,
+    ],
   );
 }

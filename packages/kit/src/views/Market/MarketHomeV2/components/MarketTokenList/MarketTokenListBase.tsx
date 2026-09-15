@@ -549,6 +549,7 @@ function MarketTokenListBase({
     sort: trendingSort,
     onSort: handleTrendingSort,
     hideTokenAge,
+    watchlistFrom,
     copyFrom,
   });
   const watchlistColumnsDesktop = useWatchlistColumnsDesktop({

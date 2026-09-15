@@ -4,7 +4,10 @@ import type { ReactElement } from 'react';
 
 import { renderHook } from '@testing-library/react';
 
-import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 
 import { useTrendingColumnsDesktop } from './useTrendingColumnsDesktop';
 import { WatchlistTokenIdentity } from './useWatchlistColumnsDesktop';
@@ -106,4 +109,29 @@ describe('useTrendingColumnsDesktop', () => {
     expect(identityCell.props.record).toBe(record);
     expect(identityCell.props.copyFrom).toBe(ECopyFrom.BannerList);
   });
+
+  test.each([
+    [undefined, EWatchlistFrom.Homepage],
+    [EWatchlistFrom.BannerList, EWatchlistFrom.BannerList],
+  ])(
+    'logs star actions with watchlistFrom %s as %s',
+    (watchlistFrom, expectedFrom) => {
+      const { result } = renderHook(() =>
+        useTrendingColumnsDesktop({
+          sort: {},
+          onSort: jest.fn(),
+          watchlistFrom,
+        }),
+      );
+      const starCell = result.current[0]?.render?.(
+        undefined,
+        tokenWithoutAge,
+        0,
+      ) as ReactElement<{
+        children: ReactElement<{ from: EWatchlistFrom }>;
+      }>;
+
+      expect(starCell.props.children.props.from).toBe(expectedFrom);
+    },
+  );
 });
