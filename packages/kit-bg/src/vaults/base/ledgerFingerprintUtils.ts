@@ -228,7 +228,21 @@ async function generateAndStoreFingerprint(
         fingerprint,
         chain,
       );
-      if (!verified.success || verified.payload !== fingerprint) return '';
+      // Only a confirmed different device invalidates the anchor. A round trip
+      // that merely fails to complete does not: the anchor is already
+      // persisted, and returning '' here makes the caller discard an operation
+      // the user already approved on the device.
+      const mismatched =
+        (!verified.success &&
+          verified.payload.code === HardwareErrorCode.DeviceMismatch) ||
+        (verified.success && verified.payload !== fingerprint);
+      if (mismatched) return '';
+      if (!verified.success) {
+        defaultLogger.hardware.sdkLog.log(
+          'ledgerFingerprint.confirmIncomplete',
+          `${chain} ${verified.payload.error ?? ''}`,
+        );
+      }
       return fingerprint;
     }
     defaultLogger.hardware.sdkLog.log(
