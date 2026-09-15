@@ -121,6 +121,7 @@ import {
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
+import { usePerpsAmountInput } from './usePerpsAmountInput';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { IntlShape } from 'react-intl';
@@ -372,7 +373,6 @@ function DepositWithdrawContent({
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const withdrawable = computedValue?.withdrawable ?? '';
-  const [amount, setAmount] = useState('');
   const withdrawDestinationId = getUsdcWithdrawDestination(
     perpsCustomSettings.lastUsdcWithdrawDestinationId,
   )
@@ -465,6 +465,18 @@ function DepositWithdrawContent({
     },
     setPerpsDepositTokensAtom,
   ] = usePerpsDepositTokensAtom();
+
+  const {
+    amount,
+    setAmount,
+    source: amountSource,
+    tokenAmountBN,
+    convertedAmount,
+  } = usePerpsAmountInput({
+    unit: selectedAction === 'deposit' ? depositInputUnit : 'token',
+    tokenPrice: currentPerpsDepositSelectedToken?.price,
+    tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
+  });
 
   const cachedDepositTokens = useMemo(
     () => getPerpsDepositTokenDisplayList(tokens),
@@ -866,7 +878,7 @@ function DepositWithdrawContent({
       setDepositInputUnit('usd');
       setShowMinAmountError(false);
     }
-  }, [currentDepositTokenIdentity, selectedAction]);
+  }, [currentDepositTokenIdentity, selectedAction, setAmount]);
 
   useEffect(() => {
     if (depositTokensWithPrice.length === 0) return;
@@ -966,13 +978,6 @@ function DepositWithdrawContent({
   const isUsdInput = selectedAction === 'deposit' && depositInputUnit === 'usd';
   const shouldUseNativeAmountKeypad = platformEnv.isNative;
 
-  const tokenAmountBN = useMemo(() => {
-    if (isUsdInput && tokenPriceBN.gt(0)) {
-      return amountBN.dividedBy(tokenPriceBN);
-    }
-    return amountBN;
-  }, [amountBN, isUsdInput, tokenPriceBN]);
-
   const tokenAmount = useMemo(
     () =>
       tokenAmountBN.isNaN() || tokenAmountBN.lte(0)
@@ -986,34 +991,10 @@ function DepositWithdrawContent({
     [tokenAmountBN, currentPerpsDepositSelectedToken?.decimals],
   );
 
-  const convertedDisplayValue = useMemo(() => {
-    if (selectedAction !== 'deposit' || amountBN.isNaN() || amountBN.lte(0)) {
-      return '';
-    }
-    if (isUsdInput && tokenPriceBN.gt(0)) {
-      const displayDecimals = Math.min(
-        currentPerpsDepositSelectedToken?.decimals ?? 6,
-        8,
-      );
-      const tokenVal = amountBN
-        .dividedBy(tokenPriceBN)
-        .decimalPlaces(displayDecimals, BigNumber.ROUND_DOWN);
-      return tokenVal.toFixed();
-    }
-    if (!isUsdInput && tokenPriceBN.gt(0)) {
-      const usdVal = amountBN
-        .multipliedBy(tokenPriceBN)
-        .decimalPlaces(2, BigNumber.ROUND_DOWN);
-      return usdVal.toFixed(2);
-    }
-    return '';
-  }, [
-    selectedAction,
-    amountBN,
-    isUsdInput,
-    tokenPriceBN,
-    currentPerpsDepositSelectedToken?.decimals,
-  ]);
+  const convertedDisplayValue =
+    selectedAction === 'deposit' && amountBN.gt(0) && tokenPriceBN.gt(0)
+      ? convertedAmount
+      : '';
 
   const availableBalanceBN = useMemo(
     () => new BigNumber(availableBalance.balance || '0'),
@@ -1034,14 +1015,13 @@ function DepositWithdrawContent({
 
   const checkFromTokenFiatValue = useMemo(() => {
     return getPerpsDepositMinimumCheck({
-      inputAmount: amount,
-      isUsdInput,
+      inputAmount: amountSource.amount,
+      isUsdInput: amountSource.unit === 'usd',
       tokenPrice: currentPerpsDepositSelectedToken?.price,
       tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
     });
   }, [
-    amount,
-    isUsdInput,
+    amountSource,
     currentPerpsDepositSelectedToken?.decimals,
     currentPerpsDepositSelectedToken?.price,
   ]);
@@ -1213,6 +1193,7 @@ function DepositWithdrawContent({
       currentPerpsDepositSelectedToken?.decimals,
       selectedAction,
       depositInputUnit,
+      setAmount,
     ],
   );
 
@@ -1226,7 +1207,7 @@ function DepositWithdrawContent({
         return;
       }
       if (key === 'backspace') {
-        setAmount((prev) => prev.slice(0, -1));
+        handleAmountChange(amount.slice(0, -1));
         return;
       }
       if (key === '.') {
@@ -1253,7 +1234,12 @@ function DepositWithdrawContent({
       return;
     }
     setAmount('');
-  }, [checkAccountSupport, isSubmitting, shouldUseNativeAmountKeypad]);
+  }, [
+    checkAccountSupport,
+    isSubmitting,
+    setAmount,
+    shouldUseNativeAmountKeypad,
+  ]);
   const handleAmountBlur = useCallback(() => {
     if (amount && !amountBN.isNaN() && amountBN.gt(0)) {
       if (selectedAction === 'deposit' && !checkFromTokenFiatValue.value) {
@@ -1322,32 +1308,8 @@ function DepositWithdrawContent({
 
   const handleToggleInputUnit = useCallback(() => {
     if (!canSwitchDepositInputUnit) return;
-    const newUnit = depositInputUnit === 'token' ? 'usd' : 'token';
-    if (amount && !amountBN.isNaN() && amountBN.gt(0) && tokenPriceBN.gt(0)) {
-      if (newUnit === 'usd') {
-        const usdVal = amountBN
-          .multipliedBy(tokenPriceBN)
-          .decimalPlaces(2, BigNumber.ROUND_DOWN);
-        setAmount(usdVal.toFixed());
-      } else {
-        const tokenVal = amountBN
-          .dividedBy(tokenPriceBN)
-          .decimalPlaces(
-            currentPerpsDepositSelectedToken?.decimals ?? 6,
-            BigNumber.ROUND_DOWN,
-          );
-        setAmount(tokenVal.toFixed());
-      }
-    }
-    setDepositInputUnit(newUnit);
-  }, [
-    canSwitchDepositInputUnit,
-    depositInputUnit,
-    amount,
-    amountBN,
-    tokenPriceBN,
-    currentPerpsDepositSelectedToken?.decimals,
-  ]);
+    setDepositInputUnit((unit) => (unit === 'token' ? 'usd' : 'token'));
+  }, [canSwitchDepositInputUnit]);
 
   const handleMaxPress = useCallback(
     (tokenParams?: {
@@ -1395,6 +1357,7 @@ function DepositWithdrawContent({
       depositInputUnit,
       maximumWithdrawAmountBN,
       tokenPriceBN,
+      setAmount,
     ],
   );
 
@@ -2040,7 +2003,7 @@ function DepositWithdrawContent({
   const depositToAmount = useMemo(() => {
     let depositToAmountRes = '0';
     if (isArbitrumUsdcToken) {
-      depositToAmountRes = amountBN.toFixed();
+      depositToAmountRes = tokenAmount || '0';
     } else {
       depositToAmountRes = perpDepositQuote?.result?.toAmount ?? '0';
     }
@@ -2049,7 +2012,7 @@ function DepositWithdrawContent({
       value: depositToAmountRes,
       canDeposit: depositToAmountBN.gt(0) && !depositToAmountBN.isNaN(),
     };
-  }, [isArbitrumUsdcToken, amountBN, perpDepositQuote?.result?.toAmount]);
+  }, [isArbitrumUsdcToken, tokenAmount, perpDepositQuote?.result?.toAmount]);
 
   const depositEstimateDescription = useMemo(() => {
     if (selectedAction !== 'deposit') {

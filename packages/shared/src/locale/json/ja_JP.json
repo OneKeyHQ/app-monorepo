@@ -3457,6 +3457,7 @@
   "perp_trade_account_overview_avbl": "利用可",
   "perp_trade_deposit_to_trade__action": "入金して取引",
   "perp_trade_first_deposit_ready__desc": "初回入金でアカウントの取引準備が整います。",
+  "perp_trade_settlement__title": "決済",
   "perp_trades_history_recent_range_desc": "最大で過去2年分の取引が表示されます。",
   "perp_trading_adjust_margin": "マージンを調整",
   "perp_trading_adjust_margin_max": "最大追加",

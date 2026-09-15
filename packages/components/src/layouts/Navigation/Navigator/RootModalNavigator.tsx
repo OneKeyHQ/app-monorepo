@@ -3,15 +3,18 @@ import { useMemo } from 'react';
 import { ThemeProvider } from '@react-navigation/native';
 
 import { Theme } from '../../../content/Theme';
+import { EPageType } from '../../../hocs';
 import { useTheme } from '../../../hooks';
 import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
-import { TransparentModalTheme } from './CommonConfig';
+import {
+  TransparentDarkModalTheme,
+  TransparentModalTheme,
+} from './CommonConfig';
 import ModalFlowNavigator from './ModalFlowNavigator';
 
 import type { IModalFlowNavigatorConfig } from './ModalFlowNavigator';
-import type { EPageType } from '../../../hocs';
 
 export interface IModalRootNavigatorConfig<RouteName extends string> {
   name: RouteName;
@@ -35,6 +38,10 @@ export function RootModalNavigator<RouteName extends string>({
 }: IModalNavigatorProps<RouteName> & { pageType?: EPageType }) {
   const theme = useTheme();
   const bgColor = theme.bgApp.val;
+  const navigationTheme =
+    pageType === EPageType.onboarding
+      ? TransparentDarkModalTheme
+      : TransparentModalTheme;
 
   const screenOptions = useMemo(
     () => makeRootModalStackOptions({ bgColor }),
@@ -68,7 +75,7 @@ export function RootModalNavigator<RouteName extends string>({
   );
 
   return (
-    <ThemeProvider value={TransparentModalTheme}>
+    <ThemeProvider value={navigationTheme}>
       <ModalStack.Navigator screenOptions={screenOptions}>
         {modalComponents.map(({ name, children }) => (
           <ModalStack.Screen key={`ROOT-Modal-${name}`} name={name}>

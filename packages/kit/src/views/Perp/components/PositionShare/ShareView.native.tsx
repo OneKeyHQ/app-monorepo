@@ -48,6 +48,7 @@ export function ShareView({
         referralDisplayText={referralDisplayText}
         isReferralReady={isReferralReady}
         scale={displaySize / 1080}
+        waitForBackground
       />
     </Stack>
   );
