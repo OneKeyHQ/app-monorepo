@@ -52,6 +52,7 @@ import {
   getAddressQueryResolvedAddress,
   getAddressValidateTranslationId,
   queryAddressWithFallback,
+  shouldShowAddressQuerySpinner,
 } from './utils';
 
 import type { IScanPluginProps } from './plugins/scan';
@@ -220,7 +221,7 @@ type IResolvedAddressQueryContext = {
 
 function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   const { loading, result, setResolveAddress, onRefresh } = props;
-  if (loading) {
+  if (shouldShowAddressQuerySpinner({ loading, result })) {
     return <Spinner />;
   }
   if (result?.validStatus === 'unknown') {

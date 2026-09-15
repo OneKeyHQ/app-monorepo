@@ -240,19 +240,51 @@ type IUseRecentRecipientsDataParams = {
   refreshKey?: number;
 };
 
+type IRecentRecipientsCacheEntry = {
+  recipients: IEnrichedRecentRecipient[];
+  lastUsedDeriveType?: string;
+  // The server reported /transfer-recipient as unsupported for this
+  // network, so later loads skip the round trip and read the local store.
+  apiUnsupported: boolean;
+};
+
+// Last completed load per account + network, kept for the app session so a
+// re-opened Send page paints the previous list at once while a refresh runs
+// in the background (stale-while-revalidate).
+const recentRecipientsCache = new Map<string, IRecentRecipientsCacheEntry>();
+
+function getRecentRecipientsCacheKey({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  return `${accountId}__${networkId}`;
+}
+
+export function clearRecentRecipientsCache() {
+  recentRecipientsCache.clear();
+}
+
 export function useRecentRecipientsData({
   accountId,
   networkId,
   refreshKey,
 }: IUseRecentRecipientsDataParams) {
+  const initialCacheEntry = accountId
+    ? recentRecipientsCache.get(
+        getRecentRecipientsCacheKey({ accountId, networkId }),
+      )
+    : undefined;
   const [recentRecipients, setRecentRecipients] = useState<
     IEnrichedRecentRecipient[]
-  >([]);
-  const [isLoadingRecent, setIsLoadingRecent] = useState(true);
+  >(() => initialCacheEntry?.recipients ?? []);
+  const [isLoadingRecent, setIsLoadingRecent] = useState(!initialCacheEntry);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [lastUsedDeriveType, setLastUsedDeriveType] = useState<
     string | undefined
-  >();
+  >(() => initialCacheEntry?.lastUsedDeriveType);
   const loadIdRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -260,55 +292,83 @@ export function useRecentRecipientsData({
     const currentLoadId = loadIdRef.current;
     const isStale = () => loadIdRef.current !== currentLoadId;
 
-    setIsLoadingRecent(true);
     setIsLoadingMore(false);
-    setRecentRecipients([]);
-    setLastUsedDeriveType(undefined);
 
     if (!accountId) {
+      setRecentRecipients([]);
+      setLastUsedDeriveType(undefined);
       setIsLoadingRecent(false);
       return;
     }
 
+    const cacheKey = getRecentRecipientsCacheKey({ accountId, networkId });
+    const cached = recentRecipientsCache.get(cacheKey);
+    if (cached) {
+      setRecentRecipients(cached.recipients);
+      setLastUsedDeriveType(cached.lastUsedDeriveType);
+      setIsLoadingRecent(false);
+    } else {
+      setIsLoadingRecent(true);
+      setRecentRecipients([]);
+      setLastUsedDeriveType(undefined);
+    }
+
+    const commit = (entry: IRecentRecipientsCacheEntry) => {
+      recentRecipientsCache.set(cacheKey, entry);
+      setRecentRecipients(entry.recipients);
+      setLastUsedDeriveType(entry.lastUsedDeriveType);
+      setIsLoadingRecent(false);
+    };
+
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
+    let apiUnsupported = cached?.apiUnsupported ?? false;
 
     // Phase 1: try the indexer API. When the API is supported, it is the
     // single source of truth — we do not fall back to local storage or
     // chain history to avoid mixing sources (OK-53284). If the API is
     // not supported for this chain (or the call fails), drop to the
-    // local fallback below.
+    // local fallback below. A network the server already reported as
+    // unsupported this session skips the round trip entirely.
     const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
-    try {
-      const {
-        supported,
-        data: apiRecipients,
-        lastUsedDeriveType: apiDeriveType,
-      } = await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
-        accountId,
-        networkId: apiNetworkId,
-        limit: MAX_RECIPIENTS,
-      });
-      if (isStale()) return;
-
-      if (supported) {
-        if (apiDeriveType) setLastUsedDeriveType(apiDeriveType);
-
-        const apiExtraMap = await buildExtraMapFromApiRecipients(apiRecipients);
+    if (!apiUnsupported) {
+      try {
+        const {
+          supported,
+          data: apiRecipients,
+          lastUsedDeriveType: apiDeriveType,
+          errored,
+        } = await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
+          accountId,
+          networkId: apiNetworkId,
+          limit: MAX_RECIPIENTS,
+        });
         if (isStale()) return;
 
-        const enriched = await enrichAddresses(
-          apiRecipients.map((r) => r.address),
-          apiExtraMap,
-          networkId,
-        );
-        if (isStale()) return;
+        if (supported) {
+          const apiExtraMap =
+            await buildExtraMapFromApiRecipients(apiRecipients);
+          if (isStale()) return;
 
-        setRecentRecipients(enriched);
-        setIsLoadingRecent(false);
-        return;
+          const enriched = await enrichAddresses(
+            apiRecipients.map((r) => r.address),
+            apiExtraMap,
+            networkId,
+          );
+          if (isStale()) return;
+
+          commit({
+            recipients: enriched,
+            lastUsedDeriveType: apiDeriveType,
+            apiUnsupported: false,
+          });
+          return;
+        }
+        // Only a server-side "unsupported" answer is memoized; a failed
+        // request must be retried on the next load.
+        apiUnsupported = !errored;
+      } catch {
+        // API call failed — fall through to local fallback.
       }
-    } catch {
-      // API call failed — fall through to local fallback.
     }
 
     // Phase 2: indexer API not supported — show only locally-confirmed
@@ -327,22 +387,21 @@ export function useRecentRecipientsData({
       await loadStoredRecipients({ networkId, accountId });
     if (isStale()) return;
 
+    let storedRecipients: IEnrichedRecentRecipient[] = [];
     if (storedAddresses.length > 0) {
       try {
-        const enriched = await enrichAddresses(
+        storedRecipients = await enrichAddresses(
           storedAddresses,
           storedExtraMap,
           networkId,
         );
-        if (isStale()) return;
-        setRecentRecipients(enriched);
       } catch {
         // ignore enrichment errors
       }
     }
 
     if (isStale()) return;
-    setIsLoadingRecent(false);
+    commit({ recipients: storedRecipients, apiUnsupported });
     setIsLoadingMore(false);
   }, [accountId, networkId]);
 
