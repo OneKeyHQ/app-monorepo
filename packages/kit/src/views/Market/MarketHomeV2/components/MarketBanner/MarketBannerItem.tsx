@@ -246,11 +246,9 @@ function getMarketIndexDisplayConfig(token: IMarketBannerTokenPreview) {
 function BannerQuoteRow({
   token,
   isIndex,
-  isDesktopWeb,
 }: {
   token: IMarketBannerTokenPreview;
   isIndex: boolean;
-  isDesktopWeb: boolean;
 }) {
   const intl = useIntl();
   const price = normalizeMarketValue(token.price);
@@ -292,7 +290,7 @@ function BannerQuoteRow({
             NumberSizeableText applies it after other props, and on web it
             expands to `flex-basis: auto`, overriding this basis. */}
         <NumberSizeableText
-          size={isDesktopWeb ? '$bodyMdMedium' : '$bodyMd'}
+          size="$bodyMdMedium"
           formatter="price"
           formatterOptions={isIndex ? undefined : { currency: '$' }}
           flexGrow={1}
@@ -306,7 +304,7 @@ function BannerQuoteRow({
           {price}
         </NumberSizeableText>
         <NumberSizeableText
-          size={isDesktopWeb ? '$bodyMdMedium' : '$bodyMd'}
+          size="$bodyMdMedium"
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns: numericChange > 0 }}
           color={changeColor}
@@ -407,8 +405,8 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
       >
         <XStack flex={1} minWidth={0} alignItems="center" gap="$2">
           <SizableText
-            size={isDesktopWeb ? '$bodyMdMedium' : '$headingSm'}
-            color={isDesktopWeb ? '$textSubdued' : undefined}
+            size="$bodyMdMedium"
+            color="$textSubdued"
             numberOfLines={1}
             flexShrink={1}
             minWidth={0}
@@ -455,7 +453,6 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
               key={`${token.symbol}-${index}`}
               token={token}
               isIndex={isIndexBanner}
-              isDesktopWeb={isDesktopWeb}
             />
           ))
         ) : (
