@@ -741,31 +741,40 @@ describe('DeviceState metadata projection', () => {
     });
   });
 
-  it('uses the BLE name as the Pro2 secondary identifier', () => {
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro2,
-        bleName: 'Pro2 6136',
-        serialNo: 'P2D33C0005B',
-      }),
-    ).toBe('Pro2 6136');
+  it.each<[EDeviceType, string]>([
+    [EDeviceType.Pro2, 'Pro2 6136'],
+    [EDeviceType.Pro, 'Pro 6136'],
+    [EDeviceType.Classic, 'Classic 6136'],
+    [EDeviceType.Classic1s, 'Classic 1S 6136'],
+    [EDeviceType.Touch, 'Touch 6136'],
+    [EDeviceType.Neo, 'Neo 6136'],
+  ])(
+    'uses the BLE name as the %s secondary identifier',
+    (deviceType, bleName) => {
+      expect(
+        getDeviceSecondaryIdentifier({
+          deviceType,
+          bleName,
+          serialNo: 'SERIAL',
+        }),
+      ).toBe(bleName);
+    },
+  );
 
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro2,
-        bleName: '',
-        serialNo: 'P2D33C0005B',
-      }),
-    ).toBe('P2D33C0005B');
-
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro,
-        bleName: 'Pro 6136',
-        serialNo: 'SERIAL',
-      }),
-    ).toBe('SERIAL');
-  });
+  it.each([EDeviceType.Pro2, EDeviceType.Pro, EDeviceType.ClassicPure])(
+    'does not use the %s serial number when the BLE name is unavailable',
+    (deviceType) => {
+      for (const bleName of ['', undefined]) {
+        expect(
+          getDeviceSecondaryIdentifier({
+            deviceType,
+            bleName,
+            serialNo: 'SERIAL',
+          }),
+        ).toBe(bleName);
+      }
+    },
+  );
 
   it('uses canonical state fields while retaining the V1 software-PIN preference', () => {
     expect(
