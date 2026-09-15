@@ -38,6 +38,9 @@ const serviceMarketV2 = backgroundApiProxy.serviceMarketV2 as jest.Mocked<
   typeof backgroundApiProxy.serviceMarketV2
 >;
 
+const STOCKS_CATEGORY = { id: 'stocks', name: 'Stocks' };
+const EQUITIES_STOCKS_CATEGORY = { id: 'equities', name: '股票' };
+
 const bitcoin: IMarketAssetListItem = {
   assetId: 'bitcoin',
   symbol: 'btc',
@@ -123,6 +126,7 @@ describe('useHomeMarketCategoryTokens', () => {
       useHomeMarketCategoryTokens({
         minLiquidity: 5000,
         selectedMarketCategoryId: 'stocks',
+        marketCategories: [STOCKS_CATEGORY],
       }),
     );
 
@@ -147,6 +151,30 @@ describe('useHomeMarketCategoryTokens', () => {
         },
       ],
     });
+  });
+
+  it('loads stocks when the category is identified by name, not only by id', async () => {
+    serviceMarketV2.fetchMarketStockList.mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+
+    renderHook(() =>
+      useHomeMarketCategoryTokens({
+        minLiquidity: 5000,
+        selectedMarketCategoryId: 'equities',
+        marketCategories: [EQUITIES_STOCKS_CATEGORY],
+      }),
+    );
+
+    const loadCategoryTokens = mockUsePromiseResult.mock
+      .calls[0][0] as () => Promise<unknown>;
+    await loadCategoryTokens();
+
+    expect(serviceMarketV2.fetchMarketStockList.mock.calls).toEqual([
+      [{ limit: 3 }],
+    ]);
+    expect(serviceMarketV2.fetchMarketTokenList.mock.calls).toHaveLength(0);
   });
 
   it('keeps non-stock tabs on the token list API', async () => {

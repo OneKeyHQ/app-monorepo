@@ -4,7 +4,7 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { isMarketStockCategory } from '../../../Market/MarketHomeV2/utils';
+import { isMarketStockCategoryById } from '../../../Market/MarketHomeV2/utils';
 
 import {
   HOME_MARKET_CATEGORY_REQUEST_LIMIT,
@@ -20,7 +20,12 @@ import {
 } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
-import type { IMarketApiTimeFrame } from '../../../Market/MarketHomeV2/types';
+import type {
+  IMarketApiTimeFrame,
+  IMarketCategoryItem,
+} from '../../../Market/MarketHomeV2/types';
+
+const EMPTY_HOME_MARKET_CATEGORIES: IMarketCategoryItem[] = [];
 
 const HOME_MARKET_CATEGORY_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 30,
@@ -45,9 +50,11 @@ function getMarketCategoryTokensRequestKey({
 function useHomeMarketCategoryTokens({
   minLiquidity,
   selectedMarketCategoryId,
+  marketCategories = EMPTY_HOME_MARKET_CATEGORIES,
 }: {
   minLiquidity: number;
   selectedMarketCategoryId?: string;
+  marketCategories?: IMarketCategoryItem[];
 }) {
   const requestKey = getMarketCategoryTokensRequestKey({
     minLiquidity,
@@ -106,10 +113,10 @@ function useHomeMarketCategoryTokens({
         }
 
         if (
-          isMarketStockCategory({
-            id: selectedMarketCategoryId,
-            name: '',
-          })
+          isMarketStockCategoryById(
+            marketCategories,
+            selectedMarketCategoryId,
+          )
         ) {
           const response =
             await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
@@ -144,7 +151,7 @@ function useHomeMarketCategoryTokens({
             .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
         };
       },
-      [minLiquidity, selectedMarketCategoryId],
+      [marketCategories, minLiquidity, selectedMarketCategoryId],
       {
         pollingInterval: HOME_MARKET_CATEGORY_POLLING_INTERVAL,
         revalidateOnFocus: true,

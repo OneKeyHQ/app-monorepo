@@ -38,9 +38,9 @@ function renderPopularTradingTokenIdentity(
       tokenLogoURI={record.logoUrl}
       tokenLogoURIs={record.logoUrls}
       networkId={
-        record.perpsCoin || record.stockId
+        record.perpsCoin || record.stockListingName || !record.chainId
           ? undefined
-          : record.chainId || undefined
+          : record.chainId
       }
       symbol={record.symbol}
       address={record.contractAddress}
