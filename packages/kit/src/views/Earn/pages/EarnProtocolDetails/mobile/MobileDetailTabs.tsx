@@ -49,6 +49,12 @@ const PAN_FAIL_OFFSET_Y: [number, number] = [-12, 12];
 const OVERSCROLL_RESISTANCE = 0.33;
 // Only until a page reports its own height, which happens on first layout.
 const UNMEASURED_PAGE_HEIGHT = 200;
+// The pager sits inside the page's horizontal padding, so mid-swipe the
+// incoming page's content used to start exactly where the outgoing one
+// ended (OK-63231). Sliding the pages this far apart leaves the resting
+// layout untouched and makes the neighbor read as the next screen: one
+// $pagePadding (20) on each side of the seam.
+const PAGE_GAP = 40;
 
 type ITabLayout = { x: number; width: number };
 
@@ -107,7 +113,7 @@ function TabPage({
   const style = useAnimatedStyle(() => {
     const offset = index - progress.value;
     return {
-      transform: [{ translateX: offset * pageWidth }],
+      transform: [{ translateX: offset * (pageWidth + PAGE_GAP) }],
       // A page that has fully left the viewport is hidden outright: Android
       // rounds the translation to whole pixels on its own, which left a
       // sliver of the next page's left edge inside the clipped container
@@ -293,7 +299,11 @@ export function MobileDetailTabs({
           if (pageWidth <= 0) {
             return;
           }
-          let next = dragStartProgress.value - event.translationX / pageWidth;
+          // Divided by the stride, not the width, so the page keeps tracking
+          // the finger 1:1 across the gap.
+          let next =
+            dragStartProgress.value -
+            event.translationX / (pageWidth + PAGE_GAP);
           const maxIndex = pageCount - 1;
           if (next < 0) {
             next *= OVERSCROLL_RESISTANCE;
