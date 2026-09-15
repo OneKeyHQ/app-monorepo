@@ -70,6 +70,33 @@ function isBannerStockToken(
   return 'bannerStockItem' in item;
 }
 
+// The banner endpoint only lists the stocks; the batch endpoint answers with
+// the Stocks tab's rows (variants included) for the same ids. Keep the banner
+// order, and keep the banner rows when the batch call fails so the page still
+// renders.
+async function enrichBannerStockRows(
+  bannerRows: IMarketStockPublicItem[],
+): Promise<IMarketStockPublicItem[]> {
+  if (bannerRows.length === 0) {
+    return bannerRows;
+  }
+  try {
+    const batchRows =
+      await backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch({
+        stockIds: bannerRows.map((row) => row.stockId),
+      });
+    const batchRowsByStockId = new Map(
+      batchRows.map((row) => [row.stockId, row] as const),
+    );
+    return bannerRows.map((row) => {
+      const batchRow = batchRowsByStockId.get(row.stockId);
+      return batchRow ? { ...row, ...batchRow } : row;
+    });
+  } catch {
+    return bannerRows;
+  }
+}
+
 export function useMarketBannerDetail({
   tokenListId,
   isPerps,
@@ -91,11 +118,12 @@ export function useMarketBannerDetail({
       // Index quotes are display-only; restored legacy routes have no tradable rows.
       if (isIndex) return [];
       if (isStock) {
-        const data =
+        const bannerRows =
           await backgroundApiProxy.serviceMarketV2.fetchMarketBannerStockTokenList(
             { id: tokenListId },
           );
-        return data.map(mapStockBannerItemToToken);
+        const rows = await enrichBannerStockRows(bannerRows);
+        return rows.map(mapStockBannerItemToToken);
       }
       return backgroundApiProxy.serviceMarketV2.fetchMarketBannerTokenList({
         tokenListId,
