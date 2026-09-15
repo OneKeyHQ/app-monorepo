@@ -202,6 +202,112 @@ describe('useRecentRecipientsData session cache', () => {
     await flushBackgroundLoad();
   });
 
+  it('keeps the skeleton when a cached refresh throws after a network switch', async () => {
+    fetchTransferRecipients.mockResolvedValueOnce({
+      supported: true,
+      data: [{ address: RECIPIENT, time: 1, networkId: ETH }],
+    });
+    const first = mountHook(ETH);
+    await waitFor(() =>
+      expect(first.result.current.recentRecipients).toHaveLength(1),
+    );
+    first.unmount();
+
+    // Cached ETH refresh whose request is still pending when the same
+    // instance switches to an uncached network.
+    let rejectEth: (reason: unknown) => void = () => {};
+    fetchTransferRecipients.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectEth = reject;
+        }),
+    );
+    let resolveCosmos: (value: unknown) => void = () => {};
+    fetchTransferRecipients.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCosmos = resolve;
+        }),
+    );
+    const hook = renderHook(
+      ({ networkId }: { networkId: string }) =>
+        useRecentRecipientsData({ accountId: ACCOUNT_ID, networkId }),
+      { initialProps: { networkId: ETH } },
+    );
+    expect(hook.result.current.isLoadingRecent).toBe(false);
+    await waitFor(() =>
+      expect(fetchTransferRecipients).toHaveBeenCalledTimes(2),
+    );
+
+    hook.rerender({ networkId: COSMOS });
+    await waitFor(() =>
+      expect(fetchTransferRecipients).toHaveBeenCalledTimes(3),
+    );
+    expect(hook.result.current.isLoadingRecent).toBe(true);
+
+    // The obsolete ETH request fails; it must not clear the COSMOS skeleton.
+    await act(async () => {
+      rejectEth(new Error('network'));
+    });
+    await flushBackgroundLoad();
+    expect(hook.result.current.isLoadingRecent).toBe(true);
+    expect(hook.result.current.recentRecipients).toHaveLength(0);
+
+    await act(async () => {
+      resolveCosmos({ supported: false, data: [] });
+    });
+    await waitFor(() =>
+      expect(hook.result.current.isLoadingRecent).toBe(false),
+    );
+    hook.unmount();
+  });
+
+  it('still paints an older mounted instance after a newer instance is abandoned', async () => {
+    let resolveFirst: (value: unknown) => void = () => {};
+    fetchTransferRecipients.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    let resolveSecond: (value: unknown) => void = () => {};
+    fetchTransferRecipients.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSecond = resolve;
+        }),
+    );
+
+    const first = mountHook(ETH);
+    await waitFor(() =>
+      expect(fetchTransferRecipients).toHaveBeenCalledTimes(1),
+    );
+    const second = mountHook(ETH);
+    await waitFor(() =>
+      expect(fetchTransferRecipients).toHaveBeenCalledTimes(2),
+    );
+    expect(first.result.current.isLoadingRecent).toBe(true);
+
+    // The newer Send page closes before its load lands.
+    second.unmount();
+    await act(async () => {
+      resolveSecond({ supported: true, data: [] });
+    });
+    await flushBackgroundLoad();
+
+    await act(async () => {
+      resolveFirst({
+        supported: true,
+        data: [{ address: RECIPIENT, time: 1, networkId: ETH }],
+      });
+    });
+    await waitFor(() =>
+      expect(first.result.current.isLoadingRecent).toBe(false),
+    );
+    expect(first.result.current.recentRecipients[0]?.input).toBe(RECIPIENT);
+    first.unmount();
+  });
+
   it('does not reuse a cache entry across accounts or networks', async () => {
     fetchTransferRecipients.mockResolvedValue({
       supported: true,

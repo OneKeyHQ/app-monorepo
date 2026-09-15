@@ -309,11 +309,15 @@ export function useRecentRecipientsData({
     const cacheKey = getRecentRecipientsCacheKey({ accountId, networkId });
     const loadVersion = (recentRecipientsLoadVersion.get(cacheKey) ?? 0) + 1;
     recentRecipientsLoadVersion.set(cacheKey, loadVersion);
-    // Stale when this instance started a newer load, unmounted, or another
-    // instance started a newer load for the same account + network.
-    const isStale = () =>
-      loadIdRef.current !== currentLoadId ||
-      recentRecipientsLoadVersion.get(cacheKey) !== loadVersion;
+    // Stale when this instance started a newer load or unmounted; such a
+    // load must neither update state nor write the shared cache.
+    const isStale = () => loadIdRef.current !== currentLoadId;
+    // Another instance may have started a newer load for the same account +
+    // network. This load may still paint its own screen (so an abandoned
+    // newer load never strands it on a skeleton), but it must not overwrite
+    // the shared cache with an older answer.
+    const isLatestVersion = () =>
+      recentRecipientsLoadVersion.get(cacheKey) === loadVersion;
 
     const cached = recentRecipientsCache.get(cacheKey);
     if (cached) {
@@ -327,7 +331,9 @@ export function useRecentRecipientsData({
     }
 
     const commit = (entry: IRecentRecipientsCacheEntry) => {
-      recentRecipientsCache.set(cacheKey, entry);
+      if (isLatestVersion()) {
+        recentRecipientsCache.set(cacheKey, entry);
+      }
       setRecentRecipients(entry.recipients);
       setLastUsedDeriveType(entry.lastUsedDeriveType);
       setIsLoadingRecent(false);
@@ -387,11 +393,15 @@ export function useRecentRecipientsData({
       }
     }
 
-    // A failed background refresh keeps the cached API list on screen; the
-    // local store is only a substitute for a cold load or for a network the
-    // server reported as unsupported (OK-53284: never mix sources).
+    // A thrown request skips the in-try stale checks, so guard here before
+    // touching state: this instance may have moved on to another network.
+    if (isStale()) return;
+
+    // A failed background refresh keeps the cached API list on screen (it
+    // was applied at the start of this load); the local store is only a
+    // substitute for a cold load or for a network the server reported as
+    // unsupported (OK-53284: never mix sources).
     if (apiFailed && cached && !cached.apiUnsupported) {
-      setIsLoadingRecent(false);
       return;
     }
 
