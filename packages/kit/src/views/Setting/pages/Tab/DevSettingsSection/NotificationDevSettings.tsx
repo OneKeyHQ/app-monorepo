@@ -254,7 +254,10 @@ export function NotificationDevSettings() {
             Notification Permission Recovery QA
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
-            Apply a scenario, return to Home, and wait 6 seconds. Test mode
+            Apply a scenario, then run a recovery check here. Android Settings
+            still shows the recovery alert when the check says it should. iOS
+            Settings hides that alert and uses the bottom permission CTA, which
+            follows real OS permission state rather than the scenario. Test mode
             never opens system settings or registers a real push client.
           </SizableText>
           <Select
