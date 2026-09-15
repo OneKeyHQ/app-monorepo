@@ -2522,6 +2522,7 @@ function SendAmountInputContainer() {
   // focus one-shot so returning from a child route does not reopen the iOS
   // keyboard.
   const hasAutoFocusedAmountInputRef = useRef(false);
+  const hasStartedIOSAutoFocusRef = useRef(false);
   const reactNavigation = useNavigation();
 
   // Android (react-native-screens) detaches this screen while the confirm page
@@ -2530,9 +2531,13 @@ function SendAmountInputContainer() {
   useFocusEffect(
     useCallback(() => {
       if (platformEnv.isNativeIOS) {
-        if (hasAutoFocusedAmountInputRef.current) {
+        if (
+          hasStartedIOSAutoFocusRef.current ||
+          hasAutoFocusedAmountInputRef.current
+        ) {
           return undefined;
         }
+        hasStartedIOSAutoFocusRef.current = true;
 
         let isActive = true;
         let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
