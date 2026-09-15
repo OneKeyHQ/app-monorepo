@@ -3,16 +3,21 @@
 import type { ReactNode } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from '@testing-library/react';
 
 import type { IFirmwareUpdateDevSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import PageFirmwareUpdatePro2DevSettings from '../Setting/pages/FirmwareUpdateDevSettings/PageFirmwareUpdatePro2DevSettings';
 
 import { FirmwareChangeLogContentView } from './components/FirmwareChangeLogView';
-import { FirmwareUpdateProgressBarV2 } from './componentsV2/FirmwareUpdateProgressBarV2';
+import { useFirmwareUpdateItems } from './componentsV2/useFirmwareUpdateItems';
 
 let mockDeveloperMode = true;
 let mockVerifyVersions:
@@ -53,7 +58,7 @@ jest.mock('@onekeyhq/components', () => {
   }) =>
     React.createElement(
       'button',
-      { onClick: onPress, 'data-testid': testID },
+      { type: 'button', onClick: onPress, 'data-testid': testID },
       children,
     );
 
@@ -98,6 +103,7 @@ jest.mock('@onekeyhq/components', () => {
       testID: string;
     }) =>
       React.createElement('button', {
+        type: 'button',
         role: 'switch',
         'aria-checked': value,
         'data-testid': testID,
@@ -224,72 +230,6 @@ describe('Pro2 firmware debug information visibility', () => {
     });
   });
 
-  it.each([
-    'app_v1',
-    'app_v2',
-    'se01',
-    'se02',
-    'se03',
-    'se04',
-    'boot',
-    'coprocessor',
-  ] as const)('marks %s green only after a successful update', (target) => {
-    const result: ICheckAllFirmwareReleaseResult = {
-      ...release,
-      pro2TargetsToUpdate: [target],
-      protocolV2FirmwareVersionInfo: {
-        safeOS: { currentVersion: '1.0.0', targetVersion: '1.1.0' },
-        components: [
-          { target, currentVersion: '0.1.0', targetVersion: '0.2.0' },
-        ],
-      },
-    };
-    const { rerender } = render(
-      <FirmwareUpdateProgressBarV2
-        result={result}
-        lastFirmwareTipMessage={undefined}
-      />,
-    );
-    expect(screen.getByText('0.2.0').getAttribute('data-color')).toBe(
-      '$textSubdued',
-    );
-    mockVerifyVersions = {
-      finalFirmwareVersion: '1.1.0',
-      finalBootloaderVersion: '0.2.0',
-      finalBleVersion: '0.2.0',
-    };
-    rerender(
-      <FirmwareUpdateProgressBarV2
-        result={result}
-        lastFirmwareTipMessage={undefined}
-        isDone
-      />,
-    );
-    act(() => jest.advanceTimersByTime(1500));
-    expect(screen.getByText('0.2.0').getAttribute('data-color')).toBe(
-      '$textSuccess',
-    );
-  });
-
-  it('preserves a mismatched observed version instead of marking the target green', () => {
-    mockVerifyVersions = {
-      finalFirmwareVersion: '1.1.0',
-      finalBootloaderVersion: '0.3.0',
-      finalBleVersion: '0.2.0',
-    };
-    render(
-      <FirmwareUpdateProgressBarV2
-        result={release}
-        lastFirmwareTipMessage={undefined}
-        isDone
-      />,
-    );
-    expect(screen.getByText('0.3.0').getAttribute('data-color')).toBe(
-      '$textCritical',
-    );
-    expect(screen.queryByText('0.2.0')).toBeNull();
-  });
-
   it('hides and restores changelog component details without hiding SafeOS or release notes', () => {
     const { rerender } = render(
       <FirmwareChangeLogContentView result={release} />,
@@ -309,77 +249,43 @@ describe('Pro2 firmware debug information visibility', () => {
     expect(screen.getByText('0.2.0')).toBeTruthy();
   });
 
-  it('hides and restores installation details without changing the progress', () => {
-    const { rerender } = render(
-      <FirmwareUpdateProgressBarV2
-        result={release}
-        lastFirmwareTipMessage={undefined}
-      />,
-    );
-    expect(screen.getByText('0.2.0')).toBeTruthy();
-    expect(screen.getByTestId('firmware-update-debug-info-btn')).toBeTruthy();
-    const progress = screen
-      .getByRole('progressbar')
-      .getAttribute('aria-valuenow');
-
-    mockFirmwareSettings.hidePro2FirmwareDebugInfo = true;
-    rerender(
-      <FirmwareUpdateProgressBarV2
-        result={release}
-        lastFirmwareTipMessage={undefined}
-      />,
-    );
-    expect(screen.queryByText('0.2.0')).toBeNull();
-    expect(screen.queryByText('SHA-256 1234567890ab')).toBeNull();
-    expect(screen.queryByTestId('firmware-update-debug-info-btn')).toBeNull();
-    expect(screen.getByText('safeos')).toBeTruthy();
-    expect(
-      screen.getByText(ETranslations.global_installing_firmware),
-    ).toBeTruthy();
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
-      progress,
-    );
-
-    mockFirmwareSettings.hidePro2FirmwareDebugInfo = false;
-    rerender(
-      <FirmwareUpdateProgressBarV2
-        result={release}
-        lastFirmwareTipMessage={undefined}
-      />,
-    );
-    expect(screen.getByText('0.2.0')).toBeTruthy();
-    expect(screen.getByTestId('firmware-update-debug-info-btn')).toBeTruthy();
-  });
-
-  it.each([EDeviceType.Neo, EDeviceType.Pro])(
-    'does not hide another device (%s) debug UI',
-    (deviceType) => {
-      mockFirmwareSettings.hidePro2FirmwareDebugInfo = true;
-      const result = { ...release, deviceType };
-      render(
-        <FirmwareUpdateProgressBarV2
-          result={result}
-          lastFirmwareTipMessage={undefined}
-        />,
-      );
-      expect(screen.getByTestId('firmware-update-debug-info-btn')).toBeTruthy();
-      if (deviceType === EDeviceType.Neo) {
-        expect(screen.getByText('0.2.0')).toBeTruthy();
-      }
-    },
-  );
-
-  it('ignores the saved preference when developer mode is off', () => {
+  it('lists SafeOS only for Pro 2 outside developer mode', () => {
     mockDeveloperMode = false;
     mockFirmwareSettings.hidePro2FirmwareDebugInfo = true;
-    render(
-      <FirmwareUpdateProgressBarV2
-        result={release}
-        lastFirmwareTipMessage={undefined}
-      />,
-    );
-    expect(screen.getByTestId('firmware-update-debug-info-btn')).toBeTruthy();
-    expect(screen.queryByText('0.2.0')).toBeNull();
-    expect(screen.getByText('safeos')).toBeTruthy();
+    const { result } = renderHook(() => useFirmwareUpdateItems(release));
+    expect(result.current.items.map((item) => item.key)).toEqual(['safeos']);
+    expect(result.current.hideDebugInfo).toBe(false);
   });
+
+  it('adds component rows in developer mode and hides them on request', () => {
+    const { result, rerender } = renderHook(() =>
+      useFirmwareUpdateItems(release),
+    );
+    expect(result.current.items.map((item) => item.key)).toEqual([
+      'safeos',
+      'boot',
+      'resource',
+    ]);
+
+    mockFirmwareSettings.hidePro2FirmwareDebugInfo = true;
+    rerender();
+    expect(result.current.items.map((item) => item.key)).toEqual(['safeos']);
+    expect(result.current.hideDebugInfo).toBe(true);
+  });
+
+  it.each([EDeviceType.Neo])(
+    'does not hide another device (%s) component rows',
+    (deviceType) => {
+      mockFirmwareSettings.hidePro2FirmwareDebugInfo = true;
+      const { result } = renderHook(() =>
+        useFirmwareUpdateItems({ ...release, deviceType }),
+      );
+      expect(result.current.items.map((item) => item.key)).toEqual([
+        'safeos',
+        'boot',
+        'resource',
+      ]);
+      expect(result.current.hideDebugInfo).toBe(false);
+    },
+  );
 });

@@ -80,6 +80,8 @@ export function getFirmwareTransferDisplayMetrics(
     totalText: formatBytes(confirmedTotalBytes),
     speedText: `${formatBytes(confirmedRateBytesPerSecond)}/s`,
     elapsedText: formatDuration(confirmedElapsedMs, intl),
+    // Raw estimate for the install page, which renders minute buckets only.
+    estimatedRemainingMs,
     estimatedRemainingText:
       estimatedRemainingMs === undefined
         ? undefined

@@ -80,6 +80,7 @@ describe('firmwareUpdateProgressUtils', () => {
       totalText: '2.3 MiB',
       speedText: '16.4 KiB/s',
       elapsedText: '1 min 13 sec',
+      estimatedRemainingMs: 72_810,
       estimatedRemainingText: '1 min 13 sec',
     });
   });

@@ -11,20 +11,23 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
-export function FirmwareUpdatePromptWebUsbDevice({
+/**
+ * WebUSB must be re-granted after the device re-enumerates (bootloader PID,
+ * firmware type switch). Shared by the legacy prompt and the install page.
+ */
+export function useGrantWebUsbAccess({
   previousStepInfo,
   requestType = 'bootloader',
 }: {
   previousStepInfo: IFirmwareUpdateStepInfo | undefined;
   requestType?: 'bootloader' | 'switchFirmware';
 }) {
-  const intl = useIntl();
   const [isConnecting, setIsConnecting] = useState(false);
   const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
   const [_, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
   // Handle USB connection request
-  const handleGrantAccess = useCallback(async () => {
+  const grantAccess = useCallback(async () => {
     setIsConnecting(true);
     try {
       const device = await promptWebUsbDeviceAccess();
@@ -52,6 +55,21 @@ export function FirmwareUpdatePromptWebUsbDevice({
       setIsConnecting(false);
     }
   }, [promptWebUsbDeviceAccess, requestType, setStepInfo, previousStepInfo]);
+
+  return { grantAccess, isConnecting };
+}
+
+export function FirmwareUpdatePromptWebUsbDevice({
+  previousStepInfo,
+  requestType = 'bootloader',
+}: {
+  previousStepInfo: IFirmwareUpdateStepInfo | undefined;
+  requestType?: 'bootloader' | 'switchFirmware';
+}) {
+  const intl = useIntl();
+  const { grantAccess: handleGrantAccess, isConnecting } = useGrantWebUsbAccess(
+    { previousStepInfo, requestType },
+  );
 
   return (
     <Stack alignItems="center" justifyContent="flex-start">

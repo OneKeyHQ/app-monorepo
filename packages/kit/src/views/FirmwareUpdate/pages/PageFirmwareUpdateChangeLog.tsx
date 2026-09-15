@@ -154,6 +154,17 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
+    // Once the update was confirmed the install page owns every failure
+    // (it renders workflow errors in place); keep the changelog underneath
+    // so that its exit guard does not fire when the install page closes.
+    if (confirmUpdateResult.current) {
+      return (
+        <FirmwareChangeLogView
+          result={confirmUpdateResult.current}
+          onRetryClick={retryInfo ? retryUpdate : undefined}
+        />
+      );
+    }
     if (
       stepInfo.step === EFirmwareUpdateSteps.error ||
       stepInfo.step === EFirmwareUpdateSteps.checkReleaseError
@@ -168,15 +179,6 @@ function PageFirmwareUpdateChangeLog() {
             result={result}
           />
         </>
-      );
-    }
-    // keep change log modal content when install modal back
-    if (confirmUpdateResult.current) {
-      return (
-        <FirmwareChangeLogView
-          result={confirmUpdateResult.current}
-          onRetryClick={retryInfo ? retryUpdate : undefined}
-        />
       );
     }
     if (shouldShowChangeLog) {
@@ -211,7 +213,7 @@ function PageFirmwareUpdateChangeLog() {
           ) : undefined
         }
         containerStyle={{
-          p: isWorkflowError ? '$5' : 0,
+          p: isWorkflowError && !confirmUpdateResult.current ? '$5' : 0,
         }}
       >
         <ForceExtensionUpdatingFromExpandTab />
