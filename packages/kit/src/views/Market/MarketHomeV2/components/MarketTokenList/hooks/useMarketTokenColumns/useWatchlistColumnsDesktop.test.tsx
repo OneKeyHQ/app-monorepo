@@ -14,7 +14,6 @@ import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHom
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { renderLightweightTokenIdentity } from './lightweightCells';
 import {
   WatchlistAssetIdentity,
   WatchlistPerpsIdentity,
@@ -130,16 +129,12 @@ function renderColumns(options: IColumnOptions = {}) {
 function renderCell(
   dataIndex: string,
   record: IMarketToken,
-  options?: IColumnOptions,
-  index = 0,
 ): ReactElement<{ children?: ReactElement }> {
-  const column = renderColumns(options).find(
-    (item) => item.dataIndex === dataIndex,
-  );
+  const column = renderColumns().find((item) => item.dataIndex === dataIndex);
   if (!column?.render) {
     throw new OneKeyLocalError(`missing column ${dataIndex}`);
   }
-  return column.render(undefined as never, record, index) as ReactElement<{
+  return column.render(undefined as never, record, 0) as ReactElement<{
     children?: ReactElement;
   }>;
 }
@@ -333,17 +328,5 @@ describe('useWatchlistColumnsDesktop', () => {
     expect(missing('change24h', { ...spotToken, priceChangeRaw: '-' })).toBe(
       '--',
     );
-  });
-
-  test('keeps rows past the deferral index lightweight', () => {
-    const name = renderCell(
-      'name',
-      spotToken,
-      { deferRichRowAfterIndex: 1 },
-      3,
-    );
-
-    expect(name.type).toBe(renderLightweightTokenIdentity(spotToken).type);
-    expect(name.type).not.toBe(WatchlistTokenIdentity);
   });
 });

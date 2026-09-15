@@ -48,11 +48,6 @@ import {
   getStockVolume24hValue,
 } from '../../utils/tokenListHelpers';
 
-import {
-  renderLightweightText,
-  renderLightweightTokenIdentity,
-  shouldUseLightweightCell,
-} from './lightweightCells';
 import { getTokenAgeLabel } from './tokenAgeLabel';
 
 import type { IMarketToken } from '../../MarketTokenData';
@@ -75,15 +70,11 @@ export const useColumnsDesktop = (
   hiddenDesktopColumns?: readonly string[],
   change24hColumnTitle?: string,
   useStockMetadataColumns?: boolean,
-  deferRichRowAfterIndex?: number,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
 
   return useMemo<ITableColumn<IMarketToken>[]>(() => {
-    const shouldRenderRichCell = (index?: number) =>
-      !shouldUseLightweightCell(index, deferRichRowAfterIndex);
-
     const columns = [
       {
         title: (
@@ -102,11 +93,7 @@ export const useColumnsDesktop = (
         // list pages use.
         columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
         columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
-        render: (_: unknown, record: IMarketToken, index?: number) => {
-          if (!shouldRenderRichCell(index)) {
-            return <Stack width={MARKET_LIST_STAR_SLOT_WIDTH} height={24} />;
-          }
-
+        render: (_: unknown, record: IMarketToken) => {
           return (
             <Stack
               width={MARKET_LIST_STAR_SLOT_WIDTH}
@@ -139,12 +126,7 @@ export const useColumnsDesktop = (
         title: intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
-        render: (_: unknown, record: IMarketToken, index?: number) => {
-          const renderRichCell = shouldRenderRichCell(index);
-          if (!renderRichCell) {
-            return renderLightweightTokenIdentity(record);
-          }
-
+        render: (_: unknown, record: IMarketToken) => {
           return record.perpsCoin ? (
             <XStack
               alignItems="center"
@@ -217,13 +199,7 @@ export const useColumnsDesktop = (
         title: intl.formatMessage({ id: ETranslations.global_price }),
         dataIndex: 'price',
         columnProps: { flex: 1 },
-        render: (text: string, _record: IMarketToken, index?: number) => {
-          if (!shouldRenderRichCell(index)) {
-            return renderLightweightText(
-              Number.isFinite(Number(text)) ? text : EMPTY_MARKET_VALUE,
-            );
-          }
-
+        render: (text: string) => {
           return (
             <NumberSizeableText
               size="$bodyLgMedium"
@@ -245,13 +221,7 @@ export const useColumnsDesktop = (
           ),
         dataIndex: 'change24h',
         columnProps: { flex: 1 },
-        render: (text: number, record: IMarketToken, index?: number) => {
-          if (!shouldRenderRichCell(index)) {
-            return renderLightweightText(
-              record.priceChangeRaw === '-' ? EMPTY_MARKET_VALUE : text,
-            );
-          }
-
+        render: (text: number, record: IMarketToken) => {
           if (record.priceChangeRaw === '-') {
             return (
               <SizableText size="$bodyLgMedium" color="$textSubdued">
@@ -282,14 +252,10 @@ export const useColumnsDesktop = (
         title: intl.formatMessage({ id: ETranslations.global_market_cap }),
         dataIndex: 'marketCap',
         columnProps: { flex: 1 },
-        render: (text: number, record: IMarketToken, index?: number) => {
+        render: (text: number, record: IMarketToken) => {
           const value = useStockMetadataColumns
             ? (getStockMarketCapValue(record) ?? EMPTY_MARKET_VALUE)
             : getDefaultMarketValue(text);
-
-          if (!shouldRenderRichCell(index)) {
-            return renderLightweightText(value);
-          }
 
           return (
             <NumberSizeableText
@@ -312,14 +278,10 @@ export const useColumnsDesktop = (
           : intl.formatMessage({ id: ETranslations.global_liquidity }),
         dataIndex: 'liquidity',
         columnProps: { flex: 1.2 },
-        render: (text: number, record: IMarketToken, index?: number) => {
+        render: (text: number, record: IMarketToken) => {
           const value = useStockMetadataColumns
             ? (getStockVolume24hValue(record) ?? EMPTY_MARKET_VALUE)
             : getDefaultMarketValue(text);
-
-          if (!shouldRenderRichCell(index)) {
-            return renderLightweightText(value);
-          }
 
           return (
             <NumberSizeableText
@@ -339,14 +301,10 @@ export const useColumnsDesktop = (
           : intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
         dataIndex: 'turnover',
         columnProps: { flex: 1.1 },
-        render: (text: number, record: IMarketToken, index?: number) => {
+        render: (text: number, record: IMarketToken) => {
           const value = useStockMetadataColumns
             ? (getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE)
             : getDefaultMarketValue(text);
-
-          if (!shouldRenderRichCell(index)) {
-            return renderLightweightText(value);
-          }
 
           return (
             <NumberSizeableText
@@ -366,12 +324,9 @@ export const useColumnsDesktop = (
         title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
         dataIndex: 'transactions',
         columnProps: { flex: 1 },
-        render: (text: number, record: IMarketToken, index?: number) =>
-          shouldRenderRichCell(index) ? (
-            <Txns transactions={text} walletInfo={record.walletInfo} />
-          ) : (
-            renderLightweightText(text)
-          ),
+        render: (text: number, record: IMarketToken) => (
+          <Txns transactions={text} walletInfo={record.walletInfo} />
+        ),
         renderSkeleton: () => (
           <YStack gap="$1" alignItems="flex-start">
             <Skeleton width={50} height={14} />
@@ -387,14 +342,11 @@ export const useColumnsDesktop = (
             title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
             dataIndex: 'uniqueTraders',
             columnProps: { flex: 1 },
-            render: (text: number, _record: IMarketToken, index?: number) =>
-              shouldRenderRichCell(index) ? (
-                <NumberSizeableText size="$bodyMd" formatter="marketCap">
-                  {text === 0 ? '--' : text}
-                </NumberSizeableText>
-              ) : (
-                renderLightweightText(text)
-              ),
+            render: (text: number) => (
+              <NumberSizeableText size="$bodyMd" formatter="marketCap">
+                {text === 0 ? '--' : text}
+              </NumberSizeableText>
+            ),
             renderSkeleton: () => <Skeleton width={60} height={16} />,
           }
         : undefined,
@@ -403,14 +355,11 @@ export const useColumnsDesktop = (
             title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
             dataIndex: 'holders',
             columnProps: { flex: 1 },
-            render: (text: number, _record: IMarketToken, index?: number) =>
-              shouldRenderRichCell(index) ? (
-                <NumberSizeableText size="$bodyMd" formatter="marketCap">
-                  {text === 0 ? '--' : text}
-                </NumberSizeableText>
-              ) : (
-                renderLightweightText(text)
-              ),
+            render: (text: number) => (
+              <NumberSizeableText size="$bodyMd" formatter="marketCap">
+                {text === 0 ? '--' : text}
+              </NumberSizeableText>
+            ),
             renderSkeleton: () => <Skeleton width={60} height={16} />,
           }
         : undefined,
@@ -421,11 +370,7 @@ export const useColumnsDesktop = (
             }),
             dataIndex: 'tokenAge',
             columnProps: { flex: 0.9 },
-            render: (_: unknown, record: IMarketToken, index?: number) => {
-              if (!shouldRenderRichCell(index)) {
-                return renderLightweightText(EMPTY_MARKET_VALUE);
-              }
-
+            render: (_: unknown, record: IMarketToken) => {
               const ageLabel = getTokenAgeLabel(intl, record.firstTradeTime);
 
               return (
@@ -449,7 +394,6 @@ export const useColumnsDesktop = (
   }, [
     change24hColumnTitle,
     copyFrom,
-    deferRichRowAfterIndex,
     gtLg,
     gtXl,
     hiddenDesktopColumns,

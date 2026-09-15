@@ -51,12 +51,6 @@ import {
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import {
-  renderLightweightText,
-  renderLightweightTokenIdentity,
-  shouldUseLightweightCell,
-} from './lightweightCells';
-
 import type { IMarketToken } from '../../MarketTokenData';
 import type { IntlShape } from 'react-intl';
 
@@ -403,21 +397,15 @@ export function useWatchlistColumnsDesktop({
   watchlistFrom = EWatchlistFrom.Homepage,
   copyFrom = ECopyFrom.Homepage,
   hiddenDesktopColumns,
-  deferRichRowAfterIndex,
 }: {
   networkId?: string;
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
   hiddenDesktopColumns?: readonly string[];
-  /** Web cold start keeps only the first rows rich; see MarketTokenListBase. */
-  deferRichRowAfterIndex?: number;
 }): ITableColumn<IMarketToken>[] {
   const intl = useIntl();
 
   return useMemo(() => {
-    const isRichRow = (index?: number) =>
-      !shouldUseLightweightCell(index, deferRichRowAfterIndex);
-
     const columns: ITableColumn<IMarketToken>[] = [
       {
         title: (
@@ -435,11 +423,7 @@ export function useWatchlistColumnsDesktop({
         // gap to the name group, so the next column starts its logo flush.
         columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
         columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
-        render: (_: unknown, record: IMarketToken, index?: number) => {
-          if (!isRichRow(index)) {
-            return <Stack width={MARKET_LIST_STAR_SLOT_WIDTH} height={24} />;
-          }
-
+        render: (_: unknown, record: IMarketToken) => {
           return (
             <Stack
               width={MARKET_LIST_STAR_SLOT_WIDTH}
@@ -479,11 +463,7 @@ export function useWatchlistColumnsDesktop({
         // No left padding: the star column already spends the shared star-to-
         // logo distance, so the logo starts on this column's edge.
         columnProps: { flexShrink: 0, pl: 0, pr: '$2' },
-        render: (_: unknown, record: IMarketToken, index?: number) => {
-          if (!isRichRow(index)) {
-            return renderLightweightTokenIdentity(record);
-          }
-
+        render: (_: unknown, record: IMarketToken) => {
           switch (getMarketWatchlistRowKind(record)) {
             case 'perps':
               return <WatchlistPerpsIdentity record={record} />;
@@ -511,14 +491,9 @@ export function useWatchlistColumnsDesktop({
         title: intl.formatMessage({ id: ETranslations.global_price }),
         dataIndex: 'price',
         columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
-        render: (_: unknown, record: IMarketToken, index?: number) =>
-          isRichRow(index) ? (
-            <WatchlistMetricValue value={record.price} formatter="price" />
-          ) : (
-            renderLightweightText(
-              Number.isFinite(record.price) ? record.price : EMPTY_MARKET_VALUE,
-            )
-          ),
+        render: (_: unknown, record: IMarketToken) => (
+          <WatchlistMetricValue value={record.price} formatter="price" />
+        ),
         renderSkeleton: () => <Skeleton width={70} height={16} />,
       },
       {
@@ -528,34 +503,24 @@ export function useWatchlistColumnsDesktop({
         ),
         dataIndex: 'change24h',
         columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
-        render: (_: unknown, record: IMarketToken, index?: number) =>
-          isRichRow(index) ? (
-            <WatchlistChangeValue
-              value={record.change24h}
-              priceChangeRaw={record.priceChangeRaw}
-            />
-          ) : (
-            renderLightweightText(
-              record.priceChangeRaw === '-'
-                ? EMPTY_MARKET_VALUE
-                : record.change24h,
-            )
-          ),
+        render: (_: unknown, record: IMarketToken) => (
+          <WatchlistChangeValue
+            value={record.change24h}
+            priceChangeRaw={record.priceChangeRaw}
+          />
+        ),
         renderSkeleton: () => <Skeleton width={60} height={16} />,
       },
       {
         title: intl.formatMessage({ id: ETranslations.market_mcap }),
         dataIndex: 'marketCap',
         columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
-        render: (_: unknown, record: IMarketToken, index?: number) =>
-          isRichRow(index) ? (
-            <WatchlistMetricValue
-              value={record.marketCap}
-              formatter="marketCap"
-            />
-          ) : (
-            renderLightweightText(record.marketCap || EMPTY_MARKET_VALUE)
-          ),
+        render: (_: unknown, record: IMarketToken) => (
+          <WatchlistMetricValue
+            value={record.marketCap}
+            formatter="marketCap"
+          />
+        ),
         renderSkeleton: () => <Skeleton width={80} height={16} />,
       },
       {
@@ -565,15 +530,9 @@ export function useWatchlistColumnsDesktop({
         ),
         dataIndex: 'turnover',
         columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
-        render: (_: unknown, record: IMarketToken, index?: number) =>
-          isRichRow(index) ? (
-            <WatchlistMetricValue
-              value={record.turnover}
-              formatter="marketCap"
-            />
-          ) : (
-            renderLightweightText(record.turnover || EMPTY_MARKET_VALUE)
-          ),
+        render: (_: unknown, record: IMarketToken) => (
+          <WatchlistMetricValue value={record.turnover} formatter="marketCap" />
+        ),
         renderSkeleton: () => <Skeleton width={90} height={16} />,
       },
     ];
@@ -585,12 +544,5 @@ export function useWatchlistColumnsDesktop({
     return columns.filter(
       (column) => !hiddenDesktopColumns.includes(String(column.dataIndex)),
     );
-  }, [
-    copyFrom,
-    deferRichRowAfterIndex,
-    hiddenDesktopColumns,
-    intl,
-    networkId,
-    watchlistFrom,
-  ]);
+  }, [copyFrom, hiddenDesktopColumns, intl, networkId, watchlistFrom]);
 }
