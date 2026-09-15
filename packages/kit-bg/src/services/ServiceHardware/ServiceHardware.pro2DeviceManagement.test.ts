@@ -1028,11 +1028,12 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         device: {
           connectId: 'PRO_USB',
           deviceId: 'PRO_DEVICE_ID',
-          serialNo: 'LEGACY_SERIAL',
+          serialNo: 'PRO_SERIAL',
           commType: 'webusb',
           features: {
             deviceType: EDeviceType.Pro,
             firmwareType: EFirmwareType.Universal,
+            serialNo: 'PRO_SERIAL',
           },
           state: {
             identity: { serialNo: 'PRO_SERIAL' },

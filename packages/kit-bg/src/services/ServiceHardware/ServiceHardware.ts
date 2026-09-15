@@ -1945,12 +1945,7 @@ class ServiceHardware extends ServiceBase {
               deviceType,
               firmwareType: firmwareTypeStr,
               deviceId,
-              serialNo:
-                message.device.state?.identity.serialNo ||
-                serialNo ||
-                deviceUtils.getDeviceSerialNoFromFeatures(features) ||
-                message.device.uuid ||
-                undefined,
+              serialNo: deviceUtils.getDeviceSerialNoFromFeatures(features),
               firmwareVersion: firmwareVersion || undefined,
               transportType: message.device.commType ?? undefined,
             });
