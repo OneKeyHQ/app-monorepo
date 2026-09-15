@@ -75,15 +75,19 @@ function BannerContainerDesktop({
   children,
   itemCount,
   hidden = false,
+  divided,
 }: {
   children: ReactNode;
   itemCount: number;
   hidden?: boolean;
+  // True when every card renders token previews, which desktop web separates
+  // with dividers.
+  divided: boolean;
 }) {
   if (!platformEnv.isNative) {
     // Web never renders a hidden desktop banner; it unmounts the row instead.
     return (
-      <MarketBannerDesktopScroller itemCount={itemCount}>
+      <MarketBannerDesktopScroller itemCount={itemCount} divided={divided}>
         {children}
       </MarketBannerDesktopScroller>
     );
@@ -121,7 +125,7 @@ function MarketBannerListSkeletonComponent({
   }
 
   return (
-    <BannerContainerDesktop itemCount={skeletonCount}>
+    <BannerContainerDesktop itemCount={skeletonCount} divided>
       {skeletonItems}
     </BannerContainerDesktop>
   );
@@ -183,7 +187,11 @@ function MarketBannerListComponent() {
   }
 
   return (
-    <BannerContainerDesktop itemCount={bannerItems.length} hidden={hidden}>
+    <BannerContainerDesktop
+      itemCount={bannerItems.length}
+      hidden={hidden}
+      divided={visibleBannerList.every((item) => Boolean(item.tokens))}
+    >
       {bannerItems}
     </BannerContainerDesktop>
   );
