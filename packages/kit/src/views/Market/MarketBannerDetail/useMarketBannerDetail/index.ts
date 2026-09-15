@@ -165,7 +165,6 @@ export function useMarketBannerDetail({
     currentSortBy === BANNER_DETAIL_CHANGE_SORT_BY
       ? currentSortType
       : undefined;
-
   const setSortBy = useCallback(
     (val: string | undefined) => {
       const next = { ...sortRef.current, sortBy: val };

@@ -65,6 +65,7 @@ import {
   isMarketMixedBanner,
 } from '../utils/marketBannerUtils';
 
+import { BannerDetailStockFlatList } from './BannerDetailStockFlatList';
 import { BannerDetailStockTable } from './BannerDetailStockTable';
 import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
 import { PerpsTokenListSection } from './PerpsTokenListSection';
@@ -312,20 +313,24 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         perpsSection
       );
     }
-    // Narrow layouts use the compact list to avoid the desktop table's
-    // intrinsic width overflowing the viewport.
+    // Narrow layouts use the mobile home lists' rows: the desktop table's
+    // intrinsic width would overflow the viewport.
     if (!gtMd) {
+      if (isStock) {
+        return (
+          <BannerDetailStockFlatList
+            items={stockItems}
+            isLoading={Boolean(tickerIsLoading)}
+            changeSortType={changeSortType}
+            onChangeSortPress={handleChangeSortPress}
+            onItemPress={isIndex ? handleIndexItemPress : handleStockItemPress}
+          />
+        );
+      }
       return (
         <BannerDetailTokenFlatList
           data={mobileData}
           isLoading={tickerIsLoading}
-          primaryColumnTitle={
-            useStockColumns
-              ? intl.formatMessage({ id: ETranslations.market_stock_company })
-              : `${intl.formatMessage({ id: ETranslations.global_name })} / ${intl.formatMessage({ id: ETranslations.market_mcap })}`
-          }
-          showMarketCap={!useStockColumns}
-          showVolume={!useStockColumns}
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={handleChangeSortPress}

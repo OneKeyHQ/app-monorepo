@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { FlatList } from 'react-native';
 
 import { SizableText, Stack, Table, useMedia } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
@@ -25,18 +26,16 @@ import {
   mapServerToken,
 } from '../MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from '../MarketHomeV2/components/MarketPerpsList/hooks/usePerpsColumns';
+import { MarketPerpsTokenListItem } from '../MarketHomeV2/components/MarketPerpsList/MarketPerpsTokenListItem';
+import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
+import { sortMarketTokenListData } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketDesktopResponsiveColumns } from '../MarketHomeV2/components/useMarketDesktopResponsiveColumns';
 
-import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
+import { BannerDetailListColumnHeader } from './BannerDetailListColumnHeader';
 import { useBannerDetailTableSort } from './useBannerDetailTableSort';
 
 import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
-import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
-
-function safeNumber(value: string | number | undefined) {
-  const num = Number(value ?? 0);
-  return Number.isFinite(num) ? num : 0;
-}
+import type { FlatListProps } from 'react-native';
 
 export function PerpsTokenListSection({
   tokenListId,
@@ -97,43 +96,7 @@ export function PerpsTokenListSection({
       sortableFields: PERPS_SORTABLE_FIELDS,
     });
 
-  const mobileTokens = useMemo<IMarketToken[]>(
-    () =>
-      tokens.map((token) => ({
-        id: `perps-${token.name}`,
-        name: token.displayName,
-        symbol: token.displayName,
-        address: token.name,
-        decimals: 0,
-        price: safeNumber(token.markPrice),
-        change24h: safeNumber(token.change24hPercent),
-        marketCap: 0,
-        liquidity: 0,
-        transactions: 0,
-        uniqueTraders: 0,
-        holders: 0,
-        turnover: safeNumber(token.volume24h),
-        tokenImageUri: token.tokenImageUrl || '',
-        networkLogoUri: '',
-        networkId: '',
-        chainId: '',
-        maxLeverage: token.maxLeverage,
-        perpsSubtitle: token.subtitle,
-        perpsCoin: token.name,
-      })),
-    [tokens],
-  );
-
   const showSkeleton = Boolean(isLoading) && tokens.length === 0;
-
-  const handleMobileItemPress = useCallback(
-    (item: IMarketToken) => {
-      if (item.perpsCoin) {
-        navigateToPerps(item.perpsCoin);
-      }
-    },
-    [navigateToPerps],
-  );
 
   const TableEmptyComponent = useMemo(() => {
     if (isLoading) return null;
@@ -146,16 +109,58 @@ export function PerpsTokenListSection({
     );
   }, [isLoading, intl]);
 
+  // The mobile Perps tab's rows under the banner's sortable column header.
+  const renderMobileItem: FlatListProps<IMarketPerpsToken>['renderItem'] =
+    useCallback(
+      ({ item }) => (
+        <MarketPerpsTokenListItem
+          item={item}
+          onPress={() => navigateToPerps(item.name)}
+        />
+      ),
+      [navigateToPerps],
+    );
+  const mobileSortedTokens = useMemo(
+    () =>
+      sortMarketTokenListData({
+        data: tokens,
+        field: changeSortType ? 'change24hPercent' : undefined,
+        order: changeSortType,
+      }),
+    [changeSortType, tokens],
+  );
+
   if (!gtMd) {
     return (
-      <BannerDetailTokenFlatList
-        data={mobileTokens}
-        isLoading={showSkeleton}
-        changeSortType={changeSortType}
-        change24hColumnTitle={change24hColumnTitle}
-        onChangeSortPress={onChangeSortPress}
-        onItemPress={handleMobileItemPress}
-      />
+      <Stack flex={1}>
+        <BannerDetailListColumnHeader
+          // Same label as the mobile home lists: the row's second line is the
+          // contract's volume.
+          primaryColumnTitle={`${intl.formatMessage({
+            id: ETranslations.global_name,
+          })} / ${intl.formatMessage({
+            id: ETranslations.market_stock_volume__title,
+          })}`}
+          changeSortType={changeSortType}
+          change24hColumnTitle={change24hColumnTitle}
+          onChangeSortPress={onChangeSortPress}
+        />
+        {showSkeleton ? (
+          <TokenListSkeleton count={15} />
+        ) : (
+          <FlatList<IMarketPerpsToken>
+            style={{ flex: 1 }}
+            data={mobileSortedTokens}
+            renderItem={renderMobileItem}
+            keyExtractor={(item) => item.name}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={15}
+            maxToRenderPerBatch={20}
+            contentContainerStyle={{ paddingBottom: tabBarHeight }}
+            ListEmptyComponent={TableEmptyComponent}
+          />
+        )}
+      </Stack>
     );
   }
 

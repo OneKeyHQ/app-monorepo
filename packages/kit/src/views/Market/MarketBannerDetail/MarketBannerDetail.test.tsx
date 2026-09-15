@@ -139,6 +139,14 @@ jest.mock('./BannerDetailStockTable', () => ({
     />
   ),
 }));
+jest.mock('./BannerDetailStockFlatList', () => ({
+  BannerDetailStockFlatList: ({ items }: { items: { stockId: string }[] }) => (
+    <div
+      data-testid="mobile-stock-list"
+      data-stock-ids={items.map((item) => item.stockId).join(',')}
+    />
+  ),
+}));
 jest.mock('./BannerDetailTokenFlatList', () => ({
   BannerDetailTokenFlatList: () => <div data-testid="mobile-list" />,
 }));
@@ -180,9 +188,9 @@ beforeEach(() => {
   mockType = EMarketBannerType.Mixed;
 });
 
-// The spot section is the desktop stock table on wide layouts and the compact
-// list on narrow ones.
-const spotTestId = () => (mockWide ? 'stocks' : 'mobile-list');
+// The mixed banner's spot section is the desktop stock table on wide layouts
+// and the compact stock list on narrow ones.
+const spotTestId = () => (mockWide ? 'stocks' : 'mobile-stock-list');
 
 it.each([
   { name: 'stock and crypto rows', includeNonStock: true },
@@ -234,13 +242,25 @@ it('renders the raw stock rows in the desktop stock table', () => {
   expect(screen.queryByTestId('tokens')).toBeNull();
 });
 
-it('keeps the compact list on narrow layouts', () => {
+it('renders the compact stock list with the raw rows on narrow layouts', () => {
   mockType = EMarketBannerType.Stock;
   mockWide = false;
   mockStockTokens = true;
   render(<MarketBannerDetail />);
-  expect(screen.getByTestId('mobile-list')).toBeTruthy();
+  expect(
+    screen.getByTestId('mobile-stock-list').getAttribute('data-stock-ids'),
+  ).toBe('AAPL,TSLA');
+  expect(screen.queryByTestId('mobile-list')).toBeNull();
   expect(screen.queryByTestId('stocks')).toBeNull();
+});
+
+it('keeps the compact token list for a ticker banner on narrow layouts', () => {
+  mockType = EMarketBannerType.Ticker;
+  mockWide = false;
+  render(<MarketBannerDetail />);
+  expect(screen.getByTestId('mobile-list')).toBeTruthy();
+  expect(screen.queryByTestId('mobile-stock-list')).toBeNull();
+  expect(screen.queryByTestId('tokens')).toBeNull();
 });
 
 it.each([
