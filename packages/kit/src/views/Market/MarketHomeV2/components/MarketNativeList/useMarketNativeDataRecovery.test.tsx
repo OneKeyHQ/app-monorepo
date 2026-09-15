@@ -6,6 +6,7 @@ import type { IMarketAssetListData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigNetwork,
   IMarketPerpsTokenListData,
+  IMarketStockPublicItem,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketPerpsTokenList } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -53,7 +54,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceMarketV2: {
       fetchMarketPerpsTokenList: jest.fn(),
       fetchMarketTokenListBatch: jest.fn(),
-      fetchMarketListingWatchlistQuote: jest.fn(),
+      fetchMarketStockBatch: jest.fn(),
     },
     serviceHyperliquid: { getTokenSearchAliases: jest.fn(async () => ({})) },
   },
@@ -72,9 +73,9 @@ const fetchWatchlist = jest.mocked(
   // eslint-disable-next-line @typescript-eslint/unbound-method
   backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch,
 );
-const fetchListing = jest.mocked(
+const fetchStocks = jest.mocked(
   // eslint-disable-next-line @typescript-eslint/unbound-method
-  backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote,
+  backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch,
 );
 const topCoins: IMarketAssetListData = {
   list: [
@@ -111,6 +112,17 @@ function perps(name: string): IMarketPerpsTokenListData {
     ],
   };
 }
+function appleStock(price: string): IMarketStockPublicItem {
+  return {
+    stockId: 'AAPL',
+    symbol: 'AAPL',
+    name: 'Apple',
+    logoUrl: '',
+    assetType: 'stock',
+    currency: 'USD',
+    price,
+  };
+}
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
   const promise = new Promise<T>((done) => {
@@ -123,7 +135,7 @@ beforeEach(() => {
   fetchTopCoins.mockReset();
   fetchPerps.mockReset();
   fetchWatchlist.mockReset();
-  fetchListing.mockReset();
+  fetchStocks.mockReset();
   mockFocused = true;
   mockReachable = true;
   Object.defineProperty(globalThis, 'requestIdleCallback', {
@@ -419,18 +431,13 @@ it('waits for listing quotes as well as spot and perps during native Watchlist r
   const watchlist = [{ chainId: '', contractAddress: '', stockId: 'AAPL' }];
   fetchWatchlist.mockResolvedValue({ list: [] });
   fetchPerps.mockResolvedValue({ updatedAt: 1, tokens: [] });
-  fetchListing.mockResolvedValue({
-    symbol: 'AAPL',
-    name: 'Apple',
-    logoUrl: '',
-    price: '100',
-  });
+  fetchStocks.mockResolvedValue([appleStock('100')]);
   const { result } = renderHook(() =>
     useMarketWatchlistTokenList({ watchlist }),
   );
   await waitFor(() => expect(result.current.data[0]?.price).toBe(100));
-  const request = deferred<Awaited<ReturnType<typeof fetchListing>>>();
-  fetchListing.mockReturnValue(request.promise);
+  const request = deferred<Awaited<ReturnType<typeof fetchStocks>>>();
+  fetchStocks.mockReturnValue(request.promise);
   let settled = false;
   let refresh: Promise<void> | undefined;
   await act(async () => {
@@ -440,12 +447,7 @@ it('waits for listing quotes as well as spot and perps during native Watchlist r
   });
   expect(settled).toBe(false);
   await act(async () => {
-    request.resolve({
-      symbol: 'AAPL',
-      name: 'Apple',
-      logoUrl: '',
-      price: '101',
-    });
+    request.resolve([appleStock('101')]);
     await refresh;
   });
   expect(settled).toBe(true);
