@@ -30,6 +30,7 @@ import {
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import {
+  AVAILABILITY_TRACKED_FETCH_OPTION,
   createApiAvailabilityTiming,
   getAvailabilityFailureStatus,
   reportApiAvailabilityResult,
@@ -44,7 +45,7 @@ import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
 import type { INativeNetworkThrottleConfig } from '../modules/NetworkThrottle';
-import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 const NETWORK_THROTTLE_LOG_PREFIX = '[NETWORK-THROTTLE]';
 const LOG_URL_MAX_LENGTH = 160;
@@ -285,8 +286,73 @@ function logNetworkThrottleRequestTiming({
   });
 }
 
+// Called right before the config is handed to the adapter so client-side
+// waiting (throttle sync, header building) is excluded from the duration.
+function markApiAvailabilityTiming(config: AxiosRequestConfig) {
+  const timing = createApiAvailabilityTiming(config);
+  config.$oneKeyAvailabilityTiming = timing;
+  if (timing) {
+    // The axios fetch adapter forwards fetchOptions to the patched global
+    // fetch, which must not count this request a second time.
+    config.fetchOptions = {
+      ...config.fetchOptions,
+      [AVAILABILITY_TRACKED_FETCH_OPTION]: true,
+    };
+  }
+}
+
+// Mirrors axios settle(): no status or no validator means accepted.
+function isApiAvailabilityStatusAccepted(response: AxiosResponse) {
+  const { status } = response;
+  const validateStatus = response.config?.validateStatus;
+  if (!status || !validateStatus) {
+    return true;
+  }
+  try {
+    return Boolean(validateStatus(status));
+  } catch {
+    // A throwing validator must not break the response path.
+    return true;
+  }
+}
+
+// Adapters that resolve without applying validateStatus (e.g. the IP Table
+// SNI adapter) hand HTTP error responses to the success handler.
+function reportApiAvailabilityResponse({
+  isOneKeyDomain,
+  response,
+}: {
+  isOneKeyDomain: boolean;
+  response: AxiosResponse;
+}) {
+  const timing = response.config?.$oneKeyAvailabilityTiming;
+  if (!timing || timing.reported) {
+    return;
+  }
+  if (!isApiAvailabilityStatusAccepted(response)) {
+    reportApiAvailabilityResult({
+      httpStatusCode: response.status,
+      status: 'http_error',
+      timing,
+    });
+    return;
+  }
+  if (!isOneKeyDomain) {
+    // Third-party hosts do not follow the OneKey `code` envelope.
+    reportApiAvailabilityResult({ status: 'ok', timing });
+    return;
+  }
+  const responseCode = (
+    response.data as IOneKeyAPIBaseResponse | null | undefined
+  )?.code;
+  reportApiAvailabilityResult({
+    responseCode,
+    status: responseCode === 0 ? 'ok' : 'api_error',
+    timing,
+  });
+}
+
 axios.interceptors.request.use(async (config) => {
-  config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming(config);
   await ensureNativeNetworkThrottleSyncedBeforeRequest().catch(() => undefined);
 
   if (config.timeout === undefined) {
@@ -300,10 +366,12 @@ axios.interceptors.request.use(async (config) => {
         defaultLogger.app.network.start('axios', config.method, config.url);
       }
       await markNetworkThrottleRequestTiming(config);
+      markApiAvailabilityTiming(config);
       return config;
     }
   } catch (_e) {
     await markNetworkThrottleRequestTiming(config);
+    markApiAvailabilityTiming(config);
     return config;
   }
 
@@ -329,6 +397,7 @@ axios.interceptors.request.use(async (config) => {
     );
   }
   await markNetworkThrottleRequestTiming(config);
+  markApiAvailabilityTiming(config);
   return config;
 });
 
@@ -338,7 +407,6 @@ axios.interceptors.response.use(
     if (response.config?.signal?.aborted) {
       reportApiAvailabilityResult({
         errorCode: axios.AxiosError.ERR_CANCELED,
-        method: response.config.method,
         status: 'cancelled',
         timing: response.config.$oneKeyAvailabilityTiming,
       });
@@ -356,6 +424,7 @@ axios.interceptors.response.use(
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
       if (!isOneKeyDomain) {
+        reportApiAvailabilityResponse({ isOneKeyDomain, response });
         if (isEnableLogNetwork(config.url)) {
           defaultLogger.app.network.end({
             requestType: 'axios',
@@ -371,16 +440,6 @@ axios.interceptors.response.use(
           statusCode: response.status,
           responseCode: response.data?.code,
         });
-        reportApiAvailabilityResult({
-          httpStatusCode: response.status,
-          method: config.method,
-          responseCode: response.data?.code,
-          status:
-            response.data?.code === undefined || response.data?.code === 0
-              ? 'success'
-              : 'api_error',
-          timing: config.$oneKeyAvailabilityTiming,
-        });
         return response;
       }
     } catch (_e) {
@@ -388,28 +447,18 @@ axios.interceptors.response.use(
         config,
         statusCode: response.status,
       });
-      reportApiAvailabilityResult({
-        httpStatusCode: response.status,
-        method: config.method,
-        status: 'success',
-        timing: config.$oneKeyAvailabilityTiming,
-      });
+      reportApiAvailabilityResponse({ isOneKeyDomain: false, response });
       return response;
     }
 
     const data = response.data as IOneKeyAPIBaseResponse;
+    // Recorded before the lines below, which throw on a null response body.
+    reportApiAvailabilityResponse({ isOneKeyDomain: true, response });
 
     logNetworkThrottleRequestTiming({
       config,
       statusCode: response.status,
       responseCode: data.code,
-    });
-    reportApiAvailabilityResult({
-      httpStatusCode: response.status,
-      method: config.method,
-      responseCode: data.code,
-      status: data.code === 0 ? 'success' : 'api_error',
-      timing: config.$oneKeyAvailabilityTiming,
     });
 
     if ((config as any).autoHandleError !== false && data.code !== 0) {
@@ -480,7 +529,6 @@ axios.interceptors.response.use(
     if (error?.config?.signal?.aborted) {
       reportApiAvailabilityResult({
         errorCode: axios.AxiosError.ERR_CANCELED,
-        method: error.config.method,
         status: 'cancelled',
         timing: error.config.$oneKeyAvailabilityTiming,
       });
@@ -491,8 +539,6 @@ axios.interceptors.response.use(
     reportApiAvailabilityResult({
       errorCode: error?.code,
       httpStatusCode: response?.status,
-      method: error?.config?.method,
-      responseCode: response?.data?.code,
       status: response?.status
         ? 'http_error'
         : getAvailabilityFailureStatus(error),

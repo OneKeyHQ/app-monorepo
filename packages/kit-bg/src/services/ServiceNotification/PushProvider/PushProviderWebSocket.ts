@@ -10,9 +10,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getAvailabilityErrorCode,
   getAvailabilityFailureStatus,
-  normalizeAvailabilityErrorCode,
+  recordWebSocketClosed,
+  recordWebSocketConnectResult,
 } from '@onekeyhq/shared/src/request/availabilityMetrics';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   INotificationPushMessageAckParams,
@@ -44,7 +44,6 @@ import type { INotificationStatusAtomData } from '../../../states/jotai/atoms/no
 import type { Socket } from 'socket.io-client';
 
 type IConnectionAttempt = {
-  attemptId: string;
   startedAt: number;
   trigger: 'initial' | 'reconnect';
 };
@@ -74,37 +73,22 @@ export class PushProviderWebSocket extends PushProviderBase {
 
   private connectedAt: number | null = null;
 
-  private startConnectionAttempt(trigger: IConnectionAttempt['trigger']) {
-    const connectionAttempt = {
-      attemptId: generateUUID(),
-      startedAt: Date.now(),
-      trigger,
-    };
-    this.connectionAttempt = connectionAttempt;
-    defaultLogger.app.network.webSocketConnectionAttempt({
-      attemptId: connectionAttempt.attemptId,
-      transport: 'notification_market',
-      trigger,
-    });
-  }
-
   private finishConnectionAttempt({
     errorCode,
     status,
   }: {
     errorCode?: unknown;
-    status: 'failed' | 'success' | 'timeout';
+    status: 'failed' | 'ok' | 'timeout';
   }) {
     const connectionAttempt = this.connectionAttempt;
     if (!connectionAttempt) return;
     this.connectionAttempt = null;
-    defaultLogger.app.network.webSocketConnectionResult({
-      attemptId: connectionAttempt.attemptId,
-      durationMs: Math.max(0, Date.now() - connectionAttempt.startedAt),
-      errorCode: normalizeAvailabilityErrorCode(errorCode),
-      status,
+    recordWebSocketConnectResult({
       transport: 'notification_market',
       trigger: connectionAttempt.trigger,
+      status,
+      durationMs: Math.max(0, Date.now() - connectionAttempt.startedAt),
+      errorCode,
     });
   }
 
@@ -373,7 +357,7 @@ export class PushProviderWebSocket extends PushProviderBase {
     );
     const env = endpoint.includes('onekeytest') ? 'test' : 'prod';
     // TODO init timeout
-    this.startConnectionAttempt('initial');
+    this.connectionAttempt = { startedAt: Date.now(), trigger: 'initial' };
     this.socket = io(endpoint, {
       transports: ['websocket', 'polling'],
       extraHeaders: {
@@ -385,7 +369,7 @@ export class PushProviderWebSocket extends PushProviderBase {
       reconnectionDelayMax: 30_000,
     });
     this.socket.on('connect', () => {
-      this.finishConnectionAttempt({ status: 'success' });
+      this.finishConnectionAttempt({ status: 'ok' });
       this.connectedAt = Date.now();
       // 获取 socketId
       defaultLogger.notification.websocket.consoleLog(
@@ -420,27 +404,28 @@ export class PushProviderWebSocket extends PushProviderBase {
     this.socket.on('error', (error) => {
       defaultLogger.notification.websocket.consoleLog('WebSocket 错误:', error);
     });
-    this.socket.io.on('reconnect_attempt', () => {
-      if (!this.connectionAttempt) {
-        this.startConnectionAttempt('reconnect');
-      }
-    });
-    this.socket.io.on('reconnect', (_payload) => {
+    this.socket.on('reconnect', (_payload) => {
       defaultLogger.notification.websocket.consoleLog('WebSocket 重新连接成功');
     });
-    this.socket.on('disconnect', (reason: Socket.DisconnectReason) => {
-      const connectedDurationMs = this.connectedAt
-        ? Math.max(0, Date.now() - this.connectedAt)
-        : 0;
-      this.connectedAt = null;
-      defaultLogger.app.network.webSocketConnectionClosed({
-        connectedDurationMs,
-        reason: normalizeDisconnectReason(reason),
-        transport: 'notification_market',
-        willReconnect:
-          reason !== 'io client disconnect' &&
-          reason !== 'io server disconnect',
-      });
+    // socket.io-client v4 emits reconnect_attempt on the Manager, not the Socket.
+    this.socket.io.on('reconnect_attempt', () => {
+      if (!this.connectionAttempt) {
+        this.connectionAttempt = {
+          startedAt: Date.now(),
+          trigger: 'reconnect',
+        };
+      }
+    });
+    this.socket.on('disconnect', (reason) => {
+      // The Socket also emits disconnect when the transport drops before the
+      // CONNECT ack; that attempt is still pending, not a closed connection.
+      if (this.connectedAt !== null) {
+        this.connectedAt = null;
+        recordWebSocketClosed({
+          transport: 'notification_market',
+          reason: normalizeDisconnectReason(reason),
+        });
+      }
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket 连接断开',
         reason,

@@ -43,8 +43,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import {
-  getAvailabilityErrorCode,
-  getAvailabilityFailureStatus,
+  getAvailabilityFlowErrorResult,
+  startAvailabilityFlow,
 } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -1514,14 +1514,11 @@ class ServicePrime extends ServiceBase {
     accessToken: string;
     authSessionSource?: EPrimeAuthSessionSource;
   }) {
-    if (!accessToken) return;
-    const context = {
-      attemptId: stringUtils.generateUUID(),
-      method: 'legacy_email' as const,
-    };
-    const startedAt = Date.now();
+    if (!accessToken) {
+      return;
+    }
+    const flow = startAvailabilityFlow('prime_login_email');
     let failureStage: IOneKeyIdLoginFailureStage = 'server_login';
-    defaultLogger.prime.subscription.onekeyIdLoginAttempt(context);
     try {
       const result = await this._apiLogin(
         { accessToken, authSessionSource },
@@ -1529,25 +1526,10 @@ class ServicePrime extends ServiceBase {
           failureStage = stage;
         },
       );
-      defaultLogger.prime.subscription.onekeyIdLoginResult({
-        ...context,
-        durationMs: Date.now() - startedAt,
-        errorCode: 'none',
-        failureStage: 'none',
-        status: 'success',
-      });
+      flow.finish({ status: 'ok' });
       return result;
     } catch (error) {
-      defaultLogger.prime.subscription.onekeyIdLoginResult({
-        ...context,
-        durationMs: Date.now() - startedAt,
-        errorCode: getAvailabilityErrorCode(error),
-        failureStage,
-        status:
-          getAvailabilityFailureStatus(error) === 'timeout'
-            ? 'timeout'
-            : 'failed',
-      });
+      flow.finish(getAvailabilityFlowErrorResult(error, failureStage));
       throw error;
     }
   }
@@ -1562,9 +1544,6 @@ class ServicePrime extends ServiceBase {
     },
     setFailureStage: (stage: IOneKeyIdLoginFailureStage) => void,
   ) {
-    if (!accessToken) {
-      return;
-    }
     // This endpoint (/prime/v1/user/login) only accepts legacy-realm
     // tokens, so the source is statically LegacyEmailSupabase. Never fall
     // back to the persisted source: a stale KeylessOAuth source would be
@@ -1814,13 +1793,11 @@ class ServicePrime extends ServiceBase {
     callerName: string;
     expectedOneKeyUserId?: string;
   }): Promise<IOneKeyIdOAuthLoginResponse> {
-    const context = {
-      attemptId: stringUtils.generateUUID(),
-      method: 'keyless_oauth' as const,
-    };
-    const startedAt = Date.now();
+    if (!accessToken) {
+      throw new OneKeyLocalError(`${callerName} ERROR: Invalid accessToken`);
+    }
+    const flow = startAvailabilityFlow('prime_login_oauth');
     let failureStage: IOneKeyIdLoginFailureStage = 'session_guard';
-    defaultLogger.prime.subscription.onekeyIdLoginAttempt(context);
     try {
       const result = await this._apiOAuthLogin(
         { accessToken, callerName, expectedOneKeyUserId },
@@ -1828,25 +1805,10 @@ class ServicePrime extends ServiceBase {
           failureStage = stage;
         },
       );
-      defaultLogger.prime.subscription.onekeyIdLoginResult({
-        ...context,
-        durationMs: Date.now() - startedAt,
-        errorCode: 'none',
-        failureStage: 'none',
-        status: 'success',
-      });
+      flow.finish({ status: 'ok' });
       return result;
     } catch (error) {
-      defaultLogger.prime.subscription.onekeyIdLoginResult({
-        ...context,
-        durationMs: Date.now() - startedAt,
-        errorCode: getAvailabilityErrorCode(error),
-        failureStage,
-        status:
-          getAvailabilityFailureStatus(error) === 'timeout'
-            ? 'timeout'
-            : 'failed',
-      });
+      flow.finish(getAvailabilityFlowErrorResult(error, failureStage));
       throw error;
     }
   }
@@ -1863,10 +1825,6 @@ class ServicePrime extends ServiceBase {
     },
     setFailureStage: (stage: IOneKeyIdLoginFailureStage) => void,
   ): Promise<IOneKeyIdOAuthLoginResponse> {
-    if (!accessToken) {
-      throw new OneKeyLocalError(`${callerName} ERROR: Invalid accessToken`);
-    }
-
     // Invalidation site (OAuth login): same as apiLogin — drop any
     // pre-login cached user info before the session changes.
     this.clearPrimeUserInfoCache();

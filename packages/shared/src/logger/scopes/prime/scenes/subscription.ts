@@ -13,23 +13,6 @@ import type { IPrimeInfiniPaymentSource } from '@onekeyhq/shared/types/prime/pri
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-export type IOneKeyIdLoginAvailabilityContext = {
-  attemptId: string;
-  method: 'keyless_oauth' | 'legacy_email';
-};
-
-type IOneKeyIdLoginResultParams = IOneKeyIdLoginAvailabilityContext & {
-  durationMs: number;
-  errorCode: string;
-  failureStage:
-    | 'local_commit'
-    | 'none'
-    | 'post_commit_cleanup'
-    | 'server_login'
-    | 'session_guard';
-  status: 'failed' | 'success' | 'timeout';
-};
-
 // Payment channel dimension: 'iap' = native in-app purchase (RevenueCat),
 // 'stripe' = RevenueCat web billing (Stripe), 'crypto' = Infini crypto checkout
 export type IPrimePaymentMethod = 'iap' | 'stripe' | 'crypto';
@@ -200,18 +183,6 @@ export type IPrimeGiftStageParams =
     };
 
 export class PrimeSubscriptionScene extends BaseScene {
-  @LogToServer()
-  @LogToLocal()
-  public onekeyIdLoginAttempt(params: IOneKeyIdLoginAvailabilityContext) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public onekeyIdLoginResult(params: IOneKeyIdLoginResultParams) {
-    return params;
-  }
-
   /**
    * Prime feature entry click
    * Triggered when a user clicks on any Prime feature entry point.

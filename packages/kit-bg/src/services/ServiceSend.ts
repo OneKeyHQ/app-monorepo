@@ -46,7 +46,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   getAvailabilityErrorCode,
-  getAvailabilityFailureStatus,
+  withAvailabilityFlow,
 } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
@@ -408,6 +408,30 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async signAndSendTransaction(
+    params: Parameters<ServiceSend['_signAndSendTransaction']>[0],
+  ) {
+    return withAvailabilityFlow(
+      'send',
+      () => this._signAndSendTransaction(params),
+      {
+        detail: params.networkId,
+        trackUnfinished: true,
+        onSuccess: (result) => ({
+          status: params.signOnly || !result.txid ? 'signed' : 'submitted',
+        }),
+        onError: (error) =>
+          isGasAccountSubmitCancelledError(error)
+            ? {
+                status: 'cancelled',
+                errorCode: getAvailabilityErrorCode(error),
+                detail: params.networkId,
+              }
+            : undefined,
+      },
+    );
+  }
+
+  private async _signAndSendTransaction(
     params: ISendTxBaseParams &
       ISignTransactionParamsBase & {
         gasAccountUiState?: IBatchSignTransactionParamsBase['gasAccountUiState'];
@@ -1019,48 +1043,6 @@ class ServiceSend extends ServiceBase {
   public async batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
-    const context = {
-      attemptId: generateUUID(),
-      isBatch: params.unsignedTxs.length > 1,
-      isPrivateSend: params.transferPayload?.isPrivateSend === true,
-      network: params.networkId,
-      signOnly: params.signOnly,
-    };
-    const startedAt = Date.now();
-    defaultLogger.transaction.send.sendTransactionAttempt(context);
-
-    try {
-      const result = await this._batchSignAndSendTransaction(params);
-      defaultLogger.transaction.send.sendTransactionResult({
-        ...context,
-        durationMs: Date.now() - startedAt,
-        errorCode: 'none',
-        finalityLevel: params.signOnly ? 'client_signed' : 'client_submitted',
-        status: 'success',
-      });
-      return result;
-    } catch (error) {
-      const failureStatus = getAvailabilityFailureStatus(error);
-      let status: 'cancelled' | 'failed' | 'timeout' = 'failed';
-      if (isGasAccountSubmitCancelledError(error)) {
-        status = 'cancelled';
-      } else if (failureStatus === 'timeout') {
-        status = 'timeout';
-      }
-      defaultLogger.transaction.send.sendTransactionResult({
-        ...context,
-        durationMs: Date.now() - startedAt,
-        errorCode: getAvailabilityErrorCode(error),
-        finalityLevel: 'none',
-        status,
-      });
-      throw error;
-    }
-  }
-
-  private async _batchSignAndSendTransaction(
-    params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
-  ) {
     const {
       networkId,
       accountId,
@@ -1139,15 +1121,27 @@ class ServiceSend extends ServiceBase {
         if (isMultiTxs && i > 0) {
           unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
         }
+        // signAndSendTransaction counts its own send flow. The sign-only branch
+        // bypasses it, so it is counted here rather than inside signTransaction
+        // (which signAndSendTransaction also calls).
         const buildSignedTx = () =>
           signOnly && !beforeBroadcastAction
-            ? this.signTransaction({
-                unsignedTx,
-                accountId,
-                networkId,
-                signOnly: true,
-                stageFeeInfo: feeInfo,
-              })
+            ? withAvailabilityFlow(
+                'send',
+                () =>
+                  this.signTransaction({
+                    unsignedTx,
+                    accountId,
+                    networkId,
+                    signOnly: true,
+                    stageFeeInfo: feeInfo,
+                  }),
+                {
+                  detail: networkId,
+                  trackUnfinished: true,
+                  onSuccess: () => ({ status: 'signed' }),
+                },
+              )
             : this.signAndSendTransaction({
                 unsignedTx,
                 networkId,

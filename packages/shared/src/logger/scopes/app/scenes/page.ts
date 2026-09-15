@@ -27,10 +27,9 @@ export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public appStart() {
-    return {
-      startupAttemptId: this.startupAttemptId,
-      status: 'started' as const,
-    };
+    // Correlates appStart with jsReadyTime/uiVisibleTime of the same launch,
+    // so launches that never became visible can be counted.
+    return { startupAttemptId: this.startupAttemptId };
   }
 
   @LogToLocal()
@@ -80,9 +79,7 @@ export class PageScene extends BaseScene {
   public jsReadyTime(duration: number) {
     return {
       duration,
-      durationMs: duration,
       startupAttemptId: this.startupAttemptId,
-      status: 'success' as const,
     };
   }
 
@@ -91,9 +88,7 @@ export class PageScene extends BaseScene {
   public uiVisibleTime(duration: number) {
     return {
       duration,
-      durationMs: duration,
       startupAttemptId: this.startupAttemptId,
-      status: 'success' as const,
     };
   }
 

@@ -5,12 +5,17 @@ import { isEnableLogNetwork } from '../logger/scopes/app/scenes/networkFilter';
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import {
+  AVAILABILITY_TRACKED_FETCH_OPTION,
   createApiAvailabilityTiming,
   getAvailabilityFailureStatus,
   reportApiAvailabilityResult,
 } from './availabilityMetrics';
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import requestHelper from './requestHelper';
+
+type IAvailabilityTrackedRequestInit = RequestInit & {
+  [AVAILABILITY_TRACKED_FETCH_OPTION]?: boolean;
+};
 
 function getUrlFromResource(resource: RequestInfo | URL | string) {
   if (isString(resource)) {
@@ -31,6 +36,22 @@ const newFetch = async function (
   if (isNil(options)) {
     // eslint-disable-next-line no-param-reassign
     options = {};
+  }
+  const isAvailabilityTracked = Boolean(
+    (options as IAvailabilityTrackedRequestInit)[
+      AVAILABILITY_TRACKED_FETCH_OPTION
+    ],
+  );
+  if (isAvailabilityTracked) {
+    // Already counted by the axios interceptor. Continue with a marker-free
+    // copy so the axios-owned fetchOptions object is not mutated below and
+    // the native fetch receives the same init as without the marker.
+    const {
+      [AVAILABILITY_TRACKED_FETCH_OPTION]: _tracked,
+      ...untrackedOptions
+    } = options as IAvailabilityTrackedRequestInit;
+    // eslint-disable-next-line no-param-reassign
+    options = untrackedOptions;
   }
   const resourceInfo = resource as Request;
 
@@ -59,7 +80,6 @@ const newFetch = async function (
   }
 
   const url = getUrlFromResource(resource);
-  const availabilityTiming = createApiAvailabilityTiming({ url });
   const isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url);
   let requestId: string | undefined;
   if (isOneKeyDomain) {
@@ -85,6 +105,9 @@ const newFetch = async function (
     defaultLogger.app.network.start('fetch', options.method, url, requestId);
   }
 
+  const availabilityTiming = isAvailabilityTracked
+    ? undefined
+    : createApiAvailabilityTiming({ url });
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
   return (
     fetchOrigin
@@ -108,8 +131,7 @@ const newFetch = async function (
         }
         reportApiAvailabilityResult({
           httpStatusCode: res.status,
-          method: options?.method,
-          status: res.ok ? 'success' : 'http_error',
+          status: res.ok ? 'ok' : 'http_error',
           timing: availabilityTiming,
         });
         return res.clone();
@@ -118,7 +140,6 @@ const newFetch = async function (
         reportApiAvailabilityResult({
           errorCode:
             typeof e === 'object' && e && 'code' in e ? e.code : undefined,
-          method: options?.method,
           status: getAvailabilityFailureStatus(e),
           timing: availabilityTiming,
         });

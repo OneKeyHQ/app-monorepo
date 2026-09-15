@@ -55,8 +55,9 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  getAvailabilityErrorCode,
-  getAvailabilityFailureStatus,
+  getAvailabilityFlowErrorResult,
+  normalizeAvailabilityToken,
+  withAvailabilityFlow,
 } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -370,12 +371,6 @@ function buildOnekeyFeaturesFromState(
 type IHandleLinuxWebUsbAccessDeniedErrorParams = {
   error?: unknown;
 };
-
-function getHardwareAvailabilityFailureStatus(error: unknown) {
-  const status = getAvailabilityFailureStatus(error);
-  if (status === 'cancelled' || status === 'timeout') return status;
-  return 'failed' as const;
-}
 
 // skip events
 const SKIPPED_EVENTS = new Set([
@@ -2265,49 +2260,32 @@ class ServiceHardware extends ServiceBase {
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
   }) {
-    const availabilityContext = {
-      attemptId: stringUtils.generateUUID(),
-      operation: 'search' as const,
-      transport: params?.transportType ?? ('unknown' as const),
-      vendor: params?.vendor ?? EHardwareVendor.onekey,
-    };
-    const startedAt = Date.now();
-    defaultLogger.hardware.connection.hardwareOperationAttempt(
-      availabilityContext,
+    const detail = `${normalizeAvailabilityToken(
+      params?.vendor ?? EHardwareVendor.onekey,
+    )}:${normalizeAvailabilityToken(params?.transportType ?? 'auto')}`;
+    return withAvailabilityFlow(
+      'hw_search',
+      () => this._searchDevices(params),
+      {
+        detail,
+        onSuccess: (response) => {
+          if (response?.success === false) {
+            return getAvailabilityFlowErrorResult(response.payload, detail);
+          }
+          const payload: unknown = response?.payload;
+          return {
+            status:
+              Array.isArray(payload) && payload.length > 0 ? 'found' : 'empty',
+            detail,
+          };
+        },
+      },
     );
-    try {
-      const response = await this._searchDevices(params);
-      const responseDetails = response as
-        | { payload?: unknown; success?: boolean }
-        | undefined;
-      defaultLogger.hardware.connection.hardwareOperationResult({
-        ...availabilityContext,
-        deviceCount: Array.isArray(responseDetails?.payload)
-          ? responseDetails.payload.length
-          : 0,
-        durationMs: Math.max(0, Date.now() - startedAt),
-        errorCode:
-          responseDetails?.success === false
-            ? getAvailabilityErrorCode(responseDetails.payload)
-            : 'unknown',
-        status: responseDetails?.success === false ? 'failed' : 'success',
-      });
-      return response;
-    } catch (error) {
-      defaultLogger.hardware.connection.hardwareOperationResult({
-        ...availabilityContext,
-        deviceCount: 0,
-        durationMs: Math.max(0, Date.now() - startedAt),
-        errorCode: getAvailabilityErrorCode(error),
-        status: getHardwareAvailabilityFailureStatus(error),
-      });
-      throw error;
-    }
   }
 
   private async _searchDevices(params?: {
-    vendor?: EHardwareVendor;
     connectProtocol?: HardwareConnectProtocol;
+    vendor?: EHardwareVendor;
     resetSession?: boolean;
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
@@ -2757,45 +2735,30 @@ class ServiceHardware extends ServiceBase {
     forceFeaturesRefresh?: boolean;
     hardwareTransportType?: EHardwareTransportType;
   }): Promise<Features | undefined> {
-    const deviceVendor = (device as SearchDevice & { vendor?: EHardwareVendor })
-      .vendor;
-    const availabilityContext = {
-      attemptId: stringUtils.generateUUID(),
-      operation: 'connect' as const,
-      transport: 'unknown' as const,
-      vendor: deviceVendor ?? EHardwareVendor.onekey,
-    };
-    const startedAt = Date.now();
-    defaultLogger.hardware.connection.hardwareOperationAttempt(
-      availabilityContext,
+    const deviceVendor = (device as SearchDevice & { vendor?: string }).vendor;
+    const detail = `${normalizeAvailabilityToken(
+      deviceVendor ?? EHardwareVendor.onekey,
+    )}:${normalizeAvailabilityToken(hardwareTransportType ?? 'auto')}`;
+    return withAvailabilityFlow(
+      'hw_connect',
+      () =>
+        this._connect({
+          device,
+          hardwareCallContext,
+          connectProtocol,
+          forceProtocolDetection,
+          forceFeaturesRefresh,
+          hardwareTransportType,
+        }),
+      {
+        detail,
+        trackUnfinished: true,
+        onSuccess: (features) =>
+          features
+            ? { status: 'ok', detail }
+            : { status: 'failed', errorCode: 'empty_result', detail },
+      },
     );
-    try {
-      const features = await this._connect({
-        device,
-        hardwareCallContext,
-        connectProtocol,
-        forceProtocolDetection,
-        forceFeaturesRefresh,
-        hardwareTransportType,
-      });
-      defaultLogger.hardware.connection.hardwareOperationResult({
-        ...availabilityContext,
-        deviceCount: features ? 1 : 0,
-        durationMs: Math.max(0, Date.now() - startedAt),
-        errorCode: features ? 'unknown' : 'empty_result',
-        status: features ? 'success' : 'failed',
-      });
-      return features;
-    } catch (error) {
-      defaultLogger.hardware.connection.hardwareOperationResult({
-        ...availabilityContext,
-        deviceCount: 0,
-        durationMs: Math.max(0, Date.now() - startedAt),
-        errorCode: getAvailabilityErrorCode(error),
-        status: getHardwareAvailabilityFailureStatus(error),
-      });
-      throw error;
-    }
   }
 
   private async _connect({

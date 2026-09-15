@@ -11,6 +11,10 @@ import { NativeModules, TurboModuleRegistry } from 'react-native';
 
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import {
+  getAvailabilityHostname,
+  noteAvailabilityProxyPreflight,
+} from '../availabilityContext';
 
 import { safeSniLogValue } from './sniLogRedaction';
 import { executeSniRequestWithAbort } from './sniRequestAbort';
@@ -214,12 +218,16 @@ export async function isProxyActiveForUrl(
       decision: 'legacy_sni',
       hostname: getHostnameForLog(url),
     });
+    noteProxyPreflightOutcome(url, null);
     return null;
   }
 
   try {
-    return await preflight(url);
+    const proxyActive = await preflight(url);
+    noteProxyPreflightOutcome(url, proxyActive);
+    return proxyActive;
   } catch (error) {
+    noteProxyPreflightOutcome(url, null);
     logAdapterCapability('error', {
       adapter: 'native',
       capability: 'preflight',
@@ -229,6 +237,18 @@ export async function isProxyActiveForUrl(
       errorMessage: getErrorMessage(error),
     });
     throw error;
+  }
+}
+
+// Feeds the per-hostname availability proxy cache: the preflight answer only
+// applies to this URL's hostname (PAC and bypass rules differ per host). The
+// hostname stays in memory and only the enum outcome is reported; proxy host,
+// port, PAC script and bypass rules are never read here.
+function noteProxyPreflightOutcome(url: string, result: boolean | null): void {
+  try {
+    noteAvailabilityProxyPreflight(getAvailabilityHostname(url), result);
+  } catch {
+    // Metrics context is best effort and must not change preflight results.
   }
 }
 

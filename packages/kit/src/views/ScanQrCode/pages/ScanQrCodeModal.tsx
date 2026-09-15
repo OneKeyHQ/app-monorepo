@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { launchImageLibraryAsync } from 'expo-image-picker';
@@ -23,14 +23,13 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getAvailabilityErrorCode } from '@onekeyhq/shared/src/request/availabilityMetrics';
+import { startAvailabilityFlow } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import type {
   EScanQrCodeModalPages,
   IScanQrCodeModalParamList,
 } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -38,7 +37,15 @@ import { ScanQrCode } from '../components';
 import { ScanQrCodeTestIDs } from '../testIDs';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
+import {
+  getLibraryScanFlowResult,
+  getQrScanFlowErrorResult,
+  getScanQrCodeAvailabilityScene,
+} from './scanQrCodeAvailability';
+import { useCameraScanAvailabilityFlow } from './useCameraScanAvailabilityFlow';
+
 import type { RouteProp } from '@react-navigation/core';
+import type { ImagePickerResult } from 'expo-image-picker';
 
 appGlobals.$$scanNavigation = undefined;
 function DebugInput({ onText }: { onText: (text: string) => void }) {
@@ -214,59 +221,8 @@ export default function ScanQrCodeModal() {
     showProTutorial,
   } = route.params;
 
-  const availabilityScene = qrWalletScene ? 'qr_wallet' : 'general';
-  const cameraAttemptRef = useRef<{
-    attemptId: string;
-    reported: boolean;
-    startedAt: number;
-  } | null>(null);
-  if (!cameraAttemptRef.current) {
-    cameraAttemptRef.current = {
-      attemptId: generateUUID(),
-      reported: false,
-      startedAt: Date.now(),
-    };
-  }
-
-  useEffect(() => {
-    const cameraAttempt = cameraAttemptRef.current;
-    if (!cameraAttempt) return;
-    defaultLogger.scanQrCode.readQrCode.qrScanAttempt({
-      attemptId: cameraAttempt.attemptId,
-      input: 'camera',
-      scene: availabilityScene,
-    });
-  }, [availabilityScene]);
-
-  const finishQrScanAttempt = useCallback(
-    ({
-      attempt,
-      errorCode = 'unknown',
-      input,
-      status,
-    }: {
-      attempt: {
-        attemptId: string;
-        reported: boolean;
-        startedAt: number;
-      };
-      errorCode?: string;
-      input: 'camera' | 'library';
-      status: 'cancelled' | 'failed' | 'no_code' | 'success';
-    }) => {
-      if (attempt.reported) return;
-      attempt.reported = true;
-      defaultLogger.scanQrCode.readQrCode.qrScanResult({
-        attemptId: attempt.attemptId,
-        durationMs: Math.max(0, Date.now() - attempt.startedAt),
-        errorCode,
-        input,
-        scene: availabilityScene,
-        status,
-      });
-    },
-    [availabilityScene],
-  );
+  const availabilityScene = getScanQrCodeAvailabilityScene(qrWalletScene);
+  const trackCameraScan = useCameraScanAvailabilityFlow(availabilityScene);
 
   const callback = useCallback(
     async (value: string) => {
@@ -287,26 +243,21 @@ export default function ScanQrCodeModal() {
   const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
-    const attempt = {
-      attemptId: generateUUID(),
-      reported: false,
-      startedAt: Date.now(),
-    };
-    defaultLogger.scanQrCode.readQrCode.qrScanAttempt({
-      attemptId: attempt.attemptId,
-      input: 'library',
-      scene: availabilityScene,
+    const libraryFlow = startAvailabilityFlow('qr_library', {
+      detail: availabilityScene,
     });
+    let result: ImagePickerResult;
     try {
-      const result = await launchImageLibraryAsync({
+      result = await launchImageLibraryAsync({
         base64: !platformEnv.isNative,
         allowsMultipleSelection: false,
       });
+    } catch (error) {
+      libraryFlow.finish(getQrScanFlowErrorResult(error));
+      throw error;
+    }
 
-      if (result.canceled) {
-        finishQrScanAttempt({ attempt, input: 'library', status: 'cancelled' });
-        return;
-      }
+    if (!result.canceled) {
       const uri = result?.assets?.[0]?.uri;
       let data: string | null = null;
       let scanError: unknown;
@@ -318,37 +269,33 @@ export default function ScanQrCodeModal() {
       }
       if (data && data.length > 0) {
         isPickedImage.current = true;
-        await callback(data);
-        finishQrScanAttempt({ attempt, input: 'library', status: 'success' });
+        try {
+          await callback(data);
+        } catch (error) {
+          libraryFlow.finish(getQrScanFlowErrorResult(error));
+          throw error;
+        }
+        libraryFlow.finish(
+          getLibraryScanFlowResult({ type: 'callbackResolved' }),
+        );
       } else {
+        libraryFlow.finish(
+          getLibraryScanFlowResult({ type: 'noCode', scanError }),
+        );
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.scan_no_recognizable_qr_code_found,
           }),
-        });
-        finishQrScanAttempt({
-          attempt,
-          errorCode: scanError
-            ? getAvailabilityErrorCode(scanError)
-            : 'no_code',
-          input: 'library',
-          status: scanError ? 'failed' : 'no_code',
         });
       }
       defaultLogger.scanQrCode.readQrCode.readFromLibrary(
         JSON.stringify(result),
         data,
       );
-    } catch (error) {
-      finishQrScanAttempt({
-        attempt,
-        errorCode: getAvailabilityErrorCode(error),
-        input: 'library',
-        status: 'failed',
-      });
-      throw error;
+    } else {
+      libraryFlow.finish(getLibraryScanFlowResult({ type: 'pickerCancelled' }));
     }
-  }, [availabilityScene, callback, finishQrScanAttempt, intl]);
+  }, [availabilityScene, callback, intl]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
@@ -356,30 +303,9 @@ export default function ScanQrCodeModal() {
         return {};
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      const cameraAttempt = cameraAttemptRef.current;
-      try {
-        const result = await callback(value);
-        if (cameraAttempt) {
-          finishQrScanAttempt({
-            attempt: cameraAttempt,
-            input: 'camera',
-            status: value ? 'success' : 'cancelled',
-          });
-        }
-        return result;
-      } catch (error) {
-        if (cameraAttempt) {
-          finishQrScanAttempt({
-            attempt: cameraAttempt,
-            errorCode: getAvailabilityErrorCode(error),
-            input: 'camera',
-            status: 'failed',
-          });
-        }
-        throw error;
-      }
+      return trackCameraScan(value, callback);
     },
-    [callback, finishQrScanAttempt],
+    [callback, trackCameraScan],
   );
 
   const headerRightCall = useCallback(

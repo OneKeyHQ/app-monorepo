@@ -43,6 +43,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
   DidFailLoadEvent,
+  DidFrameNavigateEvent,
   DidStartNavigationEvent,
   Event,
   PageFaviconUpdatedEvent,
@@ -277,11 +278,20 @@ const DesktopWebView = forwardRef(
           const failedUrl = event?.validatedURL ?? event?.url;
           if (event.isMainFrame) {
             clearLoadTimeout();
-            reportWebViewAvailabilityResult({
-              errorCode: event.errorCode,
-              status: event.errorCode === -3 ? 'cancelled' : 'network_error',
-              timing: availabilityTimingRef.current,
-            });
+            // ERR_ABORTED (-3) means the load was superseded or stopped, and a
+            // failure for an older URL must not settle the current attempt.
+            if (
+              event.errorCode !== -3 &&
+              failedUrl === availabilityTimingRef.current?.url
+            ) {
+              reportWebViewAvailabilityResult({
+                errorCode: event.errorCode,
+                // ERR_HTTP_RESPONSE_CODE_FAILURE: a 4xx/5xx without a body.
+                status:
+                  event.errorCode === -379 ? 'http_error' : 'network_error',
+                timing: availabilityTimingRef.current,
+              });
+            }
           }
           if (event.errorCode !== -3) {
             // TODO iframe error also show ErrorView
@@ -302,7 +312,7 @@ const DesktopWebView = forwardRef(
         const innerHandleDidStartNavigationNavigation = (
           event: DidStartNavigationEvent,
         ) => {
-          const { isMainFrame, url } = event ?? {};
+          const { isInPlace, isMainFrame, url } = event ?? {};
           if (isMainFrame && onShouldStartLoadWithRequest && url) {
             const shouldLoad = onShouldStartLoadWithRequest({
               url,
@@ -318,10 +328,18 @@ const DesktopWebView = forwardRef(
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
             updateIsDomReady(false);
-            availabilityTimingRef.current = createWebViewAvailabilityTiming({
-              attemptId: stringUtils.generateUUID(),
-              url,
-            });
+            // Same-document navigations never fire did-finish-load.
+            if (!isInPlace) {
+              const availabilityTiming = availabilityTimingRef.current;
+              if (availabilityTiming && !availabilityTiming.reported) {
+                // A navigation superseding an unfinished one continues it.
+                availabilityTiming.url = url;
+              } else {
+                availabilityTimingRef.current = createWebViewAvailabilityTiming(
+                  { url },
+                );
+              }
+            }
             startLoadTimeout();
           }
           checkGoogleOauth(url);
@@ -329,10 +347,27 @@ const DesktopWebView = forwardRef(
           onDidStartNavigation?.(event);
         };
 
+        // Electron fires did-fail-load only for network failures; an HTTP
+        // error response commits normally and then reaches did-finish-load.
+        const innerHandleDidFrameNavigate = (event: DidFrameNavigateEvent) => {
+          const availabilityTiming = availabilityTimingRef.current;
+          if (
+            event?.isMainFrame &&
+            event.httpResponseCode >= 400 &&
+            event.url === availabilityTiming?.url
+          ) {
+            reportWebViewAvailabilityResult({
+              errorCode: event.httpResponseCode,
+              status: 'http_error',
+              timing: availabilityTiming,
+            });
+          }
+        };
+
         const didFinishLoad = (e: any) => {
           clearLoadTimeout();
           reportWebViewAvailabilityResult({
-            status: 'success',
+            status: 'ok',
             timing: availabilityTimingRef.current,
           });
           if (!lastMainFrameLoadErrorRef.current) {
@@ -377,6 +412,11 @@ const DesktopWebView = forwardRef(
           // and a Discovery tab would keep the pre-redirect address. RN WebView
           // reports the final URL, so this only closes a desktop-side gap.
           if (isMainFrame) {
+            const availabilityTiming = availabilityTimingRef.current;
+            if (availabilityTiming && !availabilityTiming.reported) {
+              // did-fail-load reports the redirect target as validatedURL.
+              availabilityTiming.url = url;
+            }
             onDidStartNavigation?.(event);
           }
         };
@@ -389,6 +429,10 @@ const DesktopWebView = forwardRef(
         webview.addEventListener(
           'did-redirect-navigation',
           innerHandleDidRedirectNavigation,
+        );
+        webview.addEventListener(
+          'did-frame-navigate',
+          innerHandleDidFrameNavigate,
         );
         webview.addEventListener('did-finish-load', didFinishLoad);
         webview.addEventListener('did-stop-loading', innerHandleDidStopLoading);
@@ -413,6 +457,10 @@ const DesktopWebView = forwardRef(
           webview.removeEventListener(
             'did-redirect-navigation',
             innerHandleDidRedirectNavigation,
+          );
+          webview.removeEventListener(
+            'did-frame-navigate',
+            innerHandleDidFrameNavigate,
           );
           webview.removeEventListener('did-finish-load', didFinishLoad);
           webview.removeEventListener(

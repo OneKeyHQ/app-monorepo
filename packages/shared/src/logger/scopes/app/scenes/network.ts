@@ -1,53 +1,28 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-import type {
-  IApiAvailabilityResultParams,
-  IWebSocketConnectionAttemptParams,
-  IWebSocketConnectionClosedParams,
-  IWebSocketConnectionResultParams,
-  IWebViewAvailabilityResultParams,
-} from '../types';
+import type { IAvailabilitySnapshotParams } from '../types';
 
 export { isEnableLogNetwork } from './networkFilter';
 
 export class NetworkScene extends BaseScene {
   /**
-   * Reports a sampled, low-cardinality API result without request payloads,
-   * query parameters, raw URLs, addresses, or free-form error messages.
+   * Aggregated client availability counters for one or more time windows.
+   * Only availabilityAggregator emits it, under a per-runtime daily budget,
+   * so volume does not scale with request count or failure storms. Params
+   * are numeric counters plus sanitized failure details: no URLs, query
+   * strings, addresses, payloads, device identifiers or free-form errors.
    */
-  @LogToServer()
+  @LogToServer({ level: 'info', waitForServer: true })
   @LogToLocal({ level: 'debug' })
-  public apiAvailabilityResult(params: IApiAvailabilityResultParams) {
+  private availabilitySnapshot(params: IAvailabilitySnapshotParams) {
     return params;
   }
 
-  @LogToServer()
-  @LogToLocal()
-  public webSocketConnectionAttempt(params: IWebSocketConnectionAttemptParams) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public webSocketConnectionResult(params: IWebSocketConnectionResultParams) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public webSocketConnectionClosed(params: IWebSocketConnectionClosedParams) {
-    return params;
-  }
-
-  /**
-   * Reports a sampled WebView terminal result without raw URLs, page titles,
-   * navigation history, or page content.
-   */
-  @LogToServer()
-  @LogToLocal()
-  public webViewAvailabilityResult(params: IWebViewAvailabilityResultParams) {
-    return params;
+  public reportAvailabilitySnapshot(
+    params: IAvailabilitySnapshotParams,
+  ): Promise<void> {
+    return this.availabilitySnapshot(params) as unknown as Promise<void>;
   }
 
   @LogToLocal({ level: 'debug' })

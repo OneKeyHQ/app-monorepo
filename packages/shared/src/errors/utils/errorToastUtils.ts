@@ -114,15 +114,22 @@ function wasAutoToastShown(error: unknown): boolean {
   return err?.$$autoToastErrorTriggered === true;
 }
 
+// Side-effect-free className check for user-initiated cancellations. Unlike
+// isUserCancelStyleError it does not tag aborted axios errors, so observers
+// such as availability metrics can classify an error without mutating it.
+function hasUserCancelStyleClassName(error: unknown): boolean {
+  const err = error as IOneKeyError | undefined;
+  return Boolean(
+    err?.className && USER_CANCEL_STYLE_ERROR_CLASS_NAMES.has(err.className),
+  );
+}
+
 // True if the error represents a user-initiated cancellation/abort
 // (including aborted axios requests) — callers should not surface any
 // error feedback for these.
 function isUserCancelStyleError(error: unknown): boolean {
   fixAxiosAbortCancelError(error);
-  const err = error as IOneKeyError | undefined;
-  return Boolean(
-    err?.className && USER_CANCEL_STYLE_ERROR_CLASS_NAMES.has(err.className),
-  );
+  return hasUserCancelStyleClassName(error);
 }
 
 let lastToastErrorInstance: IOneKeyError | undefined;
@@ -312,4 +319,5 @@ export default {
   withErrorAutoToast,
   wasAutoToastShown,
   isUserCancelStyleError,
+  hasUserCancelStyleClassName,
 };

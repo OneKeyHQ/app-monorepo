@@ -24,9 +24,23 @@ const mockConsoleLog = jest.fn();
 const mockOneKeyIdLogoutLog = jest.fn();
 const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockNotificationStatusSet = jest.fn();
+const mockRecordWebSocketConnectResult = jest.fn();
+const mockRecordWebSocketClosed = jest.fn();
 
 jest.mock('socket.io-client', () => ({
   io: () => mockIo(),
+}));
+
+jest.mock('@onekeyhq/shared/src/request/availabilityMetrics', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/shared/src/request/availabilityMetrics')
+  >('@onekeyhq/shared/src/request/availabilityMetrics'),
+  recordWebSocketClosed: (...args: unknown[]) => {
+    mockRecordWebSocketClosed(...args);
+  },
+  recordWebSocketConnectResult: (...args: unknown[]) => {
+    mockRecordWebSocketConnectResult(...args);
+  },
 }));
 
 jest.mock('../../../endpoints', () => ({
@@ -55,13 +69,6 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    app: {
-      network: {
-        webSocketConnectionAttempt: jest.fn(),
-        webSocketConnectionResult: jest.fn(),
-        webSocketConnectionClosed: jest.fn(),
-      },
-    },
     notification: {
       websocket: {
         consoleLog: (...args: unknown[]) => {
@@ -469,5 +476,54 @@ describe('PushProviderWebSocket prime device logout', () => {
         messageId: 'pending-message',
       },
     );
+  });
+});
+
+describe('PushProviderWebSocket availability metrics', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSocketHandlers.clear();
+    mockGetEndpointInfo.mockResolvedValue({
+      endpoint: 'wss://notification.example.com',
+      name: EServiceEndpointEnum.NotificationWebSocket,
+    });
+  });
+
+  test('counts one result per connection attempt and closes only established connections', async () => {
+    createFixture();
+    const connectError = await getSocketHandler<unknown>('connect_error');
+    const connect = await getSocketHandler<void>('connect');
+    const disconnect = await getSocketHandler<string>('disconnect');
+    const managerCalls = mockSocket.io.on.mock.calls as [string, () => void][];
+    const reconnectAttempt = managerCalls.find(
+      ([event]) => event === 'reconnect_attempt',
+    )?.[1];
+
+    await connectError(new OneKeyLocalError('websocket timeout'));
+    await disconnect('transport close');
+    reconnectAttempt?.();
+    reconnectAttempt?.();
+    await connect();
+    await disconnect('ping timeout');
+
+    expect(mockRecordWebSocketConnectResult.mock.calls).toEqual([
+      [
+        expect.objectContaining({
+          status: 'timeout',
+          transport: 'notification_market',
+          trigger: 'initial',
+        }),
+      ],
+      [
+        expect.objectContaining({
+          status: 'ok',
+          transport: 'notification_market',
+          trigger: 'reconnect',
+        }),
+      ],
+    ]);
+    expect(mockRecordWebSocketClosed.mock.calls).toEqual([
+      [{ transport: 'notification_market', reason: 'ping_timeout' }],
+    ]);
   });
 });

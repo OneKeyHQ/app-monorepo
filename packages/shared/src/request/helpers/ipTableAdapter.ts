@@ -5,9 +5,15 @@ import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
+import { setAvailabilityIpTableState } from '../availabilityContext';
 import {
   createIpTableAvailabilityTiming,
   getAvailabilityErrorCode,
+  getAvailabilityFailureStatus,
+  isAvailabilityCancelError,
+  markApiAvailabilityProxy,
+  markApiAvailabilityRoute,
+  reportApiAvailabilityResult,
   reportIpTableAvailabilityResult,
 } from '../availabilityMetrics';
 import {
@@ -32,6 +38,7 @@ import {
 } from './sniRequestAbort';
 
 import type { IIpTableRequestOutcomeState } from './ipTableRequestOutcome';
+import type { IAvailabilityIpTableState } from '../availabilityContext';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -83,6 +90,24 @@ function getErrorCode(error: unknown): string {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function hasHttpResponse(error: unknown): boolean {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    'response' in error &&
+    (error as { response?: unknown }).response,
+  );
+}
+
+function hasAxiosRequestConfig(error: unknown): boolean {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    'config' in error &&
+    (error as { config?: unknown }).config,
+  );
 }
 
 function formatLogEvent(
@@ -551,6 +576,70 @@ async function shouldUseIpTable(): Promise<boolean> {
   }
 }
 
+// ========== IP Table state for availability metrics ==========
+
+const IP_TABLE_AVAILABILITY_STATE_REFRESH_MS = 30_000;
+
+let ipTableAvailabilityStateRefresh: { startedAt: number } | undefined;
+
+/**
+ * Reads the inputs getSelectedIpForHostInternal() gates on:
+ * - disabled: dev settings turn IP Table off, or runtime.enabled === false
+ *   (explicit user intent);
+ * - no_config: this runtime has no config (split-runtime main, or the cold
+ *   start before background init), even if a fail-open window is active;
+ * - enabled: config present and not disabled.
+ */
+async function readIpTableAvailabilityState(): Promise<IAvailabilityIpTableState> {
+  if (!(await shouldUseIpTable())) {
+    return 'disabled';
+  }
+  const configWithRuntime = await requestHelper.getIpTableConfig();
+  if (!configWithRuntime) {
+    return 'no_config';
+  }
+  return configWithRuntime.runtime?.enabled === false ? 'disabled' : 'enabled';
+}
+
+/**
+ * Fire-and-forget: at most one refresh per interval, never awaited by the
+ * request. Only the latest refresh may write, and a failed read keeps the
+ * previous state.
+ */
+function refreshIpTableAvailabilityState(): void {
+  const now = Date.now();
+  const last = ipTableAvailabilityStateRefresh;
+  if (
+    last &&
+    now >= last.startedAt &&
+    now - last.startedAt < IP_TABLE_AVAILABILITY_STATE_REFRESH_MS
+  ) {
+    return;
+  }
+  const current = { startedAt: now };
+  ipTableAvailabilityStateRefresh = current;
+  void readIpTableAvailabilityState().then(
+    (state) => {
+      if (ipTableAvailabilityStateRefresh === current) {
+        setAvailabilityIpTableState(state);
+      }
+    },
+    () => undefined,
+  );
+}
+
+/**
+ * Test-only helper: forgets the last IP Table state refresh. `fresh: true`
+ * treats it as just refreshed, so a test observes only request-path reads.
+ */
+export function resetIpTableAvailabilityStateRefreshForTesting({
+  fresh = false,
+}: { fresh?: boolean } = {}): void {
+  ipTableAvailabilityStateRefresh = fresh
+    ? { startedAt: Date.now() }
+    : undefined;
+}
+
 /**
  * Internal implementation of IP selection logic
  * This function is memoized for performance optimization
@@ -891,6 +980,10 @@ export function createIpTableAdapter(
       '[IpTableAdapter] Original adapter type:',
       typeof originalDefaultAdapters,
     );
+    markApiAvailabilityRoute(
+      config.$oneKeyAvailabilityTiming,
+      isFallback ? 'fallback' : 'domain',
+    );
 
     try {
       let response: AxiosResponse;
@@ -1033,8 +1126,14 @@ export function createIpTableAdapter(
     }
   };
 
-  return async (config: InternalAxiosRequestConfig) => {
+  const ipTableAdapter: AxiosAdapter = async (
+    config: InternalAxiosRequestConfig,
+  ) => {
+    // Every dispatch below overwrites this; a request that keeps it ended
+    // before any route was taken.
+    markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, 'none');
     throwIfSniRequestAborted(config.signal);
+    refreshIpTableAvailabilityState();
     const sniSupported = isSniSupported();
     // Check if SNI is supported on current platform
     if (!sniSupported) {
@@ -1143,6 +1242,7 @@ export function createIpTableAdapter(
       );
     } catch (error) {
       if (isSniFailClosedError(error)) {
+        markApiAvailabilityProxy(config.$oneKeyAvailabilityTiming, null);
         throw error;
       }
       debugWarn(
@@ -1152,6 +1252,7 @@ export function createIpTableAdapter(
       preflightError = error;
       proxyActive = null;
     }
+    markApiAvailabilityProxy(config.$oneKeyAvailabilityTiming, proxyActive);
     const shouldUseSni = proxyActive !== true && !preflightError;
     let fallbackReason = 'none';
     let preflightReason = 'confirmed_direct';
@@ -1220,7 +1321,11 @@ export function createIpTableAdapter(
     debugLog(
       `[IpTableAdapter] Using IP direct connection: ${hostname} -> ${selectedIp}`,
     );
-    const availabilityTiming = createIpTableAvailabilityTiming({ hostname });
+    const availabilityTiming = createIpTableAvailabilityTiming({
+      hostname,
+      baseURL: config.baseURL,
+      url,
+    });
 
     // Construct full path for SNI request
     let fullPath = url;
@@ -1284,6 +1389,10 @@ export function createIpTableAdapter(
       requestBody ? requestBody.substring(0, 200) : 'null',
     );
 
+    // Marked once the SNI request is about to be sent. Blocked and fail-closed
+    // outcomes keep this; a domain re-send marks 'fallback' in
+    // callOriginalAdapter.
+    markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, 'sni');
     const sniRequestSequence = nextIpTableRequestSequence();
     // One SNI attempt must produce at most one ip-failure report: the
     // null-response branch throws for non-idempotent requests and that
@@ -1304,6 +1413,49 @@ export function createIpTableAdapter(
       });
     };
 
+    const callDomainFallback = async ({
+      sniErrorCode,
+      reportFailure = true,
+    }: {
+      sniErrorCode: string;
+      reportFailure?: boolean;
+    }) => {
+      try {
+        const fallbackResponse = await callOriginalAdapter({
+          config,
+          isFallback: true,
+          hostname,
+          rootDomain,
+        });
+        reportIpTableAvailabilityResult({
+          status: 'fallback_ok',
+          sniErrorCode,
+          timing: availabilityTiming,
+        });
+        return fallbackResponse;
+      } catch (fallbackError) {
+        if (reportFailure) {
+          let status: 'cancelled' | 'fallback_failed' | 'fallback_ok' =
+            'fallback_failed';
+          if (isAvailabilityCancelError(fallbackError)) {
+            status = 'cancelled';
+          } else if (hasHttpResponse(fallbackError)) {
+            // The domain path answered with an HTTP error: the transport
+            // worked, matching how an SNI HTTP error response counts as ok.
+            status = 'fallback_ok';
+          }
+          reportIpTableAvailabilityResult({
+            status,
+            sniErrorCode,
+            fallbackErrorCode: getAvailabilityErrorCode(fallbackError),
+            timing: availabilityTiming,
+          });
+        }
+        throw fallbackError;
+      }
+    };
+
+    let sniResponseMissing = false;
     try {
       const sniResponse = await sniRequest(
         {
@@ -1321,6 +1473,7 @@ export function createIpTableAdapter(
       // If SNI request fails, use original adapter
       if (!sniResponse) {
         debugLog('[IpTableAdapter] SNI request returned null, using fallback');
+        sniResponseMissing = true;
         reportIpFailureOnce('SNI response null');
         // A null response is ambiguous — the request may have reached the
         // server. Re-sending over the domain is only safe for idempotent
@@ -1333,37 +1486,22 @@ export function createIpTableAdapter(
             method,
             reason: 'non_idempotent_after_sni_started',
           });
+          reportIpTableAvailabilityResult({
+            status: 'blocked',
+            sniErrorCode: 'null_response',
+            timing: availabilityTiming,
+          });
           throw new OneKeyLocalError(
             'IP Table Adapter: SNI response missing and request is not idempotent',
           );
         }
-        // Fallback to domain (isFallback = true, so domain failure won't be counted)
-        try {
-          const fallbackResponse = await callOriginalAdapter({
-            config,
-            isFallback: true,
-            hostname,
-            rootDomain,
-          });
-          reportIpTableAvailabilityResult({
-            fallbackStatus: 'success',
-            sniErrorCode: 'null_response',
-            sniStatus: 'null',
-            status: 'success',
-            timing: availabilityTiming,
-          });
-          return fallbackResponse;
-        } catch (fallbackError) {
-          reportIpTableAvailabilityResult({
-            errorCode: getAvailabilityErrorCode(fallbackError),
-            fallbackStatus: 'failed',
-            sniErrorCode: 'null_response',
-            sniStatus: 'null',
-            status: 'failed',
-            timing: availabilityTiming,
-          });
-          throw fallbackError;
-        }
+        // Fallback to domain (isFallback = true, so domain failure won't be counted).
+        // A failure here lands in the catch below, which falls back once more
+        // and records the final outcome.
+        return await callDomainFallback({
+          sniErrorCode: 'null_response',
+          reportFailure: false,
+        });
       }
 
       // Convert SNI response to Axios response format
@@ -1408,12 +1546,9 @@ export function createIpTableAdapter(
       debugLog('[IpTableAdapter] Response data:', responseData);
 
       reportIpTableAvailabilityResult({
-        fallbackStatus: 'not_attempted',
-        sniStatus: 'success',
-        status: 'success',
+        status: 'ok',
         timing: availabilityTiming,
       });
-
       return {
         data: responseData,
         status: sniResponse.statusCode ?? sniResponse.status ?? 0,
@@ -1423,6 +1558,9 @@ export function createIpTableAdapter(
         request: {},
       };
     } catch (error) {
+      const sniErrorCode = sniResponseMissing
+        ? 'null_response'
+        : getAvailabilityErrorCode(error);
       if (isSniFailClosedError(error)) {
         debugError('[IpTableAdapter] SNI fail-closed error:', error);
         logIpTableEvent('error', 'sni_fail_closed', {
@@ -1434,11 +1572,12 @@ export function createIpTableAdapter(
           decision: 'throw_no_fallback',
         });
         reportIpTableAvailabilityResult({
-          errorCode: getAvailabilityErrorCode(error),
-          fallbackStatus: 'not_attempted',
-          sniErrorCode: getAvailabilityErrorCode(error),
-          sniStatus: 'fail_closed',
-          status: 'failed',
+          // SNI_CANCELLED is fail-closed for routing but is a caller abort,
+          // not an availability failure.
+          status: isAvailabilityCancelError(error)
+            ? 'cancelled'
+            : 'fail_closed',
+          sniErrorCode,
           timing: availabilityTiming,
         });
         throw error;
@@ -1465,11 +1604,8 @@ export function createIpTableAdapter(
           reason: 'non_idempotent_after_sni_started',
         });
         reportIpTableAvailabilityResult({
-          errorCode: getAvailabilityErrorCode(error),
-          fallbackStatus: 'not_attempted',
-          sniErrorCode: getAvailabilityErrorCode(error),
-          sniStatus: 'failed',
-          status: 'failed',
+          status: 'blocked',
+          sniErrorCode,
           timing: availabilityTiming,
         });
         throw error;
@@ -1488,32 +1624,29 @@ export function createIpTableAdapter(
         ),
       });
       // Fallback to domain (isFallback = true, so domain failure won't be counted)
-      try {
-        const fallbackResponse = await callOriginalAdapter({
-          config,
-          isFallback: true,
-          hostname,
-          rootDomain,
+      return callDomainFallback({ sniErrorCode });
+    }
+  };
+
+  return async (config: InternalAxiosRequestConfig) => {
+    try {
+      return await ipTableAdapter(config);
+    } catch (error) {
+      // Errors carrying `config` (AxiosError from the domain adapter) are
+      // recorded by the axios response interceptor. Adapter-originated errors
+      // (SNI fail-closed, blocked fallback, preflight abort) have no config,
+      // so the interceptor cannot find the timing and would drop the outcome.
+      // An aborted signal counts as cancelled, as the interceptor does.
+      if (!hasAxiosRequestConfig(error)) {
+        reportApiAvailabilityResult({
+          status: config.signal?.aborted
+            ? 'cancelled'
+            : getAvailabilityFailureStatus(error),
+          errorCode: getAvailabilityErrorCode(error),
+          timing: config.$oneKeyAvailabilityTiming,
         });
-        reportIpTableAvailabilityResult({
-          fallbackStatus: 'success',
-          sniErrorCode: getAvailabilityErrorCode(error),
-          sniStatus: 'failed',
-          status: 'success',
-          timing: availabilityTiming,
-        });
-        return fallbackResponse;
-      } catch (fallbackError) {
-        reportIpTableAvailabilityResult({
-          errorCode: getAvailabilityErrorCode(fallbackError),
-          fallbackStatus: 'failed',
-          sniErrorCode: getAvailabilityErrorCode(error),
-          sniStatus: 'failed',
-          status: 'failed',
-          timing: availabilityTiming,
-        });
-        throw fallbackError;
       }
+      throw error;
     }
   };
 }

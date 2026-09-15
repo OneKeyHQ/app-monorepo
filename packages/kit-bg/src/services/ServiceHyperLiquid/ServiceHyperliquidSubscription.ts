@@ -21,11 +21,11 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getAvailabilityErrorCode,
-  normalizeAvailabilityErrorCode,
+  recordWebSocketClosed,
+  recordWebSocketConnectResult,
 } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isAppVisible } from '@onekeyhq/shared/src/utils/appVisibility';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   clearTrackedInterval,
   trackedSetInterval,
@@ -195,7 +195,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
 
   private _webSocketAvailabilityAttempt: {
-    attemptId: string;
     startedAt: number;
     trigger: 'initial' | 'reconnect';
   } | null = null;
@@ -205,18 +204,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _isClosingWebSocket = false;
 
   private _startWebSocketAvailabilityAttempt(trigger: 'initial' | 'reconnect') {
-    if (this._webSocketAvailabilityAttempt) return;
-    const attempt = {
-      attemptId: generateUUID(),
-      startedAt: Date.now(),
-      trigger,
-    };
-    this._webSocketAvailabilityAttempt = attempt;
-    defaultLogger.app.network.webSocketConnectionAttempt({
-      attemptId: attempt.attemptId,
-      transport: 'perps',
-      trigger,
-    });
+    // An attempt that never produced a result (e.g. a reconnect pending on
+    // the previous transport) must not absorb the new socket's outcome.
+    this._finishWebSocketAvailabilityAttempt({ status: 'cancelled' });
+    this._webSocketAvailabilityAttempt = { startedAt: Date.now(), trigger };
+  }
+
+  // rews asks for the reconnect delay after dispatching close and then sleeps
+  // that long before creating the next socket; the backoff is not connect
+  // time. Runs inside the rews loop, where a throw terminates the transport.
+  private _deferWebSocketReconnectAttemptStart(delayMs: number) {
+    const attempt = this._webSocketAvailabilityAttempt;
+    if (attempt?.trigger === 'reconnect') {
+      attempt.startedAt = Date.now() + delayMs;
+    }
   }
 
   private _finishWebSocketAvailabilityAttempt({
@@ -224,18 +225,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     status,
   }: {
     errorCode?: unknown;
-    status: 'failed' | 'success' | 'timeout';
+    status: 'cancelled' | 'failed' | 'ok' | 'timeout';
   }) {
     const attempt = this._webSocketAvailabilityAttempt;
     if (!attempt) return;
     this._webSocketAvailabilityAttempt = null;
-    defaultLogger.app.network.webSocketConnectionResult({
-      attemptId: attempt.attemptId,
-      durationMs: Math.max(0, Date.now() - attempt.startedAt),
-      errorCode: normalizeAvailabilityErrorCode(errorCode),
-      status,
+    recordWebSocketConnectResult({
       transport: 'perps',
       trigger: attempt.trigger,
+      status,
+      durationMs: Math.max(0, Date.now() - attempt.startedAt),
+      errorCode,
     });
   }
 
@@ -1862,19 +1862,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     void perpsWebSocketReadyStateAtom.set({ readyState });
     this._finishWebSocketAvailabilityAttempt({
       errorCode: event.code,
-      status: 'failed',
+      // rews closes a socket that is still CONNECTING after
+      // reconnect.connectionTimeout with code 3008.
+      status: event.code === 3008 ? 'timeout' : 'failed',
     });
-    defaultLogger.app.network.webSocketConnectionClosed({
-      connectedDurationMs: this._webSocketConnectedAt
-        ? Math.max(0, Date.now() - this._webSocketConnectedAt)
-        : 0,
-      reason: this._isClosingWebSocket
-        ? 'client_disconnect'
-        : 'transport_close',
-      transport: 'perps',
-      willReconnect: !this._isClosingWebSocket,
-    });
-    this._webSocketConnectedAt = null;
+    // Client-initiated closes are recorded by _closeClient, which clears
+    // _webSocketConnectedAt before dispose.
+    if (this._webSocketConnectedAt !== null) {
+      this._webSocketConnectedAt = null;
+      recordWebSocketClosed({ transport: 'perps', reason: 'transport_close' });
+    }
     if (!this._isClosingWebSocket) {
       this._startWebSocketAvailabilityAttempt('reconnect');
     }
@@ -1904,7 +1901,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // Catch-all here keeps the WS lifecycle robust regardless of which atom
     // write or update fails.
     try {
-      this._finishWebSocketAvailabilityAttempt({ status: 'success' });
+      this._finishWebSocketAvailabilityAttempt({ status: 'ok' });
       this._webSocketConnectedAt = Date.now();
       markPerpsColdStartPerfOnce('service_ws_open_first');
       const socket = event.target as WebSocket | undefined;
@@ -2181,7 +2178,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
-          ) => Math.min(2 ** attempt * 150, 8000),
+          ) => {
+            const delayMs = Math.min(2 ** attempt * 150, 8000);
+            this._deferWebSocketReconnectAttemptStart(delayMs);
+            return delayMs;
+          },
         },
         /* spell-checker:enable */
       };
@@ -2385,6 +2386,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._unwatchSubscriptionAtoms();
     this._clearActiveL2BookSpec();
     if (this._client) {
+      // dispose() removes our socket listeners right after close(), before an
+      // OPEN socket emits close, so the close handler never sees this.
+      this._finishWebSocketAvailabilityAttempt({ status: 'cancelled' });
+      if (this._webSocketConnectedAt !== null) {
+        this._webSocketConnectedAt = null;
+        recordWebSocketClosed({
+          transport: 'perps',
+          reason: 'client_disconnect',
+        });
+      }
       this._isClosingWebSocket = true;
       try {
         // TODO remove all eventListeners

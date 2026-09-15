@@ -1,6 +1,11 @@
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
+import {
+  getAvailabilityProxyState,
+  noteAvailabilityProxyPreflight,
+  resetAvailabilityContextForTest,
+} from '../availabilityContext';
 
 import { isProxyActiveForUrl, sniRequest } from './sniRequest.desktop';
 
@@ -34,6 +39,18 @@ jest.mock('../../utils/miscUtils', () => ({
   generateUUID: jest.fn(() => 'desktop-generated-request-id'),
 }));
 
+jest.mock('../availabilityContext', () => {
+  const actual = jest.requireActual<typeof import('../availabilityContext')>(
+    '../availabilityContext',
+  );
+  return {
+    ...actual,
+    noteAvailabilityProxyPreflight: jest.fn(
+      actual.noteAvailabilityProxyPreflight,
+    ),
+  };
+});
+
 type DesktopApiProxyMock = {
   sniRequest?: {
     request?: jest.Mock<Promise<ISniResponse>, [ISniRequestConfig]>;
@@ -43,6 +60,10 @@ type DesktopApiProxyMock = {
 };
 
 const mockedPlatformEnv = platformEnv as jest.Mocked<typeof platformEnv>;
+const mockedNoteProxyPreflight =
+  noteAvailabilityProxyPreflight as jest.MockedFunction<
+    typeof noteAvailabilityProxyPreflight
+  >;
 
 type LogMethod = typeof defaultLogger.ipTable.request.warn;
 type LogMethodMock = jest.Mock<ReturnType<LogMethod>, Parameters<LogMethod>>;
@@ -77,6 +98,10 @@ function buildSniRequestConfig(): ISniRequestConfig {
   };
 }
 
+const preflightUrl = 'https://example.com/health';
+const preflightHostname = 'example.com';
+const otherHostname = 'other.example.com';
+
 const sniResponse: ISniResponse = {
   statusCode: 204,
   headers: {},
@@ -96,10 +121,12 @@ describe('sniRequest.desktop compatibility', () => {
   beforeEach(() => {
     mockedPlatformEnv.isDesktop = true;
     jest.clearAllMocks();
+    resetAvailabilityContextForTest();
   });
 
   afterEach(() => {
     setDesktopApiProxy(undefined);
+    resetAvailabilityContextForTest();
   });
 
   afterAll(() => {
@@ -131,9 +158,133 @@ describe('sniRequest.desktop compatibility', () => {
     expect(isProxyActive).toHaveBeenCalledWith('https://example.com/health');
     expect(getWarnLogCalls()).toHaveLength(0);
     expect(getErrorLogCalls()).toHaveLength(0);
+    expect(mockedNoteProxyPreflight).toHaveBeenCalledWith(
+      preflightHostname,
+      false,
+    );
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('off');
+    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
+  });
+
+  test('notes an active proxy for the URL hostname only and returns true unchanged', async () => {
+    const isProxyActive = jest
+      .fn<Promise<boolean>, [string]>()
+      .mockResolvedValue(true);
+    setDesktopApiProxy({
+      sniRequest: {
+        isProxyActiveForUrl: isProxyActive,
+      },
+    });
+
+    await expect(
+      isProxyActiveForUrl('https://example.com/health'),
+    ).resolves.toBe(true);
+
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('on');
+    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
+  });
+
+  test('does not overwrite the state noted for another hostname', async () => {
+    noteAvailabilityProxyPreflight(otherHostname, true);
+    const isProxyActive = jest
+      .fn<Promise<boolean>, [string]>()
+      .mockResolvedValue(false);
+    setDesktopApiProxy({
+      sniRequest: {
+        isProxyActiveForUrl: isProxyActive,
+      },
+    });
+
+    await expect(isProxyActiveForUrl(preflightUrl)).resolves.toBe(false);
+
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('off');
+    expect(getAvailabilityProxyState(otherHostname)).toBe('on');
+  });
+
+  test('does not label any hostname when the URL cannot be parsed', async () => {
+    const isProxyActive = jest
+      .fn<Promise<boolean>, [string]>()
+      .mockResolvedValue(true);
+    setDesktopApiProxy({
+      sniRequest: {
+        isProxyActiveForUrl: isProxyActive,
+      },
+    });
+
+    await expect(isProxyActiveForUrl('not a url')).resolves.toBe(true);
+
+    expect(mockedNoteProxyPreflight).toHaveBeenCalledWith(undefined, true);
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('unknown');
+    expect(getAvailabilityProxyState(undefined)).toBe('unknown');
+  });
+
+  test('notes unknown when the desktop API has no preflight method', async () => {
+    noteAvailabilityProxyPreflight(preflightHostname, true);
+    setDesktopApiProxy({ sniRequest: {} });
+
+    await expect(
+      isProxyActiveForUrl('https://example.com/health'),
+    ).resolves.toBeNull();
+
+    expect(getWarnLogCalls()).toEqual([
+      [
+        expect.objectContaining({
+          info: expect.stringContaining('decision=legacy_sni'),
+        }),
+      ],
+    ]);
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('unknown');
+    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
+  });
+
+  test('notes unknown outside the desktop runtime', async () => {
+    noteAvailabilityProxyPreflight(preflightHostname, false);
+    mockedPlatformEnv.isDesktop = false;
+    const isProxyActive = jest
+      .fn<Promise<boolean>, [string]>()
+      .mockResolvedValue(true);
+    setDesktopApiProxy({
+      sniRequest: {
+        isProxyActiveForUrl: isProxyActive,
+      },
+    });
+
+    await expect(
+      isProxyActiveForUrl('https://example.com/health'),
+    ).resolves.toBeNull();
+
+    expect(isProxyActive).not.toHaveBeenCalled();
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('unknown');
+    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
+  });
+
+  test('keeps the preflight result when noting the context throws', async () => {
+    const isProxyActive = jest
+      .fn<Promise<boolean>, [string]>()
+      .mockResolvedValue(false);
+    setDesktopApiProxy({
+      sniRequest: {
+        isProxyActiveForUrl: isProxyActive,
+      },
+    });
+    mockedNoteProxyPreflight.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('context unavailable');
+    });
+
+    await expect(
+      isProxyActiveForUrl('https://example.com/health'),
+    ).resolves.toBe(false);
+
+    expect(mockedNoteProxyPreflight).toHaveBeenCalledWith(
+      preflightHostname,
+      false,
+    );
+    expect(getErrorLogCalls()).toHaveLength(0);
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('unknown');
   });
 
   test('returns null when old desktop native does not expose the preflight method', async () => {
+    noteAvailabilityProxyPreflight(preflightHostname, true);
     const isProxyActive = jest
       .fn<Promise<boolean>, [string]>()
       .mockRejectedValue(
@@ -159,9 +310,12 @@ describe('sniRequest.desktop compatibility', () => {
       ],
     ]);
     expect(getErrorLogCalls()).toHaveLength(0);
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('unknown');
+    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
   });
 
   test('rethrows non-capability desktop preflight errors', async () => {
+    noteAvailabilityProxyPreflight(preflightHostname, false);
     const error = new Error('resolveProxy failed');
     const isProxyActive = jest
       .fn<Promise<boolean>, [string]>()
@@ -174,7 +328,7 @@ describe('sniRequest.desktop compatibility', () => {
 
     await expect(
       isProxyActiveForUrl('https://example.com/health'),
-    ).rejects.toThrow(error);
+    ).rejects.toBe(error);
 
     expect(getErrorLogCalls()).toEqual([
       [
@@ -183,6 +337,8 @@ describe('sniRequest.desktop compatibility', () => {
         }),
       ],
     ]);
+    expect(getAvailabilityProxyState(preflightHostname)).toBe('unknown');
+    expect(getAvailabilityProxyState(otherHostname)).toBe('unknown');
   });
 
   test('cancels an in-flight request with its generated request id', async () => {

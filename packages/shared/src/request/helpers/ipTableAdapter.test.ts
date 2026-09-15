@@ -2,6 +2,16 @@ import axios from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import platformEnv from '../../platformEnv';
+import {
+  getAvailabilityIpTableState,
+  getAvailabilityNetworkType,
+  getAvailabilityProxyState,
+  noteAvailabilityProxyPreflight,
+  resetAvailabilityContextForTest,
+  setAvailabilityIpTableState,
+} from '../availabilityContext';
+import { createApiAvailabilityTiming } from '../availabilityMetrics';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -9,12 +19,34 @@ import {
   createIpTableAdapter,
   isIpTableTransportError,
   resetAdapterFailoverStatesForTesting,
+  resetIpTableAvailabilityStateRefreshForTesting,
   setReportRequestFailureCallback,
   testIpSpeed,
 } from './ipTableAdapter';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
+import type {
+  IAvailabilityOutcome,
+  IAvailabilitySource,
+} from '../availabilityAggregator';
+import type {
+  IAvailabilityProxyState,
+  IAvailabilityRoute,
+} from '../availabilityContext';
+import type { IApiAvailabilityStatus } from '../availabilityMetrics';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+
+const mockRecordAvailabilityOutcome = jest.fn();
+
+// The real report helpers run (so timing idempotency is exercised); only the
+// aggregator sink is replaced to capture what would actually be counted.
+jest.mock('../availabilityAggregator', () => ({
+  normalizeAvailabilityToken: jest.fn(),
+  recordAvailabilityOutcome: (...args: unknown[]) => {
+    mockRecordAvailabilityOutcome(...args);
+  },
+  startAvailabilityFlow: jest.fn(),
+}));
 
 jest.mock('../requestHelper', () => ({
   __esModule: true,
@@ -32,7 +64,6 @@ jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     ipTable: {
       request: {
-        availabilityResult: jest.fn(),
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
@@ -124,6 +155,9 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         },
       },
     } as never);
+    // These tests count the request path's dev settings / config reads; keep
+    // the background IP Table state refresh from adding its own.
+    resetIpTableAvailabilityStateRefreshForTesting({ fresh: true });
   });
 
   afterEach(() => {
@@ -401,6 +435,7 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     // Simulate the main runtime / cold-start window: no config installed.
     mockedRequestHelper.getIpTableConfig.mockResolvedValue(null as never);
     resetAdapterFailoverStatesForTesting();
+    resetIpTableAvailabilityStateRefreshForTesting();
   });
 
   afterEach(() => {
@@ -1209,6 +1244,7 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
       },
     } as never);
     resetAdapterFailoverStatesForTesting();
+    resetIpTableAvailabilityStateRefreshForTesting();
   });
 
   afterEach(() => {
@@ -1311,5 +1347,964 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
     } finally {
       setReportRequestFailureCallback(() => undefined);
     }
+  });
+});
+
+describe('ipTableAdapter availability metrics', () => {
+  const METRICS_URL = 'https://wallet.onekeycn.com/wallet/v1/health';
+  const METRICS_HOSTNAME = 'wallet.onekeycn.com';
+
+  const mutablePlatformEnv = platformEnv as {
+    isDesktop?: boolean;
+    isNative?: boolean;
+  };
+  const originalIsDesktop = mutablePlatformEnv.isDesktop;
+  const originalIsNative = mutablePlatformEnv.isNative;
+
+  let originalAdapter: typeof axios.defaults.adapter;
+  let fallbackAdapter: jest.Mock<
+    Promise<AxiosResponse>,
+    [InternalAxiosRequestConfig]
+  >;
+  let consoleErrorSpy: jest.SpyInstance;
+
+  function buildMetricsConfig(
+    method: string,
+    signal?: AbortSignal,
+  ): InternalAxiosRequestConfig {
+    const config = {
+      url: METRICS_URL,
+      method,
+      headers: axios.AxiosHeaders.from({}),
+      signal,
+    } as InternalAxiosRequestConfig;
+    // Attached by the axios request interceptor in production.
+    config.$oneKeyAvailabilityTiming = createApiAvailabilityTiming({
+      url: METRICS_URL,
+    });
+    return config;
+  }
+
+  function buildFallbackResponse(
+    config: InternalAxiosRequestConfig,
+  ): AxiosResponse {
+    return {
+      data: { fallback: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  function sniError(code: string) {
+    return Object.assign(new Error(`${code}: sni request failed`), { code });
+  }
+
+  function sniTimeoutError() {
+    return Object.assign(new Error('SNI_TIMEOUT: request timeout'), {
+      code: 'SNI_TIMEOUT',
+    });
+  }
+
+  function axiosNetworkError(config: InternalAxiosRequestConfig) {
+    return new axios.AxiosError(
+      'Network Error',
+      axios.AxiosError.ERR_NETWORK,
+      config,
+    );
+  }
+
+  function axiosTimeoutError(config: InternalAxiosRequestConfig) {
+    return new axios.AxiosError(
+      'timeout of 30000ms exceeded',
+      axios.AxiosError.ECONNABORTED,
+      config,
+    );
+  }
+
+  function axiosCanceledError(config: InternalAxiosRequestConfig) {
+    return Object.assign(new axios.CanceledError('canceled'), { config });
+  }
+
+  function outcomesOf(source: IAvailabilitySource) {
+    return mockRecordAvailabilityOutcome.mock.calls
+      .map((call: unknown[]) => call[0] as IAvailabilityOutcome)
+      .filter((outcome) => outcome.source === source);
+  }
+
+  function sniOutcome(status: string, errorCode?: string) {
+    return {
+      source: 'sni',
+      target: 'wallet',
+      status,
+      durationMs: expect.any(Number) as number,
+      detail: '/wallet/v1/health',
+      errorCode,
+    };
+  }
+
+  function apiOutcome(
+    status: string,
+    errorCode: string,
+    route: IAvailabilityRoute,
+  ) {
+    return {
+      source: 'api',
+      target: 'wallet',
+      status,
+      durationMs: expect.any(Number) as number,
+      detail: `${route}:/wallet/v1/health`,
+      errorCode,
+    };
+  }
+
+  // Settled breakdowns bucket server answers (api_error / http_error) as
+  // `error` and unsettled transports (network_error / timeout) as `failed`;
+  // cancelled outcomes carry only the route.
+  function expectApiBreakdowns({
+    route,
+    status,
+    proxy,
+  }: {
+    route: IAvailabilityRoute;
+    status: Exclude<IApiAvailabilityStatus, 'ok'>;
+    proxy?: IAvailabilityProxyState;
+  }) {
+    expect(outcomesOf('api_route')).toEqual([
+      {
+        source: 'api_route',
+        target: route,
+        status,
+        durationMs: expect.any(Number) as number,
+      },
+    ]);
+    if (status === 'cancelled') {
+      expect(outcomesOf('api_net')).toEqual([]);
+      expect(outcomesOf('api_proxy')).toEqual([]);
+      expect(outcomesOf('api_ip_table')).toEqual([]);
+      return;
+    }
+    const settledStatus =
+      status === 'api_error' || status === 'http_error' ? 'error' : 'failed';
+    expect(outcomesOf('api_net')).toEqual([
+      {
+        source: 'api_net',
+        target: getAvailabilityNetworkType(),
+        status: settledStatus,
+      },
+    ]);
+    expect(outcomesOf('api_proxy')).toEqual([
+      { source: 'api_proxy', target: proxy, status: settledStatus },
+    ]);
+    expect(outcomesOf('api_ip_table')).toEqual([
+      { source: 'api_ip_table', target: 'enabled', status: settledStatus },
+    ]);
+  }
+
+  function expectNoApiOutcomes() {
+    expect(outcomesOf('api')).toEqual([]);
+    expect(outcomesOf('api_route')).toEqual([]);
+    expect(outcomesOf('api_net')).toEqual([]);
+    expect(outcomesOf('api_proxy')).toEqual([]);
+    expect(outcomesOf('api_ip_table')).toEqual([]);
+  }
+
+  beforeEach(() => {
+    consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    originalAdapter = axios.defaults.adapter;
+    fallbackAdapter = jest.fn(async (config) => buildFallbackResponse(config));
+    axios.defaults.adapter = fallbackAdapter;
+    // Route, proxy and IP Table breakdowns are recorded only where IP Table
+    // can run.
+    mutablePlatformEnv.isDesktop = true;
+
+    mockRecordAvailabilityOutcome.mockReset();
+    resetAvailabilityContextForTest();
+    // The per-request IP Table state refresh is fire-and-forget and would race
+    // the reported outcomes, so pin the state; its own tests re-arm it.
+    resetIpTableAvailabilityStateRefreshForTesting({ fresh: true });
+    setAvailabilityIpTableState('enabled');
+    mockedIsSniSupported.mockReturnValue(true);
+    mockedIsProxyActiveForUrl.mockResolvedValue(false);
+    mockedSniRequest.mockReset();
+    mockedGetRequestHeaders.mockResolvedValue({});
+    mockedRequestHelper.getDevSettingsPersistAtom.mockResolvedValue({
+      settings: {},
+    } as never);
+    mockedRequestHelper.getIpTableConfig.mockResolvedValue({
+      config: {
+        version: 1,
+        ttl_sec: 60,
+        generated_at: '2026-06-30T00:00:00.000Z',
+        signature: '',
+        domains: {
+          'onekeycn.com': {
+            endpoints: [
+              {
+                ip: '93.184.216.34',
+                provider: 'test',
+                region: 'ALL',
+                weight: 1,
+              },
+            ],
+          },
+        },
+      },
+      runtime: {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: {
+          'onekeycn.com': '93.184.216.34',
+        },
+      },
+    } as never);
+    resetAdapterFailoverStatesForTesting();
+  });
+
+  afterEach(() => {
+    axios.defaults.adapter = originalAdapter;
+    consoleErrorSpy.mockRestore();
+    mutablePlatformEnv.isDesktop = originalIsDesktop;
+    mutablePlatformEnv.isNative = originalIsNative;
+    resetAdapterFailoverStatesForTesting();
+    jest.clearAllMocks();
+  });
+
+  test('SNI success records ok and leaves the api outcome to the interceptor', async () => {
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+      data: { ok: true },
+    });
+
+    expect(outcomesOf('sni')).toEqual([sniOutcome('ok')]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.reported).toBeUndefined();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('sni');
+    expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('off');
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('GET SNI error with a successful domain fallback records fallback_ok', async () => {
+    mockedSniRequest.mockRejectedValue(sniTimeoutError());
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+      data: { fallback: true },
+    });
+
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('fallback_ok', 'sni_timeout'),
+    ]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('fallback');
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('GET SNI error with a failed domain fallback records fallback_failed', async () => {
+    mockedSniRequest.mockRejectedValue(sniTimeoutError());
+    fallbackAdapter.mockImplementation(async (config) => {
+      throw axiosNetworkError(config);
+    });
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'ERR_NETWORK',
+    });
+
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('fallback_failed', 'sni_timeout-err_network'),
+    ]);
+    // The fallback AxiosError carries config: the interceptor records it.
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.reported).toBeUndefined();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('fallback');
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('GET SNI error with a domain fallback HTTP error response records fallback_ok', async () => {
+    mockedSniRequest.mockRejectedValue(sniTimeoutError());
+    fallbackAdapter.mockImplementation(async (config) => {
+      throw new axios.AxiosError(
+        'Request failed with status code 502',
+        axios.AxiosError.ERR_BAD_RESPONSE,
+        config,
+        undefined,
+        {
+          data: '<html>bad gateway</html>',
+          status: 502,
+          statusText: 'Bad Gateway',
+          headers: {},
+          config,
+        },
+      );
+    });
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'ERR_BAD_RESPONSE',
+    });
+
+    // The domain path answered: transport-level success, like SNI 502 -> ok.
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('fallback_ok', 'sni_timeout'),
+    ]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('fallback');
+  });
+
+  test('GET SNI error with a fallback aborted by the caller records cancelled', async () => {
+    const controller = new AbortController();
+    mockedSniRequest.mockRejectedValue(sniTimeoutError());
+    fallbackAdapter.mockImplementation(async (config) => {
+      controller.abort();
+      throw axiosCanceledError(config);
+    });
+    const config = buildMetricsConfig('get', controller.signal);
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'ERR_CANCELED',
+    });
+
+    expect(outcomesOf('sni')).toEqual([sniOutcome('cancelled', 'sni_timeout')]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('fallback');
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('POST SNI timeout records blocked and an api timeout for the adapter error', async () => {
+    mockedSniRequest.mockRejectedValue(sniTimeoutError());
+    const config = buildMetricsConfig('post');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'SNI_TIMEOUT',
+    });
+
+    expect(outcomesOf('sni')).toEqual([sniOutcome('blocked', 'sni_timeout')]);
+    expect(outcomesOf('api')).toEqual([
+      apiOutcome('timeout', 'sni_timeout', 'sni'),
+    ]);
+    expectApiBreakdowns({ route: 'sni', status: 'timeout', proxy: 'off' });
+    expect(config.$oneKeyAvailabilityTiming?.reported).toBe(true);
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('sni');
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('a runtime without IP Table records only api and api_net for an adapter error', async () => {
+    mutablePlatformEnv.isDesktop = false;
+    mutablePlatformEnv.isNative = false;
+    mockedSniRequest.mockRejectedValue(sniTimeoutError());
+    const config = buildMetricsConfig('post');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'SNI_TIMEOUT',
+    });
+
+    expect(outcomesOf('sni')).toEqual([sniOutcome('blocked', 'sni_timeout')]);
+    expect(outcomesOf('api')).toEqual([
+      apiOutcome('timeout', 'sni_timeout', 'sni'),
+    ]);
+    expect(outcomesOf('api_net')).toEqual([
+      {
+        source: 'api_net',
+        target: getAvailabilityNetworkType(),
+        status: 'failed',
+      },
+    ]);
+    expect(
+      mockRecordAvailabilityOutcome.mock.calls.map(
+        (call: unknown[]) => (call[0] as IAvailabilityOutcome).source,
+      ),
+    ).toEqual(['sni', 'api', 'api_net']);
+    expect(config.$oneKeyAvailabilityTiming?.reported).toBe(true);
+  });
+
+  test('an adapter error after the caller aborted records a cancelled api outcome', async () => {
+    const controller = new AbortController();
+    mockedSniRequest.mockImplementation(async () => {
+      controller.abort();
+      throw sniTimeoutError();
+    });
+    const config = buildMetricsConfig('post', controller.signal);
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'SNI_TIMEOUT',
+    });
+
+    expect(outcomesOf('sni')).toEqual([sniOutcome('blocked', 'sni_timeout')]);
+    expect(outcomesOf('api')).toEqual([
+      apiOutcome('cancelled', 'sni_timeout', 'sni'),
+    ]);
+    expectApiBreakdowns({ route: 'sni', status: 'cancelled' });
+  });
+
+  test('GET null SNI response with a successful domain fallback records fallback_ok', async () => {
+    mockedSniRequest.mockResolvedValue(null);
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+      data: { fallback: true },
+    });
+
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('fallback_ok', 'null_response'),
+    ]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('fallback');
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  test('GET null SNI response records the final result of the repeated domain fallback', async () => {
+    // Pre-existing routing: a failed null-response fallback lands in the SNI
+    // catch, which falls back to the domain a second time. The recorded SNI
+    // outcome must describe that second, final attempt.
+    mockedSniRequest.mockResolvedValue(null);
+    fallbackAdapter
+      .mockImplementationOnce(async (config) => {
+        throw axiosNetworkError(config);
+      })
+      .mockImplementationOnce(async (config) => buildFallbackResponse(config));
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+      data: { fallback: true },
+    });
+
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('fallback_ok', 'null_response'),
+    ]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('fallback');
+    expect(fallbackAdapter).toHaveBeenCalledTimes(2);
+  });
+
+  test('GET null SNI response with both domain fallbacks failing records the last fallback error', async () => {
+    mockedSniRequest.mockResolvedValue(null);
+    fallbackAdapter
+      .mockImplementationOnce(async (config) => {
+        throw axiosNetworkError(config);
+      })
+      .mockImplementationOnce(async (config) => {
+        throw axiosTimeoutError(config);
+      });
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'ECONNABORTED',
+    });
+
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('fallback_failed', 'null_response-econnaborted'),
+    ]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('fallback');
+    expect(fallbackAdapter).toHaveBeenCalledTimes(2);
+  });
+
+  test('GET null SNI response with the fallback aborted by the caller records cancelled', async () => {
+    const controller = new AbortController();
+    mockedSniRequest.mockResolvedValue(null);
+    fallbackAdapter.mockImplementation(async (config) => {
+      controller.abort();
+      throw axiosCanceledError(config);
+    });
+    const config = buildMetricsConfig('get', controller.signal);
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'ERR_CANCELED',
+    });
+
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('cancelled', 'null_response'),
+    ]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('fallback');
+    expect(fallbackAdapter).toHaveBeenCalledTimes(2);
+  });
+
+  test('POST null SNI response records blocked and an api outcome for the adapter error', async () => {
+    mockedSniRequest.mockResolvedValue(null);
+    const config = buildMetricsConfig('post');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      message: expect.stringContaining('not idempotent') as string,
+    });
+
+    expect(outcomesOf('sni')).toEqual([sniOutcome('blocked', 'null_response')]);
+    expect(outcomesOf('api')).toEqual([
+      apiOutcome('network_error', 'onekeylocalerror', 'sni'),
+    ]);
+    expectApiBreakdowns({
+      route: 'sni',
+      status: 'network_error',
+      proxy: 'off',
+    });
+    expect(config.$oneKeyAvailabilityTiming?.reported).toBe(true);
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('sni');
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('SNI_CANCELLED records cancelled for both sni and api', async () => {
+    mockedSniRequest.mockRejectedValue(sniError('SNI_CANCELLED'));
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('cancelled', 'sni_cancelled'),
+    ]);
+    expect(outcomesOf('api')).toEqual([
+      apiOutcome('cancelled', 'sni_cancelled', 'sni'),
+    ]);
+    expectApiBreakdowns({ route: 'sni', status: 'cancelled' });
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('other SNI fail-closed errors record fail_closed and an api outcome', async () => {
+    mockedSniRequest.mockRejectedValue(sniError('SNI_CERT_FAILED'));
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'SNI_CERT_FAILED',
+    });
+
+    expect(outcomesOf('sni')).toEqual([
+      sniOutcome('fail_closed', 'sni_cert_failed'),
+    ]);
+    expect(outcomesOf('api')).toEqual([
+      apiOutcome('network_error', 'sni_cert_failed', 'sni'),
+    ]);
+    expectApiBreakdowns({
+      route: 'sni',
+      status: 'network_error',
+      proxy: 'off',
+    });
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('sni');
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('a fail-closed proxy preflight error records only an api outcome', async () => {
+    // A cached state from an earlier preflight of the same host must not
+    // describe this request.
+    noteAvailabilityProxyPreflight(METRICS_HOSTNAME, true);
+    expect(getAvailabilityProxyState(METRICS_HOSTNAME)).toBe('on');
+    mockedIsProxyActiveForUrl.mockRejectedValue(
+      sniError('SNI_SECURITY_POLICY_FAILED'),
+    );
+    const config = buildMetricsConfig('get');
+    expect(config.$oneKeyAvailabilityTiming?.hostname).toBe(METRICS_HOSTNAME);
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'SNI_SECURITY_POLICY_FAILED',
+    });
+
+    expect(outcomesOf('sni')).toEqual([]);
+    // Nothing was dispatched, and this request's proxy state is unknown.
+    expect(outcomesOf('api')).toEqual([
+      apiOutcome('network_error', 'sni_security_policy_failed', 'none'),
+    ]);
+    expectApiBreakdowns({
+      route: 'none',
+      status: 'network_error',
+      proxy: 'unknown',
+    });
+    expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('unknown');
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+  });
+
+  test('an already aborted request records a cancelled api outcome', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const config = buildMetricsConfig('get', controller.signal);
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+
+    expect(outcomesOf('sni')).toEqual([]);
+    expect(outcomesOf('api')).toEqual([
+      apiOutcome('cancelled', 'sni_cancelled', 'none'),
+    ]);
+    expectApiBreakdowns({ route: 'none', status: 'cancelled' });
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('none');
+  });
+
+  test('a domain error that carries config is left to the interceptor', async () => {
+    mockedIsProxyActiveForUrl.mockResolvedValue(true);
+    fallbackAdapter.mockImplementation(async (config) => {
+      throw axiosNetworkError(config);
+    });
+    const config = buildMetricsConfig('get');
+
+    await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+      code: 'ERR_NETWORK',
+    });
+
+    expect(outcomesOf('sni')).toEqual([]);
+    expectNoApiOutcomes();
+    expect(config.$oneKeyAvailabilityTiming?.reported).toBeUndefined();
+    // Marked for the interceptor, which reports the AxiosError.
+    expect(config.$oneKeyAvailabilityTiming?.route).toBe('domain');
+    expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('on');
+  });
+
+  describe('route and proxy marks', () => {
+    test('an aborted request while IP selection is pending keeps route none', async () => {
+      let resolveDevSettings:
+        | ((value: { settings: Record<string, never> }) => void)
+        | undefined;
+      const devSettingsGate = new Promise<{ settings: Record<string, never> }>(
+        (resolve) => {
+          resolveDevSettings = resolve;
+        },
+      );
+      mockedRequestHelper.getDevSettingsPersistAtom.mockImplementation(
+        () => devSettingsGate as never,
+      );
+      const controller = new AbortController();
+      const config = buildMetricsConfig('get', controller.signal);
+
+      const responsePromise = createIpTableAdapter({})(config);
+      for (let index = 0; index < 4; index += 1) {
+        // Allow the resolved proxy preflight to advance into IP selection.
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.resolve();
+      }
+      expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('off');
+      controller.abort();
+
+      await expect(responsePromise).rejects.toMatchObject({
+        code: 'SNI_CANCELLED',
+      });
+      expect(config.$oneKeyAvailabilityTiming?.route).toBe('none');
+      expect(outcomesOf('api')).toEqual([
+        apiOutcome('cancelled', 'sni_cancelled', 'none'),
+      ]);
+      expectApiBreakdowns({ route: 'none', status: 'cancelled' });
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+      expect(fallbackAdapter).not.toHaveBeenCalled();
+      resolveDevSettings?.({ settings: {} });
+    });
+
+    test('no IP mapping takes the domain route', async () => {
+      mockedRequestHelper.getIpTableConfig.mockResolvedValue({
+        config: {
+          version: 1,
+          ttl_sec: 60,
+          generated_at: '2026-06-30T00:00:00.000Z',
+          signature: '',
+          domains: {},
+        },
+        runtime: {
+          enabled: true,
+          lastUpdated: 0,
+          lastRegionCheck: 0,
+          selections: {},
+        },
+      } as never);
+      const config = buildMetricsConfig('get');
+
+      await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+        data: { fallback: true },
+      });
+
+      expect(config.$oneKeyAvailabilityTiming?.route).toBe('domain');
+      expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('off');
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+      expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+      expect(outcomesOf('sni')).toEqual([]);
+    });
+
+    test('an unsupported SNI platform takes the domain route without a proxy mark', async () => {
+      mockedIsSniSupported.mockReturnValue(false);
+      const config = buildMetricsConfig('get');
+
+      await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+        data: { fallback: true },
+      });
+
+      expect(config.$oneKeyAvailabilityTiming?.route).toBe('domain');
+      expect(config.$oneKeyAvailabilityTiming?.proxy).toBeUndefined();
+      expect(mockedIsProxyActiveForUrl).not.toHaveBeenCalled();
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+      expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+    });
+
+    test('an active proxy marks proxy on and takes the domain route', async () => {
+      mockedIsProxyActiveForUrl.mockResolvedValue(true);
+      const config = buildMetricsConfig('get');
+
+      await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+        data: { fallback: true },
+      });
+
+      expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('on');
+      expect(config.$oneKeyAvailabilityTiming?.route).toBe('domain');
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+      expect(mockedIsProxyActiveForUrl).toHaveBeenCalledTimes(1);
+    });
+
+    test('an inactive proxy marks proxy off', async () => {
+      mockedSniRequest.mockResolvedValue({
+        statusCode: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '{"ok":true}',
+      });
+      const config = buildMetricsConfig('get');
+
+      await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+        data: { ok: true },
+      });
+
+      expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('off');
+      expect(config.$oneKeyAvailabilityTiming?.route).toBe('sni');
+      expect(mockedIsProxyActiveForUrl).toHaveBeenCalledTimes(1);
+    });
+
+    test('a legacy preflight without proxy capability marks proxy unknown', async () => {
+      mockedIsProxyActiveForUrl.mockResolvedValue(null);
+      mockedSniRequest.mockResolvedValue({
+        statusCode: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '{"ok":true}',
+      });
+      const config = buildMetricsConfig('get');
+
+      await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+        data: { ok: true },
+      });
+
+      expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('unknown');
+      expect(config.$oneKeyAvailabilityTiming?.route).toBe('sni');
+    });
+
+    test('a proxy preflight error marks proxy unknown and takes the domain route', async () => {
+      mockedIsProxyActiveForUrl.mockRejectedValue(
+        new Error('preflight failed'),
+      );
+      const config = buildMetricsConfig('get');
+
+      await expect(createIpTableAdapter({})(config)).resolves.toMatchObject({
+        data: { fallback: true },
+      });
+
+      expect(config.$oneKeyAvailabilityTiming?.proxy).toBe('unknown');
+      expect(config.$oneKeyAvailabilityTiming?.route).toBe('domain');
+      expect(mockedIsProxyActiveForUrl).toHaveBeenCalledTimes(1);
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+    });
+
+    test('marks are no-ops without an availability timing', async () => {
+      mockedSniRequest.mockRejectedValue(sniTimeoutError());
+      const config = buildMetricsConfig('post');
+      config.$oneKeyAvailabilityTiming = undefined;
+
+      await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+        code: 'SNI_TIMEOUT',
+      });
+
+      expect(config.$oneKeyAvailabilityTiming).toBeUndefined();
+      expectNoApiOutcomes();
+    });
+  });
+
+  describe('IP Table state refresh', () => {
+    function buildIpTableConfig(runtimeEnabled: boolean) {
+      return {
+        config: {
+          version: 1,
+          ttl_sec: 60,
+          generated_at: '2026-06-30T00:00:00.000Z',
+          signature: '',
+          domains: {},
+        },
+        runtime: {
+          enabled: runtimeEnabled,
+          lastUpdated: 0,
+          lastRegionCheck: 0,
+          selections: {},
+        },
+      } as never;
+    }
+
+    // The refresh is fire-and-forget; let its promise chain settle.
+    function flushRefresh() {
+      return new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    }
+
+    // With an active proxy the request path reads neither dev settings nor
+    // the IP Table config, so every such read comes from the refresh.
+    async function sendProxiedRequest() {
+      await expect(
+        createIpTableAdapter({})(buildMetricsConfig('get')),
+      ).resolves.toMatchObject({ data: { fallback: true } });
+    }
+
+    beforeEach(() => {
+      // Undo the pinned state: these tests observe the refresh their own
+      // requests start (the outer beforeEach already runs as desktop).
+      resetAvailabilityContextForTest();
+      resetIpTableAvailabilityStateRefreshForTesting();
+      mockedIsProxyActiveForUrl.mockResolvedValue(true);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test('records enabled when a config is present and enabled', async () => {
+      await sendProxiedRequest();
+      await flushRefresh();
+
+      expect(getAvailabilityIpTableState()).toBe('enabled');
+      expect(mockedRequestHelper.getIpTableConfig).toHaveBeenCalledTimes(1);
+    });
+
+    test('records disabled when the runtime is explicitly disabled', async () => {
+      mockedRequestHelper.getIpTableConfig.mockResolvedValue(
+        buildIpTableConfig(false),
+      );
+
+      await sendProxiedRequest();
+      await flushRefresh();
+
+      expect(getAvailabilityIpTableState()).toBe('disabled');
+    });
+
+    test('records disabled when dev settings turn IP Table off', async () => {
+      mockedRequestHelper.getDevSettingsPersistAtom.mockResolvedValue({
+        settings: { disableIpTableInProd: true },
+      } as never);
+
+      await sendProxiedRequest();
+      await flushRefresh();
+
+      expect(getAvailabilityIpTableState()).toBe('disabled');
+      expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    });
+
+    test('records no_config when this runtime has no config', async () => {
+      mockedRequestHelper.getIpTableConfig.mockResolvedValue(null as never);
+
+      await sendProxiedRequest();
+      await flushRefresh();
+
+      expect(getAvailabilityIpTableState()).toBe('no_config');
+    });
+
+    test('refreshes at most once per interval', async () => {
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+
+      await sendProxiedRequest();
+      await flushRefresh();
+      expect(getAvailabilityIpTableState()).toBe('enabled');
+
+      mockedRequestHelper.getIpTableConfig.mockResolvedValue(null as never);
+      nowSpy.mockReturnValue(1_000_000 + 29_999);
+      await sendProxiedRequest();
+      await flushRefresh();
+      expect(mockedRequestHelper.getIpTableConfig).toHaveBeenCalledTimes(1);
+      expect(getAvailabilityIpTableState()).toBe('enabled');
+
+      nowSpy.mockReturnValue(1_000_000 + 30_000);
+      await sendProxiedRequest();
+      await flushRefresh();
+      expect(mockedRequestHelper.getIpTableConfig).toHaveBeenCalledTimes(2);
+      expect(getAvailabilityIpTableState()).toBe('no_config');
+    });
+
+    test('never blocks requests and shares one in-flight refresh', async () => {
+      let releaseConfig: (() => void) | undefined;
+      const configGate = new Promise<void>((resolve) => {
+        releaseConfig = resolve;
+      });
+      mockedRequestHelper.getIpTableConfig.mockImplementation(async () => {
+        await configGate;
+        return buildIpTableConfig(true);
+      });
+
+      await Promise.all([sendProxiedRequest(), sendProxiedRequest()]);
+      await flushRefresh();
+      expect(mockedRequestHelper.getIpTableConfig).toHaveBeenCalledTimes(1);
+      expect(getAvailabilityIpTableState()).toBe('unknown');
+
+      releaseConfig?.();
+      await flushRefresh();
+      expect(getAvailabilityIpTableState()).toBe('enabled');
+    });
+
+    test('a superseded refresh does not overwrite a newer state', async () => {
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+      let releaseFirst: (() => void) | undefined;
+      const firstGate = new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      mockedRequestHelper.getIpTableConfig.mockImplementationOnce(async () => {
+        await firstGate;
+        return buildIpTableConfig(true);
+      });
+      await sendProxiedRequest();
+
+      nowSpy.mockReturnValue(1_000_000 + 30_000);
+      mockedRequestHelper.getIpTableConfig.mockResolvedValue(null as never);
+      await sendProxiedRequest();
+      await flushRefresh();
+      expect(getAvailabilityIpTableState()).toBe('no_config');
+
+      releaseFirst?.();
+      await flushRefresh();
+      expect(getAvailabilityIpTableState()).toBe('no_config');
+    });
+
+    test('a failing read keeps the previous state and never affects the request', async () => {
+      mockedRequestHelper.getIpTableConfig.mockRejectedValue(
+        new Error('config unavailable'),
+      );
+      await sendProxiedRequest();
+      await flushRefresh();
+      expect(getAvailabilityIpTableState()).toBe('unknown');
+
+      resetIpTableAvailabilityStateRefreshForTesting();
+      mockedRequestHelper.getIpTableConfig.mockImplementation(() => {
+        throw new OneKeyLocalError('config getter threw synchronously');
+      });
+      await sendProxiedRequest();
+      await flushRefresh();
+      expect(getAvailabilityIpTableState()).toBe('unknown');
+      expect(fallbackAdapter).toHaveBeenCalledTimes(2);
+    });
+
+    test('an already aborted request does not refresh', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(
+        createIpTableAdapter({})(buildMetricsConfig('get', controller.signal)),
+      ).rejects.toMatchObject({ code: 'SNI_CANCELLED' });
+      await flushRefresh();
+
+      expect(
+        mockedRequestHelper.getDevSettingsPersistAtom,
+      ).not.toHaveBeenCalled();
+      expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+      expect(getAvailabilityIpTableState()).toBe('unknown');
+    });
   });
 });

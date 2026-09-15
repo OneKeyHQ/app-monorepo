@@ -15,13 +15,8 @@ import type {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { ICloudBackupAvailabilityContext } from '@onekeyhq/shared/src/logger/scopes/cloudBackup/scenes/availability';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getAvailabilityErrorCode,
-  getAvailabilityFailureStatus,
-} from '@onekeyhq/shared/src/request/availabilityMetrics';
+import { withAvailabilityFlow } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -92,41 +87,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return this._backupProvider;
   }
 
-  private getAvailabilityProvider(): ICloudBackupAvailabilityContext['provider'] {
+  private getAvailabilityProvider(): 'google_drive' | 'icloud' | 'unsupported' {
     if (platformEnv.isNativeAndroid) return 'google_drive';
     if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) return 'icloud';
     return 'unsupported';
-  }
-
-  private createAvailabilityContext(
-    operation: ICloudBackupAvailabilityContext['operation'],
-  ): ICloudBackupAvailabilityContext {
-    return {
-      attemptId: stringUtils.generateUUID(),
-      operation,
-      provider: this.getAvailabilityProvider(),
-    };
-  }
-
-  private reportAvailabilityFailure({
-    context,
-    error,
-    startedAt,
-  }: {
-    context: ICloudBackupAvailabilityContext;
-    error: unknown;
-    startedAt: number;
-  }) {
-    const failureStatus = getAvailabilityFailureStatus(error);
-    defaultLogger.cloudBackup.availability.operationResult({
-      ...context,
-      durationMs: Math.max(0, Date.now() - startedAt),
-      errorCode: getAvailabilityErrorCode(error),
-      status:
-        failureStatus === 'cancelled' || failureStatus === 'timeout'
-          ? failureStatus
-          : 'failed',
-    });
   }
 
   @backgroundMethod()
@@ -260,22 +224,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
     data: IPrimeTransferData;
     password: string;
   }): Promise<{ recordID: string; content: string }> {
-    const context = this.createAvailabilityContext('backup');
-    const startedAt = Date.now();
-    defaultLogger.cloudBackup.availability.operationAttempt(context);
-    try {
-      const result = await this._backup(params);
-      defaultLogger.cloudBackup.availability.operationResult({
-        ...context,
-        durationMs: Math.max(0, Date.now() - startedAt),
-        errorCode: 'unknown',
-        status: 'success',
-      });
-      return result;
-    } catch (error) {
-      this.reportAvailabilityFailure({ context, error, startedAt });
-      throw error;
-    }
+    return withAvailabilityFlow('cloud_backup', () => this._backup(params), {
+      detail: this.getAvailabilityProvider(),
+      trackUnfinished: true,
+    });
   }
 
   private async _backup(params: {
@@ -481,23 +433,21 @@ class ServiceCloudBackupV2 extends ServiceBase {
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
   }) {
-    const context = this.createAvailabilityContext('restore');
-    const startedAt = Date.now();
-    defaultLogger.cloudBackup.availability.operationAttempt(context);
-    try {
-      const result = await this._restore(params);
-      const isPartial = !result.success || result.errorsInfo.length > 0;
-      defaultLogger.cloudBackup.availability.operationResult({
-        ...context,
-        durationMs: Math.max(0, Date.now() - startedAt),
-        errorCode: isPartial ? 'partial_restore' : 'unknown',
-        status: isPartial ? 'partial' : 'success',
-      });
-      return result;
-    } catch (error) {
-      this.reportAvailabilityFailure({ context, error, startedAt });
-      throw error;
-    }
+    return withAvailabilityFlow('cloud_restore', () => this._restore(params), {
+      detail: this.getAvailabilityProvider(),
+      trackUnfinished: true,
+      onSuccess: (result) => {
+        if (result.errorsInfo.length > 0) {
+          return { status: 'partial', errorCode: 'partial_restore' };
+        }
+        // startImport reports user cancellation and skipped imports as
+        // `success: false` without errors.
+        if (!result.success) {
+          return { status: 'cancelled' };
+        }
+        return undefined;
+      },
+    });
   }
 
   private async _restore(params: {

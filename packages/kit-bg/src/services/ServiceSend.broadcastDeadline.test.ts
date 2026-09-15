@@ -71,6 +71,16 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: { emit: jest.fn() },
 }));
 
+// The real aggregator reads Date.now(), which would consume the ordered
+// Date.now() mocks below. withAvailabilityFlow itself stays real.
+jest.mock('@onekeyhq/shared/src/request/availabilityAggregator', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/shared/src/request/availabilityAggregator')
+  >('@onekeyhq/shared/src/request/availabilityAggregator'),
+  recordAvailabilityOutcome: () => undefined,
+  startAvailabilityFlow: () => ({ finish: () => undefined }),
+}));
+
 jest.mock('./ServiceBase', () => ({
   __esModule: true,
   default: class ServiceBase {
