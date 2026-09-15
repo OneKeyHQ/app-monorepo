@@ -114,7 +114,17 @@ export function ActionListSkeletonItem() {
       borderRadius="$2"
       overflow="hidden"
     >
-      <Skeleton height="100%" width="100%" />
+      {/* Absolute fill keeps the placeholder out of intrinsic width
+          measurement: iPad sheets size to their content, and an in-flow
+          100%-wide skeleton expanded them to the max width until the real
+          item replaced it. */}
+      <Skeleton
+        position="absolute"
+        top={0}
+        left={0}
+        height="100%"
+        width="100%"
+      />
     </XStack>
   );
 }
