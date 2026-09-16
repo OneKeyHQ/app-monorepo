@@ -121,6 +121,7 @@ import {
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
 import { usePerpsAmountInput } from './usePerpsAmountInput';
+import { formatUsdcWithdrawFeeText } from './withdrawFeeDisplayUtils';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { IntlShape } from 'react-intl';
@@ -136,16 +137,6 @@ const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
 const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const WITHDRAW_QUOTE_REFRESH_INTERVAL_MS = 30_000;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
-
-function formatWithdrawFeeComponent(
-  component: IUsdcWithdrawFeeQuote['components'][number],
-) {
-  const amount = new BigNumber(component.amount).toFixed(2);
-  if (component.kind === 'hyperEvmGas') {
-    return `< $${amount}`;
-  }
-  return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
-}
 
 function getWithdrawFeeKey(
   destination: IUsdcWithdrawDestinationConfig,
@@ -457,7 +448,6 @@ function DepositWithdrawContent({
     [needsWithdrawReserve, selectedAccount.accountId],
     {
       watchLoading: true,
-      undefinedResultIfReRun: true,
       undefinedResultIfError: true,
       pollingInterval: 30_000,
       overrideIsFocused: (isFocused) => isFocused && needsWithdrawReserve,
@@ -465,15 +455,23 @@ function DepositWithdrawContent({
       revalidateOnReconnect: true,
     },
   );
+  const hasWithdrawAccountChanged =
+    needsWithdrawReserve &&
+    (activeAccount.accountId !== selectedAccount.accountId ||
+      activeAccount.accountAddress?.toLowerCase() !==
+        selectedAccount.accountAddress?.toLowerCase());
   // The displayed balance follows the active account; its reserve must match.
   const isWithdrawReserveReady =
     !needsWithdrawReserve ||
-    (Boolean(withdrawReserve) &&
-      activeAccount.accountId === selectedAccount.accountId &&
-      activeAccount.accountAddress?.toLowerCase() ===
-        selectedAccount.accountAddress?.toLowerCase() &&
+    (!hasWithdrawAccountChanged &&
+      Boolean(withdrawReserve) &&
       withdrawReserve?.accountAddress.toLowerCase() ===
         selectedAccount.accountAddress?.toLowerCase());
+  const hasWithdrawReserveFetchFailed =
+    needsWithdrawReserve &&
+    !hasWithdrawAccountChanged &&
+    isCheckingWithdrawReserve === false &&
+    !withdrawReserve;
   // Gated on the confirmed quote, never the preview: submitting against a fee the
   // row never showed would take the difference out of the principal.
   const isWithdrawFeeQuoteComplete =
@@ -2388,8 +2386,12 @@ function DepositWithdrawContent({
 
   const withdrawFeeText = useMemo(
     () =>
-      withdrawFeeQuote?.components.map(formatWithdrawFeeComponent).join(' + '),
-    [withdrawFeeQuote],
+      formatUsdcWithdrawFeeText({
+        feeQuote: withdrawFeeQuote,
+        reserve: withdrawReserve?.reserve,
+        includeReserve: needsWithdrawReserve,
+      }),
+    [needsWithdrawReserve, withdrawFeeQuote, withdrawReserve?.reserve],
   );
 
   const withdrawSubmitDisabled =
@@ -2656,13 +2658,20 @@ function DepositWithdrawContent({
           </XStack>
         </YStack>
 
-        {needsWithdrawReserve &&
-        isCheckingWithdrawReserve === false &&
-        !isWithdrawReserveReady ? (
+        {hasWithdrawAccountChanged ? (
+          <SizableText size="$bodySm" color="$textCritical">
+            {intl.formatMessage({
+              id: ETranslations.active_trading_account_changed__msg,
+            })}
+          </SizableText>
+        ) : null}
+
+        {hasWithdrawReserveFetchFailed ? (
           <XStack alignItems="center" gap="$2">
-            {/* TODO(i18n): Product copy is needed when the withdrawal reserve cannot be verified. */}
             <SizableText size="$bodySm" color="$textCritical" flex={1}>
-              Unable to check withdrawal availability. Please try again.
+              {intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              })}
             </SizableText>
             <Button
               testID="perp-withdraw-reserve-retry"

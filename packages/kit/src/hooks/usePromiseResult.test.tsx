@@ -750,6 +750,30 @@ describe('usePromiseResult', () => {
       expect(onIsLoadingChange).toHaveBeenCalledWith(true);
       expect(onIsLoadingChange).toHaveBeenCalledWith(false);
     });
+
+    it('keeps polling when a bare run replaces recovery inside the debounce window', async () => {
+      const method = jest.fn(async () => 'data');
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], {
+          debounced: DEBOUNCE_MS,
+          pollingInterval: 1000,
+          revalidateOnFocus: true,
+        }),
+      );
+
+      await tick(DEBOUNCE_MS);
+      act(() => focusControl.__setFocus(false));
+      act(() => focusControl.__setFocus(true));
+      act(() => {
+        void result.current.run({ alwaysSetState: true });
+      });
+      await tick(DEBOUNCE_MS);
+      const callsAfterRecovery = method.mock.calls.length;
+
+      await tick(1000);
+      await tick(DEBOUNCE_MS);
+      expect(method).toHaveBeenCalledTimes(callsAfterRecovery + 1);
+    });
   });
 
   describe('focus gating', () => {
