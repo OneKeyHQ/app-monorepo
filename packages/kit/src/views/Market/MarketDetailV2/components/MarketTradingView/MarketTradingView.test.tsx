@@ -249,6 +249,43 @@ describe('MarketTradingView price synchronization', () => {
     expectHeaderPrice('0.003001');
   });
 
+  it.each([true, false])(
+    'does not replace the initial snapshot with later history when details are ready: %s',
+    (detailsReady) => {
+      const { store } = renderChart({
+        initialDetail: detailsReady ? detail : null,
+      });
+      act(() => mockOnPriceUpdate(latestPrice));
+      act(() =>
+        mockOnPriceUpdate({
+          ...latestPrice,
+          price: '0.002800',
+          interval: '1m',
+          timestamp: receivedAt + 1000,
+        }),
+      );
+
+      if (!detailsReady) {
+        expect(store.get(tokenDetailAtom())).toBeUndefined();
+        act(() => store.set(tokenDetailAtom(), detail));
+      }
+
+      expect(store.get(tokenDetailAtom())?.price).toBe('0.002930');
+      expectHeaderPrice('0.002930');
+
+      act(() =>
+        mockOnPriceUpdate({
+          ...latestPrice,
+          source: 'realtime',
+          price: '0.003001',
+        }),
+      );
+
+      expect(store.get(tokenDetailAtom())?.price).toBe('0.003001');
+      expectHeaderPrice('0.003001');
+    },
+  );
+
   it('replays the snapshot when token details arrive after the preview-mounted chart', () => {
     const { store } = renderChart({ initialDetail: null });
     const initialRenderCount = mockChartRender.mock.calls.length;
@@ -365,16 +402,19 @@ describe('MarketTradingView price synchronization', () => {
     expect(store.get(tokenDetailAtom())).toEqual(detail);
   });
 
-  it('does not let invalid realtime prices prevent the initial snapshot', () => {
-    const { store } = renderChart();
-    act(() => {
-      for (const price of ['', 'invalid', '0', -1, Number.NaN, Infinity]) {
-        mockOnPriceUpdate({ ...latestPrice, source: 'realtime', price });
-      }
-    });
-    expect(store.get(tokenDetailAtom())).toEqual(detail);
+  it.each(['history', 'realtime'] as const)(
+    'does not let invalid %s prices prevent the initial snapshot',
+    (source) => {
+      const { store } = renderChart();
+      act(() => {
+        for (const price of ['', 'invalid', '0', -1, Number.NaN, Infinity]) {
+          mockOnPriceUpdate({ ...latestPrice, source, price });
+        }
+      });
+      expect(store.get(tokenDetailAtom())).toEqual(detail);
 
-    act(() => mockOnPriceUpdate(latestPrice));
-    expectHeaderPrice('0.002930');
-  });
+      act(() => mockOnPriceUpdate(latestPrice));
+      expectHeaderPrice('0.002930');
+    },
+  );
 });

@@ -162,14 +162,14 @@ export const MarketTradingView = memo(
       networkId: string;
       tokenAddress: string;
       disabled?: boolean;
-      hasRealtimePrice: boolean;
+      hasAcceptedPrice: boolean;
       pendingPrice?: string;
     }>(
       () => ({
         networkId,
         tokenAddress,
         disabled: disableChartPriceUpdate,
-        hasRealtimePrice: false,
+        hasAcceptedPrice: false,
       }),
       [disableChartPriceUpdate, networkId, tokenAddress],
     );
@@ -262,9 +262,9 @@ export const MarketTradingView = memo(
         if (disableChartPriceUpdate) {
           return;
         }
-        // Bootstrap from the latest history bar, but never let a delayed
-        // history response replace a realtime price, even while buffering.
-        if (data.source === 'history' && priceUpdateState.hasRealtimePrice) {
+        // Bootstrap once from history; late responses must not overwrite an
+        // accepted snapshot or realtime price, even while buffering.
+        if (data.source === 'history' && priceUpdateState.hasAcceptedPrice) {
           return;
         }
         if (
@@ -282,9 +282,7 @@ export const MarketTradingView = memo(
           return;
         }
 
-        if (data.source !== 'history') {
-          priceUpdateState.hasRealtimePrice = true;
-        }
+        priceUpdateState.hasAcceptedPrice = true;
         applyChartPrice(chartPrice);
       },
       [
