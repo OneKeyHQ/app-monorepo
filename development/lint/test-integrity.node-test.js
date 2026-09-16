@@ -299,17 +299,32 @@ test('catches reads anchored without __dirname', () => {
   );
 });
 
+// Real tests build their paths off a repoRoot binding, and the fixture has to
+// as well: without it these paths are not anchored at all and the assertions
+// below would hold no matter what the classifier did.
+const REPO_ROOT_PREAMBLE =
+  "const repoRoot = path.resolve(__dirname, '../..');\n";
+
 test('follows the extension through the binding that built the path', () => {
   assertGated(
-    `
+    `${REPO_ROOT_PREAMBLE}
     const file = path.join(repoRoot, 'packages/kit/src/Thing.ts');
     const source = readFileSync(file, 'utf8');
     it('x', () => { expect(source).toContain('go'); });
   `,
     'source behind a binding',
   );
+  // Positive control for the two exclusions below: same shape, source path.
+  assertGated(
+    `${REPO_ROOT_PREAMBLE}
+    const file = path.join(repoRoot, 'packages/kit/src/x.js');
+    const source = readFileSync(file, 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'control for the vendored case',
+  );
   assertClean(
-    `
+    `${REPO_ROOT_PREAMBLE}
     const file = path.join(repoRoot, 'node_modules/react-native/x.js');
     const source = readFileSync(file, 'utf8');
     it('x', () => { expect(source).toContain('go'); });
@@ -317,7 +332,7 @@ test('follows the extension through the binding that built the path', () => {
     'vendored code behind a binding',
   );
   assertClean(
-    `
+    `${REPO_ROOT_PREAMBLE}
     const file = path.join(repoRoot, 'apps/mobile/ios/Podfile.lock');
     const source = readFileSync(file, 'utf8');
     it('x', () => { expect(source).toContain('go'); });
@@ -325,11 +340,53 @@ test('follows the extension through the binding that built the path', () => {
     'data file behind a binding',
   );
   assertClean(
-    `
+    `${REPO_ROOT_PREAMBLE}
     const source = readFileSync(path.join(repoRoot, '.github/workflows', name), 'utf8');
     it('x', () => { expect(source).toContain('go'); });
   `,
     'workflow named by a variable',
+  );
+});
+
+test('a temp directory that mirrors the repository layout stays clean', () => {
+  // Nothing but the head-only rule saves this one: the suffix names a real
+  // source directory and the file has a source extension.
+  assertClean(`
+    it('x', () => {
+      const root = fs.mkdtempSync(os.tmpdir());
+      const packageRoot = path.join(root, 'packages/kit/src');
+      expect(readFileSync(path.join(packageRoot, 'Thing.ts'), 'utf8')).toBe('done');
+    });
+  `);
+  // Control: the same read anchored for real is gated.
+  assertGated(
+    `${REPO_ROOT_PREAMBLE}
+    const packageRoot = path.join(repoRoot, 'packages/kit/src');
+    it('x', () => {
+      expect(readFileSync(path.join(packageRoot, 'Thing.ts'), 'utf8')).toBe('done');
+    });
+  `,
+    'control: genuinely anchored',
+  );
+});
+
+test('a directory whose last segment is an artifact root is not source', () => {
+  assertClean(
+    `${REPO_ROOT_PREAMBLE}
+    const vendorRoot = path.join(repoRoot, 'apps/desktop/app/node_modules');
+    const source = readFileSync(path.join(vendorRoot, 'index.js'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'trailing node_modules segment',
+  );
+  // Control: same shape without the artifact segment.
+  assertGated(
+    `${REPO_ROOT_PREAMBLE}
+    const sourceRoot = path.join(repoRoot, 'apps/desktop/app/utils');
+    const source = readFileSync(path.join(sourceRoot, 'index.js'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'control: not an artifact root',
   );
 });
 

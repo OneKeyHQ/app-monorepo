@@ -48,7 +48,10 @@ const SCRIPT_PATH_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u;
 // Reported so the check can move to the native toolchain, but never gated.
 const NATIVE_PATH_RE = /\.(?:kt|kts|swift|java|mm?|gradle|podspec|sh)$/u;
 const ANY_EXTENSION_RE = /\.[A-Za-z0-9]{1,6}$/u;
-const ARTIFACT_PATH_RE = /(?:^|\/)(?:node_modules|dist|build|out|\.next)\//u;
+// Matches a trailing segment too, so a directory that merely ends in
+// `node_modules` counts as an artifact root.
+const ARTIFACT_PATH_RE =
+  /(?:^|\/)(?:node_modules|dist|build|out|\.next)(?:\/|$)/u;
 // A regex used to pick source files out of a directory listing.
 const SOURCE_FILTER_RE = /\.\((?:\?:)?[a-z|]*(?:tsx?|jsx?)[a-z|]*\)/u;
 
@@ -440,12 +443,13 @@ function isRepoAnchored(node, repoAnchored) {
       if (name === 'cwd') {
         return true;
       }
+      // Only the head of a built path says where it starts. A workspace-shaped
+      // literal further along is a suffix under whatever the head was, which
+      // may well be a temp directory that mirrors the repository layout.
       return (
         Boolean(name) &&
         PATH_BUILDERS.has(name) &&
-        node.arguments.some((argument) =>
-          isRepoAnchored(argument, repoAnchored),
-        )
+        isRepoAnchored(node.arguments[0], repoAnchored)
       );
     }
     default:
