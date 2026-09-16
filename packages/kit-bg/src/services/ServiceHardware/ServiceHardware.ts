@@ -1913,21 +1913,9 @@ class ServiceHardware extends ServiceBase {
 
         void (async () => {
           try {
-            // Short-circuit for devices already fully processed
-            if (this.connectedDeviceTracked.has(deviceId)) return;
-
             const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
               features,
             });
-            if (
-              deviceType !== EDeviceType.Pro &&
-              deviceType !== EDeviceType.Classic1s &&
-              deviceType !== EDeviceType.ClassicPure
-            ) {
-              // Mark ineligible devices to avoid repeated async checks on reconnect
-              this.connectedDeviceTracked.add(deviceId);
-              return;
-            }
             const firmwareType = await deviceUtils.getFirmwareType({
               features,
             });
