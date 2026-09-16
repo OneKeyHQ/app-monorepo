@@ -1,5 +1,6 @@
 import { XStack, YStack } from '@onekeyhq/components';
 
+import { MARKET_MOBILE_CATEGORY_ROW_HEIGHT } from '../../layouts/mobileLayoutUtils';
 import { MobileNetworkDropdown } from '../MobileNetworkDropdown';
 import { TimeRangeDropdown } from '../TimeRangeDropdown';
 
@@ -24,10 +25,11 @@ function MarketFilterBarSmall({
     <YStack>
       {/* Both filters sit together on the left, so a tab without the network
           selector keeps its time range in the same place. */}
+      {/* Fills the category chip row height and centers the dropdowns, so their
+          labels sit where the chip labels do on the other tabs. */}
       <XStack
         px="$5"
-        pt="$3"
-        pb="$2"
+        height={MARKET_MOBILE_CATEGORY_ROW_HEIGHT}
         gap="$4"
         justifyContent="flex-start"
         alignItems="center"
