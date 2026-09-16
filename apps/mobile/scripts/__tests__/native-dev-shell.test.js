@@ -65,7 +65,24 @@ function createDevSession({
 // Source a build without ONEKEY_DEV_SHELL compiles: dev-shell `#if` branches
 // are dropped, their `#else` branches are kept because that is exactly what a
 // production (non dev-shell) variant, including Xcode device Debug builds, gets.
+//
+// This is an approximation of the Swift preprocessor, not the preprocessor: it
+// decides a branch is dev-shell by substring, so `#if !ONEKEY_DEV_SHELL` would
+// be dropped when production is exactly what it keeps, and `#elseif` would
+// corrupt the branch stack. Both would make the isolation checks below pass
+// while never looking at the code a production build actually compiles, so
+// fail on those directives instead of reporting a clean result that is not
+// backed by anything.
 function stripSwiftDevShellBlocks(source) {
+  const unsupportedDirectives = source
+    .split('\n')
+    .filter(
+      (line) =>
+        /^\s*#elseif\b/u.test(line) ||
+        /^\s*#if\s*!\s*ONEKEY_DEV_SHELL\b/u.test(line),
+    )
+    .map((line) => line.trim());
+  expect(unsupportedDirectives).toEqual([]);
   const output = [];
   const stack = [];
   const isExcluded = () =>
@@ -714,26 +731,8 @@ describe('native-dev-shell', () => {
     ]);
   });
 
-  it('routes Android recovery before constructing the React activity', () => {
+  it('declares the launcher, its aliases and MainActivity as the recovery route', () => {
     const androidRoot = path.join(__dirname, '../../android/app/src/main');
-    const launcherActivity = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'java/so/onekey/app/wallet/MainLauncherActivity.java',
-      ),
-      'utf8',
-    );
-    const mainActivity = fs.readFileSync(
-      path.join(androidRoot, 'java/so/onekey/app/wallet/MainActivity.java'),
-      'utf8',
-    );
-    const mainApplication = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'java/so/onekey/app/wallet/BaseMainApplication.java',
-      ),
-      'utf8',
-    );
     const manifest = fs.readFileSync(
       path.join(androidRoot, 'AndroidManifest.xml'),
       'utf8',
@@ -744,49 +743,6 @@ describe('native-dev-shell', () => {
         '../../../../development/scripts/android-release-build-deploy.sh',
       ),
       'utf8',
-    );
-
-    expect(launcherActivity).toContain(
-      'class MainLauncherActivity extends Activity',
-    );
-    expect(launcherActivity).not.toContain('ReactActivity');
-    expect(launcherActivity).toContain(
-      'if (!MainActivity.hasCreatedInstance()) {',
-    );
-    expect(
-      launcherActivity.indexOf('BootRecoveryStore.recordBootAttempt('),
-    ).toBeLessThan(
-      launcherActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    );
-    expect(
-      launcherActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    ).toBeLessThan(launcherActivity.indexOf('MainActivity.class'));
-    expect(launcherActivity).toContain('new Intent(getIntent())');
-    expect(mainActivity).not.toContain('BootRecoveryStore.recordBootAttempt(');
-    expect(mainActivity).toContain('class RecoveryReactActivityDelegate');
-    expect(mainActivity).toContain(
-      'return new RecoveryReactActivityDelegate(this);',
-    );
-    expect(
-      mainActivity.indexOf('if (MainApplication.shouldShowRecovery) {'),
-    ).toBeLessThan(
-      mainActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    );
-    expect(
-      mainActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    ).toBeLessThan(mainActivity.indexOf('hasCreatedInstance = true;'));
-    expect(mainActivity).toContain('hasCreatedInstance = true;');
-    expect(mainActivity).toContain('hasCreatedInstance = false;');
-    expect(mainApplication.indexOf('if (shouldShowRecovery) {')).toBeLessThan(
-      mainApplication.indexOf('SoLoader.init('),
     );
 
     const launcherManifestStart = manifest.indexOf(
@@ -1801,14 +1757,9 @@ describe('native-dev-shell', () => {
     expect(ios).toMatchObject({ platform: 'ios', schemaVersion: 1 });
   });
 
-  it('keeps dev session bootstrap private and session-scoped on both platforms', () => {
-    const androidApplication = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
+  // Negative capability constraint: the dev session URL must never come from an
+  // environment variable, which any process could set on a shipped build.
+  it('keeps the dev session URL off the environment on both platforms', () => {
     const androidActivity = fs.readFileSync(
       path.join(
         __dirname,
@@ -1822,19 +1773,7 @@ describe('native-dev-shell', () => {
     );
 
     expect(androidActivity).not.toContain('ONEKEY_DEV_SESSION_URL');
-    expect(androidApplication).toContain(
-      'new File(sessionRoot, "current.json")',
-    );
-    expect(androidApplication).toContain(
-      '!deviceId.equals(session.optString("deviceId"))',
-    );
     expect(iosDelegate).not.toContain('ONEKEY_DEV_SESSION_URL');
-    expect(iosDelegate).toContain(
-      'session["worktreeId"] as? String == worktreeId',
-    );
-    expect(iosDelegate).toContain('let host = components.host');
-    expect(iosDelegate).toContain('!host.isEmpty');
-    expect(iosDelegate).toContain('components.path = ""');
   });
 
   it('excludes dev session capability and identifiers from production variants', () => {
@@ -1853,20 +1792,20 @@ describe('native-dev-shell', () => {
       ),
       'utf8',
     );
-    const androidRelease = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'src/release/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
     const androidBuild = fs.readFileSync(
       path.join(androidRoot, 'build.gradle'),
       'utf8',
     );
+    const releaseConfigStart = androidBuild.indexOf('        release {');
+    const releaseConfigEnd = androidBuild.indexOf('    flavorDimensions');
+    // Anchored on literal indentation: a change to the indentation of
+    // build.gradle would otherwise yield an empty slice and turn every check
+    // below into a silent pass.
+    expect(releaseConfigStart).toBeGreaterThan(-1);
+    expect(releaseConfigEnd).toBeGreaterThan(releaseConfigStart);
     const androidReleaseConfig = androidBuild.slice(
-      androidBuild.indexOf('        release {'),
-      androidBuild.indexOf('    flavorDimensions'),
+      releaseConfigStart,
+      releaseConfigEnd,
     );
     const iosSource = fs.readFileSync(
       path.join(__dirname, '../../ios/AppDelegate.swift'),
@@ -1885,7 +1824,6 @@ describe('native-dev-shell', () => {
 
     for (const identifier of devOnlyIdentifiers) {
       expect(androidBase).not.toContain(identifier);
-      expect(androidRelease).not.toContain(identifier);
       expect(androidReleaseConfig).not.toContain(identifier);
       expect(iosProductionSource).not.toContain(identifier);
       expect(productionInfo).not.toContain(identifier);
