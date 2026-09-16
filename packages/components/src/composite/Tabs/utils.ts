@@ -11,11 +11,11 @@ export const parseCssSize = (value: string | undefined) => {
   return Number.isFinite(size) ? size : 0;
 };
 
-// Bottom edge of an element's in-flow content, relative to its padding box
-// top. The content stays content-sized even when the element itself is
-// stretched by a parent carrying an explicit height, so this reports the real
-// height where the element's own box cannot. Returns 0 when nothing
-// measurable is in flow, so callers can fall back to the box.
+// Bottom edge of an element's content, relative to its padding box top. The
+// content stays content-sized even when the element itself is stretched by a
+// parent carrying an explicit height, so this reports the real height where
+// the element's own box cannot. Returns 0 when nothing measurable is laid out,
+// so callers can fall back to the box.
 // Requires `htmlElement` to be positioned (every Tamagui view is), otherwise
 // `offsetParent`/`offsetTop` resolve against a further ancestor.
 export const getInFlowContentBottom = (htmlElement: HTMLElement) => {
@@ -34,11 +34,12 @@ export const getInFlowContentBottom = (htmlElement: HTMLElement) => {
         return;
       }
       // offsetParent is null for `display: none` and `position: fixed`, so
-      // both drop out here; an absolutely positioned child still reports one.
-      if (
-        child.offsetParent !== htmlElement ||
-        childStyle.position === 'absolute'
-      ) {
+      // both drop out here. Absolutely positioned children are deliberately
+      // KEPT: the result sizes a container with `overflow: hidden`, so leaving
+      // one out would clip it. One sized by the stretched box itself (e.g.
+      // `top: 0; bottom: 0`) just reports the stale height, which makes the
+      // caller fall back to the box instead of shrinking — never a clip.
+      if (child.offsetParent !== htmlElement) {
         return;
       }
       // A child with visible overflow paints past its own border box and only
