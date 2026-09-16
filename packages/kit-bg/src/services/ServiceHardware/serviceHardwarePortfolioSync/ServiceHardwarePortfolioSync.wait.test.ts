@@ -237,6 +237,7 @@ describe('Portfolio v2 category retrieval', () => {
     });
     expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledWith({
       address: '0x3333',
+      force: true,
     });
   });
 
@@ -288,6 +289,18 @@ describe('Portfolio v2 category retrieval', () => {
     expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
   });
 
+  test('keeps a perps infrastructure failure unknown instead of zero', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(new Error('storage failed'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
+  });
+
   test('reuses category fiat within the hardware cooldown window', async () => {
     const mocks = prepare();
     await expect(
@@ -306,6 +319,58 @@ describe('Portfolio v2 category retrieval', () => {
     });
     expect(mocks.post).toHaveBeenCalledTimes(1);
     expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not reuse category fiat after enabled networks change', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'btc--0': true },
+      disabledNetworks: {},
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not memoize an unknown category leg', async () => {
+    const mocks = prepare();
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: { degraded: false, networkIds: ['evm--1'] },
+        },
+      },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
   });
 
   test('keeps a failed category unknown while retaining the successful one', async () => {

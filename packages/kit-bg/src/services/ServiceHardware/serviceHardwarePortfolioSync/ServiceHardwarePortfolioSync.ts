@@ -232,6 +232,14 @@ function getPortfolioSyncErrorCode(error: unknown): string | undefined {
     : undefined;
 }
 
+function isMissingNetworkAccountError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes('indexedAccounts not found') ||
+    message === 'Account not found'
+  );
+}
+
 function isSilentUploadBlockedByDevice(error: unknown): boolean {
   if (
     isHardwareErrorByCode({
@@ -2060,12 +2068,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     signal?: AbortSignal,
     cacheKey?: string,
   ): Promise<IPortfolioCategoryFiatResult> {
-    if (cacheKey) {
-      const cached = this.readCategoryFiatCache(cacheKey);
-      if (cached) {
-        return cached;
-      }
-    }
     try {
       const accountId = eventPayload.accountId;
       const indexedAccountId = eventPayload.indexedAccountId;
@@ -2104,6 +2106,21 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         perpDisabled:
           perpConfigLoaded === true && perpConfigCommon?.disablePerp === true,
       });
+      const scopedCacheKey = cacheKey
+        ? [
+            cacheKey,
+            JSON.stringify(allNetworksState.enabledNetworks ?? {}),
+            JSON.stringify(allNetworksState.disabledNetworks ?? {}),
+            String(support.isDeFiSupported),
+            String(support.isPerpsSupported),
+          ].join(':')
+        : undefined;
+      if (scopedCacheKey) {
+        const cached = this.readCategoryFiatCache(scopedCacheKey);
+        if (cached) {
+          return cached;
+        }
+      }
 
       const fetchCachedDeFi = async (): Promise<string | undefined> => {
         const { netWorth, hasCache } =
@@ -2229,8 +2246,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             deriveType,
             networkId: PERPS_NETWORK_ID,
           });
-        } catch {
-          // Missing perps-network rows mean no equity, not an unknown total.
+        } catch (error) {
+          if (!isMissingNetworkAccountError(error)) {
+            throw error;
+          }
           return '0';
         }
         const address =
@@ -2240,7 +2259,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         }
         const snapshot =
           await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-            { address },
+            {
+              address,
+              force: true,
+            },
           );
         return snapshot && !snapshot.isDegraded
           ? snapshot.netWorthUsd
@@ -2256,8 +2278,13 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         deFiSource: deFiResult?.source ?? 'unknown',
         perpsFiat: perps.status === 'fulfilled' ? perps.value : undefined,
       };
-      if (cacheKey && !signal?.aborted) {
-        this.categoryFiatCacheByKey.set(cacheKey, {
+      if (
+        scopedCacheKey &&
+        !signal?.aborted &&
+        value.defiFiat !== undefined &&
+        value.perpsFiat !== undefined
+      ) {
+        this.categoryFiatCacheByKey.set(scopedCacheKey, {
           expiresAt: Date.now() + PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
           value,
         });
@@ -2997,7 +3024,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           ? await this.getPortfolioCategoryFiat(
               eventPayload,
               options?.oneKeyOperationLease?.signal,
-              this.getCategoryFiatCacheKey({ eventPayload, targetKey }),
+              syncMode === 'silent'
+                ? this.getCategoryFiatCacheKey({ eventPayload, targetKey })
+                : undefined,
             )
           : undefined;
       telemetry.deFiSource = categoryResult?.deFiSource;
@@ -3059,7 +3088,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           tokenCount: artifacts.portfolio.tokens.length,
           totalTokenCount: eventPayload.tokens.length,
         });
-        if (syncMode === 'silent' && isPersistedDuplicate) {
+        if (
+          syncMode === 'silent' &&
+          isPersistedDuplicate &&
+          !desktopBleExecution
+        ) {
           await this.portfolioSyncDb.updateTargetState(targetKey, {
             lastAttemptAt: updatedAt,
           });
