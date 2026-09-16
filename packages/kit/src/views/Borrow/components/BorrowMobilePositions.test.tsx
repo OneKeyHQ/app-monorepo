@@ -118,7 +118,12 @@ jest.mock('@onekeyhq/shared/types/staking', () => ({
 
 jest.mock('../borrowDataStatus', () => ({
   __esModule: true,
-  isBorrowReservesPending: () => false,
+  isBorrowReservesPending: () =>
+    (
+      (globalThis as Record<string, unknown>).__mobilePositionScope as
+        | { reservesPending?: boolean }
+        | undefined
+    )?.reservesPending === true,
 }));
 
 jest.mock('../BorrowProvider', () => {
@@ -127,6 +132,7 @@ jest.mock('../BorrowProvider', () => {
     marketAddress: '0xMarket',
     accountId: 'account-1',
     earnAccountLoading: false,
+    reservesPending: false,
   };
   (globalThis as Record<string, unknown>).__mobilePositionScope = scope;
   return {
@@ -240,6 +246,7 @@ const scope = (globalThis as Record<string, unknown>).__mobilePositionScope as {
   marketAddress: string;
   accountId: string;
   earnAccountLoading: boolean;
+  reservesPending: boolean;
 };
 
 function buildEntry(
@@ -343,6 +350,7 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
     scope.marketAddress = '0xMarket';
     scope.accountId = 'account-1';
     scope.earnAccountLoading = false;
+    scope.reservesPending = false;
   });
 
   it('starts with every card collapsed', () => {
@@ -558,6 +566,50 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
     rerender(<BorrowMobilePositions />);
 
     expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('false');
+  });
+
+  // Withdrawing or repaying a position to zero removes it. Holding its key
+  // would re-open the card on its own if the asset came back.
+  it('forgets a position that left the list for good', () => {
+    const { getByTestId, queryByTestId, rerender } = render(
+      <BorrowMobilePositions />,
+    );
+    const positionId = cardId('supplied', '0xAaa');
+
+    fireEvent.click(getByTestId(positionId));
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('true');
+
+    const saved = [...entries];
+    entries.length = 0;
+    entries.push(buildEntry('borrowed', '0xBbb'));
+    rerender(<BorrowMobilePositions />);
+    expect(queryByTestId(positionId)).toBeNull();
+
+    entries.length = 0;
+    saved.forEach((entry) => entries.push(entry));
+    rerender(<BorrowMobilePositions />);
+
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('false');
+  });
+
+  // The other direction, and the reason that reset waits for settled data: an
+  // empty list mid-refresh is not a position going away.
+  it('keeps the card open across a refresh that empties the list', () => {
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+    const positionId = cardId('supplied', '0xAaa');
+
+    fireEvent.click(getByTestId(positionId));
+
+    const saved = [...entries];
+    entries.length = 0;
+    scope.reservesPending = true;
+    rerender(<BorrowMobilePositions />);
+
+    scope.reservesPending = false;
+    saved.forEach((entry) => entries.push(entry));
+    rerender(<BorrowMobilePositions />);
+
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('true');
   });
 
   it('keeps the open card open when the indexer changes address casing', () => {

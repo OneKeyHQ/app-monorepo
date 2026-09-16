@@ -227,8 +227,49 @@ export function BorrowMobilePositions({
   );
 
   const entries = useBorrowPositionEntries();
+  const reservesPending = isBorrowReservesPending(borrowDataStatus);
 
-  if (isBorrowReservesPending(borrowDataStatus)) {
+  // One derivation of each position's identity, shared by the reset below and
+  // the list itself. Deriving it twice would mean two copies that have to
+  // agree forever, and the day they drifted the reset would start closing
+  // cards that are on screen.
+  const keyedEntries = entries.map((entry) => {
+    const reserveKey = earnUtils.normalizeBorrowAddress({
+      networkId,
+      address: entry.asset.reserveAddress,
+    });
+    return {
+      entry,
+      reserveKey,
+      positionKey: getPositionKey({ kind: entry.kind, reserveKey }),
+    };
+  });
+
+  // Membership flattened to one string, so the effect below fires on a
+  // position appearing or leaving rather than on every refresh. Computed per
+  // render rather than memoized on `entries`: the list is a handful of items,
+  // and keying off its array identity would miss a change delivered in place.
+  const presentKeys = keyedEntries
+    .map((keyed) => keyed.positionKey)
+    .join('\u0000');
+
+  // A position the user left open can go away for good: fully withdrawn, or
+  // repaid to zero. Its key would otherwise sit in state and re-open the card
+  // by itself if that asset is ever supplied or borrowed again. Only a settled
+  // list is evidence of absence — while reserves are pending it says nothing,
+  // and collapsing then would be the loading-frame failure the scope reset
+  // above already goes out of its way to avoid.
+  useEffect(() => {
+    if (reservesPending) {
+      return;
+    }
+    const present = new Set(presentKeys ? presentKeys.split('\u0000') : []);
+    setExpandedKey((current) =>
+      current === null || present.has(current) ? current : null,
+    );
+  }, [presentKeys, reservesPending]);
+
+  if (reservesPending) {
     return (
       <YStack gap={POSITION_CARD_GAP}>
         <PositionCardSkeleton />
@@ -239,21 +280,13 @@ export function BorrowMobilePositions({
 
   return (
     <YStack gap={POSITION_CARD_GAP}>
-      {entries.map((entry) => {
-        const reserveKey = earnUtils.normalizeBorrowAddress({
-          networkId,
-          address: entry.asset.reserveAddress,
-        });
+      {keyedEntries.map(({ entry, reserveKey, positionKey }) => {
         const isNativeActionUnsupported = isUnsupportedAaveNativeReserve({
           networkId,
           providerName: market?.provider,
           reserveAddress: entry.asset.reserveAddress,
         });
 
-        const positionKey = getPositionKey({
-          kind: entry.kind,
-          reserveKey,
-        });
         const amount =
           entry.kind === 'supplied'
             ? entry.asset.suppliedAmount
