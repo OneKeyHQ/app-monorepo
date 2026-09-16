@@ -457,6 +457,10 @@ function isRepoAnchored(node, repoAnchored) {
       if (name === 'cwd') {
         return true;
       }
+      // A helper that returns a repository path, e.g. `repoRoot()`.
+      if (name && repoAnchored.has(name)) {
+        return true;
+      }
       // Only the head of a built path says where it starts. A workspace-shaped
       // literal further along is a suffix under whatever the head was, which
       // may well be a temp directory that mirrors the repository layout.
@@ -482,6 +486,11 @@ function collectRepoAnchoredBindings(ast) {
   for (let round = 0; round < 6; round += 1) {
     const before = anchored.size;
     walk(ast, (node) => {
+      const returned = returnedPathExpression(node);
+      if (returned && isRepoAnchored(returned.value, anchored)) {
+        anchored.set(returned.name, pathLiterals(returned.value, anchored));
+        return;
+      }
       const binding = bindingTarget(node);
       if (!binding || !isRepoAnchored(binding.value, anchored)) {
         return;
@@ -494,6 +503,40 @@ function collectRepoAnchoredBindings(ast) {
     }
   }
   return anchored;
+}
+
+/**
+ * A named helper whose whole job is to return a path, so a call to it can be
+ * treated the same as the expression it returns.
+ */
+function returnedPathExpression(node) {
+  if (node.type === 'FunctionDeclaration' && node.id?.type === 'Identifier') {
+    const [statement, ...rest] = node.body.body;
+    return statement?.type === 'ReturnStatement' &&
+      rest.length === 0 &&
+      statement.argument
+      ? { name: node.id.name, value: statement.argument }
+      : undefined;
+  }
+  if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') {
+    const fn = node.init;
+    if (
+      fn?.type !== 'ArrowFunctionExpression' &&
+      fn?.type !== 'FunctionExpression'
+    ) {
+      return undefined;
+    }
+    if (fn.body.type !== 'BlockStatement') {
+      return { name: node.id.name, value: fn.body };
+    }
+    const [statement, ...rest] = fn.body.body;
+    return statement?.type === 'ReturnStatement' &&
+      rest.length === 0 &&
+      statement.argument
+      ? { name: node.id.name, value: statement.argument }
+      : undefined;
+  }
+  return undefined;
 }
 
 /** Literals in a path expression, including those behind anchored bindings. */

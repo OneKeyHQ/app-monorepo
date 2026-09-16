@@ -242,6 +242,39 @@ test('only a path ending in a variable falls back to the directory name', () => 
   );
 });
 
+test('anchors through a helper that returns a repository path', () => {
+  // The shape apps/cli/src/output/__tests__/logger.test.ts already uses.
+  assertGated(
+    `
+    function repoRoot() {
+      return path.resolve(__dirname, '../../../../..');
+    }
+    const source = readFileSync(path.join(repoRoot(), 'apps/cli/src/x.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'function declaration',
+  );
+  assertGated(
+    `
+    const repoRoot = () => path.resolve(__dirname, '../..');
+    const source = readFileSync(path.join(repoRoot(), 'apps/cli/src/x.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'arrow with an expression body',
+  );
+  // A helper returning a temp directory anchors nothing, whatever it is called.
+  assertClean(
+    `
+    function fixtureRoot() {
+      return fs.mkdtempSync(os.tmpdir());
+    }
+    const source = readFileSync(path.join(fixtureRoot(), 'packages/kit/src/x.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'helper returning a temp directory',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`
