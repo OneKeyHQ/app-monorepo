@@ -1122,6 +1122,57 @@ test('a hook assignment is read in the hook, and its own bindings stay its own',
   );
 });
 
+test('a hook local built up by its own callback is followed outward', () => {
+  assertGated(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => {
+        let text = '';
+        files.forEach((file) => {
+          text += readFileSync(join(__dirname, file), 'utf8');
+        });
+        source = text;
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'accumulated in a forEach, then assigned out',
+  );
+  assertClean(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => {
+        let text = '';
+        files.forEach(() => { text += 'plain'; });
+        source = text;
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'the loop accumulates something untainted',
+  );
+  // The loop body's own `text` is a different binding from the hook's.
+  assertClean(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => {
+        let text = '';
+        files.forEach((file) => {
+          let text = '';
+          text += readFileSync(join(__dirname, file), 'utf8');
+        });
+        source = text;
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'the loop redeclares its own text',
+  );
+});
+
 test('ios and android are skipped only as native project roots', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'test-integrity-dirs-'));
   try {

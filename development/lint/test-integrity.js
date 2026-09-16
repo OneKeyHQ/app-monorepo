@@ -754,6 +754,19 @@ function seedOwnBody(body, local, readKind) {
   }
 }
 
+/** Names a body declares with const, let or var at its own level. */
+function declaredLocalNames(body) {
+  const names = new Set();
+  walkOwnBody(body, (current) => {
+    if (current.type === 'VariableDeclaration') {
+      current.declarations.forEach((declaration) =>
+        patternNames(declaration.id).forEach((name) => names.add(name)),
+      );
+    }
+  });
+  return names;
+}
+
 /**
  * The scope inside a function at its own level only: the enclosing scope minus
  * every name the function binds, with the locals it builds from source seeded
@@ -783,16 +796,7 @@ function deriveFunctionScope(fn, parentScope, readKind) {
   if (fn.body?.type !== 'BlockStatement') {
     return local;
   }
-  const declaredLocals = new Set();
-  walkOwnBody(fn.body, (current) => {
-    if (current.type === 'VariableDeclaration') {
-      current.declarations.forEach((declaration) =>
-        patternNames(declaration.id).forEach((name) =>
-          declaredLocals.add(name),
-        ),
-      );
-    }
-  });
+  const declaredLocals = declaredLocalNames(fn.body);
   for (let round = 0; round < 4; round += 1) {
     const before = local.size;
     seedFromNestedAssignments(fn.body, declaredLocals, local, readKind);
@@ -821,6 +825,20 @@ function seedFromNestedAssignments(node, declaredLocals, local, readKind) {
     if (FUNCTION_NODE_TYPES.has(current.type)) {
       innerRebound = new Set([...rebound, ...ownBindingNames(current)]);
       innerScope = shallowFunctionScope(current, scope, readKind);
+      // The function's own locals can be filled by callbacks nested inside
+      // it - `let text = ''; files.forEach((f) => { text += read(f); })` -
+      // and only then assigned outward, so follow those first.
+      if (current.body?.type === 'BlockStatement') {
+        const nestedLocals = declaredLocalNames(current.body);
+        if (nestedLocals.size > 0) {
+          seedFromNestedAssignments(
+            current.body,
+            nestedLocals,
+            innerScope,
+            readKind,
+          );
+        }
+      }
     }
     if (
       current.type === 'AssignmentExpression' &&
