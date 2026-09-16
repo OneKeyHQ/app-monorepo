@@ -11,6 +11,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IMarketCategoryToSelectResult } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -200,6 +202,11 @@ const useMarketHomeLayoutProps = () => {
 
     if (isMarketBasicConfigLoading === false) {
       const nextSelectedCategory = categories[0]?.id ?? 'trending';
+      defaultLogger.market.navigation.marketHomeResetSpotCategory({
+        categoryId: selectedSpotCategory,
+        nextCategoryId: nextSelectedCategory,
+        categoryCount: categories.length,
+      });
       if (selectedCategory !== nextSelectedCategory) {
         applySelectedCategory(nextSelectedCategory);
       }
@@ -228,14 +235,23 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
+    const logResult = (result: IMarketCategoryToSelectResult) => {
+      defaultLogger.market.navigation.marketHomeApplySpotCategory({
+        categoryId: spotCategoryToSelect,
+        result,
+        categoryCount: categories.length,
+      });
+    };
     const hasTargetCategory = categories.some(
       (item) => item.id === spotCategoryToSelect,
     );
     if (!hasTargetCategory) {
       if (isMarketBasicConfigLoading !== false) {
+        logResult('waitingForConfig');
         return;
       }
 
+      logResult('unknownCategory');
       setMarketSelectedTab((prev) => ({
         ...prev,
         selectedSpotCategory:
@@ -247,6 +263,7 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
+    logResult('applied');
     applySelectedCategory(spotCategoryToSelect);
     setMarketSelectedTab((prev) => ({
       ...prev,
