@@ -8,6 +8,10 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 
 Patches live in `patches/<pkg>+<version>.patch` and auto-apply on install. Never hand-edit a `.patch` — edit the `node_modules/` source, then generate.
 
+## `@onekeyfe/*` packages: JS/TS only
+
+In `@onekeyfe/*` packages, including npm aliases such as `react-native-pager-view` → `@onekeyfe/react-native-pager-view`, a patch may only change `.js`/`.jsx`/`.ts`/`.tsx` files. Native code (Objective-C, Swift, Java, Kotlin, C/C++) and native build files must be fixed in [OneKeyHQ/app-modules](https://github.com/OneKeyHQ/app-modules): open a PR, publish a release, then upgrade the dependency here. `yarn lint:onekeyfe-patches` enforces this.
+
 ## Generate
 
 1. Edit `node_modules/<pkg>/...`. Comment lines out (don't delete) with a `// OneKey patch: <why>` note above.
