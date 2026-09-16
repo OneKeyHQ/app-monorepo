@@ -622,7 +622,7 @@ describe('Swap preview preparation concurrency', () => {
   });
 
   it.each(['prepare', 'estimate'] as const)(
-    'adopts a %s failure without retrying, retaining the order for an explicit fee change',
+    'retries a preloaded %s failure on Review open without rebuilding the order',
     async (failure) => {
       if (failure === 'prepare')
         mockPrepareUnsignedTx.mockRejectedValueOnce(new Error('offline'));
@@ -659,11 +659,11 @@ describe('Swap preview preparation concurrency', () => {
       });
       expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
       expect(mockEstimateFee).toHaveBeenCalledTimes(
-        failure === 'prepare' ? 0 : 1,
+        failure === 'prepare' ? 1 : 2,
       );
       expect(
         store.get(swapStepsAtom()).preSwapData.stepBeforeActionsError,
-      ).toBe(true);
+      ).toBeUndefined();
       await act(async () => {
         store.set(swapStepNetFeeLevelAtom(), {
           networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
@@ -678,6 +678,9 @@ describe('Swap preview preparation concurrency', () => {
         );
       });
       expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+      expect(mockEstimateFee).toHaveBeenCalledTimes(
+        failure === 'prepare' ? 2 : 3,
+      );
       expect(
         store.get(swapStepsAtom()).preSwapData.netWorkFee?.gasInfos,
       ).toHaveLength(1);
