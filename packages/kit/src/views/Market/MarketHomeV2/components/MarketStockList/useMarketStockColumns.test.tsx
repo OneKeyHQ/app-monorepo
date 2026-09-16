@@ -95,6 +95,36 @@ function collectText(node: ReactNode): string[] {
   return [];
 }
 
+// The first element in a rendered cell whose direct child is `text`.
+function findElementByText(
+  node: ReactNode,
+  text: string,
+): ReactElement<Record<string, unknown>> | undefined {
+  if (Array.isArray(node)) {
+    for (const child of node as ReactNode[]) {
+      const found = findElementByText(child, text);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (!isValidElement(node)) {
+    return undefined;
+  }
+  const props = node.props as {
+    children?: ReactNode;
+    resting?: ReactNode;
+    revealed?: ReactNode;
+  };
+  if (props.children === text) {
+    return node as ReactElement<Record<string, unknown>>;
+  }
+  return (
+    findElementByText(props.resting, text) ??
+    findElementByText(props.revealed, text) ??
+    findElementByText(props.children, text)
+  );
+}
+
 function renderCompanyText(
   columns: ReturnType<typeof useMarketStockColumns>,
   stock: IMarketStockPublicItem,
@@ -208,6 +238,50 @@ describe('useMarketStockColumns', () => {
         'HK',
         'Xiaomi',
       ]);
+    });
+
+    it('shows the badge in the compact stock selector layout', () => {
+      const { result } = renderHook(() =>
+        useMarketStockColumns({
+          compact: true,
+          showSparkline: false,
+          showMarketTags: true,
+        }),
+      );
+
+      expect(renderCompanyText(result.current, hkStock)).toEqual([
+        'XIAO',
+        'HK',
+        'Xiaomi',
+      ]);
+    });
+
+    it('centers the compact company name on the badge row', () => {
+      const { result } = renderHook(() =>
+        useMarketStockColumns({ compact: true, showMarketTags: true }),
+      );
+      const cell = result.current[0]?.render?.(undefined, hkStock, 0);
+      const row = findElementByText(cell as ReactNode, 'Xiaomi');
+
+      // The compact name is 12/16 inside a 20px row; a fixed row height on
+      // the text would keep it from centering beside the 16px badge.
+      expect(row?.props.height).toBeUndefined();
+      expect(row?.props.size).toBe('$bodySm');
+    });
+
+    it('keeps the untagged company name on its fixed line height', () => {
+      const { result } = renderHook(() =>
+        useMarketStockColumns({ compact: true, showMarketTags: true }),
+      );
+      const cell = result.current[0]?.render?.(
+        undefined,
+        { ...hkStock, tags: undefined },
+        0,
+      );
+
+      expect(findElementByText(cell as ReactNode, 'Xiaomi')?.props.height).toBe(
+        20,
+      );
     });
 
     it('keeps the badge on the resting line so it slides away on hover', () => {

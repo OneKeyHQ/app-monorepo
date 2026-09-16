@@ -108,19 +108,23 @@ function renderCompanySubtitle({
   showMarketTags: boolean;
 }) {
   const marketTags = showMarketTags ? (record.tags?.filter(Boolean) ?? []) : [];
+  const hasMarketTags = marketTags.length > 0;
   const companyName = (
     <SizableText
-      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      // Beside the badges the row centers the name instead: a fixed height
+      // would pin the compact 16px line to the top of the 20px row and leave
+      // the name sitting above the badge.
+      height={hasMarketTags ? undefined : MARKET_CELL_SUBTITLE_LINE_HEIGHT}
       size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
       color="$textSubdued"
       numberOfLines={1}
       ellipsizeMode="tail"
-      flexShrink={marketTags.length ? 1 : undefined}
+      flexShrink={hasMarketTags ? 1 : undefined}
     >
       {record.name}
     </SizableText>
   );
-  if (!marketTags.length) {
+  if (!hasMarketTags) {
     return companyName;
   }
   return (
