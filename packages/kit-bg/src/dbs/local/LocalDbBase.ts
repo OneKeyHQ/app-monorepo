@@ -9034,8 +9034,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     this.dbAllRecordsInflight.set(cacheKey, readPromise);
     try {
       const accounts = await readPromise;
-      this.dbAllRecordsCache.set(cacheKey, accounts);
-      return { accounts };
+      // A flush while the read was in flight means an Account write landed;
+      // keep the pre-write snapshot out of the cache. The cold caller gets
+      // its own copy so mutating it cannot poison later cache hits.
+      if (this.dbAllRecordsInflight.get(cacheKey) === readPromise) {
+        this.dbAllRecordsCache.set(cacheKey, accounts);
+      }
+      return { accounts: cloneDeep(accounts) };
     } finally {
       // A flush during the read replaces the entry; only drop our own.
       if (this.dbAllRecordsInflight.get(cacheKey) === readPromise) {

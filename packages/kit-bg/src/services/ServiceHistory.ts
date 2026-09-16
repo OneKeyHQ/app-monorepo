@@ -2799,7 +2799,12 @@ class ServiceHistory extends ServiceBase {
 
     if (xpubEntries.length <= 1) {
       const single = await callOnce(xpubEntries[0]?.xpub, limit);
-      this.persistTransferRecipients({ accountId, networkId, result: single });
+      this.persistTransferRecipients({
+        accountId,
+        networkId,
+        limit,
+        result: single,
+      });
       return single;
     }
 
@@ -2857,7 +2862,7 @@ class ServiceHistory extends ServiceBase {
       lastUsedDeriveType: newestDeriveType,
       errored: responses.length > 0 && responses.every((r) => r.errored),
     };
-    this.persistTransferRecipients({ accountId, networkId, result });
+    this.persistTransferRecipients({ accountId, networkId, limit, result });
     return result;
   }
 
@@ -2867,10 +2872,12 @@ class ServiceHistory extends ServiceBase {
   private persistTransferRecipients({
     accountId,
     networkId,
+    limit,
     result,
   }: {
     accountId: string;
     networkId: string;
+    limit: number;
     result: {
       supported: boolean;
       data: ITransferRecipient[];
@@ -2885,6 +2892,7 @@ class ServiceHistory extends ServiceBase {
       .setEntry({
         accountId,
         networkId,
+        limit,
         data: result.data,
         lastUsedDeriveType: result.lastUsedDeriveType,
       })
@@ -2897,9 +2905,12 @@ class ServiceHistory extends ServiceBase {
   public async getCachedTransferRecipients({
     accountId,
     networkId,
+    limit = 10,
   }: {
     accountId: string;
     networkId: string;
+    // Must match the `limit` passed to fetchTransferRecipients.
+    limit?: number;
   }): Promise<
     | {
         data: ITransferRecipient[];
@@ -2911,6 +2922,7 @@ class ServiceHistory extends ServiceBase {
       await this.backgroundApi.simpleDb.transferRecipientsCache.getEntry({
         accountId,
         networkId,
+        limit,
       });
     if (!entry) {
       return undefined;

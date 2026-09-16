@@ -79,6 +79,30 @@ describe('LocalDbBase.getAllAccounts in-flight sharing', () => {
     ).toHaveLength(2);
   });
 
+  it('does not repopulate the cache from a read that predates a flush', async () => {
+    const db = new InflightTestLocalDb();
+
+    const pending = db.getAllAccounts();
+    db.clearStoreCachedData();
+    await pending;
+    // The pre-flush snapshot must not become the warm cache.
+    await db.getAllAccounts();
+
+    expect(
+      db.reads.filter((n) => n === ELocalDBStoreNames.Account),
+    ).toHaveLength(2);
+  });
+
+  it('gives the cold caller its own copy, not the cached objects', async () => {
+    const db = new InflightTestLocalDb();
+
+    const cold = await db.getAllAccounts();
+    cold.accounts[0].name = 'mutated';
+    const warm = await db.getAllAccounts();
+
+    expect(warm.accounts[0].name).toBe(ACCOUNT.name);
+  });
+
   it('serves a warm cache without touching the store', async () => {
     const db = new InflightTestLocalDb();
 

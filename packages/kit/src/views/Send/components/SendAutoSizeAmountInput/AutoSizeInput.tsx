@@ -177,6 +177,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       fontSize,
       minFontSize,
       availableInlineWidth,
+      isInlineWidthMeasured = true,
       inlineTextAlignMode = 'auto',
       currencyLabel,
       inlineTokenSymbol,
@@ -285,9 +286,12 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           ),
         )
       : 0;
+    // Same floor as containerProps.minWidth below: min-width beats width in
+    // CSS, so the trailing-space math must use the width the box renders at.
+    const inlineInputMinWidthPx = Math.ceil(effectiveFontSize * 1.2);
     const inlineInputWidthPx = Math.max(
       inlineAmountTextWidthPx,
-      Math.ceil(effectiveFontSize * 1.05),
+      inlineInputMinWidthPx,
     );
     const inlineInputSlackPx = Math.max(
       inlineInputWidthPx - inlineAmountTextWidthPx,
@@ -329,9 +333,13 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       inlineInputWidthPx - Math.ceil(inlineMeasuredAmountWidthPx),
       0,
     );
+    // Until the container is measured, availableInlineWidth is only the
+    // window width, so treat the box as possibly clamped by maxWidth.
     const isInlineInputShrunk =
-      availableInlineWidth > 0 &&
-      inlineInputWidthPx > availableInlineWidth - desktopInlineReservedWidthPx;
+      !isInlineWidthMeasured ||
+      (availableInlineWidth > 0 &&
+        inlineInputWidthPx >
+          availableInlineWidth - desktopInlineReservedWidthPx);
     const desktopSuffixMarginLeftPx =
       hasSuffix && !isInlineInputShrunk
         ? inlineSuffixGapPx - inlineInputTrailingSpacePx
@@ -404,7 +412,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           containerProps={{
             width: inlineInputWidthPx,
             flexShrink: 1,
-            minWidth: Math.ceil(effectiveFontSize * 1.2),
+            minWidth: inlineInputMinWidthPx,
             maxWidth: inlineInputMaxWidth,
             borderWidth: 0,
             bg: 'transparent',

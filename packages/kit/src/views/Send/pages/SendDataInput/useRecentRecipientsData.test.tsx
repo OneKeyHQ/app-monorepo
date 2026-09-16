@@ -354,6 +354,7 @@ describe('useRecentRecipientsData session cache', () => {
     expect(getCachedTransferRecipients).toHaveBeenCalledWith({
       accountId: ACCOUNT_ID,
       networkId: ETH,
+      limit: 20,
     });
 
     await act(async () => {

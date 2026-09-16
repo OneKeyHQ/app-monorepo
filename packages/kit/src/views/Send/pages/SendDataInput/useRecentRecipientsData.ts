@@ -266,6 +266,7 @@ async function loadPersistedApiRecipients({
       await backgroundApiProxy.serviceHistory.getCachedTransferRecipients({
         accountId,
         networkId: apiNetworkId,
+        limit: MAX_RECIPIENTS,
       });
     if (!persisted?.data?.length) {
       return undefined;

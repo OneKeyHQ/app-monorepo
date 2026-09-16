@@ -5,13 +5,16 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 export interface ITransferRecipientsCacheEntry {
   accountId: string;
   networkId: string;
+  // Requested page size; part of the key so a shorter lookup (e.g. the
+  // 10-item interaction check) never overwrites Send's longer list.
+  limit: number;
   data: ITransferRecipient[];
   lastUsedDeriveType?: string;
   updatedAt: number;
 }
 
 export interface ITransferRecipientsCacheDBStruct {
-  // key: `${accountId}__${networkId}`
+  // key: `${accountId}__${networkId}__${limit}`
   entries: Record<string, ITransferRecipientsCacheEntry>;
 }
 
@@ -21,11 +24,13 @@ export const TRANSFER_RECIPIENTS_CACHE_MAX_ENTRIES = 30;
 export function buildTransferRecipientsCacheKey({
   accountId,
   networkId,
+  limit,
 }: {
   accountId: string;
   networkId: string;
+  limit: number;
 }) {
-  return `${accountId}__${networkId}`;
+  return `${accountId}__${networkId}__${limit}`;
 }
 
 /**
@@ -43,13 +48,15 @@ export class SimpleDbEntityTransferRecipientsCache extends SimpleDbEntityBase<IT
   async getEntry({
     accountId,
     networkId,
+    limit,
   }: {
     accountId: string;
     networkId: string;
+    limit: number;
   }): Promise<ITransferRecipientsCacheEntry | undefined> {
     const rawData = await this.getRawData();
     return rawData?.entries?.[
-      buildTransferRecipientsCacheKey({ accountId, networkId })
+      buildTransferRecipientsCacheKey({ accountId, networkId, limit })
     ];
   }
 
