@@ -9,20 +9,14 @@ import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from '@onekeyhq/shared/src/utils/appVisibility';
+import { PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT } from '@onekeyhq/shared/types/linkConfig';
 
 const NATIVE_POLL_MS = 300;
 
-export type IPrimeGiftCampaignBannerMeasureInWindow = (
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) => void;
-
-export type IPrimeGiftCampaignBannerImpressionHost =
+type IImpressionHost =
   | {
       measureInWindow?: (
-        callback: IPrimeGiftCampaignBannerMeasureInWindow,
+        callback: (x: number, y: number, width: number, height: number) => void,
       ) => void;
     }
   | Element
@@ -42,18 +36,14 @@ function isRectInViewport(x: number, y: number, width: number, height: number) {
 
 export function usePrimeGiftCampaignBannerImpression({
   enabled,
-  slot,
   linkId,
 }: {
   enabled: boolean;
-  slot: string;
   linkId: string | undefined;
 }) {
   const isFocused = useIsFocused();
-  const [host, setHost] =
-    useState<IPrimeGiftCampaignBannerImpressionHost>(null);
+  const [host, setHost] = useState<IImpressionHost>(null);
   const shownThisVisitRef = useRef(new Set<string>());
-  const impressionKey = linkId ? `${slot}:${linkId}` : undefined;
 
   useFocusEffect(
     useCallback(
@@ -65,7 +55,7 @@ export function usePrimeGiftCampaignBannerImpression({
   );
 
   useEffect(() => {
-    if (!enabled || !impressionKey || !linkId || !isFocused || !host) {
+    if (!enabled || !linkId || !isFocused || !host) {
       return;
     }
     let active = true;
@@ -80,16 +70,22 @@ export function usePrimeGiftCampaignBannerImpression({
       }
     };
 
+    const stopWatching = () => {
+      stopPoll();
+      observer?.disconnect();
+      observer = undefined;
+    };
+
     const markShown = () => {
-      if (!active || shownThisVisitRef.current.has(impressionKey)) {
+      if (!active || shownThisVisitRef.current.has(linkId)) {
         return;
       }
-      shownThisVisitRef.current.add(impressionKey);
+      shownThisVisitRef.current.add(linkId);
       defaultLogger.prime.subscription.primeGiftClaimSuccessBannerShown({
-        slot,
+        slot: PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT,
         linkId,
       });
-      stopPoll();
+      stopWatching();
     };
 
     const tryLog = () => {
@@ -97,8 +93,8 @@ export function usePrimeGiftCampaignBannerImpression({
         stopPoll();
         return;
       }
-      if (shownThisVisitRef.current.has(impressionKey)) {
-        stopPoll();
+      if (shownThisVisitRef.current.has(linkId)) {
+        stopWatching();
         return;
       }
       if (platformEnv.isNative) {
@@ -109,7 +105,7 @@ export function usePrimeGiftCampaignBannerImpression({
           if (!active || !getCurrentVisibilityState()) {
             return;
           }
-          if (shownThisVisitRef.current.has(impressionKey)) {
+          if (shownThisVisitRef.current.has(linkId)) {
             return;
           }
           if (!isRectInViewport(x, y, width, height)) {
@@ -131,7 +127,7 @@ export function usePrimeGiftCampaignBannerImpression({
       }
       if (
         !getCurrentVisibilityState() ||
-        shownThisVisitRef.current.has(impressionKey)
+        shownThisVisitRef.current.has(linkId)
       ) {
         return;
       }
@@ -165,11 +161,10 @@ export function usePrimeGiftCampaignBannerImpression({
 
     return () => {
       active = false;
-      stopPoll();
-      observer?.disconnect();
+      stopWatching();
       unsubVisibility();
     };
-  }, [enabled, host, impressionKey, isFocused, linkId, slot]);
+  }, [enabled, host, isFocused, linkId]);
 
   return setHost;
 }

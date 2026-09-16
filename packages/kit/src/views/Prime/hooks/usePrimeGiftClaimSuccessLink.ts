@@ -1,7 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import {
   type ILinkConfigItem,
   PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT,
@@ -9,42 +8,23 @@ import {
 
 const EMPTY_LINK_CONFIG_ITEMS: ILinkConfigItem[] = [];
 
-export function resolveLinkConfigRequestLocale(
-  settingsLocale: string | undefined,
-) {
-  if (!settingsLocale || settingsLocale === 'system') {
-    return getDefaultLocale();
-  }
-  return settingsLocale;
-}
-
-export async function fetchPrimeGiftClaimSuccessLinks(
-  requestLocale?: string,
-): Promise<ILinkConfigItem[]> {
-  // Locale is applied by the shared request interceptor. The argument exists
-  // so the hook runs again when the active language changes.
-  void requestLocale;
-  try {
-    return await backgroundApiProxy.serviceSetting.fetchGetStartedLinks({
-      slots: [PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT],
-    });
-  } catch {
-    return EMPTY_LINK_CONFIG_ITEMS;
-  }
-}
-
-export function pickPrimeGiftClaimSuccessLink(
-  items: ILinkConfigItem[] | undefined,
-) {
-  return items?.[0];
-}
-
 export function usePrimeGiftClaimSuccessLink() {
-  const [{ locale: settingsLocale }] = useSettingsPersistAtom();
-  const requestLocale = resolveLinkConfigRequestLocale(settingsLocale);
+  const locale = useLocaleVariant();
   const { result, isLoading } = usePromiseResult(
-    async () => fetchPrimeGiftClaimSuccessLinks(requestLocale),
-    [requestLocale],
+    async () => {
+      try {
+        return await backgroundApiProxy.serviceSetting.fetchGetStartedLinks({
+          slots: [PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT],
+        });
+      } catch {
+        // Fail closed so a Utility slot error cannot break the success page.
+        return EMPTY_LINK_CONFIG_ITEMS;
+      }
+    },
+    // Locale is applied by the shared request interceptor; this dep only
+    // retriggers the fetch when the active language changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [locale],
     {
       initResult: EMPTY_LINK_CONFIG_ITEMS,
       watchLoading: true,
@@ -53,5 +33,5 @@ export function usePrimeGiftClaimSuccessLink() {
   if (isLoading) {
     return undefined;
   }
-  return pickPrimeGiftClaimSuccessLink(result);
+  return result[0];
 }

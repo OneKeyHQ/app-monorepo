@@ -22,7 +22,6 @@ export function PrimeGiftCampaignBanner() {
   const item = usePrimeGiftClaimSuccessLink();
   const impressionRef = usePrimeGiftCampaignBannerImpression({
     enabled: Boolean(item),
-    slot: PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT,
     linkId: item?.linkId,
   });
   const handlePress = useCallback(() => {
