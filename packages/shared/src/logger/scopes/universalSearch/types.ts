@@ -5,7 +5,6 @@ const searchTypeTrackingNameMap: Record<EUniversalSearchType, string> = {
   [EUniversalSearchType.Address]: 'address',
   [EUniversalSearchType.MarketToken]: 'tokens',
   [EUniversalSearchType.V2MarketToken]: 'market',
-  [EUniversalSearchType.MarketStock]: 'stocks',
   [EUniversalSearchType.AccountAssets]: 'myAssets',
   [EUniversalSearchType.Dapp]: 'dApps',
   [EUniversalSearchType.Perp]: 'perps',

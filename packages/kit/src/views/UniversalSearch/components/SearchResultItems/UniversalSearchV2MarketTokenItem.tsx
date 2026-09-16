@@ -41,14 +41,12 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EUniversalSearchSource,
-  IUniversalSearchMarketStock,
   IUniversalSearchV2MarketToken,
 } from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
-import { getMarketSearchMetricAmount } from '../marketSearchMetric';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
 import {
@@ -158,7 +156,7 @@ export function MarketTokenLiquidity({
 }
 
 interface IUniversalSearchMarketTokenItemProps {
-  item: IUniversalSearchV2MarketToken | IUniversalSearchMarketStock;
+  item: IUniversalSearchV2MarketToken;
   isTrending?: boolean;
   getSearchInput?: () => string;
   source: EUniversalSearchSource;
@@ -190,7 +188,6 @@ export function UniversalSearchV2MarketTokenItem({
     address,
     network,
     liquidity,
-    marketCap,
     // eslint-disable-next-line camelcase
     volume_24h,
     volume24h: volume24hCamel,
@@ -216,11 +213,6 @@ export function UniversalSearchV2MarketTokenItem({
   const isContractAddressVisible = shouldRenderContractAddress({
     address,
     isLegacyNavigation,
-  });
-  const { amount: metricAmount } = getMarketSearchMetricAmount({
-    isStockListing,
-    liquidity,
-    marketCap,
   });
 
   const priceChangeStyle = useMemo(
@@ -423,20 +415,15 @@ export function UniversalSearchV2MarketTokenItem({
           ) : null}
         </YStack>
 
-        {/* Liquidity or market-cap column - desktop only */}
+        {/* LIQUIDITY column - desktop only */}
         {gtMd ? (
-          <XStack
-            w={MARKET_DATA_COLUMN_WIDTH}
-            jc="flex-end"
-            ai="center"
-            testID="universal-search-market-metric"
-          >
+          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end" ai="center">
             <NumberSizeableText
               size="$bodyMd"
               formatter="marketCap"
               formatterOptions={{ capAtMaxT: true }}
             >
-              {BigNumber(metricAmount || 0).gt(0) ? metricAmount : '--'}
+              {BigNumber(liquidity).gt(0) ? liquidity : '--'}
             </NumberSizeableText>
           </XStack>
         ) : null}

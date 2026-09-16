@@ -451,10 +451,3 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: New files entered the native graph via sync imports but were not registered.
 **Fix**: `yarn workspace @onekeyhq/mobile module-id:update --map` for the three production files and commit the registry.
 **Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push
-
-## Case: Universal search mixed stock listings into the Market tab
-**Date**: 2026-09-16 | **Platforms**: Desktop, Web, Extension, iOS, Android
-**Symptom**: Searching AAPL put the real stock next to AAPLon / xStock under Market, and the Liquidity column showed `--` because listings have no liquidity.
-**Root Cause**: `V2MarketToken` search prepended stock listings into the same result bucket and reused the token table columns.
-**Fix**: Split stock listings into `MarketStock` with their own tab/section and show Name / Price / Market cap / Volume.
-**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — mixed asset types in one search tab need their own columns and empty-tab hiding

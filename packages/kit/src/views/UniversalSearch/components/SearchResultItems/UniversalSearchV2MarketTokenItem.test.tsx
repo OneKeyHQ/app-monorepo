@@ -225,8 +225,8 @@ describe('UniversalSearchV2MarketTokenItem', () => {
   });
 
   it('opens stock listings from the stock search endpoint', () => {
-    const item = {
-      type: EUniversalSearchType.MarketStock,
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
       payload: {
         stockId: 'AAPL',
         name: 'Apple Inc.',
@@ -238,7 +238,6 @@ describe('UniversalSearchV2MarketTokenItem', () => {
         isNative: false,
         decimals: 0,
         liquidity: '0',
-        marketCap: '4200000000000',
         volume_24h: '0',
         stock: {
           stockId: 'AAPL',
@@ -246,7 +245,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
           sourceLogoUri: '',
         },
       },
-    } as const;
+    };
 
     const { getByTestId } = render(
       <UniversalSearchV2MarketTokenItem
