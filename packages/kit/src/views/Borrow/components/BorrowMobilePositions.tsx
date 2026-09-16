@@ -316,17 +316,20 @@ export function BorrowMobilePositions({
                     testID={BorrowTestIDs.positionCardCollateralUnavailable(
                       suppliedAsset.reserveAddress,
                     )}
-                    accessible
-                    accessibilityRole="text"
-                    accessibilityLabel={unavailableLabel}
-                    // Tamagui renders stacks straight to a div on web, desktop
-                    // and the extension, where it maps none of the React
-                    // Native accessibility props. Without these twins the mark
-                    // reaches the accessibility tree unnamed. A bare div drops
-                    // aria-label under ARIA naming rules, hence the role.
+                    // Each target gets only what it reads, and nothing else.
+                    // Tamagui renders stacks straight to a div outside native
+                    // and maps none of the React Native accessibility props,
+                    // so shipping them to a browser would leave the mark
+                    // unnamed and land three unknown attributes on the div. A
+                    // bare div drops aria-label under ARIA naming rules, hence
+                    // the role.
                     {...(platformEnv.isRuntimeBrowser
                       ? { role: 'img' as const, 'aria-label': unavailableLabel }
-                      : {})}
+                      : {
+                          accessible: true,
+                          accessibilityRole: 'text' as const,
+                          accessibilityLabel: unavailableLabel,
+                        })}
                   >
                     <CollateralBadge
                       canBeCollateral={false}

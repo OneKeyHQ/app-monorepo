@@ -46,6 +46,13 @@ jest.mock('@onekeyhq/components', () => {
     children?: React.ReactNode;
     testID?: string;
   } & Record<string, unknown>) {
+    // Only these reach a real DOM node. The rest are React Native props that
+    // Tamagui neither maps nor strips on web, so they would land there as
+    // unknown attributes — park the whole set where a test can say so.
+    (
+      ((globalThis as Record<string, unknown>).__collateralSlotProps ??=
+        []) as Record<string, unknown>[]
+    ).push({ ...rest, testID });
     const forwarded = Object.fromEntries(
       Object.entries(rest).filter(
         ([key]) => key.startsWith('aria-') || key === 'role',
@@ -579,8 +586,18 @@ describe('BorrowMobilePositions collateral state', () => {
   function renderSupplied(assetOverrides: Record<string, unknown>) {
     entries.length = 0;
     entries.push(buildEntry('supplied', '0xAaa', assetOverrides));
+    (globalThis as Record<string, unknown>).__collateralSlotProps = [];
     return render(<BorrowMobilePositions />);
   }
+
+  // The unavailable mark's full prop set, DOM-bound and otherwise.
+  const markProps = () =>
+    (
+      ((globalThis as Record<string, unknown>).__collateralSlotProps ??
+        []) as Record<string, unknown>[]
+    ).find(
+      (p) => p.testID === 'borrow-position-card-collateral-unavailable-0xaaa',
+    ) ?? {};
 
   it('keeps the switch for a position that is already collateral', () => {
     const { queryByTestId } = renderSupplied({
@@ -645,6 +662,13 @@ describe('BorrowMobilePositions collateral state', () => {
     // A bare div drops aria-label under ARIA naming rules.
     expect(slot.getAttribute('role')).toBe('img');
     expect(slot.textContent).toBe('');
+
+    // And nothing the browser cannot use. These never become attributes a
+    // screen reader reads; they only reach the DOM as unknown ones.
+    expect(markProps()).toMatchObject({ 'aria-label': expect.any(String) });
+    expect(markProps()).not.toHaveProperty('accessible');
+    expect(markProps()).not.toHaveProperty('accessibilityRole');
+    expect(markProps()).not.toHaveProperty('accessibilityLabel');
   });
 
   it('leaves the DOM-only props off the mark on native', () => {
@@ -660,6 +684,13 @@ describe('BorrowMobilePositions collateral state', () => {
 
       expect(slot.getAttribute('aria-label')).toBeNull();
       expect(slot.getAttribute('role')).toBeNull();
+      expect(markProps()).toMatchObject({
+        accessible: true,
+        accessibilityRole: 'text',
+        accessibilityLabel: 'USDC, defi_collateral, global_not_available',
+      });
+      expect(markProps()).not.toHaveProperty('role');
+      expect(markProps()).not.toHaveProperty('aria-label');
     } finally {
       delete (globalThis as Record<string, unknown>).__isRuntimeBrowser;
     }
