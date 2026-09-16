@@ -57,10 +57,6 @@ export default function PickYourDevice() {
   >(
     () => [
       {
-        // Unreleased models stay out of this picker: the Pro 2 rides under
-        // the plain "OneKey Pro" label and the Neo entry is absent until the
-        // release merge (OK-59937) brings the series label, the Neo card and
-        // their key visuals.
         name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
         image: require('@onekeyhq/kit/assets/pick-pro.png'),
