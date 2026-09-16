@@ -30,9 +30,11 @@ export type IBasicPageProps = PropsWithChildren<
      */
     safeAreaEnabled?: boolean;
     /** @platform native
-     * @description Lazy load. The default value is false.
-     * Mainly used to reduce stuttering when heavy rendering Native pages.
-     * If the page doesn't have much content on initial render, this doesn't need to be enabled.
+     * @deprecated No-op. This used to gate a fixed-duration spinner overlay that
+     * hid the first ~160ms of a heavy native page mount. iOS stopped honouring it
+     * once the performWithoutAnimation patch removed the artifact it covered, and
+     * Android followed; see BasicPage.native.tsx. Kept so existing call sites keep
+     * compiling — do not add new ones.
      * @default false
      */
     lazyLoad?: boolean;
