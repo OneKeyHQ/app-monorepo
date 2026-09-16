@@ -210,6 +210,112 @@ function ensureNativeLoader(): ISplitBundleNativeLoader {
   return nativeLoader;
 }
 
+/**
+ * Awaits the raw loader promise and converts its outcome into the one every
+ * caller should observe: retry bookkeeping on success, and on failure a
+ * `SegmentLoadError` carrying the native `code` plus the `retryable`
+ * classification.
+ *
+ * Split out of [loadSegmentInternal] purely so the promise published to
+ * `inflightSegments` is THIS one — a concurrent caller joining an in-flight
+ * load then observes exactly what the owner observes.
+ */
+async function classifyLoadOutcome(
+  segmentKey: string,
+  rawPromise: Promise<void>,
+): Promise<void> {
+  try {
+    await rawPromise;
+    // Success clears any retry bookkeeping for this segment.
+    retryableAttempts.delete(segmentKey);
+  } catch (error) {
+    segmentStats.failures += 1;
+    segmentStates.set(segmentKey, 'failed');
+
+    // A PROPAGATED dependency failure (the error belongs to a DIFFERENT segment,
+    // thrown by loadSegmentInternal(dep)) must NOT spend or cache THIS segment's
+    // retry budget — only the segment that directly received the native reject
+    // owns its budget. Otherwise a parent gets its budget exhausted (and itself
+    // permanently cached) for a child's transient failure. Re-throw the dep error
+    // verbatim: it already carries the correct code + retryable classification for
+    // our own parent / the boundary to propagate one level up.
+    if (error instanceof SegmentLoadError && error.segmentKey !== segmentKey) {
+      // Leave THIS segment re-attemptable when the dep is still transient.
+      segmentStates.set(segmentKey, error.retryable ? 'idle' : 'failed');
+      throw error;
+    }
+
+    // Classify retryable-ness from EITHER source (fix C):
+    //   (a) a DIRECT native reject — the raw RN TurboModule error carries
+    //       `.code`; map it against the retryable set; or
+    //   (b) a PROPAGATED dep failure — `loadSegmentInternal(dep)` already
+    //       wrapped its native error in a SegmentLoadError that lost the raw
+    //       `.code`, but it copied the native `code` + `retryable` flag onto
+    //       the SegmentLoadError. Without this branch the parent would see a
+    //       codeless SegmentLoadError, treat the failure as fatal, and write
+    //       ITSELF into failedSegments permanently — poisoning the parent even
+    //       though the dep failure was a transient runtime-not-ready / timeout
+    //       that should clear on retry.
+    let nativeCode: string | undefined;
+    let isRetryable: boolean;
+    if (error instanceof SegmentLoadError) {
+      nativeCode = error.code;
+      isRetryable = error.retryable;
+    } else {
+      nativeCode = getNativeRejectCode(error);
+      isRetryable =
+        nativeCode !== undefined &&
+        RETRYABLE_NATIVE_REJECT_CODES.has(nativeCode);
+    }
+
+    // Wrap (or reuse) as a SegmentLoadError, threading the resolved
+    // code/retryable through so THIS segment's parent (if it is itself a dep)
+    // can propagate the same classification one level up.
+    const segError =
+      error instanceof SegmentLoadError
+        ? error
+        : new SegmentLoadError(
+            segmentKey,
+            error instanceof Error ? error.message : String(error),
+            { code: nativeCode, retryable: isRetryable },
+          );
+
+    const attempts = (retryableAttempts.get(segmentKey) ?? 0) + 1;
+
+    if (isRetryable && attempts < MAX_RETRYABLE_ATTEMPTS) {
+      // Skip failedSegments so the NEXT __loadBundleAsync re-attempts (rather
+      // than throwing the cached failure forever). State is reset to 'idle' and
+      // the attempt counter bumped so a wedged runtime can't loop unbounded.
+      retryableAttempts.set(segmentKey, attempts);
+      segmentStates.set(segmentKey, 'idle');
+      NativeLogger.write(
+        LogLevel.Warning,
+        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${MAX_RETRYABLE_ATTEMPTS}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
+      );
+      throw segError;
+    }
+
+    // Non-retryable, or retryable budget exhausted → cache as permanent failure.
+    // Clear `retryable` on the cached error: a budget-exhausted failure is, by
+    // definition, no longer retryable, so downstream consumers (e.g. the lazy
+    // self-heal boundary) treat a later re-navigation as immediately fatal
+    // instead of burning a fresh retry round against this permanently-cached
+    // rejection. Only retrySegment() clears it from here.
+    retryableAttempts.delete(segmentKey);
+    segError.retryable = false;
+    failedSegments.set(segmentKey, segError);
+    NativeLogger.write(
+      LogLevel.Error,
+      `[SplitBundle] SEGMENT LOAD FAILED${
+        isRetryable ? ' (retryable budget exhausted)' : ''
+      }${nativeCode ? ` code=${nativeCode}` : ''}: ${segError.message}`,
+    );
+    throw segError;
+  } finally {
+    inflightSegments.delete(segmentKey);
+  }
+}
+
 async function loadSegmentInternal(segmentKey: string): Promise<void> {
   // Already loaded
   if (loadedSegments.has(segmentKey)) {
@@ -241,7 +347,7 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
     );
   }
 
-  const promise = (async () => {
+  const rawPromise = (async () => {
     globalLoading.add(segmentKey);
     try {
       // Lookup manifest
@@ -373,98 +479,16 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
     }
   })();
 
-  inflightSegments.set(segmentKey, promise);
-
-  try {
-    await promise;
-    // Success clears any retry bookkeeping for this segment.
-    retryableAttempts.delete(segmentKey);
-  } catch (error) {
-    segmentStats.failures += 1;
-    segmentStates.set(segmentKey, 'failed');
-
-    // A PROPAGATED dependency failure (the error belongs to a DIFFERENT segment,
-    // thrown by loadSegmentInternal(dep)) must NOT spend or cache THIS segment's
-    // retry budget — only the segment that directly received the native reject
-    // owns its budget. Otherwise a parent gets its budget exhausted (and itself
-    // permanently cached) for a child's transient failure. Re-throw the dep error
-    // verbatim: it already carries the correct code + retryable classification for
-    // our own parent / the boundary to propagate one level up.
-    if (error instanceof SegmentLoadError && error.segmentKey !== segmentKey) {
-      // Leave THIS segment re-attemptable when the dep is still transient.
-      segmentStates.set(segmentKey, error.retryable ? 'idle' : 'failed');
-      throw error;
-    }
-
-    // Classify retryable-ness from EITHER source (fix C):
-    //   (a) a DIRECT native reject — the raw RN TurboModule error carries
-    //       `.code`; map it against the retryable set; or
-    //   (b) a PROPAGATED dep failure — `loadSegmentInternal(dep)` already
-    //       wrapped its native error in a SegmentLoadError that lost the raw
-    //       `.code`, but it copied the native `code` + `retryable` flag onto
-    //       the SegmentLoadError. Without this branch the parent would see a
-    //       codeless SegmentLoadError, treat the failure as fatal, and write
-    //       ITSELF into failedSegments permanently — poisoning the parent even
-    //       though the dep failure was a transient runtime-not-ready / timeout
-    //       that should clear on retry.
-    let nativeCode: string | undefined;
-    let isRetryable: boolean;
-    if (error instanceof SegmentLoadError) {
-      nativeCode = error.code;
-      isRetryable = error.retryable;
-    } else {
-      nativeCode = getNativeRejectCode(error);
-      isRetryable =
-        nativeCode !== undefined &&
-        RETRYABLE_NATIVE_REJECT_CODES.has(nativeCode);
-    }
-
-    // Wrap (or reuse) as a SegmentLoadError, threading the resolved
-    // code/retryable through so THIS segment's parent (if it is itself a dep)
-    // can propagate the same classification one level up.
-    const segError =
-      error instanceof SegmentLoadError
-        ? error
-        : new SegmentLoadError(
-            segmentKey,
-            error instanceof Error ? error.message : String(error),
-            { code: nativeCode, retryable: isRetryable },
-          );
-
-    const attempts = (retryableAttempts.get(segmentKey) ?? 0) + 1;
-
-    if (isRetryable && attempts < MAX_RETRYABLE_ATTEMPTS) {
-      // Skip failedSegments so the NEXT __loadBundleAsync re-attempts (rather
-      // than throwing the cached failure forever). State is reset to 'idle' and
-      // the attempt counter bumped so a wedged runtime can't loop unbounded.
-      retryableAttempts.set(segmentKey, attempts);
-      segmentStates.set(segmentKey, 'idle');
-      NativeLogger.write(
-        LogLevel.Warning,
-        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${MAX_RETRYABLE_ATTEMPTS}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
-      );
-      throw segError;
-    }
-
-    // Non-retryable, or retryable budget exhausted → cache as permanent failure.
-    // Clear `retryable` on the cached error: a budget-exhausted failure is, by
-    // definition, no longer retryable, so downstream consumers (e.g. the lazy
-    // self-heal boundary) treat a later re-navigation as immediately fatal
-    // instead of burning a fresh retry round against this permanently-cached
-    // rejection. Only retrySegment() clears it from here.
-    retryableAttempts.delete(segmentKey);
-    segError.retryable = false;
-    failedSegments.set(segmentKey, segError);
-    NativeLogger.write(
-      LogLevel.Error,
-      `[SplitBundle] SEGMENT LOAD FAILED${
-        isRetryable ? ' (retryable budget exhausted)' : ''
-      }${nativeCode ? ` code=${nativeCode}` : ''}: ${segError.message}`,
-    );
-    throw segError;
-  } finally {
-    inflightSegments.delete(segmentKey);
-  }
+  // Publish the CLASSIFIED outcome, not the raw one. `rawPromise` rejects with
+  // the RAW native error — it carries `code` but no `retryable` flag — so
+  // storing it here made a deduped caller (the inflight early-return above) and
+  // the owner disagree: `isRetryableLazyError` reads the authoritative flag for
+  // the owner but falls through to its own code lookup for the joiner. Keeping
+  // those two code sets in sync is a standing drift hazard; handing both callers
+  // the same object removes the hazard instead of managing it.
+  const classified = classifyLoadOutcome(segmentKey, rawPromise);
+  inflightSegments.set(segmentKey, classified);
+  return classified;
 }
 
 // ---------------------------------------------------------------------------

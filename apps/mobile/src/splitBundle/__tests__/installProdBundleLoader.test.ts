@@ -480,6 +480,50 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(2);
   });
 
+  // A caller that joins an IN-FLIGHT load used to receive the RAW native
+  // rejection, which carries `code` but no `retryable` flag — so the lazy
+  // boundary classified it from its own code set while the owner read the
+  // loader's verdict, and the two sets could drift apart again. inflightSegments
+  // now publishes the classified outcome, so both callers observe the same
+  // object. Note the joiner does NOT get its own native call.
+  it('gives a deduped concurrent caller the same classified error as the owner', async () => {
+    const mock = createMockNativeLoader();
+    let rejectNative: (e: unknown) => void = () => {};
+    mock.loadSegment.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectNative = reject;
+        }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+
+    // loadSegmentInternal registers the inflight entry synchronously, before
+    // it awaits anything, so the second call dedups onto the first with no
+    // tick in between.
+    const owner = loadSegment('seg:test.a');
+    const joiner = loadSegment('seg:test.a');
+
+    rejectNative(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({
+      name: 'SegmentLoadError',
+      code: 'SPLIT_BUNDLE_NOT_FOUND',
+      retryable: true,
+    });
+    expect(joinerErr).toBe(ownerErr);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
   // A genuinely missing segment (real packaging/OTA corruption, e.g. iOS
   // BackgroundThread mapping EBgMgrSegmentEvalErrorFileNotFound) still reaches
   // a permanent verdict, just via the same circuit breaker as the other
