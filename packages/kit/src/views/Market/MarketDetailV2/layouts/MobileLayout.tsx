@@ -33,6 +33,7 @@ import {
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
@@ -45,7 +46,10 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
-import { useMarketTradingViewSubIndicatorCountPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useMarketTradingViewSubIndicatorCountPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -56,8 +60,10 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../../testIDs';
 import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
@@ -80,13 +86,11 @@ import {
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
 
-import type { MarketDetailEmbeddedSwap } from '../components/MarketDetailEmbeddedSwap';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
+import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 
 type ISwapPanelProps = ComponentProps<typeof SwapPanel>;
-type IMarketDetailEmbeddedSwapProps = ComponentProps<
-  typeof MarketDetailEmbeddedSwap
->;
+type ISwapPanelWrapProps = ComponentProps<typeof SwapPanelWrap>;
 type ITokenActivityOverviewProps = {
   pl?: string;
   pr?: string;
@@ -120,12 +124,12 @@ const LazySwapPanel = LazyLoad<ISwapPanelProps>(
   swapPanelLoadingFallback,
 );
 
-const LazyMarketDetailEmbeddedSwap = LazyLoad<IMarketDetailEmbeddedSwapProps>(
+const LazySwapPanelWrap = LazyLoad<ISwapPanelWrapProps>(
   () =>
     import(
-      /* webpackChunkName: "market-detail-v2-embedded-swap" */ '../components/MarketDetailEmbeddedSwap'
-    ).then(({ MarketDetailEmbeddedSwap }) => ({
-      default: MarketDetailEmbeddedSwap,
+      /* webpackChunkName: "market-detail-v2-swap-panel-wrap" */ '../components/SwapPanel/SwapPanelWrap'
+    ).then(({ SwapPanelWrap }) => ({
+      default: SwapPanelWrap,
     })),
   undefined,
   swapPanelLoadingFallback,
@@ -1006,10 +1010,21 @@ export function MobileLayout({
         showExitButton: true,
         renderContent: (
           <View>
-            <LazyMarketDetailEmbeddedSwap
-              swapToken={swapToken}
-              testID="market-token-detail-dialog-trade-ready"
-            />
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MarketWatchListProviderMirrorV2
+                storeName={EJotaiContextStoreNames.marketWatchListV2}
+              >
+                <LazySwapPanelWrap
+                  onCloseDialog={() => dialogRef.current?.close()}
+                />
+              </MarketWatchListProviderMirrorV2>
+            </AccountSelectorProviderMirror>
           </View>
         ),
       });

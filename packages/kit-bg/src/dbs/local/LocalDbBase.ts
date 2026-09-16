@@ -9002,30 +9002,51 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accounts: IDBAccount[];
   }> {
     const cacheKey = 'allDbAccounts';
-    if (!ids) {
-      const allDbAccountsInCache =
-        this.getAllRecordsByCache<IDBAccount>(cacheKey);
-      if (allDbAccountsInCache && allDbAccountsInCache?.length) {
-        return { accounts: allDbAccountsInCache };
-      }
-    }
-    let accounts: IDBAccount[] = [];
     if (ids) {
       const { records } = await this.getRecordsByIds({
         name: ELocalDBStoreNames.Account,
         ids,
       });
-      accounts = records.filter(Boolean);
-    } else {
+      return { accounts: records.filter(Boolean) };
+    }
+
+    const allDbAccountsInCache =
+      this.getAllRecordsByCache<IDBAccount>(cacheKey);
+    if (allDbAccountsInCache && allDbAccountsInCache?.length) {
+      return { accounts: allDbAccountsInCache };
+    }
+
+    // Join a read that another caller already started (cold cache); each
+    // joiner gets its own copy, like a cache hit would.
+    const inflight = this.dbAllRecordsInflight.get(cacheKey) as
+      | Promise<IDBAccount[]>
+      | undefined;
+    if (inflight) {
+      return { accounts: cloneDeep(await inflight) };
+    }
+
+    const readPromise = (async () => {
       const { records } = await this.getAllRecords({
         name: ELocalDBStoreNames.Account,
       });
-      accounts = records.filter(Boolean);
+      return records.filter(Boolean);
+    })();
+    this.dbAllRecordsInflight.set(cacheKey, readPromise);
+    try {
+      const accounts = await readPromise;
+      // A flush while the read was in flight means an Account write landed;
+      // keep the pre-write snapshot out of the cache. The cold caller gets
+      // its own copy so mutating it cannot poison later cache hits.
+      if (this.dbAllRecordsInflight.get(cacheKey) === readPromise) {
+        this.dbAllRecordsCache.set(cacheKey, accounts);
+      }
+      return { accounts: cloneDeep(accounts) };
+    } finally {
+      // A flush during the read replaces the entry; only drop our own.
+      if (this.dbAllRecordsInflight.get(cacheKey) === readPromise) {
+        this.dbAllRecordsInflight.delete(cacheKey);
+      }
     }
-    if (!ids) {
-      this.dbAllRecordsCache.set(cacheKey, accounts);
-    }
-    return { accounts };
   }
 
   async removeIndexedAccounts({

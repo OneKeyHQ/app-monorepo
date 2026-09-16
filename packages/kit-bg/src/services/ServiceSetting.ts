@@ -319,6 +319,7 @@ class ServiceSetting extends ServiceBase {
       // clear transaction history
       await this.backgroundApi.simpleDb.localHistory.clearRawData();
       await this.backgroundApi.simpleDb.addressInfo.clearRawData();
+      await this.backgroundApi.simpleDb.transferRecipientsCache.clear();
     }
     if (values.swapHistory) {
       // clear swap history

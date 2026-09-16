@@ -4,7 +4,10 @@ import { useMedia } from '@onekeyhq/components';
 import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { CategoryFilterItemWithLayout } from '../CategoryFilterItem';
+import {
+  CategoryFilterItemWithLayout,
+  MARKET_MOBILE_CATEGORY_CHIP_PROPS,
+} from '../CategoryFilterItem';
 
 import { MarketPerpsCategorySelectorDesktop } from './MarketPerpsCategorySelectorDesktop';
 
@@ -34,6 +37,7 @@ function MarketPerpsCategorySelectorMobile({
           name={category.name}
           isSelected={category.tabId === selectedCategoryId}
           onPress={() => onSelectCategory(category.tabId)}
+          {...MARKET_MOBILE_CATEGORY_CHIP_PROPS}
         />
       ))}
     </ScrollableFilterBar>

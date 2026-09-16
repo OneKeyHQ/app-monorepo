@@ -10,6 +10,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeGiftAnalyticsSource } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { isPrimeGiftVerifyCancellationError } from '@onekeyhq/shared/src/utils/primeGiftVerifyError';
 import type {
   IPrimeGiftClaimResult,
   IPrimeGiftDeviceVerification,
@@ -243,7 +244,7 @@ export function usePrimeGiftClaim({
       });
     } catch (error) {
       if (isCurrent()) {
-        const isCancel = errorToastUtils.isUserCancelStyleError(error);
+        const isCancel = isPrimeGiftVerifyCancellationError(error);
         defaultLogger.prime.subscription.primeGiftStage({
           source,
           stage: 'verify',

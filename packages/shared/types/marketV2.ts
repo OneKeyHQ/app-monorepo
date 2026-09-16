@@ -25,6 +25,13 @@ export interface IMarketTokenHistoricalPriceFields {
   price24hAgo?: string;
 }
 
+export interface IMarketTokenLaunchpad {
+  protocolId?: string;
+  logoUrl?: string;
+  isInternal?: boolean;
+  progress?: string;
+}
+
 export interface IMarketTokenDetail {
   networkId?: string;
   isNative?: boolean;
@@ -123,6 +130,7 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  launchpad?: IMarketTokenLaunchpad | null;
   stock?: IMarketStockInfo;
   btcMetadata?: IBtcMetadata;
   [key: string]: unknown;
@@ -202,6 +210,9 @@ export interface IMarketStockInfo {
   // the minute count is a snapshot that ages with the response.
   nextOpenTime?: string;
   nextOpenMinutes?: number;
+  // The underlying listing's last price move; only set from the public stock
+  // feed. See `priceUpdatedAt` on IMarketStockPublicItem.
+  priceUpdatedAt?: string;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
@@ -723,6 +734,7 @@ export enum EMarketBannerType {
   Mixed = 'mixed',
   StockPerps = 'stock_perps',
   StockIndex = 'stock_index',
+  TickerPerps = 'ticker_perps',
 }
 
 export interface IMarketBannerDescription {
@@ -800,6 +812,10 @@ export interface IMarketStockPublicItem {
   peRatio?: string;
   currency: 'USD';
   quoteUpdatedAt?: string;
+  // When the quote feed last moved the share price itself. Outside regular
+  // trading it stops advancing while `quoteUpdatedAt` keeps ticking, so this
+  // is the timestamp worth showing a closed or overnight market.
+  priceUpdatedAt?: string;
   sparkline?: number[];
   sparklineUpdatedAt?: string;
   variants?: IMarketStockListVariant[];

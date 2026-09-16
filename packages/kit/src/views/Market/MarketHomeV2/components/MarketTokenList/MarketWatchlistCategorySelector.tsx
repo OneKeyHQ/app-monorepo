@@ -16,6 +16,7 @@ import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 import {
   CategoryFilterItem,
   CategoryFilterItemWithLayout,
+  MARKET_MOBILE_CATEGORY_CHIP_PROPS,
 } from '../CategoryFilterItem';
 
 export type IWatchlistFilterType = 'all' | 'spot' | 'stocks' | 'perps';
@@ -82,6 +83,7 @@ function MarketWatchlistCategorySelectorMobile({
           name={c.name}
           isSelected={c.id === selectedFilter}
           onPress={() => handleSelect(c.id)}
+          {...MARKET_MOBILE_CATEGORY_CHIP_PROPS}
         />
       ))}
     </ScrollableFilterBar>

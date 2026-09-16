@@ -548,10 +548,7 @@ describe('shouldUseStockMetadataColumnsForTokens', () => {
   });
 });
 
-test.each([
-  { stockId: ' aapl ', underlyingAssetTicker: 'OTHER' },
-  { underlyingAssetTicker: 'aapl' },
-])('preserves one stock identity across chain variants: %j', (stock) => {
+test('preserves one stock identity across chain variants', () => {
   const tokens = ['evm--1', 'evm--42161'].map((chainId) =>
     transformApiItemToToken(
       {
@@ -559,10 +556,33 @@ test.each([
         name: 'Apple',
         symbol: 'AAPLon',
         decimals: 18,
-        stock: { subtitle: 'Apple', sourceLogoUri: '', ...stock },
+        stock: {
+          subtitle: 'Apple',
+          sourceLogoUri: '',
+          stockId: ' aapl ',
+          underlyingAssetTicker: 'OTHER',
+        },
       },
       { chainId, networkLogoUri: '' },
     ),
   );
   expect(tokens.map((token) => token.stockId)).toEqual(['AAPL', 'AAPL']);
+});
+
+test('does not treat an underlying ticker as a stock id', () => {
+  const token = transformApiItemToToken(
+    {
+      address: '0xaapl',
+      name: 'Apple',
+      symbol: 'AAPLon',
+      decimals: 18,
+      stock: {
+        subtitle: 'Apple',
+        sourceLogoUri: '',
+        underlyingAssetTicker: 'aapl',
+      },
+    },
+    { chainId: 'evm--1', networkLogoUri: '' },
+  );
+  expect(token.stockId).toBeUndefined();
 });

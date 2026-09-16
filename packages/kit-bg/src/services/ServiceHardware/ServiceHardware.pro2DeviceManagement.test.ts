@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   LogLevel,
@@ -2624,6 +2625,43 @@ describe('Prime gift certificate verification', () => {
           deviceType,
         }),
       );
+    },
+  );
+
+  it.each([
+    { connectId: '', serialNo: 'DEVICE_SERIAL' },
+    { connectId: 'DEVICE_USB', serialNo: '' },
+  ])(
+    'rejects missing device connection before verification: %j',
+    async ({ connectId, serialNo }) => {
+      const withHardwareProcessing = jest.fn();
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+        },
+        serviceHardware: undefined as ServiceHardware | undefined,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as unknown as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+
+      await expect(
+        service.hardwareVerifyManager.firmwareAuthenticateForPrimeGift({
+          device: {
+            connectId,
+            deviceId: 'DEVICE_ID',
+            uuid: 'DEVICE_SERIAL',
+            name: 'OneKey hardware wallet',
+            deviceType: EDeviceType.Pro,
+          },
+          serialNo,
+        }),
+      ).rejects.toMatchObject({
+        key: ETranslations.prime_gift_connect_device__msg,
+        autoToast: false,
+      });
+      expect(withHardwareProcessing).not.toHaveBeenCalled();
     },
   );
 });
