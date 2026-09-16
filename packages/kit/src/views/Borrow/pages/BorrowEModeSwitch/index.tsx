@@ -398,17 +398,24 @@ function BorrowEModeSwitchView() {
 
   const effectiveSelection = selection.effectiveSelection;
   const selectedRow = rows.find((row) => row.eModeId === effectiveSelection);
-  const viewState =
-    pendingSelection && !isError
-      ? 'checking'
-      : resolveEModeViewState({
-          effectiveSelection,
-          currentEModeId,
-          isChecking,
-          requiresRevalidation,
-          check,
-        });
-  const blockerItems = buildNeedActionItems(check);
+  // A pending pick outran the page's status, so the check still in hand
+  // belongs to the previous target. Nothing may render from it while the pick
+  // is unresolved — not the blocked alert, which would caption the old
+  // category's numbers with the new label, and not the check-retry alert,
+  // whose retry re-checks against the very status the pick is waiting to
+  // replace. This holds through a failed refresh too: the status alert above
+  // owns the retry until the refresh lands.
+  const activeCheck = pendingSelection ? null : check;
+  const viewState = pendingSelection
+    ? 'checking'
+    : resolveEModeViewState({
+        effectiveSelection,
+        currentEModeId,
+        isChecking,
+        requiresRevalidation,
+        check: activeCheck,
+      });
+  const blockerItems = buildNeedActionItems(activeCheck);
   const blockerTitle = blockerItems.length
     ? intl.formatMessage(
         { id: ETranslations.defi_emode_resolve_count },
@@ -565,7 +572,7 @@ function BorrowEModeSwitchView() {
             </YStack>
             <EModeImpactSection
               isCurrent={viewState === 'current'}
-              check={viewState === 'current' ? null : check}
+              check={viewState === 'current' ? null : activeCheck}
               isChecking={viewState === 'checking'}
               currentMaxLtv={eModeStatus?.originalLtv}
               currentHealthFactor={healthFactorData?.healthFactor?.text}

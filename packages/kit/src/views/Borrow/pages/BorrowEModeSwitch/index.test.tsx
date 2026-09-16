@@ -449,6 +449,35 @@ describe('BorrowEModeSwitch status rendering', () => {
       expect(mockResetTarget).not.toHaveBeenCalled();
     });
 
+    // The check in hand was run against the target the pick replaced. Under a
+    // failed refresh the page still holds it, and it must not surface: its
+    // numbers would arrive captioned with the new category, and its retry
+    // would re-check against the status the pick is waiting to replace.
+    it("never shows the replaced target's check while a pick awaits its refresh", async () => {
+      mockCheckState.current = { canSwitch: false };
+      const view = render(<BorrowEModeSwitch />);
+      moveCurrentTo(view, 0);
+      const finishRefresh = deferRefresh();
+
+      pick(1, 1);
+      await act(async () => {
+        mockEModeStatusState.current = {
+          ...mockEModeStatusState.current,
+          isError: true,
+        };
+        view.rerender(<BorrowEModeSwitch />);
+        finishRefresh();
+      });
+
+      expect(screen.queryByText('defi_emode_need_action_subtitle')).toBeNull();
+      expect(screen.queryByTestId('borrow-e-mode-check-retry')).toBeNull();
+      // The status alert above owns the retry until the refresh lands.
+      expect(screen.queryByTestId('borrow-e-mode-retry')).not.toBeNull();
+      expect(
+        screen.getByTestId('e-mode-footer').getAttribute('data-disabled'),
+      ).toBe('true');
+    });
+
     it('does not overwrite a newer pick when an earlier refresh finishes', async () => {
       const view = render(<BorrowEModeSwitch />);
       moveCurrentTo(view, 0);
