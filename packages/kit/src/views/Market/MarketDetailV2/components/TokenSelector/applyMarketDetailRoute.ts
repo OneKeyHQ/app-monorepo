@@ -20,6 +20,7 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'resolveMarketAsset',
   'skipMarketDataFetch',
   'legacyTokenPreview',
+  'marketTokenPreviewId',
   'stockId',
   'stockPreviewSymbol',
   'stockPreviewName',
@@ -93,17 +94,18 @@ export function applyExistingMarketDetailRoute({
     return false;
   }
 
+  if (!existing.navigatorKey) {
+    return false;
+  }
+
   const nextParams = buildReplacedMarketDetailParams(params);
   if (existing.routeName === routeName) {
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
       source: existing.routeKey,
+      target: existing.navigatorKey,
     });
     return true;
-  }
-
-  if (!existing.navigatorKey) {
-    return false;
   }
 
   navigation.dispatch({

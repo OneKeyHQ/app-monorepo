@@ -88,6 +88,7 @@ describe('applyMarketDetailRoute', () => {
       resolveMarketAsset: undefined,
       skipMarketDataFetch: undefined,
       legacyTokenPreview: undefined,
+      marketTokenPreviewId: undefined,
       stockId: undefined,
       stockPreviewSymbol: undefined,
       stockPreviewName: undefined,
@@ -131,6 +132,7 @@ describe('applyMarketDetailRoute', () => {
         }),
       },
       source: 'detail-1',
+      target: 'discovery-stack',
     });
   });
 
@@ -171,6 +173,20 @@ describe('applyMarketDetailRoute', () => {
       },
       target: 'discovery-stack',
     });
+  });
+
+  it('returns false when the detail route has no navigator target', () => {
+    getRootStateMock.mockReturnValue({
+      routes: [{ key: 'detail-1', name: 'MarketDetailV2' }],
+    });
+
+    expect(
+      applyExistingMarketDetailRoute({
+        routeName: 'MarketDetailV2',
+        params: { tokenAddress: '0xabc', network: 'eth' },
+      }),
+    ).toBe(false);
+    expect(dispatchMock).not.toHaveBeenCalled();
   });
 
   it('returns false when no market detail is mounted', () => {

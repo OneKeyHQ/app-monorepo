@@ -105,6 +105,7 @@ function expectUpdatedCurrentTokenDetail(params: Record<string, unknown>) {
     expect.objectContaining({
       type: 'SET_PARAMS',
       source: 'detail-1',
+      target: 'discovery-stack',
       payload: {
         params: expect.objectContaining(params),
       },
