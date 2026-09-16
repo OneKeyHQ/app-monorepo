@@ -1,55 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/core';
-import { Dimensions } from 'react-native';
+import { Dimensions, type View } from 'react-native';
 
+import { useScrollView } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IPrimeGiftAnalyticsSource } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from '@onekeyhq/shared/src/utils/appVisibility';
+import { PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT } from '@onekeyhq/shared/types/linkConfig';
 
 const NATIVE_POLL_MS = 300;
 
-export type IPrimeGiftOfferMeasureInWindow = (
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) => void;
+type INativeMeasureHost = Pick<View, 'measureInWindow'>;
+type IImpressionHost = INativeMeasureHost | Element | null;
 
-export type IPrimeGiftOfferImpressionHost =
-  | {
-      measureInWindow?: (callback: IPrimeGiftOfferMeasureInWindow) => void;
-    }
-  | Element
-  | null;
-
-function isRectInViewport(x: number, y: number, width: number, height: number) {
-  const viewport = Dimensions.get('window');
+function isMeasureHost(value: unknown): value is INativeMeasureHost {
   return (
-    width > 0 &&
-    height > 0 &&
-    x < viewport.width &&
-    y < viewport.height &&
-    x + width > 0 &&
-    y + height > 0
+    typeof value === 'object' &&
+    value !== null &&
+    'measureInWindow' in value &&
+    typeof value.measureInWindow === 'function'
   );
 }
 
-export function usePrimeGiftOfferImpression({
+export function usePrimeGiftCampaignBannerImpression({
   enabled,
-  serialNo,
-  source,
+  linkId,
 }: {
   enabled: boolean;
-  serialNo: string | undefined;
-  source: IPrimeGiftAnalyticsSource;
+  linkId: string | undefined;
 }) {
   const isFocused = useIsFocused();
-  const [host, setHost] = useState<IPrimeGiftOfferImpressionHost>(null);
+  const { scrollViewRef } = useScrollView();
+  const [host, setHost] = useState<IImpressionHost>(null);
   const shownThisVisitRef = useRef(new Set<string>());
 
   useFocusEffect(
@@ -62,7 +48,7 @@ export function usePrimeGiftOfferImpression({
   );
 
   useEffect(() => {
-    if (!enabled || !serialNo || !isFocused || !host) {
+    if (!enabled || !linkId || !isFocused || !host) {
       return;
     }
     let active = true;
@@ -84,11 +70,14 @@ export function usePrimeGiftOfferImpression({
     };
 
     const markShown = () => {
-      if (!active || shownThisVisitRef.current.has(serialNo)) {
+      if (!active || shownThisVisitRef.current.has(linkId)) {
         return;
       }
-      shownThisVisitRef.current.add(serialNo);
-      defaultLogger.prime.subscription.primeGiftOfferShown({ source });
+      shownThisVisitRef.current.add(linkId);
+      defaultLogger.prime.subscription.primeGiftClaimSuccessBannerShown({
+        slot: PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT,
+        linkId,
+      });
       stopWatching();
     };
 
@@ -97,25 +86,42 @@ export function usePrimeGiftOfferImpression({
         stopPoll();
         return;
       }
-      if (shownThisVisitRef.current.has(serialNo)) {
+      if (shownThisVisitRef.current.has(linkId)) {
         stopWatching();
         return;
       }
       if (platformEnv.isNative) {
-        if (!host || typeof host !== 'object' || !('measureInWindow' in host)) {
+        if (!isMeasureHost(host) || !isMeasureHost(scrollViewRef.current)) {
           return;
         }
-        host.measureInWindow?.((x, y, width, height) => {
+        host.measureInWindow((x, y, width, height) => {
           if (!active || !getCurrentVisibilityState()) {
             return;
           }
-          if (shownThisVisitRef.current.has(serialNo)) {
+          if (shownThisVisitRef.current.has(linkId)) {
             return;
           }
-          if (!isRectInViewport(x, y, width, height)) {
+          const viewport = scrollViewRef.current;
+          if (!isMeasureHost(viewport)) {
             return;
           }
-          markShown();
+          viewport.measureInWindow((vx, vy, vw, vh) => {
+            if (!active || !getCurrentVisibilityState()) {
+              return;
+            }
+            if (shownThisVisitRef.current.has(linkId)) {
+              return;
+            }
+            const { width: windowWidth, height: windowHeight } =
+              Dimensions.get('window');
+            const left = Math.max(x, vx, 0);
+            const top = Math.max(y, vy, 0);
+            const right = Math.min(x + width, vx + vw, windowWidth);
+            const bottom = Math.min(y + height, vy + vh, windowHeight);
+            if (right > left && bottom > top) {
+              markShown();
+            }
+          });
         });
         return;
       }
@@ -131,7 +137,7 @@ export function usePrimeGiftOfferImpression({
       }
       if (
         !getCurrentVisibilityState() ||
-        shownThisVisitRef.current.has(serialNo)
+        shownThisVisitRef.current.has(linkId)
       ) {
         return;
       }
@@ -168,7 +174,7 @@ export function usePrimeGiftOfferImpression({
       stopWatching();
       unsubVisibility();
     };
-  }, [enabled, host, isFocused, serialNo, source]);
+  }, [enabled, host, isFocused, linkId, scrollViewRef]);
 
   return setHost;
 }

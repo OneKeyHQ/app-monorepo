@@ -309,6 +309,30 @@ export class PrimeSubscriptionScene extends BaseScene {
     return { source };
   }
 
+  /** Campaign banner on the Prime gift claim-success page became visible. */
+  @LogToServer()
+  public primeGiftClaimSuccessBannerShown({
+    slot,
+    linkId,
+  }: {
+    slot: string;
+    linkId: string;
+  }) {
+    return { slot, linkId };
+  }
+
+  /** User tapped the Prime gift claim-success campaign banner. */
+  @LogToServer()
+  public primeGiftClaimSuccessBannerClick({
+    slot,
+    linkId,
+  }: {
+    slot: string;
+    linkId: string;
+  }) {
+    return { slot, linkId };
+  }
+
   /**
    * Controlled gift funnel stages. Never includes serial, email, address,
    * redemption code, or raw error text.

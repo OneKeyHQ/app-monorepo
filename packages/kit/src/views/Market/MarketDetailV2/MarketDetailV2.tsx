@@ -72,10 +72,18 @@ function normalizeRouteBooleanParam(
 }
 
 function LegacyTokenPreviewInitializer({
+  active,
   preview,
   stockTarget,
+  retainedTokenTarget,
 }: {
+  active: boolean;
   preview?: IMarketTokenDetailPreview;
+  retainedTokenTarget?: {
+    tokenAddress: string;
+    networkId: string;
+    isNative: boolean;
+  };
   stockTarget?: {
     tokenAddress: string;
     networkId: string;
@@ -85,16 +93,22 @@ function LegacyTokenPreviewInitializer({
   const tokenDetailActions = useTokenDetailActions();
 
   useLayoutEffect(() => {
+    if (!active) {
+      return;
+    }
     if (stockTarget) {
       // Stock navigation may intentionally retain an existing detail/request
       // for the same variant. The action clears only when the identity changes.
       tokenDetailActions.current.prepareStockTokenDetail(stockTarget);
-    } else if (preview) {
-      tokenDetailActions.current.prepareTokenDetailPreview(preview);
+    } else if (retainedTokenTarget || preview) {
+      tokenDetailActions.current.prepareTokenDetailPreview(
+        preview,
+        retainedTokenTarget,
+      );
     } else if (!platformEnv.isNative) {
       tokenDetailActions.current.clearTokenDetail();
     }
-  }, [preview, stockTarget, tokenDetailActions]);
+  }, [active, preview, stockTarget, retainedTokenTarget, tokenDetailActions]);
 
   return null;
 }
@@ -129,6 +143,28 @@ function MarketDetail({
   } = useStockDetail();
   const { tokenDetailPreview: currentTokenDetailPreview } = useTokenDetail();
   const isRouteFocused = useIsFocused();
+  const media = useMedia();
+  const isDesktopLayout = media.gtLg && !platformEnv.isNative;
+  const rootRoutersLength = getRootRoutersLength();
+  const ownsEmbeddedSwapRef = useRef(isRouteFocused);
+  const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
+  if (isRouteFocused) {
+    ownsEmbeddedSwapRef.current = true;
+    focusedRootRoutersLengthRef.current = rootRoutersLength;
+  } else if (rootRoutersLength <= focusedRootRoutersLengthRef.current) {
+    ownsEmbeddedSwapRef.current = false;
+  }
+  const shouldKeepEmbeddedSwapMounted =
+    !isRouteFocused &&
+    rootRoutersLength > focusedRootRoutersLengthRef.current &&
+    ownsEmbeddedSwapRef.current;
+  const usesRetainedMarketDetailRoutes = Boolean(
+    platformEnv.isDesktop || platformEnv.isWeb,
+  );
+  const shouldOwnSharedMarketDetailState =
+    !usesRetainedMarketDetailRoutes ||
+    isRouteFocused ||
+    shouldKeepEmbeddedSwapMounted;
   const routeNetwork = ('network' in params ? params.network : '') ?? '';
   const routeNetworkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: routeNetwork }) ||
@@ -213,28 +249,23 @@ function MarketDetail({
     tokenAddress,
     networkId,
   });
-  const stockTokenDetailTarget = useMemo(
-    () =>
-      isStockRoute
-        ? {
-            tokenAddress,
-            networkId,
-            isNative: isNativeBoolean,
-          }
-        : undefined,
-    [isNativeBoolean, isStockRoute, networkId, tokenAddress],
+  const tokenDetailTarget = useMemo(
+    () => ({ tokenAddress, networkId, isNative: isNativeBoolean }),
+    [isNativeBoolean, networkId, tokenAddress],
   );
 
   // Track market entry analytics
   useMarketEnterAnalytics();
 
-  // Start auto-refresh for token details every 5 seconds
+  // Start auto-refresh for token details every 6 seconds
   // Use actualNetworkId (converted from shortcode if needed) for API calls
   const {
     marketAssetDetail,
     isMarketAssetDetailLoading,
     isInitialTokenDetailPending,
   } = useAutoRefreshTokenDetail({
+    active: shouldOwnSharedMarketDetailState,
+    resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
     tokenAddress,
     networkId,
     isNative: isNativeBoolean,
@@ -243,23 +274,7 @@ function MarketDetail({
     marketVariantId,
     marketTokenCategory,
   });
-
-  const media = useMedia();
-  const isDesktopLayout = media.gtLg && !platformEnv.isNative;
-  const rootRoutersLength = getRootRoutersLength();
-  const ownsEmbeddedSwapRef = useRef(isRouteFocused);
-  const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
-  if (isRouteFocused) {
-    ownsEmbeddedSwapRef.current = true;
-    focusedRootRoutersLengthRef.current = rootRoutersLength;
-  } else if (rootRoutersLength <= focusedRootRoutersLengthRef.current) {
-    ownsEmbeddedSwapRef.current = false;
-  }
-  const shouldKeepEmbeddedSwapMounted =
-    !isRouteFocused &&
-    rootRoutersLength > focusedRootRoutersLengthRef.current &&
-    ownsEmbeddedSwapRef.current;
-  // Desktop detail screens stay mounted in the navigation stack. Only the
+  // Desktop/Web detail screens stay mounted in the navigation stack. Only the
   // focused screen may own the shared Swap state and page footer. Keep that
   // owner mounted while a child modal is open so quote listeners remain
   // attached to the same Swap instance.
@@ -289,8 +304,12 @@ function MarketDetail({
   return (
     <BtcMetadataProvider>
       <LegacyTokenPreviewInitializer
+        active={shouldOwnSharedMarketDetailState}
         preview={resolvedTokenDetailPreview}
-        stockTarget={stockTokenDetailTarget}
+        stockTarget={isStockRoute ? tokenDetailTarget : undefined}
+        retainedTokenTarget={
+          usesRetainedMarketDetailRoutes ? tokenDetailTarget : undefined
+        }
       />
       <Page>
         {isChartFullscreen && !platformEnv.isNative ? (

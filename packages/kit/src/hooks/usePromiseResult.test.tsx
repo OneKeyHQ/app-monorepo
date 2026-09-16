@@ -11,7 +11,8 @@ if (typeof globalThis.requestIdleCallback === 'undefined') {
   (globalThis as any).cancelIdleCallback = (id: number) => clearTimeout(id);
 }
 
-import { useRef } from 'react';
+import { StrictMode, useRef } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
@@ -148,6 +149,32 @@ describe('usePromiseResult', () => {
 
     expect(method).toHaveBeenCalledTimes(1);
     expect(result.current.renderCount).toBe(renderCountAfterLoad);
+  });
+
+  it('runs again when an opted-in retained surface reconnects effects', async () => {
+    const method = jest.fn(async (dep: string) => dep);
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StrictMode>{children}</StrictMode>
+    );
+    const { result, rerender } = renderHook(
+      ({ dep }: { dep: string }) =>
+        usePromiseResult(() => method(dep), [dep], {
+          resumeOnEffectReconnect: true,
+        }),
+      {
+        initialProps: { dep: 'first' },
+        wrapper,
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.result).toBe('first');
+    });
+    rerender({ dep: 'second' });
+    await waitFor(() => {
+      expect(result.current.result).toBe('second');
+    });
+    expect(method).toHaveBeenCalledWith('second');
   });
 
   it('revalidates when network recovers if reconnect revalidation is enabled', async () => {
