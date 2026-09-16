@@ -1,4 +1,7 @@
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+
 import {
+  isMarketDetailRoute,
   isSwapApprovalFlowActive,
   registerMarketSwapApprovalFlow,
 } from './swapNavigationUtils';
@@ -10,6 +13,25 @@ const baseNavigationContext = {
   isSwapModalOnTheTop: false,
   hasModal: false,
 };
+
+describe('isMarketDetailRoute', () => {
+  it.each([
+    ETabMarketRoutes.MarketDetail,
+    ETabMarketRoutes.MarketDetailV2,
+    ETabMarketRoutes.MarketStockDetail,
+    ETabMarketRoutes.MarketNativeDetail,
+  ])('treats %s as a Market detail route', (routeName) => {
+    expect(isMarketDetailRoute(routeName)).toBe(true);
+  });
+
+  it('treats non-detail Market routes and empty values as not Market detail', () => {
+    expect(isMarketDetailRoute(ETabMarketRoutes.TabMarket)).toBe(false);
+    expect(isMarketDetailRoute(ETabMarketRoutes.MarketBannerDetail)).toBe(
+      false,
+    );
+    expect(isMarketDetailRoute(undefined)).toBe(false);
+  });
+});
 
 describe('isSwapApprovalFlowActive', () => {
   it('keeps the existing active Swap page behavior', () => {
