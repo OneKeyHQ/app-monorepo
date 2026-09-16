@@ -13,6 +13,18 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    // A getter, so a case can move the component onto native mid-suite.
+    get isRuntimeBrowser() {
+      return (
+        (globalThis as Record<string, unknown>).__isRuntimeBrowser !== false
+      );
+    },
+  },
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const passthrough = (tag: string) => {
@@ -22,20 +34,26 @@ jest.mock('@onekeyhq/components', () => {
     MockStack.displayName = `MockStack(${tag})`;
     return MockStack;
   };
-  // The collateral slot puts its words in an accessibility label, so this one
-  // has to survive the mock.
+  // Forwards what the component emits rather than translating it. Rewriting
+  // accessibilityLabel into aria-label here would keep passing for a mark that
+  // reaches no browser accessibility tree at all: Tamagui renders stacks to a
+  // div and maps none of the React Native accessibility props.
   function MockAccessibleStack({
     children,
     testID,
-    accessibilityLabel,
+    ...rest
   }: {
     children?: React.ReactNode;
     testID?: string;
-    accessibilityLabel?: string;
-  }) {
+  } & Record<string, unknown>) {
+    const forwarded = Object.fromEntries(
+      Object.entries(rest).filter(
+        ([key]) => key.startsWith('aria-') || key === 'role',
+      ),
+    );
     return React.createElement(
       'div',
-      { 'data-testid': testID, 'aria-label': accessibilityLabel },
+      { 'data-testid': testID, ...forwarded },
       children,
     );
   }
@@ -565,7 +583,8 @@ describe('BorrowMobilePositions collateral state', () => {
   });
 
   // The mark is silent on screen, so the state has to survive in the
-  // accessibility tree.
+  // accessibility tree. On web, desktop and the extension that means the aria
+  // twins: the React Native props alone reach the DOM as unknown attributes.
   it('spells the state out for screen readers instead of on screen', () => {
     const { getByTestId } = renderSupplied({
       usageAsCollateral: false,
@@ -578,7 +597,27 @@ describe('BorrowMobilePositions collateral state', () => {
     expect(slot.getAttribute('aria-label')).toBe(
       'USDC, defi_collateral, global_not_available',
     );
+    // A bare div drops aria-label under ARIA naming rules.
+    expect(slot.getAttribute('role')).toBe('img');
     expect(slot.textContent).toBe('');
+  });
+
+  it('leaves the DOM-only props off the mark on native', () => {
+    (globalThis as Record<string, unknown>).__isRuntimeBrowser = false;
+    try {
+      const { getByTestId } = renderSupplied({
+        usageAsCollateral: false,
+        canBeCollateral: false,
+      });
+      const slot = getByTestId(
+        'borrow-position-card-collateral-unavailable-0xaaa',
+      );
+
+      expect(slot.getAttribute('aria-label')).toBeNull();
+      expect(slot.getAttribute('role')).toBeNull();
+    } finally {
+      delete (globalThis as Record<string, unknown>).__isRuntimeBrowser;
+    }
   });
 
   it('keeps the switch when the eligibility flag is missing', () => {

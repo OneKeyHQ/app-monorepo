@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 import type {
@@ -303,6 +304,13 @@ export function BorrowMobilePositions({
           ];
 
           if (hasCollateralControls && collateralState !== 'hidden') {
+            // The mark carries no text, so this label is the only thing a
+            // screen reader has to go on.
+            const unavailableLabel = [
+              suppliedAsset.token.symbol,
+              labels.collateral,
+              labels.collateralNotAvailable,
+            ].join(', ');
             collateral = (
               <>
                 <SizableText size="$bodySm" color="$text" numberOfLines={1}>
@@ -316,11 +324,15 @@ export function BorrowMobilePositions({
                     )}
                     accessible
                     accessibilityRole="text"
-                    accessibilityLabel={[
-                      suppliedAsset.token.symbol,
-                      labels.collateral,
-                      labels.collateralNotAvailable,
-                    ].join(', ')}
+                    accessibilityLabel={unavailableLabel}
+                    // Tamagui renders stacks straight to a div on web, desktop
+                    // and the extension, where it maps none of the React
+                    // Native accessibility props. Without these twins the mark
+                    // reaches the accessibility tree unnamed. A bare div drops
+                    // aria-label under ARIA naming rules, hence the role.
+                    {...(platformEnv.isRuntimeBrowser
+                      ? { role: 'img' as const, 'aria-label': unavailableLabel }
+                      : {})}
                   >
                     <CollateralBadge
                       canBeCollateral={false}
