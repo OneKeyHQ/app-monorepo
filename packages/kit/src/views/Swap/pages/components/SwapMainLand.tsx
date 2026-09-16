@@ -183,6 +183,7 @@ interface ISwapMainLoadProps {
   stockSpeedConfig?: ISwapStockSpeedConfig;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: React.ReactNode;
+  stockTradeIdentityLoading?: boolean;
   stockTradeToken?: ISwapToken;
   initialInputAmountDraft?: ISwapInputAmountDraft;
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
@@ -196,6 +197,7 @@ const SwapMainLoad = ({
   stockSpeedConfig,
   stockTradeConfig,
   stockTradeHeader,
+  stockTradeIdentityLoading,
   stockTradeToken,
   onInputDraftChange,
 }: ISwapMainLoadProps) => {
@@ -1411,6 +1413,7 @@ const SwapMainLoad = ({
           stockSpeedConfig={stockSpeedConfig}
           stockTradeConfig={stockTradeConfig}
           stockTradeHeader={stockTradeHeader}
+          stockTradeIdentityLoading={stockTradeIdentityLoading}
           stockTradeToken={stockTradeToken}
           embedded
         />
@@ -1548,6 +1551,7 @@ const SwapMainLoad = ({
     stockSpeedConfig,
     stockTradeConfig,
     stockTradeHeader,
+    stockTradeIdentityLoading,
     stockTradeToken,
     pageType,
     onSelectToken,

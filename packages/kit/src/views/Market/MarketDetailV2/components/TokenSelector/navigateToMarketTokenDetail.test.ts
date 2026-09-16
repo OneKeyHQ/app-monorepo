@@ -335,6 +335,15 @@ describe('navigateToMarketTokenDetail', () => {
   });
 
   it('keeps the current category when selecting another normal token', () => {
+    const preview = {
+      address: '',
+      networkId: 'evm--1',
+      isNative: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      selectedAt: 1,
+    };
     void navigateToMarketTokenDetail(
       {
         address: '',
@@ -344,10 +353,7 @@ describe('navigateToMarketTokenDetail', () => {
       {
         marketTokenCategory: 'top_coins',
         tokenDetailActions,
-        tokenDetailPreview: {
-          symbol: 'ETH',
-          name: 'Ethereum',
-        } as never,
+        tokenDetailPreview: preview,
       },
     );
 
@@ -362,6 +368,7 @@ describe('navigateToMarketTokenDetail', () => {
           tokenAddress: '',
           network: 'eth',
           isNative: true,
+          legacyTokenPreview: preview,
           marketTokenCategory: 'top_coins',
         },
       },

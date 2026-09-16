@@ -12,16 +12,22 @@ import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/util
 import { useToMarketStockDetailPage } from './useToMarketStockDetailPage';
 
 const mockReplace = jest.fn();
+const mockSetParams = jest.fn();
 const mockPopToTop = jest.fn();
 const mockPush = jest.fn();
 const mockSwitchTabAsync = jest.fn<Promise<void>, [unknown]>(() =>
   Promise.resolve(),
 );
 let mockIsModalPage = false;
+let mockCurrentRouteName: string = ETabMarketRoutes.MarketDetailV2;
+jest.mock('@react-navigation/native', () => ({
+  useRoute: () => ({ name: mockCurrentRouteName }),
+}));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({
     replace: mockReplace,
+    setParams: mockSetParams,
     popToTop: mockPopToTop,
     push: mockPush,
   }),
@@ -100,6 +106,7 @@ describe('useToMarketStockDetailPage', () => {
     mockedPlatformEnv.isExtensionUiSidePanel = false;
     mockedPlatformEnv.isNative = false;
     mockIsModalPage = false;
+    mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
   });
 
   it('resets the tab stack before opening the selected stock', async () => {
@@ -122,6 +129,34 @@ describe('useToMarketStockDetailPage', () => {
       stockPreviewLogoUrl: 'aapl.png',
     });
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('updates the current stock route without remounting the detail page', async () => {
+    mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'GOOG',
+        symbol: 'GOOG',
+        name: 'Alphabet Inc.',
+        logoUrl: 'goog.png',
+      });
+    });
+
+    expect(mockSetParams).toHaveBeenCalledWith({
+      stockId: 'GOOG',
+      tokenAddress: undefined,
+      network: undefined,
+      isNative: undefined,
+      stockPreviewSymbol: 'GOOG',
+      stockPreviewName: 'Alphabet Inc.',
+      stockPreviewLogoUrl: 'goog.png',
+    });
+    expect(mockPopToTop).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('dismisses the market modal before opening the selected stock', async () => {

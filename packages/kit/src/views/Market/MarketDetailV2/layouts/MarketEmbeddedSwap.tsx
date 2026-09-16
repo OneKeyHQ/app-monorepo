@@ -32,6 +32,7 @@ type IEmbeddedSwapProps = {
   stockSpeedConfig?: ISwapStockSpeedConfig;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
+  stockTradeIdentityLoading?: boolean;
   stockTradeToken?: ISwapToken;
   stockTradePortfolioData?: IMarketAccountPortfolioDisplayItem[];
   stockTradeResolvedVariantKeys?: string[];
@@ -154,6 +155,10 @@ function MarketEmbeddedSwapContent({
   const stockTradeTokenSeedReadySignature = stockTradeTokenSeed
     ? `${stockTradeTokenSeed.networkId}:${stockTradeTokenSeed.contractAddress}:${stockTradeTokenSeed.decimals}:${stockTradeTokenSeed.symbol}`
     : '';
+  const stockTradeIdentityLoading = Boolean(
+    isTradeLoading ||
+    stockTradeTokenReadySignature !== stockTradeTokenSeedReadySignature,
+  );
   useEffect(() => {
     if (
       !isTradeLoading &&
@@ -236,6 +241,7 @@ function MarketEmbeddedSwapContent({
         stockSpeedConfig={stockSpeedConfig}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={resolvedStockTradeHeader}
+        stockTradeIdentityLoading={stockTradeIdentityLoading}
         stockTradeToken={stockTradeTokenSeed}
         stockTradePortfolioData={stockTradePortfolioData}
         stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
@@ -247,6 +253,7 @@ function MarketEmbeddedSwapContent({
 }
 
 function MarketEmbeddedSwapDraft({
+  inputDraftKey,
   swapToken,
   disabled,
   isTradeLoading,
@@ -257,6 +264,7 @@ function MarketEmbeddedSwapDraft({
   stockTradePortfolioData,
   stockTradeResolvedVariantKeys,
 }: {
+  inputDraftKey: string;
   swapToken: ISwapToken;
   disabled?: boolean;
   isTradeLoading?: boolean;
@@ -268,6 +276,11 @@ function MarketEmbeddedSwapDraft({
   stockTradeResolvedVariantKeys?: string[];
 }) {
   const inputDraftRef = useRef<ISwapInputAmountDraft | undefined>(undefined);
+  const inputDraftKeyRef = useRef(inputDraftKey);
+  if (inputDraftKeyRef.current !== inputDraftKey) {
+    inputDraftKeyRef.current = inputDraftKey;
+    inputDraftRef.current = undefined;
+  }
   const onInputDraftChange = useCallback((draft: ISwapInputAmountDraft) => {
     inputDraftRef.current = {
       fromToken: getDraftToken(draft.fromToken),
@@ -339,7 +352,7 @@ export function MarketEmbeddedSwap({
       enabledNum={[0, 1]}
     >
       <MarketEmbeddedSwapDraft
-        key={inputDraftKey}
+        inputDraftKey={inputDraftKey}
         swapToken={swapToken}
         disabled={disabled}
         isTradeLoading={isTradeLoading}

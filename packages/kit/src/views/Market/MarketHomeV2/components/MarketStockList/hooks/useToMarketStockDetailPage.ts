@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useRoute } from '@react-navigation/native';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
@@ -48,6 +50,7 @@ export function useToMarketStockDetailPage(
 ) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
+  const currentRouteName = useRoute().name;
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
   const isModalPage = useIsModalPage();
@@ -151,13 +154,25 @@ export function useToMarketStockDetailPage(
             },
           });
         } else {
-          // Reset the tab stack so returning from the selected stock does not
-          // reveal the previously viewed stock detail.
-          navigation.popToTop();
-          navigation.push(
-            ETabMarketRoutes.MarketStockDetail,
-            stockDetailParams,
-          );
+          if (currentRouteName === ETabMarketRoutes.MarketStockDetail) {
+            navigation.setParams({
+              stockId,
+              tokenAddress: stockTokenParams?.tokenAddress,
+              network: stockTokenParams?.network,
+              isNative: stockTokenParams?.isNative,
+              stockPreviewSymbol: stockPreview?.symbol,
+              stockPreviewName: stockPreview?.name,
+              stockPreviewLogoUrl: stockPreview?.logoUrl,
+            });
+          } else {
+            // Reset the tab stack so returning from the selected stock does not
+            // reveal a previously viewed non-stock detail.
+            navigation.popToTop();
+            navigation.push(
+              ETabMarketRoutes.MarketStockDetail,
+              stockDetailParams,
+            );
+          }
         }
         return;
       }
@@ -182,6 +197,7 @@ export function useToMarketStockDetailPage(
     },
     [
       navigation,
+      currentRouteName,
       isModalPage,
       options?.replaceCurrentDetail,
       preloadLayout,

@@ -127,6 +127,30 @@ export function shouldDeferStockInitialContent({
   );
 }
 
+export function shouldShowStockTradeIdentitySkeleton({
+  amountInputLoading,
+  deferInitialContent,
+  marketIdentityLoading,
+}: {
+  amountInputLoading: boolean;
+  deferInitialContent: boolean;
+  marketIdentityLoading?: boolean;
+}) {
+  return Boolean(
+    marketIdentityLoading || amountInputLoading || deferInitialContent,
+  );
+}
+
+export function shouldResetStockTradeQuoteState({
+  identityLoading,
+  previousIdentityLoading,
+}: {
+  identityLoading: boolean;
+  previousIdentityLoading: boolean;
+}) {
+  return identityLoading && !previousIdentityLoading;
+}
+
 export function shouldShowStockMarketHeaderSkeleton({
   channelStage,
   hasStockIdentity,

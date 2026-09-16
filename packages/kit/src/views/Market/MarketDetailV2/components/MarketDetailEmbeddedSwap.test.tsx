@@ -202,7 +202,7 @@ describe('MarketDetailEmbeddedSwap', () => {
     );
   });
 
-  it('remounts Swap when the Market detail token changes', () => {
+  it('updates the Market detail token without remounting Swap', () => {
     const view = render(
       <MarketDetailEmbeddedSwap
         swapToken={marketToken}
@@ -217,10 +217,15 @@ describe('MarketDetailEmbeddedSwap', () => {
       />,
     );
 
-    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(2);
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importToToken: expect.objectContaining({ contractAddress: '0xnext' }),
+      }),
+    );
   });
 
-  it('uses an explicit Market asset identity to reset Swap', () => {
+  it('updates an explicit Market asset identity without remounting Swap', () => {
     const view = render(
       <MarketDetailEmbeddedSwap
         resetKey="asset-1"
@@ -237,7 +242,7 @@ describe('MarketDetailEmbeddedSwap', () => {
       />,
     );
 
-    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(2);
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
   });
 
   it('shows a loading shell before the first stock trade content mounts', () => {
@@ -284,6 +289,66 @@ describe('MarketDetailEmbeddedSwap', () => {
     expect(view.queryByTestId('market-embedded-swap-trade-loading')).toBeNull();
     expect(view.getByTestId('market-embedded-swap-trade-ready')).toBeTruthy();
     expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeIdentityLoading).toBe(
+      true,
+    );
+  });
+
+  it('keeps mounted stock trade content while switching listings', () => {
+    const view = render(
+      <MarketEmbeddedSwap
+        swapToken={{ ...marketToken, isStock: true }}
+        inputDraftKey="stock:MSFT"
+        stockTradeToken={{ ...marketToken, isStock: true }}
+      />,
+    );
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{
+          ...marketToken,
+          contractAddress: '0xgoog',
+          decimals: 0,
+          isStock: true,
+        }}
+        inputDraftKey="stock:GOOG"
+        isTradeLoading
+        stockTradeToken={{
+          ...marketToken,
+          contractAddress: '0xgoog',
+          decimals: 0,
+          isStock: true,
+        }}
+      />,
+    );
+
+    expect(view.queryByTestId('market-embedded-swap-trade-loading')).toBeNull();
+    expect(view.getByTestId('market-embedded-swap-trade-ready')).toBeTruthy();
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={{
+          ...marketToken,
+          contractAddress: '0xgoog',
+          isStock: true,
+        }}
+        inputDraftKey="stock:GOOG"
+        stockTradeToken={{
+          ...marketToken,
+          contractAddress: '0xgoog',
+          isStock: true,
+        }}
+      />,
+    );
+
+    expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
+      expect.objectContaining({ contractAddress: '0xgoog' }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeIdentityLoading).toBe(
+      false,
+    );
   });
 
   it('does not seed a mounted stock Swap with unresolved variant metadata', () => {

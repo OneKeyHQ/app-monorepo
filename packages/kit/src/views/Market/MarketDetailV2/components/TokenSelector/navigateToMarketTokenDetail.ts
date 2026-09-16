@@ -121,8 +121,10 @@ export async function navigateToMarketTokenDetail(
       ? {
           resolveMarketAsset: true,
           marketTokenSymbol: opts.tokenDetailPreview?.symbol,
-          legacyTokenPreview: opts.tokenDetailPreview,
         }
+      : undefined),
+    ...(!stockId && opts.tokenDetailPreview
+      ? { legacyTokenPreview: opts.tokenDetailPreview }
       : undefined),
     ...(!token.assetId && opts.marketTokenCategory
       ? { marketTokenCategory: opts.marketTokenCategory }

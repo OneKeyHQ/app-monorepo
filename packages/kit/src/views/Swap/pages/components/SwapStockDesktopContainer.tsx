@@ -39,6 +39,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapProEnableCurrentSymbolAtom,
   useSwapQuoteActionLockAtom,
@@ -162,9 +163,11 @@ import {
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
   shouldDeferStockInitialContent,
+  shouldResetStockTradeQuoteState,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
+  shouldShowStockTradeIdentitySkeleton,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTokenDetails } from './SwapStockTokenDetails';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
@@ -206,6 +209,7 @@ interface ISwapStockDesktopContainerProps {
   stockSpeedConfig?: ISwapStockSpeedConfig;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
+  stockTradeIdentityLoading?: boolean;
   stockTradeToken?: ISwapToken;
 }
 
@@ -568,6 +572,7 @@ function StockTradeSideSwitch({
 }
 
 function StockEstimatedReceive({
+  forceLoading,
   quoteResult,
   quoteLoading,
   quoteEventFetching,
@@ -575,6 +580,7 @@ function StockEstimatedReceive({
   showEstimatedShares,
   stockTradeConfig,
 }: {
+  forceLoading?: boolean;
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
@@ -611,8 +617,9 @@ function StockEstimatedReceive({
     stockChannel.fromToken,
     stockChannel.toToken,
   ]);
-  const receiveQuoteLoading =
-    quoteLoading || (quoteEventFetching && !quoteResult);
+  const receiveQuoteLoading = Boolean(
+    forceLoading || quoteLoading || (quoteEventFetching && !quoteResult),
+  );
   const {
     canSelectReceiveToken,
     currencySymbol,
@@ -627,7 +634,7 @@ function StockEstimatedReceive({
     receiveToken,
     setIsReceiveTokenPopoverOpen,
   } = useSwapStockEstimatedReceiveState({
-    forceHideQuote: shouldHideQuoteResult,
+    forceHideQuote: shouldHideQuoteResult || forceLoading,
     quoteEventFetching: false,
     quoteLoading: receiveQuoteLoading,
     quoteResult,
@@ -878,6 +885,7 @@ function StockActionGate({
   alerts,
   balanceActionsReady,
   stockChannel,
+  stockTradeIdentityLoading,
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
@@ -885,6 +893,7 @@ function StockActionGate({
   alerts: ISwapStockDesktopContainerProps['alerts'];
   balanceActionsReady: boolean;
   stockChannel: IUseSwapStockChannelReturn;
+  stockTradeIdentityLoading?: boolean;
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
   onSelectPercentageStage: (stage: number) => void;
@@ -961,19 +970,22 @@ function StockActionGate({
     stockChannel.stockTokenStatus ===
       ESwapStockChannelAsyncStatus.Initializing ||
     stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing;
-  const forceQuoteActionLoading = shouldShowStockQuoteActionLoading({
-    inputAmount: fromTokenAmount.value,
-    quoteEventCompleted,
-    quoteRequestMatchesStockTrade: isQuoteRequestForStockTrade({
-      currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
-      currentAddress: swapFromAddressInfo.address,
-      currentReceivingAddress: swapToAddressInfo.address,
-      quoteRequest: quoteActionLock,
-      receiveToken: stockChannel.toToken,
-      sendAmount: fromTokenAmount.value,
-      sendToken: stockChannel.fromToken,
+  const forceQuoteActionLoading = Boolean(
+    stockTradeIdentityLoading ||
+    shouldShowStockQuoteActionLoading({
+      inputAmount: fromTokenAmount.value,
+      quoteEventCompleted,
+      quoteRequestMatchesStockTrade: isQuoteRequestForStockTrade({
+        currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
+        currentAddress: swapFromAddressInfo.address,
+        currentReceivingAddress: swapToAddressInfo.address,
+        quoteRequest: quoteActionLock,
+        receiveToken: stockChannel.toToken,
+        sendAmount: fromTokenAmount.value,
+        sendToken: stockChannel.fromToken,
+      }),
     }),
-  });
+  );
   const disabledLabel = useMemo(() => {
     switch (stockChannel.channelStage) {
       case ESwapStockChannelStage.MissingStock:
@@ -1161,14 +1173,38 @@ function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
   );
 }
 
+function StockTradeHeaderSkeleton() {
+  return (
+    <XStack
+      testID={SwapTestIDs.stockTradeHeaderSkeleton}
+      height={44}
+      px="$1"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$2"
+    >
+      <XStack alignItems="center" gap="$2">
+        <Skeleton w="$8" h="$8" radius="round" />
+        <YStack gap="$1">
+          <Skeleton h="$5" w="$20" />
+          <Skeleton h="$4" w="$16" />
+        </YStack>
+      </XStack>
+      <Skeleton h="$5" w="$16" />
+    </XStack>
+  );
+}
+
 function StockAmountInput({
   fetchLoading,
   amountInputState,
   deferInitialContent,
+  forceLoading,
   storeName,
 }: Pick<ISwapStockDesktopContainerProps, 'fetchLoading' | 'storeName'> & {
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
   deferInitialContent: boolean;
+  forceLoading?: boolean;
 }) {
   const intl = useIntl();
   const [, setInAppNotification] = useInAppNotificationAtom();
@@ -1245,7 +1281,7 @@ function StockAmountInput({
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
 
-  if (shouldRenderSkeleton || deferInitialContent) {
+  if (forceLoading || shouldRenderSkeleton || deferInitialContent) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
   }
 
@@ -1375,6 +1411,7 @@ function StockTradeTicket({
   showTradeSideSwitch = true,
   stockTradeConfig,
   stockTradeHeader,
+  stockTradeIdentityLoading,
 }: Omit<
   ISwapStockDesktopContainerProps,
   'headerContent' | 'supportNetworksList'
@@ -1388,6 +1425,7 @@ function StockTradeTicket({
   showTradeSideSwitch?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
+  stockTradeIdentityLoading?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
   const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
@@ -1396,6 +1434,15 @@ function StockTradeTicket({
     startedWithoutContent: startedWithoutAmountInputRef.current,
   });
   if (!deferInitialAmountContent) startedWithoutAmountInputRef.current = false;
+  const showStockTradeIdentitySkeleton = shouldShowStockTradeIdentitySkeleton({
+    amountInputLoading: amountInputState.shouldRenderSkeleton,
+    deferInitialContent: deferInitialAmountContent,
+    marketIdentityLoading: stockTradeIdentityLoading,
+  });
+  let resolvedStockTradeHeader = stockTradeHeader;
+  if (stockTradeHeader && showStockTradeIdentitySkeleton) {
+    resolvedStockTradeHeader = <StockTradeHeaderSkeleton />;
+  }
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   // The desktop modal action renders through Page.Footer. Keep its portal
@@ -1431,6 +1478,7 @@ function StockTradeTicket({
       alerts={alerts}
       balanceActionsReady={amountInputState.balanceActionsReady}
       stockChannel={stockChannel}
+      stockTradeIdentityLoading={stockTradeIdentityLoading}
       onPreSwap={onPreSwap}
       onToAnotherAddressModal={onToAnotherAddressModal}
       onSelectPercentageStage={amountInputState.onSelectPercentageStage}
@@ -1446,14 +1494,16 @@ function StockTradeTicket({
             onChange={onTradeSideChange}
           />
         ) : null}
-        {stockTradeHeader}
+        {resolvedStockTradeHeader}
         <StockAmountInput
           fetchLoading={fetchLoading}
           amountInputState={amountInputState}
           deferInitialContent={deferInitialAmountContent}
+          forceLoading={showStockTradeIdentitySkeleton}
           storeName={storeName}
         />
         <StockEstimatedReceive
+          forceLoading={showStockTradeIdentitySkeleton}
           quoteResult={quoteResult}
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
@@ -1462,16 +1512,18 @@ function StockTradeTicket({
           stockTradeConfig={stockTradeConfig}
         />
         {renderActionGateOutsideTicket ? null : stockActionGate}
-        <SwapStockTradeAlert
-          alerts={alerts}
-          quoteEventFetching={quoteEventFetching}
-          quoteLoading={quoteLoading}
-          quoteResult={quoteResult}
-          stockChannel={stockChannel}
-          // px of the hosting YStack gap above: "$3" = 12, "$4" = 16
-          parentGap={compact ? 12 : 16}
-        />
-        {stockChannel.readyForQuote ? (
+        {showStockTradeIdentitySkeleton ? null : (
+          <SwapStockTradeAlert
+            alerts={alerts}
+            quoteEventFetching={quoteEventFetching}
+            quoteLoading={quoteLoading}
+            quoteResult={quoteResult}
+            stockChannel={stockChannel}
+            // px of the hosting YStack gap above: "$3" = 12, "$4" = 16
+            parentGap={compact ? 12 : 16}
+          />
+        )}
+        {stockChannel.readyForQuote && !showStockTradeIdentitySkeleton ? (
           <SwapQuoteResult
             refreshAction={refreshAction}
             onOpenProviderList={onOpenProviderList}
@@ -2406,12 +2458,28 @@ function SwapStockDesktopContent({
   embedded,
   stockTradeConfig,
   stockTradeHeader,
+  stockTradeIdentityLoading,
 }: ISwapStockDesktopContainerProps) {
   const intl = useIntl();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
+  const { resetQuoteAction } = useSwapActions().current;
+  const previousStockTradeIdentityLoadingRef = useRef(false);
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
+  useEffect(() => {
+    const identityLoading = Boolean(stockTradeIdentityLoading);
+    const shouldResetQuoteState = shouldResetStockTradeQuoteState({
+      identityLoading,
+      previousIdentityLoading: previousStockTradeIdentityLoadingRef.current,
+    });
+    previousStockTradeIdentityLoadingRef.current = identityLoading;
+    if (!shouldResetQuoteState) {
+      return;
+    }
+    setToTokenAmount({ value: '', isInput: false });
+    void resetQuoteAction();
+  }, [resetQuoteAction, setToTokenAmount, stockTradeIdentityLoading]);
   let contentTopPadding: '$0' | '$5' | undefined;
   if (embedded) {
     contentTopPadding = '$0';
@@ -2520,6 +2588,7 @@ function SwapStockDesktopContent({
                   showTradeSideSwitch={!embedded}
                   stockTradeConfig={stockTradeConfig}
                   stockTradeHeader={stockTradeHeader}
+                  stockTradeIdentityLoading={stockTradeIdentityLoading}
                 />
                 {embedded ? null : (
                   <SwapPendingHistoryListComponent
