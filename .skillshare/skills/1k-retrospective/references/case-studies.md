@@ -437,3 +437,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
 **Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
 **Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
+
+## Case: Market detail back walked leftover token pages
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens in a Market detail, or opening multiple details from Wallet Home, made the top-left back button pass through previous detail pages instead of returning to the Market list.
+**Root Cause**: Home and the token selector used nested `navigate`, which stacked `MarketDetailV2` / `MarketStockDetail`. The custom back handler only `pop()`ped one screen, and native empty history reset to `TabMarket` which does not exist on Discovery.
+**Fix**: Collapse the Market/Discovery stack to `[list, one detail]` when opening or switching a detail, and `popToTop` when the previous route is still a leftover detail.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition; NEW — custom back handlers must collapse stacked same-feature screens, not assume one-to-one push/pop

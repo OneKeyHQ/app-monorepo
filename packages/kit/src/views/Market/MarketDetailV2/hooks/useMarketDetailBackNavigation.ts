@@ -8,13 +8,11 @@ import {
 
 import { useSplitSubView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ETabDiscoveryRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+
+import { resolveMarketDetailBackAction } from '../../utils/marketDetailNavigation';
 
 export function useMarketDetailBackNavigation() {
   const navigation = useAppNavigation();
@@ -24,61 +22,35 @@ export function useMarketDetailBackNavigation() {
   const isTabletDetailView = useSplitSubView();
 
   const handleBackPress = useCallback(() => {
-    // In tablet split view mode, always use pop for back navigation
-    if (isTabletDetailView) {
+    const state = reactNavigation.getState();
+    const action = resolveMarketDetailBackAction({
+      isTabletDetailView,
+      isNative: Boolean(platformEnv.isNative),
+      from: params?.from,
+      routes: state?.routes,
+      index: state?.index,
+    });
+
+    if (action.type === 'pop') {
       navigation.pop();
       return;
     }
-
-    if (platformEnv.isNative && params?.from === EEnterWay.Search) {
-      const state = reactNavigation.getState();
-      if (state && state.routes && state.routes.length <= 1) {
-        reactNavigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: ETabDiscoveryRoutes.TabDiscovery }],
-          }),
-        );
-        return;
-      }
-
+    if (action.type === 'popAndSwitchDiscovery') {
       navigation.pop();
       navigation.switchTab(ETabRoutes.Discovery);
       return;
     }
-
-    if (params?.from === EEnterWay.SwapPro) {
-      navigation.pop();
+    if (action.type === 'popToTop') {
+      navigation.popToTop();
       return;
     }
 
-    // Check if the previous route is Market home
-    const state = reactNavigation.getState();
-
-    // If no previous route exists (e.g., direct URL access), reset to Market home
-    if (state && state.routes && state.routes.length <= 1) {
-      reactNavigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: ETabMarketRoutes.TabMarket }],
-        }),
-      );
-      return;
-    }
-
-    if (state && state.routes && state.index > 0) {
-      const routes = state.routes;
-      const currentIndex = state.index;
-      const previousRoute = routes[currentIndex - 1];
-
-      // If previous route is Market home, use pop for smooth navigation
-      if (previousRoute?.name === ETabMarketRoutes.TabMarket) {
-        navigation.pop();
-        return;
-      }
-    }
-
-    navigation.pop();
+    reactNavigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: action.name }],
+      }),
+    );
   }, [params, reactNavigation, navigation, isTabletDetailView]);
 
   return { handleBackPress };

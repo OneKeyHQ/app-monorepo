@@ -17,6 +17,9 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: { intl: { formatMessage: ({ id }: { id: string }) => id } },
 }));
 const navigateMock = jest.fn();
+const dispatchMock = jest.fn();
+const getRootStateMock = jest.fn();
+const getCurrentRouteMock = jest.fn();
 const clearTokenDetailMock = jest.fn();
 const prepareStockTokenDetailMock = jest.fn();
 const changeActiveTokenMock = jest.fn();
@@ -44,6 +47,11 @@ jest.mock('@onekeyhq/components', () => ({
       navigate: (...args: unknown[]) => {
         navigateMock(...args);
       },
+      dispatch: (...args: unknown[]) => {
+        dispatchMock(...args);
+      },
+      getRootState: (): unknown => getRootStateMock() as unknown,
+      getCurrentRoute: (): unknown => getCurrentRouteMock() as unknown,
     },
   },
 }));
@@ -66,11 +74,32 @@ jest.mock('../../utils/marketDetailImagePreload', () => ({
   prewarmMarketTokenDetailPreviewImages: jest.fn(),
 }));
 
+jest.mock('@react-navigation/native', () => ({
+  CommonActions: {
+    setParams: (params: unknown) => ({
+      type: 'SET_PARAMS',
+      payload: { params },
+    }),
+    reset: (state: unknown) => ({
+      type: 'RESET',
+      payload: state,
+    }),
+  },
+  StackActions: {
+    replace: (name: string, params: unknown) => ({
+      type: 'REPLACE',
+      payload: { name, params },
+    }),
+  },
+}));
+
 describe('navigateToMarketTokenDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     platformEnv.isNative = false;
+    getRootStateMock.mockReturnValue(undefined);
+    getCurrentRouteMock.mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -436,5 +465,57 @@ describe('navigateToMarketTokenDetail', () => {
     current = false;
     jest.runAllTimers();
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('collapses stacked details instead of root-navigating another page', async () => {
+    platformEnv.isNative = true;
+    getRootStateMock.mockReturnValue({
+      key: 'root',
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'discovery-stack',
+            index: 2,
+            routes: [
+              { key: 'list', name: 'TabDiscovery' },
+              { key: 'detail-a', name: 'MarketDetailV2' },
+              { key: 'detail-b', name: 'MarketStockDetail' },
+            ],
+          },
+        },
+        { key: 'modal', name: 'MobileTokenSelector' },
+      ],
+    });
+    const beforeNavigate = jest.fn();
+    await navigateToMarketTokenDetail(
+      { address: '0xabc', networkId: 'evm--1', isNative: false },
+      { tokenDetailActions, beforeNavigate },
+    );
+
+    expect(beforeNavigate).toHaveBeenCalledTimes(1);
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('updates the focused detail after the selector closes when nested state is missing', async () => {
+    platformEnv.isNative = true;
+    getCurrentRouteMock.mockReturnValue({
+      name: 'MarketDetailV2',
+      key: 'detail-focused',
+    });
+    const beforeNavigate = jest.fn();
+    await navigateToMarketTokenDetail(
+      { address: '0xabc', networkId: 'evm--1', isNative: false },
+      { tokenDetailActions, beforeNavigate },
+    );
+
+    expect(beforeNavigate).toHaveBeenCalledTimes(1);
+    jest.runAllTimers();
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SET_PARAMS',
+      }),
+    );
   });
 });
