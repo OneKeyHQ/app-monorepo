@@ -39,6 +39,7 @@ export function Tooltip({
   placement = 'bottom',
   shortcutKey,
   hovering,
+  closeOnScroll,
   contentProps,
   triggerAsChild,
   disabled,
@@ -67,7 +68,7 @@ export function Tooltip({
     handleContentMouseLeave,
     closeTooltip,
     openTooltip,
-  } = useTooltipOpenState({ hovering });
+  } = useTooltipOpenState({ hovering, closeOnScroll });
 
   const renderTooltipContent = useMemo(() => {
     if (typeof renderContent === 'string') {

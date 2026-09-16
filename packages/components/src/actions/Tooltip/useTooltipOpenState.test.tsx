@@ -89,6 +89,56 @@ describe('useTooltipOpenState', () => {
       jest.useRealTimers();
     });
 
+    it('closes on nested scroll and requires a fresh hover after scrolling', () => {
+      const { result } = renderHook(() =>
+        useTooltipOpenState({ hovering: true, closeOnScroll: true }),
+      );
+      const scroller = document.createElement('div');
+      document.body.append(scroller);
+      act(() => result.current.handleTriggerMouseEnter());
+      act(() => jest.advanceTimersByTime(250));
+      expect(result.current.isOpen).toBe(true);
+
+      act(() => {
+        scroller.dispatchEvent(new Event('scroll'));
+      });
+      expect(result.current.isOpen).toBe(false);
+      act(() => result.current.handleTriggerMouseEnter());
+      act(() => jest.advanceTimersByTime(500));
+      expect(result.current.isOpen).toBe(false);
+
+      act(() => result.current.handleTriggerMouseLeave());
+      act(() => result.current.handleTriggerMouseEnter());
+      act(() => jest.advanceTimersByTime(250));
+      expect(result.current.isOpen).toBe(true);
+      scroller.remove();
+    });
+
+    it('cancels a pending hover when wheel input starts', () => {
+      const { result } = renderHook(() =>
+        useTooltipOpenState({ hovering: true, closeOnScroll: true }),
+      );
+      act(() => result.current.handleTriggerMouseEnter());
+      act(() => jest.advanceTimersByTime(200));
+      act(() => {
+        document.dispatchEvent(new Event('wheel'));
+      });
+      act(() => jest.advanceTimersByTime(500));
+      expect(result.current.isOpen).toBe(false);
+    });
+
+    it('preserves scrolling behavior for tooltips that do not opt in', () => {
+      const { result } = renderHook(() =>
+        useTooltipOpenState({ hovering: true }),
+      );
+      act(() => result.current.handleTriggerMouseEnter());
+      act(() => jest.advanceTimersByTime(250));
+      act(() => {
+        document.dispatchEvent(new Event('scroll'));
+      });
+      expect(result.current.isOpen).toBe(true);
+    });
+
     it('a mouse press closes a hover-opened tooltip and blocks re-hover until leave', () => {
       const { result } = renderHook(() =>
         useTooltipOpenState({ hovering: true }),
