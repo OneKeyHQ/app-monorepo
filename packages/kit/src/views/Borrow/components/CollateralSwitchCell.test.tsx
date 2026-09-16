@@ -201,6 +201,19 @@ function createSuppliedAsset(
   } as unknown as ISuppliedAsset;
 }
 
+// Renders the switch, but disabled: Aave lets an inactive position turn on
+// only while the backend reports it eligible.
+function createIneligibleSuppliedAsset(
+  reserveAddress = '0xreserve',
+): ISuppliedAsset {
+  return {
+    reserveAddress,
+    usageAsCollateral: false,
+    canBeCollateral: false,
+    token: { symbol: 'USDC' },
+  } as unknown as ISuppliedAsset;
+}
+
 async function flushMicrotasks() {
   await Promise.resolve();
   await Promise.resolve();
@@ -325,6 +338,47 @@ describe('CollateralSwitchCell settlement guard', () => {
         (node) => typeof node.props.onPress === 'function',
       ),
     ).toHaveLength(0);
+  });
+
+  // A disabled Tamagui switch attaches no press events and no responder claim,
+  // so without a handler here the touch reaches the position card behind the
+  // cell and toggles it. Only when disabled: an enabled switch must keep
+  // winning the responder as the deeper claimant.
+  it('claims the touch on native only while the switch is disabled', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+
+    const view = render(
+      <CollateralSwitchCell
+        item={createIneligibleSuppliedAsset()}
+        eModeId={1}
+      />,
+    );
+
+    expect(getSwitch(view).props.disabled).toBe(true);
+    const handlers = view.UNSAFE_root.findAll(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    expect(handlers).toHaveLength(1);
+    expect(handlers[0].props.position).toBe('relative');
+  });
+
+  it('claims it on Android too, where the platform control may not', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+
+    const view = render(
+      <CollateralSwitchCell
+        item={createIneligibleSuppliedAsset()}
+        eModeId={1}
+      />,
+    );
+
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(1);
   });
 
   it('stops desktop row propagation without cancelling the switch event', () => {
