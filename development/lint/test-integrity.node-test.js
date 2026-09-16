@@ -597,6 +597,97 @@ test('a read inside an iteration callback still reaches the assertion', () => {
   );
 });
 
+test('a callback taints only what it hands back', () => {
+  const tainted = `const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');`;
+  // A property or key that merely shares a name with a tainted binding is not
+  // that binding.
+  assertClean(
+    `${tainted}
+    const items = [];
+    it('x', () => { expect(items.map((item) => item.source)).toEqual([]); });
+  `,
+    'member property named source',
+  );
+  assertClean(
+    `${tainted}
+    const items = [];
+    it('x', () => { expect(items.map((item) => ({ source: item.id }))).toEqual([]); });
+  `,
+    'object key named source',
+  );
+  // A read that does not decide the result does not taint it.
+  assertClean(
+    `
+    const files = ['a'];
+    it('x', () => {
+      expect(
+        files.map((file) => {
+          const contents = readFileSync(join(__dirname, file), 'utf8');
+          parse(contents);
+          return file;
+        }),
+      ).toEqual(['a']);
+    });
+  `,
+    'read for a side effect only',
+  );
+  // Controls: a returned read still counts, from either body form.
+  assertGated(
+    `
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(
+        files.filter((file) => readFileSync(join(__dirname, file), 'utf8').includes('go')),
+      ).toEqual([]);
+    });
+  `,
+    'control: expression body',
+  );
+  assertGated(
+    `
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(
+        files.map((file) => {
+          const contents = readFileSync(join(__dirname, file), 'utf8');
+          return contents.includes('go');
+        }),
+      ).toEqual([false]);
+    });
+  `,
+    'control: block body returning the read',
+  );
+});
+
+test('a one-line transform helper carries the text it was given', () => {
+  assertGated(
+    `
+    function normalize(text) {
+      return text.replace(/x/gu, ' ');
+    }
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(
+        files.filter((file) =>
+          normalize(readFileSync(join(__dirname, file), 'utf8')).includes('go'),
+        ),
+      ).toEqual([]);
+    });
+  `,
+    'read reworked by a helper',
+  );
+  assertClean(
+    `
+    function increment(value) {
+      return value + 1;
+    }
+    const files = ['a'];
+    it('x', () => { expect(files.map((file) => increment(file.length))).toEqual([2]); });
+  `,
+    'a helper that handles no source',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`

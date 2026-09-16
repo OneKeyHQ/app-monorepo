@@ -484,7 +484,65 @@ function isWholeFileRead(node, tainted, wholeReads, readKind) {
   }
 }
 
-/** The source text a callback's body touches, if any. */
+const FUNCTION_NODE_TYPES = new Set([
+  'ArrowFunctionExpression',
+  'FunctionExpression',
+  'FunctionDeclaration',
+  'ObjectMethod',
+  'ClassMethod',
+]);
+
+/** Walk a function body without descending into functions nested inside it. */
+function walkOwnBody(node, visit) {
+  if (!node || typeof node.type !== 'string') {
+    return;
+  }
+  visit(node);
+  for (const key of childKeys(node)) {
+    const value = node[key];
+    const children = Array.isArray(value) ? value : [value];
+    for (const child of children) {
+      if (
+        child &&
+        typeof child.type === 'string' &&
+        !FUNCTION_NODE_TYPES.has(child.type)
+      ) {
+        walkOwnBody(child, visit);
+      }
+    }
+  }
+}
+
+/**
+ * Named helpers that hand back a reworked version of one of their arguments,
+ * `(source) => source.replace(/\s+/gu, ' ')` being the usual shape. A call to
+ * one carries whatever text it was given.
+ */
+function collectTransformHelpers(ast, readKind, helpers) {
+  walk(ast, (node) => {
+    const returned = returnedPathExpression(node);
+    if (!returned || helpers.has(returned.name)) {
+      return;
+    }
+    const index = returned.parameters.findIndex((parameter) => {
+      if (!parameter) {
+        return false;
+      }
+      const probe = new Map([[parameter, 'script']]);
+      return Boolean(taintKind(returned.value, probe, readKind));
+    });
+    if (index >= 0) {
+      helpers.set(returned.name, index);
+    }
+  });
+}
+
+/**
+ * The source text a callback hands back, if any. Only the returned value
+ * counts: a read performed for a side effect does not decide the result, and
+ * an identifier that merely shares a name with a tainted binding - a property
+ * name, an object key - is not that binding.
+ */
 function callbackBodyTaint(node, tainted, readKind) {
   if (
     node?.type !== 'ArrowFunctionExpression' &&
@@ -492,9 +550,30 @@ function callbackBodyTaint(node, tainted, readKind) {
   ) {
     return undefined;
   }
+  if (node.body.type !== 'BlockStatement') {
+    return taintKind(node.body, tainted, readKind);
+  }
+  // Seed the callback's own locals first, so `const s = read(...); return
+  // s.includes(x)` is followed.
+  const local = new Map(tainted);
+  for (let round = 0; round < 4; round += 1) {
+    const before = local.size;
+    walkOwnBody(node.body, (current) => {
+      const binding = bindingTarget(current);
+      const kind = binding && taintKind(binding.value, local, readKind);
+      if (kind) {
+        binding.names.forEach((name) => local.set(name, kind));
+      }
+    });
+    if (local.size === before) {
+      break;
+    }
+  }
   let kind;
-  walk(node.body, (current) => {
-    kind = kind ?? taintKind(current, tainted, readKind);
+  walkOwnBody(node.body, (current) => {
+    if (!kind && current.type === 'ReturnStatement') {
+      kind = taintKind(current.argument, local, readKind);
+    }
   });
   return kind;
 }
@@ -983,8 +1062,12 @@ function analyzeFile(
   const isReadName = (name) =>
     READ_FUNCTIONS.has(name) || readAliases.has(name);
   const readHelpers = collectReadHelpers(ast, isReadName, classify);
+  // Filled once readKind exists, since evaluating a helper's body needs it.
+  const transformHelpers = new Map();
+  const resolvingTransforms = new Set();
   // A read is a direct call, a call through an alias of one, or a call to a
-  // helper that does nothing but read.
+  // helper that does nothing but read. A transform helper is not a read, but
+  // it hands its argument's text back, so the taint travels through it.
   const readKind = (callNode) => {
     const name = calleeName(callNode.callee);
     if (!name) {
@@ -998,7 +1081,16 @@ function analyzeFile(
     }
     const helper = readHelpers.get(name);
     if (!helper) {
-      return undefined;
+      const transformed = transformHelpers.get(name);
+      if (transformed === undefined || resolvingTransforms.has(name)) {
+        return undefined;
+      }
+      resolvingTransforms.add(name);
+      try {
+        return taintKind(callNode.arguments[transformed], tainted, readKind);
+      } finally {
+        resolvingTransforms.delete(name);
+      }
     }
     if (helper.kind) {
       return helper.kind;
@@ -1017,6 +1109,8 @@ function analyzeFile(
       ),
     });
   };
+
+  collectTransformHelpers(ast, readKind, transformHelpers);
 
   // Pass 1: taint every binding that holds first-party source text. Seeding
   // walks down from each binding rather than up from each read, so the read can
