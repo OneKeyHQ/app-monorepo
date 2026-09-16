@@ -79,8 +79,9 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     const cloudKitAccountInfo = await appleCloudKitStorage.getAccountInfo();
     const cloudKitAvailable = await appleCloudKitStorage.isAvailable();
     const cloudFsAvailable: boolean | undefined = await isCloudFsAvailable();
-    const keychainCloudSyncEnabled =
-      await appleKeyChainStorage.isICloudSyncEnabled();
+    const keychainCloudSyncEnabled = platformEnv.isNativeIOS
+      ? undefined
+      : await appleKeyChainStorage.isICloudSyncEnabled();
 
     // return {
     //   iCloud: undefined,
@@ -118,8 +119,11 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
       );
     }
 
-    const iCloudSyncEnabled = await appleKeyChainStorage.isICloudSyncEnabled();
-    if (!iCloudSyncEnabled) {
+    // iOS password backups and the device-only cache do not need Keychain sync.
+    if (
+      !platformEnv.isNativeIOS &&
+      !(await appleKeyChainStorage.isICloudSyncEnabled())
+    ) {
       throw new OneKeyLocalError(
         'iCloud Keychain sync is not enabled. Please enable iCloud Keychain in Settings > [Your Name] > iCloud > Keychain to use iCloud backup.',
       );
