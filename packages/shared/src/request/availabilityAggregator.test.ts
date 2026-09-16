@@ -275,6 +275,12 @@ describe('AvailabilityAggregator', () => {
       return false;
     };
 
+    // Opens the window; too young to ship, so no attempt yet.
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await settle();
+    expect(canSendCalls).toBe(0);
+
+    clock.now += 60_000;
     for (let request = 0; request < 5; request += 1) {
       aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
     }
@@ -361,11 +367,18 @@ describe('AvailabilityAggregator', () => {
   });
 
   it('sends on the traffic it measures, with no tick and no visibility event', async () => {
-    const { aggregator, sent } = createHarness();
+    const { aggregator, clock, sent } = createHarness();
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await settle();
+    // A window holding one outcome is not a sample worth spending the gap on,
+    // and the asynchronous network type has not landed yet.
+    expect(sent).toHaveLength(0);
+
+    clock.now += 60_000;
     aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
     await settle();
 
-    expect(sent).toEqual([expect.objectContaining({ api_wallet_ok: 1 })]);
+    expect(sent).toEqual([expect.objectContaining({ api_wallet_ok: 2 })]);
   });
 
   it('does not drop a trigger that arrives while a flush is waiting', async () => {
@@ -381,6 +394,7 @@ describe('AvailabilityAggregator', () => {
     };
 
     aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    void aggregator.flush('hidden');
     await settle();
     expect(sent).toHaveLength(0);
 
@@ -404,6 +418,7 @@ describe('AvailabilityAggregator', () => {
     };
 
     aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    void aggregator.flush('hidden');
     await settle();
 
     expect(sent).toHaveLength(0);
@@ -421,6 +436,7 @@ describe('AvailabilityAggregator', () => {
     };
 
     aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    void aggregator.flush('hidden');
     await jest.advanceTimersByTimeAsync(11_000);
     expect(sent).toHaveLength(0);
 
@@ -504,6 +520,52 @@ describe('AvailabilityAggregator', () => {
     expect(tabA.sent.length + tabB.sent.length).toBe(1);
   });
 
+  it('gives up on a send that never settles and keeps the window pending', async () => {
+    jest.useFakeTimers();
+    const { aggregator, deps, sent, store } = createHarness();
+    const flushLog: string[][] = [];
+    deps.log = (reason, result) => flushLog.push([reason, result]);
+    deps.send = () => new Promise<void>(() => {});
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    void aggregator.flush('hidden');
+    await jest.advanceTimersByTimeAsync(61_000);
+
+    expect(flushLog).toContainEqual(['hidden', 'sendStalled']);
+    expect(sent).toHaveLength(0);
+    // Still claimed and still pending, so it is resent under the same id.
+    expect(JSON.parse(String(store.text)).pending.id).toBe('id-1');
+  });
+
+  it('carries the last flush problem into the next snapshot', async () => {
+    // A debug line is dropped by the native logger under load, which is
+    // exactly when a flush is most likely to have failed.
+    const { aggregator, clock, deps, flush, sent } = createHarness();
+    deps.canSend = async () => false;
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await flush();
+    expect(sent).toHaveLength(0);
+
+    deps.canSend = async () => true;
+    clock.now += 1;
+    await flush();
+
+    expect(sent[0]).toMatchObject({ lastFlushIssue: 'cannotSend' });
+  });
+
+  it('does not report a flush that simply was not due', async () => {
+    const { aggregator, clock, flush, sent } = createHarness();
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await flush();
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await flush();
+    clock.now += AVAILABILITY_MIN_SEND_GAP_MS;
+    await flush();
+
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).not.toHaveProperty('lastFlushIssue');
+  });
+
   it('gives up on stored state that never loads instead of parking the flush', async () => {
     jest.useFakeTimers();
     const { aggregator, deps, sent } = createHarness();
@@ -516,11 +578,12 @@ describe('AvailabilityAggregator', () => {
     deps.storage.load = () => new Promise<string>(() => {});
 
     aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    void aggregator.flush('hidden');
     await jest.advanceTimersByTimeAsync(11_000);
 
     // Named apart from a hydrate that answered "cannot write", so an exported
     // log says which one happened.
-    expect(flushLog).toEqual([['record', 'readyStalled']]);
+    expect(flushLog).toEqual([['hidden', 'readyStalled']]);
     expect(sent).toHaveLength(0);
   });
 
@@ -534,11 +597,12 @@ describe('AvailabilityAggregator', () => {
     deps.canSend = () => new Promise<boolean>(() => {});
 
     aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    void aggregator.flush('hidden');
     await jest.advanceTimersByTimeAsync(11_000);
 
     expect(flushLog).toEqual([
       ['hydrate', 'fresh'],
-      ['record', 'canSendStalled'],
+      ['hidden', 'canSendStalled'],
     ]);
     expect(sent).toHaveLength(0);
   });

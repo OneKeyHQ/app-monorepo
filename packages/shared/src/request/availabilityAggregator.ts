@@ -70,8 +70,19 @@ const CLOCK_TRUST_MS = 24 * 60 * 60 * 1000;
 const FLUSH_STEP_TIMEOUT_MS = 10 * 1000;
 // Bounds the re-run loop when triggers keep arriving mid-flush.
 const MAX_FLUSH_RERUNS = 3;
+// Delivery waits on the server, so it gets a longer bound than the local steps.
+const SEND_TIMEOUT_MS = 60 * 1000;
+// Minimum age of a window the traffic-driven trigger will ship.
+const MIN_WINDOW_AGE_MS = TICK_MS;
 /** Tells "the check answered no" apart from "the check never answered". */
 const STALLED = Symbol('availabilityFlushStalled');
+/** Flush results that are the design working, not something to report on. */
+const BENIGN_FLUSH_RESULTS = new Set([
+  'noWindow',
+  'notDue',
+  'notDueShared',
+  'sent',
+]);
 
 export type IAvailabilityWindow = {
   id: string;
@@ -99,6 +110,8 @@ type IStoredState = {
   lastSendTs: number;
   current?: IAvailabilityWindow;
   pending?: IAvailabilityWindow;
+  /** Survives a restart, so a runtime that went quiet explains itself. */
+  lastIssue?: string;
 };
 
 export type IAvailabilityAggregatorDeps = {
@@ -265,6 +278,8 @@ export function buildAvailabilitySnapshotParams(
   window: IAvailabilityWindow,
   meta: Record<string, string>,
   now: number,
+  /** Why the previous flush did not send, if it did not. */
+  lastIssue?: string,
 ): IAvailabilitySnapshotParams {
   const params: IAvailabilitySnapshotParams = {
     ...meta,
@@ -312,6 +327,9 @@ export function buildAvailabilitySnapshotParams(
   });
   if (failuresOmitted > 0) params.failuresOmitted = failuresOmitted;
   if (window.countersOmitted) params.countersOmitted = window.countersOmitted;
+  // The device-side diagnostic is a debug line the native logger may drop
+  // under load, which is exactly when a flush is most likely to have failed.
+  if (lastIssue) params.lastFlushIssue = lastIssue;
   return params;
 }
 
@@ -348,6 +366,9 @@ export class AvailabilityAggregator {
 
   private lastFlushAttemptTs = 0;
 
+  /** Last flush result that was not a send, reported on the next snapshot. */
+  private lastIssue: string | undefined;
+
   private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly deps: IAvailabilityAggregatorDeps) {}
@@ -371,6 +392,10 @@ export class AvailabilityAggregator {
     if (
       this.deps.persistWindows &&
       now - this.lastFlushAttemptTs >= TICK_MS &&
+      // A fresh runtime has never sent, so the gap is satisfied at once and
+      // this trigger would ship the window holding its first outcome, before
+      // the asynchronous network-type read has landed. Sampling starts here.
+      now - (this.current?.startTs ?? now) >= MIN_WINDOW_AGE_MS &&
       this.isSendDue(now)
     ) {
       this.lastFlushAttemptTs = now;
@@ -407,6 +432,25 @@ export class AvailabilityAggregator {
 
   private start() {
     if (this.ready) return;
+    // Armed before readiness is latched, and each in its own guard: a throw
+    // here used to leave `ready` set, so every later start() returned early
+    // and both triggers stayed unarmed for the life of the runtime, silently.
+    try {
+      this.deps.setInterval?.(() => {
+        void this.flush('tick');
+      }, TICK_MS);
+    } catch {
+      this.noteFlushIssue('tickArmFailed');
+      this.deps.log?.('start', 'tickArmFailed');
+    }
+    try {
+      this.deps.subscribeVisibility?.((visible) => {
+        if (!visible) void this.flush('hidden');
+      });
+    } catch {
+      this.noteFlushIssue('visibilityArmFailed');
+      this.deps.log?.('start', 'visibilityArmFailed');
+    }
     this.ready = this.hydrate().then((ok) => {
       // Outcomes recorded before the stored state was read could not be
       // written: `persist` was still refusing to touch storage. A runtime
@@ -414,12 +458,6 @@ export class AvailabilityAggregator {
       // only copy, since nothing else writes until the next tick.
       if (ok && this.dirty) void this.persist();
       return ok;
-    });
-    this.deps.setInterval?.(() => {
-      void this.flush('tick');
-    }, TICK_MS);
-    this.deps.subscribeVisibility?.((visible) => {
-      if (!visible) void this.flush('hidden');
     });
   }
 
@@ -439,6 +477,7 @@ export class AvailabilityAggregator {
     this.deps.log?.('hydrate', stored ? 'restored' : 'fresh');
     if (!stored) return true;
     this.lastSendTs = stored.lastSendTs;
+    if (typeof stored.lastIssue === 'string') this.lastIssue = stored.lastIssue;
     if (!this.deps.persistWindows) return true;
     // The previous process of this runtime is gone; its windows are unsent.
     if (isWindow(stored.pending)) this.pending = stored.pending;
@@ -456,8 +495,16 @@ export class AvailabilityAggregator {
     return now - this.lastSendTs >= AVAILABILITY_MIN_SEND_GAP_MS;
   }
 
+  /** Kept for the next snapshot: a log line is droppable, a property is not. */
+  private noteFlushIssue(issue: string) {
+    this.lastIssue = issue;
+  }
+
   private async flushInternal(reason: IAvailabilityFlushReason) {
-    const report = (result: string) => this.deps.log?.(reason, result);
+    const report = (result: string) => {
+      if (!BENIGN_FLUSH_RESULTS.has(result)) this.noteFlushIssue(result);
+      this.deps.log?.(reason, result);
+    };
     // Each wait is bounded so a stalled dependency costs this attempt only.
     const ready = await withTimeout<boolean | typeof STALLED>(
       this.ready ?? Promise.resolve(false),
@@ -552,19 +599,35 @@ export class AvailabilityAggregator {
     }
     if (!window) return;
     try {
-      await this.deps.send(
-        buildAvailabilitySnapshotParams(
-          window,
-          this.deps.meta,
-          this.deps.now(),
-        ),
+      // Bounded like every other step: delivery waits on the server, and a
+      // request that never settles would hold the flush memo for good.
+      const delivered = await withTimeout<boolean | typeof STALLED>(
+        this.deps
+          .send(
+            buildAvailabilitySnapshotParams(
+              window,
+              this.deps.meta,
+              this.deps.now(),
+              this.lastIssue,
+            ),
+          )
+          .then(() => true),
+        SEND_TIMEOUT_MS,
+        STALLED,
       );
+      if (delivered === STALLED) {
+        // Kept pending and resent unchanged under the same id, which the
+        // server deduplicates if this one did land after all.
+        report('sendStalled');
+        return;
+      }
     } catch (error) {
       // The window stays pending and is resent unchanged under the same id.
       report('sendFailed');
       throw error;
     }
     this.pending = undefined;
+    this.lastIssue = undefined;
     void this.persist();
     report('sent');
   }
@@ -579,7 +642,11 @@ export class AvailabilityAggregator {
       return Promise.resolve(false);
     }
     this.dirty = false;
-    const state: IStoredState = { version: 3, lastSendTs: this.lastSendTs };
+    const state: IStoredState = {
+      version: 3,
+      lastSendTs: this.lastSendTs,
+      lastIssue: this.lastIssue,
+    };
     if (this.deps.persistWindows) {
       state.current = this.current;
       state.pending = this.pending;
