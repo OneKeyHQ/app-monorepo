@@ -1,13 +1,24 @@
 /** @jest-environment jsdom */
 
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import { createStore } from 'jotai';
 
 import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import {
+  ProviderJotaiContextMarketV2,
+  tokenDetailAtom,
+  tokenDetailPreviewAtom,
+  useTokenDetailAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTradingView } from './MarketTradingView';
 
-const mockApplyChartPriceUpdate = jest.fn();
+import type { IMarketTradingViewProps } from './MarketTradingView';
+
 let mockOnPriceUpdate: (data: ITradingViewPriceUpdateData) => void;
+let cacheKeyId = 0;
 
 jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewV2', () => ({
   TRADING_VIEW_DISABLED_FEATURES: {},
@@ -21,10 +32,9 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewV2', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
-  useTokenDetailActions: () => ({
-    current: { applyChartPriceUpdate: mockApplyChartPriceUpdate },
-  }),
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
 }));
 
 jest.mock('../InformationTabs/hooks/useNetworkAccountAddress', () => ({
@@ -40,70 +50,243 @@ const chartProps = {
   tokenAddress: '0x3ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d',
   dataSource: 'websocket' as const,
 };
-
+const receivedAt = 1_789_531_200_000;
+const detail: IMarketTokenDetail = {
+  address: chartProps.tokenAddress,
+  networkId: chartProps.networkId,
+  name: 'Worm',
+  symbol: 'WORM',
+  decimals: 18,
+  logoUrl: '',
+  price: '0.002908',
+  lastUpdated: receivedAt - 1000,
+};
 const latestPrice: ITradingViewPriceUpdateData = {
   networkId: chartProps.networkId,
   tokenAddress: chartProps.tokenAddress,
   price: '0.002930',
-  timestamp: 1_789_531_200_000,
+  timestamp: receivedAt - 900_000,
   interval: '15m',
   source: 'history',
 };
 
+function PriceHeader({ cacheKey }: { cacheKey: string }) {
+  const [tokenDetail] = useTokenDetailAtom();
+  const price = useTokenPrice({
+    cacheKey,
+    name: tokenDetail?.name ?? '',
+    symbol: tokenDetail?.symbol ?? '',
+    price: tokenDetail?.price ?? '-',
+    lastUpdated: tokenDetail?.lastUpdated ?? 0,
+  });
+  return <div data-testid="token-price-header">{price}</div>;
+}
+
+function renderChart({
+  initialDetail = detail,
+  props = chartProps,
+}: {
+  initialDetail?: IMarketTokenDetail | null;
+  props?: IMarketTradingViewProps;
+} = {}) {
+  const store = createStore();
+  store.set(tokenDetailAtom(), initialDetail ?? undefined);
+  if (!initialDetail) {
+    store.set(tokenDetailPreviewAtom(), {
+      address: chartProps.tokenAddress,
+      networkId: chartProps.networkId,
+      name: detail.name,
+      symbol: detail.symbol,
+      decimals: detail.decimals,
+      price: Number(detail.price),
+      selectedAt: receivedAt - 1000,
+    });
+  }
+  cacheKeyId += 1;
+  const cacheKey = `web-chart-price-${cacheKeyId}`;
+  const buildView = (nextProps: IMarketTradingViewProps) => (
+    <ProviderJotaiContextMarketV2 store={store}>
+      <MarketTradingView {...nextProps} />
+      <PriceHeader cacheKey={cacheKey} />
+    </ProviderJotaiContextMarketV2>
+  );
+  const view = render(buildView(props));
+  return {
+    store,
+    rerender: (nextProps: IMarketTradingViewProps) =>
+      view.rerender(buildView(nextProps)),
+  };
+}
+
+function expectHeaderPrice(price: string) {
+  act(() => jest.advanceTimersByTime(500));
+  expect(screen.getByTestId('token-price-header').textContent).toBe(price);
+}
+
 describe('MarketTradingView price synchronization', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.spyOn(Date, 'now').mockReturnValue(receivedAt);
   });
 
-  it('syncs the latest chart snapshot before the first realtime tick', () => {
-    render(<MarketTradingView {...chartProps} />);
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('syncs the initial snapshot even when its candle timestamp predates the API price', () => {
+    const { store } = renderChart();
 
     act(() => mockOnPriceUpdate(latestPrice));
 
-    expect(mockApplyChartPriceUpdate).toHaveBeenCalledWith({
-      networkId: chartProps.networkId,
-      tokenAddress: chartProps.tokenAddress,
+    expect(store.get(tokenDetailAtom())).toMatchObject({
       price: '0.002930',
-      lastUpdated: latestPrice.timestamp,
+      lastUpdated: receivedAt,
     });
+    expectHeaderPrice('0.002930');
   });
 
-  it('continues syncing realtime prices after the initial snapshot', () => {
-    render(<MarketTradingView {...chartProps} />);
+  it('advances the header cache for realtime ticks received in the same millisecond and candle', () => {
+    const { store } = renderChart({
+      initialDetail: { ...detail, lastUpdated: receivedAt },
+    });
+    act(() => mockOnPriceUpdate(latestPrice));
+    expectHeaderPrice('0.002930');
 
+    act(() =>
+      mockOnPriceUpdate({
+        ...latestPrice,
+        source: 'realtime',
+        price: 0.003_001,
+      }),
+    );
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '0.003001',
+      lastUpdated: receivedAt + 2,
+    });
+    expectHeaderPrice('0.003001');
+  });
+
+  it('does not roll back a realtime price when history arrives late', () => {
+    const { store } = renderChart();
+    act(() => {
+      mockOnPriceUpdate({
+        ...latestPrice,
+        source: 'realtime',
+        price: '0.003001',
+      });
+      mockOnPriceUpdate({ ...latestPrice, timestamp: receivedAt + 1000 });
+    });
+
+    expect(store.get(tokenDetailAtom())?.price).toBe('0.003001');
+    expectHeaderPrice('0.003001');
+  });
+
+  it('replays the snapshot when token details arrive after the preview-mounted chart', () => {
+    const { store } = renderChart({ initialDetail: null });
+    act(() => mockOnPriceUpdate(latestPrice));
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+
+    act(() => store.set(tokenDetailAtom(), detail));
+
+    expect(store.get(tokenDetailAtom())?.price).toBe('0.002930');
+    expectHeaderPrice('0.002930');
+  });
+
+  it('buffers the latest realtime price without letting delayed history replace it', () => {
+    const { store } = renderChart({ initialDetail: null });
     act(() => {
       mockOnPriceUpdate(latestPrice);
       mockOnPriceUpdate({
         ...latestPrice,
         source: 'realtime',
-        price: 0.003_001,
-        timestamp: 1_789_531_204_000,
+        price: '0.003001',
       });
+      mockOnPriceUpdate({
+        ...latestPrice,
+        source: 'realtime',
+        price: '0.003002',
+      });
+      mockOnPriceUpdate(latestPrice);
     });
+    act(() => store.set(tokenDetailAtom(), detail));
 
-    expect(mockApplyChartPriceUpdate).toHaveBeenCalledTimes(2);
-    expect(mockApplyChartPriceUpdate).toHaveBeenLastCalledWith({
-      networkId: chartProps.networkId,
-      tokenAddress: chartProps.tokenAddress,
-      price: '0.003001',
-      lastUpdated: 1_789_531_204_000,
-    });
+    expect(store.get(tokenDetailAtom())?.price).toBe('0.003002');
+    expectHeaderPrice('0.003002');
+  });
+
+  it.each([
+    { networkId: chartProps.networkId, tokenAddress: 'another-token' },
+    { networkId: 'evm--1', tokenAddress: chartProps.tokenAddress },
+  ])(
+    'discards buffered prices and late callbacks when switching identity: %j',
+    (identity) => {
+      const { store, rerender } = renderChart({ initialDetail: null });
+      act(() => mockOnPriceUpdate(latestPrice));
+      const previousOnPriceUpdate = mockOnPriceUpdate;
+      rerender({ ...chartProps, ...identity });
+      const nextDetail = {
+        ...detail,
+        address: identity.tokenAddress,
+        networkId: identity.networkId,
+      };
+      act(() => {
+        store.set(tokenDetailAtom(), nextDetail);
+        previousOnPriceUpdate({
+          ...latestPrice,
+          source: 'realtime',
+          price: '9',
+        });
+      });
+      expect(store.get(tokenDetailAtom())).toEqual(nextDetail);
+
+      act(() =>
+        mockOnPriceUpdate({ ...latestPrice, ...identity, price: '0.003005' }),
+      );
+      expectHeaderPrice('0.003005');
+    },
+  );
+
+  it('accepts the next token snapshot after the previous token received realtime data', () => {
+    const { store, rerender } = renderChart();
+    act(() => mockOnPriceUpdate({ ...latestPrice, source: 'realtime' }));
+    const tokenAddress = 'another-token';
+    rerender({ ...chartProps, tokenAddress });
+    act(() =>
+      store.set(tokenDetailAtom(), { ...detail, address: tokenAddress }),
+    );
+    act(() =>
+      mockOnPriceUpdate({ ...latestPrice, tokenAddress, price: '0.003005' }),
+    );
+
+    expectHeaderPrice('0.003005');
+  });
+
+  it('clears pending prices when chart price updates are disabled', () => {
+    const { store, rerender } = renderChart({ initialDetail: null });
+    act(() => mockOnPriceUpdate(latestPrice));
+    rerender({ ...chartProps, disableChartPriceUpdate: true });
+    act(() => store.set(tokenDetailAtom(), detail));
+    rerender(chartProps);
+
+    expect(store.get(tokenDetailAtom())).toEqual(detail);
   });
 
   it.each(['history', 'realtime'] as const)(
     'ignores %s prices when chart price updates are disabled',
     (source) => {
-      render(<MarketTradingView {...chartProps} disableChartPriceUpdate />);
-
+      const { store } = renderChart({
+        props: { ...chartProps, disableChartPriceUpdate: true },
+      });
       act(() => mockOnPriceUpdate({ ...latestPrice, source }));
 
-      expect(mockApplyChartPriceUpdate).not.toHaveBeenCalled();
+      expect(store.get(tokenDetailAtom())).toEqual(detail);
     },
   );
 
   it('ignores prices for another token or network', () => {
-    render(<MarketTradingView {...chartProps} />);
-
+    const { store } = renderChart();
     act(() => {
       mockOnPriceUpdate({ ...latestPrice, networkId: 'evm--1' });
       mockOnPriceUpdate({ ...latestPrice, tokenAddress: 'another-token' });
@@ -111,18 +294,19 @@ describe('MarketTradingView price synchronization', () => {
       mockOnPriceUpdate({ ...latestPrice, tokenAddress: undefined });
     });
 
-    expect(mockApplyChartPriceUpdate).not.toHaveBeenCalled();
+    expect(store.get(tokenDetailAtom())).toEqual(detail);
   });
 
-  it('ignores invalid chart prices', () => {
-    render(<MarketTradingView {...chartProps} />);
-
+  it('does not let invalid realtime prices prevent the initial snapshot', () => {
+    const { store } = renderChart();
     act(() => {
       for (const price of ['', 'invalid', '0', -1, Number.NaN, Infinity]) {
-        mockOnPriceUpdate({ ...latestPrice, price });
+        mockOnPriceUpdate({ ...latestPrice, source: 'realtime', price });
       }
     });
+    expect(store.get(tokenDetailAtom())).toEqual(detail);
 
-    expect(mockApplyChartPriceUpdate).not.toHaveBeenCalled();
+    act(() => mockOnPriceUpdate(latestPrice));
+    expectHeaderPrice('0.002930');
   });
 });

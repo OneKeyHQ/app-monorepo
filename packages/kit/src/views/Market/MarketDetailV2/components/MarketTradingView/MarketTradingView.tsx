@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import {
@@ -11,7 +11,10 @@ import type {
   ITradingViewPriceUpdateData,
   ITradingViewV2KLineDataFallback,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  useTokenDetailActions,
+  useTokenDetailAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -42,20 +45,6 @@ function normalizeChartPrice(price: ITradingViewPriceUpdateData['price']) {
   return Number.isFinite(numericPrice) && numericPrice > 0
     ? priceString
     : undefined;
-}
-
-function normalizeChartUpdateTimestamp(
-  timestamp: ITradingViewPriceUpdateData['timestamp'],
-) {
-  if (
-    typeof timestamp !== 'number' ||
-    !Number.isFinite(timestamp) ||
-    timestamp <= 0
-  ) {
-    return Date.now();
-  }
-
-  return timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
 }
 
 function normalizeTokenAddress(address: string | undefined) {
@@ -159,14 +148,108 @@ export const MarketTradingView = memo(
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
+    const [tokenDetail] = useTokenDetailAtom();
+    const tokenDetailRef = useRef(tokenDetail);
+    tokenDetailRef.current = tokenDetail;
+    const priceUpdateStateRef = useRef<
+      | {
+          networkId: string;
+          tokenAddress: string;
+          disabled?: boolean;
+          hasRealtimePrice: boolean;
+          lastUpdated: number;
+          pendingPrice?: string;
+        }
+      | undefined
+    >(undefined);
+
+    if (
+      !priceUpdateStateRef.current ||
+      priceUpdateStateRef.current.networkId !== networkId ||
+      priceUpdateStateRef.current.tokenAddress !== tokenAddress ||
+      priceUpdateStateRef.current.disabled !== disableChartPriceUpdate
+    ) {
+      priceUpdateStateRef.current = {
+        networkId,
+        tokenAddress,
+        disabled: disableChartPriceUpdate,
+        hasRealtimePrice: false,
+        lastUpdated: priceUpdateStateRef.current?.lastUpdated ?? 0,
+      };
+    }
+    const priceUpdateState = priceUpdateStateRef.current;
+
+    const applyChartPrice = useCallback(
+      (price: string) => {
+        if (
+          disableChartPriceUpdate ||
+          priceUpdateState !== priceUpdateStateRef.current
+        ) {
+          return;
+        }
+
+        const detail = tokenDetailRef.current;
+        if (
+          !detail ||
+          !isChartPriceUpdateForCurrentToken({
+            data: {
+              networkId: detail.networkId ?? networkId,
+              tokenAddress: detail.address,
+            },
+            networkId,
+            tokenAddress,
+          })
+        ) {
+          // Preview data can mount the chart before token details are ready.
+          priceUpdateState.pendingPrice = price;
+          return;
+        }
+
+        // The header cache requires strictly newer timestamps, including ticks
+        // received in the same millisecond or carrying the same candle time.
+        const detailUpdatedAt =
+          typeof detail.lastUpdated === 'number' &&
+          Number.isFinite(detail.lastUpdated)
+            ? detail.lastUpdated
+            : 0;
+        priceUpdateState.lastUpdated = Math.max(
+          Date.now(),
+          priceUpdateState.lastUpdated + 1,
+          detailUpdatedAt + 1,
+        );
+        priceUpdateState.pendingPrice = undefined;
+        tokenDetailActions.current.applyChartPriceUpdate({
+          tokenAddress,
+          networkId,
+          price,
+          lastUpdated: priceUpdateState.lastUpdated,
+        });
+      },
+      [
+        disableChartPriceUpdate,
+        networkId,
+        priceUpdateState,
+        tokenAddress,
+        tokenDetailActions,
+      ],
+    );
+
+    useEffect(() => {
+      if (priceUpdateState.pendingPrice !== undefined) {
+        applyChartPrice(priceUpdateState.pendingPrice);
+      }
+    }, [applyChartPrice, priceUpdateState, tokenDetail]);
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
         if (disableChartPriceUpdate) {
           return;
         }
-        // History price events contain the latest bar from the initial chart
-        // load, so sync them too instead of waiting for the first realtime tick.
+        // Bootstrap from the latest history bar, but never let a delayed
+        // history response replace a realtime price, even while buffering.
+        if (data.source === 'history' && priceUpdateState.hasRealtimePrice) {
+          return;
+        }
         if (
           !isChartPriceUpdateForCurrentToken({
             data,
@@ -182,14 +265,18 @@ export const MarketTradingView = memo(
           return;
         }
 
-        tokenDetailActions.current.applyChartPriceUpdate({
-          tokenAddress: data.tokenAddress,
-          networkId: data.networkId,
-          price: chartPrice,
-          lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
-        });
+        if (data.source !== 'history') {
+          priceUpdateState.hasRealtimePrice = true;
+        }
+        applyChartPrice(chartPrice);
       },
-      [disableChartPriceUpdate, networkId, tokenAddress, tokenDetailActions],
+      [
+        applyChartPrice,
+        disableChartPriceUpdate,
+        networkId,
+        priceUpdateState,
+        tokenAddress,
+      ],
     );
 
     return (
