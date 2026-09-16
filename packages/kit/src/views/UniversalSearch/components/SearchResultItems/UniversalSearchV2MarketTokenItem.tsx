@@ -327,6 +327,8 @@ export function UniversalSearchV2MarketTokenItem({
             contractAddress={address}
             from={EWatchlistFrom.Search}
             tokenSymbol={symbol}
+            tokenName={name}
+            logoUrl={logoUrl}
             size="small"
             isNative={isNative}
           />

@@ -31,13 +31,11 @@ import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed
 import { markMarketPerf } from '../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
-import {
-  MarketBannerProvider,
-  useMarketBannerState,
-} from './components/MarketBanner/MarketBannerList';
+import { MarketBannerProvider } from './components/MarketBanner/MarketBannerList';
 import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
+import { shouldWaitForNativeMarketBannerBeforeLayout } from './layouts/marketBannerLayoutReady';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
 import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
@@ -314,7 +312,6 @@ const useMarketHomeLayoutProps = () => {
 };
 
 function MarketHomeLayoutContent() {
-  const { isLoading: isBannerPending } = useMarketBannerState();
   markMarketPerf('market-home-base-layout-render');
   useMarketRenderCommitProbe('MarketHome.BaseLayout');
   const { md, layoutProps, shouldWaitForSpotCategoryReady } =
@@ -324,7 +321,7 @@ function MarketHomeLayoutContent() {
 
   if (
     shouldWaitForSpotCategoryReady ||
-    (platformEnv.isNative && isBannerPending)
+    shouldWaitForNativeMarketBannerBeforeLayout()
   ) {
     return (
       <LazyPageContainer eager={platformEnv.isWeb}>
@@ -402,10 +399,9 @@ function BaseMarketHomeWithProvider({
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
   useRefreshWatchListV2OnFocus(isFocused);
-  const { isLoading: isBannerPending } = useMarketBannerState();
   if (
     shouldWaitForSpotCategoryReady ||
-    (platformEnv.isNative && isBannerPending)
+    shouldWaitForNativeMarketBannerBeforeLayout()
   ) {
     return platformEnv.isNative ? <MarketHomeLoadingFallback /> : null;
   }

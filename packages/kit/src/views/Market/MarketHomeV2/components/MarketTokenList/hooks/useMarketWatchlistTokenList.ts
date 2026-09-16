@@ -24,6 +24,7 @@ import type {
   IMarketWatchListItemV2,
 } from '@onekeyhq/shared/types/market';
 
+import { shouldFetchWatchlistQuotesWhileFocused } from '../../../layouts/marketBannerLayoutReady';
 import {
   SORT_MAP,
   buildMarketNetworkLogoUriMap,
@@ -33,6 +34,11 @@ import {
 } from '../utils/tokenListHelpers';
 
 import { fetchMarketTokenListBatchForPlatform } from './marketTokenBatchPlatformApi';
+import { resolveListingWatchlistDisplay } from './watchlistListingPreview';
+import {
+  buildPendingPerpsWatchlistToken,
+  buildPendingSpotWatchlistToken,
+} from './watchlistPendingRows';
 
 import type { IMarketToken } from '../MarketTokenData';
 
@@ -107,8 +113,17 @@ export function useMarketWatchlistTokenList({
   const isLoadingMore = false;
   const hasMore = false;
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const isInitialLoadRef = useRef(isInitialLoad);
+  isInitialLoadRef.current = isInitialLoad;
 
   const pageIndex = useCarouselIndex();
+  const canFetchWatchlistQuotes = (isFocused: boolean) =>
+    shouldFetchWatchlistQuotesWhileFocused({
+      isFocused,
+      pageIndex,
+      isNative: Boolean(platformEnv.isNative),
+      isInitialLoad: isInitialLoadRef.current,
+    });
 
   // Split watchlist into spot and perps items
   const spotItems = useMemo(
@@ -187,7 +202,7 @@ export function useMarketWatchlistTokenList({
       watchLoading: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
+      overrideIsFocused: canFetchWatchlistQuotes,
       checkIsFocused: true,
     },
   );
@@ -200,7 +215,7 @@ export function useMarketWatchlistTokenList({
   } = usePromiseResult(
     async () => {
       if (!watchlist || watchlist.length === 0) {
-        if (isInitialLoad) {
+        if (isInitialLoadRef.current && !platformEnv.isNative) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
         return { list: [], failed: false } as const;
@@ -229,13 +244,13 @@ export function useMarketWatchlistTokenList({
         return { list: undefined, failed: true };
       }
     },
-    [watchlist, spotItems, isInitialLoad],
+    [watchlist, spotItems],
     {
       pollingInterval,
       watchLoading: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
+      overrideIsFocused: canFetchWatchlistQuotes,
       checkIsFocused: true,
     },
   );
@@ -321,11 +336,12 @@ export function useMarketWatchlistTokenList({
       ? lastPerpsResultRef.current
       : perpsResult;
 
-  // Combined loading state
+  // Combined loading state. Empty listing/perps pipelines must not keep the
+  // first Android paint blocked while spot quotes are already in flight.
   const isLoading =
     isInitialLoad ||
     apiLoading ||
-    listingLoading ||
+    (listingItems.length > 0 && Boolean(listingLoading)) ||
     (perpsItems.length > 0 && Boolean(perpsLoading)) ||
     (platformEnv.isNative &&
       ((spotItems.length > 0 && apiLoading !== false && !spotResult) ||
@@ -429,20 +445,16 @@ export function useMarketWatchlistTokenList({
           const quote = listingQuotes?.find(
             (entry) => entry.key === key,
           )?.quote;
+          const listingDisplay = resolveListingWatchlistDisplay({
+            watchlistItem,
+            quote,
+          });
           return {
             id: key,
             assetId: watchlistItem.assetId,
             stockId: watchlistItem.stockId,
-            name:
-              quote?.name ??
-              watchlistItem.assetId ??
-              watchlistItem.stockId ??
-              '',
-            symbol:
-              quote?.symbol ??
-              watchlistItem.assetId ??
-              watchlistItem.stockId ??
-              '',
+            name: listingDisplay.name,
+            symbol: listingDisplay.symbol,
             address: '',
             networkId: '',
             chainId: '',
@@ -456,8 +468,8 @@ export function useMarketWatchlistTokenList({
             transactions: 0,
             uniqueTraders: 0,
             holders: 0,
-            tokenImageUri: quote?.logoUrl ?? '',
-            stockVariants: quote?.variants,
+            tokenImageUri: listingDisplay.tokenImageUri,
+            stockVariants: listingDisplay.stockVariants,
             networkLogoUri: '',
             sortIndex: watchlistItem.sortIndex ?? 0,
           } satisfies IMarketToken;
@@ -469,8 +481,10 @@ export function useMarketWatchlistTokenList({
           if (perpsToken) {
             return { ...perpsToken, sortIndex: watchlistItem.sortIndex ?? 0 };
           }
-          // Perps token not found in universe (may be delisted) — skip
-          return undefined;
+          const perpsQuotesPending = !perpsApiResult && !perpsResult?.failed;
+          return perpsQuotesPending
+            ? buildPendingPerpsWatchlistToken(watchlistItem)
+            : undefined;
         }
 
         // Spot item — find in spotTransformed
@@ -487,8 +501,13 @@ export function useMarketWatchlistTokenList({
             tokenKey === watchlistKey && watchlistItem.chainId === token.chainId
           );
         });
-        // Keep legacy chain favorites removable under their stored identity.
-        return found ? { ...found, stockId: watchlistItem.stockId } : undefined;
+        if (found) {
+          return { ...found, stockId: watchlistItem.stockId };
+        }
+        const spotQuotesPending = !apiResult && !spotResult?.failed;
+        return spotQuotesPending
+          ? buildPendingSpotWatchlistToken(watchlistItem, networkLogoUriMap)
+          : undefined;
       })
       .filter(Boolean);
 
@@ -500,13 +519,16 @@ export function useMarketWatchlistTokenList({
     spotItems,
     perpsTokenMap,
     networkLogoUriMap,
+    perpsApiResult,
+    perpsResult,
+    spotResult,
   ]);
 
   useEffect(() => {
     if (
       isInitialLoad &&
       apiLoading === false &&
-      listingLoading === false &&
+      (listingItems.length === 0 || listingLoading === false) &&
       (perpsItems.length === 0 || perpsLoading === false)
     ) {
       setIsInitialLoad(false);
@@ -514,6 +536,7 @@ export function useMarketWatchlistTokenList({
   }, [
     apiLoading,
     isInitialLoad,
+    listingItems.length,
     listingLoading,
     perpsItems.length,
     perpsLoading,

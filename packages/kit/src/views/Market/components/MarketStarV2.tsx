@@ -16,6 +16,7 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
+import { rememberWatchlistListingPreview } from '../MarketHomeV2/components/MarketTokenList/hooks/watchlistListingPreview';
 import { MarketTestIDs } from '../testIDs';
 
 import { useWatchListV2Action } from './watchListHooksV2';
@@ -29,6 +30,8 @@ export const useStarV2Checked = ({
   contractAddress,
   from,
   tokenSymbol,
+  tokenName,
+  logoUrl,
   isNative = false,
 }: {
   assetId?: string;
@@ -37,6 +40,8 @@ export const useStarV2Checked = ({
   contractAddress: string;
   from: EWatchlistFrom;
   tokenSymbol?: string;
+  tokenName?: string;
+  logoUrl?: string;
   isNative?: boolean;
 }) => {
   const actions = useWatchListV2Action();
@@ -81,15 +86,19 @@ export const useStarV2Checked = ({
           removeFrom: from,
         });
       } else {
-        const added = await actions.addIntoWatchListV2([
-          {
-            chainId: assetId || stockId ? '' : chainId,
-            contractAddress: assetId || stockId ? '' : contractAddress,
-            isNative,
-            assetId,
-            stockId,
-          },
-        ]);
+        const watchlistItem = {
+          chainId: assetId || stockId ? '' : chainId,
+          contractAddress: assetId || stockId ? '' : contractAddress,
+          isNative,
+          assetId,
+          stockId,
+        };
+        rememberWatchlistListingPreview(watchlistItem, {
+          logoUrl,
+          name: tokenName,
+          symbol: tokenSymbol,
+        });
+        const added = await actions.addIntoWatchListV2([watchlistItem]);
         if (!added) {
           return;
         }
@@ -114,6 +123,8 @@ export const useStarV2Checked = ({
     from,
     isMounted,
     isNative,
+    logoUrl,
+    tokenName,
     tokenSymbol,
   ]);
 
@@ -135,6 +146,8 @@ function BasicMarketStarV2({
   size,
   from,
   tokenSymbol,
+  tokenName,
+  logoUrl,
   isNative = false,
   customIconSize,
   ...props
@@ -147,6 +160,8 @@ function BasicMarketStarV2({
     contractAddress,
     from,
     tokenSymbol,
+    tokenName,
+    logoUrl,
     isNative,
   });
   if (

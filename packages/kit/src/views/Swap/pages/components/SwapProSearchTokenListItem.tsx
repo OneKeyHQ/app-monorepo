@@ -77,6 +77,8 @@ const SwapProSearchTokenListItem = ({
           ml="$3"
           from={EWatchlistFrom.Search}
           tokenSymbol={symbol}
+          tokenName={name}
+          logoUrl={logoUrl}
           size="medium"
           isNative={isNative}
         />

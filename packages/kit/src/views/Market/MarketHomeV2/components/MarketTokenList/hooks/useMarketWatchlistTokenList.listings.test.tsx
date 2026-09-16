@@ -5,6 +5,10 @@ import type { IMarketListingWatchlistQuote } from '@onekeyhq/shared/types/market
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketWatchlistTokenList } from './useMarketWatchlistTokenList';
+import {
+  clearWatchlistListingPreviews,
+  rememberWatchlistListingPreview,
+} from './watchlistListingPreview';
 
 const mockQuote = jest.fn<
   Promise<IMarketListingWatchlistQuote | undefined>,
@@ -75,6 +79,7 @@ const stockItem = (
 beforeEach(() => {
   jest.clearAllMocks();
   mockStockBatch.mockResolvedValue([]);
+  clearWatchlistListingPreviews();
 });
 it('loads assets by ID and stocks through the batch API without touching the chain token batch', async () => {
   mockQuote.mockResolvedValue({
@@ -181,6 +186,71 @@ it('retains an unavailable asset so it can still be removed', async () => {
   expect(result.current.data).toEqual([
     expect.objectContaining({ id: 'asset:delisted', priceChangeRaw: '-' }),
   ]);
+});
+it('shows spot identity rows before the batch quote arrives', async () => {
+  let resolveBatch: ((value: { list: [] }) => void) | undefined;
+  mockBatch.mockImplementationOnce(
+    () =>
+      new Promise<{ list: [] }>((resolve) => {
+        resolveBatch = resolve;
+      }),
+  );
+  const watchlist = [
+    {
+      chainId: 'evm--1',
+      contractAddress: '0xabc',
+      isNative: false,
+      sortIndex: 0,
+    },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() => expect(result.current.data).toHaveLength(1));
+  expect(result.current.data[0]).toMatchObject({
+    chainId: 'evm--1',
+    address: '0xabc',
+    priceChangeRaw: '-',
+  });
+  resolveBatch?.({ list: [] });
+  await waitFor(() => expect(result.current.data).toEqual([]));
+});
+it('keeps a starred stock logo before the batch quote arrives', async () => {
+  rememberWatchlistListingPreview(
+    { stockId: 'AAPL', chainId: '', contractAddress: '' },
+    { logoUrl: 'https://example.com/aapl.png', name: 'Apple Inc.' },
+  );
+  let resolveBatch: ((value: IMarketStockPublicItem[]) => void) | undefined;
+  mockStockBatch.mockImplementationOnce(
+    () =>
+      new Promise<IMarketStockPublicItem[]>((resolve) => {
+        resolveBatch = resolve;
+      }),
+  );
+  const watchlist = [
+    { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() =>
+    expect(result.current.data[0]).toMatchObject({
+      stockId: 'AAPL',
+      name: 'Apple Inc.',
+      tokenImageUri: 'https://example.com/aapl.png',
+    }),
+  );
+  resolveBatch?.([
+    stockItem('AAPL', {
+      name: 'Apple Inc.',
+      logoUrl: 'https://example.com/quote.png',
+    }),
+  ]);
+  await waitFor(() =>
+    expect(result.current.data[0]?.tokenImageUri).toBe(
+      'https://example.com/quote.png',
+    ),
+  );
 });
 it('carries stock variants through for the company-name hover reveal', async () => {
   const variants = [

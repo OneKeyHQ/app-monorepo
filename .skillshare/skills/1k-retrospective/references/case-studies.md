@@ -416,3 +416,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Stocks category reused `fetchMarketTokenList` (`/utility/v2/market/tokens?type=stocks`) instead of the public stocks API used by Market Stocks.
 **Fix**: Detect the stocks category and load `fetchMarketStockList`; map `stockId` / `stockListingName` for display and hide network icons.
 **Catchable by**: Section 4: shared hook/utility modified → check all category consumers; NEW — a Market category named like another product surface must use that surface's list API, not the generic token list
+
+## Case: Android Market watchlist first paint blocked for seconds
+**Date**: 2026-09-16 | **Platforms**: Android (native main); iOS kept banner wait
+**Symptom**: Opening Market on Android left the Watchlist tab blank/skeleton for several seconds; iOS was acceptably fast. Top Coins / other tabs were not the bottleneck.
+**Root Cause**: Native Market layout waited for banner fetch before mounting the pager, so watchlist quote hooks could not start. Spot/perps `usePromiseResult` also required route focus + carousel page 0, which arrives later on Android split `main`/`bg`. Combined `isLoading` stayed true for empty listing/perps pipelines, and spot/perps rows were omitted until quotes returned, so the native list kept showing skeleton. Android JS-bridge cost made the serial wait visible; iOS hid it.
+**Fix**: Skip Android banner-before-layout wait; allow Android first-load quotes without focus; emit spot/perps identity rows while quotes are in flight; ignore empty listing loading; show native list skeleton instead of a blank ScrollView before mount.
+**Catchable by**: Section 3: Cross-platform Impact — do not apply an iOS header-height wait to Android first paint; Section 5: "Not loaded" vs "empty" — empty listing/perps pipelines must not block spot first paint; NEW — split-runtime focus gating must not serialize the first paint of the default tab
+
+## Case: iOS Market watchlist first paint used the same serial banner/focus wait
+**Date**: 2026-09-16 | **Platforms**: iOS (native main)
+**Symptom**: The Android watchlist first-paint fix still left iOS waiting for banners and focused page 0 before quotes started.
+**Root Cause**: Banner-before-layout and first-load focus bypass were Android-only; iOS kept the collapsible-header wait and 300ms empty delay.
+**Fix**: Native iOS and Android share the same first-paint path: do not wait for banners, fetch watchlist quotes on first load without focus, and skip the empty-list delay. Header height still settles via resolveMarketBannerHeaderDecision after fetch.
+**Catchable by**: Section 3: Cross-platform Impact — a native first-paint optimization should not stay Android-only when iOS shares the same serial gate
+
+## Case: Search-starred stock missing watchlist icon until revisit
+**Date**: 2026-09-16 | **Platforms**: mobile, desktop, web, extension
+**Symptom**: Starring AAPL from universal search showed CryptoCoinOutline on the watchlist until leaving and coming back (OK-63469).
+**Root Cause**: Star only persisted `stockId`. Watchlist `tokenImageUri` came from `fetchMarketStockBatch`, which is gated on Market focus, so the first paint after search had an empty logo.
+**Fix**: Remember search/detail listing preview (logo, name, symbol) at star time and use it until the batch quote arrives.
+**Catchable by**: Section 4: Data flow search → star → watchlist row; NEW — identity-only persisted favorites must not drop display fields the source already had
