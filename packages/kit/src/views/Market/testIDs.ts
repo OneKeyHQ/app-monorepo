@@ -6,6 +6,7 @@ export const MarketTestIDs = {
   compactNetworkSelector: 'market-compact-network-selector',
 
   // Banner
+  bannerDivider: 'market-banner-divider',
   bannerItem: 'market-banner-item',
   bannerItemSkeleton: 'market-banner-item-skeleton',
   bannerList: 'market-banner-list',

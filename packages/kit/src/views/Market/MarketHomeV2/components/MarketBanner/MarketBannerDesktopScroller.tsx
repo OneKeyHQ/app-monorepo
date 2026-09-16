@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Children,
+  Fragment,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { IconButton, ScrollView, Stack, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
@@ -7,22 +15,35 @@ import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationCo
 import { MarketTestIDs } from '../../testIDs';
 
 import {
+  MARKET_BANNER_DESKTOP_WEB_DIVIDER_HEIGHT,
+  MARKET_BANNER_DESKTOP_WEB_ITEM_GAP,
+  MARKET_BANNER_DESKTOP_WEB_ITEM_WIDTH,
   MARKET_BANNER_ITEM_GAP,
   MARKET_BANNER_ITEM_WIDTH,
 } from './marketBannerLayout';
 
-const SCROLL_STEP = MARKET_BANNER_ITEM_WIDTH + MARKET_BANNER_ITEM_GAP;
+const DIVIDER_WIDTH = 1;
+// One card plus the divider and the gaps on both sides of it.
+const DIVIDED_SCROLL_STEP =
+  MARKET_BANNER_DESKTOP_WEB_ITEM_WIDTH +
+  MARKET_BANNER_DESKTOP_WEB_ITEM_GAP * 2 +
+  DIVIDER_WIDTH;
+const LEGACY_SCROLL_STEP = MARKET_BANNER_ITEM_WIDTH + MARKET_BANNER_ITEM_GAP;
 
 // Web-only horizontal scroller modeled on the Wallet home banner: edge arrows
 // fade in over a background-colored gradient whenever more cards are hidden.
-// Spacing follows the design's `Banner` frame: 12px above it, then 20px above
-// and below the cards, so the arrows center on the cards.
+// Spacing follows the design's `Banner` frame: 12px above it, then 24px above
+// and 36px below the cards. Legacy cards (older API responses without token
+// previews) are filled and variable-width, so they keep the tighter gap and
+// 20px padding without dividers.
 export function MarketBannerDesktopScroller({
   children,
   itemCount,
+  divided,
 }: {
   children: ReactNode;
   itemCount: number;
+  divided: boolean;
 }) {
   const scrollViewRef = useRef<any>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -63,11 +84,11 @@ export function MarketBannerDesktopScroller({
   const scrollByStep = useCallback(
     (direction: -1 | 1) => {
       getScrollElement()?.scrollBy({
-        left: direction * SCROLL_STEP,
+        left: direction * (divided ? DIVIDED_SCROLL_STEP : LEGACY_SCROLL_STEP),
         behavior: 'smooth',
       });
     },
-    [getScrollElement],
+    [divided, getScrollElement],
   );
   const handleScrollLeft = useCallback(() => scrollByStep(-1), [scrollByStep]);
   const handleScrollRight = useCallback(() => scrollByStep(1), [scrollByStep]);
@@ -79,14 +100,41 @@ export function MarketBannerDesktopScroller({
           ref={scrollViewRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            pt: '$5',
-            pb: '$5',
-            px: '$5',
-            gap: MARKET_BANNER_ITEM_GAP,
-          }}
+          contentContainerStyle={
+            divided
+              ? {
+                  pt: '$6',
+                  pb: '$9',
+                  px: '$5',
+                  gap: MARKET_BANNER_DESKTOP_WEB_ITEM_GAP,
+                  alignItems: 'center',
+                }
+              : {
+                  pt: '$5',
+                  pb: '$5',
+                  px: '$5',
+                  gap: MARKET_BANNER_ITEM_GAP,
+                }
+          }
         >
-          {children}
+          {divided
+            ? Children.toArray(children).map((child, index) => (
+                // `toArray` gives every element a key, so reuse it to keep
+                // each card mounted when the list reorders.
+                <Fragment key={isValidElement(child) ? child.key : index}>
+                  {index > 0 ? (
+                    <Stack
+                      testID={MarketTestIDs.bannerDivider}
+                      w={DIVIDER_WIDTH}
+                      h={MARKET_BANNER_DESKTOP_WEB_DIVIDER_HEIGHT}
+                      bg="$borderDisabled"
+                      flexShrink={0}
+                    />
+                  ) : null}
+                  {child}
+                </Fragment>
+              ))
+            : children}
         </ScrollView>
         <Stack
           position="absolute"
