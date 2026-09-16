@@ -359,6 +359,44 @@ test('only a bare call to a path helper anchors', () => {
   );
 });
 
+test('catches direct evaluation, not only a vm or a transform', () => {
+  const setup = `
+    const source = readFileSync(join(__dirname, 'thing.js'), 'utf8');
+    const fragment = source.slice(source.indexOf('const go ='));
+  `;
+  assertGated(
+    `${setup}
+    const go = eval(fragment);
+    it('x', () => { expect(go).toBeDefined(); });
+  `,
+    'eval',
+  );
+  assertGated(
+    `${setup}
+    const go = new Function('return ' + fragment)();
+    it('x', () => { expect(go).toBeDefined(); });
+  `,
+    'new Function',
+  );
+  assertGated(
+    `${setup}
+    const go = Function(fragment)();
+    it('x', () => { expect(go).toBeDefined(); });
+  `,
+    'Function without new',
+  );
+  // Whole-file evaluation stays clean through these sinks too.
+  assertClean(
+    `
+    it('x', () => {
+      const go = eval(readFileSync(join(__dirname, 'thing.js'), 'utf8'));
+      expect(go).toBeDefined();
+    });
+  `,
+    'eval of a whole file',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`

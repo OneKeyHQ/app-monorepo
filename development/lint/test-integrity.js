@@ -118,6 +118,10 @@ const EVAL_FUNCTIONS = new Set([
   'transformSync',
   'transformFileSync',
   'transform',
+  // Direct evaluation, with or without a vm. `new Function(...)` reaches here
+  // as a NewExpression, which the sink handles alongside calls.
+  'eval',
+  'Function',
 ]);
 
 const TEST_BLOCK_NAMES = new Set(['it', 'test', 'fit', 'xit', 'xtest']);
@@ -808,7 +812,32 @@ function analyzeFile(
     }
   };
 
+  const recordEvalSink = (node, name) => {
+    if (!name || !EVAL_FUNCTIONS.has(name)) {
+      return;
+    }
+    const kind = node.arguments
+      .map((a) => taintKind(a, tainted, readKind))
+      .find(Boolean);
+    // A fragment is anything that is not the file as it was read.
+    const sliced = node.arguments.some(
+      (a) =>
+        taintKind(a, tainted, readKind) &&
+        !isWholeFileRead(a, tainted, wholeReads, readKind),
+    );
+    if (kind === 'script' && sliced) {
+      record(
+        'source-slice-eval',
+        node,
+        `${name}() evaluates a fragment sliced out of a source file`,
+      );
+    }
+  };
+
   const visit = (node) => {
+    if (node.type === 'NewExpression') {
+      recordEvalSink(node, calleeName(node.callee));
+    }
     if (
       node.type === 'CallExpression' ||
       node.type === 'OptionalCallExpression'
@@ -879,24 +908,7 @@ function analyzeFile(
       }
 
       // vm.runInNewContext(<tainted>) / transformSync(<tainted>)
-      if (name && EVAL_FUNCTIONS.has(name)) {
-        const kind = node.arguments
-          .map((a) => taintKind(a, tainted, readKind))
-          .find(Boolean);
-        // A fragment is anything that is not the file as it was read.
-        const sliced = node.arguments.some(
-          (a) =>
-            taintKind(a, tainted, readKind) &&
-            !isWholeFileRead(a, tainted, wholeReads, readKind),
-        );
-        if (kind === 'script' && sliced) {
-          record(
-            'source-slice-eval',
-            node,
-            `${name}() evaluates a fragment sliced out of a source file`,
-          );
-        }
-      }
+      recordEvalSink(node, name);
     }
     return true;
   };
