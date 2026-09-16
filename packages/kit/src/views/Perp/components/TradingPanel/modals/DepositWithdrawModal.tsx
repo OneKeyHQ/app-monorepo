@@ -29,8 +29,6 @@ import {
   Tooltip,
   XStack,
   YStack,
-  getCurrentVisibilityState,
-  onVisibilityStateChange,
   useMedia,
 } from '@onekeyhq/components';
 import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
@@ -466,25 +464,6 @@ function DepositWithdrawContent({
       revalidateOnReconnect: true,
     },
   );
-  useEffect(() => {
-    if (!needsWithdrawReserve) return undefined;
-    let isVisible = getCurrentVisibilityState();
-    const unsubscribe = onVisibilityStateChange((visible) => {
-      if (visible && !isVisible) {
-        void refreshWithdrawReserve();
-      }
-      isVisible = visible;
-    });
-    const interval = setInterval(() => {
-      if (isVisible) {
-        void refreshWithdrawReserve();
-      }
-    }, WITHDRAW_QUOTE_REFRESH_INTERVAL_MS);
-    return () => {
-      clearInterval(interval);
-      unsubscribe();
-    };
-  }, [needsWithdrawReserve, refreshWithdrawReserve]);
   const hasWithdrawAccountChanged =
     needsWithdrawReserve &&
     (activeAccount.accountId !== selectedAccount.accountId ||
