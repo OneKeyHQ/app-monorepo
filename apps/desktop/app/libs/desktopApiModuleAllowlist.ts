@@ -22,6 +22,23 @@ const DESKTOP_API_ALLOWED_METHODS_BY_MODULE: Readonly<
     Record<(typeof DESKTOP_API_ALLOWED_MODULES)[number], readonly string[]>
   >
 > = Object.freeze({
+  inAppPurchase: Object.freeze([
+    'testDelay',
+    'testError',
+    'getProducts',
+    'canMakePayments',
+    'revenueCatIsAvailable',
+    'revenueCatConfigure',
+    'revenueCatLogIn',
+    'revenueCatLogOut',
+    'revenueCatGetAppUserId',
+    'revenueCatGetCustomerInfo',
+    'revenueCatGetOfferings',
+    'revenueCatPurchasePackage',
+    'revenueCatRestorePurchases',
+    'revenueCatCheckTrialOrIntroductoryPriceEligibility',
+    'revenueCatSetAttributes',
+  ]),
   firmwareArtifact: Object.freeze([
     'getCapabilities',
     'download',

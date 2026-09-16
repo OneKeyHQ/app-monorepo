@@ -852,6 +852,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
     softRestartRenderer,
+    getRevenueCat: async () =>
+      (await import('./service/revenueCat/revenueCat')).default,
   };
 
   if (isMac) {
