@@ -22,7 +22,6 @@ import {
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
-  shouldShowStockTradeIdentitySkeleton,
 } from './SwapStockDesktopContainer.utils';
 
 describe('SwapStockDesktopContainer utils', () => {
@@ -252,30 +251,6 @@ describe('SwapStockDesktopContainer utils', () => {
       shouldDeferStockInitialContent({
         channelStage: ESwapStockChannelStage.CheckingMarketStatus,
         startedWithoutContent: false,
-      }),
-    ).toBe(false);
-  });
-
-  it('keeps the trade header and amount input loading across the identity handoff', () => {
-    expect(
-      shouldShowStockTradeIdentitySkeleton({
-        amountInputLoading: false,
-        deferInitialContent: false,
-        marketIdentityLoading: true,
-      }),
-    ).toBe(true);
-    expect(
-      shouldShowStockTradeIdentitySkeleton({
-        amountInputLoading: true,
-        deferInitialContent: false,
-        marketIdentityLoading: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldShowStockTradeIdentitySkeleton({
-        amountInputLoading: false,
-        deferInitialContent: false,
-        marketIdentityLoading: false,
       }),
     ).toBe(false);
   });

@@ -78,9 +78,11 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    isDesktop: true,
     isExtensionUiPopup: false,
     isExtensionUiSidePanel: false,
     isNative: false,
+    isWeb: false,
   },
 }));
 
@@ -93,7 +95,9 @@ const mockNavigate: jest.Mock = jest.requireMock('@onekeyhq/components')
 const mockedPlatformEnv = platformEnv as typeof platformEnv & {
   isExtensionUiPopup: boolean;
   isExtensionUiSidePanel: boolean;
+  isDesktop: boolean;
   isNative: boolean;
+  isWeb: boolean;
 };
 const mockCloseExtensionPopupAfterExpandTabOpen = jest.mocked(
   closeExtensionPopupAfterExpandTabOpen,
@@ -104,7 +108,9 @@ describe('useToMarketStockDetailPage', () => {
     jest.clearAllMocks();
     mockedPlatformEnv.isExtensionUiPopup = false;
     mockedPlatformEnv.isExtensionUiSidePanel = false;
+    mockedPlatformEnv.isDesktop = true;
     mockedPlatformEnv.isNative = false;
+    mockedPlatformEnv.isWeb = false;
     mockIsModalPage = false;
     mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
   });
@@ -157,6 +163,31 @@ describe('useToMarketStockDetailPage', () => {
     });
     expect(mockPopToTop).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('preserves native stock navigation when another stock detail is active', async () => {
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'GOOG',
+        symbol: 'GOOG',
+        name: 'Alphabet Inc.',
+        logoUrl: 'goog.png',
+      });
+    });
+
+    expect(mockSetParams).not.toHaveBeenCalled();
+    expect(mockPopToTop).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith(
+      ETabMarketRoutes.MarketStockDetail,
+      expect.objectContaining({ stockId: 'GOOG' }),
+    );
   });
 
   it('dismisses the market modal before opening the selected stock', async () => {

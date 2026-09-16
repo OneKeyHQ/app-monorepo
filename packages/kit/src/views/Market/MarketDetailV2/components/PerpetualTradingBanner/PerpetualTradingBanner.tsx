@@ -85,10 +85,11 @@ export function PerpetualTradingBanner({
     <XStack
       opacity={isVisible ? 1 : 0}
       pointerEvents={isVisible ? 'auto' : 'none'}
-      aria-hidden={!isVisible}
       accessibilityElementsHidden={!isVisible}
       importantForAccessibility={isVisible ? 'auto' : 'no-hide-descendants'}
-      {...(platformEnv.isNative ? {} : { inert: !isVisible })}
+      {...(platformEnv.isNative
+        ? {}
+        : { 'aria-hidden': !isVisible, inert: !isVisible })}
       py={py}
       pl={pl ?? px}
       pr={pr ?? px}

@@ -154,7 +154,10 @@ export function useToMarketStockDetailPage(
             },
           });
         } else {
-          if (currentRouteName === ETabMarketRoutes.MarketStockDetail) {
+          if (
+            (platformEnv.isDesktop || platformEnv.isWeb) &&
+            currentRouteName === ETabMarketRoutes.MarketStockDetail
+          ) {
             navigation.setParams({
               stockId,
               tokenAddress: stockTokenParams?.tokenAddress,

@@ -167,7 +167,6 @@ import {
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
-  shouldShowStockTradeIdentitySkeleton,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTokenDetails } from './SwapStockTokenDetails';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
@@ -1434,11 +1433,12 @@ function StockTradeTicket({
     startedWithoutContent: startedWithoutAmountInputRef.current,
   });
   if (!deferInitialAmountContent) startedWithoutAmountInputRef.current = false;
-  const showStockTradeIdentitySkeleton = shouldShowStockTradeIdentitySkeleton({
-    amountInputLoading: amountInputState.shouldRenderSkeleton,
-    deferInitialContent: deferInitialAmountContent,
-    marketIdentityLoading: stockTradeIdentityLoading,
-  });
+  const showStockTradeIdentitySkeleton = Boolean(
+    stockTradeIdentityLoading !== undefined &&
+    (stockTradeIdentityLoading ||
+      amountInputState.shouldRenderSkeleton ||
+      deferInitialAmountContent),
+  );
   let resolvedStockTradeHeader = stockTradeHeader;
   if (stockTradeHeader && showStockTradeIdentitySkeleton) {
     resolvedStockTradeHeader = <StockTradeHeaderSkeleton />;
@@ -1478,7 +1478,7 @@ function StockTradeTicket({
       alerts={alerts}
       balanceActionsReady={amountInputState.balanceActionsReady}
       stockChannel={stockChannel}
-      stockTradeIdentityLoading={stockTradeIdentityLoading}
+      stockTradeIdentityLoading={showStockTradeIdentitySkeleton}
       onPreSwap={onPreSwap}
       onToAnotherAddressModal={onToAnotherAddressModal}
       onSelectPercentageStage={amountInputState.onSelectPercentageStage}

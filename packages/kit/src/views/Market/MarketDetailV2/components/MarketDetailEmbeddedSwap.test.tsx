@@ -3,6 +3,7 @@
 import { render } from '@testing-library/react';
 
 import { EPageType } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -142,6 +143,7 @@ describe('MarketDetailEmbeddedSwap', () => {
     );
     expect(mockEmbeddedSwap).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        storeName: EJotaiContextStoreNames.marketSwap,
         swapInitParams: expect.objectContaining({
           swapTabSwitchType: ESwapTabSwitchType.STOCK,
         }),
@@ -189,6 +191,7 @@ describe('MarketDetailEmbeddedSwap', () => {
     expect(view.getByTestId('market-token-detail-trade-ready')).toBeTruthy();
     expect(mockEmbeddedSwap).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        storeName: EJotaiContextStoreNames.marketSwap,
         pageType: EPageType.modal,
         singleSwapBridgeHeader: true,
         swapInitParams: {

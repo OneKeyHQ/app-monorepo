@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 
 import { render } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { createMarketDetailV2Route } from './MarketDetailV2Route';
 
 const mockLazyMounts = { mounted: 0, unmounted: 0 };
@@ -31,6 +33,19 @@ jest.mock('./utils/marketDetailPagePreload', () => ({
   loadMarketDetailV2Shell: jest.fn(),
 }));
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    isDesktop: true,
+    isWeb: false,
+  },
+}));
+
+const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+  isDesktop: boolean;
+  isWeb: boolean;
+};
+
 function MockDirectRoute(props: { route: { params: { label: string } } }) {
   useEffect(() => {
     mockDirectMounts.mounted += 1;
@@ -55,6 +70,8 @@ describe('createMarketDetailV2Route', () => {
     mockDirectMounts.mounted = 0;
     mockDirectMounts.unmounted = 0;
     mockPreloadedComponent = undefined;
+    mockedPlatformEnv.isDesktop = true;
+    mockedPlatformEnv.isWeb = false;
   });
 
   it('keeps a cold-loaded route mounted after preload finishes', () => {
@@ -83,6 +100,23 @@ describe('createMarketDetailV2Route', () => {
 
     expect(view.getByTestId('direct-route').textContent).toBe('ready');
     expect(view.queryByTestId('lazy-route')).toBeNull();
+    expect(mockDirectMounts).toEqual({ mounted: 1, unmounted: 0 });
+  });
+
+  it('preserves the existing component selection behavior on native routes', () => {
+    mockedPlatformEnv.isDesktop = false;
+    const MarketDetailRoute = createMarketDetailV2Route();
+    const view = render(
+      <MarketDetailRoute {...(buildRouteProps('first') as any)} />,
+    );
+
+    mockPreloadedComponent = MockDirectRoute;
+    view.rerender(
+      <MarketDetailRoute {...(buildRouteProps('second') as any)} />,
+    );
+
+    expect(view.getByTestId('direct-route').textContent).toBe('second');
+    expect(mockLazyMounts).toEqual({ mounted: 1, unmounted: 1 });
     expect(mockDirectMounts).toEqual({ mounted: 1, unmounted: 0 });
   });
 });

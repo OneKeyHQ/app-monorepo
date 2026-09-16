@@ -14,6 +14,8 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 interface IUseMarketDetailDataProps {
+  active?: boolean;
+  resumeOnEffectReconnect?: boolean;
   tokenAddress: string;
   networkId: string;
   isNative: boolean;
@@ -103,6 +105,7 @@ export function useResolvedMarketAssetRouteIdentity({
 }
 
 export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
+  const active = data.active !== false;
   const { current: tokenDetailActions } = useTokenDetailActions();
   const fetchMarketAssetTokenDetail = useMarketAssetTokenDetailAction();
   const currencyInfo = useCurrency();
@@ -128,9 +131,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   const [settledRequestGeneration, setSettledRequestGeneration] =
     useState<number>();
   const requestScopeRef = useRef({ key: '', generation: 0 });
-  const activeRequestKey = data.skipMarketDataFetch
-    ? ''
-    : tokenDetailRequestKey;
+  const activeRequestKey =
+    data.skipMarketDataFetch || !active ? '' : tokenDetailRequestKey;
   if (requestScopeRef.current.key !== activeRequestKey) {
     requestScopeRef.current = {
       key: activeRequestKey,
@@ -139,9 +141,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   }
   const requestGeneration = requestScopeRef.current.generation;
   const currentTokenDetailRequestKeyRef = useRef<string | undefined>(undefined);
-  currentTokenDetailRequestKeyRef.current = data.skipMarketDataFetch
-    ? undefined
-    : tokenDetailRequestKey;
+  currentTokenDetailRequestKeyRef.current =
+    data.skipMarketDataFetch || !active ? undefined : tokenDetailRequestKey;
   const successfulMarketAssetDetailRef = useRef<
     | {
         requestKey: string;
@@ -243,6 +244,9 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
 
   useEffect(() => {
+    if (!active) {
+      return;
+    }
     const canFetch = Boolean(
       !data.skipMarketDataFetch &&
       currencyInfo.id &&
@@ -253,6 +257,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       tokenDetailActions.setTokenDetailLoading(false);
     }
   }, [
+    active,
     currencyInfo.id,
     data.isNative,
     data.networkId,
@@ -266,6 +271,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   >(
     async () => {
       if (
+        !active ||
         data.skipMarketDataFetch ||
         !currencyInfo.id ||
         !data.networkId ||
@@ -320,6 +326,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       }
     },
     [
+      active,
       currencyInfo.id,
       data.isNative,
       data.marketTokenId,
@@ -335,9 +342,14 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     ],
     {
       undefinedResultIfError: true,
-      pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
+      // Keep the interval identity stable while a retained Desktop/Web route is
+      // inactive. usePromiseResult delays a changed interval by its full
+      // duration; a stable interval lets the active dependency refetch
+      // immediately when the user returns to the route.
+      pollingInterval: 6000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      resumeOnEffectReconnect: data.resumeOnEffectReconnect,
       // Disable focus check to allow data fetching when navigating from Modal to Tab
       // This is needed because when navigating from MarketBannerDetail (Modal) to MarketDetailV2 (Tab),
       // the Modal may still be in the navigation stack, causing isFocused to return false
@@ -353,6 +365,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   return {
     marketAssetDetail,
     isInitialTokenDetailPending: Boolean(
+      active &&
       !data.skipMarketDataFetch &&
       data.networkId &&
       (data.tokenAddress || data.isNative) &&

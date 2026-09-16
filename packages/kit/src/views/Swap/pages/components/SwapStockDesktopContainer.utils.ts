@@ -127,20 +127,6 @@ export function shouldDeferStockInitialContent({
   );
 }
 
-export function shouldShowStockTradeIdentitySkeleton({
-  amountInputLoading,
-  deferInitialContent,
-  marketIdentityLoading,
-}: {
-  amountInputLoading: boolean;
-  deferInitialContent: boolean;
-  marketIdentityLoading?: boolean;
-}) {
-  return Boolean(
-    marketIdentityLoading || amountInputLoading || deferInitialContent,
-  );
-}
-
 export function shouldResetStockTradeQuoteState({
   identityLoading,
   previousIdentityLoading,

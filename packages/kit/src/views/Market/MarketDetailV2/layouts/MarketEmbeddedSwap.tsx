@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
@@ -26,6 +27,7 @@ import { MarketStockTradeTarget } from './components/MarketStockTradeTarget';
 import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
 
 type IEmbeddedSwapProps = {
+  storeName?: EJotaiContextStoreNames;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
   embeddedStockTrade?: boolean;
@@ -234,6 +236,7 @@ function MarketEmbeddedSwapContent({
       overflow="hidden"
     >
       <LazyEmbeddedSwap
+        storeName={EJotaiContextStoreNames.marketSwap}
         pageType={EPageType.modal}
         singleSwapBridgeHeader
         swapInitParams={effectiveSwapInitParams}

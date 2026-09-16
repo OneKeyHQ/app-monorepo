@@ -174,6 +174,7 @@ import type { ScrollView as ScrollViewNative } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
+  storeName?: EJotaiContextStoreNames;
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
@@ -189,7 +190,12 @@ interface ISwapMainLoadProps {
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
 }
 
+type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
+  storeName: EJotaiContextStoreNames;
+};
+
 const SwapMainLoad = ({
+  storeName,
   swapInitParams,
   pageType,
   singleSwapBridgeHeader,
@@ -200,7 +206,7 @@ const SwapMainLoad = ({
   stockTradeIdentityLoading,
   stockTradeToken,
   onInputDraftChange,
-}: ISwapMainLoadProps) => {
+}: ISwapMainLoadContentProps) => {
   const dialogRef = useRef<IDialogInstance>(null);
   const reviewDialogTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
@@ -609,14 +615,6 @@ const SwapMainLoad = ({
     }
     return InModalDialog;
   }, [InModalDialog, InTabDialog, pageType]);
-  const storeName = useMemo(
-    () =>
-      pageType === EPageType.modal
-        ? EJotaiContextStoreNames.swapModal
-        : EJotaiContextStoreNames.swap,
-    [pageType],
-  );
-
   const swapStepsRef = useRef<ISwapStep[]>([]);
   if (
     swapStepsRef.current !== swapStepData.steps ||
@@ -1703,8 +1701,14 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     initialInputAmountDraft,
     pageType,
     singleSwapBridgeHeader,
+    storeName: providedStoreName,
     swapInitParams,
   } = props;
+  const storeName =
+    providedStoreName ??
+    (pageType === EPageType.modal
+      ? EJotaiContextStoreNames.swapModal
+      : EJotaiContextStoreNames.swap);
   const shouldSeedMarketEmbeddedPair = Boolean(
     singleSwapBridgeHeader &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
@@ -1732,18 +1736,14 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
 
   return (
     <SwapProviderMirror
-      storeName={
-        pageType === EPageType.modal
-          ? EJotaiContextStoreNames.swapModal
-          : EJotaiContextStoreNames.swap
-      }
+      storeName={storeName}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <LazyPageContainer>
-          <SwapMainLoad {...props} pageType={pageType} />
+          <SwapMainLoad {...props} storeName={storeName} pageType={pageType} />
         </LazyPageContainer>
       </MarketWatchListProviderMirrorV2>
     </SwapProviderMirror>
