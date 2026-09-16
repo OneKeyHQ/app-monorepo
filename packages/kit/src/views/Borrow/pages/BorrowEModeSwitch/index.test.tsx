@@ -623,6 +623,27 @@ describe('BorrowEModeSwitch status rendering', () => {
       },
     );
 
+    // Resuming drops the picker scope, so the pick's own return no longer
+    // looks like one. The pick already checked on the way out.
+    it('checks once for a pick made after the app resumed under the picker', () => {
+      const view = render(<BorrowEModeSwitch />);
+      fireEvent.click(screen.getByTestId('e-mode-selector'));
+      mockIsFocused.current = false;
+      view.rerender(<BorrowEModeSwitch />);
+      act(() => {
+        mockAppActive.current?.();
+      });
+
+      pick(0, 1);
+      expect(mockRunCheck).toHaveBeenCalledTimes(1);
+
+      mockIsFocused.current = true;
+      view.rerender(<BorrowEModeSwitch />);
+
+      expect(mockRunCheck).toHaveBeenCalledTimes(1);
+      expect(mockRunCheck).toHaveBeenCalledWith(0);
+    });
+
     it('revalidates after resuming the app while the picker was open', () => {
       const view = render(<BorrowEModeSwitch />);
       pick(0, 1);

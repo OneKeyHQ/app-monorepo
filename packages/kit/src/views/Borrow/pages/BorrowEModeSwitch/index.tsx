@@ -212,8 +212,12 @@ function BorrowEModeSwitchView() {
     if (!focusActivationPending) {
       return;
     }
-    const cancelledPicker = returningFromPicker && !pickerPickedRef.current;
+    // Both refs describe one trip to the picker and this focus return ends it,
+    // so consume them together: whatever comes back next is judged on its own.
+    const pickedInPicker = pickerPickedRef.current;
+    const cancelledPicker = returningFromPicker && !pickedInPicker;
     pickerScopeRef.current = null;
+    pickerPickedRef.current = false;
     if (cancelledPicker) {
       // A cancelled picker reported nothing, yet its own request may have seen
       // a newer status than this page holds. Refresh the status alone: a moved
@@ -226,6 +230,11 @@ function BorrowEModeSwitchView() {
     }
     if (
       !returningFromPicker &&
+      // Resuming the app drops the picker scope, so a pick made afterwards
+      // comes back here looking like a plain focus return. It already ran its
+      // own check on the way out; running a second one here would only issue
+      // an identical request for the same target.
+      !pickedInPicker &&
       !pendingSelection &&
       selection.userSelection !== null
     ) {
@@ -305,6 +314,7 @@ function BorrowEModeSwitchView() {
     if (previousScopeRef.current !== scopeKey) {
       previousScopeRef.current = scopeKey;
       pickerScopeRef.current = null;
+      pickerPickedRef.current = false;
       setPendingPickerSelection(null);
       setUserSelection(null);
       resetTarget();
