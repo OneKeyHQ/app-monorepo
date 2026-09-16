@@ -478,11 +478,15 @@ function MobileLayoutComponent({
     }
   }, [selectedStockCategoryId, stockCategories]);
   const activeSpotCategoryId = getSpotCategoryIdByTabName(activeTabName);
+  // Android renders the Stocks chips with the shared JS selector so they match
+  // the Favorites and Perps chips; the pager hands horizontal drags to any
+  // horizontal scroller in the sticky header, JS or native.
   const nativeSubHeader = useMemo<
     CollapsiblePagerNativeSubHeaderConfig | undefined
   >(
     () =>
       platformEnv.isNative &&
+      !platformEnv.isNativeAndroid &&
       isMarketStockCategoryById(
         filterBarProps.categories,
         activeSpotCategoryId,
