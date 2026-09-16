@@ -299,6 +299,10 @@ export function createTradingViewNativeSkiaResources({
       axis: axisFont,
       legend: legendFont,
       priceAxis: priceAxisFont,
+      referenceLineLabel: Skia.Font(
+        legendFont.getTypeface() ?? undefined,
+        priceAxisFontSize,
+      ),
     },
     legendSubscriptFont,
     paints,
