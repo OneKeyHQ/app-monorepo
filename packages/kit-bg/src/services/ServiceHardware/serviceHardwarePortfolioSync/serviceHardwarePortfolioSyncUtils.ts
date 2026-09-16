@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import semver from 'semver';
 
 import type {
@@ -42,9 +43,13 @@ export type IPortfolioSyncArtifacts = {
 
 export const PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS = 60_000;
 
-export function getPortfolioSchemaVersion(firmwareVersion?: string): 1 | 2 {
-  // Unknown and prerelease firmware keep the released v1 contract.
-  return firmwareVersion &&
+export function getPortfolioSchemaVersion(
+  firmwareVersion?: string,
+  deviceType?: string,
+): 1 | 2 {
+  // v2 is the Pro 2 firmware 1.0.2+ contract. Neo and older products stay on v1.
+  return deviceType === EDeviceType.Pro2 &&
+    firmwareVersion &&
     semver.valid(firmwareVersion) &&
     !semver.prerelease(firmwareVersion) &&
     semver.gte(firmwareVersion, '1.0.2')
@@ -82,6 +87,7 @@ export function getPortfolioSyncCooldownRemainingMs({
 
 function buildPortfolioAccountFromEventPayload(
   eventPayload: IPortfolioSyncSettledPayload,
+  schemaVersion: 1 | 2,
 ): IPortfolioPayload['account'] {
   const accountIdentifier =
     typeof eventPayload.indexedAccountIndex === 'number'
@@ -89,15 +95,18 @@ function buildPortfolioAccountFromEventPayload(
       : accountUtils.shortenAddress({
           address: eventPayload.accountAddress,
         });
+  const accountName =
+    eventPayload.indexedAccountName ||
+    eventPayload.accountName ||
+    accountIdentifier;
 
   return {
     addressMasked: accountIdentifier,
     label:
+      schemaVersion === 2 &&
       typeof eventPayload.indexedAccountIndex === 'number'
         ? String(eventPayload.indexedAccountIndex + 1)
-        : eventPayload.indexedAccountName ||
-          eventPayload.accountName ||
-          accountIdentifier,
+        : accountName,
   };
 }
 
@@ -120,7 +129,7 @@ export function buildPortfolioSyncArtifacts({
   timestamp: number;
 }): IPortfolioSyncArtifacts {
   const portfolioPayloadParams = {
-    account: buildPortfolioAccountFromEventPayload(eventPayload),
+    account: buildPortfolioAccountFromEventPayload(eventPayload, schemaVersion),
     aggregateTokenMap: eventPayload.aggregateTokenMap,
     categoryFiat,
     currencyMap,

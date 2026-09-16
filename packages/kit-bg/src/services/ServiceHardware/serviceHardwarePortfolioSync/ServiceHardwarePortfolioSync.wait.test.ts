@@ -177,6 +177,8 @@ describe('Portfolio v2 category retrieval', () => {
       getClient: jest.Mock;
       getPortfolioCategoryFiat: (
         payload: IPortfolioSyncSettledPayload,
+        signal?: AbortSignal,
+        cacheKey?: string,
       ) => Promise<IPortfolioCategoryFiat>;
     };
     internals.getClient = jest.fn().mockResolvedValue({ post });
@@ -223,8 +225,55 @@ describe('Portfolio v2 category retrieval', () => {
     });
     expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledWith({
       address: '0x3333',
-      force: true,
     });
+  });
+
+  test('passes deriveType for a single-network DeFi lookup', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat({
+        ...eventPayload,
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '30' });
+    expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        deriveType: 'default',
+      }),
+    );
+  });
+
+  test('treats an empty DeFi account set as zero instead of unknown', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({ accountsInfo: [] });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({ defiFiat: '0', perpsFiat: '30' });
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  test('treats a missing perps account row as zero instead of unknown', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(
+      new Error('indexedAccounts not found: indexed-account-1'),
+    );
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '0' });
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+
+  test('reuses category fiat within the hardware cooldown window', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '30' });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '30' });
+    expect(mocks.post).toHaveBeenCalledTimes(1);
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(1);
   });
 
   test('keeps a failed category unknown while retaining the successful one', async () => {
@@ -876,6 +925,79 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(submittedTimestamp).toBeGreaterThanOrEqual(now);
     expect(submittedTimestamp).toBeLessThanOrEqual(Date.now());
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps Neo firmware on the v1 payload', async () => {
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Neo,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+
+    expect(getCategory).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 1,
+            account: expect.objectContaining({ label: 'Account #1' }),
+            totalFiat: '$100.00',
+          }),
+        }),
+      }),
+    );
+    const submitted = (
+      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
+        artifacts: { portfolio: Record<string, unknown> };
+      }
+    ).artifacts.portfolio;
+    expect(submitted).not.toHaveProperty('defiFiat');
+    expect(submitted).not.toHaveProperty('perpsFiat');
+    expect(submitted).not.toHaveProperty('tokensFiat');
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('records lastAttemptAt when a silent snapshot is skipped as a duplicate', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
+    const payload = buildHardwarePayload();
+    const first = prepareHardwareSync({ busyResults: [false, false] });
+    await first.serviceInternals.syncSettledPortfolio(payload);
+    const firstState = first.updateTargetState.mock.calls.find((call) =>
+      Boolean((call[1] as { lastContentHash?: string }).lastContentHash),
+    )?.[1] as { lastContentHash: string; lastWalletId: string };
+    const duplicate = prepareHardwareSync({
+      busyResults: [false, false],
+      targetState: {
+        lastContentHash: firstState.lastContentHash,
+        lastWalletId: firstState.lastWalletId,
+      },
+    });
+
+    await duplicate.serviceInternals.syncSettledPortfolio(payload);
+
+    expect(duplicate.uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(duplicate.updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastAttemptAt: 1_785_723_200_000 }),
+    );
   });
 
   test('uploads a signed empty standard-wallet snapshot to overwrite stale device data', async () => {

@@ -45,6 +45,7 @@ import ServiceBase from '../../ServiceBase';
 import serviceHardwareUtils from '../serviceHardwareUtils';
 
 import {
+  PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
   buildPortfolioSyncArtifacts,
   getPortfolioDisplayTimestamp,
   getPortfolioSchemaVersion,
@@ -378,6 +379,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private activeUploadByTargetKey = new Map<string, Promise<unknown>>();
 
   private targetKeyByConnectId = new Map<string, string>();
+
+  private categoryFiatCacheByKey = new Map<
+    string,
+    {
+      expiresAt: number;
+      value: IPortfolioCategoryFiat;
+    }
+  >();
 
   private syncDebouncedByTargetKey = new Map<
     string,
@@ -2002,10 +2011,44 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     };
   }
 
+  private getCategoryFiatCacheKey({
+    eventPayload,
+    targetKey,
+  }: {
+    eventPayload: IPortfolioSyncSettledPayload;
+    targetKey: string;
+  }): string {
+    return [
+      targetKey,
+      eventPayload.indexedAccountId ?? eventPayload.accountId ?? '',
+      eventPayload.networkId ?? '',
+    ].join(':');
+  }
+
+  private readCategoryFiatCache(
+    cacheKey: string,
+    now = Date.now(),
+  ): IPortfolioCategoryFiat | undefined {
+    for (const [key, entry] of this.categoryFiatCacheByKey) {
+      if (entry.expiresAt <= now) {
+        this.categoryFiatCacheByKey.delete(key);
+      }
+    }
+    const cached = this.categoryFiatCacheByKey.get(cacheKey);
+    return cached && cached.expiresAt > now ? cached.value : undefined;
+  }
+
   private async getPortfolioCategoryFiat(
     eventPayload: IPortfolioSyncSettledPayload,
     signal?: AbortSignal,
+    cacheKey?: string,
   ): Promise<IPortfolioCategoryFiat> {
+    if (cacheKey) {
+      const cached = this.readCategoryFiatCache(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
     try {
       const accountId = eventPayload.accountId;
       const indexedAccountId = eventPayload.indexedAccountId;
@@ -2049,17 +2092,27 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         if (!support.isDeFiSupported) {
           return '0';
         }
+        const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
+        const deriveType = isAllNetwork
+          ? undefined
+          : await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              { networkId },
+            );
+        if (!isAllNetwork && !deriveType) {
+          return '0';
+        }
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
             accountId,
             indexedAccountId,
             networkId,
+            deriveType,
             DeFiEnabledOnly: true,
             networksEnabledOnly: true,
             excludeTestNetwork: true,
           });
         if (!accountsInfo.length) {
-          return undefined;
+          return '0';
         }
         const client = await this.getClient(EServiceEndpointEnum.Wallet);
         let total = new BigNumber(0);
@@ -2122,26 +2175,28 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             networkId: PERPS_NETWORK_ID,
           });
         if (!deriveType) {
-          return undefined;
+          return '0';
         }
-        const account =
-          await this.backgroundApi.serviceAccount.getNetworkAccount({
+        let account;
+        try {
+          account = await this.backgroundApi.serviceAccount.getNetworkAccount({
             accountId: undefined,
             indexedAccountId,
             deriveType,
             networkId: PERPS_NETWORK_ID,
           });
+        } catch {
+          // Missing perps-network rows mean no equity, not an unknown total.
+          return '0';
+        }
         const address =
           account?.addressDetail?.normalizedAddress || account?.address;
         if (!address) {
-          return undefined;
+          return '0';
         }
         const snapshot =
           await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-            {
-              address,
-              force: true,
-            },
+            { address },
           );
         return snapshot && !snapshot.isDegraded
           ? snapshot.netWorthUsd
@@ -2151,10 +2206,17 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         fetchDeFi(),
         fetchPerps(),
       ]);
-      return {
+      const value = {
         defiFiat: defi.status === 'fulfilled' ? defi.value : undefined,
         perpsFiat: perps.status === 'fulfilled' ? perps.value : undefined,
       };
+      if (cacheKey && !signal?.aborted) {
+        this.categoryFiatCacheByKey.set(cacheKey, {
+          expiresAt: Date.now() + PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
+          value,
+        });
+      }
+      return value;
     } catch {
       // Unavailable data stays unknown; it must never become a zero balance.
       return {};
@@ -2879,12 +2941,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         : undefined;
       const schemaVersion = getPortfolioSchemaVersion(
         device?.deviceStateInfo?.versions?.firmware ?? undefined,
+        device?.deviceType,
       );
       const categoryFiat =
         schemaVersion === 2
           ? await this.getPortfolioCategoryFiat(
               eventPayload,
               options?.oneKeyOperationLease?.signal,
+              this.getCategoryFiatCacheKey({ eventPayload, targetKey }),
             )
           : undefined;
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
@@ -2939,6 +3003,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           tokenCount: artifacts.portfolio.tokens.length,
           totalTokenCount: eventPayload.tokens.length,
         });
+        if (syncMode === 'silent' && isPersistedDuplicate) {
+          await this.portfolioSyncDb.updateTargetState(targetKey, {
+            lastAttemptAt: updatedAt,
+          });
+          if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+            return;
+          }
+        }
         return this.setLastResult(
           this.buildResultBase({
             artifacts,

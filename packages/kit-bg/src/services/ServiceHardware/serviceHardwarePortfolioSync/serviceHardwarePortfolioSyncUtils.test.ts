@@ -1,6 +1,8 @@
 /*
 yarn test packages/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/serviceHardwarePortfolioSyncUtils.test.ts
 */
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,
@@ -58,16 +60,16 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 
 describe('serviceHardwarePortfolioSyncUtils', () => {
   test.each([
-    [undefined, 1],
-    ['', 1],
-    ['invalid', 1],
-    ['1.0.1', 1],
-    ['1.0.2-beta.1', 1],
-    ['1.0.3-dev', 1],
-    ['1.0.2', 2],
-    ['1.1.0', 2],
-  ] as const)('selects schema %s => %s', (version, expected) => {
-    expect(getPortfolioSchemaVersion(version)).toBe(expected);
+    [undefined, undefined, 1],
+    ['1.0.2', undefined, 1],
+    ['1.0.2', EDeviceType.Neo, 1],
+    ['1.0.1', EDeviceType.Pro2, 1],
+    ['1.0.2-beta.1', EDeviceType.Pro2, 1],
+    ['1.0.3-dev', EDeviceType.Pro2, 1],
+    ['1.0.2', EDeviceType.Pro2, 2],
+    ['1.1.0', EDeviceType.Pro2, 2],
+  ] as const)('selects schema %s %s => %s', (version, deviceType, expected) => {
+    expect(getPortfolioSchemaVersion(version, deviceType)).toBe(expected);
   });
 
   test('submits v2 categories and the account ordinal with existing server metadata', () => {
@@ -230,7 +232,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     expect(portfolio).toMatchObject({
       account: {
         addressMasked: 'Account #1',
-        label: '1',
+        label: 'Account #1',
       },
       otherTokens: {
         count: 5,
@@ -345,6 +347,19 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     });
 
     expect(artifacts.portfolio.account).toEqual({
+      addressMasked: 'Account #3',
+      label: 'Custom Account',
+    });
+
+    expect(
+      buildPortfolioSyncArtifacts({
+        currencyMap,
+        displayCurrency: { id: 'usd', symbol: '$' },
+        eventPayload: payload,
+        schemaVersion: 2,
+        timestamp: 1_780_900_000,
+      }).portfolio.account,
+    ).toEqual({
       addressMasked: 'Account #3',
       label: '3',
     });
