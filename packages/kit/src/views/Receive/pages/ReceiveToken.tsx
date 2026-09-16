@@ -317,12 +317,32 @@ function ReceiveToken() {
     }
   }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
 
+  // A verify can be superseded before its promise settles: the hardware stage's
+  // user-close fires the device cancel with `void` and announces
+  // CloseHardwareUiStateDialogManually straight away, so the abandoned call
+  // rejects well after the page has re-armed for a retry. Scope every
+  // settlement to the attempt that started it, otherwise a stale one clears the
+  // guard out from under the attempt now running.
+  const verifyAttemptRef = useRef(0);
+  const isVerifyingRef = useRef(false);
+
+  // Every out-of-band reset invalidates the in-flight attempt.
+  const resetVerifyState = useCallback(() => {
+    verifyAttemptRef.current += 1;
+    isVerifyingRef.current = false;
+    setAddressState(EAddressState.Unverified);
+  }, []);
+
   const handleVerifyOnDevicePress = useCallback(async () => {
+    if (isVerifyingRef.current) return;
     if (!currentDeriveType) return;
     if (!displayAddress) {
       setAddressState(EAddressState.Unverified);
       return;
     }
+    const attempt = verifyAttemptRef.current + 1;
+    verifyAttemptRef.current = attempt;
+    isVerifyingRef.current = true;
     setAddressState(EAddressState.Verifying);
     try {
       const addresses =
@@ -368,11 +388,15 @@ function ReceiveToken() {
           },
         });
       }
-      setAddressState(
-        isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
-      );
+      if (verifyAttemptRef.current === attempt) {
+        setAddressState(
+          isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
+        );
+      }
     } catch (e: any) {
-      setAddressState(EAddressState.Unverified);
+      if (verifyAttemptRef.current === attempt) {
+        setAddressState(EAddressState.Unverified);
+      }
       // verifyHWAccountAddresses handler error toast
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -380,6 +404,11 @@ function ReceiveToken() {
         failedReason: (e as Error).message,
       });
       throw e;
+    } finally {
+      // A superseded attempt must not release the guard the live one holds.
+      if (verifyAttemptRef.current === attempt) {
+        isVerifyingRef.current = false;
+      }
     }
   }, [
     currentAccount?.indexedAccountId,
@@ -405,18 +434,17 @@ function ReceiveToken() {
   );
 
   useEffect(() => {
-    const callback = () => setAddressState(EAddressState.Unverified);
     appEventBus.on(
       EAppEventBusNames.CloseHardwareUiStateDialogManually,
-      callback,
+      resetVerifyState,
     );
     return () => {
       appEventBus.off(
         EAppEventBusNames.CloseHardwareUiStateDialogManually,
-        callback,
+        resetVerifyState,
       );
     };
-  }, []);
+  }, [resetVerifyState]);
 
   const fetchAccount = useCallback(async () => {
     if (!accountId && networkId && indexedAccountId) {
@@ -514,9 +542,9 @@ function ReceiveToken() {
 
   useEffect(() => {
     if (btcUsedAddress || btcUsedAddressPath) {
-      setAddressState(EAddressState.Unverified);
+      resetVerifyState();
     }
-  }, [btcUsedAddress, btcUsedAddressPath]);
+  }, [btcUsedAddress, btcUsedAddressPath, resetVerifyState]);
 
   const renderAddressCell = useCallback(() => {
     if (!displayAddress) return null;
@@ -836,7 +864,7 @@ function ReceiveToken() {
         indexedAccountId={currentAccount?.indexedAccountId ?? ''}
         onSelect={async (value) => {
           if (value.account) {
-            setAddressState(EAddressState.Unverified);
+            resetVerifyState();
             setCurrentAccount(value.account);
             setCurrentDeriveType(value.deriveType);
             setCurrentDeriveInfo(value.deriveInfo);
@@ -855,6 +883,7 @@ function ReceiveToken() {
     walletId,
     networkId,
     onDeriveTypeChange,
+    resetVerifyState,
   ]);
 
   const renderNativeActionsFooter = useCallback(() => {
