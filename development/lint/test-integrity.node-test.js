@@ -789,6 +789,79 @@ test('unparseable input throws a SyntaxError and nothing else', () => {
   );
 });
 
+test('an assertion helper is where the claim is made, not where it is spelled', () => {
+  assertGated(
+    `
+    function expectContains(text, needle) {
+      expect(text).toContain(needle);
+    }
+    it('x', () => {
+      expectContains(readFileSync(join(__dirname, 'thing.ts'), 'utf8'), 'go');
+    });
+  `,
+    'expect helper',
+  );
+  assertGated(
+    `
+    const expectNoTimers = (text) => {
+      expect(text).not.toMatch(/setTimeout/u);
+    };
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { expectNoTimers(source); });
+  `,
+    'arrow helper',
+  );
+  assertGated(
+    `
+    function assertClean(text) {
+      assert.ok(!text.includes('go'));
+    }
+    it('x', () => {
+      assertClean(readFileSync(join(__dirname, 'thing.ts'), 'utf8'));
+    });
+  `,
+    'node:assert helper, negated',
+  );
+  // The helper is not what decides: a plain string through it is clean.
+  assertClean(
+    `
+    function expectContains(text, needle) {
+      expect(text).toContain(needle);
+    }
+    it('x', () => { expectContains('plain text', 'go'); });
+  `,
+    'helper called with no source',
+  );
+  // A helper that asserts nothing is not an assertion helper.
+  assertClean(
+    `
+    function measure(text) {
+      return text.length;
+    }
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { measure(source); });
+  `,
+    'helper that asserts nothing',
+  );
+});
+
+test('negation does not launder a claim about source', () => {
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { expect(!source.includes('go')).toBe(true); });
+  `,
+    'negated subject',
+  );
+  assertClean(
+    `
+    const items = [];
+    it('x', () => { expect(!items.length).toBe(true); });
+  `,
+    'negation with no source in it',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`

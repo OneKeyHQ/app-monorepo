@@ -370,6 +370,11 @@ function taintKind(node, tainted, readKind) {
       return node.operator === '+'
         ? firstTaint([node.left, node.right], tainted, readKind)
         : undefined;
+    case 'UnaryExpression':
+      // `expect(!source.includes(x))` is still a claim about source.
+      return node.operator === '!'
+        ? taintKind(node.argument, tainted, readKind)
+        : undefined;
     case 'LogicalExpression':
       return firstTaint([node.left, node.right], tainted, readKind);
     case 'ConditionalExpression':
@@ -511,6 +516,84 @@ function walkOwnBody(node, visit) {
       }
     }
   }
+}
+
+/** The source text an assertion call is made about, if any. */
+function assertionSubjectKind(node, scope, readKind) {
+  if (
+    node.type !== 'CallExpression' &&
+    node.type !== 'OptionalCallExpression'
+  ) {
+    return undefined;
+  }
+  const name = calleeName(node.callee);
+  if (!name) {
+    return undefined;
+  }
+  if (TEXT_MATCHERS.has(name)) {
+    const expectCall = findExpectCall(node.callee);
+    return expectCall
+      ? firstTaint(expectCall.arguments, scope, readKind)
+      : undefined;
+  }
+  if (ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
+    return firstTaint(node.arguments, scope, readKind);
+  }
+  return undefined;
+}
+
+/**
+ * Named helpers that make the assertion for you: `expectNoTimers(source)` puts
+ * the sink inside the helper, where the parameter is just a parameter. The
+ * claim is still made about whatever the caller handed over.
+ */
+function collectAssertionHelpers(ast, readKind, helpers) {
+  walk(ast, (node) => {
+    const named = namedFunction(node);
+    if (!named || helpers.has(named.name)) {
+      return;
+    }
+    const index = named.parameters.findIndex((parameter) => {
+      if (!parameter) {
+        return false;
+      }
+      const probe = new Map([[parameter, 'script']]);
+      let asserts = false;
+      walkOwnBody(named.body, (current) => {
+        asserts =
+          asserts || Boolean(assertionSubjectKind(current, probe, readKind));
+      });
+      return asserts;
+    });
+    if (index >= 0) {
+      helpers.set(named.name, index);
+    }
+  });
+}
+
+/** A function declaration or a function-valued binding, with its parameters. */
+function namedFunction(node) {
+  if (node.type === 'FunctionDeclaration' && node.id?.type === 'Identifier') {
+    return {
+      name: node.id.name,
+      parameters: parameterNames(node),
+      body: node.body,
+    };
+  }
+  if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') {
+    const fn = node.init;
+    if (
+      fn?.type === 'ArrowFunctionExpression' ||
+      fn?.type === 'FunctionExpression'
+    ) {
+      return {
+        name: node.id.name,
+        parameters: parameterNames(fn),
+        body: fn.body,
+      };
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -1135,6 +1218,8 @@ function analyzeFile(
   };
 
   collectTransformHelpers(ast, readKind, transformHelpers);
+  const assertionHelpers = new Map();
+  collectAssertionHelpers(ast, readKind, assertionHelpers);
 
   // Pass 1: taint every binding that holds first-party source text. Seeding
   // walks down from each binding rather than up from each read, so the read can
@@ -1295,6 +1380,25 @@ function analyzeFile(
               : 'source-text-assertion',
             node,
             `assert.${name}() asserts on the text of a ${kind} source file`,
+          );
+        }
+      }
+
+      // expectNoTimers(<tainted>): the sink is inside the helper, but the
+      // claim is about what this call handed it.
+      if (name && node.callee.type === 'Identifier') {
+        const parameterIndex = assertionHelpers.get(name);
+        const kind =
+          parameterIndex === undefined
+            ? undefined
+            : taintKind(node.arguments[parameterIndex], tainted, readKind);
+        if (kind) {
+          record(
+            kind === 'native'
+              ? 'native-source-text-assertion'
+              : 'source-text-assertion',
+            node,
+            `${name}() asserts on the text of a ${kind} source file`,
           );
         }
       }
