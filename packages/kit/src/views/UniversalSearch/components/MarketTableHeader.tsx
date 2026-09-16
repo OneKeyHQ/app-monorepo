@@ -3,9 +3,20 @@ import { useIntl } from 'react-intl';
 import { SizableText, XStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import type { IMarketSearchMetric } from './marketSearchMetric';
+
 export const MARKET_DATA_COLUMN_WIDTH = 120;
 
-export function MarketTableHeader() {
+const METRIC_TRANSLATION_IDS: Record<IMarketSearchMetric, ETranslations> = {
+  liquidity: ETranslations.global_liquidity,
+  marketCap: ETranslations.global_market_cap,
+};
+
+export function MarketTableHeader({
+  metric = 'liquidity',
+}: {
+  metric?: IMarketSearchMetric;
+}) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   return (
@@ -33,7 +44,7 @@ export function MarketTableHeader() {
           <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end">
             <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
               {intl
-                .formatMessage({ id: ETranslations.global_liquidity })
+                .formatMessage({ id: METRIC_TRANSLATION_IDS[metric] })
                 .toUpperCase()}
             </SizableText>
           </XStack>

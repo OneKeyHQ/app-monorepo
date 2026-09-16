@@ -416,3 +416,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Stocks category reused `fetchMarketTokenList` (`/utility/v2/market/tokens?type=stocks`) instead of the public stocks API used by Market Stocks.
 **Fix**: Detect the stocks category and load `fetchMarketStockList`; map `stockId` / `stockListingName` for display and hide network icons.
 **Catchable by**: Section 4: shared hook/utility modified → check all category consumers; NEW — a Market category named like another product surface must use that surface's list API, not the generic token list
+
+## Case: Universal search mixed stock listings into the Market tab
+**Date**: 2026-09-16 | **Platforms**: Desktop, Web, Extension, iOS, Android
+**Symptom**: Searching AAPL put the real stock next to AAPLon / xStock under Market, and the Liquidity column showed `--` because listings have no liquidity.
+**Root Cause**: `V2MarketToken` search prepended stock listings into the same result bucket and reused the token table columns.
+**Fix**: Split stock listings into `MarketStock` with their own tab/section and show Name / Price / Market cap / Volume.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — mixed asset types in one search tab need their own columns and empty-tab hiding
