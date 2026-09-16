@@ -23774,6 +23774,7 @@
     "packages/shared/src/logger/scopes/ipTable/scenes/metrics.ts": 4254,
     "packages/shared/src/logger/scopes/ipTable/scenes/request.ts": 3650,
     "packages/shared/src/logger/scopes/market/index.ts": 18533,
+    "packages/shared/src/logger/scopes/market/scenes/navigation.ts": 10628,
     "packages/shared/src/logger/scopes/market/scenes/token.ts": 1842,
     "packages/shared/src/logger/scopes/networkDoctor/index.ts": 8476,
     "packages/shared/src/logger/scopes/networkDoctor/scenes/log.ts": 8465,
