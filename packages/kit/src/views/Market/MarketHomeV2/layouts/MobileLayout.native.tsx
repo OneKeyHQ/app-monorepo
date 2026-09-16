@@ -67,7 +67,8 @@ import { useMarketTabsLogic } from './hooks';
 import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 import { shouldHandleMarketPagerPageSelected } from './marketTabSelectionGuards';
 import {
-  MARKET_MOBILE_COLUMN_HEADER_HEIGHT,
+  MARKET_MOBILE_CATEGORY_ROW_HEIGHT,
+  MARKET_MOBILE_COMPACT_SECONDARY_HEADER_HEIGHT,
   getMarketMobileBannerHeaderHeight,
   getMarketMobileSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
@@ -188,7 +189,7 @@ function MarketHomeTabBar({
   if (showWatchlistSubHeader && ctx.isWatchlistEmpty) {
     secondaryHeaderHeight = 0;
   } else if (showCompactSpotSubHeader) {
-    secondaryHeaderHeight = MARKET_MOBILE_COLUMN_HEADER_HEIGHT;
+    secondaryHeaderHeight = MARKET_MOBILE_COMPACT_SECONDARY_HEADER_HEIGHT;
   }
 
   const renderWatchlistSubHeaderContent = useCallback(
@@ -199,7 +200,7 @@ function MarketHomeTabBar({
             <MarketWatchlistCategorySelector
               selectedFilter={ctx.watchlistFilter}
               onSelectFilter={ctx.onSelectWatchlistFilter}
-              containerStyle={{ px: '$5', pt: '$3', pb: '$1' }}
+              containerStyle={{ px: '$5', pt: '$3', pb: '$3' }}
             />
           </XStack>
           {ctx.isTokenCacheReady ? (
@@ -240,7 +241,7 @@ function MarketHomeTabBar({
             categories={ctx.stockCategories}
             selectedCategoryId={ctx.selectedStockCategoryId}
             onSelectCategory={ctx.onSelectStockCategory}
-            containerStyle={{ px: '$5', pt: '$3', pb: '$1' }}
+            containerStyle={{ px: '$5', pt: '$3', pb: '$3' }}
           />
         ) : null}
         {useNativeStockSubHeader && showStockCategorySelector ? null : (
@@ -267,7 +268,7 @@ function MarketHomeTabBar({
           categories={ctx.perpsCategories}
           selectedCategoryId={ctx.selectedCategoryId}
           onSelectCategory={ctx.onSelectCategory}
-          containerStyle={{ px: '$5', pt: '$3', pb: '$1' }}
+          containerStyle={{ px: '$5', pt: '$3', pb: '$3' }}
         />
         <MarketListColumnHeader />
       </>
@@ -395,7 +396,10 @@ function MobileLayoutComponent({
             })),
             style: {
               height: MARKET_TAB_BAR_HEIGHT,
-              contentPaddingHorizontal: 20,
+              // Native tab buttons pad their label 8pt on each side, so a 12pt
+              // bar inset puts the first label on the 20pt edge the chips and
+              // column headers use.
+              contentPaddingHorizontal: 12,
               itemSpacing: 8,
               fontSize: 16,
               fontFamily: 'Roobert-Medium',
@@ -506,7 +510,7 @@ function MobileLayoutComponent({
             },
             style: {
               height: getMarketMobileSecondaryHeaderHeight(),
-              tabsHeight: 42,
+              tabsHeight: MARKET_MOBILE_CATEGORY_ROW_HEIGHT,
               contentPaddingHorizontal: 20,
               itemSpacing: 8,
               fontSize: 14,

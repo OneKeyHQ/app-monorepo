@@ -548,6 +548,9 @@ function MarketTokenListBase({
     timeRange,
     sort: trendingSort,
     onSort: handleTrendingSort,
+    hideTokenAge,
+    watchlistFrom,
+    copyFrom,
   });
   const watchlistColumnsDesktop = useWatchlistColumnsDesktop({
     networkId,
@@ -684,13 +687,6 @@ function MarketTokenListBase({
         return undefined;
       }
 
-      if (
-        useStockMetadataColumns &&
-        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex))
-      ) {
-        return undefined;
-      }
-
       // Desktop trending sorts the loaded set in place. The MCap/Price column
       // is absent from the map because its header owns two controls of its own.
       if (isTrendingDesktopColumns) {
@@ -707,6 +703,15 @@ function MarketTokenListBase({
               ? (trendingSort.order as ETableSortType)
               : undefined,
         };
+      }
+
+      // Trending columns never render stock metadata, so this guard only
+      // protects the default columns' stock-metadata rendering.
+      if (
+        useStockMetadataColumns &&
+        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex))
+      ) {
+        return undefined;
       }
 
       // Client sort mode is used by banner detail for 24h change sorting.
