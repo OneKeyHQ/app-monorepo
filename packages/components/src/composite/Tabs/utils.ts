@@ -10,3 +10,50 @@ export const parseCssSize = (value: string | undefined) => {
   const size = Number.parseFloat(value ?? '');
   return Number.isFinite(size) ? size : 0;
 };
+
+// Bottom edge of an element's in-flow content, relative to its padding box
+// top. The content stays content-sized even when the element itself is
+// stretched by a parent carrying an explicit height, so this reports the real
+// height where the element's own box cannot. Returns 0 when nothing
+// measurable is in flow, so callers can fall back to the box.
+// Requires `htmlElement` to be positioned (every Tamagui view is), otherwise
+// `offsetParent`/`offsetTop` resolve against a further ancestor.
+export const getInFlowContentBottom = (htmlElement: HTMLElement) => {
+  let contentBottom = 0;
+  const visit = (parent: HTMLElement) => {
+    Array.from(parent.children).forEach((child) => {
+      if (!(child instanceof HTMLElement)) {
+        return;
+      }
+      const childStyle = globalThis.getComputedStyle(child);
+      // `display: contents` generates no box of its own — Tamagui wraps some
+      // views that way — so its children lay out as if they were children of
+      // `htmlElement` and still measure against it.
+      if (childStyle.display === 'contents') {
+        visit(child);
+        return;
+      }
+      // offsetParent is null for `display: none` and `position: fixed`, so
+      // both drop out here; an absolutely positioned child still reports one.
+      if (
+        child.offsetParent !== htmlElement ||
+        childStyle.position === 'absolute'
+      ) {
+        return;
+      }
+      // A child with visible overflow paints past its own border box and only
+      // its scrollHeight accounts for that. A scrolling child must not
+      // contribute the content it has scrolled away.
+      const childHeight =
+        childStyle.overflowY === 'visible'
+          ? Math.max(child.offsetHeight, child.scrollHeight)
+          : child.offsetHeight;
+      contentBottom = Math.max(
+        contentBottom,
+        child.offsetTop + childHeight + parseCssSize(childStyle.marginBottom),
+      );
+    });
+  };
+  visit(htmlElement);
+  return contentBottom;
+};
