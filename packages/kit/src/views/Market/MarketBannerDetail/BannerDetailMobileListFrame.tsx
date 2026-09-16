@@ -20,9 +20,10 @@ export const isScrollEdgeElementContainerSupported =
   platformEnv.isNativeIOS26Plus;
 
 // Screens that pin rows under the bar opt into the patched lookup by
-// configuring scrollEdgeEffects; `soft` is what `automatic` resolves to on iOS.
+// configuring scrollEdgeEffects. The hard edge keeps the pinned glass region
+// visually contained, matching the less transparent native page headers.
 export const SCROLL_EDGE_EFFECTS_WITH_ELEMENT_CONTAINER = {
-  top: 'soft',
+  top: 'hard',
   bottom: 'automatic',
   left: 'automatic',
   right: 'automatic',
