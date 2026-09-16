@@ -37,7 +37,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceSetting: {
-      fetchGetStartedLinks: (...args: unknown[]) => mockFetch(...args),
+      fetchGetStartedLinks: (input: { slots: string[] }) => mockFetch(input),
     },
   },
 }));
