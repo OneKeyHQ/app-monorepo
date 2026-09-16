@@ -18919,6 +18919,7 @@
     "packages/kit-bg/src/services/ServiceFirmwareUpdate/FirmwareManifestProvider.ts": 11290,
     "packages/kit-bg/src/services/ServiceFirmwareUpdate/FirmwarePreparedArtifactController.ts": 20669,
     "packages/kit-bg/src/services/ServiceFirmwareUpdate/FirmwarePreparedExecution.ts": 4957,
+    "packages/kit-bg/src/services/ServiceFirmwareUpdate/FirmwareTransferStallGuard.ts": 14433,
     "packages/kit-bg/src/services/ServiceFirmwareUpdate/FirmwareUpdateDetectMap.ts": 13791,
     "packages/kit-bg/src/services/ServiceFirmwareUpdate/FirmwareUpdateRuntime.ts": 60,
     "packages/kit-bg/src/services/ServiceFirmwareUpdate/FirmwareUpdateTrace.ts": 4236,

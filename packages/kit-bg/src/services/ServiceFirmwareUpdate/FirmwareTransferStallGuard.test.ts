@@ -1,4 +1,5 @@
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import {
   didFirmwareTransferResume,
@@ -7,10 +8,11 @@ import {
 } from './FirmwareTransferStallGuard';
 
 describe('FirmwareTransferStallGuard', () => {
-  test('treats transferData progress and StartTransferData as transferring', () => {
+  test('treats live transferData progress and StartTransferData as transferring', () => {
     expect(
       isFirmwareTransferInProgress(
         getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
           payload: {
             firmwareProgressType: 'transferData',
             firmwareProgress: 35,
@@ -21,6 +23,7 @@ describe('FirmwareTransferStallGuard', () => {
     expect(
       isFirmwareTransferInProgress(
         getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_TIP,
           payload: {
             firmwareTipData: {
               message: EFirmwareUpdateTipMessages.StartTransferData,
@@ -32,6 +35,7 @@ describe('FirmwareTransferStallGuard', () => {
     expect(
       isFirmwareTransferInProgress(
         getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
           payload: {
             firmwareProgressType: 'installingFirmware',
             firmwareProgress: 10,
@@ -44,14 +48,54 @@ describe('FirmwareTransferStallGuard', () => {
     ).toBe(false);
   });
 
-  test('resume requires later transfer progress; leaving transfer also counts', () => {
+  test('does not treat a sticky transferData value as a live transfer', () => {
+    expect(
+      isFirmwareTransferInProgress(
+        getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+          payload: {
+            firmwareProgressType: 'transferData',
+            firmwareProgress: 100,
+          },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isFirmwareTransferInProgress(
+        getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_TIP,
+          payload: {
+            firmwareProgressType: 'transferData',
+            firmwareProgress: 100,
+            firmwareTipData: {
+              message: EFirmwareUpdateTipMessages.InstallingFirmware,
+            },
+          },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isFirmwareTransferInProgress(
+        getFirmwareTransferUiSnapshot({
+          payload: {
+            firmwareProgressType: 'transferData',
+            firmwareProgress: 35,
+          },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  test('resume requires later transfer progress; first numeric event also counts', () => {
     const before = getFirmwareTransferUiSnapshot({
+      action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
       payload: { firmwareProgressType: 'transferData', firmwareProgress: 35 },
     });
     expect(
       didFirmwareTransferResume({
         before,
         after: getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
           payload: {
             firmwareProgressType: 'transferData',
             firmwareProgress: 35,
@@ -63,6 +107,7 @@ describe('FirmwareTransferStallGuard', () => {
       didFirmwareTransferResume({
         before,
         after: getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
           payload: {
             firmwareProgressType: 'transferData',
             firmwareProgress: 36,
@@ -72,11 +117,49 @@ describe('FirmwareTransferStallGuard', () => {
     ).toBe(true);
     expect(
       didFirmwareTransferResume({
+        before: getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_TIP,
+          payload: {
+            firmwareTipData: {
+              message: EFirmwareUpdateTipMessages.StartTransferData,
+            },
+          },
+        }),
+        after: getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+          payload: {
+            firmwareProgressType: 'transferData',
+            firmwareProgress: 1,
+          },
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      didFirmwareTransferResume({
         before,
         after: getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
           payload: {
             firmwareProgressType: 'installingFirmware',
             firmwareProgress: 1,
+          },
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      didFirmwareTransferResume({
+        before: getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+          payload: {
+            firmwareProgressType: 'transferData',
+            firmwareProgress: 100,
+          },
+        }),
+        after: getFirmwareTransferUiSnapshot({
+          action: EHardwareUiStateAction.FIRMWARE_PROGRESS,
+          payload: {
+            firmwareProgressType: 'transferData',
+            firmwareProgress: 100,
           },
         }),
       }),

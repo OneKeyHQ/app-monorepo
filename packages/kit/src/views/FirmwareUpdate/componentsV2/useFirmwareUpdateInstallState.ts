@@ -271,7 +271,7 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
   useEffect(() => {
     if (stepInfo.step === EFirmwareUpdateSteps.installing) {
       if (!lastFirmwareTipMessage && !isNumber(firmwareProgress)) {
-        updateProgressRef.current(EFirmwareUpdateTipMessages.StartTransferData);
+        updateProgressRef.current('installing');
       }
       return;
     }
