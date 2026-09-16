@@ -496,6 +496,12 @@ describe('Portfolio v2 category retrieval', () => {
       deFiSource: 'cache',
       perpsFiat: '30',
     });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1'],
+        targetCurrency: 'usd',
+      }),
+    );
   });
 
   test('does not use a partial Home DeFi cache as a complete total', async () => {
@@ -537,29 +543,6 @@ describe('Portfolio v2 category retrieval', () => {
       deFiSource: 'unknown',
       perpsFiat: '30',
     });
-  });
-
-  test('falls back to the Home DeFi cache when live valuation is incomplete', async () => {
-    const mocks = prepare();
-    mocks.post.mockRejectedValue(new Error('unavailable'));
-    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
-      hasCache: true,
-      netWorth: '20',
-      networkIds: ['evm--1'],
-    });
-    await expect(
-      mocks.internals.getPortfolioCategoryFiat(eventPayload),
-    ).resolves.toEqual({
-      defiFiat: '20',
-      deFiSource: 'cache',
-      perpsFiat: '30',
-    });
-    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
-      expect.objectContaining({
-        enabledNetworkIds: ['evm--1'],
-        targetCurrency: 'usd',
-      }),
-    );
   });
 
   test('rejects degraded results instead of reporting partial totals', async () => {
@@ -1278,6 +1261,54 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
     portfolioSyncResultSpy.mockRestore();
+  });
+
+  test('keeps Pro2 firmware 1.0.1 on the v1 payload', async () => {
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.1' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+
+    expect(getCategory).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 1,
+            account: expect.objectContaining({ label: 'Account #1' }),
+            totalFiat: '$100.00',
+          }),
+        }),
+      }),
+    );
+    const submitted = (
+      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
+        artifacts: { portfolio: Record<string, unknown> };
+      }
+    ).artifacts.portfolio;
+    expect(submitted).not.toHaveProperty('defiFiat');
+    expect(submitted).not.toHaveProperty('perpsFiat');
+    expect(submitted).not.toHaveProperty('tokensFiat');
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
   });
 
   test('records lastAttemptAt when a silent snapshot is skipped as a duplicate', async () => {
