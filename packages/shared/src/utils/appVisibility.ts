@@ -57,8 +57,9 @@ export function getCurrentVisibilityState(): boolean {
       return false;
     }
     // Extension UI also treats window blur as hidden (see onVisibilityStateChange).
+    // Extension background documents are unfocused and must stay visible.
     if (
-      platformEnv.isExtension &&
+      platformEnv.isExtensionUi &&
       typeof document.hasFocus === 'function' &&
       !document.hasFocus()
     ) {
@@ -95,7 +96,7 @@ export function onVisibilityStateChange(
     const handleWindowFocus = () => callback(true);
     const handleWindowBlur = () => callback(false);
     const extensionWindow =
-      platformEnv.isExtension && typeof globalThis.window !== 'undefined'
+      platformEnv.isExtensionUi && typeof globalThis.window !== 'undefined'
         ? globalThis.window
         : undefined;
     document.addEventListener(

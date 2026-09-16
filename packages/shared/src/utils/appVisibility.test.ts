@@ -10,6 +10,7 @@ jest.mock('../platformEnv', () => ({
   default: {
     isDesktop: false,
     isExtension: false,
+    isExtensionUi: false,
     isNative: false,
   },
 }));
@@ -17,6 +18,7 @@ jest.mock('../platformEnv', () => ({
 const mockPlatformEnv = platformEnv as {
   isDesktop: boolean;
   isExtension: boolean;
+  isExtensionUi: boolean;
   isNative: boolean;
 };
 
@@ -47,6 +49,7 @@ describe('onVisibilityStateChange in browser runtimes', () => {
   beforeEach(() => {
     mockPlatformEnv.isDesktop = false;
     mockPlatformEnv.isExtension = false;
+    mockPlatformEnv.isExtensionUi = false;
     mockPlatformEnv.isNative = false;
   });
 
@@ -88,6 +91,7 @@ describe('onVisibilityStateChange in browser runtimes', () => {
 
   it('preserves window focus changes for extension UI runtimes', () => {
     mockPlatformEnv.isExtension = true;
+    mockPlatformEnv.isExtensionUi = true;
     const { documentTarget, testDocument, windowTarget } =
       installBrowserEventTargets();
     const listener = jest.fn();
@@ -107,6 +111,27 @@ describe('onVisibilityStateChange in browser runtimes', () => {
     windowTarget.dispatchEvent(new Event('focus'));
     expect(listener).toHaveBeenCalledTimes(3);
   });
+
+  it('ignores window focus changes in extension background runtimes', () => {
+    mockPlatformEnv.isExtension = true;
+    mockPlatformEnv.isExtensionUi = false;
+    const { documentTarget, testDocument, windowTarget } =
+      installBrowserEventTargets();
+    const listener = jest.fn();
+    const unsubscribe = onVisibilityStateChange(listener);
+
+    windowTarget.dispatchEvent(new Event('blur'));
+    windowTarget.dispatchEvent(new Event('focus'));
+    expect(listener).not.toHaveBeenCalled();
+
+    testDocument.visibilityState = 'hidden';
+    documentTarget.dispatchEvent(new Event('visibilitychange'));
+    expect(listener).toHaveBeenLastCalledWith(false);
+
+    unsubscribe();
+    documentTarget.dispatchEvent(new Event('visibilitychange'));
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('getCurrentVisibilityState in browser runtimes', () => {
@@ -119,6 +144,7 @@ describe('getCurrentVisibilityState in browser runtimes', () => {
   beforeEach(() => {
     mockPlatformEnv.isDesktop = false;
     mockPlatformEnv.isExtension = false;
+    mockPlatformEnv.isExtensionUi = false;
     mockPlatformEnv.isNative = false;
   });
 
@@ -144,8 +170,9 @@ describe('getCurrentVisibilityState in browser runtimes', () => {
     expect(getCurrentVisibilityState()).toBe(true);
   });
 
-  it('treats an unfocused extension document as hidden', () => {
+  it('treats an unfocused extension UI document as hidden', () => {
     mockPlatformEnv.isExtension = true;
+    mockPlatformEnv.isExtensionUi = true;
     const { testDocument } = installBrowserEventTargets();
     Object.assign(testDocument, {
       visibilityState: 'visible',
@@ -153,6 +180,19 @@ describe('getCurrentVisibilityState in browser runtimes', () => {
     });
     expect(getCurrentVisibilityState()).toBe(false);
     Object.assign(testDocument, { hasFocus: () => true });
+    expect(getCurrentVisibilityState()).toBe(true);
+    testDocument.visibilityState = 'hidden';
+    expect(getCurrentVisibilityState()).toBe(false);
+  });
+
+  it('keeps extension background visible when its document lacks focus', () => {
+    mockPlatformEnv.isExtension = true;
+    mockPlatformEnv.isExtensionUi = false;
+    const { testDocument } = installBrowserEventTargets();
+    Object.assign(testDocument, {
+      visibilityState: 'visible',
+      hasFocus: () => false,
+    });
     expect(getCurrentVisibilityState()).toBe(true);
     testDocument.visibilityState = 'hidden';
     expect(getCurrentVisibilityState()).toBe(false);

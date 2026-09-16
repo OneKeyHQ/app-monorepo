@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect, useIsFocused } from '@react-navigation/core';
 import { Dimensions } from 'react-native';
 
+import { useScrollView } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -13,24 +14,71 @@ import { PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT } from '@onekeyhq/shared/types/linkC
 
 const NATIVE_POLL_MS = 300;
 
-type IImpressionHost =
-  | {
-      measureInWindow?: (
-        callback: (x: number, y: number, width: number, height: number) => void,
-      ) => void;
-    }
+export type IPrimeGiftCampaignBannerMeasureInWindow = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) => void;
+
+export type IPrimeGiftCampaignBannerMeasureHost = {
+  measureInWindow?: (callback: IPrimeGiftCampaignBannerMeasureInWindow) => void;
+};
+
+export type IPrimeGiftCampaignBannerImpressionHost =
+  | IPrimeGiftCampaignBannerMeasureHost
   | Element
   | null;
 
-function isRectInViewport(x: number, y: number, width: number, height: number) {
-  const viewport = Dimensions.get('window');
+type IMeasureHost = {
+  measureInWindow: (callback: IPrimeGiftCampaignBannerMeasureInWindow) => void;
+};
+
+type IWindowRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function intersectRects(
+  a: IWindowRect,
+  b: IWindowRect,
+): IWindowRect | undefined {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  const width = Math.min(a.x + a.width, b.x + b.width) - x;
+  const height = Math.min(a.y + a.height, b.y + b.height) - y;
+  if (width <= 0 || height <= 0) {
+    return undefined;
+  }
+  return { x, y, width, height };
+}
+
+function isRectVisibleInScrollViewport(
+  banner: IWindowRect,
+  viewport: IWindowRect,
+) {
+  const windowRect = {
+    x: 0,
+    y: 0,
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  };
+  const clipped = intersectRects(banner, viewport);
+  if (!clipped) {
+    return false;
+  }
+  return Boolean(intersectRects(clipped, windowRect));
+}
+
+function isMeasureHost(value: unknown): value is IMeasureHost {
   return (
-    width > 0 &&
-    height > 0 &&
-    x < viewport.width &&
-    y < viewport.height &&
-    x + width > 0 &&
-    y + height > 0
+    typeof value === 'object' &&
+    value !== null &&
+    'measureInWindow' in value &&
+    typeof (value as { measureInWindow?: unknown }).measureInWindow ===
+      'function'
   );
 }
 
@@ -42,7 +90,9 @@ export function usePrimeGiftCampaignBannerImpression({
   linkId: string | undefined;
 }) {
   const isFocused = useIsFocused();
-  const [host, setHost] = useState<IImpressionHost>(null);
+  const { scrollViewRef } = useScrollView();
+  const [host, setHost] =
+    useState<IPrimeGiftCampaignBannerImpressionHost>(null);
   const shownThisVisitRef = useRef(new Set<string>());
 
   useFocusEffect(
@@ -98,20 +148,37 @@ export function usePrimeGiftCampaignBannerImpression({
         return;
       }
       if (platformEnv.isNative) {
-        if (!host || typeof host !== 'object' || !('measureInWindow' in host)) {
+        if (!isMeasureHost(host) || !isMeasureHost(scrollViewRef?.current)) {
           return;
         }
-        host.measureInWindow?.((x, y, width, height) => {
+        host.measureInWindow((x, y, width, height) => {
           if (!active || !getCurrentVisibilityState()) {
             return;
           }
           if (shownThisVisitRef.current.has(linkId)) {
             return;
           }
-          if (!isRectInViewport(x, y, width, height)) {
+          const viewport = scrollViewRef?.current;
+          if (!isMeasureHost(viewport)) {
             return;
           }
-          markShown();
+          viewport.measureInWindow((vx, vy, vw, vh) => {
+            if (!active || !getCurrentVisibilityState()) {
+              return;
+            }
+            if (shownThisVisitRef.current.has(linkId)) {
+              return;
+            }
+            if (
+              !isRectVisibleInScrollViewport(
+                { x, y, width, height },
+                { x: vx, y: vy, width: vw, height: vh },
+              )
+            ) {
+              return;
+            }
+            markShown();
+          });
         });
         return;
       }
@@ -164,7 +231,7 @@ export function usePrimeGiftCampaignBannerImpression({
       stopWatching();
       unsubVisibility();
     };
-  }, [enabled, host, isFocused, linkId]);
+  }, [enabled, host, isFocused, linkId, scrollViewRef]);
 
   return setHost;
 }
