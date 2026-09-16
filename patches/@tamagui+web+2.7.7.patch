@@ -19,17 +19,17 @@ index 2044e88..323d3b1 100644
      };
      const themeName = themeState?.name || "";
 diff --git a/node_modules/@tamagui/web/dist/cjs/createComponent.native.js b/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
-index 12e4d30..7e8dc5e 100644
+index 12e4d30..20e1c66 100644
 --- a/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
-@@ -561,7 +561,10 @@ ${banner}
+@@ -561,7 +561,11 @@ ${banner}
      var shouldListenForMedia = (0, import_createVariable.didGetVariableValue)() || hasRuntimeMediaKeys || noClass && (splitStyles === null || splitStyles === void 0 ? void 0 : splitStyles.hasMedia) === true;
      var mediaListeningKeys = hasRuntimeMediaKeys ? splitStyles.hasMedia : null;
      if (process.env.NODE_ENV === "development" && debugProp === "verbose") console.info(`useMedia() createComponent`, shouldListenForMedia, mediaListeningKeys);
--    (0, import_useMedia.setMediaShouldUpdate)(componentContext, shouldListenForMedia, mediaListeningKeys);
-+    // OneKey patch: store media listening state per component (its useMedia
-+    // proxy) instead of on the component context shared by the subtree.
-+    // (0, import_useMedia.setMediaShouldUpdate)(componentContext, shouldListenForMedia, mediaListeningKeys);
++    // OneKey patch: also store media listening state per component (its
++    // useMedia proxy). useMedia reads the per-component entry on tablet-like
++    // devices and the shared component-context entry everywhere else.
+     (0, import_useMedia.setMediaShouldUpdate)(componentContext, shouldListenForMedia, mediaListeningKeys);
 +    (0, import_useMedia.setMediaShouldUpdate)(mediaState, shouldListenForMedia, mediaListeningKeys);
      var {
        viewProps: viewPropsIn,
@@ -93,10 +93,24 @@ index 7436a67..9d38770 100644
      setStateShallow,
      noClass,
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-index 17b78fc..1d71309 100644
+index 17b78fc..7dfaf16 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
-@@ -224,7 +224,12 @@ function useMedia(componentContext, debug) {
+@@ -200,6 +200,13 @@ function subscribe(subscriber) {
+     listeners.delete(subscriber);
+   };
+ }
++// OneKey patch: the media fixes below apply only to tablet-like devices
++// (iPad, dual-screen), the only ones that toggle clamped/real-width media at
++// runtime. Phones keep upstream behavior.
++function isOneKeyTabletLikeMedia() {
++  var control = globalThis.$$onekeyNativeMedia;
++  return Boolean(control && control.isTabletLike);
++}
+ function useMedia(componentContext, debug) {
+   "use no memo";
+ 
+@@ -224,7 +231,12 @@ function useMedia(componentContext, debug) {
      r.proxy = tracker;
      r.getSnapshot = function () {
        var _States_get;
@@ -106,55 +120,50 @@ index 17b78fc..1d71309 100644
 +      // component below the same provider, so keys stored by the last rendered
 +      // component were used for all of them.
 +      // var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
-+      var curKeys = r.componentContext ? ((_States_get = States.get(r.proxy)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      var curKeys = r.componentContext ? ((_States_get = States.get(isOneKeyTabletLikeMedia() ? r.proxy : r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
        var {
          lastState,
          pendingState
-@@ -244,11 +249,16 @@ function useMedia(componentContext, debug) {
+@@ -244,7 +256,12 @@ function useMedia(componentContext, debug) {
              if (process.env.NODE_ENV === "development" && r.debug) {
                console.warn(`useMedia() \u270D\uFE0F`, key, lastState[key], "=>", ms[key]);
              }
 -            if ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit) {
--              r.componentContext.mediaEmit(ms);
--              r.pendingState = ms;
--              return lastState;
--            }
 +            // OneKey patch: mediaEmit lives on the shared component context and only
 +            // restyles components that registered an emit listener (animated ones).
-+            // Returning lastState here skipped the re-render of every other styled
-+            // component, so their media styles stayed stale after a media change
-+            // (e.g. iPad real-width media toggled while onboarding is mounted).
-+            // if ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit) {
-+            //   r.componentContext.mediaEmit(ms);
-+            //   r.pendingState = ms;
-+            //   return lastState;
-+            // }
-             r.lastState = ms;
-             return ms;
-           }
-@@ -290,7 +300,9 @@ function useMedia(componentContext, debug) {
++            // On tablet-like devices that skipped the re-render of every other styled
++            // component, leaving media styles stale after a real-width toggle, so
++            // there we fall through to the normal re-render path below.
++            if (!isOneKeyTabletLikeMedia() && ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit)) {
+               r.componentContext.mediaEmit(ms);
+               r.pendingState = ms;
+               return lastState;
+@@ -290,7 +307,9 @@ function useMedia(componentContext, debug) {
    (0, import_react.useEffect)(function () {
      var _States_get;
      var renderVersion = ref.renderVersion;
 -    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
-+    // OneKey patch: per-component listening state, see getSnapshot above.
-+    // var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
-+    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.proxy)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
++    // OneKey patch: per-component listening state on tablet-like devices, see
++    // getSnapshot above; phones keep the shared component-context entry.
++    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(isOneKeyTabletLikeMedia() ? ref.proxy : ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
      if (shouldSubscribe) {
        if (!ref.unsubscribe) {
          ref.unsubscribe = subscribe(function () {
-@@ -301,6 +313,15 @@ function useMedia(componentContext, debug) {
+@@ -301,6 +320,18 @@ function useMedia(componentContext, debug) {
              forceUpdate();
            }
          });
-+        // OneKey patch: media can change between render and this passive effect
-+        // (e.g. a layout effect toggling iPad real-width media). Re-check once so
-+        // a late subscriber does not keep stale breakpoints.
-+        var nextOnSubscribe = ref.getSnapshot();
-+        if (nextOnSubscribe !== ref.proxyTarget) {
-+          ref.proxyTarget = nextOnSubscribe;
-+          ref.proxy[refSlot].proxyTarget = nextOnSubscribe;
-+          forceUpdate();
++        // OneKey patch: on tablet-like devices media can change between render
++        // and this passive effect (a layout effect toggling iPad real-width
++        // media), so re-check once; otherwise a late subscriber keeps stale
++        // breakpoints.
++        if (isOneKeyTabletLikeMedia()) {
++          var nextOnSubscribe = ref.getSnapshot();
++          if (nextOnSubscribe !== ref.proxyTarget) {
++            ref.proxyTarget = nextOnSubscribe;
++            ref.proxy[refSlot].proxyTarget = nextOnSubscribe;
++            forceUpdate();
++          }
 +        }
        }
      } else if (ref.unsubscribe) {
@@ -180,17 +189,17 @@ index 57af6df..b4415ac 100644
      };
      const themeName = themeState?.name || "";
 diff --git a/node_modules/@tamagui/web/dist/esm/createComponent.native.js b/node_modules/@tamagui/web/dist/esm/createComponent.native.js
-index 10f06bd..f3f7ad9 100644
+index 10f06bd..57cbcb4 100644
 --- a/node_modules/@tamagui/web/dist/esm/createComponent.native.js
 +++ b/node_modules/@tamagui/web/dist/esm/createComponent.native.js
-@@ -523,7 +523,10 @@ ${banner}
+@@ -523,7 +523,11 @@ ${banner}
      var shouldListenForMedia = didGetVariableValue() || hasRuntimeMediaKeys || noClass && (splitStyles === null || splitStyles === void 0 ? void 0 : splitStyles.hasMedia) === true;
      var mediaListeningKeys = hasRuntimeMediaKeys ? splitStyles.hasMedia : null;
      if (process.env.NODE_ENV === "development" && debugProp === "verbose") console.info(`useMedia() createComponent`, shouldListenForMedia, mediaListeningKeys);
--    setMediaShouldUpdate(componentContext, shouldListenForMedia, mediaListeningKeys);
-+    // OneKey patch: store media listening state per component (its useMedia
-+    // proxy) instead of on the component context shared by the subtree.
-+    // setMediaShouldUpdate(componentContext, shouldListenForMedia, mediaListeningKeys);
++    // OneKey patch: also store media listening state per component (its
++    // useMedia proxy). useMedia reads the per-component entry on tablet-like
++    // devices and the shared component-context entry everywhere else.
+     setMediaShouldUpdate(componentContext, shouldListenForMedia, mediaListeningKeys);
 +    setMediaShouldUpdate(mediaState, shouldListenForMedia, mediaListeningKeys);
      var {
        viewProps: viewPropsIn,
@@ -254,10 +263,24 @@ index 02ca38a..6a57138 100644
      setStateShallow,
      noClass,
 diff --git a/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
-index 3231656..d9a85c5 100644
+index 3231656..606d560 100644
 --- a/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
 +++ b/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
-@@ -183,7 +183,12 @@ function useMedia(componentContext, debug) {
+@@ -159,6 +159,13 @@ function subscribe(subscriber) {
+     listeners.delete(subscriber);
+   };
+ }
++// OneKey patch: the media fixes below apply only to tablet-like devices
++// (iPad, dual-screen), the only ones that toggle clamped/real-width media at
++// runtime. Phones keep upstream behavior.
++function isOneKeyTabletLikeMedia() {
++  var control = globalThis.$$onekeyNativeMedia;
++  return Boolean(control && control.isTabletLike);
++}
+ function useMedia(componentContext, debug) {
+   "use no memo";
+ 
+@@ -183,7 +190,12 @@ function useMedia(componentContext, debug) {
      r.proxy = tracker;
      r.getSnapshot = function () {
        var _States_get;
@@ -267,55 +290,50 @@ index 3231656..d9a85c5 100644
 +      // component below the same provider, so keys stored by the last rendered
 +      // component were used for all of them.
 +      // var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
-+      var curKeys = r.componentContext ? ((_States_get = States.get(r.proxy)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      var curKeys = r.componentContext ? ((_States_get = States.get(isOneKeyTabletLikeMedia() ? r.proxy : r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
        var {
          lastState,
          pendingState
-@@ -203,11 +208,16 @@ function useMedia(componentContext, debug) {
+@@ -203,7 +215,12 @@ function useMedia(componentContext, debug) {
              if (process.env.NODE_ENV === "development" && r.debug) {
                console.warn(`useMedia() \u270D\uFE0F`, key, lastState[key], "=>", ms[key]);
              }
 -            if ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit) {
--              r.componentContext.mediaEmit(ms);
--              r.pendingState = ms;
--              return lastState;
--            }
 +            // OneKey patch: mediaEmit lives on the shared component context and only
 +            // restyles components that registered an emit listener (animated ones).
-+            // Returning lastState here skipped the re-render of every other styled
-+            // component, so their media styles stayed stale after a media change
-+            // (e.g. iPad real-width media toggled while onboarding is mounted).
-+            // if ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit) {
-+            //   r.componentContext.mediaEmit(ms);
-+            //   r.pendingState = ms;
-+            //   return lastState;
-+            // }
-             r.lastState = ms;
-             return ms;
-           }
-@@ -249,7 +259,9 @@ function useMedia(componentContext, debug) {
++            // On tablet-like devices that skipped the re-render of every other styled
++            // component, leaving media styles stale after a real-width toggle, so
++            // there we fall through to the normal re-render path below.
++            if (!isOneKeyTabletLikeMedia() && ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit)) {
+               r.componentContext.mediaEmit(ms);
+               r.pendingState = ms;
+               return lastState;
+@@ -249,7 +266,9 @@ function useMedia(componentContext, debug) {
    useEffect(function () {
      var _States_get;
      var renderVersion = ref.renderVersion;
 -    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
-+    // OneKey patch: per-component listening state, see getSnapshot above.
-+    // var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
-+    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.proxy)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
++    // OneKey patch: per-component listening state on tablet-like devices, see
++    // getSnapshot above; phones keep the shared component-context entry.
++    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(isOneKeyTabletLikeMedia() ? ref.proxy : ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
      if (shouldSubscribe) {
        if (!ref.unsubscribe) {
          ref.unsubscribe = subscribe(function () {
-@@ -260,6 +272,15 @@ function useMedia(componentContext, debug) {
+@@ -260,6 +279,18 @@ function useMedia(componentContext, debug) {
              forceUpdate();
            }
          });
-+        // OneKey patch: media can change between render and this passive effect
-+        // (e.g. a layout effect toggling iPad real-width media). Re-check once so
-+        // a late subscriber does not keep stale breakpoints.
-+        var nextOnSubscribe = ref.getSnapshot();
-+        if (nextOnSubscribe !== ref.proxyTarget) {
-+          ref.proxyTarget = nextOnSubscribe;
-+          ref.proxy[refSlot].proxyTarget = nextOnSubscribe;
-+          forceUpdate();
++        // OneKey patch: on tablet-like devices media can change between render
++        // and this passive effect (a layout effect toggling iPad real-width
++        // media), so re-check once; otherwise a late subscriber keeps stale
++        // breakpoints.
++        if (isOneKeyTabletLikeMedia()) {
++          var nextOnSubscribe = ref.getSnapshot();
++          if (nextOnSubscribe !== ref.proxyTarget) {
++            ref.proxyTarget = nextOnSubscribe;
++            ref.proxy[refSlot].proxyTarget = nextOnSubscribe;
++            forceUpdate();
++          }
 +        }
        }
      } else if (ref.unsubscribe) {

@@ -105,6 +105,7 @@ const ACTION_LIST_MD_HEADING = {
 } as const;
 
 export function ActionListSkeletonItem() {
+  const { gtMd } = useMedia();
   return (
     <XStack
       flex={1}
@@ -114,17 +115,22 @@ export function ActionListSkeletonItem() {
       borderRadius="$2"
       overflow="hidden"
     >
-      {/* Absolute fill keeps the placeholder out of intrinsic width
-          measurement: iPad sheets size to their content, and an in-flow
-          100%-wide skeleton expanded them to the max width until the real
-          item replaced it. */}
-      <Skeleton
-        position="absolute"
-        top={0}
-        left={0}
-        height="100%"
-        width="100%"
-      />
+      {/* Content-sized sheets — the same condition the Popover sheet frame uses
+          — grow to the placeholder's intrinsic width, so an in-flow 100%-wide
+          skeleton expanded them to the max width until the real item replaced
+          it. The absolute fill keeps it out of that measurement. Full-width
+          sheets keep the in-flow placeholder. */}
+      {gtMd || platformEnv.isNativeIOSPad ? (
+        <Skeleton
+          position="absolute"
+          top={0}
+          left={0}
+          height="100%"
+          width="100%"
+        />
+      ) : (
+        <Skeleton height="100%" width="100%" />
+      )}
     </XStack>
   );
 }
