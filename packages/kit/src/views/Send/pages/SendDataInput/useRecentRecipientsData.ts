@@ -248,6 +248,44 @@ type IRecentRecipientsCacheEntry = {
   apiUnsupported: boolean;
 };
 
+// Last successful /transfer-recipient answer, persisted by ServiceHistory.
+// On a cold start (no session cache yet) it is enriched locally and painted
+// at once so the Recent tab does not wait for the server round trip; the
+// API refresh that follows replaces it (OK-63452).
+async function loadPersistedApiRecipients({
+  accountId,
+  apiNetworkId,
+  networkId,
+}: {
+  accountId: string;
+  apiNetworkId: string;
+  networkId: string;
+}): Promise<IRecentRecipientsCacheEntry | undefined> {
+  try {
+    const persisted =
+      await backgroundApiProxy.serviceHistory.getCachedTransferRecipients({
+        accountId,
+        networkId: apiNetworkId,
+      });
+    if (!persisted?.data?.length) {
+      return undefined;
+    }
+    const extraMap = await buildExtraMapFromApiRecipients(persisted.data);
+    const recipients = await enrichAddresses(
+      persisted.data.map((r) => r.address),
+      extraMap,
+      networkId,
+    );
+    return {
+      recipients,
+      lastUsedDeriveType: persisted.lastUsedDeriveType,
+      apiUnsupported: false,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 // Last completed load per account + network, kept for the app session so a
 // re-opened Send page paints the previous list at once while a refresh runs
 // in the background (stale-while-revalidate).
@@ -319,7 +357,10 @@ export function useRecentRecipientsData({
     const isLatestVersion = () =>
       recentRecipientsLoadVersion.get(cacheKey) === loadVersion;
 
-    const cached = recentRecipientsCache.get(cacheKey);
+    const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
+    const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
+
+    let cached = recentRecipientsCache.get(cacheKey);
     if (cached) {
       setRecentRecipients(cached.recipients);
       setLastUsedDeriveType(cached.lastUsedDeriveType);
@@ -328,6 +369,19 @@ export function useRecentRecipientsData({
       setIsLoadingRecent(true);
       setRecentRecipients([]);
       setLastUsedDeriveType(undefined);
+      // Cold start: paint the persisted answer (if any) while the API runs.
+      const persisted = await loadPersistedApiRecipients({
+        accountId,
+        apiNetworkId,
+        networkId,
+      });
+      if (isStale()) return;
+      if (persisted) {
+        cached = persisted;
+        setRecentRecipients(persisted.recipients);
+        setLastUsedDeriveType(persisted.lastUsedDeriveType);
+        setIsLoadingRecent(false);
+      }
     }
 
     const commit = (entry: IRecentRecipientsCacheEntry) => {
@@ -339,7 +393,6 @@ export function useRecentRecipientsData({
       setIsLoadingRecent(false);
     };
 
-    const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
     let apiUnsupported = cached?.apiUnsupported ?? false;
     let apiFailed = false;
 
@@ -349,7 +402,6 @@ export function useRecentRecipientsData({
     // not supported for this chain (or the call fails), drop to the
     // local fallback below. A network the server already reported as
     // unsupported this session skips the round trip entirely.
-    const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
     if (!apiUnsupported) {
       try {
         const {

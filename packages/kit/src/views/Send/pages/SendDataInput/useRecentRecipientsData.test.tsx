@@ -7,6 +7,7 @@ import {
 } from './useRecentRecipientsData';
 
 const fetchTransferRecipients = jest.fn<Promise<unknown>, unknown[]>();
+const getCachedTransferRecipients = jest.fn<Promise<unknown>, unknown[]>();
 const getRecentRecipients = jest.fn<Promise<unknown>, unknown[]>();
 const queryAddress = jest.fn<Promise<unknown>, [{ address: string }]>();
 
@@ -16,6 +17,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceHistory: {
       fetchTransferRecipients: (...args: unknown[]) =>
         fetchTransferRecipients(...args),
+      getCachedTransferRecipients: (...args: unknown[]) =>
+        getCachedTransferRecipients(...args),
     },
     serviceSignatureConfirm: {
       getRecentRecipients: (...args: unknown[]) => getRecentRecipients(...args),
@@ -53,6 +56,8 @@ describe('useRecentRecipientsData session cache', () => {
   beforeEach(() => {
     clearRecentRecipientsCache();
     fetchTransferRecipients.mockReset();
+    getCachedTransferRecipients.mockReset();
+    getCachedTransferRecipients.mockResolvedValue(undefined);
     getRecentRecipients.mockReset();
     queryAddress.mockReset();
     getRecentRecipients.mockResolvedValue([]);
@@ -323,5 +328,82 @@ describe('useRecentRecipientsData session cache', () => {
     expect(other.result.current.isLoadingRecent).toBe(true);
     expect(other.result.current.recentRecipients).toHaveLength(0);
     await flushBackgroundLoad();
+  });
+  it('paints the persisted API answer before the network refresh on a cold start', async () => {
+    const OLD_RECIPIENT = '0x2222222222222222222222222222222222222222';
+    getCachedTransferRecipients.mockResolvedValue({
+      data: [{ address: OLD_RECIPIENT, time: 1, networkId: ETH }],
+      lastUsedDeriveType: 'default',
+    });
+    let resolveApi: (value: unknown) => void = () => {};
+    fetchTransferRecipients.mockReturnValue(
+      new Promise((resolve) => {
+        resolveApi = resolve;
+      }),
+    );
+
+    const hook = mountHook(ETH);
+    expect(hook.result.current.isLoadingRecent).toBe(true);
+    // The persisted list lands long before the API answers.
+    await waitFor(() =>
+      expect(hook.result.current.recentRecipients).toHaveLength(1),
+    );
+    expect(hook.result.current.isLoadingRecent).toBe(false);
+    expect(hook.result.current.recentRecipients[0]?.input).toBe(OLD_RECIPIENT);
+    expect(hook.result.current.lastUsedDeriveType).toBe('default');
+    expect(getCachedTransferRecipients).toHaveBeenCalledWith({
+      accountId: ACCOUNT_ID,
+      networkId: ETH,
+    });
+
+    await act(async () => {
+      resolveApi({
+        supported: true,
+        data: [{ address: RECIPIENT, time: 2, networkId: ETH }],
+      });
+    });
+    await waitFor(() =>
+      expect(hook.result.current.recentRecipients[0]?.input).toBe(RECIPIENT),
+    );
+    expect(hook.result.current.recentRecipients).toHaveLength(1);
+    expect(getRecentRecipients).not.toHaveBeenCalled();
+  });
+
+  it('keeps the persisted list when the cold-start refresh fails', async () => {
+    getCachedTransferRecipients.mockResolvedValue({
+      data: [{ address: RECIPIENT, time: 1, networkId: ETH }],
+    });
+    fetchTransferRecipients.mockRejectedValue(new Error('offline'));
+
+    const hook = mountHook(ETH);
+    await waitFor(() =>
+      expect(hook.result.current.recentRecipients).toHaveLength(1),
+    );
+    await flushBackgroundLoad();
+    expect(hook.result.current.recentRecipients).toHaveLength(1);
+    expect(hook.result.current.isLoadingRecent).toBe(false);
+    expect(getRecentRecipients).not.toHaveBeenCalled();
+  });
+
+  it('shows the skeleton until the API answers when nothing is persisted', async () => {
+    let resolveApi: (value: unknown) => void = () => {};
+    fetchTransferRecipients.mockReturnValue(
+      new Promise((resolve) => {
+        resolveApi = resolve;
+      }),
+    );
+
+    const hook = mountHook(ETH);
+    await waitFor(() =>
+      expect(getCachedTransferRecipients).toHaveBeenCalledTimes(1),
+    );
+    await flushBackgroundLoad();
+    expect(hook.result.current.isLoadingRecent).toBe(true);
+    await act(async () => {
+      resolveApi({ supported: true, data: [] });
+    });
+    await waitFor(() =>
+      expect(hook.result.current.isLoadingRecent).toBe(false),
+    );
   });
 });

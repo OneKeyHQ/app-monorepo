@@ -18764,6 +18764,7 @@
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapHistory.ts": 14494,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapNetworksSort.ts": 23107,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntitySwapProSelectToken.ts": 6075,
+    "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityTransferRecipientsCache.ts": 13083,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityUniversalSearch.ts": 4524,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityV4MigrationResult.ts": 14847,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityWalletBanner.ts": 21025,
