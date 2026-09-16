@@ -98,6 +98,16 @@ const ASSERT_TEXT_METHODS = new Set([
 // Methods that take the source text as an argument rather than a receiver.
 // Every other method propagates from its receiver, whatever it is named.
 const ARGUMENT_PROPAGATORS = new Set(['test', 'exec', 'replace', 'replaceAll']);
+// These cannot cut a fragment out, so they leave a whole read whole. `replace`
+// is deliberately absent: a regex replace is one of the ways to cut.
+const WHOLE_PRESERVING_METHODS = new Set([
+  'toString',
+  'valueOf',
+  'trim',
+  'trimStart',
+  'trimEnd',
+  'normalize',
+]);
 // Cutting a fragment out of a file is what makes an eval a reconstruction of a
 // unit that could not be imported. Evaluating a whole file is a different
 // thing: a text artifact shipped to another runtime, checked by running it.
@@ -256,7 +266,7 @@ function calleeName(callee) {
  * imported instead, 'native' for sources no JS runtime can execute, undefined
  * for build artifacts, data files and temp directories.
  */
-function classifyReadTarget(callNode, repoAnchored) {
+function classifyReadTarget(callNode, repoAnchored, anchoredHelpers) {
   const pathArgument = callNode.arguments[0];
   if (!pathArgument) {
     return undefined;
@@ -264,7 +274,7 @@ function classifyReadTarget(callNode, repoAnchored) {
   // A checked-in file is always reached from `__dirname`. A path built from a
   // temp directory or a fixture root is something the test itself produced, so
   // reading it is not a source-text assertion however the file is named.
-  if (!isRepoAnchored(pathArgument, repoAnchored)) {
+  if (!isRepoAnchored(pathArgument, repoAnchored, anchoredHelpers)) {
     return undefined;
   }
   const literals = pathLiterals(pathArgument, repoAnchored);
@@ -285,7 +295,9 @@ function classifyReadTarget(callNode, repoAnchored) {
   // No extension to go on. Only two shapes still say "source": a sibling of the
   // test file named by a variable, and a module specifier. Anything else
   // anchored but unextended is left alone.
-  return namesUnextendedSource(pathArgument, literals) ? 'script' : undefined;
+  return namesUnextendedSource(pathArgument, literals, repoAnchored)
+    ? 'script'
+    : undefined;
 }
 
 /** 'script' | 'native' | undefined for the source text a node carries. */
@@ -386,7 +398,31 @@ function isWholeFileRead(node, tainted, wholeReads, readKind) {
     case 'CallExpression':
     case 'OptionalCallExpression': {
       const name = calleeName(node.callee);
-      return Boolean(name && READ_FUNCTIONS.has(name) && readKind(node));
+      if (name && READ_FUNCTIONS.has(name)) {
+        return Boolean(readKind(node));
+      }
+      if (
+        name &&
+        WHOLE_PRESERVING_METHODS.has(name) &&
+        (node.callee.type === 'MemberExpression' ||
+          node.callee.type === 'OptionalMemberExpression')
+      ) {
+        return isWholeFileRead(
+          node.callee.object,
+          tainted,
+          wholeReads,
+          readKind,
+        );
+      }
+      if (node.callee.type === 'Identifier' && name === 'String') {
+        return isWholeFileRead(
+          node.arguments[0],
+          tainted,
+          wholeReads,
+          readKind,
+        );
+      }
+      return false;
     }
     default:
       return false;
@@ -433,7 +469,7 @@ function firstTemplateChunk(node) {
 }
 
 /** Is this path expression rooted at the checked-in tree rather than a temp dir? */
-function isRepoAnchored(node, repoAnchored) {
+function isRepoAnchored(node, repoAnchored, anchoredHelpers) {
   if (!node) {
     return false;
   }
@@ -448,7 +484,7 @@ function isRepoAnchored(node, repoAnchored) {
       return (
         WORKSPACE_PATH_RE.test(firstTemplateChunk(node)) ||
         node.expressions.some((expression) =>
-          isRepoAnchored(expression, repoAnchored),
+          isRepoAnchored(expression, repoAnchored, anchoredHelpers),
         )
       );
     case 'CallExpression':
@@ -457,8 +493,13 @@ function isRepoAnchored(node, repoAnchored) {
       if (name === 'cwd') {
         return true;
       }
-      // A helper that returns a repository path, e.g. `repoRoot()`.
-      if (name && repoAnchored.has(name)) {
+      // A helper that returns a repository path, e.g. `repoRoot()`. Matched on
+      // a bare identifier so `fixture.repoRoot()` and a helper that happens to
+      // be named `resolve` cannot stand in for the head check below.
+      if (
+        node.callee.type === 'Identifier' &&
+        anchoredHelpers.has(node.callee.name)
+      ) {
         return true;
       }
       // Only the head of a built path says where it starts. A workspace-shaped
@@ -467,7 +508,7 @@ function isRepoAnchored(node, repoAnchored) {
       return (
         Boolean(name) &&
         PATH_BUILDERS.has(name) &&
-        isRepoAnchored(node.arguments[0], repoAnchored)
+        isRepoAnchored(node.arguments[0], repoAnchored, anchoredHelpers)
       );
     }
     default:
@@ -483,26 +524,41 @@ function isRepoAnchored(node, repoAnchored) {
  */
 function collectRepoAnchoredBindings(ast) {
   const anchored = new Map();
+  const helpers = new Set();
   for (let round = 0; round < 6; round += 1) {
     const before = anchored.size;
     walk(ast, (node) => {
       const returned = returnedPathExpression(node);
-      if (returned && isRepoAnchored(returned.value, anchored)) {
-        anchored.set(returned.name, pathLiterals(returned.value, anchored));
+      if (returned && isRepoAnchored(returned.value, anchored, helpers)) {
+        helpers.add(returned.name);
+        anchored.set(returned.name, describePath(returned.value, anchored));
         return;
       }
       const binding = bindingTarget(node);
-      if (!binding || !isRepoAnchored(binding.value, anchored)) {
+      if (!binding || !isRepoAnchored(binding.value, anchored, helpers)) {
         return;
       }
-      const literals = pathLiterals(binding.value, anchored);
-      binding.names.forEach((name) => anchored.set(name, literals));
+      const described = describePath(binding.value, anchored);
+      binding.names.forEach((name) => anchored.set(name, described));
     });
     if (anchored.size === before) {
-      return anchored;
+      break;
     }
   }
-  return anchored;
+  return { anchored, helpers };
+}
+
+/**
+ * What a path expression contributes to classifying a read made through it:
+ * the literals that built it, and whether it ends in a value only known at run
+ * time. Both have to travel with the binding, because a read through a bare
+ * identifier carries neither of its own.
+ */
+function describePath(node, anchored) {
+  return {
+    literals: pathLiterals(node, anchored),
+    endsInVariable: endsInVariableName(node, anchored),
+  };
 }
 
 /**
@@ -549,34 +605,41 @@ function pathLiterals(node, anchored, seen = new Set()) {
       !seen.has(current.name)
     ) {
       seen.add(current.name);
-      literals.push(...anchored.get(current.name));
+      literals.push(...anchored.get(current.name).literals);
     }
   });
   return literals;
 }
 
 /** Does the path finish with a value only known at run time? */
-function endsInVariableName(node) {
-  if (
-    node.type !== 'CallExpression' &&
-    node.type !== 'OptionalCallExpression'
-  ) {
-    return node.type !== 'StringLiteral' && node.type !== 'TemplateLiteral';
+function endsInVariableName(node, anchored) {
+  if (node.type === 'StringLiteral' || node.type === 'TemplateLiteral') {
+    return false;
   }
-  const last = node.arguments.at(-1);
-  return Boolean(
-    last && last.type !== 'StringLiteral' && last.type !== 'TemplateLiteral',
-  );
+  if (node.type === 'Identifier') {
+    // A binding built from a literal filename already said what it is; only an
+    // unknown name is genuinely a tail that is only known at run time.
+    const described = anchored.get(node.name);
+    return described ? described.endsInVariable : true;
+  }
+  if (
+    node.type === 'CallExpression' ||
+    node.type === 'OptionalCallExpression'
+  ) {
+    const last = node.arguments.at(-1);
+    return Boolean(last) && endsInVariableName(last, anchored);
+  }
+  return true;
 }
 
 /** Does this path reach source whose extension is not written down? */
-function namesUnextendedSource(node, literals) {
+function namesUnextendedSource(node, literals, anchored) {
   // `path.join(repoRoot, 'packages/kit/src/views/X', name)` names a source
   // directory explicitly and ends in a variable, so the filename is source.
   // Only that shape: a path that ends in a literal already said what it is,
   // and a repo path naming no source directory (`.github/workflows`) is not.
   if (
-    endsInVariableName(node) &&
+    endsInVariableName(node, anchored) &&
     literals.some((literal) => SOURCE_DIRECTORY_RE.test(literal))
   ) {
     return true;
@@ -669,9 +732,10 @@ function analyzeFile(
     /\breadFileSync\b|\breadFile\b/u.test(source) &&
     walksSource(ast);
 
-  const repoAnchored = collectRepoAnchoredBindings(ast);
+  const { anchored: repoAnchored, helpers: anchoredHelpers } =
+    collectRepoAnchoredBindings(ast);
   const readKind = (callNode) =>
-    classifyReadTarget(callNode, repoAnchored) ??
+    classifyReadTarget(callNode, repoAnchored, anchoredHelpers) ??
     (walksSourceTree ? 'script' : undefined);
 
   // Pass 1: taint every binding that holds first-party source text. Seeding
@@ -1053,8 +1117,13 @@ function main() {
   }
 
   if (!results.length && !staleEntries.length) {
+    // Advisories are the whole reason the advisory rules exist, so say how many
+    // there are on a passing run too rather than only when something fails.
+    const advisoryNote = advisory.length
+      ? ` ${advisory.length} advisory, not gated: see --json.`
+      : '';
     process.stdout.write(
-      `Test integrity check passed (${scanned} test files).\n`,
+      `Test integrity check passed (${scanned} test files).${advisoryNote}\n`,
     );
     return;
   }

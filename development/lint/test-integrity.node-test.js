@@ -275,6 +275,90 @@ test('anchors through a helper that returns a repository path', () => {
   );
 });
 
+test('a whole read stays whole through an encoding conversion', () => {
+  assertClean(
+    `
+    it('x', () => {
+      const go = runInNewContext(readFileSync(join(__dirname, 'thing.js')).toString());
+      expect(go).toBeDefined();
+    });
+  `,
+    'readFileSync(p).toString()',
+  );
+  assertClean(
+    `
+    it('x', () => {
+      const go = runInNewContext(String(readFileSync(join(__dirname, 'thing.js'))).trim());
+      expect(go).toBeDefined();
+    });
+  `,
+    'String(...).trim()',
+  );
+  // Control: cutting it is still a fragment however it is spelled.
+  assertGated(
+    `
+    it('x', () => {
+      const go = runInNewContext(readFileSync(join(__dirname, 'thing.js')).toString().slice(1));
+      expect(go).toBeDefined();
+    });
+  `,
+    'control: sliced after conversion',
+  );
+});
+
+test('an extensionless literal filename is data whether or not it is hoisted', () => {
+  for (const [shape, read] of [
+    [
+      'inline',
+      "readFileSync(path.join(repoRoot, 'apps/mobile/ios/Podfile'), 'utf8')",
+    ],
+    ['hoisted', "readFileSync(podfile, 'utf8')"],
+  ]) {
+    assertClean(
+      `
+      ${REPO_ROOT_PREAMBLE}
+      const podfile = path.join(repoRoot, 'apps/mobile/ios/Podfile');
+      const source = ${read};
+      it('x', () => { expect(source).toContain('pod'); });
+    `,
+      shape,
+    );
+  }
+  // Control: a genuinely unknown filename in the same directory is source.
+  assertGated(
+    `
+    ${REPO_ROOT_PREAMBLE}
+    const directory = path.join(repoRoot, 'apps/mobile/ios');
+    const source = readFileSync(path.join(directory, name), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'control: variable filename',
+  );
+});
+
+test('only a bare call to a path helper anchors', () => {
+  // A helper named after a path builder must not disable the head check.
+  assertClean(
+    `
+    const resolve = (rel) => path.resolve(__dirname, rel);
+    const source = readFileSync(path.resolve(fs.mkdtempSync(os.tmpdir()), 'index.js'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'builder-named helper does not anchor a temp head',
+  );
+  // A method call only shares a name with the helper; it is not the helper.
+  assertClean(
+    `
+    function repoRoot() {
+      return path.resolve(__dirname, '..');
+    }
+    const source = readFileSync(path.join(fixture.repoRoot(), 'packages/kit/src/x.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'member call sharing the helper name',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`
