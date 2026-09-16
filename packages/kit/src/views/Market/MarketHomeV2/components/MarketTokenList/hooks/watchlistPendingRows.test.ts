@@ -85,12 +85,12 @@ describe('watchlistPendingRows', () => {
     });
   });
 
-  it('emits native pending rows until a successful quote response exists', () => {
+  it('emits native pending rows while quotes are in flight, not after success or failure', () => {
     expect(
       shouldEmitNativePendingWatchlistRow({
         isNative: true,
+        hasQuotesInFlight: true,
         hasQuotePayload: false,
-        hasSuccessfulQuotes: false,
         quotesFailed: false,
         hasCachedRows: false,
       }),
@@ -98,8 +98,8 @@ describe('watchlistPendingRows', () => {
     expect(
       shouldEmitNativePendingWatchlistRow({
         isNative: true,
+        hasQuotesInFlight: false,
         hasQuotePayload: false,
-        hasSuccessfulQuotes: false,
         quotesFailed: true,
         hasCachedRows: false,
       }),
@@ -107,8 +107,8 @@ describe('watchlistPendingRows', () => {
     expect(
       shouldEmitNativePendingWatchlistRow({
         isNative: true,
+        hasQuotesInFlight: true,
         hasQuotePayload: true,
-        hasSuccessfulQuotes: false,
         quotesFailed: false,
         hasCachedRows: true,
       }),
@@ -116,8 +116,8 @@ describe('watchlistPendingRows', () => {
     expect(
       shouldEmitNativePendingWatchlistRow({
         isNative: true,
+        hasQuotesInFlight: false,
         hasQuotePayload: true,
-        hasSuccessfulQuotes: true,
         quotesFailed: false,
         hasCachedRows: true,
       }),
@@ -125,9 +125,18 @@ describe('watchlistPendingRows', () => {
     expect(
       shouldEmitNativePendingWatchlistRow({
         isNative: false,
+        hasQuotesInFlight: true,
         hasQuotePayload: true,
-        hasSuccessfulQuotes: false,
         quotesFailed: false,
+        hasCachedRows: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldEmitNativePendingWatchlistRow({
+        isNative: true,
+        hasQuotesInFlight: false,
+        hasQuotePayload: true,
+        quotesFailed: true,
         hasCachedRows: true,
       }),
     ).toBe(false);

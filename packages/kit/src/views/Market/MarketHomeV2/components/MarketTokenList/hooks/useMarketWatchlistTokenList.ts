@@ -486,8 +486,8 @@ export function useMarketWatchlistTokenList({
           }
           return shouldEmitNativePendingWatchlistRow({
             isNative: Boolean(platformEnv.isNative),
+            hasQuotesInFlight: perpsLoading !== false,
             hasQuotePayload: Boolean(perpsApiResult),
-            hasSuccessfulQuotes: Boolean(perpsResult && !perpsResult.failed),
             quotesFailed: Boolean(perpsResult?.failed),
             hasCachedRows: Boolean(
               perpsApiResult?.tokenListData?.tokens?.length,
@@ -516,8 +516,8 @@ export function useMarketWatchlistTokenList({
         }
         return shouldEmitNativePendingWatchlistRow({
           isNative: Boolean(platformEnv.isNative),
+          hasQuotesInFlight: apiLoading !== false,
           hasQuotePayload: Boolean(apiResult),
-          hasSuccessfulQuotes: Boolean(spotResult && !spotResult.failed),
           quotesFailed: Boolean(spotResult?.failed),
           hasCachedRows: Boolean(apiResult?.list?.length),
         })
@@ -528,10 +528,12 @@ export function useMarketWatchlistTokenList({
 
     return merged;
   }, [
+    apiLoading,
     apiResult,
     listingQuotes,
     watchlist,
     spotItems,
+    perpsLoading,
     perpsTokenMap,
     networkLogoUriMap,
     perpsApiResult,

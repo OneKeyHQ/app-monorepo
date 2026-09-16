@@ -26,22 +26,22 @@ const PENDING_WATCHLIST_METRICS = {
 
 export function shouldEmitNativePendingWatchlistRow({
   isNative,
+  hasQuotesInFlight,
   hasQuotePayload,
-  hasSuccessfulQuotes,
   quotesFailed,
   hasCachedRows,
 }: {
   isNative: boolean;
+  hasQuotesInFlight: boolean;
   hasQuotePayload: boolean;
-  hasSuccessfulQuotes: boolean;
   quotesFailed: boolean;
   hasCachedRows: boolean;
 }): boolean {
-  if (!isNative || hasSuccessfulQuotes) {
+  if (!isNative || quotesFailed || !hasQuotesInFlight) {
     return false;
   }
   if (!hasQuotePayload) {
-    return !quotesFailed;
+    return true;
   }
   return hasCachedRows;
 }

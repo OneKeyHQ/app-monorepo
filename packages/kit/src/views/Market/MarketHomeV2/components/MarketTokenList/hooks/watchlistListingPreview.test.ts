@@ -55,6 +55,30 @@ describe('watchlistListingPreview', () => {
     });
   });
 
+  it('does not keep a remembered logo after the quote removes it', () => {
+    rememberWatchlistListingPreview(aapl, {
+      logoUrl: 'https://example.com/search.png',
+      name: 'Apple',
+      symbol: 'AAPL',
+    });
+
+    expect(
+      resolveListingWatchlistDisplay({
+        watchlistItem: aapl,
+        quote: {
+          name: 'Apple Inc.',
+          symbol: 'AAPL',
+          logoUrl: '',
+        },
+      }),
+    ).toEqual({
+      name: 'Apple Inc.',
+      symbol: 'AAPL',
+      tokenImageUri: '',
+      stockVariants: undefined,
+    });
+  });
+
   it('ignores blank preview fields so identity fallbacks still work', () => {
     rememberWatchlistListingPreview(aapl, { logoUrl: '  ', name: '' });
     expect(

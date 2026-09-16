@@ -479,3 +479,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Merging `x` pulled `TokenLaunchpad` / `resolveLaunchpadDisplay` / `inlineStatusFit` / `stockLastUpdate` into the native graph; this branch's registry was not updated.
 **Fix**: Register the four production modules and commit the registry.
 **Catchable by**: NEW — merging `x` can introduce unregistered native-graph files that this PR did not author
+
+## Case: Watchlist kept a removed listing logo
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: After a quote returned an empty `logoUrl`, Favorites still showed the starred search/detail logo.
+**Root Cause**: `resolveListingWatchlistDisplay` used `quote?.logoUrl || preview`, so a present-but-empty server logo never replaced the remembered preview.
+**Fix**: When a quote exists, take `quote.logoUrl || ''` and do not fall back to the preview logo.
+**Catchable by**: Section 4: empty string vs missing field; NEW — truthy fallbacks hide intentional server clears
+
+## Case: Newly starred native favorite stayed missing on a mounted list
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Starring a token while Favorites was already showing quotes left the new row absent until the batch finished.
+**Root Cause**: `hasSuccessfulQuotes` short-circuited on the previous successful `spotResult`, which `usePromiseResult` keeps during a re-run.
+**Fix**: Emit pending rows from `hasQuotesInFlight` (`apiLoading !== false`) so a cache-miss identity appears while the covering request is in flight.
+**Catchable by**: Section 5: stale result vs in-flight re-run; NEW — a successful previous payload must not hide identities added after it
+
+## Case: Failed native watchlist refresh created blank ghost rows
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: After a failed poll, tokens omitted from the last good quote appeared as blank pending rows next to the retry banner.
+**Root Cause**: The cache-miss pending branch ignored `quotesFailed` once a cached payload existed.
+**Fix**: Never emit pending rows when `quotesFailed` is true.
+**Catchable by**: Section 5: failed refresh vs cache miss; NEW — pending identity rows are only for in-flight requests, not for failed polls

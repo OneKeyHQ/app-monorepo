@@ -69,7 +69,7 @@ export function resolveListingWatchlistDisplay({
   return {
     name: quote?.name || preview?.name || fallbackId,
     symbol: quote?.symbol || preview?.symbol || fallbackId,
-    tokenImageUri: quote?.logoUrl || preview?.logoUrl || '',
+    tokenImageUri: quote ? quote.logoUrl || '' : preview?.logoUrl || '',
     stockVariants: quote?.variants,
   };
 }

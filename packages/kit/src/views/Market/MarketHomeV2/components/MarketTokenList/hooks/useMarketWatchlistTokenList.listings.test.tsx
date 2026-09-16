@@ -19,9 +19,11 @@ const mockStockBatch = jest.fn<
   Promise<IMarketStockPublicItem[]>,
   [{ stockIds: string[] }]
 >();
-const mockBatch = jest.fn<Promise<{ list: [] }>, unknown[]>(async () => ({
-  list: [],
-}));
+const mockBatch = jest.fn<Promise<{ list: unknown[] }>, unknown[]>(
+  async () => ({
+    list: [],
+  }),
+);
 const mockNetworks: [] = [];
 jest.mock('@onekeyhq/components', () => ({ useCarouselIndex: () => 0 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -48,24 +50,33 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   return {
     usePromiseResult: (method: () => Promise<unknown>, deps: unknown[]) => {
       const [result, setResult] = React.useState<unknown>();
-      const [isLoading, setLoading] = React.useState(true);
+      const [resolvedRunId, setResolvedRunId] = React.useState(0);
+      const runIdRef = React.useRef(0);
       const methodRef = React.useRef(method);
       methodRef.current = method;
+      const runId = React.useMemo(() => {
+        runIdRef.current += 1;
+        return runIdRef.current;
+        // The mock follows the dynamic dependency contract of usePromiseResult.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, deps);
       React.useEffect(() => {
         let active = true;
         void methodRef.current().then((value) => {
           if (active) {
             setResult(value);
-            setLoading(false);
+            setResolvedRunId(runId);
           }
         });
         return () => {
           active = false;
         };
-        // The mock follows the dynamic dependency contract of usePromiseResult.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, deps);
-      return { result, isLoading, run: () => methodRef.current() };
+      }, [runId]);
+      return {
+        result,
+        isLoading: resolvedRunId !== runId,
+        run: () => methodRef.current(),
+      };
     },
   };
 });
@@ -334,6 +345,66 @@ it('emits a native pending row for a new favorite missing from cached quotes', a
       dataCacheRef,
     }),
   );
+  await waitFor(() => expect(result.current.data).toHaveLength(2));
+  expect(result.current.data.map((item) => item.address)).toEqual([
+    '0xcached',
+    '0xnew',
+  ]);
+  expect(result.current.data[1]).toMatchObject({
+    address: '0xnew',
+    isPendingWatchlistRow: true,
+  });
+});
+it('emits a native pending row for a newly starred favorite while quotes stay loaded', async () => {
+  (platformEnv as { isNative: boolean }).isNative = true;
+  mockBatch.mockResolvedValueOnce({
+    list: [
+      {
+        address: '0xcached',
+        name: 'Cached',
+        symbol: 'CACHED',
+        decimals: 18,
+        networkId: 'evm--1',
+        isNative: false,
+      },
+    ],
+  });
+  const cachedItem = {
+    chainId: 'evm--1',
+    contractAddress: '0xcached',
+    isNative: false,
+  };
+  const { rerender, result } = renderHook(
+    ({
+      watchlist,
+    }: {
+      watchlist: Array<{
+        chainId: string;
+        contractAddress: string;
+        isNative: boolean;
+      }>;
+    }) =>
+      useMarketWatchlistTokenList({
+        watchlist,
+        isWatchlistMounted: true,
+        pollingInterval: 0,
+      }),
+    {
+      initialProps: { watchlist: [cachedItem] },
+    },
+  );
+  await waitFor(() => expect(result.current.data).toHaveLength(1));
+  mockBatch.mockImplementationOnce(() => new Promise(() => undefined));
+  rerender({
+    watchlist: [
+      cachedItem,
+      {
+        chainId: 'evm--1',
+        contractAddress: '0xnew',
+        isNative: false,
+      },
+    ],
+  });
   await waitFor(() => expect(result.current.data).toHaveLength(2));
   expect(result.current.data.map((item) => item.address)).toEqual([
     '0xcached',
