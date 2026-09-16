@@ -75,15 +75,19 @@ function BannerContainerDesktop({
   children,
   itemCount,
   hidden = false,
+  divided,
 }: {
   children: ReactNode;
   itemCount: number;
   hidden?: boolean;
+  // True when every card renders token previews, which desktop web separates
+  // with dividers.
+  divided: boolean;
 }) {
   if (!platformEnv.isNative) {
     // Web never renders a hidden desktop banner; it unmounts the row instead.
     return (
-      <MarketBannerDesktopScroller itemCount={itemCount}>
+      <MarketBannerDesktopScroller itemCount={itemCount} divided={divided}>
         {children}
       </MarketBannerDesktopScroller>
     );
@@ -121,7 +125,7 @@ function MarketBannerListSkeletonComponent({
   }
 
   return (
-    <BannerContainerDesktop itemCount={skeletonCount}>
+    <BannerContainerDesktop itemCount={skeletonCount} divided>
       {skeletonItems}
     </BannerContainerDesktop>
   );
@@ -162,12 +166,17 @@ function MarketBannerListComponent() {
   // Preserve the actual card dimensions (including tablet layouts) if a
   // reconnect removes the banners, without retaining interactive stale links.
   const visibleBannerList = hidden ? (retainedBannerList ?? []) : bannerList;
+  // One legacy banner pulls the whole row back to the filled layout: the
+  // scroller and the cards have to agree, or 272px transparent cards sit
+  // beside variable-width filled ones.
+  const isDividedList = visibleBannerList.every((item) => Boolean(item.tokens));
   const bannerItems = visibleBannerList.map((item) => (
     <MarketBannerItem
       key={item._id}
       item={item}
       isSmallScreen={isSmallScreen}
       onPress={toMarketBannerDetail}
+      divided={isDividedList}
     />
   ));
 
@@ -183,7 +192,11 @@ function MarketBannerListComponent() {
   }
 
   return (
-    <BannerContainerDesktop itemCount={bannerItems.length} hidden={hidden}>
+    <BannerContainerDesktop
+      itemCount={bannerItems.length}
+      hidden={hidden}
+      divided={isDividedList}
+    >
       {bannerItems}
     </BannerContainerDesktop>
   );

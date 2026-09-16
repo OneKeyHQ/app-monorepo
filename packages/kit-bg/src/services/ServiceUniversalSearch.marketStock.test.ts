@@ -20,22 +20,7 @@ jest.mock('./ServiceBase', () => ({
 import ServiceUniversalSearch from './ServiceUniversalSearch';
 
 describe('ServiceUniversalSearch market stock search', () => {
-  test('prepends stock listings from the stock search endpoint', async () => {
-    const searchV2Token = jest.fn().mockResolvedValue([
-      {
-        name: 'Apple (Ondo Tokenized)',
-        symbol: 'AAPLon',
-        address: '0xaapl',
-        network: 'evm--56',
-        price: '190',
-        logoUrl: '',
-        isNative: false,
-        decimals: 18,
-        liquidity: '0',
-        volume_24h: '0',
-        stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' },
-      },
-    ]);
+  test('returns mapped stock listings from the stock search endpoint', async () => {
     const searchMarketStocks = jest.fn().mockResolvedValue({
       items: [
         {
@@ -55,86 +40,31 @@ describe('ServiceUniversalSearch market stock search', () => {
     }) => ServiceUniversalSearch;
     const service = new Ctor({
       backgroundApi: {
-        serviceMarket: { searchV2Token },
         serviceMarketV2: { searchMarketStocks },
       },
     });
 
-    const result = await service.universalSearchOfV2MarketToken(' aapl ', {
-      includeStockListings: true,
-    });
+    const result = await service.universalSearchOfMarketStock(' aapl ');
 
     expect(searchMarketStocks).toHaveBeenCalledWith({
       query: ' aapl ',
       limit: 10,
     });
-    expect(result.map((item) => item.stockId ?? item.symbol)).toEqual([
-      'AAPL',
-      'AAPLon',
+    expect(result).toEqual([
+      expect.objectContaining({
+        stockId: 'AAPL',
+        address: '',
+        network: '',
+      }),
     ]);
-    expect(result[0]).toMatchObject({
-      stockId: 'AAPL',
-      address: '',
-      network: '',
-    });
   });
 
-  test('keeps token results when stock search fails', async () => {
-    const searchV2Token = jest.fn().mockResolvedValue([
-      {
-        name: 'Apple (Ondo Tokenized)',
-        symbol: 'AAPLon',
-        address: '0xaapl',
-        network: 'evm--56',
-        price: '190',
-        logoUrl: '',
-        isNative: false,
-        decimals: 18,
-        liquidity: '0',
-        volume_24h: '0',
-      },
-    ]);
+  test('returns an empty list when stock search returns a payload without items', async () => {
     const Ctor = ServiceUniversalSearch as unknown as new (args: {
       backgroundApi: unknown;
     }) => ServiceUniversalSearch;
     const service = new Ctor({
       backgroundApi: {
-        serviceMarket: { searchV2Token },
-        serviceMarketV2: {
-          searchMarketStocks: jest.fn().mockRejectedValue(new Error('offline')),
-        },
-      },
-    });
-
-    const result = await service.universalSearchOfV2MarketToken('aapl', {
-      includeStockListings: true,
-    });
-
-    expect(result).toHaveLength(1);
-    expect(result[0]?.symbol).toBe('AAPLon');
-  });
-
-  test('keeps token results when stock search returns a payload without items', async () => {
-    const searchV2Token = jest.fn().mockResolvedValue([
-      {
-        name: 'Apple (Ondo Tokenized)',
-        symbol: 'AAPLon',
-        address: '0xaapl',
-        network: 'evm--56',
-        price: '190',
-        logoUrl: '',
-        isNative: false,
-        decimals: 18,
-        liquidity: '0',
-        volume_24h: '0',
-      },
-    ]);
-    const Ctor = ServiceUniversalSearch as unknown as new (args: {
-      backgroundApi: unknown;
-    }) => ServiceUniversalSearch;
-    const service = new Ctor({
-      backgroundApi: {
-        serviceMarket: { searchV2Token },
         serviceMarketV2: {
           searchMarketStocks: jest.fn().mockResolvedValue({
             code: 1,
@@ -144,15 +74,12 @@ describe('ServiceUniversalSearch market stock search', () => {
       },
     });
 
-    const result = await service.universalSearchOfV2MarketToken('aapl', {
-      includeStockListings: true,
-    });
-
-    expect(result).toHaveLength(1);
-    expect(result[0]?.symbol).toBe('AAPLon');
+    await expect(service.universalSearchOfMarketStock('aapl')).resolves.toEqual(
+      [],
+    );
   });
 
-  test('skips the stock search endpoint unless listings are requested', async () => {
+  test('keeps token search on the token endpoint only', async () => {
     const searchV2Token = jest.fn().mockResolvedValue([]);
     const searchMarketStocks = jest.fn();
     const Ctor = ServiceUniversalSearch as unknown as new (args: {

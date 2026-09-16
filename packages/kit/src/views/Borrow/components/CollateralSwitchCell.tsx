@@ -182,6 +182,10 @@ function showCollateralConfirmDialog(params: {
   });
 }
 
+// A handler that only needs to exist: attaching one makes its view the
+// responder claimant on native.
+const noop = () => {};
+
 // Self-contained on purpose: TableList's memo comparator stringifies column
 // defs (functions dropped), so render-time state must live in the mounted
 // cell, never in column-def closures.
@@ -660,15 +664,40 @@ export function CollateralSwitchCell({
     isNativeActionUnsupported ||
     disabled ||
     (!value && requiresEModeId && eModeId === undefined);
+  // Attaching any handler is the whole point: it makes this view the responder
+  // claimant. See the wrapper below for when that is needed.
+  const claimNativeTouch = isSwitchDisabled ? noop : undefined;
 
   return (
     <Stack
       position="relative"
       ai="center"
       jc="center"
+      // No padded halo here, and each target reaches the 24x24 floor of WCAG
+      // 2.5.8 its own way. Web, desktop, the extension and iOS all render the
+      // same 38x24 Tamagui track, because native={!isNativeIOS} below lands
+      // after the Switch's own hard-coded native and wins; iOS adds the
+      // hitSlop set alongside it. Android is the one target that delegates to
+      // the platform control, which is larger again. Growing the target here
+      // with padding and a negative margin also put the halo outside this
+      // view's parent, where Android's ViewGroup never hit-tests and hitSlop
+      // is ignored, while on web it swallowed the desktop table's row press
+      // and overhung the next column.
+      //
+      // Native normally wants no handler here, so the switch below wins the
+      // responder as the deeper claimant. A disabled one claims nothing:
+      // Tamagui gates every press event, the responder claim included, on
+      // `!disabled`, and on iOS this switch is a Tamagui frame rather than the
+      // platform control (native={!isNativeIOS} below). The touch would then
+      // reach whatever sits behind the cell — on phones the position card,
+      // which would expand or collapse as though the dead control had done
+      // something. Claim it here instead, and only then, so the enabled path
+      // is untouched. Gated on isNative rather than isNativeIOS because
+      // Android's platform control may or may not cancel the responder when
+      // disabled, and claiming costs nothing either way.
       onPress={
         platformEnv.isNative
-          ? undefined
+          ? claimNativeTouch
           : (e) => {
               e.stopPropagation();
             }
