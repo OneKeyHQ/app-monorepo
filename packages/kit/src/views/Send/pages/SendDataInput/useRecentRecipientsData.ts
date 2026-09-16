@@ -248,6 +248,45 @@ type IRecentRecipientsCacheEntry = {
   apiUnsupported: boolean;
 };
 
+// Last successful /transfer-recipient answer, persisted by ServiceHistory.
+// On a cold start (no session cache yet) it is enriched locally and painted
+// at once so the Recent tab does not wait for the server round trip; the
+// API refresh that follows replaces it (OK-63452).
+async function loadPersistedApiRecipients({
+  accountId,
+  apiNetworkId,
+  networkId,
+}: {
+  accountId: string;
+  apiNetworkId: string;
+  networkId: string;
+}): Promise<IRecentRecipientsCacheEntry | undefined> {
+  try {
+    const persisted =
+      await backgroundApiProxy.serviceHistory.getCachedTransferRecipients({
+        accountId,
+        networkId: apiNetworkId,
+        limit: MAX_RECIPIENTS,
+      });
+    if (!persisted?.data?.length) {
+      return undefined;
+    }
+    const extraMap = await buildExtraMapFromApiRecipients(persisted.data);
+    const recipients = await enrichAddresses(
+      persisted.data.map((r) => r.address),
+      extraMap,
+      networkId,
+    );
+    return {
+      recipients,
+      lastUsedDeriveType: persisted.lastUsedDeriveType,
+      apiUnsupported: false,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 // Last completed load per account + network, kept for the app session so a
 // re-opened Send page paints the previous list at once while a refresh runs
 // in the background (stale-while-revalidate).
@@ -319,7 +358,18 @@ export function useRecentRecipientsData({
     const isLatestVersion = () =>
       recentRecipientsLoadVersion.get(cacheKey) === loadVersion;
 
-    const cached = recentRecipientsCache.get(cacheKey);
+    const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
+    const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
+
+    const fetchApiRecipients = () =>
+      backgroundApiProxy.serviceHistory.fetchTransferRecipients({
+        accountId,
+        networkId: apiNetworkId,
+        limit: MAX_RECIPIENTS,
+      });
+
+    let cached = recentRecipientsCache.get(cacheKey);
+    let apiPromise: ReturnType<typeof fetchApiRecipients> | undefined;
     if (cached) {
       setRecentRecipients(cached.recipients);
       setLastUsedDeriveType(cached.lastUsedDeriveType);
@@ -328,6 +378,30 @@ export function useRecentRecipientsData({
       setIsLoadingRecent(true);
       setRecentRecipients([]);
       setLastUsedDeriveType(undefined);
+      // Cold start: the API request does not depend on the persisted answer,
+      // so start it now and let the round trip overlap the local enrichment
+      // of the persisted list. Rejections are observed in Phase 1 below; the
+      // no-op catch only keeps an early stale return from leaving it
+      // unhandled.
+      apiPromise = fetchApiRecipients();
+      apiPromise.catch(() => undefined);
+      const persisted = await loadPersistedApiRecipients({
+        accountId,
+        apiNetworkId,
+        networkId,
+      });
+      if (isStale()) return;
+      if (persisted) {
+        cached = persisted;
+        // Seed the session cache so a failed refresh still leaves the next
+        // mount with an instant paint instead of replaying the cold path.
+        if (isLatestVersion()) {
+          recentRecipientsCache.set(cacheKey, persisted);
+        }
+        setRecentRecipients(persisted.recipients);
+        setLastUsedDeriveType(persisted.lastUsedDeriveType);
+        setIsLoadingRecent(false);
+      }
     }
 
     const commit = (entry: IRecentRecipientsCacheEntry) => {
@@ -339,7 +413,6 @@ export function useRecentRecipientsData({
       setIsLoadingRecent(false);
     };
 
-    const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
     let apiUnsupported = cached?.apiUnsupported ?? false;
     let apiFailed = false;
 
@@ -349,7 +422,6 @@ export function useRecentRecipientsData({
     // not supported for this chain (or the call fails), drop to the
     // local fallback below. A network the server already reported as
     // unsupported this session skips the round trip entirely.
-    const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
     if (!apiUnsupported) {
       try {
         const {
@@ -357,11 +429,7 @@ export function useRecentRecipientsData({
           data: apiRecipients,
           lastUsedDeriveType: apiDeriveType,
           errored,
-        } = await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
-          accountId,
-          networkId: apiNetworkId,
-          limit: MAX_RECIPIENTS,
-        });
+        } = await (apiPromise ?? fetchApiRecipients());
         if (isStale()) return;
 
         if (supported) {
