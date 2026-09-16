@@ -389,13 +389,17 @@ function storedKey(node) {
 }
 
 /**
- * What properties can be recorded against: a variable, or what a call to a
- * named function returns, awaited or not.
+ * What properties can be recorded against: a variable, a property of one
+ * (`results[1].value`), or what a call to a named function returns, awaited
+ * or not.
  */
 function ownerKey(node) {
   switch (node?.type) {
     case 'Identifier':
       return bindingOf(node);
+    case 'MemberExpression':
+    case 'OptionalMemberExpression':
+      return storedKey(node);
     case 'AwaitExpression':
       return ownerKey(node.argument);
     case 'TSAsExpression':
@@ -988,9 +992,15 @@ function collectDefinitions(ast, calls) {
     }
     const target = bindingTarget(node);
     if (target) {
-      destructured(target).forEach(({ identifiers, value }) =>
-        define(node, value, identifiers),
-      );
+      destructured(target).forEach(({ pattern, identifiers, value }) => {
+        define(node, value, identifiers);
+        // A variable given a literal knows what each part of it holds.
+        if (pattern?.type === 'Identifier') {
+          literalParts(bindingOf(pattern), value).forEach((part) =>
+            store(node, part),
+          );
+        }
+      });
       storedValues(target).forEach((part) => store(node, part));
     }
     callbackSlots(node, calls).forEach(
@@ -1072,7 +1082,7 @@ function collectDefinitions(ast, calls) {
  * `files[0]` would. Anything else receives the whole value.
  */
 function destructured({ pattern, identifiers, value }) {
-  const whole = [{ identifiers, value }];
+  const whole = [{ pattern, identifiers, value }];
   if (pattern.type === 'ArrayPattern') {
     const literal = unwrapCollection(value);
     if (
@@ -1080,6 +1090,7 @@ function destructured({ pattern, identifiers, value }) {
       !literal.elements.some((element) => element?.type === 'SpreadElement')
     ) {
       return pattern.elements.map((element, index) => ({
+        pattern: element,
         identifiers: patternIdentifiers(element),
         value:
           element?.type === 'RestElement' ? value : literal.elements[index],
@@ -1130,27 +1141,24 @@ function propertyAccess(owner, key, computed = key.type !== 'Identifier') {
 }
 
 /**
- * Properties a definition stores: `ctx.source = read(...)` stores under
- * `source` on `ctx`, and so does `const ctx = { source: read(...) }`.
+ * Properties a definition stores on a member: `ctx.source = read(...)` stores
+ * under `source` on `ctx`, along with anything the assigned literal spells
+ * out beneath it.
  */
 function storedValues({ pattern, value }) {
   const stored = storedKey(pattern);
-  if (stored) {
-    return [{ key: stored, value }];
-  }
-  const owner = bindingOf(pattern);
-  return owner ? literalParts(owner, value) : [];
+  return stored ? [{ key: stored, value }, ...literalParts(stored, value)] : [];
 }
 
 /**
  * The parts an object or array literal gives its owner, by property name or
- * position. `await Promise.all([...])` settles with an array whose elements
- * are what each of its inputs settles with, so it counts as that array.
+ * position, all the way down through nested literals.
  */
 function literalParts(owner, value) {
   const literal = unwrapCollection(value);
+  let parts = [];
   if (literal?.type === 'ObjectExpression') {
-    return literal.properties
+    parts = literal.properties
       .filter((property) => property.type === 'ObjectProperty')
       .map((property) => ({
         key: propertyKey(owner, staticName(property.key, property)),
@@ -1158,24 +1166,27 @@ function literalParts(owner, value) {
         literal: true,
       }))
       .filter(({ key }) => key);
+  } else if (literal?.type === 'ArrayExpression') {
+    const spread = literal.elements.findIndex(
+      (element) => element?.type === 'SpreadElement',
+    );
+    parts = literal.elements
+      .slice(0, spread === -1 ? undefined : spread)
+      .map((element, index) => ({
+        key: propertyKey(owner, String(index)),
+        value: element,
+        literal: true,
+      }))
+      .filter(({ value: element }) => element);
   }
-  if (literal?.type !== 'ArrayExpression') {
-    return [];
-  }
-  const spread = literal.elements.findIndex(
-    (element) => element?.type === 'SpreadElement',
-  );
-  return literal.elements
-    .slice(0, spread === -1 ? undefined : spread)
-    .map((element, index) => ({
-      key: propertyKey(owner, String(index)),
-      value: element,
-      literal: true,
-    }))
-    .filter(({ value: element }) => element);
+  return parts.flatMap((part) => [part, ...literalParts(part.key, part.value)]);
 }
 
-/** The literal under `await` and `Promise.all`. */
+/**
+ * The literal a collection settles into. `await Promise.all([...])` is the
+ * array of what each input settles with, and `Promise.allSettled([...])` the
+ * array of `{ status, value, reason }` records with each input as `value`.
+ */
 function unwrapCollection(node) {
   switch (node?.type) {
     case 'AwaitExpression':
@@ -1185,16 +1196,48 @@ function unwrapCollection(node) {
     case 'TSNonNullExpression':
     case 'ParenthesizedExpression':
       return unwrapCollection(node.expression);
-    case 'CallExpression':
-      return node.callee.type === 'MemberExpression' &&
+    case 'CallExpression': {
+      const name =
+        node.callee.type === 'MemberExpression' &&
         node.callee.object.type === 'Identifier' &&
-        node.callee.object.name === 'Promise' &&
-        calleeName(node.callee) === 'all'
-        ? unwrapCollection(node.arguments[0])
-        : node;
+        node.callee.object.name === 'Promise'
+          ? calleeName(node.callee)
+          : undefined;
+      const inputs =
+        name === 'all' || name === 'allSettled'
+          ? unwrapCollection(node.arguments[0])
+          : undefined;
+      if (name === 'allSettled' && inputs?.type === 'ArrayExpression') {
+        return {
+          type: 'ArrayExpression',
+          elements: inputs.elements.map((input) =>
+            input?.type === 'SpreadElement' ? input : settledRecord(input),
+          ),
+        };
+      }
+      return name === 'all' ? inputs : node;
+    }
     default:
       return node;
   }
+}
+
+/** `{ status, value, reason }`, of which only `value` holds the input. */
+function settledRecord(input) {
+  const property = (name, value) => ({
+    type: 'ObjectProperty',
+    key: { type: 'Identifier', name },
+    value,
+    computed: false,
+  });
+  return {
+    type: 'ObjectExpression',
+    properties: [
+      property('status', undefined),
+      property('value', input),
+      property('reason', undefined),
+    ],
+  };
 }
 
 /** The expressions a function hands back to its caller. */

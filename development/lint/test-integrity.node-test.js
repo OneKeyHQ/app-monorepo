@@ -887,6 +887,26 @@ test('text a read hands to a callback or a promise is still source', () => {
     `it('x', async () => { ${loadPair} expect(fixture).toEqual('{}'); });`,
     'control: Promise.all: the data half',
   );
+  // Promise.allSettled settles into records, and only `value` holds an input.
+  const settlePair = `
+      const [sourceResult, fixtureResult] = await Promise.allSettled([
+        readFile(${thing}, 'utf8'),
+        readFile(join(tmp, 'expected.json'), 'utf8'),
+      ]);`;
+  assertGated(
+    `it('x', async () => { ${settlePair} expect(sourceResult.value).toContain('go'); });`,
+    'Promise.allSettled: the source value',
+  );
+  assertClean(
+    `
+    it('x', async () => {
+      ${settlePair}
+      expect(fixtureResult.value).toEqual('{}');
+      expect(sourceResult.status).toBe('fulfilled');
+    });
+  `,
+    'control: Promise.allSettled: the data value, and a status',
+  );
   // Controls: the same callback reading data, and a promise holding no source.
   assertClean(
     `
@@ -1142,6 +1162,13 @@ test('what a variable stores under a property is still source', () => {
     });
   `,
     'control: another property of the same object literal',
+  );
+  assertClean(
+    `
+    const context = { files: { source: ${read}, count: 3 } };
+    it('x', () => { expect(context.files.count).toBe(3); });
+  `,
+    'control: another property of a nested object literal',
   );
   const arrayOwner = `const files = [${read}, 'plain'];`;
   assertGated(
