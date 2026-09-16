@@ -303,6 +303,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
     minLiquidity,
     selectedMarketCategoryId,
+    marketCategories: homeCategories,
   });
 
   const isTokenInWatchList = useCallback(

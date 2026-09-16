@@ -7,6 +7,7 @@ export enum EGalleryRoutes {
   ComponentCurrency = 'component-Currency',
   ComponentCryptoGallery = 'component-CryptoGallery',
   ComponentDeviceStageDriver = 'component-DeviceStageDriver',
+  ComponentFirmwareUpdateInstall = 'component-FirmwareUpdateInstall',
   ComponentDiscoveryBrowser = 'component-DiscoveryBrowser',
   ComponentDotMap = 'component-DotMap',
   ComponentErrorToast = 'component-ErrorToast',

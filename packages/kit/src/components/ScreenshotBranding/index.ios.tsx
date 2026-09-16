@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, Stack, useThemeName } from '@onekeyhq/components';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 const LOGO_WIDTH = 70;
 const LOGO_HEIGHT = 22;
@@ -28,12 +29,15 @@ const getLogoTop = (insetsTop: number): number => {
 export function ScreenshotBranding() {
   const insets = useSafeAreaInsets();
   const themeName = useThemeName();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   // Only render on iOS Notch & Dynamic Island devices (insets.top >= 44)
   const isNotchOrDynamicIsland =
     Platform.OS === 'ios' && insets.top >= NOTCH_THRESHOLD;
 
-  if (!isNotchOrDynamicIsland) {
+  if (!isNotchOrDynamicIsland || isTravelMode) {
     return null;
   }
 
@@ -44,6 +48,7 @@ export function ScreenshotBranding() {
 
   return (
     <Stack
+      testID="screenshot-branding"
       pointerEvents="none"
       position="absolute"
       top={getLogoTop(insets.top)}

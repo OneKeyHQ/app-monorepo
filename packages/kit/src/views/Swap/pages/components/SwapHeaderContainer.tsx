@@ -417,6 +417,12 @@ const SwapHeaderContainer = ({
     gtLg &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
+  const hideWalletHomeTokenListStockKLine = Boolean(
+    platformEnv.isDesktop &&
+    pageType === 'modal' &&
+    enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+    swapTypeSwitch === ESwapTabSwitchType.STOCK,
+  );
   const tabs = (
     <>
       <CustomTabItem
@@ -516,6 +522,7 @@ const SwapHeaderContainer = ({
           marketPresetSettings={marketPresetSettings}
           routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
+          hideKLine={hideWalletHomeTokenListStockKLine}
         />
       ) : null}
     </XStack>

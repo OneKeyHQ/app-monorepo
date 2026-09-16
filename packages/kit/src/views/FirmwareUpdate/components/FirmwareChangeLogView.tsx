@@ -48,6 +48,7 @@ import {
   getFirmwareUpdateUSBPreflightParams,
   getProtocolV2FirmwareVersionDisplayItems,
   getProtocolV2FirmwareVersionTitle,
+  shouldHidePro2FirmwareDebugInfo,
 } from '../utils';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
@@ -282,10 +283,11 @@ export function FirmwareChangeLogContentView({
   const intl = useIntl();
   const [devSettings] = useDevSettingsPersistAtom();
   const [firmwareDevSettings] = useFirmwareUpdateDevSettingsPersistAtom();
-  const hideDebugInfo =
-    devSettings.enabled &&
-    result?.deviceType === 'pro2' &&
-    firmwareDevSettings.hidePro2FirmwareDebugInfo === true;
+  const hideDebugInfo = shouldHidePro2FirmwareDebugInfo({
+    developerModeEnabled: devSettings.enabled,
+    hidePro2FirmwareDebugInfo: firmwareDevSettings.hidePro2FirmwareDebugInfo,
+    deviceType: result?.deviceType,
+  });
   const protocolV2VersionItems = getProtocolV2FirmwareVersionDisplayItems(
     result,
     { includeComponents: devSettings.enabled && !hideDebugInfo },
