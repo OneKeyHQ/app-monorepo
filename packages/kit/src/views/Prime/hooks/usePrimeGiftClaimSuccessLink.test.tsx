@@ -128,9 +128,7 @@ describe('usePrimeGiftClaimSuccessLink', () => {
 
   it('uses a gallery override and does not call Utility', async () => {
     const override = [enItem];
-    const { result } = renderHook(() =>
-      usePrimeGiftClaimSuccessLink(override),
-    );
+    const { result } = renderHook(() => usePrimeGiftClaimSuccessLink(override));
     expect(result.current).toBe(enItem);
     await expect(lastPromiseMethod?.()).resolves.toBe(override);
     expect(mockFetch).not.toHaveBeenCalled();
