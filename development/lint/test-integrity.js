@@ -1961,11 +1961,29 @@ function returnedRead(node, isReadCallee) {
       }
     });
   }
-  if (values.length !== 1) {
+  // Guard branches commonly return an empty value when the file is absent;
+  // they do not change which non-literal return reads the caller's path.
+  const readCandidates = values.filter((value) => {
+    if (!value) {
+      return false;
+    }
+    if (
+      value.type === 'NullLiteral' ||
+      value.type === 'StringLiteral' ||
+      value.type === 'NumericLiteral' ||
+      value.type === 'BooleanLiteral'
+    ) {
+      return false;
+    }
+    return !(
+      value.type === 'Identifier' && bindingOf(value)?.global === 'undefined'
+    );
+  });
+  if (readCandidates.length !== 1) {
     return undefined;
   }
   // Peel conversions and constants off the returned value until a read shows.
-  let value = values[0];
+  let value = readCandidates[0];
   for (let step = 0; step < 16; step += 1) {
     value = unwrapWholeConversion(value);
     const constant = constantValue(value, fn);

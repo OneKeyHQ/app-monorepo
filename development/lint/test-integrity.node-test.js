@@ -1104,11 +1104,7 @@ test('what a named function returns is still source', () => {
   `,
     'control: the same helper reading data',
   );
-  // Only the call knows a path built from the parameters, so the body alone
-  // says nothing about what it reads, even where there is no single return
-  // to classify per call.
-  assertClean(
-    `
+  const guardedRead = `
     function loadFixture(name) {
       const file = join(__dirname, '__fixtures__', name);
       if (!existsSync(file)) {
@@ -1116,9 +1112,18 @@ test('what a named function returns is still source', () => {
       }
       return readFileSync(file, 'utf8');
     }
+  `;
+  assertGated(
+    `${guardedRead}
+    it('x', () => { expect(loadFixture('Thing.ts')).toContain('go'); });
+  `,
+    'guarded read helper reading source at the call',
+  );
+  assertClean(
+    `${guardedRead}
     it('x', () => { expect(loadFixture('a.json')).toContain('go'); });
   `,
-    'control: several returns reading a path from the parameters',
+    'guarded read helper reading data at the call',
   );
   // Whole or cut, as it was returned.
   const script =
