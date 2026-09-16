@@ -278,8 +278,12 @@ function calleeName(callee) {
  * imported instead, 'native' for sources no JS runtime can execute, undefined
  * for build artifacts, data files and temp directories.
  */
-/** Classify a path expression on its own, wherever it was written. */
-function classifyPath(pathArgument, repoAnchored, anchoredHelpers) {
+/**
+ * Classify a path expression on its own, wherever it was written. `callSite`
+ * carries what a wrapper's caller contributes: the literals of the argument it
+ * passed, and whether that argument names the file outright.
+ */
+function classifyPath(pathArgument, repoAnchored, anchoredHelpers, callSite) {
   if (!pathArgument) {
     return undefined;
   }
@@ -289,7 +293,10 @@ function classifyPath(pathArgument, repoAnchored, anchoredHelpers) {
   if (!isRepoAnchored(pathArgument, repoAnchored, anchoredHelpers)) {
     return undefined;
   }
-  const literals = pathLiterals(pathArgument, repoAnchored);
+  const literals = [
+    ...(callSite?.literals ?? []),
+    ...pathLiterals(pathArgument, repoAnchored),
+  ];
   if (literals.some((literal) => ARTIFACT_PATH_RE.test(literal))) {
     return undefined;
   }
@@ -307,6 +314,10 @@ function classifyPath(pathArgument, repoAnchored, anchoredHelpers) {
   // No extension to go on. Only two shapes still say "source": a sibling of the
   // test file named by a variable, and a module specifier. Anything else
   // anchored but unextended is left alone.
+  // A wrapper's tail is whatever its caller passed, not the parameter name.
+  if (callSite && !callSite.endsInVariable) {
+    return undefined;
+  }
   return namesUnextendedSource(pathArgument, literals, repoAnchored)
     ? 'script'
     : undefined;
@@ -628,6 +639,16 @@ function collectReadAliases(ast) {
   return aliases;
 }
 
+function containsIdentifierNamed(node, name) {
+  let found = false;
+  walk(node, (current) => {
+    if (current.type === 'Identifier' && current.name === name) {
+      found = true;
+    }
+  });
+  return found;
+}
+
 /** The name a non-call expression refers to, for alias detection. */
 function calleeReference(node) {
   if (node.type === 'Identifier') {
@@ -659,12 +680,32 @@ function collectReadHelpers(ast, isRead, classify) {
       return;
     }
     const pathArgument = call.arguments[0];
-    const parameterIndex = returned.parameters.findIndex(
+    if (!pathArgument) {
+      return;
+    }
+    // The whole path is the parameter: classify the call-site argument.
+    const passedWhole = returned.parameters.findIndex(
       (parameter) =>
-        pathArgument?.type === 'Identifier' && parameter === pathArgument.name,
+        pathArgument.type === 'Identifier' && parameter === pathArgument.name,
     );
-    if (parameterIndex >= 0) {
-      helpers.set(returned.name, { parameterIndex });
+    if (passedWhole >= 0) {
+      helpers.set(returned.name, { parameterIndex: passedWhole });
+      return;
+    }
+    // The parameter is spliced into a path the helper owns, e.g.
+    // `(name) => readFileSync(join(__dirname, '__fixtures__', name))`. The
+    // filename still comes from the caller, so the body alone cannot say
+    // whether a call reads source or data.
+    const splicedIn = returned.parameters.findIndex(
+      (parameter) =>
+        parameter !== undefined &&
+        containsIdentifierNamed(pathArgument, parameter),
+    );
+    if (splicedIn >= 0) {
+      helpers.set(returned.name, {
+        parameterIndex: splicedIn,
+        path: pathArgument,
+      });
       return;
     }
     const kind = classify(pathArgument);
@@ -866,8 +907,8 @@ function analyzeFile(
 
   const { anchored: repoAnchored, helpers: anchoredHelpers } =
     collectRepoAnchoredBindings(ast);
-  const classify = (pathNode) =>
-    classifyPath(pathNode, repoAnchored, anchoredHelpers) ??
+  const classify = (pathNode, callSite) =>
+    classifyPath(pathNode, repoAnchored, anchoredHelpers, callSite) ??
     (walksSourceTree ? 'script' : undefined);
   const readAliases = collectReadAliases(ast);
   const isReadName = (name) =>
@@ -890,7 +931,18 @@ function analyzeFile(
     if (!helper) {
       return undefined;
     }
-    return helper.kind ?? classify(callNode.arguments[helper.parameterIndex]);
+    if (helper.kind) {
+      return helper.kind;
+    }
+    const passed = callNode.arguments[helper.parameterIndex];
+    if (!helper.path) {
+      return classify(passed);
+    }
+    // Classify the helper's own path with what the caller actually named.
+    return classify(helper.path, {
+      literals: passed ? pathLiterals(passed, repoAnchored) : [],
+      endsInVariable: passed ? endsInVariableName(passed, repoAnchored) : true,
+    });
   };
 
   // Pass 1: taint every binding that holds first-party source text. Seeding

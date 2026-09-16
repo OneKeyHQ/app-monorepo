@@ -492,6 +492,39 @@ test('follows a read through an alias or a one-line wrapper', () => {
   );
 });
 
+test('a wrapper that splices its parameter into a path defers to the call', () => {
+  // The fixture-reader shape: the helper owns the directory, the caller names
+  // the file, so the helper alone cannot say whether a call reads source.
+  const wrapper = `
+    const readFixture = (name) =>
+      readFileSync(join(__dirname, '__fixtures__', name), 'utf8');
+  `;
+  assertClean(
+    `${wrapper}
+    it('x', () => { expect(readFixture('a.json')).toEqual({}); });
+  `,
+    'data extension at the call site',
+  );
+  assertClean(
+    `${wrapper}
+    it('x', () => { expect(readFixture('Podfile')).toContain('pod'); });
+  `,
+    'extensionless literal at the call site',
+  );
+  assertGated(
+    `${wrapper}
+    it('x', () => { expect(readFixture('a.ts')).toContain('go'); });
+  `,
+    'control: source extension at the call site',
+  );
+  assertGated(
+    `${wrapper}
+    it('x', () => { expect(readFixture(name)).toContain('go'); });
+  `,
+    'control: the caller does not name the file either',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`
