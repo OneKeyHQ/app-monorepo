@@ -13,7 +13,7 @@ import {
 } from './firmwareUpdateInstallViewModel';
 
 describe('firmwareUpdateInstallViewModel', () => {
-  test('maps every tip into one of six stages', () => {
+  test('maps every tip into one of the install stages', () => {
     expect(getFirmwareUpdateStage({ progressType: undefined })).toBe(
       'preparing',
     );
@@ -38,6 +38,11 @@ describe('firmwareUpdateInstallViewModel', () => {
     expect(
       getFirmwareUpdateStage({
         progressType: EFirmwareUpdateTipMessages.StartTransferData,
+      }),
+    ).toBe('transferring');
+    expect(
+      getFirmwareUpdateStage({
+        progressType: EFirmwareUpdateTipMessages.InstallingFirmware,
       }),
     ).toBe('installing');
     expect(

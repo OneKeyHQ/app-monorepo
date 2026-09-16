@@ -324,7 +324,11 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
     if (firmwareProgressType !== 'transferData') {
       return undefined;
     }
-    if (displayStage !== 'downloading' && displayStage !== 'installing') {
+    if (
+      displayStage !== 'downloading' &&
+      displayStage !== 'transferring' &&
+      displayStage !== 'installing'
+    ) {
       return undefined;
     }
     const etaMs = getFirmwareTransferEtaMs(firmwareTransferMetrics);

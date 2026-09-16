@@ -28,7 +28,10 @@ import {
   OneKeyLocalError,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
-import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  FirmwareUpdateTransferInterruptedError,
+  FirmwareUpdateVersionMismatchError,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -51,6 +54,7 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { onVisibilityStateChange } from '@onekeyhq/shared/src/utils/appVisibility';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -100,6 +104,12 @@ import {
   FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
+import {
+  FIRMWARE_TRANSFER_RESUME_GRACE_MS,
+  didFirmwareTransferResume,
+  getFirmwareTransferUiSnapshot,
+  isFirmwareTransferInProgress,
+} from './FirmwareTransferStallGuard';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
 import type {
@@ -313,6 +323,112 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private transferStallUnsub?: () => void;
+
+  private transferStallAborting = false;
+
+  private transferStallConnectId?: string;
+
+  private backgroundedDuringTransfer = false;
+
+  private startFirmwareTransferStallGuard(connectId: string | undefined) {
+    this.stopFirmwareTransferStallGuard();
+    this.transferStallAborting = false;
+    this.backgroundedDuringTransfer = false;
+    this.transferStallConnectId = connectId;
+    this.transferStallUnsub = onVisibilityStateChange((visible) => {
+      void this.onFirmwareUpdateVisibilityChange(visible);
+    });
+  }
+
+  private stopFirmwareTransferStallGuard() {
+    this.transferStallUnsub?.();
+    this.transferStallUnsub = undefined;
+    this.backgroundedDuringTransfer = false;
+  }
+
+  private async readFirmwareTransferUiSnapshot() {
+    const activeState = await hardwareUiStateAtom.get();
+    if (activeState) {
+      return getFirmwareTransferUiSnapshot(activeState);
+    }
+    return getFirmwareTransferUiSnapshot(
+      await hardwareUiStateCompletedAtom.get(),
+    );
+  }
+
+  private async onFirmwareUpdateVisibilityChange(visible: boolean) {
+    const running = await firmwareUpdateWorkflowRunningAtom.get();
+    if (!running || this.transferStallAborting) {
+      return;
+    }
+    const snapshot = await this.readFirmwareTransferUiSnapshot();
+    if (!isFirmwareTransferInProgress(snapshot)) {
+      this.backgroundedDuringTransfer = false;
+      return;
+    }
+    if (!visible) {
+      this.backgroundedDuringTransfer = true;
+      return;
+    }
+    if (!this.backgroundedDuringTransfer) {
+      return;
+    }
+    this.backgroundedDuringTransfer = false;
+    await timerUtils.wait(FIRMWARE_TRANSFER_RESUME_GRACE_MS);
+    if (this.transferStallAborting) {
+      return;
+    }
+    const stillRunning = await firmwareUpdateWorkflowRunningAtom.get();
+    if (!stillRunning) {
+      return;
+    }
+    const after = await this.readFirmwareTransferUiSnapshot();
+    if (didFirmwareTransferResume({ before: snapshot, after })) {
+      return;
+    }
+    await this.abortFirmwareTransferAfterBackground();
+  }
+
+  private async abortFirmwareTransferAfterBackground() {
+    if (this.transferStallAborting) {
+      return;
+    }
+    this.transferStallAborting = true;
+    const error = new FirmwareUpdateTransferInterruptedError();
+    const taskId = Number(Object.keys(this.updateTasks)[0]);
+    serviceHardwareUtils.hardwareLog(
+      'firmware transfer stalled after returning to foreground',
+      { connectId: this.transferStallConnectId },
+    );
+    if (Number.isFinite(taskId)) {
+      const stepInfo = await firmwareUpdateStepInfoAtom.get();
+      if (stepInfo.step === EFirmwareUpdateSteps.updateStart) {
+        await firmwareUpdateStepInfoAtom.set({
+          step: EFirmwareUpdateSteps.installing,
+          payload: {},
+        });
+      }
+      await firmwareUpdateRetryAtom.set({
+        id: taskId,
+        error: toUserFacingFirmwareUpdateError(
+          toPlainErrorObject(error as any),
+        ),
+      });
+    }
+    try {
+      await this.backgroundApi.serviceHardware.cancel({
+        connectId: this.transferStallConnectId,
+        immediate: true,
+      });
+    } catch (cancelError) {
+      serviceHardwareUtils.hardwareLog(
+        'firmware transfer stall cancel ERROR',
+        cancelError,
+      );
+    }
   }
 
   private async getActiveTransportType(): Promise<EHardwareTransportType> {
