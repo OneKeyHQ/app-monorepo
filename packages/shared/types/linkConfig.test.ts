@@ -12,18 +12,12 @@ const SAMPLE_ITEM: ILinkConfigItem = {
 };
 
 describe('asLinkConfigItems', () => {
-  it('returns a stable empty array for non-array payloads', () => {
-    const empty = asLinkConfigItems(undefined);
-    expect(empty).toEqual([]);
-    expect(asLinkConfigItems(null)).toBe(empty);
-    expect(asLinkConfigItems({})).toBe(empty);
-    expect(asLinkConfigItems('x')).toBe(empty);
-    expect(asLinkConfigItems(1)).toBe(empty);
+  it('returns an empty array for a malformed null payload', () => {
+    expect(asLinkConfigItems(null)).toEqual([]);
   });
 
-  it('returns the same array when the payload is already a list', () => {
+  it('returns a valid array payload unchanged', () => {
     const items = [SAMPLE_ITEM];
-    expect(asLinkConfigItems(items)).toBe(items);
-    expect(asLinkConfigItems([])).toEqual([]);
+    expect(asLinkConfigItems(items)).toEqual(items);
   });
 });

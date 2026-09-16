@@ -5,16 +5,14 @@ import { act, renderHook } from '@testing-library/react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT } from '@onekeyhq/shared/types/linkConfig';
 
-import {
-  type IPrimeGiftCampaignBannerImpressionHost,
-  type IPrimeGiftCampaignBannerMeasureHost,
-  type IPrimeGiftCampaignBannerMeasureInWindow,
-  usePrimeGiftCampaignBannerImpression,
-} from './usePrimeGiftCampaignBannerImpression';
+import { usePrimeGiftCampaignBannerImpression } from './usePrimeGiftCampaignBannerImpression';
+
+import type { View } from 'react-native';
+
+type INativeMeasureCallback = Parameters<View['measureInWindow']>[0];
+type INativeMeasureHost = Pick<View, 'measureInWindow'>;
 
 const mockShown = jest.fn();
-let appVisible = true;
-const visibilityListeners: ((visible: boolean) => void)[] = [];
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -39,16 +37,8 @@ jest.mock('@react-navigation/core', () => {
 });
 
 jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
-  getCurrentVisibilityState: () => appVisible,
-  onVisibilityStateChange: (callback: (visible: boolean) => void) => {
-    visibilityListeners.push(callback);
-    return () => {
-      const index = visibilityListeners.indexOf(callback);
-      if (index >= 0) {
-        visibilityListeners.splice(index, 1);
-      }
-    };
-  },
+  getCurrentVisibilityState: () => true,
+  onVisibilityStateChange: () => () => {},
 }));
 
 jest.mock('react-native', () => {
@@ -62,7 +52,7 @@ jest.mock('react-native', () => {
 });
 
 const mockScrollViewRef: {
-  current: IPrimeGiftCampaignBannerMeasureHost | null;
+  current: INativeMeasureHost | null;
 } = {
   current: null,
 };
@@ -73,20 +63,10 @@ jest.mock('@onekeyhq/components', () => ({
   }),
 }));
 
-function setViewportMeasure(
-  measureInWindow: IPrimeGiftCampaignBannerMeasureHost['measureInWindow'],
-) {
-  mockScrollViewRef.current = {
-    measureInWindow,
-  };
-}
-
 describe('native gift campaign banner impression', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    appVisible = true;
-    visibilityListeners.length = 0;
     mockScrollViewRef.current = null;
     platformEnv.isNative = true;
   });
@@ -98,14 +78,19 @@ describe('native gift campaign banner impression', () => {
 
   it('does not count a banner clipped under the footer until it scrolls into the ScrollView viewport', () => {
     let bannerY = 720;
-    const host: IPrimeGiftCampaignBannerImpressionHost = {
-      measureInWindow: (callback) => {
+    const host: INativeMeasureHost = {
+      measureInWindow(callback) {
+        expect(this).toBe(host);
         callback(0, bannerY, 400, 80);
       },
     };
-    setViewportMeasure((callback) => {
-      callback(0, 0, 400, 700);
-    });
+    const viewport: INativeMeasureHost = {
+      measureInWindow(callback) {
+        expect(this).toBe(viewport);
+        callback(0, 0, 400, 700);
+      },
+    };
+    mockScrollViewRef.current = viewport;
     const { result } = renderHook(() =>
       usePrimeGiftCampaignBannerImpression({
         enabled: true,
@@ -135,16 +120,18 @@ describe('native gift campaign banner impression', () => {
   });
 
   it('ignores stale banner and viewport measures after unmount', () => {
-    const bannerCallbacks: IPrimeGiftCampaignBannerMeasureInWindow[] = [];
-    const viewportCallbacks: IPrimeGiftCampaignBannerMeasureInWindow[] = [];
-    const host: IPrimeGiftCampaignBannerImpressionHost = {
-      measureInWindow: (callback) => {
+    const bannerCallbacks: INativeMeasureCallback[] = [];
+    const viewportCallbacks: INativeMeasureCallback[] = [];
+    const host: INativeMeasureHost = {
+      measureInWindow(callback) {
         bannerCallbacks.push(callback);
       },
     };
-    setViewportMeasure((callback) => {
-      viewportCallbacks.push(callback);
-    });
+    mockScrollViewRef.current = {
+      measureInWindow(callback) {
+        viewportCallbacks.push(callback);
+      },
+    };
 
     const first = renderHook(() =>
       usePrimeGiftCampaignBannerImpression({
@@ -187,41 +174,5 @@ describe('native gift campaign banner impression', () => {
     });
     expect(mockShown).not.toHaveBeenCalled();
     expect(bannerCallbacks).toHaveLength(1);
-  });
-
-  it('calls measureInWindow on the banner and viewport hosts', () => {
-    const bannerReceivers: unknown[] = [];
-    const viewportReceivers: unknown[] = [];
-    const host: IPrimeGiftCampaignBannerMeasureHost = {
-      measureInWindow(
-        this: unknown,
-        callback: IPrimeGiftCampaignBannerMeasureInWindow,
-      ) {
-        bannerReceivers.push(this);
-        callback(10, 10, 100, 80);
-      },
-    };
-    const viewport: IPrimeGiftCampaignBannerMeasureHost = {
-      measureInWindow(
-        this: unknown,
-        callback: IPrimeGiftCampaignBannerMeasureInWindow,
-      ) {
-        viewportReceivers.push(this);
-        callback(0, 0, 400, 700);
-      },
-    };
-    mockScrollViewRef.current = viewport;
-    const { result } = renderHook(() =>
-      usePrimeGiftCampaignBannerImpression({
-        enabled: true,
-        linkId: 'campaign-1',
-      }),
-    );
-    act(() => {
-      result.current(host);
-    });
-    expect(bannerReceivers).toEqual([host]);
-    expect(viewportReceivers).toEqual([viewport]);
-    expect(mockShown).toHaveBeenCalledTimes(1);
   });
 });

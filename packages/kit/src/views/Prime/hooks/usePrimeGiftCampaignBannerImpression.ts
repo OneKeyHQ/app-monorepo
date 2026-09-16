@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/core';
-import { Dimensions } from 'react-native';
+import { Dimensions, type View } from 'react-native';
 
 import { useScrollView } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -14,71 +14,15 @@ import { PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT } from '@onekeyhq/shared/types/linkC
 
 const NATIVE_POLL_MS = 300;
 
-export type IPrimeGiftCampaignBannerMeasureInWindow = (
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) => void;
+type INativeMeasureHost = Pick<View, 'measureInWindow'>;
+type IImpressionHost = INativeMeasureHost | Element | null;
 
-export type IPrimeGiftCampaignBannerMeasureHost = {
-  measureInWindow?: (callback: IPrimeGiftCampaignBannerMeasureInWindow) => void;
-};
-
-export type IPrimeGiftCampaignBannerImpressionHost =
-  | IPrimeGiftCampaignBannerMeasureHost
-  | Element
-  | null;
-
-type IMeasureHost = {
-  measureInWindow: (callback: IPrimeGiftCampaignBannerMeasureInWindow) => void;
-};
-
-type IWindowRect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-function intersectRects(
-  a: IWindowRect,
-  b: IWindowRect,
-): IWindowRect | undefined {
-  const x = Math.max(a.x, b.x);
-  const y = Math.max(a.y, b.y);
-  const width = Math.min(a.x + a.width, b.x + b.width) - x;
-  const height = Math.min(a.y + a.height, b.y + b.height) - y;
-  if (width <= 0 || height <= 0) {
-    return undefined;
-  }
-  return { x, y, width, height };
-}
-
-function isRectVisibleInScrollViewport(
-  banner: IWindowRect,
-  viewport: IWindowRect,
-) {
-  const windowRect = {
-    x: 0,
-    y: 0,
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
-  };
-  const clipped = intersectRects(banner, viewport);
-  if (!clipped) {
-    return false;
-  }
-  return Boolean(intersectRects(clipped, windowRect));
-}
-
-function isMeasureHost(value: unknown): value is IMeasureHost {
+function isMeasureHost(value: unknown): value is INativeMeasureHost {
   return (
     typeof value === 'object' &&
     value !== null &&
     'measureInWindow' in value &&
-    typeof (value as { measureInWindow?: unknown }).measureInWindow ===
-      'function'
+    typeof value.measureInWindow === 'function'
   );
 }
 
@@ -91,8 +35,7 @@ export function usePrimeGiftCampaignBannerImpression({
 }) {
   const isFocused = useIsFocused();
   const { scrollViewRef } = useScrollView();
-  const [host, setHost] =
-    useState<IPrimeGiftCampaignBannerImpressionHost>(null);
+  const [host, setHost] = useState<IImpressionHost>(null);
   const shownThisVisitRef = useRef(new Set<string>());
 
   useFocusEffect(
@@ -148,7 +91,7 @@ export function usePrimeGiftCampaignBannerImpression({
         return;
       }
       if (platformEnv.isNative) {
-        if (!isMeasureHost(host) || !isMeasureHost(scrollViewRef?.current)) {
+        if (!isMeasureHost(host) || !isMeasureHost(scrollViewRef.current)) {
           return;
         }
         host.measureInWindow((x, y, width, height) => {
@@ -158,7 +101,7 @@ export function usePrimeGiftCampaignBannerImpression({
           if (shownThisVisitRef.current.has(linkId)) {
             return;
           }
-          const viewport = scrollViewRef?.current;
+          const viewport = scrollViewRef.current;
           if (!isMeasureHost(viewport)) {
             return;
           }
@@ -169,15 +112,15 @@ export function usePrimeGiftCampaignBannerImpression({
             if (shownThisVisitRef.current.has(linkId)) {
               return;
             }
-            if (
-              !isRectVisibleInScrollViewport(
-                { x, y, width, height },
-                { x: vx, y: vy, width: vw, height: vh },
-              )
-            ) {
-              return;
+            const { width: windowWidth, height: windowHeight } =
+              Dimensions.get('window');
+            const left = Math.max(x, vx, 0);
+            const top = Math.max(y, vy, 0);
+            const right = Math.min(x + width, vx + vw, windowWidth);
+            const bottom = Math.min(y + height, vy + vh, windowHeight);
+            if (right > left && bottom > top) {
+              markShown();
             }
-            markShown();
           });
         });
         return;

@@ -17,10 +17,10 @@ export type ILinkConfigItem = {
 
 const EMPTY_LINK_CONFIG_ITEMS: ILinkConfigItem[] = [];
 
-function isLinkConfigItemArray(items: unknown): items is ILinkConfigItem[] {
-  return Array.isArray(items);
-}
-
 export function asLinkConfigItems(items: unknown): ILinkConfigItem[] {
-  return isLinkConfigItemArray(items) ? items : EMPTY_LINK_CONFIG_ITEMS;
+  // Utility already owns the array contract; this only fails closed on
+  // a non-array wire payload.
+  return Array.isArray(items)
+    ? (items as ILinkConfigItem[])
+    : EMPTY_LINK_CONFIG_ITEMS;
 }

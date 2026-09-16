@@ -39,33 +39,33 @@ function installBrowserEventTargets() {
   return { documentTarget, testDocument, windowTarget };
 }
 
+const originalDocument = Object.getOwnPropertyDescriptor(
+  globalThis,
+  'document',
+);
+const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+beforeEach(() => {
+  mockPlatformEnv.isDesktop = false;
+  mockPlatformEnv.isExtension = false;
+  mockPlatformEnv.isExtensionUi = false;
+  mockPlatformEnv.isNative = false;
+});
+
+afterEach(() => {
+  if (originalDocument) {
+    Object.defineProperty(globalThis, 'document', originalDocument);
+  } else {
+    Reflect.deleteProperty(globalThis, 'document');
+  }
+  if (originalWindow) {
+    Object.defineProperty(globalThis, 'window', originalWindow);
+  } else {
+    Reflect.deleteProperty(globalThis, 'window');
+  }
+});
+
 describe('onVisibilityStateChange in browser runtimes', () => {
-  const originalDocument = Object.getOwnPropertyDescriptor(
-    globalThis,
-    'document',
-  );
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-
-  beforeEach(() => {
-    mockPlatformEnv.isDesktop = false;
-    mockPlatformEnv.isExtension = false;
-    mockPlatformEnv.isExtensionUi = false;
-    mockPlatformEnv.isNative = false;
-  });
-
-  afterEach(() => {
-    if (originalDocument) {
-      Object.defineProperty(globalThis, 'document', originalDocument);
-    } else {
-      Reflect.deleteProperty(globalThis, 'document');
-    }
-    if (originalWindow) {
-      Object.defineProperty(globalThis, 'window', originalWindow);
-    } else {
-      Reflect.deleteProperty(globalThis, 'window');
-    }
-  });
-
   it('ignores window focus changes and reacts to document visibility changes', () => {
     const { documentTarget, testDocument, windowTarget } =
       installBrowserEventTargets();
@@ -135,32 +135,6 @@ describe('onVisibilityStateChange in browser runtimes', () => {
 });
 
 describe('getCurrentVisibilityState in browser runtimes', () => {
-  const originalDocument = Object.getOwnPropertyDescriptor(
-    globalThis,
-    'document',
-  );
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-
-  beforeEach(() => {
-    mockPlatformEnv.isDesktop = false;
-    mockPlatformEnv.isExtension = false;
-    mockPlatformEnv.isExtensionUi = false;
-    mockPlatformEnv.isNative = false;
-  });
-
-  afterEach(() => {
-    if (originalDocument) {
-      Object.defineProperty(globalThis, 'document', originalDocument);
-    } else {
-      Reflect.deleteProperty(globalThis, 'document');
-    }
-    if (originalWindow) {
-      Object.defineProperty(globalThis, 'window', originalWindow);
-    } else {
-      Reflect.deleteProperty(globalThis, 'window');
-    }
-  });
-
   it('keeps web visibility independent of document focus', () => {
     const { testDocument } = installBrowserEventTargets();
     Object.assign(testDocument, {
