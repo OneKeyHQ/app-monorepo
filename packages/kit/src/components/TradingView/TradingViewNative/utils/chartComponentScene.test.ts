@@ -101,6 +101,9 @@ describe('TradingViewNative chart component scene', () => {
     expect(titleIndex).toBeGreaterThan(latestPriceLineIndex);
     expect(priceLabelIndex).toBeLessThan(currentPriceLabelIndex);
     expect(titleIndex).toBeGreaterThan(currentPriceLabelIndex);
+    expect(scene.commands[titleIndex]).toMatchObject({
+      font: 'referenceLineLabel',
+    });
     const titleTextXs = scene.commands.flatMap((command) =>
       command.kind === 'text' && command.text === 'Prev close'
         ? [command.x]
