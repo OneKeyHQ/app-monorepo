@@ -119,20 +119,18 @@ export function getMarketNativeCompactListStyle(isCompact: boolean) {
     : ({} as const);
 }
 
+// The empty watchlist content sits a fixed distance below the tab bar
+// instead of drifting toward the middle of tall windows.
+const MARKET_RECOMMEND_WEB_TOP_GAP = 24;
+
 interface IGetMarketRecommendContainerPaddingTopParams {
   isNative: boolean;
-  windowHeight: number;
 }
 
 export function getMarketRecommendContainerPaddingTop({
   isNative,
-  windowHeight,
 }: IGetMarketRecommendContainerPaddingTopParams) {
-  // Keep a minimum gap below the tab bar on short windows (<= 832px),
-  // where the height-based formula would otherwise collapse to 0.
-  return isNative
-    ? 0
-    : Math.max(MARKET_MOBILE_CONTENT_TOP_GAP, (windowHeight - 800) * 0.5);
+  return isNative ? 0 : MARKET_RECOMMEND_WEB_TOP_GAP;
 }
 
 interface IGetMarketWebSecondaryHeaderHeightParams {

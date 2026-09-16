@@ -41,6 +41,7 @@ const MarketStockSelectorList = memo(
       compact: true,
       showSparkline: false,
       showWatchlist: true,
+      showMarketTags: true,
       watchlistFrom: EWatchlistFrom.Search,
     });
     const normalizedQuery = query?.trim() ?? '';
