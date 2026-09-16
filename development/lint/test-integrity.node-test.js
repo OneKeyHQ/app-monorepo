@@ -688,6 +688,107 @@ test('a one-line transform helper carries the text it was given', () => {
   );
 });
 
+test('chained one-line helpers resolve without crashing the file', () => {
+  // A crash here used to be caught and reported as an unparseable file, which
+  // dropped every assertion in it from the gate with no failure.
+  assertGated(
+    `
+    const collapse = (text) => text.trim();
+    const normalize = (text) => collapse(text).replace(/x/gu, ' ');
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(
+        files.filter((file) =>
+          normalize(readFileSync(join(__dirname, file), 'utf8')).includes('go'),
+        ),
+      ).toEqual([]);
+    });
+  `,
+    'helper calling a helper',
+  );
+  // A callback local must reach a transform helper, which needs the callback's
+  // own scope rather than the file-level map.
+  assertGated(
+    `
+    function normalize(text) {
+      return text.replace(/x/gu, ' ');
+    }
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(
+        files.map((file) => {
+          const contents = readFileSync(join(__dirname, file), 'utf8');
+          return normalize(contents);
+        }),
+      ).toEqual([]);
+    });
+  `,
+    'callback local through a transform',
+  );
+});
+
+test('a name the callback binds is its own, not the file-level one', () => {
+  const tainted = `const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');`;
+  assertClean(
+    `${tainted}
+    const devices = [];
+    it('x', () => { expect(devices.map((source) => source.id)).toEqual([]); });
+  `,
+    'parameter shadows',
+  );
+  assertClean(
+    `${tainted}
+    const items = [];
+    it('x', () => {
+      expect(
+        items.map((item) => {
+          try {
+            go();
+          } catch (source) {
+            return source.id;
+          }
+          return 1;
+        }),
+      ).toEqual([]);
+    });
+  `,
+    'catch binding shadows',
+  );
+  assertClean(
+    `${tainted}
+    const items = [];
+    it('x', () => {
+      expect(
+        items.map((item) => {
+          for (const source of item) {
+            return source.id;
+          }
+          return 1;
+        }),
+      ).toEqual([]);
+    });
+  `,
+    'for-of binding shadows',
+  );
+  // Control: a callback that really does capture the binding is gated.
+  assertGated(
+    `${tainted}
+    const items = [];
+    it('x', () => { expect(items.map((item) => source.includes(item))).toEqual([]); });
+  `,
+    'control: genuine capture',
+  );
+});
+
+test('unparseable input throws a SyntaxError and nothing else', () => {
+  // analyzeOne tolerates exactly this and rethrows everything else, so that an
+  // internal defect cannot drop a file from the gate while looking clean.
+  assert.throws(
+    () => analyzeFile(FIXTURE_PATH, 'const a = (((;'),
+    (error) => error instanceof SyntaxError,
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`

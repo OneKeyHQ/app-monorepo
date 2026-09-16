@@ -382,7 +382,7 @@ function taintKind(node, tainted, readKind) {
       return taintKind(node.expressions.at(-1), tainted, readKind);
     case 'CallExpression':
     case 'OptionalCallExpression': {
-      const fromRead = readKind ? readKind(node) : undefined;
+      const fromRead = readKind ? readKind(node, tainted) : undefined;
       if (fromRead) {
         return fromRead;
       }
@@ -453,7 +453,7 @@ function isWholeFileRead(node, tainted, wholeReads, readKind) {
     case 'CallExpression':
     case 'OptionalCallExpression': {
       const name = calleeName(node.callee);
-      if (readKind(node)) {
+      if (readKind(node, tainted)) {
         return true;
       }
       if (
@@ -550,12 +550,32 @@ function callbackBodyTaint(node, tainted, readKind) {
   ) {
     return undefined;
   }
-  if (node.body.type !== 'BlockStatement') {
-    return taintKind(node.body, tainted, readKind);
-  }
-  // Seed the callback's own locals first, so `const s = read(...); return
-  // s.includes(x)` is followed.
+  // A name the callback binds is its own, whatever a file-level binding of the
+  // same name holds. Parameters shadow for both body forms; `catch` and
+  // `for...of` bindings only exist inside a block.
   const local = new Map(tainted);
+  node.params.forEach((parameter) =>
+    patternNames(parameter).forEach((name) => local.delete(name)),
+  );
+  if (node.body.type !== 'BlockStatement') {
+    return taintKind(node.body, local, readKind);
+  }
+  walkOwnBody(node.body, (current) => {
+    if (current.type === 'CatchClause') {
+      patternNames(current.param).forEach((name) => local.delete(name));
+    }
+    if (
+      (current.type === 'ForOfStatement' ||
+        current.type === 'ForInStatement') &&
+      current.left.type === 'VariableDeclaration'
+    ) {
+      current.left.declarations.forEach((declaration) =>
+        patternNames(declaration.id).forEach((name) => local.delete(name)),
+      );
+    }
+  });
+  // Seed the callback's own locals, so `const s = read(...); return
+  // s.includes(x)` is followed.
   for (let round = 0; round < 4; round += 1) {
     const before = local.size;
     walkOwnBody(node.body, (current) => {
@@ -1062,13 +1082,17 @@ function analyzeFile(
   const isReadName = (name) =>
     READ_FUNCTIONS.has(name) || readAliases.has(name);
   const readHelpers = collectReadHelpers(ast, isReadName, classify);
+  // Declared before readKind so nothing can close over them while they are
+  // still in their temporal dead zone.
+  const tainted = new Map();
+  const wholeReads = new Set();
   // Filled once readKind exists, since evaluating a helper's body needs it.
   const transformHelpers = new Map();
   const resolvingTransforms = new Set();
   // A read is a direct call, a call through an alias of one, or a call to a
   // helper that does nothing but read. A transform helper is not a read, but
   // it hands its argument's text back, so the taint travels through it.
-  const readKind = (callNode) => {
+  const readKind = (callNode, scope = tainted) => {
     const name = calleeName(callNode.callee);
     if (!name) {
       return undefined;
@@ -1087,7 +1111,7 @@ function analyzeFile(
       }
       resolvingTransforms.add(name);
       try {
-        return taintKind(callNode.arguments[transformed], tainted, readKind);
+        return taintKind(callNode.arguments[transformed], scope, readKind);
       } finally {
         resolvingTransforms.delete(name);
       }
@@ -1117,8 +1141,6 @@ function analyzeFile(
   // sit anywhere inside the initializer -- behind an await, a cast, an optional
   // chain, or a string method. Iterate to a fixpoint so derived bindings
   // (`const body = source.slice(a, b)`) follow.
-  const tainted = new Map();
-  const wholeReads = new Set();
   for (let round = 0; round < 6; round += 1) {
     const before = tainted.size + wholeReads.size;
     walk(ast, (node) => {
@@ -1448,6 +1470,12 @@ function analyzeOne(absolutePath, allowlist, usedEntries) {
   try {
     result = analyzeFile(absolutePath, source, allowlist, usedEntries);
   } catch (error) {
+    // Unparseable input is a fact about the file; anything else is a defect in
+    // this check, and swallowing it would drop the whole file from the gate
+    // without saying so.
+    if (!(error instanceof SyntaxError)) {
+      throw error;
+    }
     return {
       file: relativePath,
       parseError: error.message,
