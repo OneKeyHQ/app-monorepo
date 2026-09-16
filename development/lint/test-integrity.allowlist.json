@@ -1,1 +1,14 @@
-{ "entries": [] }
+{
+  "entries": [
+    {
+      "file": "apps/cli/src/commands/__tests__/get-address.test.ts",
+      "rule": "source-text-assertion",
+      "reason": "get-address must stay a pure vault read: no network (axios), no session cache write, no seed access (getHdCredential). That is a property of the module's whole reachable graph, not of any one call, so no invocation of the command can demonstrate the absence of those imports. Replace with a static import-graph check over the built CLI bundle, which would also cover transitive reintroduction."
+    },
+    {
+      "file": "packages/kit-bg/src/services/ServiceHardware/resourceBase64StartupGraph.test.ts",
+      "rule": "source-text-assertion",
+      "reason": "On iOS, Android and the extension, main and bg are isolated JS runtimes and hardware resources cross between them as JSON. Reintroducing jpegRgbaUtils or offscreenApiBinaryCodec anywhere on that path breaks the crossing, and absence from a module graph is not observable from any single call. Replace with a static import-graph check over the bg bundle."
+    }
+  ]
+}
