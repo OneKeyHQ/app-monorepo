@@ -86,15 +86,19 @@ jest.mock('./hooks/useNativeChartControls', () => ({
 }));
 
 function renderControls({
+  enableNativeChartSettings = true,
   layoutMode = 'mobile',
   onChartSwitch,
+  onOpenChartSettings,
 }: {
+  enableNativeChartSettings?: boolean;
   layoutMode?: 'mobile' | 'desktop';
   onChartSwitch?: () => void;
+  onOpenChartSettings?: () => void;
 }) {
   return render(
     <TradingViewV2ChartControlsContainer
-      enableNativeChartSettings
+      enableNativeChartSettings={enableNativeChartSettings}
       intervalConfig={{ activeInterval: '60', intervals: [] }}
       nativeChartControlsConfig={null}
       nativeIndicatorState={{
@@ -107,6 +111,7 @@ function renderControls({
       layoutMode={layoutMode}
       chartTimezone="UTC"
       onChartSwitch={onChartSwitch}
+      onOpenChartSettings={onOpenChartSettings}
       onIntervalChange={jest.fn()}
       onIndicatorSelect={jest.fn()}
       onChartTypeChange={jest.fn()}
@@ -120,6 +125,56 @@ function renderControls({
 describe('TradingViewV2ChartControlsContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each<{
+    enableNativeChartSettings: boolean;
+    layoutMode: 'desktop' | 'mobile';
+  }>([
+    { enableNativeChartSettings: false, layoutMode: 'desktop' },
+    { enableNativeChartSettings: true, layoutMode: 'desktop' },
+    { enableNativeChartSettings: false, layoutMode: 'mobile' },
+    { enableNativeChartSettings: true, layoutMode: 'mobile' },
+  ])(
+    'opens built-in $layoutMode chart settings when native settings are enabled: $enableNativeChartSettings',
+    ({ enableNativeChartSettings, layoutMode }) => {
+      const onOpenChartSettings = jest.fn();
+      renderControls({
+        enableNativeChartSettings,
+        layoutMode,
+        onChartSwitch: layoutMode === 'desktop' ? jest.fn() : undefined,
+        onOpenChartSettings,
+      });
+
+      const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+        onSettingsPress: () => void;
+      };
+      controlsProps.onSettingsPress();
+
+      expect(onOpenChartSettings).toHaveBeenCalledTimes(1);
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockShowTradingViewChartSettingsDialog).not.toHaveBeenCalled();
+    },
+  );
+
+  it('opens built-in settings from the mobile dialog while keeping the chart switch', () => {
+    const onChartSwitch = jest.fn();
+    const onOpenChartSettings = jest.fn();
+    renderControls({ onChartSwitch, onOpenChartSettings });
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      onSettingsPress: () => void;
+    };
+    controlsProps.onSettingsPress();
+
+    expect(onOpenChartSettings).not.toHaveBeenCalled();
+    const settingsProps = mockDialogShow.mock.calls[0][0].renderContent
+      .props as IMobileSettingsProps;
+    expect(settingsProps.onChartSwitch).toBe(onChartSwitch);
+    settingsProps.onOpenSettings();
+
+    expect(onOpenChartSettings).toHaveBeenCalledTimes(1);
+    expect(mockShowTradingViewChartSettingsDialog).not.toHaveBeenCalled();
   });
 
   it('opens mobile settings with the TradingView source switch', () => {
