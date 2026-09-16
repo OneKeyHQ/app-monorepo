@@ -22,6 +22,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { parse } = require('@babel/parser');
+const { NodePath } = require('@babel/traverse');
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const ALLOWLIST_PATH = path.join(__dirname, 'test-integrity.allowlist.json');
@@ -269,6 +270,67 @@ function parseSource(source) {
   });
 }
 
+// Babel reports a redeclared name through the hub it is given, and without one
+// it fails with a TypeError about the missing hub instead. A redeclaration
+// makes the file invalid, so it is reported the way any parse error is.
+const SYNTAX_ERROR_HUB = {
+  getCode() {},
+  getScope() {},
+  addHelper() {
+    throw new Error('test-integrity reads code; it never adds helpers');
+  },
+  buildError: (_node, message) => new SyntaxError(message),
+};
+
+// Every identifier that names a variable, mapped to the binding it resolves
+// to. Taint, path anchoring and helpers are all keyed by binding, so two
+// variables that happen to share a name never share a verdict. Keyed by node,
+// so nothing needs resetting between files.
+const bindingByIdentifier = new WeakMap();
+
+function bindingOf(node) {
+  return node?.type === 'Identifier'
+    ? bindingByIdentifier.get(node)
+    : undefined;
+}
+
+function resolveBindings(ast) {
+  const program = NodePath.get({
+    hub: SYNTAX_ERROR_HUB,
+    parentPath: null,
+    parent: ast,
+    container: ast,
+    key: 'program',
+  }).setContext();
+  // A name nothing declares is one global, however many places use it.
+  const globals = new Map();
+  program.traverse({
+    Identifier(identifierPath) {
+      if (
+        !identifierPath.isReferencedIdentifier() &&
+        !identifierPath.isBindingIdentifier()
+      ) {
+        return;
+      }
+      const { node, parent } = identifierPath;
+      // A function declaration's name belongs to the scope around it. Looked
+      // up from the function itself, a parameter of the same name would win.
+      const scope =
+        parent.type === 'FunctionDeclaration' && parent.id === node
+          ? identifierPath.parentPath.scope.parent
+          : identifierPath.scope;
+      let binding = scope.getBinding(node.name);
+      if (!binding) {
+        if (!globals.has(node.name)) {
+          globals.set(node.name, { global: node.name });
+        }
+        binding = globals.get(node.name);
+      }
+      bindingByIdentifier.set(node, binding);
+    },
+  });
+}
+
 const NON_CHILD_KEYS = new Set(['loc', 'leadingComments', 'trailingComments']);
 
 function childKeys(node) {
@@ -380,41 +442,45 @@ function classifyPath(pathArgument, repoAnchored, anchoredHelpers, callSite) {
     : undefined;
 }
 
-/** 'script' | 'native' | undefined for the source text a node carries. */
-function taintKind(node, tainted, readKind) {
+/**
+ * 'script' | 'native' | undefined for the source text a node carries.
+ * `tainted` maps a binding to the kind of source it can hold; `calls` says how
+ * a call relates to source text (see analyzeFile).
+ */
+function taintKind(node, tainted, calls) {
   if (!node) {
     return undefined;
   }
   switch (node.type) {
     case 'Identifier':
-      return tainted.get(node.name);
+      return tainted.get(bindingOf(node));
     case 'AwaitExpression':
-      return taintKind(node.argument, tainted, readKind);
+      return taintKind(node.argument, tainted, calls);
     case 'TSAsExpression':
     case 'TSSatisfiesExpression':
     case 'TSNonNullExpression':
     case 'ParenthesizedExpression':
-      return taintKind(node.expression, tainted, readKind);
+      return taintKind(node.expression, tainted, calls);
     case 'MemberExpression':
     case 'OptionalMemberExpression':
-      return taintKind(node.object, tainted, readKind);
+      return taintKind(node.object, tainted, calls);
     case 'TemplateLiteral':
-      return firstTaint(node.expressions, tainted, readKind);
+      return firstTaint(node.expressions, tainted, calls);
     case 'BinaryExpression':
       return node.operator === '+'
-        ? firstTaint([node.left, node.right], tainted, readKind)
+        ? firstTaint([node.left, node.right], tainted, calls)
         : undefined;
     case 'UnaryExpression':
       // `expect(!source.includes(x))` is still a claim about source.
       return node.operator === '!'
-        ? taintKind(node.argument, tainted, readKind)
+        ? taintKind(node.argument, tainted, calls)
         : undefined;
     case 'LogicalExpression':
-      return firstTaint([node.left, node.right], tainted, readKind);
+      return firstTaint([node.left, node.right], tainted, calls);
     case 'ConditionalExpression':
-      return firstTaint([node.consequent, node.alternate], tainted, readKind);
+      return firstTaint([node.consequent, node.alternate], tainted, calls);
     case 'ArrayExpression':
-      return firstTaint(node.elements, tainted, readKind);
+      return firstTaint(node.elements, tainted, calls);
     case 'ObjectExpression':
       // `{ text: read(...) }` and `{ source }` hold source text as a value.
       return firstTaint(
@@ -424,17 +490,22 @@ function taintKind(node, tainted, readKind) {
             : property.value,
         ),
         tainted,
-        readKind,
+        calls,
       );
     case 'SpreadElement':
-      return taintKind(node.argument, tainted, readKind);
+      return taintKind(node.argument, tainted, calls);
     case 'SequenceExpression':
-      return taintKind(node.expressions.at(-1), tainted, readKind);
+      return taintKind(node.expressions.at(-1), tainted, calls);
     case 'CallExpression':
     case 'OptionalCallExpression': {
-      const fromRead = readKind ? readKind(node, tainted) : undefined;
+      const fromRead = calls.readKind(node);
       if (fromRead) {
         return fromRead;
+      }
+      // `normalize(source)` hands its argument's text back, reworked.
+      const transformed = calls.transform(node);
+      if (transformed) {
+        return taintKind(transformed.argument, tainted, calls);
       }
       const name = calleeName(node.callee);
       if (
@@ -443,26 +514,26 @@ function taintKind(node, tainted, readKind) {
       ) {
         // Any method called on source text keeps the claim about that text
         // alive, whatever it is named: .slice, .indexOf, .split().filter().
-        const fromReceiver = taintKind(node.callee.object, tainted, readKind);
+        const fromReceiver = taintKind(node.callee.object, tainted, calls);
         if (fromReceiver) {
           return fromReceiver;
         }
         // `/re/.test(source)` and `x.replace(source, y)` carry the text in an
         // argument instead; no other method is assumed to.
         if (name && ARGUMENT_PROPAGATORS.has(name)) {
-          return firstTaint(node.arguments, tainted, readKind);
+          return firstTaint(node.arguments, tainted, calls);
         }
         // `files.filter((f) => readFileSync(f).includes(x))` decides its result
         // from source text even though nothing tainted was passed in.
         if (name && CALLBACK_PROPAGATORS.has(name)) {
           return node.arguments
-            .map((argument) => callbackBodyTaint(argument, tainted, readKind))
+            .map((argument) => callbackBodyTaint(argument, tainted, calls))
             .find(Boolean);
         }
         return undefined;
       }
       if (node.callee.type === 'Identifier' && name === 'String') {
-        return taintKind(node.arguments[0], tainted, readKind);
+        return taintKind(node.arguments[0], tainted, calls);
       }
       return undefined;
     }
@@ -475,27 +546,30 @@ function taintKind(node, tainted, readKind) {
  * Is this the unmodified contents of one file? Defined this way round on
  * purpose: every other shape - a slice, a regex replace, a join of matches -
  * is a fragment, and enumerating the ways to cut a string up is a losing game.
+ * `fragments` holds the bindings that can hold less than a whole file.
  */
-function isWholeFileRead(node, tainted, wholeReads, readKind) {
+function isWholeFileRead(node, tainted, fragments, calls) {
   if (!node) {
     return false;
   }
   const partsAreWhole = (parts) =>
     parts.every(
       (part) =>
-        !taintKind(part, tainted, readKind) ||
-        isWholeFileRead(part, tainted, wholeReads, readKind),
+        !taintKind(part, tainted, calls) ||
+        isWholeFileRead(part, tainted, fragments, calls),
     );
   switch (node.type) {
-    case 'Identifier':
-      return wholeReads.has(node.name);
+    case 'Identifier': {
+      const binding = bindingOf(node);
+      return tainted.has(binding) && !fragments.has(binding);
+    }
     case 'AwaitExpression':
-      return isWholeFileRead(node.argument, tainted, wholeReads, readKind);
+      return isWholeFileRead(node.argument, tainted, fragments, calls);
     case 'TSAsExpression':
     case 'TSSatisfiesExpression':
     case 'TSNonNullExpression':
     case 'ParenthesizedExpression':
-      return isWholeFileRead(node.expression, tainted, wholeReads, readKind);
+      return isWholeFileRead(node.expression, tainted, fragments, calls);
     case 'TemplateLiteral':
       return partsAreWhole(node.expressions);
     case 'BinaryExpression':
@@ -503,8 +577,17 @@ function isWholeFileRead(node, tainted, wholeReads, readKind) {
     case 'CallExpression':
     case 'OptionalCallExpression': {
       const name = calleeName(node.callee);
-      if (readKind(node, tainted)) {
+      if (calls.readKind(node)) {
         return true;
+      }
+      // A transform helper hands a whole file back whole only if its own body
+      // does: `(text) => text.trim()` does, `(text) => text.slice(1)` cuts.
+      const transformed = calls.transform(node);
+      if (transformed) {
+        return (
+          transformed.preservesWhole &&
+          isWholeFileRead(transformed.argument, tainted, fragments, calls)
+        );
       }
       if (
         name &&
@@ -512,20 +595,10 @@ function isWholeFileRead(node, tainted, wholeReads, readKind) {
         (node.callee.type === 'MemberExpression' ||
           node.callee.type === 'OptionalMemberExpression')
       ) {
-        return isWholeFileRead(
-          node.callee.object,
-          tainted,
-          wholeReads,
-          readKind,
-        );
+        return isWholeFileRead(node.callee.object, tainted, fragments, calls);
       }
       if (node.callee.type === 'Identifier' && name === 'String') {
-        return isWholeFileRead(
-          node.arguments[0],
-          tainted,
-          wholeReads,
-          readKind,
-        );
+        return isWholeFileRead(node.arguments[0], tainted, fragments, calls);
       }
       return false;
     }
@@ -564,7 +637,7 @@ function walkOwnBody(node, visit) {
 }
 
 /** The source text an assertion call is made about, if any. */
-function assertionSubjectKind(node, scope, readKind) {
+function assertionSubjectKind(node, tainted, calls) {
   if (
     node.type !== 'CallExpression' &&
     node.type !== 'OptionalCallExpression'
@@ -578,11 +651,11 @@ function assertionSubjectKind(node, scope, readKind) {
   if (TEXT_MATCHERS.has(name)) {
     const expectCall = findExpectCall(node.callee);
     return expectCall
-      ? firstTaint(expectCall.arguments, scope, readKind)
+      ? firstTaint(expectCall.arguments, tainted, calls)
       : undefined;
   }
   if (ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
-    return firstTaint(node.arguments, scope, readKind);
+    return firstTaint(node.arguments, tainted, calls);
   }
   return undefined;
 }
@@ -592,94 +665,82 @@ function assertionSubjectKind(node, scope, readKind) {
  * the sink inside the helper, where the parameter is just a parameter. The
  * claim is still made about whatever the caller handed over.
  */
-function collectAssertionHelpers(ast, readKind, helpers) {
+function collectAssertionHelpers(ast, definitions, tainted, calls) {
+  const helpers = new Map();
   walk(ast, (node) => {
     const named = namedFunction(node);
-    if (!named || helpers.has(named.name)) {
+    if (!named) {
       return;
     }
-    const index = named.parameters.findIndex((parameter) => {
-      if (!parameter) {
-        return false;
-      }
-      const probe = new Map([[parameter, 'script']]);
-      let asserts = false;
-      walkHelperBody(named.body, probe, readKind, (current, scope) => {
-        asserts =
-          asserts || Boolean(assertionSubjectKind(current, scope, readKind));
-      });
-      return asserts;
-    });
+    const index = named.parameters.findIndex(
+      (parameter) =>
+        parameter !== undefined &&
+        assertsOnParameter(named.fn, parameter, definitions, tainted, calls),
+    );
     if (index >= 0) {
-      helpers.set(named.name, index);
+      helpers.set(named.binding, index);
     }
   });
+  return helpers;
 }
 
 /**
- * Walk a helper's body the way its assertions actually run. Anonymous callbacks
- * - `needles.forEach((n) => expect(text)...)`, an `it(...)` body - are part of
- * the helper, so the walk goes into them with their own scope. A named
- * function defined inside is a separate helper and is where the walk stops.
+ * Does anything inside `fn` - its callbacks and `it(...)` bodies included -
+ * assert on text that came in through `parameter`? The text is followed
+ * through the locals built from it. An assertion already about source without
+ * the parameter is recorded where it stands, so it makes nothing a helper.
  */
-function walkHelperBody(node, scope, readKind, visit) {
-  if (!node || typeof node.type !== 'string') {
-    return;
-  }
-  visit(node, scope);
-  for (const key of childKeys(node)) {
-    const value = node[key];
-    const children = Array.isArray(value) ? value : [value];
-    children
-      .filter((child) => child && typeof child.type === 'string')
-      .filter((child) => !definesNamedFunction(child))
-      .forEach((child) =>
-        walkHelperBody(
-          child,
-          FUNCTION_NODE_TYPES.has(child.type)
-            ? deriveFunctionScope(child, scope, readKind)
-            : scope,
-          readKind,
-          visit,
-        ),
-      );
-  }
+function assertsOnParameter(fn, parameter, definitions, tainted, calls) {
+  const probe = new Map(tainted);
+  probe.set(parameter, 'script');
+  propagateTaint(
+    definitions.filter(
+      (definition) =>
+        definition.node.start >= fn.start && definition.node.end <= fn.end,
+    ),
+    probe,
+    new Set(),
+    calls,
+  );
+  let asserts = false;
+  walk(fn.body, (node) => {
+    asserts =
+      asserts ||
+      (Boolean(assertionSubjectKind(node, probe, calls)) &&
+        !assertionSubjectKind(node, tainted, calls));
+  });
+  return asserts;
 }
 
-function definesNamedFunction(node) {
-  if (node.type === 'FunctionDeclaration') {
-    return true;
-  }
-  return (
+/**
+ * A function declaration or a function-valued binding: the binding a call to
+ * it goes through, and the binding of each plain parameter.
+ */
+function namedFunction(node) {
+  let binding;
+  let fn;
+  if (node.type === 'FunctionDeclaration' && node.id) {
+    binding = bindingOf(node.id);
+    fn = node;
+  } else if (
     node.type === 'VariableDeclarator' &&
+    node.id.type === 'Identifier' &&
     (node.init?.type === 'ArrowFunctionExpression' ||
       node.init?.type === 'FunctionExpression')
-  );
-}
-
-/** A function declaration or a function-valued binding, with its parameters. */
-function namedFunction(node) {
-  if (node.type === 'FunctionDeclaration' && node.id?.type === 'Identifier') {
-    return {
-      name: node.id.name,
-      parameters: parameterNames(node),
-      body: node.body,
-    };
+  ) {
+    binding = bindingOf(node.id);
+    fn = node.init;
   }
-  if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') {
-    const fn = node.init;
-    if (
-      fn?.type === 'ArrowFunctionExpression' ||
-      fn?.type === 'FunctionExpression'
-    ) {
-      return {
-        name: node.id.name,
-        parameters: parameterNames(fn),
-        body: fn.body,
-      };
-    }
+  if (!binding) {
+    return undefined;
   }
-  return undefined;
+  return {
+    binding,
+    fn,
+    parameters: fn.params.map((parameter) =>
+      parameter.type === 'Identifier' ? bindingOf(parameter) : undefined,
+    ),
+  };
 }
 
 /**
@@ -687,205 +748,116 @@ function namedFunction(node) {
  * `(source) => source.replace(/\s+/gu, ' ')` being the usual shape. A call to
  * one carries whatever text it was given.
  */
-function collectTransformHelpers(ast, readKind, helpers) {
+function collectTransformHelpers(ast, calls, helpers) {
+  // Until nothing new turns up, so a helper can call one defined below it.
+  let before;
+  do {
+    before = helpers.size;
+    walk(ast, (node) => {
+      const returned = returnedPathExpression(node);
+      if (!returned || helpers.has(returned.binding)) {
+        return;
+      }
+      returned.parameters.some((parameter, parameterIndex) => {
+        if (!parameter) {
+          return false;
+        }
+        const probe = new Map([[parameter, 'script']]);
+        if (!taintKind(returned.value, probe, calls)) {
+          return false;
+        }
+        helpers.set(returned.binding, {
+          parameterIndex,
+          preservesWhole: isWholeFileRead(
+            returned.value,
+            probe,
+            new Set(),
+            calls,
+          ),
+        });
+        return true;
+      });
+    });
+  } while (helpers.size > before);
+}
+
+/**
+ * Everywhere a binding is given a value: a declarator's initializer, or the
+ * right-hand side of an assignment to it, compound assignments included.
+ */
+function collectDefinitions(ast) {
+  const definitions = [];
   walk(ast, (node) => {
-    const returned = returnedPathExpression(node);
-    if (!returned || helpers.has(returned.name)) {
-      return;
-    }
-    const index = returned.parameters.findIndex((parameter) => {
-      if (!parameter) {
-        return false;
-      }
-      const probe = new Map([[parameter, 'script']]);
-      return Boolean(taintKind(returned.value, probe, readKind));
-    });
-    if (index >= 0) {
-      helpers.set(returned.name, index);
+    const target = bindingTarget(node);
+    if (target) {
+      definitions.push({
+        node,
+        value: target.value,
+        bindings: target.identifiers.map(bindingOf).filter(Boolean),
+      });
     }
   });
-}
-
-/** Every name a function binds for itself, at its own level. */
-function ownBindingNames(fn) {
-  const names = new Set();
-  (fn.params ?? []).forEach((parameter) =>
-    patternNames(parameter).forEach((name) => names.add(name)),
-  );
-  if (fn.body?.type !== 'BlockStatement') {
-    return names;
-  }
-  walkOwnBody(fn.body, (current) => {
-    if (current.type === 'CatchClause') {
-      patternNames(current.param).forEach((name) => names.add(name));
-    }
-    if (
-      (current.type === 'ForOfStatement' ||
-        current.type === 'ForInStatement') &&
-      current.left.type === 'VariableDeclaration'
-    ) {
-      current.left.declarations.forEach((declaration) =>
-        patternNames(declaration.id).forEach((name) => names.add(name)),
-      );
-    }
-    if (current.type === 'VariableDeclaration') {
-      current.declarations.forEach((declaration) =>
-        patternNames(declaration.id).forEach((name) => names.add(name)),
-      );
-    }
-  });
-  return names;
-}
-
-/** Give taint back to the locals a body builds from source itself. */
-function seedOwnBody(body, local, readKind) {
-  for (let round = 0; round < 4; round += 1) {
-    const before = local.size;
-    walkOwnBody(body, (current) => {
-      const binding = bindingTarget(current);
-      const kind = binding && taintKind(binding.value, local, readKind);
-      if (kind) {
-        binding.names.forEach((name) => local.set(name, kind));
-      }
-    });
-    if (local.size === before) {
-      return;
-    }
-  }
-}
-
-/** Names a body declares with const, let or var at its own level. */
-function declaredLocalNames(body) {
-  const names = new Set();
-  walkOwnBody(body, (current) => {
-    if (current.type === 'VariableDeclaration') {
-      current.declarations.forEach((declaration) =>
-        patternNames(declaration.id).forEach((name) => names.add(name)),
-      );
-    }
-  });
-  return names;
+  return definitions;
 }
 
 /**
- * The scope inside a function at its own level only: the enclosing scope minus
- * every name the function binds, with the locals it builds from source seeded
- * back. Deliberately does not follow assignments into nested functions, so it
- * can be applied at each level of a walk without recursing.
+ * Taint every binding a definition can fill with first-party source text, and
+ * record the ones it can fill with less than a whole file. Deliberately blind
+ * to control flow: a binding holds source if any definition puts it there,
+ * whether that sits in a hook, a callback or a later statement. A kind only
+ * ever rises and a fragment is never unmarked, so the loop always settles.
  */
-function shallowFunctionScope(fn, parentScope, readKind) {
-  const local = new Map(parentScope);
-  ownBindingNames(fn).forEach((name) => local.delete(name));
-  if (fn.body?.type === 'BlockStatement') {
-    seedOwnBody(fn.body, local, readKind);
-  }
-  return local;
-}
-
-/**
- * The scope inside a function: the enclosing one, minus every name the
- * function binds for itself - parameters, `catch` and `for...of` bindings, and
- * declared locals - with only the locals actually built from source seeded
- * back. A name the function binds is its own, whatever an outer binding of the
- * same name holds. A local can also be filled from a nested callback, the
- * `let source; beforeAll(() => { source = read(...); })` shape, so those
- * assignments are followed too.
- */
-function deriveFunctionScope(fn, parentScope, readKind) {
-  const local = shallowFunctionScope(fn, parentScope, readKind);
-  if (fn.body?.type !== 'BlockStatement') {
-    return local;
-  }
-  const declaredLocals = declaredLocalNames(fn.body);
-  for (let round = 0; round < 4; round += 1) {
-    const before = local.size;
-    seedFromNestedAssignments(fn.body, declaredLocals, local, readKind);
-    seedOwnBody(fn.body, local, readKind);
-    if (local.size === before) {
-      break;
-    }
-  }
-  return local;
-}
-
-/**
- * Follow assignments to `declaredLocals` into nested functions. Each nested
- * function is entered with its own scope, so the right-hand side is read where
- * it is written - a hook-local `const text = read(...)` is visible to
- * `source = text` - and every name that function binds for itself, not just its
- * parameters, stops the assignment reaching the outer local.
- */
-function seedFromNestedAssignments(node, declaredLocals, local, readKind) {
-  (function visit(current, scope, rebound) {
-    if (!current || typeof current.type !== 'string') {
-      return;
-    }
-    let innerScope = scope;
-    let innerRebound = rebound;
-    if (FUNCTION_NODE_TYPES.has(current.type)) {
-      innerRebound = new Set([...rebound, ...ownBindingNames(current)]);
-      innerScope = shallowFunctionScope(current, scope, readKind);
-      // The function's own locals can be filled by callbacks nested inside
-      // it - `let text = ''; files.forEach((f) => { text += read(f); })` -
-      // and only then assigned outward, so follow those first.
-      if (current.body?.type === 'BlockStatement') {
-        const nestedLocals = declaredLocalNames(current.body);
-        if (nestedLocals.size > 0) {
-          seedFromNestedAssignments(
-            current.body,
-            nestedLocals,
-            innerScope,
-            readKind,
-          );
+function propagateTaint(definitions, tainted, fragments, calls) {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const { value, bindings } of definitions) {
+      const kind = taintKind(value, tainted, calls);
+      const filled = kind ? bindings : [];
+      const whole =
+        filled.length > 0 && isWholeFileRead(value, tainted, fragments, calls);
+      for (const binding of filled) {
+        // 'script' outranks 'native': it is the kind that fails the gate.
+        const current = tainted.get(binding);
+        if (current !== kind && current !== 'script') {
+          tainted.set(binding, kind);
+          changed = true;
+        }
+        if (!whole && !fragments.has(binding)) {
+          fragments.add(binding);
+          changed = true;
         }
       }
     }
-    if (
-      current.type === 'AssignmentExpression' &&
-      current.left.type === 'Identifier' &&
-      declaredLocals.has(current.left.name) &&
-      !innerRebound.has(current.left.name)
-    ) {
-      const kind = taintKind(current.right, innerScope, readKind);
-      if (kind) {
-        local.set(current.left.name, kind);
-      }
-    }
-    for (const key of childKeys(current)) {
-      const value = current[key];
-      const children = Array.isArray(value) ? value : [value];
-      children.forEach((child) => visit(child, innerScope, innerRebound));
-    }
-  })(node, local, new Set());
+  }
 }
 
 /**
  * The source text a callback hands back, if any. Only the returned value
  * counts: a read performed for a side effect does not decide the result.
  */
-function callbackBodyTaint(node, tainted, readKind) {
+function callbackBodyTaint(node, tainted, calls) {
   if (
     node?.type !== 'ArrowFunctionExpression' &&
     node?.type !== 'FunctionExpression'
   ) {
     return undefined;
   }
-  const local = deriveFunctionScope(node, tainted, readKind);
   if (node.body.type !== 'BlockStatement') {
-    return taintKind(node.body, local, readKind);
+    return taintKind(node.body, tainted, calls);
   }
   let kind;
   walkOwnBody(node.body, (current) => {
     if (!kind && current.type === 'ReturnStatement') {
-      kind = taintKind(current.argument, local, readKind);
+      kind = taintKind(current.argument, tainted, calls);
     }
   });
   return kind;
 }
 
-function firstTaint(nodes, tainted, readKind) {
+function firstTaint(nodes, tainted, calls) {
   for (const node of nodes ?? []) {
-    const kind = taintKind(node, tainted, readKind);
+    const kind = taintKind(node, tainted, calls);
     if (kind) {
       return kind;
     }
@@ -930,7 +902,8 @@ function isRepoAnchored(node, repoAnchored, anchoredHelpers) {
   switch (node.type) {
     case 'Identifier':
       return (
-        REPO_ANCHOR_IDENTIFIERS.has(node.name) || repoAnchored.has(node.name)
+        REPO_ANCHOR_IDENTIFIERS.has(node.name) ||
+        repoAnchored.has(bindingOf(node))
       );
     case 'StringLiteral':
       return WORKSPACE_PATH_RE.test(node.value);
@@ -950,10 +923,7 @@ function isRepoAnchored(node, repoAnchored, anchoredHelpers) {
       // A helper that returns a repository path, e.g. `repoRoot()`. Matched on
       // a bare identifier so `fixture.repoRoot()` and a helper that happens to
       // be named `resolve` cannot stand in for the head check below.
-      if (
-        node.callee.type === 'Identifier' &&
-        anchoredHelpers.has(node.callee.name)
-      ) {
+      if (anchoredHelpers.has(bindingOf(node.callee))) {
         return true;
       }
       // Only the head of a built path says where it starts. A workspace-shaped
@@ -979,26 +949,27 @@ function isRepoAnchored(node, repoAnchored, anchoredHelpers) {
 function collectRepoAnchoredBindings(ast) {
   const anchored = new Map();
   const helpers = new Set();
-  for (let round = 0; round < 6; round += 1) {
-    const before = anchored.size;
+  let before;
+  do {
+    before = anchored.size;
     walk(ast, (node) => {
       const returned = returnedPathExpression(node);
       if (returned && isRepoAnchored(returned.value, anchored, helpers)) {
-        helpers.add(returned.name);
-        anchored.set(returned.name, describePath(returned.value, anchored));
+        helpers.add(returned.binding);
+        anchored.set(returned.binding, describePath(returned.value, anchored));
         return;
       }
-      const binding = bindingTarget(node);
-      if (!binding || !isRepoAnchored(binding.value, anchored, helpers)) {
+      const target = bindingTarget(node);
+      if (!target || !isRepoAnchored(target.value, anchored, helpers)) {
         return;
       }
-      const described = describePath(binding.value, anchored);
-      binding.names.forEach((name) => anchored.set(name, described));
+      const described = describePath(target.value, anchored);
+      target.identifiers
+        .map(bindingOf)
+        .filter(Boolean)
+        .forEach((binding) => anchored.set(binding, described));
     });
-    if (anchored.size === before) {
-      break;
-    }
-  }
+  } while (anchored.size > before);
   return { anchored, helpers };
 }
 
@@ -1015,24 +986,41 @@ function describePath(node, anchored) {
   };
 }
 
+/** `readFileSync`, `fs.readFileSync`, or a binding that aliases one. */
+function isReadReference(node, aliases) {
+  const name = calleeName(node);
+  if (!name) {
+    return false;
+  }
+  const reference =
+    node.type === 'SequenceExpression' ? node.expressions.at(-1) : node;
+  return READ_FUNCTIONS.has(name) || aliases.has(bindingOf(reference));
+}
+
 /**
- * Names that stand in for `readFileSync` / `readFile`: an alias binding, a
+ * Bindings that stand in for `readFileSync` / `readFile`: an alias binding, a
  * renamed destructure, or a renamed import.
  */
 function collectReadAliases(ast) {
   const aliases = new Set();
-  const isRead = (name) => READ_FUNCTIONS.has(name) || aliases.has(name);
-  for (let round = 0; round < 4; round += 1) {
-    const before = aliases.size;
+  const add = (identifier) => {
+    const binding = bindingOf(identifier);
+    if (binding) {
+      aliases.add(binding);
+    }
+  };
+  let before;
+  do {
+    before = aliases.size;
     walk(ast, (node) => {
       if (node.type === 'ImportDeclaration') {
         node.specifiers.forEach((specifier) => {
           if (
             specifier.type === 'ImportSpecifier' &&
             specifier.imported.type === 'Identifier' &&
-            isRead(specifier.imported.name)
+            READ_FUNCTIONS.has(specifier.imported.name)
           ) {
-            aliases.add(specifier.local.name);
+            add(specifier.local);
           }
         });
         return;
@@ -1042,9 +1030,8 @@ function collectReadAliases(ast) {
       }
       // `const read = fs.readFileSync` / `const read = readFileSync`
       if (node.id.type === 'Identifier') {
-        const name = node.init && calleeReference(node.init);
-        if (name && isRead(name)) {
-          aliases.add(node.id.name);
+        if (node.init && isReadReference(node.init, aliases)) {
+          add(node.id);
         }
         return;
       }
@@ -1054,64 +1041,49 @@ function collectReadAliases(ast) {
           if (
             property.type === 'ObjectProperty' &&
             property.key.type === 'Identifier' &&
-            isRead(property.key.name) &&
-            property.value.type === 'Identifier'
+            READ_FUNCTIONS.has(property.key.name)
           ) {
-            aliases.add(property.value.name);
+            add(property.value);
           }
         });
       }
     });
-    if (aliases.size === before) {
-      return aliases;
-    }
-  }
+  } while (aliases.size > before);
   return aliases;
 }
 
-/** Is `name` the head of this path expression, rather than a later segment? */
-function isHeadIdentifier(node, name) {
-  if (!node || !name) {
+/** Is `binding` the head of this path expression, rather than a later segment? */
+function isHeadIdentifier(node, binding) {
+  if (!node || !binding) {
     return false;
   }
   if (node.type === 'Identifier') {
-    return node.name === name;
+    return bindingOf(node) === binding;
   }
   if (
     node.type === 'CallExpression' ||
     node.type === 'OptionalCallExpression'
   ) {
-    return isHeadIdentifier(node.arguments[0], name);
+    return isHeadIdentifier(node.arguments[0], binding);
   }
   return false;
 }
 
-function containsIdentifierNamed(node, name) {
+function refersTo(node, binding) {
   let found = false;
   walk(node, (current) => {
-    if (current.type === 'Identifier' && current.name === name) {
+    if (bindingOf(current) === binding) {
       found = true;
     }
   });
   return found;
 }
 
-/** The name a non-call expression refers to, for alias detection. */
-function calleeReference(node) {
-  if (node.type === 'Identifier') {
-    return node.name;
-  }
-  if (node.type === 'MemberExpression' && node.property.type === 'Identifier') {
-    return node.property.name;
-  }
-  return undefined;
-}
-
 /**
  * Named helpers whose whole job is to read a file, mapped either to the kind
  * their own path resolves to, or to the index of the parameter they read.
  */
-function collectReadHelpers(ast, isRead, classify) {
+function collectReadHelpers(ast, isReadCallee, classify) {
   const helpers = new Map();
   walk(ast, (node) => {
     const returned = returnedPathExpression(node);
@@ -1122,8 +1094,7 @@ function collectReadHelpers(ast, isRead, classify) {
     ) {
       return;
     }
-    const name = calleeName(call.callee);
-    if (!name || !isRead(name)) {
+    if (!isReadCallee(call.callee)) {
       return;
     }
     const pathArgument = call.arguments[0];
@@ -1133,10 +1104,10 @@ function collectReadHelpers(ast, isRead, classify) {
     // The whole path is the parameter: classify the call-site argument.
     const passedWhole = returned.parameters.findIndex(
       (parameter) =>
-        pathArgument.type === 'Identifier' && parameter === pathArgument.name,
+        parameter !== undefined && bindingOf(pathArgument) === parameter,
     );
     if (passedWhole >= 0) {
-      helpers.set(returned.name, { parameterIndex: passedWhole });
+      helpers.set(returned.binding, { parameterIndex: passedWhole });
       return;
     }
     // The parameter is spliced into a path the helper owns, e.g.
@@ -1145,11 +1116,10 @@ function collectReadHelpers(ast, isRead, classify) {
     // whether a call reads source or data.
     const splicedIn = returned.parameters.findIndex(
       (parameter) =>
-        parameter !== undefined &&
-        containsIdentifierNamed(pathArgument, parameter),
+        parameter !== undefined && refersTo(pathArgument, parameter),
     );
     if (splicedIn >= 0) {
-      helpers.set(returned.name, {
+      helpers.set(returned.binding, {
         parameterIndex: splicedIn,
         path: pathArgument,
         // `(root) => readFileSync(join(root, 'index.ts'))`: the caller supplies
@@ -1163,75 +1133,42 @@ function collectReadHelpers(ast, isRead, classify) {
     }
     const kind = classify(pathArgument);
     if (kind) {
-      helpers.set(returned.name, { kind });
+      helpers.set(returned.binding, { kind });
     }
   });
   return helpers;
 }
 
 /**
- * A named helper whose whole job is to return a path, so a call to it can be
- * treated the same as the expression it returns.
+ * A named function whose body is a single returned expression, so a call to it
+ * can be treated the same as the expression it returns.
  */
-function parameterNames(fn) {
-  return fn.params.map((parameter) =>
-    parameter.type === 'Identifier' ? parameter.name : undefined,
-  );
-}
-
 function returnedPathExpression(node) {
-  if (node.type === 'FunctionDeclaration' && node.id?.type === 'Identifier') {
-    const [statement, ...rest] = node.body.body;
-    return statement?.type === 'ReturnStatement' &&
-      rest.length === 0 &&
-      statement.argument
-      ? {
-          name: node.id.name,
-          value: statement.argument,
-          parameters: parameterNames(node),
-        }
-      : undefined;
+  const named = namedFunction(node);
+  if (!named) {
+    return undefined;
   }
-  if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') {
-    const fn = node.init;
-    if (
-      fn?.type !== 'ArrowFunctionExpression' &&
-      fn?.type !== 'FunctionExpression'
-    ) {
-      return undefined;
-    }
-    if (fn.body.type !== 'BlockStatement') {
-      return {
-        name: node.id.name,
-        value: fn.body,
-        parameters: parameterNames(fn),
-      };
-    }
-    const [statement, ...rest] = fn.body.body;
-    return statement?.type === 'ReturnStatement' &&
-      rest.length === 0 &&
-      statement.argument
-      ? {
-          name: node.id.name,
-          value: statement.argument,
-          parameters: parameterNames(fn),
-        }
-      : undefined;
+  const { binding, fn, parameters } = named;
+  if (fn.body.type !== 'BlockStatement') {
+    return { binding, value: fn.body, parameters };
   }
-  return undefined;
+  const [statement, ...rest] = fn.body.body;
+  return statement?.type === 'ReturnStatement' &&
+    rest.length === 0 &&
+    statement.argument
+    ? { binding, value: statement.argument, parameters }
+    : undefined;
 }
 
 /** Literals in a path expression, including those behind anchored bindings. */
-function pathLiterals(node, anchored, seen = new Set()) {
+function pathLiterals(node, anchored) {
   const literals = collectStringLiterals(node).filter(Boolean);
+  const seen = new Set();
   walk(node, (current) => {
-    if (
-      current.type === 'Identifier' &&
-      anchored.has(current.name) &&
-      !seen.has(current.name)
-    ) {
-      seen.add(current.name);
-      literals.push(...anchored.get(current.name).literals);
+    const binding = bindingOf(current);
+    if (anchored.has(binding) && !seen.has(binding)) {
+      seen.add(binding);
+      literals.push(...anchored.get(binding).literals);
     }
   });
   return literals;
@@ -1245,7 +1182,7 @@ function endsInVariableName(node, anchored) {
   if (node.type === 'Identifier') {
     // A binding built from a literal filename already said what it is; only an
     // unknown name is genuinely a tail that is only known at run time.
-    const described = anchored.get(node.name);
+    const described = anchored.get(bindingOf(node));
     return described ? described.endsInVariable : true;
   }
   if (
@@ -1296,30 +1233,32 @@ function namesUnextendedSource(node, literals, anchored) {
 }
 
 /** Every identifier a pattern binds, so destructuring carries taint too. */
-function patternNames(node, collected = []) {
+function patternIdentifiers(node, collected = []) {
   if (!node) {
     return collected;
   }
   switch (node.type) {
     case 'Identifier':
-      collected.push(node.name);
+      collected.push(node);
       break;
     case 'ArrayPattern':
-      node.elements.forEach((element) => patternNames(element, collected));
+      node.elements.forEach((element) =>
+        patternIdentifiers(element, collected),
+      );
       break;
     case 'ObjectPattern':
       node.properties.forEach((property) =>
-        patternNames(
+        patternIdentifiers(
           property.type === 'RestElement' ? property.argument : property.value,
           collected,
         ),
       );
       break;
     case 'RestElement':
-      patternNames(node.argument, collected);
+      patternIdentifiers(node.argument, collected);
       break;
     case 'AssignmentPattern':
-      patternNames(node.left, collected);
+      patternIdentifiers(node.left, collected);
       break;
     default:
       break;
@@ -1327,13 +1266,16 @@ function patternNames(node, collected = []) {
   return collected;
 }
 
-/** The names and initializer of a binding, for `const x = ...` and `x = ...`. */
+/**
+ * The identifiers a definition fills and the value it fills them with, for
+ * `const x = ...`, `x = ...` and `x += ...`.
+ */
 function bindingTarget(node) {
   if (node.type === 'VariableDeclarator' && node.init) {
-    return { names: patternNames(node.id), value: node.init };
+    return { identifiers: patternIdentifiers(node.id), value: node.init };
   }
   if (node.type === 'AssignmentExpression') {
-    return { names: patternNames(node.left), value: node.right };
+    return { identifiers: patternIdentifiers(node.left), value: node.right };
   }
   return undefined;
 }
@@ -1349,6 +1291,7 @@ function analyzeFile(
     .split(path.sep)
     .join('/');
   const ast = parseSource(source);
+  resolveBindings(ast);
 
   // `readdirSync` + a source-extension filter + `readFileSync` is a directory
   // walk over first-party source; the read path is then a variable, so the
@@ -1364,90 +1307,68 @@ function analyzeFile(
     classifyPath(pathNode, repoAnchored, anchoredHelpers, callSite) ??
     (walksSourceTree ? 'script' : undefined);
   const readAliases = collectReadAliases(ast);
-  const isReadName = (name) =>
-    READ_FUNCTIONS.has(name) || readAliases.has(name);
-  const readHelpers = collectReadHelpers(ast, isReadName, classify);
-  // Declared before readKind so nothing can close over them while they are
-  // still in their temporal dead zone.
-  const tainted = new Map();
-  const wholeReads = new Set();
-  // Filled once readKind exists, since evaluating a helper's body needs it.
+  const isReadCallee = (callee) => isReadReference(callee, readAliases);
+  const readHelpers = collectReadHelpers(ast, isReadCallee, classify);
   const transformHelpers = new Map();
-  const resolvingTransforms = new Set();
-  // A read is a direct call, a call through an alias of one, or a call to a
-  // helper that does nothing but read. A transform helper is not a read, but
-  // it hands its argument's text back, so the taint travels through it.
-  const readKind = (callNode, scope = tainted) => {
-    const name = calleeName(callNode.callee);
-    if (!name) {
-      return undefined;
-    }
-    if (isReadName(name)) {
-      return classify(callNode.arguments[0]);
-    }
-    if (callNode.callee.type !== 'Identifier') {
-      return undefined;
-    }
-    const helper = readHelpers.get(name);
-    if (!helper) {
-      const transformed = transformHelpers.get(name);
-      if (transformed === undefined || resolvingTransforms.has(name)) {
+  // How a call relates to source text. A read is a direct call, a call through
+  // an alias of one, or a call to a helper that does nothing but read. A
+  // transform helper is not a read, but it hands an argument's text back, so
+  // the taint travels through it.
+  const calls = {
+    readKind(callNode) {
+      if (isReadCallee(callNode.callee)) {
+        return classify(callNode.arguments[0]);
+      }
+      const helper = readHelpers.get(bindingOf(callNode.callee));
+      if (!helper) {
         return undefined;
       }
-      resolvingTransforms.add(name);
-      try {
-        return taintKind(callNode.arguments[transformed], scope, readKind);
-      } finally {
-        resolvingTransforms.delete(name);
+      if (helper.kind) {
+        return helper.kind;
       }
-    }
-    if (helper.kind) {
-      return helper.kind;
-    }
-    const passed = callNode.arguments[helper.parameterIndex];
-    if (!helper.path) {
-      return classify(passed);
-    }
-    // Classify the helper's own path with what the caller actually named.
-    return classify(helper.path, {
-      literals: passed ? pathLiterals(passed, repoAnchored) : [],
-      endsInVariable: passed ? endsInVariableName(passed, repoAnchored) : true,
-      headIsParameter: helper.headIsParameter,
-      anchored: Boolean(
-        passed && isRepoAnchored(passed, repoAnchored, anchoredHelpers),
-      ),
-    });
+      const passed = callNode.arguments[helper.parameterIndex];
+      if (!helper.path) {
+        return classify(passed);
+      }
+      // Classify the helper's own path with what the caller actually named.
+      return classify(helper.path, {
+        literals: passed ? pathLiterals(passed, repoAnchored) : [],
+        endsInVariable: passed
+          ? endsInVariableName(passed, repoAnchored)
+          : true,
+        headIsParameter: helper.headIsParameter,
+        anchored: Boolean(
+          passed && isRepoAnchored(passed, repoAnchored, anchoredHelpers),
+        ),
+      });
+    },
+    transform(callNode) {
+      const helper = transformHelpers.get(bindingOf(callNode.callee));
+      return helper
+        ? {
+            argument: callNode.arguments[helper.parameterIndex],
+            preservesWhole: helper.preservesWhole,
+          }
+        : undefined;
+    },
   };
-
-  collectTransformHelpers(ast, readKind, transformHelpers);
-  const assertionHelpers = new Map();
-  collectAssertionHelpers(ast, readKind, assertionHelpers);
+  collectTransformHelpers(ast, calls, transformHelpers);
 
   // Pass 1: taint every binding that holds first-party source text. Seeding
-  // walks down from each binding rather than up from each read, so the read can
-  // sit anywhere inside the initializer -- behind an await, a cast, an optional
-  // chain, or a string method. Iterate to a fixpoint so derived bindings
-  // (`const body = source.slice(a, b)`) follow.
-  for (let round = 0; round < 6; round += 1) {
-    const before = tainted.size + wholeReads.size;
-    walk(ast, (node) => {
-      const binding = bindingTarget(node);
-      if (!binding) {
-        return;
-      }
-      const kind = taintKind(binding.value, tainted, readKind);
-      if (!kind) {
-        return;
-      }
-      binding.names.forEach((name) => tainted.set(name, kind));
-      if (isWholeFileRead(binding.value, tainted, wholeReads, readKind)) {
-        binding.names.forEach((name) => wholeReads.add(name));
-      }
-    });
-    if (tainted.size + wholeReads.size === before) {
-      break;
-    }
-  }
+  // walks down from each definition rather than up from each read, so the read
+  // can sit anywhere inside it -- behind an await, a cast, an optional chain,
+  // or a string method -- and derived bindings (`const body =
+  // source.slice(a, b)`) follow.
+  const definitions = collectDefinitions(ast);
+  const tainted = new Map();
+  const fragments = new Set();
+  propagateTaint(definitions, tainted, fragments, calls);
+  const assertionHelpers = collectAssertionHelpers(
+    ast,
+    definitions,
+    tainted,
+    calls,
+  );
 
   // Pass 2: locate assertions and eval sinks fed by tainted text, and record
   // which `it()` block each one sits in so partial files can be fixed in place.
@@ -1491,21 +1412,16 @@ function analyzeFile(
     }
   };
 
-  const scopeStack = [tainted];
-  const currentScope = () => scopeStack[scopeStack.length - 1];
-
   const recordEvalSink = (node, name) => {
     if (!name || !EVAL_FUNCTIONS.has(name)) {
       return;
     }
-    const kind = node.arguments
-      .map((a) => taintKind(a, currentScope(), readKind))
-      .find(Boolean);
+    const kind = firstTaint(node.arguments, tainted, calls);
     // A fragment is anything that is not the file as it was read.
     const sliced = node.arguments.some(
       (a) =>
-        taintKind(a, currentScope(), readKind) &&
-        !isWholeFileRead(a, currentScope(), wholeReads, readKind),
+        taintKind(a, tainted, calls) &&
+        !isWholeFileRead(a, tainted, fragments, calls),
     );
     if (kind === 'script' && sliced) {
       record(
@@ -1560,9 +1476,7 @@ function analyzeFile(
       if (name && TEXT_MATCHERS.has(name)) {
         const expectCall = findExpectCall(node.callee);
         const kind = expectCall
-          ? expectCall.arguments
-              .map((a) => taintKind(a, currentScope(), readKind))
-              .find(Boolean)
+          ? firstTaint(expectCall.arguments, tainted, calls)
           : undefined;
         if (kind) {
           record(
@@ -1577,7 +1491,7 @@ function analyzeFile(
 
       // assert.match(<tainted>, /.../), assert.equal(<tainted>, ...)
       if (name && ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
-        const kind = firstTaint(node.arguments, currentScope(), readKind);
+        const kind = firstTaint(node.arguments, tainted, calls);
         if (kind) {
           record(
             kind === 'native'
@@ -1592,15 +1506,11 @@ function analyzeFile(
       // expectNoTimers(<tainted>): the sink is inside the helper, but the
       // claim is about what this call handed it.
       if (name && node.callee.type === 'Identifier') {
-        const parameterIndex = assertionHelpers.get(name);
+        const parameterIndex = assertionHelpers.get(bindingOf(node.callee));
         const kind =
           parameterIndex === undefined
             ? undefined
-            : taintKind(
-                node.arguments[parameterIndex],
-                currentScope(),
-                readKind,
-              );
+            : taintKind(node.arguments[parameterIndex], tainted, calls);
         if (kind) {
           record(
             kind === 'native'
@@ -1622,32 +1532,19 @@ function analyzeFile(
     if (!node || typeof node.type !== 'string') {
       return;
     }
-    // Inside a function, its own parameters and locals shadow any outer
-    // binding of the same name, so `function expectClean(source) { expect(
-    // source)... }` is not a claim about a file-level `source`.
-    const entersFunction = FUNCTION_NODE_TYPES.has(node.type);
-    if (entersFunction) {
-      scopeStack.push(deriveFunctionScope(node, currentScope(), readKind));
+    if (visit(node) === false) {
+      return;
     }
-    try {
-      if (visit(node) === false) {
-        return;
-      }
-      for (const key of childKeys(node)) {
-        const value = node[key];
-        if (Array.isArray(value)) {
-          for (const child of value) {
-            if (child && typeof child.type === 'string') {
-              visitTree(child);
-            }
+    for (const key of childKeys(node)) {
+      const value = node[key];
+      if (Array.isArray(value)) {
+        for (const child of value) {
+          if (child && typeof child.type === 'string') {
+            visitTree(child);
           }
-        } else if (value && typeof value.type === 'string') {
-          visitTree(value);
         }
-      }
-    } finally {
-      if (entersFunction) {
-        scopeStack.pop();
+      } else if (value && typeof value.type === 'string') {
+        visitTree(value);
       }
     }
   }

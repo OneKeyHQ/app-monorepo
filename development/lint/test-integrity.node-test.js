@@ -706,8 +706,23 @@ test('chained one-line helpers resolve without crashing the file', () => {
   `,
     'helper calling a helper',
   );
-  // A callback local must reach a transform helper, which needs the callback's
-  // own scope rather than the file-level map.
+  // Declared the other way round, which a single pass in source order misses.
+  assertGated(
+    `
+    const normalize = (text) => collapse(text).replace(/x/gu, ' ');
+    const collapse = (text) => text.trim();
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(
+        files.filter((file) =>
+          normalize(readFileSync(join(__dirname, file), 'utf8')).includes('go'),
+        ),
+      ).toEqual([]);
+    });
+  `,
+    'helper calling a helper declared after it',
+  );
+  // A local declared inside the callback reaches the transform helper too.
   assertGated(
     `
     function normalize(text) {
@@ -724,6 +739,135 @@ test('chained one-line helpers resolve without crashing the file', () => {
     });
   `,
     'callback local through a transform',
+  );
+});
+
+test('a transform helper that cuts text does not launder a fragment', () => {
+  const read = "readFileSync(join(__dirname, 'thing.js'), 'utf8')";
+  assertGated(
+    `
+    const cut = (text) => text.slice(text.indexOf('const go ='));
+    it('x', () => {
+      const go = runInNewContext(cut(${read}));
+      expect(go).toBeDefined();
+    });
+  `,
+    'slice inside the helper',
+  );
+  // Control: a helper that only trims hands the whole file back.
+  assertClean(
+    `
+    const tidy = (text) => text.trim();
+    it('x', () => {
+      const go = runInNewContext(tidy(${read}));
+      expect(go).toBeDefined();
+    });
+  `,
+    'control: trim inside the helper',
+  );
+});
+
+test('a binding cut anywhere is a fragment wherever it is evaluated', () => {
+  assertGated(
+    `
+    let code = readFileSync(join(__dirname, 'thing.js'), 'utf8');
+    code = code.slice(code.indexOf('const go ='));
+    runInNewContext(code, {});
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'read whole, then cut in place',
+  );
+  // Control: reassigned, but never cut.
+  assertClean(
+    `
+    let code = readFileSync(join(__dirname, 'thing.js'), 'utf8');
+    code = code.trim();
+    runInNewContext(code, {});
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'control: reassigned whole',
+  );
+});
+
+test('anchors, read aliases and helpers resolve by binding, not by name', () => {
+  // A temp directory bound under the name the file uses for the repository
+  // root is still a temp directory.
+  const anchoredRoot = "const root = path.resolve(__dirname, '../..');";
+  const readUnderRoot =
+    "expect(readFileSync(path.join(root, 'packages/kit/src/Thing.ts'), 'utf8')).toBe('done');";
+  assertClean(
+    `${anchoredRoot}
+    it('x', () => {
+      const root = fs.mkdtempSync(os.tmpdir());
+      ${readUnderRoot}
+    });
+  `,
+    'temp directory shadowing an anchored name',
+  );
+  assertGated(
+    `${anchoredRoot}
+    it('x', () => { ${readUnderRoot} });
+  `,
+    'control: the anchored binding itself',
+  );
+  // A parameter that shares an alias's name is not the alias.
+  assertClean(
+    `
+    const read = fs.readFileSync;
+    it('x', () => {
+      expect(loaders.map((read) => read(join(__dirname, 'thing.ts')))).toEqual([]);
+    });
+  `,
+    'parameter shadowing a read alias',
+  );
+  assertGated(
+    `
+    const read = fs.readFileSync;
+    it('x', () => {
+      expect(loaders.map((loader) => read(join(__dirname, 'thing.ts')))).toEqual([]);
+    });
+  `,
+    'control: the alias itself',
+  );
+  // A function's own name is looked up around it, not inside it, where a
+  // parameter of the same name lives.
+  assertGated(
+    `
+    function contents(contents) {
+      expect(contents).toContain('go');
+    }
+    it('x', () => { contents(readFileSync(join(__dirname, 'thing.ts'), 'utf8')); });
+  `,
+    'assertion helper whose parameter shares its name',
+  );
+  // A name nothing declares is one global, wherever it is assigned or read.
+  assertGated(
+    `
+    beforeAll(() => { source = readFileSync(join(__dirname, 'thing.ts'), 'utf8'); });
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'undeclared global assigned in a hook',
+  );
+});
+
+test('a helper asserts for its caller only on text passed in', () => {
+  const { violations } = analyzeFile(
+    FIXTURE_PATH,
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    function expectMentions(needle) {
+      expect(source).toContain(needle);
+    }
+    it('passes source as the needle', () => { expectMentions(source); });
+  `,
+  );
+  // The assertion is about `source` whatever the caller passes, so it is
+  // recorded once, where it is written, and the call adds nothing.
+  assert.deepEqual(
+    violations
+      .filter((violation) => violation.rule === 'source-text-assertion')
+      .map((violation) => violation.block),
+    [undefined],
   );
 });
 
@@ -785,6 +929,12 @@ test('unparseable input throws a SyntaxError and nothing else', () => {
   // internal defect cannot drop a file from the gate while looking clean.
   assert.throws(
     () => analyzeFile(FIXTURE_PATH, 'const a = (((;'),
+    (error) => error instanceof SyntaxError,
+  );
+  // The parser recovers from a redeclaration and scope analysis rejects it,
+  // which must surface the same way rather than as a crash in this check.
+  assert.throws(
+    () => analyzeFile(FIXTURE_PATH, 'let a = 1;\nlet a = 2;'),
     (error) => error instanceof SyntaxError,
   );
 });
@@ -1000,6 +1150,20 @@ test('a local filled from a hook or another test is still source', () => {
   `,
     'initialised let reassigned in a hook',
   );
+  // Jest runs beforeAll before beforeEach whatever order they are written in,
+  // so a definition can depend on one that appears below it.
+  assertGated(
+    `
+    describe('d', () => {
+      let source;
+      let body;
+      beforeEach(() => { body = source.slice(source.indexOf('go')); });
+      beforeAll(() => { source = readFileSync(join(__dirname, 'thing.ts'), 'utf8'); });
+      it('x', () => { expect(body).toContain('go'); });
+    });
+  `,
+    'derived in a hook written above the one that reads',
+  );
   assertClean(
     `
     describe('d', () => {
@@ -1152,6 +1316,40 @@ test('a hook local built up by its own callback is followed outward', () => {
     });
   `,
     'the loop accumulates something untainted',
+  );
+  // Reworked after the loop has filled it: the order the statements are
+  // written in must not decide whether the taint arrives.
+  assertGated(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => {
+        let text = '';
+        files.forEach((file) => {
+          text += readFileSync(join(__dirname, file), 'utf8');
+        });
+        const trimmed = text.trim();
+        source = trimmed;
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'reworked after the loop, then assigned out',
+  );
+  assertClean(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => {
+        let text = '';
+        files.forEach(() => { text += 'plain'; });
+        const trimmed = text.trim();
+        source = trimmed;
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'the same rework of untainted text',
   );
   // The loop body's own `text` is a different binding from the hook's.
   assertClean(
