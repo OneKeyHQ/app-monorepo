@@ -9,7 +9,14 @@ jest.mock('react-native', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isRuntimeBrowser: true },
+  default: {
+    // A getter, so a case can move the component onto native mid-suite.
+    get isRuntimeBrowser() {
+      return (
+        (globalThis as Record<string, unknown>).__isRuntimeBrowser !== false
+      );
+    },
+  },
 }));
 
 jest.mock('react-native-reanimated', () => ({
@@ -202,8 +209,12 @@ const stackProps = () =>
   ((globalThis as Record<string, unknown>).__positionCardStackProps ??
     []) as Record<string, unknown>[];
 
+// The row announces itself as a button through whichever prop its platform
+// reads, so match either rather than assuming one of them is present.
 const disclosureProps = () =>
-  stackProps().find((p) => p.accessibilityRole === 'button');
+  stackProps().find(
+    (p) => p.accessibilityRole === 'button' || p.role === 'button',
+  );
 
 describe('BorrowPositionCard amount hierarchy', () => {
   // ListItem.Text's pairing, which Earn's asset rows render through: title on
@@ -279,9 +290,17 @@ describe('BorrowPositionCard amount hierarchy', () => {
   });
 });
 
+// Every prop here is native-only. Tamagui forwards all but
+// onAccessibilityAction to the DOM verbatim on web, so the row ships them to
+// native alone and this block renders there.
 describe('BorrowPositionCard screen-reader activation', () => {
   beforeEach(() => {
     (globalThis as Record<string, unknown>).__positionCardStackProps = [];
+    (globalThis as Record<string, unknown>).__isRuntimeBrowser = false;
+  });
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).__isRuntimeBrowser;
   });
 
   // onAccessibilityTap routes through iOS accessibilityActivate only, and this
@@ -315,6 +334,21 @@ describe('BorrowPositionCard screen-reader activation', () => {
     )({ nativeEvent: { actionName: 'increment' } });
 
     expect(onToggleExpand).not.toHaveBeenCalled();
+  });
+
+  // On web the same states travel as aria-expanded, role and tabIndex, which
+  // the keyboard and web a11y cases above already cover.
+  it('ships none of them to a browser, where they would land as unknown attributes', () => {
+    delete (globalThis as Record<string, unknown>).__isRuntimeBrowser;
+    renderCard({ onToggleExpand: jest.fn() });
+    const props = disclosureProps();
+
+    expect(props?.accessible).toBeUndefined();
+    expect(props?.accessibilityRole).toBeUndefined();
+    expect(props?.accessibilityState).toBeUndefined();
+    expect(props?.accessibilityActions).toBeUndefined();
+    expect(props?.onAccessibilityAction).toBeUndefined();
+    expect(props?.['aria-expanded']).toBe(false);
   });
 });
 

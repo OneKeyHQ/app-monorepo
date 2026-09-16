@@ -83,18 +83,6 @@ export function BorrowPositionCard({
   const disclosureProps = isPressable
     ? ({
         'aria-expanded': isExpanded,
-        accessible: true,
-        accessibilityRole: 'button',
-        accessibilityState: { expanded: isExpanded },
-        // TalkBack activation does not bubble to the card's onPress.
-        accessibilityActions: ACCESSIBILITY_ACTIVATE,
-        onAccessibilityAction: (event: {
-          nativeEvent: { actionName: string };
-        }) => {
-          if (event.nativeEvent.actionName === 'activate') {
-            onToggleExpand?.();
-          }
-        },
         // Show the focus ring for keyboard navigation, not pointer presses.
         focusVisibleStyle: {
           outlineColor: '$focusRing',
@@ -102,7 +90,10 @@ export function BorrowPositionCard({
           outlineStyle: 'solid',
           outlineOffset: 1,
         },
-        // role and tabIndex are DOM-only; React warns about them on native.
+        // Each platform gets only the props it reads. Tamagui strips none of
+        // the React Native accessibility props on web beyond
+        // onAccessibilityAction, so shipping them there lands them on the div
+        // as unknown attributes, one React warning apiece.
         ...(platformEnv.isRuntimeBrowser
           ? {
               role: 'button' as const,
@@ -117,7 +108,20 @@ export function BorrowPositionCard({
                 }
               },
             }
-          : {}),
+          : {
+              accessible: true,
+              accessibilityRole: 'button' as const,
+              accessibilityState: { expanded: isExpanded },
+              // TalkBack activation does not bubble to the card's onPress.
+              accessibilityActions: ACCESSIBILITY_ACTIVATE,
+              onAccessibilityAction: (event: {
+                nativeEvent: { actionName: string };
+              }) => {
+                if (event.nativeEvent.actionName === 'activate') {
+                  onToggleExpand?.();
+                }
+              },
+            }),
       } as const)
     : {};
 
