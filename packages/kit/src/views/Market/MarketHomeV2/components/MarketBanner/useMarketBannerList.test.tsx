@@ -745,3 +745,25 @@ it.each([EMarketBannerType.Mixed, EMarketBannerType.StockPerps])(
     expect(hydrated[0].tokens?.[0].price).toBe('100');
   },
 );
+
+it('hydrates ticker_perps banners through the token endpoint', async () => {
+  jest.mocked(fetchMarketBannerTokenListForPlatform).mockResolvedValue([
+    {
+      address: '0xtoken',
+      name: 'Token',
+      symbol: 'TKN',
+      decimals: 18,
+      logoUrl: '',
+      price: '100',
+      priceChange24hPercent: '1',
+    },
+  ]);
+  const hydrated = await hydrateMarketBannerQuotes([
+    makeBanner({ type: EMarketBannerType.TickerPerps }),
+  ]);
+  expect(fetchMarketBannerTokenListForPlatform).toHaveBeenCalledWith(
+    'banner-list',
+  );
+  expect(fetchMarketBannerStockTokenListForPlatform).not.toHaveBeenCalled();
+  expect(hydrated[0].tokens?.[0].price).toBe('100');
+});

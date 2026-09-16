@@ -87,6 +87,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'fetchMarketBasicConfig',
     'fetchMarketChains',
     'fetchMarketPerpsTokenList',
+    'fetchMarketStockBatch',
     'fetchMarketStockList',
     'fetchMarketTokenList',
     'fetchMarketTokenListBatch',
