@@ -77,6 +77,8 @@ describe('AvailabilityAggregator', () => {
       {
         schemaVersion: 3,
         snapshotId: 'id-1',
+        $insertId: 'id-1',
+        $timestamp: START,
         runtimeScope: 'bg',
         endpointEnv: 'prod',
         windowStartTs: START,

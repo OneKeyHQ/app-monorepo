@@ -53,6 +53,8 @@ const FAILURE_TEXT_PROPS = 4;
 const FAILURE_TEXT_MAX_LENGTH = 255;
 // Sends when due and stores recent counts; does nothing without data.
 const TICK_MS = 60 * 1000;
+// Window timestamps this far from the current clock are not sent as event time.
+const CLOCK_TRUST_MS = 24 * 60 * 60 * 1000;
 
 export type IAvailabilityWindow = {
   id: string;
@@ -191,11 +193,18 @@ function mergeWindows(
 export function buildAvailabilitySnapshotParams(
   window: IAvailabilityWindow,
   meta: Record<string, string>,
+  now: number,
 ): IAvailabilitySnapshotParams {
   const params: IAvailabilitySnapshotParams = {
     ...meta,
     schemaVersion: 3,
     snapshotId: window.id,
+    // Deduplicates a resent window and dates it at the window end. A clock
+    // far from this one is left to the server, which dates it on arrival.
+    $insertId: window.id,
+    ...(Math.abs(now - window.endTs) <= CLOCK_TRUST_MS
+      ? { $timestamp: window.endTs }
+      : {}),
     endpointEnv: window.testEndpoint ? 'test' : 'prod',
     windowStartTs: window.startTs,
     windowEndTs: window.endTs,
@@ -351,7 +360,7 @@ export class AvailabilityAggregator {
     this.persist(true);
     await this.writeQueue;
     await this.deps.send(
-      buildAvailabilitySnapshotParams(window, this.deps.meta),
+      buildAvailabilitySnapshotParams(window, this.deps.meta, this.deps.now()),
     );
     this.pending = undefined;
     this.persist();
