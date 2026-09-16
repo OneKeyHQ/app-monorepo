@@ -89,6 +89,18 @@ const TAINT_PROPAGATORS = new Set([
   'toString',
   'normalize',
   'at',
+  // Position and predicate methods carry the same claim about the source text,
+  // just reduced to a number or a boolean. `const i = source.indexOf(x)` and
+  // then `expect(i).toBeLessThan(j)` is the inline offset comparison spread
+  // over three statements.
+  'indexOf',
+  'lastIndexOf',
+  'search',
+  'includes',
+  'startsWith',
+  'endsWith',
+  'test',
+  'exec',
 ]);
 const EVAL_FUNCTIONS = new Set([
   'runInNewContext',
@@ -106,6 +118,8 @@ const ADVISORY_RULES = new Set([
   'missing-subject-import',
   'native-source-text-assertion',
 ]);
+// Only a gated rule can be exempted; an advisory one never fails anything.
+const GATED_RULES = new Set(['source-text-assertion', 'source-slice-eval']);
 const NODE_BUILTIN_RE =
   /^(?:node:)?(?:assert|buffer|child_process|crypto|events|fs|http|https|net|os|path|process|readline|stream|timers|url|util|vm|worker_threads|zlib)(?:\/|$)/u;
 const TEST_TOOLING_RE =
@@ -127,7 +141,29 @@ function loadAllowlist() {
     return [];
   }
   const parsed = JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf8'));
-  return Array.isArray(parsed.entries) ? parsed.entries : [];
+  const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+  entries.forEach((entry, index) => {
+    const label = `entries[${index}]`;
+    if (typeof entry.file !== 'string' || !entry.file) {
+      throw new Error(`${label} needs a "file".`);
+    }
+    if (!GATED_RULES.has(entry.rule)) {
+      throw new Error(
+        `${label} rule must be one of: ${[...GATED_RULES].join(', ')}`,
+      );
+    }
+    if (entry.block !== null && typeof entry.block !== 'string') {
+      throw new Error(
+        `${label} needs a "block": the exact it()/test() title, or null for a violation in shared setup.`,
+      );
+    }
+    if (typeof entry.reason !== 'string' || entry.reason.trim().length < 40) {
+      throw new Error(
+        `${label} needs a "reason" saying why no runtime assertion can replace it.`,
+      );
+    }
+  });
+  return entries;
 }
 
 function collectTestFiles(directory, collected) {
@@ -226,9 +262,15 @@ function calleeName(callee) {
  * imported instead, 'native' for sources no JS runtime can execute, undefined
  * for build artifacts, data files and temp directories.
  */
-function classifyReadTarget(callNode) {
+function classifyReadTarget(callNode, repoAnchored) {
   const pathArgument = callNode.arguments[0];
   if (!pathArgument) {
+    return undefined;
+  }
+  // A checked-in file is always reached from `__dirname`. A path built from a
+  // temp directory or a fixture root is something the test itself produced, so
+  // reading it is not a source-text assertion however the file is named.
+  if (!isRepoAnchored(pathArgument, repoAnchored)) {
     return undefined;
   }
   const literals = collectStringLiterals(pathArgument).filter(Boolean);
@@ -251,64 +293,119 @@ function classifyReadTarget(callNode) {
   return containsIdentifier(pathArgument, '__dirname') ? 'script' : undefined;
 }
 
-/** Identifier at the root of a member/call chain, e.g. `source` in `source.slice(x).trim()`. */
-function rootIdentifierName(node) {
-  let current = node;
-  while (current) {
-    if (current.type === 'Identifier') {
-      return current.name;
-    }
-    if (current.type === 'MemberExpression') {
-      current = current.object;
-    } else if (
-      current.type === 'CallExpression' ||
-      current.type === 'OptionalCallExpression'
-    ) {
-      current = current.callee;
-    } else if (current.type === 'OptionalMemberExpression') {
-      current = current.object;
-    } else if (
-      current.type === 'TSNonNullExpression' ||
-      current.type === 'TSAsExpression'
-    ) {
-      current = current.expression;
-    } else {
-      return undefined;
-    }
-  }
-  return undefined;
-}
-
 /** 'script' | 'native' | undefined for the source text a node carries. */
-function taintKind(node, tainted) {
+function taintKind(node, tainted, readKind) {
   if (!node) {
     return undefined;
   }
-  const rootName = rootIdentifierName(node);
-  if (rootName && tainted.has(rootName)) {
-    return tainted.get(rootName);
-  }
-  if (node.type === 'TemplateLiteral') {
-    for (const expression of node.expressions) {
-      const kind = taintKind(expression, tainted);
-      if (kind) {
-        return kind;
+  switch (node.type) {
+    case 'Identifier':
+      return tainted.get(node.name);
+    case 'AwaitExpression':
+      return taintKind(node.argument, tainted, readKind);
+    case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
+    case 'TSNonNullExpression':
+    case 'ParenthesizedExpression':
+      return taintKind(node.expression, tainted, readKind);
+    case 'MemberExpression':
+    case 'OptionalMemberExpression':
+      return taintKind(node.object, tainted, readKind);
+    case 'TemplateLiteral':
+      return firstTaint(node.expressions, tainted, readKind);
+    case 'CallExpression':
+    case 'OptionalCallExpression': {
+      const name = calleeName(node.callee);
+      if (name && READ_FUNCTIONS.has(name)) {
+        return readKind ? readKind(node) : undefined;
       }
+      if (name && TAINT_PROPAGATORS.has(name)) {
+        const receiver =
+          node.callee.type === 'MemberExpression' ||
+          node.callee.type === 'OptionalMemberExpression'
+            ? node.callee.object
+            : undefined;
+        // `source.indexOf(x)` taints through the receiver, `/re/.test(source)`
+        // through the argument; both are claims about the same text.
+        return (
+          taintKind(receiver, tainted, readKind) ??
+          firstTaint(node.arguments, tainted, readKind)
+        );
+      }
+      if (node.callee.type === 'Identifier' && name === 'String') {
+        return taintKind(node.arguments[0], tainted, readKind);
+      }
+      return undefined;
     }
+    default:
+      return undefined;
   }
-  if (node.type === 'AwaitExpression') {
-    return taintKind(node.argument, tainted);
+}
+
+function firstTaint(nodes, tainted, readKind) {
+  for (const node of nodes ?? []) {
+    const kind = taintKind(node, tainted, readKind);
+    if (kind) {
+      return kind;
+    }
   }
   return undefined;
 }
 
-/** Binding name a value is assigned to, if any. */
-function assignedName(node, parent) {
-  if (parent?.type === 'VariableDeclarator' && parent.init === node) {
-    return parent.id.type === 'Identifier' ? parent.id.name : undefined;
+const PATH_BUILDERS = new Set(['join', 'resolve', 'normalize']);
+
+/** Is this path expression rooted at the checked-in tree rather than a temp dir? */
+function isRepoAnchored(node, repoAnchored) {
+  if (!node) {
+    return false;
   }
-  if (parent?.type === 'AssignmentExpression' && parent.right === node) {
-    return parent.left.type === 'Identifier' ? parent.left.name : undefined;
+  if (node.type === 'Identifier') {
+    return node.name === '__dirname' || repoAnchored.has(node.name);
+  }
+  if (
+    node.type === 'CallExpression' ||
+    node.type === 'OptionalCallExpression'
+  ) {
+    const name = calleeName(node.callee);
+    return (
+      Boolean(name) &&
+      PATH_BUILDERS.has(name) &&
+      node.arguments.some((argument) => isRepoAnchored(argument, repoAnchored))
+    );
+  }
+  if (node.type === 'TemplateLiteral') {
+    return node.expressions.some((expression) =>
+      isRepoAnchored(expression, repoAnchored),
+    );
+  }
+  return false;
+}
+
+/** Bindings that hold a path into the checked-in tree, to a fixpoint. */
+function collectRepoAnchoredBindings(ast) {
+  const anchored = new Set();
+  for (let round = 0; round < 6; round += 1) {
+    const before = anchored.size;
+    walk(ast, (node) => {
+      const binding = bindingTarget(node);
+      if (binding && isRepoAnchored(binding.value, anchored)) {
+        anchored.add(binding.name);
+      }
+    });
+    if (anchored.size === before) {
+      return anchored;
+    }
+  }
+  return anchored;
+}
+
+/** The name and initializer of a binding, for `const x = ...` and `x = ...`. */
+function bindingTarget(node) {
+  if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') {
+    return node.init ? { name: node.id.name, value: node.init } : undefined;
+  }
+  if (node.type === 'AssignmentExpression' && node.left.type === 'Identifier') {
+    return { name: node.left.name, value: node.right };
   }
   return undefined;
 }
@@ -328,49 +425,27 @@ function analyzeFile(absolutePath, source) {
     /\breadFileSync\b|\breadFile\b/u.test(source) &&
     walksSource(ast);
 
-  // Pass 1: taint every binding that holds first-party source text. Iterate to
-  // a fixpoint so derived bindings (`const body = source.slice(a, b)`) follow.
+  const repoAnchored = collectRepoAnchoredBindings(ast);
+  const readKind = (callNode) =>
+    classifyReadTarget(callNode, repoAnchored) ??
+    (walksSourceTree ? 'script' : undefined);
+
+  // Pass 1: taint every binding that holds first-party source text. Seeding
+  // walks down from each binding rather than up from each read, so the read can
+  // sit anywhere inside the initializer -- behind an await, a cast, an optional
+  // chain, or a string method. Iterate to a fixpoint so derived bindings
+  // (`const body = source.slice(a, b)`) follow.
   const tainted = new Map();
   for (let round = 0; round < 6; round += 1) {
     const before = tainted.size;
-    walk(ast, (node, parent) => {
-      if (
-        node.type !== 'CallExpression' &&
-        node.type !== 'OptionalCallExpression'
-      ) {
+    walk(ast, (node) => {
+      const binding = bindingTarget(node);
+      if (!binding) {
         return;
       }
-      const name = calleeName(node.callee);
-      if (name && READ_FUNCTIONS.has(name)) {
-        const kind =
-          classifyReadTarget(node) ?? (walksSourceTree ? 'script' : undefined);
-        if (kind) {
-          const binding = assignedName(node, parent);
-          if (binding) {
-            tainted.set(binding, kind);
-          }
-        }
-        return;
-      }
-      if (name && TAINT_PROPAGATORS.has(name)) {
-        const kind = taintKind(node.callee, tainted);
-        const binding = kind && assignedName(node, parent);
-        if (binding) {
-          tainted.set(binding, kind);
-        }
-      }
-    });
-    walk(ast, (node, parent) => {
-      if (
-        node.type === 'MemberExpression' ||
-        node.type === 'AwaitExpression' ||
-        node.type === 'TSNonNullExpression'
-      ) {
-        const kind = taintKind(node, tainted);
-        const binding = kind && assignedName(node, parent);
-        if (binding) {
-          tainted.set(binding, kind);
-        }
+      const kind = taintKind(binding.value, tainted, readKind);
+      if (kind) {
+        tainted.set(binding.name, kind);
       }
     });
     if (tainted.size === before) {
@@ -395,9 +470,14 @@ function analyzeFile(absolutePath, source) {
         : undefined,
       message,
     });
+    if (ADVISORY_RULES.has(rule)) {
+      // An advisory hit is never a reason to delete anything, so it must not
+      // feed the whole-file verdict that --list drives.
+      return;
+    }
     if (blockStack.length) {
       blockStack[blockStack.length - 1].violated = true;
-    } else if (!ADVISORY_RULES.has(rule)) {
+    } else {
       // Outside any test block: shared setup every test in the file depends on.
       sharedSetupViolation = true;
     }
@@ -444,7 +524,9 @@ function analyzeFile(absolutePath, source) {
       if (name && TEXT_MATCHERS.has(name)) {
         const expectCall = findExpectCall(node.callee);
         const kind = expectCall
-          ? expectCall.arguments.map((a) => taintKind(a, tainted)).find(Boolean)
+          ? expectCall.arguments
+              .map((a) => taintKind(a, tainted, readKind))
+              .find(Boolean)
           : undefined;
         if (kind) {
           record(
@@ -463,7 +545,7 @@ function analyzeFile(absolutePath, source) {
         ASSERT_TEXT_METHODS.has(name) &&
         node.callee.type === 'MemberExpression'
       ) {
-        const kind = taintKind(node.arguments[0], tainted);
+        const kind = taintKind(node.arguments[0], tainted, readKind);
         if (kind) {
           record(
             kind === 'native'
@@ -478,7 +560,7 @@ function analyzeFile(absolutePath, source) {
       // vm.runInNewContext(<tainted>) / transformSync(<tainted>)
       if (name && EVAL_FUNCTIONS.has(name)) {
         const kind = node.arguments
-          .map((a) => taintKind(a, tainted))
+          .map((a) => taintKind(a, tainted, readKind))
           .find(Boolean);
         if (kind === 'script') {
           record(
@@ -630,11 +712,21 @@ function collectsFirstPartyModule(ast) {
   return found;
 }
 
-function isAllowed(allowlist, file, rule) {
-  return allowlist.some((entry) => entry.file === file && entry.rule === rule);
+/**
+ * An entry exempts one reviewed violation, identified by the test block it sits
+ * in, so a later assertion added to the same file is still gated. `block: null`
+ * means the violation is in shared setup outside any test block.
+ */
+function matchingEntry(allowlist, file, violation) {
+  return allowlist.find(
+    (entry) =>
+      entry.file === file &&
+      entry.rule === violation.rule &&
+      (entry.block ?? null) === (violation.block ?? null),
+  );
 }
 
-function analyzeOne(absolutePath, allowlist) {
+function analyzeOne(absolutePath, allowlist, usedEntries) {
   const source = fs.readFileSync(absolutePath, 'utf8');
   if (!SCANNABLE_SOURCE_RE.test(source)) {
     return undefined;
@@ -655,34 +747,43 @@ function analyzeOne(absolutePath, allowlist) {
       wholeFile: false,
     };
   }
-  result.violations = result.violations.filter(
-    (violation) => !isAllowed(allowlist, result.file, violation.rule),
-  );
+  result.violations = result.violations.filter((violation) => {
+    const entry = matchingEntry(allowlist, result.file, violation);
+    if (entry) {
+      usedEntries.add(entry);
+      return false;
+    }
+    return true;
+  });
   return result.violations.length ? result : undefined;
 }
 
 function run() {
   const allowlist = loadAllowlist();
+  const usedEntries = new Set();
   const files = collectTestFiles(REPO_ROOT, []);
   const results = files
-    .map((absolutePath) => analyzeOne(absolutePath, allowlist))
+    .map((absolutePath) => analyzeOne(absolutePath, allowlist, usedEntries))
     .filter(Boolean);
   const failing = results.filter((result) =>
     result.violations.some((violation) => !ADVISORY_RULES.has(violation.rule)),
   );
   const advisory = results.filter((result) => !failing.includes(result));
-  return { scanned: files.length, results: failing, advisory };
+  // An entry that no longer matches anything is an exemption nobody reviewed
+  // for the code that is there now; it must be removed rather than linger.
+  const staleEntries = allowlist.filter((entry) => !usedEntries.has(entry));
+  return { scanned: files.length, results: failing, advisory, staleEntries };
 }
 
 function main() {
   const flags = new Set(process.argv.slice(2));
-  const { scanned, results, advisory } = run();
+  const { scanned, results, advisory, staleEntries } = run();
 
   if (flags.has('--json')) {
     process.stdout.write(
-      `${JSON.stringify({ scanned, results, advisory }, null, 2)}\n`,
+      `${JSON.stringify({ scanned, results, advisory, staleEntries }, null, 2)}\n`,
     );
-    process.exitCode = results.length ? 1 : 0;
+    process.exitCode = results.length || staleEntries.length ? 1 : 0;
     return;
   }
 
@@ -693,17 +794,26 @@ function main() {
     return;
   }
 
-  if (!results.length) {
+  if (!results.length && !staleEntries.length) {
     process.stdout.write(
       `Test integrity check passed (${scanned} test files).\n`,
     );
     return;
   }
 
-  const lines = [
-    `Test integrity check failed: ${results.length} of ${scanned} test file(s) assert on source text.`,
-    '',
-  ];
+  const lines = results.length
+    ? [
+        `Test integrity check failed: ${results.length} of ${scanned} test file(s) assert on source text.`,
+        '',
+      ]
+    : ['Test integrity check failed.', ''];
+  for (const entry of staleEntries) {
+    lines.push(
+      `${entry.file}  [stale allowlist entry]`,
+      `    No ${entry.rule} remains in ${entry.block === null ? 'shared setup' : `"${entry.block}"`}. Remove the entry.`,
+      '',
+    );
+  }
   for (const result of results) {
     lines.push(
       `${result.file}${result.wholeFile ? '  [whole file]' : '  [partial]'}`,

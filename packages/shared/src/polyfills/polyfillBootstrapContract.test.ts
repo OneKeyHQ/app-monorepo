@@ -183,6 +183,46 @@ function containsImmediateCall(value: unknown, calleeName: string): boolean {
   );
 }
 
+function containsImmediateAssignmentTo(
+  value: unknown,
+  propertyName: string,
+): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) =>
+      containsImmediateAssignmentTo(item, propertyName),
+    );
+  }
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const node = value as {
+    left?: { property?: { name?: string; type?: string }; type?: string };
+    type?: string;
+    [key: string]: unknown;
+  };
+  if (
+    node.type === 'FunctionDeclaration' ||
+    node.type === 'FunctionExpression' ||
+    node.type === 'ArrowFunctionExpression' ||
+    node.type === 'ClassDeclaration' ||
+    node.type === 'ClassExpression'
+  ) {
+    return false;
+  }
+  if (
+    node.type === 'AssignmentExpression' &&
+    node.left?.type === 'MemberExpression' &&
+    node.left.property?.type === 'Identifier' &&
+    node.left.property.name === propertyName
+  ) {
+    return true;
+  }
+  return Object.values(node).some((child) =>
+    containsImmediateAssignmentTo(child, propertyName),
+  );
+}
+
 function collectTopLevelBootstrapEvents(source: string): string[] {
   const ast = parse(source, {
     plugins: ['jsx', 'typescript'],
@@ -190,6 +230,9 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
   });
 
   return ast.program.body.flatMap((statement) => {
+    if (containsImmediateAssignmentTo(statement, '$$debugT0')) {
+      return ['assign:$$debugT0'];
+    }
     const dependency = findImmediateRequire(statement);
     if (dependency) {
       return [`require:${dependency}`];
@@ -202,20 +245,21 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
 }
 
 describe('runtime polyfill bootstrap contract', () => {
-  // Exempt from the test-integrity source-text rule, see
-  // development/lint/test-integrity.allowlist.json. The startup baseline has to
-  // be stamped before the first polyfill is installed or every timing measured
-  // against it is short by the polyfill cost, and importing this module to
-  // observe the order would itself run the bootstrap under test.
+  // The stamp has to land before the first polyfill is installed, or every
+  // timing measured against it is short by the polyfill cost. Ordering is read
+  // off the AST event list rather than character offsets: `$$debugT0` also
+  // appears as a type-only field above the assignment, so `indexOf` on the text
+  // would match the annotation and stay green with the stamp moved below.
   it('captures the startup baseline before installing polyfills', () => {
     const source = readFileSync(
       path.join(repoRoot, 'packages/shared/src/polyfills/index.ts'),
       'utf8',
     );
+    const events = collectTopLevelBootstrapEvents(source);
 
-    expect(source.indexOf('$$debugT0')).toBeGreaterThanOrEqual(0);
-    expect(source.indexOf('$$debugT0')).toBeLessThan(
-      source.indexOf("require('./polyfillsPlatform')"),
+    expect(events).toContain('assign:$$debugT0');
+    expect(events.indexOf('assign:$$debugT0')).toBeLessThan(
+      events.indexOf('require:./polyfillsPlatform'),
     );
   });
 

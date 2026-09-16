@@ -721,31 +721,6 @@ describe('native-dev-shell', () => {
     );
   });
 
-  it('keeps Android reverse ownership inside the device lock lifetime', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-    );
-    const lockIndex = launchSource.indexOf(
-      'const deviceLock = acquireNamedLock(',
-    );
-    const configureIndex = launchSource.indexOf(
-      'const deviceMetro = configureDeviceMetro(',
-    );
-    const releaseRouteIndex = launchSource.indexOf(
-      'releaseDeviceMetroRoute?.();',
-    );
-    const releaseLockIndex = launchSource.indexOf('deviceLock.release();');
-
-    expect(lockIndex).toBeGreaterThanOrEqual(0);
-    expect(configureIndex).toBeGreaterThan(lockIndex);
-    expect(releaseRouteIndex).toBeGreaterThan(configureIndex);
-    expect(releaseLockIndex).toBeGreaterThan(releaseRouteIndex);
-  });
-
   it('keeps the complete Android run-as script in one quoted adb argument', () => {
     const deviceId = 'emulator-5554';
     const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
