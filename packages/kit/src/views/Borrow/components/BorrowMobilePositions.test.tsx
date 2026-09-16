@@ -86,8 +86,16 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
 jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
   __esModule: true,
   default: {
-    normalizeBorrowAddress: ({ address }: { address: string }) =>
-      address.toLowerCase(),
+    // Mirrors the real helper, which folds case on EVM only. A stub that
+    // lowercased everything would fold two case-differing base58 addresses
+    // together on the suite's behalf and report that as the component's doing.
+    normalizeBorrowAddress: ({
+      networkId,
+      address,
+    }: {
+      networkId: string;
+      address: string;
+    }) => (networkId.startsWith('evm--') ? address.toLowerCase() : address),
   },
 }));
 
@@ -507,6 +515,43 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
       );
     },
   );
+
+  // The reset already sits out these frames. The key used to undo that on its
+  // own: a blank account made a new key, which remounted the card collapsed
+  // and then remounted it again on the way back.
+  it('keeps the card mounted and open through the blank frame itself', () => {
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+    const positionId = cardId('supplied', '0xAaa');
+
+    fireEvent.click(getByTestId(positionId));
+    const beforeBlank = getByTestId(positionId);
+
+    scope.accountId = '';
+    scope.earnAccountLoading = true;
+    rerender(<BorrowMobilePositions />);
+
+    const duringBlank = getByTestId(positionId);
+    expect(duringBlank).toBe(beforeBlank);
+    expect(duringBlank.getAttribute('data-expanded')).toBe('true');
+  });
+
+  // Base58 is case-sensitive, so two Solana markets can differ by case alone.
+  // Folding them together would hand the next market the previous one's open
+  // card, and the reset that should have caught it compares the same value.
+  it('treats case-differing Solana markets as separate scopes', () => {
+    scope.networkId = 'sol--101';
+    scope.marketAddress = 'MarketAaa';
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+    const positionId = cardId('supplied', '0xAaa');
+
+    fireEvent.click(getByTestId(positionId));
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('true');
+
+    scope.marketAddress = 'MARKETAAA';
+    rerender(<BorrowMobilePositions />);
+
+    expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('false');
+  });
 
   it('keeps the open card open when the indexer changes address casing', () => {
     const { getByTestId, rerender } = render(<BorrowMobilePositions />);

@@ -89,28 +89,20 @@ function PositionCardSkeleton(): ReactElement {
   );
 }
 
-// Scope expansion to the account and market, including native reserves with
-// an empty address. Normalized addresses keep casing-only refreshes stable.
+// Identifies the position within the list it is rendered in, including native
+// reserves with an empty address. Deliberately free of the account, network
+// and market: the scope reset below owns those, and it knows to sit out the
+// blank frames that publishing a scope produces. Carrying them here as well
+// made every such frame a new key, which remounted the card and dropped the
+// expansion the reset had just been taught to keep.
 function getPositionKey({
   kind,
-  accountId,
-  networkId,
-  marketAddress,
   reserveKey,
 }: {
   kind: 'supplied' | 'borrowed';
-  accountId: string;
-  networkId: string;
-  marketAddress: string;
   reserveKey: string;
 }): string {
-  return [
-    kind,
-    accountId,
-    networkId,
-    marketAddress.toLowerCase(),
-    reserveKey,
-  ].join('-');
+  return [kind, reserveKey].join('-');
 }
 
 export function BorrowMobilePositions({
@@ -133,7 +125,12 @@ export function BorrowMobilePositions({
   const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
   const networkId = market?.networkId ?? '';
   const marketAddress = market?.marketAddress ?? '';
-  const normalizedMarketAddress = marketAddress.toLowerCase();
+  // Case-insensitive on EVM only: lowercasing a base58 Solana address can
+  // fold two distinct markets onto one scope.
+  const normalizedMarketAddress = earnUtils.normalizeBorrowAddress({
+    networkId,
+    address: marketAddress,
+  });
   const eModeId = eModeStatus?.eModeId;
   const hasCollateralControls = Boolean(market && accountId);
 
@@ -255,9 +252,6 @@ export function BorrowMobilePositions({
 
         const positionKey = getPositionKey({
           kind: entry.kind,
-          accountId,
-          networkId,
-          marketAddress,
           reserveKey,
         });
         const amount =
