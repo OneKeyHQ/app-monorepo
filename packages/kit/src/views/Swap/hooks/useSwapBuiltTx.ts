@@ -3992,7 +3992,16 @@ export function useSwapBuildTx({
           'Swap preparation is unavailable for this source network',
         );
       }
-      const { buildResult, builtAt } = await preparedBuild;
+      // The approval transaction only depends on the quote/account snapshot;
+      // it does not depend on the swap build response. Start it immediately so
+      // the relatively expensive account/unsigned-tx preparation overlaps the
+      // build-tx request instead of extending the preview critical path.
+      const unsignedTxPromise = getApproveUnSignedTxArr(data, true);
+      const [preparedBuildResult, unsignedTxResult] = await Promise.all([
+        preparedBuild,
+        unsignedTxPromise,
+      ]);
+      const { buildResult, builtAt } = preparedBuildResult;
       if (
         !isCurrent() ||
         !buildResult.swapInfo ||
@@ -4001,7 +4010,7 @@ export function useSwapBuildTx({
         throw new CanceledError('Swap preparation is no longer available');
       }
       try {
-        const { unsignedTxArr } = await getApproveUnSignedTxArr(data, true);
+        const { unsignedTxArr } = unsignedTxResult;
         const feeResult = await estimateNetworkFee(
           fromAccountNetworkId,
           fromAccountId,
