@@ -3692,6 +3692,7 @@ export enum ETranslations {
   pin_verify_reminder_dialog_verified_toast = 'pin_verify_reminder_dialog_verified_toast',
   placeholder_search_networks = 'placeholder_search_networks',
   portfolio_sync_to_device__action = 'portfolio_sync_to_device__action',
+  portfolio_updated__title = 'portfolio_updated__title',
   position_changed_review_submit_again__msg = 'position_changed_review_submit_again__msg',
   position_increase_amount_unavailable__msg = 'position_increase_amount_unavailable__msg',
   position_or_account_changed__msg = 'position_or_account_changed__msg',

@@ -34,6 +34,7 @@ import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
+import { WalletActionPortfolioSync } from './WalletActionPortfolioSync';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
 import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
@@ -317,6 +318,13 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
         }
         elements.push(...devElements);
       }
+
+      elements.push(
+        <WalletActionPortfolioSync
+          key="portfolio-sync"
+          onClose={handleActionListClose}
+        />,
+      );
 
       return (
         <AccountSelectorProviderMirror

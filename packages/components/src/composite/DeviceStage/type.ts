@@ -362,6 +362,8 @@ export interface IDeviceStageProps {
   errorMessage?: string;
   /** Translate in the UI runtime, whose locale messages are loaded. */
   errorI18n?: IDeviceStageErrorI18n;
+  /** Optional operation-specific copy for the successful `done` beat. */
+  doneI18n?: IDeviceStageErrorI18n;
   /**
    * The authenticity checklist, shown under the words on `authVerifying`,
    * on `authSuccess` when the checklist flow is what succeeded, and

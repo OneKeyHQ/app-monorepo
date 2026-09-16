@@ -3687,6 +3687,7 @@
   "pin_verify_reminder_dialog_verified_toast": "PIN check handled on another device",
   "placeholder_search_networks": "Search networks",
   "portfolio_sync_to_device__action": "Update device portfolio",
+  "portfolio_updated__title": "Portfolio updated",
   "position_changed_review_submit_again__msg": "The position changed. Please review and submit again.",
   "position_increase_amount_unavailable__msg": "The available amount to add has changed. Please enter the amount again.",
   "position_or_account_changed__msg": "The position or active account changed. Please try again.",

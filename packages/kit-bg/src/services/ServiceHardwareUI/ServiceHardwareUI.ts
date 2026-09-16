@@ -702,6 +702,19 @@ class ServiceHardwareUI extends ServiceBase {
     await this.deviceStageBurst.noteStep('error', { connectId, errorReason });
   }
 
+  /** Lands the successful outcome for an operation that has confirmed its
+   * result, while the operation's hardware burst still owns the stage. */
+  @backgroundMethod()
+  async deviceStageNoteDone({
+    connectId,
+    doneI18n,
+  }: {
+    connectId?: string;
+    doneI18n?: IDeviceStageState['doneI18n'];
+  }) {
+    await this.deviceStageBurst.noteStep('done', { connectId, doneI18n });
+  }
+
   /** The hidden-wallet teach card was read: on to the entry. The card's
    * shortcut preference is written by the driver, which owns that atom. */
   @backgroundMethod()

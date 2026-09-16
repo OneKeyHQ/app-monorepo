@@ -183,7 +183,7 @@ const THIRD_PARTY_ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'btcHighIndex',
 ]);
 
-/** How long the third-party ✓ `done` beat rests before the exit. */
+/** How long the ✓ `done` beat rests before the exit. */
 const DONE_HOLD_MS = 1600;
 
 /** How long the authenticity ✓ rests before its narrative is retired —
@@ -986,11 +986,15 @@ export class DeviceStageBurstScope {
       });
       return;
     }
-    // The third-party track closes a successful burst with the ✓ done
-    // beat (doc §4.7) before leaving; OneKey bursts leave directly.
+    // An operation-authored ✓ keeps its full reading beat before leaving.
+    const current = await deviceStageAtom.get();
+    if (current?.step === 'done') {
+      this.scheduleOff(DONE_HOLD_MS);
+      return;
+    }
+    // The third-party track authors its ✓ from the successful burst end.
     if (wasVendorBurst) {
-      const prev = await deviceStageAtom.get();
-      if (prev && prev.step !== 'off') {
+      if (current && current.step !== 'off') {
         await this.setStep('done', {});
         this.scheduleOff(DONE_HOLD_MS);
         return;
@@ -1462,6 +1466,7 @@ export class DeviceStageBurstScope {
       errorReason?: IDeviceStageErrorReasonValue;
       errorMessage?: string;
       errorI18n?: IDeviceStageState['errorI18n'];
+      doneI18n?: IDeviceStageState['doneI18n'];
       authChecklist?: IDeviceStageState['authChecklist'];
       authFailureReason?: IDeviceStageState['authFailureReason'];
       authFailureMessage?: string;
@@ -1837,6 +1842,7 @@ export class DeviceStageBurstScope {
       errorReason?: IDeviceStageErrorReasonValue;
       errorMessage?: string;
       errorI18n?: IDeviceStageState['errorI18n'];
+      doneI18n?: IDeviceStageState['doneI18n'];
       confirmDetails?: IDeviceStageState['confirmDetails'];
       confirmMessage?: string;
       confirmDescription?: string;
@@ -1952,6 +1958,7 @@ export class DeviceStageBurstScope {
         errorReason: step === 'error' ? mergedExtras.errorReason : undefined,
         errorMessage: step === 'error' ? mergedExtras.errorMessage : undefined,
         errorI18n: step === 'error' ? mergedExtras.errorI18n : undefined,
+        doneI18n: step === 'done' ? mergedExtras.doneI18n : undefined,
         qrValueUr: pickQrScoped(step, mergedExtras.qrValueUr, base?.qrValueUr),
         qrSessionId: pickQrScoped(
           step,

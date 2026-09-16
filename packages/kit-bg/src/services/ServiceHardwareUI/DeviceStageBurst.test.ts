@@ -10,6 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -307,6 +308,27 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('connecting');
     await scope.end();
     await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('holds an authored OneKey success before leaving the stage', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.noteStep('done', {
+      connectId: CONNECT_ID,
+      doneI18n: { key: ETranslations.global_done },
+    });
+    await scope.end();
+
+    expect(stage).toMatchObject({
+      step: 'done',
+      doneI18n: { key: ETranslations.global_done },
+    });
+    await jest.advanceTimersByTimeAsync(1599);
+    expect(stage?.step).toBe('done');
+    await jest.advanceTimersByTimeAsync(1);
     expect(stage?.step).toBe('off');
   });
 
