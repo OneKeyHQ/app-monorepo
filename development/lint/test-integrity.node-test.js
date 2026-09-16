@@ -1058,6 +1058,70 @@ test('source held in an object literal is still source', () => {
   );
 });
 
+test('a hook assignment is read in the hook, and its own bindings stay its own', () => {
+  // The right-hand side lives in the hook, so the hook's locals must be visible
+  // to it - including when an outer binding of the same name would hide them.
+  assertGated(
+    `
+    describe('d', () => {
+      const text = 'outer';
+      let source;
+      beforeAll(() => {
+        const text = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+        source = text;
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'hook-local intermediate under a shadowing outer name',
+  );
+  assertGated(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => {
+        items.forEach((file) => {
+          const contents = readFileSync(join(__dirname, file), 'utf8');
+          source = contents;
+        });
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'two levels down',
+  );
+  // A hook that declares or catches its own `source` is assigning that one.
+  assertClean(
+    `
+    describe('d', () => {
+      let source = 'plain';
+      beforeAll(() => {
+        let source;
+        source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'hook redeclares the name',
+  );
+  assertClean(
+    `
+    describe('d', () => {
+      let source = 'plain';
+      beforeAll(() => {
+        try {
+          go();
+        } catch (source) {
+          source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+        }
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'hook catch binding rebinds the name',
+  );
+});
+
 test('ios and android are skipped only as native project roots', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'test-integrity-dirs-'));
   try {

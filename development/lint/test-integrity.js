@@ -706,25 +706,18 @@ function collectTransformHelpers(ast, readKind, helpers) {
   });
 }
 
-/**
- * The scope inside a function: the enclosing one, minus every name the
- * function binds for itself - parameters, `catch` and `for...of` bindings, and
- * declared locals - with only the locals actually built from source seeded
- * back. A name the function binds is its own, whatever an outer binding of the
- * same name holds.
- */
-function deriveFunctionScope(fn, parentScope, readKind) {
-  const local = new Map(parentScope);
-  const declaredLocals = new Set();
+/** Every name a function binds for itself, at its own level. */
+function ownBindingNames(fn) {
+  const names = new Set();
   (fn.params ?? []).forEach((parameter) =>
-    patternNames(parameter).forEach((name) => local.delete(name)),
+    patternNames(parameter).forEach((name) => names.add(name)),
   );
   if (fn.body?.type !== 'BlockStatement') {
-    return local;
+    return names;
   }
   walkOwnBody(fn.body, (current) => {
     if (current.type === 'CatchClause') {
-      patternNames(current.param).forEach((name) => local.delete(name));
+      patternNames(current.param).forEach((name) => names.add(name));
     }
     if (
       (current.type === 'ForOfStatement' ||
@@ -732,33 +725,78 @@ function deriveFunctionScope(fn, parentScope, readKind) {
       current.left.type === 'VariableDeclaration'
     ) {
       current.left.declarations.forEach((declaration) =>
-        patternNames(declaration.id).forEach((name) => local.delete(name)),
+        patternNames(declaration.id).forEach((name) => names.add(name)),
       );
     }
     if (current.type === 'VariableDeclaration') {
       current.declarations.forEach((declaration) =>
-        patternNames(declaration.id).forEach((name) => {
-          local.delete(name);
-          declaredLocals.add(name);
-        }),
+        patternNames(declaration.id).forEach((name) => names.add(name)),
       );
     }
   });
-  // Seed the function's own locals, so `const s = read(...); return
-  // s.includes(x)` is followed. A local can also be filled from a nested
-  // callback - the `let source; beforeAll(() => { source = read(...); })`
-  // shape - so assignments anywhere below count too, unless a nested function
-  // rebinds the name for itself.
+  return names;
+}
+
+/** Give taint back to the locals a body builds from source itself. */
+function seedOwnBody(body, local, readKind) {
   for (let round = 0; round < 4; round += 1) {
     const before = local.size;
-    walkOwnBody(fn.body, (current) => {
+    walkOwnBody(body, (current) => {
       const binding = bindingTarget(current);
       const kind = binding && taintKind(binding.value, local, readKind);
       if (kind) {
         binding.names.forEach((name) => local.set(name, kind));
       }
     });
+    if (local.size === before) {
+      return;
+    }
+  }
+}
+
+/**
+ * The scope inside a function at its own level only: the enclosing scope minus
+ * every name the function binds, with the locals it builds from source seeded
+ * back. Deliberately does not follow assignments into nested functions, so it
+ * can be applied at each level of a walk without recursing.
+ */
+function shallowFunctionScope(fn, parentScope, readKind) {
+  const local = new Map(parentScope);
+  ownBindingNames(fn).forEach((name) => local.delete(name));
+  if (fn.body?.type === 'BlockStatement') {
+    seedOwnBody(fn.body, local, readKind);
+  }
+  return local;
+}
+
+/**
+ * The scope inside a function: the enclosing one, minus every name the
+ * function binds for itself - parameters, `catch` and `for...of` bindings, and
+ * declared locals - with only the locals actually built from source seeded
+ * back. A name the function binds is its own, whatever an outer binding of the
+ * same name holds. A local can also be filled from a nested callback, the
+ * `let source; beforeAll(() => { source = read(...); })` shape, so those
+ * assignments are followed too.
+ */
+function deriveFunctionScope(fn, parentScope, readKind) {
+  const local = shallowFunctionScope(fn, parentScope, readKind);
+  if (fn.body?.type !== 'BlockStatement') {
+    return local;
+  }
+  const declaredLocals = new Set();
+  walkOwnBody(fn.body, (current) => {
+    if (current.type === 'VariableDeclaration') {
+      current.declarations.forEach((declaration) =>
+        patternNames(declaration.id).forEach((name) =>
+          declaredLocals.add(name),
+        ),
+      );
+    }
+  });
+  for (let round = 0; round < 4; round += 1) {
+    const before = local.size;
     seedFromNestedAssignments(fn.body, declaredLocals, local, readKind);
+    seedOwnBody(fn.body, local, readKind);
     if (local.size === before) {
       break;
     }
@@ -766,25 +804,31 @@ function deriveFunctionScope(fn, parentScope, readKind) {
   return local;
 }
 
+/**
+ * Follow assignments to `declaredLocals` into nested functions. Each nested
+ * function is entered with its own scope, so the right-hand side is read where
+ * it is written - a hook-local `const text = read(...)` is visible to
+ * `source = text` - and every name that function binds for itself, not just its
+ * parameters, stops the assignment reaching the outer local.
+ */
 function seedFromNestedAssignments(node, declaredLocals, local, readKind) {
-  (function visit(current, rebound) {
+  (function visit(current, scope, rebound) {
     if (!current || typeof current.type !== 'string') {
       return;
     }
-    let inner = rebound;
+    let innerScope = scope;
+    let innerRebound = rebound;
     if (FUNCTION_NODE_TYPES.has(current.type)) {
-      inner = new Set(rebound);
-      (current.params ?? []).forEach((parameter) =>
-        patternNames(parameter).forEach((name) => inner.add(name)),
-      );
+      innerRebound = new Set([...rebound, ...ownBindingNames(current)]);
+      innerScope = shallowFunctionScope(current, scope, readKind);
     }
     if (
       current.type === 'AssignmentExpression' &&
       current.left.type === 'Identifier' &&
       declaredLocals.has(current.left.name) &&
-      !inner.has(current.left.name)
+      !innerRebound.has(current.left.name)
     ) {
-      const kind = taintKind(current.right, local, readKind);
+      const kind = taintKind(current.right, innerScope, readKind);
       if (kind) {
         local.set(current.left.name, kind);
       }
@@ -792,9 +836,9 @@ function seedFromNestedAssignments(node, declaredLocals, local, readKind) {
     for (const key of childKeys(current)) {
       const value = current[key];
       const children = Array.isArray(value) ? value : [value];
-      children.forEach((child) => visit(child, inner));
+      children.forEach((child) => visit(child, innerScope, innerRebound));
     }
-  })(node, new Set());
+  })(node, local, new Set());
 }
 
 /**
