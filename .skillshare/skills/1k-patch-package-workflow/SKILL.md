@@ -8,9 +8,15 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 
 Patches live in `patches/<pkg>+<version>.patch` and auto-apply on install. Never hand-edit a `.patch` — edit the `node_modules/` source, then generate.
 
-## `@onekeyfe/*` packages: JS/TS only
+## `@onekeyfe/*` packages
 
-In `@onekeyfe/*` packages, including npm aliases such as `react-native-pager-view` → `@onekeyfe/react-native-pager-view`, a patch may only change `.js`/`.jsx`/`.ts`/`.tsx` files. Native code (Objective-C, Swift, Java, Kotlin, C/C++) and native build files must be fixed in [OneKeyHQ/app-modules](https://github.com/OneKeyHQ/app-modules): open a PR, publish a release, then upgrade the dependency here. `yarn lint:onekeyfe-patches` enforces this.
+In `@onekeyfe/*` packages, including npm aliases such as `react-native-pager-view` → `@onekeyfe/react-native-pager-view`, a committed patch may only change `.js`/`.jsx`/`.ts`/`.tsx` files. `yarn lint:onekeyfe-patches` enforces this.
+
+For native code (Objective-C, Swift, Java, Kotlin, C/C++) and native build files:
+
+- **Debug:** edit them directly in `node_modules/`, then rebuild with `yarn workspace @onekeyhq/mobile dev-shell --platform <android|ios> --shell local`. The default `--shell auto` reuses a cached shell because the shell key ignores edits inside `node_modules`.
+- **Ship:** open a PR in [OneKeyHQ/app-modules](https://github.com/OneKeyHQ/app-modules), publish a release, then upgrade the dependency here. Never commit the native change as a patch.
+- **Undo without upgrading:** delete `apps/mobile/out-dir-bundle/dev-shell/local-cache/<platform>`. The `--shell local` build is cached under the unchanged key, so `--shell auto` would keep installing it. Upgrading changes `yarn.lock`, and with it the key.
 
 ## Generate
 
