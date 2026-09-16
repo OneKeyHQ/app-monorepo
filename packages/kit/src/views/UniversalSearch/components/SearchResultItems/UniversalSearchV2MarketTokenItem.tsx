@@ -355,20 +355,26 @@ export function UniversalSearchV2MarketTokenItem({
               >
                 {formatTokenSymbolForDisplay(symbol)}
               </SizableText>
-              {gtMd ? (
+              {isStockListing ? null : (
                 <>
-                  <StockSourceLogo stock={stock} />
-                  {communityRecognized ? <CommunityRecognizedBadge /> : null}
+                  {gtMd ? (
+                    <>
+                      <StockSourceLogo stock={stock} />
+                      {communityRecognized ? (
+                        <CommunityRecognizedBadge />
+                      ) : null}
+                    </>
+                  ) : (
+                    <TokenTagsPopover
+                      communityRecognized={communityRecognized}
+                      stock={stock}
+                    />
+                  )}
+                  {stock?.subtitle ? (
+                    <SubtitleBadge subtitle={stock.subtitle} />
+                  ) : null}
                 </>
-              ) : (
-                <TokenTagsPopover
-                  communityRecognized={communityRecognized}
-                  stock={stock}
-                />
               )}
-              {stock?.subtitle ? (
-                <SubtitleBadge subtitle={stock.subtitle} />
-              ) : null}
             </XStack>
             <XStack ai="center" gap="$0.5" minWidth={0}>
               {name ? (

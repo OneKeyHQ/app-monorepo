@@ -1,4 +1,15 @@
 export type IMarketSearchMetric = 'liquidity' | 'marketCap';
+export type IMarketSearchPriceChangeTitle = '24h' | 'change';
+
+export function formatMarketSearchPriceChangeHeader({
+  priceLabel,
+  changeLabel,
+}: {
+  priceLabel: string;
+  changeLabel?: string;
+}): string {
+  return `${priceLabel} / ${changeLabel ?? '24H'}`;
+}
 
 export function getMarketSearchMetricAmount({
   isStockListing,

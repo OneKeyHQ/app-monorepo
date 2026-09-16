@@ -865,6 +865,9 @@ export function UniversalSearch({
                   metric={
                     isStockSection(section.tabIndex) ? 'marketCap' : 'liquidity'
                   }
+                  changeTitle={
+                    isStockSection(section.tabIndex) ? 'change' : '24h'
+                  }
                 />
               ) : null}
               <UniversalSearchV2MarketTokenItem
