@@ -245,17 +245,15 @@ function FundingHistoryMarketFilterContent({
   const keyboardHeight = useKeyboardHeight();
   const { height: windowHeight } = useWindowDimensions();
   const { top, bottom } = useSafeAreaInsets();
+  // Match Dialog's keyboard padding: Android events exclude the system bar.
+  const keyboardBottomInset = platformEnv.isNativeAndroid
+    ? keyboardHeight + bottom
+    : Math.max(keyboardHeight, bottom);
   // Reserve the title, content padding and a gap below the top safe area.
-  const mobileContentHeight = platformEnv.isNativeIOS
-    ? Math.max(
-        0,
-        Math.min(
-          480,
-          windowHeight - top - Math.max(keyboardHeight, bottom) - 112,
-        ),
-      )
+  const mobileContentHeight = platformEnv.isNative
+    ? Math.max(0, Math.min(480, windowHeight - top - keyboardBottomInset - 112))
     : 480;
-  const isKeyboardBounded = isMobile && platformEnv.isNativeIOS;
+  const isKeyboardBounded = isMobile && platformEnv.isNative;
   const scrollMaxHeight = isMobile ? 420 : 260;
   const [searchText, setSearchText] = useState('');
   const filteredMarketOptions = useMemo(

@@ -22,6 +22,10 @@ const mockNetworkList = [
   },
 ];
 const mockFetchStocks = jest.fn<Promise<IMarketStockPublicItem[]>, []>();
+const mockFetchStockBatch = jest.fn<
+  Promise<IMarketStockPublicItem[]>,
+  [{ stockIds: string[] }]
+>();
 let mockRequest: () => Promise<unknown>;
 let mockTickerResult: IMarketTokenListItem[] = [
   {
@@ -44,6 +48,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceMarketV2: {
       fetchMarketBannerStockTokenList: (...args: []) =>
         mockFetchStocks(...args),
+      fetchMarketStockBatch: (...args: [{ stockIds: string[] }]) =>
+        mockFetchStockBatch(...args),
     },
   },
 }));
@@ -66,18 +72,22 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 describe('useMarketBannerDetail network logos', () => {
   it('uses dynamic Market config logos for banner rows', () => {
     let latestNetworkLogoUri: string | undefined;
+    let latestStockItems: IMarketStockPublicItem[] | undefined;
 
     function Probe() {
-      latestNetworkLogoUri = useMarketBannerDetail({
+      const { mobileData, stockItems } = useMarketBannerDetail({
         tokenListId: 'dynamic-network-list',
         isPerps: false,
-      }).mobileData[0]?.networkLogoUri;
+      });
+      latestNetworkLogoUri = mobileData[0]?.networkLogoUri;
+      latestStockItems = stockItems;
       return null;
     }
 
     render(<Probe />);
 
     expect(latestNetworkLogoUri).toBe('https://example.com/monad.png');
+    expect(latestStockItems).toEqual([]);
   });
 });
 
@@ -115,5 +125,105 @@ it.each(['27.46', '0', '-3.5', undefined])(
     expect(getStockPeRatioValue(result.current.listResult.data[0])).toBe(
       peRatio,
     );
+    expect(result.current.stockItems).toHaveLength(1);
   },
 );
+
+it('returns raw stock rows for the desktop stock table', async () => {
+  const stock: IMarketStockPublicItem = {
+    stockId: 'TSLA',
+    name: 'Tesla',
+    symbol: 'TSLA',
+    logoUrl: '',
+    price: '250',
+    priceChange24hPercent: '-1.2',
+    marketCap: '800000000000',
+    volume24h: '9000000000',
+    assetType: 'stock',
+    currency: 'USD',
+    sparkline: [249, 250],
+  };
+  mockFetchStocks.mockResolvedValue([stock]);
+  const { result, rerender } = renderHook(() =>
+    useMarketBannerDetail({
+      tokenListId: 'stocks',
+      isPerps: false,
+      isStock: true,
+    }),
+  );
+  const response = await mockRequest();
+  mockTickerResult = response as typeof mockTickerResult;
+  rerender();
+  expect(result.current.stockItems).toEqual([stock]);
+  // The desktop table must receive the untouched API row, not a mapped copy.
+  expect(result.current.stockItems[0]).toBe(stock);
+  expect(result.current.mobileData[0].stock?.stockId).toBe('TSLA');
+});
+
+beforeEach(() => {
+  mockFetchStockBatch.mockReset();
+  mockFetchStockBatch.mockResolvedValue([]);
+});
+
+const bannerStockA: IMarketStockPublicItem = {
+  stockId: 'A',
+  name: 'Agilent',
+  symbol: 'A',
+  logoUrl: '',
+  assetType: 'stock',
+  currency: 'USD',
+};
+const bannerStockAapl: IMarketStockPublicItem = {
+  stockId: 'AAPL',
+  name: 'Apple',
+  symbol: 'AAPL',
+  logoUrl: '',
+  price: '100',
+  assetType: 'stock',
+  currency: 'USD',
+};
+
+it('merges the batch rows over the banner rows in banner order', async () => {
+  const batchVariants = [{ tokenId: 'spot_token:xstock:1', issuer: 'xstock' }];
+  mockFetchStocks.mockResolvedValue([bannerStockA, bannerStockAapl]);
+  mockFetchStockBatch.mockResolvedValue([
+    { ...bannerStockAapl, price: '101', variants: batchVariants },
+    { ...bannerStockA, price: '50' },
+  ]);
+  const { result, rerender } = renderHook(() =>
+    useMarketBannerDetail({
+      tokenListId: 'stocks',
+      isPerps: false,
+      isStock: true,
+    }),
+  );
+  const response = await mockRequest();
+  mockTickerResult = response as typeof mockTickerResult;
+  rerender();
+  expect(mockFetchStockBatch).toHaveBeenCalledWith({
+    stockIds: ['A', 'AAPL'],
+  });
+  expect(result.current.stockItems.map((item) => item.stockId)).toEqual([
+    'A',
+    'AAPL',
+  ]);
+  expect(result.current.stockItems[0].price).toBe('50');
+  expect(result.current.stockItems[1].variants).toEqual(batchVariants);
+});
+
+it('keeps the banner rows when the batch request fails', async () => {
+  mockFetchStocks.mockResolvedValue([bannerStockAapl]);
+  mockFetchStockBatch.mockRejectedValue(new Error('batch unavailable'));
+  const { result, rerender } = renderHook(() =>
+    useMarketBannerDetail({
+      tokenListId: 'stocks',
+      isPerps: false,
+      isStock: true,
+    }),
+  );
+  const response = await mockRequest();
+  mockTickerResult = response as typeof mockTickerResult;
+  rerender();
+  expect(result.current.stockItems).toHaveLength(1);
+  expect(result.current.stockItems[0]).toBe(bannerStockAapl);
+});

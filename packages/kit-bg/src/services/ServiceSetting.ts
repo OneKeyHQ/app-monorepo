@@ -1,5 +1,5 @@
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
-import { flatten, groupBy, isEqual, uniqBy } from 'lodash';
+import { flatten, groupBy, isEqual, keyBy, uniqBy } from 'lodash';
 import semver from 'semver';
 
 import {
@@ -12,10 +12,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  getListedNetworkMap,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_BTC,
   IMPL_EVM,
@@ -46,6 +43,7 @@ import {
   buildAggregateTokenListMapKeyForTokenList,
   buildAggregateTokenMapKeyForAggregateConfig,
   buildHomeDefaultTokenMapKey,
+  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EHardwareTransportType,
@@ -321,6 +319,7 @@ class ServiceSetting extends ServiceBase {
       // clear transaction history
       await this.backgroundApi.simpleDb.localHistory.clearRawData();
       await this.backgroundApi.simpleDb.addressInfo.clearRawData();
+      await this.backgroundApi.simpleDb.transferRecipientsCache.clear();
     }
     if (values.swapHistory) {
       // clear swap history
@@ -998,7 +997,16 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async syncWalletConfig() {
     await this.abortFetchWalletConfig();
-    const resp = await this.fetchWalletConfig();
+    // Aggregate members are gated on the merged network registry below, which
+    // includes server-delivered networks only once their cache has been filled.
+    // On a fresh install getServerNetworks returns an empty cache and refreshes
+    // it in the background, so without waiting here the first sync would drop
+    // every server-chain member and persist that incomplete map until the
+    // config TTL expires.
+    const [resp] = await Promise.all([
+      this.fetchWalletConfig(),
+      this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched(),
+    ]);
 
     if (!resp) {
       return;
@@ -1021,7 +1029,17 @@ class ServiceSetting extends ServiceBase {
     const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
     const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
     const aggregateTokenSymbolMap: Record<string, boolean> = {};
-    const listedNetworkMap = getListedNetworkMap();
+    // Aggregate members may live on server-delivered chains (e.g. Robinhood)
+    // that are not part of presetNetworks, so gate on the merged network
+    // registry instead of the preset-only listed map: presets keep their
+    // preset status, server networks their server status, delisted (TRASH)
+    // networks are already dropped and user custom RPC networks are excluded.
+    const { networks: eligibleNetworks } =
+      await this.backgroundApi.serviceNetwork.getAllNetworks({
+        excludeCustomNetwork: true,
+        excludeAllNetworkItem: true,
+      });
+    const eligibleNetworkMap = keyBy(eligibleNetworks, 'id');
     homeDefaults.forEach((homeDefault) => {
       homeDefaultTokenMap[
         buildHomeDefaultTokenMapKey({
@@ -1033,7 +1051,7 @@ class ServiceSetting extends ServiceBase {
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
         const filteredData = uniqBy(
-          data.filter((token) => !!listedNetworkMap[token.networkId]),
+          data.filter((token) => !!eligibleNetworkMap[token.networkId]),
           (token) => token.networkId,
         );
 
@@ -1097,6 +1115,14 @@ class ServiceSetting extends ServiceBase {
       },
     );
 
+    // The server array is not guaranteed to follow `order` (prod USDG arrives
+    // as Ethereum, Robinhood, X Layer, Solana with orders 3, 1, 2, 4) and the
+    // Receive search flatten keeps array order, so sort members once here.
+    // Members without `order` sink to the end.
+    Object.values(allAggregateTokenMap).forEach((group) => {
+      group.tokens = sortTokensByOrder({ tokens: group.tokens });
+    });
+
     const allAggregateTokens: IAccountToken[] = Object.keys(
       allAggregateTokenMap,
     ).map((key) => {
@@ -1124,6 +1150,7 @@ class ServiceSetting extends ServiceBase {
         aggregateTokenSymbolMap,
         configSyncMeta: {
           appVersion: platformEnv.version ?? '',
+          bundleVersion: platformEnv.bundleVersion ?? '',
           syncedAt: Date.now(),
         },
       }),
@@ -1148,14 +1175,17 @@ class ServiceSetting extends ServiceBase {
         await this.backgroundApi.simpleDb.aggregateToken.getRawData();
       const configSyncMeta = rawData?.configSyncMeta;
       const appVersion = platformEnv.version ?? '';
-      // Re-sync when the config has never been synced, when the app version
-      // changed (the bundled preset network list may differ, leaving stale
-      // networks in the cached aggregate-token maps), or when the cache is
-      // older than the TTL.
+      const bundleVersion = platformEnv.bundleVersion ?? '';
+      // Re-sync when the config has never been synced, when the app or
+      // hot-update bundle version changed (the bundled preset network list may
+      // differ, leaving stale networks in the cached aggregate-token maps), or
+      // when the cache is older than the TTL. Hot updates keep
+      // platformEnv.version, so bundleVersion is what tells them apart.
       const shouldSync =
         !rawData?.aggregateTokenConfigMap ||
         !configSyncMeta ||
         configSyncMeta.appVersion !== appVersion ||
+        (configSyncMeta.bundleVersion ?? '') !== bundleVersion ||
         Date.now() - configSyncMeta.syncedAt >
           timerUtils.getTimeDurationMs({ day: 1 });
       if (shouldSync) {

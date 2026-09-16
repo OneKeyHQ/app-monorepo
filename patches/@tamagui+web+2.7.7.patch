@@ -1,5 +1,5 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/createComponent.cjs b/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
-index 2044e88..10bf6b9 100644
+index 2044e88..323d3b1 100644
 --- a/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
 +++ b/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
 @@ -296,6 +296,7 @@ function createComponent(staticConfig) {
@@ -18,8 +18,24 @@ index 2044e88..10bf6b9 100644
        styledContext: styledContextValue
      };
      const themeName = themeState?.name || "";
+diff --git a/node_modules/@tamagui/web/dist/cjs/createComponent.native.js b/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
+index 12e4d30..20e1c66 100644
+--- a/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
++++ b/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
+@@ -561,7 +561,11 @@ ${banner}
+     var shouldListenForMedia = (0, import_createVariable.didGetVariableValue)() || hasRuntimeMediaKeys || noClass && (splitStyles === null || splitStyles === void 0 ? void 0 : splitStyles.hasMedia) === true;
+     var mediaListeningKeys = hasRuntimeMediaKeys ? splitStyles.hasMedia : null;
+     if (process.env.NODE_ENV === "development" && debugProp === "verbose") console.info(`useMedia() createComponent`, shouldListenForMedia, mediaListeningKeys);
++    // OneKey patch: also store media listening state per component (its
++    // useMedia proxy). useMedia reads the per-component entry on tablet-like
++    // devices and the shared component-context entry everywhere else.
+     (0, import_useMedia.setMediaShouldUpdate)(componentContext, shouldListenForMedia, mediaListeningKeys);
++    (0, import_useMedia.setMediaShouldUpdate)(mediaState, shouldListenForMedia, mediaListeningKeys);
+     var {
+       viewProps: viewPropsIn,
+       pseudos,
 diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs b/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
-index 7384d83..a00ea1f 100644
+index 7384d83..90f4cf8 100644
 --- a/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
 +++ b/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
 @@ -340,7 +340,7 @@ const getSplitStyles = (props, staticConfig, theme, themeName, componentState, s
@@ -46,7 +62,7 @@ index 421eb93..c6a975f 100644
    htmlFor: 1,
    dangerouslySetInnerHTML: 1
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs b/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
-index 7436a67..43602e9 100644
+index 7436a67..9d38770 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
 @@ -71,9 +71,16 @@ const useComponentState = (props, animationDriver, staticConfig, config) => {
@@ -76,6 +92,82 @@ index 7436a67..43602e9 100644
      setState,
      setStateShallow,
      noClass,
+diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
+index 17b78fc..7dfaf16 100644
+--- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
++++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
+@@ -200,6 +200,13 @@ function subscribe(subscriber) {
+     listeners.delete(subscriber);
+   };
+ }
++// OneKey patch: the media fixes below apply only to tablet-like devices
++// (iPad, dual-screen), the only ones that toggle clamped/real-width media at
++// runtime. Phones keep upstream behavior.
++function isOneKeyTabletLikeMedia() {
++  var control = globalThis.$$onekeyNativeMedia;
++  return Boolean(control && control.isTabletLike);
++}
+ function useMedia(componentContext, debug) {
+   "use no memo";
+ 
+@@ -224,7 +231,12 @@ function useMedia(componentContext, debug) {
+     r.proxy = tracker;
+     r.getSnapshot = function () {
+       var _States_get;
+-      var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      // OneKey patch: read media listening state per component (keyed by its
++      // useMedia proxy). The component context is shared by every styled
++      // component below the same provider, so keys stored by the last rendered
++      // component were used for all of them.
++      // var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      var curKeys = r.componentContext ? ((_States_get = States.get(isOneKeyTabletLikeMedia() ? r.proxy : r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
+       var {
+         lastState,
+         pendingState
+@@ -244,7 +256,12 @@ function useMedia(componentContext, debug) {
+             if (process.env.NODE_ENV === "development" && r.debug) {
+               console.warn(`useMedia() \u270D\uFE0F`, key, lastState[key], "=>", ms[key]);
+             }
+-            if ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit) {
++            // OneKey patch: mediaEmit lives on the shared component context and only
++            // restyles components that registered an emit listener (animated ones).
++            // On tablet-like devices that skipped the re-render of every other styled
++            // component, leaving media styles stale after a real-width toggle, so
++            // there we fall through to the normal re-render path below.
++            if (!isOneKeyTabletLikeMedia() && ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit)) {
+               r.componentContext.mediaEmit(ms);
+               r.pendingState = ms;
+               return lastState;
+@@ -290,7 +307,9 @@ function useMedia(componentContext, debug) {
+   (0, import_react.useEffect)(function () {
+     var _States_get;
+     var renderVersion = ref.renderVersion;
+-    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
++    // OneKey patch: per-component listening state on tablet-like devices, see
++    // getSnapshot above; phones keep the shared component-context entry.
++    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(isOneKeyTabletLikeMedia() ? ref.proxy : ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
+     if (shouldSubscribe) {
+       if (!ref.unsubscribe) {
+         ref.unsubscribe = subscribe(function () {
+@@ -301,6 +320,18 @@ function useMedia(componentContext, debug) {
+             forceUpdate();
+           }
+         });
++        // OneKey patch: on tablet-like devices media can change between render
++        // and this passive effect (a layout effect toggling iPad real-width
++        // media), so re-check once; otherwise a late subscriber keeps stale
++        // breakpoints.
++        if (isOneKeyTabletLikeMedia()) {
++          var nextOnSubscribe = ref.getSnapshot();
++          if (nextOnSubscribe !== ref.proxyTarget) {
++            ref.proxyTarget = nextOnSubscribe;
++            ref.proxy[refSlot].proxyTarget = nextOnSubscribe;
++            forceUpdate();
++          }
++        }
+       }
+     } else if (ref.unsubscribe) {
+       ref.unsubscribe();
 diff --git a/node_modules/@tamagui/web/dist/esm/createComponent.mjs b/node_modules/@tamagui/web/dist/esm/createComponent.mjs
 index 57af6df..b4415ac 100644
 --- a/node_modules/@tamagui/web/dist/esm/createComponent.mjs
@@ -96,6 +188,22 @@ index 57af6df..b4415ac 100644
        styledContext: styledContextValue
      };
      const themeName = themeState?.name || "";
+diff --git a/node_modules/@tamagui/web/dist/esm/createComponent.native.js b/node_modules/@tamagui/web/dist/esm/createComponent.native.js
+index 10f06bd..57cbcb4 100644
+--- a/node_modules/@tamagui/web/dist/esm/createComponent.native.js
++++ b/node_modules/@tamagui/web/dist/esm/createComponent.native.js
+@@ -523,7 +523,11 @@ ${banner}
+     var shouldListenForMedia = didGetVariableValue() || hasRuntimeMediaKeys || noClass && (splitStyles === null || splitStyles === void 0 ? void 0 : splitStyles.hasMedia) === true;
+     var mediaListeningKeys = hasRuntimeMediaKeys ? splitStyles.hasMedia : null;
+     if (process.env.NODE_ENV === "development" && debugProp === "verbose") console.info(`useMedia() createComponent`, shouldListenForMedia, mediaListeningKeys);
++    // OneKey patch: also store media listening state per component (its
++    // useMedia proxy). useMedia reads the per-component entry on tablet-like
++    // devices and the shared component-context entry everywhere else.
+     setMediaShouldUpdate(componentContext, shouldListenForMedia, mediaListeningKeys);
++    setMediaShouldUpdate(mediaState, shouldListenForMedia, mediaListeningKeys);
+     var {
+       viewProps: viewPropsIn,
+       pseudos,
 diff --git a/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs b/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs
 index abf7a63..cec9cf3 100644
 --- a/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs
@@ -154,6 +262,82 @@ index 02ca38a..6a57138 100644
      setState,
      setStateShallow,
      noClass,
+diff --git a/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
+index 3231656..606d560 100644
+--- a/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
++++ b/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
+@@ -159,6 +159,13 @@ function subscribe(subscriber) {
+     listeners.delete(subscriber);
+   };
+ }
++// OneKey patch: the media fixes below apply only to tablet-like devices
++// (iPad, dual-screen), the only ones that toggle clamped/real-width media at
++// runtime. Phones keep upstream behavior.
++function isOneKeyTabletLikeMedia() {
++  var control = globalThis.$$onekeyNativeMedia;
++  return Boolean(control && control.isTabletLike);
++}
+ function useMedia(componentContext, debug) {
+   "use no memo";
+ 
+@@ -183,7 +190,12 @@ function useMedia(componentContext, debug) {
+     r.proxy = tracker;
+     r.getSnapshot = function () {
+       var _States_get;
+-      var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      // OneKey patch: read media listening state per component (keyed by its
++      // useMedia proxy). The component context is shared by every styled
++      // component below the same provider, so keys stored by the last rendered
++      // component were used for all of them.
++      // var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      var curKeys = r.componentContext ? ((_States_get = States.get(isOneKeyTabletLikeMedia() ? r.proxy : r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
+       var {
+         lastState,
+         pendingState
+@@ -203,7 +215,12 @@ function useMedia(componentContext, debug) {
+             if (process.env.NODE_ENV === "development" && r.debug) {
+               console.warn(`useMedia() \u270D\uFE0F`, key, lastState[key], "=>", ms[key]);
+             }
+-            if ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit) {
++            // OneKey patch: mediaEmit lives on the shared component context and only
++            // restyles components that registered an emit listener (animated ones).
++            // On tablet-like devices that skipped the re-render of every other styled
++            // component, leaving media styles stale after a real-width toggle, so
++            // there we fall through to the normal re-render path below.
++            if (!isOneKeyTabletLikeMedia() && ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit)) {
+               r.componentContext.mediaEmit(ms);
+               r.pendingState = ms;
+               return lastState;
+@@ -249,7 +266,9 @@ function useMedia(componentContext, debug) {
+   useEffect(function () {
+     var _States_get;
+     var renderVersion = ref.renderVersion;
+-    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
++    // OneKey patch: per-component listening state on tablet-like devices, see
++    // getSnapshot above; phones keep the shared component-context entry.
++    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(isOneKeyTabletLikeMedia() ? ref.proxy : ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
+     if (shouldSubscribe) {
+       if (!ref.unsubscribe) {
+         ref.unsubscribe = subscribe(function () {
+@@ -260,6 +279,18 @@ function useMedia(componentContext, debug) {
+             forceUpdate();
+           }
+         });
++        // OneKey patch: on tablet-like devices media can change between render
++        // and this passive effect (a layout effect toggling iPad real-width
++        // media), so re-check once; otherwise a late subscriber keeps stale
++        // breakpoints.
++        if (isOneKeyTabletLikeMedia()) {
++          var nextOnSubscribe = ref.getSnapshot();
++          if (nextOnSubscribe !== ref.proxyTarget) {
++            ref.proxyTarget = nextOnSubscribe;
++            ref.proxy[refSlot].proxyTarget = nextOnSubscribe;
++            forceUpdate();
++          }
++        }
+       }
+     } else if (ref.unsubscribe) {
+       ref.unsubscribe();
 diff --git a/node_modules/@tamagui/web/src/createComponent.tsx b/node_modules/@tamagui/web/src/createComponent.tsx
 index 11a6863..2b1555d 100644
 --- a/node_modules/@tamagui/web/src/createComponent.tsx
@@ -258,7 +442,7 @@ index 1378c7b..b636320 100644
    enterVariant?: string
  }
 diff --git a/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts b/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
-index 6d30ff2..a3701a3 100644
+index 6d30ff2..fc4562e 100644
 --- a/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
 +++ b/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
 @@ -12,6 +12,7 @@ export declare const useComponentState: (props: ViewProps | TextProps | Record<s
@@ -270,7 +454,7 @@ index 6d30ff2..a3701a3 100644
      setStateShallow: import("../types").ComponentSetStateShallow;
      noClass: boolean;
 diff --git a/node_modules/@tamagui/web/types/types.d.ts b/node_modules/@tamagui/web/types/types.d.ts
-index 28fb92c..ead048a 100644
+index 28fb92c..8be72b6 100644
 --- a/node_modules/@tamagui/web/types/types.d.ts
 +++ b/node_modules/@tamagui/web/types/types.d.ts
 @@ -303,6 +303,7 @@ export type TamaguiComponentStateRef = {

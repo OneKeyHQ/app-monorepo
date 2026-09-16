@@ -343,9 +343,18 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     }
   }
 
+  // Store reads that are still in flight for dbAllRecordsCache keys, so
+  // concurrent cold callers (e.g. twenty recipient lookups on the Send page)
+  // share one table read instead of each materializing every record.
+  dbAllRecordsInflight = new Map<
+    'allDbAccounts' | 'allDbIndexedAccounts' | 'allDbWallets' | 'allDbDevices',
+    Promise<unknown>
+  >();
+
   clearStoreCachedData() {
     this.getRecordByIdWithCache.clear();
     this.dbAllRecordsCache.clear();
+    this.dbAllRecordsInflight.clear();
     this.scanAccountMissCache.clear();
   }
 

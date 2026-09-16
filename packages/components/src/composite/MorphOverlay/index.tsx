@@ -31,6 +31,10 @@ import {
   getTokenValue,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  isDualScreenDevice,
+  useIsSpanningInDualScreen,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IconButton } from '../../actions/IconButton';
@@ -175,10 +179,9 @@ export const CARD = {
   pad: 24,
   padTop: 26,
   bottomPad: 28,
-  /** The wide-posture cap — the desktop dialog's own content width (see
-   * Dialog's MAX_CONTENT_WIDTH). Phone-posture windows never cap: the
-   * card tracks the screen edges the way the system sheet itself does,
-   * whatever the phone's width. */
+  /** The wide-window cap matches the desktop dialog's content width (see
+   * Dialog's MAX_CONTENT_WIDTH). Expanded Android foldable windows also
+   * use it, while ordinary phone windows keep their edge-to-edge sizing. */
   maxWidth: 400,
 };
 
@@ -833,6 +836,12 @@ export function MorphOverlay<T>({
   // anchor flips, and the card's width cap applies only to the wide
   // side.
   const phonePosture = media.md;
+  const isSpanning = useIsSpanningInDualScreen();
+  const isAndroidFoldable = platformEnv.isNativeAndroid && isDualScreenDevice();
+  // Foldable devices keep native bottom-sheet interaction on their wide screen.
+  // Width is independent of that anchor so the expanded card cannot stretch.
+  const bottomAnchored = phonePosture || isAndroidFoldable;
+  const capCardWidth = !phonePosture || (isAndroidFoldable && isSpanning);
   // Android draws edge to edge, so the layer's bottom edge is the
   // screen's — under the navigation bar — and the phone-posture shell
   // lifts by that inset on top of its own clearance (OK-62279: the
@@ -852,14 +861,14 @@ export function MorphOverlay<T>({
   // both without rebuilding the gesture).
   const insets = useSafeAreaInsets();
   const bottomInset =
-    platformEnv.isNativeAndroid && phonePosture ? insets.bottom : 0;
+    platformEnv.isNativeAndroid && bottomAnchored ? insets.bottom : 0;
   const bottomClearance = useSharedValue(bottomInset);
   useEffect(() => {
     bottomClearance.value = bottomInset;
   }, [bottomClearance, bottomInset]);
-  const cardWidth = phonePosture
-    ? screenWidth - CARD.margin * 2
-    : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
+  const cardWidth = capCardWidth
+    ? Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth)
+    : screenWidth - CARD.margin * 2;
   const cardHeight = CARD.padTop + cardInnerHeight + CARD.bottomPad;
   const dismissible = Boolean(onDismiss);
   const dragEnabled = dismissible && pose === 'card';
@@ -1041,7 +1050,9 @@ export function MorphOverlay<T>({
           // The dismissing direction is the anchored edge's own: down on
           // the bottom, up off the top. Normalized here, the rest of the
           // math never knows which way the shell hangs.
-          const drag = phonePosture ? event.translationY : -event.translationY;
+          const drag = bottomAnchored
+            ? event.translationY
+            : -event.translationY;
           // The same door the position worklet opens (see positionStyle).
           const travel =
             height.value + lift.value + bottomClearance.value + EXIT_OVERSHOOT;
@@ -1050,8 +1061,10 @@ export function MorphOverlay<T>({
         })
         .onEnd((event) => {
           if (!dragAllowed.value) return;
-          const drag = phonePosture ? event.translationY : -event.translationY;
-          const dragVelocity = phonePosture
+          const drag = bottomAnchored
+            ? event.translationY
+            : -event.translationY;
+          const dragVelocity = bottomAnchored
             ? event.velocityY
             : -event.velocityY;
           const travel =
@@ -1079,7 +1092,7 @@ export function MorphOverlay<T>({
       dragEnabled,
       height,
       lift,
-      phonePosture,
+      bottomAnchored,
       presence,
     ],
   );
@@ -1121,7 +1134,7 @@ export function MorphOverlay<T>({
       opacity: presence.value > 0 ? 1 : 0,
       transform: [
         {
-          translateY: phonePosture
+          translateY: bottomAnchored
             ? travel -
               lift.value -
               bottomClearance.value -
@@ -1130,7 +1143,7 @@ export function MorphOverlay<T>({
         },
       ],
     };
-  }, [bottomClearance, height, keyboardHeight, lift, phonePosture, presence]);
+  }, [bottomClearance, height, keyboardHeight, lift, bottomAnchored, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
   // the exit and the drag alike. Its level rides a clock of its own, so a
   // flip while the shell is up (a wait turning into a failure card,
@@ -1211,10 +1224,10 @@ export function MorphOverlay<T>({
     [progress],
   );
 
-  // The wall over the app: the scrim's tint under its animated level —
-  // fully clear without the grant, so the bare blocking wall is this same
-  // view at level 0.
-  const backdropStyle = useMemo(
+  // The scrim's tint over the blocked app, under its animated level —
+  // fully clear without the grant. Paint only: the touch-blocking wall
+  // is a static view of its own (see the render).
+  const scrimStyle = useMemo(
     () => [
       styles.backdrop,
       {
@@ -1259,8 +1272,8 @@ export function MorphOverlay<T>({
     [cardCenter, cardFadeStyle],
   );
   const layerStyle = useMemo(
-    () => (phonePosture ? styles.layer : [styles.layer, styles.layerTop]),
-    [phonePosture],
+    () => (bottomAnchored ? styles.layer : [styles.layer, styles.layerTop]),
+    [bottomAnchored],
   );
   const toolbarStyle = useMemo(
     () => [styles.toolbar, cardCenter, toolbarFadeStyle],
@@ -1292,8 +1305,27 @@ export function MorphOverlay<T>({
             reanimated web view keeps overwriting that style, which left
             an invisible full-window wall standing after the exit and
             swallowing every touch. */}
+        {/* A plain static View, split from the scrim's tint (OK-63431):
+            RN's iOS hit test skips any view whose alpha is under 0.01,
+            so a wall carrying the scrim's animated opacity took no
+            touches in every undimmed state — the waits and the asks —
+            and taps fell through to the page behind. Android's touch
+            targeting and the web ignore alpha, which is why only iOS
+            leaked. collapsable={false}: Fabric flattens an unpainted
+            auto-pointer-events view out of the native tree, and a
+            flattened wall takes nothing either. */}
         {blocking && pose !== 'hidden' ? (
-          <Animated.View style={backdropStyle} pointerEvents="auto" />
+          <>
+            <View
+              style={styles.backdrop}
+              pointerEvents="auto"
+              collapsable={false}
+              testID="morph-overlay-wall"
+            />
+            {/* The tint over the blocked app — paint only, the wall
+                under it does the blocking. */}
+            <Animated.View style={scrimStyle} pointerEvents="none" />
+          </>
         ) : null}
         <GestureDetector gesture={pan}>
           <Animated.View style={shellStyle}>
@@ -1330,7 +1362,7 @@ export function MorphOverlay<T>({
                       posture only. A top-hung card dismisses by its
                       close button (and an upward drag, undecorated),
                       the way desktop prompt cards do. */}
-                  {phonePosture ? (
+                  {bottomAnchored ? (
                     <Stack style={styles.grabber} bg="$neutral6" />
                   ) : null}
                   {cornerBadge ? (

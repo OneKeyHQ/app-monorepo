@@ -433,6 +433,7 @@ function SendAutoSizeAmountInputComponent(
       maxFontSize={maxFontSize}
       minFontSize={minFontSize}
       availableInlineWidth={availableInlineWidth}
+      isInlineWidthMeasured={layoutWidth > 0}
       inlineTextAlignMode={inlineTextAlignMode}
       currencyLabel={currencyLabel}
       inlineTokenSymbol={inlineTokenSymbol}

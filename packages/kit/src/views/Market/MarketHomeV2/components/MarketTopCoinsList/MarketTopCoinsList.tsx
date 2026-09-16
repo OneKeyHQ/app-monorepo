@@ -20,7 +20,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { PriceChangePercentage } from '../../../components/PriceChangePercentage';
-import SparklineChart from '../../../components/SparklineChart';
+import SparklineChart, {
+  MARKET_SPARKLINE_COLORS,
+} from '../../../components/SparklineChart';
 import {
   MARKET_LIST_NAME_COLUMN_WIDTH,
   MARKET_LIST_STAR_COLUMN_WIDTH,
@@ -51,16 +53,6 @@ type IMarketTopCoinsListProps = {
 const TOP_COINS_DESKTOP_ROW_HEIGHT = 72;
 const TOP_COINS_SPARKLINE_WIDTH = 132;
 const TOP_COINS_SPARKLINE_HEIGHT = 44;
-const TOP_COINS_SPARKLINE_COLORS = {
-  dark: {
-    positive: ['rgba(70, 254, 165, 1)', 'rgba(70, 254, 165, 0.2)'],
-    negative: ['rgba(255, 149, 146, 1)', 'rgba(255, 149, 146, 0.2)'],
-  },
-  light: {
-    positive: ['rgba(0, 113, 63, 1)', 'rgba(0, 113, 63, 0.2)'],
-    negative: ['rgba(196, 0, 6, 1)', 'rgba(196, 0, 6, 0.2)'],
-  },
-} as const;
 
 const TOP_COINS_SORTABLE_COLUMN_KEYS = [
   'price',
@@ -284,9 +276,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
           }
           const isNegative = Number(record.priceChange24hPercent) < 0;
           const themeColors =
-            TOP_COINS_SPARKLINE_COLORS[
-              themeVariant === 'dark' ? 'dark' : 'light'
-            ];
+            MARKET_SPARKLINE_COLORS[themeVariant === 'dark' ? 'dark' : 'light'];
           const [lineColor, gradientColor] = isNegative
             ? themeColors.negative
             : themeColors.positive;

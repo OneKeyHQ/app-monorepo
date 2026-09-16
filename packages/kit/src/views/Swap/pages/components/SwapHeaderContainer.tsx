@@ -417,6 +417,12 @@ const SwapHeaderContainer = ({
     gtLg &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
+  const hideWalletHomeTokenListStockKLine = Boolean(
+    platformEnv.isDesktop &&
+    pageType === 'modal' &&
+    enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+    swapTypeSwitch === ESwapTabSwitchType.STOCK,
+  );
   const tabs = (
     <>
       <CustomTabItem
@@ -457,15 +463,20 @@ const SwapHeaderContainer = ({
   );
 
   if (singleSwapBridgeTab) {
+    // This branch is only reached from the Market detail pages' embedded swap.
+    // The panel carries no "Swap & Bridge" title (OK-62956): only the right
+    // actions remain, pinned to the trailing edge.
     return (
-      <XStack alignItems="center" gap="$2" px="$5" py="$1">
-        <SizableText size="$headingMd" flex={1}>
-          {swapBridgeLabel}
-        </SizableText>
+      <XStack
+        alignItems="center"
+        justifyContent="flex-end"
+        gap="$2"
+        px="$5"
+        py="$1"
+      >
         {!hideRightActions ? (
-          // This branch is only reached from the Market detail pages' embedded
-          // swap, so the actions match the stock trade panel sitting in the
-          // same slot: the roomier icon size and spacing rather than `compact`.
+          // The actions match the stock trade panel sitting in the same slot:
+          // the roomier icon size and spacing rather than `compact`.
           // `iconSize` has to be a size token — `Icon` resolves its `size`
           // variant through the token table, and a raw number silently falls
           // back to the 24px default.
@@ -511,6 +522,7 @@ const SwapHeaderContainer = ({
           marketPresetSettings={marketPresetSettings}
           routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
+          hideKLine={hideWalletHomeTokenListStockKLine}
         />
       ) : null}
     </XStack>

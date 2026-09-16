@@ -33,6 +33,7 @@ import {
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
@@ -45,7 +46,10 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
-import { useMarketTradingViewSubIndicatorCountPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useMarketTradingViewSubIndicatorCountPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -56,8 +60,10 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../../testIDs';
 import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
@@ -80,13 +86,11 @@ import {
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
 
-import type { MarketDetailEmbeddedSwap } from '../components/MarketDetailEmbeddedSwap';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
+import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 
 type ISwapPanelProps = ComponentProps<typeof SwapPanel>;
-type IMarketDetailEmbeddedSwapProps = ComponentProps<
-  typeof MarketDetailEmbeddedSwap
->;
+type ISwapPanelWrapProps = ComponentProps<typeof SwapPanelWrap>;
 type ITokenActivityOverviewProps = {
   pl?: string;
   pr?: string;
@@ -120,12 +124,12 @@ const LazySwapPanel = LazyLoad<ISwapPanelProps>(
   swapPanelLoadingFallback,
 );
 
-const LazyMarketDetailEmbeddedSwap = LazyLoad<IMarketDetailEmbeddedSwapProps>(
+const LazySwapPanelWrap = LazyLoad<ISwapPanelWrapProps>(
   () =>
     import(
-      /* webpackChunkName: "market-detail-v2-embedded-swap" */ '../components/MarketDetailEmbeddedSwap'
-    ).then(({ MarketDetailEmbeddedSwap }) => ({
-      default: MarketDetailEmbeddedSwap,
+      /* webpackChunkName: "market-detail-v2-swap-panel-wrap" */ '../components/SwapPanel/SwapPanelWrap'
+    ).then(({ SwapPanelWrap }) => ({
+      default: SwapPanelWrap,
     })),
   undefined,
   swapPanelLoadingFallback,
@@ -267,6 +271,7 @@ function MobileMarketTradingView({
 }
 
 export interface IMobileLayoutProps {
+  isLayoutPending?: boolean;
   isInitialContentPending?: boolean;
   disablePerpsBanner?: boolean;
   disableTrade?: boolean;
@@ -282,6 +287,7 @@ export interface IMobileLayoutProps {
 }
 
 export function MobileLayout({
+  isLayoutPending,
   isInitialContentPending,
   disablePerpsBanner,
   disableTrade,
@@ -445,6 +451,7 @@ export function MobileLayout({
 
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(0);
+  const [pageViewportHeight, setPageViewportHeight] = useState(0);
   const { top, bottom } = useSafeAreaInsets();
 
   // Skip top inset for iOS modal pages, as modal has its own safe area handling
@@ -468,7 +475,11 @@ export function MobileLayout({
     }
     return windowWidth;
   }, [containerWidth, width, windowWidth]);
-  const layoutHeight = height;
+  // Android overlays hide the main tab bar, so use the actual page viewport.
+  const layoutHeight =
+    platformEnv.isNativeAndroid && isModalPage && pageViewportHeight > 0
+      ? pageViewportHeight
+      : height;
   const layoutPageWidth = effectivePageWidth;
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
@@ -547,6 +558,21 @@ export function MobileLayout({
     [],
   );
 
+  const handlePageViewportLayout = useCallback(
+    (event: { nativeEvent: { layout: { height: number } } }) => {
+      if (!platformEnv.isNativeAndroid || !isModalPage) {
+        return;
+      }
+      const { height: nextHeight } = event.nativeEvent.layout;
+      if (nextHeight > 0) {
+        setPageViewportHeight((previousHeight) =>
+          previousHeight === nextHeight ? previousHeight : nextHeight,
+        );
+      }
+    },
+    [isModalPage],
+  );
+
   useEffect(() => {
     const activeTabIndex = tabNames.indexOf(focusedTab.value);
     if (
@@ -571,7 +597,7 @@ export function MobileLayout({
   useEffect(() => {
     setIsTradingViewIndicatorsDialogOpen(false);
     setIsTradingViewInteractionOverlayOpen(false);
-    if (isTradingViewNative) {
+    if (isTradingViewNative && !platformEnv.isNative) {
       setNativeIndicatorQuickBarState({
         status: 'loading',
         quickBar: null,
@@ -613,7 +639,8 @@ export function MobileLayout({
   const tradingViewHeight = useMemo(() => {
     if (platformEnv.isNative) {
       const baseChartHeight = Math.round(
-        Number(height) * MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO,
+        Number(layoutHeight) *
+          MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO,
       );
       const fixedMainChartHeight =
         baseChartHeight +
@@ -627,11 +654,10 @@ export function MobileLayout({
       );
     }
     return 'calc(100vh - 96px - 74px - 250px)';
-  }, [height, tradingViewSubIndicatorCount]);
+  }, [layoutHeight, tradingViewSubIndicatorCount]);
 
   const shouldReserveNativeIndicatorQuickBar =
     platformEnv.isNative &&
-    !isTradingViewNative &&
     shouldReserveTradingViewNativeIndicatorQuickBar(
       nativeIndicatorQuickBarState,
     );
@@ -765,6 +791,13 @@ export function MobileLayout({
                       enablePreviousClose={isStockDetailChart}
                       previousClose={stockPreviousClose}
                       enableNativeChartSettings
+                      nativeChartSettingsInToolbar={platformEnv.isNative}
+                      showNativeIndicatorQuickBar={platformEnv.isNative}
+                      onNativeIndicatorQuickBarChange={
+                        platformEnv.isNative
+                          ? handleNativeIndicatorQuickBarChange
+                          : undefined
+                      }
                       maxSelectableSubIndicatorCount={
                         MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                       }
@@ -977,10 +1010,21 @@ export function MobileLayout({
         showExitButton: true,
         renderContent: (
           <View>
-            <LazyMarketDetailEmbeddedSwap
-              swapToken={swapToken}
-              testID="market-token-detail-dialog-trade-ready"
-            />
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MarketWatchListProviderMirrorV2
+                storeName={EJotaiContextStoreNames.marketWatchListV2}
+              >
+                <LazySwapPanelWrap
+                  onCloseDialog={() => dialogRef.current?.close()}
+                />
+              </MarketWatchListProviderMirrorV2>
+            </AccountSelectorProviderMirror>
           </View>
         ),
       });
@@ -989,7 +1033,7 @@ export function MobileLayout({
 
   // Reveal quotes and the chart only after the first detail request has
   // also determined whether the perps banner exists. Polling keeps them mounted.
-  if (platformEnv.isNative && isInitialContentPending) {
+  if (platformEnv.isNative && (isLayoutPending || isInitialContentPending)) {
     return (
       <Stack
         flex={1}
@@ -1017,7 +1061,13 @@ export function MobileLayout({
         tabNames={tabNames}
         focusedTab={focusedTab}
       />
-      <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
+      <ScrollView
+        horizontal
+        ref={scrollViewRef}
+        flex={1}
+        scrollEnabled={false}
+        onLayout={handlePageViewportLayout}
+      >
         {tabNames.map((_, index) => (
           <YStack
             key={index}

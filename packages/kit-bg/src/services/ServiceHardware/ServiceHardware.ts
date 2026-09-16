@@ -1913,21 +1913,9 @@ class ServiceHardware extends ServiceBase {
 
         void (async () => {
           try {
-            // Short-circuit for devices already fully processed
-            if (this.connectedDeviceTracked.has(deviceId)) return;
-
             const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
               features,
             });
-            if (
-              deviceType !== EDeviceType.Pro &&
-              deviceType !== EDeviceType.Classic1s &&
-              deviceType !== EDeviceType.ClassicPure
-            ) {
-              // Mark ineligible devices to avoid repeated async checks on reconnect
-              this.connectedDeviceTracked.add(deviceId);
-              return;
-            }
             const firmwareType = await deviceUtils.getFirmwareType({
               features,
             });
@@ -1935,12 +1923,19 @@ class ServiceHardware extends ServiceBase {
               firmwareType === EFirmwareType.BitcoinOnly
                 ? 'btconly'
                 : 'universal';
+            const { firmwareVersion } = await deviceUtils.getDeviceVersion({
+              device: { ...message.device, deviceType },
+              features,
+            });
             const trackingKey = `${deviceId}_${firmwareTypeStr}`;
             if (this.connectedDeviceTracked.has(trackingKey)) return;
             defaultLogger.hardware.connection.hwDeviceConnected({
               deviceType,
               firmwareType: firmwareTypeStr,
               deviceId,
+              serialNo: deviceUtils.getDeviceSerialNoFromFeatures(features),
+              firmwareVersion: firmwareVersion || undefined,
+              transportType: message.device.commType ?? undefined,
             });
             this.connectedDeviceTracked.add(trackingKey);
           } catch (_e) {

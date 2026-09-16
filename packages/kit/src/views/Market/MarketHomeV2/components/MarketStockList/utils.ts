@@ -21,6 +21,13 @@ export function getMarketStockSortByColumn(columnName: string) {
   ];
 }
 
+// Metric columns the responsive layout must keep wide enough to read; the
+// banner detail stock table shares them with the Stocks tab.
+export const STOCK_METRIC_COLUMN_MINIMUM_WIDTHS = {
+  priceChange24hPercent: 128,
+  sparkline: 148,
+} as const;
+
 export function parseMarketStockNumber(
   value?: string | number | null,
 ): number | undefined {
@@ -40,35 +47,22 @@ export function appendUniqueMarketStocks(
   return Array.from(stockMap.values());
 }
 
-export function buildStockSparklinePoints({
-  data,
-  width,
-  height,
-}: {
-  data: number[];
-  width: number;
-  height: number;
-}) {
+// The API returns one point per trading minute (390 for a full US session).
+// 40 evenly spaced samples keep roughly 10-minute steps and always keep the
+// first and latest price.
+export const STOCK_SPARKLINE_MAX_POINTS = 40;
+
+export function downsampleStockSparkline(
+  data: number[],
+  maxPoints = STOCK_SPARKLINE_MAX_POINTS,
+): number[] {
   const values = data.filter(Number.isFinite);
-  if (values.length < 2) {
-    return undefined;
+  if (values.length <= maxPoints || maxPoints < 2) {
+    return values;
   }
-
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min;
-  const horizontalStep = width / (values.length - 1);
-  const verticalPadding = 2;
-  const drawableHeight = height - verticalPadding * 2;
-
-  return values
-    .map((value, index) => {
-      const x = horizontalStep * index;
-      const y =
-        range === 0
-          ? height / 2
-          : verticalPadding + ((max - value) / range) * drawableHeight;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(' ');
+  const step = (values.length - 1) / (maxPoints - 1);
+  return Array.from(
+    { length: maxPoints },
+    (_, index) => values[Math.round(index * step)],
+  );
 }

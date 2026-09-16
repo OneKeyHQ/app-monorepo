@@ -33,6 +33,7 @@ import type {
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IUniversalSearchBatchResult,
@@ -912,7 +913,9 @@ export function UniversalSearch({
             index
           }-${payload.network?.id ?? ''}`;
         case EUniversalSearchType.V2MarketToken:
-          return `${type}-${payload.address ?? payload.symbol}-${index}`;
+          return isMarketSearchStockListing(payload)
+            ? `${type}-stock:${payload.stockId}`
+            : `${type}-${payload.address ?? payload.symbol}-${index}`;
         case EUniversalSearchType.AccountAssets:
           return `${type}-${
             payload.token.address ?? payload.token.symbol

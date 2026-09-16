@@ -15,6 +15,8 @@ export const MARKET_CELL_SUBTITLE_LINE_HEIGHT = 20;
 export const MARKET_CELL_LINE_GAP = '$1';
 export const MARKET_CELL_LOGO_GAP = 14;
 export const MARKET_CELL_SECONDARY_LINE_HEIGHT = 16;
+// What a list cell shows when the value is missing.
+export const EMPTY_MARKET_VALUE = '--';
 
 export function MarketCellPrimary({
   children,

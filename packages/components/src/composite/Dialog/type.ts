@@ -122,6 +122,13 @@ interface IBasicDialogProps extends TMDialogProps {
   forceMount?: boolean;
   /** Fall back to the initial window bottom inset when the current safe-area inset is zero. */
   useInitialSafeAreaBottomInsetFallback?: boolean;
+  /**
+   * Native-only opt-in: cap the sheet to the usable viewport above the
+   * keyboard, scroll overflowing content (including a tall header), and keep
+   * the close button fixed. No effect on web, desktop, or extension. Does
+   * not enable nativeSheet.
+   */
+  boundedSheetLayout?: boolean;
 }
 
 export type IDialogProps = IBasicDialogProps &
