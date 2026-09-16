@@ -12,6 +12,7 @@ import { useSplitViewDetailOffset } from './SplitViewDetailOffsetContext';
 
 let mockIsSplitView = true;
 let mockIsOnBoardingOpen = false;
+let mockIsRealWidthMediaHeld = false;
 let mockIsNativeAndroid = true;
 let mockDetailOnLayout:
   | ((event: { nativeEvent: { layout: { x: number; width: number } } }) => void)
@@ -64,6 +65,7 @@ jest.mock('@onekeyhq/components', () => ({
     }
     return <div data-display={display}>{children}</div>;
   },
+  useIsNativeTabletRealWidthMediaHeld: () => mockIsRealWidthMediaHeld,
   useIsSplitView: () => mockIsSplitView,
 }));
 
@@ -91,9 +93,26 @@ describe('TableSplitViewContainer', () => {
   beforeEach(() => {
     mockIsSplitView = true;
     mockIsOnBoardingOpen = false;
+    mockIsRealWidthMediaHeld = false;
     mockIsNativeAndroid = true;
     mockDetailOnLayout = undefined;
     mockContainerOnLayout = undefined;
+  });
+
+  it('hides the main pane while real-width media is held before the onboarding atom updates', () => {
+    mockIsRealWidthMediaHeld = true;
+    render(
+      <TableSplitViewContainer
+        mainRouter={<div data-testid="split-main-router" />}
+        detailRouter={null}
+      />,
+    );
+
+    const mainPane = screen.getByTestId('split-main-router').parentElement;
+    expect(mainPane?.getAttribute('data-display')).toBe('none');
+    expect(
+      screen.getByTestId('split-divider').getAttribute('data-display'),
+    ).toBe('none');
   });
 
   it('expands the detail pane across a foldable screen while fullscreen', () => {
