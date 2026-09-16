@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* cspell:words quasis */
+/* cspell:words quasis pbxproj */
 /**
  * Test integrity lint.
  *
@@ -47,7 +47,9 @@ const SCRIPT_PATH_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u;
 // A JS test cannot execute these, so a text assertion is the only tool Jest has.
 // Reported so the check can move to the native toolchain, but never gated.
 const NATIVE_PATH_RE = /\.(?:kt|kts|swift|java|mm?|gradle|podspec|sh)$/u;
-const ANY_EXTENSION_RE = /\.[A-Za-z0-9]{1,6}$/u;
+// Any dotted final segment, so `.text-js`, `.pbxproj` and `.gitignore` are
+// treated as data rather than falling through as unextended source.
+const ANY_EXTENSION_RE = /\.[A-Za-z0-9_-]{1,12}$/u;
 // Matches a trailing segment too, so a directory that merely ends in
 // `node_modules` counts as an artifact root.
 const ARTIFACT_PATH_RE =
@@ -99,15 +101,6 @@ const ARGUMENT_PROPAGATORS = new Set(['test', 'exec', 'replace', 'replaceAll']);
 // Cutting a fragment out of a file is what makes an eval a reconstruction of a
 // unit that could not be imported. Evaluating a whole file is a different
 // thing: a text artifact shipped to another runtime, checked by running it.
-const SLICING_METHODS = new Set([
-  'slice',
-  'substring',
-  'substr',
-  'match',
-  'matchAll',
-  'split',
-  'at',
-]);
 const EVAL_FUNCTIONS = new Set([
   'runInNewContext',
   'runInThisContext',
@@ -315,6 +308,10 @@ function taintKind(node, tainted, readKind) {
       return taintKind(node.object, tainted, readKind);
     case 'TemplateLiteral':
       return firstTaint(node.expressions, tainted, readKind);
+    case 'BinaryExpression':
+      return node.operator === '+'
+        ? firstTaint([node.left, node.right], tainted, readKind)
+        : undefined;
     case 'LogicalExpression':
       return firstTaint([node.left, node.right], tainted, readKind);
     case 'ConditionalExpression':
@@ -357,26 +354,43 @@ function taintKind(node, tainted, readKind) {
   }
 }
 
-/** Was this expression cut out of a larger source text? */
-function isSlicedText(node, tainted, fragments, readKind) {
-  let sliced = false;
-  walk(node, (current) => {
-    if (current.type === 'Identifier' && fragments.has(current.name)) {
-      sliced = true;
-      return;
+/**
+ * Is this the unmodified contents of one file? Defined this way round on
+ * purpose: every other shape - a slice, a regex replace, a join of matches -
+ * is a fragment, and enumerating the ways to cut a string up is a losing game.
+ */
+function isWholeFileRead(node, tainted, wholeReads, readKind) {
+  if (!node) {
+    return false;
+  }
+  const partsAreWhole = (parts) =>
+    parts.every(
+      (part) =>
+        !taintKind(part, tainted, readKind) ||
+        isWholeFileRead(part, tainted, wholeReads, readKind),
+    );
+  switch (node.type) {
+    case 'Identifier':
+      return wholeReads.has(node.name);
+    case 'AwaitExpression':
+      return isWholeFileRead(node.argument, tainted, wholeReads, readKind);
+    case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
+    case 'TSNonNullExpression':
+    case 'ParenthesizedExpression':
+      return isWholeFileRead(node.expression, tainted, wholeReads, readKind);
+    case 'TemplateLiteral':
+      return partsAreWhole(node.expressions);
+    case 'BinaryExpression':
+      return node.operator === '+' && partsAreWhole([node.left, node.right]);
+    case 'CallExpression':
+    case 'OptionalCallExpression': {
+      const name = calleeName(node.callee);
+      return Boolean(name && READ_FUNCTIONS.has(name) && readKind(node));
     }
-    if (
-      (current.type === 'CallExpression' ||
-        current.type === 'OptionalCallExpression') &&
-      (current.callee.type === 'MemberExpression' ||
-        current.callee.type === 'OptionalMemberExpression') &&
-      SLICING_METHODS.has(calleeName(current.callee) ?? '') &&
-      taintKind(current.callee.object, tainted, readKind)
-    ) {
-      sliced = true;
-    }
-  });
-  return sliced;
+    default:
+      return false;
+  }
 }
 
 function firstTaint(nodes, tainted, readKind) {
@@ -498,12 +512,30 @@ function pathLiterals(node, anchored, seen = new Set()) {
   return literals;
 }
 
+/** Does the path finish with a value only known at run time? */
+function endsInVariableName(node) {
+  if (
+    node.type !== 'CallExpression' &&
+    node.type !== 'OptionalCallExpression'
+  ) {
+    return node.type !== 'StringLiteral' && node.type !== 'TemplateLiteral';
+  }
+  const last = node.arguments.at(-1);
+  return Boolean(
+    last && last.type !== 'StringLiteral' && last.type !== 'TemplateLiteral',
+  );
+}
+
 /** Does this path reach source whose extension is not written down? */
 function namesUnextendedSource(node, literals) {
   // `path.join(repoRoot, 'packages/kit/src/views/X', name)` names a source
-  // directory explicitly, so a variable filename inside it is source. A repo
-  // path that never names one (`.github/workflows`, a fixture root) is not.
-  if (literals.some((literal) => SOURCE_DIRECTORY_RE.test(literal))) {
+  // directory explicitly and ends in a variable, so the filename is source.
+  // Only that shape: a path that ends in a literal already said what it is,
+  // and a repo path naming no source directory (`.github/workflows`) is not.
+  if (
+    endsInVariableName(node) &&
+    literals.some((literal) => SOURCE_DIRECTORY_RE.test(literal))
+  ) {
     return true;
   }
   let found = false;
@@ -605,9 +637,9 @@ function analyzeFile(
   // chain, or a string method. Iterate to a fixpoint so derived bindings
   // (`const body = source.slice(a, b)`) follow.
   const tainted = new Map();
-  const fragments = new Set();
+  const wholeReads = new Set();
   for (let round = 0; round < 6; round += 1) {
-    const before = tainted.size + fragments.size;
+    const before = tainted.size + wholeReads.size;
     walk(ast, (node) => {
       const binding = bindingTarget(node);
       if (!binding) {
@@ -618,11 +650,11 @@ function analyzeFile(
         return;
       }
       binding.names.forEach((name) => tainted.set(name, kind));
-      if (isSlicedText(binding.value, tainted, fragments, readKind)) {
-        binding.names.forEach((name) => fragments.add(name));
+      if (isWholeFileRead(binding.value, tainted, wholeReads, readKind)) {
+        binding.names.forEach((name) => wholeReads.add(name));
       }
     });
-    if (tainted.size + fragments.size === before) {
+    if (tainted.size + wholeReads.size === before) {
       break;
     }
   }
@@ -744,8 +776,11 @@ function analyzeFile(
         const kind = node.arguments
           .map((a) => taintKind(a, tainted, readKind))
           .find(Boolean);
-        const sliced = node.arguments.some((a) =>
-          isSlicedText(a, tainted, fragments, readKind),
+        // A fragment is anything that is not the file as it was read.
+        const sliced = node.arguments.some(
+          (a) =>
+            taintKind(a, tainted, readKind) &&
+            !isWholeFileRead(a, tainted, wholeReads, readKind),
         );
         if (kind === 'script' && sliced) {
           record(

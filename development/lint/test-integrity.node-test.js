@@ -152,17 +152,94 @@ test('catches a variable filename inside a named source directory', () => {
   );
 });
 
-test('evaluating a whole shipped text artifact is not a sliced fragment', () => {
-  // The .text-js file is source shipped to another runtime; running it and
-  // comparing what it does is the opposite of reconstructing a unit from text.
-  assertClean(`
+test('separates evaluating a whole file from evaluating a fragment', () => {
+  // A .ts read so the target really is classified as source: the point under
+  // test is whole-versus-fragment, not the classification.
+  assertClean(
+    `
     it('x', () => {
       const go = runInNewContext(
-        '(' + readFileSync('packages/kit/src/thing.text-js', 'utf8') + ')',
+        \`(\${readFileSync(join(__dirname, 'thing.ts'), 'utf8')})\`,
       );
       expect(go(1)).toBe('one');
     });
+  `,
+    'whole file',
+  );
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    const fragment = source.slice(source.indexOf('const go ='));
+    runInNewContext(fragment, {});
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'sliced fragment',
+  );
+  // Cutting with two regex replaces instead of slice is the same thing.
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    const fragment = source
+      .replace(/.*?(?=const go =)/su, '')
+      .replace(/const done.*$/su, '');
+    runInNewContext(transformSync(fragment).code, {});
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'regex-replace fragment',
+  );
+});
+
+test('string concatenation carries source text like a template does', () => {
+  assertGated(`
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => {
+      expect('// ' + source).toContain('go');
+    });
   `);
+});
+
+test('only a path ending in a variable falls back to the directory name', () => {
+  // The directory says "source" but the filename is not written down, so the
+  // directory is all there is to go on.
+  assertGated(
+    `
+    ${REPO_ROOT_PREAMBLE}
+    const source = readFileSync(path.join(repoRoot, 'packages/kit/src', name), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'ends in a variable',
+  );
+  // A path that ends in a literal already said what it is, whatever the
+  // directory is called. `.text-js` is a shipped artifact, not source.
+  assertClean(
+    `
+    ${REPO_ROOT_PREAMBLE}
+    const source = readFileSync(path.join(repoRoot, 'packages/kit/src', 'thing.text-js'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'ends in a data literal',
+  );
+  // Control: the same shape with a source extension is still gated, so the
+  // clean result above comes from the extension and not from the shape.
+  assertGated(
+    `
+    ${REPO_ROOT_PREAMBLE}
+    const source = readFileSync(path.join(repoRoot, 'packages/kit/src', 'thing.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'control: ends in a source literal',
+  );
+  // Read through a binding, so the path argument is a bare identifier and the
+  // shape rule cannot help: only the carried `.text-js` extension can.
+  assertClean(
+    `
+    ${REPO_ROOT_PREAMBLE}
+    const file = path.join(repoRoot, 'packages/kit/src/thing.text-js');
+    const source = readFileSync(file, 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'hyphenated extension carried through a binding',
+  );
 });
 
 test('ignores a read anchored at a temp directory', () => {
