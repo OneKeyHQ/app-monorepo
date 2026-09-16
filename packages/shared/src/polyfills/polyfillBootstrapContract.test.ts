@@ -202,6 +202,23 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
 }
 
 describe('runtime polyfill bootstrap contract', () => {
+  // Exempt from the test-integrity source-text rule, see
+  // development/lint/test-integrity.allowlist.json. The startup baseline has to
+  // be stamped before the first polyfill is installed or every timing measured
+  // against it is short by the polyfill cost, and importing this module to
+  // observe the order would itself run the bootstrap under test.
+  it('captures the startup baseline before installing polyfills', () => {
+    const source = readFileSync(
+      path.join(repoRoot, 'packages/shared/src/polyfills/index.ts'),
+      'utf8',
+    );
+
+    expect(source.indexOf('$$debugT0')).toBeGreaterThanOrEqual(0);
+    expect(source.indexOf('$$debugT0')).toBeLessThan(
+      source.indexOf("require('./polyfillsPlatform')"),
+    );
+  });
+
   it.each(fullRuntimeEntries)(
     '%s loads the complete polyfill bootstrap before any other dependency',
     (relativePath) => {
