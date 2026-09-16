@@ -21760,6 +21760,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenDetailHeader/TokenDetailHeader.tsx": 22597,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenDetailHeader/TokenDetailHeaderLeft.tsx": 19833,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenDetailHeader/TokenDetailHeaderRight.tsx": 21228,
+    "packages/kit/src/views/Market/MarketDetailV2/components/TokenDetailHeader/TokenLaunchpad.tsx": 9791,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenDetailHeader/hooks/useTokenDetailHeaderLeftActions.ts": 12482,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenLiquidityPools/TokenLiquidityPools.tsx": 18388,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenLiquidityPools/index.ts": 16701,

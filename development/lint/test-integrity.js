@@ -98,6 +98,24 @@ const ASSERT_TEXT_METHODS = new Set([
 // Methods that take the source text as an argument rather than a receiver.
 // Every other method propagates from its receiver, whatever it is named.
 const ARGUMENT_PROPAGATORS = new Set(['test', 'exec', 'replace', 'replaceAll']);
+// Iteration methods whose result is decided by what the callback saw. A read
+// inside the callback is still a claim about that text, wherever the assertion
+// finally lands.
+const CALLBACK_PROPAGATORS = new Set([
+  'filter',
+  'map',
+  'flatMap',
+  'some',
+  'every',
+  'find',
+  'findIndex',
+  'findLast',
+  'findLastIndex',
+  'reduce',
+  'reduceRight',
+  'sort',
+  'forEach',
+]);
 // These cannot cut a fragment out, so they leave a whole read whole. `replace`
 // is deliberately absent: a regex replace is one of the ways to cut.
 const WHOLE_PRESERVING_METHODS = new Set([
@@ -290,7 +308,12 @@ function classifyPath(pathArgument, repoAnchored, anchoredHelpers, callSite) {
   // A checked-in file is always reached from `__dirname`. A path built from a
   // temp directory or a fixture root is something the test itself produced, so
   // reading it is not a source-text assertion however the file is named.
-  if (!isRepoAnchored(pathArgument, repoAnchored, anchoredHelpers)) {
+  // When a wrapper's caller supplies the head of the path, only the caller can
+  // say where that path starts; the parameter name in the template says nothing.
+  const anchored = callSite?.headIsParameter
+    ? callSite.anchored
+    : isRepoAnchored(pathArgument, repoAnchored, anchoredHelpers);
+  if (!anchored) {
     return undefined;
   }
   const literals = [
@@ -376,9 +399,17 @@ function taintKind(node, tainted, readKind) {
         }
         // `/re/.test(source)` and `x.replace(source, y)` carry the text in an
         // argument instead; no other method is assumed to.
-        return name && ARGUMENT_PROPAGATORS.has(name)
-          ? firstTaint(node.arguments, tainted, readKind)
-          : undefined;
+        if (name && ARGUMENT_PROPAGATORS.has(name)) {
+          return firstTaint(node.arguments, tainted, readKind);
+        }
+        // `files.filter((f) => readFileSync(f).includes(x))` decides its result
+        // from source text even though nothing tainted was passed in.
+        if (name && CALLBACK_PROPAGATORS.has(name)) {
+          return node.arguments
+            .map((argument) => callbackBodyTaint(argument, tainted, readKind))
+            .find(Boolean);
+        }
+        return undefined;
       }
       if (node.callee.type === 'Identifier' && name === 'String') {
         return taintKind(node.arguments[0], tainted, readKind);
@@ -451,6 +482,21 @@ function isWholeFileRead(node, tainted, wholeReads, readKind) {
     default:
       return false;
   }
+}
+
+/** The source text a callback's body touches, if any. */
+function callbackBodyTaint(node, tainted, readKind) {
+  if (
+    node?.type !== 'ArrowFunctionExpression' &&
+    node?.type !== 'FunctionExpression'
+  ) {
+    return undefined;
+  }
+  let kind;
+  walk(node.body, (current) => {
+    kind = kind ?? taintKind(current, tainted, readKind);
+  });
+  return kind;
 }
 
 function firstTaint(nodes, tainted, readKind) {
@@ -639,6 +685,23 @@ function collectReadAliases(ast) {
   return aliases;
 }
 
+/** Is `name` the head of this path expression, rather than a later segment? */
+function isHeadIdentifier(node, name) {
+  if (!node || !name) {
+    return false;
+  }
+  if (node.type === 'Identifier') {
+    return node.name === name;
+  }
+  if (
+    node.type === 'CallExpression' ||
+    node.type === 'OptionalCallExpression'
+  ) {
+    return isHeadIdentifier(node.arguments[0], name);
+  }
+  return false;
+}
+
 function containsIdentifierNamed(node, name) {
   let found = false;
   walk(node, (current) => {
@@ -705,6 +768,12 @@ function collectReadHelpers(ast, isRead, classify) {
       helpers.set(returned.name, {
         parameterIndex: splicedIn,
         path: pathArgument,
+        // `(root) => readFileSync(join(root, 'index.ts'))`: the caller supplies
+        // the head, so the caller decides whether this reads the repository.
+        headIsParameter: isHeadIdentifier(
+          pathArgument,
+          returned.parameters[splicedIn],
+        ),
       });
       return;
     }
@@ -942,6 +1011,10 @@ function analyzeFile(
     return classify(helper.path, {
       literals: passed ? pathLiterals(passed, repoAnchored) : [],
       endsInVariable: passed ? endsInVariableName(passed, repoAnchored) : true,
+      headIsParameter: helper.headIsParameter,
+      anchored: Boolean(
+        passed && isRepoAnchored(passed, repoAnchored, anchoredHelpers),
+      ),
     });
   };
 

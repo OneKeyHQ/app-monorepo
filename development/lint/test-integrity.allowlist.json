@@ -1,11 +1,25 @@
 {
   "entries": [
     {
+      "file": "apps/cli/src/__tests__/bip39-no-inline.test.ts",
+      "rule": "source-text-assertion",
+      "block": "keeps real mnemonic phrases out of TypeScript test source",
+      "count": 1,
+      "reason": "A real BIP-39 mnemonic must not appear literally in any TypeScript test source. That is a property of the whole checked-in test set, not of any module's behaviour, so nothing can be executed to demonstrate it. The check walks the source tree and asserts the set of hits is empty. Replace with a secret scanner over the tree if one is adopted."
+    },
+    {
+      "file": "apps/cli/src/__tests__/no-migration.test.ts",
+      "rule": "source-text-assertion",
+      "block": "only references legacy mnemonic cleanup in auth cleanup production code",
+      "count": 1,
+      "reason": "Pins the legacy mnemonic cleanup reference to one production file, so a second call site anywhere under commands/ or infra/vault fails. Which files mention an identifier is a property of the source set; running the code only exercises the call site that exists today. Replace with a static reference check over the built CLI bundle."
+    },
+    {
       "file": "apps/cli/src/__tests__/secure-cache.degraded.test.ts",
       "rule": "source-text-assertion",
       "block": "only writes session memo entries inside SignerSoftwareBase.getHdCredential",
-      "count": 1,
-      "reason": "Constrains where a decrypted HD credential may be memoized: this is the only check that fails when a new CLI production file starts calling secureCache.set or sessionCache.set. Tests that run the code only cover the call sites that exist today, so they cannot see a write added elsewhere. Replace with a static check over the built CLI bundle."
+      "count": 2,
+      "reason": "Constrains where a decrypted HD credential may be memoized: this is the only check that fails when a new CLI production file starts calling secureCache.set or sessionCache.set. It walks the source set and asserts on what it found, twice - the list of files, then the method that holds the write. Tests that run the code only cover the call sites that exist today, so they cannot see a write added elsewhere. Replace with a static check over the built CLI bundle."
     },
     {
       "file": "apps/cli/src/commands/__tests__/get-address.test.ts",

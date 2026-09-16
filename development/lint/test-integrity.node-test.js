@@ -525,6 +525,78 @@ test('a wrapper that splices its parameter into a path defers to the call', () =
   );
 });
 
+test('a wrapper whose parameter is the path head defers anchoring too', () => {
+  const wrapper = `
+    function readIn(root) {
+      return readFileSync(join(root, 'index.ts'), 'utf8');
+    }
+  `;
+  assertGated(
+    `${wrapper}
+    const source = readIn(path.join(__dirname, '../src'));
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'caller passes a repository path',
+  );
+  assertClean(
+    `${wrapper}
+    it('x', () => {
+      const source = readIn(fs.mkdtempSync(os.tmpdir()));
+      expect(source).toBe('done');
+    });
+  `,
+    'caller passes a temp directory',
+  );
+  // An unrelated binding that happens to share the parameter name must not
+  // decide the verdict for every call.
+  assertClean(
+    `
+    const root = 'apps/web/src/root.ts';
+    ${wrapper}
+    it('x', () => {
+      const source = readIn(fs.mkdtempSync(os.tmpdir()));
+      expect(source).toBe('done');
+    });
+  `,
+    'a same-named binding elsewhere in the file',
+  );
+});
+
+test('a read inside an iteration callback still reaches the assertion', () => {
+  assertGated(
+    `
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(
+        files.filter((file) => readFileSync(join(__dirname, file), 'utf8').includes('go')),
+      ).toEqual([]);
+    });
+  `,
+    'filter',
+  );
+  assertGated(
+    `
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(
+        files.flatMap((file) => readFileSync(join(__dirname, file), 'utf8').split(',')),
+      ).toHaveLength(2);
+    });
+  `,
+    'flatMap',
+  );
+  // A callback that never reads source keeps the result untainted.
+  assertClean(
+    `
+    const files = ['a.ts'];
+    it('x', () => {
+      expect(files.filter((file) => file.endsWith('.ts'))).toEqual(['a.ts']);
+    });
+  `,
+    'callback without a read',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`
