@@ -214,6 +214,7 @@ type ISwapSendTxResult = ISignedTxPro & {
 
 type IEstimateNetworkFeeResult = {
   fallbackToSeparateTxConfirm?: boolean;
+  fallbackError?: unknown;
   netWorkFee?: ISwapPreSwapData['netWorkFee'];
   nativeBalance?: string;
   balanceWarning?: { title: string; message?: string; toastId: string };
@@ -2446,6 +2447,65 @@ export function useSwapBuildTx({
     ],
   );
 
+  const reportSwapBuildFailure = useCallback(
+    ({
+      data,
+      buildSwapRes,
+      effectiveSlippagePercentage,
+      error,
+    }: {
+      data?: IFetchQuoteResult;
+      buildSwapRes?: IFetchBuildTxResponse;
+      effectiveSlippagePercentage: number;
+      error: unknown;
+    }) => {
+      const buildError = toPlainErrorObject(error);
+      const swapType = getSwapExecutionTypeFromQuoteResult(data);
+      defaultLogger.swap.createSwapOrder.swapCreateOrder({
+        fromTokenAmount: data?.fromAmount ?? '',
+        toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
+        quoteToTokenAmount: data?.toAmount ?? '',
+        fromAddress: fromUserAddress ?? '',
+        toAddress: toUserAddress ?? '',
+        status: ESwapEventAPIStatus.FAIL,
+        walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? 'unknown',
+        deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
+        message: String(buildError.message ?? 'unknown error'),
+        swapProvider: data?.info.provider ?? '',
+        swapProviderName: data?.info.providerName ?? '',
+        swapType,
+        slippage: effectiveSlippagePercentage.toString(),
+        sourceChain: data?.fromTokenInfo.networkId ?? '',
+        receivedChain: data?.toTokenInfo.networkId ?? '',
+        sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
+        receivedTokenSymbol: data?.toTokenInfo.symbol ?? '',
+        feeType: data?.fee?.percentageFee?.toString() ?? '0',
+        router: JSON.stringify(data?.routesData ?? ''),
+        isFirstTime: isFirstTimeSwap,
+        createFrom: getSwapCreateFrom({
+          isSwapPro: focusSwapPro,
+          isModalPage,
+        }),
+        orderId: buildSwapRes?.orderId ?? '',
+        orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
+        ...getStockTradeAnalyticsPayload({
+          protocol: data?.protocol,
+          fromToken: data?.fromTokenInfo,
+          toToken: data?.toTokenInfo,
+        }),
+      });
+    },
+    [
+      focusSwapPro,
+      fromUserAddress,
+      isFirstTimeSwap,
+      isModalPage,
+      swapFromAddressInfo.accountInfo?.device?.deviceType,
+      swapFromAddressInfo.accountInfo?.wallet?.type,
+      toUserAddress,
+    ],
+  );
+
   const buildSwapAction = useCallback(
     async (
       currentFromToken?: ISwapToken,
@@ -2544,7 +2604,6 @@ export function useSwapBuildTx({
               )
             : await backgroundApiProxy.serviceSwap.fetchBuildTx(buildParams);
         } catch (e: unknown) {
-          const buildError = toPlainErrorObject(e);
           if (!skipLoading && updateReviewState) {
             setReviewState((prev) => ({
               ...prev,
@@ -2554,42 +2613,14 @@ export function useSwapBuildTx({
               },
             }));
           }
-          const swapType = getSwapExecutionTypeFromQuoteResult(data);
-          if (reportAnalytics)
-            defaultLogger.swap.createSwapOrder.swapCreateOrder({
-              fromTokenAmount: data?.fromAmount ?? '',
-              toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
-              quoteToTokenAmount: data?.toAmount ?? '',
-              fromAddress: fromUserAddress ?? '',
-              toAddress: toUserAddress ?? '',
-              status: ESwapEventAPIStatus.FAIL,
-              walletType:
-                swapFromAddressInfo.accountInfo?.wallet?.type ?? 'unknown',
-              deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
-              message: String(buildError.message ?? 'unknown error'),
-              swapProvider: data?.info.provider ?? '',
-              swapProviderName: data?.info.providerName ?? '',
-              swapType,
-              slippage: effectiveSlippagePercentage.toString(),
-              sourceChain: data?.fromTokenInfo.networkId ?? '',
-              receivedChain: data?.toTokenInfo.networkId ?? '',
-              sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
-              receivedTokenSymbol: data?.toTokenInfo.symbol ?? '',
-              feeType: data?.fee?.percentageFee?.toString() ?? '0',
-              router: JSON.stringify(data?.routesData ?? ''),
-              isFirstTime: isFirstTimeSwap,
-              createFrom: getSwapCreateFrom({
-                isSwapPro: focusSwapPro,
-                isModalPage,
-              }),
-              orderId: buildSwapRes?.orderId ?? '',
-              orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
-              ...getStockTradeAnalyticsPayload({
-                protocol: data?.protocol,
-                fromToken: data?.fromTokenInfo,
-                toToken: data?.toTokenInfo,
-              }),
+          if (reportAnalytics) {
+            reportSwapBuildFailure({
+              data,
+              buildSwapRes,
+              effectiveSlippagePercentage,
+              error: e,
             });
+          }
           // The proxy may still show this error after its delayed catch.
           // Keep one instance so both paths share the Toast marker.
           throw Object.assign(
@@ -2885,6 +2916,7 @@ export function useSwapBuildTx({
       fromAccountId,
       setSwapSteps,
       checkBuildBalances,
+      reportSwapBuildFailure,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.accountInfo?.device?.deviceType,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
@@ -3661,6 +3693,7 @@ export function useSwapBuildTx({
               }
               return {
                 fallbackToSeparateTxConfirm: true,
+                fallbackError: e,
               };
             }
             throw e;
@@ -4460,8 +4493,10 @@ export function useSwapBuildTx({
               )
           ) {
             reviewPreparationStateRef.current.build = preparation.build;
+            let buildPreparationSettled = false;
             try {
               const built = await preparation.build.promise;
+              buildPreparationSettled = true;
               if (!isCurrent()) return;
               if (isSwapPreparedBuildExpired(built)) {
                 preparation.cancelFee();
@@ -4477,6 +4512,17 @@ export function useSwapBuildTx({
               }
             } catch (error) {
               if (!(error instanceof SwapReviewBalanceError)) {
+                if (!buildPreparationSettled && isLatestReview()) {
+                  reportSwapBuildFailure({
+                    data,
+                    effectiveSlippagePercentage:
+                      data.protocol === EProtocolOfExchange.STOCK
+                        ? (data.slippage ?? slippageItem.value)
+                        : (swapStepsRef.current.preSwapData.slippage ??
+                          slippageItem.value),
+                    error,
+                  });
+                }
                 preparation.cancel();
                 throw error;
               }
@@ -4502,7 +4548,10 @@ export function useSwapBuildTx({
                 prepared.buildResult.swapInfo,
               );
             }
-            throw prepared.feeError;
+            // The build is still valid. Drop only the failed fee task and
+            // retry estimation on the same build when Review is opened.
+            preparation?.cancelFee();
+            prepared = undefined;
           }
           const { buildResult } = canReusePreparation
             ? await acquireReviewBuild(data, isCurrent)
@@ -4525,13 +4574,29 @@ export function useSwapBuildTx({
               prepared.preparedAt,
             )
           ) {
-            if (reviewPreparationStateRef.current.reportedFee !== prepared) {
+            if (
+              reviewPreparationStateRef.current.reportedFee !== prepared &&
+              !prepared.feeResult.fallbackToSeparateTxConfirm
+            ) {
               reviewPreparationStateRef.current.reportedFee = prepared;
               void swapEstimateFeeEvent(
                 ESwapEventAPIStatus.SUCCESS,
                 fromAccountNetworkId,
                 fromAccountId,
                 undefined,
+                JSON.stringify(prepared.buildResult.encodedTx ?? ''),
+                prepared.buildResult.swapInfo,
+              );
+            } else if (
+              reviewPreparationStateRef.current.reportedFee !== prepared &&
+              prepared.feeResult.fallbackToSeparateTxConfirm
+            ) {
+              reviewPreparationStateRef.current.reportedFee = prepared;
+              void swapEstimateFeeEvent(
+                ESwapEventAPIStatus.FAIL,
+                fromAccountNetworkId,
+                fromAccountId,
+                String(prepared.feeResult.fallbackError ?? 'unknown error'),
                 JSON.stringify(prepared.buildResult.encodedTx ?? ''),
                 prepared.buildResult.swapInfo,
               );
@@ -4649,6 +4714,7 @@ export function useSwapBuildTx({
       buildSwapAction,
       getReviewBuildKey,
       checkBuildBalances,
+      reportSwapBuildFailure,
       checkLatestNativeTokenBalance,
       reviewAccountKey,
       getReviewPreparationContextKey,
