@@ -97,7 +97,9 @@ jest.mock('react-native-reanimated', () => {
     makeMutable: <T,>(value: T) => ({ value }),
     runOnJS: jest.fn(identity),
     useAnimatedKeyboard: () => ({ height: { value: 0 } }),
-    useAnimatedStyle: () => ({}),
+    // A detectable stand-in for every animated style, so a test can tell
+    // which element wears one without running any worklet.
+    useAnimatedStyle: () => ({ opacity: 0.42 }),
     useReducedMotion: () => false,
     useSharedValue: <T,>(value: T) => useRef({ value }).current,
     withSpring: identity,
@@ -293,6 +295,7 @@ describe('MorphOverlay wall', () => {
       expect(tint).not.toBeNull();
       if (!tint) throw new OneKeyLocalError('Missing scrim tint');
       expect(tint.style.backgroundColor).not.toBe('');
+      expect(tint.style.opacity).toBe('0.42');
       expect(globalThis.getComputedStyle(tint).pointerEvents).toBe('none');
     },
   );
