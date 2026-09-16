@@ -334,24 +334,63 @@ function resolveBindings(ast) {
   });
 }
 
-// Some values hold text the way a variable does without being one, such as
-// what a constructed promise settles with. Each gets a stable key of its own,
-// so definitions taint it exactly as they taint a binding.
+// Some values hold text the way a variable does without being one: what a
+// constructed promise settles with, what a named function returns, and what is
+// stored under a property of a variable. Each gets a stable key of its own, so
+// definitions taint it exactly as they taint a binding.
 const SETTLED_VALUES = new WeakMap();
+const RETURNED_VALUES = new WeakMap();
+const STORED_VALUES = new WeakMap();
 
-function derivedKey(keys, owner) {
-  if (!owner) {
+function derivedKey(keys, owner, name) {
+  if (!owner || name === undefined) {
     return undefined;
   }
   if (!keys.has(owner)) {
-    keys.set(owner, { derivedFrom: owner });
+    keys.set(owner, new Map());
   }
-  return keys.get(owner);
+  const byName = keys.get(owner);
+  if (!byName.has(name)) {
+    byName.set(name, { derivedFrom: owner, name });
+  }
+  return byName.get(name);
 }
 
 /** The key for what `new Promise(...)` settles with. */
 function settledKey(node) {
-  return derivedKey(SETTLED_VALUES, node);
+  return derivedKey(SETTLED_VALUES, node, 'settled');
+}
+
+/** The key for what a call to the function bound as `binding` returns. */
+function returnedKey(binding) {
+  return derivedKey(RETURNED_VALUES, binding, 'returned');
+}
+
+/** The key for what the variable bound as `owner` stores under `name`. */
+function propertyKey(owner, name) {
+  return derivedKey(STORED_VALUES, owner, name);
+}
+
+/** `ctx.source` and `ctx['source']`: the key for what that property holds. */
+function storedKey(node) {
+  if (
+    (node?.type !== 'MemberExpression' &&
+      node?.type !== 'OptionalMemberExpression') ||
+    node.object.type !== 'Identifier'
+  ) {
+    return undefined;
+  }
+  return propertyKey(bindingOf(node.object), staticName(node.property, node));
+}
+
+/** The name a property key or member access spells out, if it is static. */
+function staticName(key, container) {
+  if (key.type === 'StringLiteral') {
+    return key.value;
+  }
+  return key.type === 'Identifier' && !container.computed
+    ? key.name
+    : undefined;
 }
 
 function holdsWholeFile(key, tainted, fragments) {
@@ -490,7 +529,10 @@ function taintKind(node, tainted, calls) {
       return taintKind(node.expression, tainted, calls);
     case 'MemberExpression':
     case 'OptionalMemberExpression':
-      return taintKind(node.object, tainted, calls);
+      // `ctx.source` holds what was stored under that name.
+      return (
+        tainted.get(storedKey(node)) ?? taintKind(node.object, tainted, calls)
+      );
     case 'TemplateLiteral':
       return firstTaint(node.expressions, tainted, calls);
     case 'BinaryExpression':
@@ -534,8 +576,15 @@ function taintKind(node, tainted, calls) {
       }
       // `normalize(source)` hands its argument's text back, reworked.
       const transformed = calls.transform(node);
-      if (transformed) {
-        return taintKind(transformed.argument, tainted, calls);
+      const handedBack =
+        transformed && taintKind(transformed.argument, tainted, calls);
+      if (handedBack) {
+        return handedBack;
+      }
+      // `loadBody()` hands back whatever its own returns carry.
+      const returned = tainted.get(returnedKey(bindingOf(node.callee)));
+      if (returned) {
+        return returned;
       }
       const name = calleeName(node.callee);
       if (
@@ -600,6 +649,9 @@ function isWholeFileRead(node, tainted, fragments, calls) {
       return holdsWholeFile(bindingOf(node), tainted, fragments);
     case 'NewExpression':
       return holdsWholeFile(settledKey(node), tainted, fragments);
+    case 'MemberExpression':
+    case 'OptionalMemberExpression':
+      return holdsWholeFile(storedKey(node), tainted, fragments);
     case 'AwaitExpression':
       return isWholeFileRead(node.argument, tainted, fragments, calls);
     case 'TSAsExpression':
@@ -620,11 +672,15 @@ function isWholeFileRead(node, tainted, fragments, calls) {
       // A transform helper hands a whole file back whole only if its own body
       // does: `(text) => text.trim()` does, `(text) => text.slice(1)` cuts.
       const transformed = calls.transform(node);
-      if (transformed) {
+      if (transformed && taintKind(transformed.argument, tainted, calls)) {
         return (
           transformed.preservesWhole &&
           isWholeFileRead(transformed.argument, tainted, fragments, calls)
         );
+      }
+      const returned = returnedKey(bindingOf(node.callee));
+      if (tainted.has(returned)) {
+        return holdsWholeFile(returned, tainted, fragments);
       }
       if (
         name &&
@@ -872,10 +928,18 @@ function collectDefinitions(ast, calls) {
       definitions.push({ node, value, bindings, fragment });
     }
   };
+  const namedFunctions = [];
   walk(ast, (node) => {
+    const named = namedFunction(node);
+    if (named) {
+      namedFunctions.push(named);
+    }
     const target = bindingTarget(node);
     if (target) {
       define(node, target.value, target.identifiers);
+      storedValues(target).forEach(({ key, value }) =>
+        definitions.push({ node, value, bindings: [key], fragment: false }),
+      );
     }
     callbackSlots(node, calls).forEach(
       ({ callback, parameters, value, fragment }) => {
@@ -919,7 +983,119 @@ function collectDefinitions(ast, calls) {
         );
     }
   });
+  // What a named function returns, once every local it could build a path
+  // from is known. A read whose path comes from the function's parameters is
+  // left out: only the call says what that reads, which is why such a
+  // function is a read helper when it is simple enough to be one.
+  namedFunctions.forEach((named) => {
+    if (calls.isReadHelper(named.binding)) {
+      return;
+    }
+    const values = returnedValues(named.fn);
+    const reads = values.flatMap((value) => readCalls(value, calls));
+    if (reads.length > 0 && named.parameters.some(Boolean)) {
+      const fromParameters = parameterDerived(named, definitions);
+      if (
+        reads.some((read) =>
+          read.arguments.some((argument) =>
+            refersToAny(argument, fromParameters),
+          ),
+        )
+      ) {
+        return;
+      }
+    }
+    const returned = returnedKey(named.binding);
+    values.forEach((value) =>
+      definitions.push({
+        node: value,
+        value,
+        bindings: [returned],
+        fragment: false,
+      }),
+    );
+  });
   return definitions;
+}
+
+/**
+ * Properties a definition stores: `ctx.source = read(...)` stores under
+ * `source` on `ctx`, and so does `const ctx = { source: read(...) }`.
+ */
+function storedValues({ pattern, value }) {
+  const stored = storedKey(pattern);
+  if (stored) {
+    return [{ key: stored, value }];
+  }
+  const owner = bindingOf(pattern);
+  if (!owner || value?.type !== 'ObjectExpression') {
+    return [];
+  }
+  return value.properties
+    .filter((property) => property.type === 'ObjectProperty')
+    .map((property) => ({
+      key: propertyKey(owner, staticName(property.key, property)),
+      value: property.value,
+    }))
+    .filter(({ key }) => key);
+}
+
+/** The expressions a function hands back to its caller. */
+function returnedValues(fn) {
+  if (fn.body.type !== 'BlockStatement') {
+    return [fn.body];
+  }
+  const values = [];
+  walkOwnBody(fn.body, (node) => {
+    if (node.type === 'ReturnStatement' && node.argument) {
+      values.push(node.argument);
+    }
+  });
+  return values;
+}
+
+/** Bindings inside a function whose value is built from its parameters. */
+function parameterDerived({ fn, parameters }, definitions) {
+  const derived = new Set(parameters.filter(Boolean));
+  const inside = definitions.filter(
+    (definition) =>
+      definition.node.start >= fn.start && definition.node.end <= fn.end,
+  );
+  let before;
+  do {
+    before = derived.size;
+    inside
+      .filter((definition) => refersToAny(definition.value, derived))
+      .forEach((definition) =>
+        definition.bindings.forEach((binding) => derived.add(binding)),
+      );
+  } while (derived.size > before);
+  return derived;
+}
+
+/** The reads in an expression, direct or through a read helper. */
+function readCalls(node, calls) {
+  const found = [];
+  walk(node, (current) => {
+    if (
+      (current.type === 'CallExpression' ||
+        current.type === 'OptionalCallExpression') &&
+      (calls.isRead(current) || calls.isReadHelper(bindingOf(current.callee)))
+    ) {
+      found.push(current);
+    }
+  });
+  return found;
+}
+
+function refersToAny(node, bindings) {
+  let found = false;
+  walk(node, (current) => {
+    if (bindings.has(bindingOf(current))) {
+      found = true;
+    }
+  });
+  return found;
 }
 
 /** The `resolve(...)` calls inside a `new Promise(...)` executor. */
@@ -1189,14 +1365,17 @@ function collectRepoAnchoredBindings(ast) {
 
 /**
  * What a path expression contributes to classifying a read made through it:
- * the literals that built it, and whether it ends in a value only known at run
- * time. Both have to travel with the binding, because a read through a bare
- * identifier carries neither of its own.
+ * the literals that built it, whether it ends in a value only known at run
+ * time, and whether its shape alone makes an unextended name source. All of
+ * it has to travel with the binding, because a read through a bare identifier
+ * carries none of its own.
  */
 function describePath(node, anchored) {
+  const literals = pathLiterals(node, anchored);
   return {
-    literals: pathLiterals(node, anchored),
+    literals,
     endsInVariable: endsInVariableName(node, anchored),
+    unextendedSource: namesUnextendedSource(node, literals, anchored),
   };
 }
 
@@ -1306,7 +1485,7 @@ function collectReadHelpers(ast, isReadCallee, classify) {
   const helpers = new Map();
   walk(ast, (node) => {
     const returned = returnedPathExpression(node);
-    const call = returned?.value;
+    const call = returned && unwrapWholeConversion(returned.value);
     if (
       !call ||
       (call.type !== 'CallExpression' && call.type !== 'OptionalCallExpression')
@@ -1356,6 +1535,40 @@ function collectReadHelpers(ast, isReadCallee, classify) {
     }
   });
   return helpers;
+}
+
+/**
+ * The expression under conversions that keep a whole file whole, so
+ * `readFileSync(file).toString()` and `await readFile(file)` are still reads.
+ */
+function unwrapWholeConversion(node) {
+  switch (node?.type) {
+    case 'AwaitExpression':
+      return unwrapWholeConversion(node.argument);
+    case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
+    case 'TSNonNullExpression':
+    case 'ParenthesizedExpression':
+      return unwrapWholeConversion(node.expression);
+    case 'CallExpression':
+    case 'OptionalCallExpression': {
+      const name = calleeName(node.callee);
+      if (
+        name &&
+        WHOLE_PRESERVING_METHODS.has(name) &&
+        (node.callee.type === 'MemberExpression' ||
+          node.callee.type === 'OptionalMemberExpression')
+      ) {
+        return unwrapWholeConversion(node.callee.object);
+      }
+      if (node.callee.type === 'Identifier' && name === 'String') {
+        return unwrapWholeConversion(node.arguments[0]);
+      }
+      return node;
+    }
+    default:
+      return node;
+  }
 }
 
 /**
@@ -1416,6 +1629,11 @@ function endsInVariableName(node, anchored) {
 
 /** Does this path reach source whose extension is not written down? */
 function namesUnextendedSource(node, literals, anchored) {
+  // `const file = path.join(__dirname, name)` already said what it names.
+  const described = anchored.get(bindingOf(node));
+  if (described) {
+    return described.unextendedSource;
+  }
   // `path.join(repoRoot, 'packages/kit/src/views/X', name)` names a source
   // directory explicitly and ends in a variable, so the filename is source.
   // Only that shape: a path that ends in a literal already said what it is,
@@ -1491,10 +1709,18 @@ function patternIdentifiers(node, collected = []) {
  */
 function bindingTarget(node) {
   if (node.type === 'VariableDeclarator' && node.init) {
-    return { identifiers: patternIdentifiers(node.id), value: node.init };
+    return {
+      pattern: node.id,
+      identifiers: patternIdentifiers(node.id),
+      value: node.init,
+    };
   }
   if (node.type === 'AssignmentExpression') {
-    return { identifiers: patternIdentifiers(node.left), value: node.right };
+    return {
+      pattern: node.left,
+      identifiers: patternIdentifiers(node.left),
+      value: node.right,
+    };
   }
   return undefined;
 }
@@ -1535,6 +1761,7 @@ function analyzeFile(
   // the taint travels through it.
   const calls = {
     isRead: (callNode) => isReadCallee(callNode.callee),
+    isReadHelper: (binding) => readHelpers.has(binding),
     readKind(callNode) {
       if (isReadCallee(callNode.callee)) {
         return classify(callNode.arguments[0]);

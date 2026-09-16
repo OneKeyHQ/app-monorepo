@@ -903,6 +903,155 @@ test('an element of source text is source, however it is iterated', () => {
   );
 });
 
+test('what a named function returns is still source', () => {
+  const thing = "join(__dirname, 'thing.ts')";
+  assertGated(
+    `
+    const source = readFileSync(${thing}, 'utf8');
+    const offsetOf = (needle) => source.indexOf(needle);
+    it('x', () => { expect(offsetOf('a')).toBeLessThan(offsetOf('b')); });
+  `,
+    'closure over source',
+  );
+  assertGated(
+    `
+    function loadSource() {
+      const file = ${thing};
+      return readFileSync(file, 'utf8');
+    }
+    it('x', () => { expect(loadSource()).toContain('go'); });
+  `,
+    'several statements',
+  );
+  // A read behind a conversion is still a read helper, classified per call.
+  const readText =
+    'const readText = (name) => readFileSync(join(__dirname, name)).toString();';
+  assertGated(
+    `${readText}
+    it('x', () => { expect(readText('thing.ts')).toContain('go'); });
+  `,
+    'read helper through toString, source at the call',
+  );
+  assertClean(
+    `${readText}
+    it('x', () => { expect(readText('fixture.json')).toContain('go'); });
+  `,
+    'control: the same helper reading data',
+  );
+  // Only the call knows a path built from the parameters, so the body alone
+  // says nothing about what it reads.
+  assertClean(
+    `
+    function loadFixture(name) {
+      const file = join(__dirname, '__fixtures__', name);
+      return readFileSync(file, 'utf8');
+    }
+    it('x', () => { expect(loadFixture('a.json')).toContain('go'); });
+  `,
+    'control: several statements reading a path from the parameters',
+  );
+  // Whole or cut, as it was returned.
+  const script =
+    "const code = readFileSync(join(__dirname, 'thing.js'), 'utf8');";
+  assertClean(
+    `
+    function loadScript() {
+      ${script}
+      return code;
+    }
+    runInNewContext(loadScript());
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'control: evaluating a whole file a function returns',
+  );
+  assertGated(
+    `
+    function loadBody() {
+      ${script}
+      return code.slice(code.indexOf('const go ='));
+    }
+    runInNewContext(loadBody());
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'evaluating a fragment a function returns',
+  );
+});
+
+test('what a variable stores under a property is still source', () => {
+  const read = "readFileSync(join(__dirname, 'thing.ts'), 'utf8')";
+  assertGated(
+    `
+    const context = {};
+    beforeAll(() => { context.source = ${read}; });
+    it('x', () => { expect(context.source).toContain('go'); });
+  `,
+    'assigned in a hook',
+  );
+  assertGated(
+    `
+    const context = {};
+    beforeAll(() => { context['source'] = ${read}; });
+    it('x', () => { expect(context['source']).toContain('go'); });
+  `,
+    'string keys',
+  );
+  // Controls: another property of it, and the same name on another variable.
+  assertClean(
+    `
+    const context = {};
+    const other = { source: 'plain' };
+    beforeAll(() => {
+      context.source = ${read};
+      context.count = 1;
+    });
+    it('x', () => {
+      expect(context.count).toBe(1);
+      expect(other.source).toContain('go');
+    });
+  `,
+    'control: other properties and other variables',
+  );
+  // A whole file stored in an object literal is still the whole file.
+  assertClean(
+    `
+    const files = { script: readFileSync(join(__dirname, 'thing.js'), 'utf8') };
+    runInNewContext(files.script);
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'control: evaluating a whole file an object holds',
+  );
+});
+
+test('a path moved into a binding classifies like the path itself', () => {
+  assertGated(
+    `
+    it.each(['thing'])('x', (name) => {
+      const file = path.join(__dirname, name);
+      expect(readFileSync(file, 'utf8')).toContain('go');
+    });
+  `,
+    'sibling of the test named by a variable',
+  );
+  assertGated(
+    `
+    const file = require.resolve('../thing');
+    const source = readFileSync(file, 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'module specifier',
+  );
+  // Control: a path whose head is built on __dirname but that names a
+  // directory holding no source is still not source.
+  assertClean(
+    `${REPO_ROOT_PREAMBLE}
+    const file = path.join(repoRoot, '.github/workflows', name);
+    const source = readFileSync(file, 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'control: a workflow named by a variable',
+  );
+});
+
 test('a transform helper that cuts text does not launder a fragment', () => {
   const read = "readFileSync(join(__dirname, 'thing.js'), 'utf8')";
   assertGated(
