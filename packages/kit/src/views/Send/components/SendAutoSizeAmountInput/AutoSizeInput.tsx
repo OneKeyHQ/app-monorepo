@@ -313,18 +313,35 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     );
     const hasPrefix = !!currencyLabel;
     const hasSuffix = !!inlineTokenSymbol;
-    let desktopAmountTextAlign: 'center' | 'left' | 'right' = 'center';
-    if (hasPrefix) {
-      desktopAmountTextAlign = 'left';
-    } else if (hasSuffix) {
-      desktopAmountTextAlign = 'right';
-    }
+    // Keep the caret on the left of the placeholder in both token and fiat
+    // mode (OK-63413): a right-aligned suffix layout parked the empty-state
+    // caret after the "0" while the fiat prefix layout parked it before.
+    const desktopAmountTextAlign: 'center' | 'left' =
+      hasPrefix || hasSuffix ? 'left' : 'center';
+
+    // The input box keeps a trailing caret/measurement buffer after the
+    // digits. With the amount left-aligned that buffer would sit between the
+    // digits and the suffix symbol, so pull the suffix back over it to keep
+    // the visual gap at inlineSuffixGapPx. Skip this when maxWidth shrinks the
+    // input below its natural width: the digits then scroll inside the box and
+    // a negative margin would overlap them.
+    const inlineInputTrailingSpacePx = Math.max(
+      inlineInputWidthPx - Math.ceil(inlineMeasuredAmountWidthPx),
+      0,
+    );
+    const isInlineInputShrunk =
+      availableInlineWidth > 0 &&
+      inlineInputWidthPx > availableInlineWidth - desktopInlineReservedWidthPx;
+    const desktopSuffixMarginLeftPx =
+      hasSuffix && !isInlineInputShrunk
+        ? inlineSuffixGapPx - inlineInputTrailingSpacePx
+        : inlineSuffixGapPx;
 
     let desktopInlineRowOffsetPx = 0;
-    if (inlineTextAlignMode === 'center') {
+    if (inlineTextAlignMode === 'center' || hasSuffix) {
+      // Suffix mode already folds the trailing buffer into the suffix margin,
+      // so the row's box matches its visible content and centers as-is.
       desktopInlineRowOffsetPx = 0;
-    } else if (desktopAmountTextAlign === 'right') {
-      desktopInlineRowOffsetPx = Math.round(-inlineInputSlackPx / 2);
     } else if (desktopAmountTextAlign === 'left') {
       desktopInlineRowOffsetPx = Math.round(inlineInputSlackPx / 2);
     }
@@ -433,7 +450,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             style={{
               fontFamily,
               fontSize: effectiveFontSize,
-              marginLeft: inlineSuffixGapPx,
+              marginLeft: desktopSuffixMarginLeftPx,
             }}
             mt={desktopInlineSymbolOffset}
             numberOfLines={1}
