@@ -30,13 +30,16 @@ import {
 // retry lands on.
 export const MAX_LAZY_RETRIES = 1;
 const RETRY_BACKOFF_MS = [150, 600];
-// Kept in sync with RETRYABLE_NATIVE_REJECT_CODES in
-// apps/mobile/src/splitBundle/installProdBundleLoader.ts. This lookup is the
-// fallback for errors that reach the boundary WITHOUT the loader's `retryable`
-// flag — notably a caller that joined an in-flight load and so receives the raw
-// native rejection rather than the wrapped SegmentLoadError. Leaving a code out
-// here makes that caller go fatal on a failure the loader still considers
-// re-attemptable.
+// Defense in depth for a split-bundle error that reaches the boundary WITHOUT
+// the loader's `retryable` flag. Nothing in-tree produces one today: every
+// error leaving loadSegmentInternal is a SegmentLoadError carrying an explicit
+// `retryable`, including the one handed to a caller that joins an in-flight
+// load (installProdBundleLoader.ts publishes classifyLoadOutcome's promise to
+// inflightSegments for exactly that reason). So this set is a backstop for a
+// producer that bypasses the loader entirely, NOT a second source of truth to
+// keep in sync with RETRYABLE_NATIVE_REJECT_CODES — if a segment error is
+// reaching a boundary unclassified, fix the producer rather than adding its
+// code here.
 const RETRYABLE_CODES = new Set([
   'SPLIT_BUNDLE_NO_RUNTIME',
   'SPLIT_BUNDLE_TIMEOUT',

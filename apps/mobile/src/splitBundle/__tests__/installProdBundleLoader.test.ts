@@ -499,8 +499,8 @@ describe('installProdBundleLoader', () => {
     installProdBundleLoader(mock);
 
     // loadSegmentInternal registers the inflight entry synchronously, before
-    // it awaits anything, so the second call dedups onto the first with no
-    // tick in between.
+    // it awaits anything, so the second call joins the first with no tick in
+    // between.
     const owner = loadSegment('seg:test.a');
     const joiner = loadSegment('seg:test.a');
 
@@ -521,6 +521,81 @@ describe('installProdBundleLoader', () => {
       retryable: true,
     });
     expect(joinerErr).toBe(ownerErr);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  // The joiner test above pins the retryable outcome. This one pins the other
+  // half, which is the more fragile: the budget-exhausted flag is delivered by
+  // MUTATING the shared error in place (`segError.retryable = false`), not by
+  // constructing a fresh one per caller. A later refactor that clones or wraps
+  // the error before caching it, or that moves that assignment after the throw,
+  // would leave a joiner seeing `retryable: true` while the owner sees `false`
+  // — silently reinstating the owner/joiner disagreement this design removes,
+  // and making the boundary burn a retry round against a permanently dead route.
+  it('gives a joiner the same budget-exhausted error object as the owner', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValue(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+
+    // Spend attempts 1 and 2 so the next one exhausts the budget.
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+
+    const owner = loadSegment('seg:test.a');
+    const joiner = loadSegment('seg:test.a');
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({ retryable: false });
+    expect(joinerErr).toBe(ownerErr);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+
+    // Cached now — a later call is served from failedSegments.
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+  });
+
+  // Dependency propagation is the one rejecting path where the published error
+  // belongs to a DIFFERENT segment than the one either caller asked for, so it
+  // is worth pinning that a joiner gets that error verbatim rather than one
+  // re-keyed to its own request.
+  it('gives a joiner the dep failure verbatim, still keyed to the dep', async () => {
+    const mock = createMockNativeLoader();
+    // The first native call is the dep (seg:test.a); fail it retryably.
+    mock.loadSegment.mockImplementationOnce(() =>
+      Promise.reject(
+        Object.assign(new Error('runtime not ready'), {
+          code: 'SPLIT_BUNDLE_NO_RUNTIME',
+        }),
+      ),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+
+    const owner = loadSegment('seg:test.b');
+    const joiner = loadSegment('seg:test.b');
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({
+      segmentKey: 'seg:test.a',
+      retryable: true,
+    });
+    expect(joinerErr).toBe(ownerErr);
+    // The parent never reached its own native call — the dep failed first.
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 
