@@ -2,6 +2,8 @@ import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvir
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 
+import { walletConnectDiagnostics } from '../../services/ServiceWalletConnect/WalletConnectDiagnostics';
+
 import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
 
 let mockTransitionBlocked = false;
@@ -80,8 +82,112 @@ describe('WalletConnect Travel Mode event gating', () => {
     expect(getWcChainInfo).not.toHaveBeenCalled();
     expect(handleSessionDelete).not.toHaveBeenCalled();
     expect(respondSessionRequest).not.toHaveBeenCalled();
+    expect(walletConnectDiagnostics.getSnapshot().events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event: 'session_request_blocked_by_travel_mode',
+          requestId: 1,
+        }),
+      ]),
+    );
     provider.unregisterEvents();
     expect(off.mock.calls).toEqual(on.mock.calls);
     expect(pingOff.mock.calls).toEqual(pingOn.mock.calls);
+  });
+});
+
+describe('WalletConnect request diagnostics', () => {
+  beforeEach(() => {
+    mockTransitionBlocked = false;
+    walletConnectDiagnostics.clear();
+  });
+
+  async function createProvider() {
+    const { default: ProviderApiWalletConnect } =
+      await import('./ProviderApiWalletConnect');
+    const checkMethodSupport = jest.fn(async () => false);
+    const getWcChainInfo = jest.fn(async () => ({ wcNamespace: 'eip155' }));
+    const provider = new ProviderApiWalletConnect({
+      backgroundApi: {
+        serviceWalletConnect: { getWcChainInfo, checkMethodSupport },
+      },
+    });
+    const on = jest.fn();
+    const respondSessionRequest = jest.fn(async (_params: unknown) => {});
+    // Exercise the actual registered callback with a minimal WalletKit fixture.
+    provider.web3Wallet = {
+      on,
+      engine: { signClient: { events: { on: jest.fn() } } },
+      respondSessionRequest,
+    } as unknown as IWalletKit;
+    provider.registerEvents();
+    const listener = on.mock.calls.find(
+      ([event]) => event === EWalletConnectSessionEvents.session_request,
+    )?.[1] as (request: WalletKitTypes.SessionRequest) => Promise<void>;
+    const request = {
+      id: 17,
+      topic: 'session-topic',
+      params: {
+        chainId: 'eip155:1',
+        request: { method: 'eth_unsupported', params: [] },
+      },
+    } as unknown as WalletKitTypes.SessionRequest;
+    return { listener, request, respondSessionRequest, getWcChainInfo };
+  }
+
+  it('distinguishes unsupported methods from communication failures', async () => {
+    const { listener, request, respondSessionRequest } = await createProvider();
+    await listener(request);
+    expect(respondSessionRequest).toHaveBeenCalledWith({
+      topic: request.topic,
+      response: {
+        id: 17,
+        jsonrpc: '2.0',
+        error: expect.objectContaining({ code: 5101 }),
+      },
+    });
+    expect(walletConnectDiagnostics.getSnapshot().events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event: 'session_request',
+          method: 'eth_unsupported',
+        }),
+        expect.objectContaining({
+          event: 'unsupported_method',
+          errorCode: 5101,
+        }),
+        expect.objectContaining({ event: 'response_submitted', requestId: 17 }),
+      ]),
+    );
+
+    walletConnectDiagnostics.clear();
+    const transportError = new Error('socket disconnected');
+    respondSessionRequest.mockRejectedValueOnce(transportError);
+    await expect(listener(request)).rejects.toBe(transportError);
+    expect(walletConnectDiagnostics.getSnapshot().events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event: 'response_failed',
+          errorCategory: 'Connection / transport',
+        }),
+      ]),
+    );
+    expect(
+      walletConnectDiagnostics.getSnapshot().events.map((event) => event.event),
+    ).not.toContain('response_submitted');
+  });
+
+  it('records failures before dispatch without swallowing them', async () => {
+    const { listener, request, getWcChainInfo, respondSessionRequest } =
+      await createProvider();
+    const error = new Error('chain lookup failed');
+    getWcChainInfo.mockRejectedValueOnce(error);
+    await expect(listener(request)).rejects.toBe(error);
+    expect(respondSessionRequest).not.toHaveBeenCalled();
+    expect(walletConnectDiagnostics.getSnapshot().events[0]).toMatchObject({
+      event: 'session_request_failed',
+      requestId: 17,
+      level: 'error',
+    });
   });
 });
