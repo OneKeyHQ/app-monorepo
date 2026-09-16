@@ -643,11 +643,7 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchGetStartedLinks({
-    slots,
-  }: {
-    slots: ILinkConfigSlot[];
-  }) {
+  public async fetchGetStartedLinks({ slots }: { slots: ILinkConfigSlot[] }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: ILinkConfigItem[];

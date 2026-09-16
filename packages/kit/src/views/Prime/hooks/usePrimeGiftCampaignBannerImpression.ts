@@ -50,9 +50,8 @@ export function usePrimeGiftCampaignBannerImpression({
   linkId: string | undefined;
 }) {
   const isFocused = useIsFocused();
-  const [host, setHost] = useState<IPrimeGiftCampaignBannerImpressionHost>(
-    null,
-  );
+  const [host, setHost] =
+    useState<IPrimeGiftCampaignBannerImpressionHost>(null);
   const shownThisVisitRef = useRef(new Set<string>());
   const impressionKey = linkId ? `${slot}:${linkId}` : undefined;
 
