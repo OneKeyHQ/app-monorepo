@@ -657,6 +657,15 @@ function callbackBodyTaint(node, tainted, readKind) {
       );
     }
   });
+  // Declared locals are the callback's own too. Clear them first so only the
+  // ones actually built from source get their taint back below.
+  walkOwnBody(node.body, (current) => {
+    if (current.type === 'VariableDeclaration') {
+      current.declarations.forEach((declaration) =>
+        patternNames(declaration.id).forEach((name) => local.delete(name)),
+      );
+    }
+  });
   // Seed the callback's own locals, so `const s = read(...); return
   // s.includes(x)` is followed.
   for (let round = 0; round < 4; round += 1) {

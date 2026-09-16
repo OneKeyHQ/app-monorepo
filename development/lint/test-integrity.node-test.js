@@ -862,6 +862,54 @@ test('negation does not launder a claim about source', () => {
   );
 });
 
+test('a local the callback declares shadows the file-level binding', () => {
+  const tainted = `const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');`;
+  assertClean(
+    `${tainted}
+    const items = [];
+    it('x', () => {
+      expect(
+        items.map((item) => {
+          const source = item.text;
+          return source.length;
+        }),
+      ).toEqual([]);
+    });
+  `,
+    'const from an untainted value',
+  );
+  assertClean(
+    `${tainted}
+    const items = [];
+    it('x', () => {
+      expect(
+        items.map((item) => {
+          let source;
+          source = item.text;
+          return source.length;
+        }),
+      ).toEqual([]);
+    });
+  `,
+    'let assigned an untainted value',
+  );
+  // Control: the same local built from a read keeps its taint.
+  assertGated(
+    `${tainted}
+    const items = [];
+    it('x', () => {
+      expect(
+        items.map((item) => {
+          const source = readFileSync(join(__dirname, item), 'utf8');
+          return source.length;
+        }),
+      ).toEqual([]);
+    });
+  `,
+    'control: local built from a read',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`
