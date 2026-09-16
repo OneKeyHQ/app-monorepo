@@ -62,10 +62,19 @@ describe('EModeGetFundsAction', () => {
     expect(props.variant).toBe('primary');
     expect(props.flexGrow).toBe(1);
     expect(props.flexShrink).toBe(1);
-    // Without flexBasis 0 the pair takes content-proportional widths and the
-    // row comes out lopsided.
-    expect(props.flexBasis).toBe(0);
     expect(props.textEllipsis).toBe(true);
+  });
+
+  // Page.Footer sizes its own confirm the same way, and for the same reason:
+  // above $md the button container is content-sized, and basis-0 children
+  // there split the sum of their content widths evenly, which truncates the
+  // longer label instead of letting each button take the room it needs.
+  it('splits the row evenly on phones only', () => {
+    render(<EModeGetFundsAction symbol="USDT" onPress={jest.fn()} />);
+    const props = buttonProps[0];
+
+    expect(props.flexBasis).toBeUndefined();
+    expect(props.$md).toMatchObject({ flexBasis: 0, size: 'large' });
   });
 
   // A recheck can land while this is on screen and move the shortfall out from

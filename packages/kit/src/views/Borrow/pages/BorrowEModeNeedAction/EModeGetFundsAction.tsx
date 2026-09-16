@@ -23,12 +23,16 @@ export function EModeGetFundsAction({
       loading={loading}
       flexGrow={1}
       flexShrink={1}
-      // Split the footer evenly with the blocked action.
-      flexBasis={0}
       textEllipsis
       $md={
         {
           size: 'large',
+          // Split the footer evenly with the blocked action, the same way
+          // Page.Footer's own confirm does. Only under $md: above it the
+          // button container is content-sized (ml: auto in a row), and
+          // basis-0 children there share the sum of their content widths
+          // equally instead, which truncates the longer label.
+          flexBasis: 0,
         } as IButtonProps
       }
       onPress={onPress}

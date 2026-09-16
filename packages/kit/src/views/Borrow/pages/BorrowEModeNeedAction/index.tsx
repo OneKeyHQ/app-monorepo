@@ -801,11 +801,12 @@ function BorrowEModeNeedActionView() {
                 disabled
                 flexGrow={1}
                 flexShrink={1}
-                flexBasis={0}
                 textEllipsis
                 $md={
                   {
                     size: 'large',
+                    // Even split on phones only; see EModeGetFundsAction.
+                    flexBasis: 0,
                   } as IButtonProps
                 }
               >
