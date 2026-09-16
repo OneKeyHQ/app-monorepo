@@ -1080,6 +1080,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
+    defaultLogger.market.navigation.homeViewMore({ selectedMarketCategoryId });
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
       navigateToMarketTab({
         tabToSelect: EMarketHomeTab.Perps,

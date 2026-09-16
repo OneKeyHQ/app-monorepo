@@ -186,6 +186,39 @@ export function getTargetFirmwareTypeLabel({
   });
 }
 
+/** Whether an update replaces the firmware type (universal ↔ Bitcoin-only). */
+export function isFirmwareTypeSwitch(
+  firmware:
+    | {
+        fromFirmwareType: EFirmwareType | undefined;
+        toFirmwareType: EFirmwareType | undefined;
+      }
+    | undefined,
+): boolean {
+  return (
+    firmware?.fromFirmwareType !== undefined &&
+    firmware.toFirmwareType !== undefined &&
+    firmware.fromFirmwareType !== firmware.toFirmwareType
+  );
+}
+
+/** Product name, not translated. */
+const BITCOIN_ONLY_VERSION_PREFIX = 'Bitcoin';
+
+/**
+ * Short word in front of a version number on the install and changelog
+ * pages: Bitcoin-only builds read "Bitcoin 4.21.0"; the universal build is
+ * the unmarked default and reads "4.21.0". The full type labels stay on
+ * titles and banners, where there is room for them (OK-63518).
+ */
+export function getFirmwareVersionTypePrefix(
+  firmwareType: EFirmwareType | undefined,
+): string | undefined {
+  return firmwareType === EFirmwareType.BitcoinOnly
+    ? BITCOIN_ONLY_VERSION_PREFIX
+    : undefined;
+}
+
 /**
  * Developer mode lists the Pro 2 component targets unless the Pro 2 debug
  * preference hides them. Shared by the changelog and the install page.
