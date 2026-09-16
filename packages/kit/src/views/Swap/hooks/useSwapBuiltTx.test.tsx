@@ -687,6 +687,64 @@ describe('Swap preview preparation concurrency', () => {
     },
   );
 
+  it('retains the built order when preloaded approval preparation fails', async () => {
+    const approvalQuote: IFetchQuoteResult = {
+      ...quote,
+      fromTokenInfo: {
+        ...fromToken,
+        isNative: false,
+        contractAddress: '0xtoken',
+      },
+      allowanceResult: {
+        allowanceTarget: '0xspender',
+        amount: '0',
+      },
+    };
+    mockPrepareUnsignedTx.mockRejectedValueOnce(new Error('offline'));
+    const { result, store } = renderPreview(approvalQuote);
+    const cache = createSwapReviewPreloadWithBuildCache<
+      ISwapPreparedBuild,
+      ISwapPreparedReview
+    >();
+    const key = getSwapReviewPreparationKey(
+      approvalQuote,
+      result.current.reviewPreparationContextKey,
+    );
+    const task = cache.preload(
+      key,
+      result.current.getReviewBuildKey(approvalQuote),
+      (isCurrent) =>
+        result.current.prepareSwapReviewBuild(approvalQuote, isCurrent),
+      (preparedBuild, isCurrent) =>
+        result.current.prepareSwapReview(
+          approvalQuote,
+          isCurrent,
+          preparedBuild,
+        ),
+    );
+    const prepared = await task.promise;
+    expect(prepared.status).toBe('failed');
+    expect(prepared.buildResult.orderId).toBe('review-repro-98');
+
+    await act(async () => {
+      await result.current.preSwapBeforeStepActions(
+        approvalQuote,
+        approvalQuote.fromTokenInfo,
+        toToken,
+        task,
+      );
+    });
+
+    expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+    expect(
+      store.get(swapStepsAtom()).preSwapData.stepBeforeActionsError,
+    ).toBeUndefined();
+    expect(
+      store.get(swapStepsAtom()).preSwapData.swapBuildResultData?.orderId,
+    ).toBe('review-repro-98');
+    cache.clear();
+  });
+
   it.each(['pending', 'fulfilled'] as const)(
     'keeps the successful %s estimate when native balance blocks confirmation',
     async (timing) => {
