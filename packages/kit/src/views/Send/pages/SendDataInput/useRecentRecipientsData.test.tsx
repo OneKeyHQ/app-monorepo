@@ -384,6 +384,43 @@ describe('useRecentRecipientsData session cache', () => {
     expect(hook.result.current.recentRecipients).toHaveLength(1);
     expect(hook.result.current.isLoadingRecent).toBe(false);
     expect(getRecentRecipients).not.toHaveBeenCalled();
+
+    // The persisted entry seeded the session cache, so the next mount paints
+    // at once instead of replaying the cold path.
+    hook.unmount();
+    const remount = mountHook(ETH);
+    expect(remount.result.current.isLoadingRecent).toBe(false);
+    expect(remount.result.current.recentRecipients).toHaveLength(1);
+    await flushBackgroundLoad();
+    expect(getCachedTransferRecipients).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts the API request before the persisted read resolves', async () => {
+    let resolvePersisted: (value: unknown) => void = () => {};
+    getCachedTransferRecipients.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePersisted = resolve;
+      }),
+    );
+    fetchTransferRecipients.mockResolvedValue({
+      supported: true,
+      data: [{ address: RECIPIENT, time: 2, networkId: ETH }],
+    });
+
+    const hook = mountHook(ETH);
+    await waitFor(() =>
+      expect(getCachedTransferRecipients).toHaveBeenCalledTimes(1),
+    );
+    // The round trip overlaps the persisted read rather than queuing behind it.
+    expect(fetchTransferRecipients).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePersisted(undefined);
+    });
+    await waitFor(() =>
+      expect(hook.result.current.recentRecipients[0]?.input).toBe(RECIPIENT),
+    );
+    expect(fetchTransferRecipients).toHaveBeenCalledTimes(1);
   });
 
   it('shows the skeleton until the API answers when nothing is persisted', async () => {

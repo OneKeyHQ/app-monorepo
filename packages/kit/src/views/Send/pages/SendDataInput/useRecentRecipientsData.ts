@@ -361,7 +361,15 @@ export function useRecentRecipientsData({
     const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
     const apiNetworkId = isEvmNetwork ? 'evm--1' : networkId;
 
+    const fetchApiRecipients = () =>
+      backgroundApiProxy.serviceHistory.fetchTransferRecipients({
+        accountId,
+        networkId: apiNetworkId,
+        limit: MAX_RECIPIENTS,
+      });
+
     let cached = recentRecipientsCache.get(cacheKey);
+    let apiPromise: ReturnType<typeof fetchApiRecipients> | undefined;
     if (cached) {
       setRecentRecipients(cached.recipients);
       setLastUsedDeriveType(cached.lastUsedDeriveType);
@@ -370,7 +378,13 @@ export function useRecentRecipientsData({
       setIsLoadingRecent(true);
       setRecentRecipients([]);
       setLastUsedDeriveType(undefined);
-      // Cold start: paint the persisted answer (if any) while the API runs.
+      // Cold start: the API request does not depend on the persisted answer,
+      // so start it now and let the round trip overlap the local enrichment
+      // of the persisted list. Rejections are observed in Phase 1 below; the
+      // no-op catch only keeps an early stale return from leaving it
+      // unhandled.
+      apiPromise = fetchApiRecipients();
+      apiPromise.catch(() => undefined);
       const persisted = await loadPersistedApiRecipients({
         accountId,
         apiNetworkId,
@@ -379,6 +393,11 @@ export function useRecentRecipientsData({
       if (isStale()) return;
       if (persisted) {
         cached = persisted;
+        // Seed the session cache so a failed refresh still leaves the next
+        // mount with an instant paint instead of replaying the cold path.
+        if (isLatestVersion()) {
+          recentRecipientsCache.set(cacheKey, persisted);
+        }
         setRecentRecipients(persisted.recipients);
         setLastUsedDeriveType(persisted.lastUsedDeriveType);
         setIsLoadingRecent(false);
@@ -410,11 +429,7 @@ export function useRecentRecipientsData({
           data: apiRecipients,
           lastUsedDeriveType: apiDeriveType,
           errored,
-        } = await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
-          accountId,
-          networkId: apiNetworkId,
-          limit: MAX_RECIPIENTS,
-        });
+        } = await (apiPromise ?? fetchApiRecipients());
         if (isStale()) return;
 
         if (supported) {
