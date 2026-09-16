@@ -834,6 +834,17 @@ test('text a read hands to a callback or a promise is still source', () => {
   );
   assertGated(
     `
+    it('x', async () => {
+      const text = await new Promise((resolve) => {
+        fs.promises.readFile(${thing}, 'utf8').then(resolve);
+      });
+      expect(text).toContain('go');
+    });
+  `,
+    'resolve handed on by reference',
+  );
+  assertGated(
+    `
     const readText = promisify(fs.readFile);
     it('x', async () => {
       expect(await readText(${thing}, 'utf8')).toContain('go');
@@ -1050,6 +1061,17 @@ test('what a variable stores under a property is still source', () => {
   `,
     'string keys',
   );
+  assertGated(
+    `
+    const context = {};
+    beforeAll(() => { context.source = ${read}; });
+    it('x', () => {
+      const { source: text } = context;
+      expect(text).toContain('go');
+    });
+  `,
+    'destructured out of the variable',
+  );
   // Controls: another property of it, and the same name on another variable.
   assertClean(
     `
@@ -1074,6 +1096,15 @@ test('what a variable stores under a property is still source', () => {
     it('x', () => { expect(1).toBe(1); });
   `,
     'control: evaluating a whole file an object holds',
+  );
+  assertClean(
+    `
+    const files = { script: readFileSync(join(__dirname, 'thing.js'), 'utf8') };
+    const { script } = files;
+    runInNewContext(script);
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'control: evaluating a whole file destructured out of an object',
   );
 });
 

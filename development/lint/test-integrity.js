@@ -940,7 +940,9 @@ function collectDefinitions(ast, calls) {
     }
     const target = bindingTarget(node);
     if (target) {
-      define(node, target.value, target.identifiers);
+      destructured(target).forEach(({ identifiers, value }) =>
+        define(node, value, identifiers),
+      );
       storedValues(target).forEach(({ key, value }) =>
         definitions.push({ node, value, bindings: [key], fragment: false }),
       );
@@ -975,16 +977,9 @@ function collectDefinitions(ast, calls) {
       node.callee.name === 'Promise'
     ) {
       const settled = settledKey(node);
-      settlements(node)
-        .filter((resolveCall) => resolveCall.arguments[0])
-        .forEach((resolveCall) =>
-          definitions.push({
-            node: resolveCall,
-            value: resolveCall.arguments[0],
-            bindings: [settled],
-            fragment: false,
-          }),
-        );
+      settlements(node, calls).forEach((settlement) =>
+        definitions.push({ ...settlement, bindings: [settled] }),
+      );
     }
   });
   // What a named function returns, once every local it could build a path
@@ -1020,6 +1015,41 @@ function collectDefinitions(ast, calls) {
     );
   });
   return definitions;
+}
+
+/**
+ * What each identifier in a definition's pattern is given. Destructuring a
+ * variable by static key reads that property, as `ctx.source` would, so what
+ * was stored under it arrives; anything else receives the whole value.
+ */
+function destructured({ pattern, identifiers, value }) {
+  if (pattern.type !== 'ObjectPattern' || value.type !== 'Identifier') {
+    return [{ identifiers, value }];
+  }
+  return pattern.properties.map((property) => {
+    const name =
+      property.type === 'ObjectProperty'
+        ? staticName(property.key, property)
+        : undefined;
+    return name === undefined
+      ? {
+          identifiers: patternIdentifiers(
+            property.type === 'RestElement' ? property : property.value,
+          ),
+          value,
+        }
+      : {
+          identifiers: patternIdentifiers(property.value),
+          // A property access the source never spells out, so taint and
+          // wholeness are read exactly as for `value.name`.
+          value: {
+            type: 'MemberExpression',
+            object: value,
+            property: property.key,
+            computed: property.computed,
+          },
+        };
+  });
 }
 
 /**
@@ -1102,8 +1132,12 @@ function refersToAny(node, bindings) {
   return found;
 }
 
-/** The `resolve(...)` calls inside a `new Promise(...)` executor. */
-function settlements(promise) {
+/**
+ * What a `new Promise(...)` executor resolves with: the argument of each
+ * `resolve(...)` call, and the text any callback slot hands to `resolve`
+ * passed by reference, as in `read(path).then(resolve)`.
+ */
+function settlements(promise, calls) {
   const executor = promise.arguments[0];
   const resolve =
     executor?.type === 'ArrowFunctionExpression' ||
@@ -1116,10 +1150,19 @@ function settlements(promise) {
       if (
         (node.type === 'CallExpression' ||
           node.type === 'OptionalCallExpression') &&
-        bindingOf(node.callee) === resolve
+        bindingOf(node.callee) === resolve &&
+        node.arguments[0]
       ) {
-        found.push(node);
+        found.push({ node, value: node.arguments[0], fragment: false });
       }
+      callbackSlots(node, calls)
+        .filter(
+          (slot) =>
+            bindingOf(slot.callback) === resolve && slot.parameters.includes(0),
+        )
+        .forEach((slot) =>
+          found.push({ node, value: slot.value, fragment: slot.fragment }),
+        );
     });
   }
   return found;
