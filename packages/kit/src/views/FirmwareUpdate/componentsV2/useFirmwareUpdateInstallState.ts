@@ -270,9 +270,8 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
 
   useEffect(() => {
     if (stepInfo.step === EFirmwareUpdateSteps.installing) {
-      if (!lastFirmwareTipMessage && !isNumber(firmwareProgress)) {
-        updateProgressRef.current('installing');
-      }
+      // Wait for a real tip or numeric progress. A synthetic 'installing'
+      // type maps to 50–90 and cannot decrease.
       return;
     }
     if (stepInfo.step !== EFirmwareUpdateSteps.updateStart) {
