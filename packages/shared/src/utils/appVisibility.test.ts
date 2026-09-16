@@ -1,6 +1,9 @@
 import platformEnv from '../platformEnv';
 
-import { onVisibilityStateChange } from './appVisibility';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from './appVisibility';
 
 jest.mock('../platformEnv', () => ({
   __esModule: true,
@@ -103,5 +106,55 @@ describe('onVisibilityStateChange in browser runtimes', () => {
     unsubscribe();
     windowTarget.dispatchEvent(new Event('focus'));
     expect(listener).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('getCurrentVisibilityState in browser runtimes', () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'document',
+  );
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+  beforeEach(() => {
+    mockPlatformEnv.isDesktop = false;
+    mockPlatformEnv.isExtension = false;
+    mockPlatformEnv.isNative = false;
+  });
+
+  afterEach(() => {
+    if (originalDocument) {
+      Object.defineProperty(globalThis, 'document', originalDocument);
+    } else {
+      Reflect.deleteProperty(globalThis, 'document');
+    }
+    if (originalWindow) {
+      Object.defineProperty(globalThis, 'window', originalWindow);
+    } else {
+      Reflect.deleteProperty(globalThis, 'window');
+    }
+  });
+
+  it('keeps web visibility independent of document focus', () => {
+    const { testDocument } = installBrowserEventTargets();
+    Object.assign(testDocument, {
+      visibilityState: 'visible',
+      hasFocus: () => false,
+    });
+    expect(getCurrentVisibilityState()).toBe(true);
+  });
+
+  it('treats an unfocused extension document as hidden', () => {
+    mockPlatformEnv.isExtension = true;
+    const { testDocument } = installBrowserEventTargets();
+    Object.assign(testDocument, {
+      visibilityState: 'visible',
+      hasFocus: () => false,
+    });
+    expect(getCurrentVisibilityState()).toBe(false);
+    Object.assign(testDocument, { hasFocus: () => true });
+    expect(getCurrentVisibilityState()).toBe(true);
+    testDocument.visibilityState = 'hidden';
+    expect(getCurrentVisibilityState()).toBe(false);
   });
 });

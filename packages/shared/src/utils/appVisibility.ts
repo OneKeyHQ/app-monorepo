@@ -53,7 +53,18 @@ export function getCurrentVisibilityState(): boolean {
     }
   }
   if (typeof document !== 'undefined') {
-    return document.visibilityState === 'visible';
+    if (document.visibilityState !== 'visible') {
+      return false;
+    }
+    // Extension UI also treats window blur as hidden (see onVisibilityStateChange).
+    if (
+      platformEnv.isExtension &&
+      typeof document.hasFocus === 'function' &&
+      !document.hasFocus()
+    ) {
+      return false;
+    }
+    return true;
   }
   return true;
 }

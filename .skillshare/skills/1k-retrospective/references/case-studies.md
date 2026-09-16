@@ -444,3 +444,16 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Fail-closed only caught thrown errors. `/simplify` replaced `items?.[0]` with `result[0]`, so a successful non-array overwrite of `initResult` crashed at render.
 **Fix**: Normalize Utility `link-config` payloads with `asLinkConfigItems` at the service and hook, and read `result?.[0]`.
 **Catchable by**: Section 5: "Not loaded" vs "empty" â€” a successful non-array response is neither `[]` nor a thrown error; Section 6: bug fix needs a regression test of the exact malformed payload
+
+## Case: Campaign banner click logged before a failed navigation
+**Date**: 2026-09-16 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: A misconfigured Utility row still counted as `primeGiftClaimSuccessBannerClick` when `parseNotificationPayload` returned false (blocked URL, unknown mode, empty payload).
+**Root Cause**: Click analytics ran before the notification dispatcher, and the boolean result was discarded.
+**Fix**: Open the payload first and log click only when navigation is handled. Do not restrict allowed modes.
+**Catchable by**: Section 4: analytics must follow the actual user-visible outcome, not the tap alone
+
+## Case: Extension live visibility ignored window blur
+**Date**: 2026-09-16 | **Platforms**: Extension
+**Symptom**: `getCurrentVisibilityState()` still returned true after the extension window blurred, so impression hooks could mark shown for an unseen banner.
+**Root Cause**: `onVisibilityStateChange` listened to focus/blur on extension, but the live reader only checked `document.visibilityState`.
+**Fix**: On extension, require `document.hasFocus()` in the live reader so it matches the subscriber.

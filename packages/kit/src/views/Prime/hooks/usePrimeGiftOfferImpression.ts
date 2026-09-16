@@ -77,13 +77,19 @@ export function usePrimeGiftOfferImpression({
       }
     };
 
+    const stopWatching = () => {
+      stopPoll();
+      observer?.disconnect();
+      observer = undefined;
+    };
+
     const markShown = () => {
       if (!active || shownThisVisitRef.current.has(serialNo)) {
         return;
       }
       shownThisVisitRef.current.add(serialNo);
       defaultLogger.prime.subscription.primeGiftOfferShown({ source });
-      stopPoll();
+      stopWatching();
     };
 
     const tryLog = () => {
@@ -92,7 +98,7 @@ export function usePrimeGiftOfferImpression({
         return;
       }
       if (shownThisVisitRef.current.has(serialNo)) {
-        stopPoll();
+        stopWatching();
         return;
       }
       if (platformEnv.isNative) {
@@ -159,8 +165,7 @@ export function usePrimeGiftOfferImpression({
 
     return () => {
       active = false;
-      stopPoll();
-      observer?.disconnect();
+      stopWatching();
       unsubVisibility();
     };
   }, [enabled, host, isFocused, serialNo, source]);

@@ -4,9 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
-import { PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT } from '@onekeyhq/shared/types/linkConfig';
+import { handlePrimeGiftCampaignBannerPress } from '@onekeyhq/shared/src/utils/primeGiftCampaignBannerAction';
 
 import { usePrimeGiftCampaignBannerImpression } from '../hooks/usePrimeGiftCampaignBannerImpression';
 import { usePrimeGiftClaimSuccessLink } from '../hooks/usePrimeGiftClaimSuccessLink';
@@ -28,11 +26,7 @@ export function PrimeGiftCampaignBanner() {
     if (!item) {
       return;
     }
-    defaultLogger.prime.subscription.primeGiftClaimSuccessBannerClick({
-      slot: PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT,
-      linkId: item.linkId,
-    });
-    parseNotificationPayload(item.mode, item.payload, () => {});
+    handlePrimeGiftCampaignBannerPress(item);
   }, [item]);
   if (!item) {
     return null;
