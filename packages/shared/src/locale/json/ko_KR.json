@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "OneKey를 여러분의 팔로워에게 공유하고 함께 보상을 받으세요.",
   "referral_creator_program__title": "OneKey 크리에이터 프로그램",
   "referral_creator_program_more_ways__title": "보상을 얻는 더 많은 방법",
+  "referral_invited_by_code__desc": "{code} 초대 • 수수료 {amount} 리베이트",
   "referral_level.complete_any_n_of_m": "{total}개 조건 중 1개 충족",
   "referral_level.complete_any_subtitle": "하나만 충족해도 등급 유지 또는 승급이 가능합니다.",
   "referral_level.maintenance_conditions": "유지 요구 사항",

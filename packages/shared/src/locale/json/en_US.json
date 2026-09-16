@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "Share OneKey with your audience and earn rewards together.",
   "referral_creator_program__title": "OneKey Creator Program",
   "referral_creator_program_more_ways__title": "More ways to earn",
+  "referral_invited_by_code__desc": "Invited by {code} • {amount} fee rebate",
   "referral_level.complete_any_n_of_m": "Meet any 1 of {total} conditions",
   "referral_level.complete_any_subtitle": "Just one is enough to maintain or upgrade your level.",
   "referral_level.maintenance_conditions": "Retention req.",

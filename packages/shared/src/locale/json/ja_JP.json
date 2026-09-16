@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "あなたのオーディエンスに OneKey を紹介し、一緒に報酬を獲得しましょう。",
   "referral_creator_program__title": "OneKey クリエイタープログラム",
   "referral_creator_program_more_ways__title": "報酬を得るその他の方法",
+  "referral_invited_by_code__desc": "{code} からの招待 • 手数料 {amount} 還元",
   "referral_level.complete_any_n_of_m": "{total} 件のうちいずれか 1 件を満たす",
   "referral_level.complete_any_subtitle": "1 つ満たすだけでレベルの維持または昇格が可能です。",
   "referral_level.maintenance_conditions": "保持要件",

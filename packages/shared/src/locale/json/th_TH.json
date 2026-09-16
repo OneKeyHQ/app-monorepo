@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "แชร์ OneKey กับผู้ชมของคุณและรับรางวัลไปด้วยกัน",
   "referral_creator_program__title": "โปรแกรมครีเอเตอร์ OneKey",
   "referral_creator_program_more_ways__title": "วิธีรับรางวัลเพิ่มเติม",
+  "referral_invited_by_code__desc": "ได้รับเชิญจาก {code} • คืนค่าธรรมเนียม {amount}",
   "referral_level.complete_any_n_of_m": "ปฏิบัติตามเงื่อนไข 1 ใน {total} ข้อ",
   "referral_level.complete_any_subtitle": "ทำตามเพียง 1 ข้อก็สามารถรักษาหรืออัปเกรดระดับได้",
   "referral_level.maintenance_conditions": "ข้อกำหนดในการรักษา",

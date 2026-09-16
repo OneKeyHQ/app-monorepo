@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "Bagikan OneKey kepada audiens Anda dan dapatkan reward bersama.",
   "referral_creator_program__title": "Program Kreator OneKey",
   "referral_creator_program_more_ways__title": "Lebih banyak cara untuk menghasilkan",
+  "referral_invited_by_code__desc": "Diundang oleh {code} • cashback biaya {amount}",
   "referral_level.complete_any_n_of_m": "Penuhi 1 dari {total} persyaratan",
   "referral_level.complete_any_subtitle": "Cukup penuhi satu untuk mempertahankan atau menaikkan level.",
   "referral_level.maintenance_conditions": "Syarat Pemeliharaan",

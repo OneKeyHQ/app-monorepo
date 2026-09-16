@@ -4432,6 +4432,7 @@ export enum ETranslations {
   referral_creator_program__desc = 'referral_creator_program__desc',
   referral_creator_program__title = 'referral_creator_program__title',
   referral_creator_program_more_ways__title = 'referral_creator_program_more_ways__title',
+  referral_invited_by_code__desc = 'referral_invited_by_code__desc',
   referral_level_complete_any_n_of_m = 'referral_level.complete_any_n_of_m',
   referral_level_complete_any_subtitle = 'referral_level.complete_any_subtitle',
   referral_level_maintenance_conditions = 'referral_level.maintenance_conditions',

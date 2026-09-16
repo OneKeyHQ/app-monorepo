@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useGetReferralCodeWalletInfo } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useGetReferralCodeWalletInfo';
@@ -33,6 +34,7 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 type IOnboardingInviteCodeDialogFormValues = {
@@ -70,6 +72,14 @@ const SHOW_SPINNER_AFTER_MS = 250;
 // it back out — which was causing the "sometimes the spinner doesn't show
 // up" reports.
 const SPINNER_MIN_HOLD_AFTER_SHOWN_MS = 600;
+
+// The install-referrer capture runs as an independent startup task, so on a
+// fresh install this dialog can open before the referrer has landed. Rather
+// than render an empty field for a code we are about to have, wait out a
+// capture that is still in flight. Bounded: past the deadline the field is
+// simply left empty and the user types their own code.
+const AUTO_FILL_CAPTURE_WAIT_MS = 3000;
+const AUTO_FILL_CAPTURE_POLL_INTERVAL_MS = 300;
 
 // Direction matches the reference (Sonner / Linear "slot-machine" pattern):
 // the new label slides down from above; the old label slides down off the
@@ -145,10 +155,65 @@ function OnboardingInviteCodeDialogContent({
   // after a fresh wallet setup: pre-filling a stale code from a previous
   // wallet or from an abandoned Settings session would be misleading and
   // could nudge the user into Apply'ing a code that isn't theirs.
+  //
+  // The install-referrer code below is a different signal and IS pre-filled:
+  // it is first-party attribution tied to this specific install (the user
+  // followed someone's invite link to the store), not a leftover draft, and
+  // the service already drops it once it is bound, dismissed or expired.
   const form = useForm<IOnboardingInviteCodeDialogFormValues>({
     defaultValues: { referralCode: '' },
     mode: 'onChange',
   });
+
+  // Holds the value we pre-filled, so we can tell "user accepted our
+  // suggestion" from "user typed their own code" on submit.
+  const autoFilledCodeRef = useRef<string | undefined>(undefined);
+
+  const { result: autoFillCode } = usePromiseResult(async () => {
+    let state =
+      await backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill();
+    // Only the Android Google Play build runs a startup capture, so only there
+    // can "not read yet" still turn into a code; everywhere else the first
+    // answer is final. Decided on this runtime deliberately — the same one
+    // `installAttribution.android.ts` uses to decide whether to capture at
+    // all. `platformEnv` is evaluated again in `bg`, where the native channel
+    // probe can fall back and disagree.
+    if (!platformEnv.isNativeAndroidGooglePlay) {
+      return state.code;
+    }
+    const deadline = Date.now() + AUTO_FILL_CAPTURE_WAIT_MS;
+    // `isCaptureResolved` distinguishes "no code for this install" from "not
+    // read yet"; only the latter is worth waiting on, and only while mounted.
+    while (
+      !state.code &&
+      !state.isCaptureResolved &&
+      isMountedRef.current &&
+      Date.now() < deadline
+    ) {
+      await timerUtils.wait(AUTO_FILL_CAPTURE_POLL_INTERVAL_MS);
+      state =
+        await backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill();
+    }
+    return state.code;
+  }, []);
+
+  useEffect(() => {
+    if (!autoFillCode) {
+      return;
+    }
+    // Never clobber something the user already started typing while the
+    // lookup was in flight.
+    if (form.getValues('referralCode')) {
+      return;
+    }
+    autoFilledCodeRef.current = autoFillCode;
+    form.setValue('referralCode', autoFillCode);
+    defaultLogger.referral.page.installReferralOffered({
+      surface: 'onboarding_dialog',
+      walletId: wallet.id,
+      walletType: wallet.type,
+    });
+  }, [autoFillCode, form, wallet.id, wallet.type]);
 
   // Empty value bypasses `pattern` in react-hook-form, so `required` is the
   // only check that catches an empty Apply. Reuse the invalid-code message —
@@ -204,6 +269,7 @@ function OnboardingInviteCodeDialogContent({
       walletId: wallet.id,
       walletType: wallet.type,
       codeLength: referralCode.length,
+      isAutoFilled: autoFilledCodeRef.current === referralCode,
     });
 
     setIsPending(true);
@@ -245,8 +311,30 @@ function OnboardingInviteCodeDialogContent({
         suppressErrorToast: true,
         source: 'onboarding_dialog',
       });
+      // The spinner stands for the bind, which has landed. Stop its grace
+      // timer before any local bookkeeping, or a slow write below could make
+      // a spinner appear on a bind that already succeeded.
       clearTimeout(spinnerTimer);
       pendingTimerRef.current = null;
+      // Retire the attribution if this was the inviter's code, however it got
+      // into the field. Awaited, because the dialog closes right after the
+      // success animation and a fire-and-forget write can be lost if the user
+      // kills the app first. Its own failure must not surface as a bind
+      // failure — the bind already landed server-side.
+      try {
+        const isInviterCode =
+          await backgroundApiProxy.serviceReferralCode.consumeInstallReferralIfBound(
+            { referralCode },
+          );
+        if (isInviterCode) {
+          defaultLogger.referral.page.installReferralAccepted({
+            surface: 'onboarding_dialog',
+          });
+        }
+      } catch {
+        // Worst case the code is offered once more, and the server rejects
+        // the duplicate bind.
+      }
       await waitOutSpinnerMinHold();
       if (!isMountedRef.current) return;
 

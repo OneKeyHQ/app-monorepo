@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "分享 OneKey，與你的社群一起獲得獎勵。",
   "referral_creator_program__title": "OneKey 創作者計劃",
   "referral_creator_program_more_ways__title": "更多獎勵方式",
+  "referral_invited_by_code__desc": "由 {code} 邀請 • {amount} 手續費返現",
   "referral_level.complete_any_n_of_m": "滿足 {total} 項條件中的任一項",
   "referral_level.complete_any_subtitle": "滿足任一條件即可保級或升級。",
   "referral_level.maintenance_conditions": "保級條件",

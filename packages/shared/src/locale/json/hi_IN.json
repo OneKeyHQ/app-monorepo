@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "OneKey को अपने दर्शकों के साथ साझा करें और साथ मिलकर रिवॉर्ड कमाएं।",
   "referral_creator_program__title": "OneKey क्रिएटर प्रोग्राम",
   "referral_creator_program_more_ways__title": "कमाने के और तरीके",
+  "referral_invited_by_code__desc": "{code} द्वारा आमंत्रित • {amount} शुल्क वापसी",
   "referral_level.complete_any_n_of_m": "{total} में से कोई 1 शर्त पूरी करें",
   "referral_level.complete_any_subtitle": "स्तर बनाए रखने या अपग्रेड करने के लिए केवल एक शर्त पर्याप्त है।",
   "referral_level.maintenance_conditions": "रखरखाव आवश्यकताएँ",

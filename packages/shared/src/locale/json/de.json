@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "Teile OneKey mit deinem Publikum und erhaltet gemeinsam Belohnungen.",
   "referral_creator_program__title": "OneKey Creator-Programm",
   "referral_creator_program_more_ways__title": "Mehr Möglichkeiten zum Verdienen",
+  "referral_invited_by_code__desc": "Eingeladen von {code} • {amount} Gebührenrabatt",
   "referral_level.complete_any_n_of_m": "Erfüllen Sie 1 von {total} Bedingungen",
   "referral_level.complete_any_subtitle": "Eine einzige Bedingung reicht, um Ihr Level zu halten oder aufzusteigen.",
   "referral_level.maintenance_conditions": "Erhaltungsanforderungen",

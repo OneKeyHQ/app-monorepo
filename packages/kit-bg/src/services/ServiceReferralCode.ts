@@ -13,9 +13,20 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
+import {
+  EInviteCodeAttributionSource,
+  INSTALL_REFERRER_TTL_DAYS,
+  isInstallReferrerCaptureFinal,
+  isInstallReferrerExpired,
+  isValidInviteCode,
+} from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
 import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   EExportTimeRange,
@@ -744,6 +755,10 @@ class ServiceReferralCode extends ServiceBase {
     }>('/rebate/v1/invite/post-config');
     const postConfig = response.data.data;
     await this.backgroundApi.simpleDb.referralCode.updatePostConfig(postConfig);
+    // Completes `getPostConfig`'s stale-while-revalidate: a background refresh
+    // otherwise lands only in the cache, and screens already showing the stale
+    // config would keep it for the rest of the session.
+    appEventBus.emit(EAppEventBusNames.ReferralPostConfigUpdated, postConfig);
     return postConfig;
   }
 
@@ -840,6 +855,116 @@ class ServiceReferralCode extends ServiceBase {
   @backgroundMethod()
   async setCachedInviteCode(code: string) {
     return this.backgroundApi.simpleDb.referralCode.setCachedInviteCode(code);
+  }
+
+  @backgroundMethod()
+  async isInstallReferralCaptureResolved() {
+    return this.backgroundApi.simpleDb.referralCode.isInstallReferralCaptureResolved();
+  }
+
+  /**
+   * Persists the invite code recovered from this install's store referrer.
+   *
+   * The referrer is read on the `main` runtime (expo-application talks to the
+   * Play Store from there), so the already-extracted code arrives here over
+   * the background proxy.
+   *
+   * Marking the capture resolved is what stops later cold starts from asking
+   * the store again, so it must only happen on a *definitive* answer:
+   * - a referrer that carried no usable code (organic or ad-tagged install)
+   *   is definitive, and
+   * - an empty referrer past Play's 90-day serving window is definitive too,
+   *   because nothing can be recovered after it.
+   * An empty referrer inside that window is left unresolved instead: Play can
+   * answer OK with an empty string transiently, and giving up there would
+   * permanently lose a real referral install's code.
+   */
+  @backgroundMethod()
+  async resolveInstallReferral({
+    code,
+    attributedAt,
+    hasReferrer,
+  }: {
+    code: string | undefined;
+    attributedAt: number;
+    hasReferrer: boolean;
+  }): Promise<{ isResolved: boolean; hasCode: boolean }> {
+    if (!isValidInviteCode(code)) {
+      const isResolved = isInstallReferrerCaptureFinal({
+        hasReferrer,
+        installedAt: attributedAt,
+      });
+      if (isResolved) {
+        await this.backgroundApi.simpleDb.referralCode.markInstallReferralCaptureResolved();
+      }
+      // `isResolved: false` means the capture is left pending and will be
+      // retried on the next cold start — callers must not report it as done.
+      return { isResolved, hasCode: false };
+    }
+    await this.backgroundApi.simpleDb.referralCode.setInstallReferral({
+      code: code as string,
+      source: EInviteCodeAttributionSource.androidInstallReferrer,
+      attributedAt,
+      createdAt: Date.now(),
+      ttlDays: INSTALL_REFERRER_TTL_DAYS,
+    });
+    return { isResolved: true, hasCode: true };
+  }
+
+  @backgroundMethod()
+  async markInstallReferralCaptureResolved() {
+    return this.backgroundApi.simpleDb.referralCode.markInstallReferralCaptureResolved();
+  }
+
+  /**
+   * The invite code eligible for pre-filling a bind dialog, plus whether the
+   * startup capture has finished.
+   *
+   * `isCaptureResolved` lets a caller tell "there is no code" from "the code
+   * has not been read yet", so a dialog opened during a fresh install's very
+   * first seconds can wait instead of rendering an empty field.
+   *
+   * The code is withheld once it has been bound, once the TTL measured from
+   * install time has lapsed, or when it is the user's own code — self-referral
+   * is rejected by the server anyway, so offering it would only look broken.
+   *
+   * Editing the suggestion away does NOT retire it: product wants the offer to
+   * keep reappearing until the user actually binds something, so an invite
+   * accidentally dismissed is not lost.
+   */
+  @backgroundMethod()
+  async getInstallReferralAutoFill(): Promise<{
+    code: string | undefined;
+    isCaptureResolved: boolean;
+  }> {
+    const { record, isCaptureResolved } =
+      await this.backgroundApi.simpleDb.referralCode.getInstallReferralState();
+    if (!record?.code || record.consumedAt) {
+      return { code: undefined, isCaptureResolved };
+    }
+    if (isInstallReferrerExpired({ attributedAt: record.attributedAt })) {
+      return { code: undefined, isCaptureResolved };
+    }
+    const myReferralCode =
+      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+    if (
+      myReferralCode &&
+      myReferralCode.toLowerCase() === record.code.toLowerCase()
+    ) {
+      return { code: undefined, isCaptureResolved };
+    }
+    return { code: record.code, isCaptureResolved };
+  }
+
+  @backgroundMethod()
+  async consumeInstallReferralIfBound({
+    referralCode,
+  }: {
+    referralCode: string;
+  }): Promise<boolean> {
+    return this.backgroundApi.simpleDb.referralCode.markInstallReferralConsumedIfMatches(
+      { code: referralCode, now: Date.now() },
+    );
   }
 
   @backgroundMethod()

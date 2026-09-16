@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "আপনার দর্শকদের সঙ্গে OneKey শেয়ার করুন এবং একসঙ্গে পুরস্কার অর্জন করুন।",
   "referral_creator_program__title": "OneKey ক্রিয়েটর প্রোগ্রাম",
   "referral_creator_program_more_ways__title": "উপার্জনের আরও উপায়",
+  "referral_invited_by_code__desc": "{code} দ্বারা আমন্ত্রিত • {amount} ফি ফেরত",
   "referral_level.complete_any_n_of_m": "{total} টির মধ্যে যেকোনো ১ টি শর্ত পূরণ করুন",
   "referral_level.complete_any_subtitle": "স্তর বজায় রাখতে বা আপগ্রেড করতে যেকোনো একটিই যথেষ্ট।",
   "referral_level.maintenance_conditions": "রক্ষণাবেক্ষণের শর্তাবলী",

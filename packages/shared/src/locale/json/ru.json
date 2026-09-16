@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "Расскажите о OneKey своей аудитории и получайте вознаграждения вместе.",
   "referral_creator_program__title": "Программа для создателей OneKey",
   "referral_creator_program_more_ways__title": "Больше способов заработать",
+  "referral_invited_by_code__desc": "Приглашение от {code} • возврат комиссии {amount}",
   "referral_level.complete_any_n_of_m": "Выполните 1 из {total} условий",
   "referral_level.complete_any_subtitle": "Достаточно выполнить одно условие, чтобы сохранить или повысить уровень.",
   "referral_level.maintenance_conditions": "Требования для удержания",

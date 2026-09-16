@@ -4427,6 +4427,7 @@
   "referral_creator_program__desc": "Compartilhe a OneKey com seu público e ganhem recompensas juntos.",
   "referral_creator_program__title": "Programa de Criadores OneKey",
   "referral_creator_program_more_ways__title": "Mais formas de ganhar",
+  "referral_invited_by_code__desc": "Convidado por {code} • {amount} de reembolso de taxas",
   "referral_level.complete_any_n_of_m": "Cumpra 1 de {total} condições",
   "referral_level.complete_any_subtitle": "Basta cumprir uma para manter ou subir de nível.",
   "referral_level.maintenance_conditions": "Requisito de retenção",

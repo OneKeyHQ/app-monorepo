@@ -4,6 +4,10 @@ import {
 } from 'expo-application';
 
 import { defaultLogger } from '../../logger/logger';
+import {
+  INSTALL_REFERRER_INVITE_CODE_KEY,
+  pickInviteCodeFromReferrerValue,
+} from '../../referralCode/installReferrerUtils';
 import appStorage from '../../storage/appStorage';
 
 const REPORTED_STORAGE_KEY = 'install_attr_v1';
@@ -33,31 +37,99 @@ function getValidReferrerValue(value: string | null): string | undefined {
   return normalizedValue;
 }
 
+export interface IInstallAttributionSource {
+  getInstallReferrer: () => Promise<string>;
+  getInstallationTime: () => Promise<Date>;
+}
+
+/**
+ * Lazily reads, then memoizes, the install facts both attribution consumers
+ * need. `getInstallReferrerAsync` binds to the Play Store service over IPC, so
+ * sharing one instance across a startup pass keeps it to a single bind even
+ * when both consumers run. Each read still only happens if a consumer asks
+ * for it, so an analytics report that is already handled keeps skipping the
+ * store entirely.
+ */
+export function createInstallAttributionSource(): IInstallAttributionSource {
+  let installReferrer: Promise<string> | undefined;
+  let installationTime: Promise<Date> | undefined;
+  return {
+    getInstallReferrer: () => {
+      installReferrer ??= getInstallReferrerAsync();
+      return installReferrer;
+    },
+    getInstallationTime: () => {
+      installationTime ??= getInstallationTimeAsync();
+      return installationTime;
+    },
+  };
+}
+
+/**
+ * Reads a referrer string, retrying once against a decoded copy when the
+ * first pass finds nothing and the raw value still looks percent-encoded —
+ * some landing pages double-encode the value Play hands back.
+ */
+function readFromReferrer<T>({
+  rawReferrer,
+  read,
+  isEmpty,
+}: {
+  rawReferrer: string;
+  read: (searchParams: URLSearchParams) => T;
+  isEmpty: (value: T) => boolean;
+}): T {
+  const boundedReferrer = rawReferrer.slice(0, MAX_REFERRER_LENGTH);
+  const parsed = read(new URLSearchParams(boundedReferrer));
+  if (!isEmpty(parsed) || !/%3D/i.test(boundedReferrer)) {
+    return parsed;
+  }
+  try {
+    return read(new URLSearchParams(decodeURIComponent(boundedReferrer)));
+  } catch {
+    return parsed;
+  }
+}
+
 export function parseGooglePlayInstallReferrer(
   rawReferrer: string,
 ): IParsedReferrer {
-  const parseSearchParams = (value: string) => {
-    const searchParams = new URLSearchParams(value);
-    const parsed: IParsedReferrer = {};
-    for (const [referrerField, eventField] of referrerFields) {
-      const fieldValue = getValidReferrerValue(searchParams.get(referrerField));
-      if (fieldValue) {
-        parsed[eventField] = fieldValue.slice(0, MAX_VALUE_LENGTH);
+  return readFromReferrer({
+    rawReferrer,
+    read: (searchParams) => {
+      const parsed: IParsedReferrer = {};
+      for (const [referrerField, eventField] of referrerFields) {
+        const fieldValue = getValidReferrerValue(
+          searchParams.get(referrerField),
+        );
+        if (fieldValue) {
+          parsed[eventField] = fieldValue.slice(0, MAX_VALUE_LENGTH);
+        }
       }
-    }
-    return parsed;
-  };
-
-  const boundedReferrer = rawReferrer.slice(0, MAX_REFERRER_LENGTH);
-  let parsed = parseSearchParams(boundedReferrer);
-  if (Object.keys(parsed).length === 0 && /%3D/i.test(boundedReferrer)) {
-    try {
-      parsed = parseSearchParams(decodeURIComponent(boundedReferrer));
-    } catch {
       return parsed;
-    }
-  }
-  return parsed;
+    },
+    isEmpty: (parsed) => Object.keys(parsed).length === 0,
+  });
+}
+
+/**
+ * Pulls the referral invite code out of a Play referrer string. Organic
+ * installs and ad-tagged installs whose custom params Google Ads replaced
+ * both yield undefined, which is an ordinary outcome rather than an error.
+ */
+export function extractInviteCodeFromInstallReferrer(
+  rawReferrer: string,
+): string | undefined {
+  return readFromReferrer({
+    rawReferrer,
+    read: (searchParams) =>
+      pickInviteCodeFromReferrerValue(
+        getValidReferrerValue(
+          searchParams.get(INSTALL_REFERRER_INVITE_CODE_KEY),
+        ),
+      ),
+    isEmpty: (code) => code === undefined,
+  });
 }
 
 async function markAttributionHandled(): Promise<void> {
@@ -68,17 +140,51 @@ function isRecentInstall(installationTime: Date): boolean {
   return Date.now() - installationTime.getTime() <= MAX_INSTALL_AGE_MS;
 }
 
-export async function reportGooglePlayInstallAttribution(): Promise<void> {
+/**
+ * Reads the invite code carried by this install's referrer, plus the install
+ * timestamp the auto-fill TTL is measured from.
+ *
+ * Deliberately separate from `reportGooglePlayInstallAttribution`: that one is
+ * an analytics one-shot gated on a 7-day install-age window, while an invite
+ * code stays useful for much longer and must survive until it is bound or
+ * expires.
+ */
+export async function readGooglePlayInviteCodeAttribution(
+  source: IInstallAttributionSource = createInstallAttributionSource(),
+): Promise<{
+  code: string | undefined;
+  installedAt: number;
+  hasReferrer: boolean;
+}> {
+  const [rawReferrer, installationTime] = await Promise.all([
+    source.getInstallReferrer(),
+    source.getInstallationTime(),
+  ]);
+  return {
+    code: rawReferrer
+      ? extractInviteCodeFromInstallReferrer(rawReferrer)
+      : undefined,
+    installedAt: installationTime.getTime(),
+    // Play answered OK but handed back an empty string. Every genuine failure
+    // rejects instead, so this is the one ambiguous outcome: it may be a
+    // transient store hiccup rather than a definitive "no referrer".
+    hasReferrer: Boolean(rawReferrer),
+  };
+}
+
+export async function reportGooglePlayInstallAttribution(
+  source: IInstallAttributionSource = createInstallAttributionSource(),
+): Promise<void> {
   if (await appStorage.getItem(REPORTED_STORAGE_KEY)) {
     return;
   }
 
-  if (!isRecentInstall(await getInstallationTimeAsync())) {
+  if (!isRecentInstall(await source.getInstallationTime())) {
     await markAttributionHandled();
     return;
   }
 
-  const rawReferrer = await getInstallReferrerAsync();
+  const rawReferrer = await source.getInstallReferrer();
   if (!rawReferrer) {
     return;
   }
