@@ -42,36 +42,60 @@ export type IAvailabilityOutcome = {
   testEndpoint?: true;
 };
 
+/**
+ * `record` is the trigger that does not depend on the host: an outcome means
+ * this runtime is alive and doing network work, which is exactly when a send
+ * can land. The others are accelerators.
+ */
+export type IAvailabilityFlushReason = 'hidden' | 'record' | 'tick';
+
 export const AVAILABILITY_MIN_SEND_GAP_MS = 2 * 60 * 60 * 1000;
 export const AVAILABILITY_SLOW_MS = 3000;
-// Metrics produce about 180 counter keys at most today. With about 32 other
-// event properties, this cap keeps an event under Mixpanel's 255-property
-// limit.
+// Metrics produce at most 193 counter keys per runtime today. With at most 34
+// other event properties, this cap keeps an event under the 255-property
+// limit. Two more service or endpoint labels would overflow it, so raise this
+// alongside them.
 const MAX_COUNTERS = 200;
 export const AVAILABILITY_MAX_FAILURE_KEYS = 50;
-const FAILURE_TEXT_PROPS = 4;
+// Four slots held about 16 entries, and a single six-minute outage already
+// overflowed them. Eight covers the 50-key cap at the sizes seen on device.
+const FAILURE_TEXT_PROPS = 8;
 const FAILURE_TEXT_MAX_LENGTH = 255;
 // Sends when due and stores recent counts; does nothing without data.
 const TICK_MS = 60 * 1000;
 // Window timestamps this far from the current clock are not sent as event time.
 const CLOCK_TRUST_MS = 24 * 60 * 60 * 1000;
+// A flush must fail closed and retry rather than park: an await that never
+// settles used to silence a runtime for the rest of its life.
+const FLUSH_STEP_TIMEOUT_MS = 10 * 1000;
+// Bounds the re-run loop when triggers keep arriving mid-flush.
+const MAX_FLUSH_RERUNS = 3;
+/** Tells "the check answered no" apart from "the check never answered". */
+const STALLED = Symbol('availabilityFlushStalled');
 
 export type IAvailabilityWindow = {
   id: string;
   startTs: number;
   endTs: number;
   windowCount: number;
-  /** `${source}_${target}_${status}` and `${source}_${target}_slow`. */
+  /** `${source}_${target}_${status}` and `${source}_${target}_slow_outcome`. */
   counters: Record<string, number>;
   /** `${source}|${target}|${status}|${detail}|${errorCode}`. */
   failures: Record<string, number>;
   /** Failure outcomes without a failure detail entry. */
   failuresOmitted: number;
+  /**
+   * Counts that did not fit MAX_COUNTERS. Optional so a window stored by an
+   * earlier build still hydrates.
+   */
+  countersOmitted?: number;
   testEndpoint?: true;
 };
 
 type IStoredState = {
-  version: 2;
+  // 3: `_slow` became `_slow_outcome`, so counters of the two shapes must not
+  // merge into one window.
+  version: 3;
   lastSendTs: number;
   current?: IAvailabilityWindow;
   pending?: IAvailabilityWindow;
@@ -95,7 +119,28 @@ export type IAvailabilityAggregatorDeps = {
   subscribeVisibility?: (callback: (visible: boolean) => void) => unknown;
   canSend: () => Promise<boolean>;
   send: (params: IAvailabilitySnapshotParams) => Promise<void>;
+  /** Device-side diagnostics: why a flush did or did not send. */
+  log?: (reason: string, result: string) => void;
 };
+
+/**
+ * Settles with `fallback` if the promise has not settled in time. The promise
+ * itself is left running; only this flush attempt gives up on it.
+ */
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    const settle = (value: T) => {
+      clearTimeout(timer);
+      resolve(value);
+    };
+    void promise.then(settle, () => settle(fallback));
+  });
+}
 
 function createWindow(id: string, now: number): IAvailabilityWindow {
   return {
@@ -106,6 +151,7 @@ function createWindow(id: string, now: number): IAvailabilityWindow {
     counters: {},
     failures: {},
     failuresOmitted: 0,
+    countersOmitted: 0,
   };
 }
 
@@ -122,7 +168,9 @@ function isWindow(value: unknown): value is IAvailabilityWindow {
     !!window.counters &&
     typeof window.counters === 'object' &&
     !!window.failures &&
-    typeof window.failures === 'object'
+    typeof window.failures === 'object' &&
+    (window.countersOmitted === undefined ||
+      Number.isFinite(window.countersOmitted))
   );
 }
 
@@ -141,15 +189,29 @@ function addCount(
   return true;
 }
 
+/** Counts a key, reporting the overflow the failure details already report. */
+function addWindowCount(
+  window: IAvailabilityWindow,
+  key: string,
+  count: number,
+) {
+  if (!addCount(window.counters, key, count, MAX_COUNTERS)) {
+    window.countersOmitted = (window.countersOmitted ?? 0) + count;
+  }
+}
+
 export function addAvailabilityOutcome(
   window: IAvailabilityWindow,
   outcome: IAvailabilityOutcome,
 ) {
   const prefix = `${outcome.source}_${outcome.target}`;
-  addCount(window.counters, `${prefix}_${outcome.status}`, 1, MAX_COUNTERS);
+  addWindowCount(window, `${prefix}_${outcome.status}`, 1);
   if (outcome.testEndpoint) window.testEndpoint = true;
   if ((outcome.durationMs ?? 0) >= AVAILABILITY_SLOW_MS) {
-    addCount(window.counters, `${prefix}_slow`, 1, MAX_COUNTERS);
+    // Named for what it counts: outcomes of any status that took at least
+    // AVAILABILITY_SLOW_MS, failures included. Its denominator is the sum of
+    // the prefix's status counters, never the `_ok` one.
+    addWindowCount(window, `${prefix}_slow_outcome`, 1);
   }
   if (outcome.failure) {
     const { detail, errorCode } = outcome.failure;
@@ -174,9 +236,11 @@ function mergeWindows(
   target.endTs = Math.max(target.endTs, source.endTs);
   target.windowCount += source.windowCount;
   target.failuresOmitted += source.failuresOmitted;
+  target.countersOmitted =
+    (target.countersOmitted ?? 0) + (source.countersOmitted ?? 0);
   if (source.testEndpoint) target.testEndpoint = true;
   for (const [key, count] of Object.entries(source.counters)) {
-    addCount(target.counters, key, count, MAX_COUNTERS);
+    addWindowCount(target, key, count);
   }
   for (const [key, count] of Object.entries(source.failures)) {
     if (!addCount(target.failures, key, count, AVAILABILITY_MAX_FAILURE_KEYS)) {
@@ -188,7 +252,7 @@ function mergeWindows(
 
 /**
  * Flattens a window into summable event properties: every counter as a
- * number, plus the most frequent failure details packed into `failures_1..4`.
+ * number, plus the most frequent failure details packed into `failures_1..8`.
  */
 export function buildAvailabilitySnapshotParams(
   window: IAvailabilityWindow,
@@ -197,7 +261,9 @@ export function buildAvailabilitySnapshotParams(
 ): IAvailabilitySnapshotParams {
   const params: IAvailabilitySnapshotParams = {
     ...meta,
-    schemaVersion: 3,
+    // 4: `_slow` became `_slow_outcome`, `api_net` gained the `unread` and
+    // `unsupported` targets, and `countersOmitted` was added.
+    schemaVersion: 4,
     snapshotId: window.id,
     // Deduplicates a resent window and dates it at the window end. A clock
     // far from this one is left to the server, which dates it on arrival.
@@ -218,12 +284,13 @@ export function buildAvailabilitySnapshotParams(
   );
   for (const [key, count] of sortedFailures) {
     const part = `${key}=${count}`;
-    const last = texts.length - 1;
-    if (
-      last >= 0 &&
-      texts[last].length + 1 + part.length <= FAILURE_TEXT_MAX_LENGTH
-    ) {
-      texts[last] = `${texts[last]},${part}`;
+    // First fit across every slot: appending only to the last one left room
+    // unused in the earlier slots while entries were being dropped.
+    const slot = texts.findIndex(
+      (text) => text.length + 1 + part.length <= FAILURE_TEXT_MAX_LENGTH,
+    );
+    if (slot >= 0) {
+      texts[slot] = `${texts[slot]},${part}`;
     } else if (
       texts.length < FAILURE_TEXT_PROPS &&
       part.length <= FAILURE_TEXT_MAX_LENGTH
@@ -237,13 +304,14 @@ export function buildAvailabilitySnapshotParams(
     params[`failures_${index + 1}`] = text;
   });
   if (failuresOmitted > 0) params.failuresOmitted = failuresOmitted;
+  if (window.countersOmitted) params.countersOmitted = window.countersOmitted;
   return params;
 }
 
 function parseStoredState(text: string | null | undefined) {
   try {
     const state = text ? (JSON.parse(text) as IStoredState) : undefined;
-    return state?.version === 2 && Number.isFinite(state.lastSendTs)
+    return state?.version === 3 && Number.isFinite(state.lastSendTs)
       ? state
       : undefined;
   } catch {
@@ -268,6 +336,11 @@ export class AvailabilityAggregator {
 
   private flushing: Promise<void> | undefined;
 
+  /** A trigger arrived while a flush was in flight. */
+  private flushAgain = false;
+
+  private lastFlushAttemptTs = 0;
+
   private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly deps: IAvailabilityAggregatorDeps) {}
@@ -279,18 +352,50 @@ export class AvailabilityAggregator {
     addAvailabilityOutcome(this.current, outcome);
     this.current.endTs = now;
     this.dirty = true;
+    // Delivery is driven by the traffic being measured, so it does not depend
+    // on a timer the host runtime may not honour, on an AppState event the
+    // native background runtime never receives, or on a visibility signal an
+    // extension service worker does not have. Throttled to the tick cadence.
+    //
+    // Single-instance runtimes only: tabs and extension pages share one send
+    // time, so a request-driven flush in each of them would race past the
+    // shared-gap re-read and send twice. They have a document, so their
+    // visibility trigger already works.
+    if (
+      this.deps.persistWindows &&
+      now - this.lastFlushAttemptTs >= TICK_MS &&
+      this.isSendDue(now)
+    ) {
+      this.lastFlushAttemptTs = now;
+      void this.flush('record');
+    }
   }
 
-  flush(reason: 'hidden' | 'tick'): Promise<void> {
+  flush(reason: IAvailabilityFlushReason): Promise<void> {
     this.start();
     // Before coalescing: the process may be killed soon after it is hidden.
     if (reason === 'hidden' || this.dirty) this.persist();
-    this.flushing ??= this.flushInternal()
+    if (this.flushing) {
+      // A flush already in flight may be waiting on readiness or on analytics.
+      // Remember this trigger instead of dropping it: plain coalescing used to
+      // turn every later tick and relay into a silent no-op.
+      this.flushAgain = true;
+      return this.flushing;
+    }
+    this.flushing = this.runFlushLoop(reason)
       .catch(() => undefined)
       .finally(() => {
         this.flushing = undefined;
       });
     return this.flushing;
+  }
+
+  private async runFlushLoop(reason: IAvailabilityFlushReason) {
+    for (let run = 0; run <= MAX_FLUSH_RERUNS; run += 1) {
+      this.flushAgain = false;
+      await this.flushInternal(reason);
+      if (!this.flushAgain) return;
+    }
   }
 
   private start() {
@@ -310,10 +415,14 @@ export class AvailabilityAggregator {
       text = await this.deps.storage.load();
     } catch {
       // Unknown last send: never send or write in this process.
+      this.deps.log?.('hydrate', 'loadFailed');
       return false;
     }
     this.canWrite = true;
     const stored = parseStoredState(text);
+    // Logged either way: a silent success is indistinguishable from a hydrate
+    // that never finished, which is the state a stalled flush reports.
+    this.deps.log?.('hydrate', stored ? 'restored' : 'fresh');
     if (!stored) return true;
     this.lastSendTs = stored.lastSendTs;
     if (!this.deps.persistWindows) return true;
@@ -333,44 +442,83 @@ export class AvailabilityAggregator {
     return now - this.lastSendTs >= AVAILABILITY_MIN_SEND_GAP_MS;
   }
 
-  private async flushInternal() {
-    if (
-      !(await this.ready) ||
-      !(this.current || this.pending) ||
-      !this.isSendDue(this.deps.now()) ||
-      !(await this.deps.canSend())
-    ) {
+  private async flushInternal(reason: IAvailabilityFlushReason) {
+    const report = (result: string) => this.deps.log?.(reason, result);
+    // Each wait is bounded so a stalled dependency costs this attempt only.
+    const ready = await withTimeout<boolean | typeof STALLED>(
+      this.ready ?? Promise.resolve(false),
+      FLUSH_STEP_TIMEOUT_MS,
+      STALLED,
+    );
+    if (ready !== true) {
+      report(ready === STALLED ? 'readyStalled' : 'notReady');
+      return;
+    }
+    if (!(this.current || this.pending)) {
+      report('noWindow');
+      return;
+    }
+    if (!this.isSendDue(this.deps.now())) {
+      report('notDue');
+      return;
+    }
+    // Analytics initialization has no timeout of its own, so a runtime whose
+    // bootstrap stalls must be distinguishable from one that declined.
+    const canSend = await withTimeout<boolean | typeof STALLED>(
+      this.deps.canSend(),
+      FLUSH_STEP_TIMEOUT_MS,
+      STALLED,
+    );
+    if (canSend !== true) {
+      report(canSend === STALLED ? 'canSendStalled' : 'cannotSend');
       return;
     }
     if (!this.deps.persistWindows) {
       // Other tabs or extension pages share the stored send time.
       const stored = parseStoredState(await this.deps.storage.load());
       if (stored) this.lastSendTs = stored.lastSendTs;
-      if (!this.isSendDue(this.deps.now())) return;
+      if (!this.isSendDue(this.deps.now())) {
+        report('notDueShared');
+        return;
+      }
     }
     if (!this.pending) {
       this.pending = this.current;
       this.current = undefined;
     }
     const window = this.pending;
-    if (!window) return;
+    if (!window) {
+      report('noWindow');
+      return;
+    }
     // Stored before sending: a failing endpoint is paced like a success, and a
     // process killed mid-send sends this window again unchanged under its id.
     this.lastSendTs = this.deps.now();
     this.persist(true);
     await this.writeQueue;
-    await this.deps.send(
-      buildAvailabilitySnapshotParams(window, this.deps.meta, this.deps.now()),
-    );
+    try {
+      await this.deps.send(
+        buildAvailabilitySnapshotParams(
+          window,
+          this.deps.meta,
+          this.deps.now(),
+        ),
+      );
+    } catch (error) {
+      // The window stays pending and is resent unchanged under the same id.
+      report('sendFailed');
+      throw error;
+    }
     this.pending = undefined;
     this.persist();
+    report('sent');
   }
 
   /** Multi-instance runtimes store only the send time, when sending. */
   private persist(sending = false) {
     if (!this.canWrite || (!this.deps.persistWindows && !sending)) return;
     this.dirty = false;
-    const state: IStoredState = { version: 2, lastSendTs: this.lastSendTs };
+    const state: IStoredState = { version: 3, lastSendTs: this.lastSendTs };
     if (this.deps.persistWindows) {
       state.current = this.current;
       state.pending = this.pending;
@@ -432,6 +580,13 @@ function createRuntimeAggregator() {
     canSend: waitUntilAnalyticsCanSend,
     send: (params) =>
       defaultLogger.app.network.reportAvailabilitySnapshot(params),
+    log: (reason, result) => {
+      try {
+        defaultLogger.app.network.availabilityFlush(reason, result);
+      } catch {
+        // Diagnostics must never affect requests.
+      }
+    },
   });
 }
 

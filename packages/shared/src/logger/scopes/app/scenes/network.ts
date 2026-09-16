@@ -26,6 +26,21 @@ export class NetworkScene extends BaseScene {
     return this.availabilitySnapshot(params) as unknown as Promise<void>;
   }
 
+  /**
+   * Why a flush did or did not send, so an aggregator that goes quiet can be
+   * diagnosed from an exported log. Local only: fixed tokens, no user data.
+   */
+  @LogToLocal({ level: 'debug' })
+  public availabilityFlush(reason: string, result: string) {
+    return `${reason} -> ${result}`;
+  }
+
+  /** Why the network type could not be read. Local only, fixed tokens. */
+  @LogToLocal({ level: 'debug' })
+  public availabilityNetworkType(reason: string) {
+    return `unread: ${reason}`;
+  }
+
   @LogToLocal({ level: 'debug' })
   public start(
     requestType: string,

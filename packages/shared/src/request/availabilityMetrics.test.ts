@@ -22,8 +22,10 @@ jest.mock('./availabilityAggregator', () => ({
   },
 }));
 
+let mockNetworkType: unknown = 'WIFI';
+
 jest.mock('./availabilityNetworkType', () => ({
-  getAvailabilityNetworkType: () => 'WIFI',
+  getAvailabilityNetworkType: () => mockNetworkType,
   startAvailabilityNetworkTypeTracking: () => undefined,
 }));
 
@@ -42,8 +44,80 @@ function walletTiming() {
 describe('availabilityMetrics', () => {
   beforeEach(() => {
     mockOutcomes.length = 0;
+    mockNetworkType = 'WIFI';
     setAvailabilityIpTableState('unknown');
     Object.assign(env, originalEnv);
+  });
+
+  it.each([
+    ['wifi', 'WIFI'],
+    ['cellular', 'cellular'],
+    ['offline', 'none'],
+    ['vpn', 'vpn'],
+    ['other', 'bluetooth'],
+    // Reported by the platform itself.
+    ['unknown', 'unknown'],
+    // A browser realm with no transport API, told apart from a reader that
+    // produced nothing at all.
+    ['unsupported', 'unsupported'],
+    ['unread', undefined],
+    ['unread', null],
+  ])('reports api_net target %s', (target, type) => {
+    mockNetworkType = type;
+    reportApiAvailabilityResponse({ timing: walletTiming(), httpStatus: 200 });
+
+    expect(mockOutcomes[1]).toEqual({
+      source: 'api_net',
+      target,
+      status: 'ok',
+    });
+  });
+
+  it.each([
+    ['sslhandshake', 'javax.net.ssl.SSLHandshakeException: connection closed'],
+    ['unknownhost', 'java.net.UnknownHostException: wallet.onekeycn.com'],
+    ['connectionrefused', 'failed: ECONNREFUSED'],
+    ['netunreach', 'connect ENETUNREACH'],
+    ['failedtofetch', 'Failed to fetch'],
+  ])('recovers the cause %s from a transport failure', (errorCode, message) => {
+    reportApiAvailabilityError(walletTiming(), {
+      code: 'ERR_NETWORK',
+      message,
+    });
+
+    expect(mockOutcomes[0].failure).toEqual({
+      detail: 'direct:/wallet/v1/account',
+      errorCode,
+    });
+  });
+
+  it('reads the cause a React Native fetch keeps on the request', () => {
+    reportApiAvailabilityError(walletTiming(), {
+      name: 'TypeError',
+      message: 'Network request failed',
+      request: {
+        _response: 'javax.net.ssl.SSLHandshakeException: Chain validation',
+      },
+    });
+
+    expect(mockOutcomes[0].failure?.errorCode).toBe('sslhandshake');
+  });
+
+  it('keeps a transport code that already says something, and never echoes text', () => {
+    reportApiAvailabilityError(walletTiming(), {
+      code: 'ERR_NETWORK',
+      message: 'Network Error',
+    });
+    reportApiAvailabilityError(walletTiming(), {
+      code: 'ERR_BAD_RESPONSE',
+      response: { status: 502 },
+    });
+
+    expect(
+      mockOutcomes
+        .filter(({ source }) => source === 'api')
+        .map(({ failure }) => failure?.errorCode),
+    ).toEqual(['err_network', 'http_502']);
   });
 
   it('counts only allowlisted hosts with digit-free route groups', () => {

@@ -49,14 +49,29 @@ function createHarness({
   const aggregator = new AvailabilityAggregator(deps);
   const flush = async () => {
     await aggregator.flush('hidden');
-    await new Promise((resolve) => setImmediate(resolve));
+    await settle();
   };
   return { aggregator, clock, deps, flush, sent, store };
+}
+
+/** Lets storage reads, the flush loop and the send promise all run out. */
+async function settle() {
+  for (let turn = 0; turn < 8; turn += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => setImmediate(resolve));
+  }
 }
 
 describe('AvailabilityAggregator', () => {
   beforeEach(() => {
     nextId = 0;
+  });
+
+  // Not a try/finally inside the test: a test that fails by exceeding the jest
+  // timeout never runs its own cleanup, and the fake timers would then stall
+  // every later test in the file behind an unrelated timeout.
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('sends counters, slow counts and failure details in one snapshot', async () => {
@@ -75,7 +90,7 @@ describe('AvailabilityAggregator', () => {
 
     expect(sent).toEqual([
       {
-        schemaVersion: 3,
+        schemaVersion: 4,
         snapshotId: 'id-1',
         $insertId: 'id-1',
         $timestamp: START,
@@ -86,7 +101,7 @@ describe('AvailabilityAggregator', () => {
         windowCount: 1,
         api_wallet_ok: 1,
         api_wallet_timeout: 1,
-        api_wallet_slow: 1,
+        api_wallet_slow_outcome: 1,
         api_net_wifi_failed: 1,
         failures_1: 'api|wallet|timeout|sni:/wallet/v1|econnaborted=1',
       },
@@ -185,7 +200,7 @@ describe('AvailabilityAggregator', () => {
     expect(tabA.sent).toHaveLength(1);
     expect(tabB.sent).toHaveLength(0);
     expect(JSON.parse(String(tabA.store.text))).toEqual({
-      version: 2,
+      version: 3,
       lastSendTs: START,
     });
   });
@@ -205,7 +220,7 @@ describe('AvailabilityAggregator', () => {
     const { aggregator, clock, flush, sent } = createHarness({
       storage: {
         text: JSON.stringify({
-          version: 2,
+          version: 3,
           lastSendTs: START + 10 * AVAILABILITY_MIN_SEND_GAP_MS,
           pending: { id: 'bad', startTs: 1, endTs: 1, counters: null },
         }),
@@ -222,6 +237,56 @@ describe('AvailabilityAggregator', () => {
     ]);
   });
 
+  it('ignores state stored under the schema whose counters used `_slow`', async () => {
+    const { aggregator, flush, sent } = createHarness({
+      storage: {
+        text: JSON.stringify({
+          version: 2,
+          lastSendTs: START,
+          current: {
+            id: 'stored-by-an-older-build',
+            startTs: START,
+            endTs: START,
+            windowCount: 1,
+            counters: { api_wallet_ok: 7, api_wallet_slow: 7 },
+            failures: {},
+            failuresOmitted: 0,
+          },
+        }),
+      },
+    });
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await flush();
+
+    // Counters of the two shapes must not merge into one window, so the whole
+    // stored state is dropped and the gap restarts.
+    expect(sent).toEqual([
+      expect.objectContaining({ snapshotId: 'id-1', api_wallet_ok: 1 }),
+    ]);
+    expect(sent[0]).not.toHaveProperty('api_wallet_slow');
+  });
+
+  it('attempts at most one record-driven flush per tick interval', async () => {
+    // One flush attempt per request would mean a storage write per request.
+    const { aggregator, clock, deps } = createHarness();
+    let canSendCalls = 0;
+    deps.canSend = async () => {
+      canSendCalls += 1;
+      return false;
+    };
+
+    for (let request = 0; request < 5; request += 1) {
+      aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    }
+    await settle();
+    expect(canSendCalls).toBe(1);
+
+    clock.now += 60_000;
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await settle();
+    expect(canSendCalls).toBe(2);
+  });
+
   it('bounds failure details and reports what was omitted', async () => {
     const { aggregator, flush, sent } = createHarness();
     for (let index = 0; index <= AVAILABILITY_MAX_FAILURE_KEYS; index += 1) {
@@ -234,13 +299,174 @@ describe('AvailabilityAggregator', () => {
     }
     await flush();
 
-    const texts = [1, 2, 3, 4].map((index) => sent[0][`failures_${index}`]);
+    const texts = [1, 2, 3, 4, 5, 6, 7, 8].map(
+      (index) => sent[0][`failures_${index}`],
+    );
     expect(sent[0].api_wallet_network_error).toBe(
       AVAILABILITY_MAX_FAILURE_KEYS + 1,
     );
     expect(Number(sent[0].failuresOmitted)).toBeGreaterThan(1);
+    // All eight slots are used before anything is dropped, and none of them
+    // exceeds the property length limit.
+    expect(texts.map((text) => typeof text)).toEqual(Array(8).fill('string'));
     expect(texts.every((text) => String(text).length <= 255)).toBe(true);
-    expect(sent[0]).not.toHaveProperty('failures_5');
+    expect(sent[0]).not.toHaveProperty('failures_9');
+  });
+
+  it('packs a failure detail into any slot with room, not only the last', async () => {
+    const { aggregator, flush, sent } = createHarness();
+    const record = (detail: string) =>
+      aggregator.record({
+        source: 'api',
+        target: 'wallet',
+        status: 'network_error',
+        failure: { detail, errorCode: 'err_network' },
+      });
+    // Seven details too long to share a slot, each sorted ahead of the short
+    // ones by count, then eight short details that each fit beside a long one.
+    // Appending only to the last slot leaves that room unused and drops four.
+    for (let index = 0; index < 8; index += 1) {
+      for (let repeat = 0; repeat < 8 - index; repeat += 1) {
+        record(`sni:/long/${index}/${'x'.repeat(150)}`);
+      }
+      record(`sni:/short/${index}`);
+    }
+    await flush();
+
+    const packed = [1, 2, 3, 4, 5, 6, 7, 8]
+      .map((index) => String(sent[0][`failures_${index}`] ?? ''))
+      .join(',');
+    for (let index = 0; index < 8; index += 1) {
+      expect(packed).toContain(`sni:/short/${index}|`);
+      expect(packed).toContain(`sni:/long/${index}/`);
+    }
+    expect(sent[0]).not.toHaveProperty('failuresOmitted');
+  });
+
+  it('reports counters that did not fit, like it reports failures', async () => {
+    const { aggregator, flush, sent } = createHarness();
+    for (let index = 0; index < 260; index += 1) {
+      aggregator.record({
+        source: 'api_endpoint',
+        target: `endpoint${index}`,
+        status: 'ok',
+      });
+    }
+    await flush();
+
+    expect(
+      Object.keys(sent[0]).filter((key) => key.startsWith('api_endpoint')),
+    ).toHaveLength(200);
+    expect(sent[0].countersOmitted).toBe(60);
+  });
+
+  it('sends on the traffic it measures, with no tick and no visibility event', async () => {
+    const { aggregator, sent } = createHarness();
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await settle();
+
+    expect(sent).toEqual([expect.objectContaining({ api_wallet_ok: 1 })]);
+  });
+
+  it('does not drop a trigger that arrives while a flush is waiting', async () => {
+    const { aggregator, deps, sent } = createHarness();
+    let release: ((value: boolean) => void) | undefined;
+    let canSendCalls = 0;
+    deps.canSend = async () => {
+      canSendCalls += 1;
+      if (canSendCalls > 1) return true;
+      return new Promise<boolean>((resolve) => {
+        release = resolve;
+      });
+    };
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await settle();
+    expect(sent).toHaveLength(0);
+
+    const trigger = aggregator.flush('hidden');
+    release?.(false);
+    await trigger;
+    await settle();
+
+    expect(sent).toEqual([expect.objectContaining({ api_wallet_ok: 1 })]);
+  });
+
+  it('stops re-running a flush that every attempt re-triggers', async () => {
+    const { aggregator, deps, sent } = createHarness();
+    let canSendCalls = 0;
+    deps.canSend = async () => {
+      canSendCalls += 1;
+      // A trigger arriving during every attempt must not spin the loop. The
+      // bound on the re-triggering keeps a regression an assertion, not a hang.
+      if (canSendCalls <= 20) void aggregator.flush('tick');
+      return false;
+    };
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await settle();
+
+    expect(sent).toHaveLength(0);
+    expect(canSendCalls).toBe(4);
+  });
+
+  it('gives up on a check that never settles instead of going quiet for good', async () => {
+    jest.useFakeTimers();
+    const { aggregator, deps, sent } = createHarness();
+    let canSendCalls = 0;
+    deps.canSend = async () => {
+      canSendCalls += 1;
+      if (canSendCalls > 1) return true;
+      return new Promise<boolean>(() => {});
+    };
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await jest.advanceTimersByTimeAsync(11_000);
+    expect(sent).toHaveLength(0);
+
+    await aggregator.flush('hidden');
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(sent).toEqual([expect.objectContaining({ api_wallet_ok: 1 })]);
+  });
+
+  it('gives up on stored state that never loads instead of parking the flush', async () => {
+    jest.useFakeTimers();
+    const { aggregator, deps, sent } = createHarness();
+    const flushLog: string[][] = [];
+    deps.log = (reason, result) => {
+      flushLog.push([reason, result]);
+    };
+    // A storage read that never settles used to park `ready` for the life of
+    // the runtime, holding `flushing` and swallowing every later trigger.
+    deps.storage.load = () => new Promise<string>(() => {});
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await jest.advanceTimersByTimeAsync(11_000);
+
+    // Named apart from a hydrate that answered "cannot write", so an exported
+    // log says which one happened.
+    expect(flushLog).toEqual([['record', 'readyStalled']]);
+    expect(sent).toHaveLength(0);
+  });
+
+  it('names a stalled send check apart from one that declined', async () => {
+    jest.useFakeTimers();
+    const { aggregator, deps, sent } = createHarness();
+    const flushLog: string[][] = [];
+    deps.log = (reason, result) => {
+      flushLog.push([reason, result]);
+    };
+    deps.canSend = () => new Promise<boolean>(() => {});
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await jest.advanceTimersByTimeAsync(11_000);
+
+    expect(flushLog).toEqual([
+      ['hydrate', 'fresh'],
+      ['record', 'canSendStalled'],
+    ]);
+    expect(sent).toHaveLength(0);
   });
 });
 

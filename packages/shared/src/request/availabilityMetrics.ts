@@ -137,30 +137,96 @@ function normalizeErrorCode(value: unknown) {
   return 'unknown';
 }
 
-function getErrorCode(error: unknown) {
+// Transport failures arrive with a code that says only "the network failed":
+// axios reports ERR_NETWORK with the literal message "Network Error", and a
+// React Native fetch rejection carries no code at all. For a metric whose
+// purpose is spotting network-level interference, a TLS reset, a poisoned DNS
+// answer and an IP that never answers are three different findings.
+const LOW_INFO_ERROR_CODES = new Set([
+  'err_bad_request',
+  'err_network',
+  'error',
+  'typeerror',
+  'unknown',
+]);
+
+// Fixed tokens only: matched text is never echoed, so no host, address or
+// free-form message can reach the snapshot.
+const NETWORK_CAUSE_TOKENS: [RegExp, string][] = [
+  [/ssl[_\s]?handshake|handshake_fail|tls[_\s]?handshake/i, 'sslhandshake'],
+  [/cert(ificate|path|_)|untrusted|pinning/i, 'certificate'],
+  [/unknown[_\s]?host|name_not_resolved|enotfound|dns/i, 'unknownhost'],
+  [/connection[_\s]?refused|econnrefused/i, 'connectionrefused'],
+  [/econnreset|connection (reset|closed|abort)|socket closed/i, 'econnreset'],
+  [/enetunreach|net(work)?[_\s]?unreach|no route to host/i, 'netunreach'],
+  [/failed to fetch|networkerror when attempting/i, 'failedtofetch'],
+  [/sockettimeout|timed? ?out/i, 'sockettimeout'],
+];
+
+// Per part, not for the joined text: a long generic message must not push the
+// fields that carry the real cause out of the budget.
+const MAX_CAUSE_TEXT_LENGTH = 512;
+
+/**
+ * Everything the platforms put the underlying failure in. The generic message
+ * is usually "Network Error" or "Network request failed"; the cause lives in
+ * `cause.message` (undici) or `request._response` (React Native's Java/ObjC
+ * text). Read by both the status and the error code, so the two agree.
+ */
+function getCauseText(error: unknown) {
+  const { message, cause, request } = (error ?? {}) as {
+    message?: unknown;
+    cause?: { message?: unknown };
+    request?: { _response?: unknown };
+  };
+  return [message, cause?.message, request?._response]
+    .filter((part): part is string => typeof part === 'string')
+    .map((part) => part.slice(0, MAX_CAUSE_TEXT_LENGTH))
+    .join(' ');
+}
+
+function classifyNetworkCause(causeText: string) {
+  if (!causeText) return undefined;
+  return NETWORK_CAUSE_TOKENS.find(([pattern]) => pattern.test(causeText))?.[1];
+}
+
+function getErrorCode(error: unknown, causeText: string) {
   const { code, className, name } = (error ?? {}) as {
     code?: unknown;
     className?: unknown;
     name?: unknown;
   };
-  return normalizeErrorCode(
+  const errorCode = normalizeErrorCode(
     code === undefined || code === ONEKEY_DEFAULT_ERROR_CODE
       ? (className ?? name)
       : code,
   );
+  if (!LOW_INFO_ERROR_CODES.has(errorCode)) return errorCode;
+  return classifyNetworkCause(causeText) ?? errorCode;
 }
 
+/**
+ * Every outcome the provider cannot type gets its own target, so a broken
+ * reader is visible instead of hiding inside a platform's own `unknown`:
+ * `unread` means no reading at all, `unsupported` a realm with no transport
+ * API, `unknown` the platform reporting an unidentified transport.
+ */
 function getNetworkType() {
   const type = getAvailabilityNetworkType();
-  switch (typeof type === 'string' ? type.toLowerCase() : 'unknown') {
+  if (typeof type !== 'string') return 'unread';
+  switch (type.toLowerCase()) {
     case 'wifi':
       return 'wifi';
     case 'cellular':
       return 'cellular';
     case 'ethernet':
       return 'ethernet';
+    case 'vpn':
+      return 'vpn';
     case 'none':
       return 'offline';
+    case 'unsupported':
+      return 'unsupported';
     case 'unknown':
       return 'unknown';
     default:
@@ -339,10 +405,9 @@ export function reportApiAvailabilityError(
   error: unknown,
   signal?: unknown,
 ) {
-  const { code, name, message, response } = (error ?? {}) as {
+  const { code, name, response } = (error ?? {}) as {
     code?: unknown;
     name?: unknown;
-    message?: unknown;
     response?: { status?: number };
   };
   const timedOut =
@@ -362,17 +427,19 @@ export function reportApiAvailabilityError(
     reportApiOutcome(timing, 'http_error', `http_${response.status}`);
     return;
   }
+  // Read from the same text as the error code, so a failure cannot be counted
+  // as a network_error while its own detail says the transport timed out.
+  const causeText = getCauseText(error);
   const isTimeout =
     timedOut ||
     code === 'ECONNABORTED' ||
     code === 'ETIMEDOUT' ||
-    String(message ?? '')
-      .toLowerCase()
-      .includes('timeout');
+    causeText.toLowerCase().includes('timeout') ||
+    classifyNetworkCause(causeText) === 'sockettimeout';
   reportApiOutcome(
     timing,
     isTimeout ? 'timeout' : 'network_error',
-    timedOut ? 'timeouterror' : getErrorCode(error),
+    timedOut ? 'timeouterror' : getErrorCode(error, causeText),
   );
 }
 
