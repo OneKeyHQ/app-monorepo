@@ -301,6 +301,18 @@ describe('Portfolio v2 category retrieval', () => {
     });
   });
 
+  test('does not treat a generic Account not found read as zero perps equity', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(new Error('Account not found'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
+  });
+
   test('reuses category fiat within the hardware cooldown window', async () => {
     const mocks = prepare();
     await expect(
@@ -333,6 +345,29 @@ describe('Portfolio v2 category retrieval', () => {
     mocks.getAllNetworksState.mockResolvedValue({
       enabledNetworks: { 'evm--1': true, 'btc--0': true },
       disabledNetworks: {},
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not reuse category fiat after the DeFi-enabled map changes', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
     });
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),

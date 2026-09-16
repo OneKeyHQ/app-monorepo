@@ -24,6 +24,7 @@ import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDevi
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
 import type { IPortfolioCategoryFiat } from '@onekeyhq/shared/src/utils/portfolioPayload';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   EAccountSelectorSceneName,
   EHardwareTransportType,
@@ -235,10 +236,7 @@ function getPortfolioSyncErrorCode(error: unknown): string | undefined {
 
 function isMissingNetworkAccountError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes('indexedAccounts not found') ||
-    message === 'Account not found'
-  );
+  return message.includes('indexedAccounts not found');
 }
 
 function isSilentUploadBlockedByDevice(error: unknown): boolean {
@@ -2110,8 +2108,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       const scopedCacheKey = cacheKey
         ? [
             cacheKey,
-            JSON.stringify(allNetworksState.enabledNetworks ?? {}),
-            JSON.stringify(allNetworksState.disabledNetworks ?? {}),
+            stringUtils.stableStringify(allNetworksState.enabledNetworks ?? {}),
+            stringUtils.stableStringify(
+              allNetworksState.disabledNetworks ?? {},
+            ),
+            stringUtils.stableStringify(enabledNetworksMap ?? {}),
             String(support.isDeFiSupported),
             String(support.isPerpsSupported),
           ].join(':')
