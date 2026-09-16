@@ -2250,7 +2250,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       });
       service.deviceSettingsManager.setDeviceLabel = jest
         .fn()
-        .mockResolvedValue({ message: 'Success' });
+        .mockResolvedValue({ message: 'Success', label: 'Renamed Pro 2' });
       // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
       jest.mocked(appEventBus.emit).mockClear();
       await service.setDeviceLabel({
@@ -2335,7 +2335,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       });
       service.deviceSettingsManager.setDeviceLabel = jest
         .fn()
-        .mockResolvedValue(payload);
+        .mockResolvedValue({ ...payload, label: 'Renamed Pro 2' });
       await service.setDeviceLabel({
         walletId: 'hw-wallet-1',
         label: 'Renamed Pro 2',
@@ -2355,7 +2355,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     },
   );
 
-  it('writes back the trimmed label when the caller passed outer whitespace', async () => {
+  it('writes back the label returned by DeviceSettingsManager, not the raw input', async () => {
     const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
     const currentState = {
       protocol: 'V2',
@@ -2395,24 +2395,25 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     });
     service.deviceSettingsManager.setDeviceLabel = jest
       .fn()
-      .mockResolvedValue({});
+      .mockResolvedValue({ label: 'Hardware Label' });
+    jest.mocked(localDb.updateDeviceState).mockClear();
     await service.setDeviceLabel({
       walletId: 'hw-wallet-1',
-      label: '  Renamed Pro 2  ',
+      label: '  App Input  ',
     });
 
     expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
       walletId: 'hw-wallet-1',
-      name: 'Renamed Pro 2',
+      name: 'Hardware Label',
       shouldCheckDuplicate: false,
     });
-    expect(localDb.updateDeviceState).toHaveBeenCalledWith(
+    expect(localDb.updateDeviceState).toHaveBeenLastCalledWith(
       expect.objectContaining({
         changedKeys: ['identity.label'],
         source: 'settings-write',
         state: expect.objectContaining({
           identity: expect.objectContaining({
-            label: 'Renamed Pro 2',
+            label: 'Hardware Label',
           }),
         }),
       }),

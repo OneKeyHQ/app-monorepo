@@ -3564,15 +3564,14 @@ class ServiceHardware extends ServiceBase {
     const walletName = wallet?.name;
     const dbDeviceId = wallet?.associatedDevice;
     if (dbDeviceId) {
-      const label = p.label.trim();
       await this.writeBackProtocolV2DeviceLabel({
         dbDeviceId,
-        label,
+        label: result.label,
       });
       await this.handleHardwareLabelChanged({
         walletId: p.walletId,
         dbDeviceId,
-        label,
+        label: result.label,
         walletName,
       });
     }
