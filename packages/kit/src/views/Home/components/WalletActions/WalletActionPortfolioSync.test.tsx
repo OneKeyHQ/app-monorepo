@@ -2,10 +2,6 @@
 
 import { fireEvent, render, waitFor } from '@testing-library/react';
 
-import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
-
-import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
-
 import { WalletActionPortfolioSync } from './WalletActionPortfolioSync';
 
 const requestPortfolioSync = jest.fn();
@@ -18,17 +14,6 @@ let portfolioSyncUiState: {
   request: requestPortfolioSync,
   visible: true,
 };
-const portfolioTabContextValue = {
-  activeTabId: EHomeWalletTab.Portfolio,
-  activeTabName: '',
-  portalTarget: null,
-  stickyHost: null,
-};
-const historyTabContextValue = {
-  ...portfolioTabContextValue,
-  activeTabId: EHomeWalletTab.History,
-};
-
 jest.mock('react-intl', () => {
   const actual = jest.requireActual<typeof import('react-intl')>('react-intl');
   const messages = jest.requireActual<
@@ -88,18 +73,8 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-function renderAction(activeTabId: EHomeWalletTab = EHomeWalletTab.Portfolio) {
-  return render(
-    <HomeStickyHeaderContext.Provider
-      value={
-        activeTabId === EHomeWalletTab.Portfolio
-          ? portfolioTabContextValue
-          : historyTabContextValue
-      }
-    >
-      <WalletActionPortfolioSync onClose={jest.fn()} />
-    </HomeStickyHeaderContext.Provider>,
-  );
+function renderAction() {
+  return render(<WalletActionPortfolioSync onClose={jest.fn()} />);
 }
 
 describe('WalletActionPortfolioSync', () => {
@@ -114,11 +89,7 @@ describe('WalletActionPortfolioSync', () => {
 
   it('closes the menu before requesting an update', async () => {
     const onClose = jest.fn();
-    const view = render(
-      <HomeStickyHeaderContext.Provider value={portfolioTabContextValue}>
-        <WalletActionPortfolioSync onClose={onClose} />
-      </HomeStickyHeaderContext.Provider>,
-    );
+    const view = render(<WalletActionPortfolioSync onClose={onClose} />);
     const action = view.getByTestId('home-update-portfolio-action');
 
     expect(action.textContent).toContain('Update device portfolio');
@@ -154,12 +125,6 @@ describe('WalletActionPortfolioSync', () => {
     };
 
     const view = renderAction();
-    expect(view.queryByTestId('home-update-portfolio-action')).toBeNull();
-  });
-
-  it('stays hidden outside the Portfolio tab', () => {
-    const view = renderAction(EHomeWalletTab.History);
-
     expect(view.queryByTestId('home-update-portfolio-action')).toBeNull();
   });
 });

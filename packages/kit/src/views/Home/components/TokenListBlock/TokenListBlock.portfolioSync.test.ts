@@ -198,9 +198,10 @@ describe('TokenListBlock portfolio sync producer', () => {
     );
     expect(actionSource).toContain('icon="OnekeyDeviceCustom"');
     expect(actionSource).toContain('runAfterActionListClose');
-    expect(actionSource).toContain('activeTabId !== EHomeWalletTab.Portfolio');
-    expect(actionSource).toContain('if (!visible ||');
+    expect(actionSource).toContain('if (!visible)');
+    expect(actionSource).not.toContain('HomeStickyHeaderContext');
     expect(moreSource).toContain('<WalletActionPortfolioSync');
+    expect(moreSource).toContain('activeTabId === EHomeWalletTab.Portfolio');
     expect(source).toContain('if (!isOneKeyHardwareError(error))');
     expect(source).toContain(
       'appEventBus.on(EAppEventBusNames.DeviceStageOff, handleDeviceStageOff)',

@@ -1,14 +1,12 @@
-import { useCallback, useContext } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { ActionList, runAfterActionListClose } from '@onekeyhq/components';
 import { usePortfolioSyncUiStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeTestIDs } from '../../testIDs';
-import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 
 export function WalletActionPortfolioSync({
   onClose,
@@ -16,7 +14,6 @@ export function WalletActionPortfolioSync({
   onClose: () => void;
 }) {
   const intl = useIntl();
-  const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const [portfolioSyncUiState] = usePortfolioSyncUiStateAtom();
   const { disabled, request, visible } = portfolioSyncUiState;
 
@@ -27,7 +24,7 @@ export function WalletActionPortfolioSync({
     [request],
   );
 
-  if (!visible || activeTabId !== EHomeWalletTab.Portfolio) {
+  if (!visible) {
     return null;
   }
 
