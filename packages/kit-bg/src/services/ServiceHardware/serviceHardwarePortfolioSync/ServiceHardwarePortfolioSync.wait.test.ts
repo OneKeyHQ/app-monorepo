@@ -153,6 +153,9 @@ describe('Portfolio v2 category retrieval', () => {
       netWorth: '0',
       networkIds: [],
     });
+    const getAllNetworks = jest.fn().mockResolvedValue({
+      networks: [{ id: 'evm--1', isTestnet: false }],
+    });
     const getNetworkAccount = jest.fn().mockResolvedValue({
       address: '0x2222',
       addressDetail: { normalizedAddress: '0x3333' },
@@ -168,9 +171,7 @@ describe('Portfolio v2 category retrieval', () => {
           getAccountTotalDeFiNetWorth,
         },
         serviceNetwork: {
-          getAllNetworks: jest.fn().mockResolvedValue({
-            networks: [{ id: 'evm--1', isTestnet: false }],
-          }),
+          getAllNetworks,
           getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
         },
         serviceAllNetwork: { getAllNetworksState, getAllNetworkAccounts },
@@ -193,6 +194,7 @@ describe('Portfolio v2 category retrieval', () => {
     return {
       internals,
       post,
+      getAllNetworks,
       getAllNetworksState,
       getAllNetworkAccounts,
       getDeFiEnabledNetworksMapState,
@@ -459,6 +461,20 @@ describe('Portfolio v2 category retrieval', () => {
 
   test('uses the Home DeFi cache when live coverage is incomplete', async () => {
     const mocks = prepare();
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'btc--0', isTestnet: false },
+      ],
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'btc--0': true, 'evm--1': true },
+      disabledNetworks: {},
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'btc--0': true, 'evm--1': true },
+    });
     mocks.getAllNetworkAccounts.mockResolvedValue({
       accountsInfo: [
         {
@@ -488,6 +504,43 @@ describe('Portfolio v2 category retrieval', () => {
       hasCache: true,
       netWorth: '20',
       networkIds: ['btc--0', 'evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'cache',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1', 'btc--0'],
+        targetCurrency: 'usd',
+      }),
+    );
+  });
+
+  test('does not sum extra catalog DeFi networks from the Home cache', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'evm--56', isTestnet: false },
+      ],
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'evm--56': true },
+      disabledNetworks: {},
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'evm--56': true },
+    });
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['evm--1'],
     });
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),

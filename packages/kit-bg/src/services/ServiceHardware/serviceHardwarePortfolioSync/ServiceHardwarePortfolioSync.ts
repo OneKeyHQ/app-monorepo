@@ -2138,18 +2138,23 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         ) {
           return undefined;
         }
-        const enabledNetworkIds = networks
-          .filter(
-            (network) =>
-              isEnabledNetworksInAllNetworks({
-                networkId: network.id,
-                enabledNetworks: allNetworksState.enabledNetworks,
-                disabledNetworks: allNetworksState.disabledNetworks,
-                isTestnet: !!network.isTestnet,
-              }) && enabledNetworksMap[network.id],
-          )
-          .map((network) => network.id);
-        if (!enabledNetworkIds.length) {
+        const catalogEnabledNetworkIds = new Set(
+          networks
+            .filter(
+              (network) =>
+                isEnabledNetworksInAllNetworks({
+                  networkId: network.id,
+                  enabledNetworks: allNetworksState.enabledNetworks,
+                  disabledNetworks: allNetworksState.disabledNetworks,
+                  isTestnet: !!network.isTestnet,
+                }) && enabledNetworksMap[network.id],
+            )
+            .map((network) => network.id),
+        );
+        const enabledNetworkIds = requiredNetworkIds.filter((id) =>
+          catalogEnabledNetworkIds.has(id),
+        );
+        if (enabledNetworkIds.length !== requiredNetworkIds.length) {
           return undefined;
         }
         const { netWorth, hasCache, networkIds } =
