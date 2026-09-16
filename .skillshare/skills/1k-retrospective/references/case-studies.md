@@ -500,3 +500,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The cache-miss pending branch ignored `quotesFailed` once a cached payload existed.
 **Fix**: Never emit pending rows when `quotesFailed` is true.
 **Catchable by**: Section 5: failed refresh vs cache miss; NEW — pending identity rows are only for in-flight requests, not for failed polls
+
+## Case: Universal search mixed stock listings into the Market tab
+**Date**: 2026-09-16 | **Platforms**: Desktop, Web, Extension, iOS, Android
+**Symptom**: Searching AAPL put the real stock next to AAPLon / xStock under Market, and the Liquidity column showed `--` because listings have no liquidity.
+**Root Cause**: `V2MarketToken` search prepended stock listings into the same result bucket and reused the token table columns.
+**Fix**: Split stock listings into `MarketStock` with their own tab/section and show Name / Price / Market cap / Volume.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — mixed asset types in one search tab need their own columns and empty-tab hiding
+
+## Case: Native union build failed on unregistered search helpers
+**Date**: 2026-09-16 | **Platforms**: iOS, Android (native union build)
+**Symptom**: CI Native startup graph budget failed; Codex/Devin flagged `universalSearchTabs.ts` and `marketSearchMetric.ts`.
+**Root Cause**: New files entered the native Metro graph via sync imports but were missing from `module-id-registry.json`.
+**Fix**: Register both paths with `updateRegistryFromModulePaths` and commit IDs `13357` / `23019`.
+**Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push
+
+## Case: Market search preset hid the new Stocks section
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, extension (Discovery market header)
+**Symptom**: Searching AAPL from Discovery Market showed only AAPLon / AAPLx under Market; the real listing appeared only after tapping Stocks.
+**Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
+**Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
+**Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
