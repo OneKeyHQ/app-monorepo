@@ -37,6 +37,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     updateDownloadedEvent: jest.fn(),
     fetchAppUpdateInfo: jest.fn(),
     refreshUpdateStatus: jest.fn(),
+    refreshCurrentFeaturedChangelog: jest.fn().mockResolvedValue(undefined),
     processPendingInstallTask: jest.fn(),
     fetchChangeLog: jest.fn(),
     reset: jest.fn(),
@@ -2526,7 +2527,7 @@ describe('useAppUpdateInfo useEffect', () => {
 
   // ----- C1. First launch after update -----
   describe('first launch after update', () => {
-    test('isFirstLaunchAfterUpdated + non-seamless → opens WhatsNew', async () => {
+    test('first manual launch waits for current-version featured refresh before showing WhatsNew', async () => {
       // isFirstLaunchAfterUpdated returns true when status !== done
       // and APP_VERSION >= latestVersion
       setAtom({
@@ -2536,6 +2537,13 @@ describe('useAppUpdateInfo useEffect', () => {
       });
       svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
 
+      let finishRefresh!: () => void;
+      svc.refreshCurrentFeaturedChangelog.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve;
+        }),
+      );
+
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
@@ -2543,7 +2551,18 @@ describe('useAppUpdateInfo useEffect', () => {
         await jest.runAllTimersAsync();
       });
 
-      // Should call refreshUpdateStatus then schedule fetch
+      expect(svc.refreshCurrentFeaturedChangelog).toHaveBeenCalledTimes(1);
+      expect(nav.pushModal).not.toHaveBeenCalled();
+      expect(svc.refreshUpdateStatus).not.toHaveBeenCalled();
+
+      await act(async () => {
+        finishRefresh();
+        await jest.runAllTimersAsync();
+      });
+
+      expect(nav.pushModal).toHaveBeenCalledWith('AppUpdateModal', {
+        screen: 'WhatsNew',
+      });
       expect(svc.refreshUpdateStatus).toHaveBeenCalled();
     });
 

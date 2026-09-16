@@ -671,7 +671,10 @@ class ServiceAppUpdate extends ServiceBase {
   // Runtime scope: bg-JS. The returned plain object crosses the
   // backgroundApiProxy boundary back to main-JS (JSON-safe).
   @backgroundMethod()
-  public async previewFeaturedChangelog(params: { version: string }): Promise<{
+  public async previewFeaturedChangelog(params: {
+    version: string;
+    clientVersion?: string;
+  }): Promise<{
     version: string | undefined;
     featuredChangelog: IFeaturedChangelog | undefined;
   }> {
@@ -686,7 +689,7 @@ class ServiceAppUpdate extends ServiceBase {
       code: number;
       data: { version?: string; featuredChangelog?: unknown };
     }>('/utility/v1/app-update/featured-changelog-preview', {
-      params: { version },
+      params: { version, clientVersion: params.clientVersion },
     });
 
     const { code, data } = response.data;
@@ -704,6 +707,34 @@ class ServiceAppUpdate extends ServiceBase {
         responseVersion,
       ),
     };
+  }
+
+  @backgroundMethod()
+  public async refreshCurrentFeaturedChangelog() {
+    const installedVersion = String(platformEnv.version);
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        data: { version?: string; featuredChangelog?: unknown };
+      }>('/utility/v1/app-update/version-info', { timeout: 5000 });
+      const { code, data } = response.data;
+      if (code !== 0 || data?.version !== installedVersion) return;
+      const featuredChangelog = normalizeFeaturedChangelog(
+        data.featuredChangelog,
+        installedVersion,
+      );
+      // Preserve cached content on malformed responses; an absent payload is a
+      // valid empty result (e.g. platform filtering removed every card).
+      if (data.featuredChangelog && !featuredChangelog) return;
+      await appUpdatePersistAtom.set((prev) =>
+        prev.latestVersion === installedVersion
+          ? { ...prev, featuredChangelog }
+          : prev,
+      );
+    } catch {
+      // Offline first launch keeps the compatible content cached before install.
+    }
   }
 
   @backgroundMethod()
