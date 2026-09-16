@@ -7,6 +7,10 @@ import SignClient from '@walletconnect/sign-client';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import walletConnectClient from './walletConnectClient';
+import {
+  dappSideWalletConnectDiagnostics,
+  walletConnectDiagnostics,
+} from './WalletConnectDiagnostics';
 import { WalletConnectRelayController } from './WalletConnectRelayController';
 
 const RELAYS = [
@@ -119,6 +123,17 @@ describe('WalletConnect application relay controller with the unmodified SDK', (
       });
       await jest.advanceTimersByTimeAsync(60_000);
       await connecting;
+      if (dapp) {
+        expect(dappSideWalletConnectDiagnostics.getSnapshot()).toMatchObject({
+          connectionAttempts: failures + 1,
+          connectionSuccesses: 1,
+          relayUrl: RELAYS[1],
+        });
+        expect(walletConnectDiagnostics.getSnapshot()).toMatchObject({
+          connectionAttempts: 0,
+          connectionSuccesses: 0,
+        });
+      }
       expect(attempts).toEqual(
         Array.from(
           { length: failures + 1 },

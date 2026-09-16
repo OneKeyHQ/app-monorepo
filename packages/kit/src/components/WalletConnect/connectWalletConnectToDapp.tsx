@@ -83,10 +83,11 @@ function WalletConnectConnectionProgress({
 
   return (
     <WalletConnectConnectionProgressView
-      attempt={attempt}
-      relayUrl={
-        result?.relayUrl ?? initial?.relayUrl ?? WALLET_CONNECT_RELAY_URL
-      }
+      progress={{
+        attempt,
+        relayUrl:
+          result?.relayUrl ?? initial?.relayUrl ?? WALLET_CONNECT_RELAY_URL,
+      }}
     />
   );
 }

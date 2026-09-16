@@ -58,6 +58,12 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getDappSideConnectionProgress() {
+    // Read only: opening a progress UI must never initialize a client or socket.
+    return this.dappSide.getConnectionProgress();
+  }
+
+  @backgroundMethod()
   async clearWalletSideDiagnosticEvents() {
     walletConnectDiagnostics.clear();
   }

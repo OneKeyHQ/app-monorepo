@@ -17,9 +17,13 @@ import type {
   IWalletConnectWeb3Wallet,
 } from '@onekeyhq/shared/src/walletConnect/types';
 
-import { walletConnectDiagnostics } from './WalletConnectDiagnostics';
+import {
+  dappSideWalletConnectDiagnostics,
+  walletConnectDiagnostics,
+} from './WalletConnectDiagnostics';
 import { WalletConnectRelayController } from './WalletConnectRelayController';
 
+import type { WalletConnectDiagnostics } from './WalletConnectDiagnostics';
 import type { CoreTypes } from '@walletconnect/types';
 
 const sharedOptions: CoreTypes.Options = {
@@ -42,11 +46,11 @@ function getSharedStorage(): KeyValueStorage {
 async function coreInit({
   storage,
   customStoragePrefix,
-  observeWallet = false,
+  diagnostics,
 }: {
   storage: KeyValueStorage;
   customStoragePrefix: string;
-  observeWallet?: boolean;
+  diagnostics: WalletConnectDiagnostics;
 }) {
   if (!customStoragePrefix) {
     throw new OneKeyLocalError('customStoragePrefix is required');
@@ -60,9 +64,7 @@ async function coreInit({
   // are counted. Preserve Core.init's client-ID storage initialization.
   const coreInstance = new Core(options);
   WalletConnectRelayController.attach(coreInstance);
-  if (observeWallet) {
-    walletConnectDiagnostics.attachCore(coreInstance);
-  }
+  diagnostics.attachCore(coreInstance);
   await coreInstance.start();
   await coreInstance.storage.setItem(
     WALLETCONNECT_CLIENT_ID,
@@ -80,6 +82,7 @@ async function getDappSideClient(): Promise<IWalletConnectSignClient> {
       const core = await coreInit({
         storage: getSharedStorage(),
         customStoragePrefix: DAPP_STORAGE_PREFIX,
+        diagnostics: dappSideWalletConnectDiagnostics,
       });
       signClient = await SignClient.init({
         ...sharedOptions,
@@ -106,7 +109,7 @@ async function getWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
       const core = await coreInit({
         storage: getSharedStorage(),
         customStoragePrefix: WALLET_STORAGE_PREFIX,
-        observeWallet: true,
+        diagnostics: walletConnectDiagnostics,
       });
       walletConnectDiagnostics.record('connection', 'core_initialized');
       walletConnectDiagnostics.record('connection', 'walletkit_initializing');

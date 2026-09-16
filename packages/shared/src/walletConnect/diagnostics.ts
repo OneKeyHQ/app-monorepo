@@ -1,5 +1,15 @@
 export type IWalletConnectDiagnosticLevel = 'info' | 'error';
 
+export type IWalletConnectDappConnectionProgress = {
+  attemptId?: number;
+  attempt: number;
+  lastFailedAttempt: number;
+  connected?: boolean;
+  connectedDuringAttempt: boolean;
+  snapshotFailed: boolean;
+  relayUrl: string;
+};
+
 export type IWalletConnectDiagnosticEvent = {
   sequence: number;
   timestamp: number;

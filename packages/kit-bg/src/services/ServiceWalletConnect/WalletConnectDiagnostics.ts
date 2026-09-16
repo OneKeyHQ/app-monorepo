@@ -460,3 +460,4 @@ export class WalletConnectDiagnostics {
 }
 
 export const walletConnectDiagnostics = new WalletConnectDiagnostics();
+export const dappSideWalletConnectDiagnostics = new WalletConnectDiagnostics();

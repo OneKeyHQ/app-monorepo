@@ -14,11 +14,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export const WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS = 10;
 
 export function WalletConnectConnectionProgressView({
-  attempt,
-  relayUrl,
+  progress,
 }: {
-  attempt: number;
-  relayUrl: string;
+  progress?: { attempt: number; relayUrl: string };
 }) {
   const intl = useIntl();
   const theme = useTheme();
@@ -49,32 +47,36 @@ export function WalletConnectConnectionProgressView({
             textAlign="center"
             flexShrink={1}
           >
-            {`${intl.formatMessage({
-              id: ETranslations.transfer_transfer_server_status_connecting,
-            })} (${Math.min(Math.max(0, attempt), WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS)}/${WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS})`}
+            {progress
+              ? `${intl.formatMessage({
+                  id: ETranslations.transfer_transfer_server_status_connecting,
+                })} (${Math.min(Math.max(0, progress.attempt), WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS)}/${WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS})`
+              : intl.formatMessage({ id: ETranslations.global_preparing })}
           </SizableText>
         </XStack>
       </YStack>
-      <YStack
-        width="100%"
-        alignItems="center"
-        gap="$1.5"
-        px="$4"
-        py="$3"
-        bg="$bgSubdued"
-        borderRadius="$3"
-        borderCurve="continuous"
-      >
-        <SizableText
-          testID="walletconnect-connection-relay"
-          size="$bodySm"
-          color="$textSubdued"
-          textAlign="center"
-          selectable
+      {progress ? (
+        <YStack
+          width="100%"
+          alignItems="center"
+          gap="$1.5"
+          px="$4"
+          py="$3"
+          bg="$bgSubdued"
+          borderRadius="$3"
+          borderCurve="continuous"
         >
-          {relayUrl}
-        </SizableText>
-      </YStack>
+          <SizableText
+            testID="walletconnect-connection-relay"
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+            selectable
+          >
+            {progress.relayUrl}
+          </SizableText>
+        </YStack>
+      ) : null}
     </YStack>
   );
 }
