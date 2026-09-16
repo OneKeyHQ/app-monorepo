@@ -30,6 +30,7 @@ import { MarketTokenSelector } from '../TokenSelector/MarketTokenSelector';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
 import { ShareButton } from './ShareButton';
+import { TokenLaunchpad } from './TokenLaunchpad';
 
 interface ITokenDetailHeaderLeftProps {
   assetId?: string;
@@ -80,6 +81,7 @@ export function TokenDetailHeaderLeft({
     logoUrls,
     extraData,
     communityRecognized,
+    launchpad,
     stock,
   } = tokenDetail || {};
 
@@ -276,6 +278,11 @@ export function TokenDetailHeaderLeft({
               />
             </XStack>
           ) : null}
+
+          <TokenLaunchpad
+            launchpad={launchpad}
+            showLeadingDivider={!!address}
+          />
 
           {showMediaAndSecurity ? (
             <>
