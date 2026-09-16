@@ -2604,6 +2604,7 @@ export function useSwapBuildTx({
               )
             : await backgroundApiProxy.serviceSwap.fetchBuildTx(buildParams);
         } catch (e: unknown) {
+          const buildError = toPlainErrorObject(e);
           if (!skipLoading && updateReviewState) {
             setReviewState((prev) => ({
               ...prev,
