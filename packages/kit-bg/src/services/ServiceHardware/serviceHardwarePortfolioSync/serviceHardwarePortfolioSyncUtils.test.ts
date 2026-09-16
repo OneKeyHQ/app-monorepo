@@ -62,7 +62,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
   test.each([
     [undefined, undefined, 1],
     ['1.0.2', undefined, 1],
-    ['1.0.2', EDeviceType.Neo, 1],
+    ['1.0.1', EDeviceType.Neo, 1],
+    ['1.0.2', EDeviceType.Neo, 2],
     ['1.0.1', EDeviceType.Pro2, 1],
     ['1.0.2-beta.1', EDeviceType.Pro2, 1],
     ['1.0.3-dev', EDeviceType.Pro2, 1],

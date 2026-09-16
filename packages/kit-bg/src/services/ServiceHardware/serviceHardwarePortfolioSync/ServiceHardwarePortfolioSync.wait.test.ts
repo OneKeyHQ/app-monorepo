@@ -879,6 +879,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   }
 
   test('selects v2 before server packing and carries category changes into the upload', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
     const { service, serviceInternals, uploadPortfolioPackage } =
       prepareHardwareSync({ busyResults: [false, false] });
     jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
@@ -924,10 +927,22 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     ).artifacts.portfolio.ts;
     expect(submittedTimestamp).toBeGreaterThanOrEqual(now);
     expect(submittedTimestamp).toBeLessThanOrEqual(Date.now());
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceType: EDeviceType.Pro2,
+        firmwareVersion: '1.0.2',
+        schemaVersion: 2,
+        status: 'success',
+      }),
+    );
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    portfolioSyncResultSpy.mockRestore();
   });
 
-  test('keeps Neo firmware on the v1 payload', async () => {
+  test('selects v2 for Neo firmware 1.0.2', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
     const { service, serviceInternals, uploadPortfolioPackage } =
       prepareHardwareSync({ busyResults: [false, false] });
     jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
@@ -952,27 +967,31 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       totalFiat: '100',
     });
 
-    expect(getCategory).not.toHaveBeenCalled();
+    expect(getCategory).toHaveBeenCalled();
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
       expect.objectContaining({
         artifacts: expect.objectContaining({
           portfolio: expect.objectContaining({
-            v: 1,
-            account: expect.objectContaining({ label: 'Account #1' }),
-            totalFiat: '$100.00',
+            v: 2,
+            account: expect.objectContaining({ label: '1' }),
+            tokensFiat: '$100.00',
+            defiFiat: '$20.00',
+            perpsFiat: '$30.00',
+            totalFiat: '$150.00',
           }),
         }),
       }),
     );
-    const submitted = (
-      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
-        artifacts: { portfolio: Record<string, unknown> };
-      }
-    ).artifacts.portfolio;
-    expect(submitted).not.toHaveProperty('defiFiat');
-    expect(submitted).not.toHaveProperty('perpsFiat');
-    expect(submitted).not.toHaveProperty('tokensFiat');
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceType: EDeviceType.Neo,
+        firmwareVersion: '1.0.2',
+        schemaVersion: 2,
+        status: 'success',
+      }),
+    );
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    portfolioSyncResultSpy.mockRestore();
   });
 
   test('records lastAttemptAt when a silent snapshot is skipped as a duplicate', async () => {
@@ -3201,6 +3220,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         packageBytes: 3,
         packDurationMs: 0,
         portfolioJsonBytes: expect.any(Number),
+        schemaVersion: 1,
         status: 'success',
         syncDurationMs: 1000,
         syncMode: 'silent',
@@ -3239,6 +3259,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         failureStage: 'pack',
         packDurationMs: expect.any(Number),
         portfolioJsonBytes: expect.any(Number),
+        schemaVersion: 1,
         status: 'failed',
         syncDurationMs: expect.any(Number),
         syncMode: 'silent',

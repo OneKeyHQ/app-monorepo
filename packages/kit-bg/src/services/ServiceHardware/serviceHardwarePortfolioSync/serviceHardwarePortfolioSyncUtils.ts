@@ -1,4 +1,3 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import semver from 'semver';
 
 import type {
@@ -6,6 +5,7 @@ import type {
   IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { packPortfolioArchive } from '@onekeyhq/shared/src/utils/portfolioArchive';
 import {
   buildPortfolioPayload,
@@ -47,8 +47,8 @@ export function getPortfolioSchemaVersion(
   firmwareVersion?: string,
   deviceType?: string,
 ): 1 | 2 {
-  // v2 is the Pro 2 firmware 1.0.2+ contract. Neo and older products stay on v1.
-  return deviceType === EDeviceType.Pro2 &&
+  // v2 is the Pro 2 / Neo firmware 1.0.2+ contract.
+  return isProtocolV2ProductType(deviceType) &&
     firmwareVersion &&
     semver.valid(firmwareVersion) &&
     !semver.prerelease(firmwareVersion) &&

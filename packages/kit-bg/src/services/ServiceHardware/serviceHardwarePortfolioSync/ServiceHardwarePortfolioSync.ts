@@ -116,6 +116,7 @@ type IPortfolioSyncTelemetry = {
   deviceApplied?: boolean;
   cancelled?: boolean;
   failureStage?: IPortfolioSyncFailureStage;
+  firmwareVersion?: string;
   queueDurationMs?: number;
   unlockDurationMs?: number;
   hardwareDurationMs?: number;
@@ -123,6 +124,7 @@ type IPortfolioSyncTelemetry = {
   packageBytes?: number;
   portfolioJsonBytes?: number;
   resultReported?: boolean;
+  schemaVersion?: 1 | 2;
   syncMode: IPortfolioSyncMode;
   syncStartedAt: number;
   tokenCount?: number;
@@ -273,6 +275,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         syncMode: telemetry.syncMode,
         transportType: telemetry.transportType,
         elapsedMs: Math.max(Date.now() - telemetry.syncStartedAt, 0),
+        schemaVersion: telemetry.schemaVersion,
+        firmwareVersion: telemetry.firmwareVersion,
         queueDurationMs: telemetry.queueDurationMs,
         unlockDurationMs: telemetry.unlockDurationMs,
         packDurationMs: telemetry.packDurationMs,
@@ -1856,6 +1860,12 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           status,
           ...(failureStage ? { failureStage } : {}),
           ...(normalizedErrorCode ? { errorCode: normalizedErrorCode } : {}),
+          ...(telemetry.schemaVersion !== undefined
+            ? { schemaVersion: telemetry.schemaVersion }
+            : {}),
+          ...(telemetry.firmwareVersion
+            ? { firmwareVersion: telemetry.firmwareVersion }
+            : {}),
           syncDurationMs,
           ...(telemetry.packDurationMs !== undefined
             ? { packDurationMs: telemetry.packDurationMs }
@@ -2943,6 +2953,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         device?.deviceStateInfo?.versions?.firmware ?? undefined,
         device?.deviceType,
       );
+      telemetry.schemaVersion = schemaVersion;
+      telemetry.firmwareVersion =
+        device?.deviceStateInfo?.versions?.firmware ?? undefined;
       const categoryFiat =
         schemaVersion === 2
           ? await this.getPortfolioCategoryFiat(
