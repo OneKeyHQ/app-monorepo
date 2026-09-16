@@ -1084,17 +1084,41 @@ test('what a named function returns is still source', () => {
   `,
     'control: the same helper reading data',
   );
+  // A helper that builds its path and its text in locals first is still a
+  // read helper, classified per call.
+  const readInSteps = `
+    function readSource(name) {
+      const file = join(__dirname, 'src', name);
+      const text = readFileSync(file, 'utf8');
+      return text;
+    }`;
+  assertGated(
+    `${readInSteps}
+    it('x', () => { expect(readSource('Thing.ts')).toContain('go'); });
+  `,
+    'read helper built in locals, source at the call',
+  );
+  assertClean(
+    `${readInSteps}
+    it('x', () => { expect(readSource('fixture.json')).toContain('go'); });
+  `,
+    'control: the same helper reading data',
+  );
   // Only the call knows a path built from the parameters, so the body alone
-  // says nothing about what it reads.
+  // says nothing about what it reads, even where there is no single return
+  // to classify per call.
   assertClean(
     `
     function loadFixture(name) {
       const file = join(__dirname, '__fixtures__', name);
+      if (!existsSync(file)) {
+        return '';
+      }
       return readFileSync(file, 'utf8');
     }
     it('x', () => { expect(loadFixture('a.json')).toContain('go'); });
   `,
-    'control: several statements reading a path from the parameters',
+    'control: several returns reading a path from the parameters',
   );
   // Whole or cut, as it was returned.
   const script =
@@ -2162,6 +2186,39 @@ test('a gated hit in every block produces a whole-file verdict', () => {
   `,
   );
   assert.equal(wholeFile, true);
+});
+
+test('a parameterized test is one block, whatever it is chained from', () => {
+  const source = `const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');`;
+  // `it.each(table)` only builds the block, so a file whose one test violates
+  // is still a whole-file violation.
+  const each = analyzeFile(
+    FIXTURE_PATH,
+    `${source}
+    it.each(['a', 'b'])('mentions %s', (needle) => {
+      expect(source).toContain(needle);
+    });
+  `,
+  );
+  assert.deepEqual(
+    each.testBlocks.map((block) => block.title),
+    ['mentions %s'],
+  );
+  assert.equal(each.wholeFile, true);
+  const only = analyzeFile(
+    FIXTURE_PATH,
+    `${source}
+    it.only.each(['a'])('only mentions %s', (needle) => {
+      expect(source).toContain(needle);
+    });
+  `,
+  );
+  assert.deepEqual(
+    only.violations
+      .filter((violation) => violation.rule === 'source-text-assertion')
+      .map((violation) => violation.block),
+    ['only mentions %s'],
+  );
 });
 
 test('records the enclosing block so an exemption can name it', () => {

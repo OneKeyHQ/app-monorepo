@@ -1896,18 +1896,8 @@ function refersTo(node, binding) {
 function collectReadHelpers(ast, isReadCallee, classify) {
   const helpers = new Map();
   walk(ast, (node) => {
-    const returned = returnedPathExpression(node);
-    const call = returned && unwrapWholeConversion(returned.value);
-    if (
-      !call ||
-      (call.type !== 'CallExpression' && call.type !== 'OptionalCallExpression')
-    ) {
-      return;
-    }
-    if (!isReadCallee(call.callee)) {
-      return;
-    }
-    const pathArgument = call.arguments[0];
+    const returned = returnedRead(node, isReadCallee);
+    const pathArgument = returned?.pathArgument;
     if (!pathArgument) {
       return;
     }
@@ -1947,6 +1937,95 @@ function collectReadHelpers(ast, isReadCallee, classify) {
     }
   });
   return helpers;
+}
+
+/**
+ * The read a named function with a single return hands back, and its path
+ * with the constants the function declares for itself written in place. A
+ * helper that builds its path or its text in locals first,
+ * `const file = join(__dirname, name); return readFileSync(file)`, is then as
+ * plain a read as the one-line form.
+ */
+function returnedRead(node, isReadCallee) {
+  const named = namedFunction(node);
+  if (!named) {
+    return undefined;
+  }
+  const { fn } = named;
+  let values = [fn.body];
+  if (fn.body.type === 'BlockStatement') {
+    values = [];
+    walkOwnBody(fn.body, (current) => {
+      if (current.type === 'ReturnStatement') {
+        values.push(current.argument);
+      }
+    });
+  }
+  if (values.length !== 1) {
+    return undefined;
+  }
+  // Peel conversions and constants off the returned value until a read shows.
+  let value = values[0];
+  for (let step = 0; step < 16; step += 1) {
+    value = unwrapWholeConversion(value);
+    const constant = constantValue(value, fn);
+    if (!constant) {
+      break;
+    }
+    value = constant;
+  }
+  const read =
+    (value?.type === 'CallExpression' ||
+      value?.type === 'OptionalCallExpression') &&
+    isReadCallee(value.callee) &&
+    value.arguments[0];
+  return read
+    ? { ...named, pathArgument: inlineConstants(read, fn) }
+    : undefined;
+}
+
+/** The initializer of a constant declared inside `fn` that `node` names. */
+function constantValue(node, fn) {
+  const binding = bindingOf(node);
+  const declarator = binding?.path?.node;
+  return binding?.constant &&
+    declarator?.type === 'VariableDeclarator' &&
+    declarator.id.type === 'Identifier' &&
+    declarator.init &&
+    declarator.start >= fn.start &&
+    declarator.end <= fn.end
+    ? declarator.init
+    : undefined;
+}
+
+/**
+ * `node` with every identifier that names a constant declared inside `fn`
+ * replaced by that constant's initializer, all the way down. Untouched
+ * subtrees are the original nodes, so their bindings still resolve.
+ */
+function inlineConstants(node, fn, depth = 0) {
+  if (!node || typeof node.type !== 'string' || depth > 16) {
+    return node;
+  }
+  if (node.type === 'Identifier') {
+    const constant = constantValue(node, fn);
+    return constant ? inlineConstants(constant, fn, depth + 1) : node;
+  }
+  let copy;
+  for (const key of childKeys(node)) {
+    const value = node[key];
+    const inlined = Array.isArray(value)
+      ? value.map((child) => inlineConstants(child, fn, depth))
+      : inlineConstants(value, fn, depth);
+    const changed = Array.isArray(value)
+      ? inlined.some((child, index) => child !== value[index])
+      : inlined !== value;
+    if (changed) {
+      copy = copy ?? { ...node };
+      copy[key] = inlined;
+    }
+  }
+  return copy ?? node;
 }
 
 /**
@@ -2408,8 +2487,10 @@ function walksSource(ast) {
 }
 
 /**
- * `it(...)`, `it.only(...)`, `it.each(table)(...)` and the tagged-template form.
- * Anchored on the *object* so `/re/.test(x)` is never mistaken for a test block.
+ * `it(...)`, `it.only(...)`, `it.only.each(table)(...)` and the tagged-template
+ * form. Anchored on the root *object* so `/re/.test(x)` is never mistaken for
+ * a test block, and `it.each(table)` on its own is not one: it only builds the
+ * block that the call it returns declares.
  */
 function isTestBlock(node) {
   const callee = node.callee;
@@ -2418,19 +2499,20 @@ function isTestBlock(node) {
   }
   let member;
   if (callee?.type === 'MemberExpression') {
+    if (calleeName(callee) === 'each') {
+      return false;
+    }
     member = callee;
   } else if (callee?.type === 'CallExpression') {
     member = callee.callee;
   } else if (callee?.type === 'TaggedTemplateExpression') {
     member = callee.tag;
   }
-  if (member?.type !== 'MemberExpression') {
-    return false;
+  let root = member?.type === 'MemberExpression' ? member.object : undefined;
+  while (root?.type === 'MemberExpression') {
+    root = root.object;
   }
-  return (
-    member.object.type === 'Identifier' &&
-    TEST_BLOCK_NAMES.has(member.object.name)
-  );
+  return root?.type === 'Identifier' && TEST_BLOCK_NAMES.has(root.name);
 }
 
 /** `expect`, `x.expect`, or Jest's or Vitest's `expect` imported under another name. */
