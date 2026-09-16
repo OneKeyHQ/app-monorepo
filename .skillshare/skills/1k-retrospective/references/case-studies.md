@@ -423,3 +423,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `V2MarketToken` search prepended stock listings into the same result bucket and reused the token table columns.
 **Fix**: Split stock listings into `MarketStock` with their own tab/section and show Name / Price / Market cap / Volume.
 **Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — mixed asset types in one search tab need their own columns and empty-tab hiding
+
+## Case: Native union build failed on unregistered search helpers
+**Date**: 2026-09-16 | **Platforms**: iOS, Android (native union build)
+**Symptom**: CI Native startup graph budget failed; Codex/Devin flagged `universalSearchTabs.ts` and `marketSearchMetric.ts`.
+**Root Cause**: New files entered the native Metro graph via sync imports but were missing from `module-id-registry.json`.
+**Fix**: Register both paths with `updateRegistryFromModulePaths` and commit IDs `13357` / `23019`.
+**Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push
