@@ -6,8 +6,8 @@ export const getDeviceLabel = (
 ) => {
   const labels = deviceTypeItems.map((deviceType) => {
     switch (deviceType) {
-      // Pro 2 ships under the merged "OneKey Pro series" entry; keep the
-      // shared OneKey Pro copy.
+      // Pro 2 rides under the plain "OneKey Pro" picker entry until launch;
+      // keep the shared OneKey Pro copy.
       case EDeviceType.Pro:
       case EDeviceType.Pro2:
         return 'OneKey Pro';

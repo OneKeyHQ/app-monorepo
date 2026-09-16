@@ -57,17 +57,12 @@ export default function PickYourDevice() {
   >(
     () => [
       {
-        name: 'OneKey Pro series',
-        // Pro 2 launch art must stay out of the repo until release; the
-        // release ticket (OK-59937) swaps in the real series key visual.
+        // Unreleased models stay out of this picker: the Pro 2 rides under
+        // the plain "OneKey Pro" label and the Neo entry is absent until the
+        // release merge (OK-59937) brings the series label, the Neo card and
+        // their key visuals.
+        name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
-        image: require('@onekeyhq/kit/assets/pick-pro.png'),
-      },
-      {
-        name: 'OneKey Neo',
-        // Same launch embargo: reuse Pro art until the Neo assets land
-        // (OK-59935).
-        deviceType: [EDeviceType.Neo],
         image: require('@onekeyhq/kit/assets/pick-pro.png'),
       },
       {
@@ -85,12 +80,12 @@ export default function PickYourDevice() {
             image: require('@onekeyhq/kit/assets/pick-touch.png'),
           }
         : {
-            name: 'Legacy',
+            name: intl.formatMessage({
+              id: ETranslations.legacy_devices__title,
+            }),
             tags: ['Mini', 'Touch'],
             deviceType: [],
-            // Touch art stands in until a dedicated Legacy visual is
-            // designed.
-            image: require('@onekeyhq/kit/assets/pick-touch.png'),
+            image: require('@onekeyhq/kit/assets/pick-legacy.png'),
             colors: SHIMMER_NEUTRAL,
             dialog: 'legacy',
           },
