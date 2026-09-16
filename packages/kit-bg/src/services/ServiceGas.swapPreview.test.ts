@@ -99,6 +99,23 @@ describe('Swap preview fee isolation', () => {
     await expect(swap).resolves.toHaveProperty('txFees');
   });
 
+  it('keeps the newer Send cancellation handle when an older estimate finishes', async () => {
+    const service = new ServiceGas({ backgroundApi: {} });
+    const first = service.batchEstimateFee(params);
+    const firstOutcome = first.catch((error: unknown) => error);
+    await flush();
+    const second = service.batchEstimateFee(params);
+    const secondOutcome = second.catch((error: unknown) => error);
+    await flush();
+
+    requests[0].resolve(response);
+    await expect(firstOutcome).resolves.toHaveProperty('txFees');
+    await service.abortEstimateFee();
+    await expect(secondOutcome).resolves.toMatchObject({
+      name: 'CanceledError',
+    });
+  });
+
   it.each([false, true])(
     'preserves the Vault single-fee call without a signal: preview=%s',
     async (preview) => {

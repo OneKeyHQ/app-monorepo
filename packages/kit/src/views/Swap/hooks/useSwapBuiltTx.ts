@@ -250,6 +250,7 @@ type IBuildSwapActionOptions = {
 
   isCurrent?: () => boolean;
   preloading?: boolean;
+  reportAnalytics?: boolean;
 };
 
 type IEstimateNetworkFeeOptions = {
@@ -257,6 +258,7 @@ type IEstimateNetworkFeeOptions = {
 
   isCurrent?: () => boolean;
   preloading?: boolean;
+  reportAnalytics?: boolean;
 };
 
 type IUseSwapBuildTxOptions = {
@@ -430,6 +432,7 @@ export function useSwapBuildTx({
     useCustomSlippage?: boolean;
     build?: ISwapReviewPreload<ISwapPreparedBuild>;
     reportedBuild?: ISwapPreparedBuild['buildResult'];
+    reportedFee?: ISwapPreparedReview;
     run?: {
       quote: IFetchQuoteResult;
       contextKey: string;
@@ -2459,6 +2462,7 @@ export function useSwapBuildTx({
 
         isCurrent = () => true,
         preloading = false,
+        reportAnalytics = !preloading,
       } = options ?? {};
       const setReviewState = (
         update: (prev: typeof swapSteps) => typeof swapSteps,
@@ -2551,7 +2555,7 @@ export function useSwapBuildTx({
             }));
           }
           const swapType = getSwapExecutionTypeFromQuoteResult(data);
-          if (!preloading)
+          if (reportAnalytics)
             defaultLogger.swap.createSwapOrder.swapCreateOrder({
               fromTokenAmount: data?.fromAmount ?? '',
               toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
@@ -3497,6 +3501,7 @@ export function useSwapBuildTx({
 
         isCurrent = () => true,
         preloading = false,
+        reportAnalytics = !preloading,
       } = options ?? {};
       const estimateFee = async (
         params: Parameters<typeof backgroundApiProxy.serviceGas.estimateFee>[0],
@@ -3595,17 +3600,19 @@ export function useSwapBuildTx({
             if (!isCurrent()) {
               throw new OneKeyError('Swap review changed during preparation');
             }
-            void swapEstimateFeeEvent(
-              ESwapEventAPIStatus.SUCCESS,
-              networkId,
-              accountId,
-              undefined,
-              JSON.stringify(
-                estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
-              ),
-              swapInfo,
-              true,
-            );
+            if (reportAnalytics) {
+              void swapEstimateFeeEvent(
+                ESwapEventAPIStatus.SUCCESS,
+                networkId,
+                accountId,
+                undefined,
+                JSON.stringify(
+                  estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
+                ),
+                swapInfo,
+                true,
+              );
+            }
             for (let i = 0; i < unsignedTxArr.length; i += 1) {
               const unsignedTxItem = unsignedTxArr[i];
               const gasRes = gasResArr.txFees[i];
@@ -3622,18 +3629,20 @@ export function useSwapBuildTx({
             }
           } catch (e: any) {
             if (!isCurrent() || isRequestCanceledError(e)) throw e;
-            void swapEstimateFeeEvent(
-              ESwapEventAPIStatus.FAIL,
-              networkId,
-              accountId,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              e?.message ?? 'unknown error',
-              JSON.stringify(
-                estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
-              ),
-              swapInfo,
-              true,
-            );
+            if (reportAnalytics) {
+              void swapEstimateFeeEvent(
+                ESwapEventAPIStatus.FAIL,
+                networkId,
+                accountId,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                e?.message ?? 'unknown error',
+                JSON.stringify(
+                  estimateFeeParamsArr.map((o) => o.encodedTx ?? {}) ?? '',
+                ),
+                swapInfo,
+                true,
+              );
+            }
             if (
               canFallbackToSeparateTxConfirm({
                 buildUnsignedParams,
@@ -3777,14 +3786,16 @@ export function useSwapBuildTx({
             if (!isCurrent()) {
               throw new OneKeyError('Swap review changed during preparation');
             }
-            void swapEstimateFeeEvent(
-              ESwapEventAPIStatus.SUCCESS,
-              networkId,
-              accountId,
-              undefined,
-              JSON.stringify(unsignedTx.encodedTx ?? ''),
-              swapInfo,
-            );
+            if (reportAnalytics) {
+              void swapEstimateFeeEvent(
+                ESwapEventAPIStatus.SUCCESS,
+                networkId,
+                accountId,
+                undefined,
+                JSON.stringify(unsignedTx.encodedTx ?? ''),
+                swapInfo,
+              );
+            }
             const gasParseInfo = buildGasInfo(
               gasRes,
               gasRes.common,
@@ -3800,15 +3811,17 @@ export function useSwapBuildTx({
             ];
           } catch (e: any) {
             if (!isCurrent() || isRequestCanceledError(e)) throw e;
-            void swapEstimateFeeEvent(
-              ESwapEventAPIStatus.FAIL,
-              networkId,
-              accountId,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              e?.message ?? 'unknown error',
-              JSON.stringify(unsignedTx.encodedTx ?? ''),
-              swapInfo,
-            );
+            if (reportAnalytics) {
+              void swapEstimateFeeEvent(
+                ESwapEventAPIStatus.FAIL,
+                networkId,
+                accountId,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                e?.message ?? 'unknown error',
+                JSON.stringify(unsignedTx.encodedTx ?? ''),
+                swapInfo,
+              );
+            }
 
             throw e;
           }
@@ -4076,6 +4089,10 @@ export function useSwapBuildTx({
         try {
           built = await active.promise;
         } catch (error) {
+          active.cancel();
+          if (reviewPreparationStateRef.current.build === active) {
+            reviewPreparationStateRef.current.build = undefined;
+          }
           if (!(error instanceof SwapReviewBalanceError)) throw error;
         }
         assertCurrent();
@@ -4120,6 +4137,7 @@ export function useSwapBuildTx({
               : slippage,
 
           preloading: true,
+          reportAnalytics: true,
           updateReviewState: false,
           isCurrent,
         },
@@ -4449,14 +4467,34 @@ export function useSwapBuildTx({
                 preparation.cancelFee();
               }
             } catch (error) {
-              if (!(error instanceof SwapReviewBalanceError)) throw error;
+              if (!(error instanceof SwapReviewBalanceError)) {
+                preparation.cancel();
+                throw error;
+              }
               // A balance failure created no order. Retry only its balance gate.
               preparation.cancel();
               await checkBuildBalances(data);
             }
           }
           if (!isCurrent()) return;
-          if (prepared?.status === 'failed') throw prepared.feeError;
+          if (prepared?.status === 'failed') {
+            if (reviewPreparationStateRef.current.reportedFee !== prepared) {
+              reviewPreparationStateRef.current.reportedFee = prepared;
+              void swapEstimateFeeEvent(
+                ESwapEventAPIStatus.FAIL,
+                fromAccountNetworkId,
+                fromAccountId,
+                String(
+                  prepared.feeError instanceof Error
+                    ? prepared.feeError.message
+                    : prepared.feeError,
+                ),
+                JSON.stringify(prepared.buildResult.encodedTx ?? ''),
+                prepared.buildResult.swapInfo,
+              );
+            }
+            throw prepared.feeError;
+          }
           const { buildResult } = canReusePreparation
             ? await acquireReviewBuild(data, isCurrent)
             : {
@@ -4478,6 +4516,17 @@ export function useSwapBuildTx({
               prepared.preparedAt,
             )
           ) {
+            if (reviewPreparationStateRef.current.reportedFee !== prepared) {
+              reviewPreparationStateRef.current.reportedFee = prepared;
+              void swapEstimateFeeEvent(
+                ESwapEventAPIStatus.SUCCESS,
+                fromAccountNetworkId,
+                fromAccountId,
+                undefined,
+                JSON.stringify(prepared.buildResult.encodedTx ?? ''),
+                prepared.buildResult.swapInfo,
+              );
+            }
             await checkBuildBalances(data);
             const balance = await checkLatestNativeTokenBalance({
               gasInfos: prepared.feeResult.netWorkFee?.gasInfos,
@@ -4595,6 +4644,7 @@ export function useSwapBuildTx({
       reviewAccountKey,
       getReviewPreparationContextKey,
       swapBuildFinish,
+      swapEstimateFeeEvent,
       currencyMap,
       persistSettings.currencyInfo.id,
       estimateNetworkFee,

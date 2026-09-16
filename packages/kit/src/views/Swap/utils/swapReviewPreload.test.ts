@@ -123,7 +123,7 @@ describe('swap quote preparation ownership', () => {
     expect(prepare).toHaveBeenCalledTimes(1);
   });
 
-  it('invalidates an abandoned selection and claims a failed task without restarting it', async () => {
+  it('invalidates an abandoned selection and retries a failed build', async () => {
     const cache = createSwapReviewPreloadWithBuildCache<void, number>();
     const first = cache.preload(
       'old',
@@ -148,18 +148,9 @@ describe('swap quote preparation ownership', () => {
       async () => undefined,
       prepare,
     );
-    expect(claimed.promise).toBe(failure.promise);
-    await expect(claimed.promise).rejects.toThrow('offline');
-    expect(prepare).not.toHaveBeenCalled();
-    cache.clear();
-    await expect(
-      cache.preload(
-        'refreshed-quote',
-        'new-build',
-        async () => undefined,
-        prepare,
-      ).promise,
-    ).resolves.toBe(2);
+    expect(claimed.promise).not.toBe(failure.promise);
+    await expect(claimed.promise).resolves.toBe(2);
+    expect(prepare).toHaveBeenCalledTimes(1);
   });
   it('keeps build age separate from a freshly returned fee', () => {
     expect(

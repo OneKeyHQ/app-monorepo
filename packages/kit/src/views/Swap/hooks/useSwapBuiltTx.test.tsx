@@ -1031,7 +1031,7 @@ describe('Swap preview preparation concurrency', () => {
   });
 
   it.each([true, false, undefined])(
-    'preserves original autoToast=%s and consumes an RPC failure only once',
+    'retries a rejected preload without replaying its Toast: autoToast=%s',
     async (autoToast) => {
       const error = Object.assign(new Error('provider unavailable'), {
         autoToast,
@@ -1080,12 +1080,8 @@ describe('Swap preview preparation concurrency', () => {
             task,
           );
         });
-        expect(show).toHaveBeenCalledTimes(1);
-        expect(show.mock.calls[0][0]).toMatchObject({
-          requestId: 'preview-test',
-          autoToast: autoToast ?? true,
-        });
-        expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+        expect(show).not.toHaveBeenCalled();
+        expect(mockFetchBuildTx).toHaveBeenCalledTimes(2);
       } finally {
         show.mockRestore();
       }

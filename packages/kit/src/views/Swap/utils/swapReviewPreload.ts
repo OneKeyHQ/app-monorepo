@@ -130,15 +130,21 @@ export function createSwapReviewPreloadWithBuildCache<B, T>() {
       clearCandidate();
       let buildCurrent = true;
       const isCurrent = () => buildCurrent;
+      const promise = prepareBuild(isCurrent);
       build = {
         key: buildKey,
         isCurrent,
         cancel: () => {
           buildCurrent = false;
         },
-        promise: prepareBuild(isCurrent),
+        promise,
       };
-      void build.promise.catch(() => undefined);
+      const buildOwner = build;
+      void promise.catch(() => {
+        // A rejected build cannot be adopted by a later Review attempt.
+        // Invalidate it so the next claim starts a fresh request.
+        buildOwner.cancel();
+      });
     } else {
       candidate?.cancelFee();
     }
@@ -158,7 +164,10 @@ export function createSwapReviewPreloadWithBuildCache<B, T>() {
       },
       promise: prepareFee(buildOwner.promise, isCurrent),
     };
-    void task.promise.catch(() => undefined);
+    void task.promise.catch(() => {
+      // A rejected fee preparation is also unsafe to adopt on the next Review.
+      task.cancel();
+    });
     candidate = task;
     return task;
   };

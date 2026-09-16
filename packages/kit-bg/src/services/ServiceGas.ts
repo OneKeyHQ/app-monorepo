@@ -79,7 +79,9 @@ class ServiceGas extends ServiceBase {
       },
     );
 
-    if (controller) this._estimateFeeController = null;
+    if (controller && this._estimateFeeController === controller) {
+      this._estimateFeeController = null;
+    }
 
     const feeInfo = resp.data.data;
 
@@ -126,7 +128,9 @@ class ServiceGas extends ServiceBase {
     });
     const resp = await vault.estimateFee(rest);
 
-    if (controller) this._estimateFeeController = null;
+    if (controller && this._estimateFeeController === controller) {
+      this._estimateFeeController = null;
+    }
 
     const feeInfo = resp.data.data;
 
