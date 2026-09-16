@@ -2125,8 +2125,19 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       }
 
       const fetchCachedDeFi = async (
-        requiredNetworkIds: string[],
+        liveAccounts: Array<{ networkId: string }>,
       ): Promise<string | undefined> => {
+        const requiredNetworkIds = uniq(
+          liveAccounts.map((account) => account.networkId),
+        );
+        // Cache overview is keyed by networkId, so one address per network
+        // is the only case where network coverage proves completeness.
+        if (
+          !requiredNetworkIds.length ||
+          liveAccounts.length !== requiredNetworkIds.length
+        ) {
+          return undefined;
+        }
         const enabledNetworkIds = networks
           .filter(
             (network) =>
@@ -2138,7 +2149,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               }) && enabledNetworksMap[network.id],
           )
           .map((network) => network.id);
-        if (!enabledNetworkIds.length || !requiredNetworkIds.length) {
+        if (!enabledNetworkIds.length) {
           return undefined;
         }
         const { netWorth, hasCache, networkIds } =
@@ -2252,9 +2263,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         if (completeCount === accounts.length) {
           return { source: 'live', value: total.toFixed() };
         }
-        const cached = await fetchCachedDeFi(
-          uniq(accounts.map((account) => account.networkId)),
-        );
+        const cached = await fetchCachedDeFi(accounts);
         if (cached !== undefined) {
           debugPortfolioSyncLog('defi-cache-fallback', {
             accountCount: accounts.length,

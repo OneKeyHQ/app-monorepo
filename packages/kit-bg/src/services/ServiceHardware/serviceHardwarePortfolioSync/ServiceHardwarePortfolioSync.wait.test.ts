@@ -545,6 +545,48 @@ describe('Portfolio v2 category retrieval', () => {
     });
   });
 
+  test('does not use cache when multiple DeFi addresses share a network', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'btc-native',
+          networkId: 'btc--0',
+          apiAddress: 'bc1qnative',
+        },
+        {
+          accountId: 'btc-taproot',
+          networkId: 'btc--0',
+          apiAddress: 'bc1ptaproot',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: { degraded: false, networkIds: ['btc--0'] },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['btc--0'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).not.toHaveBeenCalled();
+  });
+
   test('rejects degraded results instead of reporting partial totals', async () => {
     const mocks = prepare();
     mocks.post.mockResolvedValue({
