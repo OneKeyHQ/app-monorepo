@@ -24,8 +24,13 @@ const {
   Provider: ProviderJotaiContextMarketV2,
   contextAtom,
   contextAtomMethod,
+  useContextData: useMarketV2ContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextMarketV2, contextAtomMethod };
+export {
+  ProviderJotaiContextMarketV2,
+  contextAtomMethod,
+  useMarketV2ContextData,
+};
 
 export const { atom: basicMarketWatchListV2Atom, useContextAtom } =
   contextAtom<IMarketWatchListDataV2>({ data: [] });
