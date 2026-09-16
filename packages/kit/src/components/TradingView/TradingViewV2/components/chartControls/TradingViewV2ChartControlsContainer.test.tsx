@@ -89,11 +89,13 @@ function renderControls({
   enableNativeChartSettings = true,
   layoutMode = 'mobile',
   onChartSwitch,
+  onControlInteraction,
   onOpenChartSettings,
 }: {
   enableNativeChartSettings?: boolean;
   layoutMode?: 'mobile' | 'desktop';
   onChartSwitch?: () => void;
+  onControlInteraction?: () => void;
   onOpenChartSettings?: () => void;
 }) {
   return render(
@@ -111,6 +113,7 @@ function renderControls({
       layoutMode={layoutMode}
       chartTimezone="UTC"
       onChartSwitch={onChartSwitch}
+      onControlInteraction={onControlInteraction}
       onOpenChartSettings={onOpenChartSettings}
       onIntervalChange={jest.fn()}
       onIndicatorSelect={jest.fn()}
@@ -138,11 +141,13 @@ describe('TradingViewV2ChartControlsContainer', () => {
   ])(
     'opens built-in $layoutMode chart settings when native settings are enabled: $enableNativeChartSettings',
     ({ enableNativeChartSettings, layoutMode }) => {
+      const onControlInteraction = jest.fn();
       const onOpenChartSettings = jest.fn();
       renderControls({
         enableNativeChartSettings,
         layoutMode,
         onChartSwitch: layoutMode === 'desktop' ? jest.fn() : undefined,
+        onControlInteraction,
         onOpenChartSettings,
       });
 
@@ -151,7 +156,11 @@ describe('TradingViewV2ChartControlsContainer', () => {
       };
       controlsProps.onSettingsPress();
 
+      expect(onControlInteraction).toHaveBeenCalledTimes(1);
       expect(onOpenChartSettings).toHaveBeenCalledTimes(1);
+      expect(onControlInteraction.mock.invocationCallOrder[0]).toBeLessThan(
+        onOpenChartSettings.mock.invocationCallOrder[0],
+      );
       expect(mockDialogShow).not.toHaveBeenCalled();
       expect(mockShowTradingViewChartSettingsDialog).not.toHaveBeenCalled();
     },

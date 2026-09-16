@@ -309,6 +309,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       }
 
       if (onOpenChartSettings) {
+        onControlInteraction?.();
         onOpenChartSettings();
         return;
       }
@@ -323,6 +324,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       enableNativeChartSettings,
       layoutMode,
       onChartSwitch,
+      onControlInteraction,
       onOpenChartSettings,
       showChartSettingsDialog,
       showMobileChartSettingsDialog,
