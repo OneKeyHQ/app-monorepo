@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -146,20 +146,26 @@ export function BorrowMobilePositions({
   // a background event the user never triggered, and it would not come back —
   // exactly the failure this reset exists to prevent, in the other direction.
   // X -> '' -> X is therefore a no-op here, while X -> '' -> Y still collapses.
-  const lastResolvedScopeRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!accountId || !networkId || !normalizedMarketAddress) {
-      return;
-    }
-    const resolvedScope = [accountId, networkId, normalizedMarketAddress].join(
-      '|',
-    );
-    const previousScope = lastResolvedScopeRef.current;
-    lastResolvedScopeRef.current = resolvedScope;
-    if (previousScope !== null && previousScope !== resolvedScope) {
+  //
+  // During render rather than in an effect. The key identifies the position
+  // alone, so the same asset held under the next account matches the open key:
+  // an effect would let that render reach the screen first and flash the card's
+  // actions open under a scope the user already left. Adjusting here re-runs
+  // the component before anything is committed.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const resolvedScope =
+    accountId && networkId && normalizedMarketAddress
+      ? [accountId, networkId, normalizedMarketAddress].join('|')
+      : null;
+  const [lastResolvedScope, setLastResolvedScope] = useState<string | null>(
+    null,
+  );
+  if (resolvedScope !== null && resolvedScope !== lastResolvedScope) {
+    setLastResolvedScope(resolvedScope);
+    if (lastResolvedScope !== null) {
       setExpandedKey(null);
     }
-  }, [accountId, networkId, normalizedMarketAddress]);
+  }
 
   const labels = useMemo(
     () => ({

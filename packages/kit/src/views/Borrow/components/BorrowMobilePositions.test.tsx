@@ -205,31 +205,40 @@ jest.mock('./BorrowPositionCard', () => ({
     onToggleExpand,
     collateral,
     actions,
-  }: import('./BorrowPositionCard').IBorrowPositionCardProps) => (
-    <div>
-      <button
-        type="button"
-        aria-label={testID}
-        data-testid={testID}
-        data-expanded={isExpanded ? 'true' : 'false'}
-        onClick={onToggleExpand}
-      />
-      <div data-testid={`${testID ?? ''}-collateral`}>{collateral}</div>
-      {isExpanded
-        ? actions.map((action) => (
-            <button
-              key={action.key}
-              type="button"
-              data-testid={action.testID}
-              disabled={action.disabled}
-              onClick={action.onPress}
-            >
-              {action.label}
-            </button>
-          ))
-        : null}
-    </div>
-  ),
+  }: import('./BorrowPositionCard').IBorrowPositionCardProps) => {
+    // Every render, not just the last. A correction that lands in an effect
+    // leaves the same final state as one that never renders wrong, so the
+    // sequence is the only place the difference shows up.
+    (
+      ((globalThis as Record<string, unknown>).__expansionRenders ??=
+        []) as string[]
+    ).push(`${testID ?? ''}=${isExpanded ? 'true' : 'false'}`);
+    return (
+      <div>
+        <button
+          type="button"
+          aria-label={testID}
+          data-testid={testID}
+          data-expanded={isExpanded ? 'true' : 'false'}
+          onClick={onToggleExpand}
+        />
+        <div data-testid={`${testID ?? ''}-collateral`}>{collateral}</div>
+        {isExpanded
+          ? actions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                data-testid={action.testID}
+                disabled={action.disabled}
+                onClick={action.onPress}
+              >
+                {action.label}
+              </button>
+            ))
+          : null}
+      </div>
+    );
+  },
 }));
 
 import { fireEvent, render } from '@testing-library/react';
@@ -610,6 +619,27 @@ describe('BorrowMobilePositions expand bookkeeping', () => {
     rerender(<BorrowMobilePositions />);
 
     expect(getByTestId(positionId).getAttribute('data-expanded')).toBe('true');
+  });
+
+  // The key names the position alone, so the same asset under the next account
+  // matches whatever key is open. Correcting that after the fact would still
+  // put one expanded frame on screen, under a scope the user already left.
+  it('never renders the next scope expanded, not even for one frame', () => {
+    const { getByTestId, rerender } = render(<BorrowMobilePositions />);
+    const positionId = cardId('supplied', '0xAaa');
+
+    fireEvent.click(getByTestId(positionId));
+    (globalThis as Record<string, unknown>).__expansionRenders = [];
+
+    // Same reserve, next account: identical position key.
+    scope.accountId = 'account-2';
+    rerender(<BorrowMobilePositions />);
+
+    const renders = (
+      (globalThis as Record<string, unknown>).__expansionRenders as string[]
+    ).filter((entry) => entry.startsWith(`${positionId}=`));
+    expect(renders.length).toBeGreaterThan(0);
+    expect(renders).not.toContain(`${positionId}=true`);
   });
 
   it('keeps the open card open when the indexer changes address casing', () => {
