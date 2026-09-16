@@ -1304,12 +1304,15 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
       });
     });
 
+  const isCalibrated = (tab) =>
+    typeof tab.pagerIndex === 'number' && tab.pagerIndex >= 0;
+
   const gotoTab = async (tab, settleMs = 1600) => {
     await page.click(`[data-testid="${tab.testId}"]`, { force: true });
     await sleep(settleMs);
-    if (typeof tab.pagerIndex !== 'number' || tab.pagerIndex < 0) {
-      return true;
-    }
+    // Without a proven pager index there is nothing to verify against, so the
+    // switch is unproven — never report it as a success.
+    if (!isCalibrated(tab)) return false;
     // A click that silently does nothing, or a pager transition that stalls,
     // would otherwise leave the previous page on screen while the sample is
     // recorded under the requested tab's name.
@@ -1338,9 +1341,8 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
     const wrongTab =
       !switched ||
       (expectedTab &&
-        typeof expectedTab.pagerIndex === 'number' &&
-        expectedTab.pagerIndex >= 0 &&
-        m.focusedIndex !== expectedTab.pagerIndex);
+        (!isCalibrated(expectedTab) ||
+          m.focusedIndex !== expectedTab.pagerIndex));
     samples.push({ label, ...m, wrongTab: Boolean(wrongTab) });
     const wrongTabNote = wrongTab
       ? ` WRONG TAB (focusedIndex=${m.focusedIndex})`
@@ -1353,20 +1355,57 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
     return m;
   };
 
-  // Phase 1 — each tab on its own, scrolled to the bottom. Also calibrates
-  // each tab's pager index for the switch assertions in phase 2.
-  for (const tab of available) {
-    await gotoTab(tab, 2200);
-    const m = await sample(`rest ${tab.name}`);
-    if (m && m.focusedIndex >= 0) {
-      tab.pagerIndex = m.focusedIndex;
+  // Calibration — learn each tab's pager index, and only trust it once the
+  // click is PROVEN to have moved the pager. The learned index is the anchor
+  // for every switch assertion below, so a stalled click accepted here would
+  // quietly bless every later sample of that tab.
+  //
+  // Stepping onto a different tab first makes the click on the target an
+  // observable move regardless of which tab the app started on. A tab whose
+  // click leaves the pager where it was (e.g. a tab bar entry that navigates to
+  // another route instead of a pager page) or lands on an index another tab
+  // already owns is excluded, and reported as a failure of the switch gate.
+  const calibrationFailures = [];
+  for (let i = 0; i < available.length; i += 1) {
+    const tab = available[i];
+    const stepOff = available[(i + 1) % available.length];
+    await page.click(`[data-testid="${stepOff.testId}"]`, { force: true });
+    await sleep(1200);
+    const before = await readFocusedIndex();
+    await page.click(`[data-testid="${tab.testId}"]`, { force: true });
+    await sleep(2200);
+    const after = await readFocusedIndex();
+    const owner = available.find((t) => t !== tab && t.pagerIndex === after);
+    let reason = '';
+    if (after < 0) reason = 'no pager page on screen';
+    else if (after === before)
+      reason = `pager did not move (stayed at ${after})`;
+    else if (owner) reason = `index ${after} already owned by ${owner.name}`;
+    if (reason) {
+      calibrationFailures.push({ name: tab.name, reason });
+      log(`calibrate ${tab.name}: ${reason}; excluded from the tab matrix`);
+    } else {
+      tab.pagerIndex = after;
+      log(`calibrate ${tab.name}: pager index ${after}`);
     }
+  }
+  const calibrated = available.filter(isCalibrated);
+  if (calibrated.length < 2) {
+    throw new Error(
+      `Only ${calibrated.length} tab(s) calibrated; cannot run a switch matrix.`,
+    );
+  }
+
+  // Phase 1 — each tab on its own, scrolled to the bottom.
+  for (const tab of calibrated) {
+    const reached = await gotoTab(tab, 2200);
+    await sample(`rest ${tab.name}`, tab, reached);
   }
 
   // Phase 2 — every ordered pair, leaving the source scrolled to its bottom.
   // That is the state that produced the original report.
-  for (const from of available) {
-    for (const to of available.filter((t) => t.testId !== from.testId)) {
+  for (const from of calibrated) {
+    for (const to of calibrated.filter((t) => t.testId !== from.testId)) {
       const reachedSource = await gotoTab(from);
       await scrollToBottom();
       await sleep(600);
@@ -1378,15 +1417,21 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
   // Phase 3 — DeFi's nested protocol strip. Its inner chips re-anchor scroll
   // and its Show more/less toggle grows AND shrinks the tab in place, which is
   // the height transition most likely to strand dead space.
-  const defi = available.find((t) => t.testId === 'home-tab-defi');
+  // Every sample here names `defi` as the expected tab: the grow/shrink, chip
+  // and round-trip samples are exactly the transitions most likely to strand
+  // dead space, so they must not be exempt from the switch verification.
+  const defi = calibrated.find((t) => t.testId === 'home-tab-defi');
+  if (!defi && available.some((t) => t.testId === 'home-tab-defi')) {
+    log('defi is present but not calibrated; skipping phase 3');
+  }
   if (defi) {
-    await gotoTab(defi, 3000);
+    const enteredDefi = await gotoTab(defi, 3000);
     await page
       .locator('[data-testid="home-defi-tab-content"]:visible')
       .first()
       .waitFor({ state: 'visible', timeout: 30_000 })
       .catch(() => log('defi content did not become visible; sampling anyway'));
-    await sample('defi cold enter');
+    await sample('defi cold enter', defi, enteredDefi);
 
     const toggle = page
       .locator('[data-testid="home-render-content-btn"]:visible')
@@ -1394,14 +1439,14 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
     if ((await toggle.count()) > 0) {
       await toggle.click({ force: true });
       await sleep(1600);
-      await sample('defi show more (grow)');
+      await sample('defi show more (grow)', defi);
       const toggleBack = page
         .locator('[data-testid="home-render-content-btn"]:visible')
         .first();
       if ((await toggleBack.count()) > 0) {
         await toggleBack.click({ force: true });
         await sleep(1600);
-        await sample('defi show less (shrink)');
+        await sample('defi show less (shrink)', defi);
       }
     } else {
       log('defi show more/less toggle not present; skipping grow/shrink');
@@ -1413,13 +1458,18 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
       '[data-testid="home-defi-tab-content"] [role="button"]',
     );
     const chipCount = Math.min(await chips.count(), 4);
+    let chipsSampled = 0;
     for (let i = 0; i < chipCount; i += 1) {
       const chip = chips.nth(i);
       if (await chip.isVisible().catch(() => false)) {
         await chip.click({ force: true }).catch(() => {});
         await sleep(900);
-        await sample(`defi inner chip ${i + 1}`);
+        await sample(`defi inner chip ${i + 1}`, defi);
+        chipsSampled += 1;
       }
+    }
+    if (chipsSampled === 0) {
+      log('defi inner chips not visible; skipping chip samples');
     }
 
     // HomeTestIDs.defiProtocolChipScrollBtn('right') in
@@ -1439,13 +1489,15 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
       log('defi chip strip arrow not present; skipping that sample');
     }
 
-    // Round trip back into DeFi with its inner state already dirty.
-    const other = available.find((t) => t.testId !== defi.testId);
-    await gotoTab(other);
+    // Round trip back into DeFi with its inner state already dirty. This is an
+    // `other -> DeFi` switch with the source at its bottom — the same state
+    // phase 2 guards — so both legs must be proven.
+    const other = calibrated.find((t) => t.testId !== defi.testId);
+    const left = await gotoTab(other);
     await scrollToBottom();
     await sleep(600);
-    await gotoTab(defi, 2500);
-    await sample(`defi round trip via ${other.name}`);
+    const back = await gotoTab(defi, 2500);
+    await sample(`defi round trip via ${other.name}`, defi, left && back);
   }
 
   await page
@@ -1513,13 +1565,18 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
           .join(', ') || `${samples.length} samples`,
     },
     {
-      name: 'every sample measured the requested tab',
-      pass: wrongTab.length === 0,
+      // A tab that could not be calibrated has no proven samples at all; that
+      // is missing coverage and must fail rather than drop out unnoticed.
+      name: 'every tab calibrated and every sample measured the requested tab',
+      pass: wrongTab.length === 0 && calibrationFailures.length === 0,
       detail:
-        wrongTab
+        [
+          ...calibrationFailures.map((f) => `calibrate ${f.name}: ${f.reason}`),
+          ...wrongTab.map((s) => `${s.label}(focusedIndex=${s.focusedIndex})`),
+        ]
           .slice(0, 6)
-          .map((s) => `${s.label}(focusedIndex=${s.focusedIndex})`)
-          .join(', ') || `${samples.length} samples`,
+          .join(', ') ||
+        `${calibrated.length} tabs calibrated, ${samples.length} samples`,
     },
     {
       name: 'every sample readable',
