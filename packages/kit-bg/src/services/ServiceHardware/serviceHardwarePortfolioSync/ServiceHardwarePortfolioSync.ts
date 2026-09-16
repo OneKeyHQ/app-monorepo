@@ -99,6 +99,10 @@ type IPortfolioServerSubmitResult = NonNullable<
   IPortfolioSyncLastResult['serverSubmit']
 >;
 
+type IPortfolioCategoryFiatResult = IPortfolioCategoryFiat & {
+  deFiSource?: 'live' | 'cache' | 'empty' | 'unknown';
+};
+
 export type IPortfolioSyncMode = 'interactive' | 'silent';
 
 type IPortfolioSyncExecutionOptions = {
@@ -117,6 +121,7 @@ type IPortfolioSyncTelemetry = {
   cancelled?: boolean;
   failureStage?: IPortfolioSyncFailureStage;
   firmwareVersion?: string;
+  deFiSource?: 'live' | 'cache' | 'empty' | 'unknown';
   queueDurationMs?: number;
   unlockDurationMs?: number;
   hardwareDurationMs?: number;
@@ -277,6 +282,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         elapsedMs: Math.max(Date.now() - telemetry.syncStartedAt, 0),
         schemaVersion: telemetry.schemaVersion,
         firmwareVersion: telemetry.firmwareVersion,
+        deFiSource: telemetry.deFiSource,
         queueDurationMs: telemetry.queueDurationMs,
         unlockDurationMs: telemetry.unlockDurationMs,
         packDurationMs: telemetry.packDurationMs,
@@ -388,7 +394,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     string,
     {
       expiresAt: number;
-      value: IPortfolioCategoryFiat;
+      value: IPortfolioCategoryFiatResult;
     }
   >();
 
@@ -1866,6 +1872,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           ...(telemetry.firmwareVersion
             ? { firmwareVersion: telemetry.firmwareVersion }
             : {}),
+          ...(telemetry.deFiSource ? { deFiSource: telemetry.deFiSource } : {}),
           syncDurationMs,
           ...(telemetry.packDurationMs !== undefined
             ? { packDurationMs: telemetry.packDurationMs }
@@ -2038,7 +2045,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private readCategoryFiatCache(
     cacheKey: string,
     now = Date.now(),
-  ): IPortfolioCategoryFiat | undefined {
+  ): IPortfolioCategoryFiatResult | undefined {
     for (const [key, entry] of this.categoryFiatCacheByKey) {
       if (entry.expiresAt <= now) {
         this.categoryFiatCacheByKey.delete(key);
@@ -2052,7 +2059,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     eventPayload: IPortfolioSyncSettledPayload,
     signal?: AbortSignal,
     cacheKey?: string,
-  ): Promise<IPortfolioCategoryFiat> {
+  ): Promise<IPortfolioCategoryFiatResult> {
     if (cacheKey) {
       const cached = this.readCategoryFiatCache(cacheKey);
       if (cached) {
@@ -2098,9 +2105,24 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           perpConfigLoaded === true && perpConfigCommon?.disablePerp === true,
       });
 
-      const fetchDeFi = async (): Promise<string | undefined> => {
+      const fetchCachedDeFi = async (): Promise<string | undefined> => {
+        const { netWorth, hasCache } =
+          await this.backgroundApi.serviceDeFi.getAccountTotalDeFiNetWorth({
+            accountId,
+            networkId,
+            targetCurrency: 'usd',
+            enabledNetworkIds: Object.keys(
+              allNetworksState.enabledNetworks ?? {},
+            ).filter((id) => allNetworksState.enabledNetworks[id]),
+          });
+        return hasCache ? netWorth : undefined;
+      };
+      const fetchDeFi = async (): Promise<{
+        source: 'live' | 'cache' | 'empty' | 'unknown';
+        value: string | undefined;
+      }> => {
         if (!support.isDeFiSupported) {
-          return '0';
+          return { source: 'empty', value: '0' };
         }
         const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
         const deriveType = isAllNetwork
@@ -2109,7 +2131,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               { networkId },
             );
         if (!isAllNetwork && !deriveType) {
-          return '0';
+          return { source: 'empty', value: '0' };
         }
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
@@ -2122,12 +2144,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             excludeTestNetwork: true,
           });
         if (!accountsInfo.length) {
-          return '0';
+          return { source: 'empty', value: '0' };
         }
         const client = await this.getClient(EServiceEndpointEnum.Wallet);
         let total = new BigNumber(0);
-        // Read fresh, unfiltered totals. The local DeFi cache can be partial
-        // and has no timestamp, so it cannot establish a complete valuation.
+        let completeCount = 0;
         const accounts = uniqBy(
           accountsInfo,
           (account) => `${account.networkId}:${account.apiAddress}`,
@@ -2135,46 +2156,59 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         for (const batch of chunk(accounts, 4)) {
           const values = await Promise.all(
             batch.map(async (account) => {
-              const response = await client.post<{
-                data: IFetchAccountDeFiPositionsResp;
-              }>(
-                '/wallet/v1/portfolio/positions',
-                {
-                  networkId: account.networkId,
-                  accountAddress: account.apiAddress,
-                },
-                {
-                  signal,
-                  headers: {
-                    ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-                      {
-                        accountId: account.accountId,
-                      },
-                    )),
-                    'x-onekey-request-currency': 'usd',
+              try {
+                const response = await client.post<{
+                  data: IFetchAccountDeFiPositionsResp;
+                }>(
+                  '/wallet/v1/portfolio/positions',
+                  {
+                    networkId: account.networkId,
+                    accountAddress: account.apiAddress,
                   },
-                },
-              );
-              const result = response.data?.data;
-              const value = new BigNumber(
-                result?.data?.totals?.netWorth ?? NaN,
-              );
-              if (
-                !result?.success ||
-                result.meta?.degraded !== false ||
-                !result.meta.networkIds.includes(account.networkId) ||
-                !value.isFinite()
-              ) {
-                throw new OneKeyLocalError(
-                  'Incomplete Portfolio DeFi valuation',
+                  {
+                    signal,
+                    headers: {
+                      ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+                        {
+                          accountId: account.accountId,
+                        },
+                      )),
+                      'x-onekey-request-currency': 'usd',
+                    },
+                  },
                 );
+                const result = response.data?.data;
+                const value = new BigNumber(
+                  result?.data?.totals?.netWorth ?? NaN,
+                );
+                if (!result?.success || !value.isFinite()) {
+                  return undefined;
+                }
+                return value;
+              } catch {
+                return undefined;
               }
-              return value;
             }),
           );
-          total = total.plus(BigNumber.sum(...values));
+          const completeValues = values.filter(
+            (value): value is BigNumber => value !== undefined,
+          );
+          completeCount += completeValues.length;
+          if (completeValues.length) {
+            total = total.plus(BigNumber.sum(...completeValues));
+          }
         }
-        return total.toFixed();
+        if (completeCount > 0) {
+          return { source: 'live', value: total.toFixed() };
+        }
+        const cached = await fetchCachedDeFi();
+        if (cached !== undefined) {
+          debugPortfolioSyncLog('defi-cache-fallback', {
+            accountCount: accounts.length,
+          });
+          return { source: 'cache', value: cached };
+        }
+        return { source: 'unknown', value: undefined };
       };
       const fetchPerps = async (): Promise<string | undefined> => {
         if (!support.isPerpsSupported) {
@@ -2216,8 +2250,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         fetchDeFi(),
         fetchPerps(),
       ]);
+      const deFiResult = defi.status === 'fulfilled' ? defi.value : undefined;
       const value = {
-        defiFiat: defi.status === 'fulfilled' ? defi.value : undefined,
+        defiFiat: deFiResult?.value,
+        deFiSource: deFiResult?.source ?? 'unknown',
         perpsFiat: perps.status === 'fulfilled' ? perps.value : undefined,
       };
       if (cacheKey && !signal?.aborted) {
@@ -2956,7 +2992,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       telemetry.schemaVersion = schemaVersion;
       telemetry.firmwareVersion =
         device?.deviceStateInfo?.versions?.firmware ?? undefined;
-      const categoryFiat =
+      const categoryResult =
         schemaVersion === 2
           ? await this.getPortfolioCategoryFiat(
               eventPayload,
@@ -2964,6 +3000,13 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               this.getCategoryFiatCacheKey({ eventPayload, targetKey }),
             )
           : undefined;
+      telemetry.deFiSource = categoryResult?.deFiSource;
+      const categoryFiat = categoryResult
+        ? {
+            defiFiat: categoryResult.defiFiat,
+            perpsFiat: categoryResult.perpsFiat,
+          }
+        : undefined;
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
         return;
       }

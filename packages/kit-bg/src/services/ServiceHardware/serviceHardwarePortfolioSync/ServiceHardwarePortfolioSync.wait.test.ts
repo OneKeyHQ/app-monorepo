@@ -148,6 +148,10 @@ describe('Portfolio v2 category retrieval', () => {
       isReady: true,
       enabledNetworksMap: { 'evm--1': true },
     });
+    const getAccountTotalDeFiNetWorth = jest.fn().mockResolvedValue({
+      hasCache: false,
+      netWorth: '0',
+    });
     const getNetworkAccount = jest.fn().mockResolvedValue({
       address: '0x2222',
       addressDetail: { normalizedAddress: '0x3333' },
@@ -158,7 +162,10 @@ describe('Portfolio v2 category retrieval', () => {
     });
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {
-        serviceDeFi: { getDeFiEnabledNetworksMapState },
+        serviceDeFi: {
+          getDeFiEnabledNetworksMapState,
+          getAccountTotalDeFiNetWorth,
+        },
         serviceNetwork: {
           getAllNetworks: jest.fn().mockResolvedValue({
             networks: [{ id: 'evm--1', isTestnet: false }],
@@ -188,6 +195,7 @@ describe('Portfolio v2 category retrieval', () => {
       getAllNetworksState,
       getAllNetworkAccounts,
       getDeFiEnabledNetworksMapState,
+      getAccountTotalDeFiNetWorth,
       getNetworkAccount,
       getHyperliquidPortfolioSnapshot,
     };
@@ -197,7 +205,11 @@ describe('Portfolio v2 category retrieval', () => {
     const mocks = prepare();
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
-    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '30' });
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
     expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: 'account-1',
@@ -235,7 +247,11 @@ describe('Portfolio v2 category retrieval', () => {
         ...eventPayload,
         networkId: 'evm--1',
       }),
-    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '30' });
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
     expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
       expect.objectContaining({
         networkId: 'evm--1',
@@ -249,7 +265,11 @@ describe('Portfolio v2 category retrieval', () => {
     mocks.getAllNetworkAccounts.mockResolvedValue({ accountsInfo: [] });
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
-    ).resolves.toEqual({ defiFiat: '0', perpsFiat: '30' });
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'empty',
+      perpsFiat: '30',
+    });
     expect(mocks.post).not.toHaveBeenCalled();
   });
 
@@ -260,7 +280,11 @@ describe('Portfolio v2 category retrieval', () => {
     );
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
-    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '0' });
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '0',
+    });
     expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
   });
 
@@ -268,10 +292,18 @@ describe('Portfolio v2 category retrieval', () => {
     const mocks = prepare();
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
-    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '30' });
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
-    ).resolves.toEqual({ defiFiat: '20', perpsFiat: '30' });
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
     expect(mocks.post).toHaveBeenCalledTimes(1);
     expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(1);
   });
@@ -281,10 +313,66 @@ describe('Portfolio v2 category retrieval', () => {
     mocks.post.mockRejectedValue(new Error('unavailable'));
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
-    ).resolves.toEqual({ defiFiat: undefined, perpsFiat: '30' });
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
   });
 
-  test('rejects degraded results instead of reporting partial totals', async () => {
+  test('keeps a finite DeFi total when some networks are incomplete', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: { degraded: false, networkIds: ['evm--1'] },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+  });
+
+  test('falls back to the Home DeFi cache when live valuation is incomplete', async () => {
+    const mocks = prepare();
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'cache',
+      perpsFiat: '30',
+    });
+  });
+
+  test('uses a finite DeFi total even when the provider marks the result degraded', async () => {
     const mocks = prepare();
     mocks.post.mockResolvedValue({
       data: {
@@ -301,7 +389,11 @@ describe('Portfolio v2 category retrieval', () => {
     });
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
-    ).resolves.toEqual({ defiFiat: undefined, perpsFiat: undefined });
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
   });
 
   test('does not infer no assets while network support is still loading', async () => {
@@ -325,7 +417,11 @@ describe('Portfolio v2 category retrieval', () => {
     });
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
-    ).resolves.toEqual({ defiFiat: '0', perpsFiat: '0' });
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'empty',
+      perpsFiat: '0',
+    });
     expect(mocks.post).not.toHaveBeenCalled();
     expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
   });
