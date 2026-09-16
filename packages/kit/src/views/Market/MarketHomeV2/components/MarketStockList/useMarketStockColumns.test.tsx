@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
-import type { ReactElement } from 'react';
+import { isValidElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { renderHook } from '@testing-library/react';
 
@@ -22,6 +23,21 @@ jest.mock('react-intl', () => ({
     formatMessage: ({ id }: { id: string }) => MOCK_MESSAGES[id] ?? id,
   }),
 }));
+
+// The shared components mock is empty; the market badge reads `Badge.Text`
+// while the cell element is built, so it needs a real static member.
+jest.mock('@onekeyhq/components', () => {
+  function Badge() {
+    return null;
+  }
+  Badge.Text = function BadgeText() {
+    return null;
+  };
+  return {
+    ...jest.requireActual<Record<string, unknown>>('@onekeyhq/components'),
+    Badge,
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
@@ -58,6 +74,33 @@ const mockStock: IMarketStockPublicItem = {
   currency: 'USD',
   sparkline: [309, 310],
 };
+
+// Flattens the visible strings of a rendered cell, including the hover line's
+// `resting` and `revealed` slots, in document order.
+function collectText(node: ReactNode): string[] {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return [String(node)];
+  }
+  if (Array.isArray(node)) {
+    return node.flatMap((child: ReactNode) => collectText(child));
+  }
+  if (isValidElement(node)) {
+    const { children, resting, revealed } = node.props as {
+      children?: ReactNode;
+      resting?: ReactNode;
+      revealed?: ReactNode;
+    };
+    return [resting, revealed, children].flatMap((child) => collectText(child));
+  }
+  return [];
+}
+
+function renderCompanyText(
+  columns: ReturnType<typeof useMarketStockColumns>,
+  stock: IMarketStockPublicItem,
+) {
+  return collectText(columns[0]?.render?.(undefined, stock, 0) as ReactNode);
+}
 
 describe('useMarketStockColumns', () => {
   it.each([EWatchlistFrom.Homepage, EWatchlistFrom.Search])(
@@ -144,5 +187,59 @@ describe('useMarketStockColumns', () => {
     );
     expect(priceColumn?.titleProps).toBeUndefined();
     expect(priceValue.props.size).toBe('$bodyLgMedium');
+  });
+
+  describe('market tags', () => {
+    const hkStock: IMarketStockPublicItem = {
+      ...mockStock,
+      stockId: 'XIAO',
+      symbol: 'XIAO',
+      name: 'Xiaomi',
+      tags: ['HK'],
+    };
+
+    it('puts the market badge before the company name when enabled', () => {
+      const { result } = renderHook(() =>
+        useMarketStockColumns({ showMarketTags: true }),
+      );
+
+      expect(renderCompanyText(result.current, hkStock)).toEqual([
+        'XIAO',
+        'HK',
+        'Xiaomi',
+      ]);
+    });
+
+    it('keeps the badge on the resting line so it slides away on hover', () => {
+      const { result } = renderHook(() =>
+        useMarketStockColumns({ showMarketTags: true }),
+      );
+
+      expect(
+        renderCompanyText(result.current, {
+          ...hkStock,
+          variants: [{ tokenId: 'xiao-token', issuer: 'xstock' }],
+        }),
+      ).toEqual(['XIAO', 'HK', 'Xiaomi', 'market.number_tokens']);
+    });
+
+    it('hides the badge on surfaces that do not opt in', () => {
+      const { result } = renderHook(() => useMarketStockColumns());
+
+      expect(renderCompanyText(result.current, hkStock)).toEqual([
+        'XIAO',
+        'Xiaomi',
+      ]);
+    });
+
+    it('shows only the company name when the feed sends no tags', () => {
+      const { result } = renderHook(() =>
+        useMarketStockColumns({ showMarketTags: true }),
+      );
+
+      expect(
+        renderCompanyText(result.current, { ...hkStock, tags: [] }),
+      ).toEqual(['XIAO', 'Xiaomi']);
+    });
   });
 });

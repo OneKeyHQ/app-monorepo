@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Icon,
   NumberSizeableText,
   SizableText,
@@ -95,10 +96,65 @@ function MissingValue({
   );
 }
 
+// The company name line, led by the listing market badges when requested.
+// Badges share the line so they slide away with the name on hover.
+function renderCompanySubtitle({
+  record,
+  compact,
+  showMarketTags,
+}: {
+  record: IMarketStockPublicItem;
+  compact: boolean;
+  showMarketTags: boolean;
+}) {
+  const marketTags = showMarketTags ? (record.tags?.filter(Boolean) ?? []) : [];
+  const companyName = (
+    <SizableText
+      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
+      color="$textSubdued"
+      numberOfLines={1}
+      ellipsizeMode="tail"
+      flexShrink={marketTags.length ? 1 : undefined}
+    >
+      {record.name}
+    </SizableText>
+  );
+  if (!marketTags.length) {
+    return companyName;
+  }
+  return (
+    <XStack
+      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      alignItems="center"
+      gap="$1"
+      minWidth={0}
+    >
+      {marketTags.map((tag) => (
+        <Badge
+          key={tag}
+          badgeType="default"
+          badgeSize="sm"
+          px="$1"
+          py="$0.5"
+          flexShrink={0}
+        >
+          {/* The design sets 11/12, tighter than the token's 14 line height. */}
+          <Badge.Text size="$bodyXs" lineHeight={12}>
+            {tag}
+          </Badge.Text>
+        </Badge>
+      ))}
+      {companyName}
+    </XStack>
+  );
+}
+
 export function useMarketStockColumns({
   compact = false,
   showSparkline = true,
   showWatchlist = false,
+  showMarketTags = false,
   watchlistFrom = EWatchlistFrom.Homepage,
 }: {
   /** Use the selector layout with a wider company column and denser rows. */
@@ -106,6 +162,8 @@ export function useMarketStockColumns({
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
   showWatchlist?: boolean;
+  /** Show the listing market badges (US / HK) before the company name. */
+  showMarketTags?: boolean;
   watchlistFrom?: EWatchlistFrom;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
   const intl = useIntl();
@@ -180,17 +238,11 @@ export function useMarketStockColumns({
                 </SizableText>
                 <MarketHoverRevealLine
                   lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
-                  resting={
-                    <SizableText
-                      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
-                      size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {record.name}
-                    </SizableText>
-                  }
+                  resting={renderCompanySubtitle({
+                    record,
+                    compact,
+                    showMarketTags,
+                  })}
                   revealed={
                     record.variants?.length && !compact ? (
                       <XStack
@@ -354,5 +406,12 @@ export function useMarketStockColumns({
       });
     }
     return columns;
-  }, [compact, intl, showSparkline, showWatchlist, watchlistFrom]);
+  }, [
+    compact,
+    intl,
+    showMarketTags,
+    showSparkline,
+    showWatchlist,
+    watchlistFrom,
+  ]);
 }

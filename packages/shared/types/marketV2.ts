@@ -805,6 +805,8 @@ export interface IMarketStockPublicItem {
   name: string;
   logoUrl: string;
   assetType: IMarketStockAssetType;
+  // Listing market labels from the stock list feed, e.g. `['US']` or `['HK']`.
+  tags?: string[];
   price?: string;
   priceChange24hPercent?: string;
   marketCap?: string;
