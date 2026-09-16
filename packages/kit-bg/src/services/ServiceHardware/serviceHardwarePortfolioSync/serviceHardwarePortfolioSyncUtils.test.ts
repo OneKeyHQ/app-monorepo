@@ -230,7 +230,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     expect(portfolio).toMatchObject({
       account: {
         addressMasked: 'Account #1',
-        label: 'Account #1',
+        label: '1',
       },
       otherTokens: {
         count: 5,
@@ -346,7 +346,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
 
     expect(artifacts.portfolio.account).toEqual({
       addressMasked: 'Account #3',
-      label: 'Custom Account',
+      label: '3',
     });
   });
 

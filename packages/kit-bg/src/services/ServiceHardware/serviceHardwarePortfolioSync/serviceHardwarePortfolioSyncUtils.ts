@@ -82,7 +82,6 @@ export function getPortfolioSyncCooldownRemainingMs({
 
 function buildPortfolioAccountFromEventPayload(
   eventPayload: IPortfolioSyncSettledPayload,
-  schemaVersion: 1 | 2,
 ): IPortfolioPayload['account'] {
   const accountIdentifier =
     typeof eventPayload.indexedAccountIndex === 'number'
@@ -94,7 +93,6 @@ function buildPortfolioAccountFromEventPayload(
   return {
     addressMasked: accountIdentifier,
     label:
-      schemaVersion === 2 &&
       typeof eventPayload.indexedAccountIndex === 'number'
         ? String(eventPayload.indexedAccountIndex + 1)
         : eventPayload.indexedAccountName ||
@@ -122,7 +120,7 @@ export function buildPortfolioSyncArtifacts({
   timestamp: number;
 }): IPortfolioSyncArtifacts {
   const portfolioPayloadParams = {
-    account: buildPortfolioAccountFromEventPayload(eventPayload, schemaVersion),
+    account: buildPortfolioAccountFromEventPayload(eventPayload),
     aggregateTokenMap: eventPayload.aggregateTokenMap,
     categoryFiat,
     currencyMap,
