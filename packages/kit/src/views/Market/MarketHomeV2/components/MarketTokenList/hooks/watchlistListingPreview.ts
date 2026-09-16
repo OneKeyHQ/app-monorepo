@@ -40,6 +40,18 @@ export function rememberWatchlistListingPreview(
   listingPreviews.set(getMarketWatchlistKey(item), next);
 }
 
+/** Keep the star-time preview current so a later failed poll does not regress. */
+export function syncWatchlistListingPreviewFromQuote(
+  item: IWatchlistListingIdentity,
+  quote: Pick<IMarketListingWatchlistQuote, 'name' | 'symbol' | 'logoUrl'>,
+) {
+  rememberWatchlistListingPreview(item, {
+    name: quote.name,
+    symbol: quote.symbol,
+    logoUrl: quote.logoUrl || '',
+  });
+}
+
 export function getWatchlistListingPreview(
   item: IWatchlistListingIdentity,
 ): IWatchlistListingPreview | undefined {

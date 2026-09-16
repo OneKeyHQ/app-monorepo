@@ -415,6 +415,45 @@ it('emits a native pending row for a newly starred favorite while quotes stay lo
     isPendingWatchlistRow: true,
   });
 });
+it('emits a native pending row for the first favorite after an empty quote settle', async () => {
+  (platformEnv as { isNative: boolean }).isNative = true;
+  mockBatch.mockResolvedValueOnce({ list: [] });
+  const { rerender, result } = renderHook(
+    ({
+      watchlist,
+    }: {
+      watchlist: Array<{
+        chainId: string;
+        contractAddress: string;
+        isNative: boolean;
+      }>;
+    }) =>
+      useMarketWatchlistTokenList({
+        watchlist,
+        isWatchlistMounted: true,
+        pollingInterval: 0,
+      }),
+    {
+      initialProps: { watchlist: [] },
+    },
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  mockBatch.mockImplementationOnce(() => new Promise(() => undefined));
+  rerender({
+    watchlist: [
+      {
+        chainId: 'evm--1',
+        contractAddress: '0xnew',
+        isNative: false,
+      },
+    ],
+  });
+  await waitFor(() => expect(result.current.data).toHaveLength(1));
+  expect(result.current.data[0]).toMatchObject({
+    address: '0xnew',
+    isPendingWatchlistRow: true,
+  });
+});
 it('keeps a starred stock logo before the batch quote arrives', async () => {
   rememberWatchlistListingPreview(
     { stockId: 'AAPL', chainId: '', contractAddress: '' },

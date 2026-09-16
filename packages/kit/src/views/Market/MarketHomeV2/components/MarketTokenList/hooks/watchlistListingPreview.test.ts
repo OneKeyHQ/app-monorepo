@@ -3,6 +3,7 @@ import {
   forgetWatchlistListingPreview,
   rememberWatchlistListingPreview,
   resolveListingWatchlistDisplay,
+  syncWatchlistListingPreviewFromQuote,
 } from './watchlistListingPreview';
 
 const aapl = { stockId: 'AAPL', chainId: '', contractAddress: '' };
@@ -75,6 +76,30 @@ describe('watchlistListingPreview', () => {
       name: 'Apple Inc.',
       symbol: 'AAPL',
       tokenImageUri: '',
+      stockVariants: undefined,
+    });
+  });
+
+  it('keeps the last successful quote logo when a later poll has no quote', () => {
+    rememberWatchlistListingPreview(aapl, {
+      logoUrl: 'https://example.com/search.png',
+      name: 'Apple',
+      symbol: 'AAPL',
+    });
+    syncWatchlistListingPreviewFromQuote(aapl, {
+      name: 'Apple Inc.',
+      symbol: 'AAPL',
+      logoUrl: 'https://example.com/quote.png',
+    });
+
+    expect(
+      resolveListingWatchlistDisplay({
+        watchlistItem: aapl,
+      }),
+    ).toEqual({
+      name: 'Apple Inc.',
+      symbol: 'AAPL',
+      tokenImageUri: 'https://example.com/quote.png',
       stockVariants: undefined,
     });
   });

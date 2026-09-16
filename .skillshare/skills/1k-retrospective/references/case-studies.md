@@ -521,3 +521,45 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
 **Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
 **Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
+
+## Case: Known-absent watchlist favorites flickered blank rows on every poll
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Favorites omitted from the batch response appeared and disappeared as blank pending rows on each polling cycle.
+**Root Cause**: `hasQuotesInFlight` used `apiLoading`, which toggles on every poll, and the pending gate no longer distinguished "not yet queried" from "queried and absent".
+**Fix**: Track identities covered by the last settled request and only emit pending rows for `isIdentityUnqueried` identities while quotes are in flight.
+**Catchable by**: Section 5: stale result vs in-flight re-run; NEW — in-flight gates must not treat known-absent identities as pending on refresh
+
+## Case: First favorite after an empty settle stayed skeletal
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Starring the first token after an empty successful quote left Favorites on skeleton until the covering request finished.
+**Root Cause**: `hasCachedRows` required a non-empty prior payload, so an empty settled list blocked pending emission for the new identity.
+**Fix**: Replace `hasCachedRows` with `isIdentityUnqueried` so an empty prior settle still allows pending rows for newly added identities.
+**Catchable by**: Section 4: empty vs first-item transition; NEW — empty successful payloads must not block first-paint identity rows
+
+## Case: Failed stock poll restored the star-time search logo
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: After a successful quote showed a newer logo, a later failed poll fell back to the original search preview logo.
+**Root Cause**: `listingPreviews` kept the star-time identity and `resolveListingWatchlistDisplay` used it whenever `quote` was missing.
+**Fix**: Sync the preview from each successful listing quote so failed polls fall back to the last good display.
+**Catchable by**: Section 4: empty/missing quote vs last-known display; NEW — star-time previews must be refreshed by successful quotes
+
+## Case: Known-absent watchlist favorites flickered blank rows on every poll
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Favorites omitted from the batch response appeared and disappeared as blank pending rows on each polling cycle.
+**Root Cause**: `hasQuotesInFlight` used `apiLoading`, which toggles on every poll, and the pending gate no longer distinguished "not yet queried" from "queried and absent".
+**Fix**: Track identities covered by the last settled request and only emit pending rows for `isIdentityUnqueried` identities while quotes are in flight.
+**Catchable by**: Section 5: stale result vs in-flight re-run; NEW — in-flight gates must not treat known-absent identities as pending on refresh
+
+## Case: First favorite after an empty settle stayed skeletal
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Starring the first token after an empty successful quote left Favorites on skeleton until the covering request finished.
+**Root Cause**: `hasCachedRows` required a non-empty prior payload, so an empty settled list blocked pending emission for the new identity.
+**Fix**: Replace `hasCachedRows` with `isIdentityUnqueried` so an empty prior settle still allows pending rows for newly added identities.
+**Catchable by**: Section 4: empty vs first-item transition; NEW — empty successful payloads must not block first-paint identity rows
+
+## Case: Failed stock poll restored the star-time search logo
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: After a successful quote showed a newer logo, a later failed poll fell back to the original search preview logo.
+**Root Cause**: `listingPreviews` kept the star-time identity and `resolveListingWatchlistDisplay` used it whenever `quote` was missing.
+**Fix**: Sync the preview from each successful listing quote so failed polls fall back to the last good display.
+**Catchable by**: Section 4: empty/missing quote vs last-known display; NEW — star-time previews must be refreshed by successful quotes

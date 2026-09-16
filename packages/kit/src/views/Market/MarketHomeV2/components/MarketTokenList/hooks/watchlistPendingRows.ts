@@ -29,13 +29,13 @@ export function shouldEmitNativePendingWatchlistRow({
   hasQuotesInFlight,
   hasQuotePayload,
   quotesFailed,
-  hasCachedRows,
+  isIdentityUnqueried,
 }: {
   isNative: boolean;
   hasQuotesInFlight: boolean;
   hasQuotePayload: boolean;
   quotesFailed: boolean;
-  hasCachedRows: boolean;
+  isIdentityUnqueried: boolean;
 }): boolean {
   if (!isNative || quotesFailed || !hasQuotesInFlight) {
     return false;
@@ -43,7 +43,9 @@ export function shouldEmitNativePendingWatchlistRow({
   if (!hasQuotePayload) {
     return true;
   }
-  return hasCachedRows;
+  // A settled payload that already covered this identity means the backend
+  // omitted it. Do not revive a blank pending row on every poll refresh.
+  return isIdentityUnqueried;
 }
 
 export function buildPendingSpotWatchlistToken(
