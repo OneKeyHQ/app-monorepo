@@ -51,6 +51,7 @@ import {
   isSwapHistoryProtocolExcluded,
   isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { runSwapPreviewTask } from '@onekeyhq/shared/src/utils/swapPreviewTask';
 import {
   getDenyBridgeProviderString,
   getDenySwapProviderString,
@@ -1409,6 +1410,22 @@ export default class ServiceSwap extends ServiceBase {
       fromNetworkId,
       toNetworkId,
     });
+  }
+
+  @backgroundMethod()
+  async prepareReviewUnsignedTx(
+    params: Parameters<
+      ServiceSwap['backgroundApi']['serviceSend']['prepareSendConfirmUnsignedTx']
+    >[0],
+  ) {
+    return runSwapPreviewTask(() =>
+      this.backgroundApi.serviceSend.prepareSendConfirmUnsignedTx(params),
+    );
+  }
+
+  @backgroundMethod()
+  async preloadBuildTx(params: Parameters<ServiceSwap['fetchBuildTx']>[0]) {
+    return runSwapPreviewTask(() => this.fetchBuildTx(params));
   }
 
   @backgroundMethod()
@@ -3198,6 +3215,13 @@ export default class ServiceSwap extends ServiceBase {
       toTokenBaseInfo,
       isExit,
     );
+  }
+
+  @backgroundMethod()
+  async buildSwapPreviewOkxEncodedTx(
+    params: Parameters<ServiceSwap['buildOkxSwapEncodedTx']>[0],
+  ) {
+    return runSwapPreviewTask(() => this.buildOkxSwapEncodedTx(params));
   }
 
   @backgroundMethod()

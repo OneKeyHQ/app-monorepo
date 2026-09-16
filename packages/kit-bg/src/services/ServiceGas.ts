@@ -8,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { runSwapPreviewTask } from '@onekeyhq/shared/src/utils/swapPreviewTask';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBatchEstimateFeeParams,
@@ -39,9 +40,26 @@ class ServiceGas extends ServiceBase {
   }
 
   @backgroundMethod()
+  async estimateSwapPreviewFee(params: IEstimateGasParams) {
+    return runSwapPreviewTask(() => this.estimateFeeInternal(params));
+  }
+
+  @backgroundMethod()
+  async batchEstimateSwapPreviewFee(params: IBatchEstimateFeeParams) {
+    return runSwapPreviewTask(() => this.batchEstimateFeeInternal(params));
+  }
+
+  @backgroundMethod()
   async batchEstimateFee(params: IBatchEstimateFeeParams) {
-    const controller = new AbortController();
-    this._estimateFeeController = controller;
+    return this.batchEstimateFeeInternal(params, new AbortController());
+  }
+
+  private async batchEstimateFeeInternal(
+    params: IBatchEstimateFeeParams,
+    controller?: AbortController,
+  ) {
+    // Preview completion is owned by Swap, independently of the active Send.
+    if (controller) this._estimateFeeController = controller;
 
     const { accountId, networkId, encodedTxs } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -53,7 +71,7 @@ class ServiceGas extends ServiceBase {
         encodedTxList: encodedTxs,
       },
       {
-        signal: controller.signal,
+        signal: controller?.signal,
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
             accountId,
@@ -61,7 +79,7 @@ class ServiceGas extends ServiceBase {
       },
     );
 
-    this._estimateFeeController = null;
+    if (controller) this._estimateFeeController = null;
 
     const feeInfo = resp.data.data;
 
@@ -82,9 +100,15 @@ class ServiceGas extends ServiceBase {
 
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
+    return this.estimateFeeInternal(params, new AbortController());
+  }
+
+  private async estimateFeeInternal(
+    params: IEstimateGasParams,
+    controller?: AbortController,
+  ) {
     const { transfersInfo, ...rest } = params;
-    const controller = new AbortController();
-    this._estimateFeeController = controller;
+    if (controller) this._estimateFeeController = controller;
 
     // Global Gas Account opt-out driven by user setting (Settings → Wallet →
     // "Use Gas Account by default"). When the user turns it off, force every
@@ -102,7 +126,7 @@ class ServiceGas extends ServiceBase {
     });
     const resp = await vault.estimateFee(rest);
 
-    this._estimateFeeController = null;
+    if (controller) this._estimateFeeController = null;
 
     const feeInfo = resp.data.data;
 

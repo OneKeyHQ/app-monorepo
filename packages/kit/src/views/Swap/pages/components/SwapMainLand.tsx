@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { findFocusedRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -21,11 +22,12 @@ import {
   Page,
   Toast,
   YStack,
+  rootNavigationRef,
   useInModalDialog,
   useInTabDialog,
   useMedia,
+  useOnRouterChange,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -138,6 +140,7 @@ import {
   useSwapProTokenInit,
 } from '../../hooks/useSwapPro';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
+import { useSwapReviewPreload } from '../../hooks/useSwapReviewPreload';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
@@ -186,6 +189,18 @@ interface ISwapMainLoadProps {
   stockTradeToken?: ISwapToken;
   initialInputAmountDraft?: ISwapInputAmountDraft;
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
+}
+
+function getActiveProviderPickerStoreName(
+  state?: Parameters<typeof findFocusedRoute>[0],
+): string | undefined {
+  const route = state ? findFocusedRoute(state) : undefined;
+  if (route?.name !== EModalSwapRoutes.SwapProviderSelect || !route.params)
+    return undefined;
+  const { params } = route;
+  return 'storeName' in params && typeof params.storeName === 'string'
+    ? params.storeName
+    : undefined;
 }
 
 const SwapMainLoad = ({
@@ -240,6 +255,11 @@ const SwapMainLoad = ({
   const {
     preSwapStepsStart,
     preSwapBeforeStepActions,
+    prepareSwapReview,
+    prepareSwapReviewBuild,
+    getReviewBuildKey,
+    isWaitingAutoSlippage,
+    reviewPreparationContextKey,
     rebuildSwapWithSlippage,
     beginGasAccountReviewSession,
     endGasAccountReviewSession,
@@ -278,7 +298,8 @@ const SwapMainLoad = ({
     useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
-  const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
+  const [swapBuildTxFetching, setSwapBuildTxFetching] =
+    useSwapBuildTxFetchingAtom();
   const [fromSelectTokenAtom] = useSwapSelectFromTokenAtom();
   const [toSelectTokenAtom, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
@@ -320,46 +341,6 @@ const SwapMainLoad = ({
   });
   const hasInFlightReviewWorkRef = useRef(hasInFlightReviewWork);
   hasInFlightReviewWorkRef.current = hasInFlightReviewWork;
-
-  const resetPendingReview = useCallback(() => {
-    endGasAccountReviewSession();
-    setSwapBuildTxFetching(false);
-    void backgroundApiProxy.serviceGas.abortEstimateFee();
-    setSwapSteps({
-      steps: [],
-      preSwapData: {},
-    });
-  }, [endGasAccountReviewSession, setSwapBuildTxFetching, setSwapSteps]);
-  const dialogClose = useCallback(() => {
-    if (reviewDialogTimerRef.current !== undefined) {
-      clearTimeout(reviewDialogTimerRef.current);
-      reviewDialogTimerRef.current = undefined;
-      resetPendingReview();
-    }
-    void dialogRef.current?.close();
-  }, [resetPendingReview]);
-  const shouldCloseReviewOnFocusLoss = useCallback(
-    () =>
-      shouldCloseSwapReviewOnFocusLoss({
-        isFocused: isFocusedRef.current,
-        isAppLocked: isAppLockedRef.current,
-        hasInFlightReviewWork: hasInFlightReviewWorkRef.current,
-        initialRootRouterCount: initialRootRouterCountRef.current,
-        currentRootRouterCount: getRootRoutersLength(),
-      }),
-    [],
-  );
-  useEffect(() => {
-    if (shouldCloseReviewOnFocusLoss()) {
-      dialogClose();
-    }
-  }, [dialogClose, isAppLocked, isFocused, shouldCloseReviewOnFocusLoss]);
-  useEffect(
-    () => () => {
-      dialogClose();
-    },
-    [dialogClose],
-  );
 
   const swapFromTokenRef = useRef<ISwapToken | undefined>(undefined);
   if (swapFromTokenRef.current !== fromSelectTokenAtom) {
@@ -903,6 +884,77 @@ const SwapMainLoad = ({
     );
   }, [currentQuoteRes, fromSelectToken?.networkId, isWrapped]);
 
+  const [providerPickerStoreName, setProviderPickerStoreName] = useState(() =>
+    getActiveProviderPickerStoreName(rootNavigationRef.current?.getRootState()),
+  );
+  useOnRouterChange((state) => {
+    setProviderPickerStoreName(getActiveProviderPickerStoreName(state));
+  });
+
+  const { claimPreparation, clearPreparation } = useSwapReviewPreload({
+    enabled: Boolean(
+      (isFocused || providerPickerStoreName === storeName) &&
+      !isAppLocked &&
+      !swapBuildTxFetching &&
+      !focusSwapPro &&
+      supportPreBuild &&
+      !currentQuoteRes?.swapShouldSignedData &&
+      currentQuoteRes?.protocol !== EProtocolOfExchange.LIMIT &&
+      !isCustomRpcUnavailable,
+    ),
+    quote: currentQuoteRes,
+    contextKey: reviewPreparationContextKey,
+    prepare: prepareSwapReview,
+    prepareBuild: prepareSwapReviewBuild,
+    getBuildKey: getReviewBuildKey,
+    isWaitingAutoSlippage,
+  });
+
+  const resetPendingReview = useCallback(() => {
+    clearPreparation();
+    endGasAccountReviewSession();
+    setSwapBuildTxFetching(false);
+    setSwapSteps({
+      steps: [],
+      preSwapData: {},
+    });
+  }, [
+    clearPreparation,
+    endGasAccountReviewSession,
+    setSwapBuildTxFetching,
+    setSwapSteps,
+  ]);
+  const dialogClose = useCallback(() => {
+    if (reviewDialogTimerRef.current !== undefined) {
+      clearTimeout(reviewDialogTimerRef.current);
+      reviewDialogTimerRef.current = undefined;
+      resetPendingReview();
+    }
+    void dialogRef.current?.close();
+  }, [resetPendingReview]);
+  const shouldCloseReviewOnFocusLoss = useCallback(
+    () =>
+      shouldCloseSwapReviewOnFocusLoss({
+        isFocused: isFocusedRef.current,
+        isAppLocked: isAppLockedRef.current,
+        hasInFlightReviewWork: hasInFlightReviewWorkRef.current,
+        initialRootRouterCount: initialRootRouterCountRef.current,
+        currentRootRouterCount: getRootRoutersLength(),
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (shouldCloseReviewOnFocusLoss()) {
+      dialogClose();
+    }
+  }, [dialogClose, isAppLocked, isFocused, shouldCloseReviewOnFocusLoss]);
+  useEffect(
+    () => () => {
+      dialogClose();
+    },
+    [dialogClose],
+  );
+
   const reviewStepTexts = useMemo(
     () => ({
       wrap: intl.formatMessage({
@@ -1134,10 +1186,10 @@ const SwapMainLoad = ({
   }, [markCurrentGasAccountReviewSubmitted, onActionHandlerBefore]);
 
   const onPreSwapClose = useCallback(() => {
+    clearPreparation();
     endGasAccountReviewSession();
     dialogClose();
     setSwapBuildTxFetching(false);
-    void backgroundApiProxy.serviceGas.abortEstimateFee();
     setTimeout(() => {
       setSwapSteps({
         steps: [],
@@ -1145,6 +1197,7 @@ const SwapMainLoad = ({
       });
     }, 100);
   }, [
+    clearPreparation,
     setSwapBuildTxFetching,
     endGasAccountReviewSession,
     dialogClose,
@@ -1178,6 +1231,7 @@ const SwapMainLoad = ({
     if (!currentQuoteRes) {
       return;
     }
+    const preparation = claimPreparation();
     if (!focusSwapPro) {
       cleanQuoteInterval();
       setSwapShouldRefreshQuote(true);
@@ -1207,6 +1261,7 @@ const SwapMainLoad = ({
           >
             <SwapProviderMirror storeName={storeName}>
               <PreSwapDialogContent
+                preparation={preparation}
                 isSwapPro={focusSwapPro}
                 preSwapBeforeStepActions={preSwapBeforeStepActions}
                 preSwapStepsStart={preSwapStepsStart}
@@ -1231,6 +1286,7 @@ const SwapMainLoad = ({
     swapProAccount?.result?.addressDetail.address,
     isSwapProMarketPresetLoading,
     currentQuoteRes,
+    claimPreparation,
     beginGasAccountReviewSession,
     parseQuoteResultToSteps,
     setSwapBuildTxFetching,

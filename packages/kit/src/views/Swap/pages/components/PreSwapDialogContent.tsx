@@ -91,10 +91,12 @@ import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
 import { buildSwapStockReviewDisplay } from '../../utils/swapStockReviewUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
+import type { ISwapReviewPreparation } from '../../hooks/useSwapBuiltTx';
 import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
 import type { ISwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 
 interface IPreSwapDialogContentProps {
+  preparation?: ISwapReviewPreparation;
   onConfirm: () => void;
   onDone: () => void;
   disableGlobalApproveSync?: boolean;
@@ -102,6 +104,7 @@ interface IPreSwapDialogContentProps {
     data?: IFetchQuoteResult,
     currentFromToken?: ISwapToken,
     currentToToken?: ISwapToken,
+    preparation?: ISwapReviewPreparation,
   ) => void | Promise<void>;
   preSwapStepsStart: (swapStepsValues?: {
     steps: ISwapStep[];
@@ -129,6 +132,7 @@ const PreSwapDialogContent = ({
   onConfirm,
   disableGlobalApproveSync = false,
   preSwapBeforeStepActions,
+  preparation,
   preSwapStepsStart,
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
@@ -583,6 +587,7 @@ const PreSwapDialogContent = ({
         swapStepsRef.current.quoteResult,
         swapStepsRef.current.preSwapData.fromToken,
         swapStepsRef.current.preSwapData.toToken,
+        preparation,
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
