@@ -19,7 +19,6 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { ILinkConfigItem } from '@onekeyhq/shared/types/linkConfig';
 import type {
   IPrimeGiftClaimResult,
   IPrimeGiftEligibility,
@@ -255,14 +254,12 @@ export function PrimeGiftSuccessContent({
   isKytLoading,
   isNotificationEnabled = false,
   onKyt,
-  campaignLinksOverride,
 }: {
   result: IPrimeGiftClaimResult;
   isKytEnabled: boolean;
   isKytLoading: boolean;
   isNotificationEnabled?: boolean;
   onKyt: () => void;
-  campaignLinksOverride?: ILinkConfigItem[];
 }) {
   const intl = useIntl();
   const icon =
@@ -313,9 +310,17 @@ export function PrimeGiftSuccessContent({
           </YStack>
         </YStack>
       </YStack>
-      <PrimeGiftCampaignBanner itemsOverride={campaignLinksOverride} />
+      <PrimeGiftCampaignBanner />
       {isKytEnabled ? (
-        <YStack mt="$4" width="100%" bg="$bgSubdued" borderRadius="$4" p="$4">
+        <YStack
+          mt="$4"
+          width="100%"
+          bg="$bgSubdued"
+          borderWidth={1}
+          borderColor="$neutral3"
+          borderRadius="$4"
+          p="$4"
+        >
           <XStack alignItems="flex-start" gap="$3">
             <Icon
               name="CheckRadioSolid"
@@ -346,6 +351,8 @@ export function PrimeGiftSuccessContent({
           width="100%"
           minHeight={44}
           bg="$bgSubdued"
+          borderWidth={1}
+          borderColor="$neutral3"
           borderRadius="$4"
           p="$4"
           alignItems="center"

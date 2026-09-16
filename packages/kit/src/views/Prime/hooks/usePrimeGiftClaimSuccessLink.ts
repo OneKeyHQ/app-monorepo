@@ -39,27 +39,17 @@ export function pickPrimeGiftClaimSuccessLink(
   return items?.[0];
 }
 
-export function usePrimeGiftClaimSuccessLink(
-  itemsOverride?: ILinkConfigItem[],
-) {
+export function usePrimeGiftClaimSuccessLink() {
   const [{ locale: settingsLocale }] = useSettingsPersistAtom();
   const requestLocale = resolveLinkConfigRequestLocale(settingsLocale);
   const { result, isLoading } = usePromiseResult(
-    async () => {
-      if (itemsOverride !== undefined) {
-        return itemsOverride;
-      }
-      return fetchPrimeGiftClaimSuccessLinks(requestLocale);
-    },
-    [itemsOverride, requestLocale],
+    async () => fetchPrimeGiftClaimSuccessLinks(requestLocale),
+    [requestLocale],
     {
       initResult: EMPTY_LINK_CONFIG_ITEMS,
       watchLoading: true,
     },
   );
-  if (itemsOverride !== undefined) {
-    return pickPrimeGiftClaimSuccessLink(itemsOverride);
-  }
   if (isLoading) {
     return undefined;
   }

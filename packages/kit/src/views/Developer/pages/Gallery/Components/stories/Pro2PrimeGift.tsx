@@ -38,7 +38,6 @@ import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import zhCNMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
-import { Pro2PrimeGiftSuccessBannerPreview } from './Pro2PrimeGiftSuccessBanner';
 import { Layout } from './utils/Layout';
 
 type IScreen = 'ready' | 'claim' | 'success' | 'device' | 'wallet';
@@ -1282,15 +1281,7 @@ export default function Pro2PrimeGiftGallery() {
         '设备验证方式及验证结果能否复用，待与开发确认；当前领取流程仍为模拟',
         '6 个月和有效期 2027年3月7日 仅为示意；正式接入使用服务端返回的赠送月数和实际到期日',
       ]}
-      elements={[
-        { title: '交互预览', element: Pro2PrimeGiftDemoZhCN },
-        {
-          title: '领取成功 Banner（生产组件）',
-          description:
-            '生产 PrimeGiftSuccessView：Live 走当前开发者 API 环境，Fixture 可测空数据与样例点击。保留进入钱包',
-          element: Pro2PrimeGiftSuccessBannerPreview,
-        },
-      ]}
+      elements={[{ title: '交互预览', element: Pro2PrimeGiftDemoZhCN }]}
     />
   );
 }
