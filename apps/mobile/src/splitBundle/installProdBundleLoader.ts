@@ -82,8 +82,9 @@ const eagerFallbackWarned = new Set<string>();
 //     SPLIT_BUNDLE_NATIVE_UNAVAILABLE, and only not-started / nil-instance /
 //     timeout are retryable.
 //   - Android: its watchdog rejects with SPLIT_BUNDLE_TIMEOUT.
-// A real bg EVAL/IO/NOT_FOUND/structural failure therefore surfaces as its own
-// fatal code and is correctly NOT retried.
+// A real bg EVAL/IO/structural failure therefore surfaces as its own fatal code
+// and is correctly NOT retried (NOT_FOUND is the one exception — it gets a
+// single re-attempt, see RETRY_ONCE_NATIVE_REJECT_CODES).
 const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
   'SPLIT_BUNDLE_NO_RUNTIME',
   'SPLIT_BUNDLE_TIMEOUT',
@@ -92,9 +93,11 @@ const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
 // Fatal native reject codes are everything else (e.g. SPLIT_BUNDLE_EVAL_ERROR
 // — a real bug in the segment's own JS; SPLIT_BUNDLE_IO_ERROR;
 // SPLIT_BUNDLE_NATIVE_UNAVAILABLE — a native primitive was unavailable
-// (Android-only producer); SPLIT_BUNDLE_SHA256_MISMATCH; SPLIT_BUNDLE_NOT_FOUND;
+// (Android-only producer); SPLIT_BUNDLE_SHA256_MISMATCH;
 // SPLIT_BUNDLE_INVALID_PATH). These keep the existing cache-as-failed behavior:
-// retrying just reproduces the same failure.
+// retrying just reproduces the same failure. SPLIT_BUNDLE_NOT_FOUND used to sit
+// in this list too — see RETRY_ONCE_NATIVE_REJECT_CODES for why it now gets a
+// single re-attempt first.
 
 // Bounds the number of times a retryable reject re-attempts the SAME segment
 // before we give up and cache it as a permanent failure. Without this cap a
@@ -103,6 +106,39 @@ const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
 // successfully.
 const MAX_RETRYABLE_ATTEMPTS = 3;
 const retryableAttempts = new Map<string, number>();
+
+// Codes that are USUALLY fatal but have a known TRANSIENT producer, so they get
+// exactly ONE re-attempt instead of the full MAX_RETRYABLE_ATTEMPTS budget.
+//
+// SPLIT_BUNDLE_NOT_FOUND: Android extracts builtin segments out of the APK
+// lazily, and the main and background runtimes resolve the same segment
+// independently. Native builds that share one "<name>.tmp" per segment across
+// those two extractions make the thread that LOSES the rename report NOT_FOUND
+// for a file that is on disk and complete. It shows up on the first launch
+// after an APK replace, where the install-stamp wipe forces every segment to
+// re-extract at once (widest window on the largest segment). The re-attempt
+// lands on the file the winner already published, so the whole thing becomes a
+// non-event; a genuinely missing segment costs one extra native call — a file
+// existence check — before going fatal exactly as before.
+//
+// This tier stays useful after the native fix ships: OTA bundles run on the
+// binaries already in the field, so JS has to self-heal on unfixed native.
+//
+// Note this deliberately breaks the invariant documented on MAX_LAZY_RETRIES
+// (that one failed mount can never exhaust a segment's budget by itself): the
+// transient window here is sub-second, so a mount + its single boundary retry
+// SHOULD spend the whole budget and reach a verdict instead of leaving the
+// route half-failed for a later navigation.
+const RETRY_ONCE_NATIVE_REJECT_CODES = new Set<string>([
+  'SPLIT_BUNDLE_NOT_FOUND',
+]);
+const RETRY_ONCE_MAX_ATTEMPTS = 2;
+
+function maxAttemptsForCode(code: string | undefined): number {
+  return code !== undefined && RETRY_ONCE_NATIVE_REJECT_CODES.has(code)
+    ? RETRY_ONCE_MAX_ATTEMPTS
+    : MAX_RETRYABLE_ATTEMPTS;
+}
 
 /**
  * Read the native reject `code` from a thrown error. RN TurboModule rejections
@@ -395,7 +431,8 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       nativeCode = getNativeRejectCode(error);
       isRetryable =
         nativeCode !== undefined &&
-        RETRYABLE_NATIVE_REJECT_CODES.has(nativeCode);
+        (RETRYABLE_NATIVE_REJECT_CODES.has(nativeCode) ||
+          RETRY_ONCE_NATIVE_REJECT_CODES.has(nativeCode));
     }
 
     // Wrap (or reuse) as a SegmentLoadError, threading the resolved
@@ -411,8 +448,9 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
           );
 
     const attempts = (retryableAttempts.get(segmentKey) ?? 0) + 1;
+    const maxAttempts = maxAttemptsForCode(nativeCode);
 
-    if (isRetryable && attempts < MAX_RETRYABLE_ATTEMPTS) {
+    if (isRetryable && attempts < maxAttempts) {
       // Skip failedSegments so the NEXT __loadBundleAsync re-attempts (rather
       // than throwing the cached failure forever). State is reset to 'idle' and
       // the attempt counter bumped so a wedged runtime can't loop unbounded.
@@ -420,7 +458,7 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       segmentStates.set(segmentKey, 'idle');
       NativeLogger.write(
         LogLevel.Warning,
-        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${MAX_RETRYABLE_ATTEMPTS}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
+        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${maxAttempts}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
       );
       throw segError;
     }

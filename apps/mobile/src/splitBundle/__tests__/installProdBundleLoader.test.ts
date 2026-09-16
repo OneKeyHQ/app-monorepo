@@ -448,24 +448,64 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 
-  // Fix 1 (NO-SHIP blocker): a missing bg segment file is real packaging/OTA
-  // corruption. iOS BackgroundThread now maps EBgMgrSegmentEvalErrorFileNotFound
-  // → SPLIT_BUNDLE_NOT_FOUND (fatal), instead of letting raw code 2 fall through
-  // the boundary's default to retryable NO_RUNTIME. JS MUST classify it FATAL —
-  // cached immediately, never auto re-attempted (retrying just re-misses).
-  it('treats SPLIT_BUNDLE_NOT_FOUND as FATAL (iOS bg file-not-found)', async () => {
+  // SPLIT_BUNDLE_NOT_FOUND gets exactly ONE re-attempt
+  // (RETRY_ONCE_NATIVE_REJECT_CODES) rather than being cached on sight. The
+  // Android builtin-segment extractor can report NOT_FOUND for a file that IS
+  // on disk: main and background runtimes extract the same segment
+  // concurrently, and on native builds that share one "<name>.tmp" per segment
+  // the thread that loses the rename returns "not found". Caching that
+  // immediately poisons the route for the whole process, so the re-attempt
+  // — which lands on the file the winner already published — is the fix for
+  // the binaries already in the field.
+  it('re-attempts SPLIT_BUNDLE_NOT_FOUND once (Android extract race self-heals)', async () => {
     const mock = createMockNativeLoader();
     mock.loadSegment.mockRejectedValueOnce(
       Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
         code: 'SPLIT_BUNDLE_NOT_FOUND',
       }),
     );
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
+    installProdBundleLoader(mock);
+
+    // First attempt rejects, flagged retryable and NOT cached...
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    // ...so the next call hits native again — the racing writer has published
+    // the file by now.
+    mock.loadSegment.mockResolvedValueOnce(undefined);
+    await loadSegment('seg:test.a');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+  });
+
+  // A genuinely missing segment (real packaging/OTA corruption, e.g. iOS
+  // BackgroundThread mapping EBgMgrSegmentEvalErrorFileNotFound) costs exactly
+  // one extra native call — a file existence check — and then goes fatal, with
+  // `retryable` cleared so the lazy boundary stops instead of looping.
+  it('caches SPLIT_BUNDLE_NOT_FOUND after its single re-attempt', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValue(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
     const { installProdBundleLoader, loadSegment } = getLoader();
     installProdBundleLoader(mock);
+
+    // RETRY_ONCE_MAX_ATTEMPTS = 2: attempt 1 re-hits native, attempt 2 exhausts
+    // the budget and caches as failed.
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: false,
+    });
+    expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+    // Cached now — a third call must NOT hit native.
     await expect(loadSegment('seg:test.a')).rejects.toThrow();
-    // Fatal → cached; second call must NOT hit native again.
-    await expect(loadSegment('seg:test.a')).rejects.toThrow();
-    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(2);
   });
 
   // Fix 2: a STRUCTURAL ivar-missing failure (an RN version bump renamed the
