@@ -119,7 +119,7 @@ export function appendTradingViewNativeChartComponentCommands({
           0,
         );
         const titleWidth = Math.min(
-          measureTextWidth(title, 'priceAxis') +
+          measureTextWidth(title, 'referenceLineLabel') +
             REFERENCE_LINE_LABEL_HORIZONTAL_PADDING * 2,
           availableTitleWidth,
         );
@@ -141,7 +141,7 @@ export function appendTradingViewNativeChartComponentCommands({
             },
             {
               customPaintId: textPaintId,
-              font: 'priceAxis',
+              font: 'referenceLineLabel',
               kind: 'text',
               paint: 'currentPriceLabelText',
               text: title,

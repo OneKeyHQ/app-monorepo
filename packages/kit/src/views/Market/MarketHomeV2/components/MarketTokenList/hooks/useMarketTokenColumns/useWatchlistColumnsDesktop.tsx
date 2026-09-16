@@ -63,8 +63,7 @@ function WatchlistMetricValue({
   value: number;
   formatter: 'price' | 'marketCap';
 }) {
-  // A market cap or volume of 0 means the API had nothing; a price of 0 is
-  // still a price.
+  // A volume of 0 means the API had nothing; a price of 0 is still a price.
   const isMissing =
     !Number.isFinite(value) || (formatter === 'marketCap' && value === 0);
   if (isMissing) {
@@ -365,7 +364,7 @@ export function WatchlistTokenIdentity({
  * Stocks / Top Coins first-column frame (symbol over a name subtitle, with a
  * hover reveal where there is something to reveal), perps rows mirror the
  * Perps table, and the metric columns are the fixed
- * `Price / 24h change / MCap / 24h volume` set from the design. The watchlist
+ * `Price / 24h change / 24h volume` set. The watchlist
  * is ordered by drag, so no header sorts.
  */
 export function useWatchlistColumnsDesktop({
@@ -486,18 +485,6 @@ export function useWatchlistColumnsDesktop({
           />
         ),
         renderSkeleton: () => <Skeleton width={60} height={16} />,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.market_mcap }),
-        dataIndex: 'marketCap',
-        columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
-        render: (_: unknown, record: IMarketToken) => (
-          <WatchlistMetricValue
-            value={record.marketCap}
-            formatter="marketCap"
-          />
-        ),
-        renderSkeleton: () => <Skeleton width={80} height={16} />,
       },
       {
         title: intl.formatMessage(

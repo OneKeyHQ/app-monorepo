@@ -707,7 +707,9 @@ describe('native-dev-shell', () => {
         aliasStart,
         manifest.indexOf('</activity-alias>', aliasStart),
       );
-      expect(alias).toContain('android:targetActivity=".MainLauncherActivity"');
+      expect(alias).toContain(
+        'android:targetActivity=".LauncherAliasActivity"',
+      );
       expect(alias).toContain('android.intent.action.MAIN');
       expect(alias).toContain('android.intent.category.LAUNCHER');
     }

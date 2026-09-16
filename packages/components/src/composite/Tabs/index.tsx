@@ -30,6 +30,9 @@ export type { IGetWebRowHeight, IWebRowHeightInfo } from './List';
 export * from './hooks';
 
 export { startViewTransition } from './utils';
-export { CollapsibleTabContext } from './CollapsibleTabContext';
+export {
+  CollapsibleTabContext,
+  CollapsibleTabNameContext,
+} from './CollapsibleTabContext';
 export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
 export { useFocusedTab } from './useFocusedTab';

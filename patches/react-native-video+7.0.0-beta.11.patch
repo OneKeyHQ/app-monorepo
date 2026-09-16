@@ -1,0 +1,23 @@
+diff --git a/node_modules/react-native-video/ios/view/VideoComponentView.swift b/node_modules/react-native-video/ios/view/VideoComponentView.swift
+index 40d28c2..30a8629 100644
+--- a/node_modules/react-native-video/ios/view/VideoComponentView.swift
++++ b/node_modules/react-native-video/ios/view/VideoComponentView.swift
+@@ -172,12 +172,17 @@ import UIKit
+       }
+ 
+       // Find nearest UIViewController
++      // OneKey patch: FullWindowOverlay has no ancestor VC. Embed and retain
++      // the AVPlayerViewController without adopting an unrelated controller.
+       if let parentVC = self.findViewController() {
+         parentVC.addChild(controller)
+         playerView.addSubview(controller.view)
+         controller.didMove(toParent: parentVC)
+-        self.playerViewController = controller
++        // self.playerViewController = controller
++      } else {
++        playerView.addSubview(controller.view)
+       }
++      self.playerViewController = controller
+     }
+   }
+ 

@@ -524,6 +524,7 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        stockId: 'AAPL',
         disableTrade: true,
         showFavoriteButton: false,
         stock: {
@@ -552,7 +553,7 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('navigates xStocks search items without stock metadata to stock detail', async () => {
+  it('navigates xStocks search items without a stock id to token detail', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
@@ -568,8 +569,7 @@ describe('useToDetailPage', () => {
       });
     });
 
-    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
-      stockId: 'ABNB',
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
       tokenAddress: '0xc156',
       network: 'eth',
       isNative: undefined,
@@ -592,6 +592,7 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        stockId: 'AAPL',
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
@@ -973,6 +974,7 @@ describe('useToDetailPage', () => {
         networkId: 'evm--1',
         symbol: 'AAPLon',
         disableTrade: true,
+        stockId: 'AAPL',
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
