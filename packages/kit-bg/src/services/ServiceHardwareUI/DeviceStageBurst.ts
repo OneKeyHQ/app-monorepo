@@ -402,6 +402,11 @@ export type IDeviceStageBurstBeginParams = {
   confirmContent?: IDeviceStageConfirmContent;
 };
 
+export type IDeviceStageBurstEndParams = {
+  error?: unknown;
+  doneI18n?: IDeviceStageState['doneI18n'];
+};
+
 export class DeviceStageBurstScope {
   /** Live connectivity probe backing end()'s disconnect fallback. Injected
    * by ServiceHardwareUI so the scope stays free of service imports. */
@@ -647,10 +652,25 @@ export class DeviceStageBurstScope {
         // A follow-up wrapper inside the grace window rejoins the visible
         // stage: keep the burstId so the container's close grant stays armed.
         this.burstSeq = stageStillOn ? prev.burstId : this.burstSeq + 1;
+        // A completed operation belongs to the previous burst. Replace its
+        // success immediately so a new tap never inherits the old ✓ while the
+        // usual opening defer waits for a real first step.
+        this.clearPendingOpen();
+        if (prev?.step === 'done') {
+          await this.setStep('connecting', {
+            connectId: params.connectId,
+            deviceType: params.deviceType,
+            deviceName: params.deviceName,
+            vendor: params.vendor,
+            vendorModel: params.vendorModel,
+            vendorModelName: params.vendorModelName,
+            resetOutcome: true,
+          });
+          return true;
+        }
         // The opening `connecting` beat is deferred a beat: a flow whose
         // first real step follows immediately (the genuine check) opens
         // straight into it, instead of flashing the connecting scene first.
-        this.clearPendingOpen();
         this.pendingOpen = params;
         this.openingTimer = setTimeout(() => {
           const opening = this.pendingOpen;
@@ -731,16 +751,16 @@ export class DeviceStageBurstScope {
   }
 
   /** Closes a UI-held burst. A stale token is ignored. */
-  async endExplicit(params: { token: number; error?: unknown }) {
+  async endExplicit(params: IDeviceStageBurstEndParams & { token: number }) {
     if (this.explicitToken !== params.token) {
       return;
     }
     this.explicitToken = undefined;
     this.explicitOpened = false;
-    await this.end({ error: params.error });
+    await this.end({ error: params.error, doneI18n: params.doneI18n });
   }
 
-  async end(params: { error?: unknown } = {}) {
+  async end(params: IDeviceStageBurstEndParams = {}) {
     // Read, never returned on — the same reasoning that keeps the QR
     // beats off this gate: a burst already in flight must not lose its
     // bookkeeping because the gate closed under it. The firmware workflow
@@ -986,9 +1006,12 @@ export class DeviceStageBurstScope {
       });
       return;
     }
-    // An operation-authored ✓ keeps its full reading beat before leaving.
+    // The token owner lands success and releases its hold in one operation.
+    // A stale explicit token is rejected before reaching this write, so a
+    // dismissed or superseded flow can never resurrect the stage with ✓.
     const current = await deviceStageAtom.get();
-    if (current?.step === 'done') {
+    if (params.doneI18n && current && current.step !== 'off') {
+      await this.setStep('done', { doneI18n: params.doneI18n });
       this.scheduleOff(DONE_HOLD_MS);
       return;
     }

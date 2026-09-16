@@ -1,6 +1,10 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
+
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
+
+import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 
 import { WalletActionPortfolioSync } from './WalletActionPortfolioSync';
 
@@ -13,6 +17,16 @@ let portfolioSyncUiState: {
   disabled: false,
   request: requestPortfolioSync,
   visible: true,
+};
+const portfolioTabContextValue = {
+  activeTabId: EHomeWalletTab.Portfolio,
+  activeTabName: '',
+  portalTarget: null,
+  stickyHost: null,
+};
+const historyTabContextValue = {
+  ...portfolioTabContextValue,
+  activeTabId: EHomeWalletTab.History,
 };
 
 jest.mock('react-intl', () => {
@@ -64,8 +78,29 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     ActionList: { Item: ActionListItem },
+    runAfterActionListClose: async (
+      close: () => void | Promise<void>,
+      callback: () => unknown,
+    ) => {
+      await close();
+      return callback();
+    },
   };
 });
+
+function renderAction(activeTabId: EHomeWalletTab = EHomeWalletTab.Portfolio) {
+  return render(
+    <HomeStickyHeaderContext.Provider
+      value={
+        activeTabId === EHomeWalletTab.Portfolio
+          ? portfolioTabContextValue
+          : historyTabContextValue
+      }
+    >
+      <WalletActionPortfolioSync onClose={jest.fn()} />
+    </HomeStickyHeaderContext.Provider>,
+  );
+}
 
 describe('WalletActionPortfolioSync', () => {
   beforeEach(() => {
@@ -77,9 +112,13 @@ describe('WalletActionPortfolioSync', () => {
     };
   });
 
-  it('closes the menu before requesting an update', () => {
+  it('closes the menu before requesting an update', async () => {
     const onClose = jest.fn();
-    const view = render(<WalletActionPortfolioSync onClose={onClose} />);
+    const view = render(
+      <HomeStickyHeaderContext.Provider value={portfolioTabContextValue}>
+        <WalletActionPortfolioSync onClose={onClose} />
+      </HomeStickyHeaderContext.Provider>,
+    );
     const action = view.getByTestId('home-update-portfolio-action');
 
     expect(action.textContent).toContain('Update device portfolio');
@@ -87,7 +126,7 @@ describe('WalletActionPortfolioSync', () => {
 
     fireEvent.click(action);
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(requestPortfolioSync).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(requestPortfolioSync).toHaveBeenCalledTimes(1));
     expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
       requestPortfolioSync.mock.invocationCallOrder[0],
     );
@@ -99,7 +138,7 @@ describe('WalletActionPortfolioSync', () => {
       request: requestPortfolioSync,
       visible: true,
     };
-    const view = render(<WalletActionPortfolioSync onClose={jest.fn()} />);
+    const view = renderAction();
 
     expect(
       (view.getByTestId('home-update-portfolio-action') as HTMLButtonElement)
@@ -114,7 +153,13 @@ describe('WalletActionPortfolioSync', () => {
       visible: false,
     };
 
-    const view = render(<WalletActionPortfolioSync onClose={jest.fn()} />);
+    const view = renderAction();
+    expect(view.queryByTestId('home-update-portfolio-action')).toBeNull();
+  });
+
+  it('stays hidden outside the Portfolio tab', () => {
+    const view = renderAction(EHomeWalletTab.History);
+
     expect(view.queryByTestId('home-update-portfolio-action')).toBeNull();
   });
 });

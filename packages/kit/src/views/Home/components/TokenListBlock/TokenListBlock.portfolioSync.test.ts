@@ -125,7 +125,7 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain('networkId: network.id');
     expect(source).toContain('networkId: network?.id');
     expect(source.match(/const portfolioSynced =/g)).toHaveLength(2);
-    expect(source.match(/deviceStageNoteDone/g)).toHaveLength(2);
+    expect(source).not.toContain('deviceStageNoteDone');
     expect(
       source.match(/ETranslations\.portfolio_updated__title/g),
     ).toHaveLength(2);
@@ -197,10 +197,17 @@ describe('TokenListBlock portfolio sync producer', () => {
       'ETranslations.portfolio_sync_to_device__action',
     );
     expect(actionSource).toContain('icon="OnekeyDeviceCustom"');
-    expect(actionSource).toContain('close();');
-    expect(actionSource).toContain('if (!visible)');
+    expect(actionSource).toContain('runAfterActionListClose');
+    expect(actionSource).toContain('activeTabId !== EHomeWalletTab.Portfolio');
+    expect(actionSource).toContain('if (!visible ||');
     expect(moreSource).toContain('<WalletActionPortfolioSync');
-    expect(source).toContain('errorToastUtils.showToastOfError(error)');
+    expect(source).toContain('if (!isOneKeyHardwareError(error))');
+    expect(source).toContain(
+      'appEventBus.on(EAppEventBusNames.DeviceStageOff, handleDeviceStageOff)',
+    );
+    expect(source).toContain(
+      'finishPortfolioSyncRequest(request.id, { error })',
+    );
     expect(source).toContain(
       'activePortfolioSyncRequest &&\n            activePortfolioSyncRequest.id === portfolioSyncRequest?.id',
     );

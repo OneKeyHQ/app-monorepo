@@ -2178,6 +2178,11 @@ export function DeviceStage({
         px={CAPSULE_ROW.paddingX}
         gap={CAPSULE_ROW.gap}
         alignItems="center"
+        accessible={capsuleGlyph === 'done'}
+        accessibilityLabel={
+          capsuleGlyph === 'done' ? capsuleText.title : undefined
+        }
+        accessibilityLiveRegion={capsuleGlyph === 'done' ? 'polite' : 'none'}
       >
         {/* The device's capsule seat, held open: the one standing replica
           wears the thumbnail arrangement over this box — the

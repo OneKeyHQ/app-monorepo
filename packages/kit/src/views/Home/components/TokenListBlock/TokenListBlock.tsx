@@ -73,6 +73,7 @@ import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simp
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   EJotaiContextStoreNames,
+  type IDeviceStageState,
   useFirmwareUpdateWorkflowRunningAtom,
   useHardwareUiStateAtom,
   useSettingsPersistAtom,
@@ -86,6 +87,7 @@ import {
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -476,13 +478,17 @@ function TokenListBlock({
   } = useDeviceStageBurst();
 
   const finishPortfolioSyncRequest = useCallback(
-    (requestId: number, error?: unknown) => {
+    (
+      requestId: number,
+      params?: {
+        error?: unknown;
+        doneI18n?: IDeviceStageState['doneI18n'];
+      },
+    ) => {
       if (portfolioSyncRequestRef.current?.id !== requestId) {
         return;
       }
-      void endPortfolioSyncStage(error ? { error } : undefined).catch(
-        () => undefined,
-      );
+      void endPortfolioSyncStage(params).catch(() => undefined);
       clearPortfolioSyncFallbackTimer();
       if (
         allowEmptyInteractivePortfolioSyncRequestIdRef.current === requestId
@@ -518,6 +524,19 @@ function TokenListBlock({
       finishPortfolioSyncRequest(request.id);
     }
   }, [finishPortfolioSyncRequest, portfolioSyncTargetKey]);
+
+  useEffect(() => {
+    const handleDeviceStageOff = () => {
+      const request = portfolioSyncRequestRef.current;
+      if (request) {
+        finishPortfolioSyncRequest(request.id);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.DeviceStageOff, handleDeviceStageOff);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DeviceStageOff, handleDeviceStageOff);
+    };
+  }, [finishPortfolioSyncRequest]);
 
   useEffect(
     () => () => {
@@ -873,22 +892,22 @@ function TokenListBlock({
                   syncMode: 'interactive',
                 },
               );
-            if (portfolioSynced) {
-              await backgroundApiProxy.serviceHardwareUI
-                .deviceStageNoteDone({
-                  connectId:
-                    device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
-                  doneI18n: {
-                    key: ETranslations.portfolio_updated__title,
-                  },
-                })
-                .catch(() => undefined);
-            }
-            finishPortfolioSyncRequest(portfolioSyncRequest.id);
+            finishPortfolioSyncRequest(
+              portfolioSyncRequest.id,
+              portfolioSynced
+                ? {
+                    doneI18n: {
+                      key: ETranslations.portfolio_updated__title,
+                    },
+                  }
+                : undefined,
+            );
           } catch (error) {
-            errorToastUtils.toastIfError(error);
-            errorToastUtils.showToastOfError(error);
-            finishPortfolioSyncRequest(portfolioSyncRequest.id, error);
+            if (!isOneKeyHardwareError(error)) {
+              errorToastUtils.toastIfError(error);
+              errorToastUtils.showToastOfError(error);
+            }
+            finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
           }
         }
 
@@ -2179,21 +2198,22 @@ function TokenListBlock({
                       syncMode: 'interactive',
                     },
                   );
-                if (portfolioSynced) {
-                  await backgroundApiProxy.serviceHardwareUI
-                    .deviceStageNoteDone({
-                      connectId: portfolioSyncPayload.deviceConnectId,
-                      doneI18n: {
-                        key: ETranslations.portfolio_updated__title,
-                      },
-                    })
-                    .catch(() => undefined);
-                }
-                finishPortfolioSyncRequest(portfolioSyncRequest.id);
+                finishPortfolioSyncRequest(
+                  portfolioSyncRequest.id,
+                  portfolioSynced
+                    ? {
+                        doneI18n: {
+                          key: ETranslations.portfolio_updated__title,
+                        },
+                      }
+                    : undefined,
+                );
               } catch (error) {
-                errorToastUtils.toastIfError(error);
-                errorToastUtils.showToastOfError(error);
-                finishPortfolioSyncRequest(portfolioSyncRequest.id, error);
+                if (!isOneKeyHardwareError(error)) {
+                  errorToastUtils.toastIfError(error);
+                  errorToastUtils.showToastOfError(error);
+                }
+                finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
               }
             } else if (!portfolioSyncRequest) {
               void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
@@ -2929,16 +2949,26 @@ function TokenListBlock({
       deviceName: device?.name,
       deviceType: portfolioSyncDeviceType,
     })
-      .catch(() => undefined)
       .then(() => {
         if (portfolioSyncRequestRef.current?.id === request.id) {
           refreshWalletTokenList();
         }
+      })
+      .catch((error) => {
+        if (portfolioSyncRequestRef.current?.id !== request.id) {
+          return;
+        }
+        if (!isOneKeyHardwareError(error)) {
+          errorToastUtils.toastIfError(error);
+          errorToastUtils.showToastOfError(error);
+        }
+        finishPortfolioSyncRequest(request.id, { error });
       });
   }, [
     beginPortfolioSyncStage,
     device?.connectId,
     device?.name,
+    finishPortfolioSyncRequest,
     getCurrentPortfolioSyncRequest,
     hasPortfolioSyncTarget,
     network?.isAllNetworks,
