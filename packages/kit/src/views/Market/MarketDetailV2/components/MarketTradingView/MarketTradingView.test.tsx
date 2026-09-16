@@ -390,17 +390,27 @@ describe('MarketTradingView price synchronization', () => {
     },
   );
 
-  it('ignores prices for another token or network', () => {
-    const { store } = renderChart();
-    act(() => {
-      mockOnPriceUpdate({ ...latestPrice, networkId: 'evm--1' });
-      mockOnPriceUpdate({ ...latestPrice, tokenAddress: 'another-token' });
-      mockOnPriceUpdate({ ...latestPrice, networkId: undefined });
-      mockOnPriceUpdate({ ...latestPrice, tokenAddress: undefined });
-    });
+  it.each(['history', 'realtime'] as const)(
+    'ignores %s prices for another token or network without blocking the initial snapshot',
+    (source) => {
+      const { store } = renderChart();
+      act(() => {
+        mockOnPriceUpdate({ ...latestPrice, source, networkId: 'evm--1' });
+        mockOnPriceUpdate({
+          ...latestPrice,
+          source,
+          tokenAddress: 'another-token',
+        });
+        mockOnPriceUpdate({ ...latestPrice, source, networkId: undefined });
+        mockOnPriceUpdate({ ...latestPrice, source, tokenAddress: undefined });
+      });
 
-    expect(store.get(tokenDetailAtom())).toEqual(detail);
-  });
+      expect(store.get(tokenDetailAtom())).toEqual(detail);
+
+      act(() => mockOnPriceUpdate(latestPrice));
+      expectHeaderPrice('0.002930');
+    },
+  );
 
   it.each(['history', 'realtime'] as const)(
     'does not let invalid %s prices prevent the initial snapshot',
