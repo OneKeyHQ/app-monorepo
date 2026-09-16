@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
-import { useThrottledCallback } from 'use-debounce';
+import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
@@ -318,14 +318,13 @@ function ReceiveToken() {
   }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
 
   const handleVerifyOnDevicePress = useCallback(async () => {
+    if (!currentDeriveType) return;
+    if (!displayAddress) {
+      setAddressState(EAddressState.Unverified);
+      return;
+    }
     setAddressState(EAddressState.Verifying);
     try {
-      if (!currentDeriveType) return;
-      if (!displayAddress) {
-        setAddressState(EAddressState.Unverified);
-        return;
-      }
-
       const addresses =
         await backgroundApiProxy.serviceAccount.verifyHWAccountAddresses({
           walletId,
@@ -392,6 +391,18 @@ function ReceiveToken() {
     wallet?.type,
     walletId,
   ]);
+
+  const isVerifying = addressState === EAddressState.Verifying;
+
+  // Two surfaces start the same hardware call: the footer button and the QR
+  // placeholder card. On native the device stage UI only covers the page once
+  // the BLE transport is ready, seconds after the press, so the debounce
+  // collapses a rapid double tap and isVerifying holds the rest of that window.
+  const handleVerifyOnDevicePressDebounced = useDebouncedCallback(
+    handleVerifyOnDevicePress,
+    500,
+    { leading: true, trailing: false },
+  );
 
   useEffect(() => {
     const callback = () => setAddressState(EAddressState.Unverified);
@@ -705,7 +716,8 @@ function ReceiveToken() {
               testID={ReceiveTestIDs.VerifyOnDeviceButton}
               variant="primary"
               size="large"
-              onPress={handleVerifyOnDevicePress}
+              loading={isVerifying}
+              onPress={handleVerifyOnDevicePressDebounced}
             >
               {intl.formatMessage({
                 id: ETranslations.global_verify_on_device,
@@ -727,12 +739,13 @@ function ReceiveToken() {
 
     return (
       <Page.Footer
-        onConfirm={() => handleVerifyOnDevicePress()}
+        onConfirm={() => handleVerifyOnDevicePressDebounced()}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_verify_on_device,
         })}
         confirmButtonProps={{
           variant: 'primary',
+          loading: isVerifying,
           testID: ReceiveTestIDs.VerifyOnDeviceButton,
         }}
         // keep one declared param: FooterCancelButton auto-closes the page
@@ -746,7 +759,13 @@ function ReceiveToken() {
         }}
       />
     );
-  }, [bottom, handleSkipVerifyPress, handleVerifyOnDevicePress, intl]);
+  }, [
+    bottom,
+    handleSkipVerifyPress,
+    handleVerifyOnDevicePressDebounced,
+    intl,
+    isVerifying,
+  ]);
 
   const deriveTypeTrigger = useMemo(() => {
     if (!currentDeriveInfo) {
@@ -910,23 +929,24 @@ function ReceiveToken() {
         justifyContent="center"
         py={27}
         px="$4"
-        {...(!shouldShowQRCode && {
-          onPress: handleVerifyOnDevicePress,
-          userSelect: 'none',
-          hoverStyle: {
-            bg: '$bgHover',
-          },
-          pressStyle: {
-            bg: '$bgActive',
-          },
-          focusable: true,
-          focusVisibleStyle: {
-            outlineWidth: 2,
-            outlineColor: '$focusRing',
-            outlineOffset: 2,
-            outlineStyle: 'solid',
-          },
-        })}
+        {...(!shouldShowQRCode &&
+          !isVerifying && {
+            onPress: handleVerifyOnDevicePressDebounced,
+            userSelect: 'none',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+            focusable: true,
+            focusVisibleStyle: {
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineOffset: 2,
+              outlineStyle: 'solid',
+            },
+          })}
       >
         {shouldShowQRCode ? (
           <YStack testID={ReceiveTestIDs.QRCode}>
@@ -992,7 +1012,8 @@ function ReceiveToken() {
     displayAddress,
     network,
     shouldShowQRCode,
-    handleVerifyOnDevicePress,
+    handleVerifyOnDevicePressDebounced,
+    isVerifying,
     token?.logoURI,
     networkId,
     nativeToken?.logoURI,
