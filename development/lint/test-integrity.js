@@ -118,6 +118,10 @@ const EVAL_FUNCTIONS = new Set([
   'transformSync',
   'transformFileSync',
   'transform',
+  // The rest of the vm surface: `new vm.Script(code)` and
+  // `vm.compileFunction(code)` run text just as `runInNewContext` does.
+  'Script',
+  'compileFunction',
   // Direct evaluation, with or without a vm. `new Function(...)` reaches here
   // as a NewExpression, which the sink handles alongside calls.
   'eval',
@@ -256,6 +260,10 @@ function calleeName(callee) {
   if (callee.type === 'Identifier') {
     return callee.name;
   }
+  // `(0, eval)(code)`, the standard way to reach indirect eval.
+  if (callee.type === 'SequenceExpression') {
+    return calleeName(callee.expressions.at(-1));
+  }
   if (
     callee.type === 'MemberExpression' &&
     callee.property.type === 'Identifier'
@@ -270,8 +278,8 @@ function calleeName(callee) {
  * imported instead, 'native' for sources no JS runtime can execute, undefined
  * for build artifacts, data files and temp directories.
  */
-function classifyReadTarget(callNode, repoAnchored, anchoredHelpers) {
-  const pathArgument = callNode.arguments[0];
+/** Classify a path expression on its own, wherever it was written. */
+function classifyPath(pathArgument, repoAnchored, anchoredHelpers) {
   if (!pathArgument) {
     return undefined;
   }
@@ -340,10 +348,11 @@ function taintKind(node, tainted, readKind) {
       return taintKind(node.expressions.at(-1), tainted, readKind);
     case 'CallExpression':
     case 'OptionalCallExpression': {
-      const name = calleeName(node.callee);
-      if (name && READ_FUNCTIONS.has(name)) {
-        return readKind ? readKind(node) : undefined;
+      const fromRead = readKind ? readKind(node) : undefined;
+      if (fromRead) {
+        return fromRead;
       }
+      const name = calleeName(node.callee);
       if (
         node.callee.type === 'MemberExpression' ||
         node.callee.type === 'OptionalMemberExpression'
@@ -402,8 +411,8 @@ function isWholeFileRead(node, tainted, wholeReads, readKind) {
     case 'CallExpression':
     case 'OptionalCallExpression': {
       const name = calleeName(node.callee);
-      if (name && READ_FUNCTIONS.has(name)) {
-        return Boolean(readKind(node));
+      if (readKind(node)) {
+        return true;
       }
       if (
         name &&
@@ -566,16 +575,127 @@ function describePath(node, anchored) {
 }
 
 /**
+ * Names that stand in for `readFileSync` / `readFile`: an alias binding, a
+ * renamed destructure, or a renamed import.
+ */
+function collectReadAliases(ast) {
+  const aliases = new Set();
+  const isRead = (name) => READ_FUNCTIONS.has(name) || aliases.has(name);
+  for (let round = 0; round < 4; round += 1) {
+    const before = aliases.size;
+    walk(ast, (node) => {
+      if (node.type === 'ImportDeclaration') {
+        node.specifiers.forEach((specifier) => {
+          if (
+            specifier.type === 'ImportSpecifier' &&
+            specifier.imported.type === 'Identifier' &&
+            isRead(specifier.imported.name)
+          ) {
+            aliases.add(specifier.local.name);
+          }
+        });
+        return;
+      }
+      if (node.type !== 'VariableDeclarator') {
+        return;
+      }
+      // `const read = fs.readFileSync` / `const read = readFileSync`
+      if (node.id.type === 'Identifier') {
+        const name = node.init && calleeReference(node.init);
+        if (name && isRead(name)) {
+          aliases.add(node.id.name);
+        }
+        return;
+      }
+      // `const { readFileSync: slurp } = require('fs')`
+      if (node.id.type === 'ObjectPattern') {
+        node.id.properties.forEach((property) => {
+          if (
+            property.type === 'ObjectProperty' &&
+            property.key.type === 'Identifier' &&
+            isRead(property.key.name) &&
+            property.value.type === 'Identifier'
+          ) {
+            aliases.add(property.value.name);
+          }
+        });
+      }
+    });
+    if (aliases.size === before) {
+      return aliases;
+    }
+  }
+  return aliases;
+}
+
+/** The name a non-call expression refers to, for alias detection. */
+function calleeReference(node) {
+  if (node.type === 'Identifier') {
+    return node.name;
+  }
+  if (node.type === 'MemberExpression' && node.property.type === 'Identifier') {
+    return node.property.name;
+  }
+  return undefined;
+}
+
+/**
+ * Named helpers whose whole job is to read a file, mapped either to the kind
+ * their own path resolves to, or to the index of the parameter they read.
+ */
+function collectReadHelpers(ast, isRead, classify) {
+  const helpers = new Map();
+  walk(ast, (node) => {
+    const returned = returnedPathExpression(node);
+    const call = returned?.value;
+    if (
+      !call ||
+      (call.type !== 'CallExpression' && call.type !== 'OptionalCallExpression')
+    ) {
+      return;
+    }
+    const name = calleeName(call.callee);
+    if (!name || !isRead(name)) {
+      return;
+    }
+    const pathArgument = call.arguments[0];
+    const parameterIndex = returned.parameters.findIndex(
+      (parameter) =>
+        pathArgument?.type === 'Identifier' && parameter === pathArgument.name,
+    );
+    if (parameterIndex >= 0) {
+      helpers.set(returned.name, { parameterIndex });
+      return;
+    }
+    const kind = classify(pathArgument);
+    if (kind) {
+      helpers.set(returned.name, { kind });
+    }
+  });
+  return helpers;
+}
+
+/**
  * A named helper whose whole job is to return a path, so a call to it can be
  * treated the same as the expression it returns.
  */
+function parameterNames(fn) {
+  return fn.params.map((parameter) =>
+    parameter.type === 'Identifier' ? parameter.name : undefined,
+  );
+}
+
 function returnedPathExpression(node) {
   if (node.type === 'FunctionDeclaration' && node.id?.type === 'Identifier') {
     const [statement, ...rest] = node.body.body;
     return statement?.type === 'ReturnStatement' &&
       rest.length === 0 &&
       statement.argument
-      ? { name: node.id.name, value: statement.argument }
+      ? {
+          name: node.id.name,
+          value: statement.argument,
+          parameters: parameterNames(node),
+        }
       : undefined;
   }
   if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') {
@@ -587,13 +707,21 @@ function returnedPathExpression(node) {
       return undefined;
     }
     if (fn.body.type !== 'BlockStatement') {
-      return { name: node.id.name, value: fn.body };
+      return {
+        name: node.id.name,
+        value: fn.body,
+        parameters: parameterNames(fn),
+      };
     }
     const [statement, ...rest] = fn.body.body;
     return statement?.type === 'ReturnStatement' &&
       rest.length === 0 &&
       statement.argument
-      ? { name: node.id.name, value: statement.argument }
+      ? {
+          name: node.id.name,
+          value: statement.argument,
+          parameters: parameterNames(fn),
+        }
       : undefined;
   }
   return undefined;
@@ -738,9 +866,32 @@ function analyzeFile(
 
   const { anchored: repoAnchored, helpers: anchoredHelpers } =
     collectRepoAnchoredBindings(ast);
-  const readKind = (callNode) =>
-    classifyReadTarget(callNode, repoAnchored, anchoredHelpers) ??
+  const classify = (pathNode) =>
+    classifyPath(pathNode, repoAnchored, anchoredHelpers) ??
     (walksSourceTree ? 'script' : undefined);
+  const readAliases = collectReadAliases(ast);
+  const isReadName = (name) =>
+    READ_FUNCTIONS.has(name) || readAliases.has(name);
+  const readHelpers = collectReadHelpers(ast, isReadName, classify);
+  // A read is a direct call, a call through an alias of one, or a call to a
+  // helper that does nothing but read.
+  const readKind = (callNode) => {
+    const name = calleeName(callNode.callee);
+    if (!name) {
+      return undefined;
+    }
+    if (isReadName(name)) {
+      return classify(callNode.arguments[0]);
+    }
+    if (callNode.callee.type !== 'Identifier') {
+      return undefined;
+    }
+    const helper = readHelpers.get(name);
+    if (!helper) {
+      return undefined;
+    }
+    return helper.kind ?? classify(callNode.arguments[helper.parameterIndex]);
+  };
 
   // Pass 1: taint every binding that holds first-party source text. Seeding
   // walks down from each binding rather than up from each read, so the read can

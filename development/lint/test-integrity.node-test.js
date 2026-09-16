@@ -397,6 +397,101 @@ test('catches direct evaluation, not only a vm or a transform', () => {
   );
 });
 
+test('covers the rest of the vm surface and indirect eval', () => {
+  const setup = `
+    const source = readFileSync(join(__dirname, 'thing.js'), 'utf8');
+    const fragment = source.slice(source.indexOf('const go ='));
+  `;
+  assertGated(
+    `${setup}
+    const go = new vm.Script(fragment).runInNewContext({});
+    it('x', () => { expect(go).toBeDefined(); });
+  `,
+    'new vm.Script',
+  );
+  assertGated(
+    `${setup}
+    const go = vm.compileFunction(fragment, [], {});
+    it('x', () => { expect(go).toBeDefined(); });
+  `,
+    'vm.compileFunction',
+  );
+  assertGated(
+    `${setup}
+    const go = (0, eval)(fragment);
+    it('x', () => { expect(go).toBeDefined(); });
+  `,
+    'indirect eval',
+  );
+  assertClean(
+    `
+    it('x', () => {
+      const go = new vm.Script(readFileSync(join(__dirname, 'thing.js'), 'utf8'));
+      expect(go).toBeDefined();
+    });
+  `,
+    'control: whole file through vm.Script',
+  );
+});
+
+test('follows a read through an alias or a one-line wrapper', () => {
+  assertGated(
+    `
+    const read = fs.readFileSync;
+    const source = read(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'alias binding',
+  );
+  assertGated(
+    `
+    const { readFileSync: slurp } = require('fs');
+    const source = slurp(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'destructured rename',
+  );
+  assertGated(
+    `
+    import { readFileSync as slurp } from 'fs';
+    const source = slurp(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'renamed import',
+  );
+  assertGated(
+    `
+    function readSource(file) {
+      return fs.readFileSync(file, 'utf8');
+    }
+    const source = readSource(join(__dirname, 'thing.ts'));
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'wrapper taking the path',
+  );
+  assertGated(
+    `
+    const readSource = () => fs.readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    const source = readSource();
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'wrapper holding the path',
+  );
+  // The wrapper is not what decides: a fixture path read through one is clean.
+  assertClean(
+    `
+    function readFixture(file) {
+      return fs.readFileSync(file, 'utf8');
+    }
+    it('x', () => {
+      const directory = fs.mkdtempSync(os.tmpdir());
+      expect(readFixture(join(directory, 'index.js'))).toBe('done');
+    });
+  `,
+    'wrapper reading a temp path',
+  );
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`
