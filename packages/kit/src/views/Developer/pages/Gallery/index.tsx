@@ -42,6 +42,10 @@ const DeviceStageDriverGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DeviceStageDriverGallery'),
 );
+const FirmwareUpdateInstallGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareUpdateInstallGallery'),
+);
 const LedgerAppOpsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LedgerAppOps'),
@@ -444,6 +448,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentDeviceStageDriver,
     component: DeviceStageDriverGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentFirmwareUpdateInstall,
+    component: FirmwareUpdateInstallGallery,
   },
   {
     name: EGalleryRoutes.ComponentLedgerAppOps,

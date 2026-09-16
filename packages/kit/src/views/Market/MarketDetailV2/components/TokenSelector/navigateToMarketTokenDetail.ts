@@ -73,9 +73,6 @@ export async function navigateToMarketTokenDetail(
 
   const stockId = resolveMarketStockId({
     stockId: token.stockId,
-    stock: opts.tokenDetailPreview?.stock,
-    name: opts.tokenDetailPreview?.name,
-    symbol: opts.tokenDetailPreview?.symbol,
   });
   const shouldResolveMarketAsset = Boolean(
     opts.resolveMarketAsset && !token.assetId && !stockId,

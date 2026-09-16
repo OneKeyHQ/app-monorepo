@@ -25,46 +25,58 @@ function formatDuration(durationMs: number) {
   );
 }
 
+function hasFirmwareTransferMetrics(
+  metrics: IFirmwareTransferMetrics | undefined,
+): metrics is Required<IFirmwareTransferMetrics> {
+  const { transferredBytes, totalBytes, rateBytesPerSecond, elapsedMs } =
+    metrics ?? {};
+  return (
+    Number.isFinite(transferredBytes) &&
+    Number.isFinite(totalBytes) &&
+    Number.isFinite(rateBytesPerSecond) &&
+    Number.isFinite(elapsedMs) &&
+    (transferredBytes ?? -1) >= 0 &&
+    (totalBytes ?? 0) > 0 &&
+    (rateBytesPerSecond ?? 0) > 0 &&
+    (elapsedMs ?? -1) >= 0
+  );
+}
+
+/**
+ * Milliseconds left in the transfer, or undefined until the rate has warmed
+ * up (enough time and bytes) or once nothing remains. Pure arithmetic for
+ * the install page, which renders minute buckets only.
+ */
+export function getFirmwareTransferEtaMs(
+  metrics: IFirmwareTransferMetrics | undefined,
+): number | undefined {
+  if (!hasFirmwareTransferMetrics(metrics)) {
+    return undefined;
+  }
+  const remainingBytes = Math.max(
+    metrics.totalBytes - metrics.transferredBytes,
+    0,
+  );
+  return metrics.elapsedMs >= ETA_WARMUP_ELAPSED_MS &&
+    metrics.transferredBytes >= ETA_WARMUP_TRANSFERRED_BYTES &&
+    remainingBytes > 0
+    ? Math.ceil((remainingBytes / metrics.rateBytesPerSecond) * 1000)
+    : undefined;
+}
+
 export function getFirmwareTransferDisplayMetrics(
   metrics: IFirmwareTransferMetrics | undefined,
 ) {
-  const transferredBytes = metrics?.transferredBytes;
-  const totalBytes = metrics?.totalBytes;
-  const rateBytesPerSecond = metrics?.rateBytesPerSecond;
-  const elapsedMs = metrics?.elapsedMs;
-  if (
-    !Number.isFinite(transferredBytes) ||
-    !Number.isFinite(totalBytes) ||
-    !Number.isFinite(rateBytesPerSecond) ||
-    !Number.isFinite(elapsedMs) ||
-    (transferredBytes ?? -1) < 0 ||
-    (totalBytes ?? 0) <= 0 ||
-    (rateBytesPerSecond ?? 0) <= 0 ||
-    (elapsedMs ?? -1) < 0
-  ) {
+  if (!hasFirmwareTransferMetrics(metrics)) {
     return undefined;
   }
-
-  const confirmedTransferredBytes = transferredBytes as number;
-  const confirmedTotalBytes = totalBytes as number;
-  const confirmedRateBytesPerSecond = rateBytesPerSecond as number;
-  const confirmedElapsedMs = elapsedMs as number;
-  const remainingBytes = Math.max(
-    confirmedTotalBytes - confirmedTransferredBytes,
-    0,
-  );
-  const estimatedRemainingMs =
-    confirmedElapsedMs >= ETA_WARMUP_ELAPSED_MS &&
-    confirmedTransferredBytes >= ETA_WARMUP_TRANSFERRED_BYTES &&
-    remainingBytes > 0
-      ? Math.ceil((remainingBytes / confirmedRateBytesPerSecond) * 1000)
-      : undefined;
-
+  const estimatedRemainingMs = getFirmwareTransferEtaMs(metrics);
   return {
-    transferredText: formatBytes(confirmedTransferredBytes),
-    totalText: formatBytes(confirmedTotalBytes),
-    speedText: `${formatBytes(confirmedRateBytesPerSecond)}/s`,
-    elapsedText: formatDuration(confirmedElapsedMs),
+    transferredText: formatBytes(metrics.transferredBytes),
+    totalText: formatBytes(metrics.totalBytes),
+    speedText: `${formatBytes(metrics.rateBytesPerSecond)}/s`,
+    elapsedText: formatDuration(metrics.elapsedMs),
+    estimatedRemainingMs,
     estimatedRemainingText:
       estimatedRemainingMs === undefined
         ? undefined

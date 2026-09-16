@@ -19,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ThirdPartyWalletAvatarImages,
   getThirdPartyDeviceAvatarImage,
@@ -280,6 +281,20 @@ const PIXEL_GRID = PixelRatio.get();
  * foot and all. */
 const FOG_COLORS = [stageBgAlpha(0), stageBgAlpha(0.5), STAGE_BG];
 const FOG_LOCATIONS = [0, 0.58, 0.87] as const;
+/**
+ * How far the fog runs on under the port's floor, where the window
+ * clips it away. Android paints the gradient as an anti-aliased path
+ * of exactly its own bounds (expo's LinearGradientView) while the
+ * window's clip rounds to whole pixels, so a subtree resting on a
+ * fractional pixel leaves the fog's last row half-covered and the
+ * keypad underneath showing through as a hairline (OK-63384). Ending
+ * the fog below the clip hands that edge to the clip instead; the
+ * fade's stops are rescaled so they stay put over the port. Android
+ * only: iOS's gradient layer has no edge anti-aliasing and the web
+ * draws a CSS gradient, so elsewhere the fog keeps the port's own
+ * height and the stops as authored.
+ */
+const FOG_BLEED = platformEnv.isNativeAndroid ? 2 : 0;
 
 /**
  * Which arrangement a card step gives the standing replica: the full
@@ -318,8 +333,19 @@ const REPLICA_TOP = CARD.padTop + STAGE_ROW.top;
  */
 function replicaMetricsFor(replicaWidth: number) {
   const scale = replicaWidth / STAGE_DESIGN_WIDTH;
+  const fullPort = Math.round(PORT_HEIGHT * scale);
+  const fogHeight = fullPort + FOG_BLEED;
+  const fogStop = fullPort / fogHeight;
   return {
-    fullPort: Math.round(PORT_HEIGHT * scale),
+    fullPort,
+    /** The fog's own box: the port plus its bleed under the floor, the
+     * stops landing where they would on the port alone. */
+    fogHeight,
+    fogLocations: [
+      FOG_LOCATIONS[0] * fogStop,
+      FOG_LOCATIONS[1] * fogStop,
+      FOG_LOCATIONS[2] * fogStop,
+    ] as const,
     /** The words' margin over the spacer, per arrangement: the full
      * stage tucks them into the foot, the miniature clears them. */
     wordsMarginByKind: {
@@ -542,11 +568,13 @@ export function DeviceStage({
   const intl = useIntl();
   const {
     fullPort,
+    fogHeight,
+    fogLocations,
     wordsMarginByKind,
     compactScale,
     thumbScale,
     estimatedHeight,
-  } = replicaMetricsFor(replicaWidth);
+  } = useMemo(() => replicaMetricsFor(replicaWidth), [replicaWidth]);
   const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
   const localizedErrorMessage = resolveErrorMessage(
     intl,
@@ -1196,10 +1224,10 @@ export function DeviceStage({
   const fogStyle = useMemo(
     () => [
       styles.fog,
-      { width: replicaWidth, height: fullPort },
+      { width: replicaWidth, height: fogHeight },
       fogMotionStyle,
     ],
-    [fogMotionStyle, fullPort, replicaWidth],
+    [fogMotionStyle, fogHeight, replicaWidth],
   );
   const wordsStyle = useMemo(
     () => [styles.wordsBlock, wordsFlowStyle],
@@ -2120,14 +2148,14 @@ export function DeviceStage({
           <Animated.View style={fogStyle}>
             <LinearGradient
               colors={FOG_COLORS}
-              locations={FOG_LOCATIONS}
+              locations={fogLocations}
               style={styles.fogFill}
             />
           </Animated.View>
         </Animated.View>
       </Animated.View>
     ),
-    [deviceLayer, deviceStyle, fogStyle, portStyle, replicaStyle],
+    [deviceLayer, deviceStyle, fogLocations, fogStyle, portStyle, replicaStyle],
   );
 
   // The ripple rests through pose flights too: the capsule pose stands

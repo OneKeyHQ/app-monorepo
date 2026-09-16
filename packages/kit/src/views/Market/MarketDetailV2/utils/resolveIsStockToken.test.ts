@@ -12,6 +12,7 @@ const previewStock: IMarketStockInfo = {
 
 const detailStock: IMarketStockInfo = {
   ...previewStock,
+  stockId: 'AAPL',
   underlyingAssetTicker: 'AAPL',
 };
 
@@ -35,18 +36,17 @@ describe('resolveMarketStockId', () => {
       resolveMarketStockId({
         stock: {
           stockId: ' abnb ',
-          underlyingAssetTicker: 'fallback',
         },
       }),
     ).toBe('ABNB');
   });
 
-  it('prefers the explicit underlying ticker', () => {
+  it('does not treat an underlying ticker as a stock id', () => {
     expect(
       resolveMarketStockId({
-        stock: { underlyingAssetTicker: 'aapl' },
+        stock: { stockId: undefined },
       }),
-    ).toBe('AAPL');
+    ).toBeUndefined();
   });
 
   it('uses an explicit stock id supplied by an adapter', () => {
@@ -57,56 +57,31 @@ describe('resolveMarketStockId', () => {
     expect(
       resolveMarketStockId({
         stockId,
-        stock: { stockId: ' abnb ', underlyingAssetTicker: 'AAPL' },
+        stock: { stockId: ' abnb ' },
       }),
     ).toBe('ABNB');
     expect(
       resolveMarketStockId({
         stockId,
-        stock: { stockId, underlyingAssetTicker: ' aapl ' },
+        stock: { stockId },
       }),
-    ).toBe('AAPL');
-    expect(
-      resolveMarketStockId({
-        stock: { stockId, underlyingAssetTicker: ' aapl ' },
-      }),
-    ).toBe('AAPL');
+    ).toBeUndefined();
   });
 
-  it('prefers a nonblank adapter stock id over other identifiers', () => {
+  it('prefers a nonblank adapter stock id over nested identifiers', () => {
     expect(
       resolveMarketStockId({
         stockId: ' tsla ',
-        stock: { stockId: 'ABNB', underlyingAssetTicker: 'AAPL' },
+        stock: { stockId: 'ABNB' },
       }),
     ).toBe('TSLA');
   });
 
-  it('infers xStocks identity when every explicit identifier is blank', () => {
+  it('does not infer a stock id from xStock naming', () => {
     expect(
       resolveMarketStockId({
         stockId: '',
-        stock: { stockId: ' ', underlyingAssetTicker: '\t' },
-        name: 'Airbnb xStock',
-        symbol: 'ABNBx',
-      }),
-    ).toBe('ABNB');
-  });
-
-  it('resolves an xStocks token when search metadata omits stock', () => {
-    expect(
-      resolveMarketStockId({
-        name: 'Airbnb xStock',
-        symbol: 'ABNBx',
-      }),
-    ).toBe('ABNB');
-  });
-
-  it('does not infer stock identity from the x suffix alone', () => {
-    expect(
-      resolveMarketStockId({
-        name: 'Example Token',
-        symbol: 'ABNBx',
+        stock: { stockId: ' ' },
       }),
     ).toBeUndefined();
   });

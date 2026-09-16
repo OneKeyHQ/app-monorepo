@@ -93,6 +93,12 @@ export function PrimeGiftOffer({
       alignItems="center"
       gap="$3"
       minHeight={88}
+      {...(source === 'onboarding'
+        ? {
+            w: '100%' as const,
+            $gtMd: { w: 400 },
+          }
+        : undefined)}
       px="$4"
       py="$4"
       bg="$bgSubdued"

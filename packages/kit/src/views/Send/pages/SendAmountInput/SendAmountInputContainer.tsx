@@ -169,6 +169,8 @@ import type { RouteProp } from '@react-navigation/core';
 
 export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
 
+const IOS_AUTO_FOCUS_FALLBACK_MS = 500;
+
 // Neutral, non-empty hint used to keep the amount error suppressed while the
 // user is typing on chains/tokens that have no min-amount hint (most EVM
 // tokens, or BTC before tokenMinAmount loads). Form.Field only renders the
@@ -2514,16 +2516,75 @@ function SendAmountInputContainer() {
   // Ref to track submit disabled state for keyboard shortcuts
   const isSubmitDisabledRef = useRef(true);
 
-  // Auto-focus the amount input after the page transition animation completes.
-  // Non-Android targets only auto-focus once, on the initial focus (the
-  // previous mount-only behavior), so returning from a child route does not
-  // steal focus from the active control or reopen the iOS keyboard. Android
-  // (react-native-screens) detaches this screen while the confirm page is on
-  // top, which drops the native focus, so it re-focuses on every route focus
-  // to bring the keyboard back.
+  // iOS uses a native slide-from-right push for modal stack screens. Wait for
+  // that transition to finish before focusing so the keyboard rises from the
+  // bottom instead of entering sideways with the screen. Keep this initial
+  // focus one-shot so returning from a child route does not reopen the iOS
+  // keyboard.
   const hasAutoFocusedAmountInputRef = useRef(false);
+  const hasStartedIOSAutoFocusRef = useRef(false);
+  const reactNavigation = useNavigation();
+
+  // Android (react-native-screens) detaches this screen while the confirm page
+  // is on top, which drops the native focus, so it re-focuses on every route
+  // focus. Web and desktop keep the previous once-only delayed auto-focus.
   useFocusEffect(
     useCallback(() => {
+      if (platformEnv.isNativeIOS) {
+        if (
+          hasStartedIOSAutoFocusRef.current ||
+          hasAutoFocusedAmountInputRef.current
+        ) {
+          return undefined;
+        }
+        hasStartedIOSAutoFocusRef.current = true;
+
+        let isActive = true;
+        let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+        let removeTransitionEndListener: (() => void) | undefined;
+
+        const clearFocusSchedule = () => {
+          if (fallbackTimer !== undefined) {
+            clearTimeout(fallbackTimer);
+            fallbackTimer = undefined;
+          }
+          removeTransitionEndListener?.();
+          removeTransitionEndListener = undefined;
+        };
+
+        const focusIfNeeded = () => {
+          const amountInput = amountInputRef.current;
+          if (
+            !isActive ||
+            hasAutoFocusedAmountInputRef.current ||
+            !reactNavigation.isFocused() ||
+            !amountInput
+          ) {
+            return;
+          }
+          clearFocusSchedule();
+          hasAutoFocusedAmountInputRef.current = true;
+          amountInput.focus();
+        };
+
+        removeTransitionEndListener = reactNavigation.addListener(
+          'transitionEnd' as any,
+          (event) => {
+            if (event.data?.closing === false) {
+              focusIfNeeded();
+            }
+          },
+        );
+
+        // A cold lazy load can attach after transitionEnd. Keep the fallback
+        // beyond the native push window and cancel it as soon as focus is lost.
+        fallbackTimer = setTimeout(focusIfNeeded, IOS_AUTO_FOCUS_FALLBACK_MS);
+
+        return () => {
+          isActive = false;
+          clearFocusSchedule();
+        };
+      }
       if (
         hasAutoFocusedAmountInputRef.current &&
         !platformEnv.isNativeAndroid
@@ -2535,7 +2596,7 @@ function SendAmountInputContainer() {
         amountInputRef.current?.focus();
       }, 300);
       return () => clearTimeout(timer);
-    }, []),
+    }, [reactNavigation]),
   );
 
   // Blur the amount input and dismiss the IME before this screen is popped.
@@ -2548,7 +2609,6 @@ function SendAmountInputContainer() {
   // (KeyboardController) like the overlay-open path does. `beforeRemove` fires
   // while the native view is still alive; by the time the unmount cleanup runs
   // the ref is already detached.
-  const reactNavigation = useNavigation();
   useEffect(() => {
     if (!platformEnv.isNative) {
       return undefined;
@@ -4238,6 +4298,15 @@ function SendAmountInputContainer() {
         py="$2.5"
         alignItems="center"
         width="100%"
+        {...(platformEnv.isNativeIOS
+          ? {
+              // Keep the card on one native layer while its ancestors follow
+              // the keyboard. Fabric can otherwise commit flattened child
+              // frames before the card background during the layout animation.
+              collapsable: false,
+              shouldRasterizeIOS: true,
+            }
+          : {})}
       >
         {renderBalanceRowContent()}
       </XStack>

@@ -18,7 +18,9 @@ import {
   BridgeTimeoutError,
   FirmwareUpdateBatteryTooLow,
   FirmwareUpdateExit,
+  FirmwareUpdateRequiresUsbTransport,
   FirmwareUpdateTasksClear,
+  FirmwareUpdateUnsupportedDevice,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedFirmwareUpgradeFromWeb,
@@ -32,7 +34,6 @@ import {
   convertDeviceResponse,
   isHardwareErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   classifyFirmwareUpdateFailure,
@@ -2602,16 +2603,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
 
     try {
-      errorToastUtils.toastIfError(error);
-      errorToastUtils.showToastOfError(error);
-    } catch (toastError) {
-      serviceHardwareUtils.hardwareLog(
-        'failUpdateWorkflow toast ERROR',
-        toastError,
-      );
-    }
-
-    try {
       const hardwareTransportType = await this.getUpdateWorkflowTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
       const resultFailureType =
@@ -2703,9 +2694,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               if (
                 currentTransportType === EHardwareTransportType.DesktopWebBle
               ) {
-                throw new OneKeyLocalError(
-                  'Desktop firmware updates require a USB transport',
-                );
+                throw new FirmwareUpdateRequiresUsbTransport();
               }
             }
             this.recordUpdateWorkflowTransportType(
@@ -2759,9 +2748,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                           isProtocolV2ProductType(deviceType),
                       },
                     );
-                    throw new OneKeyLocalError(
-                      'Do not support update firmware for this device',
-                    );
+                    throw new FirmwareUpdateUnsupportedDevice();
                   }
                   const updateResult =
                     await this.startUpdateFirmwareTaskForNewBootVersion(

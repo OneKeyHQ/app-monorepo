@@ -1,10 +1,18 @@
 /** @jest-environment jsdom */
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeGiftEligibilityCache } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import {
+  OneKeyLocalError,
+  PinCancelled,
+  UserCancel,
+} from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   IPrimeGiftDevice,
   IPrimeGiftEligibility,
@@ -70,10 +78,19 @@ jest.mock('../pages/PrimeDashboard/PrimeRedemptionDialog', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
-  __esModule: true,
-  default: { isUserCancelStyleError: () => false },
-}));
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => {
+  const actual = jest.requireActual(
+    '@onekeyhq/shared/src/errors/utils/errorToastUtils',
+  ) as {
+    default: { isUserCancelStyleError: (error: unknown) => boolean };
+  };
+  return {
+    __esModule: true,
+    default: {
+      isUserCancelStyleError: actual.default.isUserCancelStyleError,
+    },
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -378,6 +395,180 @@ describe('usePrimeGiftClaim', () => {
       expect(showDialog).not.toHaveBeenCalled();
     },
   );
+
+  it('shows the returned verify-failed message instead of a raw SDK diagnostic', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+      new OneKeyLocalError({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      }),
+    );
+    const { result } = renderClaim();
+    await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.error).toBe(
+      ETranslations.prime_gift_verify_failed__msg,
+    );
+    expect(result.current.isSubmitting).toBe(false);
+    expect(showDialog).not.toHaveBeenCalled();
+    expect(mockPrimeGiftStage.mock.calls).toEqual([
+      [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'failed' }],
+    ]);
+  });
+
+  it('does not treat a plain Device cancelled Error as user cancellation', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+      new Error('Device cancelled'),
+    );
+    const { result } = renderClaim();
+    await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.error).toBe('Device cancelled');
+    expect(mockPrimeGiftStage.mock.calls.at(-1)).toEqual([
+      { source: 'onboarding', stage: 'verify', status: 'failed' },
+    ]);
+  });
+
+  it.each([
+    {
+      name: 'converted ActionCancelled',
+      error: convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),
+    },
+    {
+      name: 'UserCancel instance',
+      error: new UserCancel(),
+    },
+    {
+      name: 'PinCancelled instance',
+      error: new PinCancelled(),
+    },
+    {
+      name: 'serialized CallQueueActionCancelled',
+      error: {
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        payload: { code: HardwareErrorCode.CallQueueActionCancelled },
+      },
+    },
+    {
+      name: 'serialized PinCancelled',
+      error: {
+        $isHardwareError: true,
+        payload: { code: HardwareErrorCode.PinCancelled },
+      },
+    },
+    {
+      name: 'HardwareUserCancelFromOutside',
+      error: {
+        className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+        message: 'Protocol V2 USB read failed: transferIn',
+      },
+    },
+  ])(
+    'does not surface a verify error for $name and keeps verify/cancel analytics',
+    async ({ error }) => {
+      servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(error);
+      const { result } = renderClaim();
+      await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+      await act(async () => {
+        await result.current.submit();
+      });
+      expect(result.current.error).toBeUndefined();
+      expect(result.current.isSubmitting).toBe(false);
+      expect(showDialog).not.toHaveBeenCalled();
+      expect(mockPrimeGiftStage.mock.calls).toEqual([
+        [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+        [{ source: 'onboarding', stage: 'verify', status: 'cancel' }],
+      ]);
+    },
+  );
+
+  it.each([
+    {
+      name: 'hardware busy',
+      message: 'Hardware is busy',
+      key: ETranslations.feedback_hardware_is_busy,
+    },
+    {
+      name: 'connect device',
+      message: 'Connect the device to continue',
+      key: ETranslations.prime_gift_connect_device__msg,
+    },
+  ])(
+    'shows original $name preflight guidance without wrapping it as reconnect',
+    async ({ message, key }) => {
+      servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+        new OneKeyLocalError({
+          message,
+          key,
+          autoToast: false,
+        }),
+      );
+      const { result } = renderClaim();
+      await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+      await act(async () => {
+        await result.current.submit();
+      });
+      expect(result.current.error).toBe(message);
+      expect(result.current.error).not.toMatch(/reconnect/i);
+      expect(result.current.isSubmitting).toBe(false);
+      expect(showDialog).not.toHaveBeenCalled();
+      expect(mockPrimeGiftStage.mock.calls.at(-1)).toEqual([
+        { source: 'onboarding', stage: 'verify', status: 'failed' },
+      ]);
+    },
+  );
+
+  it('retries after hardware-busy preflight and then opens the redemption dialog', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+      new OneKeyLocalError({
+        message: 'Hardware is busy',
+        key: ETranslations.feedback_hardware_is_busy,
+        autoToast: false,
+      }),
+    );
+    const { result } = renderClaim();
+    await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.error).toBe('Hardware is busy');
+    expect(showDialog).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(showDialog).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeUndefined();
+  });
+
+  it('retries after a device cancellation without a failed verify state', async () => {
+    servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(
+      convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),
+    );
+    const { result } = renderClaim();
+    await waitFor(() => expect(result.current.isLoggedIn).toBe(true));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.error).toBeUndefined();
+    expect(showDialog).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(showDialog).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeUndefined();
+    expect(mockPrimeGiftStage.mock.calls).toEqual([
+      [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'cancel' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'start' }],
+      [{ source: 'onboarding', stage: 'verify', status: 'success' }],
+    ]);
+  });
 
   it('re-verifies after a failed attempt and after closing the redemption dialog', async () => {
     servicePrime.apiPreparePrimeGiftRedemption.mockRejectedValueOnce(

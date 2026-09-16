@@ -140,7 +140,11 @@ function HomeAlerts() {
       <RiskApprovalAlert />
       <WatchOnlyAlert />
       <NetworkAlert />
-      <NotificationPermissionRecoveryAlert scene="home" initialDelayMs={6000} />
+      <NotificationPermissionRecoveryAlert
+        scene="home"
+        initialDelayMs={6000}
+        showAlert={false}
+      />
     </>
   );
 }

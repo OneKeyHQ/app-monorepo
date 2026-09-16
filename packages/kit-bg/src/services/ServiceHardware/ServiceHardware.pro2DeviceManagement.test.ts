@@ -7,6 +7,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   LogLevel,
   NativeLogger,
@@ -1009,6 +1011,58 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 });
 
 describe('ServiceHardware SDK DeviceState synchronization', () => {
+  it('enriches connection analytics once for concurrent connect events', async () => {
+    const trackConnection = jest
+      .spyOn(defaultLogger.hardware.connection, 'hwDeviceConnected')
+      .mockImplementation((params) => params);
+    try {
+      const listeners = new Map<string, (payload: unknown) => void>();
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      await service.registerSdkEvents({
+        on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+          listeners.set(event, listener),
+        ),
+      } as unknown as Parameters<ServiceHardware['registerSdkEvents']>[0]);
+      const message = {
+        device: {
+          connectId: 'PRO_USB',
+          deviceId: 'PRO_DEVICE_ID',
+          serialNo: 'PRO_SERIAL',
+          commType: 'webusb',
+          features: {
+            deviceType: EDeviceType.Pro,
+            firmwareType: EFirmwareType.Universal,
+            serialNo: 'PRO_SERIAL',
+          },
+          state: {
+            identity: { serialNo: 'PRO_SERIAL' },
+            versions: { firmware: '4.16.0' },
+          },
+        },
+      };
+
+      listeners.get(DEVICE.CONNECT)?.(message);
+      listeners.get(DEVICE.CONNECT)?.(message);
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(trackConnection).toHaveBeenCalledTimes(1);
+      expect(trackConnection).toHaveBeenCalledWith({
+        deviceType: EDeviceType.Pro,
+        firmwareType: 'universal',
+        deviceId: 'PRO_DEVICE_ID',
+        serialNo: 'PRO_SERIAL',
+        firmwareVersion: '4.16.0',
+        transportType: 'webusb',
+      });
+    } finally {
+      trackConnection.mockRestore();
+    }
+  });
+
   it('按设备身份跟踪连接状态，而不是把任意硬件设备视为目标设备在线', async () => {
     const listeners = new Map<string, (payload: unknown) => void>();
     const service = new ServiceHardware({
@@ -2514,6 +2568,43 @@ describe('Prime gift certificate verification', () => {
           deviceType,
         }),
       );
+    },
+  );
+
+  it.each([
+    { connectId: '', serialNo: 'DEVICE_SERIAL' },
+    { connectId: 'DEVICE_USB', serialNo: '' },
+  ])(
+    'rejects missing device connection before verification: %j',
+    async ({ connectId, serialNo }) => {
+      const withHardwareProcessing = jest.fn();
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+        },
+        serviceHardware: undefined as ServiceHardware | undefined,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as unknown as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+
+      await expect(
+        service.hardwareVerifyManager.firmwareAuthenticateForPrimeGift({
+          device: {
+            connectId,
+            deviceId: 'DEVICE_ID',
+            uuid: 'DEVICE_SERIAL',
+            name: 'OneKey hardware wallet',
+            deviceType: EDeviceType.Pro,
+          },
+          serialNo,
+        }),
+      ).rejects.toMatchObject({
+        key: ETranslations.prime_gift_connect_device__msg,
+        autoToast: false,
+      });
+      expect(withHardwareProcessing).not.toHaveBeenCalled();
     },
   );
 });
