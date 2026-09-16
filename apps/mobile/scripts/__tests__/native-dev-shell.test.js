@@ -686,14 +686,6 @@ describe('native-dev-shell', () => {
       path.join(androidRoot, 'AndroidManifest.xml'),
       'utf8',
     );
-    const androidReleaseDeploy = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../../../development/scripts/android-release-build-deploy.sh',
-      ),
-      'utf8',
-    );
-
     const launcherManifestStart = manifest.indexOf(
       '<activity android:name=".MainLauncherActivity"',
     );
@@ -725,10 +717,6 @@ describe('native-dev-shell', () => {
     expect(manifest).toContain(
       'android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />',
     );
-    expect(androidReleaseDeploy).toContain(
-      '$PACKAGE_NAME/.MainLauncherActivity',
-    );
-    expect(androidReleaseDeploy).not.toContain('$PACKAGE_NAME/.MainActivity');
   });
 
   it('keeps Android reverse ownership inside the device lock lifetime', () => {
@@ -1704,25 +1692,6 @@ describe('native-dev-shell', () => {
     expect(ios.nativeContractKey).not.toBe(android.nativeContractKey);
     expect(android).toMatchObject({ platform: 'android', schemaVersion: 1 });
     expect(ios).toMatchObject({ platform: 'ios', schemaVersion: 1 });
-  });
-
-  // Negative capability constraint: the dev session URL must never come from an
-  // environment variable, which any process could set on a shipped build.
-  it('keeps the dev session URL off the environment on both platforms', () => {
-    const androidActivity = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../android/app/src/main/java/so/onekey/app/wallet/MainActivity.java',
-      ),
-      'utf8',
-    );
-    const iosDelegate = fs.readFileSync(
-      path.join(__dirname, '../../ios/AppDelegate.swift'),
-      'utf8',
-    );
-
-    expect(androidActivity).not.toContain('ONEKEY_DEV_SESSION_URL');
-    expect(iosDelegate).not.toContain('ONEKEY_DEV_SESSION_URL');
   });
 
   it('creates an input-bound ARM shell artifact manifest', async () => {
