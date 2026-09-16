@@ -14,6 +14,8 @@ import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2'
 import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
 import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
+import { applyExistingMarketDetailRoute } from './applyMarketDetailRoute';
+
 export async function navigateToMarketTokenDetail(
   selectedToken: {
     address: string;
@@ -140,14 +142,24 @@ export async function navigateToMarketTokenDetail(
   const routeName = stockId
     ? ETabMarketRoutes.MarketStockDetail
     : ETabMarketRoutes.MarketDetailV2;
-  setTimeout(() => {
-    if (!isCurrentRequest()) return;
-    rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-      screen: targetTab,
-      params: {
-        screen: routeName,
-        params,
-      },
-    });
-  }, 100);
+  if (!isCurrentRequest()) {
+    return;
+  }
+  // Stay on the already-open detail page. Root-navigating Discovery/Market
+  // remounts the tab stack, which shows the tab bar and stacks another detail.
+  if (
+    applyExistingMarketDetailRoute({
+      routeName,
+      params: params as Record<string, unknown>,
+    })
+  ) {
+    return;
+  }
+  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+    screen: targetTab,
+    params: {
+      screen: routeName,
+      params,
+    },
+  });
 }

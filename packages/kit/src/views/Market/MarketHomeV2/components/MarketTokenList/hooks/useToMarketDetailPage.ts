@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { buildReplacedMarketDetailParams } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/applyMarketDetailRoute';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
@@ -263,6 +264,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const shouldReplaceCurrentDetail = Boolean(
         options?.replaceCurrentDetail && currentRouteName !== detailRouteName,
       );
+      const shouldUpdateCurrentDetail = Boolean(
+        options?.replaceCurrentDetail && currentRouteName === detailRouteName,
+      );
 
       // Check if in extension popup/side panel
       if (
@@ -380,7 +384,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             return;
           }
         }
-        if (stockId) {
+        if (shouldUpdateCurrentDetail) {
+          navigation.setParams(
+            buildReplacedMarketDetailParams(params as Record<string, unknown>),
+          );
+        } else if (stockId) {
           if (shouldReplaceCurrentDetail) {
             navigation.replace(ETabMarketRoutes.MarketStockDetail, params);
           } else {

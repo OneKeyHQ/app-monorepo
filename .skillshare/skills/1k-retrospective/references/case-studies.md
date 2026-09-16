@@ -437,3 +437,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
 **Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
 **Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
+
+## Case: Market detail token switch remounted the tab stack
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Switching tokens from Market detail showed the bottom tab bar (OK-63513), and Android kept the selector keyboard up if the list was not scrolled (OK-63520).
+**Root Cause**: Token switch root-navigated Discovery/Market after closing the selector, remounting the tab stack and leaving HideTabBar=false. The selector also never dismissed the keyboard; list taps use persist-taps so only a drag hid it.
+**Fix**: Update or replace the already-mounted detail route in place, and blur the selector SearchBar before leaving.
+**Catchable by**: Section 3: safe-area / tab-bar visibility after a same-page identity change; Section 4: navigation must not stack another copy of the current detail; NEW — closing an autoFocused selector must dismiss the keyboard even when the list was not scrolled
+
+## Case: Android IME stayed hidden after selector KeyboardController.dismiss
+**Date**: 2026-09-16 | **Platforms**: Android
+**Symptom**: After switching Market tokens, opening the selector SearchBar (or other autoFocused inputs) no longer showed the keyboard.
+**Root Cause**: `KeyboardController.dismiss()` calls Android `hideSoftInputFromWindow`. Combined with staying on the same detail route, the next SearchBar `autoFocus` is programmatic and Android does not reshow the IME. The already-focused input also ignores a second tap.
+**Fix**: Blur the RN SearchBar (`Keyboard.dismiss`) before closing the selector. Do not force-hide the IME in the shared navigate helper.
+**Catchable by**: Section 5: stale IME / focus state after dismiss; NEW — Android hideSoftInputFromWindow must not be used on a path that later autoFocuses an input
