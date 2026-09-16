@@ -170,3 +170,20 @@ export function describeStockAnalystGaugeArc(params: {
     end.x,
   )} ${roundCoordinate(end.y)}`;
 }
+
+/**
+ * A stock the provider does not cover reports no counts and no percentages, so
+ * the detail page drops the whole section instead of drawing an empty dial.
+ */
+export function hasStockAnalystRatingsData(params: {
+  ratings?: Pick<IMarketStockAnalystRatings, 'buy' | 'hold' | 'sell'>;
+  counts?: IStockAnalystRatingCounts;
+}): boolean {
+  const { ratings, counts } = params;
+  if ((counts?.total ?? 0) > 0) {
+    return true;
+  }
+  return [ratings?.buy, ratings?.hold, ratings?.sell].some(
+    (value) => Number(value) > 0,
+  );
+}
