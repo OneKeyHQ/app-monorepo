@@ -47,6 +47,7 @@ import {
   STOCK_ANALYST_GAUGE_HEIGHT,
   STOCK_ANALYST_GAUGE_WIDTH,
   StockAnalystGauge,
+  hasStockAnalystRatingsData,
   parseStockAnalystRatingCounts,
 } from '../components/StockAnalystGauge';
 import { StockFinancials } from '../components/StockFinancials/StockFinancials';
@@ -903,6 +904,10 @@ function StockAnalystRatings() {
   const lastUpdatedLabel = intl.formatMessage({
     id: ETranslations.market_last_updated,
   });
+  const hasRatings = hasStockAnalystRatingsData({
+    ratings,
+    counts: ratingCounts,
+  });
   const footerText =
     ratingCounts.total > 0
       ? intl.formatMessage(
@@ -914,6 +919,10 @@ function StockAnalystRatings() {
           },
         )
       : `${lastUpdatedLabel}: ${lastUpdatedText}`;
+
+  if (!isLoading && !hasRatings) {
+    return null;
+  }
 
   return (
     <YStack
