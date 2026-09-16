@@ -20,7 +20,7 @@ import { XStack, YStack } from '../../primitives';
 import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
 import { useConvertAnimatedToValue } from './useFocusedTab';
-import { parseCssSize } from './utils';
+import { getInFlowContentBottom, parseCssSize } from './utils';
 
 import type { TamaguiElement } from '../../shared/tamagui';
 import type { LayoutChangeEvent } from 'react-native';
@@ -253,46 +253,69 @@ export function Container({
     | 'tabPressAnimationEnabled'
     | 'renderSubHeader'
   >) {
-  const getTabContentHeight = useCallback((element: Element | null) => {
-    const htmlElement = element as HTMLElement | null;
-    if (!htmlElement) {
-      return 0;
-    }
+  const getTabContentHeight = useCallback(
+    (element: Element | null, isStretchedByContainer = false) => {
+      const htmlElement = element as HTMLElement | null;
+      if (!htmlElement) {
+        return 0;
+      }
 
-    const style = globalThis.getComputedStyle(htmlElement);
-    const verticalSpacing =
-      parseCssSize(style.marginTop) +
-      parseCssSize(style.marginBottom) +
-      parseCssSize(style.paddingTop) +
-      parseCssSize(style.paddingBottom);
-    const virtualizedInnerElement = htmlElement.querySelector<HTMLElement>(
-      [
-        '.ReactVirtualized__Grid__innerScrollContainer',
-        '.ReactVirtualized__Collection__innerScrollContainer',
-      ].join(','),
-    );
-    // Cheap path first: only force a synchronous layout via
-    // getBoundingClientRect when scrollHeight/clientHeight both come back 0.
-    const virtualizedCheap = virtualizedInnerElement
-      ? Math.max(
-          virtualizedInnerElement.scrollHeight || 0,
-          virtualizedInnerElement.clientHeight || 0,
-        ) + verticalSpacing
-      : 0;
-    const cheap = Math.max(
-      htmlElement.scrollHeight || 0,
-      htmlElement.clientHeight || 0,
-      virtualizedCheap,
-    );
-    if (cheap) return cheap;
-    const virtualizedFallback = virtualizedInnerElement
-      ? virtualizedInnerElement.getBoundingClientRect().height + verticalSpacing
-      : 0;
-    return Math.max(
-      htmlElement.getBoundingClientRect().height || 0,
-      virtualizedFallback,
-    );
-  }, []);
+      const style = globalThis.getComputedStyle(htmlElement);
+      const verticalSpacing =
+        parseCssSize(style.marginTop) +
+        parseCssSize(style.marginBottom) +
+        parseCssSize(style.paddingTop) +
+        parseCssSize(style.paddingBottom);
+      const virtualizedInnerElement = htmlElement.querySelector<HTMLElement>(
+        [
+          '.ReactVirtualized__Grid__innerScrollContainer',
+          '.ReactVirtualized__Collection__innerScrollContainer',
+        ].join(','),
+      );
+      // Cheap path first: only force a synchronous layout via
+      // getBoundingClientRect when scrollHeight/clientHeight both come back 0.
+      const virtualizedCheap = virtualizedInnerElement
+        ? Math.max(
+            virtualizedInnerElement.scrollHeight || 0,
+            virtualizedInnerElement.clientHeight || 0,
+          ) + verticalSpacing
+        : 0;
+      const cheap = Math.max(
+        htmlElement.scrollHeight || 0,
+        htmlElement.clientHeight || 0,
+        virtualizedCheap,
+      );
+      // A stretched element (Tabs.ScrollView is `flex={1}`) is sized by the
+      // shared pager container, which still carries the PREVIOUS tab's height
+      // while the newly focused tab is being measured. Its own box then
+      // reports that stale height, so the container only ever grows and a
+      // short tab inherits a tall one's dead space. The in-flow content stays
+      // content-sized, so it exposes the real height. Only trust it when it
+      // proves the box is stretched past the content — otherwise the box
+      // already matches (or is overflowed by) the content — and never let it
+      // undercut a virtualized list, whose height is content-driven already.
+      if (isStretchedByContainer && cheap) {
+        const contentBottom = getInFlowContentBottom(htmlElement);
+        if (contentBottom > 0) {
+          const contentHeight =
+            contentBottom + parseCssSize(style.paddingBottom);
+          if (contentHeight < cheap && contentHeight >= virtualizedCheap) {
+            return contentHeight;
+          }
+        }
+      }
+      if (cheap) return cheap;
+      const virtualizedFallback = virtualizedInnerElement
+        ? virtualizedInnerElement.getBoundingClientRect().height +
+          verticalSpacing
+        : 0;
+      return Math.max(
+        htmlElement.getBoundingClientRect().height || 0,
+        virtualizedFallback,
+      );
+    },
+    [],
+  );
 
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
@@ -518,11 +541,17 @@ export function Container({
       if (shouldMeasureFallbackNaturalHeight) {
         containerElement.style.height = '';
       }
+      // Tabs.ScrollView is `flex={1}`, so the pinned container height stretches
+      // it and hides the tab's real content height from its own box. Compare
+      // against the element `isRegisteredScrollView` was derived from, so the
+      // flag can never disagree with the element actually being measured.
+      const isStretchedByContainer =
+        isRegisteredScrollView && targetElement === registeredElement;
       const h =
         typeof registeredHeight === 'number' &&
         Number.isFinite(registeredHeight)
           ? registeredHeight
-          : getTabContentHeight(targetElement);
+          : getTabContentHeight(targetElement, isStretchedByContainer);
       if (h > 0) {
         containerElement.style.height = `${h}px`;
       } else {
