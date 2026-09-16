@@ -910,6 +910,71 @@ test('a local the callback declares shadows the file-level binding', () => {
   );
 });
 
+test('an assertion helper counts assertions made inside its callbacks', () => {
+  const forEachHelper = `
+    const expectAllPresent = (text, needles) =>
+      needles.forEach((needle) => expect(text).toContain(needle));
+  `;
+  assertGated(
+    `${forEachHelper}
+    it('x', () => {
+      expectAllPresent(readFileSync(join(__dirname, 'thing.ts'), 'utf8'), ['a']);
+    });
+  `,
+    'sink inside a forEach callback',
+  );
+  assertGated(
+    `
+    function describeContract(text) {
+      it('inner', () => { expect(text).toContain('go'); });
+    }
+    describeContract(readFileSync(join(__dirname, 'thing.ts'), 'utf8'));
+  `,
+    'sink inside an it body',
+  );
+  assertClean(
+    `${forEachHelper}
+    it('x', () => { expectAllPresent('plain text', ['a']); });
+  `,
+    'same helper, no source',
+  );
+  // A callback that rebinds the name is asserting on its own value.
+  assertClean(
+    `
+    const expectAll = (text, needles) =>
+      needles.forEach((text) => expect(text).toBeDefined());
+    it('x', () => {
+      expectAll(readFileSync(join(__dirname, 'thing.ts'), 'utf8'), ['a']);
+    });
+  `,
+    'inner callback shadows the parameter',
+  );
+});
+
+test('a helper body is not a claim about an outer binding it shadows', () => {
+  const { violations, wholeFile } = analyzeFile(
+    FIXTURE_PATH,
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    function expectClean(source) {
+      expect(source).not.toContain('x');
+    }
+    it('asserts through the helper', () => { expectClean(source); });
+    it('does something else', () => { expect(1).toBe(1); });
+  `,
+  );
+  const hits = violations.filter(
+    (violation) => violation.rule === 'source-text-assertion',
+  );
+  // One call, one violation, in the block that made it - not a second one
+  // from the definition landing in shared setup.
+  assert.deepEqual(
+    hits.map((hit) => hit.block),
+    ['asserts through the helper'],
+  );
+  assert.equal(wholeFile, false);
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`

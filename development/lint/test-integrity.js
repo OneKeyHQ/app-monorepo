@@ -559,9 +559,9 @@ function collectAssertionHelpers(ast, readKind, helpers) {
       }
       const probe = new Map([[parameter, 'script']]);
       let asserts = false;
-      walkOwnBody(named.body, (current) => {
+      walkHelperBody(named.body, probe, readKind, (current, scope) => {
         asserts =
-          asserts || Boolean(assertionSubjectKind(current, probe, readKind));
+          asserts || Boolean(assertionSubjectKind(current, scope, readKind));
       });
       return asserts;
     });
@@ -569,6 +569,47 @@ function collectAssertionHelpers(ast, readKind, helpers) {
       helpers.set(named.name, index);
     }
   });
+}
+
+/**
+ * Walk a helper's body the way its assertions actually run. Anonymous callbacks
+ * - `needles.forEach((n) => expect(text)...)`, an `it(...)` body - are part of
+ * the helper, so the walk goes into them with their own scope. A named
+ * function defined inside is a separate helper and is where the walk stops.
+ */
+function walkHelperBody(node, scope, readKind, visit) {
+  if (!node || typeof node.type !== 'string') {
+    return;
+  }
+  visit(node, scope);
+  for (const key of childKeys(node)) {
+    const value = node[key];
+    const children = Array.isArray(value) ? value : [value];
+    children
+      .filter((child) => child && typeof child.type === 'string')
+      .filter((child) => !definesNamedFunction(child))
+      .forEach((child) =>
+        walkHelperBody(
+          child,
+          FUNCTION_NODE_TYPES.has(child.type)
+            ? deriveFunctionScope(child, scope, readKind)
+            : scope,
+          readKind,
+          visit,
+        ),
+      );
+  }
+}
+
+function definesNamedFunction(node) {
+  if (node.type === 'FunctionDeclaration') {
+    return true;
+  }
+  return (
+    node.type === 'VariableDeclarator' &&
+    (node.init?.type === 'ArrowFunctionExpression' ||
+      node.init?.type === 'FunctionExpression')
+  );
 }
 
 /** A function declaration or a function-valued binding, with its parameters. */
@@ -621,29 +662,21 @@ function collectTransformHelpers(ast, readKind, helpers) {
 }
 
 /**
- * The source text a callback hands back, if any. Only the returned value
- * counts: a read performed for a side effect does not decide the result, and
- * an identifier that merely shares a name with a tainted binding - a property
- * name, an object key - is not that binding.
+ * The scope inside a function: the enclosing one, minus every name the
+ * function binds for itself - parameters, `catch` and `for...of` bindings, and
+ * declared locals - with only the locals actually built from source seeded
+ * back. A name the function binds is its own, whatever an outer binding of the
+ * same name holds.
  */
-function callbackBodyTaint(node, tainted, readKind) {
-  if (
-    node?.type !== 'ArrowFunctionExpression' &&
-    node?.type !== 'FunctionExpression'
-  ) {
-    return undefined;
-  }
-  // A name the callback binds is its own, whatever a file-level binding of the
-  // same name holds. Parameters shadow for both body forms; `catch` and
-  // `for...of` bindings only exist inside a block.
-  const local = new Map(tainted);
-  node.params.forEach((parameter) =>
+function deriveFunctionScope(fn, parentScope, readKind) {
+  const local = new Map(parentScope);
+  (fn.params ?? []).forEach((parameter) =>
     patternNames(parameter).forEach((name) => local.delete(name)),
   );
-  if (node.body.type !== 'BlockStatement') {
-    return taintKind(node.body, local, readKind);
+  if (fn.body?.type !== 'BlockStatement') {
+    return local;
   }
-  walkOwnBody(node.body, (current) => {
+  walkOwnBody(fn.body, (current) => {
     if (current.type === 'CatchClause') {
       patternNames(current.param).forEach((name) => local.delete(name));
     }
@@ -656,21 +689,17 @@ function callbackBodyTaint(node, tainted, readKind) {
         patternNames(declaration.id).forEach((name) => local.delete(name)),
       );
     }
-  });
-  // Declared locals are the callback's own too. Clear them first so only the
-  // ones actually built from source get their taint back below.
-  walkOwnBody(node.body, (current) => {
     if (current.type === 'VariableDeclaration') {
       current.declarations.forEach((declaration) =>
         patternNames(declaration.id).forEach((name) => local.delete(name)),
       );
     }
   });
-  // Seed the callback's own locals, so `const s = read(...); return
+  // Seed the function's own locals, so `const s = read(...); return
   // s.includes(x)` is followed.
   for (let round = 0; round < 4; round += 1) {
     const before = local.size;
-    walkOwnBody(node.body, (current) => {
+    walkOwnBody(fn.body, (current) => {
       const binding = bindingTarget(current);
       const kind = binding && taintKind(binding.value, local, readKind);
       if (kind) {
@@ -680,6 +709,24 @@ function callbackBodyTaint(node, tainted, readKind) {
     if (local.size === before) {
       break;
     }
+  }
+  return local;
+}
+
+/**
+ * The source text a callback hands back, if any. Only the returned value
+ * counts: a read performed for a side effect does not decide the result.
+ */
+function callbackBodyTaint(node, tainted, readKind) {
+  if (
+    node?.type !== 'ArrowFunctionExpression' &&
+    node?.type !== 'FunctionExpression'
+  ) {
+    return undefined;
+  }
+  const local = deriveFunctionScope(node, tainted, readKind);
+  if (node.body.type !== 'BlockStatement') {
+    return taintKind(node.body, local, readKind);
   }
   let kind;
   walkOwnBody(node.body, (current) => {
@@ -1298,18 +1345,21 @@ function analyzeFile(
     }
   };
 
+  const scopeStack = [tainted];
+  const currentScope = () => scopeStack[scopeStack.length - 1];
+
   const recordEvalSink = (node, name) => {
     if (!name || !EVAL_FUNCTIONS.has(name)) {
       return;
     }
     const kind = node.arguments
-      .map((a) => taintKind(a, tainted, readKind))
+      .map((a) => taintKind(a, currentScope(), readKind))
       .find(Boolean);
     // A fragment is anything that is not the file as it was read.
     const sliced = node.arguments.some(
       (a) =>
-        taintKind(a, tainted, readKind) &&
-        !isWholeFileRead(a, tainted, wholeReads, readKind),
+        taintKind(a, currentScope(), readKind) &&
+        !isWholeFileRead(a, currentScope(), wholeReads, readKind),
     );
     if (kind === 'script' && sliced) {
       record(
@@ -1365,7 +1415,7 @@ function analyzeFile(
         const expectCall = findExpectCall(node.callee);
         const kind = expectCall
           ? expectCall.arguments
-              .map((a) => taintKind(a, tainted, readKind))
+              .map((a) => taintKind(a, currentScope(), readKind))
               .find(Boolean)
           : undefined;
         if (kind) {
@@ -1381,7 +1431,7 @@ function analyzeFile(
 
       // assert.match(<tainted>, /.../), assert.equal(<tainted>, ...)
       if (name && ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
-        const kind = firstTaint(node.arguments, tainted, readKind);
+        const kind = firstTaint(node.arguments, currentScope(), readKind);
         if (kind) {
           record(
             kind === 'native'
@@ -1400,7 +1450,11 @@ function analyzeFile(
         const kind =
           parameterIndex === undefined
             ? undefined
-            : taintKind(node.arguments[parameterIndex], tainted, readKind);
+            : taintKind(
+                node.arguments[parameterIndex],
+                currentScope(),
+                readKind,
+              );
         if (kind) {
           record(
             kind === 'native'
@@ -1422,19 +1476,32 @@ function analyzeFile(
     if (!node || typeof node.type !== 'string') {
       return;
     }
-    if (visit(node) === false) {
-      return;
+    // Inside a function, its own parameters and locals shadow any outer
+    // binding of the same name, so `function expectClean(source) { expect(
+    // source)... }` is not a claim about a file-level `source`.
+    const entersFunction = FUNCTION_NODE_TYPES.has(node.type);
+    if (entersFunction) {
+      scopeStack.push(deriveFunctionScope(node, currentScope(), readKind));
     }
-    for (const key of childKeys(node)) {
-      const value = node[key];
-      if (Array.isArray(value)) {
-        for (const child of value) {
-          if (child && typeof child.type === 'string') {
-            visitTree(child);
+    try {
+      if (visit(node) === false) {
+        return;
+      }
+      for (const key of childKeys(node)) {
+        const value = node[key];
+        if (Array.isArray(value)) {
+          for (const child of value) {
+            if (child && typeof child.type === 'string') {
+              visitTree(child);
+            }
           }
+        } else if (value && typeof value.type === 'string') {
+          visitTree(value);
         }
-      } else if (value && typeof value.type === 'string') {
-        visitTree(value);
+      }
+    } finally {
+      if (entersFunction) {
+        scopeStack.pop();
       }
     }
   }
