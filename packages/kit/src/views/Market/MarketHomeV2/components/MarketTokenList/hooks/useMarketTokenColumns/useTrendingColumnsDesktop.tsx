@@ -33,12 +33,16 @@ import type {
 import { MarketTokenAgeAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
 import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { Txns } from '../../components/Txns';
 
 import { getTokenAgeLabel } from './tokenAgeLabel';
+import { WatchlistTokenIdentity } from './useWatchlistColumnsDesktop';
 
 import type { IMarketToken } from '../../MarketTokenData';
 
@@ -81,11 +85,20 @@ export function useTrendingColumnsDesktop({
   timeRange = '1h',
   sort,
   onSort,
+  hideTokenAge = false,
+  watchlistFrom = EWatchlistFrom.Homepage,
+  copyFrom = ECopyFrom.Homepage,
 }: {
   networkId?: string;
   timeRange?: IMarketTimeRangeValue;
   sort: IMarketSortState;
   onSort: (field: string, order: IMarketSortOrder) => void;
+  /** Lists whose rows carry no `firstTradeTime` (banner detail) title the
+   *  column "Name" and render the watchlist's spot-token cell: the token
+   *  name at rest, the contract address on hover. */
+  hideTokenAge?: boolean;
+  watchlistFrom?: EWatchlistFrom;
+  copyFrom?: ECopyFrom;
 }): ITableColumn<IMarketToken>[] {
   const intl = useIntl();
 
@@ -121,7 +134,7 @@ export function useTrendingColumnsDesktop({
               stockId={record.stockId}
               chainId={record.chainId || networkId || ''}
               contractAddress={record.address}
-              from={EWatchlistFrom.Homepage}
+              from={watchlistFrom}
               tokenSymbol={record.symbol}
               size="small"
               customIconSize="$4"
@@ -134,14 +147,21 @@ export function useTrendingColumnsDesktop({
         ),
       },
       {
-        title: `${intl.formatMessage({
-          id: ETranslations.global_name,
-        })}/${intl.formatMessage({
-          id: ETranslations.dexmarket_token_age,
-        })}`,
+        title: hideTokenAge
+          ? intl.formatMessage({ id: ETranslations.global_name })
+          : `${intl.formatMessage({
+              id: ETranslations.global_name,
+            })}/${intl.formatMessage({
+              id: ETranslations.dexmarket_token_age,
+            })}`,
         dataIndex: 'nameTokenAge',
         columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken) => {
+          if (hideTokenAge) {
+            return (
+              <WatchlistTokenIdentity record={record} copyFrom={copyFrom} />
+            );
+          }
           const ageLabel = getTokenAgeLabel(intl, record.firstTradeTime);
 
           return (
@@ -293,6 +313,15 @@ export function useTrendingColumnsDesktop({
         renderSkeleton: () => <Skeleton width={90} height={16} />,
       },
     ],
-    [intl, networkId, onSort, sort, timeRange],
+    [
+      copyFrom,
+      hideTokenAge,
+      intl,
+      networkId,
+      onSort,
+      sort,
+      timeRange,
+      watchlistFrom,
+    ],
   );
 }

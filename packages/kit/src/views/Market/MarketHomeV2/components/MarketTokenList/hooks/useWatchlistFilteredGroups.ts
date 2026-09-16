@@ -42,13 +42,13 @@ export function useWatchlistFilteredGroups(
         (t) => Boolean(t.networkId) && Boolean(t.address || t.isNative),
       );
     }
-    const spot = base.filter((t) => !t.perpsCoin);
+    const nonPerps = base.filter((t) => !t.perpsCoin);
     return {
       all: base,
-      spot,
-      // Stocks is a lens over spot, not a partition of it: stock listings and
-      // tokenized stocks stay visible under Spot as well.
-      stocks: spot.filter((t) => isWatchlistStockToken(t)),
+      // Spot and Stocks partition the non-perps rows: stock listings and
+      // tokenized stocks show only under Stocks.
+      spot: nonPerps.filter((t) => !isWatchlistStockToken(t)),
+      stocks: nonPerps.filter((t) => isWatchlistStockToken(t)),
       perps: base.filter((t) => !!t.perpsCoin),
     };
   }, [data, hideNativeToken, hidePerps, hideListings]);
