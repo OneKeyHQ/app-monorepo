@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* cspell:words quasis */
 /**
  * Test integrity lint.
  *
@@ -76,32 +77,9 @@ const TEXT_MATCHERS = new Set([
   'toBeLessThanOrEqual',
 ]);
 const ASSERT_TEXT_METHODS = new Set(['match', 'doesNotMatch']);
-const TAINT_PROPAGATORS = new Set([
-  'slice',
-  'substring',
-  'substr',
-  'match',
-  'matchAll',
-  'split',
-  'trim',
-  'replace',
-  'replaceAll',
-  'toString',
-  'normalize',
-  'at',
-  // Position and predicate methods carry the same claim about the source text,
-  // just reduced to a number or a boolean. `const i = source.indexOf(x)` and
-  // then `expect(i).toBeLessThan(j)` is the inline offset comparison spread
-  // over three statements.
-  'indexOf',
-  'lastIndexOf',
-  'search',
-  'includes',
-  'startsWith',
-  'endsWith',
-  'test',
-  'exec',
-]);
+// Methods that take the source text as an argument rather than a receiver.
+// Every other method propagates from its receiver, whatever it is named.
+const ARGUMENT_PROPAGATORS = new Set(['test', 'exec', 'replace', 'replaceAll']);
 const EVAL_FUNCTIONS = new Set([
   'runInNewContext',
   'runInThisContext',
@@ -231,16 +209,6 @@ function collectStringLiterals(node, collected = []) {
   return collected;
 }
 
-function containsIdentifier(node, name) {
-  let found = false;
-  walk(node, (current) => {
-    if (current.type === 'Identifier' && current.name === name) {
-      found = true;
-    }
-  });
-  return found;
-}
-
 function calleeName(callee) {
   if (!callee) {
     return undefined;
@@ -273,7 +241,7 @@ function classifyReadTarget(callNode, repoAnchored) {
   if (!isRepoAnchored(pathArgument, repoAnchored)) {
     return undefined;
   }
-  const literals = collectStringLiterals(pathArgument).filter(Boolean);
+  const literals = pathLiterals(pathArgument, repoAnchored);
   if (literals.some((literal) => ARTIFACT_PATH_RE.test(literal))) {
     return undefined;
   }
@@ -288,9 +256,10 @@ function classifyReadTarget(callNode, repoAnchored) {
   if (literals.some((literal) => ANY_EXTENSION_RE.test(literal))) {
     return undefined;
   }
-  // `path.resolve(__dirname, fileFromTestTable)` reads a sibling of the test
-  // file. Temp directories never resolve off `__dirname`.
-  return containsIdentifier(pathArgument, '__dirname') ? 'script' : undefined;
+  // No extension to go on. Only two shapes still say "source": a sibling of the
+  // test file named by a variable, and a module specifier. Anything else
+  // anchored but unextended is left alone.
+  return namesUnextendedSource(pathArgument) ? 'script' : undefined;
 }
 
 /** 'script' | 'native' | undefined for the source text a node carries. */
@@ -313,24 +282,37 @@ function taintKind(node, tainted, readKind) {
       return taintKind(node.object, tainted, readKind);
     case 'TemplateLiteral':
       return firstTaint(node.expressions, tainted, readKind);
+    case 'LogicalExpression':
+      return firstTaint([node.left, node.right], tainted, readKind);
+    case 'ConditionalExpression':
+      return firstTaint([node.consequent, node.alternate], tainted, readKind);
+    case 'ArrayExpression':
+      return firstTaint(node.elements, tainted, readKind);
+    case 'SpreadElement':
+      return taintKind(node.argument, tainted, readKind);
+    case 'SequenceExpression':
+      return taintKind(node.expressions.at(-1), tainted, readKind);
     case 'CallExpression':
     case 'OptionalCallExpression': {
       const name = calleeName(node.callee);
       if (name && READ_FUNCTIONS.has(name)) {
         return readKind ? readKind(node) : undefined;
       }
-      if (name && TAINT_PROPAGATORS.has(name)) {
-        const receiver =
-          node.callee.type === 'MemberExpression' ||
-          node.callee.type === 'OptionalMemberExpression'
-            ? node.callee.object
-            : undefined;
-        // `source.indexOf(x)` taints through the receiver, `/re/.test(source)`
-        // through the argument; both are claims about the same text.
-        return (
-          taintKind(receiver, tainted, readKind) ??
-          firstTaint(node.arguments, tainted, readKind)
-        );
+      if (
+        node.callee.type === 'MemberExpression' ||
+        node.callee.type === 'OptionalMemberExpression'
+      ) {
+        // Any method called on source text keeps the claim about that text
+        // alive, whatever it is named: .slice, .indexOf, .split().filter().
+        const fromReceiver = taintKind(node.callee.object, tainted, readKind);
+        if (fromReceiver) {
+          return fromReceiver;
+        }
+        // `/re/.test(source)` and `x.replace(source, y)` carry the text in an
+        // argument instead; no other method is assumed to.
+        return name && ARGUMENT_PROPAGATORS.has(name)
+          ? firstTaint(node.arguments, tainted, readKind)
+          : undefined;
       }
       if (node.callee.type === 'Identifier' && name === 'String') {
         return taintKind(node.arguments[0], tainted, readKind);
@@ -352,45 +334,74 @@ function firstTaint(nodes, tainted, readKind) {
   return undefined;
 }
 
-const PATH_BUILDERS = new Set(['join', 'resolve', 'normalize']);
+// `path.dirname` and `require.resolve` land inside the tree; `process.cwd()` is
+// the repository root because Jest runs from it.
+const PATH_BUILDERS = new Set(['join', 'resolve', 'normalize', 'dirname']);
+const REPO_ANCHOR_IDENTIFIERS = new Set(['__dirname', '__filename']);
+// A checked-in path written literally: relative, or from a workspace root.
+const WORKSPACE_PATH_RE = /^(?:\.{1,2}\/|apps\/|packages\/|development\/)/u;
+
+/** Leading literal chunk of a template, which is where a path prefix sits. */
+function firstTemplateChunk(node) {
+  const [head] = node.quasis;
+  return head?.value.cooked ?? head?.value.raw ?? '';
+}
 
 /** Is this path expression rooted at the checked-in tree rather than a temp dir? */
 function isRepoAnchored(node, repoAnchored) {
   if (!node) {
     return false;
   }
-  if (node.type === 'Identifier') {
-    return node.name === '__dirname' || repoAnchored.has(node.name);
+  switch (node.type) {
+    case 'Identifier':
+      return (
+        REPO_ANCHOR_IDENTIFIERS.has(node.name) || repoAnchored.has(node.name)
+      );
+    case 'StringLiteral':
+      return WORKSPACE_PATH_RE.test(node.value);
+    case 'TemplateLiteral':
+      return (
+        WORKSPACE_PATH_RE.test(firstTemplateChunk(node)) ||
+        node.expressions.some((expression) =>
+          isRepoAnchored(expression, repoAnchored),
+        )
+      );
+    case 'CallExpression':
+    case 'OptionalCallExpression': {
+      const name = calleeName(node.callee);
+      if (name === 'cwd') {
+        return true;
+      }
+      return (
+        Boolean(name) &&
+        PATH_BUILDERS.has(name) &&
+        node.arguments.some((argument) =>
+          isRepoAnchored(argument, repoAnchored),
+        )
+      );
+    }
+    default:
+      return false;
   }
-  if (
-    node.type === 'CallExpression' ||
-    node.type === 'OptionalCallExpression'
-  ) {
-    const name = calleeName(node.callee);
-    return (
-      Boolean(name) &&
-      PATH_BUILDERS.has(name) &&
-      node.arguments.some((argument) => isRepoAnchored(argument, repoAnchored))
-    );
-  }
-  if (node.type === 'TemplateLiteral') {
-    return node.expressions.some((expression) =>
-      isRepoAnchored(expression, repoAnchored),
-    );
-  }
-  return false;
 }
 
-/** Bindings that hold a path into the checked-in tree, to a fixpoint. */
+/**
+ * Bindings that hold a path into the checked-in tree, mapped to the string
+ * literals that built them. A read whose argument is one of these bindings has
+ * no literal of its own, so the extension that decides source-vs-data lives
+ * here.
+ */
 function collectRepoAnchoredBindings(ast) {
-  const anchored = new Set();
+  const anchored = new Map();
   for (let round = 0; round < 6; round += 1) {
     const before = anchored.size;
     walk(ast, (node) => {
       const binding = bindingTarget(node);
-      if (binding && isRepoAnchored(binding.value, anchored)) {
-        anchored.add(binding.name);
+      if (!binding || !isRepoAnchored(binding.value, anchored)) {
+        return;
       }
+      const literals = pathLiterals(binding.value, anchored);
+      binding.names.forEach((name) => anchored.set(name, literals));
     });
     if (anchored.size === before) {
       return anchored;
@@ -399,18 +410,98 @@ function collectRepoAnchoredBindings(ast) {
   return anchored;
 }
 
-/** The name and initializer of a binding, for `const x = ...` and `x = ...`. */
-function bindingTarget(node) {
-  if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') {
-    return node.init ? { name: node.id.name, value: node.init } : undefined;
+/** Literals in a path expression, including those behind anchored bindings. */
+function pathLiterals(node, anchored, seen = new Set()) {
+  const literals = collectStringLiterals(node).filter(Boolean);
+  walk(node, (current) => {
+    if (
+      current.type === 'Identifier' &&
+      anchored.has(current.name) &&
+      !seen.has(current.name)
+    ) {
+      seen.add(current.name);
+      literals.push(...anchored.get(current.name));
+    }
+  });
+  return literals;
+}
+
+/** Does this path reach source whose extension is not written down? */
+function namesUnextendedSource(node) {
+  let found = false;
+  walk(node, (current) => {
+    if (
+      current.type === 'Identifier' &&
+      REPO_ANCHOR_IDENTIFIERS.has(current.name)
+    ) {
+      // `path.resolve(__dirname, fileFromTestTable)` reads a sibling of the
+      // test file, which is source whatever the table happens to hold.
+      found = true;
+    }
+    if (
+      (current.type === 'CallExpression' ||
+        current.type === 'OptionalCallExpression') &&
+      current.callee.type === 'MemberExpression' &&
+      current.callee.object.type === 'Identifier' &&
+      current.callee.object.name === 'require' &&
+      calleeName(current.callee) === 'resolve'
+    ) {
+      // A module specifier resolves to JS/TS by definition.
+      found = true;
+    }
+  });
+  return found;
+}
+
+/** Every identifier a pattern binds, so destructuring carries taint too. */
+function patternNames(node, collected = []) {
+  if (!node) {
+    return collected;
   }
-  if (node.type === 'AssignmentExpression' && node.left.type === 'Identifier') {
-    return { name: node.left.name, value: node.right };
+  switch (node.type) {
+    case 'Identifier':
+      collected.push(node.name);
+      break;
+    case 'ArrayPattern':
+      node.elements.forEach((element) => patternNames(element, collected));
+      break;
+    case 'ObjectPattern':
+      node.properties.forEach((property) =>
+        patternNames(
+          property.type === 'RestElement' ? property.argument : property.value,
+          collected,
+        ),
+      );
+      break;
+    case 'RestElement':
+      patternNames(node.argument, collected);
+      break;
+    case 'AssignmentPattern':
+      patternNames(node.left, collected);
+      break;
+    default:
+      break;
+  }
+  return collected;
+}
+
+/** The names and initializer of a binding, for `const x = ...` and `x = ...`. */
+function bindingTarget(node) {
+  if (node.type === 'VariableDeclarator' && node.init) {
+    return { names: patternNames(node.id), value: node.init };
+  }
+  if (node.type === 'AssignmentExpression') {
+    return { names: patternNames(node.left), value: node.right };
   }
   return undefined;
 }
 
-function analyzeFile(absolutePath, source) {
+function analyzeFile(
+  absolutePath,
+  source,
+  allowlist = [],
+  usedEntries = new Set(),
+) {
   const relativePath = path
     .relative(REPO_ROOT, absolutePath)
     .split(path.sep)
@@ -445,7 +536,7 @@ function analyzeFile(absolutePath, source) {
       }
       const kind = taintKind(binding.value, tainted, readKind);
       if (kind) {
-        tainted.set(binding.name, kind);
+        binding.names.forEach((name) => tainted.set(name, kind));
       }
     });
     if (tainted.size === before) {
@@ -461,7 +552,7 @@ function analyzeFile(absolutePath, source) {
 
   let sharedSetupViolation = false;
   const record = (rule, node, message) => {
-    violations.push({
+    const violation = {
       rule,
       file: relativePath,
       line: node.loc?.start.line ?? 0,
@@ -469,7 +560,15 @@ function analyzeFile(absolutePath, source) {
         ? blockStack[blockStack.length - 1].title
         : undefined,
       message,
-    });
+    };
+    // Exemptions are applied here, not by the caller, so a reviewed block never
+    // counts toward the whole-file verdict that --list drives.
+    const entry = matchingEntry(allowlist, relativePath, violation);
+    if (entry) {
+      usedEntries.add(entry);
+      return;
+    }
+    violations.push(violation);
     if (ADVISORY_RULES.has(rule)) {
       // An advisory hit is never a reason to delete anything, so it must not
       // feed the whole-file verdict that --list drives.
@@ -737,7 +836,7 @@ function analyzeOne(absolutePath, allowlist, usedEntries) {
     .join('/');
   let result;
   try {
-    result = analyzeFile(absolutePath, source);
+    result = analyzeFile(absolutePath, source, allowlist, usedEntries);
   } catch (error) {
     return {
       file: relativePath,
@@ -747,14 +846,6 @@ function analyzeOne(absolutePath, allowlist, usedEntries) {
       wholeFile: false,
     };
   }
-  result.violations = result.violations.filter((violation) => {
-    const entry = matchingEntry(allowlist, result.file, violation);
-    if (entry) {
-      usedEntries.add(entry);
-      return false;
-    }
-    return true;
-  });
   return result.violations.length ? result : undefined;
 }
 

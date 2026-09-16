@@ -191,7 +191,8 @@ test('the shipped allowlist matches live violations and stays justified', () => 
       fs.existsSync(path.join(__dirname, '../..', entry.file)),
       `${entry.file} does not exist`,
     );
-    assert.equal(typeof entry.block, 'string');
+    // Mirrors the loadAllowlist contract: null is the shared-setup form.
+    assert.ok(entry.block === null || typeof entry.block === 'string');
     assert.ok(entry.reason.trim().length >= 40, `${entry.file} needs a reason`);
   }
   // `run()` reports an entry that no longer matches, which is what keeps a
@@ -199,6 +200,164 @@ test('the shipped allowlist matches live violations and stays justified', () => 
   const { staleEntries } = require('./test-integrity').run();
   assert.deepEqual(
     staleEntries.map((entry) => entry.file),
+    [],
+  );
+});
+
+test('catches reads anchored without __dirname', () => {
+  assertGated(
+    `
+    const source = readFileSync('packages/kit/src/Thing.ts', 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'cwd-relative literal',
+  );
+  assertGated(
+    `
+    const source = readFileSync(path.join(process.cwd(), 'apps/cli/src/x.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'process.cwd()',
+  );
+  assertGated(
+    `
+    const source = readFileSync(path.join(path.dirname(__filename), 'x.ts'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    '__filename',
+  );
+  assertGated(
+    `
+    const source = readFileSync(require.resolve('../thing'), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'require.resolve',
+  );
+});
+
+test('follows the extension through the binding that built the path', () => {
+  assertGated(
+    `
+    const file = path.join(repoRoot, 'packages/kit/src/Thing.ts');
+    const source = readFileSync(file, 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'source behind a binding',
+  );
+  assertClean(
+    `
+    const file = path.join(repoRoot, 'node_modules/react-native/x.js');
+    const source = readFileSync(file, 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'vendored code behind a binding',
+  );
+  assertClean(
+    `
+    const file = path.join(repoRoot, 'apps/mobile/ios/Podfile.lock');
+    const source = readFileSync(file, 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'data file behind a binding',
+  );
+  assertClean(
+    `
+    const source = readFileSync(path.join(repoRoot, '.github/workflows', name), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'workflow named by a variable',
+  );
+});
+
+test('keeps taint across array methods, fallbacks and destructuring', () => {
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => {
+      expect(source.split('\\n').filter((line) => line.includes('go'))).toHaveLength(2);
+    });
+  `,
+    'split().filter()',
+  );
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    const body = source.match(/go/u)?.[1] ?? '';
+    it('x', () => { expect(body).toContain('go'); });
+  `,
+    '?? fallback',
+  );
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    const [, body] = source.match(/go/u);
+    it('x', () => { expect(body).toContain('go'); });
+  `,
+    'array destructuring',
+  );
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    const body = ready ? source.slice(1) : '';
+    it('x', () => { expect(body).toContain('go'); });
+  `,
+    'ternary',
+  );
+});
+
+test('an exempted block does not drive the whole-file verdict', () => {
+  const source = `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('exempted', () => { expect(source).toContain('a'); });
+    it('gated', () => { expect(source).toContain('b'); });
+  `;
+  const allowlist = [
+    {
+      file: path.relative(path.join(__dirname, '../..'), FIXTURE_PATH),
+      rule: 'source-text-assertion',
+      block: 'exempted',
+      reason: 'x'.repeat(40),
+    },
+  ];
+  const used = new Set();
+  const result = analyzeFile(FIXTURE_PATH, source, allowlist, used);
+
+  assert.equal(used.size, 1);
+  assert.deepEqual(
+    result.violations
+      .filter((violation) => violation.rule === 'source-text-assertion')
+      .map((violation) => violation.block),
+    ['gated'],
+  );
+  // Both blocks violate, but only one of them lacks a reviewed exemption, so
+  // the file is not a deletion candidate.
+  assert.equal(result.wholeFile, false);
+});
+
+test('a shared-setup violation is exemptable with block null', () => {
+  const source = `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    const fragment = source.slice(source.indexOf('const go ='));
+    runInNewContext(transformSync(fragment).code, {});
+    it('x', () => { expect(true).toBe(true); });
+  `;
+  const allowlist = [
+    {
+      file: path.relative(path.join(__dirname, '../..'), FIXTURE_PATH),
+      rule: 'source-slice-eval',
+      block: null,
+      reason: 'x'.repeat(40),
+    },
+  ];
+  const used = new Set();
+  const result = analyzeFile(FIXTURE_PATH, source, allowlist, used);
+
+  assert.equal(used.size, 1);
+  assert.deepEqual(gatedRules(source).length > 0, true);
+  assert.deepEqual(
+    result.violations.filter(
+      (violation) => violation.rule === 'source-slice-eval',
+    ),
     [],
   );
 });
