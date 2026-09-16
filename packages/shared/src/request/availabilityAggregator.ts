@@ -101,6 +101,11 @@ export type IAvailabilityWindow = {
    */
   countersOmitted?: number;
   testEndpoint?: true;
+  /**
+   * The JS bundle that recorded the window. A window restored after an OTA
+   * update was recorded by the previous bundle, not by the one sending it.
+   */
+  bundleVersion?: string;
 };
 
 type IStoredState = {
@@ -162,8 +167,13 @@ function withTimeout<T>(
   });
 }
 
-function createWindow(id: string, now: number): IAvailabilityWindow {
+function createWindow(
+  id: string,
+  now: number,
+  bundleVersion: string | undefined,
+): IAvailabilityWindow {
   return {
+    bundleVersion,
     id,
     startTs: now,
     endTs: now,
@@ -190,7 +200,9 @@ function isWindow(value: unknown): value is IAvailabilityWindow {
     !!window.failures &&
     typeof window.failures === 'object' &&
     (window.countersOmitted === undefined ||
-      Number.isFinite(window.countersOmitted))
+      Number.isFinite(window.countersOmitted)) &&
+    (window.bundleVersion === undefined ||
+      typeof window.bundleVersion === 'string')
   );
 }
 
@@ -330,6 +342,9 @@ export function buildAvailabilitySnapshotParams(
   // The device-side diagnostic is a debug line the native logger may drop
   // under load, which is exactly when a flush is most likely to have failed.
   if (lastIssue) params.lastFlushIssue = lastIssue;
+  // `bundleVersion` in meta is the sender. Filter on this one to ask what a
+  // given bundle measured; it is absent for windows from builds before it.
+  if (window.bundleVersion) params.windowBundleVersion = window.bundleVersion;
   return params;
 }
 
@@ -349,7 +364,10 @@ export class AvailabilityAggregator {
 
   private current: IAvailabilityWindow | undefined;
 
-  /** Already sent once under its id, so it is only ever resent unchanged. */
+  /**
+   * Sealed: already sent once under its id, or restored from another bundle.
+   * Either way it is only ever sent unchanged, ahead of `current`.
+   */
   private pending: IAvailabilityWindow | undefined;
 
   /** Resolves false when stored state could not be read. */
@@ -376,7 +394,11 @@ export class AvailabilityAggregator {
   record(outcome: IAvailabilityOutcome) {
     this.start();
     const now = this.deps.now();
-    this.current ??= createWindow(this.deps.createId(), now);
+    this.current ??= createWindow(
+      this.deps.createId(),
+      now,
+      this.deps.meta.bundleVersion,
+    );
     addAvailabilityOutcome(this.current, outcome);
     this.current.endTs = now;
     this.dirty = true;
@@ -481,7 +503,17 @@ export class AvailabilityAggregator {
     if (!this.deps.persistWindows) return true;
     // The previous process of this runtime is gone; its windows are unsent.
     if (isWindow(stored.pending)) this.pending = stored.pending;
-    if (isWindow(stored.current)) {
+    if (
+      isWindow(stored.current) &&
+      !this.pending &&
+      stored.current.bundleVersion !== this.deps.meta.bundleVersion
+    ) {
+      // Recorded by another bundle (or by one that did not stamp windows).
+      // Continuing it would credit that bundle's outcomes to this one, which
+      // is exactly how a fix looks like it did nothing right after the OTA
+      // update that shipped it. Sent on its own, before this bundle's window.
+      this.pending = stored.current;
+    } else if (isWindow(stored.current)) {
       this.current = this.current
         ? mergeWindows(this.current, stored.current)
         : stored.current;
@@ -705,12 +737,13 @@ function createRuntimeAggregator() {
       load: () => appStorage.getItem(key),
       save: (text) => appStorage.setItem(key, text),
     },
-    setInterval: platformEnv.isJest
-      ? undefined
-      : (fn, ms) => trackedSetInterval('availabilityAggregator', fn, ms),
-    subscribeVisibility: platformEnv.isJest
-      ? undefined
-      : onVisibilityStateChange,
+    // Wired unconditionally. These were gated on `platformEnv.isJest`, a
+    // build-time define that Metro's worker-thread transformer resolves to
+    // `true`, so native bundles shipped with neither the tick nor the
+    // visibility flush. Tests construct the aggregator with their own deps.
+    setInterval: (fn, ms) =>
+      trackedSetInterval('availabilityAggregator', fn, ms),
+    subscribeVisibility: onVisibilityStateChange,
     // Web Locks are per origin, which is exactly the sharing scope: one
     // namespace for the app's tabs, one for the extension's pages. Absent on
     // React Native, where each runtime owns its key and needs no exclusion.

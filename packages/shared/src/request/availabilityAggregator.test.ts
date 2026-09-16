@@ -566,6 +566,103 @@ describe('AvailabilityAggregator', () => {
     expect(sent[1]).not.toHaveProperty('lastFlushIssue');
   });
 
+  it('sends a window restored from another bundle on its own, under that bundle', async () => {
+    // Right after an OTA update the restored window was recorded by the
+    // previous bundle. Continuing it credited those outcomes to the new one,
+    // which made a fix look like it had changed nothing.
+    const older = createHarness();
+    older.deps.meta = { runtimeScope: 'bg', bundleVersion: '100' };
+    older.deps.canSend = async () => false;
+    older.aggregator.record({
+      source: 'api_net',
+      target: 'unread',
+      status: 'ok',
+    });
+    await older.flush();
+
+    const newer = createHarness({ storage: older.store });
+    newer.deps.meta = { runtimeScope: 'bg', bundleVersion: '200' };
+    newer.aggregator.record({
+      source: 'api_net',
+      target: 'wifi',
+      status: 'ok',
+    });
+    await newer.flush();
+    newer.clock.now += AVAILABILITY_MIN_SEND_GAP_MS;
+    await newer.flush();
+
+    expect(newer.sent).toEqual([
+      expect.objectContaining({
+        bundleVersion: '200',
+        windowBundleVersion: '100',
+        api_net_unread_ok: 1,
+      }),
+      expect.objectContaining({
+        windowBundleVersion: '200',
+        api_net_wifi_ok: 1,
+      }),
+    ]);
+    expect(newer.sent[0]).not.toHaveProperty('api_net_wifi_ok');
+    expect(newer.sent[1]).not.toHaveProperty('api_net_unread_ok');
+  });
+
+  it('seals a window stored by a build that did not stamp its bundle', async () => {
+    const { aggregator, clock, deps, flush, sent } = createHarness({
+      storage: {
+        text: JSON.stringify({
+          version: 3,
+          lastSendTs: 0,
+          current: {
+            id: 'legacy',
+            startTs: START,
+            endTs: START,
+            windowCount: 1,
+            counters: { api_net_unread_ok: 5 },
+            failures: {},
+            failuresOmitted: 0,
+          },
+        }),
+      },
+    });
+    deps.meta = { runtimeScope: 'bg', bundleVersion: '200' };
+    aggregator.record({ source: 'api_net', target: 'wifi', status: 'ok' });
+    await flush();
+    clock.now += AVAILABILITY_MIN_SEND_GAP_MS;
+    await flush();
+
+    // Absent rather than mislabelled: an analyst can tell it apart.
+    expect(sent[0]).toMatchObject({
+      snapshotId: 'legacy',
+      api_net_unread_ok: 5,
+    });
+    expect(sent[0]).not.toHaveProperty('windowBundleVersion');
+    expect(sent[1]).toMatchObject({
+      windowBundleVersion: '200',
+      api_net_wifi_ok: 1,
+    });
+  });
+
+  it('keeps continuing a window restored from the same bundle', async () => {
+    const first = createHarness();
+    first.deps.meta = { runtimeScope: 'bg', bundleVersion: '200' };
+    first.deps.canSend = async () => false;
+    first.aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await first.flush();
+
+    const second = createHarness({ storage: first.store });
+    second.deps.meta = { runtimeScope: 'bg', bundleVersion: '200' };
+    second.aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await second.flush();
+
+    expect(second.sent).toEqual([
+      expect.objectContaining({
+        windowBundleVersion: '200',
+        windowCount: 2,
+        api_wallet_ok: 2,
+      }),
+    ]);
+  });
+
   it('gives up on stored state that never loads instead of parking the flush', async () => {
     jest.useFakeTimers();
     const { aggregator, deps, sent } = createHarness();
@@ -620,6 +717,14 @@ describe('runtime aggregator wiring', () => {
         __esModule: true,
         ERuntimeRole: { Main: 'main', Background: 'background' },
         default: { isJest: true, ...env },
+      }));
+      // The runtime wiring now arms the tick and the visibility flush
+      // unconditionally, so keep both inert here.
+      jest.doMock('../utils/timerRegistry', () => ({
+        trackedSetInterval: jest.fn(),
+      }));
+      jest.doMock('../utils/appVisibility', () => ({
+        onVisibilityStateChange: jest.fn(),
       }));
       jest.doMock('../storage/appStorage', () => ({
         __esModule: true,
