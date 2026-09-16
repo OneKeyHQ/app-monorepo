@@ -2355,7 +2355,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     },
   );
 
-  it('writes back the trimmed Protocol V2 label when the caller passed outer whitespace', async () => {
+  it('writes back the trimmed label when the caller passed outer whitespace', async () => {
     const setWalletNameAndAvatar = jest.fn().mockResolvedValue(undefined);
     const currentState = {
       protocol: 'V2',
