@@ -15,7 +15,6 @@ import Animated, {
 
 import {
   Anchor,
-  AnimatePresence,
   Button,
   HeightTransition,
   Icon,
@@ -82,6 +81,10 @@ const styles = StyleSheet.create({
   fullWidth: { width: '100%' },
 });
 
+/** Lets a one-line text give way inside its row instead of overflowing. */
+const SHRINK_TO_FIT = { flexShrink: 1, minWidth: 0 } as const;
+const STAGE_ENTER_STYLE = { opacity: 0 } as const;
+
 const DOT_SIZE = 6;
 /** One pulse: the ring leaves the dot, spreads and fades. */
 const DOT_PULSE_MS = 1800;
@@ -139,14 +142,17 @@ function VersionText({
     item,
     isVersionValid,
   });
+  // Never wider than the column: an over-long range truncates with an
+  // ellipsis instead of running off the screen.
   return (
-    <XStack alignItems="center" gap="$2" flexShrink={1} minWidth={0}>
+    <XStack alignItems="center" gap="$2" maxWidth="100%" {...SHRINK_TO_FIT}>
       {from ? (
         <>
           <SizableText
             size={emphasize ? '$bodyLgMedium' : '$bodyMd'}
             color="$textSubdued"
             numberOfLines={1}
+            {...SHRINK_TO_FIT}
           >
             {from}
           </SizableText>
@@ -184,7 +190,12 @@ function VersionLink({
 }) {
   if (!releaseUrl) {
     return (
-      <SizableText size={size} color={color} numberOfLines={1}>
+      <SizableText
+        size={size}
+        color={color}
+        numberOfLines={1}
+        {...SHRINK_TO_FIT}
+      >
         {children}
       </SizableText>
     );
@@ -195,6 +206,7 @@ function VersionLink({
       color="$textSuccess"
       textDecorationLine="underline"
       numberOfLines={1}
+      {...SHRINK_TO_FIT}
       href={releaseUrl}
       target="_blank"
       // Inside the pill: follow the link, do not toggle the details card.
@@ -234,6 +246,7 @@ const VersionLine = memo(function VersionLine({
     return (
       <XStack
         alignItems="center"
+        maxWidth="100%"
         borderRadius="$full"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
@@ -414,23 +427,26 @@ export function FirmwareUpdateInstallView({
           <YStack w="100%" gap="$3" pt="$8">
             <Progress size="medium" value={progress} indicatorColor="$brand9" />
             <XStack alignItems="center" justifyContent="space-between" gap="$2">
-              <AnimatePresence initial={false} exitBeforeEnter>
-                <Stack
-                  key={stage}
-                  transition="quick"
-                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                  enterStyle={{ opacity: 0 }}
-                  exitStyle={{ opacity: 0 }}
+              {/* Enter only: the new word fades in where the old one was,
+                  with no exit. A sequenced exit + enter ran twice per
+                  swap, and on native the `quick` spring takes ~0.9s to
+                  settle opacity, so back-to-back SDK stages kept the word
+                  translucent for seconds (OK-63510). 150ms timing on both
+                  platforms. */}
+              <Stack
+                key={stage}
+                transition="popoverQuick"
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                enterStyle={STAGE_ENTER_STYLE}
+              >
+                <ShimmerTitle
+                  size="$headingSm"
+                  band="text"
+                  paused={mode !== 'updating'}
                 >
-                  <ShimmerTitle
-                    size="$headingSm"
-                    band="text"
-                    paused={mode !== 'updating'}
-                  >
-                    {copy.stage(intl, stage)}
-                  </ShimmerTitle>
-                </Stack>
-              </AnimatePresence>
+                  {copy.stage(intl, stage)}
+                </ShimmerTitle>
+              </Stack>
               <SizableText
                 size="$bodyMd"
                 color="$textSubdued"
