@@ -2,20 +2,22 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  type ILinkConfigItem,
   PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT,
+  asLinkConfigItems,
 } from '@onekeyhq/shared/types/linkConfig';
 
-const EMPTY_LINK_CONFIG_ITEMS: ILinkConfigItem[] = [];
+const EMPTY_LINK_CONFIG_ITEMS = asLinkConfigItems(undefined);
 
 export function usePrimeGiftClaimSuccessLink() {
   const locale = useLocaleVariant();
   const { result, isLoading } = usePromiseResult(
     async () => {
       try {
-        return await backgroundApiProxy.serviceSetting.fetchGetStartedLinks({
-          slots: [PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT],
-        });
+        return asLinkConfigItems(
+          await backgroundApiProxy.serviceSetting.fetchGetStartedLinks({
+            slots: [PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT],
+          }),
+        );
       } catch {
         // Fail closed so a Utility slot error cannot break the success page.
         return EMPTY_LINK_CONFIG_ITEMS;
@@ -33,5 +35,5 @@ export function usePrimeGiftClaimSuccessLink() {
   if (isLoading) {
     return undefined;
   }
-  return result[0];
+  return result?.[0];
 }

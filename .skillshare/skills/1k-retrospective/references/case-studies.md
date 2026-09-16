@@ -437,3 +437,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
 **Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
 **Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
+
+## Case: Prime claim-success banner crashed on a non-array Utility payload
+**Date**: 2026-09-16 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: A 200 from `/utility/v1/link-config` with `data: null` or a non-array body would throw on `result[0]` and take down the Prime gift claim-success page.
+**Root Cause**: Fail-closed only caught thrown errors. `/simplify` replaced `items?.[0]` with `result[0]`, so a successful non-array overwrite of `initResult` crashed at render.
+**Fix**: Normalize Utility `link-config` payloads with `asLinkConfigItems` at the service and hook, and read `result?.[0]`.
+**Catchable by**: Section 5: "Not loaded" vs "empty" — a successful non-array response is neither `[]` nor a thrown error; Section 6: bug fix needs a regression test of the exact malformed payload

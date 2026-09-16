@@ -14,3 +14,13 @@ export type ILinkConfigItem = {
   payload: string;
   image: string | null;
 };
+
+const EMPTY_LINK_CONFIG_ITEMS: ILinkConfigItem[] = [];
+
+function isLinkConfigItemArray(items: unknown): items is ILinkConfigItem[] {
+  return Array.isArray(items);
+}
+
+export function asLinkConfigItems(items: unknown): ILinkConfigItem[] {
+  return isLinkConfigItemArray(items) ? items : EMPTY_LINK_CONFIG_ITEMS;
+}

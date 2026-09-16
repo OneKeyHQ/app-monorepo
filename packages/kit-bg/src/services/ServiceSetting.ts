@@ -58,9 +58,10 @@ import type {
   IKytSupportedAsset,
   IReceiveKytIntroEntryPoint,
 } from '@onekeyhq/shared/types/kyt';
-import type {
-  ILinkConfigItem,
-  ILinkConfigSlot,
+import {
+  type ILinkConfigItem,
+  type ILinkConfigSlot,
+  asLinkConfigItems,
 } from '@onekeyhq/shared/types/linkConfig';
 import type {
   IClearCacheOnAppState,
@@ -652,7 +653,7 @@ class ServiceSetting extends ServiceBase {
         slots: slots.join(','),
       },
     });
-    return response.data.data;
+    return asLinkConfigItems(response.data.data);
   }
 
   @backgroundMethod()
