@@ -723,6 +723,7 @@ export enum EMarketBannerType {
   Mixed = 'mixed',
   StockPerps = 'stock_perps',
   StockIndex = 'stock_index',
+  TickerPerps = 'ticker_perps',
 }
 
 export interface IMarketBannerDescription {

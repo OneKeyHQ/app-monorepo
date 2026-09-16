@@ -174,7 +174,7 @@ function MarketHomeTabBar({
                 containerStyle={{
                   px: '$5',
                   pt: '$3',
-                  pb: '$1',
+                  pb: '$3',
                 }}
               />
             </XStack>
@@ -218,7 +218,7 @@ function MarketHomeTabBar({
               containerStyle={{
                 px: '$5',
                 pt: '$3',
-                pb: '$1',
+                pb: '$3',
               }}
             />
           ) : null}
@@ -246,7 +246,7 @@ function MarketHomeTabBar({
             containerStyle={{
               px: '$5',
               pt: '$3',
-              pb: '$1',
+              pb: '$3',
             }}
           />
           <MarketListColumnHeader />

@@ -11,15 +11,21 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
+// Every `@onekeyhq/components/...` path resolves to this mock, including the
+// `scale` helper the Market layout constants use.
 jest.mock('@onekeyhq/components', () => ({
   Icon: () => null,
   SizableText: ({ children }: PropsWithChildren) => <span>{children}</span>,
   XStack: ({
     children,
     justifyContent,
-  }: PropsWithChildren<{ justifyContent?: string }>) => (
-    <div data-justify={justifyContent}>{children}</div>
+    height,
+  }: PropsWithChildren<{ justifyContent?: string; height?: number }>) => (
+    <div data-justify={justifyContent} data-height={height}>
+      {children}
+    </div>
   ),
+  s: (value: number) => value,
   YStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
 }));
 
@@ -38,6 +44,8 @@ describe('MarketFilterBarSmall', () => {
     const timeRange = screen.getByTestId('time-range-filter');
     const row = timeRange.parentElement;
     expect(row?.getAttribute('data-justify')).toBe('flex-start');
+    // Fills the category chip row so its labels line up with the chips.
+    expect(row?.getAttribute('data-height')).toBe('56');
     expect(
       screen.getByTestId('network-filter').compareDocumentPosition(timeRange) &
         Node.DOCUMENT_POSITION_FOLLOWING,
