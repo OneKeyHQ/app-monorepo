@@ -457,7 +457,7 @@ describe('installProdBundleLoader', () => {
   // immediately poisons the route for the whole process, so the re-attempt
   // — which lands on the file the winner already published — is the fix for
   // the binaries already in the field.
-  it('re-attempts SPLIT_BUNDLE_NOT_FOUND once (Android extract race self-heals)', async () => {
+  it('re-attempts SPLIT_BUNDLE_NOT_FOUND (Android extract race self-heals)', async () => {
     const mock = createMockNativeLoader();
     mock.loadSegment.mockRejectedValueOnce(
       Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
@@ -481,10 +481,11 @@ describe('installProdBundleLoader', () => {
   });
 
   // A genuinely missing segment (real packaging/OTA corruption, e.g. iOS
-  // BackgroundThread mapping EBgMgrSegmentEvalErrorFileNotFound) costs exactly
-  // one extra native call — a file existence check — and then goes fatal, with
-  // `retryable` cleared so the lazy boundary stops instead of looping.
-  it('caches SPLIT_BUNDLE_NOT_FOUND after its single re-attempt', async () => {
+  // BackgroundThread mapping EBgMgrSegmentEvalErrorFileNotFound) still reaches
+  // a permanent verdict, just via the same circuit breaker as the other
+  // transient codes, with `retryable` cleared so the lazy boundary stops
+  // instead of looping.
+  it('caches SPLIT_BUNDLE_NOT_FOUND once the retry budget is exhausted', async () => {
     const mock = createMockNativeLoader();
     mock.loadSegment.mockRejectedValue(
       Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
@@ -494,18 +495,54 @@ describe('installProdBundleLoader', () => {
     const { installProdBundleLoader, loadSegment } = getLoader();
     installProdBundleLoader(mock);
 
-    // RETRY_ONCE_MAX_ATTEMPTS = 2: attempt 1 re-hits native, attempt 2 exhausts
-    // the budget and caches as failed.
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
     await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
       retryable: true,
     });
     await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
       retryable: false,
     });
-    expect(mock.loadSegment).toHaveBeenCalledTimes(2);
-    // Cached now — a third call must NOT hit native.
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+    // Cached now — a fourth call must NOT hit native.
     await expect(loadSegment('seg:test.a')).rejects.toThrow();
-    expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+  });
+
+  // retryableAttempts is ONE counter per segment, shared by every transient
+  // code. An earlier NO_RUNTIME must not pre-spend the budget such that the
+  // FIRST NOT_FOUND on that segment is already past the cap and gets cached on
+  // sight — that would reinstate the exact bug this fix exists to remove. Both
+  // codes are emitted from the same cold-start window by the same native
+  // methods, so the sequence is reachable in production.
+  it('does not let an earlier NO_RUNTIME pre-spend the budget for a later NOT_FOUND', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Runtime not available'), {
+          code: 'SPLIT_BUNDLE_NO_RUNTIME',
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+          code: 'SPLIT_BUNDLE_NOT_FOUND',
+        }),
+      );
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
+    installProdBundleLoader(mock);
+
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    // Third call still reaches native — the racing writer has published by now.
+    await loadSegment('seg:test.a');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
   });
 
   // Fix 2: a STRUCTURAL ivar-missing failure (an RN version bump renamed the

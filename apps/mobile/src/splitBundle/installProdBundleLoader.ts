@@ -70,24 +70,43 @@ const eagerFallbackWarned = new Set<string>();
 // MAX_RETRYABLE_ATTEMPTS below) cache the failure to stop a permanently wedged
 // runtime from re-attempting forever; `retrySegment()` clears that cache.
 //
-// This set is EXACTLY { SPLIT_BUNDLE_NO_RUNTIME, SPLIT_BUNDLE_TIMEOUT } and is
-// shared verbatim with the Android loader. Every native producer emits DISTINCT
-// per-cause reject codes, each mapped EXPLICITLY (no silent fall-through that
-// could misclassify a fatal failure as retryable):
+// Every native producer emits DISTINCT per-cause reject codes, each mapped
+// EXPLICITLY (no silent fall-through that could misclassify a fatal failure as
+// retryable):
 //   - iOS main runtime: SplitBundleLoader.mm maps its ESegmentEvalError codes
 //     (incl. ivar-missing → fatal SPLIT_BUNDLE_NATIVE_UNAVAILABLE).
 //   - iOS background runtime: BackgroundThread.loadSegmentInBackground maps the
-//     manager's EBgMgrSegmentEvalError codes (fix 1) — a missing bg segment file
-//     surfaces as fatal SPLIT_BUNDLE_NOT_FOUND, a renamed ivar as fatal
-//     SPLIT_BUNDLE_NATIVE_UNAVAILABLE, and only not-started / nil-instance /
+//     manager's EBgMgrSegmentEvalError codes (fix 1) — a renamed ivar surfaces
+//     as fatal SPLIT_BUNDLE_NATIVE_UNAVAILABLE, and not-started / nil-instance /
 //     timeout are retryable.
 //   - Android: its watchdog rejects with SPLIT_BUNDLE_TIMEOUT.
-// A real bg EVAL/IO/structural failure therefore surfaces as its own fatal code
-// and is correctly NOT retried (NOT_FOUND is the one exception — it gets a
-// single re-attempt, see RETRY_ONCE_NATIVE_REJECT_CODES).
+// A real EVAL/IO/structural failure therefore surfaces as its own fatal code and
+// is correctly NOT retried.
+//
+// SPLIT_BUNDLE_NOT_FOUND is in this set even though a missing file sounds
+// permanent, because it has a known transient producer: Android extracts
+// builtin segments out of the APK lazily, and the main and background runtimes
+// resolve the same segment independently. Native builds that share one
+// "<name>.tmp" per segment make the thread that LOSES the rename report
+// NOT_FOUND for a file that is on disk and complete — seen on the first launch
+// after an APK replace, where the install-stamp wipe forces every segment to
+// re-extract at once. Caching that on sight blanked a route for the rest of the
+// process. It is deliberately on the SAME budget as the other transient codes
+// rather than a tighter one: a tighter budget would be spent by a single mount
+// plus its one boundary retry (MAX_LAZY_RETRIES) within one RETRY_BACKOFF_MS
+// window, leaving nothing for a later navigation if the window turned out to be
+// longer than the backoff. The cost on a genuinely missing segment is two extra
+// native calls before going fatal — not free (each re-enters the loader and can
+// queue behind in-flight extractions) but bounded, and the route is dead either
+// way.
+//
+// This stays useful after the native fix ships: OTA bundles run on whatever
+// native build is installed, so JS has to self-heal on binaries already in the
+// field.
 const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
   'SPLIT_BUNDLE_NO_RUNTIME',
   'SPLIT_BUNDLE_TIMEOUT',
+  'SPLIT_BUNDLE_NOT_FOUND',
 ]);
 
 // Fatal native reject codes are everything else (e.g. SPLIT_BUNDLE_EVAL_ERROR
@@ -96,8 +115,7 @@ const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
 // (Android-only producer); SPLIT_BUNDLE_SHA256_MISMATCH;
 // SPLIT_BUNDLE_INVALID_PATH). These keep the existing cache-as-failed behavior:
 // retrying just reproduces the same failure. SPLIT_BUNDLE_NOT_FOUND used to sit
-// in this list too — see RETRY_ONCE_NATIVE_REJECT_CODES for why it now gets a
-// single re-attempt first.
+// in this list too — see above for why it moved to the retryable set.
 
 // Bounds the number of times a retryable reject re-attempts the SAME segment
 // before we give up and cache it as a permanent failure. Without this cap a
@@ -106,39 +124,6 @@ const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
 // successfully.
 const MAX_RETRYABLE_ATTEMPTS = 3;
 const retryableAttempts = new Map<string, number>();
-
-// Codes that are USUALLY fatal but have a known TRANSIENT producer, so they get
-// exactly ONE re-attempt instead of the full MAX_RETRYABLE_ATTEMPTS budget.
-//
-// SPLIT_BUNDLE_NOT_FOUND: Android extracts builtin segments out of the APK
-// lazily, and the main and background runtimes resolve the same segment
-// independently. Native builds that share one "<name>.tmp" per segment across
-// those two extractions make the thread that LOSES the rename report NOT_FOUND
-// for a file that is on disk and complete. It shows up on the first launch
-// after an APK replace, where the install-stamp wipe forces every segment to
-// re-extract at once (widest window on the largest segment). The re-attempt
-// lands on the file the winner already published, so the whole thing becomes a
-// non-event; a genuinely missing segment costs one extra native call — a file
-// existence check — before going fatal exactly as before.
-//
-// This tier stays useful after the native fix ships: OTA bundles run on the
-// binaries already in the field, so JS has to self-heal on unfixed native.
-//
-// Note this deliberately breaks the invariant documented on MAX_LAZY_RETRIES
-// (that one failed mount can never exhaust a segment's budget by itself): the
-// transient window here is sub-second, so a mount + its single boundary retry
-// SHOULD spend the whole budget and reach a verdict instead of leaving the
-// route half-failed for a later navigation.
-const RETRY_ONCE_NATIVE_REJECT_CODES = new Set<string>([
-  'SPLIT_BUNDLE_NOT_FOUND',
-]);
-const RETRY_ONCE_MAX_ATTEMPTS = 2;
-
-function maxAttemptsForCode(code: string | undefined): number {
-  return code !== undefined && RETRY_ONCE_NATIVE_REJECT_CODES.has(code)
-    ? RETRY_ONCE_MAX_ATTEMPTS
-    : MAX_RETRYABLE_ATTEMPTS;
-}
 
 /**
  * Read the native reject `code` from a thrown error. RN TurboModule rejections
@@ -431,8 +416,7 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       nativeCode = getNativeRejectCode(error);
       isRetryable =
         nativeCode !== undefined &&
-        (RETRYABLE_NATIVE_REJECT_CODES.has(nativeCode) ||
-          RETRY_ONCE_NATIVE_REJECT_CODES.has(nativeCode));
+        RETRYABLE_NATIVE_REJECT_CODES.has(nativeCode);
     }
 
     // Wrap (or reuse) as a SegmentLoadError, threading the resolved
@@ -448,9 +432,8 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
           );
 
     const attempts = (retryableAttempts.get(segmentKey) ?? 0) + 1;
-    const maxAttempts = maxAttemptsForCode(nativeCode);
 
-    if (isRetryable && attempts < maxAttempts) {
+    if (isRetryable && attempts < MAX_RETRYABLE_ATTEMPTS) {
       // Skip failedSegments so the NEXT __loadBundleAsync re-attempts (rather
       // than throwing the cached failure forever). State is reset to 'idle' and
       // the attempt counter bumped so a wedged runtime can't loop unbounded.
@@ -458,7 +441,7 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       segmentStates.set(segmentKey, 'idle');
       NativeLogger.write(
         LogLevel.Warning,
-        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${maxAttempts}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
+        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${MAX_RETRYABLE_ATTEMPTS}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
       );
       throw segError;
     }
