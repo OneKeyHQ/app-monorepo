@@ -907,6 +907,16 @@ test('text a read hands to a callback or a promise is still source', () => {
   `,
     'control: Promise.allSettled: the data value, and a status',
   );
+  // A nested pattern takes each part of a record on its own.
+  const settleNested = `const [{ status, value }] = await Promise.allSettled([readFile(${thing}, 'utf8')]);`;
+  assertGated(
+    `it('x', async () => { ${settleNested} expect(value).toContain('go'); });`,
+    'Promise.allSettled: a nested pattern, the value',
+  );
+  assertClean(
+    `it('x', async () => { ${settleNested} expect(status).toBe('fulfilled'); });`,
+    'control: Promise.allSettled: a nested pattern, the status',
+  );
   // Controls: the same callback reading data, and a promise holding no source.
   assertClean(
     `
@@ -1169,6 +1179,50 @@ test('what a variable stores under a property is still source', () => {
     it('x', () => { expect(context.files.count).toBe(3); });
   `,
     'control: another property of a nested object literal',
+  );
+  const nestedOwner = `const context = { files: { source: ${read}, count: 3 } };`;
+  assertGated(
+    `${nestedOwner}
+    it('x', () => {
+      const { files: { source } } = context;
+      expect(source).toContain('go');
+    });
+  `,
+    'a nested pattern over a nested literal',
+  );
+  assertClean(
+    `${nestedOwner}
+    it('x', () => {
+      const { files: { count } } = context;
+      expect(count).toBe(3);
+    });
+  `,
+    'control: the same nested pattern, another property',
+  );
+  // A spread written after a property can replace it.
+  const payload = `const payload = { source: ${read} };`;
+  assertGated(
+    `${payload}
+    const context = { files: { source: 'plain', ...payload } };
+    it('x', () => { expect(context.files.source).toContain('go'); });
+  `,
+    'a property a later spread can replace',
+  );
+  assertGated(
+    `${payload}
+    it('x', () => {
+      const { source } = { source: 'plain', ...payload };
+      expect(source).toContain('go');
+    });
+  `,
+    'the same, destructured out of the literal',
+  );
+  assertClean(
+    `${payload}
+    const context = { ...payload, source: 'plain' };
+    it('x', () => { expect(context.source).toBe('plain'); });
+  `,
+    'control: a property written after the spread',
   );
   const arrayOwner = `const files = [${read}, 'plain'];`;
   assertGated(

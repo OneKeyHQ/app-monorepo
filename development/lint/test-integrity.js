@@ -1076,60 +1076,85 @@ function collectDefinitions(ast, calls) {
 }
 
 /**
- * What each identifier in a definition's pattern is given. An element of an
- * array literal goes to the identifier in the same position, and destructuring
- * an owner by static key or position reads that property, as `ctx.source` or
+ * What each identifier in a definition's pattern is given, however deeply
+ * the pattern nests. An element of an array literal goes to the pattern in the
+ * same position, a property of an object literal to the pattern under that
+ * key, and destructuring an owner reads that property as `ctx.source` or
  * `files[0]` would. Anything else receives the whole value.
  */
-function destructured({ pattern, identifiers, value }) {
-  const whole = [{ pattern, identifiers, value }];
-  if (pattern.type === 'ArrayPattern') {
+function destructured({ pattern, value }) {
+  const whole = [{ pattern, identifiers: patternIdentifiers(pattern), value }];
+  const part = (inner, innerValue) =>
+    destructured({ pattern: inner, value: innerValue });
+  if (pattern?.type === 'ArrayPattern') {
     const literal = unwrapCollection(value);
     if (
       literal?.type === 'ArrayExpression' &&
       !literal.elements.some((element) => element?.type === 'SpreadElement')
     ) {
-      return pattern.elements.map((element, index) => ({
-        pattern: element,
-        identifiers: patternIdentifiers(element),
-        value:
-          element?.type === 'RestElement' ? value : literal.elements[index],
-      }));
+      return pattern.elements.flatMap((element, index) =>
+        element?.type === 'RestElement'
+          ? part(element, value)
+          : part(element, literal.elements[index]),
+      );
     }
-    return ownerKey(value)
-      ? pattern.elements.map((element, index) =>
-          element?.type === 'RestElement'
-            ? { identifiers: patternIdentifiers(element), value }
-            : {
-                identifiers: patternIdentifiers(element),
-                value: propertyAccess(value, {
-                  type: 'NumericLiteral',
-                  value: index,
-                }),
-              },
-        )
-      : whole;
+    if (!ownerKey(value)) {
+      return whole;
+    }
+    return pattern.elements.flatMap((element, index) =>
+      element?.type === 'RestElement'
+        ? part(element, value)
+        : part(
+            element,
+            propertyAccess(value, { type: 'NumericLiteral', value: index }),
+          ),
+    );
   }
-  if (pattern.type !== 'ObjectPattern' || !ownerKey(value)) {
+  if (pattern?.type !== 'ObjectPattern') {
     return whole;
   }
-  return pattern.properties.map((property) => {
+  const literal = unwrapCollection(value);
+  if (literal?.type !== 'ObjectExpression' && !ownerKey(value)) {
+    return whole;
+  }
+  return pattern.properties.flatMap((property) => {
     const name =
       property.type === 'ObjectProperty'
         ? staticName(property.key, property)
         : undefined;
-    return name === undefined
-      ? {
-          identifiers: patternIdentifiers(
-            property.type === 'RestElement' ? property : property.value,
-          ),
-          value,
-        }
-      : {
-          identifiers: patternIdentifiers(property.value),
-          value: propertyAccess(value, property.key, property.computed),
-        };
+    if (name === undefined) {
+      return part(
+        property.type === 'RestElement' ? property : property.value,
+        value,
+      );
+    }
+    return part(
+      property.value,
+      literal?.type === 'ObjectExpression'
+        ? literalProperty(literal, name)
+        : propertyAccess(value, property.key, property.computed),
+    );
   });
+}
+
+/**
+ * What an object literal gives `name`: the last property spelling it out, or
+ * the whole literal when a spread written after that property may replace it.
+ */
+function literalProperty(literal, name) {
+  for (let index = literal.properties.length - 1; index >= 0; index -= 1) {
+    const property = literal.properties[index];
+    if (property.type === 'SpreadElement') {
+      return literal;
+    }
+    if (
+      property.type === 'ObjectProperty' &&
+      staticName(property.key, property) === name
+    ) {
+      return property.value;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -1158,12 +1183,18 @@ function literalParts(owner, value) {
   const literal = unwrapCollection(value);
   let parts = [];
   if (literal?.type === 'ObjectExpression') {
+    const lastSpread = literal.properties.findLastIndex(
+      (property) => property.type === 'SpreadElement',
+    );
     parts = literal.properties
-      .filter((property) => property.type === 'ObjectProperty')
-      .map((property) => ({
+      .map((property, index) => ({ property, index }))
+      .filter(({ property }) => property.type === 'ObjectProperty')
+      .map(({ property, index }) => ({
         key: propertyKey(owner, staticName(property.key, property)),
         value: property.value,
-        literal: true,
+        // A spread written after a property can replace it, so the literal
+        // only says what the property holds when no spread follows it.
+        literal: index > lastSpread,
       }))
       .filter(({ key }) => key);
   } else if (literal?.type === 'ArrayExpression') {
@@ -1179,7 +1210,9 @@ function literalParts(owner, value) {
       }))
       .filter(({ value: element }) => element);
   }
-  return parts.flatMap((part) => [part, ...literalParts(part.key, part.value)]);
+  return parts.flatMap((part) =>
+    part.literal ? [part, ...literalParts(part.key, part.value)] : [part],
+  );
 }
 
 /**
