@@ -395,25 +395,11 @@ export function usePromiseResult<T>(
       };
 
       if (optionsRef.current.debounced) {
-        let pendingPollingNonce: number | undefined;
-        const runnerDebounced = debounce(
-          (config?: IRunnerConfig) => {
-            const pollingNonce = pendingPollingNonce;
-            pendingPollingNonce = undefined;
-            return runner(
-              pollingNonce === undefined ? config : { ...config, pollingNonce },
-            );
-          },
-          optionsRef.current.debounced,
-          {
-            leading: false,
-            trailing: true,
-          },
-        );
+        const runnerDebounced = debounce(runner, optionsRef.current.debounced, {
+          leading: false,
+          trailing: true,
+        });
         return async (config?: IRunnerConfig) => {
-          // A manual refresh may replace the trailing args, but the recovery
-          // request must retain ownership of the replacement polling chain.
-          pendingPollingNonce = config?.pollingNonce ?? pendingPollingNonce;
           // Loading transitions are owned by the inner runner: setting
           // setLoadingTrue here would leak `isLoading=true` if the
           // route blurred during the debounce window and the runner
@@ -496,8 +482,6 @@ export function usePromiseResult<T>(
   const isLoadingRef = useRef(isLoading);
   const runWithPollingNonce = useCallback(() => {
     isDepsChangedOnBlur.current = false;
-    // Recovery must replace the old polling chain instead of starting another.
-    pollingNonceRef.current += 1;
     void runRef.current({ pollingNonce: pollingNonceRef.current });
   }, [runRef]);
 

@@ -504,11 +504,10 @@ describe('usePromiseResult', () => {
     });
   });
 
-  describe('polling', () => {
+  describe('setStopPolling', () => {
     const POLLING_MS = 1000;
 
     beforeEach(() => {
-      focusControl.__resetFocus();
       jest.useFakeTimers();
     });
 
@@ -528,47 +527,6 @@ describe('usePromiseResult', () => {
         }
       });
     };
-
-    it.each(['route readiness', 'focus', 'reconnect'] as const)(
-      'keeps one polling chain after %s revalidation',
-      async (trigger) => {
-        const method = jest.fn(async () => 'ok');
-        const { rerender, unmount } = renderHook(
-          ({ enabled }: { enabled: boolean }) =>
-            usePromiseResult(method, [enabled], {
-              pollingInterval: POLLING_MS,
-              overrideIsFocused: (focused) => focused && enabled,
-              watchLoading: true,
-              undefinedResultIfReRun: true,
-              undefinedResultIfError: true,
-              revalidateOnFocus: true,
-              revalidateOnReconnect: true,
-            }),
-          { initialProps: { enabled: trigger !== 'route readiness' } },
-        );
-        await tick();
-
-        for (let i = 0; i < 3; i += 1) {
-          if (trigger === 'route readiness') {
-            rerender({ enabled: false });
-            rerender({ enabled: true });
-          } else if (trigger === 'focus') {
-            act(() => focusControl.__setFocus(false));
-            act(() => focusControl.__setFocus(true));
-          } else {
-            act(() =>
-              globalNetInfo.updateState({ isInternetReachable: false }),
-            );
-            act(() => globalNetInfo.updateState({ isInternetReachable: true }));
-          }
-          await tick();
-          const callsAfterRevalidation = method.mock.calls.length;
-          await tick(POLLING_MS);
-          expect(method).toHaveBeenCalledTimes(callsAfterRevalidation + 1);
-        }
-        unmount();
-      },
-    );
 
     it('skips the next polling tick once setStopPolling(true) is called', async () => {
       const method = jest.fn(async () => 'ok');
@@ -749,30 +707,6 @@ describe('usePromiseResult', () => {
       expect(result.current.isLoading).toBe(false);
       expect(onIsLoadingChange).toHaveBeenCalledWith(true);
       expect(onIsLoadingChange).toHaveBeenCalledWith(false);
-    });
-
-    it('keeps polling when a bare run replaces recovery inside the debounce window', async () => {
-      const method = jest.fn(async () => 'data');
-      const { result } = renderHook(() =>
-        usePromiseResult(method, [], {
-          debounced: DEBOUNCE_MS,
-          pollingInterval: 1000,
-          revalidateOnFocus: true,
-        }),
-      );
-
-      await tick(DEBOUNCE_MS);
-      act(() => focusControl.__setFocus(false));
-      act(() => focusControl.__setFocus(true));
-      act(() => {
-        void result.current.run({ alwaysSetState: true });
-      });
-      await tick(DEBOUNCE_MS);
-      const callsAfterRecovery = method.mock.calls.length;
-
-      await tick(1000);
-      await tick(DEBOUNCE_MS);
-      expect(method).toHaveBeenCalledTimes(callsAfterRecovery + 1);
     });
   });
 

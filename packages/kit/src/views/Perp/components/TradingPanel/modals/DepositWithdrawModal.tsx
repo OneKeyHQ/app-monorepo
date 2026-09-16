@@ -82,6 +82,7 @@ import {
   MIN_WITHDRAW_AMOUNT,
   USDC_TOKEN_INFO,
   USDC_WITHDRAW_DESTINATIONS,
+  USDC_WITHDRAW_GAS_RESERVE,
   WITHDRAW_FEE,
   getUsdcWithdrawDestination,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -121,7 +122,6 @@ import {
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
 import { usePerpsAmountInput } from './usePerpsAmountInput';
-import { formatUsdcWithdrawFeeText } from './withdrawFeeDisplayUtils';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { IntlShape } from 'react-intl';
@@ -137,6 +137,34 @@ const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
 const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const WITHDRAW_QUOTE_REFRESH_INTERVAL_MS = 30_000;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
+
+function formatWithdrawFeeComponent(
+  component: IUsdcWithdrawFeeQuote['components'][number],
+) {
+  const amount = new BigNumber(component.amount).toFixed(2);
+  if (component.kind === 'hyperEvmGas') {
+    return `< $${amount}`;
+  }
+  return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
+}
+
+function formatWithdrawFeeText(
+  quote: IUsdcWithdrawFeeQuote | undefined,
+  reserve: string | undefined,
+  includeReserve: boolean,
+) {
+  if (!quote || (includeReserve && !reserve)) return undefined;
+  const parts = quote.components
+    .filter((component) => !includeReserve || component.kind !== 'hyperEvmGas')
+    .map(formatWithdrawFeeComponent);
+  if (includeReserve && reserve) {
+    const prefix = new BigNumber(reserve).lte(USDC_WITHDRAW_GAS_RESERVE)
+      ? '< '
+      : '';
+    parts.unshift(`${prefix}$${new BigNumber(reserve).toFixed(2)}`);
+  }
+  return parts.join(' + ');
+}
 
 function getWithdrawFeeKey(
   destination: IUsdcWithdrawDestinationConfig,
@@ -438,40 +466,59 @@ function DepositWithdrawContent({
     run: refreshWithdrawReserve,
   } = usePromiseResult(
     async () => {
-      if (!needsWithdrawReserve || !selectedAccount.accountId) return undefined;
+      if (
+        !needsWithdrawReserve ||
+        !selectedAccount.accountId ||
+        !selectedAccount.accountAddress
+      ) {
+        return undefined;
+      }
       return backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawReserve(
         {
           userAccountId: selectedAccount.accountId,
         },
       );
     },
-    [needsWithdrawReserve, selectedAccount.accountId],
+    [
+      needsWithdrawReserve,
+      selectedAccount.accountId,
+      selectedAccount.accountAddress,
+    ],
     {
       watchLoading: true,
       undefinedResultIfError: true,
-      pollingInterval: 30_000,
       overrideIsFocused: (isFocused) => isFocused && needsWithdrawReserve,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
+  useEffect(() => {
+    if (!needsWithdrawReserve) return undefined;
+    const interval = setInterval(
+      () => void refreshWithdrawReserve(),
+      WITHDRAW_QUOTE_REFRESH_INTERVAL_MS,
+    );
+    return () => clearInterval(interval);
+  }, [needsWithdrawReserve, refreshWithdrawReserve]);
   const hasWithdrawAccountChanged =
     needsWithdrawReserve &&
     (activeAccount.accountId !== selectedAccount.accountId ||
       activeAccount.accountAddress?.toLowerCase() !==
         selectedAccount.accountAddress?.toLowerCase());
   // The displayed balance follows the active account; its reserve must match.
+  const matchedWithdrawReserve =
+    !hasWithdrawAccountChanged &&
+    withdrawReserve?.accountAddress.toLowerCase() ===
+      selectedAccount.accountAddress?.toLowerCase()
+      ? withdrawReserve
+      : undefined;
   const isWithdrawReserveReady =
-    !needsWithdrawReserve ||
-    (!hasWithdrawAccountChanged &&
-      Boolean(withdrawReserve) &&
-      withdrawReserve?.accountAddress.toLowerCase() ===
-        selectedAccount.accountAddress?.toLowerCase());
+    !needsWithdrawReserve || Boolean(matchedWithdrawReserve);
   const hasWithdrawReserveFetchFailed =
     needsWithdrawReserve &&
     !hasWithdrawAccountChanged &&
     isCheckingWithdrawReserve === false &&
-    !withdrawReserve;
+    !matchedWithdrawReserve;
   // Gated on the confirmed quote, never the preview: submitting against a fee the
   // row never showed would take the difference out of the principal.
   const isWithdrawFeeQuoteComplete =
@@ -1037,13 +1084,17 @@ function DepositWithdrawContent({
 
   const maximumWithdrawAmountBN = useMemo(() => {
     const maximum = shouldReserveWithdrawGas
-      ? availableBalanceBN.minus(withdrawReserve?.reserve ?? 0)
+      ? availableBalanceBN.minus(matchedWithdrawReserve?.reserve ?? 0)
       : availableBalanceBN;
     return BigNumber.maximum(maximum, 0).decimalPlaces(
       USDC_TOKEN_INFO.decimals,
       BigNumber.ROUND_DOWN,
     );
-  }, [availableBalanceBN, shouldReserveWithdrawGas, withdrawReserve?.reserve]);
+  }, [
+    availableBalanceBN,
+    shouldReserveWithdrawGas,
+    matchedWithdrawReserve?.reserve,
+  ]);
 
   const checkFromTokenFiatValue = useMemo(() => {
     return getPerpsDepositMinimumCheck({
@@ -2386,12 +2437,12 @@ function DepositWithdrawContent({
 
   const withdrawFeeText = useMemo(
     () =>
-      formatUsdcWithdrawFeeText({
-        feeQuote: withdrawFeeQuote,
-        reserve: withdrawReserve?.reserve,
-        includeReserve: needsWithdrawReserve,
-      }),
-    [needsWithdrawReserve, withdrawFeeQuote, withdrawReserve?.reserve],
+      formatWithdrawFeeText(
+        withdrawFeeQuote,
+        matchedWithdrawReserve?.reserve,
+        needsWithdrawReserve,
+      ),
+    [needsWithdrawReserve, withdrawFeeQuote, matchedWithdrawReserve?.reserve],
   );
 
   const withdrawSubmitDisabled =
@@ -2642,7 +2693,7 @@ function DepositWithdrawContent({
             gap="$2.5"
           >
             {withdrawFeeHint}
-            {withdrawFeeQuote ? (
+            {withdrawFeeText !== undefined ? (
               <SizableText
                 size="$bodyLgMedium"
                 color="$text"
