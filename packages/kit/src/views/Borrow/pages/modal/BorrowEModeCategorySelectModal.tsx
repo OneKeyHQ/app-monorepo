@@ -85,17 +85,17 @@ function EModeCategoryRow({
       </YStack>
       {isSelected ? (
         // The row already announces selection; hide the decorative checkmark.
-        <Icon
+        // Icon reads only name and style, so these have to sit on a view.
+        <Stack
           flexShrink={0}
-          name="CheckLargeOutline"
-          size="$5"
-          color="$iconActive"
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           {...(platformEnv.isRuntimeBrowser
             ? { 'aria-hidden': true as const }
             : {})}
-        />
+        >
+          <Icon name="CheckLargeOutline" size="$5" color="$iconActive" />
+        </Stack>
       ) : (
         <Stack flexShrink={0} w="$5" h="$5" />
       )}
