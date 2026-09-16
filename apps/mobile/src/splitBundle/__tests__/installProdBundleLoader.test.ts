@@ -448,15 +448,15 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 
-  // SPLIT_BUNDLE_NOT_FOUND gets exactly ONE re-attempt
-  // (RETRY_ONCE_NATIVE_REJECT_CODES) rather than being cached on sight. The
-  // Android builtin-segment extractor can report NOT_FOUND for a file that IS
-  // on disk: main and background runtimes extract the same segment
-  // concurrently, and on native builds that share one "<name>.tmp" per segment
-  // the thread that loses the rename returns "not found". Caching that
-  // immediately poisons the route for the whole process, so the re-attempt
-  // — which lands on the file the winner already published — is the fix for
-  // the binaries already in the field.
+  // SPLIT_BUNDLE_NOT_FOUND sits in RETRYABLE_NATIVE_REJECT_CODES alongside the
+  // other transient codes, sharing the MAX_RETRYABLE_ATTEMPTS circuit breaker,
+  // rather than being cached on sight. The Android builtin-segment extractor
+  // can report NOT_FOUND for a file that IS on disk: main and background
+  // runtimes extract the same segment concurrently, and on native builds that
+  // share one "<name>.tmp" per segment the thread that loses the rename
+  // returns "not found". Caching that immediately poisons the route for the
+  // whole process, so a re-attempt — which lands on the file the winner
+  // already published — is the fix for the binaries already in the field.
   it('re-attempts SPLIT_BUNDLE_NOT_FOUND (Android extract race self-heals)', async () => {
     const mock = createMockNativeLoader();
     mock.loadSegment.mockRejectedValueOnce(
@@ -510,13 +510,21 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(3);
   });
 
-  // retryableAttempts is ONE counter per segment, shared by every transient
-  // code. An earlier NO_RUNTIME must not pre-spend the budget such that the
-  // FIRST NOT_FOUND on that segment is already past the cap and gets cached on
-  // sight — that would reinstate the exact bug this fix exists to remove. Both
-  // codes are emitted from the same cold-start window by the same native
-  // methods, so the sequence is reachable in production.
-  it('does not let an earlier NO_RUNTIME pre-spend the budget for a later NOT_FOUND', async () => {
+  // The contract is deliberately uniform, not NOT_FOUND-specific:
+  // retryableAttempts is ONE circuit breaker per segment, shared by every
+  // transient code, giving a segment MAX_RETRYABLE_ATTEMPTS tries per process
+  // no matter which codes produced them. Two prior failures therefore DO
+  // exhaust it, and a NOT_FOUND arriving third is cached on sight — that is
+  // the intended bound, not a bug.
+  //
+  // What this test pins is narrower: the counter and the cap are no longer
+  // read from different sources. An earlier revision derived the cap from the
+  // CURRENT failure's code while the counter stayed shared, so a single prior
+  // NO_RUNTIME put the first NOT_FOUND already past a tighter cap and cached it
+  // with zero re-attempts — reinstating the exact bug this fix exists to
+  // remove. Both codes are emitted from the same cold-start window by the same
+  // native methods, so that sequence is reachable in production.
+  it('does not let one earlier NO_RUNTIME cache a later NOT_FOUND on sight', async () => {
     const mock = createMockNativeLoader();
     mock.loadSegment
       .mockRejectedValueOnce(
