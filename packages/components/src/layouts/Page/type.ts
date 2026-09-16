@@ -23,6 +23,13 @@ export interface IPageLifeCycle {
 
 export type IBasicPageProps = PropsWithChildren<
   {
+    /** @platform native
+     * @deprecated No-op. Its only consumer was the min-height calculation inside
+     * the native page loading overlay, removed together with that overlay; both
+     * BasicPage implementations now ignore it, although Page and PageContainer
+     * still thread it through. Kept so existing call sites keep compiling — do
+     * not add new ones.
+     */
     fullPage?: boolean;
     /** @platform cross-platform
      * @description Enable the insets that you use to determine the safe area for this view. The default value is true
