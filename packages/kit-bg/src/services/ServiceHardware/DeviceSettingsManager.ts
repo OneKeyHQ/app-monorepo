@@ -694,7 +694,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     label,
   }: ISetDeviceLabelParams): Promise<ISetDeviceLabelResult> {
     const device = await localDb.getWalletDevice({ walletId });
-    const normalizedLabel = label.trim();
+    const normalizedLabel = this._isProtocolV2Product(device)
+      ? label.trim()
+      : label;
     if (
       this._isProtocolV2Product(device) &&
       (!isPrintableASCIIString(normalizedLabel) ||
