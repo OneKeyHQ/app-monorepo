@@ -1224,10 +1224,10 @@ export function MorphOverlay<T>({
     [progress],
   );
 
-  // The wall over the app: the scrim's tint under its animated level —
-  // fully clear without the grant, so the bare blocking wall is this same
-  // view at level 0.
-  const backdropStyle = useMemo(
+  // The scrim's tint over the blocked app, under its animated level —
+  // fully clear without the grant. Paint only: the touch-blocking wall
+  // is a static view of its own (see the render).
+  const scrimStyle = useMemo(
     () => [
       styles.backdrop,
       {
@@ -1305,8 +1305,27 @@ export function MorphOverlay<T>({
             reanimated web view keeps overwriting that style, which left
             an invisible full-window wall standing after the exit and
             swallowing every touch. */}
+        {/* A plain static View, split from the scrim's tint (OK-63431):
+            RN's iOS hit test skips any view whose alpha is under 0.01,
+            so a wall carrying the scrim's animated opacity took no
+            touches in every undimmed state — the waits and the asks —
+            and taps fell through to the page behind. Android's touch
+            targeting and the web ignore alpha, which is why only iOS
+            leaked. collapsable={false}: Fabric flattens an unpainted
+            auto-pointer-events view out of the native tree, and a
+            flattened wall takes nothing either. */}
         {blocking && pose !== 'hidden' ? (
-          <Animated.View style={backdropStyle} pointerEvents="auto" />
+          <>
+            <View
+              style={styles.backdrop}
+              pointerEvents="auto"
+              collapsable={false}
+              testID="morph-overlay-wall"
+            />
+            {/* The tint over the blocked app — paint only, the wall
+                under it does the blocking. */}
+            <Animated.View style={scrimStyle} pointerEvents="none" />
+          </>
         ) : null}
         <GestureDetector gesture={pan}>
           <Animated.View style={shellStyle}>
