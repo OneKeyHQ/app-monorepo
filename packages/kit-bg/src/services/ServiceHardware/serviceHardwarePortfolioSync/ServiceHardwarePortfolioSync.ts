@@ -2124,7 +2124,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         }
       }
 
-      const fetchCachedDeFi = async (): Promise<string | undefined> => {
+      const fetchCachedDeFi = async (
+        requiredNetworkIds: string[],
+      ): Promise<string | undefined> => {
         const enabledNetworkIds = networks
           .filter(
             (network) =>
@@ -2136,17 +2138,24 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               }) && enabledNetworksMap[network.id],
           )
           .map((network) => network.id);
-        if (!enabledNetworkIds.length) {
+        if (!enabledNetworkIds.length || !requiredNetworkIds.length) {
           return undefined;
         }
-        const { netWorth, hasCache } =
+        const { netWorth, hasCache, networkIds } =
           await this.backgroundApi.serviceDeFi.getAccountTotalDeFiNetWorth({
             accountId,
             networkId,
             targetCurrency: 'usd',
             enabledNetworkIds,
           });
-        return hasCache ? netWorth : undefined;
+        if (!hasCache) {
+          return undefined;
+        }
+        const coveredNetworkIds = new Set(networkIds);
+        if (!requiredNetworkIds.every((id) => coveredNetworkIds.has(id))) {
+          return undefined;
+        }
+        return netWorth;
       };
       const fetchDeFi = async (): Promise<{
         source: 'live' | 'cache' | 'empty' | 'unknown';
@@ -2243,7 +2252,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         if (completeCount === accounts.length) {
           return { source: 'live', value: total.toFixed() };
         }
-        const cached = await fetchCachedDeFi();
+        const cached = await fetchCachedDeFi(
+          uniq(accounts.map((account) => account.networkId)),
+        );
         if (cached !== undefined) {
           debugPortfolioSyncLog('defi-cache-fallback', {
             accountCount: accounts.length,

@@ -151,6 +151,7 @@ describe('Portfolio v2 category retrieval', () => {
     const getAccountTotalDeFiNetWorth = jest.fn().mockResolvedValue({
       hasCache: false,
       netWorth: '0',
+      networkIds: [],
     });
     const getNetworkAccount = jest.fn().mockResolvedValue({
       address: '0x2222',
@@ -486,6 +487,7 @@ describe('Portfolio v2 category retrieval', () => {
     mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
       hasCache: true,
       netWorth: '20',
+      networkIds: ['btc--0', 'evm--1'],
     });
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
@@ -496,12 +498,54 @@ describe('Portfolio v2 category retrieval', () => {
     });
   });
 
+  test('does not use a partial Home DeFi cache as a complete total', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: { degraded: false, networkIds: ['evm--1'] },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
   test('falls back to the Home DeFi cache when live valuation is incomplete', async () => {
     const mocks = prepare();
     mocks.post.mockRejectedValue(new Error('unavailable'));
     mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
       hasCache: true,
       netWorth: '20',
+      networkIds: ['evm--1'],
     });
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
