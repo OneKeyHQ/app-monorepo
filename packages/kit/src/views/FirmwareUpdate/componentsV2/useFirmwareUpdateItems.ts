@@ -10,9 +10,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import {
+  getFirmwareVersionTypePrefix,
   getProtocolV2FirmwareVersionDisplayItems,
   getProtocolV2FirmwareVersionTitle,
-  getTargetFirmwareTypeLabel,
   shouldHidePro2FirmwareDebugInfo,
 } from '../utils';
 
@@ -54,8 +54,7 @@ export function useFirmwareUpdateItems(
         bluetoothLabel: intl.formatMessage({
           id: ETranslations.global_bluetooth,
         }),
-        getFirmwareTypeLabel: (firmwareType) =>
-          getTargetFirmwareTypeLabel({ firmwareType, intl }),
+        getFirmwareVersionPrefix: getFirmwareVersionTypePrefix,
       }),
     [includeComponents, intl, result],
   );

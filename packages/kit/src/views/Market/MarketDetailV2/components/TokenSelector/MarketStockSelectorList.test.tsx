@@ -161,6 +161,7 @@ describe('MarketStockSelectorList', () => {
       compact: true,
       showSparkline: false,
       showWatchlist: true,
+      showMarketTags: true,
       watchlistFrom: EWatchlistFrom.Search,
     });
     expect(mockTableProps).toHaveBeenCalledWith({
