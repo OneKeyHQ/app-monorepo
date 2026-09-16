@@ -141,7 +141,7 @@ beforeEach(() => {
   jest.mocked(useIsSpanningInDualScreen).mockReturnValue(false);
 });
 
-function setup() {
+function setup(extra?: Pick<IMorphOverlayProps<string>, 'modal' | 'scrim'>) {
   const onDismiss = jest.fn();
   const state = renderHook(
     ({ pose }: { pose: IMorphOverlayPose }) =>
@@ -157,6 +157,7 @@ function setup() {
       capsuleKey="capsule"
       capsule={null}
       seats={seats}
+      {...extra}
     />
   );
   const view = render(overlay());
@@ -274,6 +275,40 @@ describe('MorphOverlay dismiss gesture', () => {
     const { view, onDismiss } = setup();
     fireEvent.click(view.getByTestId('morph-overlay-close'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MorphOverlay wall', () => {
+  // OK-63431: RN's iOS hit test skips views whose alpha is under 0.01, so
+  // the wall must never wear the scrim's fading paint — it stays a static
+  // view of its own, and only the tint beside it carries color and opacity.
+  it.each([true, false])(
+    'keeps the blocking wall free of the scrim paint (scrim=%s)',
+    (scrim) => {
+      const { view } = setup({ modal: true, scrim });
+      const wall = view.getByTestId('morph-overlay-wall');
+      expect(wall.style.opacity).toBe('');
+      expect(wall.style.backgroundColor).toBe('');
+      const tint = wall.nextElementSibling as HTMLElement | null;
+      expect(tint).not.toBeNull();
+      if (!tint) throw new OneKeyLocalError('Missing scrim tint');
+      expect(tint.style.backgroundColor).not.toBe('');
+      expect(globalThis.getComputedStyle(tint).pointerEvents).toBe('none');
+    },
+  );
+
+  it('mounts the wall only while blocking and shown', () => {
+    const { view, setPose } = setup({ modal: true });
+    expect(view.queryByTestId('morph-overlay-wall')).not.toBeNull();
+    setPose('hidden');
+    expect(view.queryByTestId('morph-overlay-wall')).toBeNull();
+    setPose('card');
+    expect(view.queryByTestId('morph-overlay-wall')).not.toBeNull();
+    // Queries are bound to document.body, so the modal render must leave
+    // before the non-modal one is judged.
+    view.unmount();
+    const open = setup();
+    expect(open.view.queryByTestId('morph-overlay-wall')).toBeNull();
   });
 });
 
