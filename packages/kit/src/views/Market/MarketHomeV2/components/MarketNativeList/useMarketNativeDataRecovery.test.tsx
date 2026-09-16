@@ -246,7 +246,10 @@ it('shows a Watchlist request error without leaving initial loading active', asy
   ];
   fetchWatchlist.mockRejectedValue(new Error('offline'));
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+    }),
   );
   await waitFor(() => expect(result.current.isError).toBe(true));
   expect(result.current.isLoading).toBe(false);
@@ -264,7 +267,10 @@ it('refreshes both Watchlist sources and keeps existing Perps rows when offline'
   fetchWatchlist.mockResolvedValue({ list: [] });
   fetchPerps.mockResolvedValue(perps('xyz:AAPL'));
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+    }),
   );
   await waitFor(() =>
     expect(result.current.data[0]?.perpsCoin).toBe('xyz:AAPL'),
@@ -320,7 +326,11 @@ it('restores Watchlist data after unmounting offline without reviving removed fa
   });
   fetchPerps.mockResolvedValue(perps('xyz:AAPL'));
   const first = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, dataCacheRef }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      dataCacheRef,
+    }),
   );
   await waitFor(() =>
     expect(first.result.current.data.map((token) => token.symbol)).toEqual([
@@ -334,7 +344,11 @@ it('restores Watchlist data after unmounting offline without reviving removed fa
   fetchPerps.mockRejectedValue(new Error('offline'));
   const second = renderHook(
     ({ items }) =>
-      useMarketWatchlistTokenList({ watchlist: items, dataCacheRef }),
+      useMarketWatchlistTokenList({
+        watchlist: items,
+        isWatchlistMounted: true,
+        dataCacheRef,
+      }),
     { initialProps: { items: watchlist } },
   );
   await waitFor(() => expect(second.result.current.isError).toBe(true));
@@ -358,6 +372,7 @@ it('restores Watchlist data after unmounting offline without reviving removed fa
   const third = renderHook(() =>
     useMarketWatchlistTokenList({
       watchlist: remainingWatchlist,
+      isWatchlistMounted: true,
       dataCacheRef,
     }),
   );
@@ -433,7 +448,10 @@ it('waits for listing quotes as well as spot and perps during native Watchlist r
   fetchPerps.mockResolvedValue({ updatedAt: 1, tokens: [] });
   fetchStocks.mockResolvedValue([appleStock('100')]);
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+    }),
   );
   await waitFor(() => expect(result.current.data[0]?.price).toBe(100));
   const request = deferred<Awaited<ReturnType<typeof fetchStocks>>>();

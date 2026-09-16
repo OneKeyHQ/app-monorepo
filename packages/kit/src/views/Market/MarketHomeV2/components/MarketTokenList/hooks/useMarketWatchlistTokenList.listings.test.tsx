@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketListingWatchlistQuote } from '@onekeyhq/shared/types/market';
@@ -103,7 +103,11 @@ it('loads assets by ID and stocks through the batch API without touching the cha
     { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 1 },
   ];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() =>
     expect(result.current.data.map((item) => item.symbol)).toEqual([
@@ -132,7 +136,11 @@ it('requests every favorited stock in one batch call', async () => {
     { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 1 },
   ];
   renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() => expect(mockStockBatch).toHaveBeenCalledTimes(1));
   expect(mockStockBatch).toHaveBeenCalledWith({ stockIds: ['TSLA', 'AAPL'] });
@@ -141,7 +149,11 @@ it('skips the stock batch call when no stock is favorited', async () => {
   mockQuote.mockResolvedValue({ name: 'Bitcoin', symbol: 'BTC', logoUrl: '' });
   const watchlist = [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() => expect(result.current.isLoading).toBe(false));
   expect(mockStockBatch).not.toHaveBeenCalled();
@@ -153,7 +165,11 @@ it('retains a stock the batch omits so it can still be removed', async () => {
     { stockId: 'DELISTED', chainId: '', contractAddress: '', sortIndex: 1 },
   ];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() =>
     expect(result.current.data.map((item) => item.name)).toEqual([
@@ -171,7 +187,11 @@ it('retains stocks when the batch call fails', async () => {
   mockStockBatch.mockRejectedValue(new Error('unavailable'));
   const watchlist = [{ stockId: 'AAPL', chainId: '', contractAddress: '' }];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() => expect(result.current.isLoading).toBe(false));
   expect(result.current.data).toEqual([
@@ -186,7 +206,11 @@ it('retains an unavailable asset so it can still be removed', async () => {
   mockQuote.mockRejectedValue(new Error('delisted'));
   const watchlist = [{ assetId: 'delisted', chainId: '', contractAddress: '' }];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() => expect(result.current.isLoading).toBe(false));
   expect(result.current.data).toEqual([
@@ -211,7 +235,11 @@ it('shows spot identity rows before the batch quote arrives', async () => {
     },
   ];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() => expect(result.current.data).toHaveLength(1));
   expect(result.current.data[0]).toMatchObject({
@@ -232,7 +260,11 @@ it('does not emit pending spot rows on desktop or web', async () => {
     },
   ];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() => expect(result.current.isLoading).toBe(true));
   expect(result.current.data).toEqual([]);
@@ -247,29 +279,70 @@ it('keeps the native first-load bypass until the watchlist atom is mounted', asy
     },
   ];
   const { rerender, result } = renderHook(
-    ({
-      nextWatchlist,
-      isWatchlistMounted,
-    }: {
-      nextWatchlist: typeof watchlist;
-      isWatchlistMounted: boolean;
-    }) =>
+    ({ isWatchlistMounted }: { isWatchlistMounted: boolean }) =>
       useMarketWatchlistTokenList({
-        watchlist: nextWatchlist,
+        watchlist,
         isWatchlistMounted,
         pollingInterval: 0,
       }),
     {
-      initialProps: {
-        nextWatchlist: [] as typeof watchlist,
-        isWatchlistMounted: false,
-      },
+      initialProps: { isWatchlistMounted: false },
     },
   );
-  await waitFor(() => expect(mockBatch).not.toHaveBeenCalled());
+  await act(async () => {
+    await Promise.resolve();
+  });
   expect(result.current.isLoading).toBe(true);
-  rerender({ nextWatchlist: watchlist, isWatchlistMounted: true });
-  await waitFor(() => expect(mockBatch).toHaveBeenCalled());
+  rerender({ isWatchlistMounted: true });
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+});
+it('emits a native pending row for a new favorite missing from cached quotes', async () => {
+  (platformEnv as { isNative: boolean }).isNative = true;
+  mockBatch.mockImplementationOnce(() => new Promise(() => undefined));
+  const dataCacheRef = {
+    current: {
+      spot: {
+        list: [
+          {
+            address: '0xcached',
+            name: 'Cached',
+            symbol: 'CACHED',
+            decimals: 18,
+            networkId: 'evm--1',
+            isNative: false,
+          },
+        ],
+      },
+    },
+  };
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: [
+        {
+          chainId: 'evm--1',
+          contractAddress: '0xcached',
+          isNative: false,
+        },
+        {
+          chainId: 'evm--1',
+          contractAddress: '0xnew',
+          isNative: false,
+        },
+      ],
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+      dataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(result.current.data).toHaveLength(2));
+  expect(result.current.data.map((item) => item.address)).toEqual([
+    '0xcached',
+    '0xnew',
+  ]);
+  expect(result.current.data[1]).toMatchObject({
+    address: '0xnew',
+    isPendingWatchlistRow: true,
+  });
 });
 it('keeps a starred stock logo before the batch quote arrives', async () => {
   rememberWatchlistListingPreview(
@@ -287,7 +360,11 @@ it('keeps a starred stock logo before the batch quote arrives', async () => {
     { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
   ];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   await waitFor(() =>
     expect(result.current.data[0]).toMatchObject({
@@ -322,7 +399,11 @@ it('carries stock variants through for the company-name hover reveal', async () 
     { assetId: 'bitcoin', chainId: '', contractAddress: '', sortIndex: 1 },
   ];
   const { result } = renderHook(() =>
-    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistMounted: true,
+      pollingInterval: 0,
+    }),
   );
   // Rows render from the watchlist before the quotes resolve, so wait on the
   // quote-derived names rather than on the row count.

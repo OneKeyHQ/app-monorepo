@@ -35,4 +35,6 @@ export interface IMarketToken {
   maxLeverage?: number;
   // Perps: subtitle (e.g. "Tech", "Pre-IPO")
   perpsSubtitle?: string;
+  // Identity row shown while watchlist quotes are still in flight.
+  isPendingWatchlistRow?: boolean;
 }

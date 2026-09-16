@@ -21,7 +21,30 @@ const PENDING_WATCHLIST_METRICS = {
   uniqueTraders: 0,
   holders: 0,
   turnover: Number.NaN,
+  isPendingWatchlistRow: true,
 } as const;
+
+export function shouldEmitNativePendingWatchlistRow({
+  isNative,
+  hasQuotePayload,
+  hasSuccessfulQuotes,
+  quotesFailed,
+  hasCachedRows,
+}: {
+  isNative: boolean;
+  hasQuotePayload: boolean;
+  hasSuccessfulQuotes: boolean;
+  quotesFailed: boolean;
+  hasCachedRows: boolean;
+}): boolean {
+  if (!isNative || hasSuccessfulQuotes) {
+    return false;
+  }
+  if (!hasQuotePayload) {
+    return !quotesFailed;
+  }
+  return hasCachedRows;
+}
 
 export function buildPendingSpotWatchlistToken(
   watchlistItem: IMarketWatchListItemV2,

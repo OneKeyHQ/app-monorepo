@@ -5,6 +5,7 @@ import {
 import {
   buildPendingPerpsWatchlistToken,
   buildPendingSpotWatchlistToken,
+  shouldEmitNativePendingWatchlistRow,
 } from './watchlistPendingRows';
 
 describe('watchlistPendingRows', () => {
@@ -62,6 +63,7 @@ describe('watchlistPendingRows', () => {
       name: 'Pepe',
       symbol: 'PEPE',
       tokenImageUri: 'https://example.com/pepe.png',
+      isPendingWatchlistRow: true,
     });
   });
 
@@ -79,6 +81,55 @@ describe('watchlistPendingRows', () => {
       perpsCoin: 'xyz:AAPL',
       sortIndex: 1,
       priceChangeRaw: '-',
+      isPendingWatchlistRow: true,
     });
+  });
+
+  it('emits native pending rows until a successful quote response exists', () => {
+    expect(
+      shouldEmitNativePendingWatchlistRow({
+        isNative: true,
+        hasQuotePayload: false,
+        hasSuccessfulQuotes: false,
+        quotesFailed: false,
+        hasCachedRows: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldEmitNativePendingWatchlistRow({
+        isNative: true,
+        hasQuotePayload: false,
+        hasSuccessfulQuotes: false,
+        quotesFailed: true,
+        hasCachedRows: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldEmitNativePendingWatchlistRow({
+        isNative: true,
+        hasQuotePayload: true,
+        hasSuccessfulQuotes: false,
+        quotesFailed: false,
+        hasCachedRows: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldEmitNativePendingWatchlistRow({
+        isNative: true,
+        hasQuotePayload: true,
+        hasSuccessfulQuotes: true,
+        quotesFailed: false,
+        hasCachedRows: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldEmitNativePendingWatchlistRow({
+        isNative: false,
+        hasQuotePayload: true,
+        hasSuccessfulQuotes: false,
+        quotesFailed: false,
+        hasCachedRows: true,
+      }),
+    ).toBe(false);
   });
 });

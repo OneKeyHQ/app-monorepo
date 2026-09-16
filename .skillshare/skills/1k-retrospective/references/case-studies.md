@@ -451,3 +451,31 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: New files entered the native graph via sync imports but were not registered.
 **Fix**: `yarn workspace @onekeyhq/mobile module-id:update --map` for the three production files and commit the registry.
 **Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push
+
+## Case: Pending watchlist row opened Swap with decimals 0
+**Date**: 2026-09-16 | **Platforms**: iOS, Android (native main)
+**Symptom**: Tapping a Favorites identity row before quotes arrived opened token detail with a Swap panel using `decimals: 0`.
+**Root Cause**: Pending rows now carry a real `name`/`symbol`, so `buildPreviewTokenDetail` passed the placeholder `decimals: 0` into `prepareTokenDetailPreview`.
+**Fix**: Mark pending rows with `isPendingWatchlistRow` and skip preview seeding; wait for real quotes.
+**Catchable by**: Section 4: placeholder identity rows must not unlock trade-ready preview fields; NEW — display-only first-paint rows need an explicit non-tradeable flag
+
+## Case: Token selector Favorites flashed empty on native
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Market token selector Favorites cleared `isInitialLoad` on the unmounted empty atom, then hid rows until a focused refetch.
+**Root Cause**: `isWatchlistMounted` defaulted to hydrated (`!== false`); `MarketTokenSelectorList` omitted the prop.
+**Fix**: Make `isWatchlistMounted` required and pass `watchListData.isMounted` from the selector.
+**Catchable by**: Section 4: Type definitions / every caller of a new required gate; NEW — optional hydration flags that default to "ready" hide missed call sites
+
+## Case: Cached quotes hid newly starred native favorites
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Starring a token already missing from the in-memory quote cache left it off native Favorites until a successful refresh.
+**Root Cause**: Pending rows were suppressed whenever any quote payload existed, including a stale non-empty cache.
+**Fix**: Emit native pending rows for cache misses while quotes are in flight or a non-empty cache is being reused; do not revive rows after a failed empty first load.
+**Catchable by**: Section 5: stale cache vs in-flight; NEW — cache-hit paths must still surface identities absent from that cache
+
+## Case: Native union build failed after merging x launchpad modules
+**Date**: 2026-09-16 | **Platforms**: iOS/Android CI (Native startup graph budget)
+**Symptom**: Union Build aborted: `TokenLaunchpad.tsx` not in `module-id-registry.json`.
+**Root Cause**: Merging `x` pulled `TokenLaunchpad` / `resolveLaunchpadDisplay` / `inlineStatusFit` / `stockLastUpdate` into the native graph; this branch's registry was not updated.
+**Fix**: Register the four production modules and commit the registry.
+**Catchable by**: NEW — merging `x` can introduce unregistered native-graph files that this PR did not author

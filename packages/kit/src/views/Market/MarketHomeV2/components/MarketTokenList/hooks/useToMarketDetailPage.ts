@@ -100,6 +100,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   }, []);
 
   const buildPreviewTokenDetail = useCallback((item: IMarketToken) => {
+    if (item.isPendingWatchlistRow) {
+      return undefined;
+    }
     if (item.tokenDetailPreview) {
       return item.tokenDetailPreview;
     }

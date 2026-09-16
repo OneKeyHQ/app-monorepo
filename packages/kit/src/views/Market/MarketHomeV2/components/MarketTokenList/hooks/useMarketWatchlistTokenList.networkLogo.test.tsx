@@ -108,6 +108,7 @@ describe('useMarketWatchlistTokenList network logos', () => {
     function Probe() {
       latestData = useMarketWatchlistTokenList({
         watchlist,
+        isWatchlistMounted: true,
         pollingInterval: 0,
       }).data;
       committedLengths.push(latestData.length);
@@ -138,6 +139,7 @@ describe('useMarketWatchlistTokenList network logos', () => {
               perpsCoin: 'BTC',
             },
           ],
+          isWatchlistMounted: true,
           pollingInterval: 0,
         }).isLoading,
       );
@@ -159,6 +161,7 @@ describe('useMarketWatchlistTokenList network logos', () => {
             isNative: undefined,
           },
         ],
+        isWatchlistMounted: true,
         pollingInterval: 0,
       });
       return null;

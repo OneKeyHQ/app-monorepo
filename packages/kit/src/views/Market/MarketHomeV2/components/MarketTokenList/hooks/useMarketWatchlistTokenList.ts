@@ -38,6 +38,7 @@ import { resolveListingWatchlistDisplay } from './watchlistListingPreview';
 import {
   buildPendingPerpsWatchlistToken,
   buildPendingSpotWatchlistToken,
+  shouldEmitNativePendingWatchlistRow,
 } from './watchlistPendingRows';
 
 import type { IMarketToken } from '../MarketTokenData';
@@ -65,7 +66,7 @@ export function useIsWatchlistTokenCacheReady(): boolean {
 
 export interface IUseMarketWatchlistTokenListParams {
   watchlist: IMarketWatchListItemV2[];
-  isWatchlistMounted?: boolean;
+  isWatchlistMounted: boolean;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
@@ -483,8 +484,15 @@ export function useMarketWatchlistTokenList({
           if (perpsToken) {
             return { ...perpsToken, sortIndex: watchlistItem.sortIndex ?? 0 };
           }
-          const perpsQuotesPending = !perpsApiResult && !perpsResult?.failed;
-          return platformEnv.isNative && perpsQuotesPending
+          return shouldEmitNativePendingWatchlistRow({
+            isNative: Boolean(platformEnv.isNative),
+            hasQuotePayload: Boolean(perpsApiResult),
+            hasSuccessfulQuotes: Boolean(perpsResult && !perpsResult.failed),
+            quotesFailed: Boolean(perpsResult?.failed),
+            hasCachedRows: Boolean(
+              perpsApiResult?.tokenListData?.tokens?.length,
+            ),
+          })
             ? buildPendingPerpsWatchlistToken(watchlistItem)
             : undefined;
         }
@@ -506,8 +514,13 @@ export function useMarketWatchlistTokenList({
         if (found) {
           return { ...found, stockId: watchlistItem.stockId };
         }
-        const spotQuotesPending = !apiResult && !spotResult?.failed;
-        return platformEnv.isNative && spotQuotesPending
+        return shouldEmitNativePendingWatchlistRow({
+          isNative: Boolean(platformEnv.isNative),
+          hasQuotePayload: Boolean(apiResult),
+          hasSuccessfulQuotes: Boolean(spotResult && !spotResult.failed),
+          quotesFailed: Boolean(spotResult?.failed),
+          hasCachedRows: Boolean(apiResult?.list?.length),
+        })
           ? buildPendingSpotWatchlistToken(watchlistItem, networkLogoUriMap)
           : undefined;
       })
@@ -527,7 +540,7 @@ export function useMarketWatchlistTokenList({
   ]);
 
   useEffect(() => {
-    const watchlistHydrated = isWatchlistMounted !== false;
+    const watchlistHydrated = isWatchlistMounted;
     if (
       isInitialLoad &&
       watchlistHydrated &&
