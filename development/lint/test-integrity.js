@@ -33,13 +33,40 @@ const SKIP_DIRECTORIES = new Set([
   '.git',
   '.yarn',
   'Pods',
-  'android',
   'build',
   'coverage',
   'dist',
-  'ios',
   'node_modules',
+  // Generated mobile bundle output, gitignored.
+  'out-dir-bundle',
 ]);
+// `ios` and `android` are skipped only when they are native project roots,
+// which is where the cost is. A JavaScript directory that happens to use one
+// of those names is scanned like any other.
+const PLATFORM_DIRECTORY_NAMES = new Set(['ios', 'android']);
+const NATIVE_PROJECT_MARKERS = new Set([
+  'Podfile',
+  'build.gradle',
+  'build.gradle.kts',
+  'settings.gradle',
+  'settings.gradle.kts',
+  'gradlew',
+]);
+
+function isNativeProjectRoot(directory) {
+  let names;
+  try {
+    names = fs.readdirSync(directory);
+  } catch {
+    return false;
+  }
+  return names.some(
+    (name) =>
+      NATIVE_PROJECT_MARKERS.has(name) ||
+      name.endsWith('.xcodeproj') ||
+      name.endsWith('.xcworkspace'),
+  );
+}
 
 // A path literal naming first-party source. Build output and vendored code are
 // legitimate read targets (supply-chain gates audit artifacts, not source).
@@ -69,6 +96,9 @@ const TEXT_MATCHERS = new Set([
   'toBe',
   'toStrictEqual',
   'toHaveLength',
+  // Object-shaped assertions are still assertions about the values inside.
+  'toMatchObject',
+  'toHaveProperty',
   // `expect(source.indexOf(a)).toBeLessThan(source.indexOf(b))` and
   // `expect(source.match(re)).toBeTruthy()` are the same assertion in disguise.
   'toBeTruthy',
@@ -216,7 +246,11 @@ function collectTestFiles(directory, collected) {
   for (const entry of entries.filter((item) => !item.name.startsWith('.'))) {
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!SKIP_DIRECTORIES.has(entry.name)) {
+      const skipped =
+        SKIP_DIRECTORIES.has(entry.name) ||
+        (PLATFORM_DIRECTORY_NAMES.has(entry.name) &&
+          isNativeProjectRoot(absolutePath));
+      if (!skipped) {
         collectTestFiles(absolutePath, collected);
       }
     } else if (TEST_FILE_RE.test(entry.name)) {
@@ -381,6 +415,17 @@ function taintKind(node, tainted, readKind) {
       return firstTaint([node.consequent, node.alternate], tainted, readKind);
     case 'ArrayExpression':
       return firstTaint(node.elements, tainted, readKind);
+    case 'ObjectExpression':
+      // `{ text: read(...) }` and `{ source }` hold source text as a value.
+      return firstTaint(
+        node.properties.map((property) =>
+          property.type === 'SpreadElement'
+            ? property.argument
+            : property.value,
+        ),
+        tainted,
+        readKind,
+      );
     case 'SpreadElement':
       return taintKind(node.argument, tainted, readKind);
     case 'SequenceExpression':
@@ -670,6 +715,7 @@ function collectTransformHelpers(ast, readKind, helpers) {
  */
 function deriveFunctionScope(fn, parentScope, readKind) {
   const local = new Map(parentScope);
+  const declaredLocals = new Set();
   (fn.params ?? []).forEach((parameter) =>
     patternNames(parameter).forEach((name) => local.delete(name)),
   );
@@ -691,12 +737,18 @@ function deriveFunctionScope(fn, parentScope, readKind) {
     }
     if (current.type === 'VariableDeclaration') {
       current.declarations.forEach((declaration) =>
-        patternNames(declaration.id).forEach((name) => local.delete(name)),
+        patternNames(declaration.id).forEach((name) => {
+          local.delete(name);
+          declaredLocals.add(name);
+        }),
       );
     }
   });
   // Seed the function's own locals, so `const s = read(...); return
-  // s.includes(x)` is followed.
+  // s.includes(x)` is followed. A local can also be filled from a nested
+  // callback - the `let source; beforeAll(() => { source = read(...); })`
+  // shape - so assignments anywhere below count too, unless a nested function
+  // rebinds the name for itself.
   for (let round = 0; round < 4; round += 1) {
     const before = local.size;
     walkOwnBody(fn.body, (current) => {
@@ -706,11 +758,43 @@ function deriveFunctionScope(fn, parentScope, readKind) {
         binding.names.forEach((name) => local.set(name, kind));
       }
     });
+    seedFromNestedAssignments(fn.body, declaredLocals, local, readKind);
     if (local.size === before) {
       break;
     }
   }
   return local;
+}
+
+function seedFromNestedAssignments(node, declaredLocals, local, readKind) {
+  (function visit(current, rebound) {
+    if (!current || typeof current.type !== 'string') {
+      return;
+    }
+    let inner = rebound;
+    if (FUNCTION_NODE_TYPES.has(current.type)) {
+      inner = new Set(rebound);
+      (current.params ?? []).forEach((parameter) =>
+        patternNames(parameter).forEach((name) => inner.add(name)),
+      );
+    }
+    if (
+      current.type === 'AssignmentExpression' &&
+      current.left.type === 'Identifier' &&
+      declaredLocals.has(current.left.name) &&
+      !inner.has(current.left.name)
+    ) {
+      const kind = taintKind(current.right, local, readKind);
+      if (kind) {
+        local.set(current.left.name, kind);
+      }
+    }
+    for (const key of childKeys(current)) {
+      const value = current[key];
+      const children = Array.isArray(value) ? value : [value];
+      children.forEach((child) => visit(child, inner));
+    }
+  })(node, new Set());
 }
 
 /**

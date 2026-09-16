@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const { analyzeFile } = require('./test-integrity');
+const { analyzeFile, collectTestFiles } = require('./test-integrity');
 
 // analyzeFile only parses the text it is handed, but it resolves `__dirname`
 // relative reads by shape rather than by opening them, so any path inside the
@@ -973,6 +973,118 @@ test('a helper body is not a claim about an outer binding it shadows', () => {
     ['asserts through the helper'],
   );
   assert.equal(wholeFile, false);
+});
+
+test('a local filled from a hook or another test is still source', () => {
+  assertGated(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => {
+        source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'describe-level let assigned in beforeAll',
+  );
+  assertGated(
+    `
+    describe('d', () => {
+      let source = '';
+      beforeEach(() => {
+        source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'initialised let reassigned in a hook',
+  );
+  assertClean(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => { source = 'plain'; });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'hook assigns something untainted',
+  );
+  // An assignment inside a callback that rebinds the name is to that binding.
+  assertClean(
+    `
+    describe('d', () => {
+      let source;
+      items.forEach((source) => {
+        source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'nested parameter rebinds the name',
+  );
+});
+
+test('source held in an object literal is still source', () => {
+  assertGated(
+    `
+    it('x', () => {
+      expect({ text: readFileSync(join(__dirname, 'thing.ts'), 'utf8') }).toEqual({ text: 'go' });
+    });
+  `,
+    'property value + toEqual',
+  );
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { expect({ source }).toMatchObject({ source: 'go' }); });
+  `,
+    'shorthand + toMatchObject',
+  );
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { expect({ ...{ source } }).toHaveProperty('source'); });
+  `,
+    'spread + toHaveProperty',
+  );
+  // A key that happens to be named source says nothing about the value.
+  assertClean(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('x', () => { expect({ source: 1 }).toEqual({ source: 1 }); });
+  `,
+    'key named source, untainted value',
+  );
+});
+
+test('ios and android are skipped only as native project roots', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'test-integrity-dirs-'));
+  try {
+    const write = (relative, contents = '') => {
+      const target = path.join(root, relative);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, contents);
+    };
+    write('ios/Podfile');
+    write('ios/Native.test.js');
+    write('android/settings.gradle');
+    write('android/Native.test.js');
+    write('src/ios/Platform.test.ts');
+    write('src/android/Platform.test.ts');
+    write('out-dir-bundle/ios/Bundled.test.js');
+
+    const found = collectTestFiles(root, [])
+      .map((file) => path.relative(root, file).split(path.sep).join('/'))
+      .toSorted();
+
+    assert.deepEqual(found, [
+      'src/android/Platform.test.ts',
+      'src/ios/Platform.test.ts',
+    ]);
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test('ignores a read anchored at a temp directory', () => {
