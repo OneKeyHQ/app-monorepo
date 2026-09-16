@@ -77,10 +77,19 @@ jest.mock(
   }),
 );
 
-jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
-  StockSourceLogo: () => null,
-  SubtitleBadge: () => null,
-}));
+jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  return {
+    StockSourceLogo: () =>
+      ReactModule.createElement('span', { 'data-testid': 'stock-source-logo' }),
+    SubtitleBadge: ({ subtitle }: { subtitle: string }) =>
+      ReactModule.createElement(
+        'span',
+        { 'data-testid': 'subtitle-badge' },
+        subtitle,
+      ),
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/views/Market/components/TokenTagsPopover', () => ({
   TokenTagsPopover: () => null,
@@ -178,6 +187,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
     expect(
       getByTestId('market-search-star').getAttribute('data-stock-id'),
     ).toBe('');
+    expect(getByTestId('subtitle-badge').textContent).toBe('Airbnb');
     expect(
       getByTestId('market-search-star').getAttribute('data-chain-id'),
     ).toBe('evm--56');
@@ -218,8 +228,8 @@ describe('UniversalSearchV2MarketTokenItem', () => {
   });
 
   it('opens stock listings from the stock search endpoint', () => {
-    const item: IUniversalSearchV2MarketToken = {
-      type: EUniversalSearchType.V2MarketToken,
+    const item = {
+      type: EUniversalSearchType.MarketStock,
       payload: {
         stockId: 'AAPL',
         name: 'Apple Inc.',
@@ -231,6 +241,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
         isNative: false,
         decimals: 0,
         liquidity: '0',
+        marketCap: '4200000000000',
         volume_24h: '0',
         stock: {
           stockId: 'AAPL',
@@ -238,9 +249,9 @@ describe('UniversalSearchV2MarketTokenItem', () => {
           sourceLogoUri: '',
         },
       },
-    };
+    } as const;
 
-    const { getByTestId } = render(
+    const { getByTestId, queryByTestId } = render(
       <UniversalSearchV2MarketTokenItem
         item={item}
         getSearchInput={() => 'aapl'}
@@ -251,6 +262,8 @@ describe('UniversalSearchV2MarketTokenItem', () => {
     expect(
       getByTestId('market-search-star').getAttribute('data-stock-id'),
     ).toBe('AAPL');
+    expect(queryByTestId('subtitle-badge')).toBeNull();
+    expect(queryByTestId('stock-source-logo')).toBeNull();
 
     fireEvent.click(getByTestId('market-search-result'));
     act(() => {
