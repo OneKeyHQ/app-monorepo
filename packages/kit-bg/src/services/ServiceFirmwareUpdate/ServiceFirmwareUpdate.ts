@@ -99,17 +99,17 @@ import ServiceBase from '../ServiceBase';
 import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
 
 import {
-  FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
-  FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
-  FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
-} from './firmwareUpdateConsts';
-import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
-import {
   FIRMWARE_TRANSFER_RESUME_GRACE_MS,
   didFirmwareTransferResume,
   getFirmwareTransferUiSnapshot,
   isFirmwareTransferInProgress,
 } from './FirmwareTransferStallGuard';
+import {
+  FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
+  FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
+  FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
+} from './firmwareUpdateConsts';
+import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
 import type {
