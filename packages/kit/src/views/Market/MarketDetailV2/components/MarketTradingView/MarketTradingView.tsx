@@ -35,9 +35,7 @@ const STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingView
     TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
   ];
 
-function normalizeChartRealtimePrice(
-  price: ITradingViewPriceUpdateData['price'],
-) {
+function normalizeChartPrice(price: ITradingViewPriceUpdateData['price']) {
   const priceString =
     typeof price === 'number' ? price.toString() : price?.trim();
   const numericPrice = Number(priceString);
@@ -167,10 +165,8 @@ export const MarketTradingView = memo(
         if (disableChartPriceUpdate) {
           return;
         }
-        if (data.source === 'history') {
-          return;
-        }
-
+        // History price events contain the latest bar from the initial chart
+        // load, so sync them too instead of waiting for the first realtime tick.
         if (
           !isChartPriceUpdateForCurrentToken({
             data,
@@ -181,15 +177,15 @@ export const MarketTradingView = memo(
           return;
         }
 
-        const realtimePrice = normalizeChartRealtimePrice(data.price);
-        if (!realtimePrice) {
+        const chartPrice = normalizeChartPrice(data.price);
+        if (!chartPrice) {
           return;
         }
 
         tokenDetailActions.current.applyChartPriceUpdate({
           tokenAddress: data.tokenAddress,
           networkId: data.networkId,
-          price: realtimePrice,
+          price: chartPrice,
           lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
         });
       },
