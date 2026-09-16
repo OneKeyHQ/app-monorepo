@@ -35,10 +35,9 @@ function PageStatusBar() {
   return <StatusBar animated barStyle="dark-content" />;
 }
 
-// `lazyLoad` no longer renders a loading overlay on native; it is kept for API
-// compatibility and is now a no-op here, matching BasicPage.tsx.
+// Native pages no longer render a loading overlay.
 //
-// iOS dropped the overlay in 06147be37d, once performWithoutAnimation (patched
+// iOS dropped it in 06147be37d, once performWithoutAnimation (patched
 // into react-native) stopped Fabric recycled-view frame corrections from being
 // captured as implicit UIKit animations during modal presentation. Android kept
 // a copy, but that copy was never tied to a readiness signal: it withheld
@@ -48,6 +47,10 @@ function PageStatusBar() {
 // `animation: 'none'` (see GlobalScreenOptions.native.ts), so there was no
 // transition for the cover to protect — it only bought a guaranteed spinner
 // flash and ~160ms of extra latency before first content.
+//
+// The `lazyLoad` prop that gated the overlay, and the `fullPage` prop whose
+// min-height calculation lived inside it, are removed with it. See the commit
+// message for why `fullPage` went unnoticed for a year.
 export function BasicPage({
   children,
   testID,
