@@ -63,7 +63,10 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
-import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import {
+  NEO_DEVICE_TYPE,
+  isProtocolV2ProductType,
+} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -3564,14 +3567,21 @@ class ServiceHardware extends ServiceBase {
     const walletName = wallet?.name;
     const dbDeviceId = wallet?.associatedDevice;
     if (dbDeviceId) {
+      const device = await localDb.getDeviceSafe(dbDeviceId);
+      // DeviceSettingsManager already sent the trimmed Protocol V2 label to
+      // hardware; write back that same value so wallet name and device-state
+      // cache cannot keep outer whitespace the device never stored.
+      const label = isProtocolV2ProductType(device?.deviceType)
+        ? p.label.trim()
+        : p.label;
       await this.writeBackProtocolV2DeviceLabel({
         dbDeviceId,
-        label: p.label,
+        label,
       });
       await this.handleHardwareLabelChanged({
         walletId: p.walletId,
         dbDeviceId,
-        label: p.label,
+        label,
         walletName,
       });
     }
