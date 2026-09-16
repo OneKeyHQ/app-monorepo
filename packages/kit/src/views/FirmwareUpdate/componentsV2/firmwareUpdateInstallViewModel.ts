@@ -1,9 +1,8 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
-
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import type { IProtocolV2FirmwareVersionDisplayItem } from '../utils';
+import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 /**
  * User-facing stages of the install page. Every SDK tip message and page
@@ -139,7 +138,7 @@ export type IFirmwareUpdateItem = {
   name: string;
   fromVersion: string | null | undefined;
   toVersion: string | null | undefined;
-  /** Firmware type labels, only set when the update switches type. */
+  /** Short type word before the version; unset for the universal build. */
   fromTypeLabel?: string;
   toTypeLabel?: string;
   /** Rows without a version (Pro 2 resource archives). */
@@ -155,7 +154,7 @@ export function getFirmwareUpdateItems({
   firmwareLabel,
   bootloaderLabel,
   bluetoothLabel,
-  getFirmwareTypeLabel,
+  getFirmwareVersionPrefix,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
   protocolV2Items: IProtocolV2FirmwareVersionDisplayItem[];
@@ -165,7 +164,9 @@ export function getFirmwareUpdateItems({
   firmwareLabel: string;
   bootloaderLabel: string;
   bluetoothLabel: string;
-  getFirmwareTypeLabel: (firmwareType: EFirmwareType | undefined) => string;
+  getFirmwareVersionPrefix: (
+    firmwareType: EFirmwareType | undefined,
+  ) => string | undefined;
 }): IFirmwareUpdateItem[] {
   if (!result?.updateInfos) {
     return [];
@@ -192,26 +193,17 @@ export function getFirmwareUpdateItems({
     });
   }
   if (firmware?.hasUpgrade) {
-    const isSwitchingType =
-      firmware.fromFirmwareType !== undefined &&
-      firmware.toFirmwareType !== undefined &&
-      firmware.fromFirmwareType !== firmware.toFirmwareType;
+    // Marked on every Bitcoin-only version, not only across a type switch,
+    // so "4.21.0 → Bitcoin 4.21.0" and "Bitcoin 4.21.0 → Bitcoin 4.22.0"
+    // read the same way.
     items.push({
       key: 'firmware',
       name: firmwareLabel,
       fromVersion: firmware.fromVersion,
       toVersion: firmware.toVersion,
       releaseUrl: firmware.githubReleaseUrl,
-      ...(isSwitchingType
-        ? {
-            fromTypeLabel: getFirmwareTypeLabel(
-              firmware.fromFirmwareType ?? EFirmwareType.Universal,
-            ),
-            toTypeLabel: getFirmwareTypeLabel(
-              firmware.toFirmwareType ?? EFirmwareType.Universal,
-            ),
-          }
-        : {}),
+      fromTypeLabel: getFirmwareVersionPrefix(firmware.fromFirmwareType),
+      toTypeLabel: getFirmwareVersionPrefix(firmware.toFirmwareType),
     });
   }
   if (ble?.hasUpgrade) {

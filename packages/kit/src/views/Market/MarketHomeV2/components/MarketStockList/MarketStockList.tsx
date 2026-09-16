@@ -69,7 +69,10 @@ function MarketStockListImpl({
   const intl = useIntl();
   const { md } = useMedia();
   const toMarketStockDetailPage = useToMarketStockDetailPage();
-  const baseColumns = useMarketStockColumns({ showWatchlist: true });
+  const baseColumns = useMarketStockColumns({
+    showWatchlist: true,
+    showMarketTags: true,
+  });
   const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
     useMarketDesktopResponsiveColumns({
       columns: baseColumns,

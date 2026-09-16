@@ -36,10 +36,15 @@ const deviceDisconnectedMessage =
   'The device has been disconnected. Please reconnect the device and try again.';
 const deviceDisconnectedTitle = 'Device disconnected';
 const operationTimedOutMessage = 'Operation timed out';
+const deviceMismatchMessage =
+  'The connected device does not match this wallet. Reconnect the correct device, or add it again after a reset or recovery.';
+const genericErrorTitle = 'An error occurred';
 
 const intlMessages: Record<string, string> = {
   [ETranslations.troubleshooting_desktop_bluetooth_usb_priority]:
     usbPriorityMessage,
+  [ETranslations.firmware_update_device_mismatch__desc]: deviceMismatchMessage,
+  [ETranslations.global_an_error_occurred]: genericErrorTitle,
   [ETranslations.hardware_third_party_device_disconnected]:
     deviceDisconnectedTitle,
   [ETranslations.update_device_disconnected_desc]: deviceDisconnectedMessage,
@@ -148,6 +153,28 @@ describe('firmware update timeout errors', () => {
     });
 
     expect(presentation.sentence).toBe(operationTimedOutMessage);
+  });
+});
+
+describe('firmware update device mismatch errors', () => {
+  const error: IOneKeyError = {
+    className: EOneKeyErrorClassNames.OneKeyHardwareError,
+    $isHardwareError: true,
+    code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    message: 'Device id mismatch',
+  };
+
+  it('uses the localized mismatch message instead of the SDK sentence', () => {
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
+
+    expect(presentation.title).toBe(genericErrorTitle);
+    expect(presentation.sentence).toBe(deviceMismatchMessage);
+    expect(presentation.action).toEqual({ kind: 'retry' });
   });
 });
 
