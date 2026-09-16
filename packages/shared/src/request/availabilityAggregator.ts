@@ -119,6 +119,13 @@ export type IAvailabilityAggregatorDeps = {
   subscribeVisibility?: (callback: (visible: boolean) => void) => unknown;
   canSend: () => Promise<boolean>;
   send: (params: IAvailabilitySnapshotParams) => Promise<void>;
+  /**
+   * Cross-instance exclusion around claiming a send. Only multi-instance
+   * runtimes need it: tabs and extension pages share one stored send time, so
+   * re-reading it is not enough to keep two of them from claiming the same
+   * slot. Absent where a runtime owns its key.
+   */
+  withSendLock?: (task: () => Promise<void>) => Promise<void>;
   /** Device-side diagnostics: why a flush did or did not send. */
   log?: (reason: string, result: string) => void;
 };
@@ -374,7 +381,7 @@ export class AvailabilityAggregator {
   flush(reason: IAvailabilityFlushReason): Promise<void> {
     this.start();
     // Before coalescing: the process may be killed soon after it is hidden.
-    if (reason === 'hidden' || this.dirty) this.persist();
+    if (reason === 'hidden' || this.dirty) void this.persist();
     if (this.flushing) {
       // A flush already in flight may be waiting on readiness or on analytics.
       // Remember this trigger instead of dropping it: plain coalescing used to
@@ -400,7 +407,14 @@ export class AvailabilityAggregator {
 
   private start() {
     if (this.ready) return;
-    this.ready = this.hydrate();
+    this.ready = this.hydrate().then((ok) => {
+      // Outcomes recorded before the stored state was read could not be
+      // written: `persist` was still refusing to touch storage. A runtime
+      // hidden inside that window would otherwise be suspended holding the
+      // only copy, since nothing else writes until the next tick.
+      if (ok && this.dirty) void this.persist();
+      return ok;
+    });
     this.deps.setInterval?.(() => {
       void this.flush('tick');
     }, TICK_MS);
@@ -473,29 +487,70 @@ export class AvailabilityAggregator {
       report(canSend === STALLED ? 'canSendStalled' : 'cannotSend');
       return;
     }
-    if (!this.deps.persistWindows) {
-      // Other tabs or extension pages share the stored send time.
-      const stored = parseStoredState(await this.deps.storage.load());
-      if (stored) this.lastSendTs = stored.lastSendTs;
-      if (!this.isSendDue(this.deps.now())) {
-        report('notDueShared');
+    // Claiming is re-reading the shared send time, taking the window and
+    // storing the new send time. It runs under the lock where one exists, so
+    // two instances cannot read the same due slot; the send itself is left
+    // outside it, so a slow network call never blocks another instance.
+    let window: IAvailabilityWindow | undefined;
+    const claim = async () => {
+      if (!this.deps.persistWindows) {
+        // Other tabs or extension pages share the stored send time.
+        const text = await withTimeout<
+          string | null | undefined | typeof STALLED
+        >(this.deps.storage.load(), FLUSH_STEP_TIMEOUT_MS, STALLED);
+        if (text === STALLED) {
+          report('loadStalled');
+          return;
+        }
+        const stored = parseStoredState(text);
+        if (stored) this.lastSendTs = stored.lastSendTs;
+        if (!this.isSendDue(this.deps.now())) {
+          report('notDueShared');
+          return;
+        }
+      }
+      if (!this.pending) {
+        this.pending = this.current;
+        this.current = undefined;
+      }
+      if (!this.pending) {
+        report('noWindow');
         return;
       }
-    }
-    if (!this.pending) {
-      this.pending = this.current;
-      this.current = undefined;
-    }
-    const window = this.pending;
-    if (!window) {
-      report('noWindow');
+      // Stored before sending: a failing endpoint is paced like a success, and
+      // a process killed mid-send sends this window again unchanged under its
+      // id. The send is claimed by that write, so a storage failure must stop
+      // it: the gap it carries is the only thing pacing this runtime across a
+      // restart, and a resend after one would bill a fresh id that the server
+      // cannot deduplicate.
+      const unclaimedSendTs = this.lastSendTs;
+      this.lastSendTs = this.deps.now();
+      const claimed = await withTimeout<boolean | typeof STALLED>(
+        this.persist(true),
+        FLUSH_STEP_TIMEOUT_MS,
+        STALLED,
+      );
+      if (claimed !== true) {
+        // Still due, so the next trigger retries rather than sending past the gap.
+        this.lastSendTs = unclaimedSendTs;
+        report(claimed === STALLED ? 'claimStalled' : 'claimFailed');
+        return;
+      }
+      window = this.pending;
+    };
+    const lock = this.deps.withSendLock;
+    const held = lock
+      ? await withTimeout<boolean | typeof STALLED>(
+          lock(claim).then(() => true),
+          FLUSH_STEP_TIMEOUT_MS,
+          STALLED,
+        )
+      : await claim().then(() => true);
+    if (held !== true) {
+      report('lockStalled');
       return;
     }
-    // Stored before sending: a failing endpoint is paced like a success, and a
-    // process killed mid-send sends this window again unchanged under its id.
-    this.lastSendTs = this.deps.now();
-    this.persist(true);
-    await this.writeQueue;
+    if (!window) return;
     try {
       await this.deps.send(
         buildAvailabilitySnapshotParams(
@@ -510,13 +565,19 @@ export class AvailabilityAggregator {
       throw error;
     }
     this.pending = undefined;
-    this.persist();
+    void this.persist();
     report('sent');
   }
 
-  /** Multi-instance runtimes store only the send time, when sending. */
-  private persist(sending = false) {
-    if (!this.canWrite || (!this.deps.persistWindows && !sending)) return;
+  /**
+   * Multi-instance runtimes store only the send time, when sending. Resolves
+   * false when the write did not land, so the caller can decide: the stored
+   * send time is the only thing that paces this runtime across a restart.
+   */
+  private persist(sending = false): Promise<boolean> {
+    if (!this.canWrite || (!this.deps.persistWindows && !sending)) {
+      return Promise.resolve(false);
+    }
     this.dirty = false;
     const state: IStoredState = { version: 3, lastSendTs: this.lastSendTs };
     if (this.deps.persistWindows) {
@@ -525,9 +586,15 @@ export class AvailabilityAggregator {
     }
     // Serialized now, so later changes to the windows are not written early.
     const text = JSON.stringify(state);
-    this.writeQueue = this.writeQueue
+    const written = this.writeQueue
       .then(() => this.deps.storage.save(text))
-      .catch(() => undefined);
+      .then(
+        () => true,
+        () => false,
+      );
+    // The queue itself must stay settled, whatever the result was.
+    this.writeQueue = written.then(() => undefined);
+    return written;
   }
 }
 
@@ -577,6 +644,12 @@ function createRuntimeAggregator() {
     subscribeVisibility: platformEnv.isJest
       ? undefined
       : onVisibilityStateChange,
+    // Web Locks are per origin, which is exactly the sharing scope: one
+    // namespace for the app's tabs, one for the extension's pages. Absent on
+    // React Native, where each runtime owns its key and needs no exclusion.
+    withSendLock: globalThis.navigator?.locks
+      ? (task) => globalThis.navigator.locks.request(key, task)
+      : undefined,
     canSend: waitUntilAnalyticsCanSend,
     send: (params) =>
       defaultLogger.app.network.reportAvailabilitySnapshot(params),

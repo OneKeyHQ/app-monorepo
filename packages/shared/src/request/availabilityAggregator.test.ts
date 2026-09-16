@@ -430,6 +430,80 @@ describe('AvailabilityAggregator', () => {
     expect(sent).toEqual([expect.objectContaining({ api_wallet_ok: 1 })]);
   });
 
+  it('writes counters recorded before stored state was read', async () => {
+    // Backgrounding during hydration used to leave the window in memory only:
+    // persist refused while canWrite was false, and nothing rewrote it.
+    let releaseLoad: ((text: string) => void) | undefined;
+    const { aggregator, deps, store } = createHarness();
+    deps.storage.load = () =>
+      new Promise<string>((resolve) => {
+        releaseLoad = resolve;
+      });
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    // Not awaited: the flush is blocked on the read that is still in flight,
+    // which is the state this covers.
+    void aggregator.flush('hidden');
+    await settle();
+    expect(store.text).toBeUndefined();
+
+    // A send that is not yet due, so nothing else would write the window.
+    releaseLoad?.(JSON.stringify({ version: 3, lastSendTs: START }));
+    await settle();
+
+    expect(JSON.parse(String(store.text)).current.counters).toEqual({
+      api_wallet_ok: 1,
+    });
+  });
+
+  it('does not send when the write that claims the send fails', async () => {
+    // The stored send time is the only thing pacing this runtime across a
+    // restart, and a resend after one carries a new id the server cannot
+    // deduplicate, so an unclaimed send must not go out.
+    const { aggregator, clock, deps, flush, sent } = createHarness();
+    const results: string[] = [];
+    deps.log = (reason, result) => results.push(result);
+    deps.storage.save = async () => {
+      throw new OneKeyLocalError('disk full');
+    };
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await flush();
+
+    expect(sent).toHaveLength(0);
+    expect(results).toContain('claimFailed');
+
+    // Still due afterwards, so the window ships once storage recovers.
+    deps.storage.save = async () => undefined;
+    clock.now += 1;
+    await flush();
+    expect(sent).toEqual([expect.objectContaining({ api_wallet_ok: 1 })]);
+  });
+
+  it('lets only one of two instances claim the same shared send slot', async () => {
+    const storage = {};
+    // Web Locks scope: one queue per origin, shared by every page.
+    let chain: Promise<unknown> = Promise.resolve();
+    const withSendLock = (task: () => Promise<void>) => {
+      const run = chain.then(task);
+      chain = run.catch(() => undefined);
+      return run;
+    };
+    const tabA = createHarness({ persistWindows: false, storage });
+    const tabB = createHarness({ persistWindows: false, storage });
+    tabA.deps.withSendLock = withSendLock;
+    tabB.deps.withSendLock = withSendLock;
+    tabA.aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    tabB.aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+
+    await Promise.all([
+      tabA.aggregator.flush('hidden'),
+      tabB.aggregator.flush('hidden'),
+    ]);
+    await settle();
+
+    expect(tabA.sent.length + tabB.sent.length).toBe(1);
+  });
+
   it('gives up on stored state that never loads instead of parking the flush', async () => {
     jest.useFakeTimers();
     const { aggregator, deps, sent } = createHarness();

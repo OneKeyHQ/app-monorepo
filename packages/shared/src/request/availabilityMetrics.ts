@@ -3,8 +3,10 @@
  *
  * Only allowlisted hosts are counted. Only enums, digit-free route segments
  * and normalized error codes are recorded: never URLs, query strings,
- * hostnames, proxy settings or free-form messages. Travel mode is not a
- * dimension because analytics is not initialized while it is on.
+ * hostnames, proxy settings or free-form messages. Travel mode leaves no
+ * trace: analytics is not initialized while it is on, so nothing is sent, and
+ * the aggregator's `appStorage` writes are masked to no-ops, so nothing is
+ * stored to be sent after switching back.
  */
 import { EServiceEndpointEnum } from '../../types/endpoint';
 import { ANALYTICS_EVENT_PATH } from '../analytics';
