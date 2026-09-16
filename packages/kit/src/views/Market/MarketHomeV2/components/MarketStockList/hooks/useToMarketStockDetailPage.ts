@@ -160,6 +160,9 @@ export function useToMarketStockDetailPage(
           ) {
             navigation.setParams({
               stockId,
+              from: undefined,
+              disableTrade: undefined,
+              showFavoriteButton: undefined,
               tokenAddress: stockTokenParams?.tokenAddress,
               network: stockTokenParams?.network,
               isNative: stockTokenParams?.isNative,

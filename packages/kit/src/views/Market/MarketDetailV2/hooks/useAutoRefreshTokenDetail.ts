@@ -201,6 +201,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   // Clear cached token detail when switching token or display currency.
   // This prevents showing stale data from the previous price scope.
   useLayoutEffect(() => {
+    if (!active) return;
     const prevToken = prevTokenRef.current;
     const isTokenChanged =
       prevToken &&
@@ -226,6 +227,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       marketVariantId: data.marketVariantId,
     };
   }, [
+    active,
     currencyInfo.id,
     data.marketTokenId,
     data.marketVariantId,
@@ -238,10 +240,17 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   // NOT inside the polling callback. This prevents stale polling responses
   // from writing old token identifiers back into atoms after a token switch.
   useLayoutEffect(() => {
+    if (!active) return;
     tokenDetailActions.setTokenAddress(data.tokenAddress);
     tokenDetailActions.setNetworkId(data.networkId);
     tokenDetailActions.setIsNative(data.isNative);
-  }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
+  }, [
+    active,
+    data.tokenAddress,
+    data.networkId,
+    data.isNative,
+    tokenDetailActions,
+  ]);
 
   useEffect(() => {
     if (!active) {

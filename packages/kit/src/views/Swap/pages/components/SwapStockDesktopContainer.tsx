@@ -2592,6 +2592,7 @@ function SwapStockDesktopContent({
                 />
                 {embedded ? null : (
                   <SwapPendingHistoryListComponent
+                    storeName={storeName}
                     protocol={EProtocolOfExchange.STOCK}
                   />
                 )}

@@ -35,6 +35,7 @@ type IEmbeddedSwapProps = {
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
   stockTradeIdentityLoading?: boolean;
+  reviewContextKey?: string;
   stockTradeToken?: ISwapToken;
   stockTradePortfolioData?: IMarketAccountPortfolioDisplayItem[];
   stockTradeResolvedVariantKeys?: string[];
@@ -105,6 +106,7 @@ function getDraftToken(token?: ISwapToken): ISwapToken | undefined {
 }
 
 function MarketEmbeddedSwapContent({
+  inputDraftKey,
   swapToken,
   inputDraft,
   onInputDraftChange,
@@ -116,6 +118,7 @@ function MarketEmbeddedSwapContent({
   stockTradePortfolioData,
   stockTradeResolvedVariantKeys,
 }: {
+  inputDraftKey: string;
   swapToken: ISwapToken;
   inputDraft?: ISwapInputAmountDraft;
   onInputDraftChange: (draft: ISwapInputAmountDraft) => void;
@@ -174,8 +177,17 @@ function MarketEmbeddedSwapContent({
     stockTradeTokenReadySignature,
     stockTradeTokenSeedReadySignature,
   ]);
-  // Consume the route's draft once per mount; live input must not reinitialize Swap.
-  const [initialInputAmountDraft] = useState(inputDraft);
+  // Consume the restored draft once, and discard it when the route changes.
+  // Live input must not reinitialize the retained Swap component.
+  const [initialDraft, setInitialDraft] = useState({
+    key: inputDraftKey,
+    draft: inputDraft,
+  });
+  const initialInputAmountDraft =
+    initialDraft.key === inputDraftKey ? initialDraft.draft : undefined;
+  if (initialDraft.key !== inputDraftKey) {
+    setInitialDraft({ key: inputDraftKey, draft: undefined });
+  }
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
     swapTokenSeed.networkId,
     true,
@@ -245,6 +257,7 @@ function MarketEmbeddedSwapContent({
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={resolvedStockTradeHeader}
         stockTradeIdentityLoading={stockTradeIdentityLoading}
+        reviewContextKey={`${inputDraftKey}:${swapTokenIdentity}`}
         stockTradeToken={stockTradeTokenSeed}
         stockTradePortfolioData={stockTradePortfolioData}
         stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
@@ -312,6 +325,7 @@ function MarketEmbeddedSwapDraft({
 
   return (
     <MarketEmbeddedSwapContent
+      inputDraftKey={inputDraftKey}
       swapToken={swapToken}
       inputDraft={inputDraftRef.current}
       onInputDraftChange={onInputDraftChange}

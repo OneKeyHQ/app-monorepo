@@ -75,9 +75,15 @@ function LegacyTokenPreviewInitializer({
   active,
   preview,
   stockTarget,
+  retainedTokenTarget,
 }: {
   active: boolean;
   preview?: IMarketTokenDetailPreview;
+  retainedTokenTarget?: {
+    tokenAddress: string;
+    networkId: string;
+    isNative: boolean;
+  };
   stockTarget?: {
     tokenAddress: string;
     networkId: string;
@@ -94,12 +100,15 @@ function LegacyTokenPreviewInitializer({
       // Stock navigation may intentionally retain an existing detail/request
       // for the same variant. The action clears only when the identity changes.
       tokenDetailActions.current.prepareStockTokenDetail(stockTarget);
-    } else if (preview) {
-      tokenDetailActions.current.prepareTokenDetailPreview(preview);
+    } else if (retainedTokenTarget || preview) {
+      tokenDetailActions.current.prepareTokenDetailPreview(
+        preview,
+        retainedTokenTarget,
+      );
     } else if (!platformEnv.isNative) {
       tokenDetailActions.current.clearTokenDetail();
     }
-  }, [active, preview, stockTarget, tokenDetailActions]);
+  }, [active, preview, stockTarget, retainedTokenTarget, tokenDetailActions]);
 
   return null;
 }
@@ -240,16 +249,9 @@ function MarketDetail({
     tokenAddress,
     networkId,
   });
-  const stockTokenDetailTarget = useMemo(
-    () =>
-      isStockRoute
-        ? {
-            tokenAddress,
-            networkId,
-            isNative: isNativeBoolean,
-          }
-        : undefined,
-    [isNativeBoolean, isStockRoute, networkId, tokenAddress],
+  const tokenDetailTarget = useMemo(
+    () => ({ tokenAddress, networkId, isNative: isNativeBoolean }),
+    [isNativeBoolean, networkId, tokenAddress],
   );
 
   // Track market entry analytics
@@ -304,7 +306,10 @@ function MarketDetail({
       <LegacyTokenPreviewInitializer
         active={shouldOwnSharedMarketDetailState}
         preview={resolvedTokenDetailPreview}
-        stockTarget={stockTokenDetailTarget}
+        stockTarget={isStockRoute ? tokenDetailTarget : undefined}
+        retainedTokenTarget={
+          usesRetainedMarketDetailRoutes ? tokenDetailTarget : undefined
+        }
       />
       <Page>
         {isChartFullscreen && !platformEnv.isNative ? (
