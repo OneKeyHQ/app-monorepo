@@ -3592,6 +3592,9 @@ export function useSwapBuildTx({
               accountId,
               encodedTxs: estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
             });
+            if (!isCurrent()) {
+              throw new OneKeyError('Swap review changed during preparation');
+            }
             void swapEstimateFeeEvent(
               ESwapEventAPIStatus.SUCCESS,
               networkId,
@@ -3771,6 +3774,9 @@ export function useSwapBuildTx({
                   ? unsignedTx.nonce
                   : undefined,
             });
+            if (!isCurrent()) {
+              throw new OneKeyError('Swap review changed during preparation');
+            }
             void swapEstimateFeeEvent(
               ESwapEventAPIStatus.SUCCESS,
               networkId,
@@ -3793,6 +3799,7 @@ export function useSwapBuildTx({
               },
             ];
           } catch (e: any) {
+            if (!isCurrent() || isRequestCanceledError(e)) throw e;
             void swapEstimateFeeEvent(
               ESwapEventAPIStatus.FAIL,
               networkId,
@@ -4822,6 +4829,9 @@ export function useSwapBuildTx({
                 );
               }
             } catch (error) {
+              if (error instanceof SwapReviewBalanceError) {
+                Toast.error(error.warning);
+              }
               const shouldFallback = shouldFallbackSwapStep({
                 error,
                 stepType: step.type,

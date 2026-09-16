@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   ESwapDirectionType,
@@ -79,12 +79,16 @@ export function useSwapReviewPreload({
   );
   const prepareRef = useRef({ prepare, prepareBuild });
   prepareRef.current = { prepare, prepareBuild };
-  const buildKey = quote ? getBuildKey(quote) : undefined;
+  const buildKey = useMemo(
+    () => (quote ? getBuildKey(quote) : undefined),
+    [getBuildKey, quote],
+  );
   const quoteRef = useRef(quote);
   quoteRef.current = quote;
-  const key = quote
-    ? getSwapReviewPreparationKey(quote, contextKey)
-    : undefined;
+  const key = useMemo(
+    () => (quote ? getSwapReviewPreparationKey(quote, contextKey) : undefined),
+    [contextKey, quote],
+  );
   const requestMatchesCurrentInput = isSwapQuoteRequestForCurrentInput({
     currentAccountId: from.accountInfo?.account?.id,
     currentAddress: from.address,
