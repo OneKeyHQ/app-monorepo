@@ -10,6 +10,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IMarketNavigationTrigger } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -31,12 +33,32 @@ interface INavigateToMarketTabOptions {
   onNavigationComplete?: () => void;
 }
 
-interface IPendingMarketNavigation {
-  target: IMarketNavigationTarget;
+interface IMarketNavigationRequest {
+  // Correlates the async steps of one request in the local logs.
+  navigationId: number;
+  startedAt: number;
+  target?: IMarketNavigationTarget;
   onNavigationComplete?: () => void;
 }
 
+interface IPendingMarketNavigation extends IMarketNavigationRequest {
+  target: IMarketNavigationTarget;
+}
+
 const MARKET_NAVIGATION_SELECTION_TIMEOUT_MS = 500;
+
+let lastMarketNavigationId = 0;
+
+function getNavigationPlatform() {
+  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+    return 'extension';
+  }
+  return platformEnv.isNative ? 'native' : 'web';
+}
+
+function getCurrentRouteName() {
+  return rootNavigationRef.current?.getCurrentRoute?.()?.name;
+}
 
 export function useNavigateToMarketTab() {
   const [marketSelectedTab, setMarketSelectedTab] = useMarketSelectedTabAtom();
@@ -49,13 +71,24 @@ export function useNavigateToMarketTab() {
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
 
-  const clearPendingNavigation = useCallback(() => {
-    if (pendingNavigationTimeoutRef.current !== undefined) {
-      clearTimeout(pendingNavigationTimeoutRef.current);
-      pendingNavigationTimeoutRef.current = undefined;
-    }
-    pendingNavigationRef.current = undefined;
-  }, []);
+  const clearPendingNavigation = useCallback(
+    (cancelReason?: 'superseded' | 'unmount') => {
+      const pendingNavigation = pendingNavigationRef.current;
+      if (cancelReason && pendingNavigation) {
+        defaultLogger.market.navigation.pendingNavigationCancelled({
+          navigationId: pendingNavigation.navigationId,
+          reason: cancelReason,
+          elapsedMs: Date.now() - pendingNavigation.startedAt,
+        });
+      }
+      if (pendingNavigationTimeoutRef.current !== undefined) {
+        clearTimeout(pendingNavigationTimeoutRef.current);
+        pendingNavigationTimeoutRef.current = undefined;
+      }
+      pendingNavigationRef.current = undefined;
+    },
+    [],
+  );
 
   const applyNavigationTarget = useCallback(
     (target: IMarketNavigationTarget) => {
@@ -78,9 +111,18 @@ export function useNavigateToMarketTab() {
 
   const performNavigation = useCallback(
     async (
-      target?: IMarketNavigationTarget,
-      onNavigationComplete?: () => void,
+      request: IMarketNavigationRequest,
+      trigger: IMarketNavigationTrigger,
     ) => {
+      const { navigationId, startedAt, target, onNavigationComplete } = request;
+      defaultLogger.market.navigation.performNavigationStart({
+        navigationId,
+        trigger,
+        platform: getNavigationPlatform(),
+        routeName: getCurrentRouteName(),
+        elapsedMs: Date.now() - startedAt,
+      });
+
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
@@ -115,6 +157,20 @@ export function useNavigateToMarketTab() {
             : undefined,
         },
       });
+      defaultLogger.market.navigation.performNavigationDispatched({
+        navigationId,
+        hasRootNavigationRef: Boolean(rootNavigationRef.current),
+        routeName: getCurrentRouteName(),
+        elapsedMs: Date.now() - startedAt,
+      });
+
+      const logNavigationComplete = () => {
+        defaultLogger.market.navigation.performNavigationComplete({
+          navigationId,
+          routeName: getCurrentRouteName(),
+          elapsedMs: Date.now() - startedAt,
+        });
+      };
 
       // On native, need to switch to Market sub-tab inside Discovery
       if (platformEnv.isNative) {
@@ -126,6 +182,7 @@ export function useNavigateToMarketTab() {
             applyNavigationTarget(target);
           }
           onNavigationComplete?.();
+          logNavigationComplete();
         }, 150);
       } else if (target || onNavigationComplete) {
         requestAnimationFrame(() => {
@@ -133,36 +190,54 @@ export function useNavigateToMarketTab() {
             applyNavigationTarget(target);
           }
           onNavigationComplete?.();
+          logNavigationComplete();
         });
       }
     },
     [applyNavigationTarget],
   );
 
+  const startNavigation = useCallback(
+    (request: IMarketNavigationRequest, trigger: IMarketNavigationTrigger) => {
+      clearPendingNavigation();
+      void performNavigation(request, trigger).catch((error: unknown) => {
+        defaultLogger.market.navigation.performNavigationFailed({
+          navigationId: request.navigationId,
+          error: error instanceof Error ? error.message : String(error),
+          elapsedMs: Date.now() - request.startedAt,
+        });
+        // Only add the local log; keep the original unhandled rejection.
+        throw error;
+      });
+    },
+    [clearPendingNavigation, performNavigation],
+  );
+
   useEffect(() => {
     const pendingNavigation = pendingNavigationRef.current;
-    const target = pendingNavigation?.target;
     if (
-      !target ||
-      !isMarketNavigationTargetApplied(marketSelectedTab, target)
+      !pendingNavigation ||
+      !isMarketNavigationTargetApplied(
+        marketSelectedTab,
+        pendingNavigation.target,
+      )
     ) {
       return;
     }
 
-    clearPendingNavigation();
-    void performNavigation(target, pendingNavigation?.onNavigationComplete);
-  }, [clearPendingNavigation, marketSelectedTab, performNavigation]);
+    startNavigation(pendingNavigation, 'selectionApplied');
+  }, [marketSelectedTab, startNavigation]);
 
   useEffect(
     () => () => {
-      clearPendingNavigation();
+      clearPendingNavigation('unmount');
     },
     [clearPendingNavigation],
   );
 
   const navigateToMarketTab = useCallback(
     (options?: INavigateToMarketTabOptions) => {
-      clearPendingNavigation();
+      clearPendingNavigation('superseded');
 
       const {
         tabToSelect,
@@ -189,19 +264,31 @@ export function useNavigateToMarketTab() {
         navigationTarget.perpsCategory,
       );
 
+      lastMarketNavigationId += 1;
+      const request: IMarketNavigationRequest = {
+        navigationId: lastMarketNavigationId,
+        startedAt: Date.now(),
+        onNavigationComplete,
+      };
+      defaultLogger.market.navigation.navigateToMarketTab({
+        navigationId: request.navigationId,
+        target: navigationTarget,
+        selection: marketSelectedTabRef.current,
+        waitForSelection: shouldWaitForSelection,
+      });
+
       // Switch to specific tab inside Market (watchlist or trending)
       if (shouldWaitForSelection) {
         const pendingNavigation: IPendingMarketNavigation = {
+          ...request,
           target: navigationTarget,
-          onNavigationComplete,
         };
         pendingNavigationRef.current = pendingNavigation;
         pendingNavigationTimeoutRef.current = setTimeout(() => {
           if (pendingNavigationRef.current !== pendingNavigation) {
             return;
           }
-          clearPendingNavigation();
-          void performNavigation(navigationTarget, onNavigationComplete);
+          startNavigation(pendingNavigation, 'timeout');
         }, MARKET_NAVIGATION_SELECTION_TIMEOUT_MS);
         applyNavigationTarget(navigationTarget);
 
@@ -211,15 +298,14 @@ export function useNavigateToMarketTab() {
             navigationTarget,
           )
         ) {
-          clearPendingNavigation();
-          void performNavigation(navigationTarget, onNavigationComplete);
+          startNavigation(pendingNavigation, 'alreadyApplied');
         }
         return;
       }
 
-      void performNavigation(undefined, onNavigationComplete);
+      startNavigation(request, 'immediate');
     },
-    [applyNavigationTarget, clearPendingNavigation, performNavigation],
+    [applyNavigationTarget, clearPendingNavigation, startNavigation],
   );
 
   return navigateToMarketTab;

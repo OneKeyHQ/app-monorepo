@@ -1078,8 +1078,27 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     shouldUseTableLayout,
   ]);
 
+  // Press lifecycle logs tell a swallowed press (long press, scroll took the
+  // responder) apart from a navigation that started but never landed.
+  const viewMorePressInAtRef = useRef(0);
+  const handleViewMorePressIn = useCallback(() => {
+    viewMorePressInAtRef.current = Date.now();
+    defaultLogger.market.navigation.homeViewMorePressIn({
+      categoryId: resolvedSelectedCategoryId,
+    });
+  }, [resolvedSelectedCategoryId]);
+  const handleViewMorePressOut = useCallback(() => {
+    defaultLogger.market.navigation.homeViewMorePressOut({
+      categoryId: resolvedSelectedCategoryId,
+      pressDurationMs: Date.now() - viewMorePressInAtRef.current,
+    });
+  }, [resolvedSelectedCategoryId]);
+
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
+    defaultLogger.market.navigation.homeViewMore({
+      categoryId: resolvedSelectedCategoryId,
+    });
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
       navigateToMarketTab({
         tabToSelect: EMarketHomeTab.Perps,
@@ -1094,7 +1113,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
 
     navigateToMarketTab({ tabToSelect: EMarketHomeTab.Watchlist });
-  }, [navigateToMarketTab, selectedMarketCategoryId]);
+  }, [
+    navigateToMarketTab,
+    resolvedSelectedCategoryId,
+    selectedMarketCategoryId,
+  ]);
 
   // Render table/list layout for user favorites
   const renderUserFavoritesList = useCallback(() => {
@@ -1128,6 +1151,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <Button
               testID="home-show-view-more-button-btn"
               variant="secondary"
+              onPressIn={handleViewMorePressIn}
+              onPressOut={handleViewMorePressOut}
               onPress={handleViewMore}
               flexGrow={1}
               flexBasis={0}
@@ -1156,6 +1181,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     favoriteTokens,
     handleTokenPress,
     handleViewMore,
+    handleViewMorePressIn,
+    handleViewMorePressOut,
     intl,
     shouldUseTableLayout,
     totalFavoritesCount,
@@ -1191,6 +1218,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             onStarPress={handleMarketCategoryStarPress}
             onTokenPress={handleTokenPress}
             onViewMore={handleViewMore}
+            onViewMorePressIn={handleViewMorePressIn}
+            onViewMorePressOut={handleViewMorePressOut}
           />
         );
       }
@@ -1280,6 +1309,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     handleMarketCategoryStarPress,
     handleTokenPress,
     handleViewMore,
+    handleViewMorePressIn,
+    handleViewMorePressOut,
     hasUserFavorites,
     homeCategories,
     intl,
