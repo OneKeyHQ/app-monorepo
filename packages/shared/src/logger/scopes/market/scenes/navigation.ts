@@ -31,21 +31,9 @@ interface IMarketNavigationSelectionLog {
 }
 
 export class MarketNavigationScene extends BaseScene {
+  // `selectedMarketCategoryId` is undefined when the Favorites tab is selected.
   @LogToLocal({ level: 'info' })
-  public homeViewMorePressIn(params: { categoryId: string }) {
-    return params;
-  }
-
-  @LogToLocal({ level: 'info' })
-  public homeViewMorePressOut(params: {
-    categoryId: string;
-    pressDurationMs: number;
-  }) {
-    return params;
-  }
-
-  @LogToLocal({ level: 'info' })
-  public homeViewMore(params: { categoryId: string }) {
+  public homeViewMore(params: { selectedMarketCategoryId?: string }) {
     return params;
   }
 

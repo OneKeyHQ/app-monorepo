@@ -31,8 +31,6 @@ type IMarketCategoryTokenListProps = {
   onStarPress: (record: IFavoriteTokenDisplay) => void | Promise<void>;
   onTokenPress: (record: IFavoriteTokenDisplay) => void;
   onViewMore: () => void;
-  onViewMorePressIn?: () => void;
-  onViewMorePressOut?: () => void;
 };
 
 function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
@@ -56,8 +54,6 @@ function MarketCategoryTokenList({
   onStarPress,
   onTokenPress,
   onViewMore,
-  onViewMorePressIn,
-  onViewMorePressOut,
 }: IMarketCategoryTokenListProps) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -150,8 +146,6 @@ function MarketCategoryTokenList({
           testID={HomeTestIDs.popularViewMoreBtn}
           variant="secondary"
           iconAfter="ChevronRightSmallOutline"
-          onPressIn={onViewMorePressIn}
-          onPressOut={onViewMorePressOut}
           onPress={onViewMore}
           flexGrow={1}
           flexBasis={0}
