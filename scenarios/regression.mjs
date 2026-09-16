@@ -1217,6 +1217,10 @@ function measureTabExtent(page) {
       scrollHeight,
       clientHeight,
       paintedBottom: Math.round(paintedBottomAbs),
+      // Which pager child is on screen. Samples are labelled with the tab that
+      // was *requested*, so without this a stalled tab switch would measure the
+      // previous page and still be recorded as the new one.
+      focusedIndex: [...pager.children].indexOf(focusedPage),
       atBottom:
         Math.abs(scroller.scrollTop - (scrollHeight - clientHeight)) <= 2,
       blankSpacePx: trailingBlankPx,
@@ -1281,13 +1285,43 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
     }
   };
 
+  // Which pager child each tab maps to. Learned in phase 1 rather than assumed
+  // from tab-bar order, because the pager does not always carry one child per
+  // tab (Perps is served outside the pager on web).
+  const readFocusedIndex = () =>
+    page.evaluate(() => {
+      const scroller = document.querySelector('.onekey-tabs-container');
+      const pager = [...(scroller?.querySelectorAll('div') ?? [])].find(
+        (el) =>
+          el.style.height &&
+          getComputedStyle(el).flexDirection === 'row' &&
+          el.children.length > 1,
+      );
+      if (!pager) return -1;
+      return [...pager.children].findIndex((child) => {
+        const r = child.getBoundingClientRect();
+        return r.width > 0 && r.left >= -1 && r.left < window.innerWidth;
+      });
+    });
+
   const gotoTab = async (tab, settleMs = 1600) => {
     await page.click(`[data-testid="${tab.testId}"]`, { force: true });
     await sleep(settleMs);
+    if (typeof tab.pagerIndex !== 'number' || tab.pagerIndex < 0) {
+      return true;
+    }
+    // A click that silently does nothing, or a pager transition that stalls,
+    // would otherwise leave the previous page on screen while the sample is
+    // recorded under the requested tab's name.
+    for (let i = 0; i < 20; i += 1) {
+      if ((await readFocusedIndex()) === tab.pagerIndex) return true;
+      await sleep(250);
+    }
+    return false;
   };
 
   const samples = [];
-  const sample = async (label) => {
+  const sample = async (label, expectedTab = null, switched = true) => {
     await scrollToBottom();
     await sleep(500);
     const m = await measureTabExtent(page);
@@ -1299,31 +1333,45 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
         unreadable: true,
       });
       log(`${label}: UNREADABLE (no pager/page found)`);
-      return;
+      return null;
     }
-    samples.push({ label, ...m });
+    const wrongTab =
+      !switched ||
+      (expectedTab &&
+        typeof expectedTab.pagerIndex === 'number' &&
+        expectedTab.pagerIndex >= 0 &&
+        m.focusedIndex !== expectedTab.pagerIndex);
+    samples.push({ label, ...m, wrongTab: Boolean(wrongTab) });
+    const wrongTabNote = wrongTab
+      ? ` WRONG TAB (focusedIndex=${m.focusedIndex})`
+      : '';
     log(
       `${label}: blank=${m.blankSpacePx}px clipped=${m.clippedPx}px ` +
         `pager=${m.pagerHeight} painted=${m.paintedBottom} ` +
-        `scroll=${m.scrollHeight}/${m.clientHeight} atBottom=${m.atBottom}`,
+        `scroll=${m.scrollHeight}/${m.clientHeight} atBottom=${m.atBottom}${wrongTabNote}`,
     );
+    return m;
   };
 
-  // Phase 1 — each tab on its own, scrolled to the bottom.
+  // Phase 1 — each tab on its own, scrolled to the bottom. Also calibrates
+  // each tab's pager index for the switch assertions in phase 2.
   for (const tab of available) {
     await gotoTab(tab, 2200);
-    await sample(`rest ${tab.name}`);
+    const m = await sample(`rest ${tab.name}`);
+    if (m && m.focusedIndex >= 0) {
+      tab.pagerIndex = m.focusedIndex;
+    }
   }
 
   // Phase 2 — every ordered pair, leaving the source scrolled to its bottom.
   // That is the state that produced the original report.
   for (const from of available) {
     for (const to of available.filter((t) => t.testId !== from.testId)) {
-      await gotoTab(from);
+      const reachedSource = await gotoTab(from);
       await scrollToBottom();
       await sleep(600);
-      await gotoTab(to);
-      await sample(`${from.name} -> ${to.name}`);
+      const switched = (await gotoTab(to)) && reachedSource;
+      await sample(`${from.name} -> ${to.name}`, to, switched);
     }
   }
 
@@ -1374,13 +1422,21 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
       }
     }
 
+    // HomeTestIDs.defiProtocolChipScrollBtn('right') in
+    // packages/kit/src/views/Home/testIDs.ts. Log when it is absent rather than
+    // skipping silently, so a future rename shows up in the run output instead
+    // of quietly dropping this sample.
     const rightArrow = page
-      .locator('[data-testid="defi-protocol-chip-scroll-btn-right"]:visible')
+      .locator(
+        '[data-testid="home-defi-protocol-chip-scroll-right-btn"]:visible',
+      )
       .first();
     if ((await rightArrow.count()) > 0) {
       await rightArrow.click({ force: true }).catch(() => {});
       await sleep(900);
-      await sample('defi chip strip scrolled');
+      await sample('defi chip strip scrolled', defi);
+    } else {
+      log('defi chip strip arrow not present; skipping that sample');
     }
 
     // Round trip back into DeFi with its inner state already dirty.
@@ -1418,6 +1474,11 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
     (acc, s) => (s.blankSpacePx > acc ? s.blankSpacePx : acc),
     0,
   );
+  // A sample taken short of the true bottom proves nothing: mid-list there is
+  // almost always content at the viewport edge, so the blank-space check would
+  // pass while the real bottom is still dead.
+  const notAtBottom = samples.filter((s) => !s.unreadable && !s.atBottom);
+  const wrongTab = samples.filter((s) => !s.unreadable && s.wrongTab);
 
   return reportVerification('tabs-blank-space-desktop', [
     {
@@ -1438,6 +1499,26 @@ async function runTabsBlankSpaceDesktop(cdpUrl) {
         clipFailures
           .slice(0, 5)
           .map((s) => `${s.label}=${s.clippedPx}px`)
+          .join(', ') || `${samples.length} samples`,
+    },
+    {
+      name: 'every sample reached the bottom',
+      pass: notAtBottom.length === 0,
+      detail:
+        notAtBottom
+          .slice(0, 6)
+          .map(
+            (s) => `${s.label} stopped at ${s.scrollHeight - s.clientHeight}`,
+          )
+          .join(', ') || `${samples.length} samples`,
+    },
+    {
+      name: 'every sample measured the requested tab',
+      pass: wrongTab.length === 0,
+      detail:
+        wrongTab
+          .slice(0, 6)
+          .map((s) => `${s.label}(focusedIndex=${s.focusedIndex})`)
           .join(', ') || `${samples.length} samples`,
     },
     {
