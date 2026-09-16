@@ -101,18 +101,26 @@ function EarnPositionsContent() {
       />
       {/* Hidden rather than unmounted so the ScrollView and its RefreshControl
           are set up once and never rebuilt (OK-59958) */}
-      <Page.Body pt={bodyPaddingTop} opacity={isHeaderHeightSettled ? 1 : 0}>
+      <Page.Body opacity={isHeaderHeightSettled ? 1 : 0}>
+        {/* The ScrollView stays under the iOS 26 translucent header and insets
+            its content instead of the body: iOS 26 only draws the header's
+            scroll edge blur over content that actually scrolls beneath the
+            bar, so padding the body clipped the list at the bar's bottom edge
+            with no glass. The spinner is shifted by the same inset so it is
+            not hidden behind the bar. */}
         <ScrollView
           flex={1}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             flexGrow: 1,
+            paddingTop: bodyPaddingTop,
             paddingBottom: tabBarHeight,
           }}
           refreshControl={
             <RefreshControl
               refreshing={isManualRefreshing}
               onRefresh={handleRefresh}
+              progressViewOffset={bodyPaddingTop}
             />
           }
         >

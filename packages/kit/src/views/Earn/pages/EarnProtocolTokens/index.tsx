@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  ListView,
   SizableText,
   Skeleton,
   XStack,
@@ -41,6 +40,7 @@ import {
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
+import { EarnPageListView } from '../../components/EarnPageListView';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
@@ -368,7 +368,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
           scrolling; controls scroll with the content as the list header.
           While the skeleton shows, hide the data rows by feeding an empty
           array so skeleton and rows never render together */}
-      <ListView
+      <EarnPageListView
         flex={1}
         {...earnListScrollBehaviorProps}
         data={showSkeleton ? [] : sortedTokens}

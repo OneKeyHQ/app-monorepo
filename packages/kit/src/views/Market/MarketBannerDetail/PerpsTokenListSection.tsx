@@ -32,9 +32,11 @@ import { sortMarketTokenListData } from '../MarketHomeV2/components/MarketTokenL
 import { useMarketDesktopResponsiveColumns } from '../MarketHomeV2/components/useMarketDesktopResponsiveColumns';
 
 import { BannerDetailListColumnHeader } from './BannerDetailListColumnHeader';
+import { BannerDetailMobileListFrame } from './BannerDetailMobileListFrame';
 import { useBannerDetailTableSort } from './useBannerDetailTableSort';
 
 import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
+import type { IBannerDetailHeaderOverlay } from './BannerDetailMobileListFrame';
 import type { FlatListProps } from 'react-native';
 
 export function PerpsTokenListSection({
@@ -42,11 +44,13 @@ export function PerpsTokenListSection({
   changeSortType,
   change24hColumnTitle,
   onChangeSortPress,
+  headerOverlay,
 }: {
   tokenListId: string;
   changeSortType?: IBannerDetailSortType;
   change24hColumnTitle: string;
   onChangeSortPress: () => void;
+  headerOverlay?: IBannerDetailHeaderOverlay;
 }) {
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.MarketBanner,
@@ -132,35 +136,49 @@ export function PerpsTokenListSection({
 
   if (!gtMd) {
     return (
-      <Stack flex={1}>
-        <BannerDetailListColumnHeader
-          // Same label as the mobile home lists: the row's second line is the
-          // contract's volume.
-          primaryColumnTitle={`${intl.formatMessage({
-            id: ETranslations.global_name,
-          })} / ${intl.formatMessage({
-            id: ETranslations.market_stock_volume__title,
-          })}`}
-          changeSortType={changeSortType}
-          change24hColumnTitle={change24hColumnTitle}
-          onChangeSortPress={onChangeSortPress}
-        />
-        {showSkeleton ? (
-          <TokenListSkeleton count={15} />
-        ) : (
-          <FlatList<IMarketPerpsToken>
-            style={{ flex: 1 }}
-            data={mobileSortedTokens}
-            renderItem={renderMobileItem}
-            keyExtractor={(item) => item.name}
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={15}
-            maxToRenderPerBatch={20}
-            contentContainerStyle={{ paddingBottom: tabBarHeight }}
-            ListEmptyComponent={TableEmptyComponent}
+      <BannerDetailMobileListFrame
+        overlay={headerOverlay}
+        columnHeader={
+          <BannerDetailListColumnHeader
+            // Same label as the mobile home lists: the row's second line is the
+            // contract's volume.
+            primaryColumnTitle={`${intl.formatMessage({
+              id: ETranslations.global_name,
+            })} / ${intl.formatMessage({
+              id: ETranslations.market_stock_volume__title,
+            })}`}
+            changeSortType={changeSortType}
+            change24hColumnTitle={change24hColumnTitle}
+            onChangeSortPress={onChangeSortPress}
           />
-        )}
-      </Stack>
+        }
+        renderList={(contentTopInset) => {
+          if (showSkeleton) {
+            const skeleton = <TokenListSkeleton count={15} />;
+            return contentTopInset ? (
+              <Stack pt={contentTopInset}>{skeleton}</Stack>
+            ) : (
+              skeleton
+            );
+          }
+          return (
+            <FlatList<IMarketPerpsToken>
+              style={{ flex: 1 }}
+              data={mobileSortedTokens}
+              renderItem={renderMobileItem}
+              keyExtractor={(item) => item.name}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={15}
+              maxToRenderPerBatch={20}
+              contentContainerStyle={{
+                paddingTop: contentTopInset,
+                paddingBottom: tabBarHeight,
+              }}
+              ListEmptyComponent={TableEmptyComponent}
+            />
+          );
+        }}
+      />
     );
   }
 

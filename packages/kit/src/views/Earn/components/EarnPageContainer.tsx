@@ -24,6 +24,8 @@ import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/Le
 import { useSettledHeaderHeight } from '../hooks/useSettledHeaderHeight';
 import { EarnTestIDs } from '../testIDs';
 
+import { EarnPageListContentTopInsetContext } from './EarnPageListView';
+
 import type { RefreshControlProps } from 'react-native';
 
 // Leading back button and trailing action button each occupy roughly a 44pt
@@ -60,7 +62,8 @@ interface IEarnPageContainerProps {
   // its own scrolling. In list mode the body renders children directly
   // (no wrapping ScrollView) — nesting a virtualized list inside a ScrollView
   // would mount every row and defeat virtualization. Callers must move
-  // refreshControl / bottom padding onto their ListView.
+  // refreshControl / bottom padding onto their list and render it with
+  // EarnPageListView so it picks up the iOS 26 native header inset.
   bodyListMode?: boolean;
 }
 
@@ -219,10 +222,10 @@ export function EarnPageContainer({
   // later mount are settled from the first render and never hide.
   const bodyOpacity = isHeaderHeightSettled ? 1 : 0;
 
-  // List mode: children (a virtualized list) own the scrolling. The iOS 26
-  // translucent native header inset becomes top padding here — the list is
-  // clipped at the bar's bottom edge instead of scrolling under the glass,
-  // which is visually equivalent since nothing scrolls behind it.
+  // List mode: children (a virtualized list) own the scrolling, so the iOS 26
+  // translucent native header inset is handed to EarnPageListView as content
+  // padding. Padding this container instead clipped the list at the bar's
+  // bottom edge, and nothing scrolling under the bar means no glass blur.
   const body = bodyListMode ? (
     <Page.Body opacity={bodyOpacity}>
       <Page.Container
@@ -230,9 +233,12 @@ export function EarnPageContainer({
         padded={false}
         layout={disableMaxWidth ? 'full' : 'regular'}
         flex={1}
-        {...(useNativeHeader ? { pt: nativeHeaderHeight } : {})}
       >
-        {children}
+        <EarnPageListContentTopInsetContext.Provider
+          value={useNativeHeader ? nativeHeaderHeight : 0}
+        >
+          {children}
+        </EarnPageListContentTopInsetContext.Provider>
       </Page.Container>
     </Page.Body>
   ) : (

@@ -66,12 +66,17 @@ import {
   isMarketStockPerpsBanner,
 } from '../utils/marketBannerUtils';
 
+import {
+  SCROLL_EDGE_EFFECTS_WITH_ELEMENT_CONTAINER,
+  isScrollEdgeElementContainerSupported,
+} from './BannerDetailMobileListFrame';
 import { BannerDetailStockFlatList } from './BannerDetailStockFlatList';
 import { BannerDetailStockTable } from './BannerDetailStockTable';
 import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
 import { PerpsTokenListSection } from './PerpsTokenListSection';
 import { useMarketBannerDetail } from './useMarketBannerDetail';
 
+import type { IBannerDetailHeaderOverlay } from './BannerDetailMobileListFrame';
 import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type {
   EModalMarketRoutes,
@@ -123,6 +128,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const { top } = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { gtMd } = useMedia();
+  // iOS 26 phones pin the tabs + column header into the bar's glass instead of
+  // pushing the whole body below the bar (see BannerDetailMobileListFrame).
+  const useGlassPinnedHeader = isScrollEdgeElementContainerSupported && !gtMd;
 
   const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
   // Non-native wide layouts (web, Electron, extension expanded tab) mirror
@@ -240,7 +248,15 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     // Notification icon is intentionally omitted — it belongs to the
     // tab-level chrome (Market tab home), not to a banner detail page.
     if (platformEnv.isNativeIOS26Plus) {
-      return <Page.Header headerShown headerTitle={renderHeaderTitle} />;
+      return (
+        <Page.Header
+          headerShown
+          headerTitle={renderHeaderTitle}
+          {...(useGlassPinnedHeader
+            ? { scrollEdgeEffects: SCROLL_EDGE_EFFECTS_WITH_ELEMENT_CONTAINER }
+            : undefined)}
+        />
+      );
     }
     return <Page.Header headerShown={false} />;
   }, [
@@ -249,6 +265,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     renderHeaderLeft,
     renderNotificationButton,
     renderHeaderTitle,
+    useGlassPinnedHeader,
   ]);
 
   const renderTitleSection = useMemo(() => {
@@ -300,6 +317,51 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [isDesktopTable],
   );
 
+  const mixedTabs = useMemo(
+    () =>
+      isMixed ? (
+        <XStack role="tablist" {...tabListProps}>
+          {(['spot', 'perps'] as const).map((name) => (
+            <Tabs.TabBarItem
+              key={name}
+              name={name}
+              label={intl.formatMessage({
+                // The non-perps list of a mixed banner comes from the
+                // stock endpoint, so its tab is labelled by what it shows.
+                id: getBannerSpotTabLabelId(name, isStock),
+              })}
+              isFocused={activeTab === name}
+              onPress={handleTabPress}
+              testID={`market-banner-detail-tab-${name}`}
+              {...tabItemActiveProps}
+              tabItemStyle={{
+                ...tabItemBaseStyle,
+                'aria-selected': activeTab === name,
+              }}
+            />
+          ))}
+        </XStack>
+      ) : null,
+    [
+      isMixed,
+      tabListProps,
+      intl,
+      isStock,
+      activeTab,
+      handleTabPress,
+      tabItemActiveProps,
+      tabItemBaseStyle,
+    ],
+  );
+
+  const headerOverlay = useMemo<IBannerDetailHeaderOverlay | undefined>(
+    () =>
+      useGlassPinnedHeader
+        ? { topInset: headerHeight, prefix: mixedTabs }
+        : undefined,
+    [useGlassPinnedHeader, headerHeight, mixedTabs],
+  );
+
   const renderTokenList = useMemo(() => {
     const change24hColumnTitle = intl.formatMessage({
       id: ETranslations.dexmarket_banner_token_24hchange,
@@ -311,6 +373,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={handleChangeSortPress}
+          headerOverlay={headerOverlay}
         />
       );
       return isDesktopTable ? (
@@ -332,6 +395,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             changeSortType={changeSortType}
             onChangeSortPress={handleChangeSortPress}
             onItemPress={isIndex ? handleIndexItemPress : handleStockItemPress}
+            headerOverlay={headerOverlay}
           />
         );
       }
@@ -343,6 +407,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={handleChangeSortPress}
           onItemPress={onItemPress}
+          headerOverlay={headerOverlay}
         />
       );
     }
@@ -419,10 +484,12 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     changeSortType,
     handleChangeSortPress,
     intl,
+    headerOverlay,
   ]);
 
   let bodyTopInset: number;
-  if (gtMd) {
+  if (gtMd || headerOverlay) {
+    // The pinned list header owns the native header inset on iOS 26 phones.
     bodyTopInset = 0;
   } else if (platformEnv.isNativeIOS26Plus) {
     bodyTopInset = headerHeight;
@@ -450,29 +517,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             flex={1}
             gap={isDesktopTable ? MARKET_DESKTOP_NO_TOOLBAR_TABLE_INSET : '$4'}
           >
-            {isMixed ? (
-              <XStack role="tablist" {...tabListProps}>
-                {(['spot', 'perps'] as const).map((name) => (
-                  <Tabs.TabBarItem
-                    key={name}
-                    name={name}
-                    label={intl.formatMessage({
-                      // The non-perps list of a mixed banner comes from the
-                      // stock endpoint, so its tab is labelled by what it shows.
-                      id: getBannerSpotTabLabelId(name, isStock),
-                    })}
-                    isFocused={activeTab === name}
-                    onPress={handleTabPress}
-                    testID={`market-banner-detail-tab-${name}`}
-                    {...tabItemActiveProps}
-                    tabItemStyle={{
-                      ...tabItemBaseStyle,
-                      'aria-selected': activeTab === name,
-                    }}
-                  />
-                ))}
-              </XStack>
-            ) : null}
+            {headerOverlay ? null : mixedTabs}
             {renderTokenList}
           </YStack>
         </Stack>
