@@ -76,10 +76,35 @@ const TEXT_MATCHERS = new Set([
   'toBeLessThan',
   'toBeLessThanOrEqual',
 ]);
-const ASSERT_TEXT_METHODS = new Set(['match', 'doesNotMatch']);
+// node:assert, used by the *.node-test.js files this check also scans.
+const ASSERT_TEXT_METHODS = new Set([
+  'match',
+  'doesNotMatch',
+  'ok',
+  'equal',
+  'notEqual',
+  'strictEqual',
+  'notStrictEqual',
+  'deepEqual',
+  'notDeepEqual',
+  'deepStrictEqual',
+  'notDeepStrictEqual',
+]);
 // Methods that take the source text as an argument rather than a receiver.
 // Every other method propagates from its receiver, whatever it is named.
 const ARGUMENT_PROPAGATORS = new Set(['test', 'exec', 'replace', 'replaceAll']);
+// Cutting a fragment out of a file is what makes an eval a reconstruction of a
+// unit that could not be imported. Evaluating a whole file is a different
+// thing: a text artifact shipped to another runtime, checked by running it.
+const SLICING_METHODS = new Set([
+  'slice',
+  'substring',
+  'substr',
+  'match',
+  'matchAll',
+  'split',
+  'at',
+]);
 const EVAL_FUNCTIONS = new Set([
   'runInNewContext',
   'runInThisContext',
@@ -138,6 +163,11 @@ function loadAllowlist() {
     if (typeof entry.reason !== 'string' || entry.reason.trim().length < 40) {
       throw new Error(
         `${label} needs a "reason" saying why no runtime assertion can replace it.`,
+      );
+    }
+    if (!Number.isInteger(entry.count) || entry.count < 1) {
+      throw new Error(
+        `${label} needs a "count": how many violations were reviewed, so a new one added to the same block is still reported.`,
       );
     }
   });
@@ -259,7 +289,7 @@ function classifyReadTarget(callNode, repoAnchored) {
   // No extension to go on. Only two shapes still say "source": a sibling of the
   // test file named by a variable, and a module specifier. Anything else
   // anchored but unextended is left alone.
-  return namesUnextendedSource(pathArgument) ? 'script' : undefined;
+  return namesUnextendedSource(pathArgument, literals) ? 'script' : undefined;
 }
 
 /** 'script' | 'native' | undefined for the source text a node carries. */
@@ -324,6 +354,28 @@ function taintKind(node, tainted, readKind) {
   }
 }
 
+/** Was this expression cut out of a larger source text? */
+function isSlicedText(node, tainted, fragments, readKind) {
+  let sliced = false;
+  walk(node, (current) => {
+    if (current.type === 'Identifier' && fragments.has(current.name)) {
+      sliced = true;
+      return;
+    }
+    if (
+      (current.type === 'CallExpression' ||
+        current.type === 'OptionalCallExpression') &&
+      (current.callee.type === 'MemberExpression' ||
+        current.callee.type === 'OptionalMemberExpression') &&
+      SLICING_METHODS.has(calleeName(current.callee) ?? '') &&
+      taintKind(current.callee.object, tainted, readKind)
+    ) {
+      sliced = true;
+    }
+  });
+  return sliced;
+}
+
 function firstTaint(nodes, tainted, readKind) {
   for (const node of nodes ?? []) {
     const kind = taintKind(node, tainted, readKind);
@@ -339,7 +391,23 @@ function firstTaint(nodes, tainted, readKind) {
 const PATH_BUILDERS = new Set(['join', 'resolve', 'normalize', 'dirname']);
 const REPO_ANCHOR_IDENTIFIERS = new Set(['__dirname', '__filename']);
 // A checked-in path written literally: relative, or from a workspace root.
+// Answers "does this stay inside the repository", so `../../..` qualifies.
 const WORKSPACE_PATH_RE = /^(?:\.{1,2}\/|apps\/|packages\/|development\/)/u;
+// Answers the narrower "does this name a directory that holds source", which
+// an ascent like `../../..` and a dotfile directory like `.github/` do not.
+const SOURCE_DIRECTORY_RE = /^(?:apps|packages|development)\//u;
+
+/** `assert.equal(...)` and `assert.strict.equal(...)`, but not `x.equal(...)`. */
+function isAssertCall(callee) {
+  if (callee.type !== 'MemberExpression') {
+    return false;
+  }
+  let receiver = callee.object;
+  while (receiver.type === 'MemberExpression') {
+    receiver = receiver.object;
+  }
+  return receiver.type === 'Identifier' && receiver.name === 'assert';
+}
 
 /** Leading literal chunk of a template, which is where a path prefix sits. */
 function firstTemplateChunk(node) {
@@ -427,7 +495,13 @@ function pathLiterals(node, anchored, seen = new Set()) {
 }
 
 /** Does this path reach source whose extension is not written down? */
-function namesUnextendedSource(node) {
+function namesUnextendedSource(node, literals) {
+  // `path.join(repoRoot, 'packages/kit/src/views/X', name)` names a source
+  // directory explicitly, so a variable filename inside it is source. A repo
+  // path that never names one (`.github/workflows`, a fixture root) is not.
+  if (literals.some((literal) => SOURCE_DIRECTORY_RE.test(literal))) {
+    return true;
+  }
   let found = false;
   walk(node, (current) => {
     if (
@@ -500,7 +574,7 @@ function analyzeFile(
   absolutePath,
   source,
   allowlist = [],
-  usedEntries = new Set(),
+  usedEntries = new Map(),
 ) {
   const relativePath = path
     .relative(REPO_ROOT, absolutePath)
@@ -527,19 +601,24 @@ function analyzeFile(
   // chain, or a string method. Iterate to a fixpoint so derived bindings
   // (`const body = source.slice(a, b)`) follow.
   const tainted = new Map();
+  const fragments = new Set();
   for (let round = 0; round < 6; round += 1) {
-    const before = tainted.size;
+    const before = tainted.size + fragments.size;
     walk(ast, (node) => {
       const binding = bindingTarget(node);
       if (!binding) {
         return;
       }
       const kind = taintKind(binding.value, tainted, readKind);
-      if (kind) {
-        binding.names.forEach((name) => tainted.set(name, kind));
+      if (!kind) {
+        return;
+      }
+      binding.names.forEach((name) => tainted.set(name, kind));
+      if (isSlicedText(binding.value, tainted, fragments, readKind)) {
+        binding.names.forEach((name) => fragments.add(name));
       }
     });
-    if (tainted.size === before) {
+    if (tainted.size + fragments.size === before) {
       break;
     }
   }
@@ -565,8 +644,12 @@ function analyzeFile(
     // counts toward the whole-file verdict that --list drives.
     const entry = matchingEntry(allowlist, relativePath, violation);
     if (entry) {
-      usedEntries.add(entry);
-      return;
+      const seen = (usedEntries.get(entry) ?? 0) + 1;
+      usedEntries.set(entry, seen);
+      // Beyond the reviewed count the block has grown unchecked assertions.
+      if (seen <= entry.count) {
+        return;
+      }
     }
     violations.push(violation);
     if (ADVISORY_RULES.has(rule)) {
@@ -638,13 +721,9 @@ function analyzeFile(
         }
       }
 
-      // assert.match(<tainted>, /.../)
-      if (
-        name &&
-        ASSERT_TEXT_METHODS.has(name) &&
-        node.callee.type === 'MemberExpression'
-      ) {
-        const kind = taintKind(node.arguments[0], tainted, readKind);
+      // assert.match(<tainted>, /.../), assert.equal(<tainted>, ...)
+      if (name && ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
+        const kind = firstTaint(node.arguments, tainted, readKind);
         if (kind) {
           record(
             kind === 'native'
@@ -661,7 +740,10 @@ function analyzeFile(
         const kind = node.arguments
           .map((a) => taintKind(a, tainted, readKind))
           .find(Boolean);
-        if (kind === 'script') {
+        const sliced = node.arguments.some((a) =>
+          isSlicedText(a, tainted, fragments, readKind),
+        );
+        if (kind === 'script' && sliced) {
           record(
             'source-slice-eval',
             node,
@@ -851,7 +933,7 @@ function analyzeOne(absolutePath, allowlist, usedEntries) {
 
 function run() {
   const allowlist = loadAllowlist();
-  const usedEntries = new Set();
+  const usedEntries = new Map();
   const files = collectTestFiles(REPO_ROOT, []);
   const results = files
     .map((absolutePath) => analyzeOne(absolutePath, allowlist, usedEntries))
@@ -860,9 +942,12 @@ function run() {
     result.violations.some((violation) => !ADVISORY_RULES.has(violation.rule)),
   );
   const advisory = results.filter((result) => !failing.includes(result));
-  // An entry that no longer matches anything is an exemption nobody reviewed
-  // for the code that is there now; it must be removed rather than linger.
-  const staleEntries = allowlist.filter((entry) => !usedEntries.has(entry));
+  // An exemption must describe the code that is there now: one that matches
+  // nothing has to go, and one that matches less than it claims is wider than
+  // anybody reviewed.
+  const staleEntries = allowlist
+    .map((entry) => ({ ...entry, seen: usedEntries.get(entry) ?? 0 }))
+    .filter((entry) => entry.seen < entry.count);
   return { scanned: files.length, results: failing, advisory, staleEntries };
 }
 
@@ -901,7 +986,11 @@ function main() {
   for (const entry of staleEntries) {
     lines.push(
       `${entry.file}  [stale allowlist entry]`,
-      `    No ${entry.rule} remains in ${entry.block === null ? 'shared setup' : `"${entry.block}"`}. Remove the entry.`,
+      `    ${entry.rule} in ${
+        entry.block === null ? 'shared setup' : `"${entry.block}"`
+      }: reviewed ${entry.count}, found ${entry.seen}. ${
+        entry.seen === 0 ? 'Remove the entry.' : 'Lower its "count".'
+      }`,
       '',
     );
   }

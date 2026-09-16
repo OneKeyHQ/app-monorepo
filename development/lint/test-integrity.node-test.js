@@ -102,6 +102,69 @@ test('catches a fragment sliced out of source and evaluated', () => {
   `);
 });
 
+test('catches node:assert sinks, not lookalike methods', () => {
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    test('x', () => { assert.equal(source, 'go'); });
+  `,
+    'assert.equal',
+  );
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    test('x', () => { assert.ok(source.includes('go')); });
+  `,
+    'assert.ok',
+  );
+  assertGated(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    test('x', () => { assert.strict.deepEqual(source.split('\\n'), []); });
+  `,
+    'assert.strict.deepEqual',
+  );
+  assertClean(
+    `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    test('x', () => { chai.expect(source).to.equal('go'); });
+  `,
+    'a .equal that is not node:assert',
+  );
+});
+
+test('catches a variable filename inside a named source directory', () => {
+  assertGated(
+    `
+    const repoRoot = path.resolve(__dirname, '../../../..');
+    const source = readFileSync(path.join(repoRoot, 'packages/kit/src/views', name), 'utf8');
+    it('x', () => { expect(source).toContain('go'); });
+  `,
+    'named source directory',
+  );
+  assertClean(
+    `
+    const repoRoot = path.resolve(__dirname, '../../../..');
+    const workflow = readFileSync(path.join(repoRoot, '.github/workflows', name), 'utf8');
+    it('x', () => { expect(workflow).toContain('go'); });
+  `,
+    'a directory that holds no source',
+  );
+});
+
+test('evaluating a whole shipped text artifact is not a sliced fragment', () => {
+  // The .text-js file is source shipped to another runtime; running it and
+  // comparing what it does is the opposite of reconstructing a unit from text.
+  assertClean(`
+    it('x', () => {
+      const go = runInNewContext(
+        '(' + readFileSync('packages/kit/src/thing.text-js', 'utf8') + ')',
+      );
+      expect(go(1)).toBe('one');
+    });
+  `);
+});
+
 test('ignores a read anchored at a temp directory', () => {
   // The literal names a .js file, but the path is something the test built.
   assertClean(`
@@ -194,6 +257,7 @@ test('the shipped allowlist matches live violations and stays justified', () => 
     // Mirrors the loadAllowlist contract: null is the shared-setup form.
     assert.ok(entry.block === null || typeof entry.block === 'string');
     assert.ok(entry.reason.trim().length >= 40, `${entry.file} needs a reason`);
+    assert.ok(Number.isInteger(entry.count) && entry.count >= 1);
   }
   // `run()` reports an entry that no longer matches, which is what keeps a
   // stale exemption from silently widening over time.
@@ -316,10 +380,11 @@ test('an exempted block does not drive the whole-file verdict', () => {
       file: path.relative(path.join(__dirname, '../..'), FIXTURE_PATH),
       rule: 'source-text-assertion',
       block: 'exempted',
+      count: 1,
       reason: 'x'.repeat(40),
     },
   ];
-  const used = new Set();
+  const used = new Map();
   const result = analyzeFile(FIXTURE_PATH, source, allowlist, used);
 
   assert.equal(used.size, 1);
@@ -346,10 +411,11 @@ test('a shared-setup violation is exemptable with block null', () => {
       file: path.relative(path.join(__dirname, '../..'), FIXTURE_PATH),
       rule: 'source-slice-eval',
       block: null,
+      count: 1,
       reason: 'x'.repeat(40),
     },
   ];
-  const used = new Set();
+  const used = new Map();
   const result = analyzeFile(FIXTURE_PATH, source, allowlist, used);
 
   assert.equal(used.size, 1);
@@ -359,6 +425,32 @@ test('a shared-setup violation is exemptable with block null', () => {
       (violation) => violation.rule === 'source-slice-eval',
     ),
     [],
+  );
+});
+
+test('an exemption covers only the number of violations reviewed', () => {
+  const source = `
+    const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');
+    it('exempted', () => {
+      expect(source).toContain('a');
+      expect(source).toContain('b');
+    });
+  `;
+  const entry = {
+    file: path.relative(path.join(__dirname, '../..'), FIXTURE_PATH),
+    rule: 'source-text-assertion',
+    block: 'exempted',
+    count: 1,
+    reason: 'x'.repeat(40),
+  };
+  const result = analyzeFile(FIXTURE_PATH, source, [entry], new Map());
+
+  // The block was reviewed with one assertion; the second one is new.
+  assert.equal(
+    result.violations.filter(
+      (violation) => violation.rule === 'source-text-assertion',
+    ).length,
+    1,
   );
 });
 
