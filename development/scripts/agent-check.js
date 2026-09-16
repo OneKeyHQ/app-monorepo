@@ -680,6 +680,7 @@ function runLocalChecks(logDir) {
     runCommand(logDir, 'background-api-contract', 'yarn', [
       'lint:background-api-contract',
     ]),
+    runCommand(logDir, 'test-integrity', 'yarn', ['lint:test-integrity']),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];

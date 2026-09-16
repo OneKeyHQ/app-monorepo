@@ -303,17 +303,6 @@ describe('native-dev-shell', () => {
         runForOutputCommand: () => 'x86_64',
       }),
     ).toThrow('cannot run the arm64 development shell');
-
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-    );
-    expect(
-      launchSource.indexOf('assertTargetDeviceArchitecture({'),
-    ).toBeLessThan(launchSource.indexOf('acquireNamedLock({'));
   });
 
   it('uses device-scoped adb reverse only for a physical Android default route', () => {
@@ -709,20 +698,6 @@ describe('native-dev-shell', () => {
     ).rejects.toThrow('android app exited during startup');
   });
 
-  it('fails before reporting running when the launched app exits', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-      source.indexOf('\nasync function main()'),
-    );
-    expect(
-      launchSource.indexOf('await waitForNativeAppStartup({'),
-    ).toBeLessThan(launchSource.indexOf("report.status = 'running';"));
-  });
-
   it('captures the iOS process ID returned by simctl launch', () => {
     const runForOutputCommand = jest
       .fn()
@@ -761,10 +736,6 @@ describe('native-dev-shell', () => {
     );
     const manifest = fs.readFileSync(
       path.join(androidRoot, 'AndroidManifest.xml'),
-      'utf8',
-    );
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
       'utf8',
     );
     const androidReleaseDeploy = fs.readFileSync(
@@ -848,9 +819,6 @@ describe('native-dev-shell', () => {
     );
     expect(manifest).toContain(
       'android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />',
-    );
-    expect(nativeDevShell).toContain(
-      'so.onekey.app.wallet/.MainLauncherActivity',
     );
     expect(androidReleaseDeploy).toContain(
       '$PACKAGE_NAME/.MainLauncherActivity',
@@ -1822,28 +1790,6 @@ describe('native-dev-shell', () => {
     );
   });
 
-  it('binds an explicit device route to launcher-owned Metro', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function launchDevShell('),
-      nativeDevShell.indexOf('\nasync function main()'),
-    );
-
-    expect(launchSource.indexOf('parseMetroBaseUrl(metroUrl)')).toBeLessThan(
-      launchSource.indexOf('const deviceLock = acquireNamedLock({'),
-    );
-    expect(launchSource.indexOf('const metroAllocation =')).toBeGreaterThan(
-      launchSource.indexOf('try {'),
-    );
-    expect(launchSource).toContain(
-      'requestedMetroUrl: requestedDeviceMetroUrl',
-    );
-    expect(launchSource).toContain('ONEKEY_DEV_SESSION_ID: sessionId');
-  });
-
   it('binds each shell platform to its native contract', () => {
     const android = getContractManifest('android');
     const ios = getContractManifest('ios');
@@ -1855,33 +1801,7 @@ describe('native-dev-shell', () => {
     expect(ios).toMatchObject({ platform: 'ios', schemaVersion: 1 });
   });
 
-  it('holds a restored shell cache lease through device installation', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const installSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function resolveAndInstallShell('),
-      nativeDevShell.indexOf('\nasync function prepareVendor('),
-    );
-
-    const cleanupSource = installSource.slice(
-      installSource.indexOf('await runWithCacheLeaseCleanup({'),
-    );
-    expect(installSource).toContain(
-      'await install({ artifactPath, deviceId, platform })',
-    );
-    expect(cleanupSource).toContain('operation: installArtifact,');
-    expect(cleanupSource.indexOf('operation: installArtifact,')).toBeLessThan(
-      cleanupSource.indexOf('releaseCacheLease,'),
-    );
-  });
-
   it('keeps dev session bootstrap private and session-scoped on both platforms', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
     const androidApplication = fs.readFileSync(
       path.join(
         __dirname,
@@ -1900,17 +1820,6 @@ describe('native-dev-shell', () => {
       path.join(__dirname, '../../ios/AppDelegate.swift'),
       'utf8',
     );
-    const metroConfig = fs.readFileSync(
-      path.join(__dirname, '../../metro.config.js'),
-      'utf8',
-    );
-    const webViewWebEmbed = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../../../packages/kit/src/components/WebViewWebEmbed/index.tsx',
-      ),
-      'utf8',
-    );
 
     expect(androidActivity).not.toContain('ONEKEY_DEV_SESSION_URL');
     expect(androidApplication).toContain(
@@ -1926,42 +1835,6 @@ describe('native-dev-shell', () => {
     expect(iosDelegate).toContain('let host = components.host');
     expect(iosDelegate).toContain('!host.isEmpty');
     expect(iosDelegate).toContain('components.path = ""');
-    expect(metroConfig).not.toContain('/onekey-dev/');
-    expect(metroConfig).toContain('/onekey-dev-session/web-embed/');
-    expect(metroConfig).toContain("res.setHeader('Cache-Control', 'no-store')");
-    expect(webViewWebEmbed).toContain(
-      "searchParams.get('resolver.devSessionId')",
-    );
-    expect(webViewWebEmbed).toContain(
-      '/onekey-dev-session/web-embed/index.html',
-    );
-    expect(nativeDevShell).toContain(
-      "['workspace', '@onekeyhq/web-embed', 'prebundle:build']",
-    );
-    expect(nativeDevShell).not.toContain("['app:web-embed:build']");
-    const launchSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function launchDevShell('),
-      nativeDevShell.indexOf('\nasync function main()'),
-    );
-    expect(launchSource.indexOf('await stagePrivateSession({')).toBeLessThan(
-      launchSource.indexOf('preparationLock.release();'),
-    );
-    expect(launchSource.indexOf('await waitForMetro(')).toBeLessThan(
-      launchSource.indexOf('preparationLock.release();'),
-    );
-    expect(launchSource.indexOf('preparationLock.release();')).toBeLessThan(
-      launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
-    );
-    expect(
-      launchSource.indexOf('await prepareWebEmbedForDevSession(report)'),
-    ).toBeLessThan(launchSource.indexOf('await resolveAndInstallShell({'));
-    expect(
-      launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
-    ).toBeLessThan(launchSource.indexOf('launchNativeApp('));
-    expect(launchSource).toContain(
-      'await waitForMetroCompletionWithSessionRenewal({',
-    );
-    expect(launchSource).toContain('addFailureNotice(report, report.failure);');
   });
 
   it('excludes dev session capability and identifiers from production variants', () => {

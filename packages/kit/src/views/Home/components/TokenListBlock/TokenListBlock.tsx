@@ -150,10 +150,19 @@ import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIng
 import { resolveOffTabTokenListRefreshOnMount } from './offTabRefresh';
 import { PortfolioSyncButton } from './PortfolioSyncButton';
 import {
+  buildPortfolioSyncTargetKey,
+  resolvePortfolioSyncRequestTransition,
+} from './portfolioSyncRequestState';
+import {
   countFundedHardwarePortfolioTokens,
   selectHardwarePortfolioTokens,
 } from './selectHardwarePortfolioTokens';
 import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
+
+import type {
+  IPortfolioSyncRequest,
+  IPortfolioSyncRequestPhase,
+} from './portfolioSyncRequestState';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -215,35 +224,6 @@ type IActiveAccountTokenListRequestContext = {
   mergeDeriveAddressData: boolean;
   tokenSelectorFilterMode: ITokenSelectorFilterMode;
 };
-
-type IPortfolioSyncRequestPhase =
-  | 'queued'
-  | 'refreshing'
-  | 'settled'
-  | 'communicating';
-
-type IPortfolioSyncRequest = {
-  id: number;
-  minimumAllNetworksGeneration?: number;
-  phase: IPortfolioSyncRequestPhase;
-  targetKey: string;
-};
-
-type IPortfolioSyncTarget = {
-  deviceDbId: string;
-  indexedAccountId: string;
-  networkId: string;
-  walletId: string;
-};
-
-function buildPortfolioSyncTargetKey({
-  deviceDbId,
-  indexedAccountId,
-  networkId,
-  walletId,
-}: IPortfolioSyncTarget) {
-  return [walletId, indexedAccountId, networkId, deviceDbId].join('|');
-}
 
 function buildTokenSelectorFilterMode(
   lpToken: boolean,
@@ -530,14 +510,18 @@ function TokenListBlock({
 
   const transitionPortfolioSyncRequest = useCallback(
     (requestId: number, phase: IPortfolioSyncRequestPhase) => {
-      const request = portfolioSyncRequestRef.current;
-      if (request?.id !== requestId || request.phase === 'communicating') {
+      const transition = resolvePortfolioSyncRequestTransition({
+        request: portfolioSyncRequestRef.current,
+        requestId,
+        phase,
+      });
+      if (!transition.accepted) {
         return false;
       }
-      if (phase !== 'settled') {
+      if (transition.clearFallbackTimer) {
         clearPortfolioSyncFallbackTimer();
       }
-      portfolioSyncRequestRef.current = { ...request, phase };
+      portfolioSyncRequestRef.current = transition.nextRequest;
       setPortfolioSyncRequestPhase(phase);
       return true;
     },
