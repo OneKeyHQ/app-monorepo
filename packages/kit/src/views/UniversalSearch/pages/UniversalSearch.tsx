@@ -69,6 +69,8 @@ import { UniversalSearchTestIDs } from '../testIDs';
 import {
   getUniversalSearchTabIndex,
   prioritizeMarketFocusedSections,
+  resolveUniversalSearchInitialTabName,
+  shouldPrioritizeMarketSearchSections,
 } from '../universalSearchTabs';
 
 import { RecentSearched } from './components/RecentSearched';
@@ -199,9 +201,13 @@ export function UniversalSearch({
   const [searchValue, setSearchValue] = useState('');
   const searchBarGlassActive = isLiquidGlassAvailable();
 
-  const [isFocusInMarketTab, setIsFocusInMarketTab] = useState(false);
+  const [isFocusInMarketRoute, setIsFocusInMarketRoute] = useState(false);
   useListenTabFocusState(ETabRoutes.Market, (isFocus) => {
-    setIsFocusInMarketTab(isFocus);
+    setIsFocusInMarketRoute(isFocus);
+  });
+  const isFocusInMarketTab = shouldPrioritizeMarketSearchSections({
+    isFocusInMarketRoute,
+    initialTab,
   });
 
   const searchSettings = useSettingsSearch();
@@ -259,17 +265,17 @@ export function UniversalSearch({
     ].filter(Boolean);
   }, [intl]);
 
-  const initialTabName = useMemo(() => {
-    if (initialTab === 'market') {
-      return intl.formatMessage({ id: ETranslations.global_market });
-    }
-    if (initialTab === 'dapp') {
-      return intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_dapps,
-      });
-    }
-    return tabTitles[0];
-  }, [initialTab, intl, tabTitles]);
+  const initialTabName = useMemo(
+    () =>
+      resolveUniversalSearchInitialTabName({
+        initialTab,
+        allTabTitle: tabTitles[0],
+        dappTabTitle: intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_dapps,
+        }),
+      }),
+    [initialTab, intl, tabTitles],
+  );
 
   const [filterType, setFilterType] = useState(tabTitles[0]);
   const focusedTab = useSharedValue(tabTitles[0]);

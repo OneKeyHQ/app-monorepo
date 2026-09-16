@@ -3,6 +3,8 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import {
   getUniversalSearchTabIndex,
   prioritizeMarketFocusedSections,
+  resolveUniversalSearchInitialTabName,
+  shouldPrioritizeMarketSearchSections,
 } from './universalSearchTabs';
 
 describe('getUniversalSearchTabIndex', () => {
@@ -22,6 +24,55 @@ describe('getUniversalSearchTabIndex', () => {
         isWebDappMode: false,
       }),
     ).toBe(4);
+  });
+});
+
+describe('shouldPrioritizeMarketSearchSections', () => {
+  it('is true on the Market route', () => {
+    expect(
+      shouldPrioritizeMarketSearchSections({
+        isFocusInMarketRoute: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('is true when opened from the market search preset', () => {
+    expect(
+      shouldPrioritizeMarketSearchSections({
+        isFocusInMarketRoute: false,
+        initialTab: 'market',
+      }),
+    ).toBe(true);
+  });
+
+  it('is false for Discovery-only search without the market preset', () => {
+    expect(
+      shouldPrioritizeMarketSearchSections({
+        isFocusInMarketRoute: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('resolveUniversalSearchInitialTabName', () => {
+  it('opens All for the market preset so Stocks is not filtered out', () => {
+    expect(
+      resolveUniversalSearchInitialTabName({
+        initialTab: 'market',
+        allTabTitle: 'All',
+        dappTabTitle: 'DApps',
+      }),
+    ).toBe('All');
+  });
+
+  it('still opens DApps for the dapp preset', () => {
+    expect(
+      resolveUniversalSearchInitialTabName({
+        initialTab: 'dapp',
+        allTabTitle: 'All',
+        dappTabTitle: 'DApps',
+      }),
+    ).toBe('DApps');
   });
 });
 

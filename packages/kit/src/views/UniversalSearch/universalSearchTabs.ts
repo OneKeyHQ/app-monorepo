@@ -20,6 +20,34 @@ export function getUniversalSearchTabIndex(
   return tabMapping[searchType];
 }
 
+export function shouldPrioritizeMarketSearchSections({
+  isFocusInMarketRoute,
+  initialTab,
+}: {
+  isFocusInMarketRoute: boolean;
+  initialTab?: 'market' | 'dapp';
+}): boolean {
+  return isFocusInMarketRoute || initialTab === 'market';
+}
+
+export function resolveUniversalSearchInitialTabName({
+  initialTab,
+  allTabTitle,
+  dappTabTitle,
+}: {
+  initialTab?: 'market' | 'dapp';
+  allTabTitle: string;
+  dappTabTitle: string;
+}): string {
+  if (initialTab === 'dapp') {
+    return dappTabTitle;
+  }
+  // Market used to land on the Market tab. After stocks were split out,
+  // that hid the Stocks section on native Discovery / extension, where
+  // ETabRoutes.Market is not focused. Open All so both groups stay visible.
+  return allTabTitle;
+}
+
 export function prioritizeMarketFocusedSections<T extends { tabIndex: number }>(
   sections: T[],
   tabIndexes: { stocks: number; market: number; perp: number },

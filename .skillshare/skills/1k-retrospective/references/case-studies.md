@@ -430,3 +430,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: New files entered the native Metro graph via sync imports but were missing from `module-id-registry.json`.
 **Fix**: Register both paths with `updateRegistryFromModulePaths` and commit IDs `13357` / `23019`.
 **Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push
+
+## Case: Market search preset hid the new Stocks section
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, extension (Discovery market header)
+**Symptom**: Searching AAPL from Discovery Market showed only AAPLon / AAPLx under Market; the real listing appeared only after tapping Stocks.
+**Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
+**Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
+**Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
