@@ -385,7 +385,7 @@ describe('Portfolio v2 category retrieval', () => {
     });
   });
 
-  test('keeps a finite DeFi total when some networks are incomplete', async () => {
+  test('does not send a partial DeFi live total when some networks fail', async () => {
     const mocks = prepare();
     mocks.getAllNetworkAccounts.mockResolvedValue({
       accountsInfo: [
@@ -415,8 +415,48 @@ describe('Portfolio v2 category retrieval', () => {
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
     ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('uses the Home DeFi cache when live coverage is incomplete', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: { degraded: false, networkIds: ['evm--1'] },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
       defiFiat: '20',
-      deFiSource: 'live',
+      deFiSource: 'cache',
       perpsFiat: '30',
     });
   });
@@ -435,9 +475,15 @@ describe('Portfolio v2 category retrieval', () => {
       deFiSource: 'cache',
       perpsFiat: '30',
     });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1'],
+        targetCurrency: 'usd',
+      }),
+    );
   });
 
-  test('uses a finite DeFi total even when the provider marks the result degraded', async () => {
+  test('rejects degraded results instead of reporting partial totals', async () => {
     const mocks = prepare();
     mocks.post.mockResolvedValue({
       data: {
@@ -455,8 +501,8 @@ describe('Portfolio v2 category retrieval', () => {
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
     ).resolves.toEqual({
-      defiFiat: '20',
-      deFiSource: 'live',
+      defiFiat: undefined,
+      deFiSource: 'unknown',
       perpsFiat: undefined,
     });
   });

@@ -21,6 +21,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import { PORTFOLIO_ARCHIVE_MAX_BYTES } from '@onekeyhq/shared/src/utils/portfolioArchive';
 import type { IPortfolioCategoryFiat } from '@onekeyhq/shared/src/utils/portfolioPayload';
 import {
@@ -2123,14 +2124,26 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       }
 
       const fetchCachedDeFi = async (): Promise<string | undefined> => {
+        const enabledNetworkIds = networks
+          .filter(
+            (network) =>
+              isEnabledNetworksInAllNetworks({
+                networkId: network.id,
+                enabledNetworks: allNetworksState.enabledNetworks,
+                disabledNetworks: allNetworksState.disabledNetworks,
+                isTestnet: !!network.isTestnet,
+              }) && enabledNetworksMap[network.id],
+          )
+          .map((network) => network.id);
+        if (!enabledNetworkIds.length) {
+          return undefined;
+        }
         const { netWorth, hasCache } =
           await this.backgroundApi.serviceDeFi.getAccountTotalDeFiNetWorth({
             accountId,
             networkId,
             targetCurrency: 'usd',
-            enabledNetworkIds: Object.keys(
-              allNetworksState.enabledNetworks ?? {},
-            ).filter((id) => allNetworksState.enabledNetworks[id]),
+            enabledNetworkIds,
           });
         return hasCache ? netWorth : undefined;
       };
@@ -2198,11 +2211,22 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 const value = new BigNumber(
                   result?.data?.totals?.netWorth ?? NaN,
                 );
-                if (!result?.success || !value.isFinite()) {
+                if (
+                  !result?.success ||
+                  result.meta?.degraded !== false ||
+                  !result.meta.networkIds.includes(account.networkId) ||
+                  !value.isFinite()
+                ) {
                   return undefined;
                 }
                 return value;
-              } catch {
+              } catch (error) {
+                if (
+                  signal?.aborted ||
+                  (error instanceof Error && error.name === 'AbortError')
+                ) {
+                  throw error;
+                }
                 return undefined;
               }
             }),
@@ -2215,7 +2239,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             total = total.plus(BigNumber.sum(...completeValues));
           }
         }
-        if (completeCount > 0) {
+        if (completeCount === accounts.length) {
           return { source: 'live', value: total.toFixed() };
         }
         const cached = await fetchCachedDeFi();
