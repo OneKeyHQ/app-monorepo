@@ -16,7 +16,10 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
-import { rememberWatchlistListingPreview } from '../MarketHomeV2/components/MarketTokenList/hooks/watchlistListingPreview';
+import {
+  forgetWatchlistListingPreview,
+  rememberWatchlistListingPreview,
+} from '../MarketHomeV2/components/MarketTokenList/hooks/watchlistListingPreview';
 import { MarketTestIDs } from '../testIDs';
 
 import { useWatchListV2Action } from './watchListHooksV2';
@@ -79,6 +82,12 @@ export const useStarV2Checked = ({
         if (!removed) {
           return;
         }
+        forgetWatchlistListingPreview({
+          chainId: assetId || stockId ? '' : chainId,
+          contractAddress: assetId || stockId ? '' : contractAddress,
+          assetId,
+          stockId,
+        });
         defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
           network: chainId,
           tokenSymbol: tokenSymbol || '',
@@ -100,6 +109,7 @@ export const useStarV2Checked = ({
         });
         const added = await actions.addIntoWatchListV2([watchlistItem]);
         if (!added) {
+          forgetWatchlistListingPreview(watchlistItem);
           return;
         }
         defaultLogger.dex.watchlist.dexAddToWatchlist({

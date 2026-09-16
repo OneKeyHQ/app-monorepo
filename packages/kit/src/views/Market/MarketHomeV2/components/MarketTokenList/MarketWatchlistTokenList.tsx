@@ -127,6 +127,7 @@ function MarketWatchlistTokenList({
 
   const watchlistResult = useMarketWatchlistTokenList({
     watchlist,
+    isWatchlistMounted: watchlistState.isMounted,
     pageSize: 999,
     pollingInterval,
   });

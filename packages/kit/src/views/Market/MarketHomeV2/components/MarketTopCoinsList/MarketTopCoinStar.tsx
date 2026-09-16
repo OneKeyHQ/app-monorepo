@@ -11,6 +11,8 @@ export function MarketTopCoinStar({ token }: { token: IMarketAssetListItem }) {
       listingId={token.assetId}
       from={EWatchlistFrom.Homepage}
       tokenSymbol={token.symbol.toUpperCase()}
+      tokenName={token.name}
+      logoUrl={token.logoUrl}
       testID={MarketTestIDs.topCoinsStarButton(token.assetId)}
     />
   );

@@ -1,13 +1,4 @@
-import {
-  shouldFetchWatchlistQuotesWhileFocused,
-  shouldWaitForNativeMarketBannerBeforeLayout,
-} from './marketBannerLayoutReady';
-
-describe('shouldWaitForNativeMarketBannerBeforeLayout', () => {
-  it('does not block native first paint so watchlist quotes can start with the banner', () => {
-    expect(shouldWaitForNativeMarketBannerBeforeLayout()).toBe(false);
-  });
-});
+import { shouldFetchWatchlistQuotesWhileFocused } from './marketBannerLayoutReady';
 
 describe('shouldFetchWatchlistQuotesWhileFocused', () => {
   it('lets native fetch on first load even when the route is not focused yet', () => {

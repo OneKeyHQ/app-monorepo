@@ -65,6 +65,7 @@ export function useIsWatchlistTokenCacheReady(): boolean {
 
 export interface IUseMarketWatchlistTokenListParams {
   watchlist: IMarketWatchListItemV2[];
+  isWatchlistMounted?: boolean;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
@@ -94,6 +95,7 @@ export interface IMarketWatchlistDataCache {
 
 export function useMarketWatchlistTokenList({
   watchlist,
+  isWatchlistMounted,
   initialSortBy,
   initialSortType,
   pageSize = 100,
@@ -482,7 +484,7 @@ export function useMarketWatchlistTokenList({
             return { ...perpsToken, sortIndex: watchlistItem.sortIndex ?? 0 };
           }
           const perpsQuotesPending = !perpsApiResult && !perpsResult?.failed;
-          return perpsQuotesPending
+          return platformEnv.isNative && perpsQuotesPending
             ? buildPendingPerpsWatchlistToken(watchlistItem)
             : undefined;
         }
@@ -505,7 +507,7 @@ export function useMarketWatchlistTokenList({
           return { ...found, stockId: watchlistItem.stockId };
         }
         const spotQuotesPending = !apiResult && !spotResult?.failed;
-        return spotQuotesPending
+        return platformEnv.isNative && spotQuotesPending
           ? buildPendingSpotWatchlistToken(watchlistItem, networkLogoUriMap)
           : undefined;
       })
@@ -525,8 +527,10 @@ export function useMarketWatchlistTokenList({
   ]);
 
   useEffect(() => {
+    const watchlistHydrated = isWatchlistMounted !== false;
     if (
       isInitialLoad &&
+      watchlistHydrated &&
       apiLoading === false &&
       (listingItems.length === 0 || listingLoading === false) &&
       (perpsItems.length === 0 || perpsLoading === false)
@@ -536,6 +540,7 @@ export function useMarketWatchlistTokenList({
   }, [
     apiLoading,
     isInitialLoad,
+    isWatchlistMounted,
     listingItems.length,
     listingLoading,
     perpsItems.length,

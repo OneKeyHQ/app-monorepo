@@ -437,3 +437,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Star only persisted `stockId`. Watchlist `tokenImageUri` came from `fetchMarketStockBatch`, which is gated on Market focus, so the first paint after search had an empty logo.
 **Fix**: Remember search/detail listing preview (logo, name, symbol) at star time and use it until the batch quote arrives.
 **Catchable by**: Section 4: Data flow search → star → watchlist row; NEW — identity-only persisted favorites must not drop display fields the source already had
+
+## Case: Native watchlist first-load bypass ended on empty atom hydration
+**Date**: 2026-09-16 | **Platforms**: iOS, Android (main)
+**Symptom**: First-load quote bypass flipped off after empty watchlist requests completed, then real SimpleDB favorites arrived under the focus gate and Favorites stayed blank.
+**Root Cause**: Native `main` renders an unmounted empty atom before `bg` hydrates. Empty quote hooks resolved immediately and cleared `isInitialLoad`.
+**Fix**: Keep the bypass until `watchlistState.isMounted`; only then treat completed pipelines as first-load done.
+**Catchable by**: Section 5: "Not loaded" vs "empty"; NEW — split-runtime first-load flags must wait for atom hydration, not empty-list request success
+
+## Case: Native union build failed on unregistered watchlist modules
+**Date**: 2026-09-16 | **Platforms**: iOS/Android CI (Native startup graph budget)
+**Symptom**: Union Build aborted: `watchlistListingPreview.ts` not in `module-id-registry.json`.
+**Root Cause**: New files entered the native graph via sync imports but were not registered.
+**Fix**: `yarn workspace @onekeyhq/mobile module-id:update --map` for the three production files and commit the registry.
+**Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push

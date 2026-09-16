@@ -248,6 +248,9 @@ const MarketTokenSelectorRow = memo(
                 kind="asset"
                 listingId={item.marketAssetId}
                 from={EWatchlistFrom.Search}
+                tokenSymbol={item.symbol}
+                tokenName={item.name}
+                logoUrl={item.tokenImageUri}
               />
             ) : (
               starElement

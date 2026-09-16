@@ -1,5 +1,6 @@
 import {
   clearWatchlistListingPreviews,
+  forgetWatchlistListingPreview,
   rememberWatchlistListingPreview,
   resolveListingWatchlistDisplay,
 } from './watchlistListingPreview';
@@ -62,6 +63,20 @@ describe('watchlistListingPreview', () => {
       name: 'AAPL',
       symbol: 'AAPL',
       tokenImageUri: '',
+    });
+  });
+
+  it('drops a remembered preview after unstar', () => {
+    rememberWatchlistListingPreview(aapl, {
+      logoUrl: 'https://example.com/aapl.png',
+      symbol: 'AAPL',
+    });
+    forgetWatchlistListingPreview(aapl);
+    expect(
+      resolveListingWatchlistDisplay({ watchlistItem: aapl }),
+    ).toMatchObject({
+      tokenImageUri: '',
+      symbol: 'AAPL',
     });
   });
 });

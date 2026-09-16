@@ -1,9 +1,17 @@
 import {
+  clearWatchlistListingPreviews,
+  rememberWatchlistListingPreview,
+} from './watchlistListingPreview';
+import {
   buildPendingPerpsWatchlistToken,
   buildPendingSpotWatchlistToken,
 } from './watchlistPendingRows';
 
 describe('watchlistPendingRows', () => {
+  afterEach(() => {
+    clearWatchlistListingPreviews();
+  });
+
   it('builds a removable spot identity before the batch quote arrives', () => {
     expect(
       buildPendingSpotWatchlistToken(
@@ -17,12 +25,43 @@ describe('watchlistPendingRows', () => {
       ),
     ).toMatchObject({
       id: 'evm--1:0xabc',
-      address: '0xabc',
+      address: '0xABC',
       networkId: 'evm--1',
       chainId: 'evm--1',
       sortIndex: 3,
       priceChangeRaw: '-',
       networkLogoUri: 'https://example.com/eth.png',
+    });
+  });
+
+  it('keeps case-sensitive contract addresses so remove and detail nav still match', () => {
+    expect(
+      buildPendingSpotWatchlistToken(
+        {
+          chainId: 'sol--101',
+          contractAddress: '6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx',
+          isNative: false,
+        },
+        new Map(),
+      ).address,
+    ).toBe('6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx');
+  });
+
+  it('uses the starred preview for the pending spot title and logo', () => {
+    const item = {
+      chainId: 'evm--1',
+      contractAddress: '0xabc',
+      isNative: false,
+    };
+    rememberWatchlistListingPreview(item, {
+      name: 'Pepe',
+      symbol: 'PEPE',
+      logoUrl: 'https://example.com/pepe.png',
+    });
+    expect(buildPendingSpotWatchlistToken(item, new Map())).toMatchObject({
+      name: 'Pepe',
+      symbol: 'PEPE',
+      tokenImageUri: 'https://example.com/pepe.png',
     });
   });
 

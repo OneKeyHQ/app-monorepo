@@ -35,7 +35,6 @@ import { MarketBannerProvider } from './components/MarketBanner/MarketBannerList
 import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
-import { shouldWaitForNativeMarketBannerBeforeLayout } from './layouts/marketBannerLayoutReady';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
 import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
@@ -319,10 +318,10 @@ function MarketHomeLayoutContent() {
   const isFocused = useRouteIsFocused();
   useRefreshWatchListV2OnFocus(isFocused);
 
-  if (
-    shouldWaitForSpotCategoryReady ||
-    shouldWaitForNativeMarketBannerBeforeLayout()
-  ) {
+  // Native watchlist quotes cannot start until Market layout mounts, so the
+  // banner request must not sit on this first-paint path. Banner header height
+  // is applied after fetch via resolveMarketBannerHeaderDecision.
+  if (shouldWaitForSpotCategoryReady) {
     return (
       <LazyPageContainer eager={platformEnv.isWeb}>
         {md || platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
@@ -399,10 +398,7 @@ function BaseMarketHomeWithProvider({
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
   useRefreshWatchListV2OnFocus(isFocused);
-  if (
-    shouldWaitForSpotCategoryReady ||
-    shouldWaitForNativeMarketBannerBeforeLayout()
-  ) {
+  if (shouldWaitForSpotCategoryReady) {
     return platformEnv.isNative ? <MarketHomeLoadingFallback /> : null;
   }
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted

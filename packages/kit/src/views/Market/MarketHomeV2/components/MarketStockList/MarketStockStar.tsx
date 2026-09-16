@@ -17,6 +17,8 @@ export function MarketStockStar({
       listingId={stock.stockId}
       from={from}
       tokenSymbol={stock.symbol}
+      tokenName={stock.name}
+      logoUrl={stock.logoUrl}
       testID={MarketTestIDs.stockStarButton(stock.stockId)}
     />
   );

@@ -1,10 +1,3 @@
-export function shouldWaitForNativeMarketBannerBeforeLayout(): boolean {
-  // Native watchlist quotes cannot start until Market layout mounts, so the
-  // banner request must not sit on the first-paint path. Banner header height
-  // is applied after fetch via resolveMarketBannerHeaderDecision.
-  return false;
-}
-
 export function shouldFetchWatchlistQuotesWhileFocused({
   isFocused,
   pageIndex,

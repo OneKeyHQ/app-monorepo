@@ -6,6 +6,8 @@ import {
   getNetworkLogoUri,
 } from '../utils/tokenListHelpers';
 
+import { getWatchlistListingPreview } from './watchlistListingPreview';
+
 import type { IMarketToken } from '../MarketTokenData';
 
 const PENDING_WATCHLIST_METRICS = {
@@ -19,24 +21,25 @@ const PENDING_WATCHLIST_METRICS = {
   uniqueTraders: 0,
   holders: 0,
   turnover: Number.NaN,
-  tokenImageUri: '',
 } as const;
 
 export function buildPendingSpotWatchlistToken(
   watchlistItem: IMarketWatchListItemV2,
   networkLogoUriMap: ReadonlyMap<string, string>,
 ): IMarketToken {
-  const { isNative, normalizedAddress } = getNativeTokenInfo(
+  const { isNative } = getNativeTokenInfo(
     watchlistItem.isNative,
     watchlistItem.contractAddress,
   );
+  const preview = getWatchlistListingPreview(watchlistItem);
   const chainId = watchlistItem.chainId;
   return {
     ...PENDING_WATCHLIST_METRICS,
     id: getMarketWatchlistKey(watchlistItem),
-    name: '',
-    symbol: '',
-    address: normalizedAddress,
+    name: preview?.name ?? '',
+    symbol: preview?.symbol ?? '',
+    address: isNative ? '' : (watchlistItem.contractAddress ?? ''),
+    tokenImageUri: preview?.logoUrl ?? '',
     networkLogoUri:
       networkLogoUriMap.get(chainId) || getNetworkLogoUri(chainId),
     networkId: chainId,
@@ -56,6 +59,7 @@ export function buildPendingPerpsWatchlistToken(
     name: coin,
     symbol: coin,
     address: '',
+    tokenImageUri: '',
     networkLogoUri: '',
     networkId: '',
     chainId: '',

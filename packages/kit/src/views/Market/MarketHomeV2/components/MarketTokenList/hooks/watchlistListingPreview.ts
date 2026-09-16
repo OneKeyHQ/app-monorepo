@@ -46,6 +46,10 @@ export function getWatchlistListingPreview(
   return listingPreviews.get(getMarketWatchlistKey(item));
 }
 
+export function forgetWatchlistListingPreview(item: IWatchlistListingIdentity) {
+  listingPreviews.delete(getMarketWatchlistKey(item));
+}
+
 export function clearWatchlistListingPreviews() {
   listingPreviews.clear();
 }

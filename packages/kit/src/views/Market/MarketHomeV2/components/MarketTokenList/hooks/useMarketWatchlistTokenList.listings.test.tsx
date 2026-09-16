@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { renderHook, waitFor } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketListingWatchlistQuote } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -23,6 +24,10 @@ const mockBatch = jest.fn<Promise<{ list: [] }>, unknown[]>(async () => ({
 }));
 const mockNetworks: [] = [];
 jest.mock('@onekeyhq/components', () => ({ useCarouselIndex: () => 0 }));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
   useMarketBasicConfig: () => ({ networkList: mockNetworks }),
 }));
@@ -78,6 +83,7 @@ const stockItem = (
 });
 beforeEach(() => {
   jest.clearAllMocks();
+  (platformEnv as { isNative: boolean }).isNative = false;
   mockStockBatch.mockResolvedValue([]);
   clearWatchlistListingPreviews();
 });
@@ -188,6 +194,7 @@ it('retains an unavailable asset so it can still be removed', async () => {
   ]);
 });
 it('shows spot identity rows before the batch quote arrives', async () => {
+  (platformEnv as { isNative: boolean }).isNative = true;
   let resolveBatch: ((value: { list: [] }) => void) | undefined;
   mockBatch.mockImplementationOnce(
     () =>
@@ -214,6 +221,55 @@ it('shows spot identity rows before the batch quote arrives', async () => {
   });
   resolveBatch?.({ list: [] });
   await waitFor(() => expect(result.current.data).toEqual([]));
+});
+it('does not emit pending spot rows on desktop or web', async () => {
+  mockBatch.mockImplementationOnce(() => new Promise(() => undefined));
+  const watchlist = [
+    {
+      chainId: 'evm--1',
+      contractAddress: '0xabc',
+      isNative: false,
+    },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(true));
+  expect(result.current.data).toEqual([]);
+});
+it('keeps the native first-load bypass until the watchlist atom is mounted', async () => {
+  (platformEnv as { isNative: boolean }).isNative = true;
+  const watchlist = [
+    {
+      chainId: 'evm--1',
+      contractAddress: '0xabc',
+      isNative: false,
+    },
+  ];
+  const { rerender, result } = renderHook(
+    ({
+      nextWatchlist,
+      isWatchlistMounted,
+    }: {
+      nextWatchlist: typeof watchlist;
+      isWatchlistMounted: boolean;
+    }) =>
+      useMarketWatchlistTokenList({
+        watchlist: nextWatchlist,
+        isWatchlistMounted,
+        pollingInterval: 0,
+      }),
+    {
+      initialProps: {
+        nextWatchlist: [] as typeof watchlist,
+        isWatchlistMounted: false,
+      },
+    },
+  );
+  await waitFor(() => expect(mockBatch).not.toHaveBeenCalled());
+  expect(result.current.isLoading).toBe(true);
+  rerender({ nextWatchlist: watchlist, isWatchlistMounted: true });
+  await waitFor(() => expect(mockBatch).toHaveBeenCalled());
 });
 it('keeps a starred stock logo before the batch quote arrives', async () => {
   rememberWatchlistListingPreview(
