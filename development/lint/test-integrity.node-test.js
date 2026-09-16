@@ -1125,6 +1125,32 @@ test('what a named function returns is still source', () => {
   `,
     'guarded read helper reading data at the call',
   );
+  const constantGuardedRead = guardedRead.replace(
+    "return '';",
+    "const empty = '';\n        return empty;",
+  );
+  assertGated(
+    `${constantGuardedRead}
+    it('x', () => { expect(loadFixture('Thing.ts')).toContain('go'); });
+  `,
+    'guarded read helper with a constant fallback reading source at the call',
+  );
+  const conditionalFallbackRead = `
+    function loadFixture(name, useFallback) {
+      if (useFallback) {
+        return '';
+      }
+      return readFileSync(join(__dirname, 'src', name), 'utf8');
+    }
+  `;
+  assertClean(
+    `${conditionalFallbackRead}
+    it('x', () => {
+      expect(loadFixture('Thing.ts', true)).toContain('go');
+    });
+  `,
+    'conditional literal fallback is not treated as a source read',
+  );
   // Whole or cut, as it was returned.
   const script =
     "const code = readFileSync(join(__dirname, 'thing.js'), 'utf8');";

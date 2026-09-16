@@ -1939,6 +1939,88 @@ function collectReadHelpers(ast, isReadCallee, classify) {
   return helpers;
 }
 
+const FILE_AVAILABILITY_CHECKS = new Set([
+  'accessSync',
+  'exists',
+  'existsSync',
+  'lstatSync',
+  'statSync',
+]);
+
+/** Whether a condition checks if a file or directory is available. */
+function hasFileAvailabilityCheck(node) {
+  let found = false;
+  walk(node, (current) => {
+    if (
+      (current.type === 'CallExpression' ||
+        current.type === 'OptionalCallExpression') &&
+      FILE_AVAILABILITY_CHECKS.has(calleeName(current.callee))
+    ) {
+      found = true;
+    }
+  });
+  return found;
+}
+
+/** Return values paired with whether they are inside an availability fallback. */
+function readHelperReturns(fn) {
+  if (fn.body.type !== 'BlockStatement') {
+    return [{ value: fn.body, fallback: false }];
+  }
+  const values = [];
+  const visit = (node, fallback) => {
+    if (!node || typeof node.type !== 'string') {
+      return;
+    }
+    if (node.type === 'ReturnStatement') {
+      values.push({ value: node.argument, fallback });
+      return;
+    }
+    const childFallback =
+      fallback ||
+      node.type === 'CatchClause' ||
+      (node.type === 'IfStatement' && hasFileAvailabilityCheck(node.test));
+    for (const key of childKeys(node)) {
+      const value = node[key];
+      const children = Array.isArray(value) ? value : [value];
+      for (const child of children) {
+        if (
+          child &&
+          typeof child.type === 'string' &&
+          !FUNCTION_NODE_TYPES.has(child.type)
+        ) {
+          visit(child, childFallback);
+        }
+      }
+    }
+  };
+  visit(fn.body, false);
+  return values;
+}
+
+/** Whether a return is a static fallback, including a local constant. */
+function isStaticFallbackValue(value, fn, depth = 0) {
+  if (!value) {
+    return true;
+  }
+  if (value.type === 'Identifier') {
+    if (bindingOf(value)?.global === 'undefined') {
+      return true;
+    }
+    const constant = constantValue(value, fn);
+    return Boolean(
+      constant && depth < 16 && isStaticFallbackValue(constant, fn, depth + 1),
+    );
+  }
+  if (value.type === 'TemplateLiteral') {
+    return value.expressions.length === 0;
+  }
+  if (value.type === 'UnaryExpression' && value.operator === 'void') {
+    return true;
+  }
+  return value.type.endsWith('Literal');
+}
+
 /**
  * The read a named function with a single return hands back, and its path
  * with the constants the function declares for itself written in place. A
@@ -1952,33 +2034,14 @@ function returnedRead(node, isReadCallee) {
     return undefined;
   }
   const { fn } = named;
-  let values = [fn.body];
-  if (fn.body.type === 'BlockStatement') {
-    values = [];
-    walkOwnBody(fn.body, (current) => {
-      if (current.type === 'ReturnStatement') {
-        values.push(current.argument);
-      }
-    });
-  }
-  // Guard branches commonly return an empty value when the file is absent;
-  // they do not change which non-literal return reads the caller's path.
-  const readCandidates = values.filter((value) => {
-    if (!value) {
-      return false;
-    }
-    if (
-      value.type === 'NullLiteral' ||
-      value.type === 'StringLiteral' ||
-      value.type === 'NumericLiteral' ||
-      value.type === 'BooleanLiteral'
-    ) {
-      return false;
-    }
-    return !(
-      value.type === 'Identifier' && bindingOf(value)?.global === 'undefined'
-    );
-  });
+  const values = readHelperReturns(fn);
+  // Availability guards commonly return an empty value when the file is
+  // absent; unrelated conditional fallbacks must remain separate returns.
+  const readCandidates = values
+    .filter(
+      ({ value, fallback }) => !fallback || !isStaticFallbackValue(value, fn),
+    )
+    .map(({ value }) => value);
   if (readCandidates.length !== 1) {
     return undefined;
   }
