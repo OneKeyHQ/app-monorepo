@@ -29,6 +29,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  getCurrentVisibilityState,
   useMedia,
 } from '@onekeyhq/components';
 import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
@@ -82,7 +83,6 @@ import {
   MIN_WITHDRAW_AMOUNT,
   USDC_TOKEN_INFO,
   USDC_WITHDRAW_DESTINATIONS,
-  USDC_WITHDRAW_GAS_RESERVE,
   WITHDRAW_FEE,
   getUsdcWithdrawDestination,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -122,6 +122,7 @@ import {
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
 import { usePerpsAmountInput } from './usePerpsAmountInput';
+import { formatUsdcWithdrawFeeText } from './withdrawFeeDisplayUtils';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { IntlShape } from 'react-intl';
@@ -137,34 +138,6 @@ const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
 const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const WITHDRAW_QUOTE_REFRESH_INTERVAL_MS = 30_000;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
-
-function formatWithdrawFeeComponent(
-  component: IUsdcWithdrawFeeQuote['components'][number],
-) {
-  const amount = new BigNumber(component.amount).toFixed(2);
-  if (component.kind === 'hyperEvmGas') {
-    return `< $${amount}`;
-  }
-  return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
-}
-
-function formatWithdrawFeeText(
-  quote: IUsdcWithdrawFeeQuote | undefined,
-  reserve: string | undefined,
-  includeReserve: boolean,
-) {
-  if (!quote || (includeReserve && !reserve)) return undefined;
-  const parts = quote.components
-    .filter((component) => !includeReserve || component.kind !== 'hyperEvmGas')
-    .map(formatWithdrawFeeComponent);
-  if (includeReserve && reserve) {
-    const prefix = new BigNumber(reserve).lte(USDC_WITHDRAW_GAS_RESERVE)
-      ? '< '
-      : '';
-    parts.unshift(`${prefix}$${new BigNumber(reserve).toFixed(2)}`);
-  }
-  return parts.join(' + ');
-}
 
 function getWithdrawFeeKey(
   destination: IUsdcWithdrawDestinationConfig,
@@ -494,10 +467,11 @@ function DepositWithdrawContent({
   );
   useEffect(() => {
     if (!needsWithdrawReserve) return undefined;
-    const interval = setInterval(
-      () => void refreshWithdrawReserve(),
-      WITHDRAW_QUOTE_REFRESH_INTERVAL_MS,
-    );
+    const interval = setInterval(() => {
+      if (getCurrentVisibilityState()) {
+        void refreshWithdrawReserve();
+      }
+    }, WITHDRAW_QUOTE_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [needsWithdrawReserve, refreshWithdrawReserve]);
   const hasWithdrawAccountChanged =
@@ -2437,11 +2411,11 @@ function DepositWithdrawContent({
 
   const withdrawFeeText = useMemo(
     () =>
-      formatWithdrawFeeText(
-        withdrawFeeQuote,
-        matchedWithdrawReserve?.reserve,
-        needsWithdrawReserve,
-      ),
+      formatUsdcWithdrawFeeText({
+        feeQuote: withdrawFeeQuote,
+        reserve: matchedWithdrawReserve?.reserve,
+        includeReserve: needsWithdrawReserve,
+      }),
     [needsWithdrawReserve, withdrawFeeQuote, matchedWithdrawReserve?.reserve],
   );
 
