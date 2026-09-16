@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* cspell:words quasis pbxproj combinators */
+/* cspell:words quasis pbxproj combinators overrider overriders */
 /**
  * Test integrity lint.
  *
@@ -568,9 +568,10 @@ function taintKind(node, tainted, calls) {
     case 'OptionalMemberExpression': {
       const stored = storedKey(node);
       // A property an object or array literal spells out holds what it was
-      // given and nothing else, so `ctx.count` is not source because
-      // `ctx.source` is. A property only ever assigned may still hold whatever
-      // the rest of its owner does.
+      // given, and what any spread that can replace it holds under that
+      // name, and nothing else: `ctx.count` is not source because
+      // `ctx.source` is. A property only ever assigned may still hold
+      // whatever the rest of its owner does.
       if (stored?.fromLiteral) {
         return tainted.get(stored);
       }
@@ -973,6 +974,7 @@ function collectTransformHelpers(ast, calls, helpers) {
  */
 function collectDefinitions(ast, calls) {
   const definitions = [];
+  const overrides = [];
   const define = (node, value, identifiers, fragment = false) => {
     const bindings = identifiers.map(bindingOf).filter(Boolean);
     if (bindings.length > 0) {
@@ -996,12 +998,12 @@ function collectDefinitions(ast, calls) {
         define(node, value, identifiers);
         // A variable given a literal knows what each part of it holds.
         if (pattern?.type === 'Identifier') {
-          literalParts(bindingOf(pattern), value).forEach((part) =>
+          literalParts(bindingOf(pattern), value, overrides).forEach((part) =>
             store(node, part),
           );
         }
       });
-      storedValues(target).forEach((part) => store(node, part));
+      storedValues(target, overrides).forEach((part) => store(node, part));
     }
     callbackSlots(node, calls).forEach(
       ({ callback, parameters, value, fragment }) => {
@@ -1020,6 +1022,11 @@ function collectDefinitions(ast, calls) {
         }
       },
     );
+    // A default value, for a parameter or inside a pattern, is one more value
+    // the identifiers it defaults can hold.
+    if (node.type === 'AssignmentPattern') {
+      define(node, node.right, patternIdentifiers(node.left));
+    }
     if (node.type === 'ForOfStatement') {
       const pattern =
         node.left.type === 'VariableDeclaration'
@@ -1069,7 +1076,21 @@ function collectDefinitions(ast, calls) {
         fragment: false,
       });
       // `return { source, ast }` hands back each property on its own too.
-      literalParts(returned, value).forEach((part) => store(value, part));
+      literalParts(returned, value, overrides).forEach((part) =>
+        store(value, part),
+      );
+    });
+  });
+  // A literal with a spread can bring in any name it does not spell out
+  // itself, so every name recorded on the same owner may also hold what each
+  // spread holds under that name, whichever literal recorded it.
+  overrides.forEach(({ node, owner, spelled, overriders }) => {
+    STORED_VALUES.get(owner)?.forEach((key, name) => {
+      if (key.defined && !spelled.has(name)) {
+        overriders.forEach((overrider) =>
+          store(node, { key, value: overriddenValue(overrider, name) }),
+        );
+      }
     });
   });
   return definitions;
@@ -1144,7 +1165,7 @@ function destructured({ pattern, value }) {
 function literalProperty(literal, name) {
   for (let index = literal.properties.length - 1; index >= 0; index -= 1) {
     const property = literal.properties[index];
-    if (property.type === 'SpreadElement') {
+    if (overridesAnyName(property)) {
       return literal;
     }
     if (
@@ -1170,32 +1191,63 @@ function propertyAccess(owner, key, computed = key.type !== 'Identifier') {
  * under `source` on `ctx`, along with anything the assigned literal spells
  * out beneath it.
  */
-function storedValues({ pattern, value }) {
+function storedValues({ pattern, value }, overrides) {
   const stored = storedKey(pattern);
-  return stored ? [{ key: stored, value }, ...literalParts(stored, value)] : [];
+  return stored
+    ? [{ key: stored, value }, ...literalParts(stored, value, overrides)]
+    : [];
 }
 
 /**
  * The parts an object or array literal gives its owner, by property name or
  * position, all the way down through nested literals.
  */
-function literalParts(owner, value) {
+function literalParts(owner, value, overrides) {
   const literal = unwrapCollection(value);
   let parts = [];
   if (literal?.type === 'ObjectExpression') {
-    const lastSpread = literal.properties.findLastIndex(
-      (property) => property.type === 'SpreadElement',
-    );
-    parts = literal.properties
+    const overriders = literal.properties
       .map((property, index) => ({ property, index }))
-      .filter(({ property }) => property.type === 'ObjectProperty')
-      .map(({ property, index }) => ({
-        key: propertyKey(owner, staticName(property.key, property)),
-        value: property.value,
-        // A spread written after a property can replace it, so the literal
-        // only says what the property holds when no spread follows it.
-        literal: index > lastSpread,
+      .filter(({ property }) => overridesAnyName(property));
+    const named = literal.properties
+      .map((property, index) => ({
+        property,
+        index,
+        name:
+          property.type === 'ObjectProperty'
+            ? staticName(property.key, property)
+            : undefined,
       }))
+      .filter(({ name }) => name !== undefined);
+    if (owner && overriders.length > 0) {
+      // Names this literal leaves to its spreads are resolved once every name
+      // recorded on the owner is known; see collectDefinitions.
+      overrides.push({
+        node: literal,
+        owner,
+        spelled: new Set(named.map(({ name }) => name)),
+        overriders: overriders.map(({ property }) => property),
+      });
+    }
+    parts = named
+      .flatMap(({ property, index, name }) => {
+        const key = propertyKey(owner, name);
+        // A spread or computed key written after a property can replace it,
+        // with whatever it holds under that name.
+        const later = overriders.filter((overrider) => overrider.index > index);
+        return [
+          {
+            key,
+            value: property.value,
+            literal: true,
+            overridden: later.length > 0,
+          },
+          ...later.map(({ property: overrider }) => ({
+            key,
+            value: overriddenValue(overrider, name),
+          })),
+        ];
+      })
       .filter(({ key }) => key);
   } else if (literal?.type === 'ArrayExpression') {
     const spread = literal.elements.findIndex(
@@ -1211,7 +1263,29 @@ function literalParts(owner, value) {
       .filter(({ value: element }) => element);
   }
   return parts.flatMap((part) =>
-    part.literal ? [part, ...literalParts(part.key, part.value)] : [part],
+    part.literal && !part.overridden
+      ? [part, ...literalParts(part.key, part.value, overrides)]
+      : [part],
+  );
+}
+
+/** What a spread or computed key can put under `name`. */
+function overriddenValue(overrider, name) {
+  return overrider.type === 'SpreadElement'
+    ? propertyAccess(
+        overrider.argument,
+        { type: 'StringLiteral', value: name },
+        true,
+      )
+    : overrider.value;
+}
+
+/** A spread, or a computed key whose name is not written down. */
+function overridesAnyName(property) {
+  return (
+    property.type === 'SpreadElement' ||
+    (property.type === 'ObjectProperty' &&
+      staticName(property.key, property) === undefined)
   );
 }
 

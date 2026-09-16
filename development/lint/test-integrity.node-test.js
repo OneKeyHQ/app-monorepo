@@ -1224,6 +1224,60 @@ test('what a variable stores under a property is still source', () => {
   `,
     'control: a property written after the spread',
   );
+  // A spread can replace a name however the owner came to have it: spelled in
+  // an earlier literal, or left out of this literal altogether.
+  assertGated(
+    `${payload}
+    let context = { source: 'plain' };
+    context = { source: 'plain', ...payload };
+    it('x', () => { expect(context.source).toContain('go'); });
+  `,
+    'a name spelled in one literal and replaced by a spread in another',
+  );
+  assertGated(
+    `${payload}
+    let context = { source: 'plain' };
+    context = { ...payload };
+    it('x', () => { expect(context.source).toContain('go'); });
+  `,
+    'a name a later literal leaves to its spread',
+  );
+  assertClean(
+    `${payload}
+    let context = { source: 'plain' };
+    context = { ...payload, source: 'plain' };
+    it('x', () => { expect(context.source).toBe('plain'); });
+  `,
+    'control: a later literal that spells the name after its spread',
+  );
+  // What a spread can put under a name is what its argument holds there.
+  assertClean(
+    `
+    const counted = { source: ${read}, count: 3 };
+    const context = { count: 1, ...counted };
+    it('x', () => { expect(context.count).toBe(3); });
+  `,
+    'control: a name the spread argument holds no source under',
+  );
+  // A computed key can be any name, so it can replace a property like a spread.
+  assertGated(
+    `
+    const context = { source: 'plain', [key]: ${read} };
+    it('x', () => {
+      const { source } = context;
+      expect(source).toContain('go');
+      expect(context.source).toContain('go');
+    });
+  `,
+    'a property a later computed key can replace',
+  );
+  assertClean(
+    `
+    const context = { [key]: ${read}, source: 'plain' };
+    it('x', () => { expect(context.source).toBe('plain'); });
+  `,
+    'control: a property written after the computed key',
+  );
   const arrayOwner = `const files = [${read}, 'plain'];`;
   assertGated(
     `${arrayOwner}
@@ -1316,6 +1370,36 @@ test('a path moved into a binding classifies like the path itself', () => {
     it('x', () => { expect(source).toContain('go'); });
   `,
     'control: a workflow named by a variable',
+  );
+});
+
+test('a default value is one more value its identifier can hold', () => {
+  const read = "readFileSync(join(__dirname, 'thing.ts'), 'utf8')";
+  assertGated(
+    `
+    it('x', () => {
+      const { source = ${read} } = {};
+      expect(source).toContain('go');
+    });
+  `,
+    'destructuring default',
+  );
+  assertGated(
+    `
+    it.each([undefined])('x', (text = ${read}) => {
+      expect(text).toContain('go');
+    });
+  `,
+    'parameter default',
+  );
+  assertClean(
+    `
+    it('x', () => {
+      const { count = 3 } = {};
+      expect(count).toBe(3);
+    });
+  `,
+    'control: a default that holds no source',
   );
 });
 
