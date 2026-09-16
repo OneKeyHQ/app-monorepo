@@ -353,11 +353,14 @@ describe('BorrowPositionCard screen-reader activation', () => {
 });
 
 describe('BorrowPositionCard collateral slot', () => {
-  // Narrow on purpose: the real swallow lives in CollateralSwitchCell and is
-  // covered there. What is left for the card is that it takes the press on the
-  // bubble phase, so a child that stops propagation is actually obeyed — a
-  // capture-phase handler here would silently override every such child. Web
-  // only; on native the swallow runs through the touch responder instead.
+  // Narrow on purpose: the real swallow lives in CollateralSwitchCell, and on
+  // web that is covered there. What is left for the card is that it takes the
+  // press on the bubble phase, so a child that stops propagation is actually
+  // obeyed — a capture-phase handler here would silently override every such
+  // child. Native runs through the touch responder instead, which no suite can
+  // reach: jest.config.js maps @onekeyhq/components to a module-wide mock, so
+  // the switch that has to claim the touch is never the real one. That path is
+  // a device check.
   it('does not expand when the collateral control swallows the press', () => {
     const onToggleExpand = jest.fn();
     const { getByTestId } = renderCard({

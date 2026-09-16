@@ -666,14 +666,16 @@ export function CollateralSwitchCell({
       position="relative"
       ai="center"
       jc="center"
-      // No padded halo here. Neither platform needs one: on web, desktop and
-      // the extension ESwitchSize.small renders a 38x24 Tamagui track, at the
-      // 24x24 floor of WCAG 2.5.8, and on native the Switch delegates to the
-      // platform control, which is larger again. Growing it with padding and a
-      // negative margin also put the halo outside this view's parent, where
-      // Android's ViewGroup never hit-tests and hitSlop is ignored, while on
-      // web it swallowed the desktop table's row press and overhung the next
-      // column.
+      // No padded halo here, and each target reaches the 24x24 floor of WCAG
+      // 2.5.8 its own way. Web, desktop, the extension and iOS all render the
+      // same 38x24 Tamagui track, because native={!isNativeIOS} below lands
+      // after the Switch's own hard-coded native and wins; iOS adds the
+      // hitSlop set alongside it. Android is the one target that delegates to
+      // the platform control, which is larger again. Growing the target here
+      // with padding and a negative margin also put the halo outside this
+      // view's parent, where Android's ViewGroup never hit-tests and hitSlop
+      // is ignored, while on web it swallowed the desktop table's row press
+      // and overhung the next column.
       onPress={
         platformEnv.isNative
           ? undefined
