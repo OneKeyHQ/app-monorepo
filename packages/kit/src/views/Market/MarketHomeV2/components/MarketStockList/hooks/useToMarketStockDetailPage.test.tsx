@@ -1,7 +1,9 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketStockDetailRouteParams } from '@onekeyhq/shared/src/routes';
 import {
   ERootRoutes,
   ETabMarketRoutes,
@@ -12,16 +14,22 @@ import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/util
 import { useToMarketStockDetailPage } from './useToMarketStockDetailPage';
 
 const mockReplace = jest.fn();
+const mockSetParams = jest.fn();
 const mockPopToTop = jest.fn();
 const mockPush = jest.fn();
 const mockSwitchTabAsync = jest.fn<Promise<void>, [unknown]>(() =>
   Promise.resolve(),
 );
 let mockIsModalPage = false;
+let mockCurrentRouteName: string = ETabMarketRoutes.MarketDetailV2;
+jest.mock('@react-navigation/native', () => ({
+  useRoute: () => ({ name: mockCurrentRouteName }),
+}));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({
     replace: mockReplace,
+    setParams: mockSetParams,
     popToTop: mockPopToTop,
     push: mockPush,
   }),
@@ -72,9 +80,11 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    isDesktop: true,
     isExtensionUiPopup: false,
     isExtensionUiSidePanel: false,
     isNative: false,
+    isWeb: false,
   },
 }));
 
@@ -87,7 +97,9 @@ const mockNavigate: jest.Mock = jest.requireMock('@onekeyhq/components')
 const mockedPlatformEnv = platformEnv as typeof platformEnv & {
   isExtensionUiPopup: boolean;
   isExtensionUiSidePanel: boolean;
+  isDesktop: boolean;
   isNative: boolean;
+  isWeb: boolean;
 };
 const mockCloseExtensionPopupAfterExpandTabOpen = jest.mocked(
   closeExtensionPopupAfterExpandTabOpen,
@@ -98,8 +110,11 @@ describe('useToMarketStockDetailPage', () => {
     jest.clearAllMocks();
     mockedPlatformEnv.isExtensionUiPopup = false;
     mockedPlatformEnv.isExtensionUiSidePanel = false;
+    mockedPlatformEnv.isDesktop = true;
     mockedPlatformEnv.isNative = false;
+    mockedPlatformEnv.isWeb = false;
     mockIsModalPage = false;
+    mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
   });
 
   it('resets the tab stack before opening the selected stock', async () => {
@@ -122,6 +137,98 @@ describe('useToMarketStockDetailPage', () => {
       stockPreviewLogoUrl: 'aapl.png',
     });
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('updates the current stock route without remounting the detail page', async () => {
+    mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'GOOG',
+        symbol: 'GOOG',
+        name: 'Alphabet Inc.',
+        logoUrl: 'goog.png',
+      });
+    });
+
+    expect(mockSetParams).toHaveBeenCalledWith({
+      stockId: 'GOOG',
+      from: undefined,
+      disableTrade: undefined,
+      showFavoriteButton: undefined,
+      tokenAddress: undefined,
+      network: undefined,
+      isNative: undefined,
+      stockPreviewSymbol: 'GOOG',
+      stockPreviewName: 'Alphabet Inc.',
+      stockPreviewLogoUrl: 'goog.png',
+    });
+    expect(mockPopToTop).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it.each(['desktop', 'web'])(
+    'clears selection policies when shallow-merging a retained %s route',
+    async (platform) => {
+      mockedPlatformEnv.isDesktop = platform === 'desktop';
+      mockedPlatformEnv.isWeb = platform === 'web';
+      mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+      let params: IMarketStockDetailRouteParams = {
+        stockId: 'AAPL',
+        from: EEnterWay.Search,
+        disableTrade: true,
+        showFavoriteButton: false,
+        tokenAddress: 'old-token',
+        network: 'evm--1',
+        isNative: false,
+      };
+      mockSetParams.mockImplementationOnce(
+        (update: Partial<IMarketStockDetailRouteParams>) => {
+          params = { ...params, ...update };
+        },
+      );
+      const { result } = renderHook(() =>
+        useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+      );
+      await act(async () => {
+        await result.current('GOOG');
+      });
+      expect(params.stockId).toBe('GOOG');
+      expect(params.disableTrade).toBeUndefined();
+      expect(params.showFavoriteButton).toBeUndefined();
+      expect(params.from).toBeUndefined();
+      expect(params.tokenAddress).toBeUndefined();
+      expect(params.network).toBeUndefined();
+      expect(params.isNative).toBeUndefined();
+    },
+  );
+
+  it('preserves native stock navigation when another stock detail is active', async () => {
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'GOOG',
+        symbol: 'GOOG',
+        name: 'Alphabet Inc.',
+        logoUrl: 'goog.png',
+      });
+    });
+
+    expect(mockSetParams).not.toHaveBeenCalled();
+    expect(mockPopToTop).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith(
+      ETabMarketRoutes.MarketStockDetail,
+      expect.objectContaining({ stockId: 'GOOG' }),
+    );
   });
 
   it('dismisses the market modal before opening the selected stock', async () => {

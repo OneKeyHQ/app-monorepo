@@ -40,6 +40,9 @@ export type IPromiseResultOptions<T> = {
   revalidateOnFocus?: boolean;
   // automatically revalidate when the browser regains a network connection
   revalidateOnReconnect?: boolean;
+  // Resume this hook when React reconnects effects while preserving state.
+  // Opt in only for retained surfaces that are known to use this lifecycle.
+  resumeOnEffectReconnect?: boolean;
   testID?: string;
   /**
    * When set, enables stale-while-revalidate:
@@ -184,6 +187,11 @@ export function usePromiseResult<T>(
   const stopPollingRef = useRef(false);
 
   const isEffectValid = useRef(true);
+  useEffect(() => {
+    if (optionsRef.current.resumeOnEffectReconnect) {
+      isEffectValid.current = true;
+    }
+  }, []);
 
   const run = useMemo(
     () => {
