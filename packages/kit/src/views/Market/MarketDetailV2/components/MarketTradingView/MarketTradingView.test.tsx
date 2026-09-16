@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import { Suspense, startTransition } from 'react';
+
 import { act, render, screen } from '@testing-library/react';
 import { createStore } from 'jotai';
 
@@ -18,16 +20,25 @@ import { MarketTradingView } from './MarketTradingView';
 import type { IMarketTradingViewProps } from './MarketTradingView';
 
 let mockOnPriceUpdate: (data: ITradingViewPriceUpdateData) => void;
+const mockChartRender = jest.fn();
+let mockSuspendedTokenAddress: string | undefined;
+const mockPendingChart = new Promise<void>(() => undefined);
 let cacheKeyId = 0;
 
 jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewV2', () => ({
   TRADING_VIEW_DISABLED_FEATURES: {},
   TradingViewV2: ({
     onPriceUpdate,
+    tokenAddress,
   }: {
     onPriceUpdate: typeof mockOnPriceUpdate;
+    tokenAddress: string;
   }) => {
+    mockChartRender();
     mockOnPriceUpdate = onPriceUpdate;
+    if (tokenAddress === mockSuspendedTokenAddress) {
+      throw mockPendingChart;
+    }
     return null;
   },
 }));
@@ -106,13 +117,16 @@ function renderChart({
   const cacheKey = `web-chart-price-${cacheKeyId}`;
   const buildView = (nextProps: IMarketTradingViewProps) => (
     <ProviderJotaiContextMarketV2 store={store}>
-      <MarketTradingView {...nextProps} />
-      <PriceHeader cacheKey={cacheKey} />
+      <Suspense fallback={<div data-testid="chart-loading" />}>
+        <MarketTradingView {...nextProps} />
+        <PriceHeader cacheKey={cacheKey} />
+      </Suspense>
     </ProviderJotaiContextMarketV2>
   );
   const view = render(buildView(props));
   return {
     store,
+    unmount: view.unmount,
     rerender: (nextProps: IMarketTradingViewProps) =>
       view.rerender(buildView(nextProps)),
   };
@@ -125,6 +139,8 @@ function expectHeaderPrice(price: string) {
 
 describe('MarketTradingView price synchronization', () => {
   beforeEach(() => {
+    mockChartRender.mockClear();
+    mockSuspendedTokenAddress = undefined;
     jest.useFakeTimers();
     jest.spyOn(Date, 'now').mockReturnValue(receivedAt);
   });
@@ -132,6 +148,56 @@ describe('MarketTradingView price synchronization', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();
+  });
+
+  it('updates header prices without rerendering the chart subtree', () => {
+    const { store } = renderChart({
+      props: { ...chartProps, nativeControlsLayoutMode: 'desktop' },
+    });
+    const initialRenderCount = mockChartRender.mock.calls.length;
+
+    act(() => mockOnPriceUpdate(latestPrice));
+    const onPriceUpdate = mockOnPriceUpdate;
+    for (const price of ['0.003001', '0.003001', '0.003002']) {
+      act(() => onPriceUpdate({ ...latestPrice, source: 'realtime', price }));
+    }
+
+    expectHeaderPrice('0.003002');
+    expect(store.get(tokenDetailAtom())?.price).toBe('0.003002');
+    expect(mockChartRender).toHaveBeenCalledTimes(initialRenderCount);
+  });
+
+  it('keeps the committed chart updating while a token switch is suspended', () => {
+    const { store, rerender } = renderChart();
+    const committedOnPriceUpdate = mockOnPriceUpdate;
+    const suspendedTokenAddress = 'suspended-token';
+    mockSuspendedTokenAddress = suspendedTokenAddress;
+
+    act(() => {
+      startTransition(() => {
+        rerender({ ...chartProps, tokenAddress: suspendedTokenAddress });
+      });
+    });
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
+
+    act(() => committedOnPriceUpdate({ ...latestPrice, source: 'realtime' }));
+
+    expect(store.get(tokenDetailAtom())?.price).toBe('0.002930');
+    expectHeaderPrice('0.002930');
+  });
+
+  it('stops replaying buffered prices and ignores callbacks after unmount', () => {
+    const { store, unmount } = renderChart({ initialDetail: null });
+    const previousOnPriceUpdate = mockOnPriceUpdate;
+    act(() => previousOnPriceUpdate(latestPrice));
+    unmount();
+
+    act(() => {
+      store.set(tokenDetailAtom(), detail);
+      previousOnPriceUpdate({ ...latestPrice, source: 'realtime' });
+    });
+
+    expect(store.get(tokenDetailAtom())).toEqual(detail);
   });
 
   it('syncs the initial snapshot even when its candle timestamp predates the API price', () => {
@@ -185,6 +251,7 @@ describe('MarketTradingView price synchronization', () => {
 
   it('replays the snapshot when token details arrive after the preview-mounted chart', () => {
     const { store } = renderChart({ initialDetail: null });
+    const initialRenderCount = mockChartRender.mock.calls.length;
     act(() => mockOnPriceUpdate(latestPrice));
     expect(store.get(tokenDetailAtom())).toBeUndefined();
 
@@ -192,6 +259,7 @@ describe('MarketTradingView price synchronization', () => {
 
     expect(store.get(tokenDetailAtom())?.price).toBe('0.002930');
     expectHeaderPrice('0.002930');
+    expect(mockChartRender).toHaveBeenCalledTimes(initialRenderCount);
   });
 
   it('buffers the latest realtime price without letting delayed history replace it', () => {

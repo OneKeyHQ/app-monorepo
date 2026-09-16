@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import {
@@ -12,8 +19,9 @@ import type {
   ITradingViewV2KLineDataFallback,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
+  tokenDetailAtom,
+  useMarketV2ContextData,
   useTokenDetailActions,
-  useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -148,47 +156,45 @@ export const MarketTradingView = memo(
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
-    const [tokenDetail] = useTokenDetailAtom();
-    const tokenDetailRef = useRef(tokenDetail);
-    tokenDetailRef.current = tokenDetail;
-    const priceUpdateStateRef = useRef<
-      | {
-          networkId: string;
-          tokenAddress: string;
-          disabled?: boolean;
-          hasRealtimePrice: boolean;
-          lastUpdated: number;
-          pendingPrice?: string;
-        }
-      | undefined
-    >(undefined);
-
-    if (
-      !priceUpdateStateRef.current ||
-      priceUpdateStateRef.current.networkId !== networkId ||
-      priceUpdateStateRef.current.tokenAddress !== tokenAddress ||
-      priceUpdateStateRef.current.disabled !== disableChartPriceUpdate
-    ) {
-      priceUpdateStateRef.current = {
+    const { store } = useMarketV2ContextData();
+    const lastPriceUpdatedAtRef = useRef(0);
+    const priceUpdateState = useMemo<{
+      networkId: string;
+      tokenAddress: string;
+      disabled?: boolean;
+      hasRealtimePrice: boolean;
+      pendingPrice?: string;
+    }>(
+      () => ({
         networkId,
         tokenAddress,
         disabled: disableChartPriceUpdate,
         hasRealtimePrice: false,
-        lastUpdated: priceUpdateStateRef.current?.lastUpdated ?? 0,
+      }),
+      [disableChartPriceUpdate, networkId, tokenAddress],
+    );
+    const activePriceUpdateStateRef = useRef<typeof priceUpdateState | null>(
+      null,
+    );
+
+    useLayoutEffect(() => {
+      // An interrupted render must not invalidate the committed chart's callbacks.
+      activePriceUpdateStateRef.current = priceUpdateState;
+      return () => {
+        activePriceUpdateStateRef.current = null;
       };
-    }
-    const priceUpdateState = priceUpdateStateRef.current;
+    }, [priceUpdateState]);
 
     const applyChartPrice = useCallback(
       (price: string) => {
         if (
           disableChartPriceUpdate ||
-          priceUpdateState !== priceUpdateStateRef.current
+          priceUpdateState !== activePriceUpdateStateRef.current
         ) {
           return;
         }
 
-        const detail = tokenDetailRef.current;
+        const detail = store?.get(tokenDetailAtom());
         if (
           !detail ||
           !isChartPriceUpdateForCurrentToken({
@@ -212,9 +218,9 @@ export const MarketTradingView = memo(
           Number.isFinite(detail.lastUpdated)
             ? detail.lastUpdated
             : 0;
-        priceUpdateState.lastUpdated = Math.max(
+        lastPriceUpdatedAtRef.current = Math.max(
           Date.now(),
-          priceUpdateState.lastUpdated + 1,
+          lastPriceUpdatedAtRef.current + 1,
           detailUpdatedAt + 1,
         );
         priceUpdateState.pendingPrice = undefined;
@@ -222,23 +228,34 @@ export const MarketTradingView = memo(
           tokenAddress,
           networkId,
           price,
-          lastUpdated: priceUpdateState.lastUpdated,
+          lastUpdated: lastPriceUpdatedAtRef.current,
         });
       },
       [
         disableChartPriceUpdate,
         networkId,
         priceUpdateState,
+        store,
         tokenAddress,
         tokenDetailActions,
       ],
     );
 
     useEffect(() => {
-      if (priceUpdateState.pendingPrice !== undefined) {
-        applyChartPrice(priceUpdateState.pendingPrice);
+      if (!store || disableChartPriceUpdate) {
+        return;
       }
-    }, [applyChartPrice, priceUpdateState, tokenDetail]);
+
+      const flushPendingPrice = () => {
+        if (priceUpdateState.pendingPrice !== undefined) {
+          applyChartPrice(priceUpdateState.pendingPrice);
+        }
+      };
+      // Replay pending prices without subscribing the chart's render tree.
+      const unsubscribe = store.sub(tokenDetailAtom(), flushPendingPrice);
+      flushPendingPrice();
+      return unsubscribe;
+    }, [applyChartPrice, disableChartPriceUpdate, priceUpdateState, store]);
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
