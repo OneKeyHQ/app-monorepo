@@ -4030,11 +4030,12 @@ export function useSwapBuildTx({
       // the relatively expensive account/unsigned-tx preparation overlaps the
       // build-tx request instead of extending the preview critical path.
       const unsignedTxPromise = getApproveUnSignedTxArr(data, true);
-      const [preparedBuildResult, unsignedTxResult] = await Promise.all([
-        preparedBuild,
-        unsignedTxPromise,
-      ]);
-      const { buildResult, builtAt } = preparedBuildResult;
+      // The build may take longer than unsigned-tx preparation. Attach a
+      // rejection handler before awaiting the build so an early approval RPC
+      // failure is handled by the fee-preparation try/catch below without an
+      // unhandled rejection while the build is still in flight.
+      void unsignedTxPromise.catch(() => undefined);
+      const { buildResult, builtAt } = await preparedBuild;
       if (
         !isCurrent() ||
         !buildResult.swapInfo ||
@@ -4043,7 +4044,7 @@ export function useSwapBuildTx({
         throw new CanceledError('Swap preparation is no longer available');
       }
       try {
-        const { unsignedTxArr } = unsignedTxResult;
+        const { unsignedTxArr } = await unsignedTxPromise;
         const feeResult = await estimateNetworkFee(
           fromAccountNetworkId,
           fromAccountId,
