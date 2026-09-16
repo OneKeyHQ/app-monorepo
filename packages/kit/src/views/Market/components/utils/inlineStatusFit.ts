@@ -8,16 +8,23 @@
 export function shouldShowOptionalSegment({
   availableWidth,
   contentWidth,
+  reservedWidth = 0,
 }: {
   /** The row's own measured width; 0 until the first layout pass. */
   availableWidth: number;
-  /** Width of the full row, optional segment included. */
+  /** Width of the measured stack, optional segment included. */
   contentWidth: number;
+  /**
+   * Row width the measured stack does not cover — the leading status icon and
+   * the gap before it. Without it a chip that overflows by less than the icon
+   * still reads as fitting.
+   */
+  reservedWidth?: number;
 }): boolean {
   // Before either measurement lands, render the segment: measuring it is what
   // tells us whether it fits, and a wide viewport keeps it anyway.
   if (availableWidth <= 0 || contentWidth <= 0) {
     return true;
   }
-  return contentWidth <= availableWidth;
+  return contentWidth + reservedWidth <= availableWidth;
 }

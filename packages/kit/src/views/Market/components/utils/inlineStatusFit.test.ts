@@ -26,3 +26,25 @@ describe('shouldShowOptionalSegment', () => {
     expect(shouldShowOptionalSegment(sizes)).toBe(true);
   });
 });
+
+describe('shouldShowOptionalSegment with the status icon', () => {
+  it('counts the icon and its gap against the row', () => {
+    expect(
+      shouldShowOptionalSegment({
+        availableWidth: 380,
+        contentWidth: 372,
+        reservedWidth: 24,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the segment when the icon still fits beside it', () => {
+    expect(
+      shouldShowOptionalSegment({
+        availableWidth: 380,
+        contentWidth: 340,
+        reservedWidth: 24,
+      }),
+    ).toBe(true);
+  });
+});

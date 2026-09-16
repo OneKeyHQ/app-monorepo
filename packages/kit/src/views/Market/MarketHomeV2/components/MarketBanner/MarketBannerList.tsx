@@ -166,12 +166,17 @@ function MarketBannerListComponent() {
   // Preserve the actual card dimensions (including tablet layouts) if a
   // reconnect removes the banners, without retaining interactive stale links.
   const visibleBannerList = hidden ? (retainedBannerList ?? []) : bannerList;
+  // One legacy banner pulls the whole row back to the filled layout: the
+  // scroller and the cards have to agree, or 272px transparent cards sit
+  // beside variable-width filled ones.
+  const isDividedList = visibleBannerList.every((item) => Boolean(item.tokens));
   const bannerItems = visibleBannerList.map((item) => (
     <MarketBannerItem
       key={item._id}
       item={item}
       isSmallScreen={isSmallScreen}
       onPress={toMarketBannerDetail}
+      divided={isDividedList}
     />
   ));
 
@@ -190,7 +195,7 @@ function MarketBannerListComponent() {
     <BannerContainerDesktop
       itemCount={bannerItems.length}
       hidden={hidden}
-      divided={visibleBannerList.every((item) => Boolean(item.tokens))}
+      divided={isDividedList}
     >
       {bannerItems}
     </BannerContainerDesktop>

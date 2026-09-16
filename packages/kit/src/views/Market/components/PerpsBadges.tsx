@@ -447,6 +447,9 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
  * trading-hours panel) — the wrapping trigger owns the press, so the hover
  * tooltip must not compete with it.
  */
+// Matches the inline row's `gap="$1"`.
+const INLINE_STATUS_ROW_GAP = 4;
+
 const STOCK_FROZEN_QUOTE_VARIANTS = new Set([
   EUSMarketStatusVariant.Overnight,
   EUSMarketStatusVariant.Closed,
@@ -511,24 +514,38 @@ const StockIsOpenBadge = memo(
     }, [displayVariant, intl, showLastUpdate, stock.priceUpdatedAt, variant]);
 
     // Measured so a translation that outgrows the row drops the countdown
-    // instead of running under the trade panel beside it. `contentWidth` is
-    // only recorded while the countdown renders, so the row it is compared
-    // against is always the full one.
+    // instead of running under the trade panel beside it. The text stack is
+    // only recorded while the countdown renders, so the width it reports is
+    // always the full one; the leading icon is measured separately because it
+    // sits outside that stack but still takes room from the row.
     const [availableWidth, setAvailableWidth] = useState(0);
-    const [contentWidth, setContentWidth] = useState(0);
+    const [iconWidth, setIconWidth] = useState(0);
+    const [measurement, setMeasurement] = useState({ key: '', width: 0 });
     const handleRowLayout = useCallback(
       ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
         setAvailableWidth(Math.round(nativeEvent.layout.width));
       },
       [],
     );
+    const handleIconLayout = useCallback(
+      ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
+        setIconWidth(Math.round(nativeEvent.layout.width));
+      },
+      [],
+    );
     const showsOptionalSegmentRef = useRef(true);
+    const measurementKeyRef = useRef('');
     const handleContentLayout = useCallback(
       ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
         if (!showsOptionalSegmentRef.current) {
           return;
         }
-        setContentWidth(Math.round(nativeEvent.layout.width));
+        const width = Math.round(nativeEvent.layout.width);
+        setMeasurement((previous) =>
+          previous.key === measurementKeyRef.current && previous.width === width
+            ? previous
+            : { key: measurementKeyRef.current, width },
+        );
       },
       [],
     );
@@ -543,13 +560,29 @@ const StockIsOpenBadge = memo(
       nextOpenMinutes: stock.nextOpenMinutes,
     });
 
+    // A countdown that ticks down to a shorter string can fit again, so every
+    // wording change starts a fresh measurement instead of reusing the width
+    // of the row that did not fit.
+    const measurementKey = `${lastUpdateText ?? ''}|${nextOpenText ?? ''}`;
+    measurementKeyRef.current = measurementKey;
+    if (measurement.key !== measurementKey && measurement.width !== 0) {
+      setMeasurement({ key: measurementKey, width: 0 });
+    }
+    const contentWidth =
+      measurement.key === measurementKey ? measurement.width : 0;
+
     if (!variant) {
       return null;
     }
     const chip = STOCK_MARKET_STATUS_CHIPS[variant];
     const showNextOpen =
       Boolean(nextOpenText) &&
-      shouldShowOptionalSegment({ availableWidth, contentWidth });
+      shouldShowOptionalSegment({
+        availableWidth,
+        contentWidth,
+        // The icon box plus the row's own `$1` gap before the text stack.
+        reservedWidth: iconWidth ? iconWidth + INLINE_STATUS_ROW_GAP : 0,
+      });
     showsOptionalSegmentRef.current = showNextOpen;
 
     const badge =
@@ -557,7 +590,7 @@ const StockIsOpenBadge = memo(
         <XStack alignItems="center" gap="$1" onLayout={handleRowLayout}>
           {/* Figma 26560:24978 pads the icon box by 2px so the glyph is not
               flush against the label's cap height. */}
-          <Stack px="$0.5">
+          <Stack px="$0.5" onLayout={handleIconLayout}>
             <Icon name={chip.icon} size="$4" color={chip.color} />
           </Stack>
           <XStack alignItems="center" gap="$2" onLayout={handleContentLayout}>

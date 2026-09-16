@@ -41,6 +41,10 @@ type IMarketBannerItemProps = {
   item: IMarketBannerItem;
   isSmallScreen?: boolean;
   onPress?: (item: IMarketBannerItem) => void;
+  // False once the list carries a legacy banner: those cards are filled and
+  // variable-width, so the whole row falls back to the old layout and the
+  // modern cards have to keep their background too.
+  divided?: boolean;
 };
 
 function convertThemeToken(token: string, defaultValue: string): string {
@@ -324,12 +328,12 @@ function BannerQuoteRow({
 }
 
 function MarketBannerItemComponent(props: IMarketBannerItemProps) {
-  const { item, isSmallScreen, onPress } = props;
+  const { item, isSmallScreen, onPress, divided = true } = props;
   const intl = useIntl();
   // Desktop web renders cards without a background, separated by dividers.
   // Touch layouts have no hover, so they keep the filled card and always show
   // More.
-  const isDesktopWeb = !isSmallScreen && !platformEnv.isNative;
+  const isDesktopWeb = divided && !isSmallScreen && !platformEnv.isNative;
   const isIndexBanner = isMarketIndexQuoteBanner(item);
   let cardWidth = MARKET_BANNER_ITEM_WIDTH;
   if (isSmallScreen) cardWidth = MARKET_BANNER_MOBILE_ITEM_WIDTH;

@@ -20,8 +20,16 @@ jest.mock('./useToMarketBannerDetail', () => ({
   useToMarketBannerDetail: () => jest.fn(),
 }));
 jest.mock('./MarketBannerItem', () => ({
-  MarketBannerItem: ({ item }: { item: { _id: string } }) => (
-    <div data-testid="banner">{item._id}</div>
+  MarketBannerItem: ({
+    item,
+    divided,
+  }: {
+    item: { _id: string };
+    divided?: boolean;
+  }) => (
+    <div data-testid="banner" data-divided={String(divided)}>
+      {item._id}
+    </div>
   ),
 }));
 jest.mock('./MarketBannerDesktopScroller', () => ({
@@ -112,6 +120,10 @@ it('divides desktop web banners only when every card has token previews', () => 
   };
   rerender(<Page />);
   expect(scroller().dataset.divided).toBe('false');
+  // The cards follow the same decision, so a mixed row never mixes layouts.
+  expect(
+    screen.getAllByTestId('banner').map((node) => node.dataset.divided),
+  ).toEqual(['false', 'false']);
 });
 
 it('does not insert a banner after the native page has started without one', () => {
