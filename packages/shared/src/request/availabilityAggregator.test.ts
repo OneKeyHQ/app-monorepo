@@ -30,7 +30,7 @@ function createHarness({
       nextId += 1;
       return `id-${nextId}`;
     },
-    runtimeScope: 'bg',
+    meta: { runtimeScope: 'bg' },
     persistWindows,
     storage: {
       load: async () => {
@@ -75,9 +75,10 @@ describe('AvailabilityAggregator', () => {
 
     expect(sent).toEqual([
       {
-        schemaVersion: 2,
+        schemaVersion: 3,
         snapshotId: 'id-1',
         runtimeScope: 'bg',
+        endpointEnv: 'prod',
         windowStartTs: START,
         windowEndTs: START,
         windowCount: 1,
@@ -88,6 +89,20 @@ describe('AvailabilityAggregator', () => {
         failures_1: 'api|wallet|timeout|sni:/wallet/v1|econnaborted=1',
       },
     ]);
+  });
+
+  it('marks snapshots that include test environment traffic', async () => {
+    const { aggregator, flush, sent } = createHarness();
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    aggregator.record({
+      source: 'api',
+      target: 'wallet',
+      status: 'ok',
+      testEndpoint: true,
+    });
+    await flush();
+
+    expect(sent[0]).toMatchObject({ endpointEnv: 'test', api_wallet_ok: 2 });
   });
 
   it('sends at most once per gap and never without data', async () => {
@@ -168,7 +183,7 @@ describe('AvailabilityAggregator', () => {
     expect(tabA.sent).toHaveLength(1);
     expect(tabB.sent).toHaveLength(0);
     expect(JSON.parse(String(tabA.store.text))).toEqual({
-      version: 1,
+      version: 2,
       lastSendTs: START,
     });
   });
@@ -188,7 +203,7 @@ describe('AvailabilityAggregator', () => {
     const { aggregator, clock, flush, sent } = createHarness({
       storage: {
         text: JSON.stringify({
-          version: 1,
+          version: 2,
           lastSendTs: START + 10 * AVAILABILITY_MIN_SEND_GAP_MS,
           pending: { id: 'bad', startTs: 1, endTs: 1, counters: null },
         }),

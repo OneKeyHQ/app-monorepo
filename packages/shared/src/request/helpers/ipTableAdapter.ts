@@ -301,7 +301,7 @@ const readIpTableAvailabilityState = memoizee(
   async (): Promise<IAvailabilityIpTableState> => {
     if (!(await shouldUseIpTable())) return 'disabled';
     const configWithRuntime = await requestHelper.getIpTableConfig();
-    if (!configWithRuntime) return 'no_config';
+    if (!configWithRuntime) return 'noConfig';
     return configWithRuntime.runtime?.enabled === false
       ? 'disabled'
       : 'enabled';

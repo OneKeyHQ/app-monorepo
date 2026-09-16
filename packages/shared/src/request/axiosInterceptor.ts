@@ -457,10 +457,15 @@ axios.interceptors.response.use(
   },
   async (error) => {
     // Guard: if request was aborted, convert to CanceledError regardless of error type
+    // Before the abort guard: an abort by a timeout signal is a timeout.
+    reportApiAvailabilityError(
+      error?.config?.$oneKeyAvailabilityTiming,
+      error,
+      error?.config?.signal,
+    );
     if (error?.config?.signal?.aborted) {
       throw new axios.CanceledError('canceled');
     }
-    reportApiAvailabilityError(error?.config?.$oneKeyAvailabilityTiming, error);
     const { response } = error;
 
     if (response?.status && response?.config) {

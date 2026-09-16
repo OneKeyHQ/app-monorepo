@@ -13,6 +13,28 @@ import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import { AVAILABILITY_COUNTED_FETCH_OPTION } from './requestConst';
 import requestHelper from './requestHelper';
 
+// Event streams never end on their own; their owner counts them.
+function isEventStream(options: RequestInit) {
+  const headers = options.headers as
+    | { get?: (name: string) => string | null; [key: string]: unknown }
+    | undefined;
+  const accept =
+    typeof headers?.get === 'function'
+      ? headers.get('accept')
+      : (headers?.Accept ?? headers?.accept);
+  return String(accept ?? '').includes('text/event-stream');
+}
+
+// Resolves when the body has arrived, so fetch outcomes are timed like axios.
+// React Native's fetch resolves only after the body, and has no body stream.
+function whenBodyEnds(res: Response): Promise<void> {
+  const reader = res.body?.getReader?.();
+  if (!reader) return Promise.resolve();
+  const drain = (): Promise<void> =>
+    reader.read().then(({ done }) => (done ? undefined : drain()));
+  return drain();
+}
+
 function getUrlFromResource(resource: RequestInfo | URL | string) {
   if (isString(resource)) {
     return resource;
@@ -85,11 +107,11 @@ const newFetch = async function (
     defaultLogger.app.network.start('fetch', options.method, url, requestId);
   }
 
-  const availabilityTiming = (options as Record<string, unknown>)[
-    AVAILABILITY_COUNTED_FETCH_OPTION
-  ]
-    ? undefined
-    : createApiAvailabilityTiming({ url });
+  const availabilityTiming =
+    (options as Record<string, unknown>)[AVAILABILITY_COUNTED_FETCH_OPTION] ||
+    isEventStream(options)
+      ? undefined
+      : createApiAvailabilityTiming({ url });
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
   return (
     fetchOrigin
@@ -111,14 +133,32 @@ const newFetch = async function (
             requestId,
           });
         }
-        reportApiAvailabilityResponse({
-          timing: availabilityTiming,
-          httpStatus: res.status,
-        });
-        return res.clone();
+        const response = res.clone();
+        if (res.status >= 400) {
+          // The outcome is known; callers may drop error bodies unread.
+          reportApiAvailabilityResponse({
+            timing: availabilityTiming,
+            httpStatus: res.status,
+          });
+        } else if (availabilityTiming) {
+          void whenBodyEnds(res).then(
+            () =>
+              reportApiAvailabilityResponse({
+                timing: availabilityTiming,
+                httpStatus: res.status,
+              }),
+            (e: unknown) =>
+              reportApiAvailabilityError(
+                availabilityTiming,
+                e,
+                options?.signal,
+              ),
+          );
+        }
+        return response;
       })
       .catch((e: unknown) => {
-        reportApiAvailabilityError(availabilityTiming, e);
+        reportApiAvailabilityError(availabilityTiming, e, options?.signal);
         if (e) {
           defaultLogger.app.network.error({
             requestType: 'fetch',

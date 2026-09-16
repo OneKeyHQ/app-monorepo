@@ -24,6 +24,7 @@ import type { IAvailabilitySnapshotParams } from '../logger/scopes/app/types';
 
 export type IAvailabilitySource =
   | 'api'
+  | 'api_endpoint'
   | 'api_ip_table'
   | 'api_net'
   | 'api_proxy'
@@ -37,11 +38,13 @@ export type IAvailabilityOutcome = {
   durationMs?: number;
   /** Failures only: the outcome is also kept in the failure details. */
   failure?: { detail: string; errorCode: string };
+  /** The request went to a test environment host. */
+  testEndpoint?: true;
 };
 
 export const AVAILABILITY_MIN_SEND_GAP_MS = 2 * 60 * 60 * 1000;
 export const AVAILABILITY_SLOW_MS = 3000;
-// Metrics produce about 140 counter keys at most today. With about 28 other
+// Metrics produce about 180 counter keys at most today. With about 32 other
 // event properties, this cap keeps an event under Mixpanel's 255-property
 // limit.
 const MAX_COUNTERS = 200;
@@ -62,10 +65,11 @@ export type IAvailabilityWindow = {
   failures: Record<string, number>;
   /** Failure outcomes without a failure detail entry. */
   failuresOmitted: number;
+  testEndpoint?: true;
 };
 
 type IStoredState = {
-  version: 1;
+  version: 2;
   lastSendTs: number;
   current?: IAvailabilityWindow;
   pending?: IAvailabilityWindow;
@@ -74,7 +78,8 @@ type IStoredState = {
 export type IAvailabilityAggregatorDeps = {
   now: () => number;
   createId: () => string;
-  runtimeScope: string;
+  /** Snapshot properties describing the sender, e.g. runtime scope. */
+  meta: Record<string, string>;
   /**
    * Only single-instance runtimes persist counters. Web tabs and extension
    * pages share one key, so they persist only the last send time.
@@ -140,6 +145,7 @@ export function addAvailabilityOutcome(
 ) {
   const prefix = `${outcome.source}_${outcome.target}`;
   addCount(window.counters, `${prefix}_${outcome.status}`, 1, MAX_COUNTERS);
+  if (outcome.testEndpoint) window.testEndpoint = true;
   if ((outcome.durationMs ?? 0) >= AVAILABILITY_SLOW_MS) {
     addCount(window.counters, `${prefix}_slow`, 1, MAX_COUNTERS);
   }
@@ -166,6 +172,7 @@ function mergeWindows(
   target.endTs = Math.max(target.endTs, source.endTs);
   target.windowCount += source.windowCount;
   target.failuresOmitted += source.failuresOmitted;
+  if (source.testEndpoint) target.testEndpoint = true;
   for (const [key, count] of Object.entries(source.counters)) {
     addCount(target.counters, key, count, MAX_COUNTERS);
   }
@@ -183,12 +190,13 @@ function mergeWindows(
  */
 export function buildAvailabilitySnapshotParams(
   window: IAvailabilityWindow,
-  runtimeScope: string,
+  meta: Record<string, string>,
 ): IAvailabilitySnapshotParams {
   const params: IAvailabilitySnapshotParams = {
-    schemaVersion: 2,
+    ...meta,
+    schemaVersion: 3,
     snapshotId: window.id,
-    runtimeScope,
+    endpointEnv: window.testEndpoint ? 'test' : 'prod',
     windowStartTs: window.startTs,
     windowEndTs: window.endTs,
     windowCount: window.windowCount,
@@ -226,7 +234,7 @@ export function buildAvailabilitySnapshotParams(
 function parseStoredState(text: string | null | undefined) {
   try {
     const state = text ? (JSON.parse(text) as IStoredState) : undefined;
-    return state?.version === 1 && Number.isFinite(state.lastSendTs)
+    return state?.version === 2 && Number.isFinite(state.lastSendTs)
       ? state
       : undefined;
   } catch {
@@ -343,7 +351,7 @@ export class AvailabilityAggregator {
     this.persist(true);
     await this.writeQueue;
     await this.deps.send(
-      buildAvailabilitySnapshotParams(window, this.deps.runtimeScope),
+      buildAvailabilitySnapshotParams(window, this.deps.meta),
     );
     this.pending = undefined;
     this.persist();
@@ -353,7 +361,7 @@ export class AvailabilityAggregator {
   private persist(sending = false) {
     if (!this.canWrite || (!this.deps.persistWindows && !sending)) return;
     this.dirty = false;
-    const state: IStoredState = { version: 1, lastSendTs: this.lastSendTs };
+    const state: IStoredState = { version: 2, lastSendTs: this.lastSendTs };
     if (this.deps.persistWindows) {
       state.current = this.current;
       state.pending = this.pending;
@@ -395,7 +403,8 @@ function createRuntimeAggregator() {
   return new AvailabilityAggregator({
     now: () => Date.now(),
     createId: generateUUID,
-    runtimeScope,
+    // The app version is on every event; the JS bundle can change without it.
+    meta: { runtimeScope, bundleVersion: platformEnv.bundleVersion ?? '' },
     persistWindows: Boolean(
       platformEnv.isNative ||
       platformEnv.isDesktop ||

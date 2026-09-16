@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '../errors';
+import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import {
   createApiAvailabilityTiming,
@@ -6,6 +7,7 @@ import {
   markApiAvailabilityRoute,
   reportApiAvailabilityError,
   reportApiAvailabilityResponse,
+  reportApiAvailabilityStream,
   setAvailabilityIpTableState,
 } from './availabilityMetrics';
 
@@ -14,6 +16,7 @@ import type { IAvailabilityOutcome } from './availabilityAggregator';
 const mockOutcomes: IAvailabilityOutcome[] = [];
 
 jest.mock('./availabilityAggregator', () => ({
+  AVAILABILITY_SLOW_MS: 3000,
   recordAvailabilityOutcome: (outcome: IAvailabilityOutcome) => {
     mockOutcomes.push(outcome);
   },
@@ -23,6 +26,9 @@ jest.mock('./availabilityNetworkType', () => ({
   getAvailabilityNetworkType: () => 'WIFI',
   startAvailabilityNetworkTypeTracking: () => undefined,
 }));
+
+const env = platformEnv as { isNative?: boolean; runtimeRole: ERuntimeRole };
+const originalEnv = { isNative: env.isNative, runtimeRole: env.runtimeRole };
 
 function walletTiming() {
   const timing = createApiAvailabilityTiming({
@@ -37,6 +43,7 @@ describe('availabilityMetrics', () => {
   beforeEach(() => {
     mockOutcomes.length = 0;
     setAvailabilityIpTableState('unknown');
+    Object.assign(env, originalEnv);
   });
 
   it('counts only allowlisted hosts with digit-free route groups', () => {
@@ -57,6 +64,16 @@ describe('availabilityMetrics', () => {
         url: 'https://wallet.onekeycn.com/wallet/v1/health',
       }),
     ).toBeUndefined();
+    expect(
+      createApiAvailabilityTiming({
+        url: 'https://wallet.onekeycn.com/cdn-cgi/trace',
+      }),
+    ).toBeUndefined();
+    expect(
+      createApiAvailabilityTiming({
+        url: 'https://swap.onekeytest.com/swap/v1/build-tx',
+      }),
+    ).toMatchObject({ endpoint: 'swapBuildTx', testEndpoint: true });
     expect(
       createApiAvailabilityTiming({
         baseURL: 'https://swap.onekeycn.com/swap/',
@@ -135,6 +152,78 @@ describe('availabilityMetrics', () => {
     expect(mockOutcomes).toHaveLength(2);
   });
 
+  it('gives critical endpoints their own counters and failure detail', () => {
+    const timing = createApiAvailabilityTiming({
+      baseURL: 'https://wallet.onekeycn.com',
+      url: '/wallet/v1/account/send-transaction',
+    });
+    reportApiAvailabilityResponse({
+      timing,
+      httpStatus: 200,
+      isOneKeyApi: true,
+      apiCode: 80_001,
+    });
+
+    expect(mockOutcomes.slice(0, 2)).toEqual([
+      expect.objectContaining({
+        source: 'api',
+        target: 'wallet',
+        status: 'api_error',
+        failure: { detail: 'direct:sendTransaction', errorCode: 'api_80001' },
+      }),
+      {
+        source: 'api_endpoint',
+        target: 'sendTransaction',
+        status: 'error',
+        durationMs: expect.any(Number),
+      },
+    ]);
+  });
+
+  it('counts bodies without a numeric OneKey code as ok', () => {
+    reportApiAvailabilityResponse({
+      timing: walletTiming(),
+      httpStatus: 200,
+      isOneKeyApi: true,
+      apiCode: undefined,
+    });
+    expect(mockOutcomes[0]).toMatchObject({ status: 'ok' });
+  });
+
+  it('counts an abort by a timeout signal as a timeout', () => {
+    reportApiAvailabilityError(
+      walletTiming(),
+      { name: 'AbortError' },
+      { reason: { name: 'TimeoutError' } },
+    );
+    reportApiAvailabilityError(walletTiming(), { name: 'TimeoutError' });
+    expect(
+      mockOutcomes
+        .filter(({ source }) => source === 'api')
+        .map(({ status }) => status),
+    ).toEqual(['timeout', 'timeout']);
+  });
+
+  it('counts the first result of a stream, and streams abandoned after 3s', () => {
+    const timing = walletTiming();
+    reportApiAvailabilityStream(timing, 'error', 503);
+    reportApiAvailabilityStream(timing, 'ok');
+    reportApiAvailabilityStream(walletTiming(), 'timeout');
+    reportApiAvailabilityStream(walletTiming(), 'abandoned');
+    const slowTiming = walletTiming();
+    slowTiming.startedAt -= 3000;
+    reportApiAvailabilityStream(slowTiming, 'abandoned');
+    expect(
+      mockOutcomes
+        .filter(({ source }) => source === 'api')
+        .map(({ status, failure }) => [status, failure?.errorCode]),
+    ).toEqual([
+      ['http_error', 'http_503'],
+      ['timeout', 'sse_timeout'],
+      ['timeout', 'sse_abandoned'],
+    ]);
+  });
+
   it('does not count cancellations and counts a request once', () => {
     for (const error of [
       { code: 'ERR_CANCELED' },
@@ -173,5 +262,19 @@ describe('availabilityMetrics', () => {
       { source: 'api_ip_table', target: 'enabled', status: 'failed' },
     ]);
     expect(mockOutcomes[0].failure?.detail).toBe('sni:/wallet/v1/account');
+  });
+
+  it('skips IP Table breakdowns in the native main runtime, which has no IP Table config', () => {
+    env.isNative = true;
+    env.runtimeRole = ERuntimeRole.Main;
+    const timing = walletTiming();
+    markApiAvailabilityRoute(timing, 'domain');
+
+    reportApiAvailabilityResponse({ timing, httpStatus: 200 });
+
+    expect(mockOutcomes.map(({ source }) => source)).toEqual([
+      'api',
+      'api_net',
+    ]);
   });
 });

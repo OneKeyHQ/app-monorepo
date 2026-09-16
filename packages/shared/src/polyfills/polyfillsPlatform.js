@@ -276,7 +276,21 @@ if (platformEnv.isNative) {
   ) {
     AbortSignal.timeout = function timeout(delay) {
       const controller = new AbortController();
-      setTimeout(() => controller.abort(), delay);
+      setTimeout(() => {
+        // This AbortController cannot abort with a reason; set it like the web
+        // API so a timeout can be told apart from a cancellation.
+        const reason = new Error('signal timed out');
+        reason.name = 'TimeoutError';
+        try {
+          Object.defineProperty(controller.signal, 'reason', {
+            value: reason,
+            configurable: true,
+          });
+        } catch {
+          // A read-only signal keeps the plain abort.
+        }
+        controller.abort();
+      }, delay);
       return controller.signal;
     };
   }

@@ -128,11 +128,26 @@ describe('API availability counting in request interceptors', () => {
     );
   });
 
-  it('counts a plain fetch call once', async () => {
+  it('counts a plain fetch call once, after its body arrives', async () => {
     await globalThis.fetch(WALLET_URL);
+    await new Promise((resolve) => setImmediate(resolve));
 
     expect(apiOutcomes()).toEqual([
       expect.objectContaining({ target: 'wallet', status: 'ok' }),
+    ]);
+  });
+
+  it('leaves event streams to their owner and counts HTTP errors at headers', async () => {
+    await globalThis.fetch(WALLET_URL, {
+      headers: { Accept: 'text/event-stream' },
+    });
+    stubFetch.mockImplementation(
+      async () => new Response('bad gateway', { status: 502 }),
+    );
+    await globalThis.fetch(WALLET_URL);
+
+    expect(apiOutcomes()).toEqual([
+      expect.objectContaining({ status: 'http_error' }),
     ]);
   });
 
@@ -140,7 +155,7 @@ describe('API availability counting in request interceptors', () => {
     const client = axios.create({
       adapter: adapterOf((config) => ({
         config,
-        data: null,
+        data: { code: 4001 },
         headers: {},
         status: 200,
         statusText: 'OK',
@@ -154,9 +169,28 @@ describe('API availability counting in request interceptors', () => {
         status: 'api_error',
         failure: {
           detail: 'direct:/wallet/v1/network',
-          errorCode: 'api_unknown',
+          errorCode: 'api_4001',
         },
       }),
+    ]);
+  });
+
+  it('records an abort by a timeout signal as a timeout', async () => {
+    const client = axios.create({
+      adapter: (config) =>
+        new Promise((_resolve, reject) => {
+          config.signal?.addEventListener?.('abort', () =>
+            reject(new Error('aborted')),
+          );
+        }),
+    });
+
+    await expect(
+      client.get(WALLET_URL, { signal: AbortSignal.timeout(1) }),
+    ).rejects.toThrow();
+
+    expect(apiOutcomes()).toEqual([
+      expect.objectContaining({ status: 'timeout' }),
     ]);
   });
 

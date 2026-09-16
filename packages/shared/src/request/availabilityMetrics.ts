@@ -8,13 +8,13 @@
  */
 import { EServiceEndpointEnum } from '../../types/endpoint';
 import { ANALYTICS_EVENT_PATH } from '../analytics';
-import {
-  ONEKEY_API_HOST,
-  ONEKEY_HEALTH_CHECK_URL,
-  ONEKEY_TEST_API_HOST,
-} from '../config/appConfig';
+import { ONEKEY_API_HOST, ONEKEY_TEST_API_HOST } from '../config/appConfig';
+import platformEnv, { ERuntimeRole } from '../platformEnv';
 
-import { recordAvailabilityOutcome } from './availabilityAggregator';
+import {
+  AVAILABILITY_SLOW_MS,
+  recordAvailabilityOutcome,
+} from './availabilityAggregator';
 import {
   getAvailabilityNetworkType,
   startAvailabilityNetworkTypeTracking,
@@ -51,13 +51,16 @@ export type IAvailabilityRoute =
 export type IAvailabilityIpTableState =
   | 'disabled'
   | 'enabled'
-  | 'no_config'
+  | 'noConfig'
   | 'unknown';
 
 export type IApiAvailabilityTiming = {
   startedAt: number;
   service: string;
   routeGroup: string;
+  /** Set for the critical endpoints, which also get their own counters. */
+  endpoint?: string;
+  testEndpoint?: true;
   route?: IAvailabilityRoute;
   /** Result of the adapter's proxy preflight for this request. */
   proxyActive?: boolean | null;
@@ -68,6 +71,28 @@ const ONEKEY_API_SERVICES = new Set<string>(
   Object.values(EServiceEndpointEnum),
 );
 
+// Endpoints with their own success denominator, from the blocking criteria
+// of the availability requirements (transfer, fiat, swap, earn, perps, KYT,
+// login, IP Table config).
+const CRITICAL_ENDPOINTS: Record<string, string> = {
+  '/wallet/v1/account/token/list': 'tokenList',
+  '/wallet/v1/account/estimate-fee': 'estimateFee',
+  '/wallet/v1/account/estimate-fee-batch': 'estimateFee',
+  '/wallet/v1/account/send-transaction': 'sendTransaction',
+  '/wallet/v1/fiat-pay/list': 'fiatPay',
+  '/wallet/v1/fiat-pay/url': 'fiatPay',
+  '/swap/v1/quote/events': 'swapQuote',
+  '/swap/v1/build-tx': 'swapBuildTx',
+  '/earn/v2/stake': 'earnStake',
+  '/earn/v2/unstake': 'earnWithdraw',
+  '/earn/v2/claim': 'earnWithdraw',
+  '/utility/v1/perp-config': 'perpConfig',
+  '/utility/v1/transaction/check': 'txSecurityCheck',
+  '/prime/v1/user/login': 'primeLogin',
+  '/prime/v1/account/oauth/login': 'primeLogin',
+  '/data.json': 'ipTableConfig',
+};
+
 // OneKeyError instances created without an explicit code carry this default.
 const ONEKEY_DEFAULT_ERROR_CODE = -99_999;
 
@@ -77,21 +102,22 @@ function getNow() {
   return globalThis.performance?.now?.() ?? Date.now();
 }
 
-function getService(hostname: string) {
-  const host = hostname.toLowerCase();
+/**
+ * Service label, or undefined when the host is not counted. Hyperliquid is
+ * measured for reachability only: it rejects orders with HTTP 200, which
+ * counts as ok.
+ */
+function getService(host: string) {
   if (
     host.endsWith(`.${ONEKEY_API_HOST}`) ||
     host.endsWith(`.${ONEKEY_TEST_API_HOST}`)
   ) {
     const label = host.split('.')[0];
-    return ONEKEY_API_SERVICES.has(label) ? label : 'onekey-api-other';
+    return ONEKEY_API_SERVICES.has(label) ? label : 'onekeyApiOther';
   }
   if (host === 'api.hyperliquid.xyz') return 'hyperliquid';
   if (host.endsWith('.supabase.co')) return 'supabase';
-  if (host === 'onekey.so' || host.endsWith('.onekey.so')) return 'onekey-web';
-  if (host === 'onekey-asset.com' || host.endsWith('.onekey-asset.com')) {
-    return 'onekey-asset';
-  }
+  if (host === 'onekey.so' || host.endsWith('.onekey.so')) return 'onekeyWeb';
   return undefined;
 }
 
@@ -165,20 +191,23 @@ export function createApiAvailabilityTiming({
       /^https?:\/\//i.test(url ?? '') || !baseURL
         ? url
         : `${baseURL.replace(/\/+$/, '')}/${(url ?? '').replace(/^\/+/, '')}`;
-    const parsed = new URL(text ?? '');
-    const service = getService(parsed.hostname);
-    // Analytics delivery and reachability probes are not API traffic.
+    const { hostname, pathname } = new URL(text ?? '');
+    const host = hostname.toLowerCase();
+    const service = getService(host);
+    // Analytics delivery and reachability or diagnostic probes are not API
+    // traffic.
     if (
       !service ||
-      parsed.pathname.includes(ANALYTICS_EVENT_PATH) ||
-      parsed.pathname === ONEKEY_HEALTH_CHECK_URL
+      pathname.includes(ANALYTICS_EVENT_PATH) ||
+      pathname.endsWith('/health') ||
+      pathname.startsWith('/cdn-cgi/')
     ) {
       return undefined;
     }
     // Started on the first counted request so the async native seed usually
     // resolves before that request settles.
     startAvailabilityNetworkTypeTracking();
-    const segments = parsed.pathname
+    const segments = pathname
       .split('/')
       .filter(Boolean)
       .slice(0, 3)
@@ -187,6 +216,8 @@ export function createApiAvailabilityTiming({
       startedAt: getNow(),
       service,
       routeGroup: `/${segments.join('/')}`,
+      endpoint: CRITICAL_ENDPOINTS[pathname],
+      testEndpoint: host.endsWith(`.${ONEKEY_TEST_API_HOST}`) || undefined,
     };
   } catch {
     return undefined;
@@ -221,11 +252,12 @@ function reportApiOutcome(
     target: timing.service,
     status,
     durationMs,
+    testEndpoint: timing.testEndpoint,
     failure:
       status === 'ok'
         ? undefined
         : {
-            detail: `${route}:${timing.routeGroup}`,
+            detail: `${route}:${timing.endpoint ?? timing.routeGroup}`,
             errorCode: errorCode ?? 'unknown',
           },
   });
@@ -236,14 +268,28 @@ function reportApiOutcome(
   } else if (status === 'api_error' || status === 'http_error') {
     result = 'error';
   }
+  if (timing.endpoint) {
+    recordAvailabilityOutcome({
+      source: 'api_endpoint',
+      target: timing.endpoint,
+      status: result,
+      durationMs,
+    });
+  }
   recordAvailabilityOutcome({
     source: 'api_net',
     target: getNetworkType(),
     status: result,
   });
   // Route, proxy and IP Table state only apply to requests the IP Table
-  // adapter handled; it always sets a route.
-  if (!timing.route) return;
+  // adapter handled (it always sets a route). The native main runtime has no
+  // IP Table config, so its adapter state would only report `noConfig`.
+  if (
+    !timing.route ||
+    (platformEnv.isNative && platformEnv.runtimeRole === ERuntimeRole.Main)
+  ) {
+    return;
+  }
   recordAvailabilityOutcome({
     source: 'api_route',
     target: timing.route,
@@ -276,17 +322,22 @@ export function reportApiAvailabilityResponse({
 }) {
   if (httpStatus >= 400) {
     reportApiOutcome(timing, 'http_error', `http_${httpStatus}`);
-  } else if (isOneKeyApi && apiCode !== 0) {
-    reportApiOutcome(timing, 'api_error', `api_${normalizeErrorCode(apiCode)}`);
+  } else if (isOneKeyApi && typeof apiCode === 'number' && apiCode !== 0) {
+    // Bodies without a numeric code (text, CSV) are not envelope errors.
+    reportApiOutcome(timing, 'api_error', `api_${apiCode}`);
   } else {
     reportApiOutcome(timing, 'ok');
   }
 }
 
-/** A rejected request. Cancellations are not availability outcomes. */
+/**
+ * A rejected request. Cancellations are not availability outcomes, but an
+ * abort caused by a timeout signal is a timeout.
+ */
 export function reportApiAvailabilityError(
   timing: IApiAvailabilityTiming | undefined,
   error: unknown,
+  signal?: unknown,
 ) {
   const { code, name, message, response } = (error ?? {}) as {
     code?: unknown;
@@ -294,11 +345,16 @@ export function reportApiAvailabilityError(
     message?: unknown;
     response?: { status?: number };
   };
+  const timedOut =
+    name === 'TimeoutError' ||
+    (signal as { reason?: { name?: unknown } } | undefined)?.reason?.name ===
+      'TimeoutError';
   if (
-    code === 'ERR_CANCELED' ||
-    code === 'SNI_CANCELLED' ||
-    name === 'CanceledError' ||
-    name === 'AbortError'
+    !timedOut &&
+    (code === 'ERR_CANCELED' ||
+      code === 'SNI_CANCELLED' ||
+      name === 'CanceledError' ||
+      name === 'AbortError')
   ) {
     return;
   }
@@ -307,6 +363,7 @@ export function reportApiAvailabilityError(
     return;
   }
   const isTimeout =
+    timedOut ||
     code === 'ECONNABORTED' ||
     code === 'ETIMEDOUT' ||
     String(message ?? '')
@@ -315,6 +372,33 @@ export function reportApiAvailabilityError(
   reportApiOutcome(
     timing,
     isTimeout ? 'timeout' : 'network_error',
-    getErrorCode(error),
+    timedOut ? 'timeouterror' : getErrorCode(error),
   );
+}
+
+/**
+ * First result of a server-sent event stream: the first result message, or
+ * the end of a stream without one, is ok. Later stream errors are not counted.
+ * A stream the user abandons after the slow threshold counts as a timeout.
+ */
+export function reportApiAvailabilityStream(
+  timing: IApiAvailabilityTiming | undefined,
+  result: 'abandoned' | 'error' | 'ok' | 'timeout',
+  httpStatus?: number,
+) {
+  if (result === 'ok') {
+    reportApiOutcome(timing, 'ok');
+  } else if (result === 'abandoned') {
+    if (timing && getNow() - timing.startedAt >= AVAILABILITY_SLOW_MS) {
+      reportApiOutcome(timing, 'timeout', 'sse_abandoned');
+    }
+  } else if (httpStatus && httpStatus >= 400) {
+    reportApiOutcome(timing, 'http_error', `http_${httpStatus}`);
+  } else {
+    reportApiOutcome(
+      timing,
+      result === 'timeout' ? 'timeout' : 'network_error',
+      `sse_${result}`,
+    );
+  }
 }

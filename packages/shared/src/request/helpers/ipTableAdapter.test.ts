@@ -377,7 +377,7 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
 
     test.each([
       [
-        'no_config',
+        'noConfig',
         () => mockedRequestHelper.getIpTableConfig.mockResolvedValue(null),
       ],
       [
