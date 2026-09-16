@@ -133,6 +133,61 @@ test('catches node:assert sinks, not lookalike methods', () => {
   );
 });
 
+test('an assertion counts however the assertion function is reached', () => {
+  const tainted = `const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');`;
+  const inTest = (preamble, call) =>
+    `${preamble}\n${tainted}\ntest('x', (t) => { ${call}; });`;
+  for (const [shape, preamble, call] of [
+    [
+      'assert()',
+      "const assert = require('node:assert');",
+      "assert(source.includes('go'))",
+    ],
+    [
+      'assert.strict()',
+      "import assert from 'assert';",
+      "assert.strict(source.includes('go'))",
+    ],
+    ['assert() without an import', '', "assert(source.includes('go'))"],
+    ['a test context', '', "t.assert.ok(source.includes('go'))"],
+    [
+      'a named import',
+      "import { match } from 'node:assert/strict';",
+      'match(source, /go/u)',
+    ],
+    [
+      'a renamed import',
+      "import { ok as check } from 'node:assert';",
+      "check(source.includes('go'))",
+    ],
+    [
+      'a destructured require',
+      "const { equal } = require('node:assert');",
+      "equal(source, 'go')",
+    ],
+    [
+      'a renamed expect',
+      "import { expect as check } from '@jest/globals';",
+      "check(source).toContain('go')",
+    ],
+  ]) {
+    assertGated(inTest(preamble, call), shape);
+  }
+  // Controls: the same call on plain text, and a function that only shares a
+  // name with an assertion.
+  assertClean(
+    inTest(
+      "const assert = require('node:assert');",
+      "assert('plain'.includes('go'))",
+    ),
+    'control: assert() on plain text',
+  );
+  assertClean(
+    inTest("import { match } from './matchers';", 'match(source, /go/u)'),
+    'control: a match() from elsewhere',
+  );
+});
+
 test('catches a variable filename inside a named source directory', () => {
   assertGated(
     `

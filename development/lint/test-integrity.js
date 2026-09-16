@@ -112,6 +112,9 @@ const TEXT_MATCHERS = new Set([
   'toBeLessThan',
   'toBeLessThanOrEqual',
 ]);
+// Where assertion functions are imported from, however they are renamed.
+const ASSERT_MODULE_RE = /^(?:node:)?assert(?:\/strict)?$/u;
+const EXPECT_MODULE_RE = /^(?:@jest\/globals|expect|vitest)$/u;
 // node:assert, used by the *.node-test.js files this check also scans.
 const ASSERT_TEXT_METHODS = new Set([
   'match',
@@ -750,10 +753,11 @@ function assertedSource(node, tainted, calls, helpers) {
       return { kind, label: `expect(...).${name}()` };
     }
   }
-  if (name && ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
+  const method = assertMethod(node.callee);
+  if (ASSERT_TEXT_METHODS.has(method)) {
     const kind = firstTaint(node.arguments, tainted, calls);
     if (kind) {
-      return { kind, label: `assert.${name}()` };
+      return { kind, label: `assert.${method}()` };
     }
   }
   const parameterIndex = helpers.get(bindingOf(node.callee));
@@ -1266,16 +1270,108 @@ const WORKSPACE_PATH_RE = /^(?:\.{1,2}\/|apps\/|packages\/|development\/)/u;
 // an ascent like `../../..` and a dotfile directory like `.github/` do not.
 const SOURCE_DIRECTORY_RE = /^(?:apps|packages|development)\//u;
 
-/** `assert.equal(...)` and `assert.strict.equal(...)`, but not `x.equal(...)`. */
-function isAssertCall(callee) {
-  if (callee.type !== 'MemberExpression') {
-    return false;
+/**
+ * The node:assert method a call reaches: `assert.equal(...)`,
+ * `assert.strict.equal(...)` and `t.assert.equal(...)` but not `x.equal(...)`,
+ * the module called directly as `assert(...)`, and any of them imported or
+ * required under another name.
+ */
+function assertMethod(callee) {
+  if (callee.type === 'Identifier') {
+    const imported = importOf(callee);
+    if (imported && ASSERT_MODULE_RE.test(imported.module)) {
+      return assertExportMethod(imported.name);
+    }
+    return callee.name === 'assert' ? 'ok' : undefined;
   }
-  let receiver = callee.object;
-  while (receiver.type === 'MemberExpression') {
-    receiver = receiver.object;
+  if (callee.type !== 'MemberExpression' || !reachesAssert(callee.object)) {
+    return undefined;
   }
-  return receiver.type === 'Identifier' && receiver.name === 'assert';
+  return assertExportMethod(staticName(callee.property, callee));
+}
+
+/** The module itself and `strict` are callable, and assert like `ok`. */
+function assertExportMethod(name) {
+  return name === 'default' || name === 'strict' ? 'ok' : name;
+}
+
+/** `assert`, `assert.strict`, a test context's `t.assert`, or node:assert imported under any name. */
+function reachesAssert(node) {
+  if (node.type === 'Identifier') {
+    const imported = importOf(node);
+    return (
+      node.name === 'assert' ||
+      Boolean(
+        imported &&
+        ASSERT_MODULE_RE.test(imported.module) &&
+        assertExportMethod(imported.name) === 'ok',
+      )
+    );
+  }
+  return (
+    node.type === 'MemberExpression' &&
+    (staticName(node.property, node) === 'assert' || reachesAssert(node.object))
+  );
+}
+
+/**
+ * The module and export an identifier was imported or required as, with
+ * `default` standing for a default import, a namespace, or the whole module.
+ */
+function importOf(identifier) {
+  const binding = bindingOf(identifier);
+  const declaration = binding?.path?.node;
+  switch (declaration?.type) {
+    case 'ImportDefaultSpecifier':
+    case 'ImportNamespaceSpecifier':
+      return { module: binding.path.parent.source.value, name: 'default' };
+    case 'ImportSpecifier':
+      return {
+        module: binding.path.parent.source.value,
+        name: staticName(declaration.imported, declaration),
+      };
+    case 'VariableDeclarator':
+      return requiredAs(declaration, binding.identifier);
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * `const assert = require('node:assert')`, `require('assert').strict`, and
+ * `const { match } = require('node:assert')`.
+ */
+function requiredAs(declarator, identifier) {
+  let required = declarator.init;
+  let name = 'default';
+  if (required?.type === 'MemberExpression') {
+    name = staticName(required.property, required);
+    required = required.object;
+  }
+  if (
+    required?.type !== 'CallExpression' ||
+    required.callee.type !== 'Identifier' ||
+    required.callee.name !== 'require' ||
+    required.arguments[0]?.type !== 'StringLiteral'
+  ) {
+    return undefined;
+  }
+  const module = required.arguments[0].value;
+  if (declarator.id === identifier) {
+    return { module, name };
+  }
+  const property =
+    name === 'default' && declarator.id.type === 'ObjectPattern'
+      ? declarator.id.properties.find(
+          (candidate) =>
+            candidate.type === 'ObjectProperty' &&
+            (candidate.value === identifier ||
+              candidate.value.left === identifier),
+        )
+      : undefined;
+  return property
+    ? { module, name: staticName(property.key, property) }
+    : undefined;
 }
 
 /** Leading literal chunk of a template, which is where a path prefix sits. */
@@ -2021,6 +2117,19 @@ function isTestBlock(node) {
   );
 }
 
+/** `expect`, `x.expect`, or Jest's or Vitest's `expect` imported under another name. */
+function isExpectCallee(callee) {
+  if (calleeName(callee) === 'expect') {
+    return true;
+  }
+  const imported = callee.type === 'Identifier' ? importOf(callee) : undefined;
+  return Boolean(
+    imported &&
+    EXPECT_MODULE_RE.test(imported.module) &&
+    (imported.name === 'expect' || imported.name === 'default'),
+  );
+}
+
 function findExpectCall(node) {
   let current = node;
   while (current) {
@@ -2033,7 +2142,7 @@ function findExpectCall(node) {
       current.type === 'CallExpression' ||
       current.type === 'OptionalCallExpression'
     ) {
-      if (calleeName(current.callee) === 'expect') {
+      if (isExpectCallee(current.callee)) {
         return current;
       }
       current = current.callee;
