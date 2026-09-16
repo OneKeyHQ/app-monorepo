@@ -32,6 +32,9 @@ import {
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
+import { formatStockLastUpdateTime } from '../utils/stockLastUpdate';
+
+import { shouldShowOptionalSegment } from './utils/inlineStatusFit';
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
 
 const LeverageBadge = memo(
@@ -444,15 +447,25 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
  * trading-hours panel) — the wrapping trigger owns the press, so the hover
  * tooltip must not compete with it.
  */
+const STOCK_FROZEN_QUOTE_VARIANTS = new Set([
+  EUSMarketStatusVariant.Overnight,
+  EUSMarketStatusVariant.Closed,
+  EUSMarketStatusVariant.Halted,
+]);
+
 const StockIsOpenBadge = memo(
   ({
     stock,
     disableTooltip,
     variant: displayVariant = 'badge',
+    showLastUpdate = true,
   }: {
     stock: IMarketStockInfo;
     disableTooltip?: boolean;
     variant?: 'badge' | 'inline';
+    /** Off for the token price: that quote trades around the clock, so its
+     *  own timestamp is always now. */
+    showLastUpdate?: boolean;
   }) => {
     const intl = useIntl();
     const { source, isOpen, isPaused, description } = stock;
@@ -476,6 +489,50 @@ const StockIsOpenBadge = memo(
       [source, isOpen, isPaused, marketStatus],
     );
 
+    // Outside regular trading the share price is frozen, so the inline chip
+    // reports when it last moved. While the market trades the quote is live
+    // and the timestamp would only add noise.
+    const lastUpdateText = useMemo(() => {
+      if (
+        !showLastUpdate ||
+        displayVariant !== 'inline' ||
+        !variant ||
+        !STOCK_FROZEN_QUOTE_VARIANTS.has(variant)
+      ) {
+        return undefined;
+      }
+      const time = formatStockLastUpdateTime(stock.priceUpdatedAt);
+      if (!time) {
+        return undefined;
+      }
+      return `${intl.formatMessage({
+        id: ETranslations.market_last_updated,
+      })} ${time}`;
+    }, [displayVariant, intl, showLastUpdate, stock.priceUpdatedAt, variant]);
+
+    // Measured so a translation that outgrows the row drops the countdown
+    // instead of running under the trade panel beside it. `contentWidth` is
+    // only recorded while the countdown renders, so the row it is compared
+    // against is always the full one.
+    const [availableWidth, setAvailableWidth] = useState(0);
+    const [contentWidth, setContentWidth] = useState(0);
+    const handleRowLayout = useCallback(
+      ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
+        setAvailableWidth(Math.round(nativeEvent.layout.width));
+      },
+      [],
+    );
+    const showsOptionalSegmentRef = useRef(true);
+    const handleContentLayout = useCallback(
+      ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
+        if (!showsOptionalSegmentRef.current) {
+          return;
+        }
+        setContentWidth(Math.round(nativeEvent.layout.width));
+      },
+      [],
+    );
+
     // Only the inline chip has room for it, and only a closed market has
     // something to count down to.
     const nextOpenText = useNextOpenCountdownText({
@@ -490,26 +547,38 @@ const StockIsOpenBadge = memo(
       return null;
     }
     const chip = STOCK_MARKET_STATUS_CHIPS[variant];
+    const showNextOpen =
+      Boolean(nextOpenText) &&
+      shouldShowOptionalSegment({ availableWidth, contentWidth });
+    showsOptionalSegmentRef.current = showNextOpen;
 
     const badge =
       displayVariant === 'inline' ? (
-        <XStack alignItems="center" gap="$1">
+        <XStack alignItems="center" gap="$1" onLayout={handleRowLayout}>
           {/* Figma 26560:24978 pads the icon box by 2px so the glyph is not
               flush against the label's cap height. */}
           <Stack px="$0.5">
             <Icon name={chip.icon} size="$4" color={chip.color} />
           </Stack>
-          <XStack alignItems="center" gap="$2">
+          <XStack alignItems="center" gap="$2" onLayout={handleContentLayout}>
             <SizableText size="$bodyMd" color={chip.color}>
               {chip.titleId !== undefined
                 ? intl.formatMessage({ id: chip.titleId })
                 : chip.title}
             </SizableText>
-            {nextOpenText ? (
+            {lastUpdateText ? (
               <>
                 {/* Figma 26560:25110 */}
                 <Stack width="$px" height={12} bg="$borderSubdued" />
                 <SizableText size="$bodyMd" color="$textSubdued">
+                  {lastUpdateText}
+                </SizableText>
+              </>
+            ) : null}
+            {showNextOpen ? (
+              <>
+                <Stack width="$px" height={12} bg="$borderSubdued" />
+                <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
                   {nextOpenText}
                 </SizableText>
               </>
@@ -560,9 +629,11 @@ const StockMarketStatusBadge = memo(
   ({
     stock,
     variant,
+    showLastUpdate,
   }: {
     stock?: IMarketStockInfo;
     variant?: 'badge' | 'inline';
+    showLastUpdate?: boolean;
   }) => {
     if (!stock) {
       return null;
@@ -571,7 +642,12 @@ const StockMarketStatusBadge = memo(
       <TradingHoursTrigger
         stock={stock}
         renderTrigger={
-          <StockIsOpenBadge stock={stock} disableTooltip variant={variant} />
+          <StockIsOpenBadge
+            stock={stock}
+            disableTooltip
+            variant={variant}
+            showLastUpdate={showLastUpdate}
+          />
         }
       />
     );

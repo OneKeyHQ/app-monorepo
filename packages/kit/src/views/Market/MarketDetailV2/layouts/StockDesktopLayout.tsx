@@ -395,7 +395,13 @@ function StockPriceHeader({
             </XStack>
           </XStack>
         </XStack>
-        <StockMarketStatusBadge stock={stockStatus} variant="inline" />
+        {/* The token price updates around the clock, so its quote is never
+            stale — only the share price reports when it last moved. */}
+        <StockMarketStatusBadge
+          stock={stockStatus}
+          variant="inline"
+          showLastUpdate={isSharePrice}
+        />
       </YStack>
 
       {/* Both options hug their label, per Figma 25476:89067: the widths this

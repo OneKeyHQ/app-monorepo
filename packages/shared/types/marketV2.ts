@@ -210,6 +210,9 @@ export interface IMarketStockInfo {
   // the minute count is a snapshot that ages with the response.
   nextOpenTime?: string;
   nextOpenMinutes?: number;
+  // The underlying listing's last price move; only set from the public stock
+  // feed. See `priceUpdatedAt` on IMarketStockPublicItem.
+  priceUpdatedAt?: string;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
@@ -809,6 +812,10 @@ export interface IMarketStockPublicItem {
   peRatio?: string;
   currency: 'USD';
   quoteUpdatedAt?: string;
+  // When the quote feed last moved the share price itself. Outside regular
+  // trading it stops advancing while `quoteUpdatedAt` keeps ticking, so this
+  // is the timestamp worth showing a closed or overnight market.
+  priceUpdatedAt?: string;
   sparkline?: number[];
   sparklineUpdatedAt?: string;
   variants?: IMarketStockListVariant[];
