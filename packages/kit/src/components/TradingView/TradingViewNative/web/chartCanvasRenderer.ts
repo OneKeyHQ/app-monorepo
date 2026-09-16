@@ -34,7 +34,7 @@ export function getTradingViewNativeCanvasFont(
   priceAxisFontSize = AXIS_FONT_SIZE,
   timeAxisFontSize = AXIS_FONT_SIZE,
 ) {
-  if (font === 'priceAxis') {
+  if (font === 'priceAxis' || font === 'referenceLineLabel') {
     return `${priceAxisFontSize}px "${PRICE_AXIS_FONT_FAMILY}", monospace`;
   }
   return `${font === 'axis' ? timeAxisFontSize : LEGEND_FONT_SIZE}px sans-serif`;
