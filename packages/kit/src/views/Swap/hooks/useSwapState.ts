@@ -59,6 +59,8 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectTokenDetailBalanceErrorAtom,
+  useSwapSelectTokenDetailFetchingAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
   useSwapSlippageOverrideAtom,
@@ -84,6 +86,7 @@ import {
   shouldShowSwapQuoteRequestLoading,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
+import { shouldOfferSwapDepositAction } from '../utils/swapDepositActionUtils';
 import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
 import {
   getStockQuoteTradeControl,
@@ -430,6 +433,10 @@ export function useSwapActionState() {
   const [alerts] = useSwapAlertsAtom();
   const [selectedFromTokenBalance] =
     useSwapActiveSelectedFromTokenBalanceAtom();
+  const [swapSelectTokenDetailFetching] =
+    useSwapSelectTokenDetailFetchingAtom();
+  const [swapSelectTokenDetailBalanceError] =
+    useSwapSelectTokenDetailBalanceErrorAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -673,7 +680,11 @@ export function useSwapActionState() {
       noConnectWallet,
       label: intl.formatMessage({ id: ETranslations.global_review }),
       shouldEnterRecipient: false,
+      shouldDepositToTrade: false,
     };
+    const hasNoConnectWalletAlert = alerts.states.some(
+      (item) => item.noConnectWallet,
+    );
     if (!swapFromAddressInfo.address || quoteInputAmountNoMatch) {
       infoRes.disable = true;
     }
@@ -793,7 +804,7 @@ export function useSwapActionState() {
         });
         infoRes.disable = false;
       }
-      if (alerts.states.some((item) => item.noConnectWallet)) {
+      if (hasNoConnectWalletAlert) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.global_connect_wallet,
         });
@@ -816,6 +827,33 @@ export function useSwapActionState() {
         infoRes.shouldEnterRecipient = true;
       }
     }
+    // Decided last so it outranks every disabled reason above, including the
+    // "Enter amount" prompt, the quote-loading gate and the recipient prompt:
+    // with a loaded zero balance nothing else on this button can help, and the
+    // deposit entry needs no quote (OK-63470). Missing tokens or address, a
+    // disconnected wallet and unsupported pairs still win via the helper.
+    if (
+      shouldOfferSwapDepositAction({
+        balance: selectedFromTokenBalance,
+        isBalanceLoading: swapSelectTokenDetailFetching.from,
+        hasBalanceError: swapSelectTokenDetailBalanceError.from,
+        hasFromToken: !!fromToken,
+        hasToToken: !!toToken,
+        hasFromAddress: !!swapFromAddressInfo.address,
+        noConnectWallet: noConnectWallet || hasNoConnectWalletAlert,
+        noProviderSupportsTrade,
+        isStockBalanceUnavailable:
+          swapTypeSwitchValue === ESwapTabSwitchType.STOCK &&
+          !hasValidStockBalanceForTrade(selectedFromTokenBalance),
+      })
+    ) {
+      infoRes.label = intl.formatMessage({
+        id: ETranslations.perp_trade_deposit_to_trade__action,
+      });
+      infoRes.disable = false;
+      infoRes.shouldEnterRecipient = false;
+      infoRes.shouldDepositToTrade = true;
+    }
     return infoRes;
   }, [
     hasError,
@@ -837,6 +875,8 @@ export function useSwapActionState() {
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
+    swapSelectTokenDetailFetching.from,
+    swapSelectTokenDetailBalanceError.from,
     fromToken,
     toToken,
     swapUseLimitPrice.rate,
@@ -848,8 +888,11 @@ export function useSwapActionState() {
     isQuoteActionLoading,
     approving: swapApprovingMatchLoading,
     noConnectWallet: actionInfo.noConnectWallet,
-    disabled:
-      actionInfo.disable || isQuoteActionLoading || swapApprovingMatchLoading,
+    // The deposit entry is decided after the quote-loading gate and must stay
+    // tappable while quotes load.
+    disabled: actionInfo.shouldDepositToTrade
+      ? false
+      : actionInfo.disable || isQuoteActionLoading || swapApprovingMatchLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
@@ -862,6 +905,7 @@ export function useSwapActionState() {
     isRefreshQuote: shouldOfferQuoteRefreshAction,
     isWaitingAutoSlippage,
     shouldEnterRecipient: actionInfo.shouldEnterRecipient,
+    shouldDepositToTrade: actionInfo.shouldDepositToTrade,
   };
   return stepState;
 }

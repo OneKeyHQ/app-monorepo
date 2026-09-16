@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,16 +14,14 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
-import { pushSwapReceiveSelector } from '../../utils/swapDepositEntryUtils';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 
 const SwapInputActions = ({
   showPercentageInput,
@@ -40,32 +38,16 @@ const SwapInputActions = ({
 }) => {
   const intl = useIntl();
   const { gtSm } = useMedia();
-  const navigation = useAppNavigation();
 
   const needSwapPercentageInputStage = useMemo(
     () => (gtSm ? SwapPercentageInputStage : SwapPercentageInputStage.slice(1)),
     [gtSm],
   );
 
-  const handleBuyPress = useCallback(() => {
-    if (!fromToken || !accountInfo) return;
-
-    const pushed = pushSwapReceiveSelector({
-      navigation,
-      token: fromToken,
-      accountInfo,
-    });
-    // Only count the funnel event when the selector actually opened.
-    if (pushed) {
-      defaultLogger.wallet.walletActions.buyOnLowBalance({
-        source: 'swap',
-        networkId: fromToken.networkId ?? '',
-        tokenSymbol: fromToken.symbol ?? '',
-        tokenAddress: fromToken.contractAddress ?? '',
-        walletType: accountInfo.wallet?.type ?? '',
-      });
-    }
-  }, [navigation, fromToken, accountInfo]);
+  const handleBuyPress = useSwapDepositEntryPress({
+    token: fromToken,
+    accountInfo,
+  });
 
   return (
     <XStack gap="$0.5">
@@ -81,13 +63,16 @@ const SwapInputActions = ({
               opacity: 0,
             }}
           >
+            {/* Only rendered while the balance cannot cover the input, so
+                it reads as the recovery action: same interactive tint as the
+                Max control, on a pill that stands out from the input card. */}
             <Button
               testID="swap-btn"
               height="$5"
               px="$1.5"
               py="$0"
               pt={platformEnv.isNativeIOS ? '$1' : '$0'}
-              bg="$bgSubdued"
+              bg="$bgStrong"
               size="small"
               onPress={handleBuyPress}
             >
@@ -95,9 +80,10 @@ const SwapInputActions = ({
                 <Icon
                   name="CreditCardCvvOutline"
                   size="$4"
+                  color="$textInteractive"
                   mt={platformEnv.isNative ? 2 : undefined}
                 />
-                <SizableText size="$bodySmMedium" color="$textSubdued">
+                <SizableText size="$bodySmMedium" color="$textInteractive">
                   {intl.formatMessage({ id: ETranslations.global_top_up })}
                 </SizableText>
               </XStack>

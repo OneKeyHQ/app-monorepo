@@ -75,6 +75,7 @@ import {
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
 import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -430,9 +431,17 @@ const SwapActionsState = ({
       visible: shouldShowIncognitoRecipientInput,
     });
 
+  const onDepositToTrade = useSwapDepositEntryPress({
+    token: fromToken,
+    accountInfo: swapFromAddressInfo?.accountInfo,
+  });
+
+  // Depositing needs no quote, so the deposit state never shows the quote
+  // loading animation in place of its label.
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
+    !swapActionState.shouldDepositToTrade &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled = noConnectWallet
     ? shouldRedirectOnboardingToTravelMode()
@@ -456,6 +465,10 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (swapActionState.shouldDepositToTrade) {
+      onDepositToTrade();
       return;
     }
     if (shouldBlockIncognitoRecipientAction) {
@@ -487,6 +500,7 @@ const SwapActionsState = ({
   }, [
     currentQuoteRes?.kind,
     navigation,
+    onDepositToTrade,
     onOpenRecipientAddress,
     onPreSwap,
     onRefreshQuote,
@@ -494,6 +508,7 @@ const SwapActionsState = ({
     quoteActionLock.kind,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
+    swapActionState.shouldDepositToTrade,
     noConnectWallet,
     swapActionState.shouldEnterRecipient,
     swapIncognitoMode,

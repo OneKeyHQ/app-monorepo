@@ -570,6 +570,16 @@ export const {
   to: false,
 });
 
+// True while the last balance fetch for that side failed. The balance atom
+// then holds the '0.0' fallback, which callers must not read as a real zero.
+export const {
+  atom: swapSelectTokenDetailBalanceErrorAtom,
+  use: useSwapSelectTokenDetailBalanceErrorAtom,
+} = contextAtom<Record<ESwapDirectionType, boolean>>({
+  from: false,
+  to: false,
+});
+
 export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<
   Record<ESwapDirectionType, number>
 >({ from: 0, to: 0 });

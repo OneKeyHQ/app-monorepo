@@ -1,5 +1,6 @@
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -40,4 +41,31 @@ export function pushSwapReceiveSelector({
     },
   });
   return true;
+}
+
+// Deposit entry shared by the Top up chip and the "Deposit to Trade" action
+// button: opens the ReceiveSelector and counts the low-balance funnel event
+// once, only when the selector actually opened. Tolerates a missing token or
+// account so callers can bind it before those resolve.
+export function openSwapDepositEntry({
+  navigation,
+  token,
+  accountInfo,
+}: {
+  navigation: ReturnType<typeof useAppNavigation>;
+  token?: ISwapToken;
+  accountInfo?: IAccountSelectorActiveAccountInfo;
+}): boolean {
+  if (!token || !accountInfo) return false;
+  const pushed = pushSwapReceiveSelector({ navigation, token, accountInfo });
+  if (pushed) {
+    defaultLogger.wallet.walletActions.buyOnLowBalance({
+      source: 'swap',
+      networkId: token.networkId ?? '',
+      tokenSymbol: token.symbol ?? '',
+      tokenAddress: token.contractAddress ?? '',
+      walletType: accountInfo.wallet?.type ?? '',
+    });
+  }
+  return pushed;
 }

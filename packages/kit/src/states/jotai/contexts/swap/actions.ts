@@ -151,6 +151,7 @@ import {
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSelectTokenDetailBalanceErrorAtom,
   swapSelectTokenDetailFetchingAtom,
   swapSelectTokenDetailRequestIdAtom,
   swapSelectedFromTokenBalanceAtom,
@@ -2639,6 +2640,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ...previous,
         [type]: requestId,
       }));
+      set(swapSelectTokenDetailBalanceErrorAtom(), (previous) => ({
+        ...previous,
+        [type]: false,
+      }));
       if (shouldFetchBalance) {
         set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
           ...previous,
@@ -2834,6 +2839,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
               balanceDisplay = '0.0';
+              if (
+                get(swapSelectTokenDetailRequestIdAtom())[type] === requestId
+              ) {
+                set(swapSelectTokenDetailBalanceErrorAtom(), (pre) => ({
+                  ...pre,
+                  [type]: true,
+                }));
+              }
             }
           } finally {
             if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
