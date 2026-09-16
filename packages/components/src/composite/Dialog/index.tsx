@@ -645,6 +645,7 @@ function BaseDialogContainer(
     open,
     isExist,
     onOpenChange,
+    onCloseRequested,
     ...props
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
@@ -673,12 +674,13 @@ function BaseDialogContainer(
           trackId: props.trackID,
         });
       }
+      onCloseRequested?.();
       changeIsOpen(false);
       void Keyboard.dismissWithDelay(50);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [changeIsOpen, onClose, props.trackID],
+    [changeIsOpen, onClose, props.trackID, onCloseRequested],
   );
 
   const handleIsExist = useCallback(

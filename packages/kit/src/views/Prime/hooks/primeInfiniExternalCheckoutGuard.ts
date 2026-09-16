@@ -18,7 +18,7 @@ import {
   isPrimeInfiniPaymentReplaceable,
 } from './primeInfiniPaymentUtils';
 
-async function getPrimeInfiniPendingPaymentContext(): Promise<{
+export async function getPrimeInfiniPendingPaymentContext(): Promise<{
   isLoggedIn: boolean;
   onekeyUserId: string | undefined;
   pendingPaymentSession: IPrimeInfiniPendingPaymentSession | undefined;
@@ -128,9 +128,8 @@ export async function getPrimeInfiniExternalCheckoutGuard() {
 // hasPendingPayment reports whether the user's money is already committed to
 // an Infini invoice: replaceable means the invoice was never sent and shows no
 // progress, so it can be swapped for a new one, while anything else means a
-// broadcast was claimed or funds are moving and a second purchase through any
-// channel would charge twice for one subscription. Callers are expected to
-// resume the existing crypto flow instead of offering a payment method choice.
+// broadcast was claimed or funds are moving. Callers offer recovery or let the
+// user explicitly archive that invoice after accepting the duplicate risk.
 export async function getPrimeInfiniPaymentEntryGuard() {
   const context = await getPrimeInfiniPendingPaymentContext();
   const { pendingPaymentSession, onekeyUserId } = context;

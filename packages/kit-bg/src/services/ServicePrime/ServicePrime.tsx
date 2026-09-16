@@ -81,6 +81,7 @@ import type {
   IOneKeyIdOAuthLoginResponse,
   IOneKeyIdProfileResponse,
   IPrimeDeviceInfo,
+  IPrimeInfiniCheckoutAuthContext,
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentCreateParams,
   IPrimeInfiniPaymentFlowContext,
@@ -5680,14 +5681,52 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getInfiniCheckoutAuthContext(): Promise<IPrimeInfiniCheckoutAuthContext> {
+    const userInfo = await primePersistAtom.get();
+    const snapshot = await this.captureInfiniPurchaseAuthSnapshot(
+      userInfo.onekeyUserId ?? '',
+    );
+    // Only the non-secret identity reaches the UI runtime. The request token
+    // stays in the background and is pinned again when creating the checkout.
+    return {
+      onekeyUserId: snapshot.expectedOneKeyUserId,
+      authSessionSource: snapshot.authSessionSource,
+      authStateGeneration: snapshot.authStateGeneration,
+    };
+  }
+
+  @backgroundMethod()
+  async isInfiniCheckoutAuthContextCurrent({
+    context,
+  }: {
+    context: IPrimeInfiniCheckoutAuthContext;
+  }): Promise<boolean> {
+    return this.authStateWriteMutex.runExclusive(async () => {
+      const userInfo = await primePersistAtom.get();
+      const authSessionSource =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const authStateGeneration =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      return Boolean(
+        userInfo.isLoggedIn &&
+        userInfo.onekeyUserId === context.onekeyUserId &&
+        authSessionSource === context.authSessionSource &&
+        authStateGeneration === context.authStateGeneration,
+      );
+    });
+  }
+
+  @backgroundMethod()
   async apiGetInfiniCheckoutUrl({
     plan,
     expectedOneKeyUserId,
     flowContext,
+    authContext,
   }: {
     plan: IPrimeInfiniSubscriptionPlan;
     expectedOneKeyUserId: string;
     flowContext?: IPrimeInfiniPaymentFlowContext;
+    authContext?: IPrimeInfiniCheckoutAuthContext;
   }): Promise<{ checkoutUrl: string }> {
     return this.runInfiniPaymentRequest({
       flowContext,
@@ -5696,6 +5735,15 @@ class ServicePrime extends ServiceBase {
       request: async () => {
         const authSnapshot =
           await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        if (
+          authContext &&
+          (authContext.onekeyUserId !== authSnapshot.expectedOneKeyUserId ||
+            authContext.authSessionSource !== authSnapshot.authSessionSource ||
+            authContext.authStateGeneration !==
+              authSnapshot.authStateGeneration)
+        ) {
+          throw this.createInfiniPurchaseUserChangedError();
+        }
         const client = await this.getPrimeClient();
         // The checkout API's wire enum uses 'annual' for the yearly plan, while
         // the app models it as 'yearly' everywhere else (IPrimeInfiniSubscriptionPlan);
