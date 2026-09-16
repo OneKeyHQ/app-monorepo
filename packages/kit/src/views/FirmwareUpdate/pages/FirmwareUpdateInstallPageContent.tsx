@@ -42,6 +42,7 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 import { useStartFirmwareUpdateWorkflow } from '../hooks/useStartFirmwareUpdateWorkflow';
 import { FirmwareUpdateTestIDs } from '../testIDs';
+import { getTargetFirmwareTypeLabel, isFirmwareTypeSwitch } from '../utils';
 
 import type { IFirmwareUpdateInstallViewMode } from '../componentsV2/FirmwareUpdateInstallView';
 
@@ -73,13 +74,11 @@ async function recheckFirmwareRelease(
       hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
     });
   const firmware = result.updateInfos.firmware;
-  const isSwitchingFirmwareType =
-    firmware?.fromFirmwareType !== undefined &&
-    firmware.toFirmwareType !== undefined &&
-    firmware.fromFirmwareType !== firmware.toFirmwareType;
   return backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
     connectId: transport.connectId,
-    firmwareType: isSwitchingFirmwareType ? firmware.toFirmwareType : undefined,
+    firmwareType: isFirmwareTypeSwitch(firmware)
+      ? firmware?.toFirmwareType
+      : undefined,
     resolvedTransportType: transport.transportType,
   });
 }
@@ -283,21 +282,30 @@ export function FirmwareUpdateInstallPageContent({
     requestType: webUsbRequest,
   });
 
+  const firmwareInfo = result?.updateInfos?.firmware;
   const doneVersion = useMemo(() => {
     const primary = getPrimaryFirmwareUpdateItem(items);
     if (!primary?.toVersion) {
       return undefined;
     }
-    const productName =
-      primary.toTypeLabel ??
-      (primary.key === 'safeos'
-        ? SAFE_OS_PRODUCT_NAME
-        : intl.formatMessage({ id: ETranslations.global_firmware }));
+    // The done line has room for the full type name, and a switch is the
+    // one case where the type is the news.
+    let productName: string;
+    if (isFirmwareTypeSwitch(firmwareInfo)) {
+      productName = getTargetFirmwareTypeLabel({
+        firmwareType: firmwareInfo?.toFirmwareType,
+        intl,
+      });
+    } else if (primary.key === 'safeos') {
+      productName = SAFE_OS_PRODUCT_NAME;
+    } else {
+      productName = intl.formatMessage({ id: ETranslations.global_firmware });
+    }
     return {
       text: `${productName} ${primary.toVersion}`,
       releaseUrl: primary.releaseUrl,
     };
-  }, [intl, items]);
+  }, [firmwareInfo, intl, items]);
 
   let webUsbInstruction: string | undefined;
   if (webUsbRequest === 'bootloader') {
@@ -358,9 +366,7 @@ export function FirmwareUpdateInstallPageContent({
         variant: 'tertiary',
         testID: 'firmware-update-get-help-btn',
       },
-      buttonContainerProps: {
-        $md: { flexDirection: 'column-reverse', gap: '$3' },
-      },
+      stacked: true,
     } as const;
     if (taskError.action.kind === 'retry') {
       footer = (
