@@ -742,6 +742,167 @@ test('chained one-line helpers resolve without crashing the file', () => {
   );
 });
 
+test('text a read hands to a callback or a promise is still source', () => {
+  const thing = "join(__dirname, 'thing.ts')";
+  assertGated(
+    `
+    it('x', (done) => {
+      readFile(${thing}, 'utf8', (error, text) => {
+        expect(text).toContain('go');
+        done();
+      });
+    });
+  `,
+    'node-style callback',
+  );
+  assertGated(
+    `
+    it('x', () =>
+      fs.promises.readFile(${thing}, 'utf8').then((text) => {
+        expect(text).toContain('go');
+      }));
+  `,
+    'then',
+  );
+  assertGated(
+    `
+    it('x', async () => {
+      const text = await new Promise((resolve, reject) => {
+        fs.readFile(${thing}, 'utf8', (error, data) =>
+          error ? reject(error) : resolve(data),
+        );
+      });
+      expect(text).toContain('go');
+    });
+  `,
+    'wrapped in a promise',
+  );
+  assertGated(
+    `
+    const readText = promisify(fs.readFile);
+    it('x', async () => {
+      expect(await readText(${thing}, 'utf8')).toContain('go');
+    });
+  `,
+    'promisified',
+  );
+  assertGated(
+    `
+    it('x', async () => {
+      const [before, after] = await Promise.all([
+        readFile(${thing}, 'utf8'),
+        readFile(${thing}, 'utf8'),
+      ]);
+      expect(after).toContain(before);
+    });
+  `,
+    'Promise.all',
+  );
+  // Controls: the same callback reading data, and a promise holding no source.
+  assertClean(
+    `
+    it('x', (done) => {
+      readFile(join(__dirname, 'fixture.json'), 'utf8', (error, text) => {
+        expect(text).toContain('go');
+        done();
+      });
+    });
+  `,
+    'control: callback reading a data file',
+  );
+  assertClean(
+    `
+    it('x', () => load().then((value) => { expect(value).toContain('go'); }));
+  `,
+    'control: then on a promise that holds no source',
+  );
+  // A whole file handed on whole is not a fragment.
+  assertClean(
+    `
+    it('x', () =>
+      readFile(${thing}, 'utf8').then((code) => {
+        expect(runInNewContext(code)).toBeDefined();
+      }));
+  `,
+    'control: evaluating the whole file a then receives',
+  );
+});
+
+test('an element of source text is source, however it is iterated', () => {
+  const tainted = `const source = readFileSync(join(__dirname, 'thing.ts'), 'utf8');`;
+  assertGated(
+    `${tainted}
+    it('x', () => {
+      source.split('\\n').forEach((line) => {
+        expect(line).not.toMatch(/console/u);
+      });
+    });
+  `,
+    'forEach callback',
+  );
+  assertGated(
+    `${tainted}
+    it('x', () => {
+      for (const line of source.split('\\n')) {
+        expect(line).not.toMatch(/console/u);
+      }
+    });
+  `,
+    'for...of',
+  );
+  assertGated(
+    `${tainted}
+    it('x', () => {
+      source.replace(/import .*/gu, (statement) => {
+        expect(statement).not.toContain('lodash');
+        return statement;
+      });
+    });
+  `,
+    'replace callback',
+  );
+  assertGated(
+    `${tainted}
+    function expectNoConsole(line) {
+      expect(line).not.toMatch(/console/u);
+    }
+    it('x', () => { source.split('\\n').forEach(expectNoConsole); });
+  `,
+    'assertion helper passed by reference',
+  );
+  // An element is only part of what it came from, even a whole file.
+  assertGated(
+    `${tainted}
+    for (const character of source) {
+      runInNewContext(character);
+    }
+    it('x', () => { expect(1).toBe(1); });
+  `,
+    'evaluating an element',
+  );
+  // Controls: the index is not text, and neither is an element of anything else.
+  assertClean(
+    `${tainted}
+    it('x', () => {
+      source.split('\\n').forEach((line, index) => {
+        expect(index).toBeGreaterThanOrEqual(0);
+      });
+    });
+  `,
+    'control: the index parameter',
+  );
+  assertClean(
+    `${tainted}
+    it('x', () => {
+      for (const name of ['a', 'b']) {
+        expect(name).not.toMatch(/console/u);
+      }
+    });
+  `,
+    'control: iterating something else',
+  );
+});
+
 test('a transform helper that cuts text does not launder a fragment', () => {
   const read = "readFileSync(join(__dirname, 'thing.js'), 'utf8')";
   assertGated(
@@ -971,6 +1132,21 @@ test('an assertion helper is where the claim is made, not where it is spelled', 
     });
   `,
     'node:assert helper, negated',
+  );
+  // Declared before the helper it hands its parameter to.
+  assertGated(
+    `
+    function expectClean(text) {
+      expectNoConsole(text);
+    }
+    function expectNoConsole(text) {
+      expect(text).not.toMatch(/console/u);
+    }
+    it('x', () => {
+      expectClean(readFileSync(join(__dirname, 'thing.ts'), 'utf8'));
+    });
+  `,
+    'helper delegating to a helper',
   );
   // The helper is not what decides: a plain string through it is clean.
   assertClean(
@@ -1350,6 +1526,26 @@ test('a hook local built up by its own callback is followed outward', () => {
     });
   `,
     'the same rework of untainted text',
+  );
+  // Through intermediates on both sides of the loop.
+  assertGated(
+    `
+    describe('d', () => {
+      let source;
+      beforeAll(() => {
+        let text = '';
+        files.forEach((file) => {
+          const contents = readFileSync(join(__dirname, file), 'utf8');
+          const trimmed = contents.trim();
+          text += trimmed;
+        });
+        const joined = text;
+        source = joined;
+      });
+      it('x', () => { expect(source).toContain('go'); });
+    });
+  `,
+    'intermediates inside the loop and after it',
   );
   // The loop body's own `text` is a different binding from the hook's.
   assertClean(

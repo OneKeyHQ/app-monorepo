@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* cspell:words quasis pbxproj */
+/* cspell:words quasis pbxproj combinators */
 /**
  * Test integrity lint.
  *
@@ -129,23 +129,26 @@ const ASSERT_TEXT_METHODS = new Set([
 // Methods that take the source text as an argument rather than a receiver.
 // Every other method propagates from its receiver, whatever it is named.
 const ARGUMENT_PROPAGATORS = new Set(['test', 'exec', 'replace', 'replaceAll']);
+// `Promise.all([read(a), read(b)])` settles with the texts it was handed.
+const PROMISE_COMBINATORS = new Set(['all', 'allSettled', 'any', 'race']);
 // Iteration methods whose result is decided by what the callback saw. A read
 // inside the callback is still a claim about that text, wherever the assertion
-// finally lands.
-const CALLBACK_PROPAGATORS = new Set([
-  'filter',
-  'map',
-  'flatMap',
-  'some',
-  'every',
-  'find',
-  'findIndex',
-  'findLast',
-  'findLastIndex',
-  'reduce',
-  'reduceRight',
-  'sort',
-  'forEach',
+// finally lands. Each maps to the callback parameters that receive the
+// receiver's text: the element and the array, and a reducer's accumulator.
+const CALLBACK_PROPAGATORS = new Map([
+  ['filter', [0, 2]],
+  ['map', [0, 2]],
+  ['flatMap', [0, 2]],
+  ['some', [0, 2]],
+  ['every', [0, 2]],
+  ['find', [0, 2]],
+  ['findIndex', [0, 2]],
+  ['findLast', [0, 2]],
+  ['findLastIndex', [0, 2]],
+  ['reduce', [0, 1, 3]],
+  ['reduceRight', [0, 1, 3]],
+  ['sort', [0, 1]],
+  ['forEach', [0, 2]],
 ]);
 // These cannot cut a fragment out, so they leave a whole read whole. `replace`
 // is deliberately absent: a regex replace is one of the ways to cut.
@@ -331,6 +334,30 @@ function resolveBindings(ast) {
   });
 }
 
+// Some values hold text the way a variable does without being one, such as
+// what a constructed promise settles with. Each gets a stable key of its own,
+// so definitions taint it exactly as they taint a binding.
+const SETTLED_VALUES = new WeakMap();
+
+function derivedKey(keys, owner) {
+  if (!owner) {
+    return undefined;
+  }
+  if (!keys.has(owner)) {
+    keys.set(owner, { derivedFrom: owner });
+  }
+  return keys.get(owner);
+}
+
+/** The key for what `new Promise(...)` settles with. */
+function settledKey(node) {
+  return derivedKey(SETTLED_VALUES, node);
+}
+
+function holdsWholeFile(key, tainted, fragments) {
+  return tainted.has(key) && !fragments.has(key);
+}
+
 const NON_CHILD_KEYS = new Set(['loc', 'leadingComments', 'trailingComments']);
 
 function childKeys(node) {
@@ -496,6 +523,9 @@ function taintKind(node, tainted, calls) {
       return taintKind(node.argument, tainted, calls);
     case 'SequenceExpression':
       return taintKind(node.expressions.at(-1), tainted, calls);
+    case 'NewExpression':
+      // `new Promise(...)` holds whatever its executor resolves it with.
+      return tainted.get(settledKey(node));
     case 'CallExpression':
     case 'OptionalCallExpression': {
       const fromRead = calls.readKind(node);
@@ -519,8 +549,15 @@ function taintKind(node, tainted, calls) {
           return fromReceiver;
         }
         // `/re/.test(source)` and `x.replace(source, y)` carry the text in an
-        // argument instead; no other method is assumed to.
-        if (name && ARGUMENT_PROPAGATORS.has(name)) {
+        // argument instead, as do the Promise combinators; no other method is
+        // assumed to.
+        if (
+          name &&
+          (ARGUMENT_PROPAGATORS.has(name) ||
+            (PROMISE_COMBINATORS.has(name) &&
+              node.callee.object.type === 'Identifier' &&
+              node.callee.object.name === 'Promise'))
+        ) {
           return firstTaint(node.arguments, tainted, calls);
         }
         // `files.filter((f) => readFileSync(f).includes(x))` decides its result
@@ -559,10 +596,10 @@ function isWholeFileRead(node, tainted, fragments, calls) {
         isWholeFileRead(part, tainted, fragments, calls),
     );
   switch (node.type) {
-    case 'Identifier': {
-      const binding = bindingOf(node);
-      return tainted.has(binding) && !fragments.has(binding);
-    }
+    case 'Identifier':
+      return holdsWholeFile(bindingOf(node), tainted, fragments);
+    case 'NewExpression':
+      return holdsWholeFile(settledKey(node), tainted, fragments);
     case 'AwaitExpression':
       return isWholeFileRead(node.argument, tainted, fragments, calls);
     case 'TSAsExpression':
@@ -636,8 +673,13 @@ function walkOwnBody(node, visit) {
   }
 }
 
-/** The source text an assertion call is made about, if any. */
-function assertionSubjectKind(node, tainted, calls) {
+/**
+ * The source an assertion call makes a claim about, and how the call spells
+ * it: an `expect()` matcher, a `node:assert` method, a call to a helper that
+ * asserts on the argument it is given, or such a helper handed to a callback
+ * that receives the text.
+ */
+function assertedSource(node, tainted, calls, helpers) {
   if (
     node.type !== 'CallExpression' &&
     node.type !== 'OptionalCallExpression'
@@ -645,42 +687,72 @@ function assertionSubjectKind(node, tainted, calls) {
     return undefined;
   }
   const name = calleeName(node.callee);
-  if (!name) {
-    return undefined;
-  }
-  if (TEXT_MATCHERS.has(name)) {
+  if (name && TEXT_MATCHERS.has(name)) {
     const expectCall = findExpectCall(node.callee);
-    return expectCall
-      ? firstTaint(expectCall.arguments, tainted, calls)
-      : undefined;
+    const kind = expectCall && firstTaint(expectCall.arguments, tainted, calls);
+    if (kind) {
+      return { kind, label: `expect(...).${name}()` };
+    }
   }
-  if (ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
-    return firstTaint(node.arguments, tainted, calls);
+  if (name && ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
+    const kind = firstTaint(node.arguments, tainted, calls);
+    if (kind) {
+      return { kind, label: `assert.${name}()` };
+    }
   }
-  return undefined;
+  const parameterIndex = helpers.get(bindingOf(node.callee));
+  if (parameterIndex !== undefined) {
+    const kind = taintKind(node.arguments[parameterIndex], tainted, calls);
+    if (kind) {
+      return { kind, label: `${name}()` };
+    }
+  }
+  // `lines.forEach(expectNoConsole)`: the helper is called with the text.
+  const handedToHelper = callbackSlots(node, calls).find(
+    (slot) =>
+      slot.parameters.includes(helpers.get(bindingOf(slot.callback))) &&
+      taintKind(slot.value, tainted, calls),
+  );
+  return handedToHelper
+    ? {
+        kind: taintKind(handedToHelper.value, tainted, calls),
+        label: `${handedToHelper.callback.name}()`,
+      }
+    : undefined;
 }
 
 /**
  * Named helpers that make the assertion for you: `expectNoTimers(source)` puts
  * the sink inside the helper, where the parameter is just a parameter. The
- * claim is still made about whatever the caller handed over.
+ * claim is still made about whatever the caller handed over. A helper that
+ * hands its parameter on to another helper is one too, so this runs until no
+ * new helper turns up.
  */
 function collectAssertionHelpers(ast, definitions, tainted, calls) {
   const helpers = new Map();
-  walk(ast, (node) => {
-    const named = namedFunction(node);
-    if (!named) {
-      return;
-    }
-    const index = named.parameters.findIndex(
-      (parameter) =>
-        parameter !== undefined &&
-        assertsOnParameter(named.fn, parameter, definitions, tainted, calls),
-    );
-    if (index >= 0) {
-      helpers.set(named.binding, index);
-    }
-  });
+  let before;
+  do {
+    before = helpers.size;
+    walk(ast, (node) => {
+      const named = namedFunction(node);
+      if (!named || helpers.has(named.binding)) {
+        return;
+      }
+      const index = named.parameters.findIndex(
+        (parameter) =>
+          parameter !== undefined &&
+          assertsOnParameter(named.fn, parameter, {
+            definitions,
+            tainted,
+            calls,
+            helpers,
+          }),
+      );
+      if (index >= 0) {
+        helpers.set(named.binding, index);
+      }
+    });
+  } while (helpers.size > before);
   return helpers;
 }
 
@@ -690,7 +762,11 @@ function collectAssertionHelpers(ast, definitions, tainted, calls) {
  * through the locals built from it. An assertion already about source without
  * the parameter is recorded where it stands, so it makes nothing a helper.
  */
-function assertsOnParameter(fn, parameter, definitions, tainted, calls) {
+function assertsOnParameter(
+  fn,
+  parameter,
+  { definitions, tainted, calls, helpers },
+) {
   const probe = new Map(tainted);
   probe.set(parameter, 'script');
   propagateTaint(
@@ -706,8 +782,8 @@ function assertsOnParameter(fn, parameter, definitions, tainted, calls) {
   walk(fn.body, (node) => {
     asserts =
       asserts ||
-      (Boolean(assertionSubjectKind(node, probe, calls)) &&
-        !assertionSubjectKind(node, tainted, calls));
+      (Boolean(assertedSource(node, probe, calls, helpers)) &&
+        !assertedSource(node, tainted, calls, helpers));
   });
   return asserts;
 }
@@ -782,22 +858,91 @@ function collectTransformHelpers(ast, calls, helpers) {
 }
 
 /**
- * Everywhere a binding is given a value: a declarator's initializer, or the
- * right-hand side of an assignment to it, compound assignments included.
+ * Everywhere a binding is given a value: a declarator's initializer, the
+ * right-hand side of an assignment to it (compound ones included), a callback
+ * parameter a known API fills, or a `for...of` loop variable. `fragment` marks
+ * a value that is only ever part of the expression it comes from, such as one
+ * element of it.
  */
-function collectDefinitions(ast) {
+function collectDefinitions(ast, calls) {
   const definitions = [];
+  const define = (node, value, identifiers, fragment = false) => {
+    const bindings = identifiers.map(bindingOf).filter(Boolean);
+    if (bindings.length > 0) {
+      definitions.push({ node, value, bindings, fragment });
+    }
+  };
   walk(ast, (node) => {
     const target = bindingTarget(node);
     if (target) {
-      definitions.push({
-        node,
-        value: target.value,
-        bindings: target.identifiers.map(bindingOf).filter(Boolean),
-      });
+      define(node, target.value, target.identifiers);
+    }
+    callbackSlots(node, calls).forEach(
+      ({ callback, parameters, value, fragment }) => {
+        if (
+          callback?.type === 'ArrowFunctionExpression' ||
+          callback?.type === 'FunctionExpression'
+        ) {
+          define(
+            callback,
+            value,
+            parameters.flatMap((index) =>
+              patternIdentifiers(callback.params[index]),
+            ),
+            fragment,
+          );
+        }
+      },
+    );
+    if (node.type === 'ForOfStatement') {
+      const pattern =
+        node.left.type === 'VariableDeclaration'
+          ? node.left.declarations[0]?.id
+          : node.left;
+      define(node, node.right, patternIdentifiers(pattern), true);
+    }
+    if (
+      node.type === 'NewExpression' &&
+      node.callee.type === 'Identifier' &&
+      node.callee.name === 'Promise'
+    ) {
+      const settled = settledKey(node);
+      settlements(node)
+        .filter((resolveCall) => resolveCall.arguments[0])
+        .forEach((resolveCall) =>
+          definitions.push({
+            node: resolveCall,
+            value: resolveCall.arguments[0],
+            bindings: [settled],
+            fragment: false,
+          }),
+        );
     }
   });
   return definitions;
+}
+
+/** The `resolve(...)` calls inside a `new Promise(...)` executor. */
+function settlements(promise) {
+  const executor = promise.arguments[0];
+  const resolve =
+    executor?.type === 'ArrowFunctionExpression' ||
+    executor?.type === 'FunctionExpression'
+      ? bindingOf(executor.params[0])
+      : undefined;
+  const found = [];
+  if (resolve) {
+    walk(executor.body, (node) => {
+      if (
+        (node.type === 'CallExpression' ||
+          node.type === 'OptionalCallExpression') &&
+        bindingOf(node.callee) === resolve
+      ) {
+        found.push(node);
+      }
+    });
+  }
+  return found;
 }
 
 /**
@@ -811,11 +956,13 @@ function propagateTaint(definitions, tainted, fragments, calls) {
   let changed = true;
   while (changed) {
     changed = false;
-    for (const { value, bindings } of definitions) {
+    for (const { value, bindings, fragment } of definitions) {
       const kind = taintKind(value, tainted, calls);
       const filled = kind ? bindings : [];
       const whole =
-        filled.length > 0 && isWholeFileRead(value, tainted, fragments, calls);
+        filled.length > 0 &&
+        !fragment &&
+        isWholeFileRead(value, tainted, fragments, calls);
       for (const binding of filled) {
         // 'script' outranks 'native': it is the kind that fails the gate.
         const current = tainted.get(binding);
@@ -853,6 +1000,73 @@ function callbackBodyTaint(node, tainted, calls) {
     }
   });
   return kind;
+}
+
+/**
+ * Where a call hands text to a callback it is given: the callback argument,
+ * which of its parameters receive the text, the expression that text comes
+ * from, and whether a parameter only ever gets part of it.
+ */
+function callbackSlots(node, calls) {
+  if (
+    node.type !== 'CallExpression' &&
+    node.type !== 'OptionalCallExpression'
+  ) {
+    return [];
+  }
+  // `readFile(path, 'utf8', (error, text) => ...)`
+  if (calls.isRead(node)) {
+    return [
+      {
+        callback: node.arguments.at(-1),
+        parameters: [1],
+        value: node,
+        fragment: false,
+      },
+    ];
+  }
+  if (
+    node.callee.type !== 'MemberExpression' &&
+    node.callee.type !== 'OptionalMemberExpression'
+  ) {
+    return [];
+  }
+  const name = calleeName(node.callee);
+  const receiver = node.callee.object;
+  // `readFile(path, 'utf8').then((text) => ...)`
+  if (name === 'then') {
+    return [
+      {
+        callback: node.arguments[0],
+        parameters: [0],
+        value: receiver,
+        fragment: false,
+      },
+    ];
+  }
+  // `source.split('\n').forEach((line) => ...)`
+  if (CALLBACK_PROPAGATORS.has(name)) {
+    return [
+      {
+        callback: node.arguments[0],
+        parameters: CALLBACK_PROPAGATORS.get(name),
+        value: receiver,
+        fragment: true,
+      },
+    ];
+  }
+  // `source.replace(/import .*/gu, (statement) => ...)`
+  if (name === 'replace' || name === 'replaceAll') {
+    return [
+      {
+        callback: node.arguments[1],
+        parameters: [0],
+        value: receiver,
+        fragment: true,
+      },
+    ];
+  }
+  return [];
 }
 
 function firstTaint(nodes, tainted, calls) {
@@ -1028,9 +1242,14 @@ function collectReadAliases(ast) {
       if (node.type !== 'VariableDeclarator') {
         return;
       }
-      // `const read = fs.readFileSync` / `const read = readFileSync`
+      // `const read = fs.readFileSync`, `const read = readFileSync`, and
+      // `const read = promisify(fs.readFile)`
       if (node.id.type === 'Identifier') {
-        if (node.init && isReadReference(node.init, aliases)) {
+        const reference =
+          calleeName(node.init?.callee) === 'promisify'
+            ? node.init.arguments[0]
+            : node.init;
+        if (reference && isReadReference(reference, aliases)) {
           add(node.id);
         }
         return;
@@ -1315,6 +1534,7 @@ function analyzeFile(
   // transform helper is not a read, but it hands an argument's text back, so
   // the taint travels through it.
   const calls = {
+    isRead: (callNode) => isReadCallee(callNode.callee),
     readKind(callNode) {
       if (isReadCallee(callNode.callee)) {
         return classify(callNode.arguments[0]);
@@ -1359,7 +1579,7 @@ function analyzeFile(
   // can sit anywhere inside it -- behind an await, a cast, an optional chain,
   // or a string method -- and derived bindings (`const body =
   // source.slice(a, b)`) follow.
-  const definitions = collectDefinitions(ast);
+  const definitions = collectDefinitions(ast, calls);
   const tainted = new Map();
   const fragments = new Set();
   propagateTaint(definitions, tainted, fragments, calls);
@@ -1472,54 +1692,18 @@ function analyzeFile(
         return false;
       }
 
-      // expect(<tainted>).toContain(...) / .not.toMatch(...)
-      if (name && TEXT_MATCHERS.has(name)) {
-        const expectCall = findExpectCall(node.callee);
-        const kind = expectCall
-          ? firstTaint(expectCall.arguments, tainted, calls)
-          : undefined;
-        if (kind) {
-          record(
-            kind === 'native'
-              ? 'native-source-text-assertion'
-              : 'source-text-assertion',
-            node,
-            `expect(...).${name}() asserts on the text of a ${kind} source file`,
-          );
-        }
-      }
-
-      // assert.match(<tainted>, /.../), assert.equal(<tainted>, ...)
-      if (name && ASSERT_TEXT_METHODS.has(name) && isAssertCall(node.callee)) {
-        const kind = firstTaint(node.arguments, tainted, calls);
-        if (kind) {
-          record(
-            kind === 'native'
-              ? 'native-source-text-assertion'
-              : 'source-text-assertion',
-            node,
-            `assert.${name}() asserts on the text of a ${kind} source file`,
-          );
-        }
-      }
-
-      // expectNoTimers(<tainted>): the sink is inside the helper, but the
+      // expect(<tainted>).toContain(...), assert.match(<tainted>, /.../), and
+      // expectNoTimers(<tainted>), where the sink is inside the helper but the
       // claim is about what this call handed it.
-      if (name && node.callee.type === 'Identifier') {
-        const parameterIndex = assertionHelpers.get(bindingOf(node.callee));
-        const kind =
-          parameterIndex === undefined
-            ? undefined
-            : taintKind(node.arguments[parameterIndex], tainted, calls);
-        if (kind) {
-          record(
-            kind === 'native'
-              ? 'native-source-text-assertion'
-              : 'source-text-assertion',
-            node,
-            `${name}() asserts on the text of a ${kind} source file`,
-          );
-        }
+      const asserted = assertedSource(node, tainted, calls, assertionHelpers);
+      if (asserted) {
+        record(
+          asserted.kind === 'native'
+            ? 'native-source-text-assertion'
+            : 'source-text-assertion',
+          node,
+          `${asserted.label} asserts on the text of a ${asserted.kind} source file`,
+        );
       }
 
       // vm.runInNewContext(<tainted>) / transformSync(<tainted>)
