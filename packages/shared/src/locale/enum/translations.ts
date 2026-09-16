@@ -2943,6 +2943,7 @@ export enum ETranslations {
   onekey_id_sign_in_or_sign_up__desc = 'onekey_id_sign_in_or_sign_up__desc',
   onekey_id_sign_in_or_sign_up__title = 'onekey_id_sign_in_or_sign_up__title',
   onekey_id_verification_email_hint__desc = 'onekey_id_verification_email_hint__desc',
+  onekey_pro_series__title = 'onekey_pro_series__title',
   open_as_popup = 'open_as_popup',
   open_as_sidebar = 'open_as_sidebar',
   open_in_mobile_app = 'open_in_mobile_app',

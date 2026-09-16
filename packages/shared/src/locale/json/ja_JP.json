@@ -2938,6 +2938,7 @@
   "onekey_id_sign_in_or_sign_up__desc": "初回利用時に OneKey ID が自動的に作成されます。",
   "onekey_id_sign_in_or_sign_up__title": "サインイン",
   "onekey_id_verification_email_hint__desc": "受信トレイで <onekey>OneKey</onekey> からの認証コードメールを探してください。見つからない場合は、プロモーションまたは迷惑メールフォルダを確認してください。",
+  "onekey_pro_series__title": "OneKey Pro シリーズ",
   "open_as_popup": "ポップアップとして開く",
   "open_as_sidebar": "サイドパネルとして開く",
   "open_in_mobile_app": "モバイルアプリで開く",

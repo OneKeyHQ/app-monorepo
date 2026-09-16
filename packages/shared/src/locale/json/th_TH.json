@@ -2938,6 +2938,7 @@
   "onekey_id_sign_in_or_sign_up__desc": "ระบบจะสร้าง OneKey ID ให้โดยอัตโนมัติเมื่อใช้งานครั้งแรก",
   "onekey_id_sign_in_or_sign_up__title": "เข้าสู่ระบบ",
   "onekey_id_verification_email_hint__desc": "มองหาอีเมลรหัสยืนยันจาก <onekey>OneKey</onekey> ในกล่องจดหมาย หากไม่พบ ให้ตรวจสอบโฟลเดอร์โปรโมชันหรือสแปม",
+  "onekey_pro_series__title": "OneKey Pro ซีรีส์",
   "open_as_popup": "เปิดเป็นป๊อปอัป",
   "open_as_sidebar": "เปิดเป็นแผงด้านข้าง",
   "open_in_mobile_app": "เปิดในแอปมือถือ",
