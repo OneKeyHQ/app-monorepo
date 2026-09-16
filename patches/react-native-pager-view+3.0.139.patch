@@ -1,0 +1,42 @@
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerNativeHeaders.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerNativeHeaders.kt
+index 565d4ab..e651b3e 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerNativeHeaders.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/CollapsiblePagerNativeHeaders.kt
+@@ -14,6 +14,7 @@ import android.widget.FrameLayout
+ import android.widget.HorizontalScrollView
+ import android.widget.TextView
+ import androidx.core.graphics.ColorUtils
++import com.facebook.react.common.assets.ReactFontManager
+ import org.json.JSONArray
+ import org.json.JSONObject
+ import kotlin.math.ceil
+@@ -177,7 +178,13 @@ private class CollapsiblePagerHorizontalItemsView(
+   }
+ 
+   private fun applyTypeface() {
+-    val typeface = Typeface.create(fontFamily ?: "sans-serif-medium", Typeface.NORMAL)
++    // OneKey patch: resolve bundled and registered fonts through React Native.
++    // val typeface = Typeface.create(fontFamily ?: "sans-serif-medium", Typeface.NORMAL)
++    val typeface = ReactFontManager.getInstance().getTypeface(
++      fontFamily ?: "sans-serif-medium",
++      Typeface.NORMAL,
++      context.assets,
++    )
+     buttons.forEach { button ->
+       button.typeface = typeface
+       button.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSize.toFloat())
+@@ -452,7 +459,13 @@ internal class CollapsiblePagerNativeSubHeaderView(context: Context) : ViewGroup
+       selectedBackgroundColor,
+       activeTextColor,
+     )
+-    val typeface = Typeface.create(fontFamily ?: "sans-serif-medium", Typeface.NORMAL)
++    // OneKey patch: use the same font resolution for column labels and tab buttons.
++    // val typeface = Typeface.create(fontFamily ?: "sans-serif-medium", Typeface.NORMAL)
++    val typeface = ReactFontManager.getInstance().getTypeface(
++      fontFamily ?: "sans-serif-medium",
++      Typeface.NORMAL,
++      context.assets,
++    )
+     listOf(leading, middle, trailing).forEach { label ->
+       label.typeface = typeface
+       label.setTextSize(TypedValue.COMPLEX_UNIT_SP, columnFontSize.toFloat())
