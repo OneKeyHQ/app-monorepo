@@ -36,7 +36,6 @@ interface INavigateToMarketTabOptions {
 interface IMarketNavigationRequest {
   // Correlates the async steps of one request in the local logs.
   navigationId: number;
-  startedAt: number;
   target?: IMarketNavigationTarget;
   onNavigationComplete?: () => void;
 }
@@ -78,7 +77,6 @@ export function useNavigateToMarketTab() {
         defaultLogger.market.navigation.pendingNavigationCancelled({
           navigationId: pendingNavigation.navigationId,
           reason: cancelReason,
-          elapsedMs: Date.now() - pendingNavigation.startedAt,
         });
       }
       if (pendingNavigationTimeoutRef.current !== undefined) {
@@ -114,13 +112,12 @@ export function useNavigateToMarketTab() {
       request: IMarketNavigationRequest,
       trigger: IMarketNavigationTrigger,
     ) => {
-      const { navigationId, startedAt, target, onNavigationComplete } = request;
+      const { navigationId, target, onNavigationComplete } = request;
       defaultLogger.market.navigation.performNavigationStart({
         navigationId,
         trigger,
         platform: getNavigationPlatform(),
         routeName: getCurrentRouteName(),
-        elapsedMs: Date.now() - startedAt,
       });
 
       if (
@@ -161,14 +158,12 @@ export function useNavigateToMarketTab() {
         navigationId,
         hasRootNavigationRef: Boolean(rootNavigationRef.current),
         routeName: getCurrentRouteName(),
-        elapsedMs: Date.now() - startedAt,
       });
 
       const logNavigationComplete = () => {
         defaultLogger.market.navigation.performNavigationComplete({
           navigationId,
           routeName: getCurrentRouteName(),
-          elapsedMs: Date.now() - startedAt,
         });
       };
 
@@ -204,7 +199,6 @@ export function useNavigateToMarketTab() {
         defaultLogger.market.navigation.performNavigationFailed({
           navigationId: request.navigationId,
           error: error instanceof Error ? error.message : String(error),
-          elapsedMs: Date.now() - request.startedAt,
         });
         // Only add the local log; keep the original unhandled rejection.
         throw error;
@@ -267,7 +261,6 @@ export function useNavigateToMarketTab() {
       lastMarketNavigationId += 1;
       const request: IMarketNavigationRequest = {
         navigationId: lastMarketNavigationId,
-        startedAt: Date.now(),
         onNavigationComplete,
       };
       defaultLogger.market.navigation.navigateToMarketTab({

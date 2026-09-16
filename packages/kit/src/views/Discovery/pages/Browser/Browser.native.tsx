@@ -376,7 +376,6 @@ function MobileBrowser() {
       showWebPage?: boolean;
       switchType?: IExploreTabSwitchType;
     }) => {
-      const receivedAt = Date.now();
       defaultLogger.market.navigation.discoveryTabSwitchReceived({
         tab: event.tab,
         switchType: event.switchType,
@@ -403,7 +402,6 @@ function MobileBrowser() {
       await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(event.tab);
       defaultLogger.market.navigation.discoveryTabSwitchApplied({
         tab: event.tab,
-        elapsedMs: Date.now() - receivedAt,
       });
       if (event.tab === ETranslations.global_browser && event.openUrl) {
         setTimeout(() => {

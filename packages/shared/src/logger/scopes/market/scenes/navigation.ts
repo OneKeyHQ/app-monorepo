@@ -51,7 +51,6 @@ export class MarketNavigationScene extends BaseScene {
   public pendingNavigationCancelled(params: {
     navigationId: number;
     reason: 'superseded' | 'unmount';
-    elapsedMs: number;
   }) {
     return params;
   }
@@ -62,7 +61,6 @@ export class MarketNavigationScene extends BaseScene {
     trigger: IMarketNavigationTrigger;
     platform: 'extension' | 'native' | 'web';
     routeName?: string;
-    elapsedMs: number;
   }) {
     return params;
   }
@@ -72,7 +70,6 @@ export class MarketNavigationScene extends BaseScene {
     navigationId: number;
     hasRootNavigationRef: boolean;
     routeName?: string;
-    elapsedMs: number;
   }) {
     return params;
   }
@@ -81,7 +78,6 @@ export class MarketNavigationScene extends BaseScene {
   public performNavigationComplete(params: {
     navigationId: number;
     routeName?: string;
-    elapsedMs: number;
   }) {
     return params;
   }
@@ -90,7 +86,6 @@ export class MarketNavigationScene extends BaseScene {
   public performNavigationFailed(params: {
     navigationId: number;
     error: string;
-    elapsedMs: number;
   }) {
     return params;
   }
@@ -117,7 +112,7 @@ export class MarketNavigationScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
-  public discoveryTabSwitchApplied(params: { tab: string; elapsedMs: number }) {
+  public discoveryTabSwitchApplied(params: { tab: string }) {
     return params;
   }
 
