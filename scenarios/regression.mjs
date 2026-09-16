@@ -1070,13 +1070,9 @@ const BLANK_SPACE_TOLERANCE_PX = 160;
 const CLIP_TOLERANCE_PX = 2;
 
 // Tabs with dead space that is known and NOT gated, so a pre-existing defect
-// cannot disable the whole check. Every entry needs a reason and a removal
-// condition.
-//   NFT — renders through Tabs.FlatList -> List.tsx, which never takes the
-//   Tabs.ScrollView measurement path, so this commit does not change it.
-//   Measured identically (410px) with and without the fix. Remove the entry
-//   once the List grid path is fixed.
-const KNOWN_DEAD_SPACE_TABS = new Set(['NFT']);
+// cannot disable the whole check. Empty today; every entry needs a reason and
+// a removal condition.
+const KNOWN_DEAD_SPACE_TABS = new Set([]);
 const isKnownDeadSpace = (label) =>
   [...KNOWN_DEAD_SPACE_TABS].some(
     (tab) => label.endsWith(`-> ${tab}`) || label === `rest ${tab}`,
