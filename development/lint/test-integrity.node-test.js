@@ -864,6 +864,29 @@ test('text a read hands to a callback or a promise is still source', () => {
   `,
     'Promise.all',
   );
+  assertGated(
+    `
+    it('x', async () => {
+      const text = await Promise.race([readFile(${thing}, 'utf8'), timeout()]);
+      expect(text).toContain('go');
+    });
+  `,
+    'Promise.race',
+  );
+  // Each settled value is its own: data loaded next to source is still data.
+  const loadPair = `
+      const [source, fixture] = await Promise.all([
+        readFile(${thing}, 'utf8'),
+        readFile(join(tmp, 'expected.json'), 'utf8'),
+      ]);`;
+  assertGated(
+    `it('x', async () => { ${loadPair} expect(source).toContain('go'); });`,
+    'Promise.all: the source half',
+  );
+  assertClean(
+    `it('x', async () => { ${loadPair} expect(fixture).toEqual('{}'); });`,
+    'control: Promise.all: the data half',
+  );
   // Controls: the same callback reading data, and a promise holding no source.
   assertClean(
     `
@@ -989,6 +1012,33 @@ test('what a named function returns is still source', () => {
   `,
     'several statements',
   );
+  // Each property of a returned object literal is its own.
+  const loader = `
+    function loadIndex() {
+      const source = readFileSync(${thing}, 'utf8');
+      return { source, ast: parse(source) };
+    }`;
+  assertGated(
+    `${loader}
+    it('x', () => { expect(loadIndex().source).toContain('go'); });
+  `,
+    'the property of a returned object that holds source',
+  );
+  assertClean(
+    `${loader}
+    it('x', () => { expect(loadIndex().ast.type).toBe('Program'); });
+  `,
+    'control: a property of the same object that does not',
+  );
+  assertClean(
+    `${loader}
+    it('x', () => {
+      const { ast } = loadIndex();
+      expect(ast.type).toBe('Program');
+    });
+  `,
+    'control: the same property destructured',
+  );
   // A read behind a conversion is still a read helper, classified per call.
   const readText =
     'const readText = (name) => readFileSync(join(__dirname, name)).toString();';
@@ -1071,6 +1121,56 @@ test('what a variable stores under a property is still source', () => {
     });
   `,
     'destructured out of the variable',
+  );
+  // A literal spells out what each of its parts holds.
+  const literalOwner = `const context = { source: ${read}, count: 3 };`;
+  assertGated(
+    `${literalOwner}
+    it('x', () => {
+      const { source } = context;
+      expect(source).toContain('go');
+    });
+  `,
+    'destructured out of an object literal',
+  );
+  assertClean(
+    `${literalOwner}
+    it('x', () => {
+      const { count } = context;
+      expect(count).toBe(3);
+      expect(context.count).toBe(3);
+    });
+  `,
+    'control: another property of the same object literal',
+  );
+  const arrayOwner = `const files = [${read}, 'plain'];`;
+  assertGated(
+    `${arrayOwner}
+    it('x', () => { expect(files[0]).toContain('go'); });
+  `,
+    'an element of an array literal',
+  );
+  assertClean(
+    `${arrayOwner}
+    it('x', () => {
+      const [, plain] = files;
+      expect(plain).toBe('plain');
+      expect(files[1]).toBe('plain');
+    });
+  `,
+    'control: another element of the same array literal',
+  );
+  // A property that is only ever assigned may still hold whatever the rest of
+  // its owner does.
+  assertGated(
+    `
+    function expectBody(page) {
+      page.body = page.body.trim();
+      expect(page.body).toContain('go');
+    }
+    it('x', () => { expectBody({ body: ${read} }); });
+  `,
+    'reassigned from itself on a parameter',
   );
   // Controls: another property of it, and the same name on another variable.
   assertClean(

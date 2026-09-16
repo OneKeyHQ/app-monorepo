@@ -374,22 +374,52 @@ function propertyKey(owner, name) {
   return derivedKey(STORED_VALUES, owner, name);
 }
 
-/** `ctx.source` and `ctx['source']`: the key for what that property holds. */
+/**
+ * `ctx.source`, `ctx['source']`, `files[0]` and `load().source`: the key for
+ * what that property of that owner holds.
+ */
 function storedKey(node) {
   if (
-    (node?.type !== 'MemberExpression' &&
-      node?.type !== 'OptionalMemberExpression') ||
-    node.object.type !== 'Identifier'
+    node?.type !== 'MemberExpression' &&
+    node?.type !== 'OptionalMemberExpression'
   ) {
     return undefined;
   }
-  return propertyKey(bindingOf(node.object), staticName(node.property, node));
+  return propertyKey(ownerKey(node.object), staticName(node.property, node));
+}
+
+/**
+ * What properties can be recorded against: a variable, or what a call to a
+ * named function returns, awaited or not.
+ */
+function ownerKey(node) {
+  switch (node?.type) {
+    case 'Identifier':
+      return bindingOf(node);
+    case 'AwaitExpression':
+      return ownerKey(node.argument);
+    case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
+    case 'TSNonNullExpression':
+    case 'ParenthesizedExpression':
+      return ownerKey(node.expression);
+    case 'CallExpression':
+    case 'OptionalCallExpression':
+      return node.callee.type === 'Identifier'
+        ? returnedKey(bindingOf(node.callee))
+        : undefined;
+    default:
+      return undefined;
+  }
 }
 
 /** The name a property key or member access spells out, if it is static. */
 function staticName(key, container) {
   if (key.type === 'StringLiteral') {
     return key.value;
+  }
+  if (key.type === 'NumericLiteral') {
+    return String(key.value);
   }
   return key.type === 'Identifier' && !container.computed
     ? key.name
@@ -531,11 +561,20 @@ function taintKind(node, tainted, calls) {
     case 'ParenthesizedExpression':
       return taintKind(node.expression, tainted, calls);
     case 'MemberExpression':
-    case 'OptionalMemberExpression':
-      // `ctx.source` holds what was stored under that name.
+    case 'OptionalMemberExpression': {
+      const stored = storedKey(node);
+      // A property an object or array literal spells out holds what it was
+      // given and nothing else, so `ctx.count` is not source because
+      // `ctx.source` is. A property only ever assigned may still hold whatever
+      // the rest of its owner does.
+      if (stored?.fromLiteral) {
+        return tainted.get(stored);
+      }
       return (
-        tainted.get(storedKey(node)) ?? taintKind(node.object, tainted, calls)
+        (stored?.defined ? tainted.get(stored) : undefined) ??
+        taintKind(node.object, tainted, calls)
       );
+    }
     case 'TemplateLiteral':
       return firstTaint(node.expressions, tainted, calls);
     case 'BinaryExpression':
@@ -653,8 +692,12 @@ function isWholeFileRead(node, tainted, fragments, calls) {
     case 'NewExpression':
       return holdsWholeFile(settledKey(node), tainted, fragments);
     case 'MemberExpression':
-    case 'OptionalMemberExpression':
-      return holdsWholeFile(storedKey(node), tainted, fragments);
+    case 'OptionalMemberExpression': {
+      const stored = storedKey(node);
+      return (
+        Boolean(stored?.defined) && holdsWholeFile(stored, tainted, fragments)
+      );
+    }
     case 'AwaitExpression':
       return isWholeFileRead(node.argument, tainted, fragments, calls);
     case 'TSAsExpression':
@@ -932,6 +975,11 @@ function collectDefinitions(ast, calls) {
       definitions.push({ node, value, bindings, fragment });
     }
   };
+  const store = (node, { key, value, literal = false }) => {
+    key.defined = true;
+    key.fromLiteral = key.fromLiteral || literal;
+    definitions.push({ node, value, bindings: [key], fragment: false });
+  };
   const namedFunctions = [];
   walk(ast, (node) => {
     const named = namedFunction(node);
@@ -943,9 +991,7 @@ function collectDefinitions(ast, calls) {
       destructured(target).forEach(({ identifiers, value }) =>
         define(node, value, identifiers),
       );
-      storedValues(target).forEach(({ key, value }) =>
-        definitions.push({ node, value, bindings: [key], fragment: false }),
-      );
+      storedValues(target).forEach((part) => store(node, part));
     }
     callbackSlots(node, calls).forEach(
       ({ callback, parameters, value, fragment }) => {
@@ -1005,26 +1051,56 @@ function collectDefinitions(ast, calls) {
       }
     }
     const returned = returnedKey(named.binding);
-    values.forEach((value) =>
+    values.forEach((value) => {
       definitions.push({
         node: value,
         value,
         bindings: [returned],
         fragment: false,
-      }),
-    );
+      });
+      // `return { source, ast }` hands back each property on its own too.
+      literalParts(returned, value).forEach((part) => store(value, part));
+    });
   });
   return definitions;
 }
 
 /**
- * What each identifier in a definition's pattern is given. Destructuring a
- * variable by static key reads that property, as `ctx.source` would, so what
- * was stored under it arrives; anything else receives the whole value.
+ * What each identifier in a definition's pattern is given. An element of an
+ * array literal goes to the identifier in the same position, and destructuring
+ * an owner by static key or position reads that property, as `ctx.source` or
+ * `files[0]` would. Anything else receives the whole value.
  */
 function destructured({ pattern, identifiers, value }) {
-  if (pattern.type !== 'ObjectPattern' || value.type !== 'Identifier') {
-    return [{ identifiers, value }];
+  const whole = [{ identifiers, value }];
+  if (pattern.type === 'ArrayPattern') {
+    const literal = unwrapCollection(value);
+    if (
+      literal?.type === 'ArrayExpression' &&
+      !literal.elements.some((element) => element?.type === 'SpreadElement')
+    ) {
+      return pattern.elements.map((element, index) => ({
+        identifiers: patternIdentifiers(element),
+        value:
+          element?.type === 'RestElement' ? value : literal.elements[index],
+      }));
+    }
+    return ownerKey(value)
+      ? pattern.elements.map((element, index) =>
+          element?.type === 'RestElement'
+            ? { identifiers: patternIdentifiers(element), value }
+            : {
+                identifiers: patternIdentifiers(element),
+                value: propertyAccess(value, {
+                  type: 'NumericLiteral',
+                  value: index,
+                }),
+              },
+        )
+      : whole;
+  }
+  if (pattern.type !== 'ObjectPattern' || !ownerKey(value)) {
+    return whole;
   }
   return pattern.properties.map((property) => {
     const name =
@@ -1040,16 +1116,17 @@ function destructured({ pattern, identifiers, value }) {
         }
       : {
           identifiers: patternIdentifiers(property.value),
-          // A property access the source never spells out, so taint and
-          // wholeness are read exactly as for `value.name`.
-          value: {
-            type: 'MemberExpression',
-            object: value,
-            property: property.key,
-            computed: property.computed,
-          },
+          value: propertyAccess(value, property.key, property.computed),
         };
   });
+}
+
+/**
+ * A property access the source never spells out, so that taint and wholeness
+ * are read for it exactly as they would be for `owner.name` or `owner[0]`.
+ */
+function propertyAccess(owner, key, computed = key.type !== 'Identifier') {
+  return { type: 'MemberExpression', object: owner, property: key, computed };
 }
 
 /**
@@ -1062,16 +1139,62 @@ function storedValues({ pattern, value }) {
     return [{ key: stored, value }];
   }
   const owner = bindingOf(pattern);
-  if (!owner || value?.type !== 'ObjectExpression') {
+  return owner ? literalParts(owner, value) : [];
+}
+
+/**
+ * The parts an object or array literal gives its owner, by property name or
+ * position. `await Promise.all([...])` settles with an array whose elements
+ * are what each of its inputs settles with, so it counts as that array.
+ */
+function literalParts(owner, value) {
+  const literal = unwrapCollection(value);
+  if (literal?.type === 'ObjectExpression') {
+    return literal.properties
+      .filter((property) => property.type === 'ObjectProperty')
+      .map((property) => ({
+        key: propertyKey(owner, staticName(property.key, property)),
+        value: property.value,
+        literal: true,
+      }))
+      .filter(({ key }) => key);
+  }
+  if (literal?.type !== 'ArrayExpression') {
     return [];
   }
-  return value.properties
-    .filter((property) => property.type === 'ObjectProperty')
-    .map((property) => ({
-      key: propertyKey(owner, staticName(property.key, property)),
-      value: property.value,
+  const spread = literal.elements.findIndex(
+    (element) => element?.type === 'SpreadElement',
+  );
+  return literal.elements
+    .slice(0, spread === -1 ? undefined : spread)
+    .map((element, index) => ({
+      key: propertyKey(owner, String(index)),
+      value: element,
+      literal: true,
     }))
-    .filter(({ key }) => key);
+    .filter(({ value: element }) => element);
+}
+
+/** The literal under `await` and `Promise.all`. */
+function unwrapCollection(node) {
+  switch (node?.type) {
+    case 'AwaitExpression':
+      return unwrapCollection(node.argument);
+    case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
+    case 'TSNonNullExpression':
+    case 'ParenthesizedExpression':
+      return unwrapCollection(node.expression);
+    case 'CallExpression':
+      return node.callee.type === 'MemberExpression' &&
+        node.callee.object.type === 'Identifier' &&
+        node.callee.object.name === 'Promise' &&
+        calleeName(node.callee) === 'all'
+        ? unwrapCollection(node.arguments[0])
+        : node;
+    default:
+      return node;
+  }
 }
 
 /** The expressions a function hands back to its caller. */
