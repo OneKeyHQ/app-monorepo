@@ -71,7 +71,7 @@ function writeFunctionTrace(message: string): void {
         write: (level: number, logMessage: string) => {
           m.NativeLogger.write(level, logMessage);
         },
-        level: m.LogLevel.Info,
+        level: m.LogLevel.Error,
       };
     }
     for (const pendingMessage of pendingFunctionTraceLogs.splice(0)) {
@@ -107,7 +107,7 @@ export function installFunctionTrace(): void {
     };
     const runtime = g.__ONEKEY_RUNTIME_KIND__ ?? 'unknown';
     writeFunctionTrace(
-      `[FunctionTrace] begin id=${id} runtime=${runtime} name=${meta.name} file=${meta.file} line=${meta.line ?? 0}`,
+      `[FunctionTrace] begin id=${id} ts=${Date.now()} runtime=${runtime} name=${meta.name} file=${meta.file} line=${meta.line ?? 0}`,
     );
     return token;
   };
@@ -117,7 +117,7 @@ export function installFunctionTrace(): void {
     const runtime = g.__ONEKEY_RUNTIME_KIND__ ?? 'unknown';
     const durationMs = functionTraceNow() - token.start;
     writeFunctionTrace(
-      `[FunctionTrace] end id=${token.id} runtime=${runtime} name=${token.meta.name} file=${token.meta.file} line=${token.meta.line ?? 0} durationMs=${durationMs.toFixed(3)}`,
+      `[FunctionTrace] end id=${token.id} ts=${Date.now()} runtime=${runtime} name=${token.meta.name} file=${token.meta.file} line=${token.meta.line ?? 0} durationMs=${durationMs.toFixed(3)}`,
     );
   };
 }

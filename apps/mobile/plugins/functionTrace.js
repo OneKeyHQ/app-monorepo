@@ -1,3 +1,21 @@
+/**
+ * Babel plugin that wraps first-party function bodies with begin/end trace
+ * hooks. Enabled only when ONEKEY_FUNCTION_TRACE=1 (qa-internal-function-trace
+ * EAS profile); the hooks are installed by installFunctionTrace() in
+ * apps/mobile/src/startupProfile.
+ *
+ * Known trade-offs, accepted on purpose:
+ * - Trace events are written at ERROR level. NativeLogger rate-limits
+ *   DEBUG/INFO/WARN (INFO: 400 lines/s, burst 2000, shared by both JS runtimes)
+ *   and would drop most per-call events; ERROR is never rate-limited. Logging
+ *   cost is included in measured durations, and on long runs the oldest lines
+ *   are rotated out of app-latest.log.
+ * - Explicit 'worklet' functions can be instrumented twice:
+ *   react-native-worklets/plugin runs after this plugin and clones the
+ *   already-wrapped function, so the JS-side copy gets a second begin/end pair.
+ *   This is only log noise: the hooks are undefined on the UI runtime and every
+ *   call site is guarded by a typeof check, so it cannot crash.
+ */
 const FUNCTION_TRACE_START = '__onekeyFunctionTraceStart';
 const FUNCTION_TRACE_END = '__onekeyFunctionTraceEnd';
 
