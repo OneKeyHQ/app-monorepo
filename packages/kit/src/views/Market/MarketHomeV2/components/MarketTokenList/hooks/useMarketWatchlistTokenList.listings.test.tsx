@@ -1,10 +1,15 @@
 /** @jest-environment jsdom */
+import type { RefObject } from 'react';
+
 import { renderHook, waitFor } from '@testing-library/react';
 
 import type { IMarketListingWatchlistQuote } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
-import { useMarketWatchlistTokenList } from './useMarketWatchlistTokenList';
+import {
+  type IMarketWatchlistDataCache,
+  useMarketWatchlistTokenList,
+} from './useMarketWatchlistTokenList';
 
 const mockQuote = jest.fn<
   Promise<IMarketListingWatchlistQuote | undefined>,
@@ -198,8 +203,6 @@ it('carries stock variants through for the company-name hover reveal', async () 
   const { result } = renderHook(() =>
     useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
   );
-  // Rows render from the watchlist before the quotes resolve, so wait on the
-  // quote-derived names rather than on the row count.
   await waitFor(() =>
     expect(result.current.data.map((item) => item.name)).toEqual([
       'Apple Inc.',
@@ -208,4 +211,102 @@ it('carries stock variants through for the company-name hover reveal', async () 
   );
   expect(result.current.data[0].stockVariants).toEqual(variants);
   expect(result.current.data[1].stockVariants).toBeUndefined();
+});
+it('withholds listing rows until the first quote batch resolves', async () => {
+  let resolveBatch: (items: IMarketStockPublicItem[]) => void = () => {};
+  mockStockBatch.mockReturnValue(
+    new Promise<IMarketStockPublicItem[]>((resolve) => {
+      resolveBatch = resolve;
+    }),
+  );
+  const watchlist = [
+    { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() => expect(mockStockBatch).toHaveBeenCalledTimes(1));
+
+  // A row built from the watchlist record alone would show NaN metrics, and it
+  // would also hide the list's "loading with no rows" fallback.
+  expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
+
+  resolveBatch([stockItem('AAPL', { name: 'Apple', price: '321' })]);
+  await waitFor(() =>
+    expect(result.current.data).toEqual([
+      expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
+    ]),
+  );
+});
+it('reuses the cached quote batch so a remount renders rows immediately', async () => {
+  mockStockBatch.mockResolvedValue([
+    stockItem('AAPL', { name: 'Apple', price: '321' }),
+  ]);
+  const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+    current: undefined,
+  };
+  const watchlist = [
+    { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+  ];
+  const first = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      pollingInterval: 0,
+      dataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(first.result.current.data).toHaveLength(1));
+  first.unmount();
+
+  // The token selector unmounts this list on every tab switch, so the refetch
+  // must not blank the rows that were already on screen.
+  mockStockBatch.mockReturnValue(
+    new Promise<IMarketStockPublicItem[]>(() => {}),
+  );
+  const second = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      pollingInterval: 0,
+      dataCacheRef,
+    }),
+  );
+  expect(second.result.current.data).toEqual([
+    expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
+  ]);
+});
+it('drops the cached quote batch once a new listing is favorited', async () => {
+  mockStockBatch.mockResolvedValue([
+    stockItem('AAPL', { name: 'Apple', price: '321' }),
+  ]);
+  const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+    current: undefined,
+  };
+  const first = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: [
+        { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+      ],
+      pollingInterval: 0,
+      dataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(first.result.current.data).toHaveLength(1));
+  first.unmount();
+
+  // TSLA has no cached quote, so reusing the batch would render it with NaN.
+  mockStockBatch.mockReturnValue(
+    new Promise<IMarketStockPublicItem[]>(() => {}),
+  );
+  const second = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: [
+        { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+        { stockId: 'TSLA', chainId: '', contractAddress: '', sortIndex: 1 },
+      ],
+      pollingInterval: 0,
+      dataCacheRef,
+    }),
+  );
+  expect(second.result.current.data).toEqual([]);
 });

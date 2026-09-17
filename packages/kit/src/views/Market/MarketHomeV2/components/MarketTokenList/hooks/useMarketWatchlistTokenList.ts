@@ -66,12 +66,18 @@ export interface IUseMarketWatchlistTokenListParams {
   dataCacheRef?: RefObject<IMarketWatchlistDataCache | undefined>;
 }
 
+export interface IMarketWatchlistListingQuoteEntry {
+  key: string;
+  quote: IMarketListingWatchlistQuote | undefined;
+}
+
 export interface IMarketWatchlistDataCache {
   spot?: Awaited<
     ReturnType<
       typeof backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch
     >
   >;
+  listing?: IMarketWatchlistListingQuoteEntry[];
   perps?: {
     tokenListData: Awaited<
       ReturnType<
@@ -191,6 +197,38 @@ export function useMarketWatchlistTokenList({
       checkIsFocused: true,
     },
   );
+
+  // Listing rows are synthesized from the local watchlist record, so unlike
+  // spot rows they can render before any quote exists. Reusing the previous
+  // batch keeps a remount — the token selector drops this list on every tab
+  // switch — from falling back to that quote-less state.
+  const lastListingQuotesRef = useRef<
+    IMarketWatchlistListingQuoteEntry[] | undefined
+  >(dataCacheRef?.current?.listing);
+  useEffect(() => {
+    if (!listingQuotes) return;
+    lastListingQuotesRef.current = listingQuotes;
+    if (dataCacheRef) {
+      dataCacheRef.current = {
+        ...dataCacheRef.current,
+        listing: listingQuotes,
+      };
+    }
+  }, [dataCacheRef, listingQuotes]);
+  const listingResult = useMemo(() => {
+    if (listingQuotes) return listingQuotes;
+    const cached = lastListingQuotesRef.current;
+    if (!cached) return undefined;
+    // A batch fetched before a newly favorited listing would leave that row
+    // without a quote, so the cache stays usable only while it still covers
+    // every current entry.
+    const cachedKeys = new Set(cached.map((entry) => entry.key));
+    return listingItems.every((item) =>
+      cachedKeys.has(getMarketWatchlistKey(item)),
+    )
+      ? cached
+      : undefined;
+  }, [listingItems, listingQuotes]);
 
   // ── Spot data fetching (existing logic) ──
   const {
@@ -425,10 +463,13 @@ export function useMarketWatchlistTokenList({
     const merged = watchlist
       .map((watchlistItem) => {
         if (watchlistItem.assetId || watchlistItem.stockId) {
+          // Without a resolved batch every metric would render as NaN while
+          // spot rows are still missing entirely, so hold the row back. A
+          // resolved batch that carries no entry for this listing still
+          // renders, which keeps delisted favorites removable.
+          if (!listingResult) return undefined;
           const key = getMarketWatchlistKey(watchlistItem);
-          const quote = listingQuotes?.find(
-            (entry) => entry.key === key,
-          )?.quote;
+          const quote = listingResult.find((entry) => entry.key === key)?.quote;
           return {
             id: key,
             assetId: watchlistItem.assetId,
@@ -495,7 +536,7 @@ export function useMarketWatchlistTokenList({
     return merged;
   }, [
     apiResult,
-    listingQuotes,
+    listingResult,
     watchlist,
     spotItems,
     perpsTokenMap,
