@@ -147,6 +147,31 @@ it('preserves the existing dynamic behavior outside stable native layout', () =>
   expect(screen.getByText(/Trade perpetuals/)).toBeTruthy();
 });
 
+it('reserves a desktop layout slot while ticker availability changes', () => {
+  const { rerender } = render(<PerpetualTradingBanner reserveSpace />);
+  expect(
+    screen.getByText(/Trade perpetuals/).closest('[aria-hidden=true]'),
+  ).toBeTruthy();
+
+  mockTicker = 'xyz:AAPL';
+  rerender(<PerpetualTradingBanner reserveSpace />);
+  expect(
+    screen.getByText(/Trade perpetuals/).closest('[aria-hidden=true]'),
+  ).toBeNull();
+
+  mockTicker = undefined;
+  rerender(<PerpetualTradingBanner reserveSpace />);
+  expect(
+    screen.getByText(/Trade perpetuals/).closest('[aria-hidden=true]'),
+  ).toBeTruthy();
+});
+
+it('does not reserve a desktop layout slot when Perps is disabled', () => {
+  mockPerpDisabled = true;
+  const { container } = render(<PerpetualTradingBanner reserveSpace />);
+  expect(container.childElementCount).toBe(0);
+});
+
 it('does not reserve a stale perpetual slot in a request-skipping detail', () => {
   mockTicker = 'xyz:AAPL';
   const { container, rerender } = render(

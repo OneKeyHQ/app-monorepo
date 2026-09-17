@@ -769,7 +769,9 @@ export function MobileLayout({
             panFailOffsetX={chartAreaPanFailOffsetX}
             excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
             excludeBottomEdgeHeight={
-              TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
+              isTradingViewNative
+                ? 0
+                : TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
             }
             scrollScale={1.2}
             verticalPanMaxPointers={isTradingViewNative ? 1 : undefined}

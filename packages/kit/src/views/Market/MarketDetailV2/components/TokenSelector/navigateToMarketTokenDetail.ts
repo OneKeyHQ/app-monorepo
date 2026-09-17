@@ -11,10 +11,12 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  openOrReplaceMarketDetailRoute,
+  replaceFocusedMarketDetailRoute,
+} from '../../../utils/marketDetailNavigation';
 import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
 import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
-
-import { applyExistingMarketDetailRoute } from './applyMarketDetailRoute';
 
 export async function navigateToMarketTokenDetail(
   selectedToken: {
@@ -103,8 +105,6 @@ export async function navigateToMarketTokenDetail(
     });
   }
 
-  opts.beforeNavigate?.();
-
   const targetTab = platformEnv.isNative
     ? ETabRoutes.Discovery
     : ETabRoutes.Market;
@@ -126,6 +126,12 @@ export async function navigateToMarketTokenDetail(
           legacyTokenPreview: opts.tokenDetailPreview,
         }
       : undefined),
+    ...(!shouldResolveMarketAsset &&
+    !stockId &&
+    opts.tokenDetailPreview &&
+    (platformEnv.isDesktop || platformEnv.isWeb)
+      ? { legacyTokenPreview: opts.tokenDetailPreview }
+      : undefined),
     ...(!token.assetId && opts.marketTokenCategory
       ? { marketTokenCategory: opts.marketTokenCategory }
       : undefined),
@@ -145,21 +151,36 @@ export async function navigateToMarketTokenDetail(
   if (!isCurrentRequest()) {
     return;
   }
-  // Stay on the already-open detail page. Root-navigating Discovery/Market
-  // remounts the tab stack, which shows the tab bar and stacks another detail.
-  if (
-    applyExistingMarketDetailRoute({
-      routeName,
-      params: params as Record<string, unknown>,
-    })
-  ) {
+  // Update the already-open detail first, while a selector overlay still
+  // leaves the tab stack visible in getRootState(). Root-navigating
+  // Discovery/Market otherwise stacks another detail page.
+  const replacedCurrentDetail = openOrReplaceMarketDetailRoute({
+    routeName,
+    params: params as Record<string, unknown>,
+  });
+  opts.beforeNavigate?.();
+  if (replacedCurrentDetail) {
     return;
   }
-  rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-    screen: targetTab,
-    params: {
-      screen: routeName,
-      params,
-    },
-  });
+  setTimeout(() => {
+    if (!isCurrentRequest()) return;
+    // After the selector overlay closes, nested tab state is often missing
+    // from getRootState(). Updating the focused detail avoids pushing another
+    // page onto Discovery/Market.
+    if (
+      replaceFocusedMarketDetailRoute({
+        routeName,
+        params: params as Record<string, unknown>,
+      })
+    ) {
+      return;
+    }
+    rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+      screen: targetTab,
+      params: {
+        screen: routeName,
+        params,
+      },
+    });
+  }, 100);
 }

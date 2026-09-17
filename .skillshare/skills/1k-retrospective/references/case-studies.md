@@ -438,16 +438,44 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
 **Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
 
-## Case: Market detail token switch remounted the tab stack
-**Date**: 2026-09-16 | **Platforms**: iOS, Android
-**Symptom**: Switching tokens from Market detail showed the bottom tab bar (OK-63513), and Android kept the selector keyboard up if the list was not scrolled (OK-63520).
-**Root Cause**: Token switch root-navigated Discovery/Market after closing the selector, remounting the tab stack and leaving HideTabBar=false. The selector also never dismissed the keyboard; list taps use persist-taps so only a drag hid it.
-**Fix**: Update or replace the already-mounted detail route in place, and blur the selector SearchBar before leaving.
-**Catchable by**: Section 3: safe-area / tab-bar visibility after a same-page identity change; Section 4: navigation must not stack another copy of the current detail; NEW — closing an autoFocused selector must dismiss the keyboard even when the list was not scrolled
+## Case: Market detail back walked leftover token pages
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens in a Market detail, or opening multiple details from Wallet Home, made the top-left back button pass through previous detail pages instead of returning to the Market list.
+**Root Cause**: Home and the token selector used nested `navigate`, which stacked `MarketDetailV2` / `MarketStockDetail`. The custom back handler only `pop()`ped one screen, and native empty history reset to `TabMarket` which does not exist on Discovery.
+**Fix**: Collapse the Market/Discovery stack to `[list, one detail]` when opening or switching a detail, and `popToTop` when the previous route is still a leftover detail.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition; NEW — custom back handlers must collapse stacked same-feature screens, not assume one-to-one push/pop
 
-## Case: Android IME stayed hidden after selector KeyboardController.dismiss
-**Date**: 2026-09-16 | **Platforms**: Android
-**Symptom**: After switching Market tokens, opening the selector SearchBar (or other autoFocused inputs) no longer showed the keyboard.
-**Root Cause**: `KeyboardController.dismiss()` calls Android `hideSoftInputFromWindow`. Combined with staying on the same detail route, the next SearchBar `autoFocus` is programmatic and Android does not reshow the IME. The already-focused input also ignores a second tap.
-**Fix**: Blur the RN SearchBar (`Keyboard.dismiss`) before closing the selector. Do not force-hide the IME in the shared navigate helper.
-**Catchable by**: Section 5: stale IME / focus state after dismiss; NEW — Android hideSoftInputFromWindow must not be used on a path that later autoFocuses an input
+## Case: Market detail collapse treated banner and SwapPro as leftover token pages
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Home banner → banner list → token detail back skipped the banner list; switching tokens from that path reset away the banner page. SwapPro modal token changes rewrote the background Market stack. Native empty-history back could land on Browser instead of Market.
+**Root Cause**: `MarketBannerDetail` was counted as a leftover detail, so back used `popToTop` and switch used `reset` to `[list, detail]`. `openOrReplaceMarketDetailRoute` rewrote any unfocused Main Market stack, including when SwapPro owned the focused detail. Native `CommonActions.reset` to `TabDiscovery` omitted `defaultTab`.
+**Fix**: Treat only token/stock/native pages as leftover details and keep banner hosts when collapsing. Skip rewriting Main only when the focused route is a market detail the found stack does not own. Pass `defaultTab: global_market` on native list reset.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a collapse/reset of stacked feature screens must preserve legitimate intermediate hosts and must not rewrite an unfocused background stack
+
+## Case: SwapPro setParams cleared disableTrade and from
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens inside SwapPro market detail could re-enable Buy/Sell and break Back, resetting a TabDiscovery route onto SwapModal.
+**Root Cause**: `replaceFocusedMarketDetailRoute` wrote every identity key including `undefined` for `from` / `disableTrade` / `showFavoriteButton`. SET_PARAMS merges those undefineds over the SwapPro-owned route params.
+**Fix**: Omit SwapPro-owned keys when updating `SwapProMarketDetail` in place so the modal keeps disableTrade and from.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — SET_PARAMS that writes explicit undefined must not clobber host-owned route flags the caller does not re-supply
+
+## Case: Same-route detail entry still pushed another page
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Opening a token from a list while already on a detail page of the same route added another detail page, so Back walked through the previous token.
+**Root Cause**: `useToDetailPage` derived `shouldReplaceCurrentDetail` from `currentRouteName !== detailRouteName`, so the same-route case fell through to `navigation.push`. The stack collapse added for the token selector never ran on this entry.
+**Fix**: Add a `shouldUpdateCurrentDetail` branch that calls `setParams` with `buildReplacedMarketDetailParams`, sharing the identity-clearing list with the selector path.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a "replace instead of push" option must also cover the same-route case, not only route changes
+
+## Case: Extension preview handle survived a token switch
+**Date**: 2026-09-17 | **Platforms**: Browser extension (expand tab)
+**Symptom**: Switching assets on an extension market detail could show a retry error instead of the new asset.
+**Root Cause**: `bg` writes the preview into `chrome.storage.session` and the expand-tab `main` runtime reads `marketTokenPreviewId` back from the URL hash. `DETAIL_ROUTE_PARAM_KEYS` omitted that key, and SET_PARAMS merges, so the stale handle stayed attached to the new identity.
+**Fix**: Add `marketTokenPreviewId` to the cleared identity keys so a switch without a new handle writes `undefined`.
+**Catchable by**: Section 4: state atoms modified → verified all readers/writers; NEW — an identity-clearing allowlist must enumerate every route param that carries cross-runtime handles
+
+## Case: Selector keyboard stayed up after picking a searched token
+**Date**: 2026-09-17 | **Platforms**: Android
+**Symptom**: Searching in the market token selector and tapping a result left the IME on top of the detail page unless the list had been dragged first.
+**Root Cause**: The selector list uses persist-taps, so a row tap never blurs the SearchBar. Closing the modal alone does not blur the RN input.
+**Fix**: Blur the focused RN input (`blurFocusedInput`) on select. Do not use `dismissKeyboard` here — its Android `hideSoftInputFromWindow` blocks the next programmatic `autoFocus` from showing the IME.
+**Catchable by**: Section 5: stale IME / focus state after dismiss; NEW — closing an autoFocused overlay must blur its input, and window-level IME hiding must not be used on a path that later autoFocuses
