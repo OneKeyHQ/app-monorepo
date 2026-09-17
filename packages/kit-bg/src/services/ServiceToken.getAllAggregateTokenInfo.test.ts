@@ -28,9 +28,13 @@ function buildService(
   {
     eligibleNetworkIds = DEFAULT_ELIGIBLE_NETWORK_IDS,
     getAllNetworks,
+    registryFilled = true,
+    isServerNetworkRegistryFilled,
   }: {
     eligibleNetworkIds?: string[];
     getAllNetworks?: jest.Mock;
+    registryFilled?: boolean;
+    isServerNetworkRegistryFilled?: jest.Mock;
   } = {},
 ) {
   const getAllNetworksMock =
@@ -38,6 +42,9 @@ function buildService(
     jest.fn(async () => ({
       networks: eligibleNetworkIds.map((id) => ({ id })),
     }));
+  const isServerNetworkRegistryFilledMock =
+    isServerNetworkRegistryFilled ?? jest.fn(async () => registryFilled);
+  const ensureServerNetworksFetchedMock = jest.fn(async () => undefined);
   const service = new ServiceToken({
     backgroundApi: {
       simpleDb: {
@@ -48,9 +55,13 @@ function buildService(
       serviceNetwork: {
         getAllNetworks: getAllNetworksMock,
       },
+      serviceCustomRpc: {
+        isServerNetworkRegistryFilled: isServerNetworkRegistryFilledMock,
+        ensureServerNetworksFetched: ensureServerNetworksFetchedMock,
+      },
     },
   });
-  return { service, getAllNetworksMock };
+  return { service, getAllNetworksMock, ensureServerNetworksFetchedMock };
 }
 
 function buildToken(networkId: string) {
@@ -185,9 +196,10 @@ describe('ServiceToken.getAllAggregateTokenInfo', () => {
     });
   });
 
-  it('drops server-delivered members once the registry no longer lists them', async () => {
+  it('drops server-delivered members once the filled registry no longer lists them', async () => {
     // getAllNetworks already removes TRASH entries, so a delisted server
-    // chain simply disappears from the eligible set.
+    // chain simply disappears from the eligible set. A filled registry is
+    // authoritative even when it holds no server networks at all.
     const { service } = buildService(
       {
         allAggregateTokenMap: {
@@ -205,6 +217,61 @@ describe('ServiceToken.getAllAggregateTokenInfo', () => {
     expect(
       allAggregateTokenMap.sameSymbol_ETH.tokens.map((t) => t.networkId),
     ).toEqual(['evm--1']);
+  });
+
+  it('fails open and kicks the fill while the server-network record is unfilled', async () => {
+    // getServerNetworks() returns an empty list until the first successful
+    // fetch (e.g. fresh install, or after the record was cleared), so
+    // getAllNetworks would resolve with presets only and drop evm--4663.
+    const { service, getAllNetworksMock, ensureServerNetworksFetchedMock } =
+      buildService(
+        {
+          allAggregateTokenMap: {
+            sameSymbol_ETH: {
+              tokens: [buildToken('evm--1'), buildToken('evm--4663')],
+            },
+          },
+          allAggregateTokens: [buildAggregateToken('sameSymbol_ETH')],
+        },
+        { eligibleNetworkIds: ['evm--1'], registryFilled: false },
+      );
+
+    const { allAggregateTokenMap } = await service.getAllAggregateTokenInfo();
+
+    expect(
+      allAggregateTokenMap.sameSymbol_ETH.tokens.map((t) => t.networkId),
+    ).toEqual(['evm--1', 'evm--4663']);
+    expect(getAllNetworksMock).not.toHaveBeenCalled();
+    expect(ensureServerNetworksFetchedMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails open when the server-network record cannot be read', async () => {
+    // getServerNetworks() swallows storage errors and returns [], which
+    // getAllNetworks cannot distinguish from an empty registry; the probe
+    // propagates the failure instead.
+    const { service, getAllNetworksMock } = buildService(
+      {
+        allAggregateTokenMap: {
+          sameSymbol_ETH: {
+            tokens: [buildToken('evm--1'), buildToken('evm--4663')],
+          },
+        },
+        allAggregateTokens: [buildAggregateToken('sameSymbol_ETH')],
+      },
+      {
+        eligibleNetworkIds: ['evm--1'],
+        isServerNetworkRegistryFilled: jest
+          .fn()
+          .mockRejectedValue(new OneKeyLocalError('storage read failed')),
+      },
+    );
+
+    const { allAggregateTokenMap } = await service.getAllAggregateTokenInfo();
+
+    expect(
+      allAggregateTokenMap.sameSymbol_ETH.tokens.map((t) => t.networkId),
+    ).toEqual(['evm--1', 'evm--4663']);
+    expect(getAllNetworksMock).not.toHaveBeenCalled();
   });
 
   it('fails open when the network registry cannot be read', async () => {

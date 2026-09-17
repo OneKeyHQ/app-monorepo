@@ -1466,16 +1466,32 @@ class ServiceToken extends ServiceBase {
     // network registry, not the preset-only listed map: aggregate members may
     // live on server-delivered chains (e.g. Robinhood) that presetNetworks
     // never bundles, and ServiceSetting.syncWalletConfig applies the same
-    // registry gate at write time. A transient registry failure must not
-    // hide every member, so fail open and skip the filter.
+    // registry gate at write time.
+    //
+    // The registry is only authoritative once the server-network record has
+    // been filled: getServerNetworks() returns an empty list while that record
+    // is unfilled (it only kicks a background refresh) or unreadable (storage
+    // errors are swallowed), and getAllNetworks() then resolves with presets
+    // only, which would silently drop every server-delivered member. Probe the
+    // record first and fail open (skip the filter) when it is unfilled or
+    // unreadable. The write path awaits the fill instead; this runs on the
+    // token-list hot path and must not block on a network request.
     let eligibleNetworkIds: Set<string> | undefined;
     try {
-      const { networks: eligibleNetworks } =
-        await this.backgroundApi.serviceNetwork.getAllNetworks({
-          excludeCustomNetwork: true,
-          excludeAllNetworkItem: true,
-        });
-      eligibleNetworkIds = new Set(eligibleNetworks.map((n) => n.id));
+      const registryFilled =
+        await this.backgroundApi.serviceCustomRpc.isServerNetworkRegistryFilled();
+      if (registryFilled) {
+        const { networks: eligibleNetworks } =
+          await this.backgroundApi.serviceNetwork.getAllNetworks({
+            excludeCustomNetwork: true,
+            excludeAllNetworkItem: true,
+          });
+        eligibleNetworkIds = new Set(eligibleNetworks.map((n) => n.id));
+      } else {
+        // Kick the fill so the next read is gated; single-flight and
+        // fetch failures are swallowed inside.
+        void this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched();
+      }
     } catch {
       eligibleNetworkIds = undefined;
     }
