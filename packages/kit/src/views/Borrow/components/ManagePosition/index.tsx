@@ -142,7 +142,7 @@ export function ManagePosition(props: IManagePositionProps) {
   });
 
   const effectiveTokenSelectorTriggerProps = useMemo(() => {
-    if (!approval.approving) {
+    if (!approval.isFormInteractionLocked) {
       return tokenSelectorTriggerProps;
     }
     return {
@@ -151,7 +151,7 @@ export function ManagePosition(props: IManagePositionProps) {
       onPress: undefined,
       popover: undefined,
     };
-  }, [approval.approving, tokenSelectorTriggerProps]);
+  }, [approval.isFormInteractionLocked, tokenSelectorTriggerProps]);
 
   // Build complete state
   const state: IManagePositionState = useMemo(
