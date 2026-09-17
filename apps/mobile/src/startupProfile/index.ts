@@ -23,11 +23,26 @@
 
 const GLOBAL_FLAG_KEY = '__ONEKEY_STARTUP_PROFILE__';
 const GLOBAL_STATS_KEY = '__ONEKEY_STARTUP_PROFILE_STATS__';
+const FUNCTION_TRACE_FLAG_KEY = '__ONEKEY_FUNCTION_TRACE__';
+const FUNCTION_TRACE_START_KEY = '__onekeyFunctionTraceStart';
+const FUNCTION_TRACE_END_KEY = '__onekeyFunctionTraceEnd';
 
 type IModStat = {
   id: string | number;
   selfMs: number;
   totalMs: number;
+};
+
+type IFunctionTraceMeta = {
+  name: string;
+  file: string;
+  line?: number;
+};
+
+type IFunctionTraceToken = {
+  id: number;
+  start: number;
+  meta: IFunctionTraceMeta;
 };
 
 export function isStartupProfileEnabled(): boolean {
@@ -38,6 +53,73 @@ export function isStartupProfileEnabled(): boolean {
   } catch {
     return false;
   }
+}
+
+let functionTraceId = 0;
+let functionTraceLogger: {
+  write: (level: number, message: string) => void;
+  level: number;
+} | null = null;
+const pendingFunctionTraceLogs: string[] = [];
+
+function writeFunctionTrace(message: string): void {
+  try {
+    if (!functionTraceLogger) {
+      const m =
+        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+      functionTraceLogger = {
+        write: (level: number, logMessage: string) => {
+          m.NativeLogger.write(level, logMessage);
+        },
+        level: m.LogLevel.Info,
+      };
+    }
+    for (const pendingMessage of pendingFunctionTraceLogs.splice(0)) {
+      functionTraceLogger.write(functionTraceLogger.level, pendingMessage);
+    }
+    functionTraceLogger.write(functionTraceLogger.level, message);
+  } catch {
+    // Native logger may not be ready during the earliest runtime bootstrap.
+    if (pendingFunctionTraceLogs.length < 1000) {
+      pendingFunctionTraceLogs.push(message);
+    }
+  }
+}
+
+function functionTraceNow(): number {
+  return typeof performance !== 'undefined' && performance.now
+    ? performance.now()
+    : Date.now();
+}
+
+export function installFunctionTrace(): void {
+  const g = globalThis as any;
+  if (g[FUNCTION_TRACE_FLAG_KEY] !== true) return;
+  if (g[FUNCTION_TRACE_START_KEY] || g[FUNCTION_TRACE_END_KEY]) return;
+
+  g[FUNCTION_TRACE_START_KEY] = (meta: IFunctionTraceMeta) => {
+    functionTraceId += 1;
+    const id = functionTraceId;
+    const token: IFunctionTraceToken = {
+      id,
+      start: functionTraceNow(),
+      meta,
+    };
+    const runtime = g.__ONEKEY_RUNTIME_KIND__ ?? 'unknown';
+    writeFunctionTrace(
+      `[FunctionTrace] begin id=${id} runtime=${runtime} name=${meta.name} file=${meta.file} line=${meta.line ?? 0}`,
+    );
+    return token;
+  };
+
+  g[FUNCTION_TRACE_END_KEY] = (token?: IFunctionTraceToken) => {
+    if (!token) return;
+    const runtime = g.__ONEKEY_RUNTIME_KIND__ ?? 'unknown';
+    const durationMs = functionTraceNow() - token.start;
+    writeFunctionTrace(
+      `[FunctionTrace] end id=${token.id} runtime=${runtime} name=${token.meta.name} file=${token.meta.file} line=${token.meta.line ?? 0} durationMs=${durationMs.toFixed(3)}`,
+    );
+  };
 }
 
 // Diagnostic: emit a one-off NativeLogger line so when the profile flag is on

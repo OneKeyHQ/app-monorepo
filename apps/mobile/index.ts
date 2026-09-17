@@ -18,6 +18,12 @@ type IAppModule = typeof import('./App');
   }
 ).__ONEKEY_RUNTIME_KIND__ = 'main';
 
+// Function tracing is enabled only by the startup-profile EAS profile.
+// NativeLogger writes the begin/end events to app-latest.log.
+const startupProfile =
+  require('./src/startupProfile') as typeof import('./src/startupProfile');
+startupProfile.installFunctionTrace();
+
 require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');

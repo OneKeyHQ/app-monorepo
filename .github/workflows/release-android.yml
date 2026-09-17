@@ -15,7 +15,7 @@ on:
         type: boolean
         default: false
       ENABLE_STARTUP_PROFILE:
-        description: "Build with ONEKEY_STARTUP_PROFILE=1 (forces qa-internal-startup-profile, no store submit). See skill 1k-startup-profile."
+        description: "Build with startup and function tracing enabled (ONEKEY_STARTUP_PROFILE=1; NativeLogger begin/end logs, large output). Forces qa-internal-startup-profile, no store submit."
         required: false
         type: boolean
         default: false
@@ -123,8 +123,12 @@ jobs:
             STORE_PROFILE="production-store"
           fi
 
-          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
-          if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
+          if [[ "${ENABLE_STARTUP_PROFILE}" == "true" ]]; then
+            # Profiling build: forces qa-internal-startup-profile (internal APK
+            # only, never store-submits). See skill 1k-startup-profile.
+            eas build --profile="qa-internal-startup-profile" --platform android --non-interactive --no-wait --resource-class large
+          # if env.WORKFLOW_BUILD_NUMBER exists and starts with 1000, it's a dev build
+          elif [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
             eas build --profile="${INTERNAL_PROFILE}" --platform android --non-interactive --no-wait --resource-class large
           else
             eas build --profile="${INTERNAL_PROFILE}" --platform android --non-interactive --no-wait --resource-class large

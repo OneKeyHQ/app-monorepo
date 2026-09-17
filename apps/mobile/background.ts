@@ -9,6 +9,11 @@
   }
 ).__ONEKEY_RUNTIME_KIND__ = 'background';
 
+// Install function tracing before business modules load in the background runtime.
+const startupProfile =
+  require('./src/startupProfile') as typeof import('./src/startupProfile');
+startupProfile.installFunctionTrace();
+
 require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
