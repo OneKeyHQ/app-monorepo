@@ -215,20 +215,10 @@ export function useMarketWatchlistTokenList({
       };
     }
   }, [dataCacheRef, listingQuotes]);
-  const listingResult = useMemo(() => {
-    if (listingQuotes) return listingQuotes;
-    const cached = lastListingQuotesRef.current;
-    if (!cached) return undefined;
-    // A batch fetched before a newly favorited listing would leave that row
-    // without a quote, so the cache stays usable only while it still covers
-    // every current entry.
-    const cachedKeys = new Set(cached.map((entry) => entry.key));
-    return listingItems.every((item) =>
-      cachedKeys.has(getMarketWatchlistKey(item)),
-    )
-      ? cached
-      : undefined;
-  }, [listingItems, listingQuotes]);
+  // usePromiseResult keeps the resolved batch on screen while a refetch is in
+  // flight, so either source can predate the current watchlist. Coverage is
+  // therefore checked per row below rather than trusting the batch as a whole.
+  const listingResult = listingQuotes ?? lastListingQuotesRef.current;
 
   // ── Spot data fetching (existing logic) ──
   const {
@@ -463,13 +453,15 @@ export function useMarketWatchlistTokenList({
     const merged = watchlist
       .map((watchlistItem) => {
         if (watchlistItem.assetId || watchlistItem.stockId) {
-          // Without a resolved batch every metric would render as NaN while
-          // spot rows are still missing entirely, so hold the row back. A
-          // resolved batch that carries no entry for this listing still
-          // renders, which keeps delisted favorites removable.
-          if (!listingResult) return undefined;
           const key = getMarketWatchlistKey(watchlistItem);
-          const quote = listingResult.find((entry) => entry.key === key)?.quote;
+          const entry = listingResult?.find((item) => item.key === key);
+          // A batch that predates this favorite carries no entry for it, and a
+          // row built from the watchlist record alone would render every metric
+          // as NaN while spot rows are still missing entirely, so hold it back.
+          // An entry that resolved to no quote still renders, which keeps
+          // delisted favorites removable.
+          if (!entry) return undefined;
+          const { quote } = entry;
           return {
             id: key,
             assetId: watchlistItem.assetId,

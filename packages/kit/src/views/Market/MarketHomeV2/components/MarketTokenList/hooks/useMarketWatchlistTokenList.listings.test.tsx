@@ -3,7 +3,10 @@ import type { RefObject } from 'react';
 
 import { renderHook, waitFor } from '@testing-library/react';
 
-import type { IMarketListingWatchlistQuote } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketListingWatchlistQuote,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -275,7 +278,41 @@ it('reuses the cached quote batch so a remount renders rows immediately', async 
     expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
   ]);
 });
-it('drops the cached quote batch once a new listing is favorited', async () => {
+it('withholds a newly favorited listing while the previous batch is reused', async () => {
+  mockStockBatch.mockResolvedValue([
+    stockItem('AAPL', { name: 'Apple', price: '321' }),
+  ]);
+  const { result, rerender } = renderHook(
+    ({ watchlist }: { watchlist: IMarketWatchListItemV2[] }) =>
+      useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    {
+      initialProps: {
+        watchlist: [
+          { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+        ],
+      },
+    },
+  );
+  await waitFor(() => expect(result.current.data).toHaveLength(1));
+
+  // usePromiseResult keeps the resolved batch while the new request is in
+  // flight, and that batch has no entry for TSLA. Rendering TSLA against it
+  // would show NaN metrics, but AAPL is covered and must stay on screen.
+  mockStockBatch.mockReturnValue(
+    new Promise<IMarketStockPublicItem[]>(() => {}),
+  );
+  rerender({
+    watchlist: [
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+      { stockId: 'TSLA', chainId: '', contractAddress: '', sortIndex: 1 },
+    ],
+  });
+
+  expect(result.current.data).toEqual([
+    expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
+  ]);
+});
+it('keeps cached rows and holds back only the uncovered listing', async () => {
   mockStockBatch.mockResolvedValue([
     stockItem('AAPL', { name: 'Apple', price: '321' }),
   ]);
@@ -294,7 +331,8 @@ it('drops the cached quote batch once a new listing is favorited', async () => {
   await waitFor(() => expect(first.result.current.data).toHaveLength(1));
   first.unmount();
 
-  // TSLA has no cached quote, so reusing the batch would render it with NaN.
+  // TSLA has no cached quote, so rendering it would show NaN metrics, while
+  // AAPL is still covered by the cache and renders straight away.
   mockStockBatch.mockReturnValue(
     new Promise<IMarketStockPublicItem[]>(() => {}),
   );
@@ -308,5 +346,7 @@ it('drops the cached quote batch once a new listing is favorited', async () => {
       dataCacheRef,
     }),
   );
-  expect(second.result.current.data).toEqual([]);
+  expect(second.result.current.data).toEqual([
+    expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
+  ]);
 });
