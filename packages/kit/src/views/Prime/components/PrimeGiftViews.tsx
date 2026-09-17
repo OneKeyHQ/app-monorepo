@@ -29,6 +29,7 @@ import { PrimeBenefitsItem } from '../pages/PrimeDashboard/PrimeBenefitsList';
 import { PRIME_FEATURE_INTROS } from '../pages/PrimeFeatures/primeFeatureIntroUtils';
 
 import { PrimeDarkDialogContainer } from './PrimeDarkDialogContainer';
+import { PrimeGiftCampaignBanner } from './PrimeGiftCampaignBanner';
 
 import type { IntlShape } from 'react-intl';
 
@@ -309,8 +310,17 @@ export function PrimeGiftSuccessContent({
           </YStack>
         </YStack>
       </YStack>
+      <PrimeGiftCampaignBanner />
       {isKytEnabled ? (
-        <YStack mt="$4" width="100%" bg="$bgSubdued" borderRadius="$4" p="$4">
+        <YStack
+          mt="$4"
+          width="100%"
+          bg="$bgSubdued"
+          borderWidth={1}
+          borderColor="$neutral3"
+          borderRadius="$4"
+          p="$4"
+        >
           <XStack alignItems="flex-start" gap="$3">
             <Icon
               name="CheckRadioSolid"
@@ -341,6 +351,8 @@ export function PrimeGiftSuccessContent({
           width="100%"
           minHeight={44}
           bg="$bgSubdued"
+          borderWidth={1}
+          borderColor="$neutral3"
           borderRadius="$4"
           p="$4"
           alignItems="center"

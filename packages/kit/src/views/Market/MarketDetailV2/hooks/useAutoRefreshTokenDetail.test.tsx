@@ -738,4 +738,42 @@ describe('initial detail layout readiness', () => {
     );
     expect(result.current.isInitialTokenDetailPending).toBe(false);
   });
+
+  it('pauses a retained Desktop/Web route and waits for a fresh request on refocus', async () => {
+    const { result, rerender } = renderHook(
+      ({ active }: { active: boolean }) =>
+        useAutoRefreshTokenDetail({
+          ...input,
+          active,
+          resumeOnEffectReconnect: true,
+        }),
+      { initialProps: { active: true } },
+    );
+
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
+    expect(promiseOptions?.resumeOnEffectReconnect).toBe(true);
+
+    mockSetTokenDetailLoading.mockClear();
+    rerender({ active: false });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    expect(promiseOptions?.pollingInterval).toBe(6000);
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
+    expect(mockSetTokenDetailLoading).not.toHaveBeenCalled();
+
+    rerender({ active: true });
+    expect(result.current.isInitialTokenDetailPending).toBe(true);
+    expect(promiseOptions?.pollingInterval).toBe(6000);
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(2);
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+  });
 });
