@@ -5,10 +5,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  getListedNetworkMap,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import {
@@ -1463,16 +1460,33 @@ class ServiceToken extends ServiceBase {
   public async getAllAggregateTokenInfo() {
     const rawData =
       await this.backgroundApi.simpleDb.aggregateToken.getRawData();
-    // Drop tokens on networks this build no longer bundles: the cached wallet
-    // config may have been persisted by an older app version whose preset
-    // network list included networks that were delisted since.
-    const listedNetworkMap = getListedNetworkMap();
+    // Drop tokens on networks this build no longer serves: the cached wallet
+    // config may have been persisted by an older app version whose network
+    // list included networks that were delisted since. Gate on the merged
+    // network registry, not the preset-only listed map: aggregate members may
+    // live on server-delivered chains (e.g. Robinhood) that presetNetworks
+    // never bundles, and ServiceSetting.syncWalletConfig applies the same
+    // registry gate at write time. A transient registry failure must not
+    // hide every member, so fail open and skip the filter.
+    let eligibleNetworkIds: Set<string> | undefined;
+    try {
+      const { networks: eligibleNetworks } =
+        await this.backgroundApi.serviceNetwork.getAllNetworks({
+          excludeCustomNetwork: true,
+          excludeAllNetworkItem: true,
+        });
+      eligibleNetworkIds = new Set(eligibleNetworks.map((n) => n.id));
+    } catch {
+      eligibleNetworkIds = undefined;
+    }
     const allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }> =
       {};
     Object.entries(rawData?.allAggregateTokenMap ?? {}).forEach(
       ([key, value]) => {
         const tokens = value.tokens.filter(
-          (token) => token.networkId && listedNetworkMap[token.networkId],
+          (token) =>
+            !!token.networkId &&
+            (!eligibleNetworkIds || eligibleNetworkIds.has(token.networkId)),
         );
         if (tokens.length > 0) {
           allAggregateTokenMap[key] = { tokens };
