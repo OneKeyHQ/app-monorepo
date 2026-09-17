@@ -4,6 +4,7 @@ import {
   rememberWatchlistListingPreview,
   resolveListingWatchlistDisplay,
   syncWatchlistListingPreviewFromQuote,
+  syncWatchlistListingPreviewsFromAppliedQuotes,
 } from './watchlistListingPreview';
 
 const aapl = { stockId: 'AAPL', chainId: '', contractAddress: '' };
@@ -126,6 +127,45 @@ describe('watchlistListingPreview', () => {
     ).toMatchObject({
       tokenImageUri: '',
       symbol: 'AAPL',
+    });
+  });
+
+  it('syncs applied quotes only, so a stale entry cannot regress the preview', () => {
+    rememberWatchlistListingPreview(aapl, {
+      logoUrl: 'https://example.com/search.png',
+      name: 'Apple',
+      symbol: 'AAPL',
+    });
+    syncWatchlistListingPreviewsFromAppliedQuotes(
+      [
+        {
+          key: 'stock:AAPL',
+          quote: {
+            name: 'Apple Inc.',
+            symbol: 'AAPL',
+            logoUrl: 'https://example.com/new.png',
+          },
+        },
+      ],
+      [aapl],
+    );
+    syncWatchlistListingPreviewsFromAppliedQuotes(
+      [
+        {
+          key: 'stock:AAPL',
+          quote: {
+            name: 'Apple Inc.',
+            symbol: 'AAPL',
+            logoUrl: 'https://example.com/old.png',
+          },
+        },
+      ],
+      [],
+    );
+    expect(
+      resolveListingWatchlistDisplay({ watchlistItem: aapl }),
+    ).toMatchObject({
+      tokenImageUri: 'https://example.com/new.png',
     });
   });
 });

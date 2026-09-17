@@ -563,3 +563,31 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `listingPreviews` kept the star-time identity and `resolveListingWatchlistDisplay` used it whenever `quote` was missing.
 **Fix**: Sync the preview from each successful listing quote so failed polls fall back to the last good display.
 **Catchable by**: Section 4: empty/missing quote vs last-known display; NEW — star-time previews must be refreshed by successful quotes
+
+## Case: Watchlist listings test inferred never[] and failed CI lint
+**Date**: 2026-09-17 | **Platforms**: CI
+**Symptom**: `lint (24.x)` failed with `Type '{ chainId: string; contractAddress: string; isNative: false; }' is not assignable to type 'never'`.
+**Root Cause**: `renderHook` inferred `Props` from `initialProps: { watchlist: [] }` as `never[]`, which overrode the callback annotation.
+**Fix**: Cast empty `initialProps` to `ISpotWatchlistProps` so rerender can pass real watchlist items.
+**Catchable by**: Section 7: lint/tsc; NEW — `renderHook` empty-array `initialProps` must be typed, not inferred
+
+## Case: Stale watchlist quote runs overwrote settled coverage
+**Date**: 2026-09-17 | **Platforms**: iOS, Android
+**Symptom**: After overlapping batch requests, a known-absent favorite flickered as a blank pending row on later polls.
+**Root Cause**: `lastSettledSpotRequestKeysRef` was written inside `usePromiseResult`'s method even when that run's result was discarded.
+**Fix**: Return `requestedKeys` with the quote result and read coverage from the applied payload.
+**Catchable by**: Section 5: race conditions in async operations; NEW — side-channel refs must not commit state for discarded async runs
+
+## Case: Stale listing quotes restored an older logo
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web, Extension
+**Symptom**: Out-of-order listing fetches wrote an older logo into the preview map; a later failed poll showed the old image.
+**Root Cause**: `syncWatchlistListingPreviewFromQuote` ran inside the fetch, not after `usePromiseResult` applied the result.
+**Fix**: Sync previews from applied `listingQuotes` in an effect.
+**Catchable by**: Section 5: race conditions in async operations; NEW — preview caches must update from applied results only
+
+## Case: Failed quote retry hid a newly starred native favorite
+**Date**: 2026-09-17 | **Platforms**: iOS, Android
+**Symptom**: After a native quote failure, starring another token left it absent until the retry settled.
+**Root Cause**: `quotesFailed` short-circuited all pending rows, including unqueried identities whose covering request was in flight.
+**Fix**: Drop the blanket `quotesFailed` gate; known-absent identities stay suppressed via applied `requestedKeys`.
+**Catchable by**: Section 5: failed refresh vs cache miss; NEW — failed payloads must not hide identities added after the failure

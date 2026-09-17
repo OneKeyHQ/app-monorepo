@@ -25,6 +25,21 @@ const mockBatch = jest.fn<Promise<{ list: unknown[] }>, unknown[]>(
   }),
 );
 const mockNetworks: [] = [];
+type ISpotWatchlistProps = {
+  watchlist: Array<{
+    chainId: string;
+    contractAddress: string;
+    isNative: boolean;
+  }>;
+};
+const cachedSpotItem = {
+  address: '0xcached',
+  name: 'Cached',
+  symbol: 'CACHED',
+  decimals: 18,
+  networkId: 'evm--1',
+  isNative: false,
+};
 jest.mock('@onekeyhq/components', () => ({ useCarouselIndex: () => 0 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -358,16 +373,7 @@ it('emits a native pending row for a new favorite missing from cached quotes', a
 it('emits a native pending row for a newly starred favorite while quotes stay loaded', async () => {
   (platformEnv as { isNative: boolean }).isNative = true;
   mockBatch.mockResolvedValueOnce({
-    list: [
-      {
-        address: '0xcached',
-        name: 'Cached',
-        symbol: 'CACHED',
-        decimals: 18,
-        networkId: 'evm--1',
-        isNative: false,
-      },
-    ],
+    list: [cachedSpotItem],
   });
   const cachedItem = {
     chainId: 'evm--1',
@@ -375,15 +381,7 @@ it('emits a native pending row for a newly starred favorite while quotes stay lo
     isNative: false,
   };
   const { rerender, result } = renderHook(
-    ({
-      watchlist,
-    }: {
-      watchlist: Array<{
-        chainId: string;
-        contractAddress: string;
-        isNative: boolean;
-      }>;
-    }) =>
+    ({ watchlist }: ISpotWatchlistProps) =>
       useMarketWatchlistTokenList({
         watchlist,
         isWatchlistMounted: true,
@@ -419,22 +417,14 @@ it('emits a native pending row for the first favorite after an empty quote settl
   (platformEnv as { isNative: boolean }).isNative = true;
   mockBatch.mockResolvedValueOnce({ list: [] });
   const { rerender, result } = renderHook(
-    ({
-      watchlist,
-    }: {
-      watchlist: Array<{
-        chainId: string;
-        contractAddress: string;
-        isNative: boolean;
-      }>;
-    }) =>
+    ({ watchlist }: ISpotWatchlistProps) =>
       useMarketWatchlistTokenList({
         watchlist,
         isWatchlistMounted: true,
         pollingInterval: 0,
       }),
     {
-      initialProps: { watchlist: [] },
+      initialProps: { watchlist: [] } as ISpotWatchlistProps,
     },
   );
   await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -525,4 +515,74 @@ it('carries stock variants through for the company-name hover reveal', async () 
   );
   expect(result.current.data[0].stockVariants).toEqual(variants);
   expect(result.current.data[1].stockVariants).toBeUndefined();
+});
+it('does not let a stale listing quote regress the remembered preview', async () => {
+  const aapl = { stockId: 'AAPL', chainId: '', contractAddress: '' };
+  const tsla = { stockId: 'TSLA', chainId: '', contractAddress: '' };
+  rememberWatchlistListingPreview(aapl, {
+    logoUrl: 'https://example.com/search.png',
+    name: 'Apple',
+  });
+  let resolveFirst: ((value: IMarketStockPublicItem[]) => void) | undefined;
+  let resolveSecond: ((value: IMarketStockPublicItem[]) => void) | undefined;
+  mockStockBatch
+    .mockImplementationOnce(
+      () =>
+        new Promise<IMarketStockPublicItem[]>((resolve) => {
+          resolveFirst = resolve;
+        }),
+    )
+    .mockImplementationOnce(
+      () =>
+        new Promise<IMarketStockPublicItem[]>((resolve) => {
+          resolveSecond = resolve;
+        }),
+    )
+    .mockRejectedValueOnce(new Error('poll failed'));
+  const { rerender, result } = renderHook(
+    ({
+      watchlist,
+    }: {
+      watchlist: Array<{
+        stockId: string;
+        chainId: string;
+        contractAddress: string;
+      }>;
+    }) =>
+      useMarketWatchlistTokenList({
+        watchlist,
+        isWatchlistMounted: true,
+        pollingInterval: 0,
+      }),
+    { initialProps: { watchlist: [aapl] } },
+  );
+  await waitFor(() => expect(result.current.data).toHaveLength(1));
+  rerender({ watchlist: [aapl, tsla] });
+  await waitFor(() => expect(mockStockBatch).toHaveBeenCalledTimes(2));
+  resolveSecond?.([
+    stockItem('AAPL', {
+      name: 'Apple Inc.',
+      logoUrl: 'https://example.com/new.png',
+    }),
+    stockItem('TSLA', {
+      name: 'Tesla',
+      logoUrl: 'https://example.com/tsla.png',
+    }),
+  ]);
+  await waitFor(() =>
+    expect(result.current.data[0]?.tokenImageUri).toBe(
+      'https://example.com/new.png',
+    ),
+  );
+  resolveFirst?.([
+    stockItem('AAPL', {
+      name: 'Apple Inc.',
+      logoUrl: 'https://example.com/old.png',
+    }),
+  ]);
+  rerender({ watchlist: [{ ...aapl }, { ...tsla }] });
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data[0]?.tokenImageUri).toBe(
+    'https://example.com/new.png',
+  );
 });

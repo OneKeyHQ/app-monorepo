@@ -91,7 +91,6 @@ describe('watchlistPendingRows', () => {
         isNative: true,
         hasQuotesInFlight: true,
         hasQuotePayload: false,
-        quotesFailed: false,
         isIdentityUnqueried: true,
       }),
     ).toBe(true);
@@ -100,7 +99,6 @@ describe('watchlistPendingRows', () => {
         isNative: true,
         hasQuotesInFlight: false,
         hasQuotePayload: false,
-        quotesFailed: true,
         isIdentityUnqueried: true,
       }),
     ).toBe(false);
@@ -109,7 +107,6 @@ describe('watchlistPendingRows', () => {
         isNative: true,
         hasQuotesInFlight: true,
         hasQuotePayload: true,
-        quotesFailed: false,
         isIdentityUnqueried: true,
       }),
     ).toBe(true);
@@ -118,7 +115,6 @@ describe('watchlistPendingRows', () => {
         isNative: true,
         hasQuotesInFlight: true,
         hasQuotePayload: true,
-        quotesFailed: false,
         isIdentityUnqueried: false,
       }),
     ).toBe(false);
@@ -127,7 +123,6 @@ describe('watchlistPendingRows', () => {
         isNative: true,
         hasQuotesInFlight: false,
         hasQuotePayload: true,
-        quotesFailed: false,
         isIdentityUnqueried: true,
       }),
     ).toBe(false);
@@ -136,16 +131,6 @@ describe('watchlistPendingRows', () => {
         isNative: false,
         hasQuotesInFlight: true,
         hasQuotePayload: true,
-        quotesFailed: false,
-        isIdentityUnqueried: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldEmitNativePendingWatchlistRow({
-        isNative: true,
-        hasQuotesInFlight: false,
-        hasQuotePayload: true,
-        quotesFailed: true,
         isIdentityUnqueried: true,
       }),
     ).toBe(false);

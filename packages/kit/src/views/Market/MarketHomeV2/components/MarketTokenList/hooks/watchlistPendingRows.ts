@@ -28,16 +28,17 @@ export function shouldEmitNativePendingWatchlistRow({
   isNative,
   hasQuotesInFlight,
   hasQuotePayload,
-  quotesFailed,
   isIdentityUnqueried,
 }: {
   isNative: boolean;
   hasQuotesInFlight: boolean;
   hasQuotePayload: boolean;
-  quotesFailed: boolean;
   isIdentityUnqueried: boolean;
 }): boolean {
-  if (!isNative || quotesFailed || !hasQuotesInFlight) {
+  // A failed payload must not hide a newly starred identity while its covering
+  // retry is in flight. Known-absent identities stay suppressed via
+  // `isIdentityUnqueried` once a request that included them has been applied.
+  if (!isNative || !hasQuotesInFlight) {
     return false;
   }
   if (!hasQuotePayload) {

@@ -52,6 +52,27 @@ export function syncWatchlistListingPreviewFromQuote(
   });
 }
 
+export function syncWatchlistListingPreviewsFromAppliedQuotes(
+  entries: Array<{
+    key: string;
+    quote?: Pick<IMarketListingWatchlistQuote, 'name' | 'symbol' | 'logoUrl'>;
+  }>,
+  items: IWatchlistListingIdentity[],
+) {
+  const itemByKey = new Map(
+    items.map((item) => [getMarketWatchlistKey(item), item] as const),
+  );
+  entries.forEach((entry) => {
+    if (!entry.quote) {
+      return;
+    }
+    const item = itemByKey.get(entry.key);
+    if (item) {
+      syncWatchlistListingPreviewFromQuote(item, entry.quote);
+    }
+  });
+}
+
 export function getWatchlistListingPreview(
   item: IWatchlistListingIdentity,
 ): IWatchlistListingPreview | undefined {

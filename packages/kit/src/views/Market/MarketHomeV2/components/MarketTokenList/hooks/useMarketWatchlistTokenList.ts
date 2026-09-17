@@ -36,7 +36,7 @@ import {
 import { fetchMarketTokenListBatchForPlatform } from './marketTokenBatchPlatformApi';
 import {
   resolveListingWatchlistDisplay,
-  syncWatchlistListingPreviewFromQuote,
+  syncWatchlistListingPreviewsFromAppliedQuotes,
 } from './watchlistListingPreview';
 import {
   buildPendingPerpsWatchlistToken,
@@ -62,6 +62,14 @@ export function subscribeWatchlistTokenCache(cb: () => void) {
 }
 
 const getIsReady = () => watchlistTokenCache.length > 0;
+
+const EMPTY_WATCHLIST_REQUEST_KEYS: ReadonlySet<string> = new Set();
+
+function getWatchlistRequestKeys(
+  items: IMarketWatchListItemV2[],
+): ReadonlySet<string> {
+  return new Set(items.map((item) => getMarketWatchlistKey(item)));
+}
 
 export function useIsWatchlistTokenCacheReady(): boolean {
   return useSyncExternalStore(subscribeWatchlistTokenCache, getIsReady);
@@ -170,9 +178,6 @@ export function useMarketWatchlistTokenList({
                   await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
                     item,
                   );
-                if (quote) {
-                  syncWatchlistListingPreviewFromQuote(item, quote);
-                }
                 return { key: getMarketWatchlistKey(item), quote };
               } catch {
                 return { key: getMarketWatchlistKey(item), quote: undefined };
@@ -199,16 +204,10 @@ export function useMarketWatchlistTokenList({
           return quoteById;
         })(),
       ]);
-      const stockQuotes = stockItems.map((item) => {
-        const quote = stockQuoteById.get((item.stockId ?? '').toUpperCase());
-        if (quote) {
-          syncWatchlistListingPreviewFromQuote(item, quote);
-        }
-        return {
-          key: getMarketWatchlistKey(item),
-          quote,
-        };
-      });
+      const stockQuotes = stockItems.map((item) => ({
+        key: getMarketWatchlistKey(item),
+        quote: stockQuoteById.get((item.stockId ?? '').toUpperCase()),
+      }));
       return [...assetQuotes, ...stockQuotes];
     },
     [listingItems],
@@ -222,13 +221,12 @@ export function useMarketWatchlistTokenList({
     },
   );
 
-  // Identities covered by the most recently settled spot/perps request. Used to
-  // distinguish "not yet queried" from "queried and absent" while a poll is in
-  // flight, so known-absent favorites do not flicker as blank pending rows.
-  const lastSettledSpotRequestKeysRef = useRef<ReadonlySet<string>>(new Set());
-  const lastSettledPerpsRequestKeysRef = useRef<ReadonlySet<string>>(
-    new Set(),
-  );
+  useEffect(() => {
+    if (!listingQuotes) {
+      return;
+    }
+    syncWatchlistListingPreviewsFromAppliedQuotes(listingQuotes, listingItems);
+  }, [listingItems, listingQuotes]);
 
   // ── Spot data fetching (existing logic) ──
   const {
@@ -241,16 +239,20 @@ export function useMarketWatchlistTokenList({
         if (isInitialLoadRef.current && !platformEnv.isNative) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
-        lastSettledSpotRequestKeysRef.current = new Set();
-        return { list: [], failed: false } as const;
+        return {
+          list: [],
+          failed: false,
+          requestedKeys: EMPTY_WATCHLIST_REQUEST_KEYS,
+        } as const;
       }
       if (spotItems.length === 0) {
-        lastSettledSpotRequestKeysRef.current = new Set();
-        return { list: [], failed: false } as const;
+        return {
+          list: [],
+          failed: false,
+          requestedKeys: EMPTY_WATCHLIST_REQUEST_KEYS,
+        } as const;
       }
-      const requestedKeys = new Set(
-        spotItems.map((item) => getMarketWatchlistKey(item)),
-      );
+      const requestedKeys = getWatchlistRequestKeys(spotItems);
       const tokenAddressList = spotItems.map((item) => {
         const { isNative } = getNativeTokenInfo(
           item.isNative,
@@ -266,8 +268,7 @@ export function useMarketWatchlistTokenList({
         const response = await fetchMarketTokenListBatchForPlatform({
           tokenAddressList,
         });
-        lastSettledSpotRequestKeysRef.current = requestedKeys;
-        return { ...response, failed: false };
+        return { ...response, failed: false, requestedKeys };
       } catch (error) {
         if (!platformEnv.isNative) throw error;
         return { list: undefined, failed: true };
@@ -292,12 +293,9 @@ export function useMarketWatchlistTokenList({
   } = usePromiseResult(
     async () => {
       if (perpsItems.length === 0) {
-        lastSettledPerpsRequestKeysRef.current = new Set();
         return null;
       }
-      const requestedKeys = new Set(
-        perpsItems.map((item) => getMarketWatchlistKey(item)),
-      );
+      const requestedKeys = getWatchlistRequestKeys(perpsItems);
       try {
         const [tokenListData, tokenSearchAliases] = await Promise.all([
           backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
@@ -305,8 +303,12 @@ export function useMarketWatchlistTokenList({
           }),
           backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
         ]);
-        lastSettledPerpsRequestKeysRef.current = requestedKeys;
-        return { tokenListData, tokenSearchAliases, failed: false };
+        return {
+          tokenListData,
+          tokenSearchAliases,
+          failed: false,
+          requestedKeys,
+        };
       } catch (error) {
         if (!platformEnv.isNative) throw error;
         return {
@@ -316,7 +318,7 @@ export function useMarketWatchlistTokenList({
         };
       }
     },
-    [perpsItems.length],
+    [perpsItems],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
@@ -326,12 +328,20 @@ export function useMarketWatchlistTokenList({
 
   const lastSpotResultRef = useRef<typeof spotResult>(
     dataCacheRef?.current?.spot
-      ? { ...dataCacheRef.current.spot, failed: false }
+      ? {
+          ...dataCacheRef.current.spot,
+          failed: false,
+          requestedKeys: EMPTY_WATCHLIST_REQUEST_KEYS,
+        }
       : undefined,
   );
   const lastPerpsResultRef = useRef<typeof perpsResult>(
     dataCacheRef?.current?.perps
-      ? { ...dataCacheRef.current.perps, failed: false }
+      ? {
+          ...dataCacheRef.current.perps,
+          failed: false,
+          requestedKeys: EMPTY_WATCHLIST_REQUEST_KEYS,
+        }
       : undefined,
   );
   useEffect(() => {
@@ -521,8 +531,7 @@ export function useMarketWatchlistTokenList({
             isNative: Boolean(platformEnv.isNative),
             hasQuotesInFlight: perpsLoading !== false,
             hasQuotePayload: Boolean(perpsApiResult),
-            quotesFailed: Boolean(perpsResult?.failed),
-            isIdentityUnqueried: !lastSettledPerpsRequestKeysRef.current.has(
+            isIdentityUnqueried: !perpsApiResult?.requestedKeys?.has(
               getMarketWatchlistKey(watchlistItem),
             ),
           })
@@ -551,8 +560,7 @@ export function useMarketWatchlistTokenList({
           isNative: Boolean(platformEnv.isNative),
           hasQuotesInFlight: apiLoading !== false,
           hasQuotePayload: Boolean(apiResult),
-          quotesFailed: Boolean(spotResult?.failed),
-          isIdentityUnqueried: !lastSettledSpotRequestKeysRef.current.has(
+          isIdentityUnqueried: !apiResult?.requestedKeys?.has(
             getMarketWatchlistKey(watchlistItem),
           ),
         })
@@ -572,8 +580,6 @@ export function useMarketWatchlistTokenList({
     perpsTokenMap,
     networkLogoUriMap,
     perpsApiResult,
-    perpsResult,
-    spotResult,
   ]);
 
   useEffect(() => {
