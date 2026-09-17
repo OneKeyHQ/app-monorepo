@@ -53,7 +53,6 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
-import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
@@ -137,7 +136,6 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
 function HomeAlerts() {
   return (
     <>
-      <RiskApprovalAlert />
       <WatchOnlyAlert />
       <NetworkAlert />
       <NotificationPermissionRecoveryAlert
