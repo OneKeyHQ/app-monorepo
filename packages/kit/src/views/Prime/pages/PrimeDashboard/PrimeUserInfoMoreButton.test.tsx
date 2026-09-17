@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-/* cspell:ignore Infini */
+/* cspell:ignore Infini rcbilling customerportal */
 
 import type { ReactNode } from 'react';
 
@@ -60,7 +60,11 @@ const mockUser: {
   primeSubscription?: {
     isActive: boolean;
     expiresAt?: number;
-    subscriptions?: { channel?: string; managementUrl?: string }[];
+    subscriptions?: {
+      id?: string;
+      channel?: string;
+      managementUrl?: string;
+    }[];
   };
   subscriptionManageUrl?: string;
 } = {
@@ -371,6 +375,50 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
       target: 'externalUrl',
     });
   });
+
+  it.each([
+    {
+      name: 'RevenueCat web billing portal',
+      subscriptions: [
+        {
+          id: 'synthetic-subscription-id',
+          managementUrl:
+            'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
+        },
+      ],
+      url: 'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
+    },
+    {
+      name: 'Apple subscription management',
+      subscriptions: [
+        {
+          managementUrl: 'https://apps.apple.com/account/subscriptions',
+        },
+      ],
+      url: 'https://apps.apple.com/account/subscriptions',
+    },
+  ])(
+    'opens a channel-less $name URL before refresh resolves',
+    ({ subscriptions, url }) => {
+      mockUser.primeSubscription = {
+        isActive: true,
+        expiresAt: 0,
+        subscriptions,
+      };
+      render(<PrimeUserInfoMoreButton />);
+
+      fireEvent.click(
+        screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+      );
+
+      expect(mockOpenUrlExternal).toHaveBeenCalledWith(url);
+      expect(mockToastMessage).not.toHaveBeenCalled();
+      expect(mockGetCustomerInfo).not.toHaveBeenCalled();
+      expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
+        target: 'externalUrl',
+      });
+    },
+  );
 
   it('force refreshes the current server record for an unresolved target', async () => {
     mockApiFetchPrimeUserInfo.mockResolvedValue({
