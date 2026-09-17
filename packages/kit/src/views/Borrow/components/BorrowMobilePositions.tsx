@@ -379,7 +379,7 @@ export function BorrowMobilePositions({
                   <CollateralSwitchCell
                     item={suppliedAsset}
                     eModeId={eModeId}
-                    size={ESwitchSize.small}
+                    size={ESwitchSize.extraSmall}
                   />
                 )}
               </>

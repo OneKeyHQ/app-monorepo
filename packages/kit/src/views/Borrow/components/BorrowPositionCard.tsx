@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { type GestureResponderEvent, StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  Accordion,
   Badge,
   Button,
   Icon,
@@ -14,7 +15,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
-import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -28,6 +32,8 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { ApyTextV2 } from './BorrowTableList/ApyTextV2';
 
 const ACCESSIBILITY_ACTIVATE = [{ name: 'activate' }] as const;
+const ACTIONS_ACCORDION_VALUE = 'actions';
+const ACTIONS_HIDDEN_STYLE = { opacity: 0 } as const;
 
 export type IBorrowPositionCardAction = {
   key: string;
@@ -56,6 +62,62 @@ export type IBorrowPositionCardProps = {
   testID?: string;
   actionsTestID?: string;
 };
+
+function BorrowPositionCardActions({
+  actions,
+  actionsTestID,
+  isExpanded,
+  reducedMotion,
+}: {
+  actions: IBorrowPositionCardAction[];
+  actionsTestID?: string;
+  isExpanded: boolean;
+  reducedMotion: boolean;
+}): ReactElement {
+  return (
+    <Accordion
+      type="single"
+      collapsible
+      value={isExpanded ? ACTIONS_ACCORDION_VALUE : ''}
+    >
+      <Accordion.Item value={ACTIONS_ACCORDION_VALUE}>
+        <Accordion.HeightAnimator
+          transition={reducedMotion ? undefined : 'quick'}
+        >
+          <Accordion.Content
+            unstyled
+            role="group"
+            aria-labelledby={undefined}
+            pt="$2"
+            transition={reducedMotion ? undefined : 'quick'}
+            animateOnly={reducedMotion ? undefined : ANIMATE_ONLY_OPACITY}
+            enterStyle={reducedMotion ? undefined : ACTIONS_HIDDEN_STYLE}
+            exitStyle={reducedMotion ? undefined : ACTIONS_HIDDEN_STYLE}
+          >
+            <XStack testID={actionsTestID} ai="center" gap="$2">
+              {actions.map((action) => (
+                <Button
+                  key={action.key}
+                  testID={action.testID}
+                  flex={1}
+                  size="small"
+                  variant={action.variant}
+                  disabled={action.disabled}
+                  onPress={(event: GestureResponderEvent) => {
+                    event.stopPropagation();
+                    action.onPress();
+                  }}
+                >
+                  {action.label}
+                </Button>
+              ))}
+            </XStack>
+          </Accordion.Content>
+        </Accordion.HeightAnimator>
+      </Accordion.Item>
+    </Accordion>
+  );
+}
 
 export function BorrowPositionCard({
   token,
@@ -136,12 +198,11 @@ export function BorrowPositionCard({
         borderRadius="$3"
         borderCurve="continuous"
         p="$3"
-        gap="$2"
         hoverStyle={isPressable ? { bg: '$bgHover' } : undefined}
         pressStyle={isPressable ? { bg: '$bgActive' } : undefined}
         onPress={onToggleExpand}
       >
-        <XStack ai="center" jc="space-between" gap="$3">
+        <XStack ai="center" jc="space-between" gap="$3" mb="$2">
           <XStack ai="center" gap="$2" flexShrink={1} minWidth={0}>
             <Badge badgeType={statusBadgeType} badgeSize="sm">
               {statusLabel}
@@ -218,25 +279,16 @@ export function BorrowPositionCard({
             ) : null}
           </XStack>
         </XStack>
-      </YStack>
 
-      {isExpanded && actions.length ? (
-        <XStack testID={actionsTestID} ai="center" gap="$4">
-          {actions.map((action) => (
-            <Button
-              key={action.key}
-              testID={action.testID}
-              flex={1}
-              size="large"
-              variant={action.variant}
-              disabled={action.disabled}
-              onPress={action.onPress}
-            >
-              {action.label}
-            </Button>
-          ))}
-        </XStack>
-      ) : null}
+        {actions.length ? (
+          <BorrowPositionCardActions
+            actions={actions}
+            actionsTestID={actionsTestID}
+            isExpanded={isExpanded}
+            reducedMotion={reducedMotion}
+          />
+        ) : null}
+      </YStack>
     </YStack>
   );
 }
