@@ -2,6 +2,12 @@ import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  PRIME_TRANSFER_CHUNK_SIZE,
+  PRIME_TRANSFER_MAX_CHUNKS,
+} from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
+
+import { ETransferServerErrorCode } from './transferErrors';
 
 import type {
   IJsBridgeConfig,
@@ -44,21 +50,58 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
 
   override sendAsString = false;
 
-  checkIsRateLimited({
+  private chunkWindowStartedAt = 0;
+
+  private chunkRequestsInWindow = 0;
+
+  private getRequestErrorCode({
     payload,
     eventName,
-    sendErrorResponse,
   }: {
     payload: IJsBridgeMessagePayload;
     eventName: string;
-    sendErrorResponse: () => void;
-  }) {
-    // Rate limiting check
+  }): ETransferServerErrorCode | undefined {
     const req: IJsonRpcRequest = payload.data as IJsonRpcRequest;
+
+    if (req.method === 'sendTransferChunk') {
+      const params = req?.params;
+      const chunk = (Array.isArray(params) ? params[0] : undefined) as
+        | { data?: unknown; transferId?: unknown; index?: unknown }
+        | undefined;
+      if (
+        !Array.isArray(params) ||
+        params.length !== 1 ||
+        !chunk ||
+        typeof chunk !== 'object' ||
+        Array.isArray(chunk) ||
+        Object.keys(chunk).length !== 3 ||
+        typeof chunk.transferId !== 'string' ||
+        !/^[a-zA-Z0-9-]{1,64}$/.test(chunk.transferId) ||
+        typeof chunk.index !== 'number' ||
+        !Number.isSafeInteger(chunk.index) ||
+        chunk.index < 0 ||
+        chunk.index >= PRIME_TRANSFER_MAX_CHUNKS ||
+        typeof chunk.data !== 'string' ||
+        chunk.data.length === 0 ||
+        chunk.data.length > PRIME_TRANSFER_CHUNK_SIZE ||
+        !/^[A-Za-z0-9+/]*={0,2}$/.test(chunk.data)
+      ) {
+        return ETransferServerErrorCode.INVALID_PARAMETER;
+      }
+      const now = Date.now();
+      if (now - this.chunkWindowStartedAt >= 1000) {
+        this.chunkWindowStartedAt = now;
+        this.chunkRequestsInWindow = 0;
+      }
+      this.chunkRequestsInWindow += 1;
+      return this.chunkRequestsInWindow > 512
+        ? ETransferServerErrorCode.RATE_LIMIT_EXCEEDED
+        : undefined;
+    }
 
     // Check if method is in whitelist
     if (RATE_LIMIT_WHITELIST.has(req.method)) {
-      return false;
+      return undefined;
     }
 
     const rateLimitKey = `${this.socket.id}:${eventName}:${req.method}`;
@@ -67,12 +110,11 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
     const lastTime = lastRequestTime.get(rateLimitKey) || 0;
 
     if (now - lastTime < RATE_LIMIT_INTERVAL_MS) {
-      sendErrorResponse();
-      return true;
+      return ETransferServerErrorCode.RATE_LIMIT_EXCEEDED;
     }
 
     lastRequestTime.set(rateLimitKey, now);
-    return false;
+    return undefined;
   }
 
   sendPayload(payload: IJsBridgeMessagePayload): void {
@@ -109,26 +151,27 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
       });
       this.socket.on(eventName, async (payload) => {
         const p = payload as IJsBridgeMessagePayload;
-        const isRateLimited = this.checkIsRateLimited({
+        const errorCode = this.getRequestErrorCode({
           payload: p,
           eventName: 'e2ee-c2c-request',
-          sendErrorResponse: () => {
-            this.responseError({
-              id: p.id || -9999,
-              error: {
-                message: appLocale.intl.formatMessage({
-                  id: ETranslations.global_request_limit,
-                }),
-                // code: CLIENT_TO_CLIENT_RATE_LIMIT_ERROR_CODE,
-              },
-              scope: p.scope,
-              remoteId: p.remoteId,
-              peerOrigin: p.peerOrigin,
-            });
-          },
         });
 
-        if (isRateLimited) {
+        if (errorCode !== undefined) {
+          this.responseError({
+            id: p.id ?? -9999,
+            error: {
+              code: errorCode,
+              message:
+                errorCode === ETransferServerErrorCode.INVALID_PARAMETER
+                  ? 'Invalid transfer chunk'
+                  : appLocale.intl.formatMessage({
+                      id: ETranslations.global_request_limit,
+                    }),
+            },
+            scope: p.scope,
+            remoteId: p.remoteId,
+            peerOrigin: p.peerOrigin,
+          });
           return;
         }
 
