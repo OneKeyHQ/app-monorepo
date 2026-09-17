@@ -29,6 +29,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
 
+import { showOneKeyIdLoginFailedToast } from '../../Prime/components/oneKeyIdLoginToastUtils';
 import {
   PageFrame,
   isErrorState,
@@ -628,8 +629,10 @@ function BulkExportHistoryTaskList({
   const selectorSceneUrl = TASK_LIST_SELECTOR_SCENE_URL;
 
   const handleSignIn = useCallback(() => {
-    void loginOneKeyId();
-  }, [loginOneKeyId]);
+    void loginOneKeyId().catch((error) => {
+      showOneKeyIdLoginFailedToast({ error, intl });
+    });
+  }, [intl, loginOneKeyId]);
 
   const handleOpenTaskDetail = useCallback(
     (taskId: number, selectedNetworkIds: string[]) => {

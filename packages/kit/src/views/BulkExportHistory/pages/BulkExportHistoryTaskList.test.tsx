@@ -2,12 +2,15 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
+import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalBulkExportHistoryParamList } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
+
+import { showOneKeyIdLoginFailedToast } from '../../Prime/components/oneKeyIdLoginToastUtils';
 
 import BulkExportHistoryTaskList from './BulkExportHistoryTaskList';
 
@@ -47,6 +50,10 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
     loginOneKeyId: mockLoginOneKeyId,
     user: mockUser,
   }),
+}));
+
+jest.mock('../../Prime/components/oneKeyIdLoginToastUtils', () => ({
+  showOneKeyIdLoginFailedToast: jest.fn(),
 }));
 
 // Remaining mocks only break import-time coupling from the unmounted list tree.
@@ -147,9 +154,12 @@ describe('BulkExportHistoryTaskList', () => {
     mockUser.primeSubscription = { isActive: false };
     mockLoginOneKeyId.mockReset();
     mockLoginOneKeyId.mockResolvedValue(undefined);
+    jest.mocked(showOneKeyIdLoginFailedToast).mockClear();
   });
 
-  it('shows the sign-in empty state and does not mount history until OneKey ID login', () => {
+  it('shows the sign-in empty state and handles login cancellation without mounting history', async () => {
+    const cancellation = new PrimeLoginDialogCancelError();
+    mockLoginOneKeyId.mockRejectedValueOnce(cancellation);
     renderTaskList();
 
     expect(screen.getByText(ETranslations.export_history__title)).toBeTruthy();
@@ -164,12 +174,19 @@ describe('BulkExportHistoryTaskList', () => {
     );
     expect(screen.queryByTestId(HISTORY_BOUNDARY_TEST_ID)).toBeNull();
 
-    fireEvent.click(
-      screen.getByTestId('bulk-export-history-task-list-sign-in'),
-    );
+    await act(async () => {
+      fireEvent.click(
+        screen.getByTestId('bulk-export-history-task-list-sign-in'),
+      );
+    });
 
     expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
     expect(mockLoginOneKeyId).toHaveBeenCalledWith();
+    expect(showOneKeyIdLoginFailedToast).toHaveBeenCalledWith({
+      error: cancellation,
+      intl: expect.objectContaining({ formatMessage: expect.any(Function) }),
+    });
+    expect(screen.queryByTestId(HISTORY_BOUNDARY_TEST_ID)).toBeNull();
   });
 
   it('mounts history after sign-in, remounts on OneKey ID change, and unmounts on logout', () => {
