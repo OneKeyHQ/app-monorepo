@@ -4,6 +4,8 @@ import {
   ComputeBudgetProgram,
   PACKET_DATA_SIZE,
   PublicKey,
+  SystemProgram,
+  Transaction,
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
@@ -14,7 +16,10 @@ import {
   SPL_PROGRAM_IDS,
   SYSTEM_PROGRAM_IDS,
 } from '@onekeyhq/core/src/chains/sol/constants';
-import type { INativeTxSol } from '@onekeyhq/core/src/chains/sol/types';
+import type {
+  IEncodedTxSol,
+  INativeTxSol,
+} from '@onekeyhq/core/src/chains/sol/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { EParamsEncodings } from './sdkSol/ClientSol';
@@ -196,4 +201,83 @@ export function isCustomProgram(pid: string) {
     isSplProgram(pid) ||
     isMetaplexProgram(pid)
   );
+}
+
+// System program instruction index of AdvanceNonceAccount (u32 LE prefix).
+const ADVANCE_NONCE_ACCOUNT_INSTRUCTION_INDEX = 4;
+
+function isAdvanceNonceInstruction({
+  programId,
+  data,
+}: {
+  programId: PublicKey;
+  data: Uint8Array;
+}): boolean {
+  return (
+    programId.equals(SystemProgram.programId) &&
+    data.length >= 4 &&
+    Buffer.from(data).readUInt32LE(0) ===
+      ADVANCE_NONCE_ACCOUNT_INSTRUCTION_INDEX
+  );
+}
+
+// A durable-nonce tx carries the nonce value in `recentBlockhash`; by
+// convention its first instruction is AdvanceNonceAccount.
+export function isDurableNonceSolTx(nativeTx: INativeTxSol): boolean {
+  if (nativeTx instanceof VersionedTransaction) {
+    const { message } = nativeTx;
+    const firstInstruction = message.compiledInstructions[0];
+    const programId = firstInstruction
+      ? message.staticAccountKeys[firstInstruction.programIdIndex]
+      : undefined;
+    return Boolean(
+      firstInstruction &&
+      programId &&
+      isAdvanceNonceInstruction({
+        programId,
+        data: firstInstruction.data,
+      }),
+    );
+  }
+  if (nativeTx.nonceInfo) {
+    return true;
+  }
+  const firstInstruction = nativeTx.instructions[0];
+  return Boolean(
+    firstInstruction && isAdvanceNonceInstruction(firstInstruction),
+  );
+}
+
+// Re-stamping the blockhash invalidates every existing signature, so only a
+// tx the wallet alone signs (no co-signer, no durable nonce) may be refreshed.
+export function canRefreshSolTxBlockhash(nativeTx: INativeTxSol): boolean {
+  if (nativeTx.signatures.length > 1) {
+    return false;
+  }
+  return !isDurableNonceSolTx(nativeTx);
+}
+
+export function serializeSolTx(nativeTx: INativeTxSol): IEncodedTxSol {
+  if (nativeTx instanceof VersionedTransaction) {
+    return bs58.encode(Buffer.from(nativeTx.serialize()));
+  }
+  return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+}
+
+export function replaceSolTxRecentBlockhash({
+  nativeTx,
+  recentBlockhash,
+  lastValidBlockHeight,
+}: {
+  nativeTx: INativeTxSol;
+  recentBlockhash: string;
+  lastValidBlockHeight?: number;
+}): IEncodedTxSol {
+  if (nativeTx instanceof Transaction) {
+    nativeTx.recentBlockhash = recentBlockhash;
+    nativeTx.lastValidBlockHeight = lastValidBlockHeight;
+  } else {
+    nativeTx.message.recentBlockhash = recentBlockhash;
+  }
+  return serializeSolTx(nativeTx);
 }
