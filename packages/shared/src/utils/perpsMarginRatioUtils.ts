@@ -46,16 +46,24 @@ export function computePerpsCrossMarginRatio(params: {
   const maintenanceMarginUsed = new BigNumber(crossMaintenanceMarginUsed);
 
   if (mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT) {
-    if (params.spotCollateralTotal === undefined) {
+    // A summary cached before isolatedMarginUsed existed cannot size the
+    // collateral; wait for the live one rather than assume no isolated margin.
+    if (
+      params.spotCollateralTotal === undefined ||
+      params.isolatedMarginUsed === undefined
+    ) {
       return LOADING;
     }
     // Unified collateral lives in the spot balance; the perp-side account value
     // is only the margin held for open positions.
     const available = new BigNumber(params.spotCollateralTotal).minus(
-      params.isolatedMarginUsed || '0',
+      params.isolatedMarginUsed,
     );
     if (!available.isGreaterThan(0)) {
-      return buildReadyRatio(new BigNumber(0));
+      // Margin owed against no free collateral is the riskiest state, not zero.
+      return buildReadyRatio(
+        new BigNumber(maintenanceMarginUsed.isGreaterThan(0) ? 1 : 0),
+      );
     }
     return buildReadyRatio(
       BigNumber.min(maintenanceMarginUsed.dividedBy(available), 1),

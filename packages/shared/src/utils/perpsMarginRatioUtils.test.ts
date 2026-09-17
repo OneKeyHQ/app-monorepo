@@ -42,7 +42,7 @@ describe('computePerpsCrossMarginRatio', () => {
     ).toMatchObject({ status: 'ready', mmrPercent: '100.00' });
   });
 
-  it('reads zero when a unified account has no free collateral to measure against', () => {
+  it('reads full risk when margin is owed against exhausted unified collateral', () => {
     expect(
       computePerpsCrossMarginRatio({
         ...perpSide,
@@ -50,7 +50,29 @@ describe('computePerpsCrossMarginRatio', () => {
         mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
         spotCollateralTotal: '30',
       }),
+    ).toMatchObject({ status: 'ready', mmrPercent: '100.00' });
+  });
+
+  it('reads zero for an empty unified account that owes no margin', () => {
+    expect(
+      computePerpsCrossMarginRatio({
+        ...perpSide,
+        crossMaintenanceMarginUsed: '0.0',
+        mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        spotCollateralTotal: '0',
+      }),
     ).toMatchObject({ status: 'ready', mmrPercent: '0.00' });
+  });
+
+  it('waits for isolated margin a pre-upgrade cached summary does not carry', () => {
+    expect(
+      computePerpsCrossMarginRatio({
+        ...perpSide,
+        isolatedMarginUsed: undefined,
+        mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        spotCollateralTotal: '513.85341389',
+      }),
+    ).toEqual({ status: 'loading', mmr: null, mmrPercent: null });
   });
 
   it('waits for the spot balance before rating a unified account', () => {
