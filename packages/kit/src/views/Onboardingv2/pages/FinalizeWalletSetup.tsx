@@ -856,8 +856,11 @@ function FinalizeWalletSetupPage({
                   vendor: deviceData.vendor,
                 });
                 // Terminal outcome, not abandonment — release the in-flight
-                // guard before the pop unmounts this instance.
-                hardwareCreateInFlightRef.current = false;
+                // guard before the pop unmounts this instance. A superseded
+                // attempt must not release the guard the live one holds.
+                if (isCurrentAttempt()) {
+                  hardwareCreateInFlightRef.current = false;
+                }
                 navigation.pop();
                 Dialog.show({
                   title: intl.formatMessage({

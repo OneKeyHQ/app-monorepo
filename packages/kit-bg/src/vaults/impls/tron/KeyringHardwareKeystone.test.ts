@@ -147,7 +147,7 @@ describe('KeyringHardwareKeystone.signMessage', () => {
         vault: { getAccount: jest.fn().mockResolvedValue(dbAccount) },
       },
     ) as KeyringHardwareKeystone;
-    return { keyring, tronSignMessage };
+    return { keyring, tronSignMessage, getAdapterForVendor };
   }
 
   it('rejects a V1 message before contacting the device', async () => {
@@ -160,6 +160,24 @@ describe('KeyringHardwareKeystone.signMessage', () => {
       } as never),
     ).rejects.toBeInstanceOf(ThirdPartyMethodNotSupported);
     expect(tronSignMessage).not.toHaveBeenCalled();
+  });
+
+  it('rejects a [V2, V1] batch before signing anything', async () => {
+    const { keyring, tronSignMessage, getAdapterForVendor } = buildKeyring(
+      jest.fn(),
+    );
+
+    await expect(
+      keyring.signMessage({
+        messages: [
+          { message: 'deadbeef', type: EMessageTypesTron.SIGN_MESSAGE_V2 },
+          { message: 'hello', type: EMessageTypesTron.SIGN_MESSAGE },
+        ],
+        deviceParams: { dbDevice },
+      } as never),
+    ).rejects.toBeInstanceOf(ThirdPartyMethodNotSupported);
+    expect(tronSignMessage).not.toHaveBeenCalled();
+    expect(getAdapterForVendor).not.toHaveBeenCalled();
   });
 
   it('signs a V2 message with the account path and hex-prefixes the signature', async () => {
@@ -227,5 +245,42 @@ describe('KeyringHardwareKeystone.signMessage', () => {
       } as never),
     ).rejects.toBeInstanceOf(ThirdPartyUserRejected);
     expect(tronSignMessage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('KeyringHardwareKeystone.batchGetAddresses', () => {
+  function buildKeyring() {
+    const getAdapterForVendor = jest.fn();
+    const keyring = Object.assign(
+      Object.create(KeyringHardwareKeystone.prototype),
+      {
+        hwSdkNetwork: 'tron',
+        backgroundApi: {
+          serviceThirdPartyHardware: { getAdapterForVendor },
+        },
+      },
+    ) as KeyringHardwareKeystone;
+    return { keyring, getAdapterForVendor };
+  }
+
+  it('refuses a device verification instead of returning a locally derived address', async () => {
+    const { keyring, getAdapterForVendor } = buildKeyring();
+
+    await expect(
+      keyring.batchGetAddresses({
+        indexes: [0],
+        isVerifyAddressAction: true,
+      } as never),
+    ).rejects.toThrow('manual derivation-path confirmation');
+    expect(getAdapterForVendor).not.toHaveBeenCalled();
+  });
+
+  it('offers no local candidates for a normal create flow', async () => {
+    const { keyring, getAdapterForVendor } = buildKeyring();
+
+    await expect(
+      keyring.batchGetAddresses({ indexes: [0] } as never),
+    ).resolves.toEqual([]);
+    expect(getAdapterForVendor).not.toHaveBeenCalled();
   });
 });

@@ -361,7 +361,11 @@ function ReceiveToken() {
           id: ETranslations.global_receive_address_confirmation,
         }),
         description: intl.formatMessage({
-          id: ETranslationsMock.hardware_third_party_manual_verify_desc,
+          // The path block only renders when a path exists, so the copy must
+          // not ask the user to compare one that is never shown.
+          id: manualVerificationPath
+            ? ETranslationsMock.hardware_third_party_manual_verify_desc
+            : ETranslationsMock.hardware_third_party_manual_verify_address_only_desc,
         }),
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_i_got_it,
@@ -459,6 +463,7 @@ function ReceiveToken() {
     intl,
     networkId,
     addressVerification.mode,
+    manualVerificationPath,
     verificationPath,
     wallet?.type,
     walletId,

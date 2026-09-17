@@ -265,3 +265,40 @@ describe('KeyringHardwareKeystone.signMessage', () => {
     );
   });
 });
+
+describe('KeyringHardwareKeystone.batchGetAddresses', () => {
+  function buildKeyring() {
+    const getAdapterForVendor = jest.fn();
+    const keyring = Object.assign(
+      Object.create(KeyringHardwareKeystone.prototype),
+      {
+        hwSdkNetwork: 'sol',
+        backgroundApi: {
+          serviceThirdPartyHardware: { getAdapterForVendor },
+        },
+      },
+    ) as KeyringHardwareKeystone;
+    return { keyring, getAdapterForVendor };
+  }
+
+  it('refuses a device verification instead of returning a locally derived address', async () => {
+    const { keyring, getAdapterForVendor } = buildKeyring();
+
+    await expect(
+      keyring.batchGetAddresses({
+        indexes: [0],
+        isVerifyAddressAction: true,
+      } as never),
+    ).rejects.toThrow('manual derivation-path confirmation');
+    expect(getAdapterForVendor).not.toHaveBeenCalled();
+  });
+
+  it('offers no local candidates for a normal create flow', async () => {
+    const { keyring, getAdapterForVendor } = buildKeyring();
+
+    await expect(
+      keyring.batchGetAddresses({ indexes: [0] } as never),
+    ).resolves.toEqual([]);
+    expect(getAdapterForVendor).not.toHaveBeenCalled();
+  });
+});
