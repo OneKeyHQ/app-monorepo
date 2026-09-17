@@ -3,7 +3,10 @@ const path = require('path');
 
 const developmentConsts = require('./developmentConsts');
 const envExposedToClient = require('./envExposedToClient');
-const { buildPlatformEnvDefineMap } = require('./platformEnvDefine');
+const {
+  buildPlatformEnvDefineMap,
+  isJestBuild,
+} = require('./platformEnvDefine');
 
 function fullPath(pathStr) {
   return path.resolve(__dirname, pathStr);
@@ -71,7 +74,9 @@ function normalizeConfig({ platform, config }) {
   // Only the flags used directly below are destructured; the platformEnv.*
   // transform-define map reads the rest from buildTimeEnv via
   // buildPlatformEnvDefineMap (single source of truth in platformEnvDefine.js).
-  const { isJest, isDev, isNative, enablePerfMonitor } = buildTimeEnv;
+  const { isDev, isNative, enablePerfMonitor } = buildTimeEnv;
+  // Not buildTimeEnv.isJest: Metro's jest-worker threads set JEST_WORKER_ID.
+  const isJest = isJestBuild();
 
   config.plugins = [
     ...(config.plugins || []),

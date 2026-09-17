@@ -422,6 +422,10 @@ if (process.env.RN_HARNESS === 'true') {
 config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
   buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
 }`;
+// The key also misses modules that babel.config.js requires
+// (development/babelTools.js, development/platformEnvDefine.js). Bump this
+// when their output changes.
+config.cacheVersion = `${config.cacheVersion}:babel-tools-v2`;
 if (isDevVendorEnabled()) {
   config.cacheVersion = `${config.cacheVersion}:dev-vendor-v1`;
 }
