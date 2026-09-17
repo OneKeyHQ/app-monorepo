@@ -1,8 +1,4 @@
-import {
-  HardwareErrorCode as ThirdPartyHwErrorCode,
-  isHardwareOperationId,
-} from '@onekeyfe/hwk-adapter-core';
-import { Semaphore } from 'async-mutex';
+import { isHardwareOperationId } from '@onekeyfe/hwk-adapter-core';
 
 import {
   backgroundClass,
@@ -12,10 +8,7 @@ import {
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  type IThirdPartyDeviceErrorPayload,
-  convertThirdPartyDeviceError,
-} from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -112,25 +105,6 @@ type IThirdPartyConnectDeviceParams = {
   deviceId?: string;
 };
 
-/** Serializable across the main/bg RPC boundary — no Error instances. */
-export type IRecoverLedgerSessionResult =
-  | { ok: true; connectId: string; installedApps: string[] }
-  | { ok: false; failure: IThirdPartyDeviceErrorPayload };
-
-function toThirdPartyDeviceErrorPayload(
-  payload: unknown,
-): IThirdPartyDeviceErrorPayload {
-  const value = payload as Partial<IThirdPartyDeviceErrorPayload> | undefined;
-  return {
-    error: typeof value?.error === 'string' ? value.error : 'Unknown error',
-    code:
-      typeof value?.code === 'number'
-        ? value.code
-        : ThirdPartyHwErrorCode.UnknownError,
-    ...(typeof value?._tag === 'string' ? { _tag: value._tag } : {}),
-  };
-}
-
 type IThirdPartyAllNetworkGetAddressHw = {
   allNetworkGetAddress: (
     connectId: string,
@@ -223,15 +197,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
   private thirdPartyAdapters = new Map<
     IThirdPartyVendor,
     IThirdPartyHardwareAdapter
-  >();
-
-  /**
-   * Serializes session-rebuild work per vendor: a reset between another
-   * caller's connect and its first call would strand that caller's adapter.
-   */
-  private thirdPartySessionRecoveryMutexes = new Map<
-    IThirdPartyVendor,
-    Semaphore
   >();
 
   /** In-flight init promises so concurrent callers share one factory run. */
@@ -1201,87 +1166,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
       return;
     }
     adapter?.cancel(params.connectId);
-  }
-
-  private getThirdPartySessionRecoveryMutex(
-    vendor: IThirdPartyVendor,
-  ): Semaphore {
-    let mutex = this.thirdPartySessionRecoveryMutexes.get(vendor);
-    if (!mutex) {
-      mutex = new Semaphore(1);
-      this.thirdPartySessionRecoveryMutexes.set(vendor, mutex);
-    }
-    return mutex;
-  }
-
-  /**
-   * Rebuild a broken Ledger session: abort what is in flight, drop the adapter
-   * (its dispose closes the transport), build a fresh one, reconnect and prove
-   * the link works by reading the installed app list. `connectId` may be empty
-   * — USB Ledger has no persistent one, and connectDevice rediscovers.
-   */
-  @backgroundMethod()
-  async recoverLedgerSession(params: {
-    connectId?: string;
-  }): Promise<IRecoverLedgerSessionResult> {
-    const vendor = EHardwareVendor.ledger;
-    const connectId = params.connectId ?? '';
-    return this.getThirdPartySessionRecoveryMutex(vendor).runExclusive(
-      async (): Promise<IRecoverLedgerSessionResult> => {
-        defaultLogger.hardware.sdkLog.log(
-          `[ServiceThirdPartyHardware] recoverLedgerSession connectId=${
-            connectId || '(empty)'
-          }`,
-        );
-        // Both steps are best-effort: the session is already broken, and a
-        // throw here would hide the reconnect result the caller needs.
-        try {
-          await this.thirdPartyHardwareCancel({ vendor, connectId });
-        } catch (error) {
-          defaultLogger.hardware.sdkLog.log(
-            `[ServiceThirdPartyHardware] recoverLedgerSession cancel failed: ${
-              error instanceof Error ? error.message : ''
-            }`,
-          );
-        }
-        try {
-          await this.resetThirdPartyAdapter(vendor);
-        } catch (error) {
-          defaultLogger.hardware.sdkLog.log(
-            `[ServiceThirdPartyHardware] recoverLedgerSession reset failed: ${
-              error instanceof Error ? error.message : ''
-            }`,
-          );
-        }
-        await this.ensureAdaptersInitialized(vendor);
-        const connected = await this.connectDevice({
-          vendor,
-          searchTargetId: connectId,
-        });
-        if (!connected.success) {
-          return {
-            ok: false,
-            failure: toThirdPartyDeviceErrorPayload(connected.payload),
-          };
-        }
-        const recoveredConnectId = connected.payload.connectId || connectId;
-        const probe = (await this.thirdPartyHardwareListInstalledAppNames({
-          vendor,
-          connectId: recoveredConnectId,
-        })) as { success: boolean; payload: unknown };
-        if (!probe?.success) {
-          return {
-            ok: false,
-            failure: toThirdPartyDeviceErrorPayload(probe?.payload),
-          };
-        }
-        return {
-          ok: true,
-          connectId: recoveredConnectId,
-          installedApps: (probe.payload as string[]) ?? [],
-        };
-      },
-    );
   }
 
   // ---------------------------------------------------------------------------
