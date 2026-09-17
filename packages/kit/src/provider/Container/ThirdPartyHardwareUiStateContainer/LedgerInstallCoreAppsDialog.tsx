@@ -93,10 +93,6 @@ function InstallCoreAppsContent({
           backgroundApiProxy.serviceHardware.thirdPartyHardwareListInstalledAppNames(
             { vendor: EHardwareVendor.ledger, ...params },
           ) as Promise<ILedgerInstalledAppNamesResponse>,
-        recoverSession: (params) =>
-          backgroundApiProxy.serviceThirdPartyHardware.recoverLedgerSession(
-            params,
-          ),
         onAppStart: async (index) => {
           await thirdPartyBatchInstallAtom.set({
             queue: [...selectedApps],
