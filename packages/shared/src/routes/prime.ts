@@ -10,6 +10,7 @@ import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 export enum EPrimePages {
   PrimeDashboard = 'PrimeDashboard',
@@ -27,6 +28,10 @@ export enum EPrimePages {
   PrimeInfiniPayment = 'PrimeInfiniPayment',
   // Infini crypto subscription management page
   PrimeInfiniSubscription = 'PrimeInfiniSubscription',
+}
+
+export enum EPrimeGiftPages {
+  PrimeGift = 'PrimeGift',
 }
 
 export enum EPrimeFeatures {
@@ -87,4 +92,13 @@ export type IPrimeParamList = {
     networkId?: string;
   };
   [EPrimePages.PrimeInfiniSubscription]: undefined;
+};
+
+export type IPrimeGiftParamList = {
+  [EPrimeGiftPages.PrimeGift]: {
+    device: Omit<SearchDevice, 'commType'>;
+    serialNo: string;
+    source: 'onboarding' | 'deviceDetails';
+    onboardingRouteKey?: string;
+  };
 };

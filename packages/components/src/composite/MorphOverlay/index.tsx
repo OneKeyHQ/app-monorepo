@@ -32,6 +32,10 @@ import {
   getTokenValue,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  isDualScreenDevice,
+  useIsSpanningInDualScreen,
+} from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IconButton } from '../../actions/IconButton';
@@ -182,10 +186,9 @@ export const CARD = {
   pad: 24,
   padTop: 26,
   bottomPad: 28,
-  /** The wide-posture cap — the desktop dialog's own content width (see
-   * Dialog's MAX_CONTENT_WIDTH). Phone-posture windows never cap: the
-   * card tracks the screen edges the way the system sheet itself does,
-   * whatever the phone's width. */
+  /** The wide-window cap matches the desktop dialog's content width (see
+   * Dialog's MAX_CONTENT_WIDTH). Expanded Android foldable windows also
+   * use it, while ordinary phone windows keep their edge-to-edge sizing. */
   maxWidth: 400,
 };
 
@@ -720,10 +723,11 @@ export interface IMorphOverlayProps<T> {
    * The live in-card move the height should ride `ARRANGE_MS` for
    * instead of the spring: while the card stays put and this token
    * changes between two defined values, the height runs on the
-   * arrangement clock (DeviceStage passes its staged port height — the
-   * confirm shrink and back). Undefined-to-value edges keep the spring.
+   * arrangement clock (DeviceStage passes its staged arrangement kind —
+   * the confirm shrink and back). Compared, never measured.
+   * Undefined-to-value edges keep the spring.
    */
-  heightArrangeToken?: number;
+  heightArrangeToken?: string | number;
   /** The caller's own flow aimed on the container's clock — see
    * IMorphAimFacts. Its identity is an effect dependency on purpose:
    * wrap it in useCallback over the flow targets, and a target change
@@ -843,6 +847,12 @@ export function MorphOverlay<T>({
   // it; the class only picks the capsule's seat and caps the card's
   // width on the wide side (iPad, desktop, a wide web tab).
   const phoneClass = media.md;
+  const isSpanning = useIsSpanningInDualScreen();
+  const isAndroidFoldable = platformEnv.isNativeAndroid && isDualScreenDevice();
+  // An expanded Android foldable stays a phone-class window (the native
+  // media driver clamps it), so the cap is its own call: a card spanning
+  // both halves must not stretch edge to edge (OK-63187).
+  const capCardWidth = !phoneClass || (isAndroidFoldable && isSpanning);
   // The shell's seat on a phone-class window: under the status bar band
   // — the notification banner's place — with the card's own margin of
   // air, capsule and card alike. The band is the top inset: on an island
@@ -861,9 +871,9 @@ export function MorphOverlay<T>({
     () => dynamicIslandRect(insets.top, Boolean(platformEnv.isNativeIOS)),
     [insets.top],
   );
-  const cardWidth = phoneClass
-    ? screenWidth - CARD.margin * 2
-    : Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth);
+  const cardWidth = capCardWidth
+    ? Math.min(screenWidth - CARD.margin * 2, CARD.maxWidth)
+    : screenWidth - CARD.margin * 2;
   const cardHeight = CARD.padTop + cardInnerHeight + CARD.bottomPad;
   const dismissible = Boolean(onDismiss);
   const dragEnabled = dismissible && pose === 'card';
@@ -1251,10 +1261,10 @@ export function MorphOverlay<T>({
     [progress, reveal],
   );
 
-  // The wall over the app: the scrim's tint under its animated level —
-  // fully clear without the grant, so the bare blocking wall is this same
-  // view at level 0.
-  const backdropStyle = useMemo(
+  // The scrim's tint over the blocked app, under its animated level —
+  // fully clear without the grant. Paint only: the touch-blocking wall
+  // is a static view of its own (see the render).
+  const scrimStyle = useMemo(
     () => [
       styles.backdrop,
       {
@@ -1340,8 +1350,27 @@ export function MorphOverlay<T>({
             reanimated web view keeps overwriting that style, which left
             an invisible full-window wall standing after the exit and
             swallowing every touch. */}
+        {/* A plain static View, split from the scrim's tint (OK-63431):
+            RN's iOS hit test skips any view whose alpha is under 0.01,
+            so a wall carrying the scrim's animated opacity took no
+            touches in every undimmed state — the waits and the asks —
+            and taps fell through to the page behind. Android's touch
+            targeting and the web ignore alpha, which is why only iOS
+            leaked. collapsable={false}: Fabric flattens an unpainted
+            auto-pointer-events view out of the native tree, and a
+            flattened wall takes nothing either. */}
         {blocking && pose !== 'hidden' ? (
-          <Animated.View style={backdropStyle} pointerEvents="auto" />
+          <>
+            <View
+              style={styles.backdrop}
+              pointerEvents="auto"
+              collapsable={false}
+              testID="morph-overlay-wall"
+            />
+            {/* The tint over the blocked app — paint only, the wall
+                under it does the blocking. */}
+            <Animated.View style={scrimStyle} pointerEvents="none" />
+          </>
         ) : null}
         <GestureDetector gesture={pan}>
           <Animated.View style={shellStyle}>

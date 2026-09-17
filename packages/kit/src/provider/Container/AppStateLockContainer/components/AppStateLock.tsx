@@ -15,6 +15,7 @@ import {
   Heading,
   Image,
   Keyboard,
+  NATIVE_HIT_SLOP,
   Stack,
   ThemeableStack,
   updateHeightWhenKeyboardHide,
@@ -242,6 +243,14 @@ const AppStateLock = ({
               <Button
                 size="small"
                 variant="tertiary"
+                // A `tertiary` Button is only its label plus 4pt of padding and
+                // its negative margins pull the frame above the glyphs, so on a
+                // phone the real touch target is a ~26pt band sitting slightly
+                // higher than the text the user aims at — well under the 44pt
+                // Apple asks for. Taps on the visible label missed it, which is
+                // what "Forgot passcode? does nothing" was on iOS. IconButton
+                // already pads small buttons the same way. (OK-62416)
+                hitSlop={NATIVE_HIT_SLOP}
                 onPress={resetApp}
                 testID="app-state-lock.tsx-btn"
               >

@@ -30,6 +30,9 @@ jest.mock('@onekeyhq/shared/src/polyfills', () => ({}));
 jest.mock('@onekeyhq/shared/src/polyfills/runtimeCapabilities', () => ({
   markRuntimePolyfillsReady: jest.fn(),
 }));
+jest.mock('@onekeyhq/shared/src/modules3rdParty/sentry', () => ({
+  initSentry: jest.fn(),
+}));
 jest.mock(
   '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger',
   () => ({

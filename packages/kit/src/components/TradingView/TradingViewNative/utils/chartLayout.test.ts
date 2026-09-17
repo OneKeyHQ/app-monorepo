@@ -73,9 +73,12 @@ describe('TradingViewNative chart layout', () => {
     expect(formatTradingViewNativePriceTick(0)).toBe('0.00');
     expect(formatTradingViewNativePriceTick(0.135_573)).toBe('0.1356');
     expect(formatTradingViewNativePriceTick(0.004_542_83)).toBe('0.004543');
-    expect(formatTradingViewNativePriceTick(0.000_045_428_3)).toBe(
-      '0.00004543',
+    expect(formatTradingViewNativePriceTick(0.000_454_283)).toBe('0.0004543');
+    expect(formatTradingViewNativePriceTick(0.000_045_428_3)).toBe('0.0₄4543');
+    expect(formatTradingViewNativePriceTick(-0.000_045_428_3)).toBe(
+      '-0.0₄4543',
     );
+    expect(formatTradingViewNativePriceTick(0.000_099_999)).toBe('0.0001');
     expect(formatTradingViewNativePriceTick(0.000_002_547)).toBe('0.0₅2547');
     expect(formatTradingViewNativePriceTick(0.000_000_000_149_73)).toBe(
       '0.0₉1497',
@@ -125,7 +128,7 @@ describe('TradingViewNative chart layout', () => {
     });
 
     expect(regularAxisWidth).toBe(46);
-    expect(tinyAxisWidth).toBe(76);
+    expect(tinyAxisWidth).toBe(64);
     expect(tinyAxisWidth).toBeGreaterThan(regularAxisWidth);
     expect(getTradingViewNativePriceAxisLabel(regularPoints)).toBe('88.88');
 
@@ -164,13 +167,13 @@ describe('TradingViewNative chart layout', () => {
     const label = formatTradingViewNativePriceTick(0.000_034_89);
     const labelWidth = label.length * 6;
 
-    expect(label).toBe('0.00003489');
+    expect(label).toBe('0.0₄3489');
     expect(
       getTradingViewNativePriceAxisWidth({
         currentPriceLabelWidth: labelWidth,
         widestPriceLabelWidth: labelWidth,
       }),
-    ).toBe(76);
+    ).toBe(64);
     expect(getTradingViewNativeCurrentPriceLabel([])).toBe('');
   });
 
@@ -202,7 +205,7 @@ describe('TradingViewNative chart layout', () => {
         priceRangeScale: 10,
         priceScaleMode: 'linear',
       }),
-    ).toBe('-0.00008888');
+    ).toBe('-0.0008888');
   });
 
   it('covers the plain-decimal label regime only when the price range reaches it', () => {
@@ -219,7 +222,7 @@ describe('TradingViewNative chart layout', () => {
       o: 0.000_056_78,
     };
     expect(getTradingViewNativePriceAxisLabel(crossingPoints)).toBe(
-      '0.00008888',
+      '0.0008888',
     );
 
     const negativeCrossingPoints = crossingPoints.map((point) => ({
@@ -230,7 +233,7 @@ describe('TradingViewNative chart layout', () => {
       o: -0.1,
     }));
     expect(getTradingViewNativePriceAxisLabel(negativeCrossingPoints)).toBe(
-      '-0.00008888',
+      '-0.0008888',
     );
 
     const compactOnlyPoints = crossingPoints.map((point) => ({
@@ -278,8 +281,8 @@ describe('TradingViewNative chart layout', () => {
         formatTradingViewNativePriceTick(price),
       ) ?? [];
 
-    expect(widestPriceLabel).toBe('0.00008888');
-    expect(tickLabels).toContain('0.00008546');
+    expect(widestPriceLabel).toBe('0.0008888');
+    expect(tickLabels).toContain('0.0₄8546');
     expect(
       tickLabels.every((label) => label.length <= widestPriceLabel.length),
     ).toBe(true);
@@ -736,7 +739,7 @@ describe('TradingViewNative chart layout', () => {
     ).toBe(0);
   });
 
-  it('centers the watermark on small screens and uses bottom-left on large screens', () => {
+  it('centers the watermark on all screen sizes', () => {
     const regularLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 640,
       mainChartBottom: 300,
@@ -757,7 +760,8 @@ describe('TradingViewNative chart layout', () => {
       canvasWidth: 3840,
       mainChartBottom: 2160,
     });
-    expect(wideLayout).toMatchObject({ width: 320, x: 8 });
+    expect(wideLayout).toMatchObject({ width: 320, x: 1760 });
+    expect(wideLayout?.y).toBeCloseTo(1031.2195);
 
     const mobileLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 320,
@@ -787,7 +791,7 @@ describe('TradingViewNative chart layout', () => {
         canvasWidth: 768,
         mainChartBottom: 300,
       })?.x,
-    ).toBe(8);
+    ).toBeCloseTo(326.4);
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 100,

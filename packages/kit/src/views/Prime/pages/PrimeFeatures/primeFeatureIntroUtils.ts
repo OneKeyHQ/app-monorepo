@@ -68,9 +68,11 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
     media: {
       type: 'video',
       getSource: () =>
-        getPrimeFeatureVideoSource('prime-feature-dapp-security-20260529.mp4'),
+        getPrimeFeatureVideoSource(
+          'prime-feature-transaction-security-check-20260910.mp4',
+        ),
       getPosterSource: () =>
-        require('@onekeyhq/kit/assets/prime/dapp_security_poster.png') as ImageSourcePropType,
+        require('@onekeyhq/kit/assets/prime/transaction_security_check_poster.png') as ImageSourcePropType,
     },
     action: 'browser',
     actionLabel: ETranslations.shortcuts_go_to_browser_tab,
@@ -144,6 +146,33 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
     action: 'addressRiskCheck',
     actionLabel: ETranslations.address_risk_check_check_risk__action,
     details: [],
+  },
+  {
+    id: EPrimeFeatures.BlockaidSiteScan,
+    listIcon: 'ShieldCheckDoneOutline',
+    title: ETranslations.prime_enhanced_dapp_security_title,
+    description: ETranslations.prime_enhanced_dapp_security_desc,
+    media: {
+      type: 'video',
+      getSource: () =>
+        getPrimeFeatureVideoSource('prime-feature-dapp-security-20260529.mp4'),
+      getPosterSource: () =>
+        require('@onekeyhq/kit/assets/prime/dapp_security_poster.png') as ImageSourcePropType,
+    },
+    action: 'browser',
+    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
+    details: [
+      {
+        icon: 'ShieldCheckDoneOutline',
+        title: ETranslations.prime_features_dapp_security_detail_one_title,
+        description: ETranslations.prime_features_dapp_security_detail_one_desc,
+      },
+      {
+        icon: 'ShareOutline',
+        title: ETranslations.prime_features_dapp_security_detail_two_title,
+        description: ETranslations.prime_features_dapp_security_detail_two_desc,
+      },
+    ],
   },
   {
     id: EPrimeFeatures.BulkRevoke,
@@ -249,33 +278,6 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
         icon: 'SwitchHorOutline',
         title: ETranslations.prime_features_ai_translate_detail_two_title,
         description: ETranslations.prime_features_ai_translate_detail_two_desc,
-      },
-    ],
-  },
-  {
-    id: EPrimeFeatures.BlockaidSiteScan,
-    listIcon: 'ShieldCheckDoneOutline',
-    title: ETranslations.prime_enhanced_dapp_security_title,
-    description: ETranslations.prime_enhanced_dapp_security_desc,
-    media: {
-      type: 'video',
-      getSource: () =>
-        getPrimeFeatureVideoSource('prime-feature-dapp-security-20260529.mp4'),
-      getPosterSource: () =>
-        require('@onekeyhq/kit/assets/prime/dapp_security_poster.png') as ImageSourcePropType,
-    },
-    action: 'browser',
-    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
-    details: [
-      {
-        icon: 'ShieldCheckDoneOutline',
-        title: ETranslations.prime_features_dapp_security_detail_one_title,
-        description: ETranslations.prime_features_dapp_security_detail_one_desc,
-      },
-      {
-        icon: 'ShareOutline',
-        title: ETranslations.prime_features_dapp_security_detail_two_title,
-        description: ETranslations.prime_features_dapp_security_detail_two_desc,
       },
     ],
   },

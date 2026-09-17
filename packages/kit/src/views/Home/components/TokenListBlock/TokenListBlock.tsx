@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -32,6 +33,7 @@ import {
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import { useManageToken } from '@onekeyhq/kit/src/hooks/useManageToken';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -71,6 +73,7 @@ import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simp
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   EJotaiContextStoreNames,
+  type IDeviceStageState,
   useFirmwareUpdateWorkflowRunningAtom,
   useHardwareUiStateAtom,
   useSettingsPersistAtom,
@@ -84,7 +87,9 @@ import {
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   type IAppEventBusPayload,
@@ -127,6 +132,7 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { RichBlock } from '../RichBlock/RichBlock';
 
 import {
@@ -144,7 +150,7 @@ import {
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
-import { PortfolioSyncButton } from './PortfolioSyncButton';
+import { resolveOffTabTokenListRefreshOnMount } from './offTabRefresh';
 import {
   countFundedHardwarePortfolioTokens,
   selectHardwarePortfolioTokens,
@@ -163,7 +169,6 @@ const networkIdsMap = getNetworkIdsMap();
  * call — flip it to `false` to stop feeding the BG VM in an emergency.
  */
 const ENABLE_BG_TOKEN_VIEW_MODEL = true;
-const PORTFOLIO_SYNC_SUCCESS_FEEDBACK_MS = 1500;
 
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
@@ -412,9 +417,6 @@ function TokenListBlock({
   const portfolioSyncAllNetworksFallbackTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
-  const portfolioSyncSuccessTimerRef = useRef<
-    ReturnType<typeof setTimeout> | undefined
-  >(undefined);
   const allowEmptyInteractivePortfolioSyncRequestIdRef = useRef<
     number | undefined
   >(undefined);
@@ -429,9 +431,6 @@ function TokenListBlock({
   );
   const [portfolioSyncRequestPhase, setPortfolioSyncRequestPhase] =
     useState<IPortfolioSyncRequestPhase>();
-  const [portfolioSyncFeedback, setPortfolioSyncFeedback] = useState<
-    'idle' | 'success'
-  >('idle');
   const portfolioSyncDeviceDbId =
     device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
   const portfolioSyncDeviceType =
@@ -473,19 +472,23 @@ function TokenListBlock({
     }
   }, []);
 
-  const clearPortfolioSyncSuccessTimer = useCallback(() => {
-    const timer = portfolioSyncSuccessTimerRef.current;
-    if (timer) {
-      clearTimeout(timer);
-      portfolioSyncSuccessTimerRef.current = undefined;
-    }
-  }, []);
+  const {
+    beginBurst: beginPortfolioSyncStage,
+    endBurst: endPortfolioSyncStage,
+  } = useDeviceStageBurst();
 
   const finishPortfolioSyncRequest = useCallback(
-    (requestId: number) => {
+    (
+      requestId: number,
+      params?: {
+        error?: unknown;
+        doneI18n?: IDeviceStageState['doneI18n'];
+      },
+    ) => {
       if (portfolioSyncRequestRef.current?.id !== requestId) {
         return;
       }
+      void endPortfolioSyncStage(params).catch(() => undefined);
       clearPortfolioSyncFallbackTimer();
       if (
         allowEmptyInteractivePortfolioSyncRequestIdRef.current === requestId
@@ -495,33 +498,7 @@ function TokenListBlock({
       portfolioSyncRequestRef.current = undefined;
       setPortfolioSyncRequestPhase(undefined);
     },
-    [clearPortfolioSyncFallbackTimer],
-  );
-
-  const completePortfolioSyncRequest = useCallback(
-    (requestId: number) => {
-      const request = portfolioSyncRequestRef.current;
-      if (request?.id !== requestId) {
-        return;
-      }
-      clearPortfolioSyncFallbackTimer();
-      clearPortfolioSyncSuccessTimer();
-      if (
-        allowEmptyInteractivePortfolioSyncRequestIdRef.current === requestId
-      ) {
-        allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
-      }
-      portfolioSyncRequestRef.current = undefined;
-      setPortfolioSyncRequestPhase(undefined);
-      setPortfolioSyncFeedback('success');
-      portfolioSyncSuccessTimerRef.current = setTimeout(() => {
-        portfolioSyncSuccessTimerRef.current = undefined;
-        if (portfolioSyncTargetKeyRef.current === request.targetKey) {
-          setPortfolioSyncFeedback('idle');
-        }
-      }, PORTFOLIO_SYNC_SUCCESS_FEEDBACK_MS);
-    },
-    [clearPortfolioSyncFallbackTimer, clearPortfolioSyncSuccessTimer],
+    [clearPortfolioSyncFallbackTimer, endPortfolioSyncStage],
   );
 
   const transitionPortfolioSyncRequest = useCallback(
@@ -546,20 +523,26 @@ function TokenListBlock({
     if (request && request.targetKey !== portfolioSyncTargetKey) {
       finishPortfolioSyncRequest(request.id);
     }
-    clearPortfolioSyncSuccessTimer();
-    setPortfolioSyncFeedback('idle');
-  }, [
-    clearPortfolioSyncSuccessTimer,
-    finishPortfolioSyncRequest,
-    portfolioSyncTargetKey,
-  ]);
+  }, [finishPortfolioSyncRequest, portfolioSyncTargetKey]);
+
+  useEffect(() => {
+    const handleDeviceStageOff = () => {
+      const request = portfolioSyncRequestRef.current;
+      if (request) {
+        finishPortfolioSyncRequest(request.id);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.DeviceStageOff, handleDeviceStageOff);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DeviceStageOff, handleDeviceStageOff);
+    };
+  }, [finishPortfolioSyncRequest]);
 
   useEffect(
     () => () => {
       clearPortfolioSyncFallbackTimer();
-      clearPortfolioSyncSuccessTimer();
     },
-    [clearPortfolioSyncFallbackTimer, clearPortfolioSyncSuccessTimer],
+    [clearPortfolioSyncFallbackTimer],
   );
 
   const accountTokensValue = useMemo(
@@ -631,7 +614,7 @@ function TokenListBlock({
     }
   });
 
-  const { updateTokenListState, updateSearchKey } =
+  const { updateTokenListState, updateSearchKey, updatePortfolioSyncUiState } =
     useTokenListActions().current;
 
   const {
@@ -909,15 +892,22 @@ function TokenListBlock({
                   syncMode: 'interactive',
                 },
               );
-            if (portfolioSynced) {
-              completePortfolioSyncRequest(portfolioSyncRequest.id);
-            } else {
-              finishPortfolioSyncRequest(portfolioSyncRequest.id);
-            }
+            finishPortfolioSyncRequest(
+              portfolioSyncRequest.id,
+              portfolioSynced
+                ? {
+                    doneI18n: {
+                      key: ETranslations.portfolio_updated__title,
+                    },
+                  }
+                : undefined,
+            );
           } catch (error) {
-            errorToastUtils.toastIfError(error);
-            errorToastUtils.showToastOfError(error);
-            finishPortfolioSyncRequest(portfolioSyncRequest.id);
+            if (!isOneKeyHardwareError(error)) {
+              errorToastUtils.toastIfError(error);
+              errorToastUtils.showToastOfError(error);
+            }
+            finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
           }
         }
 
@@ -1018,7 +1008,6 @@ function TokenListBlock({
     [
       account,
       accountName,
-      completePortfolioSyncRequest,
       currencyInfo?.id,
       device?.connectId,
       device?.id,
@@ -1625,10 +1614,10 @@ function TokenListBlock({
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
       } else {
         // Refresh the cached wallet config in the background when it is stale
-        // (app version changed or TTL expired) so delisted networks get purged
-        // from the persisted aggregate-token maps. Not awaited: the current
-        // refresh renders with the cached data and the next one picks up the
-        // fresh config.
+        // (app/bundle version changed or TTL expired) so delisted networks get
+        // purged from the persisted aggregate-token maps. Not awaited: the
+        // current refresh renders with the cached data and the next one picks
+        // up the fresh config.
         backgroundApiProxy.serviceSetting
           .syncWalletConfigIfNeeded()
           .catch(() => {
@@ -2209,15 +2198,22 @@ function TokenListBlock({
                       syncMode: 'interactive',
                     },
                   );
-                if (portfolioSynced) {
-                  completePortfolioSyncRequest(portfolioSyncRequest.id);
-                } else {
-                  finishPortfolioSyncRequest(portfolioSyncRequest.id);
-                }
+                finishPortfolioSyncRequest(
+                  portfolioSyncRequest.id,
+                  portfolioSynced
+                    ? {
+                        doneI18n: {
+                          key: ETranslations.portfolio_updated__title,
+                        },
+                      }
+                    : undefined,
+                );
               } catch (error) {
-                errorToastUtils.toastIfError(error);
-                errorToastUtils.showToastOfError(error);
-                finishPortfolioSyncRequest(portfolioSyncRequest.id);
+                if (!isOneKeyHardwareError(error)) {
+                  errorToastUtils.toastIfError(error);
+                  errorToastUtils.showToastOfError(error);
+                }
+                finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
               }
             } else if (!portfolioSyncRequest) {
               void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
@@ -2401,7 +2397,6 @@ function TokenListBlock({
     account?.indexedAccountId,
     accountName,
     cellsNonZeroInputs,
-    completePortfolioSyncRequest,
     device?.connectId,
     device?.id,
     finishPortfolioSyncRequest,
@@ -2934,8 +2929,6 @@ function TokenListBlock({
     if (!refreshWalletTokenList || !hasPortfolioSyncTarget) {
       return;
     }
-    clearPortfolioSyncSuccessTimer();
-    setPortfolioSyncFeedback('idle');
     allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
     portfolioSyncRequestIdRef.current += 1;
     const request: IPortfolioSyncRequest = {
@@ -2951,13 +2944,37 @@ function TokenListBlock({
     };
     portfolioSyncRequestRef.current = request;
     setPortfolioSyncRequestPhase(request.phase);
-    refreshWalletTokenList();
+    void beginPortfolioSyncStage({
+      connectId: device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
+      deviceName: device?.name,
+      deviceType: portfolioSyncDeviceType,
+    })
+      .then(() => {
+        if (portfolioSyncRequestRef.current?.id === request.id) {
+          refreshWalletTokenList();
+        }
+      })
+      .catch((error) => {
+        if (portfolioSyncRequestRef.current?.id !== request.id) {
+          return;
+        }
+        if (!isOneKeyHardwareError(error)) {
+          errorToastUtils.toastIfError(error);
+          errorToastUtils.showToastOfError(error);
+        }
+        finishPortfolioSyncRequest(request.id, { error });
+      });
   }, [
-    clearPortfolioSyncSuccessTimer,
+    beginPortfolioSyncStage,
+    device?.connectId,
+    device?.name,
+    finishPortfolioSyncRequest,
     getCurrentPortfolioSyncRequest,
     hasPortfolioSyncTarget,
     network?.isAllNetworks,
+    portfolioSyncDeviceType,
     portfolioSyncTargetKey,
+    wallet?.associatedDeviceInfo?.connectId,
   ]);
 
   const lastVisibilityRefreshAtRef = useRef(0);
@@ -3092,22 +3109,19 @@ function TokenListBlock({
 
       let emittedRefreshing = false;
       try {
-        // Multi-derive (merge-derive) HD accounts need the parallel
-        // per-derivation fetch that only `run` performs; the single-account
-        // fast path below would apply partial data, so skip them. Others
-        // accounts (imported/watch-only) are always single-address even on
-        // merge-derive networks, so they can safely use the fast path here.
+        // Multi-derive (merge-derive) HD accounts aggregate every derivation
+        // of the indexed account, mirroring the parallel fetch in `run`.
+        // Others accounts (imported/watch-only) are always single-address
+        // even on merge-derive networks, so they take the single fetch.
         const targetVaultSettings =
           await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
           });
-        if (
-          targetVaultSettings?.mergeDeriveAssetsEnabled &&
-          !accountUtils.isOthersAccount({ accountId })
-        ) {
-          return;
-        }
         if (!isLatest()) return;
+        const mergeDeriveTarget =
+          !!targetVaultSettings?.mergeDeriveAssetsEnabled &&
+          !accountUtils.isOthersAccount({ accountId }) &&
+          !!indexedAccountId;
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
@@ -3126,48 +3140,94 @@ function TokenListBlock({
         });
         if (!isLatest()) return;
 
-        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-          accountId,
-          mergeTokens: true,
-          networkId,
-          flag: 'home-token-list',
-          saveToLocal: true,
-          indexedAccountId,
-          ...walletTokenFilterParams,
-        });
+        const fetchTargetAccountTokens = (targetAccountId: string) =>
+          backgroundApiProxy.serviceToken.fetchAccountTokens({
+            accountId: targetAccountId,
+            mergeTokens: true,
+            networkId,
+            flag: 'home-token-list',
+            saveToLocal: true,
+            indexedAccountId,
+            ...walletTokenFilterParams,
+          });
+
+        let responses: IFetchAccountTokensResp[];
+        if (mergeDeriveTarget) {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId,
+                indexedAccountId,
+                excludeEmptyAccount: true,
+              },
+            );
+          if (!isLatest()) return;
+          responses = await Promise.all(
+            networkAccounts.map((networkAccount) =>
+              fetchTargetAccountTokens(networkAccount.account?.id ?? ''),
+            ),
+          );
+        } else {
+          responses = [await fetchTargetAccountTokens(accountId)];
+        }
 
         // A newer switch superseded this fetch; drop the stale body so it
         // can't clobber the latest network's data.
         if (!isLatest()) return;
 
-        const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+        const accountWorth: Record<string, string> = {};
+        let createAtNetworkWorth = '0';
+        if (mergeDeriveTarget) {
+          responses.forEach((item) => {
+            if (item.accountId && item.networkId) {
+              accountWorth[
+                accountUtils.buildAccountValueKey({
+                  accountId: item.accountId,
+                  networkId: item.networkId,
+                })
+              ] = sumTokenGroupsFiatValueIgnoringUnavailable(item);
+            }
+          });
+        } else {
+          createAtNetworkWorth = sumTokenGroupsFiatValueIgnoringUnavailable(
+            responses[0],
+          );
+          accountWorth[
+            accountUtils.buildAccountValueKey({ accountId, networkId })
+          ] = createAtNetworkWorth;
+        }
         updateAccountOverviewState({ isRefreshing: false, initialized: true });
         updateAccountWorth({
-          accountId,
+          // Merge-derive worth is keyed by the indexed account, like `run`.
+          accountId: mergeDeriveTarget ? indexedAccountId : accountId,
           initialized: true,
-          worth: {
-            [accountUtils.buildAccountValueKey({ accountId, networkId })]:
-              accountWorth,
-          },
-          createAtNetworkWorth: accountWorth,
+          worth: accountWorth,
+          createAtNetworkWorth,
           merge: false,
         });
 
-        if (r.allTokens) {
-          // Keep the broader local token directory in sync, like `run` does;
-          // `saveToLocal` only persists the per-account token cache.
-          const mergedTokens = r.allTokens.data;
+        // Keep the broader local token directory in sync, like `run` does;
+        // `saveToLocal` only persists the per-account token cache.
+        responses.forEach((item) => {
+          const mergedTokens = item.allTokens?.data;
           if (mergedTokens && mergedTokens.length) {
             void backgroundApiProxy.serviceToken.updateLocalTokens({
               networkId,
               tokens: mergedTokens,
             });
           }
-        }
-        updateTokenListState({ initialized: true, isRefreshing: false });
+        });
+        // This path only refreshes the header worth; the token rows are not
+        // ingested into the owner's cells, so the list must stay uninitialized
+        // (skeleton) until the focused `run` fills it. Marking it initialized
+        // here would surface EmptyToken on return.
       } catch (e) {
-        if (!(e instanceof CanceledError)) {
-          throw e;
+        // Cancel errors that crossed the main <-> bg RPC boundary are rebuilt
+        // as plain Errors, so `instanceof CanceledError` alone misses them.
+        // Callers fire-and-forget this refresh; never let a non-cancel error
+        // escape as an unhandled rejection.
+        if (!isRequestCanceledError(e)) {
+          console.error(e);
         }
       } finally {
         if (emittedRefreshing) {
@@ -3180,12 +3240,7 @@ function TokenListBlock({
         }
       }
     },
-    [
-      walletTokenFilterParams,
-      updateAccountOverviewState,
-      updateAccountWorth,
-      updateTokenListState,
-    ],
+    [walletTokenFilterParams, updateAccountOverviewState, updateAccountWorth],
   );
 
   useEffect(() => {
@@ -3246,6 +3301,36 @@ function TokenListBlock({
     showLpTokensOnly,
   ]);
 
+  // The fetch above is gated on this tab being focused, and an account switch
+  // remounts the whole home tab container. When that happens while another
+  // home tab is active, nothing fetches the new owner until the user returns,
+  // leaving the always-visible header worth on a skeleton. The off-tab
+  // network-switch path (RefreshTokenList with refreshByProvidedAccounts,
+  // emitted by HomePageView) cannot cover this: it fires before the remounted
+  // list has subscribed. Refresh the mounted owner explicitly instead.
+  const activeHomeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
+  useEffect(() => {
+    const target = resolveOffTabTokenListRefreshOnMount({
+      accountId: account?.id,
+      networkId: network?.id,
+      indexedAccountId: indexedAccount?.id,
+      activeTabId: activeHomeTabId,
+    });
+    if (target) {
+      void refreshSingleNetworkTokenListByTarget(target);
+    }
+    // The sequence guard is per instance, and an account switch remounts this
+    // block. Invalidate this owner's in-flight explicit refresh on owner change
+    // or unmount so a late stage of it (vault settings, abort, worth write)
+    // cannot abort or overwrite the successor instance's fetch.
+    return () => {
+      explicitRefreshSeqRef.current += 1;
+    };
+    // Owner-keyed on purpose: re-running on tab changes would refetch on
+    // every tab switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account?.id, network?.id]);
+
   useEffect(() => {
     if (isEmptyAccount) {
       perfTokenListView.markEnd('tokenListRefreshing_emptyAccount');
@@ -3277,30 +3362,37 @@ function TokenListBlock({
     isProtocolV2ProductType(portfolioSyncDeviceType),
   );
 
-  const renderPortfolioSyncButton = useCallback(() => {
-    if (!showPortfolioSyncButton) {
-      return null;
-    }
-    return (
-      <PortfolioSyncButton
-        onPress={handleSyncPortfolio}
-        disabled={Boolean(
-          !hasPortfolioSyncTarget ||
-          hardwareUiState ||
-          firmwareUpdateWorkflowRunning,
-        )}
-        state={isPortfolioSyncing ? 'loading' : portfolioSyncFeedback}
-      />
-    );
+  useEffect(() => {
+    updatePortfolioSyncUiState({
+      disabled: Boolean(
+        !hasPortfolioSyncTarget ||
+        isPortfolioSyncing ||
+        hardwareUiState ||
+        firmwareUpdateWorkflowRunning,
+      ),
+      visible: showPortfolioSyncButton,
+      request: handleSyncPortfolio,
+    });
   }, [
     handleSyncPortfolio,
     firmwareUpdateWorkflowRunning,
     hasPortfolioSyncTarget,
     hardwareUiState,
     isPortfolioSyncing,
-    portfolioSyncFeedback,
     showPortfolioSyncButton,
+    updatePortfolioSyncUiState,
   ]);
+
+  useEffect(
+    () => () => {
+      updatePortfolioSyncUiState({
+        disabled: false,
+        visible: false,
+        request: undefined,
+      });
+    },
+    [updatePortfolioSyncUiState],
+  );
 
   const renderSubTitle = useCallback(() => {
     if (tableLayout) {
@@ -3329,10 +3421,6 @@ function TokenListBlock({
     tokenListState.initialized,
     tokenListState.isRefreshing,
   ]);
-
-  const renderHeaderActions = useCallback(() => {
-    return renderPortfolioSyncButton();
-  }, [renderPortfolioSyncButton]);
 
   const renderContent = useCallback(() => {
     return (
@@ -3429,7 +3517,6 @@ function TokenListBlock({
         id: ETranslations.global_universal_search_tabs_tokens,
       })}
       subTitle={renderSubTitle()}
-      headerActions={renderHeaderActions()}
       headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       plainContentContainer

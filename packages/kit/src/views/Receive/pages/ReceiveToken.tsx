@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
-import { useThrottledCallback } from 'use-debounce';
+import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
@@ -317,15 +317,34 @@ function ReceiveToken() {
     }
   }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
 
+  // A verify can be superseded before its promise settles: the hardware stage's
+  // user-close fires the device cancel with `void` and announces
+  // CloseHardwareUiStateDialogManually straight away, so the abandoned call
+  // rejects well after the page has re-armed for a retry. Scope every
+  // settlement to the attempt that started it, otherwise a stale one clears the
+  // guard out from under the attempt now running.
+  const verifyAttemptRef = useRef(0);
+  const isVerifyingRef = useRef(false);
+
+  // Every out-of-band reset invalidates the in-flight attempt.
+  const resetVerifyState = useCallback(() => {
+    verifyAttemptRef.current += 1;
+    isVerifyingRef.current = false;
+    setAddressState(EAddressState.Unverified);
+  }, []);
+
   const handleVerifyOnDevicePress = useCallback(async () => {
+    if (isVerifyingRef.current) return;
+    if (!currentDeriveType) return;
+    if (!displayAddress) {
+      setAddressState(EAddressState.Unverified);
+      return;
+    }
+    const attempt = verifyAttemptRef.current + 1;
+    verifyAttemptRef.current = attempt;
+    isVerifyingRef.current = true;
     setAddressState(EAddressState.Verifying);
     try {
-      if (!currentDeriveType) return;
-      if (!displayAddress) {
-        setAddressState(EAddressState.Unverified);
-        return;
-      }
-
       const addresses =
         await backgroundApiProxy.serviceAccount.verifyHWAccountAddresses({
           walletId,
@@ -369,11 +388,15 @@ function ReceiveToken() {
           },
         });
       }
-      setAddressState(
-        isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
-      );
+      if (verifyAttemptRef.current === attempt) {
+        setAddressState(
+          isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
+        );
+      }
     } catch (e: any) {
-      setAddressState(EAddressState.Unverified);
+      if (verifyAttemptRef.current === attempt) {
+        setAddressState(EAddressState.Unverified);
+      }
       // verifyHWAccountAddresses handler error toast
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -381,6 +404,11 @@ function ReceiveToken() {
         failedReason: (e as Error).message,
       });
       throw e;
+    } finally {
+      // A superseded attempt must not release the guard the live one holds.
+      if (verifyAttemptRef.current === attempt) {
+        isVerifyingRef.current = false;
+      }
     }
   }, [
     currentAccount?.indexedAccountId,
@@ -393,19 +421,30 @@ function ReceiveToken() {
     walletId,
   ]);
 
+  const isVerifying = addressState === EAddressState.Verifying;
+
+  // Two surfaces start the same hardware call: the footer button and the QR
+  // placeholder card. On native the device stage UI only covers the page once
+  // the BLE transport is ready, seconds after the press, so the debounce
+  // collapses a rapid double tap and isVerifying holds the rest of that window.
+  const handleVerifyOnDevicePressDebounced = useDebouncedCallback(
+    handleVerifyOnDevicePress,
+    500,
+    { leading: true, trailing: false },
+  );
+
   useEffect(() => {
-    const callback = () => setAddressState(EAddressState.Unverified);
     appEventBus.on(
       EAppEventBusNames.CloseHardwareUiStateDialogManually,
-      callback,
+      resetVerifyState,
     );
     return () => {
       appEventBus.off(
         EAppEventBusNames.CloseHardwareUiStateDialogManually,
-        callback,
+        resetVerifyState,
       );
     };
-  }, []);
+  }, [resetVerifyState]);
 
   const fetchAccount = useCallback(async () => {
     if (!accountId && networkId && indexedAccountId) {
@@ -503,9 +542,9 @@ function ReceiveToken() {
 
   useEffect(() => {
     if (btcUsedAddress || btcUsedAddressPath) {
-      setAddressState(EAddressState.Unverified);
+      resetVerifyState();
     }
-  }, [btcUsedAddress, btcUsedAddressPath]);
+  }, [btcUsedAddress, btcUsedAddressPath, resetVerifyState]);
 
   const renderAddressCell = useCallback(() => {
     if (!displayAddress) return null;
@@ -705,7 +744,8 @@ function ReceiveToken() {
               testID={ReceiveTestIDs.VerifyOnDeviceButton}
               variant="primary"
               size="large"
-              onPress={handleVerifyOnDevicePress}
+              loading={isVerifying}
+              onPress={handleVerifyOnDevicePressDebounced}
             >
               {intl.formatMessage({
                 id: ETranslations.global_verify_on_device,
@@ -727,12 +767,13 @@ function ReceiveToken() {
 
     return (
       <Page.Footer
-        onConfirm={() => handleVerifyOnDevicePress()}
+        onConfirm={() => handleVerifyOnDevicePressDebounced()}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_verify_on_device,
         })}
         confirmButtonProps={{
           variant: 'primary',
+          loading: isVerifying,
           testID: ReceiveTestIDs.VerifyOnDeviceButton,
         }}
         // keep one declared param: FooterCancelButton auto-closes the page
@@ -746,7 +787,13 @@ function ReceiveToken() {
         }}
       />
     );
-  }, [bottom, handleSkipVerifyPress, handleVerifyOnDevicePress, intl]);
+  }, [
+    bottom,
+    handleSkipVerifyPress,
+    handleVerifyOnDevicePressDebounced,
+    intl,
+    isVerifying,
+  ]);
 
   const deriveTypeTrigger = useMemo(() => {
     if (!currentDeriveInfo) {
@@ -817,7 +864,7 @@ function ReceiveToken() {
         indexedAccountId={currentAccount?.indexedAccountId ?? ''}
         onSelect={async (value) => {
           if (value.account) {
-            setAddressState(EAddressState.Unverified);
+            resetVerifyState();
             setCurrentAccount(value.account);
             setCurrentDeriveType(value.deriveType);
             setCurrentDeriveInfo(value.deriveInfo);
@@ -836,6 +883,7 @@ function ReceiveToken() {
     walletId,
     networkId,
     onDeriveTypeChange,
+    resetVerifyState,
   ]);
 
   const renderNativeActionsFooter = useCallback(() => {
@@ -910,23 +958,24 @@ function ReceiveToken() {
         justifyContent="center"
         py={27}
         px="$4"
-        {...(!shouldShowQRCode && {
-          onPress: handleVerifyOnDevicePress,
-          userSelect: 'none',
-          hoverStyle: {
-            bg: '$bgHover',
-          },
-          pressStyle: {
-            bg: '$bgActive',
-          },
-          focusable: true,
-          focusVisibleStyle: {
-            outlineWidth: 2,
-            outlineColor: '$focusRing',
-            outlineOffset: 2,
-            outlineStyle: 'solid',
-          },
-        })}
+        {...(!shouldShowQRCode &&
+          !isVerifying && {
+            onPress: handleVerifyOnDevicePressDebounced,
+            userSelect: 'none',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+            focusable: true,
+            focusVisibleStyle: {
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineOffset: 2,
+              outlineStyle: 'solid',
+            },
+          })}
       >
         {shouldShowQRCode ? (
           <YStack testID={ReceiveTestIDs.QRCode}>
@@ -992,7 +1041,8 @@ function ReceiveToken() {
     displayAddress,
     network,
     shouldShowQRCode,
-    handleVerifyOnDevicePress,
+    handleVerifyOnDevicePressDebounced,
+    isVerifying,
     token?.logoURI,
     networkId,
     nativeToken?.logoURI,

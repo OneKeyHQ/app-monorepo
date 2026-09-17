@@ -1,0 +1,60 @@
+function formatChartPrice(price, maxCharacters) {
+  if (!Number.isFinite(price)) return '--';
+  var limit = Number.isFinite(maxCharacters)
+    ? Math.max(4, Math.floor(maxCharacters))
+    : 8;
+  var value = Number(Math.abs(price).toPrecision(15));
+  var prefix = price < 0 ? '-$' : '$';
+  var scale = [
+    { exponent: 9, suffix: 'B' },
+    { exponent: 6, suffix: 'M' },
+    { exponent: 3, suffix: 'K' },
+  ].find(function (item) {
+    return value >= 10 ** item.exponent;
+  });
+  var unit = scale ? scale.suffix : '';
+  var parts = value.toExponential().split('e');
+  var digits = parts[0].replace('.', '');
+  var exponent = Number(parts[1]) - (scale ? scale.exponent : 0);
+  var decimalPosition = exponent + 1;
+  var body;
+  if (decimalPosition <= 0) {
+    body = '0.' + '0'.repeat(-decimalPosition) + digits;
+  } else {
+    body = decimalPosition >= digits.length
+      ? digits + '0'.repeat(decimalPosition - digits.length)
+      : digits.slice(0, decimalPosition) + '.' + digits.slice(decimalPosition);
+  }
+  var zeroCount = -exponent - 1;
+  var plainWouldLoseAllDigits = zeroCount >= Math.max(1, limit - 2) - 2;
+  if (
+    value > 0 &&
+    !unit &&
+    body.length > limit &&
+    (zeroCount > 5 || plainWouldLoseAllDigits)
+  ) {
+    var zeros = String(zeroCount).replace(/[0-9]/g, function (digit) {
+      return '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit));
+    });
+    body = '0.0' + zeros + digits;
+  }
+  if (body.includes('.') && (unit || value >= 1)) {
+    body = String(Math.round(Number(body) * 100) / 100);
+    if (Number(body) >= 1000) {
+      var nextUnit = '';
+      if (unit === '') nextUnit = 'K';
+      else if (unit === 'K') nextUnit = 'M';
+      else if (unit === 'M') nextUnit = 'B';
+      if (nextUnit) {
+        unit = nextUnit;
+        body = String(Number(body) / 1000);
+      }
+    }
+  }
+  if (body.length <= limit) return prefix + body + unit;
+  if (body.indexOf('.') >= 0) {
+    body = body.slice(0, limit).replace(/\.$/, '');
+    if (body.length <= limit) return prefix + body + unit;
+  }
+  return prefix + body.slice(0, limit) + unit + '...';
+}

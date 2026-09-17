@@ -12,6 +12,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -166,6 +167,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       }),
     ).rejects.toMatchObject({
       message: 'Hardware is busy',
+      key: ETranslations.feedback_hardware_is_busy,
       autoToast: false,
     });
     expect(operation).not.toHaveBeenCalled();
@@ -189,6 +191,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
         }),
       ).rejects.toMatchObject({
         message: 'Hardware is busy',
+        key: ETranslations.feedback_hardware_is_busy,
         autoToast: false,
       });
       expect(operation).not.toHaveBeenCalled();
@@ -279,6 +282,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
 
     expect(observedRejection).toMatchObject({
       message: 'Hardware is busy',
+      key: ETranslations.feedback_hardware_is_busy,
       autoToast: false,
     });
     expect(regularOperation).not.toHaveBeenCalled();
@@ -324,6 +328,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       }),
     ).rejects.toMatchObject({
       message: 'Hardware is busy',
+      key: ETranslations.feedback_hardware_is_busy,
       autoToast: false,
     });
     expect(regularOperation).not.toHaveBeenCalled();
@@ -1348,7 +1353,7 @@ describe('ServiceHardwareUI.silenceDeviceStageForFirmwareWorkflow', () => {
     });
     const silence = jest
       .spyOn(service.deviceStageBurst, 'silence')
-      .mockResolvedValue();
+      .mockResolvedValue(true);
     return { service, silence, cancelStageAirGapScan };
   };
 

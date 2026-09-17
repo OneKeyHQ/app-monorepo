@@ -1,4 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import axios from 'axios';
 
@@ -814,53 +814,155 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('uses the USB connectId for desktop firmware preflight', async () => {
-    const dbDevice = {
-      id: 'db-pro2-device',
-      connectId: 'PRB09B0088A',
-      usbConnectId: 'PRB09B0088A',
-      bleConnectId: 'f7e440001d2c1c79509d55dfdc8201ff',
-      deviceId: 'PRO2_DEVICE_ID',
+  it('keeps the post-update snapshot silent while USB is restarting', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-classic-pure',
+      connectId: 'CLASSIC_USB',
+      usbConnectId: 'CLASSIC_USB',
+      connectProtocol: 'V1',
       vendor: EHardwareVendor.onekey,
-      name: 'OneKey Pro 2',
-      features: '{}',
-      settingsRaw: '{}',
-      createdAt: 0,
-      updatedAt: 0,
-    } as IDBDevice;
-    mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
-    const withHardwareProcessing = jest.fn(
-      async (callback: () => Promise<unknown>) => callback(),
-    );
+    } as IDBDevice);
     const service = new ServiceHardware({
       backgroundApi: {
         serviceSetting: {
           getHardwareTransportType: jest
             .fn()
-            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
-          setHardwareTransportType: jest.fn(),
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
         },
-        serviceHardwareUI: { withHardwareProcessing },
       } as unknown as IBackgroundApi,
     });
-    const getFeaturesWithoutCache = jest
-      .spyOn(service, 'getFeaturesWithoutCache')
-      .mockResolvedValue({ success: true } as any);
-
-    await expect(
-      service.checkDeviceReachableForFirmwareUpdate({
-        connectId: dbDevice.usbConnectId as string,
-      }),
-    ).resolves.toBe(dbDevice.usbConnectId);
-    expect(getFeaturesWithoutCache).toHaveBeenCalledWith({
-      connectId: dbDevice.usbConnectId,
-      params: {
-        retryCount: 1,
-        forceProtocolDetection: false,
-      },
-      hardwareTransportType: EHardwareTransportType.WEBUSB,
+    const resolveTransportType = jest
+      .spyOn(service.connectionManager, 'resolveTransportType')
+      .mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: false,
+      payload: { code: HardwareErrorCode.DeviceNotFound },
     });
+    jest.spyOn(service, 'getSDKInstance').mockResolvedValue({
+      getDeviceState,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const { appEventBus: hardwareEventBus } = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+    >('@onekeyhq/shared/src/eventBus/appEventBus');
+    const emitHardwareEvent = jest
+      .spyOn(hardwareEventBus, 'emit')
+      .mockReturnValue(false);
+
+    try {
+      await expect(
+        service.getDeviceManagementSnapshot({
+          connectId: 'CLASSIC_USB',
+          refreshInfo: true,
+        }),
+      ).rejects.toMatchObject({ code: HardwareErrorCode.DeviceNotFound });
+      expect(getDeviceState).toHaveBeenCalledWith(
+        'CLASSIC_USB',
+        expect.objectContaining({ scope: 'firmware', connectProtocol: 'V1' }),
+      );
+      expect(resolveTransportType).not.toHaveBeenCalled();
+      expect(emitHardwareEvent).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowHardwareErrorDialog,
+        expect.anything(),
+      );
+    } finally {
+      emitHardwareEvent.mockRestore();
+    }
   });
+
+  it.each(
+    [EDeviceType.ClassicPure, EDeviceType.Pro2].flatMap((deviceType) =>
+      [true, false].map((usbAvailable) => ({ deviceType, usbAvailable })),
+    ),
+  )(
+    'preserves the confirmed protocol for $deviceType firmware preflight (USB available: $usbAvailable)',
+    async ({ deviceType, usbAvailable }) => {
+      const connectProtocol = deviceType === EDeviceType.Pro2 ? 'V2' : 'V1';
+      const dbDevice = {
+        id: 'db-pro2-device',
+        connectId: 'PRB09B0088A',
+        usbConnectId: 'PRB09B0088A',
+        bleConnectId: 'f7e440001d2c1c79509d55dfdc8201ff',
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType,
+        connectProtocol,
+        vendor: EHardwareVendor.onekey,
+        name: 'OneKey Pro 2',
+        features: '{}',
+        settingsRaw: '{}',
+        createdAt: 0,
+        updatedAt: 0,
+      } as IDBDevice;
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+      const withHardwareProcessing = jest.fn(
+        async (callback: () => Promise<unknown>) => callback(),
+      );
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+            setHardwareTransportType: jest.fn(),
+          },
+          serviceHardwareUI: { withHardwareProcessing },
+        } as unknown as IBackgroundApi,
+      });
+      jest
+        .spyOn(service.connectionManager, 'detectUSBDeviceAvailability')
+        .mockResolvedValue(usbAvailable);
+      jest
+        .spyOn(service.connectionManager, 'detectBluetoothAvailability')
+        .mockResolvedValue(true);
+      const expectedConnectId = usbAvailable
+        ? dbDevice.usbConnectId
+        : dbDevice.bleConnectId;
+      const getFeatures = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { device_id: dbDevice.deviceId },
+      });
+      const getDeviceState = jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          protocol: connectProtocol,
+          identity: { deviceType, serialNo: dbDevice.usbConnectId },
+          status: { mode: 'normal' },
+          settings: {},
+          versions: {},
+        },
+      });
+      const getSDKInstance = jest
+        .spyOn(service, 'getSDKInstance')
+        .mockResolvedValue({
+          getFeatures,
+          getDeviceState,
+        } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+      await expect(
+        service.checkDeviceReachableForFirmwareUpdate({
+          connectId: dbDevice.usbConnectId as string,
+        }),
+      ).resolves.toBe(expectedConnectId);
+      expect(
+        connectProtocol === 'V1' ? getFeatures : getDeviceState,
+      ).toHaveBeenCalledWith(expectedConnectId, {
+        retryCount: 1,
+        connectProtocol,
+        ...(!usbAvailable ? { timeout: 30_000 } : {}),
+      });
+      expect(getSDKInstance).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectId: expectedConnectId,
+          connectProtocol,
+          hardwareTransportType: usbAvailable
+            ? EHardwareTransportType.WEBUSB
+            : EHardwareTransportType.DesktopWebBle,
+        }),
+      );
+    },
+  );
 
   it.each([
     ['missing', undefined],

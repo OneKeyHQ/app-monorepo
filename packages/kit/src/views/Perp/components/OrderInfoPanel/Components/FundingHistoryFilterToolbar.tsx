@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Dialog,
@@ -17,8 +18,11 @@ import {
   XStack,
   YStack,
   useDialogInstance,
+  useKeyboardHeight,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { searchFundingHistoryMarketOptions } from '../fundingHistoryDisplay';
 
@@ -238,6 +242,19 @@ function FundingHistoryMarketFilterContent({
   onSelect: (coin: string | undefined) => void;
 }) {
   const intl = useIntl();
+  const keyboardHeight = useKeyboardHeight();
+  const { height: windowHeight } = useWindowDimensions();
+  const { top, bottom } = useSafeAreaInsets();
+  // Match Dialog's keyboard padding: Android events exclude the system bar.
+  const keyboardBottomInset = platformEnv.isNativeAndroid
+    ? keyboardHeight + bottom
+    : Math.max(keyboardHeight, bottom);
+  // Reserve the title, content padding and a gap below the top safe area.
+  const mobileContentHeight = platformEnv.isNative
+    ? Math.max(0, Math.min(480, windowHeight - top - keyboardBottomInset - 112))
+    : 480;
+  const isKeyboardBounded = isMobile && platformEnv.isNative;
+  const scrollMaxHeight = isMobile ? 420 : 260;
   const [searchText, setSearchText] = useState('');
   const filteredMarketOptions = useMemo(
     () =>
@@ -252,10 +269,11 @@ function FundingHistoryMarketFilterContent({
     <YStack
       p={isMobile ? '$0' : '$1.5'}
       gap={isMobile ? '$2' : '$1'}
-      minHeight={isMobile ? 480 : undefined}
-      maxHeight={isMobile ? 480 : 320}
+      height={isMobile ? mobileContentHeight : undefined}
+      maxHeight={isMobile ? mobileContentHeight : 320}
     >
       <SearchBar
+        flexShrink={0}
         value={searchText}
         onChangeText={setSearchText}
         placeholder={intl.formatMessage({
@@ -265,10 +283,12 @@ function FundingHistoryMarketFilterContent({
         size={isMobile ? 'medium' : 'small'}
       />
       <Dialog.ScrollView
-        maxHeight={isMobile ? 420 : 260}
+        maxHeight={isKeyboardBounded ? undefined : scrollMaxHeight}
+        {...(isKeyboardBounded ? { flex: 1, minHeight: 0 } : {})}
         flexShrink={1}
         mx={isMobile ? '$-2' : undefined}
         nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <YStack gap={isMobile ? '$1' : '$0.5'}>

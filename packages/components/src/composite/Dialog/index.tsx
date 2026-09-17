@@ -49,6 +49,10 @@ import {
   usePageType,
 } from '../../hocs';
 import {
+  NATIVE_SHEET_PRESENTATION_SUPPORTED,
+  NativeSheetPresentation,
+} from '../../hocs/NativeSheetPresentation';
+import {
   useBackHandler,
   useKeyboardEventWithoutNavigation,
   useModalNavigatorContextPortalId,
@@ -63,6 +67,8 @@ import {
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '../../utils/animationConstants';
 
+import { getDialogKeyboardPaddingBottom } from './boundedDialogLayout';
+import { BoundedDialogScrollLayout } from './BoundedDialogScrollLayout';
 import { Content } from './Content';
 import { DialogContext, DialogSheetContext } from './context';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
@@ -71,6 +77,7 @@ import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
   DialogHeader,
+  DialogHeaderCloseButton,
   DialogHeaderContext,
   DialogHyperlinkTextDescription,
   DialogIcon,
@@ -78,12 +85,14 @@ import {
   DialogTitle,
   SetDialogHeader,
 } from './Header';
+import { HeaderDragZone } from './HeaderDragZone';
 import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogForm,
   IDialogFormProps,
   IDialogHeaderProps,
   IDialogInstance,
@@ -176,8 +185,10 @@ const INITIAL_BOTTOM_INSET = initialWindowMetrics?.insets.bottom || 0;
 const DEFAULT_KEYBOARD_HEIGHT = 330;
 const useSafeKeyboardAnimationStyle = ({
   useInitialSafeAreaBottomInsetFallback = false,
+  trackKeyboardPadding = false,
 }: {
   useInitialSafeAreaBottomInsetFallback?: boolean;
+  trackKeyboardPadding?: boolean;
 }) => {
   const { bottom } = useSafeAreaInsets();
   // Root-sibling portals can report zero before safe-area context propagates.
@@ -186,25 +197,45 @@ const useSafeKeyboardAnimationStyle = ({
     useInitialSafeAreaBottomInsetFallback && bottom === 0
       ? INITIAL_BOTTOM_INSET
       : bottom;
+  const isNativeAndroid = Boolean(platformEnv.isNativeAndroid);
   const keyboardHeightValue = useSharedValue(0);
+  const [trackedKeyboardHeight, setTrackedKeyboardHeight] = useState(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
   //   - bottom safe-area inset: always required (static)
   //   - keyboard height: only while the keyboard is shown (dynamic)
-  // They must not stack — once the keyboard is up it already covers the
-  // safe area, so take the larger of the two instead of summing them.
+  // Android keyboard events exclude the bottom system-bar inset, while iOS
+  // keyboard events already include it. Only restore the inset on Android.
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboardHeightValue.value, safeAreaBottom),
+    paddingBottom: getDialogKeyboardPaddingBottom({
+      keyboardHeight: keyboardHeightValue.value,
+      safeAreaBottom,
+      isNativeAndroid,
+    }),
   }));
 
   useKeyboardEventWithoutNavigation({
     keyboardWillShow: (e) => {
-      const height = e.endCoordinates.height;
-      keyboardHeightValue.value = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
+      const height =
+        e.endCoordinates.height < 0
+          ? DEFAULT_KEYBOARD_HEIGHT
+          : e.endCoordinates.height;
+      keyboardHeightValue.value = height;
+      if (trackKeyboardPadding) {
+        setTrackedKeyboardHeight(height);
+      }
     },
     keyboardWillHide: () => {
       keyboardHeightValue.value = 0;
+      if (trackKeyboardPadding) {
+        setTrackedKeyboardHeight(0);
+      }
     },
+  });
+  const keyboardPaddingBottom = getDialogKeyboardPaddingBottom({
+    keyboardHeight: trackKeyboardPadding ? trackedKeyboardHeight : 0,
+    safeAreaBottom,
+    isNativeAndroid,
   });
   // On web there is no reanimated keyboard tracking, but notched iOS
   // Safari/PWA still reports a bottom inset via env(safe-area-inset-bottom).
@@ -212,10 +243,17 @@ const useSafeKeyboardAnimationStyle = ({
   // clear the home indicator there too — footers only carry their design
   // padding now, and rely on the frame for the inset on every platform.
   if (!platformEnv.isNative) {
-    return safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined;
+    return {
+      style: safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined,
+      keyboardPaddingBottom: safeAreaBottom,
+    };
   }
-  return animatedStyles;
+  return { style: animatedStyles, keyboardPaddingBottom };
 };
+
+// Without a title the header drag zone is only the grabber strip; keep it
+// tall enough to catch a finger.
+const HEADER_DRAG_ZONE_MIN_HEIGHT = 24;
 
 /**
  * Renders a responsive dialog component that adapts between a sheet (for medium and larger screens) and a modal dialog (for smaller screens or web), supporting customizable content, footer actions, and platform-specific behaviors.
@@ -249,6 +287,7 @@ function DialogFrame({
   sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
+  sheetDragArea = 'sheet',
   disableSystemClose = false,
   showHeader = true,
   trapFocus,
@@ -256,9 +295,11 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
+  nativeSheet = false,
   trackID,
   forceMount,
   useInitialSafeAreaBottomInsetFallback = false,
+  boundedSheetLayout = false,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -330,23 +371,86 @@ function DialogFrame({
 
   const media = useMedia();
 
+  // Native OneKey login opt-in (OK-63232): cap + scroll inside the existing
+  // Tamagui sheet. Never enable nativeSheet from this flag.
+  const isBoundedDialogLayout = boundedSheetLayout && platformEnv.isNative;
+  // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
+  // so a scrollable body scrolls natively with no hand-off to the sheet, and
+  // the grabber + title row (HeaderDragZone) carry a pan of their own that
+  // moves the sheet body and lets go of it past its thresholds.
+  const isHeaderDragOnly =
+    media.md && sheetDragArea === 'header' && !disableDrag;
+  const headerDragY = useSharedValue(0);
+  useEffect(() => {
+    if (open) {
+      headerDragY.value = 0;
+    }
+  }, [open, headerDragY]);
+  const dismissFromHeaderDrag = useCallback(() => {
+    handleOpenChange(false);
+  }, [handleOpenChange]);
+  const headerDragStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        // A bounded dialog may already be at the top safe-area limit.
+        translateY: isBoundedDialogLayout
+          ? Math.max(0, headerDragY.value)
+          : headerDragY.value,
+      },
+    ],
+  }));
+
   const zIndex = useOverlayZIndex(open, title);
-  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle({
-    useInitialSafeAreaBottomInsetFallback,
-  });
-  const renderDialogContent = (
-    <Animated.View style={safeKeyboardAnimationStyle}>
-      {showHeader ? (
-        <DialogHeader
+  const { style: safeKeyboardAnimationStyle, keyboardPaddingBottom } =
+    useSafeKeyboardAnimationStyle({
+      useInitialSafeAreaBottomInsetFallback,
+      trackKeyboardPadding: isBoundedDialogLayout,
+    });
+  const useNativeSheetPresentation =
+    nativeSheet && media.md && NATIVE_SHEET_PRESENTATION_SUPPORTED;
+  const dialogHeader = showHeader ? (
+    <DialogHeader
+      trackID={trackID}
+      onClose={handleHeaderCloseButtonPress}
+      hideCloseButton={isBoundedDialogLayout}
+    />
+  ) : null;
+  const boundedCloseButton = useMemo(
+    () =>
+      isBoundedDialogLayout && showHeader ? (
+        <DialogHeaderCloseButton
+          testID="dialog-bounded-close"
           trackID={trackID}
           onClose={handleHeaderCloseButtonPress}
         />
-      ) : null}
-      {/* extra children */}
+      ) : null,
+    [handleHeaderCloseButtonPress, isBoundedDialogLayout, showHeader, trackID],
+  );
+  const boundedHeaderDragChrome = useMemo(
+    () =>
+      isBoundedDialogLayout && isHeaderDragOnly ? (
+        <HeaderDragZone
+          dragY={headerDragY}
+          onDismiss={dismissFromHeaderDrag}
+          minHeight={HEADER_DRAG_ZONE_MIN_HEIGHT}
+        >
+          <SheetGrabber />
+        </HeaderDragZone>
+      ) : undefined,
+    [
+      dismissFromHeaderDrag,
+      headerDragY,
+      isBoundedDialogLayout,
+      isHeaderDragOnly,
+    ],
+  );
+  const dialogMain = (
+    <>
       <Content
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
+        nativeSheetPresentation={useNativeSheetPresentation}
         {...(contentContainerProps as any)}
       >
         {renderContent}
@@ -375,13 +479,110 @@ function DialogFrame({
           })
         }
       />
+    </>
+  );
+  const renderDialogContent = (
+    <Animated.View
+      style={
+        useNativeSheetPresentation ? undefined : safeKeyboardAnimationStyle
+      }
+    >
+      {isBoundedDialogLayout ? (
+        <BoundedDialogScrollLayout
+          keyboardPaddingBottom={keyboardPaddingBottom}
+          isCentered={!media.md}
+          chrome={boundedHeaderDragChrome}
+          closeButton={boundedCloseButton}
+        >
+          {dialogHeader}
+          {dialogMain}
+        </BoundedDialogScrollLayout>
+      ) : (
+        <>
+          {isHeaderDragOnly ? (
+            <HeaderDragZone
+              dragY={headerDragY}
+              onDismiss={dismissFromHeaderDrag}
+              minHeight={showHeader ? undefined : HEADER_DRAG_ZONE_MIN_HEIGHT}
+            >
+              <SheetGrabber />
+              {dialogHeader}
+            </HeaderDragZone>
+          ) : (
+            dialogHeader
+          )}
+          {dialogMain}
+        </>
+      )}
     </Animated.View>
   );
+
+  const dialogSheetBody = (
+    <DialogSheetContext.Provider value={!useNativeSheetPresentation}>
+      <FocusScope
+        enabled={open}
+        trapped={open ? effectiveTrapFocus : undefined}
+        onMountAutoFocus={onOpenAutoFocus}
+        loop
+      >
+        {isHeaderDragOnly ? (
+          <Animated.View style={headerDragStyle}>
+            <Stack
+              bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
+              borderTopLeftRadius="$6"
+              borderTopRightRadius="$6"
+              borderCurve="continuous"
+            >
+              {renderDialogContent}
+            </Stack>
+          </Animated.View>
+        ) : (
+          <Stack>
+            {!disableDrag ? <SheetGrabber /> : null}
+            {renderDialogContent}
+          </Stack>
+        )}
+      </FocusScope>
+    </DialogSheetContext.Provider>
+  );
+
+  if (useNativeSheetPresentation) {
+    return (
+      <NativeSheetPresentation
+        open={Boolean(open)}
+        onOpenChange={handleOpenChange}
+        dismissOnOverlayPress={dismissOnOverlayPress}
+        dismissOnSnapToBottom={sheetProps?.dismissOnSnapToBottom ?? true}
+        disableDrag={
+          disableDrag || Boolean(sheetProps?.disableDrag) || isHeaderDragOnly
+        }
+        dismissOnBackPress={!disableSystemClose}
+        showHandle={false}
+        cornerRadius={24}
+        onAnimationComplete={sheetProps?.onAnimationComplete}
+        testID={testID}
+      >
+        <Stack
+          bg={
+            isHeaderDragOnly
+              ? 'transparent'
+              : ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
+          }
+          borderTopLeftRadius="$6"
+          borderTopRightRadius="$6"
+          borderCurve="continuous"
+          overflow="hidden"
+        >
+          {dialogSheetBody}
+        </Stack>
+      </NativeSheetPresentation>
+    );
+  }
 
   if (media.md) {
     return (
       <Sheet
-        disableDrag={disableDrag}
+        disableDrag={disableDrag || isHeaderDragOnly}
         open={open}
         position={position}
         onPositionChange={setPosition}
@@ -418,7 +619,14 @@ function DialogFrame({
           // safe-area inset region (applied as paddingBottom on the wrapper,
           // below the footer) doesn't reveal the default `$bg` as a seam when a
           // dialog overrides its content background (e.g. Prime feature intro).
-          bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
+          // In header-drag mode the frame stays put and transparent while the
+          // body below carries the surface and moves with the drag, so the
+          // pull reads as the sheet moving rather than content sliding in it.
+          bg={
+            isHeaderDragOnly
+              ? 'transparent'
+              : ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
+          }
           borderCurve="continuous"
           disableHideBottomOverflow
           // Fix width issue for portrait iPad mini - ensure proper dialog width
@@ -426,19 +634,7 @@ function DialogFrame({
           width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
-          <DialogSheetContext.Provider value>
-            <FocusScope
-              enabled={open}
-              trapped={open ? effectiveTrapFocus : undefined}
-              onMountAutoFocus={onOpenAutoFocus}
-              loop
-            >
-              <Stack>
-                {!disableDrag ? <SheetGrabber /> : null}
-                {renderDialogContent}
-              </Stack>
-            </FocusScope>
-          </DialogSheetContext.Provider>
+          {dialogSheetBody}
         </Sheet.Frame>
       </Sheet>
     );
@@ -514,7 +710,20 @@ function DialogFrame({
               }
               zIndex={floatingPanelProps?.zIndex || zIndex}
             >
-              {renderDialogContent}
+              {platformEnv.isNative && !isBoundedDialogLayout ? (
+                // Native only: the centered frame sits in an absolute-fill
+                // Stack, so Yoga measures its subtree in AtMost mode and any
+                // `flex: 1` child (e.g. ListItem's Pressable wrapper) collapses
+                // to zero height and overlaps its siblings. A ScrollView
+                // measures its content unconstrained (overflow: scroll), which
+                // restores content sizing and also lets tall content scroll.
+                // Bounded login already wraps one DialogScrollView; do not nest.
+                <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+                  {renderDialogContent}
+                </ScrollView>
+              ) : (
+                renderDialogContent
+              )}
             </TMDialog.Content>
           </Stack>
         ) : null}
@@ -578,19 +787,41 @@ function BaseDialogContainer(
     [isExist],
   );
 
+  // `Dialog.Form` registers itself onto `formRef` from a lazily loaded module,
+  // so it lands after the rest of the dialog has mounted and lands again on
+  // every remount. Consumers that hold on to the instance (the footer's
+  // `disabledOn` subscription) need to be told, not to re-read a ref they have
+  // no reason to look at again. (OK-62416)
+  const formListenersRef = useRef(new Set<() => void>());
+  const registerForm = useCallback((form: IDialogForm | undefined) => {
+    formRef.current = form;
+    for (const listener of formListenersRef.current) {
+      listener();
+    }
+  }, []);
+  const subscribeFormChange = useCallback((listener: () => void) => {
+    const listeners = formListenersRef.current;
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
         close: handleClose,
         ref: formRef,
         isExist: handleIsExist,
+        registerForm,
+        subscribeFormChange,
       },
       footerRef: {
         notifyUpdate: undefined,
         props: undefined,
       },
     }),
-    [handleClose, handleIsExist],
+    [handleClose, handleIsExist, registerForm, subscribeFormChange],
   );
 
   const handleOpen = useCallback(() => {
@@ -671,6 +902,28 @@ function dialogShow({
   isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
+  if (
+    platformEnv.isDev &&
+    platformEnv.isNativeIOS &&
+    portalContainer &&
+    isOverTopAllViews === true
+  ) {
+    // iOS only, because only `renderToContainer.ios` fails on this shape: it
+    // mounts `element` twice — once wrapped in a fresh `OverlayContainer`,
+    // once into `portalContainer` — and returns only the second manager, so
+    // the first window is never torn down. That stray window is also created
+    // at dialog-open time, and iOS stacks window overlays in the order they
+    // were added, so once the app-state lock screen has added its own (at lock
+    // time, not app start) a dialog opened afterwards lands on top of the
+    // passcode screen. Elsewhere the pair is fine and documented: web renders
+    // once and portals to `document.body` (the only shape in which that
+    // feature exists, and what `useInPageDialog` relies on), and Android
+    // ignores the flag outright. (OK-62416)
+    console.error(
+      '[Dialog.show] on iOS, `portalContainer` and `isOverTopAllViews: true` must not be combined: it mounts the dialog twice, leaks the first window overlay, and can stack it above the app-state lock screen. Pass one or the other.',
+      { portalContainer },
+    );
+  }
   void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();

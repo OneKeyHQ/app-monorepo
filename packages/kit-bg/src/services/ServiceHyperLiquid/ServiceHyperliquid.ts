@@ -172,8 +172,8 @@ import {
 import { shouldPreserveConfirmedUserAbstractionMode } from './userAbstractionMode';
 import { buildDepositConfigFromTokensByNetwork } from './utils/depositConfigUtils';
 import {
-  fetchFundingPageWithRetry,
   fetchPerpFundingHistoryPages,
+  fetchRecentUserFundingHistory,
 } from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
 import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
@@ -1836,6 +1836,35 @@ export default class ServiceHyperliquid extends ServiceBase {
     return this._getUserFundingHistoryMemo(user);
   }
 
+  @backgroundMethod()
+  async getFundingHistoryPaymentTokens({ coins }: { coins: string[] }) {
+    const { infoClient } = hyperLiquidApiClients;
+    const dexNames = [
+      ...new Set(coins.map((coin) => parseDexCoin(coin).dexLabel ?? '')),
+    ];
+    const [spotMeta, dexMetas] = await Promise.all([
+      infoClient.spotMeta(),
+      Promise.all(dexNames.map((dex) => infoClient.meta({ dex }))),
+    ]);
+    const tokensByDex = new Map<string, string>();
+    dexMetas.forEach((meta, index) => {
+      const token = spotMeta.tokens.find(
+        (item) => item.index === meta.collateralToken,
+      );
+      if (!token?.name) {
+        throw new OneKeyLocalError(
+          'Funding payment token metadata is unavailable',
+        );
+      }
+      tokensByDex.set(dexNames[index], token.name);
+    });
+    const paymentTokens: Partial<Record<string, string>> = {};
+    coins.forEach((coin) => {
+      paymentTokens[coin] = tokensByDex.get(parseDexCoin(coin).dexLabel ?? '');
+    });
+    return paymentTokens;
+  }
+
   private _fundingHistoryRequestsInFlight = new Set<IHex>();
 
   private _getUserFundingHistoryMemo = cacheUtils.memoizee(
@@ -1843,24 +1872,9 @@ export default class ServiceHyperliquid extends ServiceBase {
       const { infoClient } = hyperLiquidApiClients;
       this._fundingHistoryRequestsInFlight.add(user);
       try {
-        return await fetchPerpFundingHistoryPages({
-          startTime: 0,
-          endTime: Date.now(),
-          fetchPage: (page) =>
-            fetchFundingPageWithRetry(() =>
-              infoClient.userFunding({ user, ...page }),
-            ),
-          getRecordKey: (record) =>
-            [
-              record.time,
-              record.hash,
-              record.delta.coin,
-              record.delta.szi,
-              record.delta.usdc,
-              record.delta.fundingRate,
-              record.delta.nSamples ?? '',
-            ].join(':'),
-        });
+        return await fetchRecentUserFundingHistory(() =>
+          infoClient.userFunding({ user }),
+        );
       } finally {
         this._fundingHistoryRequestsInFlight.delete(user);
       }

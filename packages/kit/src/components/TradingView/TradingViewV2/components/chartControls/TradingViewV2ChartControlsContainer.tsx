@@ -262,7 +262,9 @@ export const TradingViewV2ChartControlsContainer = memo(
           <TradingViewMobileChartSettingsDialogContent
             chartMode="tradingView"
             onChartSwitch={onChartSwitch}
-            onOpenSettings={showTradingViewChartSettingsDialog}
+            onOpenSettings={
+              onOpenChartSettings ?? showTradingViewChartSettingsDialog
+            }
           />
         ),
       });
@@ -271,6 +273,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       enableNativeChartSettings,
       onChartSwitch,
       onControlInteraction,
+      onOpenChartSettings,
     ]);
 
     const handleChartTypeToggle = useCallback(() => {
@@ -296,17 +299,23 @@ export const TradingViewV2ChartControlsContainer = memo(
     }, [onControlInteraction, onRedo]);
 
     const handleSettingsPress = useCallback(() => {
-      if (enableNativeChartSettings) {
-        if (layoutMode === 'mobile' && onChartSwitch) {
-          showMobileChartSettingsDialog();
-        } else {
-          showNewChartSettingsDialog();
-        }
+      if (
+        enableNativeChartSettings &&
+        layoutMode === 'mobile' &&
+        onChartSwitch
+      ) {
+        showMobileChartSettingsDialog();
         return;
       }
 
       if (onOpenChartSettings) {
+        onControlInteraction?.();
         onOpenChartSettings();
+        return;
+      }
+
+      if (enableNativeChartSettings) {
+        showNewChartSettingsDialog();
         return;
       }
 
@@ -315,6 +324,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       enableNativeChartSettings,
       layoutMode,
       onChartSwitch,
+      onControlInteraction,
       onOpenChartSettings,
       showChartSettingsDialog,
       showMobileChartSettingsDialog,

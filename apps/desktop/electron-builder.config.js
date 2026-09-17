@@ -31,6 +31,7 @@ module.exports = {
   },
   'nsis': {
     'oneClick': false,
+    'include': 'resources/windows/installer.nsh',
     'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
     'installerIcon': 'app/build/static/images/icons/installerIcon.ico',
     'uninstallerIcon': 'app/build/static/images/icons/installerIcon.ico',
@@ -86,7 +87,13 @@ module.exports = {
         'to': 'bin/bridge',
       },
     ],
-    'extraFiles': DLLs,
+    'extraFiles': [
+      ...DLLs,
+      {
+        'from': 'resources/windows/notificationIcon.png',
+        'to': 'resources/windows/notificationIcon.png',
+      },
+    ],
     'icon': 'app/build/static/images/icons/installerIcon.ico',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,

@@ -327,7 +327,9 @@ function DeviceStageContainerCmp() {
           })
           .catch(() => undefined);
       }
-      void serviceHardwareUI.deviceStageNoteInputSubmitted();
+      void serviceHardwareUI.deviceStageNoteInputSubmitted({
+        hostPassphraseEntered: passphrase.length > 0,
+      });
     },
     [saveKeepAccessible, sendVendorUiResponse, serviceHardwareUI],
   );
@@ -425,13 +427,31 @@ function DeviceStageContainerCmp() {
 
   // The OneKey-track Device-not-connected card mirrors the legacy dialog
   // verbatim (doc §4.1): the same article, the same Intercom entry.
+  // On native both help exits open inside the app — the in-app browser,
+  // the Support webview page — underneath the stage, whose window overlay
+  // and wall cover the page and take its touches. So there the stage
+  // leaves as the page opens, the way its close button would. Elsewhere
+  // nothing is covered and the card stays: the article leaves the app,
+  // and the Intercom messenger mounts on <body>, above the app root's
+  // stacking context the stage lives in.
+  const leaveStageForHelpPage = useCallback(
+    (via: 'troubleshoot' | 'support') => {
+      if (platformEnv.isNative) {
+        handleExit(via);
+      }
+    },
+    [handleExit],
+  );
+
   const handleDeviceNotFoundTroubleshoot = useCallback(() => {
     openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
-  }, []);
+    leaveStageForHelpPage('troubleshoot');
+  }, [leaveStageForHelpPage]);
 
   const handleDeviceNotFoundSupport = useCallback(() => {
     void showIntercom();
-  }, []);
+    leaveStageForHelpPage('support');
+  }, [leaveStageForHelpPage]);
 
   // Air-gap pair (doc §4.6): Next and the way back walk the two steps in
   // bg; the completed scan answers through ServiceQrWallet from inside
@@ -475,10 +495,15 @@ function DeviceStageContainerCmp() {
     },
     [],
   );
-  const handleAuthSupport = useCallback(
-    () => emitAuthAction('support'),
-    [emitAuthAction],
-  );
+  // On native Support opens underneath the stage like the
+  // Device-not-connected card's (see leaveStageForHelpPage), so the card
+  // leaves with it. The check's owner opens Support first — the event is
+  // delivered synchronously — and then reads the exit as any other
+  // dismissal: the run ends with no verdict.
+  const handleAuthSupport = useCallback(() => {
+    emitAuthAction('support');
+    leaveStageForHelpPage('support');
+  }, [emitAuthAction, leaveStageForHelpPage]);
   const handleAuthRetry = useCallback(
     () => emitAuthAction('retry'),
     [emitAuthAction],
@@ -514,6 +539,7 @@ function DeviceStageContainerCmp() {
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
       errorI18n={stage?.errorI18n}
+      doneI18n={stage?.doneI18n}
       authChecklist={stage?.authChecklist}
       authFailureReason={stage?.authFailureReason}
       authFailureMessage={stage?.authFailureMessage}

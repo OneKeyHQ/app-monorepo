@@ -15,9 +15,34 @@ const mockTopCoinsDesktopLayout = jest.fn(
 const mockNativeChartMount = jest.fn();
 const mockNativeChartUnmount = jest.fn();
 let mockMarketPriceSource: 'share' | 'token' = 'share';
-let mockStockDetailState = {
+let mockTokenAddress = '0xaapl';
+let mockTokenSymbol = 'AAPL';
+let mockTokenDetailLoading = false;
+let mockDisplayTokenDetail = {
+  address: '0xaapl',
+  networkId: 'evm--1',
+  symbol: 'AAPL',
+  decimals: 18,
+  decimalsResolved: true,
+};
+let mockStockDetailState: {
+  isStockRoute: boolean;
+  stockId: string;
+  isTokenVariantPending: boolean;
+  isTokenVariantsError: boolean;
+  isTokenVariantsLoading: boolean;
+  selectedTokenVariant?: {
+    networkId: string;
+    contractAddress: string;
+    symbol: string;
+    decimals: number;
+  };
+} = {
   isStockRoute: true,
   stockId: 'AAPL',
+  isTokenVariantPending: false,
+  isTokenVariantsError: false,
+  isTokenVariantsLoading: false,
   selectedTokenVariant: {
     networkId: 'evm--1',
     contractAddress: '0xaapl',
@@ -97,6 +122,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: {
+    getNetworkImpl: jest.fn(() => 'evm'),
     isBTCMainnet: jest.fn(() => false),
     isBTCNetwork: jest.fn(() => false),
   },
@@ -131,12 +157,7 @@ jest.mock('../hooks/StockDetailContext', () => ({
 
 jest.mock('../hooks/useMarketDetailDisplayData', () => ({
   useMarketDetailDisplayData: jest.fn(() => ({
-    tokenDetail: {
-      address: '0xaapl',
-      networkId: 'evm--1',
-      symbol: 'AAPL',
-      decimals: 18,
-    },
+    tokenDetail: mockDisplayTokenDetail,
   })),
 }));
 
@@ -149,13 +170,14 @@ jest.mock('../hooks/useTokenDetail', () => ({
     dataSource: 'polling',
   })),
   useTokenDetail: jest.fn(() => ({
-    tokenAddress: '0xaapl',
+    tokenAddress: mockTokenAddress,
     networkId: 'evm--1',
     tokenDetail: {
       address: '0xaapl',
-      symbol: 'AAPL',
+      symbol: mockTokenSymbol,
       decimals: 18,
     },
+    isLoading: mockTokenDetailLoading,
     isNative: false,
   })),
 }));
@@ -165,14 +187,16 @@ jest.mock('../utils/getMarketDetailTradingViewNativeSource', () => ({
     ({
       networkId,
       tokenAddress,
+      symbol,
     }: {
       networkId: string;
       tokenAddress: string;
+      symbol: string;
     }) => ({
       kind: 'market',
       networkId,
       tokenAddress,
-      symbol: 'AAPL',
+      symbol,
       realtime: 'websocket',
     }),
   ),
@@ -194,10 +218,17 @@ jest.mock('./TokenDesktopLayout', () => ({
   TokenDesktopLayout: () => null,
 }));
 
-jest.mock('./TopCoinsDesktopLayout', () => ({
-  TopCoinsDesktopLayout: (props: Record<string, unknown>) =>
-    mockTopCoinsDesktopLayout(props),
-}));
+jest.mock('./TopCoinsDesktopLayout', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    TopCoinsDesktopLayout: (props: Record<string, unknown>) => {
+      mockTopCoinsDesktopLayout(props);
+      return React.isValidElement(props.marketTradingView)
+        ? props.marketTradingView
+        : null;
+    },
+  };
+});
 
 describe('DesktopLayout', () => {
   beforeEach(() => {
@@ -206,9 +237,22 @@ describe('DesktopLayout', () => {
       value: jest.fn(),
     });
     mockMarketPriceSource = 'share';
+    mockTokenAddress = '0xaapl';
+    mockTokenSymbol = 'AAPL';
+    mockTokenDetailLoading = false;
+    mockDisplayTokenDetail = {
+      address: '0xaapl',
+      networkId: 'evm--1',
+      symbol: 'AAPL',
+      decimals: 18,
+      decimalsResolved: true,
+    };
     mockStockDetailState = {
       isStockRoute: true,
       stockId: 'AAPL',
+      isTokenVariantPending: false,
+      isTokenVariantsError: false,
+      isTokenVariantsLoading: false,
       selectedTokenVariant: {
         networkId: 'evm--1',
         contractAddress: '0xaapl',
@@ -243,6 +287,262 @@ describe('DesktopLayout', () => {
     );
   });
 
+  it('keeps the stock trade panel enabled while token metadata is loading', () => {
+    const props = {
+      isChartFullscreen: false,
+      isTradingViewNative: false,
+      onChartSwitch: jest.fn(),
+      onChartFullscreenChange: jest.fn(),
+      isNative: false,
+      networkId: 'evm--1',
+      tokenAddress: '0xaapl',
+    } as const;
+    const { rerender } = render(<DesktopLayout {...props} />);
+
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      stockId: 'MSFT',
+      selectedTokenVariant: {
+        networkId: 'evm--1',
+        contractAddress: '0xmsft',
+        symbol: 'MSFT',
+        decimals: 18,
+      },
+    };
+    mockTokenAddress = '0xmsft';
+    mockTokenSymbol = 'MSFT';
+    mockTokenDetailLoading = true;
+    mockDisplayTokenDetail = {
+      address: '0xmsft',
+      networkId: 'evm--1',
+      symbol: 'MSFT',
+      decimals: 0,
+      decimalsResolved: false,
+    };
+    rerender(<DesktopLayout {...props} tokenAddress="0xmsft" />);
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: false, isTradeLoading: true }),
+    );
+  });
+
+  it('disables the stock trade panel after variants settle without a tradable token', () => {
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      selectedTokenVariant: undefined,
+      isTokenVariantPending: false,
+      isTokenVariantsError: false,
+      isTokenVariantsLoading: false,
+    };
+    mockDisplayTokenDetail = {
+      ...mockDisplayTokenDetail,
+      decimalsResolved: false,
+    };
+
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: true, isTradeLoading: false }),
+    );
+  });
+
+  it('keeps a settled no-tradable stock disabled during variant polling', () => {
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      selectedTokenVariant: undefined,
+      isTokenVariantPending: false,
+      isTokenVariantsError: false,
+      isTokenVariantsLoading: true,
+    };
+    mockDisplayTokenDetail = {
+      ...mockDisplayTokenDetail,
+      decimalsResolved: false,
+    };
+
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: true, isTradeLoading: false }),
+    );
+  });
+
+  it('disables the stock trade panel on a variant request error', () => {
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      selectedTokenVariant: undefined,
+      isTokenVariantPending: false,
+      isTokenVariantsError: true,
+      isTokenVariantsLoading: false,
+    };
+    mockTokenDetailLoading = true;
+    mockDisplayTokenDetail = {
+      ...mockDisplayTokenDetail,
+      decimalsResolved: false,
+    };
+
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: true, isTradeLoading: false }),
+    );
+  });
+
+  it('keeps a cached selected stock variant enabled during a variant refresh error', () => {
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      isTokenVariantPending: false,
+      isTokenVariantsError: true,
+      isTokenVariantsLoading: false,
+    };
+    mockTokenDetailLoading = true;
+    mockDisplayTokenDetail = {
+      ...mockDisplayTokenDetail,
+      decimalsResolved: false,
+    };
+
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: false, isTradeLoading: true }),
+    );
+  });
+
+  it('does not show an endless skeleton after selected stock metadata settles invalid', () => {
+    mockTokenDetailLoading = false;
+    mockDisplayTokenDetail = {
+      ...mockDisplayTokenDetail,
+      address: '0xmissing',
+      decimalsResolved: false,
+    };
+
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: false, isTradeLoading: false }),
+    );
+  });
+
+  it('keeps the stock trade panel mounted during a variant switch before token loading starts', () => {
+    const props = {
+      isChartFullscreen: false,
+      isTradingViewNative: false,
+      onChartSwitch: jest.fn(),
+      onChartFullscreenChange: jest.fn(),
+      isNative: false,
+      networkId: 'evm--1',
+      tokenAddress: '0xaapl',
+    } as const;
+    const { rerender } = render(<DesktopLayout {...props} />);
+
+    mockStockDetailState = {
+      ...mockStockDetailState,
+      selectedTokenVariant: {
+        networkId: 'evm--8453',
+        contractAddress: '0xaapl-base',
+        symbol: 'AAPL',
+        decimals: 18,
+      },
+    };
+    mockTokenAddress = '0xaapl-base';
+    mockTokenDetailLoading = false;
+    mockDisplayTokenDetail = {
+      address: '0xaapl-base',
+      networkId: 'evm--8453',
+      symbol: 'AAPL',
+      decimals: 0,
+      decimalsResolved: false,
+    };
+
+    rerender(
+      <DesktopLayout
+        {...props}
+        tokenAddress="0xaapl-base"
+        isTokenDetailRequestPending
+      />,
+    );
+
+    expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: false, isTradeLoading: true }),
+    );
+  });
+
+  it('waits for the addressless market symbol before mounting native candles', () => {
+    mockStockDetailState = { ...mockStockDetailState, isStockRoute: false };
+    mockTokenAddress = '';
+    mockTokenSymbol = '';
+    const props = {
+      isChartFullscreen: false,
+      isTradingViewNative: true,
+      onChartSwitch: jest.fn(),
+      onChartFullscreenChange: jest.fn(),
+      isNative: true,
+      networkId: 'evm--1',
+      tokenAddress: '',
+      marketTokenCategory: 'top_coins',
+      marketTokenId: 'ethereum',
+    };
+    const { rerender } = render(<DesktopLayout {...props} />);
+    expect(mockNativeChartMount).not.toHaveBeenCalled();
+
+    mockTokenSymbol = 'ETH';
+    rerender(<DesktopLayout {...props} />);
+    expect(mockNativeChartMount).toHaveBeenCalledTimes(1);
+    expect(mockNativeChartUnmount).not.toHaveBeenCalled();
+
+    rerender(<DesktopLayout {...props} />);
+    expect(mockNativeChartMount).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     { networkId: 'evm--1', contractAddress: '0xnext' },
     { networkId: 'evm--8453', contractAddress: '0xaapl' },
@@ -271,8 +571,10 @@ describe('DesktopLayout', () => {
       mockStockDetailState = {
         ...mockStockDetailState,
         selectedTokenVariant: {
-          ...mockStockDetailState.selectedTokenVariant,
-          ...nextToken,
+          networkId: nextToken.networkId,
+          contractAddress: nextToken.contractAddress,
+          symbol: mockStockDetailState.selectedTokenVariant?.symbol ?? '',
+          decimals: mockStockDetailState.selectedTokenVariant?.decimals ?? 0,
         },
       };
       rerender(renderLayout(true));

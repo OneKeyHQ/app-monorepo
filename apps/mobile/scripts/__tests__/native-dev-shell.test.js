@@ -593,14 +593,7 @@ describe('native-dev-shell', () => {
         wait,
       }),
     ).resolves.toBeUndefined();
-    expect(iosOutput).toHaveBeenCalledWith('xcrun', [
-      'simctl',
-      'spawn',
-      'SIMULATOR-A',
-      '/bin/kill',
-      '-0',
-      '4321',
-    ]);
+    expect(iosOutput).toHaveBeenCalledWith('/bin/kill', ['-0', '4321']);
     expect(wait).toHaveBeenCalledTimes(15);
     expect(wait).toHaveBeenCalledWith(1000);
   });
@@ -837,8 +830,21 @@ describe('native-dev-shell', () => {
       launcherManifestEnd,
     );
     expect(launcherManifest).toContain('android:exported="true"');
-    expect(launcherManifest).toContain('android.intent.action.MAIN');
+    expect(launcherManifest).not.toContain('android.intent.action.MAIN');
     expect(launcherManifest).toContain('android.intent.action.VIEW');
+    for (const name of ['StandardLauncher', 'TravelModeLauncher']) {
+      const aliasStart = manifest.indexOf(`android:name=".${name}"`);
+      expect(aliasStart).toBeGreaterThan(launcherManifestEnd);
+      const alias = manifest.slice(
+        aliasStart,
+        manifest.indexOf('</activity-alias>', aliasStart),
+      );
+      expect(alias).toContain(
+        'android:targetActivity=".LauncherAliasActivity"',
+      );
+      expect(alias).toContain('android.intent.action.MAIN');
+      expect(alias).toContain('android.intent.category.LAUNCHER');
+    }
     expect(manifest).toContain(
       '<activity android:name=".MainActivity" android:label="@string/app_name"',
     );

@@ -56,6 +56,7 @@ describeMac('Noble SDK process cleanup', () => {
       const nobleBleInitialization = Promise.resolve(), trezorBleSupports = new Set();
       const store = { getUpdateBundleData() {}, getConsecutiveBootFailCount: () => 0, resetConsecutiveBootFailCount() {} };
       const getSafelyMainWindow = () => null, destroyTrayManager = () => {};
+      const unregisterShortcuts = () => require('electron').globalShortcut.unregisterAll();
       let systemIdleInterval, disposeContextMenu;
       const disposeNobleBleSupport = (release) => new Promise(resolve => {
         events.push('dispose-start');
@@ -174,6 +175,7 @@ guard let pid = Int32(CommandLine.arguments[1]),
         const store = { getConsecutiveBootFailCount: () => 0, resetConsecutiveBootFailCount() {} };
         const getSafelyMainWindow = () => mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
         const destroyTrayManager = () => {};
+        const unregisterShortcuts = () => require('electron').globalShortcut.unregisterAll();
         app.on('before-quit', () => record('before-quit'));
         app.on('window-all-closed', () => record('window-all-closed'));
         app.on('will-quit', () => record('will-quit'));

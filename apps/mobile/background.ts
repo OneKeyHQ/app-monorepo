@@ -13,6 +13,9 @@ require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
 markRuntimePolyfillsReady();
+const { initSentry } =
+  require('@onekeyhq/shared/src/modules3rdParty/sentry') as typeof import('@onekeyhq/shared/src/modules3rdParty/sentry');
+initSentry();
 const { OneKeyLocalError } =
   require('@onekeyhq/shared/src/errors') as typeof import('@onekeyhq/shared/src/errors');
 

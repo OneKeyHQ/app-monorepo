@@ -1559,6 +1559,8 @@ export function useSpeedSwapActions(props: {
         toAddress: receivingAddress,
         toTokenAmount: buildRes.result?.toAmount ?? '',
         status,
+        walletType: account?.wallet?.type ?? 'unknown',
+        deviceType: account?.device?.deviceType,
         swapProvider: buildRes.result?.info.provider ?? '',
         swapProviderName: buildRes.result?.info.providerName ?? '',
         swapType: getSwapExecutionTypeFromQuoteResult(buildRes.result),
@@ -1580,6 +1582,8 @@ export function useSpeedSwapActions(props: {
       });
     },
     [
+      account?.device?.deviceType,
+      account?.wallet?.type,
       fromToken.networkId,
       fromToken.symbol,
       settingsAtom.isFirstTimeSwap,

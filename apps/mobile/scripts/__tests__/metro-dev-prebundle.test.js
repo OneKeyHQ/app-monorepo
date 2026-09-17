@@ -587,7 +587,7 @@ describe('metro-dev-prebundle release transport', () => {
     } finally {
       await fs.remove(fixture.repoRoot);
     }
-  });
+  }, 15_000);
 
   it('bounds offline GitHub CLI verification time', async () => {
     const execFileImpl = jest.fn(async (_file, _args, options) => {

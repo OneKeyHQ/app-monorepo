@@ -360,3 +360,101 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `buildAllowList` `pagePath()` runs `removeExtraSlash` (`path.replace(/\/+/g, '')`) then prepends `/`. The rewrite `/prime/redeem` became allowlist key `/primeredeem`, which never matched `getPathFromState`'s real URL, so the path was rewritten to `/`.
 **Fix**: Register the public path as literal `PRIME_REDEEM_LANDING_PATH` (`/prime/redeem`) instead of a `pagePath()` key. Regression test calls real `buildAllowList()` and asserts `/primeredeem` is absent.
 **Catchable by**: NEW — web public URLs with an inner slash cannot use `pagePath()`; allowlist tests must call `buildAllowList()`, not a handwritten path
+
+## Case: Browser search submits on Chinese IME Enter when typing English
+**Date**: 2026-09-08 | **Platforms**: desktop, web, extension
+**Symptom**: In Discovery search, using a Chinese IME to type English and pressing Enter once committed the letters and immediately started a Google search (e.g. query `fou r`).
+**Root Cause**: `useSearchPopover` treated every Enter as submit. IME confirmation Enter was not ignored, and Chromium fires that keydown after `compositionend` with `isComposing` already false.
+**Fix**: Shared IME composition lock ignores composing / keyCode 229 events and holds the lock until after the confirming Enter. Input forwards React composition props through the repository's existing RN-web ESM patch. Discovery inputs disable submit auto-blur; non-native SearchBar defaults to retaining focus while honoring an explicit blurOnSubmit setting.
+**Catchable by**: NEW — web/desktop inputs that submit on Enter must ignore IME composition (including the post-compositionend confirming Enter), retain focus, and test the patched production ESM entry rather than the unpatched CJS entry
+
+## Case: Cached banner quotes mask same-identity CMS logo updates
+**Date**: 2026-09-15 | **Platforms**: desktop, web, iOS, Android, extension (Market Home banners)
+**Symptom**: After keeping hydrated quote rows across 30s list polls (anti-flash), a CMS logo change on the same banner `_id` never appeared until remount or identity change.
+**Root Cause**: `mergeBannerQuotes` replaced the fresh list `tokens` with cached quote rows, then that merged list was passed into `hydrateMarketBannerQuotes`, so `previewLogos` was built from stale cached logos.
+**Fix**: Hydrate from the raw banner list; overlay latest preview logos onto cached quote rows for display and hydrate-failure fallback. Quote membership still only changes after a completed hydrate.
+**Catchable by**: Section 4: Data flow end-to-end; NEW — an anti-flash cache must not become the source of truth for poll fields that are allowed to update
+
+## Case: Stock list defaulted to 24h volume instead of market cap
+**Date**: 2026-09-15 | **Platforms**: all Market stock lists
+**Symptom**: Opening the Stocks tab sorted by 24h volume on first load (OK-63392).
+**Root Cause**: `DEFAULT_MARKET_STOCK_SORT_BY` was `'volume24h'`.
+**Fix**: Default sort is `'marketCap'` descending; list hook tests assert the first request and the cleared-column restore.
+**Catchable by**: Section 4: Implementation matches original requirement; Section 6: default sort covered by tests
+
+## Case: Favoriting AAPL listing starred chain aapl in search
+**Date**: 2026-09-15 | **Platforms**: all (universal search)
+**Symptom**: Starring the AAPL collection made other-network aapl tokens appear favorited (OK-63400).
+**Root Cause**: Search rows used nested/inferred `stock.stockId` for `MarketStarV2`, so chain tokens shared the `stock:AAPL` watchlist key with the listing.
+**Fix**: Only listings from `/utility/v1/stocks/search` (top-level `stockId`, no chain identity) pass `stockId` to star/nav; chain tokens keep chain identity even when nested stock metadata is present.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — listing identity and chain-token identity must not share watchlist keys
+
+## Case: Tokens without API stock ID opened stock detail
+**Date**: 2026-09-15 | **Platforms**: all Market/search navigation
+**Symptom**: xStock / ticker-named tokens without a server stock ID opened MarketStockDetail (OK-63401).
+**Root Cause**: `resolveMarketStockId` inferred IDs from `underlyingAssetTicker` and xStock naming.
+**Fix**: Resolve stock routes only from explicit `stockId` / `stock.stockId`. Search navigation additionally requires a top-level listing `stockId`.
+**Catchable by**: Section 4: identity heuristics; NEW — do not infer product identity from display names or related tickers
+
+## Case: Global search omitted `/utility/v1/stocks/search`
+**Date**: 2026-09-15 | **Platforms**: all (universal search)
+**Symptom**: Searching a ticker in global search returned tokenized chain tokens only, not the stock listing.
+**Root Cause**: `universalSearchOfV2MarketToken` only called `searchV2Token`.
+**Fix**: Universal search also calls `searchMarketStocks` and prepends mapped listings. Swap Pro keeps token-only search via `includeStockListings`.
+**Catchable by**: Section 4: Data flow end-to-end API → state → UI; NEW — new identity APIs must be wired into every search surface that presents that product
+
+## Case: K-line last-value badge used mid-amount ellipsis
+**Date**: 2026-09-15 | **Platforms**: desktop, mobile, web, extension
+**Symptom**: Chart last-value labels showed `$77,250...K` instead of OKX-style `$77.25K`.
+**Root Cause**: `formatChartPrice` truncated the numeric body at 8 characters and inserted `...` before the K/M/B unit, so compact units still dumped extra decimals.
+**Fix**: Round compact and >=$1 amounts to 2 decimals; drop extra decimals instead of mid-amount ellipsis; keep trailing `...` only when integer+unit still cannot fit.
+**Catchable by**: Section 6: visual/format bugs need a regression test of the exact display string; NEW — compact-unit labels must not insert ellipsis before the unit
+
+## Case: Wallet-home Stocks tab reused tokenized stock list
+**Date**: 2026-09-15 | **Platforms**: desktop, mobile, web, extension
+**Symptom**: Wallet Home PopularTrading Stocks showed tokenized tickers like `AAPLon` instead of public stocks (TCENT, IWM).
+**Root Cause**: Stocks category reused `fetchMarketTokenList` (`/utility/v2/market/tokens?type=stocks`) instead of the public stocks API used by Market Stocks.
+**Fix**: Detect the stocks category and load `fetchMarketStockList`; map `stockId` / `stockListingName` for display and hide network icons.
+**Catchable by**: Section 4: shared hook/utility modified → check all category consumers; NEW — a Market category named like another product surface must use that surface's list API, not the generic token list
+
+## Case: Universal search mixed stock listings into the Market tab
+**Date**: 2026-09-16 | **Platforms**: Desktop, Web, Extension, iOS, Android
+**Symptom**: Searching AAPL put the real stock next to AAPLon / xStock under Market, and the Liquidity column showed `--` because listings have no liquidity.
+**Root Cause**: `V2MarketToken` search prepended stock listings into the same result bucket and reused the token table columns.
+**Fix**: Split stock listings into `MarketStock` with their own tab/section and show Name / Price / Market cap / Volume.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — mixed asset types in one search tab need their own columns and empty-tab hiding
+
+## Case: Native union build failed on unregistered search helpers
+**Date**: 2026-09-16 | **Platforms**: iOS, Android (native union build)
+**Symptom**: CI Native startup graph budget failed; Codex/Devin flagged `universalSearchTabs.ts` and `marketSearchMetric.ts`.
+**Root Cause**: New files entered the native Metro graph via sync imports but were missing from `module-id-registry.json`.
+**Fix**: Register both paths with `updateRegistryFromModulePaths` and commit IDs `13357` / `23019`.
+**Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push
+
+## Case: Market search preset hid the new Stocks section
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, extension (Discovery market header)
+**Symptom**: Searching AAPL from Discovery Market showed only AAPLon / AAPLx under Market; the real listing appeared only after tapping Stocks.
+**Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
+**Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
+**Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
+
+## Case: Market detail back walked leftover token pages
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens in a Market detail, or opening multiple details from Wallet Home, made the top-left back button pass through previous detail pages instead of returning to the Market list.
+**Root Cause**: Home and the token selector used nested `navigate`, which stacked `MarketDetailV2` / `MarketStockDetail`. The custom back handler only `pop()`ped one screen, and native empty history reset to `TabMarket` which does not exist on Discovery.
+**Fix**: Collapse the Market/Discovery stack to `[list, one detail]` when opening or switching a detail, and `popToTop` when the previous route is still a leftover detail.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition; NEW — custom back handlers must collapse stacked same-feature screens, not assume one-to-one push/pop
+
+## Case: Market detail collapse treated banner and SwapPro as leftover token pages
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Home banner → banner list → token detail back skipped the banner list; switching tokens from that path reset away the banner page. SwapPro modal token changes rewrote the background Market stack. Native empty-history back could land on Browser instead of Market.
+**Root Cause**: `MarketBannerDetail` was counted as a leftover detail, so back used `popToTop` and switch used `reset` to `[list, detail]`. `openOrReplaceMarketDetailRoute` rewrote any unfocused Main Market stack, including when SwapPro owned the focused detail. Native `CommonActions.reset` to `TabDiscovery` omitted `defaultTab`.
+**Fix**: Treat only token/stock/native pages as leftover details and keep banner hosts when collapsing. Skip rewriting Main only when the focused route is a market detail the found stack does not own. Pass `defaultTab: global_market` on native list reset.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a collapse/reset of stacked feature screens must preserve legitimate intermediate hosts and must not rewrite an unfocused background stack
+
+## Case: SwapPro setParams cleared disableTrade and from
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens inside SwapPro market detail could re-enable Buy/Sell and break Back, resetting a TabDiscovery route onto SwapModal.
+**Root Cause**: `replaceFocusedMarketDetailRoute` wrote every identity key including `undefined` for `from` / `disableTrade` / `showFavoriteButton`. SET_PARAMS merges those undefineds over the SwapPro-owned route params.
+**Fix**: Omit SwapPro-owned keys when updating `SwapProMarketDetail` in place so the modal keeps disableTrade and from.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — SET_PARAMS that writes explicit undefined must not clobber host-owned route flags the caller does not re-supply

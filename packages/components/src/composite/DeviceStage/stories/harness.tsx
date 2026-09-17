@@ -9,11 +9,13 @@ import type {
   IDeviceStageProps,
   IDeviceStageStep,
 } from '@onekeyhq/components/src/composite/DeviceStage';
+import { REPLICA_WIDTH } from '@onekeyhq/components/src/composite/DeviceStage/consts';
 import {
   useDeviceStageEscapeOwner,
   useDeviceStageExitPolicy,
 } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
+import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks/useLayout';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
 
@@ -312,11 +314,15 @@ export function StageHost({
   children: ReactNode;
 }) {
   const { height } = useWindowDimensions();
+  // The portal is the full window on device (the preview mounts the stage
+  // on the overlay window), so the bar clears the home indicator by the
+  // window's own inset; the web canvas reports none.
+  const { bottom: barBottom } = useSafeAreaInsets();
   const bar = useMemo(
     () => (
       <XStack
         position="absolute"
-        bottom={0}
+        bottom={barBottom}
         left={0}
         right={0}
         p="$2"
@@ -327,7 +333,7 @@ export function StageHost({
         {children}
       </XStack>
     ),
-    [children],
+    [barBottom, children],
   );
   return (
     <Stack minHeight={height - 190}>
@@ -350,6 +356,9 @@ export const DEMO = {
     },
   ],
   qrValue: '0x627Ddbef61C811af05288Cd79db324fCac914AeF',
+  /** The range control's seed: the width that ships, so the stories
+   * follow the next retune instead of pinning a stale number. */
+  replicaWidth: REPLICA_WIDTH,
 };
 
 export const ARG_TYPES = {
@@ -385,4 +394,9 @@ export const ARG_TYPES = {
     ],
   },
   qrValue: { control: 'text' },
+  // OK-62091's tuning knob: the full stage's device width; the port and
+  // the card height follow.
+  replicaWidth: {
+    control: { type: 'range', min: 160, max: 320, step: 4 },
+  },
 } as const;

@@ -105,6 +105,7 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number | string;
   errorClassName?: string;
   errorName?: string;
+  isHardwareError?: boolean;
   // hardware device the error came from, when the error carries one
   connectId?: string;
   httpStatusCode?: number;
@@ -215,6 +216,8 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.FinalizeWalletSetupStep]: {
     step: EFinalizeWalletSetupSteps;
+    walletId?: string;
+    dbDeviceId?: string;
   };
   [EAppEventBusNames.FinalizeWalletSetupError]: {
     error: IOneKeyError | undefined;
@@ -532,6 +535,7 @@ export interface IAppEventBusPayload {
     // state, preventing another Extension Home runtime from winning the race.
     claimId?: string;
   };
+  [EAppEventBusNames.PrimeGiftRedeemed]: { serialNo: string };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: {
     operationId: string;
@@ -602,6 +606,7 @@ export interface IAppEventBusPayload {
     subType: ESubscriptionType;
     data: unknown;
   };
+  [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
     symbol: string;

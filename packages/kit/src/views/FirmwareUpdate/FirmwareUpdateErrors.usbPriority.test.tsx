@@ -4,7 +4,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { renderHook } from '@testing-library/react';
-import { IntlProvider } from 'react-intl';
+import { IntlProvider, createIntl } from 'react-intl';
 
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
 import {
@@ -14,7 +14,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFirmwareUpdateErrors as useLegacyFirmwareUpdateErrors } from './components/FirmwareUpdateErrors';
-import { useFirmwareUpdateErrors as useFirmwareUpdateErrorsV2 } from './componentsV2/FirmwareUpdateErrorV2';
+import { resolveFirmwareUpdateErrorPresentation } from './componentsV2/firmwareUpdateErrorPresentation';
 
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
@@ -35,10 +35,15 @@ const deviceDisconnectedMessage =
   'The device has been disconnected. Please reconnect the device and try again.';
 const deviceDisconnectedTitle = 'Device disconnected';
 const operationTimedOutMessage = 'Operation timed out';
+const deviceMismatchMessage =
+  'The connected device does not match this wallet. Reconnect the correct device, or add it again after a reset or recovery.';
+const genericErrorTitle = 'An error occurred';
 
 const intlMessages: Record<string, string> = {
   [ETranslations.troubleshooting_desktop_bluetooth_usb_priority]:
     usbPriorityMessage,
+  [ETranslations.firmware_update_device_mismatch__desc]: deviceMismatchMessage,
+  [ETranslations.global_an_error_occurred]: genericErrorTitle,
   [ETranslations.hardware_third_party_device_disconnected]:
     deviceDisconnectedTitle,
   [ETranslations.update_device_disconnected_desc]: deviceDisconnectedMessage,
@@ -46,6 +51,8 @@ const intlMessages: Record<string, string> = {
     operationTimedOutMessage,
   [ETranslations.global_retry]: 'Retry',
 };
+
+const intl = createIntl({ locale: 'en', messages: intlMessages });
 
 function IntlWrapper({ children }: { children: ReactNode }) {
   return (
@@ -58,18 +65,17 @@ function IntlWrapper({ children }: { children: ReactNode }) {
 describe('firmware update USB-priority errors', () => {
   const error = new BluetoothUnavailableWhileUsbConnectedError();
 
-  it('uses the localized USB-priority message in the Protocol V2 error view', () => {
-    const { result } = renderHook(
-      () =>
-        useFirmwareUpdateErrorsV2({
-          error,
-          lastFirmwareTipMessage: undefined,
-        }),
-      { wrapper: IntlWrapper },
-    );
+  it('uses the localized USB-priority message on the install page', () => {
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
 
     expect(error.code).toBe(HardwareErrorCode.BleUnavailableWhileUsbConnected);
-    expect(result.current.errorMessage).toBe(usbPriorityMessage);
+    expect(presentation.sentence).toBe(usbPriorityMessage);
+    expect(presentation.action).toEqual({ kind: 'retry' });
   });
 
   it('uses the localized USB-priority message in the legacy error view', () => {
@@ -97,17 +103,16 @@ describe('firmware update cancellation errors', () => {
     message: 'updateTasksClear: exitUpdateWorkflow',
   };
 
-  it('does not expose exitUpdateWorkflow in the Protocol V2 error view', () => {
-    const { result } = renderHook(
-      () =>
-        useFirmwareUpdateErrorsV2({
-          error,
-          lastFirmwareTipMessage: undefined,
-        }),
-      { wrapper: IntlWrapper },
-    );
+  it('does not expose exitUpdateWorkflow on the install page', () => {
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
 
-    expect(result.current.errorMessage).toBe(deviceDisconnectedMessage);
+    expect(presentation.title).toBe(deviceDisconnectedTitle);
+    expect(presentation.sentence).toBe(deviceDisconnectedMessage);
   });
 
   it('does not expose exitUpdateWorkflow in the legacy error view', () => {
@@ -136,15 +141,35 @@ describe('firmware update timeout errors', () => {
     const error: IOneKeyError = {
       message: 'Protocol V2 firmware install timed out',
     };
-    const { result } = renderHook(
-      () =>
-        useFirmwareUpdateErrorsV2({
-          error,
-          lastFirmwareTipMessage: undefined,
-        }),
-      { wrapper: IntlWrapper },
-    );
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
 
-    expect(result.current.errorMessage).toBe(operationTimedOutMessage);
+    expect(presentation.sentence).toBe(operationTimedOutMessage);
+  });
+});
+
+describe('firmware update device mismatch errors', () => {
+  const error: IOneKeyError = {
+    className: EOneKeyErrorClassNames.OneKeyHardwareError,
+    $isHardwareError: true,
+    code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    message: 'Device id mismatch',
+  };
+
+  it('uses the localized mismatch message instead of the SDK sentence', () => {
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
+
+    expect(presentation.title).toBe(genericErrorTitle);
+    expect(presentation.sentence).toBe(deviceMismatchMessage);
+    expect(presentation.action).toEqual({ kind: 'retry' });
   });
 });

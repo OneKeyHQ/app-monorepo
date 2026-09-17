@@ -115,19 +115,22 @@ export function FoundDevicesFooter({
   );
   const selectedKey = selected ? getFoundDeviceKey(selected) : undefined;
 
-  const handleConnect = useCallback(async () => {
-    if (!selected || connectingRef.current) {
-      return;
-    }
-    connectingRef.current = true;
-    setIsConnecting(true);
-    try {
-      await onConnect(selected);
-    } finally {
-      connectingRef.current = false;
-      setIsConnecting(false);
-    }
-  }, [onConnect, selected]);
+  const handleConnect = useCallback(
+    async (item: IConnectYourDeviceItem) => {
+      if (connectingRef.current) {
+        return;
+      }
+      connectingRef.current = true;
+      setIsConnecting(true);
+      try {
+        await onConnect(item);
+      } finally {
+        connectingRef.current = false;
+        setIsConnecting(false);
+      }
+    },
+    [onConnect],
+  );
 
   return (
     <>
@@ -144,6 +147,7 @@ export function FoundDevicesFooter({
               return (
                 <ListItem
                   key={key}
+                  testID={OnboardingTestIDs.connectYourDeviceItem(key)}
                   userSelect="none"
                   // Not `disabled` while connecting: on native, ListItem
                   // drops its Pressable wrapper when disabled, which
@@ -159,6 +163,9 @@ export function FoundDevicesFooter({
                     // the row that is already selected by default.
                     isExplicitPickRef.current = true;
                     setPickedKey(key);
+                    if (devices.length === 1) {
+                      return handleConnect(item);
+                    }
                   }}
                 >
                   <WalletAvatar
@@ -190,7 +197,7 @@ export function FoundDevicesFooter({
               mb="$3"
               disabled={!selected}
               loading={isConnecting}
-              onPress={handleConnect}
+              onPress={() => (selected ? handleConnect(selected) : undefined)}
             >
               {intl.formatMessage({
                 id: isConnecting

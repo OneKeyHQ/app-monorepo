@@ -52,6 +52,7 @@ import { CategorySelector } from '../../../Market/MarketHomeV2/components/Catego
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
+import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
@@ -270,7 +271,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     const topCoinsFallbackName =
       marketCategories.find(
         (category) => category.id === MARKET_TOP_COINS_CATEGORY_ID,
-      )?.name ?? 'Top Coins';
+      )?.name ?? intl.formatMessage({ id: ETranslations.market_top_coins });
 
     return buildHomeMarketCategories({
       apiHomeTabs,
@@ -279,7 +280,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       homePerpsHotCategory,
       topCoinsFallbackName,
     });
-  }, [apiHomeTabs, favoritesCategory, homePerpsHotCategory, marketCategories]);
+  }, [
+    apiHomeTabs,
+    favoritesCategory,
+    homePerpsHotCategory,
+    intl,
+    marketCategories,
+  ]);
 
   const resolvedSelectedCategoryId = useMemo(() => {
     if (homeCategories.some((category) => category.id === selectedCategoryId)) {
@@ -297,6 +304,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
     minLiquidity,
     selectedMarketCategoryId,
+    marketCategories: homeCategories,
   });
 
   const isTokenInWatchList = useCallback(
@@ -891,37 +899,56 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           });
           return;
         }
-        void backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
+        void backgroundApiProxy.serviceApp
+          .openExtensionMarketTokenDetail({
+            tokenAddress: record.contractAddress,
+            network: shortCode || record.chainId,
+            isNative: record.isNative,
+            marketTokenId: record.marketTokenId,
+            marketVariantId: record.marketVariantId,
+            marketTokenCategory,
+          })
+          .catch(() => {
+            if (requestId !== navigationRequestIdRef.current) return;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+          });
+        return;
+      }
+
+      const navigateToTokenDetail = () => {
+        if (requestId !== navigationRequestIdRef.current) return;
+        const routeName = record.stockId
+          ? ETabMarketRoutes.MarketStockDetail
+          : ETabMarketRoutes.MarketDetailV2;
+        const params = {
+          stockId: record.stockId,
+          stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,
+          stockPreviewName: record.stockId ? record.name : undefined,
+          stockPreviewSymbol: record.stockId ? record.symbol : undefined,
           tokenAddress: record.contractAddress,
           network: shortCode || record.chainId,
           isNative: record.isNative,
           marketTokenId: record.marketTokenId,
           marketVariantId: record.marketVariantId,
           marketTokenCategory,
-        });
-        return;
-      }
-
-      const navigateToTokenDetail = () => {
-        if (requestId !== navigationRequestIdRef.current) return;
+        };
+        if (
+          openOrReplaceMarketDetailRoute({
+            routeName,
+            params,
+          })
+        ) {
+          return;
+        }
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: marketTab,
           params: {
-            screen: record.stockId
-              ? ETabMarketRoutes.MarketStockDetail
-              : ETabMarketRoutes.MarketDetailV2,
-            params: {
-              stockId: record.stockId,
-              stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,
-              stockPreviewName: record.stockId ? record.name : undefined,
-              stockPreviewSymbol: record.stockId ? record.symbol : undefined,
-              tokenAddress: record.contractAddress,
-              network: shortCode || record.chainId,
-              isNative: record.isNative,
-              marketTokenId: record.marketTokenId,
-              marketVariantId: record.marketVariantId,
-              marketTokenCategory,
-            },
+            screen: routeName,
+            params,
           },
         });
       };
@@ -941,6 +968,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       setTimeout(navigateToTokenDetail, 300);
     },
     [
+      intl,
       marketTab,
       navigateToMarketTab,
       navigation,
@@ -1063,6 +1091,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
+    defaultLogger.market.navigation.homeViewMore({ selectedMarketCategoryId });
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
       navigateToMarketTab({
         tabToSelect: EMarketHomeTab.Perps,
