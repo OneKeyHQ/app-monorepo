@@ -173,7 +173,12 @@ export function normalizeErrorProps(
     // console.log('IncorrectPasswordI18nKey before', key, msg);
   }
 
-  if (!msg && key && appLocale.intl.formatMessage && !platformEnv.isJest) {
+  // Read the runtime flag instead of `platformEnv.isJest`: that expression is a
+  // build-time define, and Metro's worker-thread transformer sets
+  // JEST_WORKER_ID, so native bundles would compile it to `true`, skip i18n,
+  // and show the bare default message (e.g. the error class name).
+  const { isJest } = platformEnv;
+  if (!msg && key && appLocale.intl.formatMessage && !isJest) {
     msg = appLocale.intl.formatMessage(
       { id: key },
       (props as IOneKeyError)?.info,
