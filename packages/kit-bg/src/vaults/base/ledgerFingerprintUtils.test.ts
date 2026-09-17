@@ -374,6 +374,66 @@ describe('callLedgerWithFingerprint', () => {
     });
   });
 
+  it('drops the anchor a confirmation mismatch invalidated and re-bootstraps next call', async () => {
+    const getChainFingerprint = jest
+      .fn()
+      .mockResolvedValueOnce(success('wrong-evm'))
+      .mockResolvedValueOnce(
+        failure(HardwareErrorCode.DeviceMismatch, 'Different device'),
+      )
+      .mockResolvedValueOnce(success('right-evm'))
+      .mockResolvedValueOnce(success('right-evm'));
+    const backgroundApi = {
+      serviceThirdPartyHardware: {
+        getAdapterForVendor: jest
+          .fn()
+          .mockResolvedValue({ hw: { getChainFingerprint } }),
+      },
+    };
+    const device = buildDevice('ledger-mismatch-rollback');
+    const callOptions = {
+      operationId: 'hwk-ledger-mismatch-rollback',
+      allowFingerprintBootstrap: true,
+    };
+    const fn = jest.fn().mockResolvedValue(success({ address: 'addr' }));
+
+    const first = await callLedgerWithFingerprint(
+      backgroundApi as unknown as IBackgroundApi,
+      device,
+      'evm',
+      fn,
+      callOptions,
+    );
+
+    expect(first).toMatchObject({
+      success: false,
+      payload: { code: HardwareErrorCode.DeviceMismatch },
+    });
+    // The rejected anchor is cleared in DB, not left as the expected value.
+    expect(
+      jest.mocked(localDb).updateDeviceChainFingerprint?.mock.calls,
+    ).toContainEqual([
+      { dbDeviceId: device.id, chain: 'evm', fingerprint: '' },
+    ]);
+
+    fn.mockClear();
+    const second = await callLedgerWithFingerprint(
+      backgroundApi as unknown as IBackgroundApi,
+      device,
+      'evm',
+      fn,
+      callOptions,
+    );
+
+    // Empty deviceId proves the memory cache no longer serves 'wrong-evm'.
+    expect(fn).toHaveBeenCalledWith(
+      '',
+      callOptions.operationId,
+      expect.any(Object),
+    );
+    expect(second.success).toBe(true);
+  });
+
   it('preserves an SDK fingerprint mismatch during cross-chain verification', async () => {
     const getChainFingerprint = jest
       .fn()

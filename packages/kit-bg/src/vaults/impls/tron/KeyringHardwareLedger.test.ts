@@ -49,6 +49,27 @@ describe('KeyringHardwareLedger.signMessage', () => {
     expect(tronSignMessage).not.toHaveBeenCalled();
   });
 
+  it('rejects a [V2, V1] batch before signing anything', async () => {
+    const tronSignMessage = jest.fn();
+    const { keyring, getAdapterForVendor, dbDevice } = buildKeyring(
+      tronSignMessage,
+      JSON.stringify({ chainFingerprints: { tron: 'aabbccdd' } }),
+    );
+
+    await expect(
+      keyring.signMessage({
+        messages: [
+          { message: 'deadbeef', type: EMessageTypesTron.SIGN_MESSAGE_V2 },
+          { message: 'hello', type: EMessageTypesTron.SIGN_MESSAGE },
+        ],
+        password: '',
+        deviceParams: { dbDevice },
+      } as never),
+    ).rejects.toBeInstanceOf(ThirdPartyMethodNotSupported);
+    expect(tronSignMessage).not.toHaveBeenCalled();
+    expect(getAdapterForVendor).not.toHaveBeenCalled();
+  });
+
   it('signs a V2 message and forwards the signature', async () => {
     const tronSignMessage = jest.fn().mockResolvedValue({
       success: true,

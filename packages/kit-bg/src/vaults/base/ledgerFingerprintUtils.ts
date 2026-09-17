@@ -115,6 +115,15 @@ function setCache(
   deviceMap.set(chain, fp);
 }
 
+function clearCache(deviceDbId: string, chain: ChainForFingerprint): void {
+  const deviceMap = fingerprintCache.get(deviceDbId);
+  if (!deviceMap) return;
+  deviceMap.delete(chain);
+  if (deviceMap.size === 0) {
+    fingerprintCache.delete(deviceDbId);
+  }
+}
+
 // Serialize DB writes per device
 const pendingWrites = new Map<string, Promise<void>>();
 
@@ -151,6 +160,29 @@ export async function persistLedgerChainFingerprint({
     });
   }
   setCache(dbDeviceId, chain, fingerprint);
+}
+
+/**
+ * Drop a chain anchor from memory and DB. Every reader treats an empty
+ * fingerprint as "not recorded", so the next call re-runs bootstrap.
+ */
+export async function clearLedgerChainFingerprint({
+  dbDeviceId,
+  chain,
+}: {
+  dbDeviceId: string;
+  chain: ChainForFingerprint;
+}): Promise<void> {
+  clearCache(dbDeviceId, chain);
+  if (localDb.updateDeviceChainFingerprint) {
+    await serializeWrite(dbDeviceId, async () => {
+      await localDb.updateDeviceChainFingerprint({
+        dbDeviceId,
+        chain,
+        fingerprint: '',
+      });
+    });
+  }
 }
 
 /**
@@ -236,7 +268,13 @@ async function generateAndStoreFingerprint(
         (!verified.success &&
           verified.payload.code === HardwareErrorCode.DeviceMismatch) ||
         (verified.success && verified.payload !== fingerprint);
-      if (mismatched) return '';
+      if (mismatched) {
+        // The anchor was already written before this confirmation. Leaving it
+        // in place would make the wrong device's fingerprint the expected
+        // value, so every later call rejects the right device.
+        await clearLedgerChainFingerprint({ dbDeviceId: dbDevice.id, chain });
+        return '';
+      }
       if (!verified.success) {
         defaultLogger.hardware.sdkLog.log(
           'ledgerFingerprint.confirmIncomplete',

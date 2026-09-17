@@ -47,6 +47,21 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     };
   }
 
+  // Keystone derives addresses locally, so a device-mode verification would
+  // mark an address the device never displayed as verified. Refuse it and let
+  // the UI fall back to manual comparison. Same guard as btc.
+  override async batchGetAddresses(
+    params: IPrepareHardwareAccountsParams,
+  ): Promise<{ address: string; path: string }[]> {
+    if (params.isVerifyAddressAction) {
+      throw new OneKeyLocalError({
+        message:
+          'Keystone address verification requires manual derivation-path confirmation',
+      });
+    }
+    return [];
+  }
+
   private async _getAdapter(): Promise<IThirdPartyHardwareAdapter> {
     const adapter =
       await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
@@ -153,6 +168,16 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
+    // Firmware implements TIP-191 signMessageV2 only. Pre-check the whole
+    // batch: a mixed batch must not put the first message on the device
+    // before rejecting a later unsupported one.
+    if (
+      messages.some(
+        (message) => message.type !== EMessageTypesTron.SIGN_MESSAGE_V2,
+      )
+    ) {
+      throw new ThirdPartyMethodNotSupported();
+    }
     const checkedDeviceParams = checkIsDefined(deviceParams);
     const { dbDevice } = checkedDeviceParams;
     const account = await this.vault.getAccount();
@@ -161,10 +186,6 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
 
     const signatures: ISignedMessagePro = [];
     for (const message of messages) {
-      // Firmware implements TIP-191 signMessageV2 only.
-      if (message.type !== EMessageTypesTron.SIGN_MESSAGE_V2) {
-        throw new ThirdPartyMethodNotSupported();
-      }
       // eslint-disable-next-line no-await-in-loop
       const result = await adapter.hw.tronSignMessage(
         operationId ?? dbDevice.connectId,
