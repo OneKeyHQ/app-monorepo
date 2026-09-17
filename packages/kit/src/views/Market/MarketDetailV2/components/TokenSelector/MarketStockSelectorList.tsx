@@ -157,6 +157,7 @@ const MarketStockSelectorList = memo(
           estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
           estimatedListSize={{ width: 800, height: STOCK_SELECTOR_LIST_HEIGHT }}
           rowProps={{
+            bg: '$bg',
             width: '100%',
             height: TOKEN_SELECTOR_ROW_HEIGHT,
             minHeight: TOKEN_SELECTOR_ROW_HEIGHT,

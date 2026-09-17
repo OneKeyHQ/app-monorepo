@@ -20806,6 +20806,7 @@
     "packages/kit/src/views/Borrow/components/BorrowMobilePositions.tsx": 18452,
     "packages/kit/src/views/Borrow/components/BorrowMobileSummary.tsx": 10680,
     "packages/kit/src/views/Borrow/components/BorrowPositionCard.tsx": 3513,
+    "packages/kit/src/views/Borrow/components/BorrowRefreshButton.tsx": 5611,
     "packages/kit/src/views/Borrow/components/BorrowRepayPosition.tsx": 22862,
     "packages/kit/src/views/Borrow/components/BorrowRewardsMetric.tsx": 6447,
     "packages/kit/src/views/Borrow/components/BorrowRewardsMetric.utils.ts": 8173,
