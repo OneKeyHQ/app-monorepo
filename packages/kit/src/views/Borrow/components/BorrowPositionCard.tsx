@@ -100,7 +100,7 @@ function BorrowPositionCardActions({
                   key={action.key}
                   testID={action.testID}
                   flex={1}
-                  size="small"
+                  size="medium"
                   variant={action.variant}
                   disabled={action.disabled}
                   onPress={(event: GestureResponderEvent) => {
