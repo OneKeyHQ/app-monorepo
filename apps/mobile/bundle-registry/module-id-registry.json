@@ -16131,6 +16131,7 @@
     "packages/components/src/composite/DeviceStage/StepText.tsx": 16276,
     "packages/components/src/composite/DeviceStage/ThirdPartyPanels.tsx": 11559,
     "packages/components/src/composite/DeviceStage/WalletTypeOptions.tsx": 8045,
+    "packages/components/src/composite/DeviceStage/accessibility.ts": 24045,
     "packages/components/src/composite/DeviceStage/arrangements.ts": 8046,
     "packages/components/src/composite/DeviceStage/consts.ts": 8047,
     "packages/components/src/composite/DeviceStage/index.tsx": 8048,
