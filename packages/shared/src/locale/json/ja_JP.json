@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "署名1回で4%割引",
   "perps__claim_now__action": "今すぐ受け取る",
   "perps__fee_discount_activated__msg": "手数料割引が有効になりました",
+  "perps__referral_already_bound__msg": "このアカウントにはすでに紹介コードが紐付けられています。再度受け取る必要はありません。",
   "perps__snooze_remind_later__action": "今はいい、後でもう一度",
   "perps_alerts__title": "Perpsアラート",
   "perps_back_to_default_layout__action": "デフォルトのレイアウトにリセット",

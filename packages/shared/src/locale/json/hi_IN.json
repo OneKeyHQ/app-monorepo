@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "एक बार साइन करें, 4% बचाएं",
   "perps__claim_now__action": "अभी प्राप्त करें",
   "perps__fee_discount_activated__msg": "शुल्क छूट सक्रिय हो गई",
+  "perps__referral_already_bound__msg": "इस खाते से पहले से एक रेफ़रल कोड जुड़ा है। दोबारा दावा करने की आवश्यकता नहीं है।",
   "perps__snooze_remind_later__action": "अभी नहीं, बाद में याद दिलाएं",
   "perps_alerts__title": "Perps अलर्ट",
   "perps_back_to_default_layout__action": "डिफ़ॉल्ट लेआउट पर रीसेट करें",

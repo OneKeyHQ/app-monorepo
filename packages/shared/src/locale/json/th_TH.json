@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "ลงนามครั้งเดียว ลด 4%",
   "perps__claim_now__action": "รับเลย",
   "perps__fee_discount_activated__msg": "ส่วนลดค่าธรรมเนียมเปิดใช้งานแล้ว",
+  "perps__referral_already_bound__msg": "บัญชีนี้ผูกกับรหัสแนะนำแล้ว ไม่จำเป็นต้องรับสิทธิ์ซ้ำ",
   "perps__snooze_remind_later__action": "ยังไม่ต้อง เตือนฉันทีหลัง",
   "perps_alerts__title": "การแจ้งเตือน Perps",
   "perps_back_to_default_layout__action": "รีเซ็ตเป็นเลย์เอาต์เริ่มต้น",

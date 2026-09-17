@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "Sign once, save 4%",
   "perps__claim_now__action": "Claim Now",
   "perps__fee_discount_activated__msg": "Fee discount activated",
+  "perps__referral_already_bound__msg": "This account already has a referral code. No need to claim again.",
   "perps__snooze_remind_later__action": "Not now, remind me later",
   "perps_alerts__title": "Perps alerts",
   "perps_back_to_default_layout__action": "Reset to default layout",

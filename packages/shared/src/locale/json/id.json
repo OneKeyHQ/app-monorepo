@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "Tanda tangan sekali, hemat 4%",
   "perps__claim_now__action": "Klaim sekarang",
   "perps__fee_discount_activated__msg": "Diskon biaya diaktifkan",
+  "perps__referral_already_bound__msg": "Akun ini sudah terhubung dengan kode referral. Tidak perlu mengklaim lagi.",
   "perps__snooze_remind_later__action": "Nanti saja, ingatkan lagi nanti",
   "perps_alerts__title": "Peringatan Perps",
   "perps_back_to_default_layout__action": "Atur ulang ke tata letak default",

@@ -3670,6 +3670,7 @@ export enum ETranslations {
   perps__claim_fee_discount_short__desc = 'perps__claim_fee_discount_short__desc',
   perps__claim_now__action = 'perps__claim_now__action',
   perps__fee_discount_activated__msg = 'perps__fee_discount_activated__msg',
+  perps__referral_already_bound__msg = 'perps__referral_already_bound__msg',
   perps__snooze_remind_later__action = 'perps__snooze_remind_later__action',
   perps_alerts__title = 'perps_alerts__title',
   perps_back_to_default_layout__action = 'perps_back_to_default_layout__action',

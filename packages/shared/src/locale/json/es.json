@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "Firma una vez, ahorra 4%",
   "perps__claim_now__action": "Reclamar ahora",
   "perps__fee_discount_activated__msg": "Descuento de comisión activado",
+  "perps__referral_already_bound__msg": "Esta cuenta ya tiene un código de referido vinculado. No es necesario volver a reclamar.",
   "perps__snooze_remind_later__action": "Ahora no, recuérdame más tarde",
   "perps_alerts__title": "Alertas de Perps",
   "perps_back_to_default_layout__action": "Restablecer el diseño predeterminado",

@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "Підпишіть раз, знижка 4%",
   "perps__claim_now__action": "Отримати зараз",
   "perps__fee_discount_activated__msg": "Знижку на комісію активовано",
+  "perps__referral_already_bound__msg": "До цього облікового запису вже прив’язано реферальний код. Повторне отримання не потрібне.",
   "perps__snooze_remind_later__action": "Не зараз, нагадати пізніше",
   "perps_alerts__title": "Сповіщення про перпи",
   "perps_back_to_default_layout__action": "Скинути до макета за замовчуванням",

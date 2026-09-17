@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "Einmal unterschreiben, 4% sparen",
   "perps__claim_now__action": "Jetzt beanspruchen",
   "perps__fee_discount_activated__msg": "Gebührenrabatt aktiviert",
+  "perps__referral_already_bound__msg": "Dieses Konto ist bereits mit einem Empfehlungscode verknüpft. Eine erneute Beanspruchung ist nicht erforderlich.",
   "perps__snooze_remind_later__action": "Nicht jetzt, später erinnern",
   "perps_alerts__title": "Perps-Warnungen",
   "perps_back_to_default_layout__action": "Auf Standardlayout zurücksetzen",

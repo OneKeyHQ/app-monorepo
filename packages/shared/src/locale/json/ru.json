@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "Подпишите раз, скидка 4%",
   "perps__claim_now__action": "Получить сейчас",
   "perps__fee_discount_activated__msg": "Скидка на комиссию активирована",
+  "perps__referral_already_bound__msg": "К этому аккаунту уже привязан реферальный код. Повторное получение не требуется.",
   "perps__snooze_remind_later__action": "Не сейчас, напомнить позже",
   "perps_alerts__title": "Оповещения о Perps",
   "perps_back_to_default_layout__action": "Сбросить макет по умолчанию",

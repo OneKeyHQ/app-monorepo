@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "서명 한 번, 4% 할인",
   "perps__claim_now__action": "지금 받기",
   "perps__fee_discount_activated__msg": "수수료 할인이 적용되었습니다",
+  "perps__referral_already_bound__msg": "이 계정에는 이미 추천 코드가 연결되어 있습니다. 다시 받을 필요가 없습니다.",
   "perps__snooze_remind_later__action": "지금은 괜찮아요, 나중에 다시 알려주세요",
   "perps_alerts__title": "Perps 알림",
   "perps_back_to_default_layout__action": "기본 레이아웃으로 재설정",

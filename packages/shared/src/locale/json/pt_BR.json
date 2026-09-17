@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "Assine uma vez, economize 4%",
   "perps__claim_now__action": "Reivindicar agora",
   "perps__fee_discount_activated__msg": "Desconto de taxa ativado",
+  "perps__referral_already_bound__msg": "Esta conta já tem um código de indicação vinculado. Não é necessário resgatar novamente.",
   "perps__snooze_remind_later__action": "Agora não, me lembre depois",
   "perps_alerts__title": "Alertas de Perps",
   "perps_back_to_default_layout__action": "Redefinir para o layout padrão",

@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "Ký một lần, giảm 4%",
   "perps__claim_now__action": "Nhận ngay",
   "perps__fee_discount_activated__msg": "Đã kích hoạt giảm phí",
+  "perps__referral_already_bound__msg": "Tài khoản này đã liên kết với mã giới thiệu. Không cần nhận lại.",
   "perps__snooze_remind_later__action": "Không phải bây giờ, nhắc tôi sau",
   "perps_alerts__title": "Cảnh báo Perps",
   "perps_back_to_default_layout__action": "Đặt lại về bố cục mặc định",

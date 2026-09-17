@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "免费签名，立享 4% 折扣",
   "perps__claim_now__action": "立即领取",
   "perps__fee_discount_activated__msg": "手续费优惠已生效",
+  "perps__referral_already_bound__msg": "该账户已绑定邀请码，无需重复领取。",
   "perps__snooze_remind_later__action": "暂不需要，下次再提醒我",
   "perps_alerts__title": "永续合约提醒",
   "perps_back_to_default_layout__action": "重置为默认布局",

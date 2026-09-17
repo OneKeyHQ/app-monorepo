@@ -3665,6 +3665,7 @@
   "perps__claim_fee_discount_short__desc": "免費簽名，立享 4% 折扣",
   "perps__claim_now__action": "立即領取",
   "perps__fee_discount_activated__msg": "手續費優惠已生效",
+  "perps__referral_already_bound__msg": "此帳戶已綁定邀請碼，無需重複領取。",
   "perps__snooze_remind_later__action": "暫不需要，下次再提醒我",
   "perps_alerts__title": "永續合約提醒",
   "perps_back_to_default_layout__action": "重設為預設佈局",
