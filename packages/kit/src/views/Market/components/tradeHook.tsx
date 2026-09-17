@@ -37,6 +37,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnNavigation } from '../../Earn/earnUtils';
+import { tryOpenHeadlessBuy } from '../../FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { getLegacyMarketPrimaryNetwork } from '../utils/legacyMarketNetwork';
 
 export const useMarketTradeNetwork = (
@@ -142,6 +143,17 @@ export const useMarketTradeActions = (
 
       if (!isSupported) {
         remindUnsupportedToken(type);
+        return;
+      }
+
+      if (
+        type === 'buy' &&
+        (await tryOpenHeadlessBuy({
+          networkId,
+          tokenAddress: realContractAddress,
+          accountId: networkAccount?.id,
+        }))
+      ) {
         return;
       }
 

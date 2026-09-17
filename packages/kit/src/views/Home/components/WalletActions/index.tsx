@@ -20,6 +20,7 @@ import { useTokenListStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/t
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -195,6 +196,15 @@ function WalletActionSend({
                       safeResolve(false);
                       void dialogRef.close();
                       try {
+                        if (
+                          await tryOpenHeadlessBuy({
+                            networkId: network.id,
+                            tokenAddress: '',
+                            accountId: account?.id ?? '',
+                          })
+                        ) {
+                          return;
+                        }
                         const { url } =
                           await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl(
                             {
