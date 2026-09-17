@@ -488,10 +488,30 @@ export function usePromiseResult<T>(
   const isFocusedRefValue = isFocusedRef.current;
   const prevFocusedRef = useRef(isFocusedRefValue);
   const isLoadingRef = useRef(isLoading);
-  const runWithPollingNonce = useCallback(() => {
-    isDepsChangedOnBlur.current = false;
-    void runRef.current({ pollingNonce: pollingNonceRef.current });
-  }, [runRef]);
+  const runWithPollingNonce = useCallback(
+    (scheduleOnIdle = false) => {
+      // An automatic refresh replaces the previous polling chain. Advance
+      // the nonce now so old ticks released on focus cannot run while the
+      // replacement waits for a native idle callback.
+      pollingNonceRef.current += 1;
+      const pollingNonce = pollingNonceRef.current;
+      const callback = () => {
+        if (pollingNonceRef.current !== pollingNonce) {
+          return;
+        }
+        isDepsChangedOnBlur.current = false;
+        void runRef.current({ pollingNonce });
+      };
+      if (scheduleOnIdle) {
+        // If blur cancels this idle callback, the next focus must retry it.
+        isDepsChangedOnBlur.current = true;
+        return requestIdleCallback(callback);
+      }
+      callback();
+      return undefined;
+    },
+    [runRef],
+  );
 
   // Most callers don't need reconnect revalidation. Avoid subscribing them
   // to global network polling updates, which can cause periodic rerenders.
@@ -520,39 +540,28 @@ export function usePromiseResult<T>(
       // On native, defer focus-recovery re-execution until the JS thread is
       // idle so the first render frame after tab switch can paint without
       // being blocked by data fetching across 40+ hooks.
-      const idleHandles: ReturnType<typeof requestIdleCallback>[] = [];
-      const scheduleRun = () => {
-        if (platformEnv.isNative) {
-          idleHandles.push(requestIdleCallback(runWithPollingNonce));
-        } else {
-          runWithPollingNonce();
-        }
-      };
-
-      // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
-      if (
+      let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
+      const shouldRecoverEmptyResult =
         platformEnv.isNative &&
         !isLoadingRef.current &&
         isEmptyResultRef.current &&
-        optionsRef.current.revalidateOnReconnect
-      ) {
-        scheduleRun();
-      }
-
-      if (
+        optionsRef.current.revalidateOnReconnect;
+      const shouldRevalidateOnFocus =
         prevFocusedRef.current === false &&
+        optionsRef.current.revalidateOnFocus;
+      if (
         isFocusedRefValue &&
-        optionsRef.current.revalidateOnFocus
+        (shouldRecoverEmptyResult ||
+          shouldRevalidateOnFocus ||
+          isDepsChangedOnBlur.current)
       ) {
-        scheduleRun();
-      } else if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        scheduleRun();
+        idleHandle = runWithPollingNonce(platformEnv.isNative);
       }
       prevFocusedRef.current = isFocusedRefValue;
 
       return () => {
-        if (platformEnv.isNative) {
-          idleHandles.forEach(cancelIdleCallback);
+        if (idleHandle !== undefined) {
+          cancelIdleCallback(idleHandle);
         }
       };
     }

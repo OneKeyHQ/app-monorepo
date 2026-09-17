@@ -88,6 +88,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 // eslint-disable-next-line import/no-relative-packages
@@ -651,6 +652,223 @@ describe('usePromiseResult', () => {
 
       await tick(POLLING_MS);
       expect(method.mock.calls.length).toBeGreaterThan(callsAfterResume);
+    });
+  });
+
+  describe('polling ownership', () => {
+    const POLLING_MS = 1000;
+    const originalIsNative = platformEnv.isNative;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      focusControl.__resetFocus();
+    });
+
+    afterEach(() => {
+      platformEnv.isNative = originalIsNative;
+      jest.useRealTimers();
+    });
+
+    const tick = async (ms = 0) => {
+      await act(async () => {
+        jest.advanceTimersByTime(ms);
+        for (let i = 0; i < 10; i += 1) {
+          await Promise.resolve();
+        }
+      });
+    };
+
+    const setFocus = async (focused: boolean) => {
+      act(() => focusControl.__setFocus(focused));
+      await tick();
+    };
+
+    it.each([1, 10])(
+      'keeps one polling chain after %i focus recoveries',
+      async (cycles) => {
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [], {
+            pollingInterval: POLLING_MS,
+            revalidateOnFocus: true,
+          }),
+        );
+        await tick();
+
+        for (let i = 0; i < cycles; i += 1) {
+          await setFocus(false);
+          await setFocus(true);
+        }
+
+        const callsAfterFocus = method.mock.calls.length;
+        await tick(POLLING_MS);
+        expect(method).toHaveBeenCalledTimes(callsAfterFocus + 1);
+        await tick(POLLING_MS);
+        expect(method).toHaveBeenCalledTimes(callsAfterFocus + 2);
+      },
+    );
+
+    it('does not release old polling tasks alongside the focus refresh', async () => {
+      const method = jest.fn(async () => 'ok');
+      renderHook(() =>
+        usePromiseResult(method, [], {
+          pollingInterval: POLLING_MS,
+          revalidateOnFocus: true,
+        }),
+      );
+      await tick();
+      await setFocus(false);
+      await tick(POLLING_MS * 2);
+      const callsBeforeFocus = method.mock.calls.length;
+
+      await setFocus(true);
+      expect(method).toHaveBeenCalledTimes(callsBeforeFocus + 1);
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsBeforeFocus + 2);
+    });
+
+    it('keeps one polling chain after repeated network recoveries', async () => {
+      globalNetInfo.state = { isInternetReachable: true };
+      const method = jest.fn(async () => 'ok');
+      renderHook(() =>
+        usePromiseResult(method, [], {
+          pollingInterval: POLLING_MS,
+          revalidateOnReconnect: true,
+        }),
+      );
+      await tick();
+      for (let i = 0; i < 3; i += 1) {
+        act(() => globalNetInfo.updateState({ isInternetReachable: false }));
+        await tick();
+        act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+        await tick();
+      }
+      const callsAfterReconnect = method.mock.calls.length;
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsAfterReconnect + 1);
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsAfterReconnect + 2);
+    });
+
+    it('does not let a replaced in-flight request restart its polling chain', async () => {
+      let resolveFirst: (value: string) => void = () => {};
+      const firstRequest = new Promise<string>((resolve) => {
+        resolveFirst = resolve;
+      });
+      const method = jest
+        .fn(async () => 'new')
+        .mockImplementationOnce(() => firstRequest);
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], {
+          pollingInterval: POLLING_MS,
+          revalidateOnFocus: true,
+        }),
+      );
+      await tick();
+      await setFocus(false);
+      await setFocus(true);
+      await act(async () => resolveFirst('old'));
+      expect(result.current.result).toBe('new');
+      const callsAfterFocus = method.mock.calls.length;
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsAfterFocus + 1);
+    });
+
+    it('preserves one polling chain after a manual refresh', async () => {
+      const method = jest.fn(async () => 'ok');
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], { pollingInterval: POLLING_MS }),
+      );
+      await tick();
+      await act(async () => result.current.run());
+      const callsAfterRefresh = method.mock.calls.length;
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsAfterRefresh + 1);
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsAfterRefresh + 2);
+    });
+
+    it('resumes the existing polling chain when focus revalidation is disabled', async () => {
+      const method = jest.fn(async () => 'ok');
+      renderHook(() =>
+        usePromiseResult(method, [], { pollingInterval: POLLING_MS }),
+      );
+      await tick();
+      await setFocus(false);
+      await tick(POLLING_MS * 2);
+      expect(method).toHaveBeenCalledTimes(1);
+      await setFocus(true);
+      expect(method).toHaveBeenCalledTimes(2);
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(3);
+    });
+
+    it('replaces native polling before releasing deferred tasks or running idle callbacks', async () => {
+      platformEnv.isNative = true;
+      // PopularTrading updates state itself and returns no result. Both
+      // focus and empty-result recovery can therefore request revalidation.
+      const method = jest.fn(async () => undefined);
+      renderHook(() =>
+        usePromiseResult(method, [], {
+          pollingInterval: POLLING_MS,
+          revalidateOnFocus: true,
+          revalidateOnReconnect: true,
+          watchLoading: true,
+        }),
+      );
+      await tick();
+      for (let i = 0; i < 10; i += 1) {
+        await setFocus(false);
+        await setFocus(true);
+      }
+      const callsAfterFocus = method.mock.calls.length;
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsAfterFocus + 1);
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsAfterFocus + 2);
+
+      await setFocus(false);
+      await tick(POLLING_MS * 2);
+      const callsBeforeFocus = method.mock.calls.length;
+      act(() => focusControl.__setFocus(true));
+      await act(async () => {
+        for (let i = 0; i < 10; i += 1) {
+          await Promise.resolve();
+        }
+      });
+      // The old chain must already be invalid before the idle callback runs.
+      expect(method).toHaveBeenCalledTimes(callsBeforeFocus);
+      await tick();
+      expect(method).toHaveBeenCalledTimes(callsBeforeFocus + 1);
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(callsBeforeFocus + 2);
+    });
+
+    it('retries a native recovery canceled by another blur', async () => {
+      platformEnv.isNative = true;
+      const method = jest.fn(async (scope: string) => scope);
+      const { rerender } = renderHook(
+        ({ scope }: { scope: string }) =>
+          usePromiseResult(() => method(scope), [scope], {
+            pollingInterval: POLLING_MS,
+          }),
+        { initialProps: { scope: 'first' } },
+      );
+      await tick();
+      await setFocus(false);
+      rerender({ scope: 'second' });
+      await tick();
+
+      act(() => focusControl.__setFocus(true));
+      act(() => focusControl.__setFocus(false));
+      await tick();
+      expect(method).toHaveBeenCalledTimes(1);
+
+      await setFocus(true);
+      expect(method).toHaveBeenLastCalledWith('second');
+      expect(method).toHaveBeenCalledTimes(2);
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(3);
     });
   });
 
