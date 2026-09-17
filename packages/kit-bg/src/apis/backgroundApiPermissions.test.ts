@@ -9,6 +9,14 @@ describe('backgroundApiPermissions', () => {
     ).toBe(false);
   });
 
+  it('blocks UI writes to the inscription protection control', () => {
+    expect(
+      isBackgroundApiAtomWritable(
+        EAtomNames.inscriptionProtectionControlPersistAtom,
+      ),
+    ).toBe(false);
+  });
+
   it('keeps regular cross-runtime atoms writable', () => {
     expect(isBackgroundApiAtomWritable(EAtomNames.settingsPersistAtom)).toBe(
       true,

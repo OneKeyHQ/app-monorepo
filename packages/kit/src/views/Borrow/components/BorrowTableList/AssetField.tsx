@@ -28,7 +28,14 @@ export const AssetField = ({
         <Token size="md" tokenImageUri={token.logoURI} />
         <YStack ml="$3" flex={1} gap="$0.5">
           <XStack ai="center">
-            <SizableText size="$bodyMdMedium" color="$text">
+            {/* Keep a long symbol inside the asset column instead of letting it
+                run into the right-aligned amount beside it. */}
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+            >
               {token.symbol}
             </SizableText>
             <CollateralBadge canBeCollateral={canBeCollateral} ml="$2" />

@@ -524,6 +524,15 @@ function formatHlSize(size: BigNumber.Value, szDecimals: number): string {
   return out === '0' ? '' : out;
 }
 
+function getValidPerpsPrice(price?: string | null): string | undefined {
+  if (!price) {
+    return undefined;
+  }
+
+  const priceBN = new BigNumber(price);
+  return priceBN.isFinite() && priceBN.gt(0) ? price : undefined;
+}
+
 /**
  * Format a price value into a HyperLiquid wire-safe string.
  *
@@ -664,6 +673,7 @@ function resolveBboOrderPrice({
   type,
   offsetTicks,
   szDecimals,
+  assetType = 'perp',
 }: {
   bid: BigNumber.Value;
   ask: BigNumber.Value;
@@ -671,6 +681,7 @@ function resolveBboOrderPrice({
   type: 'counterparty' | 'queue';
   offsetTicks: 0 | 5;
   szDecimals: number;
+  assetType?: 'perp' | 'spot';
 }): BigNumber | null {
   const useAsk =
     (side === 'long' && type === 'counterparty') ||
@@ -686,7 +697,9 @@ function resolveBboOrderPrice({
   }
 
   for (let index = 0; index < offsetTicks; index += 1) {
-    const nextPrice = getNextHlPrice(price, direction, szDecimals, 'perp');
+    // Spot ticks resolve against MAX_DECIMALS_SPOT (8); reusing the perp rule
+    // (6) makes low-priced spot ticks 100x too coarse.
+    const nextPrice = getNextHlPrice(price, direction, szDecimals, assetType);
     if (!nextPrice) {
       return null;
     }
@@ -1826,6 +1839,34 @@ export interface ITokenSearchAliasItem {
 
 export type ITokenSearchAliases = Record<string, ITokenSearchAliasItem>;
 
+// Every market also carries its pair notations (`btc-usdc`, `btc/usd`) as
+// aliases, so matching those would let a quote currency query pull in every
+// market that settles in it.
+const TOKEN_SEARCH_PAIR_ALIAS_REGEX = /[-/]usdc?$/;
+
+// Mirrors findTokensByAlias for a single market, minus the pair notations.
+export function matchesTokenSearchAlias({
+  query,
+  aliases,
+}: {
+  query: string;
+  aliases: string[] | undefined;
+}): boolean {
+  if (!query || !aliases?.length) {
+    return false;
+  }
+  const shouldMatchAliasPrefix = /^[a-z0-9]{1,2}$/.test(query);
+  return aliases.some((alias) => {
+    const normalizedAlias = alias.toLowerCase();
+    if (TOKEN_SEARCH_PAIR_ALIAS_REGEX.test(normalizedAlias)) {
+      return false;
+    }
+    return shouldMatchAliasPrefix
+      ? normalizedAlias.startsWith(query)
+      : normalizedAlias.includes(query);
+  });
+}
+
 /**
  * Find token symbols by search alias
  * @param query - Search query (already lowercased)
@@ -2197,6 +2238,22 @@ function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
   return `https://uni.onekey-asset.com/static/hyperliquid/${normalizedSymbol}.png`;
 }
 
+// Images are keyed by bare symbol, so `para:STX` (Seagate) would render the
+// Stacks icon. Sub-DEX assets prefer `<prefix><SYMBOL>.png` (no separator keeps
+// the filename URL-safe) and fall back to the bare file.
+function getHyperliquidTokenImageUris(coin: string): string[] {
+  const { displayName, dexLabel } = parseDexCoin(coin);
+  if (!dexLabel) {
+    return [getHyperliquidTokenImageUrl(displayName)];
+  }
+  // No bare fallback: the bare path belongs to the main dex namespace, so for a
+  // symbol listed on both it resolves to a different asset (`STX` is Stacks on
+  // the main dex and Seagate on para). A generic icon beats another asset's.
+  return [
+    `https://uni.onekey-asset.com/static/hyperliquid/${dexLabel}${displayName}.png`,
+  ];
+}
+
 function formatSpotPairDisplayName(
   baseName: string,
   quoteName: string,
@@ -2251,6 +2308,17 @@ function isSpotInstrument(coin?: string | null): boolean {
   return coin.startsWith('@') || coin.includes('/');
 }
 
+/**
+ * Hyperliquid denominates spot-buy fees in the BASE token (`feeToken` e.g.
+ * "MAX"), not USDC. Such a fee amount must never be rendered with a `$` or
+ * netted against the USDC-denominated `closedPnl` — a low-priced token fee of
+ * 12,319 base units is worth cents, not $12,319. A missing `feeToken` is
+ * treated as USDC to keep older cached fills behaving as before.
+ */
+function isUsdcDenominatedFee(feeToken: string | undefined): boolean {
+  return !feeToken || feeToken === 'USDC';
+}
+
 function isPredictionMarketInstrument(coin?: string | null): boolean {
   if (!coin) return false;
   return coin.startsWith('#');
@@ -2296,6 +2364,7 @@ export {
   resolveTradingSize,
   resolveTradingSizeBN,
   getHyperliquidTokenImageUrl,
+  getHyperliquidTokenImageUris,
   mapTriggerOrderType,
   inferTpsl,
   getTriggerEffectivePrice,
@@ -2309,6 +2378,7 @@ export {
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
+  isUsdcDenominatedFee,
   isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
@@ -2324,6 +2394,7 @@ export {
   getHlPriceTick,
   snapHlPriceToGrid,
   resolveBboOrderPrice,
+  getValidPerpsPrice,
 };
 export default {
   formatAssetCtx,
@@ -2357,7 +2428,9 @@ export default {
   resolveTradingSizeBN,
   parseSignatureToRSV,
   getHyperliquidTokenImageUrl,
+  getHyperliquidTokenImageUris,
   findTokensByAlias,
+  matchesTokenSearchAlias,
   getTokenSubtitle,
   mapTriggerOrderType,
   inferTpsl,
@@ -2374,6 +2447,7 @@ export default {
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,
+  isUsdcDenominatedFee,
   isPredictionMarketInstrument,
   getSpotTokenDisplayName,
   formatSpotPairDisplayName,
@@ -2391,4 +2465,5 @@ export default {
   getHlPriceTick,
   snapHlPriceToGrid,
   resolveBboOrderPrice,
+  getValidPerpsPrice,
 };

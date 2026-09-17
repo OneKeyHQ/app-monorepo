@@ -1,5 +1,7 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { isThirdPartyPassphraseAlwaysOnDeviceErrorCode } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { PromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -12,32 +14,70 @@ import type {
 export class HardwareAllNetworkGetAddressResponse {
   uuid = stringUtils.generateUUID();
 
+  private sdkResponseCompleted = false;
+
+  private respondedKeys = new Set<string>();
+
+  private buildMissingResponseError() {
+    return new OneKeyLocalError(
+      'SDK all-network response is missing requested address',
+    );
+  }
+
   onSdkItemCallResponse(item: IHwAllNetworkPrepareAccountsItem) {
+    const key = this.buildItemPromiseTargetKey({
+      path: item.path,
+      hwSdkNetwork: item.network,
+      useTweak: item.useTweak,
+    });
+    this.respondedKeys.add(key);
     const promiseTarget = this.getOrCreateItemPromiseTarget({
       path: item.path,
       hwSdkNetwork: item.network,
       useTweak: item.useTweak,
     });
-    // reject by convertDeviceResponse();
-    if (item.success) {
+    if (
+      item.success ||
+      isThirdPartyPassphraseAlwaysOnDeviceErrorCode(item.payload?.code)
+    ) {
+      // Keep this operation-level failure as response data. Each network
+      // consumer handles it when read; rejecting every pre-created target here
+      // reports unhandled promises before those consumers can await them.
       promiseTarget.resolveTarget(item);
-    } else {
-      const error = convertDeviceError(
-        {
-          code: item.payload?.code,
-          error: item.payload?.error,
-          params: item.payload?.params,
-          // message: item.payload?.message,
-          // errorCode: item.payload?.errorCode,
-          connectId: item.payload?.connectId,
-          deviceId: item.payload?.deviceId,
-        },
-        {
-          // silentMode: true,
-        },
-      );
-      promiseTarget.rejectTarget(error);
+      return;
     }
+    const error = convertDeviceError({
+      code: item.payload?.code,
+      error: item.payload?.error,
+      params: item.payload?.params,
+      connectId: item.payload?.connectId,
+      deviceId: item.payload?.deviceId,
+    });
+    promiseTarget.rejectTarget(error);
+  }
+
+  onSdkResponse({
+    items,
+    completed,
+  }: {
+    items: IHwAllNetworkPrepareAccountsItem[];
+    completed: boolean;
+  }) {
+    for (const item of items) {
+      this.onSdkItemCallResponse(item);
+    }
+    if (completed) {
+      this.completeSdkResponse();
+    }
+  }
+
+  completeSdkResponse() {
+    this.sdkResponseCompleted = true;
+    Object.entries(this.promiseTargets).forEach(([key, target]) => {
+      if (!this.respondedKeys.has(key)) {
+        target.rejectTarget(this.buildMissingResponseError());
+      }
+    });
   }
 
   _rejectAllResponseError: IOneKeyError | undefined = undefined;
@@ -56,6 +96,8 @@ export class HardwareAllNetworkGetAddressResponse {
     this.promiseTargets = {};
     this.bundleLength = 0;
     this._rejectAllResponseError = undefined;
+    this.sdkResponseCompleted = false;
+    this.respondedKeys.clear();
   }
 
   promiseTargets: Record<
@@ -93,6 +135,8 @@ export class HardwareAllNetworkGetAddressResponse {
 
     if (this._rejectAllResponseError) {
       promiseTarget.rejectTarget(this._rejectAllResponseError);
+    } else if (this.sdkResponseCompleted && !this.respondedKeys.has(key)) {
+      promiseTarget.rejectTarget(this.buildMissingResponseError());
     }
 
     return promiseTarget;

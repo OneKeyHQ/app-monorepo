@@ -66,9 +66,14 @@ const TREZOR_BLE_SUPPORTED_MODEL_NAMES = [
   'trezor safe 7',
 ] as const;
 
+function normalizeThirdPartyModelName(model?: string): string {
+  if (!model) return '';
+  return model.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 function isTrezorBleSupportedModel(model?: string): boolean {
-  if (!model) return false;
-  const normalizedModel = model.trim().replace(/\s+/g, ' ').toLowerCase();
+  const normalizedModel = normalizeThirdPartyModelName(model);
+  if (!normalizedModel) return false;
   return (TREZOR_BLE_SUPPORTED_MODEL_NAMES as readonly string[]).includes(
     normalizedModel,
   );
@@ -96,6 +101,50 @@ function getStringField(
 ): string | undefined {
   const value = source?.[field];
   return typeof value === 'string' && value ? value : undefined;
+}
+
+function getBooleanField(
+  source: IThirdPartyFeaturesLike,
+  field: string,
+): boolean | undefined {
+  const value = source?.[field];
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function getNumberField(
+  source: IThirdPartyFeaturesLike,
+  field: string,
+): number | undefined {
+  const value = source?.[field];
+  return typeof value === 'number' ? value : undefined;
+}
+
+function getDeviceId(features: IThirdPartyFeaturesLike): string | undefined {
+  return (
+    getStringField(features, 'device_id') ||
+    getStringField(features, 'deviceId')
+  );
+}
+
+function getDeviceState({ features }: { features: IThirdPartyFeaturesLike }) {
+  const autoLockDelayMs =
+    getNumberField(features, 'auto_lock_delay_ms') ??
+    getNumberField(features, 'autoLockDelayMs');
+  return {
+    autoLockDelayMs,
+    autoShutDownDelayMs:
+      getNumberField(features, 'auto_shutdown_delay_ms') ??
+      getNumberField(features, 'autoShutdownDelayMs') ??
+      autoLockDelayMs,
+    hapticFeedback:
+      getBooleanField(features, 'haptic_feedback') ??
+      getBooleanField(features, 'hapticFeedback'),
+    initialized: getBooleanField(features, 'initialized'),
+    passphraseProtection:
+      getBooleanField(features, 'passphrase_protection') ??
+      getBooleanField(features, 'passphraseProtection'),
+    unlocked: getBooleanField(features, 'unlocked'),
+  };
 }
 
 function getKnownStringField(
@@ -304,8 +353,10 @@ function getSerialNo(features: IThirdPartyFeaturesLike): string | undefined {
 
 export default {
   buildPersistedFeatures,
+  getDeviceId,
   getDeviceModelName,
   getDeviceName,
+  getDeviceState,
   getDeviceVersion,
   getFirmwareType,
   getSerialNo,
@@ -313,4 +364,5 @@ export default {
   isTrezorBleBindingSupportedPlatform,
   isTrezorBleSupportedDevice,
   isTrezorBleSupportedModel,
+  normalizeThirdPartyModelName,
 };

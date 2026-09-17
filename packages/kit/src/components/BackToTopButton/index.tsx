@@ -43,7 +43,7 @@ export function BackToTopButton({
       {...horizontalPosition}
       bottom={bottomOffset}
       zIndex={20}
-      animation={reducedMotion ? undefined : 'quick'}
+      transition={reducedMotion ? undefined : 'quick'}
       opacity={visible ? 1 : 0}
       pointerEvents={visible ? 'auto' : 'none'}
     />

@@ -6,7 +6,6 @@ import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAmountEnterType,
   ESlippageSetting,
@@ -19,12 +18,19 @@ import type {
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
 
+import type { IMarketSelectedDeriveType } from './marketDeriveType';
+
 const {
   Provider: ProviderJotaiContextMarketV2,
   contextAtom,
   contextAtomMethod,
+  useContextData: useMarketV2ContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextMarketV2, contextAtomMethod };
+export {
+  ProviderJotaiContextMarketV2,
+  contextAtomMethod,
+  useMarketV2ContextData,
+};
 
 export const { atom: basicMarketWatchListV2Atom, useContextAtom } =
   contextAtom<IMarketWatchListDataV2>({ data: [] });
@@ -33,6 +39,9 @@ export const {
   atom: marketV2StorageReadyAtom,
   use: useMarketV2StorageReadyAtom,
 } = contextAtom<boolean>(false);
+
+export const { atom: marketWatchListV2RefreshRequestIdAtom } =
+  contextAtom<number>(0);
 
 // Token Detail Atoms
 export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
@@ -44,6 +53,8 @@ export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
 
 export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
   contextAtom<boolean>(false);
+
+export const { atom: tokenDetailRequestIdAtom } = contextAtom<number>(0);
 
 export const {
   atom: tokenDetailWebsocketAtom,
@@ -91,10 +102,9 @@ export const {
   EMPTY_MARKET_TRANSACTIONS_REALTIME_PAUSE_STATE,
 );
 
-// Market Detail selected derive type (local to Market Detail page, not global)
-// Used when user selects a specific derive type in AddressTypeSelector
+// Market Detail selected derive type, scoped to the network where it was selected.
 export const { atom: selectedDeriveTypeAtom, use: useSelectedDeriveTypeAtom } =
-  contextAtom<IAccountDeriveTypes | undefined>(undefined);
+  contextAtom<IMarketSelectedDeriveType | undefined>(undefined);
 
 // Empty string means not initialized yet, will be set by MarketHomeV2
 export const { atom: selectedNetworkIdAtom, use: useSelectedNetworkIdAtom } =

@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   Divider,
@@ -225,9 +226,15 @@ function FeeComparisonContent({
 export function EarnTooltip({
   title,
   tooltip,
+  renderTrigger,
 }: {
   title?: string;
   tooltip?: IEarnTooltip;
+  /**
+   * Replaces the default info icon, for values that carry their own affordance
+   * — dashed-underline text, for instance. Made pressable by the wrapper below.
+   */
+  renderTrigger?: ReactNode;
 }) {
   const { onHistory } = useShareEvents();
   const isTextLikeTooltip = useCallback(
@@ -332,13 +339,17 @@ export function EarnTooltip({
       placement="top"
       title={tooltipTitle}
       renderTrigger={
-        <IconButton
-          testID="staking-icon-btn"
-          iconColor="$iconSubdued"
-          size="small"
-          icon="InfoCircleOutline"
-          variant="tertiary"
-        />
+        renderTrigger ? (
+          <Stack cursor="pointer">{renderTrigger}</Stack>
+        ) : (
+          <IconButton
+            testID="staking-icon-btn"
+            iconColor="$iconSubdued"
+            size="small"
+            icon="InfoCircleOutline"
+            variant="tertiary"
+          />
+        )
       }
       renderContent={<Stack p="$5">{tooltipContent}</Stack>}
     />

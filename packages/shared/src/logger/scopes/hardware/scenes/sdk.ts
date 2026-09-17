@@ -6,6 +6,49 @@ import { LogToConsole, LogToLocal } from '../../../base/decorators';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
+function compactLogPayload(payload: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+}
+
+export function buildHardwareUiEventLogPayload(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+  const event = payload as Record<string, unknown>;
+  const device =
+    event.device && typeof event.device === 'object'
+      ? (event.device as Record<string, unknown>)
+      : undefined;
+  return compactLogPayload({
+    eventType: event.type,
+    deviceType: device?.deviceType,
+    source: event.source,
+    reason: event.reason,
+    deviceOnly: event.deviceOnly,
+    existsAttachPinUser: event.existsAttachPinUser,
+  });
+}
+
+export function buildHardwareUiStateLogPayload(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+  const state = payload as Record<string, unknown>;
+  return compactLogPayload({
+    uiRequestType: state.uiRequestType,
+    eventType: state.eventType,
+    deviceType: state.deviceType,
+    deviceMode: state.deviceMode,
+    isBootloaderMode: state.isBootloaderMode,
+    source: state.source,
+    reason: state.reason,
+    deviceOnly: state.deviceOnly,
+    existsAttachPinUser: state.existsAttachPinUser,
+  });
+}
+
 export class HardwareSDKScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public log(eventName: string, version: number | string = '') {
@@ -25,7 +68,7 @@ export class HardwareSDKScene extends BaseScene {
 
   @LogToConsole()
   public uiEvent(type: string, payload: any) {
-    return [type, devOnlyData(payload)];
+    return [type, devOnlyData(buildHardwareUiEventLogPayload(payload))];
   }
 
   @LogToLocal()
@@ -55,11 +98,20 @@ export class HardwareSDKScene extends BaseScene {
     connectId: string;
     payload: any;
   }) {
-    // filter rawPayload properties
-    const newPayload = {
-      ...payload,
-      rawPayload: undefined,
-    };
-    return [action, connectId, devOnlyData(newPayload)];
+    return [
+      action,
+      connectId,
+      devOnlyData(buildHardwareUiStateLogPayload(payload)),
+    ];
+  }
+
+  /**
+   * App-side hardware event evidence (device state receipt/persistence,
+   * settings read-backs, UI event application). Structured payloads, low
+   * frequency (hardware operations only).
+   */
+  @LogToLocal({ level: 'info' })
+  public serviceEvent(name: string, payload?: unknown) {
+    return [name, payload];
   }
 }

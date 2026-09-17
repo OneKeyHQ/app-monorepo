@@ -71,6 +71,12 @@ export function isPrintableASCII(buffer: Buffer): boolean {
   );
 }
 
+export const PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH = 14;
+
+export function isPrintableASCIIString(value: string): boolean {
+  return Boolean(value) && isPrintableASCII(Buffer.from(value, 'utf8'));
+}
+
 export function isUTF8(buf: Buffer): boolean {
   if (!buf) return false;
 
@@ -326,6 +332,7 @@ export default {
   equalsIgnoreCase,
   capitalizeWords,
   isPrintableASCII,
+  isPrintableASCIIString,
   isUTF8,
   decodeJWT,
   stripLineBreaks,

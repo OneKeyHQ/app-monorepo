@@ -11,6 +11,11 @@ export type IWalletAssetStatusAnalyticsState = {
   lastSnapshotReportedAt?: number;
 };
 
+export type IHardwareConnectProtocolCacheEntry = {
+  protocol: 'V1' | 'V2';
+  updatedAt: number;
+};
+
 export interface ISimpleDBAppStatus {
   // hdWalletHashGenerated?: boolean;
   // hdWalletXfpGenerated?: boolean;
@@ -29,8 +34,17 @@ export interface ISimpleDBAppStatus {
   fixHardwareLtcXPubMigrated?: boolean;
   btcFreshAddressSettingMigrated?: boolean;
   removeDeviceHomeScreenMigrated?: boolean;
+  /** One-time flip of button-device PIN entry to the on-device default (OK-61489). */
+  classicPinInputDefaultMigrated?: boolean;
+  /** Version of the one-time connect protocol backfill for existing devices. */
+  hardwareConnectProtocolMigrationVersion?: number;
   lastWalletProfileAnalyticsAt?: number;
   walletAssetStatusAnalytics?: IWalletAssetStatusAnalyticsState;
+  /** Confirmed protocols keyed by normalized transport endpoint. */
+  hardwareConnectProtocolByConnectId?: Record<
+    string,
+    IHardwareConnectProtocolCacheEntry
+  >;
   // OneKey IDs (onekeyUserId) that have already seen the KYT intro dialog.
   // Scoped per Prime user so each account is prompted once.
   kytIntroShownUserIds?: string[];

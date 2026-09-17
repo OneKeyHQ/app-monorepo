@@ -36,6 +36,7 @@ import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrder
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
 import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
+import type { SimpleDbEntityHardwarePortfolioSync } from '../entity/SimpleDbEntityHardwarePortfolioSync';
 import type { SimpleDbEntityIpTable } from '../entity/SimpleDbEntityIpTable';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
@@ -51,6 +52,7 @@ import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntit
 import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
+import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import type { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
@@ -236,6 +238,10 @@ export class SimpleDbProxy
     'babylonSync',
   ) as SimpleDbEntityBabylonSync;
 
+  hardwarePortfolioSync = this._createProxyService(
+    'hardwarePortfolioSync',
+  ) as SimpleDbEntityHardwarePortfolioSync;
+
   appStatus = this._createProxyService('appStatus') as SimpleDbEntityAppStatus;
 
   allNetworks = this._createProxyService(
@@ -266,6 +272,10 @@ export class SimpleDbProxy
     'recentRecipients',
   ) as SimpleDb['recentRecipients'];
 
+  transferRecipientsCache = this._createProxyService(
+    'transferRecipientsCache',
+  ) as SimpleDb['transferRecipientsCache'];
+
   riskTokenManagement = this._createProxyService(
     'riskTokenManagement',
   ) as SimpleDbEntityRiskTokenManagement;
@@ -289,6 +299,10 @@ export class SimpleDbProxy
   chainResource = this._createProxyService(
     'chainResource',
   ) as SimpleDbEntityChainResource;
+
+  receiveArrivalConfig = this._createProxyService(
+    'receiveArrivalConfig',
+  ) as SimpleDbEntityReceiveArrivalConfig;
 
   btcFreshAddress = this._createProxyService(
     'btcFreshAddress',

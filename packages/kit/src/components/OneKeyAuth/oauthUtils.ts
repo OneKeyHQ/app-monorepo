@@ -1,4 +1,6 @@
 import { ONEKEY_OAUTH_STATE_KEY } from '@onekeyhq/shared/src/consts/authConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 /**
  * Ensures that the redirectTo URL contains ONEKEY_OAUTH_STATE_KEY parameter.
@@ -36,7 +38,12 @@ export function ensureOneKeyOAuthState(
       }
     }
     return redirectTo;
-  } catch {
+  } catch (error) {
+    defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
+      reason: `OneKey OAuth redirect URL parsing failed: ${getSanitizedErrorLogText(
+        error,
+      )}`,
+    });
     // If URL parsing fails, return original URL
     return redirectTo;
   }

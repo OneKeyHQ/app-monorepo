@@ -1,7 +1,40 @@
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+
 import {
-  getSwapTokenSearchResults,
+  buildServerAuthoritativeSearchResults,
+  isSwapSupportAllAccountsRequestCurrent,
   releaseSwapTokenListFetchEffectKey,
 } from './useSwapTokens.utils';
+
+describe('isSwapSupportAllAccountsRequestCurrent', () => {
+  it('accepts the active request from the current cache generation', () => {
+    expect(
+      isSwapSupportAllAccountsRequestCurrent({
+        isCancelled: false,
+        requestGeneration: 2,
+        currentGeneration: 2,
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects cancelled and stale-generation requests', () => {
+    expect(
+      isSwapSupportAllAccountsRequestCurrent({
+        isCancelled: true,
+        requestGeneration: 2,
+        currentGeneration: 2,
+      }),
+    ).toBe(false);
+    expect(
+      isSwapSupportAllAccountsRequestCurrent({
+        isCancelled: false,
+        requestGeneration: 1,
+        currentGeneration: 2,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('releaseSwapTokenListFetchEffectKey', () => {
   it('releases the active key so a cancelled request can restart', () => {
@@ -23,54 +56,37 @@ describe('releaseSwapTokenListFetchEffectKey', () => {
   });
 });
 
-describe('getSwapTokenSearchResults', () => {
-  it('uses matching local results while the remote search is pending', () => {
+describe('buildServerAuthoritativeSearchResults', () => {
+  it('keeps server-only alias matches while preserving local highlights', () => {
+    const symbolMatchedToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xnvda',
+      symbol: 'NVDA',
+      decimals: 18,
+    } satisfies ISwapToken;
+    const aliasMatchedToken = {
+      networkId: 'evm--56',
+      contractAddress: '0xaapl',
+      symbol: 'AAPLx',
+      decimals: 18,
+      subtitles: ['Apple', '苹果'],
+    } satisfies ISwapToken;
+    const matches: NonNullable<IFuseResult<ISwapToken>['matches']> = [
+      { indices: [[0, 3]], key: 'symbol', value: 'NVDA' },
+    ];
+
     expect(
-      getSwapTokenSearchResults({
-        isTokenListFetchSettled: false,
-        remoteTokens: [],
-        searchLocalTokens: () => ['local-match'],
-        useLocalSearchFallback: true,
-      }),
-    ).toEqual(['local-match']);
+      buildServerAuthoritativeSearchResults(
+        [symbolMatchedToken, aliasMatchedToken],
+        new Map([[symbolMatchedToken, matches]]),
+      ),
+    ).toEqual([
+      { item: symbolMatchedToken, refIndex: 0, matches },
+      { item: aliasMatchedToken, refIndex: 1 },
+    ]);
   });
 
-  it('keeps the list empty when neither local nor remote search matches', () => {
-    expect(
-      getSwapTokenSearchResults({
-        isTokenListFetchSettled: false,
-        remoteTokens: [],
-        searchLocalTokens: () => [],
-        useLocalSearchFallback: true,
-      }),
-    ).toEqual([]);
-  });
-
-  it('uses remote results without evaluating the local fallback', () => {
-    const searchLocalTokens = jest.fn(() => ['local-match']);
-
-    expect(
-      getSwapTokenSearchResults({
-        isTokenListFetchSettled: false,
-        remoteTokens: ['remote-match'],
-        searchLocalTokens,
-        useLocalSearchFallback: true,
-      }),
-    ).toEqual(['remote-match']);
-    expect(searchLocalTokens).not.toHaveBeenCalled();
-  });
-
-  it('keeps an authoritative empty remote result after the request settles', () => {
-    const searchLocalTokens = jest.fn(() => ['stale-local-match']);
-
-    expect(
-      getSwapTokenSearchResults({
-        isTokenListFetchSettled: true,
-        remoteTokens: [],
-        searchLocalTokens,
-        useLocalSearchFallback: true,
-      }),
-    ).toEqual([]);
-    expect(searchLocalTokens).not.toHaveBeenCalled();
+  it('returns an empty list for empty server results', () => {
+    expect(buildServerAuthoritativeSearchResults([])).toEqual([]);
   });
 });

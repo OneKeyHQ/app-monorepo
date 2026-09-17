@@ -1,11 +1,31 @@
 /* cspell:ignore Infini */
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import type { IPrimeGiftVerifyV2Result } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+
 import type {
   IKeylessOAuthSessionPersistenceJournal,
   IKeylessOAuthSessionPersistenceJournalPreparation,
   SimpleDbEntityPrime,
 } from '../../dbs/simple/entity/SimpleDbEntityPrime';
+import type { IPrimeGiftEligibilityCache } from '../../states/jotai/atoms/prime';
+
+let mockGiftEligibilityCache: IPrimeGiftEligibilityCache = {};
+const mockPrimeGiftEligibilityPersistAtom = {
+  set: jest.fn(
+    async (
+      update: (
+        cached: IPrimeGiftEligibilityCache,
+      ) => IPrimeGiftEligibilityCache,
+    ) => {
+      mockGiftEligibilityCache = update(mockGiftEligibilityCache);
+    },
+  ),
+};
 
 const mockPrimePersistAtom = {
   get: jest.fn(async () => ({})),
@@ -21,6 +41,11 @@ const mockPrimeLoginDialogAtom = {
 };
 const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockOneKeyIdAuthStateMigrationLog = jest.fn();
+const mockOneKeyIdAuthStateRepairLog = jest.fn();
+const mockOneKeyIdLoginFailedReasonLog = jest.fn();
+const mockPrimeCryptoPaymentFlowLog = jest.fn();
+const mockHardwareSdkServiceEvent = jest.fn();
+const mockToastIfErrorMethods = new Set<string>();
 
 const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
 
@@ -51,13 +76,28 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   },
   toastIfError:
     () =>
-    (_target: unknown, _propertyKey: string, descriptor: PropertyDescriptor) =>
-      descriptor,
+    (_target: unknown, propertyKey: string, descriptor: PropertyDescriptor) => {
+      mockToastIfErrorMethods.add(propertyKey);
+      return descriptor;
+    },
 }));
 
 jest.mock('@onekeyhq/core/src/secret', () => ({
   ensureSensitiveTextEncoded: jest.fn(),
 }));
+
+jest.mock(
+  '@onekeyhq/shared/src/storage/instance/secureStorageInstance',
+  () => ({
+    __esModule: true,
+    default: {
+      supportSecureStorage: jest.fn(async () => false),
+      setSecureItem: jest.fn(async () => undefined),
+      getSecureItem: jest.fn(async () => 'TEST_CODE'),
+      removeSecureItem: jest.fn(async () => undefined),
+    },
+  }),
+);
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   function createLoggerProxy(path: string[] = []): any {
@@ -65,11 +105,23 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
       get: (_target, property: string | symbol) => {
         const nextPath = [...path, String(property)];
         const loggerMethod = nextPath.join('.');
+        if (loggerMethod === 'prime.subscription.primeCryptoPaymentFlow') {
+          return mockPrimeCryptoPaymentFlowLog;
+        }
         if (loggerMethod === 'prime.subscription.onekeyIdRemoteLogoutFlow') {
           return mockOneKeyIdRemoteLogoutFlowLog;
         }
         if (loggerMethod === 'prime.subscription.onekeyIdAuthStateMigration') {
           return mockOneKeyIdAuthStateMigrationLog;
+        }
+        if (loggerMethod === 'prime.subscription.onekeyIdAuthStateRepair') {
+          return mockOneKeyIdAuthStateRepairLog;
+        }
+        if (loggerMethod === 'prime.subscription.onekeyIdLoginFailedReason') {
+          return mockOneKeyIdLoginFailedReasonLog;
+        }
+        if (loggerMethod === 'hardware.sdkLog.serviceEvent') {
+          return mockHardwareSdkServiceEvent;
         }
         return createLoggerProxy(nextPath);
       },
@@ -83,13 +135,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
     intl: {
-      formatMessage: jest.fn(() => ''),
+      formatMessage: jest.fn(({ id }: { id: string }) => id),
     },
     onLocaleChange: jest.fn(),
   },
 }));
 
 jest.mock('../../states/jotai/atoms/prime', () => ({
+  primeGiftEligibilityPersistAtom: mockPrimeGiftEligibilityPersistAtom,
   primePersistAtom: mockPrimePersistAtom,
   primePersistAtomInitialValue: { isLoggedIn: false },
   primeServerMasterPasswordStatusAtom: mockPrimeServerMasterPasswordStatusAtom,
@@ -170,6 +223,12 @@ const mockReadPersistedAccessTokenBySessionSourceStrict = jest.fn(
     accessToken: 'persisted-access-token',
   }),
 );
+const mockGetAuthTokenBySessionSource = jest.fn(async (source: unknown) => {
+  const slot = (await mockReadPersistedAccessTokenBySessionSourceStrict(
+    source,
+  )) as { status: 'ok'; accessToken: string } | { status: 'empty' | 'corrupt' };
+  return slot.status === 'ok' ? slot.accessToken : '';
+});
 const mockRevokeAuthSessionTokenOnServerBestEffort = jest.fn(
   async (_params: unknown) => undefined,
 );
@@ -194,6 +253,8 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
 jest.mock('./primeAuthSessionAccess', () => ({
   allowAuthSessionStorageWritesBySessionSource: jest.fn(),
   clearAllSupabaseAuthSessions: () => mockClearAllSupabaseAuthSessions(),
+  getAuthTokenBySessionSource: (source: unknown) =>
+    mockGetAuthTokenBySessionSource(source),
   getSupabaseClientBySessionSource: async () => ({
     auth: {
       verifyOtp: mockVerifyEmailOtp,
@@ -236,6 +297,8 @@ jest.mock('./primeAuthSessionAccess', () => ({
   clearSupabaseStorageLocalCache: jest.fn(),
 }));
 
+const { HardwareErrorCode } = require('@onekeyfe/hd-shared');
+
 const {
   EOAuthSocialLoginProvider,
 } = require('@onekeyhq/shared/src/consts/authConsts');
@@ -243,18 +306,37 @@ const {
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
+  OneKeyServerApiError,
+  PinCancelled,
+  UserCancel,
+  UserCancelFromOutside,
 } = require('@onekeyhq/shared/src/errors');
 const {
   EOneKeyErrorClassNames,
 } = require('@onekeyhq/shared/src/errors/types/errorTypes');
 const {
+  convertDeviceError,
+  convertDeviceResponse,
+} = require('@onekeyhq/shared/src/errors/utils/deviceErrorUtils');
+const errorToastUtils =
+  require('@onekeyhq/shared/src/errors/utils/errorToastUtils').default;
+const {
+  toPlainErrorObject,
+} = require('@onekeyhq/shared/src/errors/utils/errorUtils');
+const {
   EAppEventBusNames,
   appEventBus,
 } = require('@onekeyhq/shared/src/eventBus/appEventBus');
 const {
+  ETranslations,
+} = require('@onekeyhq/shared/src/locale/enum/translations');
+const {
   stashRequestAuthTokenOfError,
   takeRequestAuthTokenOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
+const {
+  getPrimeGiftVerifyFailureLogPayload,
+} = require('@onekeyhq/shared/src/utils/primeGiftVerifyError');
 const stringUtils = require('@onekeyhq/shared/src/utils/stringUtils').default;
 const {
   EPrimeAuthSessionSource,
@@ -267,6 +349,7 @@ const {
   getActiveIdentityLifecycleOperationId,
   identityLifecycleMutex,
   isIdentityRecoveryReady,
+  markIdentityRecoveryReady,
   resetIdentityRecoveryStateForTest,
 } = require('../ServiceIdentityExit/identityLifecycleMutex');
 
@@ -276,6 +359,7 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
+    recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
       async () => undefined as string | undefined,
@@ -321,6 +405,7 @@ function createService() {
     bumpIdentityLifecycleRevision: jest.fn(async () => 1),
     clearCachedAuthToken: jest.fn(async () => undefined),
     clearAuthTokens: jest.fn(async () => undefined),
+    markOneKeyIdLoggedOutPreservingSessions: jest.fn(async () => undefined),
     clearAuthSessionCommitIdIfMatches: jest.fn(async () => true),
     clearKeylessSessionCommitIdIfMatches: jest.fn(async () => true),
     clearKeylessAuthSession: jest.fn(async () => undefined),
@@ -329,7 +414,20 @@ function createService() {
     isAllIdentityAuthMetadataCleared: jest.fn(async () => false),
     clearAllIdentityAuthMetadataAndBumpRevision: jest.fn(async () => 1),
     hasShownOneKeyIdOAuthBindPrompt: jest.fn(async () => false),
+    getOneKeyIdOAuthBindPromptUpgradeState: jest.fn(async () => ({
+      hasShown: false,
+      credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 0,
+    })),
+    markOneKeyIdKeylessCredentialUpgradeCompleted: jest.fn(async () => true),
     markOneKeyIdOAuthBindPromptShown: jest.fn(async () => undefined),
+    tryClaimOneKeyIdOAuthBindPrompt: jest.fn(async () => true),
+    completeOneKeyIdOAuthBindPromptClaim: jest.fn(async () => true),
+    releaseOneKeyIdOAuthBindPromptClaim: jest.fn(async () => true),
+    isIdentityLinkDue: jest.fn(async () => false),
+    recordIdentityLinkReported: jest.fn(async () => undefined),
+    isPrimeProfileDue: jest.fn(async () => false),
+    recordPrimeProfileReported: jest.fn(async () => undefined),
   };
   const backgroundApi: any = {
     simpleDb: {
@@ -353,6 +451,11 @@ function createService() {
     },
     serviceKeylessWallet: {
       cleanupLocalKeylessOAuthTokens: jest.fn(async () => undefined),
+      cleanupKeylessWalletCredentialStorage: jest.fn(async () => undefined),
+      ensureKeylessCredentialReadyForOneKeyIdBind: jest.fn(async () => ({
+        status: 'noLocalKeyless' as const,
+        hasLocalKeylessWallet: false as const,
+      })),
       validateTokenMatchesKeylessWallet: jest.fn(async () => ({
         isValid: true,
       })),
@@ -377,6 +480,56 @@ function createService() {
   return { service, backgroundApi, simpleDbPrime };
 }
 
+function setupV650LoggedOutProjectionWithStaleLegacySession(
+  simpleDbPrime: ReturnType<typeof createService>['simpleDbPrime'],
+) {
+  let authSessionSource:
+    | typeof EPrimeAuthSessionSource.LegacyEmailSupabase
+    | undefined;
+  let oneKeyIdAuthState: 'loggedIn' | 'loggedOut' | undefined;
+  let identityLifecycleRevision = 0;
+  let didRestoreLegacySession = false;
+  mockPrimePersistAtom.get.mockResolvedValue({
+    isLoggedIn: false,
+    isLoggedInOnServer: false,
+    onekeyUserId: undefined,
+  });
+  simpleDbPrime.getAuthSessionSource.mockImplementation(
+    async () => authSessionSource,
+  );
+  simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(async () => {
+    if (oneKeyIdAuthState === 'loggedOut') {
+      return undefined;
+    }
+    didRestoreLegacySession = true;
+    authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
+    oneKeyIdAuthState = 'loggedIn';
+    return authSessionSource;
+  });
+  simpleDbPrime.getOneKeyIdAuthState.mockImplementation(
+    async () => oneKeyIdAuthState,
+  );
+  simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+  simpleDbPrime.getIdentityLifecycleRevision.mockImplementation(
+    async () => identityLifecycleRevision,
+  );
+  simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions.mockImplementation(
+    async () => {
+      authSessionSource = undefined;
+      oneKeyIdAuthState = 'loggedOut';
+    },
+  );
+  simpleDbPrime.bumpIdentityLifecycleRevision.mockImplementation(async () => {
+    identityLifecycleRevision += 1;
+    return identityLifecycleRevision;
+  });
+  return {
+    getAuthSessionSource: () => authSessionSource,
+    getOneKeyIdAuthState: () => oneKeyIdAuthState,
+    didRestoreLegacySession: () => didRestoreLegacySession,
+  };
+}
+
 function createDeferred<T = void>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -388,6 +541,229 @@ function createDeferred<T = void>() {
 }
 
 describe('ServicePrime.apiFetchPrimeUserInfo', () => {
+  it('refreshes an expired legacy access token through the SDK before profile recovery', async () => {
+    jest.clearAllMocks();
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const expiredAccessToken = buildFakeJwt({
+      sub: 'legacy-auth-user-a',
+      exp: 1,
+    });
+    const refreshedAccessToken = buildFakeJwt({
+      sub: 'legacy-auth-user-a',
+      exp: 4_102_444_800,
+    });
+    const onekeyAccount = {
+      onekeyUserId: 'onekey-user-a',
+      status: EOneKeyIdAccountStatus.Active,
+      identities: [
+        {
+          identityType: EOneKeyIdIdentityType.LegacyEmail,
+          legacyEmail: 'user-a@example.com',
+        },
+      ],
+    };
+    let authSessionSource:
+      | typeof EPrimeAuthSessionSource.LegacyEmailSupabase
+      | undefined;
+    let oneKeyIdAuthState: 'loggedIn' | 'loggedOut' | undefined;
+    const userInfo = {
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    };
+    backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
+      id: 'hd-keyless-a',
+    });
+    simpleDbPrime.getKeylessSupabaseAuthToken.mockResolvedValue(
+      buildFakeJwt({ sub: 'keyless-auth-user-a' }),
+    );
+    simpleDbPrime.getAuthSessionSource.mockImplementation(
+      async () => authSessionSource,
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(
+      async () => authSessionSource,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockImplementation(
+      async () => oneKeyIdAuthState,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(0);
+    simpleDbPrime.getActiveAuthToken.mockImplementation(async () =>
+      authSessionSource === EPrimeAuthSessionSource.LegacyEmailSupabase
+        ? refreshedAccessToken
+        : '',
+    );
+    simpleDbPrime.setAuthSessionSourceWithCommitId.mockImplementation(
+      async (...args: unknown[]) => {
+        const [{ authSessionSource: nextAuthSessionSource }] = args as [
+          {
+            authSessionSource: typeof EPrimeAuthSessionSource.LegacyEmailSupabase;
+          },
+        ];
+        authSessionSource = nextAuthSessionSource;
+        oneKeyIdAuthState = 'loggedIn';
+      },
+    );
+    mockReadPersistedAccessTokenBySessionSourceStrict
+      .mockResolvedValueOnce({
+        status: 'ok',
+        accessToken: expiredAccessToken,
+      })
+      .mockResolvedValue({
+        status: 'ok',
+        accessToken: refreshedAccessToken,
+      });
+    mockGetAuthTokenBySessionSource.mockResolvedValueOnce(refreshedAccessToken);
+    mockPrimePersistAtom.get.mockImplementation(async () => userInfo);
+    const serverUserInfo = {
+      userId: 'onekey-user-a',
+      onekeyAccount,
+    };
+    const get = jest.fn(async (_url: string, config: unknown) => {
+      const requestToken = (
+        config as { headers?: { 'X-Onekey-Request-Token'?: string } }
+      ).headers?.['X-Onekey-Request-Token'];
+      if (requestToken !== refreshedAccessToken) {
+        throw new OneKeyErrorPrimeLoginInvalidToken({
+          message: 'expired access token',
+          code: 90_002,
+        });
+      }
+      return {
+        status: 200,
+        data: { code: 0, data: serverUserInfo },
+      };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.apiFetchPrimeUserInfo({ forceRefresh: true }),
+    ).resolves.toMatchObject({
+      userInfo: {
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        onekeyUserId: 'onekey-user-a',
+      },
+      serverUserInfo: {
+        userId: 'onekey-user-a',
+      },
+    });
+
+    expect(mockGetAuthTokenBySessionSource).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    expect(get).toHaveBeenCalledWith(
+      '/prime/v1/account/profile',
+      expect.objectContaining({
+        headers: { 'X-Onekey-Request-Token': refreshedAccessToken },
+      }),
+    );
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    expect(simpleDbPrime.getKeylessSupabaseAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('treats a logged-out tombstone as authoritative instead of recovering a legacy session', async () => {
+    jest.clearAllMocks();
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const legacyAccessToken = buildFakeJwt({ sub: 'legacy-auth-user-a' });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedOut');
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: legacyAccessToken,
+    });
+    const get = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'test' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(mockGetAuthTokenBySessionSource).not.toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    expect(mockPrimePersistAtom.set).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it('does not clear a new login that commits after the tombstone probe', async () => {
+    jest.clearAllMocks();
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const authState: {
+      authSessionSource?: typeof EPrimeAuthSessionSource.LegacyEmailSupabase;
+      oneKeyIdAuthState: 'loggedIn' | 'loggedOut';
+    } = { oneKeyIdAuthState: 'loggedOut' };
+    const initialProbeCompleted = createDeferred();
+    let initialProbeReadCount = 0;
+    const markInitialProbeRead = () => {
+      initialProbeReadCount += 1;
+      if (initialProbeReadCount === 2) {
+        initialProbeCompleted.resolve();
+      }
+    };
+    simpleDbPrime.getAuthSessionSource.mockImplementation(async () => {
+      markInitialProbeRead();
+      return authState.authSessionSource;
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(
+      async () => authState.authSessionSource,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockImplementation(async () => {
+      markInitialProbeRead();
+      return authState.oneKeyIdAuthState;
+    });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'new-onekey-user',
+    });
+    backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession.mockResolvedValue(
+      { cleared: false },
+    );
+
+    const authCommitEntered = createDeferred();
+    const releaseAuthCommit = createDeferred();
+    const activeLoginCommit = (
+      service as unknown as {
+        authStateWriteMutex: {
+          runExclusive: (callback: () => Promise<void>) => Promise<void>;
+        };
+      }
+    ).authStateWriteMutex.runExclusive(async () => {
+      authCommitEntered.resolve();
+      await releaseAuthCommit.promise;
+    });
+    await authCommitEntered.promise;
+
+    const clearResult = service.clearOneKeyIdAuthStateIfNoActiveToken({
+      callerName: 'test',
+    });
+    await initialProbeCompleted.promise;
+    authState.authSessionSource = EPrimeAuthSessionSource.LegacyEmailSupabase;
+    authState.oneKeyIdAuthState = 'loggedIn';
+    releaseAuthCommit.resolve();
+    await activeLoginCommit;
+
+    await expect(clearResult).resolves.toEqual({ cleared: false });
+    expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
+  });
+
   it('bypasses the short-TTL cache when fresh server truth is required', async () => {
     const { service } = createService();
     const fetchWithCache = Object.assign(
@@ -488,6 +864,39 @@ describe('ServicePrime.apiLogoutPrimeUserDevice logging', () => {
         reason: expect.stringContaining('Device logout request failed'),
       }),
     );
+  });
+
+  it('refreshes a Keyless initiator without re-entering interactive login', async () => {
+    const { service, simpleDbPrime } = createService();
+    const accessToken = 'keyless-access-token';
+    const post = jest.fn(async () => ({ $requestId: 'request-keyless' }));
+    const refreshPersistedKeylessSession = jest.fn(async () => undefined);
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    (service as any).apiOAuthLoginWithPersistedSession =
+      refreshPersistedKeylessSession;
+    service.apiFetchPrimeUserInfo = jest.fn(async () => undefined);
+
+    await expect(
+      service.apiLogoutPrimeUserDevice({
+        instanceId: 'extension-device',
+        accessToken,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(refreshPersistedKeylessSession).toHaveBeenCalledWith({
+      accessToken,
+      callerName: 'ServicePrime.apiLogoutPrimeUserDevice',
+      expectedOneKeyUserId: 'onekey-user-a',
+    });
   });
 });
 
@@ -728,6 +1137,361 @@ describe('ServicePrime.apiCancelInfiniSubscription', () => {
   });
 });
 
+describe('ServicePrime Prime redemption API', () => {
+  const userA = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+  };
+  const redemption = {
+    addedDays: 30,
+    finalExpiresAt: 1_790_138_829_137,
+  };
+  const redemptionResponse = {
+    code: 'OKP-PJ37L-DYXWR',
+    daysAdded: redemption.addedDays,
+    changeType: 'activate',
+    primeExpiresAt: redemption.finalExpiresAt,
+    primeExpiresAtIso: '2026-09-23T04:47:09.137Z',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue(userA);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createRedemptionService() {
+    const result = createService();
+    result.simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    result.simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    return result;
+  }
+
+  function mockRedemptionClient({
+    service,
+    post,
+    tokenOwnerOneKeyUserId = 'user-a',
+  }: {
+    service: ReturnType<typeof createRedemptionService>['service'];
+    post: jest.Mock;
+    tokenOwnerOneKeyUserId?: string;
+  }) {
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          onekeyAccount: { onekeyUserId: tokenOwnerOneKeyUserId },
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    return get;
+  }
+
+  it('redeems a trimmed code with the pinned OneKey ID session', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn(async () => ({
+      data: { data: redemptionResponse },
+    }));
+    const get = mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: '  OKP-PJ37L-DYXWR  ',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toEqual(redemption);
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      headers: {
+        'X-Onekey-Request-Token': 'token-a',
+      },
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/redemption/redeem',
+      { code: 'OKP-PJ37L-DYXWR' },
+      {
+        headers: {
+          'X-Onekey-Request-Token': 'token-a',
+        },
+      },
+    );
+  });
+
+  it('rejects an empty code without making a request', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn();
+    const get = mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: '   ',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects before redeeming when the pinned token belongs to another user', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn();
+    const get = mockRedemptionClient({
+      service,
+      post,
+      tokenOwnerOneKeyUserId: 'user-b',
+    });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['missing data', undefined],
+    ['zero days', { ...redemptionResponse, daysAdded: 0 }],
+    ['fractional days', { ...redemptionResponse, daysAdded: 1.5 }],
+    [
+      'seconds timestamp',
+      { ...redemptionResponse, primeExpiresAt: 1_800_000_000 },
+    ],
+    [
+      'invalid timestamp',
+      { ...redemptionResponse, primeExpiresAt: Number.NaN },
+    ],
+  ])(
+    'rejects a malformed redemption response with %s',
+    async (_label, data) => {
+      const { service } = createRedemptionService();
+      const post = jest.fn(async () => ({ data: { data } }));
+      mockRedemptionClient({ service, post });
+
+      await expect(
+        service.apiRedeemPrimeCode({
+          code: 'OKP-PJ37L-DYXWR',
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toThrow('prime_redemption_invalid_response__msg');
+    },
+  );
+
+  it('rejects before the request when the logged-in user changed', async () => {
+    const { service } = createRedemptionService();
+    const post = jest.fn();
+    const get = mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-b',
+      }),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects the result when the logged-in user changes in flight', async () => {
+    const { service } = createRedemptionService();
+    const postStarted = createDeferred();
+    const deferred = createDeferred<{
+      data: { data: typeof redemptionResponse };
+    }>();
+    const post = jest.fn(() => {
+      postStarted.resolve();
+      return deferred.promise;
+    });
+    mockRedemptionClient({ service, post });
+
+    const redemptionPromise = service.apiRedeemPrimeCode({
+      code: 'OKP-PJ37L-DYXWR',
+      expectedOneKeyUserId: 'user-a',
+    });
+    await postStarted.promise;
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    deferred.resolve({ data: { data: redemptionResponse } });
+
+    await expect(redemptionPromise).rejects.toBeInstanceOf(OneKeyLocalError);
+  });
+
+  it('rejects the result after an auth-session ABA change', async () => {
+    const { service, simpleDbPrime } = createRedemptionService();
+    const postStarted = createDeferred();
+    const deferred = createDeferred<{
+      data: { data: typeof redemptionResponse };
+    }>();
+    const post = jest.fn(() => {
+      postStarted.resolve();
+      return deferred.promise;
+    });
+    mockRedemptionClient({ service, post });
+
+    const redemptionPromise = service.apiRedeemPrimeCode({
+      code: 'OKP-PJ37L-DYXWR',
+      expectedOneKeyUserId: 'user-a',
+    });
+    await postStarted.promise;
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    deferred.resolve({ data: { data: redemptionResponse } });
+
+    await expect(redemptionPromise).rejects.toBeInstanceOf(OneKeyLocalError);
+  });
+
+  it('preserves the server error for inline display without a global toast', async () => {
+    const { service } = createRedemptionService();
+    const message = '当前订阅不支持兑换；不会影响订阅扣款日期';
+    const error = Object.assign(new Error(message), {
+      autoToast: true,
+      code: 90_506,
+      data: {
+        code: 90_506,
+        message,
+        messageId: 'error__prime_redemption_code_unlimited_entitlement',
+      },
+    });
+    const post = jest.fn(async () => Promise.reject(error));
+    mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBe(error);
+    expect(error.autoToast).toBe(false);
+  });
+
+  it('keeps the invalid-session auto toast and existing logout flow', async () => {
+    const { service } = createRedemptionService();
+    const error = new OneKeyErrorPrimeLoginInvalidToken({
+      autoToast: true,
+      message: '用户认证失败，请重试登录。',
+    });
+    const post = jest.fn(async () => Promise.reject(error));
+    mockRedemptionClient({ service, post });
+
+    await expect(
+      service.apiRedeemPrimeCode({
+        code: 'OKP-PJ37L-DYXWR',
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toBe(error);
+    expect(error.autoToast).toBe(true);
+  });
+
+  it.each([400, 404, 409, 422])(
+    'normalizes Axios HTTP %s business errors so translated copy survives the bridge',
+    async (status) => {
+      const { service } = createRedemptionService();
+      const translatedMessage = '当前订阅不支持兑换；不会影响订阅扣款日期';
+      const { AxiosError, AxiosHeaders } =
+        require('axios') as typeof import('axios');
+      const axiosError = new AxiosError(
+        'Request failed with status code 400',
+        'ERR_BAD_REQUEST',
+        {
+          headers: new AxiosHeaders({ Authorization: 'Bearer secret-token' }),
+        },
+        {},
+        {
+          status,
+          statusText: 'Bad Request',
+          headers: { 'x-secret': 'should-not-copy' },
+          config: {
+            headers: new AxiosHeaders({ Authorization: 'Bearer secret-token' }),
+          },
+          data: {
+            code: 90_506,
+            message: 'server-message',
+            translatedMessage,
+            extra: 'drop-me',
+          },
+        },
+      );
+      const post = jest.fn(async () => Promise.reject(axiosError));
+      mockRedemptionClient({ service, post });
+
+      const error = await service
+        .apiRedeemPrimeCode({
+          code: 'OKP-PJ37L-DYXWR',
+          expectedOneKeyUserId: 'user-a',
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(OneKeyServerApiError);
+      expect((error as { autoToast?: boolean }).autoToast).toBe(false);
+      expect((error as { httpStatusCode?: number }).httpStatusCode).toBe(
+        status,
+      );
+      const plain = toPlainErrorObject(error);
+      expect(plain.data).toEqual({
+        code: 90_506,
+        message: 'server-message',
+        translatedMessage,
+      });
+      expect(plain.code).toBe(90_506);
+      expect(JSON.stringify(plain)).not.toContain('secret-token');
+      expect(JSON.stringify(plain)).not.toContain('should-not-copy');
+      expect(JSON.stringify(plain)).not.toContain('drop-me');
+    },
+  );
+
+  it.each([
+    { status: 400, payload: '<html>not-json</html>' },
+    { status: 401, payload: { code: 90_003, message: 'Expired session' } },
+    { status: 403, payload: { code: 403, message: 'Forbidden' } },
+  ])(
+    'preserves non-business HTTP $status errors',
+    async ({ status, payload }) => {
+      const { service } = createRedemptionService();
+      const { AxiosError, AxiosHeaders } =
+        require('axios') as typeof import('axios');
+      const axiosError = new AxiosError(
+        'Request failed with status code 400',
+        'ERR_BAD_REQUEST',
+        undefined,
+        undefined,
+        {
+          status,
+          statusText: 'Bad Request',
+          headers: {},
+          config: { headers: new AxiosHeaders() },
+          data: payload,
+        },
+      );
+      const post = jest.fn(async () => Promise.reject(axiosError));
+      mockRedemptionClient({ service, post });
+
+      await expect(
+        service.apiRedeemPrimeCode({
+          code: 'OKP-PJ37L-DYXWR',
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toBe(axiosError);
+      expect((axiosError as { autoToast?: boolean }).autoToast).toBe(false);
+    },
+  );
+});
+
 describe('ServicePrime Infini payment APIs', () => {
   const userA = {
     isLoggedIn: true,
@@ -818,6 +1582,60 @@ describe('ServicePrime Infini payment APIs', () => {
     expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment/options');
   });
 
+  it.each([
+    { symbol: ' eth ' },
+    { symbol: 'ETH', contract: '' },
+    { symbol: 'ETH', contract: null },
+    { symbol: 'ETH', contract: ' ' },
+  ])(
+    'normalizes a native payment option with contract $contract',
+    async (token) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () => ({
+        data: {
+          data: {
+            chains: [
+              {
+                chain: 'ETHEREUM',
+                networkId: 'evm--1',
+                tokens: [token],
+              },
+            ],
+          },
+        },
+      }));
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+
+      await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([
+        {
+          chain: 'ETHEREUM',
+          networkId: 'evm--1',
+          tokens: [{ symbol: 'ETH', contract: '' }],
+        },
+      ]);
+    },
+  );
+
+  it('drops a native payment option when the chain conflicts with the network', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          chains: [
+            {
+              chain: 'BSC',
+              networkId: 'evm--1',
+              tokens: [{ symbol: 'ETH', contract: '' }],
+            },
+          ],
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([]);
+  });
+
   it('drops malformed payment options at the service boundary', async () => {
     const { service } = createInfiniService();
     const get = jest.fn(async () => ({
@@ -833,6 +1651,10 @@ describe('ServicePrime Infini payment APIs', () => {
                   contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
                 },
                 { symbol: 'USDT', contract: '' },
+                { symbol: 'USDT' },
+                { symbol: 'ETH', contract: 123 },
+                { symbol: 'ETH', contract: {} },
+                { symbol: 'ETH', contract: false },
                 123,
               ],
             },
@@ -992,6 +1814,158 @@ describe('ServicePrime Infini payment APIs', () => {
       },
     });
   });
+
+  it.each([undefined, [], ['First warning', 'Second warning']])(
+    'preserves the latest payment warning messages: %p',
+    async (warningMessages) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () => ({
+        data: { data: { ...payment, warningMessages } },
+      }));
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+
+      await expect(
+        service.apiGetInfiniPayment({
+          paymentId: payment.paymentId,
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).resolves.toEqual({ ...payment, warningMessages });
+    },
+  );
+
+  it('carries the same UI flow into background validation without changing the HTTP request', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const get = jest.fn(async () => ({ data: { data: payment } }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+    const flowContext = {
+      flowId: 'flow-from-ui',
+      paymentSource: 'restoreRefresh' as const,
+      expectedChain: payment.chain,
+      expectedToken: payment.token,
+    };
+    await service.apiGetInfiniPayment({
+      paymentId: payment.paymentId,
+      expectedOneKeyUserId: 'user-a',
+      flowContext,
+    });
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment', {
+      params: { paymentId: payment.paymentId },
+      headers: { 'X-Onekey-Request-Token': 'token-a' },
+    });
+    expect(simpleDbPrime.recordInfiniPaymentValidation).toHaveBeenCalledWith({
+      onekeyUserId: 'user-a',
+      payment,
+      flowId: 'flow-from-ui',
+    });
+    expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowId: 'flow-from-ui',
+        paymentSource: 'restoreRefresh',
+        stage: 'responseValidation',
+        actualChain: payment.chain,
+        actualToken: payment.token,
+      }),
+    );
+  });
+
+  it('returns confirmed payment progress when diagnostic metadata cannot be persisted', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const confirmedPayment = {
+      ...payment,
+      amountConfirmed: payment.amountDue,
+    };
+    service.getPrimeClient = jest.fn(async () => ({
+      get: async () => ({ data: { data: confirmedPayment } }),
+    }));
+    simpleDbPrime.recordInfiniPaymentValidation.mockRejectedValue(
+      new Error('disk full'),
+    );
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+        flowContext: {
+          flowId: 'polling-flow',
+          paymentSource: 'polling',
+          sessionMode: 'tracking',
+        },
+      }),
+    ).resolves.toEqual(confirmedPayment);
+    expect(simpleDbPrime.recordInfiniPaymentValidation).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowId: 'polling-flow',
+        paymentSource: 'polling',
+        stage: 'sessionPersistence',
+        failureReason: 'localPersistenceFailed',
+      }),
+    );
+    expect(
+      JSON.stringify(mockPrimeCryptoPaymentFlowLog.mock.calls),
+    ).not.toContain('disk full');
+  });
+
+  it('still rejects an auth change when diagnostic persistence fails', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: async () => ({ data: { data: payment } }),
+    }));
+    simpleDbPrime.recordInfiniPaymentValidation.mockImplementation(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+      throw new OneKeyLocalError('disk full');
+    });
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+        flowContext: { flowId: 'polling-flow', paymentSource: 'polling' },
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it.each([null, 'warning', ['warning', 1]])(
+    'rejects malformed warnings as invalidResponse (%p)',
+    async (warningMessages) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: async () => ({ data: { data: { ...payment, warningMessages } } }),
+      }));
+      await expect(
+        service.apiGetInfiniPayment({
+          paymentId: payment.paymentId,
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toMatchObject({
+        data: { paymentValidationFailure: 'invalidResponse' },
+      });
+    },
+  );
+
+  it.each(['NaN', 'Infinity', '-0.01', ''])(
+    'rejects invalid progress amounts (%s)',
+    async (amount) => {
+      const { service } = createInfiniService();
+      for (const field of ['amountConfirmed', 'amountConfirming']) {
+        service.getPrimeClient = jest.fn(async () => ({
+          get: async () => ({
+            data: { data: { ...payment, [field]: amount } },
+          }),
+        }));
+        await expect(
+          service.apiGetInfiniPayment({
+            paymentId: payment.paymentId,
+            expectedOneKeyUserId: 'user-a',
+          }),
+        ).rejects.toMatchObject({
+          data: { paymentValidationFailure: 'invalidResponse' },
+        });
+      }
+    },
+  );
 
   it('rejects a payment query response with a different paymentId', async () => {
     const { service } = createInfiniService();
@@ -1355,8 +2329,11 @@ describe('ServicePrime Infini payment APIs', () => {
     });
   });
 
-  it('returns payment and purchase status from one pre-broadcast auth snapshot', async () => {
-    const { service } = createInfiniService();
+  it('returns a pre-broadcast auth snapshot when diagnostic persistence fails', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    simpleDbPrime.recordInfiniPaymentValidation.mockRejectedValue(
+      new Error('disk full'),
+    );
     const subscription = {
       subscriptionId: 'infini-subscription-id',
       status: 'active',
@@ -1386,6 +2363,10 @@ describe('ServicePrime Infini payment APIs', () => {
       service.apiGetInfiniPaymentPreBroadcastSnapshot({
         paymentId: payment.paymentId,
         expectedOneKeyUserId: 'user-a',
+        flowContext: {
+          flowId: 'pre-broadcast-flow',
+          paymentSource: 'preflightRefresh',
+        },
       }),
     ).resolves.toEqual({
       payment,
@@ -1690,6 +2671,113 @@ describe('ServicePrime.clearAllIdentityAuthForExplicitOperation', () => {
       simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision,
     ).not.toHaveBeenCalled();
   });
+
+  it('clears OneKey ID and shared OAuth cache while preserving legacy Keyless credentials', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const logoutPrimeServerSessionBestEffort = jest
+      .spyOn(service, 'logoutPrimeServerSessionBestEffort')
+      .mockResolvedValue(undefined);
+    simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision.mockResolvedValue(
+      8,
+    );
+    mockReadPersistedAccessTokenBySessionSourceStrict
+      .mockResolvedValueOnce({
+        status: 'ok',
+        accessToken: 'legacy-access-token',
+      })
+      .mockResolvedValueOnce({
+        status: 'ok',
+        accessToken: 'keyless-access-token',
+      });
+
+    await expect(service.clearOneKeyIdLocalAuthCache()).resolves.toEqual({
+      revision: 8,
+    });
+
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).toHaveBeenCalledWith(EPrimeAuthSessionSource.LegacyEmailSupabase);
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).toHaveBeenCalledWith(EPrimeAuthSessionSource.KeylessOAuth);
+    expect(logoutPrimeServerSessionBestEffort).toHaveBeenCalledWith({
+      accessToken: 'legacy-access-token',
+      callerName: 'ServicePrime.clearOneKeyIdLocalAuthCache',
+    });
+    expect(logoutPrimeServerSessionBestEffort).toHaveBeenCalledWith({
+      accessToken: 'keyless-access-token',
+      callerName: 'ServicePrime.clearOneKeyIdLocalAuthCache',
+    });
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith({
+      authSessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+      accessToken: 'legacy-access-token',
+    });
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).toHaveBeenCalledWith({
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      accessToken: 'keyless-access-token',
+    });
+    expect(mockClearAllSupabaseAuthSessions).toHaveBeenCalledTimes(1);
+    expect(
+      Math.max(
+        ...logoutPrimeServerSessionBestEffort.mock.invocationCallOrder,
+        ...mockRevokeAuthSessionTokenOnServerBestEffort.mock
+          .invocationCallOrder,
+      ),
+    ).toBeLessThan(
+      mockClearAllSupabaseAuthSessions.mock.invocationCallOrder[0],
+    );
+    expect(
+      backgroundApi.serviceKeylessWallet.cleanupLocalKeylessOAuthTokens,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockPrimePersistAtom.set).toHaveBeenCalledWith(expect.any(Function));
+    expect(
+      backgroundApi.serviceKeylessWallet.cleanupKeylessWalletCredentialStorage,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('preserves local sessions when a strict token read fails transiently', async () => {
+    const { service, simpleDbPrime } = createService();
+    const readError = new OneKeyLocalError('secure storage unavailable');
+    const logoutPrimeServerSessionBestEffort = jest
+      .spyOn(service, 'logoutPrimeServerSessionBestEffort')
+      .mockResolvedValue(undefined);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockRejectedValueOnce(
+      readError,
+    );
+
+    await expect(service.clearOneKeyIdLocalAuthCache()).rejects.toBe(readError);
+
+    expect(logoutPrimeServerSessionBestEffort).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+    expect(mockClearAllSupabaseAuthSessions).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('preserves local sessions when a persisted session slot is corrupt', async () => {
+    const { service, simpleDbPrime } = createService();
+    const logoutPrimeServerSessionBestEffort = jest
+      .spyOn(service, 'logoutPrimeServerSessionBestEffort')
+      .mockResolvedValue(undefined);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValueOnce({
+      status: 'corrupt',
+    });
+
+    await expect(service.clearOneKeyIdLocalAuthCache()).rejects.toThrow(
+      'session slot is corrupt',
+    );
+
+    expect(logoutPrimeServerSessionBestEffort).not.toHaveBeenCalled();
+    expect(mockRevokeAuthSessionTokenOnServerBestEffort).not.toHaveBeenCalled();
+    expect(mockClearAllSupabaseAuthSessions).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.clearAllIdentityAuthMetadataAndBumpRevision,
+    ).not.toHaveBeenCalled();
+  });
 });
 
 describe('ServicePrime.commitIdentityExitLocalState', () => {
@@ -1744,6 +2832,79 @@ describe('ServicePrime.commitIdentityExitLocalState', () => {
       EAppEventBusNames.KeylessAuthSessionCleared,
       undefined,
     );
+  });
+
+  it('commits an explicit local logout without deleting unattributed sessions', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+    simpleDbPrime.bumpIdentityLifecycleRevision.mockResolvedValue(8);
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.commitExplicitLocalOneKeyIdLogout({
+        expectedIdentityLifecycleRevision: 7,
+        expectedProjection: {
+          authSessionSource: undefined,
+          oneKeyIdAuthState: 'loggedIn',
+          isLoggedIn: true,
+          isLoggedInOnServer: true,
+          onekeyUserId: 'onekey-user-a',
+        },
+      }),
+    ).resolves.toEqual({ status: 'committed', revision: 8 });
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(atomResetSpy).toHaveBeenCalledTimes(1);
+    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.clearKeylessSessionCommitIdIfMatches,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('finishes an explicit local logout after metadata cleared before the atom', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+    simpleDbPrime.bumpIdentityLifecycleRevision.mockResolvedValue(8);
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedOut');
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    const atomResetSpy = jest
+      .spyOn(service, 'setPrimePersistAtomNotLoggedIn')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.commitExplicitLocalOneKeyIdLogout({
+        expectedIdentityLifecycleRevision: 7,
+        expectedProjection: {
+          authSessionSource: undefined,
+          oneKeyIdAuthState: 'loggedIn',
+          isLoggedIn: true,
+          isLoggedInOnServer: true,
+          onekeyUserId: 'onekey-user-a',
+        },
+      }),
+    ).resolves.toEqual({ status: 'committed', revision: 8 });
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
+    expect(atomResetSpy).toHaveBeenCalledTimes(1);
   });
 
   it('clears an unreadable Keyless session only for an authorized malformed-wallet recovery', async () => {
@@ -2182,6 +3343,333 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     resetIdentityRecoveryStateForTest('ready');
   });
 
+  it('finishes an interrupted logout instead of restoring stale login metadata', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+      onekeyUserId: 'stale-onekey-user',
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockPrimePersistAtom.set).toHaveBeenCalledWith(expect.any(Function));
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    expect(mockRemoveAuthSessionStorageBySessionSource).not.toHaveBeenCalled();
+  });
+
+  it('waits for identity recovery before repairing an incomplete logout', async () => {
+    const { service, simpleDbPrime } = createService();
+    setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    resetIdentityRecoveryStateForTest('pending');
+
+    const resultPromise = service.clearOneKeyIdAuthStateIfNoActiveToken({
+      callerName: 'startup',
+    });
+    await Promise.resolve();
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
+
+    markIdentityRecoveryReady();
+    await expect(resultPromise).resolves.toEqual({ cleared: true });
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed without mutating state when identity recovery failed', async () => {
+    const { service, simpleDbPrime } = createService();
+    setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    resetIdentityRecoveryStateForTest('failed');
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).rejects.toThrow('Identity recovery did not complete');
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
+    expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
+  });
+
+  it('reserves the identity lifecycle while committing a standalone repair', async () => {
+    const { service, simpleDbPrime } = createService();
+    setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions.mockImplementation(
+      async () => {
+        expect(getActiveIdentityLifecycleOperationId()).toMatch(
+          /^repairIncompleteOneKeyIdLogout:/,
+        );
+      },
+    );
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(getActiveIdentityLifecycleOperationId()).toBeUndefined();
+  });
+
+  it('migrates a v6.5.0 logged-out projection before a stale legacy session can be restored', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const legacyAccessToken = buildFakeJwt({ sub: 'legacy-auth-user-a' });
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: legacyAccessToken,
+    });
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(v650LoggedOutState.getOneKeyIdAuthState()).toBe('loggedOut');
+    expect(v650LoggedOutState.getAuthSessionSource()).toBeUndefined();
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(simpleDbPrime.getEffectiveAuthSessionSource).not.toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenNthCalledWith(1, {
+      stage: 'candidateDetected',
+      status: 'started',
+      repairType: 'legacyLoggedOutWithoutTombstone',
+    });
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenNthCalledWith(2, {
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'legacyLoggedOutWithoutTombstone',
+    });
+    expect(
+      JSON.stringify(mockOneKeyIdAuthStateRepairLog.mock.calls),
+    ).not.toContain(legacyAccessToken);
+  });
+
+  it('repairs logged-in flags when the required OneKey ID is missing', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: undefined,
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockPrimePersistAtom.set).toHaveBeenCalledWith(expect.any(Function));
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'invalidLoggedInProjection',
+    });
+  });
+
+  it('logs a fixed failure stage without including repair error details', async () => {
+    const { service, simpleDbPrime } = createService();
+    const sensitiveErrorText =
+      'repair failed for user-a@example.com with eyJheader.payload.signature';
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+      onekeyUserId: undefined,
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions.mockRejectedValue(
+      new Error(sensitiveErrorText),
+    );
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'startup' }),
+    ).rejects.toThrow(sensitiveErrorText);
+
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenLastCalledWith({
+      stage: 'stateCommit',
+      status: 'failed',
+      repairType: 'incompleteLogoutProjection',
+    });
+    expect(
+      JSON.stringify(mockOneKeyIdAuthStateRepairLog.mock.calls),
+    ).not.toContain(sensitiveErrorText);
+  });
+
+  it('keeps a legacy upgrade session when profile validation is temporarily unavailable', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'legacy-user-a' });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken,
+    });
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        throw new OneKeyLocalError('network unavailable');
+      }),
+    }));
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'test' }),
+    ).resolves.toEqual({ cleared: false, retryScheduled: true });
+
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    expect(mockPrimePersistAtom.set).not.toHaveBeenCalled();
+    (
+      service as unknown as {
+        resetSourceLessOneKeyIdRecoveryRetry: () => void;
+      }
+    ).resetSourceLessOneKeyIdRecoveryRetry();
+  });
+
+  it('preserves a legacy upgrade session when SDK refresh is temporarily unavailable', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'legacy-user-a', exp: 1 });
+    const refreshError = Object.assign(
+      new OneKeyLocalError('session refresh temporarily unavailable'),
+      { $$retryable: true },
+    );
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken,
+    });
+    mockGetAuthTokenBySessionSource.mockRejectedValueOnce(refreshError);
+    const getPrimeClientSpy = jest.spyOn(service, 'getPrimeClient');
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'test' }),
+    ).resolves.toEqual({ cleared: false, retryScheduled: true });
+
+    expect(getPrimeClientSpy).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    (
+      service as unknown as {
+        resetSourceLessOneKeyIdRecoveryRetry: () => void;
+      }
+    ).resetSourceLessOneKeyIdRecoveryRetry();
+  });
+
+  it('logs out a legacy upgrade session only after the SDK reports no refreshable session', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'legacy-user-a', exp: 1 });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(0);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken,
+    });
+    mockGetAuthTokenBySessionSource.mockResolvedValueOnce('');
+    const getPrimeClientSpy = jest.spyOn(service, 'getPrimeClient');
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'test' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(getPrimeClientSpy).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).toHaveBeenCalledWith({ callerName: 'test' });
+  });
+
+  it('does not resurrect a legacy slot after a new auth-state commit', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(undefined);
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue(undefined);
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: buildFakeJwt({ sub: 'legacy-user-a' }),
+    });
+    const get = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(
+      service.clearOneKeyIdAuthStateIfNoActiveToken({ callerName: 'test' }),
+    ).resolves.toEqual({ cleared: true });
+
+    expect(get).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.setAuthSessionSourceWithCommitId,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'invalidLoggedInProjection',
+    });
+  });
+
   it('recovers a source-less pre-upgrade OneKey ID from its matching Keyless OAuth session', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
     const accessToken = buildFakeJwt({ sub: 'keyless-user-a' });
@@ -2202,10 +3690,12 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
       id: 'hd-keyless-a',
     });
-    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
-      status: 'ok',
-      accessToken,
-    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockImplementation(
+      async (source) =>
+        source === EPrimeAuthSessionSource.LegacyEmailSupabase
+          ? { status: 'empty' }
+          : { status: 'ok', accessToken },
+    );
     const get = jest.fn(async () => ({
       status: 200,
       data: { code: 0, data: { onekeyAccount } },
@@ -2295,6 +3785,9 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
       id: 'hd-keyless-a',
     });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'empty',
+    });
 
     await expect(
       service.clearOneKeyIdAuthStateIfNoActiveToken({
@@ -2327,6 +3820,9 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     simpleDbPrime.getKeylessSupabaseAuthToken.mockResolvedValue(accessToken);
     backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
       id: 'hd-keyless-b',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'empty',
     });
     service.getPrimeClient = jest.fn(async () => ({
       get: jest.fn(async () => ({
@@ -2387,6 +3883,9 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     backgroundApi.serviceAccount.getKeylessWallet.mockResolvedValue({
       id: 'hd-keyless-a',
     });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'empty',
+    });
     service.getPrimeClient = jest.fn(async () => ({
       get: jest.fn(async () => {
         throw profileError;
@@ -2418,6 +3917,38 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     ).resetSourceLessOneKeyIdRecoveryRetry();
   });
 
+  it('routes a source-less retry through guarded recovery without inferring a source', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service, simpleDbPrime } = createService();
+      simpleDbPrime.getAuthSessionSource.mockResolvedValue(undefined);
+      const retryReachedGuardedRecovery = createDeferred();
+      const clearSpy = jest
+        .spyOn(service, 'clearOneKeyIdAuthStateIfNoActiveToken')
+        .mockImplementation(async () => {
+          retryReachedGuardedRecovery.resolve();
+          return { cleared: false };
+        });
+
+      (
+        service as unknown as {
+          scheduleSourceLessOneKeyIdRecoveryRetry: (params: {
+            callerName: string;
+          }) => void;
+        }
+      ).scheduleSourceLessOneKeyIdRecoveryRetry({ callerName: 'test' });
+      jest.advanceTimersByTime(1000);
+      await retryReachedGuardedRecovery.promise;
+
+      expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+      expect(clearSpy).toHaveBeenCalledWith({
+        callerName: 'test.sourceLessRecoveryRetry',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('does not probe Keyless OAuth for a non-upgrade inconsistent state', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
     mockPrimePersistAtom.get.mockResolvedValue({
@@ -2444,11 +3975,31 @@ describe('ServicePrime.clearOneKeyIdAuthStateIfNoActiveToken', () => {
     ).not.toHaveBeenCalled();
     expect(
       backgroundApi.serviceIdentityExit.reconcileMissingOneKeyIdSession,
-    ).toHaveBeenCalledWith({ callerName: 'test' });
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'invalidLoggedInProjection',
+    });
   });
 
   it('delegates missing-session cleanup to the durable identity coordinator', async () => {
     const { service, backgroundApi, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
 
     const result = await service.clearOneKeyIdAuthStateIfNoActiveToken({
       callerName: 'test',
@@ -2528,6 +4079,134 @@ describe('ServicePrime.apiLogin invalid-token clear guard', () => {
 describe('ServicePrime.apiEmailOtpLogin serialization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('records an email OTP verification failure once in the background runtime', async () => {
+    const { service } = createService();
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: null, user: null },
+      error: {
+        name: 'AuthApiError',
+        message: 'Invalid verification code',
+        code: 'otp_expired',
+        status: 400,
+      },
+    });
+
+    const error = await service
+      .apiEmailOtpLogin({
+        email: 'next@example.com',
+        otp: '111111',
+      })
+      .catch((caughtError: unknown) => caughtError);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as { message?: string }).message).toBe(
+      'Invalid verification code',
+    );
+    expect(
+      (
+        error as {
+          data?: { $$oneKeyIdFailureServerLogged?: boolean };
+        }
+      ).data?.$$oneKeyIdFailureServerLogged,
+    ).toBe(true);
+
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
+      reason: expect.stringContaining(
+        'ServicePrime.apiEmailOtpLogin email OTP verification failed',
+      ),
+    });
+  });
+
+  it('records a post-verification login failure once and marks it for the UI runtime', async () => {
+    const { service } = createService();
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'next-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => {
+      throw new OneKeyLocalError('Prime login commit failed');
+    });
+
+    const error = await service
+      .apiEmailOtpLogin({
+        email: 'next@example.com',
+        otp: '111111',
+      })
+      .catch((caughtError: unknown) => caughtError);
+
+    expect((error as { message?: string }).message).toBe(
+      'Prime login commit failed',
+    );
+    expect(
+      (
+        error as {
+          data?: { $$oneKeyIdFailureServerLogged?: boolean };
+        }
+      ).data?.$$oneKeyIdFailureServerLogged,
+    ).toBe(true);
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
+      reason: expect.stringContaining('ServicePrime.apiEmailOtpLogin failed'),
+    });
+  });
+
+  it('repairs a v6.5.0 logged-out projection before the Email login guard', async () => {
+    const { service, simpleDbPrime } = createService();
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'next-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => undefined);
+
+    await expect(
+      service.apiEmailOtpLogin({
+        email: 'next@example.com',
+        otp: '111111',
+      }),
+    ).resolves.toEqual({ success: true });
+
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(mockVerifyEmailOtp).toHaveBeenCalledTimes(1);
+    expect(service.apiLoginWithPersistedLegacySession).toHaveBeenCalledWith({
+      accessToken: 'next-email-token',
+    });
+  });
+
+  it('stops Email login when the auth state changes during repair', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+      onekeyUserId: undefined,
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
+    simpleDbPrime.getIdentityLifecycleRevision
+      .mockResolvedValueOnce(7)
+      .mockResolvedValueOnce(8);
+
+    await expect(
+      service.apiEmailOtpLogin({
+        email: 'next@example.com',
+        otp: '111111',
+      }),
+    ).rejects.toThrow('auth state changed during recovery');
+
+    expect(mockVerifyEmailOtp).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
   });
 
   it('rejects a queued stale Email login after another surface commits first', async () => {
@@ -2738,55 +4417,295 @@ describe('ServicePrime apiFetchPrimeUserInfo lifecycle commit guard', () => {
     expect(result.serverUserInfo).toBeUndefined();
     expect(result.userInfo.onekeyUserId).toBe('user-a');
   });
+
+  it('does not let an older fetch overwrite a newer Prime response', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    simpleDbPrime.getAuthSessionCommitId.mockResolvedValue('commit-a');
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('active-token-a');
+    simpleDbPrime.getIdentityLifecycleRevision.mockResolvedValue(7);
+
+    const olderResponse = createDeferred<{
+      userId: string;
+      isPrime: boolean;
+    }>();
+    const newerResponse = createDeferred<{
+      userId: string;
+      isPrime: boolean;
+    }>();
+    const olderFetchStarted = createDeferred();
+    const newerFetchStarted = createDeferred();
+    service.callApiFetchPrimeUserInfo = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        olderFetchStarted.resolve();
+        return olderResponse.promise;
+      })
+      .mockImplementationOnce(() => {
+        newerFetchStarted.resolve();
+        return newerResponse.promise;
+      });
+    const updateSpy = jest
+      .spyOn(service, 'updatePrimeAtomByServerUserInfo')
+      .mockResolvedValue({ primeSubscription: { isActive: true } as any });
+
+    const olderFetch = (service as any)._fetchPrimeUserInfo();
+    await olderFetchStarted.promise;
+    const newerFetch = (service as any)._fetchPrimeUserInfo();
+    await newerFetchStarted.promise;
+
+    newerResponse.resolve({ userId: 'user-a', isPrime: true });
+    await newerFetch;
+    olderResponse.resolve({ userId: 'user-a', isPrime: false });
+    await olderFetch;
+
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(updateSpy).toHaveBeenCalledWith({
+      serverUserInfo: { userId: 'user-a', isPrime: true },
+    });
+  });
 });
 
-describe('ServicePrime.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt', () => {
+describe('ServicePrime.claimOneKeyIdOAuthBindPrompt', () => {
+  function mockOneKeyIdCredentialReady(
+    service: ReturnType<typeof createService>['service'],
+  ) {
+    return jest.spyOn(service, 'apiFetchPrimeUserInfo').mockResolvedValue({
+      userInfo: {
+        onekeyUserId: 'user-1',
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+      } as any,
+      serverUserInfo: undefined,
+      primeSubscription: undefined,
+    });
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('does not check or mark an account that was already reminded', async () => {
-    const { service, simpleDbPrime } = createService();
-    simpleDbPrime.hasShownOneKeyIdOAuthBindPrompt.mockResolvedValue(true);
+  it('still upgrades credentials without rechecking bind state when already reminded', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const fetchUserInfoSpy = jest.spyOn(service, 'apiFetchPrimeUserInfo');
+    simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
+      hasShown: true,
+      credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 7,
+    });
     const bindRequiredSpy = jest.spyOn(
       service,
       'isLegacyOneKeyIdOAuthBindRequired',
     );
 
     await expect(
-      service.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt({
+      service.claimOneKeyIdOAuthBindPrompt({
         onekeyUserId: 'user-1',
       }),
-    ).resolves.toBe(false);
+    ).resolves.toEqual({ status: 'skip' });
 
+    expect(bindRequiredSpy).not.toHaveBeenCalled();
+    expect(fetchUserInfoSpy).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceKeylessWallet
+        .ensureKeylessCredentialReadyForOneKeyIdBind,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      expectedIdentityLifecycleRevision: 7,
+    });
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('skips profile and credential work after both upgrade gates complete', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const fetchUserInfoSpy = jest.spyOn(service, 'apiFetchPrimeUserInfo');
+    simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
+      hasShown: true,
+      credentialUpgradeCompleted: true,
+      identityLifecycleRevision: 7,
+    });
+    const bindRequiredSpy = jest.spyOn(
+      service,
+      'isLegacyOneKeyIdOAuthBindRequired',
+    );
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({ status: 'skip' });
+
+    expect(fetchUserInfoSpy).not.toHaveBeenCalled();
+    expect(bindRequiredSpy).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceKeylessWallet
+        .ensureKeylessCredentialReadyForOneKeyIdBind,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch profile or mark completion when an old reminder still needs passcode', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    const fetchUserInfoSpy = jest.spyOn(service, 'apiFetchPrimeUserInfo');
+    simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
+      hasShown: true,
+      credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 7,
+    });
+    backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind.mockResolvedValue(
+      {
+        status: 'requiresPasscode',
+        hasLocalKeylessWallet: true,
+      },
+    );
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({ status: 'skip' });
+
+    expect(fetchUserInfoSpy).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceKeylessWallet
+        .ensureKeylessCredentialReadyForOneKeyIdBind,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('retries when the identity lifecycle changes during credential readiness', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    simpleDbPrime.getOneKeyIdOAuthBindPromptUpgradeState.mockResolvedValue({
+      hasShown: false,
+      credentialUpgradeCompleted: false,
+      identityLifecycleRevision: 7,
+    });
+    mockOneKeyIdCredentialReady(service);
+    backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind.mockResolvedValue(
+      {
+        status: 'ready',
+        hasLocalKeylessWallet: true,
+      },
+    );
+    simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted.mockResolvedValue(
+      false,
+    );
+    const bindRequiredSpy = jest.spyOn(
+      service,
+      'isLegacyOneKeyIdOAuthBindRequired',
+    );
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({ onekeyUserId: 'user-1' }),
+    ).resolves.toEqual({ status: 'retryable' });
+
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      expectedIdentityLifecycleRevision: 7,
+    });
     expect(bindRequiredSpy).not.toHaveBeenCalled();
     expect(
       simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
     ).not.toHaveBeenCalled();
   });
 
-  it.each([true, false])(
-    'marks the reminder decision once when bindRequired=%s',
-    async (bindRequired) => {
-      const { service, simpleDbPrime } = createService();
-      jest
-        .spyOn(service, 'isLegacyOneKeyIdOAuthBindRequired')
-        .mockResolvedValue(bindRequired);
+  it('claims the reminder without consuming it when binding is required', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockOneKeyIdCredentialReady(service);
+    jest
+      .spyOn(service, 'isLegacyOneKeyIdOAuthBindRequired')
+      .mockResolvedValue(true);
 
-      await expect(
-        service.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt({
-          onekeyUserId: 'user-1',
-        }),
-      ).resolves.toBe(bindRequired);
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      status: 'claimed',
+      claimId: expect.any(String),
+    });
 
-      expect(
-        simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
-      ).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
-    },
-  );
+    expect(simpleDbPrime.tryClaimOneKeyIdOAuthBindPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onekeyUserId: 'user-1',
+        claimId: expect.any(String),
+      }),
+    );
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('consumes the decision when binding is not required', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockOneKeyIdCredentialReady(service);
+    jest
+      .spyOn(service, 'isLegacyOneKeyIdOAuthBindRequired')
+      .mockResolvedValue(false);
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({ status: 'skip' });
+
+    expect(simpleDbPrime.markOneKeyIdOAuthBindPromptShown).toHaveBeenCalledWith(
+      { onekeyUserId: 'user-1' },
+    );
+    expect(
+      simpleDbPrime.tryClaimOneKeyIdOAuthBindPrompt,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('shows the bind reminder when only the legacy OneKey ID credential exists', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    mockOneKeyIdCredentialReady(service);
+    backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind.mockResolvedValue(
+      {
+        status: 'noLocalKeyless',
+        hasLocalKeylessWallet: false,
+      },
+    );
+    jest
+      .spyOn(service, 'isLegacyOneKeyIdOAuthBindRequired')
+      .mockResolvedValue(true);
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      status: 'claimed',
+      claimId: expect.any(String),
+    });
+    expect(simpleDbPrime.tryClaimOneKeyIdOAuthBindPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ onekeyUserId: 'user-1' }),
+    );
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+  });
 
   it('does not consume the reminder when the profile check fails', async () => {
     const { service, simpleDbPrime } = createService();
+    mockOneKeyIdCredentialReady(service);
     const consoleErrorSpy = jest
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -2795,15 +4714,141 @@ describe('ServicePrime.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt', () => {
       .mockRejectedValue(new Error('network failed'));
 
     await expect(
-      service.checkAndMarkShouldShowOneKeyIdOAuthBindPrompt({
+      service.claimOneKeyIdOAuthBindPrompt({
         onekeyUserId: 'user-1',
       }),
-    ).resolves.toBe(false);
+    ).resolves.toEqual({ status: 'retryable' });
 
     expect(
       simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
     ).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
+  });
+
+  it('waits for the OneKey ID credential upgrade before probing Keyless', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    jest.spyOn(service, 'apiFetchPrimeUserInfo').mockResolvedValue({
+      userInfo: {
+        onekeyUserId: 'user-1',
+        isLoggedIn: false,
+        isLoggedInOnServer: false,
+      } as any,
+      serverUserInfo: undefined,
+      primeSubscription: undefined,
+    });
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({ status: 'skip' });
+    expect(
+      backgroundApi.serviceKeylessWallet
+        .ensureKeylessCredentialReadyForOneKeyIdBind,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not consume the optional reminder while Keyless migration is retryable', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    mockOneKeyIdCredentialReady(service);
+    backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind.mockResolvedValue(
+      {
+        status: 'retryableIndeterminate',
+        hasLocalKeylessWallet: true,
+      },
+    );
+    const bindRequiredSpy = jest.spyOn(
+      service,
+      'isLegacyOneKeyIdOAuthBindRequired',
+    );
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({ status: 'retryable' });
+    expect(bindRequiredSpy).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdKeylessCredentialUpgradeCompleted,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('allows the reminder when Keyless migration requires passcode on click', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    mockOneKeyIdCredentialReady(service);
+    backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind.mockResolvedValue(
+      {
+        status: 'requiresPasscode',
+        hasLocalKeylessWallet: true,
+      },
+    );
+    jest
+      .spyOn(service, 'isLegacyOneKeyIdOAuthBindRequired')
+      .mockResolvedValue(true);
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      status: 'claimed',
+      claimId: expect.any(String),
+    });
+    expect(simpleDbPrime.tryClaimOneKeyIdOAuthBindPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ onekeyUserId: 'user-1' }),
+    );
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('waits for the legacy Keyless credential before consuming the upgrade reminder', async () => {
+    const { service, backgroundApi, simpleDbPrime } = createService();
+    mockOneKeyIdCredentialReady(service);
+    const bindRequiredSpy = jest
+      .spyOn(service, 'isLegacyOneKeyIdOAuthBindRequired')
+      .mockResolvedValue(true);
+    backgroundApi.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind
+      .mockResolvedValueOnce({
+        status: 'retryableIndeterminate',
+        hasLocalKeylessWallet: true,
+      })
+      .mockResolvedValueOnce({
+        status: 'ready',
+        hasLocalKeylessWallet: true,
+      });
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({ status: 'retryable' });
+    expect(bindRequiredSpy).not.toHaveBeenCalled();
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
+
+    await expect(
+      service.claimOneKeyIdOAuthBindPrompt({
+        onekeyUserId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      status: 'claimed',
+      claimId: expect.any(String),
+    });
+    expect(bindRequiredSpy).toHaveBeenCalledTimes(1);
+    expect(simpleDbPrime.tryClaimOneKeyIdOAuthBindPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ onekeyUserId: 'user-1' }),
+    );
+    expect(
+      simpleDbPrime.markOneKeyIdOAuthBindPromptShown,
+    ).not.toHaveBeenCalled();
   });
 });
 
@@ -3258,17 +5303,41 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
+  it('repairs a v6.5.0 logged-out projection before the OAuth login guard', async () => {
+    const { service, simpleDbPrime } = createService();
+    const post = mockOAuthLoginClient(service);
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+
+    await expect(
+      service.apiOAuthLogin({
+        accessToken: buildFakeJwt({ sub: 'user-a' }),
+      }),
+    ).resolves.toBeDefined();
+
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the ordinary OAuth login blocked while OneKey ID is already logged in', async () => {
     const { service, simpleDbPrime } = createService();
     const post = mockOAuthLoginClient(service);
     mockPrimePersistAtom.get.mockResolvedValue({
       isLoggedIn: true,
       isLoggedInOnServer: true,
+      onekeyUserId: 'onekey-user-a',
     });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
     simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
       EPrimeAuthSessionSource.LegacyEmailSupabase,
     );
     simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(1);
 
     await expect(
       service.apiOAuthLogin({
@@ -3277,6 +5346,13 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     ).rejects.toThrow('OneKey ID is already logged in');
 
     expect(post).not.toHaveBeenCalled();
+    expect(mockToastIfErrorMethods).toContain('apiOAuthLogin');
+    expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
+      reason: expect.stringContaining('OneKey ID is already logged in'),
+    });
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
   });
 });
 
@@ -3302,6 +5378,124 @@ describe('ServicePrime.persistKeylessOAuthSession active OneKey ID guard', () =>
 
   afterEach(() => {
     resetIdentityRecoveryStateForTest('ready');
+  });
+
+  it('repairs stale logged-in metadata before persisting a new login session', async () => {
+    const { service, simpleDbPrime } = createService();
+    let authSessionSource:
+      | typeof EPrimeAuthSessionSource.KeylessOAuth
+      | undefined = EPrimeAuthSessionSource.KeylessOAuth;
+    let oneKeyIdAuthState: 'loggedIn' | 'loggedOut' = 'loggedIn';
+    let identityLifecycleRevision = 7;
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+      onekeyUserId: undefined,
+    });
+    simpleDbPrime.getAuthSessionSource.mockImplementation(
+      async () => authSessionSource,
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockImplementation(
+      async () => authSessionSource,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockImplementation(
+      async () => oneKeyIdAuthState,
+    );
+    simpleDbPrime.getIdentityLifecycleRevision.mockImplementation(
+      async () => identityLifecycleRevision,
+    );
+    simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions.mockImplementation(
+      async () => {
+        authSessionSource = undefined;
+        oneKeyIdAuthState = 'loggedOut';
+      },
+    );
+    simpleDbPrime.bumpIdentityLifecycleRevision.mockImplementation(async () => {
+      identityLifecycleRevision += 1;
+      return identityLifecycleRevision;
+    });
+    const nextAccessToken = buildFakeJwt({ sub: 'user-b' });
+
+    await expect(
+      service.persistKeylessOAuthSession({
+        accessToken: nextAccessToken,
+        refreshToken: 'refresh-b',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        identityLifecycleRevision: expect.any(Number),
+        rollbackHandle: expect.any(String),
+      }),
+    );
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken: nextAccessToken,
+      refreshToken: 'refresh-b',
+    });
+  });
+
+  it('persists a new Keyless session from the exact v6.5.0 logged-out data shape', async () => {
+    const { service, simpleDbPrime } = createService();
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+    const nextAccessToken = buildFakeJwt({ sub: 'user-b' });
+
+    await expect(
+      service.persistKeylessOAuthSession({
+        accessToken: nextAccessToken,
+        refreshToken: 'refresh-b',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        identityLifecycleRevision: expect.any(Number),
+        rollbackHandle: expect.any(String),
+      }),
+    );
+
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken: nextAccessToken,
+      refreshToken: 'refresh-b',
+    });
+    expect(mockOneKeyIdAuthStateRepairLog).toHaveBeenCalledWith({
+      stage: 'stateCommit',
+      status: 'succeeded',
+      repairType: 'legacyLoggedOutWithoutTombstone',
+    });
+  });
+
+  it('does not repair stale metadata after the identity lifecycle changes', async () => {
+    const { service, simpleDbPrime } = createService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+      onekeyUserId: undefined,
+    });
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getOneKeyIdAuthState.mockResolvedValue('loggedIn');
+    simpleDbPrime.getIdentityLifecycleRevision
+      .mockResolvedValueOnce(7)
+      .mockResolvedValue(8);
+
+    await expect(
+      service.persistKeylessOAuthSession({
+        accessToken: buildFakeJwt({ sub: 'user-b' }),
+        refreshToken: 'refresh-b',
+      }),
+    ).rejects.toThrow('auth state changed during recovery');
+
+    expect(
+      simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
+    ).not.toHaveBeenCalled();
+    expect(mockPersistKeylessAuthSession).not.toHaveBeenCalled();
   });
 
   it('rejects a different account before replacing a KeylessOAuth-backed OneKey ID slot', async () => {
@@ -3979,6 +6173,40 @@ describe('ServicePrime.apiOAuthLoginWithFreshSessionForLoggedOutState', () => {
     service.getPrimeClient = jest.fn(async () => ({ post }));
   }
 
+  it('repairs a v6.5.0 logged-out projection before a fresh OAuth login', async () => {
+    const { service, simpleDbPrime } = createService();
+    const accessToken = buildFakeJwt({ sub: 'user-a' });
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          userId: 'user-a',
+          onekeyAccount: {
+            onekeyUserId: 'user-a',
+            normalizedEmail: 'a@example.com',
+            displayEmail: 'a@example.com',
+          },
+        },
+      },
+    }));
+    mockFreshOAuthLoginClient({ service, post });
+    const v650LoggedOutState =
+      setupV650LoggedOutProjectionWithStaleLegacySession(simpleDbPrime);
+
+    await expect(
+      service.apiOAuthLoginWithFreshSessionForLoggedOutState({
+        accessToken,
+        refreshToken: 'refresh-a',
+      }),
+    ).resolves.toBeDefined();
+
+    expect(v650LoggedOutState.didRestoreLegacySession()).toBe(false);
+    expect(mockPersistKeylessAuthSession).toHaveBeenCalledWith({
+      accessToken,
+      refreshToken: 'refresh-a',
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
   it('rechecks the logged-out precondition after waiting for loginMutex', async () => {
     const { service, simpleDbPrime } = createService();
     let isAnotherLoginCommitted = false;
@@ -4593,5 +6821,965 @@ describe('ServicePrime.apiBindLegacyOneKeyIdOAuth legacy identity guard', () => 
 
     expect(get).not.toHaveBeenCalled();
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServicePrime hardware Prime gift orchestration', () => {
+  let giftEventSpy: jest.SpyInstance;
+  const user = {
+    isLoggedIn: true,
+    onekeyUserId: 'user-a',
+    displayEmail: 'receiver@example.com',
+  };
+  const prepareParams = {
+    serialNo: 'DEVICE_SERIAL',
+    expectedOneKeyUserId: 'user-a',
+    device: { connectId: 'DEVICE_USB', deviceType: 'pro' },
+  };
+  const redemption = { addedDays: 180, finalExpiresAt: 1_800_000_000_000 };
+  const redeemParams = {
+    code: 'TEST_CODE',
+    expectedOneKeyUserId: 'user-a',
+    primeGiftSerialNo: 'DEVICE_SERIAL',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    giftEventSpy = jest
+      .spyOn(appEventBus, 'emit')
+      .mockImplementation(() => true);
+    mockPrimePersistAtom.get.mockResolvedValue(user);
+    mockGiftEligibilityCache = {};
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    giftEventSpy.mockRestore();
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createGiftService() {
+    const result = createService();
+    const { service, backgroundApi, simpleDbPrime } = result;
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    // Legacy metadata must not be consulted or updated by the new flow.
+    const legacyRead = jest.fn(async () => ({
+      devices: {
+        DEVICE_SERIAL: {
+          giftMonths: 6,
+          codeOwnerOneKeyUserId: 'another-user',
+          claimStatus: 'resultUnknown',
+          result: { onekeyUserId: 'another-user', ...redemption },
+        },
+      },
+    }));
+    const legacyWrite = jest.fn();
+    Object.assign(simpleDbPrime, {
+      getPrimeGiftClaimState: legacyRead,
+      setPrimeGiftClaimState: legacyWrite,
+    });
+    service.apiFetchPrimeUserInfo = jest.fn(async () => ({ userInfo: user }));
+    const verify = jest.fn<Promise<IPrimeGiftVerifyV2Result>, [unknown]>(
+      async () => ({ code: 'TEST_CODE', status: 'available' }),
+    );
+    backgroundApi.serviceHardware = {
+      hardwareVerifyManager: { firmwareAuthenticateForPrimeGift: verify },
+    };
+    const get = jest.fn(
+      async (): Promise<{
+        data: {
+          code: number;
+          message?: string;
+          data: {
+            userId: string;
+            onekeyAccount?: { onekeyUserId: string };
+          };
+        };
+      }> => ({
+        data: {
+          code: 0,
+          data: {
+            userId: 'user-a',
+            onekeyAccount: { onekeyUserId: 'user-a' },
+          },
+        },
+      }),
+    );
+    const post = jest.fn(async () => ({
+      data: {
+        data: {
+          daysAdded: redemption.addedDays,
+          primeExpiresAt: redemption.finalExpiresAt,
+        },
+      },
+    }));
+    const eligibilityPost = jest.fn(
+      async (): Promise<{
+        data: { code: number; message?: string; data: unknown };
+      }> => ({
+        data: {
+          code: 0,
+          data: {
+            sno: 'DEVICE_SERIAL',
+            eligible: true,
+            hasUnclaimedGift: true,
+            giftDays: 180,
+            giftMonths: 6,
+          },
+        },
+      }),
+    );
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    service.getClient = jest.fn(async () => ({ post: eligibilityPost }));
+    return {
+      ...result,
+      verify,
+      get,
+      post,
+      eligibilityPost,
+      legacyRead,
+      legacyWrite,
+    };
+  }
+
+  describe('resetting a device Prime gift in developer mode', () => {
+    const devSettingsGet = jest.mocked(devSettingsPersistAtom.get);
+
+    beforeEach(() => {
+      devSettingsGet.mockResolvedValue({ enabled: true, settings: {} });
+    });
+
+    afterEach(() => {
+      devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    });
+
+    it('posts the current serial number and accepts success without response data', async () => {
+      const { service, eligibilityPost, legacyRead, legacyWrite } =
+        createGiftService();
+      eligibilityPost.mockResolvedValueOnce({
+        data: { code: 0, data: undefined },
+      });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toBeUndefined();
+      expect(service.getClient).toHaveBeenCalledWith('wallet');
+      expect(eligibilityPost).toHaveBeenCalledWith(
+        '/wallet/v1/hardware/prime-gift/reset',
+        { sno: 'DEVICE_SERIAL' },
+      );
+      expect(legacyRead).not.toHaveBeenCalled();
+      expect(legacyWrite).not.toHaveBeenCalled();
+    });
+
+    it('does not call the server when developer mode is disabled', async () => {
+      const { service, eligibilityPost } = createGiftService();
+      devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow('prime_gift_developer_mode_required__msg');
+      expect(eligibilityPost).not.toHaveBeenCalled();
+    });
+
+    it('preserves a failed reset response instead of reporting success', async () => {
+      const { service, eligibilityPost } = createGiftService();
+      eligibilityPost.mockResolvedValueOnce({
+        data: { code: 500, message: 'Reset failed', data: undefined },
+      });
+      await expect(
+        service.apiResetPrimeGift({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow('Reset failed');
+    });
+  });
+
+  it('queries user info on every call without a profile or local user fallback', async () => {
+    const { service, get } = createGiftService();
+    await expect(service.apiGetPrimeGiftUserId()).resolves.toBe('user-a');
+    get.mockResolvedValueOnce({ data: { code: 0, data: { userId: '' } } });
+    await expect(service.apiGetPrimeGiftUserId()).resolves.toBeUndefined();
+    expect(get.mock.calls).toEqual([
+      ['/prime/v1/user/info'],
+      ['/prime/v1/user/info'],
+    ]);
+  });
+
+  it('does not accept a userId returned in a failed user-info response', async () => {
+    const { service, get } = createGiftService();
+    get.mockResolvedValue({
+      data: { code: 500, message: 'Info failed', data: { userId: 'user-a' } },
+    });
+    await expect(service.apiGetPrimeGiftUserId()).rejects.toThrow(
+      'Info failed',
+    );
+  });
+
+  it.each([90_002, 90_003, 500])(
+    'prevents the background proxy from toasting automatic user-info error %s',
+    async (code) => {
+      const { service, get } = createGiftService();
+      mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
+      const error =
+        code === 500
+          ? new OneKeyServerApiError({
+              code,
+              message: 'User info unavailable',
+              autoToast: true,
+            })
+          : new OneKeyErrorPrimeLoginInvalidToken({ code });
+      expect(error.autoToast).toBe(true);
+      get.mockRejectedValueOnce(error);
+
+      await expect(service.apiGetPrimeGiftUserId()).rejects.toBe(error);
+
+      expect(error.autoToast).toBe(false);
+      expect(toPlainErrorObject(error).autoToast).toBe(false);
+      errorToastUtils.showToastOfError(error);
+      await Promise.resolve();
+      expect(
+        giftEventSpy.mock.calls.filter(
+          ([event]) => event === EAppEventBusNames.ShowToast,
+        ),
+      ).toHaveLength(0);
+    },
+  );
+
+  it('mutes user-info authentication errors returned as response data', async () => {
+    const { service, get } = createGiftService();
+    get.mockResolvedValueOnce({
+      data: { code: 90_003, message: 'Login required', data: { userId: '' } },
+    });
+    await expect(service.apiGetPrimeGiftUserId()).rejects.toMatchObject({
+      code: 90_003,
+      autoToast: false,
+    });
+  });
+
+  it('uses server eligibility even when legacy storage says another account claimed', async () => {
+    const { service, eligibilityPost, legacyRead, legacyWrite } =
+      createGiftService();
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).resolves.toMatchObject({ eligible: true, hasUnclaimedGift: true });
+    expect(service.getClient).toHaveBeenCalledWith('wallet');
+    expect(eligibilityPost).toHaveBeenCalledWith(
+      '/wallet/v1/hardware/prime-gift/eligibility',
+      {
+        sno: 'DEVICE_SERIAL',
+      },
+    );
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).toMatchObject({
+      sno: 'DEVICE_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: true,
+    });
+  });
+
+  it('persists separate device results and replaces previous duration fields', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    const anotherDevice = {
+      sno: 'ANOTHER_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: false,
+      giftDays: 45,
+    };
+    eligibilityPost.mockResolvedValue({
+      data: { code: 0, data: anotherDevice },
+    });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'ANOTHER_SERIAL' });
+    const updated = { ...anotherDevice, sno: 'DEVICE_SERIAL' };
+    eligibilityPost.mockResolvedValue({ data: { code: 0, data: updated } });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    expect(mockGiftEligibilityCache).toEqual({
+      DEVICE_SERIAL: updated,
+      ANOTHER_SERIAL: anotherDevice,
+    });
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL?.giftMonths).toBeUndefined();
+  });
+
+  it('retains the last successful result when a refresh fails or returns invalid data', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    const cached = mockGiftEligibilityCache;
+    eligibilityPost.mockRejectedValueOnce(new Error('Offline'));
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).rejects.toThrow('Offline');
+    eligibilityPost.mockResolvedValueOnce({
+      data: { code: 0, data: { eligible: false } },
+    });
+    await expect(
+      service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+    ).rejects.toThrow();
+    expect(mockGiftEligibilityCache).toBe(cached);
+  });
+
+  it('does not let an older request overwrite a newer no-gift response', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    type IResponse = Awaited<ReturnType<typeof eligibilityPost>>;
+    let resolveOld!: (response: IResponse) => void;
+    let resolveNew!: (response: IResponse) => void;
+    eligibilityPost
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNew = resolve;
+        }),
+      );
+    const oldRequest = service.apiGetPrimeGiftEligibility({
+      serialNo: 'DEVICE_SERIAL',
+    });
+    const newRequest = service.apiGetPrimeGiftEligibility({
+      serialNo: 'DEVICE_SERIAL',
+    });
+    await Promise.resolve();
+    const noGift = {
+      sno: 'DEVICE_SERIAL',
+      eligible: true,
+      hasUnclaimedGift: false,
+      giftDays: 180,
+      giftMonths: 6,
+    };
+    resolveNew({ data: { code: 0, data: noGift } });
+    await newRequest;
+    resolveOld({
+      data: { code: 0, data: { ...noGift, hasUnclaimedGift: true } },
+    });
+    await oldRequest;
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).toEqual(noGift);
+  });
+
+  it('persists only eligibility metadata even if the response contains extra fields', async () => {
+    const { service, eligibilityPost } = createGiftService();
+    eligibilityPost.mockResolvedValue({
+      data: {
+        code: 0,
+        data: {
+          sno: 'DEVICE_SERIAL',
+          eligible: true,
+          hasUnclaimedGift: true,
+          giftDays: 180,
+          primeCode: 'EXTRA_SERVER_FIELD',
+        },
+      },
+    });
+    await service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' });
+    expect(mockGiftEligibilityCache.DEVICE_SERIAL).not.toHaveProperty(
+      'primeCode',
+    );
+  });
+
+  it.each([
+    { eligible: true, hasUnclaimedGift: false },
+    { eligible: false, hasUnclaimedGift: false },
+    { eligible: false, hasUnclaimedGift: true },
+    { eligible: true, hasUnclaimedGift: true },
+  ])(
+    'preserves the real eligibility flags and gift duration: %j',
+    async (flags) => {
+      const { service, eligibilityPost } = createGiftService();
+      const response = {
+        sno: 'DEVICE_SERIAL',
+        ...flags,
+        giftDays: 360,
+        giftMonths: 12,
+      };
+      eligibilityPost.mockResolvedValue({ data: { code: 0, data: response } });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toEqual(response);
+    },
+  );
+
+  it.each([
+    {
+      code: 500,
+      message: 'Eligibility failed',
+      data: {
+        eligible: true,
+        hasUnclaimedGift: true,
+        giftDays: 180,
+        giftMonths: 6,
+      },
+    },
+    { code: 0, data: null },
+    { code: 0, data: { eligible: true, giftDays: 180, giftMonths: 6 } },
+    {
+      code: 0,
+      data: {
+        eligible: 'true',
+        hasUnclaimedGift: true,
+        giftDays: 180,
+        giftMonths: 6,
+      },
+    },
+    {
+      code: 0,
+      data: { eligible: true, hasUnclaimedGift: true, giftMonths: 6 },
+    },
+  ])(
+    'rejects failed or incomplete eligibility responses instead of fabricating an offer: %j',
+    async (response) => {
+      const { service, eligibilityPost } = createGiftService();
+      eligibilityPost.mockResolvedValue({ data: response });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).rejects.toThrow();
+    },
+  );
+
+  it.each([false, true])(
+    'propagates eligibility errors without a local override for isDev=%s',
+    async (isDev) => {
+      const { service, eligibilityPost } = createGiftService();
+      const error = new Error('Offer unavailable');
+      eligibilityPost.mockRejectedValue(error);
+      const environment = jest.replaceProperty(platformEnv, 'isDev', isDev);
+      try {
+        const request = service.apiGetPrimeGiftEligibility({
+          serialNo: 'DEVICE_SERIAL',
+        });
+        await expect(request).rejects.toBe(error);
+      } finally {
+        environment.restore();
+      }
+    },
+  );
+
+  it.each([undefined, null, '', 0])(
+    'preserves giftDays when giftMonths is empty or zero: %j',
+    async (giftMonths) => {
+      const { service, eligibilityPost } = createGiftService();
+      const response = {
+        sno: 'DEVICE_SERIAL',
+        eligible: true,
+        hasUnclaimedGift: true,
+        giftDays: 45,
+        giftMonths,
+      };
+      eligibilityPost.mockResolvedValue({ data: { code: 0, data: response } });
+      await expect(
+        service.apiGetPrimeGiftEligibility({ serialNo: 'DEVICE_SERIAL' }),
+      ).resolves.toEqual(response);
+    },
+  );
+
+  it.each(['available', 'processing', 'redeemed', 'future-status'])(
+    'passes the server code through for status=%s',
+    async (status) => {
+      const { service, verify, legacyRead, legacyWrite, post } =
+        createGiftService();
+      verify.mockResolvedValue({ code: '  SERVER_CODE  ', status });
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toEqual({
+        serialNo: 'DEVICE_SERIAL',
+        onekeyUserId: 'user-a',
+        code: '  SERVER_CODE  ',
+        verification: { hasCode: true, status },
+      });
+      expect(post).not.toHaveBeenCalled();
+      expect(legacyRead).not.toHaveBeenCalled();
+      expect(legacyWrite).not.toHaveBeenCalled();
+      expect(
+        jest.mocked(secureStorageInstance).supportSecureStorage.mock.calls,
+      ).toHaveLength(0);
+      expect(
+        jest.mocked(secureStorageInstance).getSecureItem.mock.calls,
+      ).toHaveLength(0);
+      expect(
+        jest.mocked(secureStorageInstance).setSecureItem.mock.calls,
+      ).toHaveLength(0);
+    },
+  );
+
+  it.each([undefined, '', '   '])(
+    'returns verification with an empty code without redeeming: %j',
+    async (code) => {
+      const { service, verify, post } = createGiftService();
+      verify.mockResolvedValue({ code, status: 'redeemed' });
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({
+        verification: { hasCode: false, status: 'redeemed' },
+      });
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it('re-verifies without a claim cache and checks the session only when redeeming', async () => {
+    const { service, verify, simpleDbPrime, legacyRead, legacyWrite } =
+      createGiftService();
+    verify.mockRejectedValueOnce(new Error('Device cancelled'));
+    const failedPrepare = await service
+      .apiPreparePrimeGiftRedemption(prepareParams)
+      .catch((error: unknown) => error);
+    expect(failedPrepare).toBeInstanceOf(OneKeyLocalError);
+    expect(failedPrepare).toMatchObject({
+      message: ETranslations.prime_gift_verify_failed__msg,
+      key: ETranslations.prime_gift_verify_failed__msg,
+      autoToast: false,
+    });
+    await service.apiPreparePrimeGiftRedemption(prepareParams);
+    expect(simpleDbPrime.getAuthSessionSource).not.toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).not.toHaveBeenCalled();
+    await service.apiRedeemPrimeCode(redeemParams);
+    mockPrimePersistAtom.get.mockResolvedValue({
+      ...user,
+      onekeyUserId: 'user-b',
+    });
+    await expect(
+      service.apiPreparePrimeGiftRedemption({
+        ...prepareParams,
+        expectedOneKeyUserId: 'user-b',
+      }),
+    ).resolves.toMatchObject({ onekeyUserId: 'user-b', code: 'TEST_CODE' });
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(simpleDbPrime.getAuthSessionSource).toHaveBeenCalled();
+    expect(
+      mockReadPersistedAccessTokenBySessionSourceStrict,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses only the login atom before device verification', async () => {
+    const { service, verify } = createGiftService();
+    mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: true });
+    await expect(
+      service.apiPreparePrimeGiftRedemption(prepareParams),
+    ).resolves.toMatchObject({ code: 'TEST_CODE' });
+    mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
+    const loginExpired = await service
+      .apiPreparePrimeGiftRedemption(prepareParams)
+      .catch((error: unknown) => error);
+    expect(loginExpired).toBeInstanceOf(OneKeyLocalError);
+    expect(loginExpired).toMatchObject({
+      message: ETranslations.id_login_expired_description,
+      key: ETranslations.id_login_expired_description,
+      autoToast: false,
+    });
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+  });
+
+  describe('device verification failures during gift prepare', () => {
+    function expectFriendlyVerifyFailedError(error: unknown) {
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      expect(error).toMatchObject({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      });
+      expect(toPlainErrorObject(error)).toMatchObject({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      });
+    }
+
+    const SENSITIVE_LOG_VALUES = [
+      'DEVICE_SERIAL',
+      'TEST_CODE',
+      'user-a',
+      'receiver@example.com',
+      'access_token=',
+      'secret-auth-material',
+    ];
+
+    function leakText(prefix: string) {
+      return `${prefix} DEVICE_SERIAL TEST_CODE user-a receiver@example.com access_token=secret-auth-material`;
+    }
+
+    function expectSafeVerifyFailureLog(
+      originalError: unknown,
+      expected: Record<string, unknown>,
+    ) {
+      const logged = getPrimeGiftVerifyFailureLogPayload(originalError);
+      expect(logged).toEqual(expected);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledWith(
+        'firmwareAuthenticateForPrimeGift',
+        expected,
+      );
+      const serialized = JSON.stringify(
+        mockHardwareSdkServiceEvent.mock.calls[0][1],
+      );
+      for (const value of SENSITIVE_LOG_VALUES) {
+        expect(serialized).not.toContain(value);
+      }
+    }
+
+    it.each([
+      {
+        name: 'USB SDK failure',
+        error: Object.assign(
+          new Error(leakText('Protocol V2 USB read failed: transferIn')),
+          {
+            name: 'TransportError DEVICE_SERIAL',
+            code: 'TEST_CODE',
+            requestId: 'user-a',
+            cause: { message: leakText('usb cause') },
+            payload: {
+              serialNo: 'DEVICE_SERIAL',
+              primeCode: 'TEST_CODE',
+              userId: 'user-a',
+              email: 'receiver@example.com',
+              code: 'TEST_CODE',
+            },
+          },
+        ),
+        expectedLog: { reason: 'usbReadFailed' },
+      },
+      {
+        name: 'firmware verification failure',
+        error: Object.assign(
+          new OneKeyServerApiError({
+            code: 500,
+            message: leakText('Firmware verification failed'),
+            requestId: 'user-a',
+          }),
+          {
+            cause: { message: leakText('verify cause') },
+            payload: {
+              serialNo: 'DEVICE_SERIAL',
+              primeCode: 'TEST_CODE',
+              code: 'TEST_CODE',
+            },
+          },
+        ),
+        expectedLog: {
+          reason: 'firmwareVerificationFailed',
+          errorName: EOneKeyErrorClassNames.OneKeyServerApiError,
+          errorCode: 500,
+        },
+      },
+      {
+        name: 'plain serialized error',
+        error: {
+          name: 'Error',
+          message: leakText('Protocol V2 USB read failed: transferIn'),
+          code: 'TEST_CODE',
+          requestId: 'user-a',
+          cause: { message: leakText('serialized usb cause') },
+          payload: {
+            serialNo: 'DEVICE_SERIAL',
+            userId: 'user-a',
+            email: 'receiver@example.com',
+          },
+        },
+        expectedLog: { reason: 'usbReadFailed', errorName: 'Error' },
+      },
+    ])(
+      'converts $name into a friendly verify-failed error and logs a structured diagnostic',
+      async ({ error: originalError, expectedLog }) => {
+        const { service, verify } = createGiftService();
+        verify.mockRejectedValueOnce(originalError);
+
+        const error = await service
+          .apiPreparePrimeGiftRedemption(prepareParams)
+          .catch((caught: unknown) => caught);
+
+        expect(error).not.toBe(originalError);
+        expectFriendlyVerifyFailedError(error);
+        expectSafeVerifyFailureLog(originalError, expectedLog);
+        expect(verify).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('retries successfully after a converted verification failure', async () => {
+      const { service, verify } = createGiftService();
+      verify.mockRejectedValueOnce(
+        new Error('Protocol V2 USB read failed: transferIn'),
+      );
+
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).rejects.toBeInstanceOf(OneKeyLocalError);
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({
+        serialNo: 'DEVICE_SERIAL',
+        onekeyUserId: 'user-a',
+        code: 'TEST_CODE',
+        verification: { hasCode: true, status: 'available' },
+      });
+      expect(verify).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      {
+        name: 'converted ActionCancelled UserCancel',
+        createError: () =>
+          convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),
+      },
+      {
+        name: 'converted PinCancelled',
+        createError: () =>
+          convertDeviceError({ code: HardwareErrorCode.PinCancelled }),
+      },
+      {
+        name: 'UserCancel instance',
+        createError: () => new UserCancel(),
+      },
+      {
+        name: 'PinCancelled instance',
+        createError: () => new PinCancelled(),
+      },
+      {
+        name: 'convertDeviceResponse CallQueueActionCancelled',
+        createError: async () => {
+          const error = await convertDeviceResponse(async () => ({
+            success: false,
+            payload: {
+              code: HardwareErrorCode.CallQueueActionCancelled,
+              error: 'Action cancelled by user on call queue',
+            },
+          })).then(
+            () => undefined,
+            (caught: unknown) => caught,
+          );
+          expect(error).toBeDefined();
+          return error;
+        },
+      },
+      {
+        name: 'serialized ActionCancelled',
+        createError: () => ({
+          $isHardwareError: true,
+          code: HardwareErrorCode.ActionCancelled,
+        }),
+      },
+      {
+        name: 'serialized CallQueueActionCancelled payload.code',
+        createError: () => ({
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          payload: { code: HardwareErrorCode.CallQueueActionCancelled },
+        }),
+      },
+      {
+        name: 'serialized PinCancelled',
+        createError: () => ({
+          $isHardwareError: true,
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          payload: { code: HardwareErrorCode.PinCancelled },
+        }),
+      },
+      {
+        name: 'UserCancelFromOutside instance',
+        createError: () => new UserCancelFromOutside(),
+      },
+      {
+        name: 'serialized HardwareUserCancelFromOutside',
+        createError: () => ({
+          className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+          message: 'UserCancelFromOutside',
+        }),
+      },
+      {
+        name: 'hardware busy preflight',
+        createError: () =>
+          new OneKeyLocalError({
+            message: ETranslations.feedback_hardware_is_busy,
+            key: ETranslations.feedback_hardware_is_busy,
+            autoToast: false,
+          }),
+      },
+      {
+        name: 'missing connect preflight',
+        createError: () =>
+          new OneKeyLocalError({
+            message: ETranslations.prime_gift_connect_device__msg,
+            key: ETranslations.prime_gift_connect_device__msg,
+            autoToast: false,
+          }),
+      },
+    ])(
+      'rethrows $name without converting it or writing a failure log',
+      async ({ createError }) => {
+        const { service, verify } = createGiftService();
+        const originalError = await createError();
+        verify.mockRejectedValueOnce(originalError);
+
+        const error = await service
+          .apiPreparePrimeGiftRedemption(prepareParams)
+          .catch((caught: unknown) => caught);
+
+        expect(error).toBe(originalError);
+        expect(error).not.toMatchObject({
+          key: ETranslations.prime_gift_verify_failed__msg,
+        });
+        expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+        expect(verify).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('retries successfully after a preserved hardware-busy preflight error', async () => {
+      const { service, verify } = createGiftService();
+      const busy = new OneKeyLocalError({
+        message: ETranslations.feedback_hardware_is_busy,
+        key: ETranslations.feedback_hardware_is_busy,
+        autoToast: false,
+      });
+      verify.mockRejectedValueOnce(busy);
+
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).rejects.toBe(busy);
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({ code: 'TEST_CODE' });
+      expect(verify).toHaveBeenCalledTimes(2);
+      expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+    });
+
+    it('still converts an unrelated OneKeyLocalError into a friendly verify-failed error', async () => {
+      const { service, verify } = createGiftService();
+      const originalError = new OneKeyLocalError({
+        message: 'Some other local failure',
+        key: ETranslations.prime_gift_user_info_failed__msg,
+        autoToast: false,
+      });
+      verify.mockRejectedValueOnce(originalError);
+
+      const error = await service
+        .apiPreparePrimeGiftRedemption(prepareParams)
+        .catch((caught: unknown) => caught);
+
+      expect(error).not.toBe(originalError);
+      expectFriendlyVerifyFailedError(error);
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not treat a plain Device cancelled Error as user cancellation', async () => {
+      const { service, verify } = createGiftService();
+      const originalError = new Error('Device cancelled');
+      verify.mockRejectedValueOnce(originalError);
+
+      const error = await service
+        .apiPreparePrimeGiftRedemption(prepareParams)
+        .catch((caught: unknown) => caught);
+
+      expect(error).not.toBe(originalError);
+      expectFriendlyVerifyFailedError(error);
+      expectSafeVerifyFailureLog(originalError, {
+        reason: 'unknown',
+        errorName: 'Error',
+      });
+      expect(verify).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it.each([
+    'missing token',
+    'persisted token mismatch',
+    'different token owner',
+    'session changed during profile lookup',
+  ])('blocks hardware redemption for %s', async (scenario) => {
+    const { service, simpleDbPrime, get, post } = createGiftService();
+    if (scenario === 'missing token') {
+      simpleDbPrime.getActiveAuthToken.mockResolvedValue('');
+    } else if (scenario === 'persisted token mismatch') {
+      mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+        status: 'ok',
+        accessToken: 'token-b',
+      });
+    } else {
+      get.mockImplementationOnce(async () => {
+        if (scenario === 'session changed during profile lookup') {
+          simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        }
+        return {
+          data: {
+            code: 0,
+            data: {
+              userId: 'user-a',
+              onekeyAccount: {
+                onekeyUserId:
+                  scenario === 'different token owner' ? 'user-b' : 'user-a',
+              },
+            },
+          },
+        };
+      });
+    }
+
+    await expect(
+      service.apiRedeemPrimeCode(redeemParams),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(post).not.toHaveBeenCalled();
+    expect(giftEventSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects hardware redemption success after the session changes in flight', async () => {
+    const { service, simpleDbPrime, post } = createGiftService();
+    const postStarted = createDeferred();
+    const response = createDeferred<Awaited<ReturnType<typeof post>>>();
+    post.mockImplementationOnce(() => {
+      postStarted.resolve();
+      return response.promise;
+    });
+
+    const request = service.apiRedeemPrimeCode(redeemParams);
+    await postStarted.promise;
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+    response.resolve({
+      data: {
+        data: {
+          daysAdded: redemption.addedDays,
+          primeExpiresAt: redemption.finalExpiresAt,
+        },
+      },
+    });
+
+    await expect(request).rejects.toBeInstanceOf(OneKeyLocalError);
+    expect(giftEventSpy).not.toHaveBeenCalled();
+    expect(service.apiFetchPrimeUserInfo).not.toHaveBeenCalled();
+  });
+
+  it('submits each redemption to the server and preserves server failures without recording a receipt', async () => {
+    const { service, post, get, legacyRead, legacyWrite } = createGiftService();
+    await expect(
+      service.apiRedeemPrimeCode(redeemParams),
+    ).resolves.toMatchObject(redemption);
+    const error = new OneKeyServerApiError({
+      code: 400,
+      message: 'Already redeemed on server',
+    });
+    post.mockRejectedValueOnce(error);
+    await expect(service.apiRedeemPrimeCode(redeemParams)).rejects.toBe(error);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/redemption/redeem',
+      { code: 'TEST_CODE' },
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenCalledWith('/prime/v1/account/profile', {
+      headers: { 'X-Onekey-Request-Token': 'token-a' },
+    });
+    expect(legacyRead).not.toHaveBeenCalled();
+    expect(legacyWrite).not.toHaveBeenCalled();
+    expect(giftEventSpy).toHaveBeenCalledTimes(1);
   });
 });

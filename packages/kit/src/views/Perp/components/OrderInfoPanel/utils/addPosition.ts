@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import {
+  computeMaxTradeSize,
   formatHlSize,
   normalizePerpsAccountAddress,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -62,6 +63,50 @@ export function isAddPositionAssetDataScoped({
   );
 }
 
+/**
+ * Hyperliquid reports `maxTradeSzs` at the mark price, while add-position
+ * sizing uses the order price. Use the price that consumes the most margin so
+ * the cap is correctly denominated without overstating available capacity.
+ */
+export function computeAddPositionMaxSize({
+  isBuy,
+  orderType,
+  limitPrice,
+  markPrice,
+  maxTradeSzs,
+  leverage,
+  szDecimals,
+}: {
+  isBuy: boolean;
+  orderType: 'market' | 'limit';
+  limitPrice: string;
+  markPrice?: string;
+  maxTradeSzs?: Array<number | string>;
+  leverage: number;
+  szDecimals?: number;
+}): string {
+  const limitBN = new BigNumber(limitPrice);
+  const markBN = new BigNumber(markPrice ?? '');
+  const hasUsableLimit = limitBN.isFinite() && limitBN.gt(0);
+
+  let referencePrice = markPrice;
+  if (orderType === 'limit' && hasUsableLimit) {
+    referencePrice =
+      !isBuy && markBN.isFinite() && markBN.gt(limitBN)
+        ? markBN.toFixed()
+        : limitBN.toFixed();
+  }
+
+  return computeMaxTradeSize({
+    side: isBuy ? 'long' : 'short',
+    price: referencePrice,
+    markPrice,
+    maxTradeSzs,
+    leverageValue: leverage,
+    szDecimals,
+  }).toFixed();
+}
+
 export function validateAddPositionOrder({
   size,
   price,
@@ -114,7 +159,7 @@ export function buildAddPositionMinimumAmountLabel({
 }): string {
   const fallback = `$${ADD_POSITION_MIN_ORDER_NOTIONAL}`;
   const priceBN = new BigNumber(price);
-  if (!priceBN.isFinite() || priceBN.lte(0) || sizeInputUnit === 'usd') {
+  if (!priceBN.isFinite() || priceBN.lte(0)) {
     return fallback;
   }
 
@@ -126,12 +171,18 @@ export function buildAddPositionMinimumAmountLabel({
     return `${minSize.toFixed(szDecimals)} ${symbol}`;
   }
 
+  const minimumOrderValue = minSize.multipliedBy(priceBN);
+  if (sizeInputUnit === 'usd') {
+    return `$${minimumOrderValue
+      .decimalPlaces(2, BigNumber.ROUND_UP)
+      .toFixed(2)}`;
+  }
+
   const leverageBN = new BigNumber(leverage);
   if (!leverageBN.isFinite() || leverageBN.lte(0)) {
     return fallback;
   }
-  return `$${minSize
-    .multipliedBy(priceBN)
+  return `$${minimumOrderValue
     .dividedBy(leverageBN)
     .decimalPlaces(2, BigNumber.ROUND_UP)
     .toFixed(2)}`;

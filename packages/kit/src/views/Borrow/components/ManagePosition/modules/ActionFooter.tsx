@@ -4,8 +4,12 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
-import { Page, YStack } from '@onekeyhq/components';
+import { Page, Stack, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import {
+  EStakeProgressStep,
+  StakeProgress,
+} from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowTestIDs } from '../../../testIDs';
@@ -47,7 +51,8 @@ export function ActionFooter({
 
   const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
   const {
-    approving,
+    isFormInteractionLocked,
+    approvalProgressStarted,
     loadingAllowance,
     shouldApprove,
     ensureReadyToSubmit,
@@ -56,15 +61,18 @@ export function ActionFooter({
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
 
-  // Action label
+  const businessActionLabel = useMemo(
+    () =>
+      actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] }),
+    [actionLabelProp, action, intl],
+  );
+
   const actionLabel = useMemo(() => {
     if (shouldApprove) {
       return intl.formatMessage({ id: ETranslations.global_approve });
     }
-    return (
-      actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] })
-    );
-  }, [actionLabelProp, action, intl, shouldApprove]);
+    return businessActionLabel;
+  }, [businessActionLabel, intl, shouldApprove]);
 
   // Disable state
   // Borrow action doesn't check isInsufficientBalance because it's borrowing from protocol
@@ -153,31 +161,70 @@ export function ActionFooter({
 
   const footerContent = (
     <Page.FooterActions
+      $gtMd={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+      }}
       onConfirmText={confirmText}
       confirmButtonProps={{
         testID: BorrowTestIDs.actionConfirmBtn,
         onPress: handleConfirm,
         loading:
-          submitting || checkAmountLoading || loadingAllowance || approving,
+          submitting ||
+          checkAmountLoading ||
+          loadingAllowance ||
+          isFormInteractionLocked,
         disabled: isButtonDisabled,
       }}
     />
   );
+
+  const isShowStakeProgress =
+    !!amountValue && (shouldApprove || approvalProgressStarted);
+
+  const progressContent = isShowStakeProgress ? (
+    <StakeProgress
+      currentStep={
+        shouldApprove ? EStakeProgressStep.approve : EStakeProgressStep.deposit
+      }
+      step1LabelId={ETranslations.global_approve}
+      step2Label={businessActionLabel}
+    />
+  ) : null;
 
   return (
     <>
       {beforeFooter ?? state.beforeFooter}
       {isInModalContext ? (
         <Page.Footer>
-          {footerContent}
+          <Stack
+            bg="$bgApp"
+            flexDirection="column"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              jc: 'space-between',
+            }}
+          >
+            {progressContent ? (
+              <Stack pl="$5" $md={{ pt: '$5' }}>
+                {progressContent}
+              </Stack>
+            ) : null}
+            {footerContent}
+          </Stack>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={
-              approving ? undefined : onSelectPercentageStage
+              isFormInteractionLocked ? undefined : onSelectPercentageStage
             }
           />
         </Page.Footer>
       ) : (
-        <YStack>{footerContent}</YStack>
+        <YStack bg="$bgApp" gap="$5">
+          {progressContent}
+          {footerContent}
+        </YStack>
       )}
     </>
   );

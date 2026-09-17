@@ -15,6 +15,7 @@ import {
 
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
+import { NativeSheetRoot } from './components/NativeSheetRoot';
 
 const passwordVerifyFallback = (
   <YStack h={46} justifyContent="center" alignItems="center">
@@ -140,24 +141,41 @@ export function AppStateLockContainer({
 
   const lockContainerRef = useWebLockCheck(isLocked);
 
-  // When locked, set `inert` on all document.body children that don't contain
-  // the lock screen. This disables focus traps (FocusScope) in portaled Dialogs
-  // at the browser level, allowing the lock screen input to receive focus.
+  // When locked, keep all document.body children that don't contain the lock
+  // screen inert. This also covers portals mounted after the lock screen, so
+  // their focus traps cannot take focus away from the password input.
   useEffect(() => {
     if (platformEnv.isNative || !isLocked) return;
 
     const lockEl = lockContainerRef.current;
     if (!lockEl) return;
 
-    const inertElements: HTMLElement[] = [];
+    const inertElements = new Set<HTMLElement>();
+    const makeElementInert = (element: HTMLElement) => {
+      if (!element.contains(lockEl)) {
+        element.inert = true;
+        inertElements.add(element);
+      }
+    };
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLElement) {
+            makeElementInert(node);
+          }
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true });
+
     for (const child of Array.from(document.body.children)) {
-      if (child instanceof HTMLElement && !child.contains(lockEl)) {
-        child.inert = true;
-        inertElements.push(child);
+      if (child instanceof HTMLElement) {
+        makeElementInert(child);
       }
     }
 
     return () => {
+      observer.disconnect();
       for (const el of inertElements) {
         el.inert = false;
       }
@@ -165,7 +183,7 @@ export function AppStateLockContainer({
   }, [isLocked, lockContainerRef]);
 
   return (
-    <>
+    <NativeSheetRoot blocked={isLocked}>
       {deferColdStartChildren ? null : children}
       {!isLocked ? <AppStateUpdater /> : null}
       <AnimatePresence>
@@ -173,7 +191,7 @@ export function AppStateLockContainer({
           <AppStateLock
             lockContainerRef={lockContainerRef as any}
             key="unlock-screen"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 1,
@@ -195,6 +213,6 @@ export function AppStateLockContainer({
           />
         ) : null}
       </AnimatePresence>
-    </>
+    </NativeSheetRoot>
   );
 }

@@ -22,9 +22,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
+  useSwapProSelectTokenAtom,
   useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -32,11 +34,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
-  type ESwapSource,
+  ESwapProAnalyticsEnterFrom,
+  ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapProTokenCarryOptions } from '../../hooks/useSwapProTokenCarry';
 import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
@@ -119,11 +123,13 @@ function CustomTabItem({
 }
 
 interface ISwapHeaderContainerProps {
+  storeName?: EJotaiContextStoreNames;
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
+  singleSwapBridgeTab?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
 }
@@ -132,10 +138,12 @@ const DESKTOP_TRADE_TAB_ITEM_WIDTH = 144;
 const DESKTOP_TRADE_TAB_GROUP_WIDTH = DESKTOP_TRADE_TAB_ITEM_WIDTH * 3;
 
 const SwapHeaderContainer = ({
+  storeName,
   pageType,
   defaultSwapType,
   showSwapPro,
   hideRightActions,
+  singleSwapBridgeTab,
   marketPresetSettings,
   enterFrom,
 }: ISwapHeaderContainerProps) => {
@@ -144,10 +152,14 @@ const SwapHeaderContainer = ({
   const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProEntryIntent] = useSwapProJumpTokenAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const swapProTokenCarryOptions = useSwapProTokenCarryOptions({
+    enabled: Boolean(platformEnv.isNative && showSwapPro),
+  });
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -158,6 +170,48 @@ const SwapHeaderContainer = ({
   const hasPendingSwapProEntry = Boolean(
     platformEnv.isNative && pageType !== 'modal' && swapProEntryIntent.token,
   );
+  const isSwapProCategory = Boolean(platformEnv.isNative && showSwapPro);
+  const isSwapProActive = Boolean(
+    isSwapProCategory && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+  );
+  const swapProEntryFromRef = useRef<ESwapProAnalyticsEnterFrom | undefined>(
+    hasPendingSwapProEntry
+      ? ESwapProAnalyticsEnterFrom.MARKET_DETAIL
+      : undefined,
+  );
+  const wasSwapProActiveRef = useRef<boolean | undefined>(undefined);
+  if (hasPendingSwapProEntry) {
+    swapProEntryFromRef.current = ESwapProAnalyticsEnterFrom.MARKET_DETAIL;
+  }
+  useEffect(() => {
+    if (!isSwapProActive) {
+      wasSwapProActiveRef.current = false;
+      return;
+    }
+    if (wasSwapProActiveRef.current && !hasPendingSwapProEntry) {
+      return;
+    }
+    const token = swapProEntryIntent.token ?? swapProSelectToken;
+    if (!token) {
+      return;
+    }
+    defaultLogger.swap.swapPro.enterSwapPro({
+      enterFrom:
+        swapProEntryFromRef.current ??
+        (wasSwapProActiveRef.current === false
+          ? ESwapProAnalyticsEnterFrom.TRADE_TAB
+          : ESwapProAnalyticsEnterFrom.DEFAULT),
+      tokenSymbol: token.symbol,
+      network: token.networkId,
+    });
+    wasSwapProActiveRef.current = true;
+    swapProEntryFromRef.current = undefined;
+  }, [
+    isSwapProActive,
+    hasPendingSwapProEntry,
+    swapProEntryIntent.token,
+    swapProSelectToken,
+  ]);
   const hadPendingSwapProEntryOnMountRef = useRef(hasPendingSwapProEntry);
   useEffect(() => {
     if (hasPendingSwapProEntry) {
@@ -167,7 +221,13 @@ const SwapHeaderContainer = ({
     }
   }, [hasPendingSwapProEntry, navigation]);
   useEffect(() => {
-    if (hadPendingSwapProEntryOnMountRef.current || !defaultSwapType) {
+    if (
+      hadPendingSwapProEntryOnMountRef.current ||
+      !defaultSwapType ||
+      (pageType === 'modal' &&
+        (enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST ||
+          (singleSwapBridgeTab && enterFrom === ESwapSource.MARKET)))
+    ) {
       return;
     }
     // Avoid switching the default toToken before it has been loaded,
@@ -212,14 +272,23 @@ const SwapHeaderContainer = ({
       if (swapTypeSwitch === newType) return;
 
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
-        fromCategory: getSwapAnalyticsCategoryFromSwapType(swapTypeSwitch),
-        toCategory: getSwapAnalyticsCategoryFromSwapType(newType),
+        fromCategory: getSwapAnalyticsCategoryFromSwapType(
+          swapTypeSwitch,
+          isSwapProCategory,
+        ),
+        toCategory: getSwapAnalyticsCategoryFromSwapType(
+          newType,
+          isSwapProCategory,
+        ),
         enterFrom: getSwapAnalyticsEnterFrom(enterFrom),
       });
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
         syncRouteTabParam(newType);
-        await swapTypeSwitchAction(newType, networkId);
+        await swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+          ...swapProTokenCarryOptions,
+        });
         return;
       }
 
@@ -229,12 +298,27 @@ const SwapHeaderContainer = ({
         newType === ESwapTabSwitchType.LIMIT ||
         newType === ESwapTabSwitchType.STOCK
       ) {
-        void swapTypeSwitchAction(newType, networkId);
+        void swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+          ...swapProTokenCarryOptions,
+        });
       } else {
-        if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-          await updateSelectedAccountNetworkAction(fromToken?.networkId);
+        const settledFromToken = await swapTypeSwitchAction(
+          newType,
+          fromToken?.networkId || networkId,
+          {
+            carryTargetToken: true,
+            ...swapProTokenCarryOptions,
+          },
+        );
+        // Leave the Pro owner before awaiting account synchronization so its
+        // network effect cannot switch the account back while this is in flight.
+        // Cross-network carry can replace From with the target network's
+        // native token, so synchronize from the settled pair.
+        const settledFromNetworkId = settledFromToken?.networkId;
+        if (settledFromNetworkId && settledFromNetworkId !== networkId) {
+          await updateSelectedAccountNetworkAction(settledFromNetworkId);
         }
-        void swapTypeSwitchAction(newType, fromToken?.networkId || networkId);
       }
     },
     [
@@ -245,6 +329,8 @@ const SwapHeaderContainer = ({
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
+      isSwapProCategory,
+      swapProTokenCarryOptions,
     ],
   );
 
@@ -334,6 +420,12 @@ const SwapHeaderContainer = ({
     gtLg &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
+  const hideWalletHomeTokenListStockKLine = Boolean(
+    platformEnv.isDesktop &&
+    pageType === 'modal' &&
+    enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+    swapTypeSwitch === ESwapTabSwitchType.STOCK,
+  );
   const tabs = (
     <>
       <CustomTabItem
@@ -373,6 +465,38 @@ const SwapHeaderContainer = ({
     </>
   );
 
+  if (singleSwapBridgeTab) {
+    // This branch is only reached from the Market detail pages' embedded swap.
+    // The panel carries no "Swap & Bridge" title (OK-62956): only the right
+    // actions remain, pinned to the trailing edge.
+    return (
+      <XStack
+        alignItems="center"
+        justifyContent="flex-end"
+        gap="$2"
+        px="$5"
+        py="$1"
+      >
+        {!hideRightActions ? (
+          // The actions match the stock trade panel sitting in the same slot:
+          // the roomier icon size and spacing rather than `compact`.
+          // `iconSize` has to be a size token — `Icon` resolves its `size`
+          // variant through the token table, and a raw number silently falls
+          // back to the 24px default.
+          <SwapHeaderRightActionContainer
+            storeName={storeName}
+            pageType={pageType}
+            marketPresetSettings={marketPresetSettings}
+            routeSwapType={defaultSwapType}
+            iconSize="$5"
+            iconColor="$iconStrong"
+            hideKLine
+          />
+        ) : null}
+      </XStack>
+    );
+  }
+
   return (
     <XStack
       alignItems="center"
@@ -398,9 +522,12 @@ const SwapHeaderContainer = ({
       </Stack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer
+          storeName={storeName}
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
+          routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
+          hideKLine={hideWalletHomeTokenListStockKLine}
         />
       ) : null}
     </XStack>

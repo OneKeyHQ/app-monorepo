@@ -6,8 +6,13 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 
 import {
+  NATIVE_CHART_OPTION_GRID_GAP,
+  NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS,
+  getNativeChartOptionPillColors,
+} from '../utils/NativeChartControlsShared';
+
+import {
   INTERVAL_GRID_COLUMN_COUNT,
-  INTERVAL_GRID_ITEM_LAYOUT_PROPS,
   buildIntervalItemTestID,
   formatIntervalOptionDisplayLabel,
   isIntervalOptionDisabled,
@@ -34,26 +39,20 @@ function IntervalPill({
   disabled?: boolean;
   onPress: () => void;
 }) {
-  const isHighlighted = isActive || Boolean(isSelected);
-  let textColor = '$textSubdued';
-  if (disabled) {
-    textColor = '$textDisabled';
-  } else if (isHighlighted) {
-    textColor = '$text';
-  }
+  const { color: textColor, ...pillColors } = getNativeChartOptionPillColors({
+    isHighlighted: isActive || Boolean(isSelected),
+    isDisabled: disabled,
+  });
 
   return (
     <Stack
       key={option.value}
       testID={buildIntervalItemTestID(section, option.value)}
       position="relative"
-      {...INTERVAL_GRID_ITEM_LAYOUT_PROPS}
-      borderRadius="$full"
-      borderCurve="continuous"
-      borderColor={isHighlighted && !disabled ? '$bgReverse' : 'transparent'}
+      {...NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS}
+      {...pillColors}
       alignItems="center"
       justifyContent="center"
-      bg="$bgStrong"
       overflow="hidden"
       hoverStyle={{
         bg: '$bgStrongHover',
@@ -66,29 +65,27 @@ function IntervalPill({
       userSelect="none"
       onPress={disabled ? undefined : onPress}
     >
-      <SizableText
-        size="$bodyLgMedium"
-        color={textColor}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.82}
-      >
+      <SizableText size="$bodyMdMedium" color={textColor} numberOfLines={1}>
         {displayLabel}
       </SizableText>
       {showCheckMark && !disabled ? (
         <Stack
           position="absolute"
-          right={-1}
-          top={-1}
-          w={19}
-          h={19}
-          borderBottomLeftRadius={12}
+          right={0}
+          top={0}
+          // The design draws a 16px badge offset by -3px behind a clipping
+          // parent, so only a 13px corner tab is ever visible.
+          w={13}
+          h={13}
+          borderBottomLeftRadius="$2"
           borderCurve="continuous"
-          bg="$bgReverse"
+          bg="$borderActive"
           alignItems="center"
           justifyContent="center"
         >
-          <Icon name="Checkmark1SmallOutline" size="$4" color="$iconInverse" />
+          {/* Checkmark1Small fills ~45% of its 24px viewBox, so $3 draws the
+              5.7px glyph the design specifies. */}
+          <Icon name="Checkmark1SmallOutline" size="$3" color="$iconInverse" />
         </Stack>
       ) : null}
     </Stack>
@@ -131,11 +128,14 @@ export function IntervalGrid({
   }, [options]);
 
   return (
-    <YStack gap="$2.5">
+    <YStack gap={NATIVE_CHART_OPTION_GRID_GAP}>
       {rows.map((row, rowIndex) => {
         const placeholderCount = INTERVAL_GRID_COLUMN_COUNT - row.length;
         return (
-          <XStack key={`${section}-row-${rowIndex}`} gap="$2.5">
+          <XStack
+            key={`${section}-row-${rowIndex}`}
+            gap={NATIVE_CHART_OPTION_GRID_GAP}
+          >
             {row.map((option) => {
               const isSelected = selectedValues?.has(option.value) ?? false;
               const isDisabled =
@@ -167,8 +167,8 @@ export function IntervalGrid({
             {Array.from({ length: placeholderCount }).map((_, index) => (
               <Stack
                 key={`${section}-placeholder-${rowIndex}-${index}`}
-                {...INTERVAL_GRID_ITEM_LAYOUT_PROPS}
-                borderColor="transparent"
+                {...NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS}
+                borderColor="$transparent"
                 opacity={0}
                 pointerEvents="none"
               />
@@ -192,7 +192,7 @@ export function IntervalsDialogSection({
   return (
     <YStack gap="$3">
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyLg" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {title}
         </SizableText>
         {action}

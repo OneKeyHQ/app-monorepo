@@ -57,7 +57,7 @@ Common params:
 
 - Always: `timezone`, `locale`, `platform`, `theme`, optional `appVersion`.
 - Market: `decimal`, `networkId`, `address`, `symbol`, `type=market`, `storageNamespace=market`.
-- Market using Hyperliquid candles: `scene=market-hyperliquid`, `storageNamespace=market-hyperliquid`.
+- Market using Hyperliquid candles: `scene=market-hyperliquid`, `storageNamespace=market` (chart layout and indicators intentionally share regular Market settings).
 - Perps: `symbol`, `type=perps`, `storageNamespace=perps`, `enablePerpsTradingUi`.
 
 Perps freezes the initial URL symbol and sends later changes via `SYMBOL_CHANGE` to avoid WebView reloads.

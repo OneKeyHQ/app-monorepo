@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,24 +11,29 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ITradingViewNativeChartSettingsOptions,
+  ITradingViewNativeChartTypePreference,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
-import { createTradingViewChartSettingsValue } from '../TradingViewChartControls/chartSettings';
+import {
+  type ITradingViewChartMode,
+  TradingViewChartModeSelect,
+} from '../TradingViewChartControls';
+import { TradingViewChartTypeSettingsRow } from '../TradingViewChartControls/chartSettings';
 
-import type { ITradingViewChartSettingsOptions } from '../TradingViewChartControls/chartSettings/TradingViewSettingsMockState';
+import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 
 type IQuickSettingOptions = Pick<
-  ITradingViewChartSettingsOptions,
-  'countdown' | 'futureEvents' | 'pastEvents'
-> & {
-  yAxis: boolean;
-};
+  ITradingViewNativeChartSettingsOptions,
+  'previousClose' | 'yAxis'
+>;
 
 const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = [
   'yAxis',
-  'countdown',
-  'futureEvents',
-  'pastEvents',
+  'previousClose',
 ];
 
 const OPTION_TRANSLATION_IDS: Record<
@@ -36,9 +41,7 @@ const OPTION_TRANSLATION_IDS: Record<
   ETranslations
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
-  countdown: ETranslations.market_chart_settings__countdown,
-  futureEvents: ETranslations.market_chart_settings__upcoming_events,
-  pastEvents: ETranslations.market_chart_settings__past_events,
+  previousClose: ETranslations.market_prev_close,
 };
 
 function SettingsEntry({ onPress }: { onPress: () => void }) {
@@ -91,35 +94,68 @@ function QuickSettingOption({
 }
 
 export function TradingViewMobileChartSettingsDialogContent({
+  chartMode,
+  isChartSwitchDisabled = false,
+  showPreviousClose = false,
+  onChartSwitch,
   onOpenSettings,
 }: {
+  chartMode?: ITradingViewChartMode;
+  isChartSwitchDisabled?: boolean;
+  // Only stock detail charts offer Prev close.
+  showPreviousClose?: boolean;
+  onChartSwitch?: () => void;
   onOpenSettings: () => void;
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const [options, setOptions] = useState<IQuickSettingOptions>(() => {
-    const defaultOptions = createTradingViewChartSettingsValue().options;
-    return {
-      yAxis: true,
-      countdown: defaultOptions.countdown,
-      futureEvents: defaultOptions.futureEvents,
-      pastEvents: defaultOptions.pastEvents,
-    };
-  });
+  const [settings, setSettings] =
+    useMarketTradingViewChartSettingsPersistAtom();
+  const normalizedSettings = useMemo(
+    () => normalizeTradingViewNativeChartSettings(settings),
+    [settings],
+  );
+  const quickSettingOptions = useMemo(
+    () =>
+      QUICK_SETTING_OPTIONS.filter(
+        (option) => option !== 'previousClose' || showPreviousClose,
+      ),
+    [showPreviousClose],
+  );
 
   const handleOpenSettings = useCallback(async () => {
     await dialog.close();
     onOpenSettings();
   }, [dialog, onOpenSettings]);
+  const handleChartSwitch = useCallback(async () => {
+    await dialog.close();
+    onChartSwitch?.();
+  }, [dialog, onChartSwitch]);
 
   const handleOptionChange = useCallback(
     (key: keyof IQuickSettingOptions, value: boolean) => {
-      setOptions((currentOptions) => ({
-        ...currentOptions,
-        [key]: value,
+      setSettings((currentSettings) => {
+        const normalizedCurrentSettings =
+          normalizeTradingViewNativeChartSettings(currentSettings);
+        return {
+          ...normalizedCurrentSettings,
+          options: {
+            ...normalizedCurrentSettings.options,
+            [key]: value,
+          },
+        };
+      });
+    },
+    [setSettings],
+  );
+  const handleChartTypeChange = useCallback(
+    (chartType: ITradingViewNativeChartTypePreference) => {
+      void setSettings((currentSettings) => ({
+        ...normalizeTradingViewNativeChartSettings(currentSettings),
+        chartType,
       }));
     },
-    [],
+    [setSettings],
   );
 
   return (
@@ -127,26 +163,48 @@ export function TradingViewMobileChartSettingsDialogContent({
       <SettingsEntry onPress={() => void handleOpenSettings()} />
       <Divider />
 
-      <YStack gap="$3" pt="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.market_chart_settings__chart_display,
-          })}
-        </SizableText>
-        <XStack flexWrap="wrap" rowGap="$1">
-          {QUICK_SETTING_OPTIONS.map((option) => (
-            <QuickSettingOption
-              key={option}
-              option={option}
-              label={intl.formatMessage({
-                id: OPTION_TRANSLATION_IDS[option],
-              })}
-              value={options[option]}
-              onChange={(value) => handleOptionChange(option, value)}
+      {chartMode && onChartSwitch ? (
+        <>
+          <YStack gap="$3" pt="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.market_chart })}
+            </SizableText>
+            <TradingViewChartModeSelect
+              chartMode={chartMode}
+              isDisabled={isChartSwitchDisabled}
+              onChartSwitch={() => void handleChartSwitch()}
             />
-          ))}
-        </XStack>
-      </YStack>
+          </YStack>
+          {chartMode === 'native' ? <Divider /> : null}
+        </>
+      ) : null}
+
+      {chartMode !== 'tradingView' ? (
+        <YStack gap="$3" pt="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.market_chart_settings__chart_display,
+            })}
+          </SizableText>
+          <TradingViewChartTypeSettingsRow
+            value={normalizedSettings.chartType}
+            onChange={handleChartTypeChange}
+          />
+          <XStack flexWrap="wrap" rowGap="$1">
+            {quickSettingOptions.map((option) => (
+              <QuickSettingOption
+                key={option}
+                option={option}
+                label={intl.formatMessage({
+                  id: OPTION_TRANSLATION_IDS[option],
+                })}
+                value={normalizedSettings.options[option]}
+                onChange={(value) => handleOptionChange(option, value)}
+              />
+            ))}
+          </XStack>
+        </YStack>
+      ) : null}
     </YStack>
   );
 }

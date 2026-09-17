@@ -18,6 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IExecuteIdentityExitParams,
+  IExplicitLocalOneKeyIdLogoutProjection,
   IIdentityExitIntent,
   IIdentityExitOAuthHandoff,
   IIdentityExitPlan,
@@ -110,9 +111,65 @@ type IStoredMalformedKeylessRecoveryPlan = {
   executionPromise?: Promise<IIdentityExitReceipt>;
 };
 
+type IExplicitLocalOneKeyIdLogoutSnapshot = {
+  lifecycleRevision: number;
+  projection: IExplicitLocalOneKeyIdLogoutProjection;
+};
+
+type IStoredExplicitLocalOneKeyIdLogoutPlan = {
+  kind: 'explicitLocalOneKeyIdLogout';
+  publicPlan: IReadyIdentityExitPlan;
+  intent: Extract<IIdentityExitIntent, { type: 'logoutOneKeyId' }>;
+  snapshot: IExplicitLocalOneKeyIdLogoutSnapshot;
+  target: IIdentityExitExecutionTarget & {
+    logoutOneKeyId: true;
+    removeKeyless: false;
+    explicitLocalOneKeyIdLogout: true;
+  };
+  operationId: string;
+  executionPromise?: Promise<IIdentityExitReceipt>;
+};
+
+type IAccountSelectorKeylessRemovalIntent = Extract<
+  IIdentityExitIntent,
+  { type: 'removeKeyless' }
+> & { scene: 'accountSelector' };
+
+type IExplicitLocalKeylessRemovalSnapshot = {
+  lifecycleRevision: number;
+  walletSessionCommitId?: string;
+  keyless:
+    | {
+        type: 'valid';
+        identity: IKeylessWalletRemovalIdentity;
+      }
+    | {
+        type: 'malformed';
+        fingerprint: IMalformedKeylessWalletFingerprint;
+        errorMessage: string;
+      };
+};
+
+type IStoredExplicitLocalKeylessRemovalPlan = {
+  kind: 'explicitLocalKeylessRemoval';
+  publicPlan: IReadyIdentityExitPlan;
+  intent: IAccountSelectorKeylessRemovalIntent;
+  snapshot: IExplicitLocalKeylessRemovalSnapshot;
+  target: IIdentityExitExecutionTarget & {
+    logoutOneKeyId: false;
+    removeKeyless: true;
+    clearKeylessSession: false;
+    explicitLocalKeylessRemoval: true;
+  };
+  operationId: string;
+  executionPromise?: Promise<IIdentityExitReceipt>;
+};
+
 type IStoredIdentityExitPlan =
   | IStoredStandardIdentityExitPlan
-  | IStoredMalformedKeylessRecoveryPlan;
+  | IStoredMalformedKeylessRecoveryPlan
+  | IStoredExplicitLocalOneKeyIdLogoutPlan
+  | IStoredExplicitLocalKeylessRemovalPlan;
 
 type IIdentityExitOAuthHandoffRecord = {
   operationId: string;
@@ -1017,6 +1074,154 @@ class ServiceIdentityExit extends ServiceBase {
     return publicPlan;
   }
 
+  private async readExplicitLocalOneKeyIdLogoutSnapshot(): Promise<IExplicitLocalOneKeyIdLogoutSnapshot> {
+    const [lifecycleRevision, authSessionSource, oneKeyIdAuthState, user] =
+      await Promise.all([
+        this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+        this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+        this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+        primePersistAtom.get(),
+      ]);
+    return {
+      lifecycleRevision,
+      projection: {
+        authSessionSource,
+        oneKeyIdAuthState,
+        isLoggedIn: user.isLoggedIn,
+        isLoggedInOnServer: user.isLoggedInOnServer,
+        onekeyUserId: user.onekeyUserId,
+      },
+    };
+  }
+
+  private async prepareExplicitLocalOneKeyIdLogoutUnderLock(
+    intent: Extract<IIdentityExitIntent, { type: 'logoutOneKeyId' }>,
+  ): Promise<IIdentityExitPlan> {
+    const snapshot = await this.readExplicitLocalOneKeyIdLogoutSnapshot();
+    const planId = stringUtils.generateUUID() as IIdentityExitPlanId;
+    const publicPlan: IReadyIdentityExitPlan = {
+      status: 'ready',
+      planId,
+      expiresAt: Date.now() + IDENTITY_EXIT_PLAN_TTL_MS,
+      presentation: { type: 'oneKeyIdOnly' },
+      confirmation: { type: 'normal' },
+    };
+    const target = {
+      logoutOneKeyId: true as const,
+      removeKeyless: false as const,
+      explicitLocalOneKeyIdLogout: true as const,
+    };
+    storeIdentityExitPlan({
+      kind: 'explicitLocalOneKeyIdLogout',
+      publicPlan,
+      intent,
+      snapshot,
+      target,
+      operationId: stringUtils.generateUUID(),
+    });
+    return publicPlan;
+  }
+
+  private async readExplicitLocalKeylessRemovalSnapshot({
+    expectedWalletId,
+  }: {
+    expectedWalletId: string;
+  }): Promise<IExplicitLocalKeylessRemovalSnapshot> {
+    const [lifecycleRevision, wallet] = await Promise.all([
+      this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+      this.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate(),
+    ]);
+    if (!wallet) {
+      throw createIdentityExitSnapshotError(
+        'INTENT_NOT_APPLICABLE',
+        'The local Keyless wallet is no longer available.',
+      );
+    }
+    if (wallet.id !== expectedWalletId) {
+      throw createIdentityExitSnapshotError(
+        'STATE_INCONSISTENT',
+        `Keyless wallet changed: expected ${expectedWalletId}, received ${wallet.id}.`,
+      );
+    }
+
+    const walletSessionCommitId =
+      await this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+        walletId: wallet.id,
+      });
+    const fingerprint = getMalformedKeylessWalletFingerprint(wallet);
+    const errorMessage = getMalformedKeylessWalletDataError(wallet);
+    if (errorMessage) {
+      return {
+        lifecycleRevision,
+        walletSessionCommitId,
+        keyless: { type: 'malformed', fingerprint, errorMessage },
+      };
+    }
+
+    const keylessOwnerId = wallet.keylessDetailsInfo?.keylessOwnerId;
+    const keylessProvider = wallet.keylessDetailsInfo?.keylessProvider;
+    const socialUserIdHash = wallet.keylessDetailsInfo?.socialUserIdHash;
+    if (!keylessOwnerId || !keylessProvider || !socialUserIdHash) {
+      throw createIdentityExitSnapshotError(
+        'KEYLESS_DATA_MALFORMED',
+        'The local Keyless wallet identity is unavailable.',
+      );
+    }
+    return {
+      lifecycleRevision,
+      walletSessionCommitId,
+      keyless: {
+        type: 'valid',
+        identity: {
+          walletId: wallet.id,
+          keylessOwnerId,
+          keylessProvider,
+          socialUserIdHash,
+        },
+      },
+    };
+  }
+
+  private async prepareExplicitLocalKeylessRemovalUnderLock(
+    intent: IAccountSelectorKeylessRemovalIntent,
+  ): Promise<IIdentityExitPlan> {
+    const snapshot = await this.readExplicitLocalKeylessRemovalSnapshot({
+      expectedWalletId: intent.expectedWalletId,
+    });
+    const planId = stringUtils.generateUUID() as IIdentityExitPlanId;
+    const publicPlan: IReadyIdentityExitPlan = {
+      status: 'ready',
+      planId,
+      expiresAt: Date.now() + IDENTITY_EXIT_PLAN_TTL_MS,
+      presentation:
+        snapshot.keyless.type === 'valid'
+          ? {
+              type: 'keylessOnly',
+              currentProvider: snapshot.keyless.identity.keylessProvider,
+            }
+          : {
+              type: 'recoverMalformedKeyless',
+              oneKeyIdWillBeLoggedOut: false,
+            },
+      confirmation: { type: 'keylessRemovalAcknowledgement' },
+    };
+    const target = {
+      logoutOneKeyId: false as const,
+      removeKeyless: true as const,
+      clearKeylessSession: false as const,
+      explicitLocalKeylessRemoval: true as const,
+    };
+    storeIdentityExitPlan({
+      kind: 'explicitLocalKeylessRemoval',
+      publicPlan,
+      intent,
+      snapshot,
+      target,
+      operationId: stringUtils.generateUUID(),
+    });
+    return publicPlan;
+  }
+
   @backgroundMethod()
   async prepareIdentityExit(
     intent: IIdentityExitIntent,
@@ -1024,6 +1229,29 @@ class ServiceIdentityExit extends ServiceBase {
     try {
       await this.recoverInterruptedIdentityExitOperations();
       return await identityLifecycleMutex.runExclusive(async () => {
+        if (intent.type === 'logoutOneKeyId') {
+          const [oneKeyIdAuthState, source, primeUser] = await Promise.all([
+            this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+            this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+            primePersistAtom.get(),
+          ]);
+          if (oneKeyIdAuthState === 'loggedOut' && !source) {
+            if (
+              !primeUser.isLoggedIn &&
+              !primeUser.isLoggedInOnServer &&
+              !primeUser.onekeyUserId
+            ) {
+              return {
+                status: 'completed',
+                receipt: {
+                  status: 'completed',
+                  oneKeyIdLoggedOut: true,
+                },
+              };
+            }
+            return this.prepareExplicitLocalOneKeyIdLogoutUnderLock(intent);
+          }
+        }
         if (intent.type === 'recoverMalformedKeyless') {
           return this.prepareMalformedKeylessRecoveryUnderLock(intent);
         }
@@ -1031,15 +1259,36 @@ class ServiceIdentityExit extends ServiceBase {
         try {
           snapshot = await this.readAuthoritativeSnapshot();
         } catch (error) {
+          if (intent.type === 'logoutOneKeyId') {
+            return this.prepareExplicitLocalOneKeyIdLogoutUnderLock(intent);
+          }
           if (
             intent.type === 'removeKeyless' &&
-            intent.scene === 'accountSelector' &&
-            isIdentityExitSnapshotError(error) &&
-            error[IDENTITY_EXIT_SNAPSHOT_ERROR_CODE] ===
-              'KEYLESS_DATA_MALFORMED'
+            intent.scene === 'accountSelector'
           ) {
-            return this.prepareMalformedKeylessRecoveryUnderLock({
-              type: 'recoverMalformedKeyless',
+            if (!isIdentityExitSnapshotError(error)) {
+              throw error;
+            }
+            if (
+              error[IDENTITY_EXIT_SNAPSHOT_ERROR_CODE] ===
+              'KEYLESS_DATA_MALFORMED'
+            ) {
+              try {
+                return await this.prepareMalformedKeylessRecoveryUnderLock({
+                  type: 'recoverMalformedKeyless',
+                  expectedWalletId: intent.expectedWalletId,
+                  scene: 'accountSelector',
+                });
+              } catch (recoveryError) {
+                if (!isIdentityExitSnapshotError(recoveryError)) {
+                  throw recoveryError;
+                }
+                // Fall through to the account-selector escape path when the
+                // malformed wallet is readable but OneKey ID state is not.
+              }
+            }
+            return this.prepareExplicitLocalKeylessRemovalUnderLock({
+              type: 'removeKeyless',
               expectedWalletId: intent.expectedWalletId,
               scene: 'accountSelector',
             });
@@ -1069,6 +1318,11 @@ class ServiceIdentityExit extends ServiceBase {
         return publicPlan;
       });
     } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        // Keep the original object and stack available while debugging Web.
+        // eslint-disable-next-line no-console
+        console.error('[IdentityExit] prepare failed', error);
+      }
       if (isIdentityExitSnapshotError(error)) {
         return {
           status: 'blocked',
@@ -1124,6 +1378,80 @@ class ServiceIdentityExit extends ServiceBase {
                 snapshot.keyless.walletSessionCommitId ?? null,
             }
           : undefined,
+    };
+  }
+
+  private buildExplicitLocalOneKeyIdLogoutJournal({
+    storedPlan,
+    snapshot,
+  }: {
+    storedPlan: IStoredExplicitLocalOneKeyIdLogoutPlan;
+    snapshot: IExplicitLocalOneKeyIdLogoutSnapshot;
+  }): IIdentityExitJournalEntry {
+    const timestamp = Date.now();
+    return {
+      operationId: storedPlan.operationId,
+      planId: storedPlan.publicPlan.planId,
+      intentType: storedPlan.intent.type,
+      status: 'executing',
+      startedAt: timestamp,
+      updatedAt: timestamp,
+      expectedLifecycleRevision: snapshot.lifecycleRevision,
+      target: storedPlan.target,
+      explicitLocalOneKeyIdLogoutProjection: snapshot.projection,
+    };
+  }
+
+  private buildExplicitLocalKeylessRemovalJournal({
+    storedPlan,
+    snapshot,
+  }: {
+    storedPlan: IStoredExplicitLocalKeylessRemovalPlan;
+    snapshot: IExplicitLocalKeylessRemovalSnapshot;
+  }): IIdentityExitJournalEntry {
+    const timestamp = Date.now();
+    const validIdentity =
+      snapshot.keyless.type === 'valid' ? snapshot.keyless.identity : undefined;
+    const malformedFingerprint =
+      snapshot.keyless.type === 'malformed'
+        ? snapshot.keyless.fingerprint
+        : undefined;
+    const malformedProvider =
+      malformedFingerprint?.keylessProvider ===
+        EOAuthSocialLoginProvider.Google ||
+      malformedFingerprint?.keylessProvider === EOAuthSocialLoginProvider.Apple
+        ? malformedFingerprint.keylessProvider
+        : undefined;
+    const walletId =
+      snapshot.keyless.type === 'valid'
+        ? snapshot.keyless.identity.walletId
+        : snapshot.keyless.fingerprint.walletId;
+    return {
+      operationId: storedPlan.operationId,
+      planId: storedPlan.publicPlan.planId,
+      intentType: storedPlan.intent.type,
+      status: 'executing',
+      startedAt: timestamp,
+      updatedAt: timestamp,
+      expectedLifecycleRevision: snapshot.lifecycleRevision,
+      target: storedPlan.target,
+      keyless: {
+        walletId,
+        ownerId:
+          validIdentity?.keylessOwnerId ||
+          malformedFingerprint?.keylessOwnerId ||
+          undefined,
+        provider: validIdentity?.keylessProvider || malformedProvider,
+        socialUserIdHash:
+          validIdentity?.socialUserIdHash ||
+          malformedFingerprint?.socialUserIdHash ||
+          undefined,
+        malformedDataError:
+          snapshot.keyless.type === 'malformed'
+            ? snapshot.keyless.errorMessage
+            : undefined,
+        walletSessionCommitId: snapshot.walletSessionCommitId ?? null,
+      },
     };
   }
 
@@ -1536,7 +1864,10 @@ class ServiceIdentityExit extends ServiceBase {
   private async getKeylessWalletForJournalRecovery(
     journal: IIdentityExitJournalEntry,
   ) {
-    if (journal.intentType === 'recoverMalformedKeyless') {
+    if (
+      journal.intentType === 'recoverMalformedKeyless' ||
+      journal.target.explicitLocalKeylessRemoval
+    ) {
       return this.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate();
     }
     return this.backgroundApi.serviceAccount.getKeylessWallet();
@@ -1548,6 +1879,36 @@ class ServiceIdentityExit extends ServiceBase {
     const committedLifecycleRevision =
       journal.committedLifecycleRevision ??
       journal.expectedLifecycleRevision + 1;
+    if (journal.target.explicitLocalOneKeyIdLogout) {
+      const [revision, source, authState, primeUser] = await Promise.all([
+        this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+        this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+        this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+        primePersistAtom.get(),
+      ]);
+      return revision === committedLifecycleRevision &&
+        !source &&
+        authState === 'loggedOut' &&
+        !primeUser.isLoggedIn &&
+        !primeUser.isLoggedInOnServer &&
+        !primeUser.onekeyUserId
+        ? committedLifecycleRevision
+        : undefined;
+    }
+    if (journal.target.explicitLocalKeylessRemoval && journal.keyless) {
+      const [revision, wallet, walletSessionCommitId] = await Promise.all([
+        this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
+        this.getKeylessWalletForJournalRecovery(journal),
+        this.backgroundApi.simpleDb.prime.getKeylessSessionCommitId({
+          walletId: journal.keyless.walletId,
+        }),
+      ]);
+      return revision === committedLifecycleRevision &&
+        !wallet &&
+        walletSessionCommitId === undefined
+        ? committedLifecycleRevision
+        : undefined;
+    }
     const [revision, source, authState, primeUser, wallet] = await Promise.all([
       this.backgroundApi.simpleDb.prime.getIdentityLifecycleRevision(),
       this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
@@ -1777,42 +2138,62 @@ class ServiceIdentityExit extends ServiceBase {
             }
             return undefined;
           }
-          const localCommit =
-            await this.backgroundApi.servicePrime.commitIdentityExitLocalState({
-              expectedIdentityLifecycleRevision:
-                journal.expectedLifecycleRevision,
-              oneKeyId:
-                journal.target.logoutOneKeyId && journal.oneKeyId
-                  ? journal.oneKeyId
-                  : undefined,
-              keylessSession:
-                shouldClearKeylessSession(journal.target) &&
-                (journal.keyless ||
-                  journal.oneKeyId?.source ===
-                    EPrimeAuthSessionSource.KeylessOAuth)
-                  ? {
-                      sessionCommitId:
-                        journal.keyless?.sessionCommitId ??
-                        journal.oneKeyId?.sessionCommitId,
-                      sessionTokenSub:
-                        journal.keyless?.sessionTokenSub ??
-                        journal.oneKeyId?.sessionTokenSub,
-                      allowUnknownIdentity:
-                        journal.target.allowUnknownKeylessSessionIdentity,
-                    }
-                  : undefined,
-              keylessWalletSession:
-                (journal.target.removeKeyless ||
-                  shouldClearKeylessSession(journal.target)) &&
-                journal.keyless
-                  ? {
-                      walletId: journal.keyless.walletId,
-                      sessionCommitId: getJournalWalletSessionCommitId(
-                        journal.keyless,
-                      ),
-                    }
-                  : undefined,
-            });
+          const explicitLocalLogoutProjection =
+            journal.explicitLocalOneKeyIdLogoutProjection;
+          let localCommit: {
+            status: 'committed' | 'stateChanged';
+            revision?: number;
+          };
+          if (journal.target.explicitLocalOneKeyIdLogout) {
+            localCommit = explicitLocalLogoutProjection
+              ? await this.backgroundApi.servicePrime.commitExplicitLocalOneKeyIdLogout(
+                  {
+                    expectedIdentityLifecycleRevision:
+                      journal.expectedLifecycleRevision,
+                    expectedProjection: explicitLocalLogoutProjection,
+                  },
+                )
+              : { status: 'stateChanged' };
+          } else {
+            localCommit =
+              await this.backgroundApi.servicePrime.commitIdentityExitLocalState(
+                {
+                  expectedIdentityLifecycleRevision:
+                    journal.expectedLifecycleRevision,
+                  oneKeyId:
+                    journal.target.logoutOneKeyId && journal.oneKeyId
+                      ? journal.oneKeyId
+                      : undefined,
+                  keylessSession:
+                    shouldClearKeylessSession(journal.target) &&
+                    (journal.keyless ||
+                      journal.oneKeyId?.source ===
+                        EPrimeAuthSessionSource.KeylessOAuth)
+                      ? {
+                          sessionCommitId:
+                            journal.keyless?.sessionCommitId ??
+                            journal.oneKeyId?.sessionCommitId,
+                          sessionTokenSub:
+                            journal.keyless?.sessionTokenSub ??
+                            journal.oneKeyId?.sessionTokenSub,
+                          allowUnknownIdentity:
+                            journal.target.allowUnknownKeylessSessionIdentity,
+                        }
+                      : undefined,
+                  keylessWalletSession:
+                    (journal.target.removeKeyless ||
+                      shouldClearKeylessSession(journal.target)) &&
+                    journal.keyless
+                      ? {
+                          walletId: journal.keyless.walletId,
+                          sessionCommitId: getJournalWalletSessionCommitId(
+                            journal.keyless,
+                          ),
+                        }
+                      : undefined,
+                },
+              );
+          }
           if (localCommit.status !== 'committed' || !localCommit.revision) {
             if (journal.intentType === 'remoteOneKeyIdLogout') {
               if (journal.remoteDeviceLogout) {
@@ -2827,8 +3208,7 @@ class ServiceIdentityExit extends ServiceBase {
   ): Promise<IIdentityExitReceipt> {
     const walletId = storedPlan.snapshot.keyless.fingerprint.walletId;
     try {
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
         reason: EReasonForNeedPassword.Security,
       });
     } catch (error) {
@@ -2963,20 +3343,196 @@ class ServiceIdentityExit extends ServiceBase {
     });
   }
 
+  private async runExplicitLocalKeylessRemoval(
+    storedPlan: IStoredExplicitLocalKeylessRemovalPlan,
+  ): Promise<IIdentityExitReceipt> {
+    const walletId = storedPlan.intent.expectedWalletId;
+    try {
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+    } catch (error) {
+      if (errorToastUtils.isUserCancelStyleError(error)) {
+        return { status: 'cancelled' };
+      }
+      throw error;
+    }
+
+    return identityLifecycleMutex.runExclusive(async () => {
+      beginIdentityExitReservation(storedPlan.operationId);
+      try {
+        const snapshot = await this.readExplicitLocalKeylessRemovalSnapshot({
+          expectedWalletId: walletId,
+        });
+        if (!isEqual(snapshot, storedPlan.snapshot)) {
+          return {
+            status: 'blocked',
+            code: 'STATE_CHANGED',
+            // TODO: i18n
+            message: 'Identity state changed. Please reopen and try again.',
+          };
+        }
+
+        let journal = this.buildExplicitLocalKeylessRemovalJournal({
+          storedPlan,
+          snapshot,
+        });
+        markIdentityRecoveryPending(storedPlan.operationId);
+        await this.persistIdentityExitJournalEntry(journal);
+
+        if (snapshot.keyless.type === 'valid') {
+          const expectedIdentity = snapshot.keyless.identity;
+          const capability = createKeylessWalletRemovalCapability({
+            expectedIdentity,
+            operationId: storedPlan.operationId,
+            lifecycleRevision: snapshot.lifecycleRevision,
+          });
+          await this.backgroundApi.serviceAccount.removeKeylessWalletWithCapability(
+            {
+              capability,
+              expectedIdentity,
+              operationId: storedPlan.operationId,
+              lifecycleRevision: snapshot.lifecycleRevision,
+            },
+          );
+        } else {
+          const expectedFingerprint = snapshot.keyless.fingerprint;
+          const capability = createMalformedKeylessWalletRemovalCapability({
+            expectedFingerprint,
+            operationId: storedPlan.operationId,
+            lifecycleRevision: snapshot.lifecycleRevision,
+          });
+          await this.backgroundApi.serviceAccount.removeMalformedKeylessWalletWithCapability(
+            {
+              capability,
+              expectedFingerprint,
+              operationId: storedPlan.operationId,
+              lifecycleRevision: snapshot.lifecycleRevision,
+            },
+          );
+        }
+        journal = {
+          ...journal,
+          status: 'walletRemoved',
+          updatedAt: Date.now(),
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+
+        await this.cleanupRemovedKeylessWalletCredentials(journal);
+        const localCommit =
+          await this.backgroundApi.servicePrime.commitIdentityExitLocalState({
+            expectedIdentityLifecycleRevision: snapshot.lifecycleRevision,
+            oneKeyId: undefined,
+            keylessSession: undefined,
+            keylessWalletSession: {
+              walletId,
+              sessionCommitId: snapshot.walletSessionCommitId,
+            },
+          });
+        if (localCommit.status !== 'committed' || !localCommit.revision) {
+          throw new OneKeyLocalError(
+            'Identity state changed after the Keyless wallet was removed. Recovery is required.',
+          );
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: localCommit.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        const receipt = await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: localCommit.revision,
+        });
+        await this.finalizeRemovedKeylessWalletSideEffectsBestEffort(journal);
+        markIdentityRecoveryReady(storedPlan.operationId);
+        return receipt;
+      } finally {
+        endIdentityExitReservation(storedPlan.operationId);
+      }
+    });
+  }
+
+  private async runExplicitLocalOneKeyIdLogout(
+    storedPlan: IStoredExplicitLocalOneKeyIdLogoutPlan,
+  ): Promise<IIdentityExitReceipt> {
+    return identityLifecycleMutex.runExclusive(async () => {
+      beginIdentityExitReservation(storedPlan.operationId);
+      try {
+        const snapshot = await this.readExplicitLocalOneKeyIdLogoutSnapshot();
+        if (!isEqual(snapshot, storedPlan.snapshot)) {
+          return {
+            status: 'blocked',
+            code: 'STATE_CHANGED',
+            // TODO: i18n
+            message: 'Identity state changed. Please reopen and try again.',
+          };
+        }
+
+        let journal = this.buildExplicitLocalOneKeyIdLogoutJournal({
+          storedPlan,
+          snapshot,
+        });
+        markIdentityRecoveryPending(storedPlan.operationId);
+        await this.persistIdentityExitJournalEntry(journal);
+        const localCommit =
+          await this.backgroundApi.servicePrime.commitExplicitLocalOneKeyIdLogout(
+            {
+              expectedIdentityLifecycleRevision: snapshot.lifecycleRevision,
+              expectedProjection: snapshot.projection,
+            },
+          );
+        if (localCommit.status !== 'committed' || !localCommit.revision) {
+          const removed =
+            await this.removeIdentityExitJournalEntryWithOutcomeCheck(journal);
+          if (!removed) {
+            throw new OneKeyLocalError(
+              'The explicit local logout journal changed before it could be abandoned.',
+            );
+          }
+          markIdentityRecoveryReady(storedPlan.operationId);
+          return {
+            status: 'blocked',
+            code: 'STATE_CHANGED',
+            // TODO: i18n
+            message: 'Identity state changed. Please reopen and try again.',
+          };
+        }
+        journal = {
+          ...journal,
+          status: 'localStateCommitted',
+          updatedAt: Date.now(),
+          committedLifecycleRevision: localCommit.revision,
+        };
+        await this.persistIdentityExitJournalEntry(journal);
+        const receipt = await this.completeIdentityExitJournal({
+          journal,
+          committedLifecycleRevision: localCommit.revision,
+        });
+        markIdentityRecoveryReady(storedPlan.operationId);
+        return receipt;
+      } finally {
+        endIdentityExitReservation(storedPlan.operationId);
+      }
+    });
+  }
+
   private async runIdentityExit(
     storedPlan: IStoredIdentityExitPlan,
   ): Promise<IIdentityExitReceipt> {
+    if (storedPlan.kind === 'explicitLocalKeylessRemoval') {
+      return this.runExplicitLocalKeylessRemoval(storedPlan);
+    }
+    if (storedPlan.kind === 'explicitLocalOneKeyIdLogout') {
+      return this.runExplicitLocalOneKeyIdLogout(storedPlan);
+    }
     if (storedPlan.kind === 'malformedKeylessRecovery') {
       return this.runMalformedKeylessRecovery(storedPlan);
     }
     if (storedPlan.target.removeKeyless) {
-      const walletId =
-        storedPlan.snapshot.keyless.type === 'present'
-          ? storedPlan.snapshot.keyless.walletId
-          : '';
       try {
-        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-          walletId,
+        await this.backgroundApi.servicePassword.promptPasswordVerify({
           reason: EReasonForNeedPassword.Security,
         });
       } catch (error) {
@@ -3163,6 +3719,15 @@ class ServiceIdentityExit extends ServiceBase {
     ) {
       throw new OneKeyLocalError(
         'Keyless wallet removal plans require an acknowledgement confirmation.',
+      );
+    }
+    if (
+      storedPlan.publicPlan.confirmation.type === 'normal' &&
+      acknowledgement !== 'oneKeyIdLogout'
+    ) {
+      // TODO: i18n
+      throw new OneKeyLocalError(
+        'Explicit OneKey ID logout acknowledgement is required.',
       );
     }
     if (

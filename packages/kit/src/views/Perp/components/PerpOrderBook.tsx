@@ -1,12 +1,23 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  cloneElement,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
+import { type LayoutChangeEvent, StyleSheet } from 'react-native';
 
 import {
+  Button,
   DashText,
   DebugRenderTracker,
+  Dialog,
   Divider,
-  Popover,
   SizableText,
   XStack,
   YStack,
@@ -23,13 +34,23 @@ import {
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsShouldShowEnableTradingButtonAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsCommonConfigPersistAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
+import {
+  formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import {
   type IL2BookData,
@@ -37,7 +58,11 @@ import {
   normalizeL2BookData,
   useL2Book,
 } from '../hooks/usePerpMarketData';
+import { usePerpsAccountDisplayState } from '../hooks/usePerpsAccountDisplayState';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
+import { useShowPortfolio } from '../hooks/useShowPortfolio';
+import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { shouldShowPerpsFirstDepositPrompt } from '../utils/enableTradingDialogConfirm';
 import {
   getFreshL2BookSnapshotFromColdCache,
   getPerpsL2BookColdCacheGlobalSnapshot,
@@ -65,7 +90,263 @@ import { useTickOptions } from './OrderBook/useTickOptions';
 import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
-import type { LayoutChangeEvent } from 'react-native';
+
+const FUNDING_DIALOG_CLOSE_DURATION_MS = 100;
+
+function FundingDialogTrigger({
+  title,
+  renderTrigger,
+  renderContent,
+}: {
+  title: string;
+  renderTrigger: ReactElement<{ onPress?: () => void }>;
+  renderContent: (closeDialog: () => Promise<void> | void) => ReactNode;
+}) {
+  const handlePress = useCallback(() => {
+    const dialogInstanceRef: {
+      current?: ReturnType<typeof Dialog.show>;
+    } = {};
+    const closeDialog = () => dialogInstanceRef.current?.close();
+    dialogInstanceRef.current = Dialog.show({
+      title,
+      showFooter: false,
+      contentContainerProps: { p: '$0' },
+      sheetProps: { transition: '100ms' },
+      sheetOverlayProps: { transition: '100ms' },
+      renderContent: renderContent(closeDialog),
+    });
+  }, [renderContent, title]);
+
+  return cloneElement(renderTrigger, { onPress: handlePress });
+}
+
+function FundingDialogContent({
+  closeDialog,
+}: {
+  closeDialog: () => Promise<void> | void;
+}) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { showPortfolio: showFundingAnalysis } = useShowPortfolio({
+    initialChartType: 'funding',
+  });
+  const countdown = useFundingCountdown();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const { assetCtx } = usePerpsActiveAssetCtxDisplay(
+    activeTradeInstrument.coin,
+  );
+  const fundingRate = assetCtx?.ctx?.fundingRate || '0';
+  const fundingRateNumber = parseFloat(fundingRate);
+  const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
+  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(4);
+  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(4);
+  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(4);
+  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(4);
+  const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
+
+  const handleViewFundingHistory = useCallback(() => {
+    void closeDialog();
+    setTimeout(() => {
+      navigation.push(EModalPerpRoutes.MobilePerpMarket, {
+        initialTab: 'funding',
+      });
+    }, FUNDING_DIALOG_CLOSE_DURATION_MS);
+  }, [closeDialog, navigation]);
+
+  const handleViewFundingAnalysis = useCallback(() => {
+    void closeDialog();
+    setTimeout(() => {
+      void showFundingAnalysis();
+    }, FUNDING_DIALOG_CLOSE_DURATION_MS);
+  }, [closeDialog, showFundingAnalysis]);
+
+  return (
+    <YStack
+      bg="$bg"
+      justifyContent="center"
+      w="100%"
+      px="$5"
+      pt="$2"
+      pb="$5"
+      gap="$6"
+    >
+      <YStack gap="$2">
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perps_fee_rate_projection,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_position_funding,
+            })}
+          </SizableText>
+        </XStack>
+        <YStack gap="$3">
+          <XStack justifyContent="space-between" alignItems="center">
+            <XStack gap="$1" alignItems="center">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.perps_hourly,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                ({countdown})
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {hourlyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_daily,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {dailyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_weekly,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {weeklyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_monthly,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {monthlyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_annually,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {annualizedFundingRate}%
+            </SizableText>
+          </XStack>
+        </YStack>
+      </YStack>
+      <FundingDialogDivider />
+
+      <YStack gap="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_trades_history_direction,
+          })}
+        </SizableText>
+        {fundingRateNumber >= 0 ? (
+          <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText size="$bodyMdMedium" color="$green11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+              })}
+            </SizableText>{' '}
+            {intl.formatMessage({
+              id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+            })}{' '}
+            <SizableText size="$bodyMdMedium" color="$red11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+              })}
+            </SizableText>
+          </SizableText>
+        ) : (
+          <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText size="$bodyMdMedium" color="$red11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+              })}
+            </SizableText>{' '}
+            {intl.formatMessage({
+              id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+            })}{' '}
+            <SizableText size="$bodyMdMedium" color="$green11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+              })}
+            </SizableText>
+          </SizableText>
+        )}
+      </YStack>
+
+      <FundingDialogDivider />
+      <YStack gap="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip0,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip1,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip2,
+          })}
+        </SizableText>
+      </YStack>
+      <YStack gap="$3" width="100%">
+        <Button
+          size="medium"
+          variant="secondary"
+          width="100%"
+          testID="perp-view-funding-history-button"
+          onPress={handleViewFundingHistory}
+        >
+          {intl.formatMessage({
+            id: ETranslations.export_history__action,
+          })}
+        </Button>
+        <Button
+          size="medium"
+          variant="secondary"
+          width="100%"
+          testID="perp-view-funding-analysis-button"
+          onPress={handleViewFundingAnalysis}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_view_funding_analysis__action,
+          })}
+        </Button>
+      </YStack>
+    </YStack>
+  );
+}
+
+function FundingDialogDivider() {
+  if (!platformEnv.isNative) {
+    return <Divider />;
+  }
+
+  return (
+    <Divider
+      bg="$borderSubdued"
+      borderBottomWidth={0}
+      flex={0}
+      h={StyleSheet.hairlineWidth}
+      maxHeight={StyleSheet.hairlineWidth}
+      w="100%"
+      y={0}
+    />
+  );
+}
 
 function MobileHeader() {
   const intl = useIntl();
@@ -88,11 +369,6 @@ function MobileHeader() {
   };
   const fundingRateNumber = parseFloat(fundingRate);
   const hasFundingValue = Number.isFinite(fundingRateNumber);
-  const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
-  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(2);
-  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(2);
-  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(2);
-  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(2);
   const fundingColor = useMemo(() => {
     if (!hasFundingValue) {
       return '$textSubdued';
@@ -149,7 +425,7 @@ function MobileHeader() {
   }
 
   return (
-    <Popover
+    <FundingDialogTrigger
       title={intl.formatMessage({
         id: ETranslations.perp_position_funding,
       })}
@@ -157,14 +433,14 @@ function MobileHeader() {
         <YStack
           alignItems="flex-start"
           mb="$2"
-          h={32}
+          minHeight={32}
           justifyContent="center"
           onLayout={handleLayout}
         >
           <DashText
             fontSize={10}
             color="$textSubdued"
-            dashColor="$textSubdued"
+            dashColor="$borderSubdued"
             dashThickness={0.5}
             lineHeight={16}
           >
@@ -189,167 +465,11 @@ function MobileHeader() {
           )}
         </YStack>
       }
-      renderContent={
-        <YStack
-          bg="$bg"
-          justifyContent="center"
-          w="100%"
-          px="$5"
-          pt="$2"
-          pb="$5"
-          gap="$6"
-        >
-          <YStack gap="$2">
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perps_fee_rate_projection,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_funding,
-                })}
-              </SizableText>
-            </XStack>
-            <YStack gap="$3">
-              <XStack justifyContent="space-between" alignItems="center">
-                <XStack gap="$1" alignItems="center">
-                  <SizableText size="$headingXs">
-                    {intl.formatMessage({
-                      id: ETranslations.perps_hourly,
-                    })}
-                  </SizableText>
-                  <SizableText size="$headingXs" color="$textSubdued">
-                    ({countdown})
-                  </SizableText>
-                </XStack>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {hourlyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_daily,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {dailyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_weekly,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {weeklyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_monthly,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {monthlyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_annually,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {annualizedFundingRate}%
-                </SizableText>
-              </XStack>
-            </YStack>
-          </YStack>
-          <Divider />
-
-          <YStack gap="$2">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trades_history_direction,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium" color={fundingColor}>
-              {parseFloat(fundingRate) >= 0 ? (
-                <SizableText size="$bodySmMedium" color="$text">
-                  <SizableText size="$bodySmMedium" color="$green11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_long,
-                    })}
-                  </SizableText>{' '}
-                  {intl.formatMessage({
-                    id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
-                  })}{' '}
-                  <SizableText size="$bodySmMedium" color="$red11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_short,
-                    })}
-                  </SizableText>
-                </SizableText>
-              ) : (
-                <SizableText size="$bodySmMedium" color="$text">
-                  <SizableText size="$bodySmMedium" color="$red11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_short,
-                    })}
-                  </SizableText>{' '}
-                  {intl.formatMessage({
-                    id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
-                  })}{' '}
-                  <SizableText size="$bodySmMedium" color="$green11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_long,
-                    })}
-                  </SizableText>
-                </SizableText>
-              )}
-            </SizableText>
-          </YStack>
-
-          <Divider />
-          <YStack gap="$2">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip0,
-              })}
-            </SizableText>
-            <SizableText size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip1,
-              })}
-            </SizableText>
-            <SizableText size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip2,
-              })}
-            </SizableText>
-          </YStack>
-        </YStack>
-      }
+      renderContent={(closeDialog) => (
+        <PerpsProviderMirror>
+          <FundingDialogContent closeDialog={closeDialog} />
+        </PerpsProviderMirror>
+      )}
     />
   );
 }
@@ -514,6 +634,20 @@ export function PerpOrderBook({
   const [l2BookColdCache] = usePerpsL2BookColdCacheAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
+  const {
+    isLiveStatusPending,
+    perpsAccountStatus,
+    shouldShowConnectWalletPrompt: shouldCompactOrderBookForConnectWallet,
+  } = usePerpsAccountDisplayState();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const shouldCompactOrderBookForFirstDeposit = Boolean(
+    !perpConfigCommon?.ipDisablePerp &&
+    shouldShowPerpsFirstDepositPrompt({
+      status: perpsAccountStatus,
+      isLiveStatusPending,
+      isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
+    }),
+  );
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = activeTradeInstrument.coin;
@@ -722,15 +856,16 @@ export function PerpOrderBook({
     l2SubscriptionOptions,
   ]);
 
+  const activeSizeDecimals =
+    activeTradeInstrument.mode === 'spot'
+      ? activeTradeInstrument.universe?.baseSzDecimals
+      : activeTradeInstrument.universe?.szDecimals;
   const tickOptionsData = useTickOptions({
     symbol: activeTradeInstrument.coin,
     bids: candidateL2Book?.bids ?? [],
     asks: candidateL2Book?.asks ?? [],
     referencePrice: tickReferencePrice,
-    szDecimals:
-      activeTradeInstrument.mode === 'spot'
-        ? activeTradeInstrument.universe?.baseSzDecimals
-        : activeTradeInstrument.universe?.szDecimals,
+    szDecimals: activeSizeDecimals,
     isSpot: activeTradeInstrument.mode === 'spot',
   });
   const {
@@ -748,8 +883,8 @@ export function PerpOrderBook({
     [setSelectedTickOption],
   );
 
-  const handleLevelSelect = useCallback(
-    (selection: IOrderBookSelection) => {
+  const handlePriceSelect = useCallback(
+    (price: string) => {
       if (
         !isPerpsL2BookInteractive({
           bookTime: visibleL2Book?.time,
@@ -761,7 +896,7 @@ export function PerpOrderBook({
       }
 
       const updates: Partial<ITradingFormData> = {
-        price: selection.price,
+        price,
       };
 
       if (formData.type !== 'limit') {
@@ -777,6 +912,25 @@ export function PerpOrderBook({
       visibleL2Book?.isCachedSnapshot,
       visibleL2Book?.time,
     ],
+  );
+  const handleLevelSelect = useCallback(
+    (selection: IOrderBookSelection) => {
+      handlePriceSelect(selection.price);
+    },
+    [handlePriceSelect],
+  );
+  const handleMidPriceSelect = useCallback(
+    (price: string) => {
+      const sizeDecimalsForPrice = activeSizeDecimals ?? 2;
+      const formattedPrice =
+        activeTradeInstrument.mode === 'spot'
+          ? formatSpotPriceToValid(price, sizeDecimalsForPrice)
+          : formatPriceToSignificantDigits(price, sizeDecimalsForPrice);
+      if (formattedPrice !== '0') {
+        handlePriceSelect(formattedPrice);
+      }
+    },
+    [activeSizeDecimals, activeTradeInstrument.mode, handlePriceSelect],
   );
   const isVisibleOrderBookInteractive = useMemo(
     () =>
@@ -795,14 +949,28 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
-    if (shouldShowEnableTradingButton) return 7;
-    if (activeTradeInstrument.mode === 'spot')
+    // Spot settles on its own level count, and the perps account flags read
+    // true until the account address resolves, so checking them first made every
+    // spot cold start render 7 levels and then collapse the first-screen grid.
+    if (activeTradeInstrument.mode === 'spot') {
+      if (formData.orderMode === 'scale') return 7;
+      if (formData.orderMode === 'twap') return 5;
       return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
+    }
+    if (shouldCompactOrderBookForFirstDeposit) return 5;
+    if (shouldShowEnableTradingButton) {
+      return shouldCompactOrderBookForConnectWallet ? 6 : 7;
+    }
+    if (formData.orderMode === 'twap') return 6;
+    if (formData.orderMode === 'scale') return 8;
     if (formData.hasTpsl) return 9;
     return 7;
   }, [
     activeTradeInstrument.mode,
     formData.hasTpsl,
+    formData.orderMode,
+    shouldCompactOrderBookForConnectWallet,
+    shouldCompactOrderBookForFirstDeposit,
     shouldShowEnableTradingButton,
   ]);
 
@@ -1000,6 +1168,11 @@ export function PerpOrderBook({
                 sizeDecimals={sizeDecimals}
                 onSelectLevel={
                   isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+                }
+                onSelectMidPrice={
+                  isVisibleOrderBookInteractive
+                    ? handleMidPriceSelect
+                    : undefined
                 }
                 variant="mobileVertical"
               />

@@ -266,7 +266,7 @@ function DAppConnectExtensionFloatingTrigger() {
         userSelect="none"
       >
         <Stack
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_TRANSFORM}
           $group-hover={{
             scale: 1.1,

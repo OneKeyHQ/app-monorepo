@@ -6,7 +6,7 @@ import {
   buildReferenceTickOptions,
   buildTickOptions,
   getTickOptionsDataDuringTransition,
-  shouldPersistOrderBookTickOption,
+  shouldSeedOrderBookTickOption,
 } from './tickSizeUtils';
 
 describe('getTickOptionsDataDuringTransition', () => {
@@ -149,49 +149,52 @@ describe('buildReferenceTickOptions', () => {
   });
 });
 
-describe('shouldPersistOrderBookTickOption', () => {
-  it('does not replace precision while order book data is transitioning', () => {
+describe('shouldSeedOrderBookTickOption', () => {
+  const readyToSeed = {
+    isReady: true,
+    isFallbackList: false,
+    hasLoadedPersistedOptions: true,
+    hasPersistedOption: false,
+  };
+
+  it('seeds a symbol that has no stored option yet', () => {
+    expect(shouldSeedOrderBookTickOption(readyToSeed)).toBe(true);
+  });
+
+  it('adopts an existing option instead of overwriting it', () => {
+    // The whole point of seed-only: a second order book with its own derived
+    // list must not fight the value the first one established.
     expect(
-      shouldPersistOrderBookTickOption({
-        isReady: false,
-        persisted: { value: '0.2', nSigFigs: 5, mantissa: 2 },
-        next: { value: '0.1', nSigFigs: 5, mantissa: null },
+      shouldSeedOrderBookTickOption({
+        ...readyToSeed,
+        hasPersistedOption: true,
       }),
     ).toBe(false);
   });
 
-  it('does not rewrite a matching persisted selection', () => {
+  it('refuses a fallback-derived list', () => {
+    // The fallback builder labels the same tick with a different nSigFigs, and
+    // the transition branch can hand one back after szDecimals has arrived.
     expect(
-      shouldPersistOrderBookTickOption({
-        isReady: true,
-        persisted: { value: '0.1', nSigFigs: 5, mantissa: null },
-        next: { value: '0.1', nSigFigs: 5, mantissa: null },
+      shouldSeedOrderBookTickOption({ ...readyToSeed, isFallbackList: true }),
+    ).toBe(false);
+  });
+
+  it('waits for the stored options to load', () => {
+    // Seeding is first-write-wins, so a seed that beats the load would replace
+    // the user's own choice permanently rather than shadow it.
+    expect(
+      shouldSeedOrderBookTickOption({
+        ...readyToSeed,
+        hasLoadedPersistedOptions: false,
       }),
     ).toBe(false);
   });
 
-  it('initializes a missing selection after market data arrives', () => {
+  it('waits for tick options to be derived at all', () => {
     expect(
-      shouldPersistOrderBookTickOption({
-        isReady: true,
-        persisted: undefined,
-        next: { value: '0.1', nSigFigs: 5, mantissa: null },
-      }),
-    ).toBe(true);
-  });
-
-  it.each([
-    ['value', { value: '0.2', nSigFigs: 5 as const, mantissa: 2 as const }],
-    ['nSigFigs', { value: '0.1', nSigFigs: 4 as const, mantissa: null }],
-    ['mantissa', { value: '0.1', nSigFigs: 5 as const, mantissa: 2 as const }],
-  ])('syncs a selection whose %s changed', (_field, persisted) => {
-    expect(
-      shouldPersistOrderBookTickOption({
-        isReady: true,
-        persisted,
-        next: { value: '0.1', nSigFigs: 5, mantissa: null },
-      }),
-    ).toBe(true);
+      shouldSeedOrderBookTickOption({ ...readyToSeed, isReady: false }),
+    ).toBe(false);
   });
 });
 

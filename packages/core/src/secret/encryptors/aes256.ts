@@ -225,11 +225,18 @@ function readSecretEncryptPayloadMetadata({
 
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
+// Prefixed keys are app-generated identifiers, not user-memorable passwords;
+// PBKDF2 is only used to derive the AES key and does not supply their entropy.
+const INTERNAL_SENSITIVE_TEXT_KEY_NUM_OF_ITERATIONS = 1;
 let encodeKey = platformEnv.isWebEmbed
   ? ''
   : `${encodeKeyPrefix}${generateUUID()}`;
 // xor more fast but not safe
 const SENSITIVE_ENCODE_TYPE: 'xor' | 'aes' = 'aes';
+
+function isInternalSensitiveTextKey(key: string): boolean {
+  return key.startsWith(encodeKeyPrefix);
+}
 
 function ensureEncodeKeyExists(key: string) {
   if (!key) {
@@ -244,14 +251,20 @@ async function decodePasswordAsync({
   key,
   ignoreLogger,
   allowRawPassword,
+  debugCryptoProbeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   password: string;
   key?: string;
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
+  debugCryptoProbeId?: string;
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }): Promise<string> {
   // do nothing if password is encodeKey, but not a real password
-  if (password.startsWith(encodeKeyPrefix)) {
+  if (isInternalSensitiveTextKey(password)) {
     return password;
   }
   // decode password if it is encoded
@@ -264,6 +277,9 @@ async function decodePasswordAsync({
       encodedText: password,
       key,
       ignoreLogger,
+      debugCryptoProbeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
   }
   if (
@@ -430,6 +446,9 @@ async function encryptAsync({
     password,
     allowRawPassword,
     key: customDecodePasswordKey,
+    debugCryptoProbeId,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
 
   if (!passwordDecoded) {
@@ -711,6 +730,9 @@ async function decryptAsyncWithMetadata({
     password,
     allowRawPassword,
     ignoreLogger: true,
+    debugCryptoProbeId,
+    kdfBackend,
+    enablePbkdf2Cache,
   });
   if (!passwordDecoded) {
     throw new IncorrectPassword();
@@ -1012,12 +1034,18 @@ async function decodeSensitiveTextAsync({
   key,
   ignoreLogger,
   allowRawPassword,
+  debugCryptoProbeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   encodedText: string;
   key?: string;
   // avoid recursive call log output order confusion
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
+  debugCryptoProbeId?: string;
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }): Promise<string> {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -1032,6 +1060,9 @@ async function decodeSensitiveTextAsync({
         ),
         ignoreLogger,
         allowRawPassword,
+        debugCryptoProbeId,
+        kdfBackend,
+        enablePbkdf2Cache,
       });
       return decrypted.toString('utf-8');
     }
@@ -1062,6 +1093,7 @@ async function decodeSensitiveTextAsyncWithMetadata({
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
   ensureEncodeKeyExists(theKey);
+  const isInternalKey = isInternalSensitiveTextKey(theKey);
   if (isEncodedSensitiveText(encodedText)) {
     if (encodedText.startsWith(ENCODE_TEXT_PREFIX.aes)) {
       const result = await decryptAsyncWithMetadata({
@@ -1072,7 +1104,9 @@ async function decodeSensitiveTextAsyncWithMetadata({
         ),
         ignoreLogger,
         allowRawPassword,
-        upgradeTargetIterations: getSecretEncryptV2LocalTargetIterations(),
+        upgradeTargetIterations: isInternalKey
+          ? INTERNAL_SENSITIVE_TEXT_KEY_NUM_OF_ITERATIONS
+          : getSecretEncryptV2LocalTargetIterations(),
       });
       return {
         text: result.plaintext.toString('utf-8'),
@@ -1080,7 +1114,10 @@ async function decodeSensitiveTextAsyncWithMetadata({
         format: result.format,
         version: result.version,
         iterations: result.iterations,
-        needsUpgrade: result.needsUpgrade,
+        needsUpgrade: isInternalKey
+          ? result.format !== ESecretEncryptPayloadFormat.v2 ||
+            result.iterations !== INTERNAL_SENSITIVE_TEXT_KEY_NUM_OF_ITERATIONS
+          : result.needsUpgrade,
       };
     }
     if (encodedText.startsWith(ENCODE_TEXT_PREFIX.xor)) {
@@ -1115,12 +1152,18 @@ async function encodeSensitiveTextAsync({
   customIv,
   customSalt,
   format,
+  debugCryptoProbeId,
+  kdfBackend,
+  enablePbkdf2Cache,
 }: {
   text: string;
   key?: string;
   customSalt?: Buffer;
   customIv?: Buffer;
   format?: ESecretEncryptPayloadFormat;
+  debugCryptoProbeId?: string;
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -1148,9 +1191,17 @@ async function encodeSensitiveTextAsync({
         password: theKey,
         data: Buffer.from(text, 'utf-8'),
         allowRawPassword: true,
+        iterations:
+          isInternalSensitiveTextKey(theKey) &&
+          format !== ESecretEncryptPayloadFormat.legacy
+            ? INTERNAL_SENSITIVE_TEXT_KEY_NUM_OF_ITERATIONS
+            : undefined,
         customSalt,
         customIv,
         format,
+        debugCryptoProbeId,
+        kdfBackend,
+        enablePbkdf2Cache,
       })
     ).toString('hex');
     return `${ENCODE_TEXT_PREFIX.aes}${encoded}`;

@@ -4,6 +4,12 @@ import {
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import {
+  perpsActiveAccountSummaryAtom,
+  perpsSpotBalancesAtom,
+} from '../../states/jotai/atoms';
+import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
+
 import ServiceHyperliquidCache, {
   buildL2BookSnapshotCachePayload,
   getL2BookSnapshotCacheEntryLevelCount,
@@ -330,5 +336,90 @@ describe('ServiceHyperliquidCache account display write throttle', () => {
         minIntervalMs: 5000,
       }),
     ).toBe(false);
+  });
+});
+
+describe('ServiceHyperliquidCache account display hydration', () => {
+  beforeAll(() => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    (
+      globalThis as typeof globalThis & {
+        $onekeyIsInBackground?: boolean;
+      }
+    ).$onekeyIsInBackground = true;
+  });
+
+  afterAll(() => {
+    delete (
+      globalThis as typeof globalThis & {
+        $onekeyIsInBackground?: boolean;
+      }
+    ).$onekeyIsInBackground;
+  });
+
+  it('does not apply cached account data after the request is superseded', async () => {
+    const previousSummary: NonNullable<
+      Awaited<ReturnType<typeof perpsActiveAccountSummaryAtom.get>>
+    > = {
+      accountAddress: '0xprevious',
+      accountValue: '1',
+      totalMarginUsed: undefined,
+      crossAccountValue: undefined,
+      crossMaintenanceMarginUsed: undefined,
+      totalNtlPos: undefined,
+      totalRawUsd: undefined,
+      withdrawable: undefined,
+      totalUnrealizedPnl: undefined,
+    };
+    const previousSpot: NonNullable<
+      Awaited<ReturnType<typeof perpsSpotBalancesAtom.get>>
+    > = {
+      accountAddress: '0xprevious',
+      balances: [],
+      spotTotalUsd: '1',
+    };
+    await perpsActiveAccountSummaryAtom.set(previousSummary);
+    await perpsSpotBalancesAtom.set(previousSpot);
+
+    const service = new ServiceHyperliquidCache({
+      backgroundApi: {
+        simpleDb: {
+          perp: {
+            getUserAbstractionMode: jest.fn().mockResolvedValue(undefined),
+            getPerpsAccountDisplayCache: jest.fn().mockResolvedValue({
+              summary: {
+                data: {
+                  ...previousSummary,
+                  accountAddress: '0xtarget',
+                  accountValue: '2',
+                },
+                updatedAt: Date.now(),
+              },
+              spotBalances: {
+                data: {
+                  accountAddress: '0xtarget',
+                  balances: [],
+                  spotTotalUsd: '2',
+                },
+                updatedAt: Date.now(),
+              },
+            }),
+          },
+        },
+      },
+    });
+
+    const hydrateWithGuard = service.hydratePerpsAccountDisplayCache.bind(
+      service,
+    ) as unknown as (
+      accountAddress: string,
+      shouldApply: () => boolean,
+    ) => Promise<void>;
+    await hydrateWithGuard('0xtarget', () => false);
+
+    await expect(perpsActiveAccountSummaryAtom.get()).resolves.toEqual(
+      previousSummary,
+    );
+    await expect(perpsSpotBalancesAtom.get()).resolves.toEqual(previousSpot);
   });
 });

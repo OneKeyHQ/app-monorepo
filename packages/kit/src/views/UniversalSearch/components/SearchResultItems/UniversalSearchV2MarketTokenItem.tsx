@@ -23,6 +23,7 @@ import {
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
+import { buildMarketSearchTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -33,15 +34,21 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import {
   formatTokenSymbolForDisplay,
   getTokenPriceChangeStyle,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
+import type {
+  EUniversalSearchSource,
+  IUniversalSearchMarketStock,
+  IUniversalSearchV2MarketToken,
+} from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2Deferred } from '../../../Market/components/MarketStarV2Deferred';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { getMarketSearchMetricAmount } from '../marketSearchMetric';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
 import {
@@ -151,15 +158,17 @@ export function MarketTokenLiquidity({
 }
 
 interface IUniversalSearchMarketTokenItemProps {
-  item: IUniversalSearchV2MarketToken;
+  item: IUniversalSearchV2MarketToken | IUniversalSearchMarketStock;
   isTrending?: boolean;
   getSearchInput?: () => string;
+  source: EUniversalSearchSource;
 }
 
 export function UniversalSearchV2MarketTokenItem({
   item,
   isTrending,
   getSearchInput,
+  source,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
@@ -169,6 +178,7 @@ export function UniversalSearchV2MarketTokenItem({
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
     from: EEnterWay.Search,
+    resolveMarketAsset: true,
   });
 
   const {
@@ -180,6 +190,7 @@ export function UniversalSearchV2MarketTokenItem({
     address,
     network,
     liquidity,
+    marketCap,
     // eslint-disable-next-line camelcase
     volume_24h,
     volume24h: volume24hCamel,
@@ -187,6 +198,7 @@ export function UniversalSearchV2MarketTokenItem({
     isNative,
     communityRecognized,
     stock,
+    stockId,
   } = item.payload;
 
   // When network is empty, the item was converted from IMarketToken (trending/legacy)
@@ -194,10 +206,21 @@ export function UniversalSearchV2MarketTokenItem({
   // eslint-disable-next-line camelcase
   const volume24h = volume24hCamel || volume_24h;
 
-  const isLegacyNavigation = !network;
+  const isStockListing = isMarketSearchStockListing({
+    stockId,
+    address,
+    network,
+  });
+  const listingStockId = isStockListing ? stockId?.trim() : undefined;
+  const isLegacyNavigation = !isStockListing && !network;
   const isContractAddressVisible = shouldRenderContractAddress({
     address,
     isLegacyNavigation,
+  });
+  const { amount: metricAmount } = getMarketSearchMetricAmount({
+    isStockListing,
+    liquidity,
+    marketCap,
   });
 
   const priceChangeStyle = useMemo(
@@ -212,9 +235,10 @@ export function UniversalSearchV2MarketTokenItem({
     const searchText = getSearchInput?.();
     if (searchText) {
       defaultLogger.universalSearch.search.universalSearchClick({
+        source,
         searchText,
         type: item.type,
-        itemId: address ?? symbol ?? '',
+        itemId: listingStockId || address || symbol || '',
         itemTitle: symbol ?? '',
       });
     }
@@ -236,8 +260,12 @@ export function UniversalSearchV2MarketTokenItem({
         void toMarketDetailPage({
           tokenAddress: address,
           networkId: network,
+          name,
           symbol,
           isNative,
+          stockId: listingStockId,
+          stock: isStockListing ? stock : undefined,
+          tokenDetailPreview: buildMarketSearchTokenDetailPreview(item.payload),
         });
 
         defaultLogger.market.token.searchToken({
@@ -248,7 +276,7 @@ export function UniversalSearchV2MarketTokenItem({
         if (!isTrending && symbol?.trim()) {
           setTimeout(() => {
             universalSearchActions.current.addIntoRecentSearchList({
-              id: address,
+              id: listingStockId ? `stock:${listingStockId}` : address,
               text: symbol,
               type: item.type,
               timestamp: Date.now(),
@@ -260,15 +288,21 @@ export function UniversalSearchV2MarketTokenItem({
   }, [
     getSearchInput,
     isLegacyNavigation,
+    isStockListing,
     isTrending,
     address,
     network,
+    name,
     symbol,
     isNative,
+    stock,
+    listingStockId,
     universalSearchActions,
     item.type,
+    item.payload,
     toMarketDetailPage,
     appNavigation,
+    source,
   ]);
 
   if (!isMounted) {
@@ -277,6 +311,7 @@ export function UniversalSearchV2MarketTokenItem({
 
   return (
     <Stack
+      testID={`universal-search-market-token-${network}-${address}`}
       flexDirection="row"
       alignItems="center"
       gap="$3"
@@ -295,6 +330,7 @@ export function UniversalSearchV2MarketTokenItem({
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
           <MarketStarV2Deferred
+            stockId={listingStockId}
             chainId={network}
             contractAddress={address}
             from={EWatchlistFrom.Search}
@@ -319,20 +355,26 @@ export function UniversalSearchV2MarketTokenItem({
               >
                 {formatTokenSymbolForDisplay(symbol)}
               </SizableText>
-              {gtMd ? (
+              {isStockListing ? null : (
                 <>
-                  <StockSourceLogo stock={stock} />
-                  {communityRecognized ? <CommunityRecognizedBadge /> : null}
+                  {gtMd ? (
+                    <>
+                      <StockSourceLogo stock={stock} />
+                      {communityRecognized ? (
+                        <CommunityRecognizedBadge />
+                      ) : null}
+                    </>
+                  ) : (
+                    <TokenTagsPopover
+                      communityRecognized={communityRecognized}
+                      stock={stock}
+                    />
+                  )}
+                  {stock?.subtitle ? (
+                    <SubtitleBadge subtitle={stock.subtitle} />
+                  ) : null}
                 </>
-              ) : (
-                <TokenTagsPopover
-                  communityRecognized={communityRecognized}
-                  stock={stock}
-                />
               )}
-              {stock?.subtitle ? (
-                <SubtitleBadge subtitle={stock.subtitle} />
-              ) : null}
             </XStack>
             <XStack ai="center" gap="$0.5" minWidth={0}>
               {name ? (
@@ -385,15 +427,20 @@ export function UniversalSearchV2MarketTokenItem({
           ) : null}
         </YStack>
 
-        {/* LIQUIDITY column - desktop only */}
+        {/* Liquidity or market-cap column - desktop only */}
         {gtMd ? (
-          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end" ai="center">
+          <XStack
+            w={MARKET_DATA_COLUMN_WIDTH}
+            jc="flex-end"
+            ai="center"
+            testID="universal-search-market-metric"
+          >
             <NumberSizeableText
               size="$bodyMd"
               formatter="marketCap"
               formatterOptions={{ capAtMaxT: true }}
             >
-              {BigNumber(liquidity).gt(0) ? liquidity : '--'}
+              {BigNumber(metricAmount || 0).gt(0) ? metricAmount : '--'}
             </NumberSizeableText>
           </XStack>
         ) : null}

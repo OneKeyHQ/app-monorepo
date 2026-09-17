@@ -77,6 +77,7 @@ export function createTradingViewNativeMarketDataProvider({
   let primaryHistoryUnavailable =
     !canUseMarketHistory ||
     unavailableMarketHistoryTokenKeys.has(marketTokenKey);
+  let selectedHistorySource: 'fallback' | 'primary' | undefined;
   const marketHistoryPageSize =
     source.isNative || !source.tokenAddress.trim()
       ? MARKET_NATIVE_HISTORY_PAGE_SIZE
@@ -90,7 +91,7 @@ export function createTradingViewNativeMarketDataProvider({
 
   return {
     getHistoryRequestCandleCount: (interval) =>
-      primaryHistoryUnavailable
+      selectedHistorySource === 'fallback' || primaryHistoryUnavailable
         ? fallbackHistoryProvider.getHistoryRequestCandleCount(interval)
         : MARKET_HISTORY_REQUEST_CANDLE_COUNT,
     hasMoreHistory: (page) =>
@@ -103,6 +104,9 @@ export function createTradingViewNativeMarketDataProvider({
     supportsRealtime: source.realtime === 'websocket',
     fetchHistory: async (request) => {
       const { interval, signal, timeFrom, timeTo } = request;
+      const selectHistorySource = (historySource: 'fallback' | 'primary') => {
+        selectedHistorySource ??= historySource;
+      };
       let pointType: IMarketKLinePointType | undefined;
       let usedFallback = false;
       const data = await fetchMarketKLineData({
@@ -112,41 +116,70 @@ export function createTradingViewNativeMarketDataProvider({
         timeFrom,
         timeTo,
         autoHandleError: false,
-        kLineDataFallback: async (fallbackRequest: {
-          timeFrom: number;
-          timeTo: number;
-        }) => {
-          const fallbackTimeFrom = Math.max(
-            fallbackRequest.timeTo -
-              interval.seconds *
-                fallbackHistoryProvider.getHistoryRequestCandleCount(interval),
-            0,
-          );
-          return fallbackHistoryProvider.fetchHistory({
-            interval,
-            signal,
-            timeFrom: Math.min(fallbackRequest.timeFrom, fallbackTimeFrom),
-            timeTo: fallbackRequest.timeTo,
-          });
-        },
+        kLineDataFallback:
+          selectedHistorySource === 'primary'
+            ? undefined
+            : async (fallbackRequest: { timeFrom: number; timeTo: number }) => {
+                const fallbackTimeFrom = Math.max(
+                  fallbackRequest.timeTo -
+                    interval.seconds *
+                      fallbackHistoryProvider.getHistoryRequestCandleCount(
+                        interval,
+                      ),
+                  0,
+                );
+                return fallbackHistoryProvider.fetchHistory({
+                  interval,
+                  signal,
+                  timeFrom: Math.min(
+                    fallbackRequest.timeFrom,
+                    fallbackTimeFrom,
+                  ),
+                  timeTo: fallbackRequest.timeTo,
+                });
+              },
         onFallbackKLineData: () => {
           usedFallback = true;
+          selectHistorySource('fallback');
         },
         onPrimaryKLineDataUnavailable: () => {
+          if (selectedHistorySource === 'primary') {
+            return;
+          }
           primaryHistoryUnavailable = true;
           cacheUnavailableMarketHistoryTokenKey(marketTokenKey);
         },
         onPointType: (nextPointType) => {
           pointType = nextPointType;
         },
-        primaryKLineDataUnavailable: primaryHistoryUnavailable,
+        primaryKLineDataUnavailable:
+          selectedHistorySource === 'fallback' || primaryHistoryUnavailable,
       });
       if (!data) {
         return null;
       }
+      const responseHistorySource = usedFallback ? 'fallback' : 'primary';
+      if (data.points.length) {
+        selectHistorySource(responseHistorySource);
+      }
+      if (
+        selectedHistorySource &&
+        selectedHistorySource !== responseHistorySource
+      ) {
+        return {
+          ...data,
+          historySource:
+            selectedHistorySource === 'fallback' ? 'fallback' : undefined,
+          points: [],
+          total: 0,
+          ...(pointType ? { pointType } : {}),
+        };
+      }
       return {
         ...data,
-        ...(usedFallback ? { historySource: 'fallback' as const } : {}),
+        ...(selectedHistorySource === 'fallback'
+          ? { historySource: 'fallback' as const }
+          : {}),
         ...(pointType ? { pointType } : {}),
       };
     },

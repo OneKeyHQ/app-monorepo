@@ -40,6 +40,7 @@ import {
   usePerpTradesHistoryViewAllUrl,
 } from '../../../hooks/usePerpOrderInfoPanel';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
 import { TRADES_HISTORY_SHARE_ACTION_WIDTH } from '../Components/TradesHistoryShareAction';
 import { getPerpFillDirectionType } from '../utils';
@@ -400,7 +401,6 @@ function PerpTradesHistoryList({
         flex: 1,
         align: 'right',
         headerRightPadding: TRADES_HISTORY_SHARE_ACTION_WIDTH,
-        fixed: true,
       },
     ],
     [intl],
@@ -466,6 +466,19 @@ function PerpTradesHistoryList({
       isMobile={isMobile}
       minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
+      ListEmptyComponent={
+        isMobile ? (
+          <PerpMobileEmptyState
+            contentOffsetY={-96}
+            title={intl.formatMessage({
+              id: ETranslations.perp_trade_history_empty,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.perp_trades_history_recent_range_desc,
+            })}
+          />
+        ) : undefined
+      }
       emptyMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty,
       })}

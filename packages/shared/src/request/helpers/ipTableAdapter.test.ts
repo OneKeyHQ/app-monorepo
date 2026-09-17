@@ -1,18 +1,30 @@
 import axios from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
+import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
 import {
   createIpTableAdapter,
+  isIpTableTransportError,
   resetAdapterFailoverStatesForTesting,
   setReportRequestFailureCallback,
   testIpSpeed,
 } from './ipTableAdapter';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
+import type { IAvailabilityOutcome } from '../availabilityAggregator';
+import type { IApiAvailabilityTiming } from '../availabilityMetrics';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+
+const mockAvailabilityOutcomes: IAvailabilityOutcome[] = [];
+
+jest.mock('../availabilityAggregator', () => ({
+  recordAvailabilityOutcome: (outcome: IAvailabilityOutcome) => {
+    mockAvailabilityOutcomes.push(outcome);
+  },
+}));
 
 jest.mock('../requestHelper', () => ({
   __esModule: true,
@@ -148,6 +160,87 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);
   });
 
+  test('does no preflight work for an already aborted request', async () => {
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
+    controller.abort();
+
+    await expect(adapter(config)).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+
+    expect(mockedIsSniSupported).not.toHaveBeenCalled();
+    expect(mockedIsProxyActiveForUrl).not.toHaveBeenCalled();
+    expect(
+      mockedRequestHelper.getDevSettingsPersistAtom,
+    ).not.toHaveBeenCalled();
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('aborts immediately while proxy preflight is pending', async () => {
+    let resolvePreflight: ((value: boolean) => void) | undefined;
+    mockedIsProxyActiveForUrl.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreflight = resolve;
+        }),
+    );
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
+
+    const responsePromise = adapter(config);
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+    resolvePreflight?.(false);
+  });
+
+  test('aborts immediately while IP selection is pending', async () => {
+    let resolveDevSettings:
+      | ((value: { settings: Record<string, never> }) => void)
+      | undefined;
+    mockedRequestHelper.getDevSettingsPersistAtom.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDevSettings = resolve;
+        }) as never,
+    );
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://pending.example.com/v1');
+    config.signal = controller.signal;
+
+    const responsePromise = adapter(config);
+    for (let index = 0; index < 4; index += 1) {
+      // Allow the resolved proxy preflight to advance into IP selection.
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
+    expect(mockedRequestHelper.getDevSettingsPersistAtom).toHaveBeenCalled();
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+    resolveDevSettings?.({ settings: {} });
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
   test('keeps legacy SNI path when proxy preflight capability is missing', async () => {
     mockedIsProxyActiveForUrl.mockResolvedValue(null);
     mockedSniRequest.mockResolvedValue({
@@ -157,10 +250,11 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       body: '{"ok":true}',
     });
     const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
 
-    await expect(
-      adapter(buildConfig('https://api.example.com/v1')),
-    ).resolves.toMatchObject({
+    await expect(adapter(config)).resolves.toMatchObject({
       status: 200,
       data: { ok: true },
     });
@@ -171,6 +265,7 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         ip: '93.184.216.34',
         hostname: 'api.example.com',
       }),
+      { signal: controller.signal },
     );
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });
@@ -209,6 +304,110 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });
 
+  describe('availability metrics context', () => {
+    function buildTimedConfig(url: string) {
+      const config = buildConfig(url);
+      const timing: IApiAvailabilityTiming = {
+        startedAt: 0,
+        service: 'wallet',
+        routeGroup: '/v1',
+      };
+      config.$oneKeyAvailabilityTiming = timing;
+      return { config, timing };
+    }
+
+    beforeEach(() => {
+      mockAvailabilityOutcomes.length = 0;
+      resetAdapterFailoverStatesForTesting();
+    });
+
+    test('marks the route and proxy state each request takes', async () => {
+      const adapter = createIpTableAdapter({});
+      mockedSniRequest.mockResolvedValue({
+        statusCode: 200,
+        headers: {},
+        body: '{}',
+      });
+      const sni = buildTimedConfig('https://metrics-sni.example.com/v1');
+      await adapter(sni.config);
+      expect(sni.timing).toMatchObject({ route: 'sni', proxyActive: false });
+
+      mockedSniRequest.mockRejectedValue(new Error('connection reset'));
+      const fallback = buildTimedConfig('https://metrics-fb.example.com/v1');
+      await adapter(fallback.config);
+      expect(fallback.timing.route).toBe('fallback');
+
+      mockedIsProxyActiveForUrl.mockResolvedValue(true);
+      const proxied = buildTimedConfig('https://metrics-proxy.example.com/v1');
+      await adapter(proxied.config);
+      expect(proxied.timing).toMatchObject({
+        route: 'domain',
+        proxyActive: true,
+      });
+      expect(mockAvailabilityOutcomes).toHaveLength(0);
+    });
+
+    test('records errors raised by the adapter itself with their context', async () => {
+      mockedSniRequest.mockRejectedValue(
+        Object.assign(new Error('certificate rejected'), {
+          code: 'SNI_CERT_FAILED',
+        }),
+      );
+      const { config, timing } = buildTimedConfig(
+        'https://metrics-closed.example.com/v1',
+      );
+
+      await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+        code: 'SNI_CERT_FAILED',
+      });
+
+      expect(timing.reported).toBe(true);
+      expect(mockAvailabilityOutcomes).toEqual([
+        expect.objectContaining({
+          source: 'api',
+          status: 'network_error',
+          failure: { detail: 'sni:/v1', errorCode: 'sni_cert_failed' },
+        }),
+        expect.objectContaining({ source: 'api_net', status: 'failed' }),
+        expect.objectContaining({ source: 'api_route', target: 'sni' }),
+        expect.objectContaining({ source: 'api_proxy', target: 'off' }),
+        expect.objectContaining({ source: 'api_ip_table', target: 'enabled' }),
+      ]);
+    });
+
+    test.each([
+      [
+        'noConfig',
+        () => mockedRequestHelper.getIpTableConfig.mockResolvedValue(null),
+      ],
+      [
+        'disabled',
+        () =>
+          mockedRequestHelper.getDevSettingsPersistAtom.mockResolvedValue({
+            settings: { disableIpTableInProd: true },
+          } as never),
+      ],
+    ])(
+      'labels proxied requests with the current IP Table state (%s)',
+      async (state, arrange) => {
+        arrange();
+        mockedIsProxyActiveForUrl.mockResolvedValue(true);
+        fallbackAdapter.mockRejectedValueOnce(new Error('offline'));
+        const { config } = buildTimedConfig(
+          `https://metrics-proxy-${mockAvailabilityOutcomes.length}${state.length}.example.com/v1`,
+        );
+
+        await expect(createIpTableAdapter({})(config)).rejects.toThrow(
+          'offline',
+        );
+
+        expect(mockAvailabilityOutcomes).toContainEqual(
+          expect.objectContaining({ source: 'api_ip_table', target: state }),
+        );
+      },
+    );
+  });
+
   test('skips IP speed test when proxy preflight is active', async () => {
     mockedIsProxyActiveForUrl.mockResolvedValue(true);
 
@@ -237,6 +436,27 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         hostname: 'wallet.example.com',
       }),
     );
+  });
+});
+
+describe('isIpTableTransportError', () => {
+  test('recognizes the normalized Axios network error used by the global interceptor', () => {
+    expect(
+      isIpTableTransportError({
+        code: -99_999,
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        message: 'Network error',
+      }),
+    ).toBe(true);
+  });
+
+  test('does not treat an HTTP response as a transport failure', () => {
+    expect(
+      isIpTableTransportError({
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        response: { status: 503 },
+      }),
+    ).toBe(false);
   });
 });
 
@@ -339,8 +559,41 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
       ip: string;
       hostname: string;
     };
-    expect(BUILTIN_CN_IPS).toContain(sniArgs.ip);
+    expect(sniArgs.ip).toBe(BUILTIN_CN_IPS[0]);
     expect(sniArgs.hostname).toBe('wallet.onekeycn.com');
+  });
+
+  test('maps data.onekey.so fail-open to the first onekeycn.com builtin IP', async () => {
+    fallbackAdapter.mockImplementation(async () => {
+      throw networkError();
+    });
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://data.onekey.so/config.json'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://data.onekey.so/config.json'),
+      ),
+    ).resolves.toMatchObject({ status: 200, data: { ok: true } });
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ip: BUILTIN_CN_IPS[0],
+        hostname: 'data.onekey.so',
+      }),
+      { signal: undefined },
+    );
   });
 
   test('does not replay the failing request itself', async () => {
@@ -994,6 +1247,7 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     expect(mockedSniRequest).toHaveBeenCalledTimes(1);
     expect(mockedSniRequest).toHaveBeenCalledWith(
       expect.objectContaining({ hostname: 'utility.onekeycn.com' }),
+      { signal: undefined },
     );
   });
 });

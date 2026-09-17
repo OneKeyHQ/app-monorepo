@@ -9,7 +9,6 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
-  Skeleton,
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -25,11 +24,12 @@ import { AssetDetailsTestIDs } from '../../testIDs';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import {
   buildTokenDetailsMarketNavigationTarget,
-  isTokenDetailsMarketMetadataForToken,
+  shouldHideTokenDetailsMarketFooter,
 } from './tokenDetailsMarketNavigation';
 
 function TokenDetailsFooter(props: {
   isNative?: boolean;
+  isAggregateToken?: boolean;
   networkId: string;
   networkName?: string;
   symbol?: string;
@@ -38,6 +38,7 @@ function TokenDetailsFooter(props: {
 }) {
   const {
     isNative,
+    isAggregateToken,
     networkId,
     networkName,
     symbol,
@@ -49,6 +50,11 @@ function TokenDetailsFooter(props: {
   const { tokenMetadata } = useTokenDetailsContext();
   const navigation = useAppNavigation();
 
+  // The builder is the single matching authority: its detail target strict-
+  // matches metadata ownership internally, and its chart target is built from
+  // the current tab's props alone — stale metadata can never yield a wrong
+  // destination, so press/chevron follow the target directly and stay stable
+  // across tab switches.
   const marketNavigationTarget = useMemo(
     () =>
       buildTokenDetailsMarketNavigationTarget({
@@ -70,18 +76,16 @@ function TokenDetailsFooter(props: {
       tokenMetadata,
     ],
   );
-  const matchedTokenMetadata = isTokenDetailsMarketMetadataForToken({
-    networkId,
-    tokenAddress,
-    tokenMetadata,
-  })
-    ? tokenMetadata
-    : undefined;
-
   const handleMarketPress = useCallback(() => {
     if (marketNavigationTarget?.type === 'detail') {
       navigation.push(EModalAssetDetailRoutes.MarketDetail, {
         token: marketNavigationTarget.token,
+        preferredToken:
+          !isAggregateToken &&
+          !networkUtils.isAllNetwork({ networkId }) &&
+          (isNative || Boolean(tokenAddress))
+            ? { networkId, tokenAddress: tokenAddress ?? '', isNative }
+            : undefined,
       });
     } else if (marketNavigationTarget?.type === 'chart') {
       navigation.push(EModalAssetDetailRoutes.MarketChart, {
@@ -93,12 +97,17 @@ function TokenDetailsFooter(props: {
         tokenImageUri: marketNavigationTarget.tokenImageUri,
       });
     }
-  }, [marketNavigationTarget, navigation]);
+  }, [
+    isAggregateToken,
+    isNative,
+    marketNavigationTarget,
+    navigation,
+    networkId,
+    tokenAddress,
+  ]);
 
   const priceChangeColor = useMemo(() => {
-    const priceChangeBN = new BigNumber(
-      matchedTokenMetadata?.priceChange24h ?? 0,
-    );
+    const priceChangeBN = new BigNumber(tokenMetadata?.priceChange24h ?? 0);
     if (priceChangeBN.isGreaterThan(0)) {
       return '$textSuccess';
     }
@@ -106,21 +115,22 @@ function TokenDetailsFooter(props: {
       return '$textCritical';
     }
     return '$textSubdued';
-  }, [matchedTokenMetadata?.priceChange24h]);
+  }, [tokenMetadata?.priceChange24h]);
 
   if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
     return null;
   }
 
-  if (
-    new BigNumber(matchedTokenMetadata?.priceChange24h ?? 0).isZero() &&
-    new BigNumber(matchedTokenMetadata?.price ?? 0).isZero()
-  ) {
+  // Metadata for a previously active tab is the same asset — keep rendering
+  // it while the new tab's fetch is in flight so the footer never
+  // unmounts/remounts (flashes) on tab switches. The explicit !tokenMetadata
+  // check narrows the type for the render below.
+  if (!tokenMetadata || shouldHideTokenDetailsMarketFooter({ tokenMetadata })) {
     return null;
   }
 
   return (
-    <Page.Footer>
+    <Page.Footer safeAreaBottomMode="content">
       <XStack
         testID={AssetDetailsTestIDs.marketFooter}
         alignItems="center"
@@ -137,32 +147,28 @@ function TokenDetailsFooter(props: {
         <SizableText flex={1} size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.global_market })}
         </SizableText>
-        {matchedTokenMetadata ? (
-          <XStack alignItems="center" gap="$2">
-            <Currency
-              size="$bodyMd"
-              formatter="price"
-              sourceCurrency={matchedTokenMetadata.currency}
-            >
-              {matchedTokenMetadata.price}
-            </Currency>
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="priceChange"
-              formatterOptions={{
-                showPlusMinusSigns: true,
-              }}
-              color={priceChangeColor}
-            >
-              {matchedTokenMetadata.priceChange24h}
-            </NumberSizeableText>
-            {marketNavigationTarget ? (
-              <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
-            ) : null}
-          </XStack>
-        ) : (
-          <Skeleton.BodyMd />
-        )}
+        <XStack alignItems="center" gap="$2">
+          <Currency
+            size="$bodyMd"
+            formatter="price"
+            sourceCurrency={tokenMetadata.currency}
+          >
+            {tokenMetadata.price}
+          </Currency>
+          <NumberSizeableText
+            size="$bodyMd"
+            formatter="priceChange"
+            formatterOptions={{
+              showPlusMinusSigns: true,
+            }}
+            color={priceChangeColor}
+          >
+            {tokenMetadata.priceChange24h}
+          </NumberSizeableText>
+          {marketNavigationTarget ? (
+            <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+          ) : null}
+        </XStack>
       </XStack>
     </Page.Footer>
   );

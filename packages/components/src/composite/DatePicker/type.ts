@@ -43,6 +43,11 @@ export interface IRangePickerProps extends IDatePickerBaseProps {
   mode?: 'range';
   value?: IDateRange;
   onChange?: (range: IDateRange) => void;
+  /**
+   * Affects only the gtMd dual-panel layout: shows previous+current months
+   * instead of current+next. Single-panel (phone) calendars always open on
+   * the current month.
+   */
   showPreviousMonth?: boolean;
   presets?: IDateRangePreset[];
 }

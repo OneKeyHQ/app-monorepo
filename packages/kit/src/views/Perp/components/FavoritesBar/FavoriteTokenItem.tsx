@@ -20,6 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perpsUtils, {
   formatPriceToSignificantDigits,
   formatSpotPriceEntry,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
@@ -280,7 +281,9 @@ function FavoriteTokenItem({
       <Token
         size="xs"
         borderRadius="$full"
-        tokenImageUri={getHyperliquidTokenImageUrl(imageTokenName)}
+        {...(mode === 'spot'
+          ? { tokenImageUri: getHyperliquidTokenImageUrl(imageTokenName) }
+          : { tokenImageUris: getHyperliquidTokenImageUris(coinName) })}
         fallbackIcon="CryptoCoinOutline"
       />
       <SizableText size="$bodySmMedium" color="$text">

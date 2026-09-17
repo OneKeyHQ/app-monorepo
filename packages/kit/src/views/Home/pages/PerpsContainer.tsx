@@ -28,6 +28,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   LeverageBadge,
+  PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
@@ -171,6 +172,19 @@ function useOpenPerpAsset() {
         }
         if (infoPanelTab) {
           await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
+        }
+        // After the writes above and before the navigation that mounts the tab:
+        // recording it earlier would strand a pending pair whenever those
+        // writes bail out, and later would lose the race with the first mount.
+        // Isolated because losing it only costs that first-mount restore.
+        if (coin) {
+          try {
+            await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
+              { coin, mode },
+            );
+          } catch {
+            // ignore
+          }
         }
         setPerpPageEnterSource(EPerpPageEnterSource.Home);
         navigation.switchTab(ETabRoutes.Perp);
@@ -720,6 +734,7 @@ function PerpsEmptyRecommendSection() {
                       {token.displayName}
                     </SizableText>
                     <LeverageBadge leverage={token.maxLeverage} />
+                    <PerpDexBadge dexLabel={token.dexLabel} />
                   </XStack>
                   {token.subtitle ? (
                     <XStack alignItems="center" minWidth={0}>
@@ -843,6 +858,7 @@ function PerpsEmptyRecommendSection() {
                         {token.displayName}
                       </SizableText>
                       <LeverageBadge leverage={token.maxLeverage} />
+                      <PerpDexBadge dexLabel={token.dexLabel} />
                     </XStack>
                     <XStack alignItems="center" gap="$1" minWidth={0}>
                       {token.subtitle ? (
@@ -932,7 +948,7 @@ function PerpsDepositButton({
   isDepositDisabled: boolean;
 }) {
   const intl = useIntl();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal('home');
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
 
   const handleDeposit = useCallback(async () => {

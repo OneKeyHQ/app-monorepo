@@ -11,29 +11,35 @@ import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 type IMarketSwapReviewDialogProps = {
   onDone: () => void;
+  onConfirmStart?: () => void;
   adapter: ISwapReviewAdapter;
   reviewState: ISwapReviewState;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
+  disableSaveSlippageForFutureOrders?: boolean;
 };
 
 export function MarketSwapReviewDialog({
   onDone,
+  onConfirmStart,
   adapter,
   reviewState,
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
+  disableSaveSlippageForFutureOrders,
 }: IMarketSwapReviewDialogProps) {
   return (
     <SwapReviewDialog
       onDone={onDone}
+      onConfirmStart={onConfirmStart}
       adapter={adapter}
       reviewState={reviewState}
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       defaultCustomPriorityFee={defaultCustomPriorityFee}
       showCustomNetworkFeeOption={showCustomNetworkFeeOption}
+      disableSaveSlippageForFutureOrders={disableSaveSlippageForFutureOrders}
       storeName={EJotaiContextStoreNames.marketSwapReview}
       disableGlobalApproveSync
       approveTransactionSource={ESwapReviewApproveTransactionSource.SpeedSwap}

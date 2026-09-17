@@ -3,8 +3,9 @@ import { QRCode } from '@onekeyhq/components/src/content/QRCode';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
 // QRCode always renders inside Theme name="light" so codes stay scannable in
-// dark mode. The `animated` drawType (air-gap UR frames) needs a valueUr from
-// @onekeyhq/qr-wallet-sdk — out of scope here; see SecureQRToast in kit.
+// dark mode. Passing a valueUr instead of a value makes the code animate
+// through air-gap UR frames — that needs @onekeyhq/qr-wallet-sdk and is out of
+// scope here; see SecureQRToast in kit.
 const meta = {
   title: 'Content/QRCode',
   component: QRCode,
@@ -15,7 +16,7 @@ const meta = {
   argTypes: {
     value: { control: 'text' },
     size: { control: 'number' },
-    drawType: { control: 'select', options: ['line', 'dot'] },
+    drawType: { control: 'select', options: ['dot', 'line'] },
   },
 } satisfies Meta<typeof QRCode>;
 
@@ -34,9 +35,12 @@ export const WithLogo: Story = {
   },
 };
 
-export const DotStyle: Story = {
+// 'line' is the pre-OK-59643 style. Static codes stay dot, but air-gap UR
+// codes default back to line because some hardware scanners cannot reliably
+// decode dots.
+export const LineStyle: Story = {
   args: {
-    drawType: 'dot',
+    drawType: 'line',
     logoSvg: 'OnekeyBrand',
   },
 };

@@ -1,6 +1,83 @@
 import { isEqual } from 'lodash';
 
+import type { ITradeRouteViewState } from '../atoms';
+
 let orderBookOptionsWriteQueue = Promise.resolve();
+
+export type ISubscriptionRecoveryProofSource =
+  | 'route-focused'
+  | 'token-selector'
+  | 'notification-navigation';
+
+export interface ISubscriptionRecoveryProof {
+  disabledCount: number;
+  source: ISubscriptionRecoveryProofSource;
+}
+
+interface ICaptureSubscriptionRecoveryProofParams {
+  source: ISubscriptionRecoveryProofSource;
+  isSourceLive: () => boolean;
+  isAppVisible: () => boolean;
+  isAppLocked: () => Promise<boolean>;
+  readDisabledCount: () => Promise<number>;
+}
+
+export async function captureSubscriptionRecoveryProof(
+  params: ICaptureSubscriptionRecoveryProofParams,
+): Promise<ISubscriptionRecoveryProof | undefined> {
+  try {
+    if (
+      !params.isSourceLive() ||
+      !params.isAppVisible() ||
+      (await params.isAppLocked())
+    ) {
+      return undefined;
+    }
+
+    const disabledCount = await params.readDisabledCount();
+    if (
+      !params.isSourceLive() ||
+      !params.isAppVisible() ||
+      (await params.isAppLocked())
+    ) {
+      return undefined;
+    }
+
+    return {
+      disabledCount,
+      source: params.source,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+export function shouldSyncSubscriptionsAfterInstrumentChange(params: {
+  viewState: ITradeRouteViewState;
+  recoveryProof?: ISubscriptionRecoveryProof;
+}): boolean {
+  return Boolean(
+    params.recoveryProof ||
+    params.viewState.routeFocused ||
+    params.viewState.tokenSelectorOpen ||
+    params.viewState.favoritesBarSpotActive,
+  );
+}
+
+export async function recoverSubscriptionsWithProof(params: {
+  recoveryProof: ISubscriptionRecoveryProof | undefined;
+  recover: (disabledCount: number) => Promise<boolean>;
+}): Promise<boolean> {
+  if (!params.recoveryProof) {
+    return false;
+  }
+  try {
+    return await params.recover(params.recoveryProof.disabledCount);
+  } catch {
+    // A dropped recovery is safe: the next real switch captures a fresh proof.
+    return false;
+  }
+}
 
 export function publishLatestOrderBookOptions<T>(params: {
   read: () => Promise<T | undefined>;

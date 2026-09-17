@@ -22,6 +22,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en',
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const deferredPromiseModule = require('../../../../../components/src/hooks/useDeferredPromise');
 

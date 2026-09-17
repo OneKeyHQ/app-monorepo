@@ -21,6 +21,7 @@ export const STOCK_DESKTOP_HEADER_SLOT_PROPS = {
 } as const;
 
 export type IStockChartCoinGeckoIdLookupResult = {
+  cacheable?: boolean;
   tokenScope: string;
   coinGeckoId?: string;
 };
@@ -73,14 +74,21 @@ export function getStockChartCoinGeckoIdState({
   };
 }
 
+export function isStockChartRequestReady({
+  chartCacheReady,
+  coinGeckoIdLoading,
+}: {
+  chartCacheReady: boolean;
+  coinGeckoIdLoading: boolean;
+}) {
+  return chartCacheReady && !coinGeckoIdLoading;
+}
+
 export function getStockDisabledActionButtonProps(
   tradeSide: ESwapStockTradeSide,
   channelStage: ESwapStockChannelStage,
 ) {
-  if (
-    channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
-    channelStage === ESwapStockChannelStage.MarketClosed
-  ) {
+  if (channelStage === ESwapStockChannelStage.CheckingMarketStatus) {
     return undefined;
   }
 
@@ -105,6 +113,30 @@ export function isStockMarketPanelLoadingStage(
   );
 }
 
+export function shouldDeferStockInitialContent({
+  channelStage,
+  startedWithoutContent,
+}: {
+  channelStage: ESwapStockChannelStage;
+  startedWithoutContent: boolean;
+}) {
+  return (
+    startedWithoutContent &&
+    (isStockMarketPanelLoadingStage(channelStage) ||
+      channelStage === ESwapStockChannelStage.InitializingPayToken)
+  );
+}
+
+export function shouldResetStockTradeQuoteState({
+  identityLoading,
+  previousIdentityLoading,
+}: {
+  identityLoading: boolean;
+  previousIdentityLoading: boolean;
+}) {
+  return identityLoading && !previousIdentityLoading;
+}
+
 export function shouldShowStockMarketHeaderSkeleton({
   channelStage,
   hasStockIdentity,
@@ -118,22 +150,35 @@ export function shouldShowStockMarketHeaderSkeleton({
   );
 }
 
-export function getStockMarketTokenSubtitle({
-  currentStockSubtitle,
-  currentTokenName,
-  hasTokenDetail,
-  tokenDetailStockSubtitle,
+export function shouldShowStockMarketTokenLabelsSkeleton({
+  channelStage,
+  hasTokenData,
 }: {
-  currentStockSubtitle?: string;
-  currentTokenName?: string;
-  hasTokenDetail: boolean;
-  tokenDetailStockSubtitle?: string;
+  channelStage: ESwapStockChannelStage;
+  hasTokenData: boolean;
 }) {
   return (
-    tokenDetailStockSubtitle ??
-    currentStockSubtitle ??
-    (hasTokenDetail ? undefined : currentTokenName)
+    !hasTokenData &&
+    channelStage === ESwapStockChannelStage.CheckingMarketStatus
   );
+}
+
+export function getStockMarketTokenSubtitle({
+  currentStockSubtitle,
+  tokenDetailStockSubtitle,
+  tokenDetailStockUnderlyingAssetName,
+}: {
+  currentStockSubtitle?: string;
+  tokenDetailStockSubtitle?: string;
+  tokenDetailStockUnderlyingAssetName?: string;
+}) {
+  if (tokenDetailStockSubtitle?.trim()) {
+    return tokenDetailStockSubtitle;
+  }
+  if (currentStockSubtitle?.trim()) {
+    return currentStockSubtitle;
+  }
+  return tokenDetailStockUnderlyingAssetName?.trim() || undefined;
 }
 
 export function shouldShowStockQuoteActionLoading({

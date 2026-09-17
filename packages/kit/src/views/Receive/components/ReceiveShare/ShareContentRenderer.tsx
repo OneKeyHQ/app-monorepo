@@ -62,7 +62,9 @@ export const ShareContentRenderer = memo(
 
     const imageCount = useMemo(
       () =>
-        1 + (tokenLogoURI ? 1 : 0) + (tokenLogoURI && networkLogoURI ? 1 : 0),
+        // +1: the QR code signals once its lazily-loaded encoder has drawn
+        // the symbol, so a ViewShot capture can't run against an empty code
+        2 + (tokenLogoURI ? 1 : 0) + (tokenLogoURI && networkLogoURI ? 1 : 0),
       [tokenLogoURI, networkLogoURI],
     );
     const loadedCountRef = useRef(0);
@@ -142,7 +144,11 @@ export const ShareContentRenderer = memo(
               py={qr.cellPaddingY}
             >
               <YStack>
-                <QRCode value={address} size={qr.size} />
+                <QRCode
+                  value={address}
+                  size={qr.size}
+                  onRenderReady={handleImageLoaded}
+                />
                 {tokenLogoURI ? (
                   // full-bleed overlay + flex centering: percentage translate
                   // is unreliable on native, so avoid left/top 50% -50% here

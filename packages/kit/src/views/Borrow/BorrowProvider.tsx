@@ -17,6 +17,9 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { EBorrowDataStatus } from './borrowDataStatus';
+import { getBorrowEarnAccountForNetwork } from './borrowEarnAccount';
+import { buildBorrowMarketKey } from './borrowMarketKey';
+import { useBorrowMarketMemory } from './hooks/useBorrowMarketMemory';
 
 import type { ISwapConfig } from './components/BorrowTableList';
 
@@ -27,6 +30,7 @@ export type IAsyncData<T> = {
   data: T;
   loading: boolean;
   refresh: () => Promise<void>;
+  ownerMarketKey?: string;
 };
 
 export type IBorrowEarnAccount = {
@@ -53,6 +57,10 @@ type IBorrowContextValue = {
   setMarkets: React.Dispatch<React.SetStateAction<IBorrowMarketItem[]>>;
   market: IBorrowMarketItem | null;
   setMarket: React.Dispatch<React.SetStateAction<IBorrowMarketItem | null>>;
+  /** Persist an explicit market pick, so it is restored on the next visit. */
+  rememberMarket: (market: IBorrowMarketItem) => void;
+  /** Empty until storage hydrates, which off native happens after mount. */
+  rememberedMarketKey: string;
 
   // Async data requests - unified format
   earnAccount: IAsyncData<IBorrowEarnAccount>;
@@ -77,12 +85,36 @@ type IBorrowContextValue = {
   setRefreshAllBorrowData: (fn: () => Promise<void>) => void;
 };
 
+type IBorrowMarketRequestContextValue = {
+  requestedMarket: IBorrowMarketItem | null;
+  setRequestedMarket: React.Dispatch<
+    React.SetStateAction<IBorrowMarketItem | null>
+  >;
+};
+
 const defaultSwapConfig: ISwapConfig = {
   isSupportSwap: false,
   isSupportCrossChain: false,
 };
 
 const BorrowContext = createContext<IBorrowContextValue | null>(null);
+const BorrowMarketRequestContext =
+  createContext<IBorrowMarketRequestContextValue | null>(null);
+
+const BorrowMarketRequestProvider = ({ children }: PropsWithChildren) => {
+  const [requestedMarket, setRequestedMarket] =
+    useState<IBorrowMarketItem | null>(null);
+  const value = useMemo(
+    () => ({ requestedMarket, setRequestedMarket }),
+    [requestedMarket],
+  );
+
+  return (
+    <BorrowMarketRequestContext.Provider value={value}>
+      {children}
+    </BorrowMarketRequestContext.Provider>
+  );
+};
 
 export const BorrowProvider = ({
   children,
@@ -97,8 +129,16 @@ export const BorrowProvider = ({
   const [reserves, setReserves] = useState<
     IAsyncData<IBorrowReserveItem | null>
   >(defaultAsyncData(null));
+  // OK-60105: BorrowDataGate publishes the real status from an effect, so this
+  // initial value is what every consumer sees on the first commit. Idle is not
+  // in any card's loading set, so it made them paint their real empty-state
+  // copy for a frame before loading had even been acknowledged — inside Card's
+  // Accordion (height driven by a lagging onLayout, overflow hidden) that frame
+  // shows up as clipped copy. Nothing has been loaded yet at this point, so
+  // LoadingMarkets is the honest starting status; the gate overwrites it on the
+  // next commit either way.
   const [borrowDataStatus, setBorrowDataStatus] = useState<EBorrowDataStatus>(
-    EBorrowDataStatus.Idle,
+    EBorrowDataStatus.Initializing,
   );
   const [pendingTxs, setPendingTxsState] = useState<IStakePendingTx[]>([]);
 
@@ -116,6 +156,48 @@ export const BorrowProvider = ({
   const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
     setPendingTxsState(txs);
   }, []);
+
+  const { rememberMarket, rememberedMarketKey } = useBorrowMarketMemory({
+    markets,
+    market,
+    setMarket,
+  });
+
+  const currentMarketKey = useMemo(
+    () => (market ? buildBorrowMarketKey(market) : undefined),
+    [market],
+  );
+  const scopedEarnAccount = useMemo(() => {
+    if (currentMarketKey && earnAccount.ownerMarketKey !== currentMarketKey) {
+      return {
+        ...earnAccount,
+        data: null,
+        loading: true,
+      };
+    }
+    if (
+      !market?.networkId ||
+      !earnAccount.data ||
+      getBorrowEarnAccountForNetwork(earnAccount.data, market.networkId)
+    ) {
+      return earnAccount;
+    }
+    return {
+      ...earnAccount,
+      data: null,
+      loading: true,
+    };
+  }, [currentMarketKey, earnAccount, market?.networkId]);
+  const scopedReserves = useMemo(() => {
+    if (!currentMarketKey || reserves.ownerMarketKey === currentMarketKey) {
+      return reserves;
+    }
+    return {
+      ...reserves,
+      data: null,
+      loading: true,
+    };
+  }, [currentMarketKey, reserves]);
 
   // Fetch swap config when market networkId changes
   const { result: swapConfig } = usePromiseResult(
@@ -138,9 +220,11 @@ export const BorrowProvider = ({
       setMarkets,
       market,
       setMarket,
-      earnAccount,
+      rememberMarket,
+      rememberedMarketKey,
+      earnAccount: scopedEarnAccount,
       setEarnAccount,
-      reserves,
+      reserves: scopedReserves,
       setReserves,
       borrowDataStatus,
       setBorrowDataStatus,
@@ -153,8 +237,10 @@ export const BorrowProvider = ({
     [
       markets,
       market,
-      earnAccount,
-      reserves,
+      rememberMarket,
+      rememberedMarketKey,
+      scopedEarnAccount,
+      scopedReserves,
       borrowDataStatus,
       swapConfig,
       pendingTxs,
@@ -166,7 +252,7 @@ export const BorrowProvider = ({
 
   return (
     <BorrowContext.Provider value={contextValue}>
-      {children}
+      <BorrowMarketRequestProvider>{children}</BorrowMarketRequestProvider>
     </BorrowContext.Provider>
   );
 };
@@ -176,6 +262,16 @@ export const useBorrowContext = () => {
   if (!context) {
     throw new OneKeyLocalError(
       'useBorrowContext must be used within a BorrowProvider',
+    );
+  }
+  return context;
+};
+
+export const useBorrowMarketRequestContext = () => {
+  const context = useContext(BorrowMarketRequestContext);
+  if (!context) {
+    throw new OneKeyLocalError(
+      'useBorrowMarketRequestContext must be used within a BorrowProvider',
     );
   }
   return context;

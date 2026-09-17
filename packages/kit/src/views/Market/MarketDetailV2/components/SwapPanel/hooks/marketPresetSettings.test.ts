@@ -12,6 +12,7 @@ import {
   EMarketPresetSlippageWarningType,
   EMarketPresetTradeSide,
   fetchMarketPresetConfig,
+  getMarketNonPresetSlippageValue,
   getMarketPresetCustomizedMap,
   getMarketPresetDefaultEditableDirectionSettingsForPreset,
   getMarketPresetItem,
@@ -22,6 +23,8 @@ import {
   getMarketPresetSlippageValue,
   isMarketPresetConfirmDisabled,
   resolveMarketPresetDirectionSettings,
+  resolveMarketPresetEnabled,
+  resolveMarketQuoteSlippageMode,
   shouldShowMarketPresetPriorityFeeTooltip,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './marketPresetSettings';
@@ -54,6 +57,87 @@ function buildSpeedConfigWithPreset(
 }
 
 describe('marketPresetSettings', () => {
+  it('keeps presets out of the desktop Stock panel without changing other layouts', () => {
+    expect(
+      resolveMarketPresetEnabled({
+        enabled: true,
+        stockDetailDesktopLayout: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveMarketPresetEnabled({
+        enabled: true,
+        stockDetailDesktopLayout: false,
+      }),
+    ).toBe(true);
+    expect(
+      resolveMarketPresetEnabled({
+        enabled: false,
+        stockDetailDesktopLayout: false,
+      }),
+    ).toBe(false);
+  });
+
+  it.each([EMarketPresetKey.P1, EMarketPresetKey.P2, EMarketPresetKey.P3])(
+    'quotes the %s preset with custom slippage semantics',
+    (presetKey) => {
+      expect(
+        resolveMarketQuoteSlippageMode({
+          presetEnabled: true,
+          selectedPresetKey: presetKey,
+          nonPresetMode: ESwapSlippageSegmentKey.AUTO,
+        }),
+      ).toBe(ESwapSlippageSegmentKey.CUSTOM);
+    },
+  );
+
+  it('quotes only the Auto preset with automatic slippage semantics', () => {
+    expect(
+      resolveMarketQuoteSlippageMode({
+        presetEnabled: true,
+        selectedPresetKey: EMarketPresetKey.AUTO,
+        nonPresetMode: ESwapSlippageSegmentKey.CUSTOM,
+      }),
+    ).toBe(ESwapSlippageSegmentKey.AUTO);
+  });
+
+  it('preserves manually selected custom slippage without preset support', () => {
+    expect(
+      resolveMarketQuoteSlippageMode({
+        presetEnabled: false,
+        selectedPresetKey: EMarketPresetKey.AUTO,
+        nonPresetMode: ESwapSlippageSegmentKey.CUSTOM,
+      }),
+    ).toBe(ESwapSlippageSegmentKey.CUSTOM);
+  });
+
+  it('preserves automatic slippage without preset support', () => {
+    expect(
+      resolveMarketQuoteSlippageMode({
+        presetEnabled: false,
+        selectedPresetKey: EMarketPresetKey.P1,
+        nonPresetMode: ESwapSlippageSegmentKey.AUTO,
+      }),
+    ).toBe(ESwapSlippageSegmentKey.AUTO);
+  });
+
+  it('uses the saved global custom slippage outside preset mode', () => {
+    expect(
+      getMarketNonPresetSlippageValue({
+        mode: ESwapSlippageSegmentKey.CUSTOM,
+        customValue: 1.25,
+        defaultSlippage: 0.5,
+      }),
+    ).toBe(1.25);
+    expect(
+      getMarketNonPresetSlippageValue({
+        mode: ESwapSlippageSegmentKey.AUTO,
+        customValue: 1.25,
+        defaultSlippage: 0.5,
+      }),
+    ).toBe(0.5);
+  });
+
   it('returns hardcoded dashboard presets from the Promise adapter', async () => {
     const config = await fetchMarketPresetConfig({
       networkId: presetNetworksMap.bsc.id,

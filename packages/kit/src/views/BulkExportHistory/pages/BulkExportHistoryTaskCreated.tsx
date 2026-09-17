@@ -126,7 +126,7 @@ function BulkExportHistoryTaskCreated() {
       <Page.Footer>
         <Page.FooterActions
           onCancelText={intl.formatMessage({
-            id: ETranslations.view_export_history__action,
+            id: ETranslations.export_history__action,
           })}
           cancelButtonProps={{
             onPress: handleViewHistory,

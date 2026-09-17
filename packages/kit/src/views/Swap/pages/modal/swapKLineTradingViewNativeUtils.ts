@@ -2,6 +2,7 @@ import {
   getTradingViewNativeSource,
   getTradingViewNativeSourceKey,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource';
+import { getTradingViewNativeWhitelistedHyperliquidSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeHyperliquidWhitelist';
 import type { ITradingViewNativeSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
@@ -87,6 +88,25 @@ export function getSwapKLineTradingViewNativeSource({
 }): ITradingViewNativeSource | undefined {
   if (!token?.networkId) {
     return undefined;
+  }
+
+  const whitelistedSource = getTradingViewNativeWhitelistedHyperliquidSource({
+    branch: 'swap',
+    token: {
+      isNative: token.isNative,
+      networkId: token.networkId,
+      tokenAddress: token.contractAddress,
+    },
+  });
+  if (whitelistedSource) {
+    return getTradingViewNativeSource({
+      hyperliquidCoin: whitelistedSource.coin,
+      isNative: token.isNative,
+      marketDataSource: websocketConfig?.kline ? 'websocket' : 'polling',
+      networkId: token.networkId,
+      symbol: token.symbol,
+      tokenAddress: token.contractAddress ?? '',
+    });
   }
 
   const mayUseHyperliquid =

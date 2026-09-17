@@ -36,11 +36,13 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import {
   EApproveType,
   ECheckAmountActionType,
@@ -65,7 +67,6 @@ import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
 import {
-  capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
   shouldShowStakingSummaryCard,
@@ -167,7 +168,11 @@ type IUniversalWithdrawProps = {
     onStepChange?: (step: number) => void;
     onEthenaCooldownUnstakeReady?: () => void;
     withdrawType?: IEarnWithdrawType;
-  }) => Promise<void>;
+    // Resolves false when the flow never started (risk disclaimer rejected), so
+    // the form keeps the amount the user typed. Deliberately not
+    // `boolean | void`: a caller that forgets to return the hook's result would
+    // silently reset the form, which is how this shipped half-wired once.
+  }) => Promise<boolean>;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IFooterActionOverride;
   showApyDetail?: boolean;
@@ -692,6 +697,7 @@ export function UniversalWithdraw({
   const [approving, setApproving] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
 
+  const ensureRiskAccepted = useEarnRiskWarningGate();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
@@ -790,6 +796,19 @@ export function UniversalWithdraw({
 
   const onApprove = useCallback(async () => {
     if (!approveTarget?.token || !approveAmountValue) return;
+    // OK-59196: the approve transaction is the user's first on-chain action in
+    // the two-step withdraw flow and never reaches useUniversalWithdraw, so the
+    // one-time disclaimer has to gate it here too. Before the approving lock:
+    // bailing after it would leave the button stuck loading.
+    if (
+      !(await ensureRiskAccepted({
+        provider: providerName ?? '',
+        symbol: tokenSymbol,
+        networkId,
+      }))
+    ) {
+      return;
+    }
     Keyboard.dismiss();
     setApproving(true);
 
@@ -854,6 +873,10 @@ export function UniversalWithdraw({
     allowance,
     approveAmountValue,
     approveTarget,
+    ensureRiskAccepted,
+    networkId,
+    providerName,
+    tokenSymbol,
     navigationToTxConfirm,
     fetchAllowanceResponse,
     trackAllowance,
@@ -1034,7 +1057,7 @@ export function UniversalWithdraw({
         }
       }
 
-      await onConfirm?.({
+      const started = await onConfirm?.({
         amount: isCancelWithdrawal ? '0' : amountValue,
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
@@ -1060,6 +1083,9 @@ export function UniversalWithdraw({
             }
           : undefined,
       });
+      if (started === false) {
+        return;
+      }
       if (shouldUseEthenaCooldown) {
         if (ethenaCooldownCompletedRef.current) {
           resetAmount();
@@ -1255,6 +1281,26 @@ export function UniversalWithdraw({
   useEffect(() => {
     transactionConfirmationRequestIdRef.current += 1;
     const requestId = transactionConfirmationRequestIdRef.current;
+    // OK-59850: an empty / "0" / "0.000" field used to reach the server here.
+    // isInvalidAmount only rejects NaN and a trailing dot, and the fetch itself
+    // falls back to '0', so clearing the input still issued a request and lit
+    // the spinner (quoteLoading covers this flag too). The server resolves the
+    // withdraw path on-chain regardless of how small the amount is, so the wait
+    // was real — and nothing it returns for a non-positive amount is rendered.
+    // Cancelling a queued withdrawal is the one flow with no amount to enter,
+    // so it still has to be quoted.
+    const isQuotableAmount =
+      isCancelWithdrawal ||
+      (!isInvalidAmount(amountValue) &&
+        new BigNumber(amountValue).isGreaterThan(0));
+
+    if (!isQuotableAmount) {
+      // Bumping the id above already invalidates anything in flight; the
+      // previous run's cleanup cancelled any pending debounce.
+      setTransactionConfirmationLoading(false);
+      return undefined;
+    }
+
     setTransactionConfirmationLoading(true);
     void debouncedFetchTransactionConfirmation({
       amount: amountValue,
@@ -1271,6 +1317,7 @@ export function UniversalWithdraw({
   }, [
     amountValue,
     debouncedFetchTransactionConfirmation,
+    isCancelWithdrawal,
     selectedWithdrawType,
     transactionConfirmationRequestKey,
   ]);
@@ -1296,6 +1343,9 @@ export function UniversalWithdraw({
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
+          // OK-59850 is handled by the checkAmount effect now: clearing the
+          // field re-runs it, whose cleanup cancels the pending debounce and
+          // whose non-checkable branch resets the loading state.
           setCheckoutAmountMessage('');
           setCheckAmountAlerts([]);
           setIgnoreAllowanceCheck(false);
@@ -1999,11 +2049,11 @@ export function UniversalWithdraw({
                               borderRadius="$2"
                             />
                             <SizableText size="$bodyMd">
-                              {capitalizeString(providerName || '')}
+                              {getEarnProviderDisplayName(providerName || '')}
                             </SizableText>
                           </XStack>
                           <YStack
-                            animation="quick"
+                            transition="quick"
                             animateOnly={ANIMATE_ONLY_TRANSFORM}
                             rotate={
                               open && !isAccordionTriggerDisabled
@@ -2027,9 +2077,9 @@ export function UniversalWithdraw({
                     </>
                   )}
                 </Accordion.Trigger>
-                <Accordion.HeightAnimator animation="quick">
+                <Accordion.HeightAnimator transition="quick">
                   <Accordion.Content
-                    animation="quick"
+                    transition="quick"
                     animateOnly={ANIMATE_ONLY_OPACITY}
                     exitStyle={{ opacity: 0 }}
                     px={0}
@@ -2081,6 +2131,7 @@ export function UniversalWithdraw({
           />
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
+            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
         </Page.Footer>
       ) : (

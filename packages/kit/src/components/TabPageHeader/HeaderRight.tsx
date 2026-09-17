@@ -18,7 +18,7 @@ import {
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 import { LazyAllNetworksManagerTrigger } from '../AccountSelector/LazyAllNetworksManagerTrigger';
-import { MoreActionButton } from '../MoreActionButton';
+import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
 
 import {
   GiftAction,
@@ -28,7 +28,7 @@ import {
 } from './components';
 
 export function MoreAction() {
-  return <MoreActionButton key="more-action" />;
+  return <LazyMoreActionButton key="more-action" />;
 }
 
 export function SelectorTrigger() {
@@ -65,7 +65,11 @@ export function SelectorTrigger() {
 
 export function SearchInput({
   isUrlWallet = false,
-}: { isUrlWallet?: boolean } = {}) {
+  tabRoute,
+}: {
+  isUrlWallet?: boolean;
+  tabRoute: ETabRoutes;
+}) {
   const { gtXl, gtLg, gt2xl } = useMedia();
 
   let size: boolean;
@@ -75,7 +79,12 @@ export function SearchInput({
     size = platformEnv.isWeb ? gtXl : gtLg;
   }
 
-  return <LegacyUniversalSearchInput size={size ? 'large' : 'small'} />;
+  return (
+    <LegacyUniversalSearchInput
+      size={size ? 'large' : 'small'}
+      tabRoute={tabRoute}
+    />
+  );
 }
 
 export function HeaderRight({

@@ -675,7 +675,10 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     });
   }
 
-  async hydratePerpsAccountDisplayCache(accountAddress: string) {
+  async hydratePerpsAccountDisplayCache(
+    accountAddress: string,
+    shouldApply: () => boolean = () => true,
+  ) {
     const normalized = accountAddress.toLowerCase();
     const targetAddress = normalized as IHex;
     const now = Date.now();
@@ -689,19 +692,33 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       await this.backgroundApi.simpleDb.perp.getUserAbstractionMode(
         accountAddress,
       );
+    if (!shouldApply()) {
+      return;
+    }
     if (cachedAbstraction) {
-      abstractionHit = true;
-      await perpsAbstractionModeAtom.set({
-        accountAddress: targetAddress,
-        mode: cachedAbstraction as EHyperLiquidAbstractionMode,
-        source: 'cache',
+      await perpsAbstractionModeAtom.set((prev) => {
+        if (!shouldApply()) {
+          return prev;
+        }
+        abstractionHit = true;
+        return {
+          accountAddress: targetAddress,
+          mode: cachedAbstraction as EHyperLiquidAbstractionMode,
+          source: 'cache',
+        };
       });
+    }
+    if (!shouldApply()) {
+      return;
     }
 
     const cache =
       await this.backgroundApi.simpleDb.perp.getPerpsAccountDisplayCache(
         accountAddress,
       );
+    if (!shouldApply()) {
+      return;
+    }
 
     if (cache) {
       const summary = cache.summary;
@@ -710,12 +727,20 @@ export default class ServiceHyperliquidCache extends ServiceBase {
         summary.data.accountAddress?.toLowerCase() === normalized &&
         now - summary.updatedAt <= PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS
       ) {
-        summaryHit = true;
-        summaryAgeMs = now - summary.updatedAt;
-        await perpsActiveAccountSummaryAtom.set({
-          ...summary.data,
-          accountAddress: targetAddress,
+        await perpsActiveAccountSummaryAtom.set((prev) => {
+          if (!shouldApply()) {
+            return prev;
+          }
+          summaryHit = true;
+          summaryAgeMs = now - summary.updatedAt;
+          return {
+            ...summary.data,
+            accountAddress: targetAddress,
+          };
         });
+      }
+      if (!shouldApply()) {
+        return;
       }
 
       const spot = cache.spotBalances;
@@ -725,12 +750,17 @@ export default class ServiceHyperliquidCache extends ServiceBase {
         spot.data.spotTotalUsd !== undefined &&
         now - spot.updatedAt <= PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS
       ) {
-        spotHit = true;
-        spotAgeMs = now - spot.updatedAt;
-        await perpsSpotBalancesAtom.set({
-          accountAddress: targetAddress,
-          balances: spot.data.balances,
-          spotTotalUsd: spot.data.spotTotalUsd,
+        await perpsSpotBalancesAtom.set((prev) => {
+          if (!shouldApply()) {
+            return prev;
+          }
+          spotHit = true;
+          spotAgeMs = now - spot.updatedAt;
+          return {
+            accountAddress: targetAddress,
+            balances: spot.data.balances,
+            spotTotalUsd: spot.data.spotTotalUsd,
+          };
         });
       }
     }

@@ -1,4 +1,7 @@
-import { buildTokenDetailsMarketNavigationTarget } from './tokenDetailsMarketNavigation';
+import {
+  buildTokenDetailsMarketNavigationTarget,
+  shouldHideTokenDetailsMarketFooter,
+} from './tokenDetailsMarketNavigation';
 
 describe('buildTokenDetailsMarketNavigationTarget', () => {
   it('preserves the legacy route when a CoinGecko ID is available', () => {
@@ -126,5 +129,65 @@ describe('buildTokenDetailsMarketNavigationTarget', () => {
         tokenAddress: '',
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('shouldHideTokenDetailsMarketFooter', () => {
+  it('hides the footer before any market data arrives', () => {
+    expect(
+      shouldHideTokenDetailsMarketFooter({ tokenMetadata: undefined }),
+    ).toBe(true);
+  });
+
+  it('keeps the previous member tab data visible while a new tab loads', () => {
+    // Aggregate member tabs share one asset; metadata still keyed to the
+    // previously active network must not unmount the footer (flash).
+    expect(
+      shouldHideTokenDetailsMarketFooter({
+        tokenMetadata: {
+          networkId: 'evm--1',
+          tokenAddress: '',
+          price: 1840.94,
+          priceChange24h: -1.8,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('hides tokens whose market data is confirmed empty', () => {
+    expect(
+      shouldHideTokenDetailsMarketFooter({
+        tokenMetadata: {
+          networkId: 'evm--1',
+          tokenAddress: '0x1234',
+          price: 0,
+          priceChange24h: 0,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('treats a zero price with a real 24h change as market data', () => {
+    expect(
+      shouldHideTokenDetailsMarketFooter({
+        tokenMetadata: {
+          networkId: 'evm--1',
+          tokenAddress: '0x1234',
+          price: 0,
+          priceChange24h: -1.8,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('treats missing price fields as empty market data', () => {
+    expect(
+      shouldHideTokenDetailsMarketFooter({
+        tokenMetadata: {
+          networkId: 'evm--1',
+          tokenAddress: '0x1234',
+        },
+      }),
+    ).toBe(true);
   });
 });

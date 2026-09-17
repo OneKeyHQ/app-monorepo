@@ -17,9 +17,11 @@ import BluetoothSignalSpreading from '@onekeyhq/kit/assets/animations/bluetooth_
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { yieldDeviceStageToDialog } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getThirdPartyDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -270,8 +272,16 @@ function TrezorBleBindingContent({
         // Skip the resume if the dialog was closed mid-bind — the unmount
         // cleanup already stopped scanning and nothing would stop a new scan.
         if (shouldResumeScan && isMountedRef.current) {
-          // Resume scanning so the user can pick again.
-          scanDevice();
+          // The probe's own beats stood on stage over this list — its
+          // connecting wait, the pairing card, a failed connect's notice —
+          // behind the stage's touch wall. The list is the surface in
+          // charge again: the stage yields before the scan resumes
+          // (OK-63224).
+          await yieldDeviceStageToDialog();
+          if (isMountedRef.current) {
+            // Resume scanning so the user can pick again.
+            scanDevice();
+          }
         }
       }
     },
@@ -361,6 +371,12 @@ function TrezorBleBindingContent({
                   bindingId,
                   rejectedConnectIds,
                 });
+              const avatarImg = getThirdPartyDeviceAvatarImage({
+                vendor: EHardwareVendor.trezor,
+                vendorModel: device.vendorModel,
+                vendorModelName: device.vendorModelName,
+                fallback: 'trezor',
+              });
               return (
                 <ListItem
                   key={device.connectId}
@@ -372,7 +388,7 @@ function TrezorBleBindingContent({
                   }}
                   userSelect="none"
                 >
-                  <WalletAvatar wallet={undefined} img="trezor" />
+                  <WalletAvatar wallet={undefined} img={avatarImg} />
                   <ListItem.Text
                     primary={device.name}
                     secondary={
@@ -403,6 +419,11 @@ export function showTrezorBleBindingDialog({
       id: ETranslations.trezor_ble_binding__title,
     }),
     showFooter: false,
+    // The probe's pairing code is asked on the DeviceStage, which rises
+    // over this dialog outside its DOM: a trapped focus scope would pull
+    // the focus straight back out of that input (OK-63224). Nothing in
+    // this list needs the trap.
+    trapFocus: false,
     renderContent: <TrezorBleBindingContent {...params} />,
     onClose,
   });

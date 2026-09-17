@@ -27,7 +27,7 @@ export function normalizeThirdPartyDeviceErrorCode(payload: {
     code === ThirdPartyHwErrorCode.UnknownError &&
     payload._tag === LEDGER_INVALID_FIRMWARE_METADATA_RESPONSE_TAG
   ) {
-    return ThirdPartyHwErrorCode.NetworkError;
+    return ThirdPartyErrors.THIRD_PARTY_HW_NETWORK_ERROR_CODE;
   }
   return Number.isFinite(code) ? code : payload.code;
 }
@@ -36,6 +36,15 @@ export function isThirdPartyInstallAppUserCancelCode(code: unknown): boolean {
   return (
     (typeof code === 'string' ? Number(code) : code) ===
     ThirdPartyErrors.THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE
+  );
+}
+
+export function isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+  code: unknown,
+): boolean {
+  return (
+    (typeof code === 'string' ? Number(code) : code) ===
+    ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice
   );
 }
 
@@ -112,6 +121,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.UserAborted:
       return new ThirdPartyErrors.ThirdPartyUserAborted(props);
 
+    case ThirdPartyErrors.THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE:
+      return new ThirdPartyErrors.ThirdPartyBlePairingCancelled(props);
+
     case ThirdPartyHwErrorCode.PinInvalid:
       return new ThirdPartyErrors.ThirdPartyPinInvalid(props);
 
@@ -123,6 +135,9 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.PassphraseStateMismatch:
       return new ThirdPartyErrors.ThirdPartyPassphraseStateMismatch(props);
+
+    case ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice:
+      return new ThirdPartyErrors.ThirdPartyPassphraseAlwaysOnDevice(props);
 
     case ThirdPartyHwErrorCode.PassphraseRejected:
       // User rejected the passphrase prompt on the device — surface a proper
@@ -144,7 +159,7 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.DeviceOutOfMemory:
       return new ThirdPartyErrors.ThirdPartyDeviceOutOfMemory(props);
 
-    case ThirdPartyHwErrorCode.NetworkError:
+    case ThirdPartyErrors.THIRD_PARTY_HW_NETWORK_ERROR_CODE:
       return new ThirdPartyErrors.ThirdPartyNetworkError(props);
 
     case ThirdPartyHwErrorCode.WrongApp:
@@ -260,6 +275,7 @@ export function filterThirdPartyHwCreateFailureToasts<
   T extends { error: Pick<IOneKeyError, 'autoToast' | 'code'> },
 >(failedAccounts: T[]): T[] {
   let deviceOutOfMemoryShown = false;
+  let passphraseAlwaysOnDeviceShown = false;
   return failedAccounts.filter((failedAccount) => {
     if (isThirdPartyInstallAppUserCancelCode(failedAccount.error.code)) {
       return false;
@@ -272,6 +288,14 @@ export function filterThirdPartyHwCreateFailureToasts<
         return false;
       }
       deviceOutOfMemoryShown = true;
+    }
+    if (
+      isThirdPartyPassphraseAlwaysOnDeviceErrorCode(failedAccount.error.code)
+    ) {
+      if (passphraseAlwaysOnDeviceShown) {
+        return false;
+      }
+      passphraseAlwaysOnDeviceShown = true;
     }
     return true;
   });

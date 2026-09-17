@@ -3,6 +3,7 @@ import {
   EUSMarketStatusVariant,
   approximateNyOffsetMinutes,
   getDeviceUtcOffsetLabel,
+  getUSMarketNextOpenCountdown,
   getUSMarketTradingHours,
   resolveUSMarketStatusVariant,
   resolveUSTradingHoursActiveRow,
@@ -15,6 +16,16 @@ const HOUR = 60 * 60 * 1000;
 const MINUTE = 60 * 1000;
 // 09:30:30 EST — inside the opening-cross gap between pre-market and regular
 const GAP_NOW = new Date('2026-01-15T14:30:30Z');
+
+const status = (
+  session: IFetchUSMarketStatusResult['session'],
+  unavailable?: boolean,
+): IFetchUSMarketStatusResult => ({
+  open: session !== 'CLOSED',
+  session,
+  reason: null,
+  unavailable,
+});
 
 describe('getUSMarketTradingHours', () => {
   it('computes EST (winter) cycle boundaries as UTC instants', () => {
@@ -123,12 +134,36 @@ describe('getUSMarketTradingHours', () => {
     ).toBe(false);
   });
 
+  it('does not flag phantom clock gaps inside the weekend closure', () => {
+    // Fri 2026-01-17 01:02 UTC = Fri 20:02 EST — the post→overnight gap
+    // coincides with the weekend start, so it must not count.
+    expect(
+      getUSMarketTradingHours(new Date('2026-01-17T01:02:00Z'))
+        .isNowInSessionGap,
+    ).toBe(false);
+    // Sat 2026-01-17 21:00:30 UTC = 16:00:30 EST — the clock produces a
+    // session boundary here, but the market is closed for the weekend.
+    expect(
+      getUSMarketTradingHours(new Date('2026-01-17T21:00:30Z'))
+        .isNowInSessionGap,
+    ).toBe(false);
+    // Sun 2026-01-19 01:02 UTC = Sun 20:02 EST — past the weekend close,
+    // inside the real overnight-open gap (20:00–20:04), so it counts again.
+    expect(
+      getUSMarketTradingHours(new Date('2026-01-19T01:02:00Z'))
+        .isNowInSessionGap,
+    ).toBe(true);
+  });
+
   it('flags the overnight-to-pre-market gap at the cycle edge', () => {
     // 2026-01-16 08:58 UTC = 03:58 EST — after the 03:56 overnight close and
     // before the 04:01 pre-market open
     const res = getUSMarketTradingHours(new Date('2026-01-16T08:58:00Z'));
     expect(res.isNowInSessionGap).toBe(true);
     expect(res.cycleStartInstant).toBe(Date.parse('2026-01-15T09:01:00Z'));
+    // The upcoming session belongs to the NEXT cycle — the key must not
+    // report the overnight session that just ended.
+    expect(res.currentSessionKey).toBe(EUSMarketSessionKey.PreMarket);
   });
 });
 
@@ -199,15 +234,6 @@ describe('usMarketSessionKeyFromBackendSession', () => {
 });
 
 describe('resolveUSMarketStatusVariant', () => {
-  const status = (
-    session: IFetchUSMarketStatusResult['session'],
-    unavailable?: boolean,
-  ): IFetchUSMarketStatusResult => ({
-    open: session !== 'CLOSED',
-    session,
-    reason: null,
-    unavailable,
-  });
   const ondo = 'ondo';
 
   it('returns undefined for non-Ondo issuers regardless of signals', () => {
@@ -230,13 +256,95 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBeUndefined();
   });
 
-  it('prioritizes halt over everything', () => {
+  // Mid-session weekday instant — keeps paused assertions off the real clock,
+  // which could otherwise sit inside a session gap and flip the outcome.
+  const midSessionNow = new Date('2026-01-15T15:00:00Z');
+
+  it('reports halted whenever the stock is paused, regardless of isOpen', () => {
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isOpen: false,
+        isPaused: true,
+        status: status('REGULAR'),
+        now: midSessionNow,
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+    // The badge describes the underlying stock; the quote path decides
+    // whether it can trade, so a tradable-but-paused instrument reads Halted.
     expect(
       resolveUSMarketStatusVariant({
         source: ondo,
         isOpen: true,
         isPaused: true,
         status: status('REGULAR'),
+        now: midSessionNow,
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+  });
+
+  it('ignores a paused signal inside an inter-session gap', () => {
+    // Venues flag a pause while switching session state — that is the gap,
+    // not a per-stock halt, so the awaiting-open chip wins.
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isOpen: true,
+        isPaused: true,
+        status: status('PRE_MARKET'),
+        now: GAP_NOW,
+      }),
+    ).toBe(EUSMarketStatusVariant.AwaitingOpen);
+  });
+
+  it('keeps non-tradable paused instruments halted straight through gaps', () => {
+    // Falling through would flicker them to Closed / no chip for the gap
+    // minutes — only isOpen === true instruments take the gap treatment.
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isOpen: false,
+        isPaused: true,
+        status: status('PRE_MARKET'),
+        now: GAP_NOW,
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isPaused: true,
+        status: status('PRE_MARKET'),
+        now: GAP_NOW,
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+  });
+
+  it('keeps a paused instrument halted through weekend phantom gaps', () => {
+    // Sat 2026-01-17 21:00:30 UTC = 16:00:30 EST — a phantom clock gap
+    // inside the weekend closure must not suppress the halt (it would
+    // oscillate Halted ↔ 24/7 several times per closed day).
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isOpen: true,
+        isPaused: true,
+        status: status('CLOSED'),
+        now: new Date('2026-01-17T21:00:30Z'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Halted);
+  });
+
+  it('keeps a paused instrument halted through HOLIDAY phantom gaps', () => {
+    // Thu 2026-01-15 14:30:30 UTC = 09:30:30 EST is a weekday clock gap;
+    // with the backend reporting CLOSED (a holiday), no session switch is
+    // happening, so the halt must not be suppressed.
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isOpen: true,
+        isPaused: true,
+        status: status('CLOSED'),
+        now: GAP_NOW,
       }),
     ).toBe(EUSMarketStatusVariant.Halted);
   });
@@ -257,6 +365,7 @@ describe('resolveUSMarketStatusVariant', () => {
         source: ondo,
         isOpen: true,
         status: status('PRE_MARKET'),
+        now: midSessionNow,
       }),
     ).toBe(EUSMarketStatusVariant.PreMarket);
     expect(
@@ -264,6 +373,7 @@ describe('resolveUSMarketStatusVariant', () => {
         source: ondo,
         isOpen: true,
         status: status('REGULAR'),
+        now: midSessionNow,
       }),
     ).toBe(EUSMarketStatusVariant.Open);
     expect(
@@ -271,6 +381,7 @@ describe('resolveUSMarketStatusVariant', () => {
         source: ondo,
         isOpen: true,
         status: status('POST_MARKET'),
+        now: midSessionNow,
       }),
     ).toBe(EUSMarketStatusVariant.PostMarket);
     expect(
@@ -278,30 +389,33 @@ describe('resolveUSMarketStatusVariant', () => {
         source: ondo,
         isOpen: true,
         status: status('OVERNIGHT'),
+        now: midSessionNow,
       }),
     ).toBe(EUSMarketStatusVariant.Overnight);
   });
 
-  it('marks a tradable Ondo instrument during market closure as ClosedTradable', () => {
+  it('marks a 7×24 instrument during market-wide closure as Open247', () => {
+    // isOpen === true through a market-wide closure identifies a 7×24
+    // instrument — surface the "24/7" chip instead of a discouraging Closed.
     expect(
       resolveUSMarketStatusVariant({
         source: ondo,
         isOpen: true,
         status: status('CLOSED'),
       }),
-    ).toBe(EUSMarketStatusVariant.ClosedTradable);
+    ).toBe(EUSMarketStatusVariant.Open247);
   });
 
-  it('marks inter-session gaps as halted', () => {
+  it('shows the awaiting-open chip during inter-session gaps', () => {
     // Clock gap overrides the backend session refinement…
     expect(
       resolveUSMarketStatusVariant({
         source: ondo,
         isOpen: true,
-        status: status('REGULAR'),
+        status: status('PRE_MARKET'),
         now: GAP_NOW,
       }),
-    ).toBe(EUSMarketStatusVariant.Halted);
+    ).toBe(EUSMarketStatusVariant.AwaitingOpen);
     // …and applies on the pure clock fallback as well.
     expect(
       resolveUSMarketStatusVariant({
@@ -309,11 +423,33 @@ describe('resolveUSMarketStatusVariant', () => {
         isOpen: true,
         now: GAP_NOW,
       }),
-    ).toBe(EUSMarketStatusVariant.Halted);
+    ).toBe(EUSMarketStatusVariant.AwaitingOpen);
+  });
+
+  it('shows the awaiting-open chip during the cycle-edge gap too', () => {
+    // Fri 2026-01-16 08:58 UTC = 03:58 EST — after the 03:56 overnight close
+    // and before the 04:01 pre-market open.
+    const cycleEdgeGapNow = new Date('2026-01-16T08:58:00Z');
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isOpen: true,
+        status: status('OVERNIGHT'),
+        now: cycleEdgeGapNow,
+      }),
+    ).toBe(EUSMarketStatusVariant.AwaitingOpen);
+    expect(
+      resolveUSMarketStatusVariant({
+        source: ondo,
+        isOpen: true,
+        now: cycleEdgeGapNow,
+      }),
+    ).toBe(EUSMarketStatusVariant.AwaitingOpen);
   });
 
   it('falls back to clock math when the status API is unavailable', () => {
-    // Sat 2026-01-17 15:00 UTC is inside the weekend window → ClosedTradable
+    // Sat 2026-01-17 15:00 UTC is inside the weekend window; the token stays
+    // open through it → the 7×24 chip
     expect(
       resolveUSMarketStatusVariant({
         source: ondo,
@@ -321,7 +457,7 @@ describe('resolveUSMarketStatusVariant', () => {
         status: status('REGULAR', true),
         now: new Date('2026-01-17T15:00:00Z'),
       }),
-    ).toBe(EUSMarketStatusVariant.ClosedTradable);
+    ).toBe(EUSMarketStatusVariant.Open247);
     // Thu 2026-01-15 15:00 UTC = 10:00 EST → regular session chip
     expect(
       resolveUSMarketStatusVariant({
@@ -334,15 +470,6 @@ describe('resolveUSMarketStatusVariant', () => {
 });
 
 describe('resolveUSTradingHoursActiveRow', () => {
-  const status = (
-    session: IFetchUSMarketStatusResult['session'],
-    unavailable?: boolean,
-  ): IFetchUSMarketStatusResult => ({
-    open: session !== 'CLOSED',
-    session,
-    reason: null,
-    unavailable,
-  });
   // Thu 2026-01-15 15:00 UTC = 10:00 EST (regular session, weekday)
   const weekdayNow = new Date('2026-01-15T15:00:00Z');
   const weekdayHours = getUSMarketTradingHours(weekdayNow);
@@ -359,6 +486,19 @@ describe('resolveUSTradingHoursActiveRow', () => {
         now: weekdayNow,
       }),
     ).toBe('halts');
+  });
+
+  it('ignores a paused signal inside an inter-session gap', () => {
+    const gapHours = getUSMarketTradingHours(GAP_NOW);
+    expect(
+      resolveUSTradingHoursActiveRow({
+        isOpen: true,
+        isPaused: true,
+        status: status('PRE_MARKET'),
+        tradingHours: gapHours,
+        now: GAP_NOW,
+      }),
+    ).toBe(EUSMarketSessionKey.Regular);
   });
 
   it('marks closed for the underlying even when the token is 7x24 tradable', () => {
@@ -411,17 +551,18 @@ describe('resolveUSTradingHoursActiveRow', () => {
     ).toBe('closed');
   });
 
-  it('highlights the halts row during inter-session gaps', () => {
+  it('highlights the upcoming session row during inter-session gaps', () => {
     const gapHours = getUSMarketTradingHours(GAP_NOW);
+    // GAP_NOW sits in the 09:30 opening cross — upcoming session is Regular.
     // Clock gap overrides the backend session refinement…
     expect(
       resolveUSTradingHoursActiveRow({
         isOpen: true,
-        status: status('REGULAR'),
+        status: status('PRE_MARKET'),
         tradingHours: gapHours,
         now: GAP_NOW,
       }),
-    ).toBe('halts');
+    ).toBe(EUSMarketSessionKey.Regular);
     // …and applies on the pure clock fallback as well.
     expect(
       resolveUSTradingHoursActiveRow({
@@ -429,6 +570,91 @@ describe('resolveUSTradingHoursActiveRow', () => {
         tradingHours: gapHours,
         now: GAP_NOW,
       }),
-    ).toBe('halts');
+    ).toBe(EUSMarketSessionKey.Regular);
+  });
+
+  it('highlights pre-market during the cycle-edge gap', () => {
+    // Fri 2026-01-16 08:58 UTC = 03:58 EST — the overnight→pre-market gap.
+    const cycleEdgeGapNow = new Date('2026-01-16T08:58:00Z');
+    const cycleEdgeGapHours = getUSMarketTradingHours(cycleEdgeGapNow);
+    expect(
+      resolveUSTradingHoursActiveRow({
+        isOpen: true,
+        status: status('OVERNIGHT'),
+        tradingHours: cycleEdgeGapHours,
+        now: cycleEdgeGapNow,
+      }),
+    ).toBe(EUSMarketSessionKey.PreMarket);
+  });
+});
+
+describe('getUSMarketNextOpenCountdown', () => {
+  const now = Date.parse('2026-09-07T13:38:00.000Z');
+
+  it('measures from the timestamp rather than the aged minute count', () => {
+    // A response built 30 minutes ago still says 622; the timestamp does not.
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenTime: '2026-09-08T00:00:00.000Z',
+        nextOpenMinutes: 622,
+        now,
+      }),
+    ).toEqual({ days: 0, hours: 10, minutes: 22, totalMinutes: 622 });
+  });
+
+  it('falls back to the minute count when no timestamp is given', () => {
+    expect(
+      getUSMarketNextOpenCountdown({ nextOpenMinutes: 1500, now }),
+    ).toEqual({ days: 1, hours: 1, minutes: 0, totalMinutes: 1500 });
+  });
+
+  it('ticks the minute snapshot down from when it was observed', () => {
+    // 20 minutes after the snapshot was read, 90 minutes is really 70.
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenMinutes: 90,
+        nextOpenMinutesObservedAt: now - 20 * 60 * 1000,
+        now,
+      }),
+    ).toEqual({ days: 0, hours: 1, minutes: 10, totalMinutes: 70 });
+  });
+
+  it('drops the countdown once the observed minute snapshot runs out', () => {
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenMinutes: 5,
+        nextOpenMinutesObservedAt: now - 10 * 60 * 1000,
+        now,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('ignores an unparseable timestamp', () => {
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenTime: 'not-a-date',
+        nextOpenMinutes: 90,
+        now,
+      }),
+    ).toEqual({ days: 0, hours: 1, minutes: 30, totalMinutes: 90 });
+  });
+
+  it('rounds the final partial minute up so it never reads as open', () => {
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenTime: new Date(now + 1000).toISOString(),
+        now,
+      }),
+    ).toEqual({ days: 0, hours: 0, minutes: 1, totalMinutes: 1 });
+  });
+
+  it('returns nothing once the open moment has passed', () => {
+    expect(
+      getUSMarketNextOpenCountdown({
+        nextOpenTime: new Date(now - 60_000).toISOString(),
+        now,
+      }),
+    ).toBeUndefined();
+    expect(getUSMarketNextOpenCountdown({ now })).toBeUndefined();
   });
 });

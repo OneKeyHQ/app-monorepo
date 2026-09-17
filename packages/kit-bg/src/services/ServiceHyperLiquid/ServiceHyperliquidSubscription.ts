@@ -2,7 +2,7 @@
 /* spell-checker: disable */
 // cspell:ignore rews
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { cloneDeep, debounce, isEqual } from 'lodash';
+import { cloneDeep, debounce, isEqual, orderBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -35,6 +35,7 @@ import type {
   IHex,
   IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
+  IPerpsSubscription,
   IPerpsSubscriptionParams,
   IWebSocketTransportOptions,
   IWsActiveAssetCtx,
@@ -45,6 +46,7 @@ import type {
   IWsOpenOrders,
   IWsSpotAssetCtxs,
   IWsSpotState,
+  IWsTrades,
   IWsTwapStates,
   IWsUserFills,
   IWsUserTwapHistory,
@@ -62,6 +64,7 @@ import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
+  perpsActiveAccountStatusInfoAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsCandlesWebviewReloadHookAtom,
@@ -82,6 +85,10 @@ import {
   isStaleFastL2TargetError,
   shouldResetFastL2RecoveryAfterFrame,
 } from './utils/FastL2Book';
+import {
+  hasPositivePerpsBalance,
+  shouldRefreshPerpsActivationFromFundedState,
+} from './utils/perpsAccountStatusCheckUtils';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
@@ -115,6 +122,19 @@ interface IActiveSubscription {
   isActive: boolean;
   spec: ISubscriptionSpec<ESubscriptionType>;
 }
+
+interface IPublicTradesSubscription {
+  refCount: number;
+  subscriptionPromise: Promise<IPerpsSubscription>;
+}
+
+interface IPublicTradesBatch {
+  trades: IWsTrades;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const PUBLIC_TRADES_BATCH_INTERVAL_MS = 1000;
+const PUBLIC_TRADES_BATCH_LIMIT = 10;
 
 type IHyperliquidWsClient = {
   clientId: string;
@@ -169,6 +189,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
 
+  // Public trades are owned by mounted Swap Pro consumers, independently of
+  // the Perps connection lifecycle. The final unsubscribe closes this client.
+  private _publicTradesClient: SubscriptionClient | null = null;
+
+  private _publicTradesTransport: WebSocketTransport | null = null;
+
+  private _publicTradesSubscriptions = new Map<
+    string,
+    IPublicTradesSubscription
+  >();
+
+  private _publicTradesBatches = new Map<string, IPublicTradesBatch>();
+
+  private static readonly PUBLIC_TRADES_MUTATION_KEY = 'public-trades';
+
   private _currentState: ISubscriptionState = {
     currentUser: null,
     currentSymbol: '',
@@ -188,6 +223,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _lastMessageAt: number | null = null;
 
+  // Raw pipe liveness, unlike _lastMessageAt which freezes while the handler
+  // is disabled (blur mutes processing, not the stream).
+  private _lastFrameAt: number | null = null;
+
+  private _socketOpenedAt: number | null = null;
+
+  private _resumeReconnectPromise: Promise<void> | null = null;
+
   private _postOpenDataCheckTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _postOpenDataCheckRetries = 0;
@@ -199,6 +242,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _criticalSubscriptionHealthCheckTimer: ReturnType<
     typeof setTimeout
   > | null = null;
+
+  private _reconcileInFlight = false;
 
   private _resumeRecoveryPromise: Promise<void> | null = null;
 
@@ -240,6 +285,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private static readonly ORDER_BOOK_STRATEGY: 'fastL2Primary' | 'l2BookOnly' =
     'fastL2Primary';
 
+  private static readonly FUNDED_ACTIVATION_REFRESH_COOLDOWN_MS = 10_000;
+
+  private static readonly FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS = 250;
+
+  private static readonly FUNDED_ACTIVATION_REFRESH_MAX_ATTEMPTS = 6;
+
   // Cross-runtime atom sync can lag behind a reopened socket, leaving current
   // market subscriptions absent while the socket still looks healthy.
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
@@ -252,7 +303,247 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _destroyingSubscriptionKeys = new Set<string>();
 
+  private _fundedActivationRefreshInFlightAddress: string | null = null;
+
+  private _fundedActivationRefreshPendingAddress: string | null = null;
+
+  private _fundedActivationRefreshLastAttempt:
+    | { address: string; timestamp: number }
+    | undefined;
+
+  private _fundedActivationRefreshRetryTimer: ReturnType<
+    typeof setTimeout
+  > | null = null;
+
+  private _fundedActivationConfirmedAddress: string | null = null;
+
   private _routeSubscriptionStateVersion = 0;
+
+  private async _refreshActivationFromFundedState({
+    eventAddress,
+    hasFundedBalance,
+    isRetry = false,
+    refreshAttempt = 1,
+  }: {
+    eventAddress: string | null | undefined;
+    hasFundedBalance: boolean;
+    isRetry?: boolean;
+    refreshAttempt?: number;
+  }): Promise<void> {
+    const normalizedEventAddress = eventAddress?.toLowerCase();
+    if (!normalizedEventAddress || !hasFundedBalance) {
+      return;
+    }
+    if (this._fundedActivationConfirmedAddress === normalizedEventAddress) {
+      return;
+    }
+    if (
+      !isRetry &&
+      this._fundedActivationRefreshPendingAddress === normalizedEventAddress &&
+      (this._fundedActivationRefreshRetryTimer ||
+        this._fundedActivationRefreshInFlightAddress)
+    ) {
+      return;
+    }
+    if (this._fundedActivationRefreshInFlightAddress) {
+      return;
+    }
+
+    // Claim synchronously before reading atoms so concurrent funded events
+    // cannot start overlapping activation checks.
+    this._fundedActivationRefreshInFlightAddress = normalizedEventAddress;
+    let shouldScheduleRetry = true;
+    try {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAddress = activeAccount?.accountAddress?.toLowerCase();
+      const statusInfo = await perpsActiveAccountStatusInfoAtom.get();
+      const activeStatusInfo =
+        activeAddress &&
+        statusInfo?.accountAddress?.toLowerCase() === activeAddress
+          ? statusInfo
+          : undefined;
+      if (activeAddress !== normalizedEventAddress) {
+        this._clearFundedActivationRefreshRetry(normalizedEventAddress);
+        return;
+      }
+      if (activeStatusInfo?.details.activatedOk === true) {
+        this._fundedActivationConfirmedAddress = normalizedEventAddress;
+        this._clearFundedActivationRefreshRetry(normalizedEventAddress);
+        return;
+      }
+      const now = Date.now();
+      const refreshCoolingDown = Boolean(
+        this._fundedActivationRefreshLastAttempt?.address ===
+          normalizedEventAddress &&
+        now - this._fundedActivationRefreshLastAttempt.timestamp <
+          ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_COOLDOWN_MS,
+      );
+      const shouldRefresh = shouldRefreshPerpsActivationFromFundedState({
+        activeAddress,
+        eventAddress: normalizedEventAddress,
+        activatedOk: activeStatusInfo?.details.activatedOk,
+        hasFundedBalance,
+        refreshInFlight: false,
+        refreshPending:
+          this._fundedActivationRefreshPendingAddress ===
+          normalizedEventAddress,
+        refreshCoolingDown,
+      });
+
+      if (!shouldRefresh) {
+        return;
+      }
+
+      const statusCheck =
+        this.backgroundApi.serviceHyperliquid.startPerpsAccountStatusCheckIfIdle(
+          { preserveFundedBalances: true },
+        );
+      if (!statusCheck) {
+        shouldScheduleRetry = false;
+        await this.backgroundApi.serviceHyperliquid.waitForPerpsAccountStatusCheckIdle();
+        if (
+          this._fundedActivationRefreshInFlightAddress !==
+          normalizedEventAddress
+        ) {
+          return;
+        }
+        this._scheduleFundedActivationRefreshRetry({
+          address: normalizedEventAddress,
+          delayMs:
+            ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
+          refreshAttempt,
+        });
+        return;
+      }
+      this._fundedActivationRefreshPendingAddress = normalizedEventAddress;
+      this._fundedActivationRefreshLastAttempt = {
+        address: normalizedEventAddress,
+        timestamp: now,
+      };
+      await statusCheck;
+      const latestStatusInfo = await perpsActiveAccountStatusInfoAtom.get();
+      if (
+        latestStatusInfo?.accountAddress?.toLowerCase() ===
+          normalizedEventAddress &&
+        latestStatusInfo.details.activatedOk === true
+      ) {
+        this._fundedActivationConfirmedAddress = normalizedEventAddress;
+        this._clearFundedActivationRefreshRetry(normalizedEventAddress);
+      }
+    } catch (error) {
+      // Stop this automatic retry chain after a network/status-check failure.
+      // A later real funded WebSocket event may start a fresh bounded chain.
+      shouldScheduleRetry = false;
+      defaultLogger.perp.hyperliquid.subscriptionHandlerError({
+        type: 'fundedActivationRefresh',
+        error,
+      });
+    } finally {
+      if (
+        this._fundedActivationRefreshInFlightAddress === normalizedEventAddress
+      ) {
+        this._fundedActivationRefreshInFlightAddress = null;
+      }
+      if (
+        this._fundedActivationRefreshPendingAddress ===
+          normalizedEventAddress &&
+        this._fundedActivationConfirmedAddress !== normalizedEventAddress &&
+        shouldScheduleRetry
+      ) {
+        const lastAttempt = this._fundedActivationRefreshLastAttempt;
+        const remainingCooldown =
+          lastAttempt?.address === normalizedEventAddress
+            ? ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_COOLDOWN_MS -
+              (Date.now() - lastAttempt.timestamp)
+            : 0;
+        this._scheduleFundedActivationRefreshRetry({
+          address: normalizedEventAddress,
+          delayMs: Math.max(
+            remainingCooldown,
+            ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_BUSY_RETRY_MS,
+          ),
+          refreshAttempt: refreshAttempt + 1,
+        });
+      }
+    }
+  }
+
+  private _shouldInspectFundedActivation(eventAddress: string | undefined) {
+    const normalizedEventAddress = eventAddress?.toLowerCase();
+    if (
+      !normalizedEventAddress ||
+      this._fundedActivationConfirmedAddress === normalizedEventAddress
+    ) {
+      return false;
+    }
+    const currentUser = this._currentState.currentUser?.toLowerCase();
+    return !currentUser || currentUser === normalizedEventAddress;
+  }
+
+  private _scheduleFundedActivationRefreshRetry({
+    address,
+    delayMs,
+    refreshAttempt,
+  }: {
+    address: string;
+    delayMs: number;
+    refreshAttempt: number;
+  }) {
+    if (this._fundedActivationConfirmedAddress === address) {
+      return;
+    }
+    if (
+      refreshAttempt >
+      ServiceHyperliquidSubscription.FUNDED_ACTIVATION_REFRESH_MAX_ATTEMPTS
+    ) {
+      this._clearFundedActivationRefreshRetry(address);
+      return;
+    }
+    if (
+      this._fundedActivationRefreshRetryTimer &&
+      this._fundedActivationRefreshPendingAddress === address
+    ) {
+      return;
+    }
+    if (this._fundedActivationRefreshRetryTimer) {
+      clearTimeout(this._fundedActivationRefreshRetryTimer);
+    }
+    this._fundedActivationRefreshPendingAddress = address;
+    this._fundedActivationRefreshRetryTimer = setTimeout(() => {
+      this._fundedActivationRefreshRetryTimer = null;
+      if (this._fundedActivationRefreshPendingAddress !== address) {
+        return;
+      }
+      void this._refreshActivationFromFundedState({
+        eventAddress: address,
+        hasFundedBalance: true,
+        isRetry: true,
+        refreshAttempt,
+      });
+    }, delayMs);
+  }
+
+  private _clearFundedActivationRefreshRetry(address?: string) {
+    if (
+      address &&
+      this._fundedActivationRefreshPendingAddress &&
+      this._fundedActivationRefreshPendingAddress !== address
+    ) {
+      return;
+    }
+    if (this._fundedActivationRefreshRetryTimer) {
+      clearTimeout(this._fundedActivationRefreshRetryTimer);
+      this._fundedActivationRefreshRetryTimer = null;
+    }
+    this._fundedActivationRefreshPendingAddress = null;
+  }
+
+  private _resetFundedActivationRefreshState() {
+    this._clearFundedActivationRefreshRetry();
+    this._fundedActivationRefreshInFlightAddress = null;
+    this._fundedActivationRefreshLastAttempt = undefined;
+    this._fundedActivationConfirmedAddress = null;
+  }
 
   private _isSubscriptionSpecPending(
     spec: ISubscriptionSpec<ESubscriptionType>,
@@ -603,11 +894,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     this._currentState = newState;
     this._emitConnectionStatus();
-    await this._executeSubscriptionChanges();
+    // Armed before the await: a hung subscribe ack keeps
+    // _executeSubscriptionChanges pending, so a check scheduled after it never
+    // gets armed at all. Must stay below the stale-critical branch above, which
+    // bumps _subscriptionLifecycleVersion and would self-invalidate a timer
+    // that captured the version before the bump.
+    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
+    this._reconcileInFlight = true;
+    try {
+      await this._executeSubscriptionChanges();
+    } finally {
+      this._reconcileInFlight = false;
+      // _executeSubscriptionChanges can reach _forceReconnectTransport, which
+      // clears the timer armed above; re-arm so the reconcile still ends with a
+      // watchdog carrying the current lifecycle version.
+      this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
+    }
     if (this._activeSubscriptions.size > 0) {
       this._startPostOpenDataCheck();
     }
-    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
   }
 
   private async _enqueueSubscriptionReconcile(): Promise<void> {
@@ -713,6 +1018,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   lastRefreshAllPerpsDataAt: number | null = null;
+
+  // OS suspension can leave the socket half-dead while readyState still says
+  // OPEN; without recent traffic (or a recent open) the pipe cannot be
+  // trusted on resume. No evidence at all keeps the legacy reuse path.
+  private _isResumeStreamStale(): boolean {
+    const lastLifeAt = Math.max(
+      this._lastFrameAt ?? 0,
+      this._socketOpenedAt ?? 0,
+    );
+    if (!lastLifeAt) {
+      return false;
+    }
+    return Date.now() - lastLifeAt > HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS;
+  }
 
   private _hasRecentDataFlow(): boolean {
     return (
@@ -846,6 +1165,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         return;
       }
 
+      // The timer is armed before the reconcile awaits, so it can fire while
+      // that same reconcile is still pending. Rebuilding here would queue every
+      // destroy behind the stalled mutation on the same per-key queue and tear
+      // down the healthy subscriptions in the meantime, so wait it out instead.
+      if (this._reconcileInFlight) {
+        this._scheduleCriticalSubscriptionHealthCheck(
+          `${reason}__reconcile_in_flight`,
+        );
+        return;
+      }
+
       const client = this._client;
       if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
         return;
@@ -857,6 +1187,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lifecycleVersion !== this._subscriptionLifecycleVersion ||
         !requiredSubInfo
       ) {
+        return;
+      }
+
+      // A reconcile can also start while buildRequiredSubscriptionsMap awaits.
+      // A plain reconcile does not bump _subscriptionLifecycleVersion, so the
+      // guard above cannot catch it, and its subscribes have not landed yet,
+      // which biases the checks below toward reporting them missing. The
+      // remaining steps are synchronous, so this is the last point a concurrent
+      // reconcile can slip in before the rebuild.
+      if (this._reconcileInFlight) {
+        this._scheduleCriticalSubscriptionHealthCheck(
+          `${reason}__reconcile_in_flight`,
+        );
         return;
       }
 
@@ -1042,10 +1385,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       isOpen: readyState === WebSocket.OPEN,
       isClosedOrClosing:
         readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING,
+      isStreamStale: this._isResumeStreamStale(),
     });
     if (action === 'reconnect') {
       console.log('resumeSubscriptions__force_reconnect_transport');
-      await this._forceReconnectTransport();
+      // Prewarm and AutoPause both fire resume on foreground; single-flight
+      // so they cannot race two concurrent transport rebuilds.
+      if (!this._resumeReconnectPromise) {
+        this._resumeReconnectPromise = this._forceReconnectTransport().finally(
+          () => {
+            this._resumeReconnectPromise = null;
+          },
+        );
+      }
+      await this._resumeReconnectPromise;
       return;
     }
     if (action === 'waitForOpen') {
@@ -1090,7 +1443,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
-  async enableSubscriptionsHandler(): Promise<void> {
+  async enableSubscriptionsHandler(options?: {
+    ifDisabledCountAtMost?: number;
+  }): Promise<void> {
+    // Callers holding a liveness proof pass the disable count they observed
+    // when it was captured; a disable landing after that (blur, lock) bumps
+    // the count and wins over the now-stale proof. The count is monotonic in
+    // this runtime, so no cross-runtime clock comparison is involved.
+    if (
+      options?.ifDisabledCountAtMost !== undefined &&
+      this.subscriptionsHandlerDisabledCount > options.ifDisabledCountAtMost
+    ) {
+      return;
+    }
     this.subscriptionsHandlerDisabled = false;
     if (this.hasNewUserFills) {
       this.hasNewUserFills = false;
@@ -1098,6 +1463,29 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         refreshHook: Date.now(),
       });
     }
+  }
+
+  @backgroundMethod()
+  async recoverSubscriptionsAfterLivenessProof(params: {
+    disabledCount: number;
+  }): Promise<boolean> {
+    if (this.subscriptionsHandlerDisabledCount > params.disabledCount) {
+      return false;
+    }
+    await this.enableSubscriptionsHandler({
+      ifDisabledCountAtMost: params.disabledCount,
+    });
+    if (this.subscriptionsHandlerDisabled) {
+      return false;
+    }
+    // AutoPause in the UI runtime still reads a stale blur; announce so it
+    // drops the pending pause timer that would tear this recovery down.
+    appEventBus.emit(EAppEventBusNames.PerpsSubscriptionsRecovered, undefined);
+    // A prior pauseSubscriptions() may have unwatched the atoms; reinstall
+    // before the reconcile (OK-53014 ordering).
+    this._watchSubscriptionAtoms();
+    await this.updateSubscriptions();
+    return true;
   }
 
   @backgroundMethod()
@@ -1367,6 +1755,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     params: ISubscriptionUpdateParams,
   ): void {
     if (params.currentUser !== undefined) {
+      if (
+        state.currentUser?.toLowerCase() !== params.currentUser?.toLowerCase()
+      ) {
+        this._resetFundedActivationRefreshState();
+      }
       state.currentUser = params.currentUser;
     }
     if (params.currentSymbol !== undefined) {
@@ -1443,6 +1836,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const socket = event.target as WebSocket | undefined;
       const readyState = socket?.readyState;
       this._lastReadyState = readyState;
+      // Grace for the stale-stream resume check: a just-opened socket has no
+      // messages yet but must not be judged dead.
+      this._socketOpenedAt = Date.now();
       // OK-53208: SDK transport wrapper reports readyState=undefined in the
       // open event, which keeps perpsWebSocketConnectedAtom false forever.
       await perpsWebSocketReadyStateAtom.set({
@@ -1508,6 +1904,175 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   };
 
+  private _getPublicTradesClient(): SubscriptionClient {
+    if (this._publicTradesClient) {
+      return this._publicTradesClient;
+    }
+
+    const transport = new WebSocketTransport({
+      url: 'wss://api.hyperliquid.xyz/ws',
+      reconnect: {
+        maxRetries: 999,
+        connectionTimeout: 5000,
+        reconnectionDelay: (attempt: number) =>
+          Math.min(2 ** attempt * 150, 8000),
+      },
+      resubscribe: true,
+    });
+    this._publicTradesTransport = transport;
+    this._publicTradesClient = new SubscriptionClient({ transport });
+    return this._publicTradesClient;
+  }
+
+  private async _closePublicTradesClient(): Promise<void> {
+    this._clearAllPublicTradesBatches();
+    const transport = this._publicTradesTransport;
+    this._publicTradesClient = null;
+    this._publicTradesTransport = null;
+    if (!transport) {
+      return;
+    }
+    try {
+      await transport.close();
+    } catch (error) {
+      console.error(
+        '[ServiceHyperliquidSubscription] Failed to close public trades transport:',
+        error,
+      );
+    }
+  }
+
+  private _queuePublicTradesUpdate(coin: string, trades: IWsTrades): void {
+    if (!this._publicTradesSubscriptions.has(coin) || trades.length === 0) {
+      return;
+    }
+
+    const currentBatch = this._publicTradesBatches.get(coin);
+    const batchedTrades = orderBy(
+      [...(currentBatch?.trades ?? []), ...trades],
+      ['time'],
+      ['desc'],
+    ).slice(0, PUBLIC_TRADES_BATCH_LIMIT);
+    if (currentBatch) {
+      currentBatch.trades = batchedTrades;
+      return;
+    }
+
+    const batch: IPublicTradesBatch = {
+      trades: batchedTrades,
+      timer: setTimeout(() => {
+        this._publicTradesBatches.delete(coin);
+        if (
+          this._publicTradesSubscriptions.has(coin) &&
+          batch.trades.length > 0
+        ) {
+          this._emitHyperliquidDataUpdate(
+            ESubscriptionType.TRADES,
+            batch.trades,
+          );
+        }
+      }, PUBLIC_TRADES_BATCH_INTERVAL_MS),
+    };
+    this._publicTradesBatches.set(coin, batch);
+  }
+
+  private _clearPublicTradesBatch(coin: string): void {
+    const batch = this._publicTradesBatches.get(coin);
+    if (batch) {
+      clearTimeout(batch.timer);
+      this._publicTradesBatches.delete(coin);
+    }
+  }
+
+  private _clearAllPublicTradesBatches(): void {
+    this._publicTradesBatches.forEach(({ timer }) => clearTimeout(timer));
+    this._publicTradesBatches.clear();
+  }
+
+  @backgroundMethod()
+  async subscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+    const normalizedCoin = coin.trim();
+    if (!normalizedCoin) {
+      return;
+    }
+
+    await this._subscriptionMutationQueue.enqueue(
+      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      async () => {
+        const current = this._publicTradesSubscriptions.get(normalizedCoin);
+        if (current) {
+          current.refCount += 1;
+          await current.subscriptionPromise;
+          return;
+        }
+
+        const client = this._getPublicTradesClient();
+        const entry: IPublicTradesSubscription = {
+          refCount: 1,
+          subscriptionPromise: client.trades(
+            { coin: normalizedCoin },
+            (trades: IWsTrades) => {
+              this._queuePublicTradesUpdate(normalizedCoin, trades);
+            },
+          ),
+        };
+        this._publicTradesSubscriptions.set(normalizedCoin, entry);
+
+        try {
+          await entry.subscriptionPromise;
+        } catch (error) {
+          if (this._publicTradesSubscriptions.get(normalizedCoin) === entry) {
+            this._publicTradesSubscriptions.delete(normalizedCoin);
+            this._clearPublicTradesBatch(normalizedCoin);
+          }
+          if (this._publicTradesSubscriptions.size === 0) {
+            await this._closePublicTradesClient();
+          }
+          throw error;
+        }
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async unsubscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+    const normalizedCoin = coin.trim();
+    if (!normalizedCoin) {
+      return;
+    }
+
+    await this._subscriptionMutationQueue.enqueue(
+      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      async () => {
+        const entry = this._publicTradesSubscriptions.get(normalizedCoin);
+        if (!entry) {
+          return;
+        }
+
+        entry.refCount -= 1;
+        if (entry.refCount > 0) {
+          return;
+        }
+
+        this._publicTradesSubscriptions.delete(normalizedCoin);
+        this._clearPublicTradesBatch(normalizedCoin);
+        try {
+          const subscription = await entry.subscriptionPromise;
+          await subscription.unsubscribe();
+        } catch (error) {
+          console.error(
+            `[ServiceHyperliquidSubscription] Failed to unsubscribe public trades for ${normalizedCoin}:`,
+            error,
+          );
+        }
+
+        if (this._publicTradesSubscriptions.size === 0) {
+          await this._closePublicTradesClient();
+        }
+      },
+    );
+  }
+
   private async getWebSocketClient(): Promise<IHyperliquidWsClient> {
     if (this._client) {
       markPerpsColdStartPerfOnce('service_ws_client_reuse_first', {
@@ -1529,6 +2094,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
+        // A dropped subscribe ack stalls the whole reconcile for the SDK's 10s
+        // default, leaving the order book empty. Keep this at or above
+        // reconnect.connectionTimeout so frames rews buffers while the socket
+        // is reconnecting still get a chance to flush before aborting.
+        timeout: 5000,
         /* spell-checker:disable */
         reconnect: {
           maxRetries: 999,
@@ -1537,9 +2107,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           // oxlint-disable-next-line @cspell/spellchecker
           reconnectionDelay: (
             attempt: number, // spell-checker:disable-line
-          ) =>
-            // eslint-disable-next-line no-bitwise
-            Math.min(~~(1 << attempt) * 150, 8000),
+          ) => Math.min(2 ** attempt * 150, 8000),
         },
         /* spell-checker:enable */
       };
@@ -1618,6 +2186,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.USER_TWAP_SLICE_FILLS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
+        ESubscriptionType.TRADES,
         ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
         ESubscriptionType.SPOT_STATE,
         ESubscriptionType.SPOT_ASSET_CTXS,
@@ -2043,6 +2612,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     event: CustomEvent,
   ): Promise<void> {
     try {
+      // Stamp before the disabled early-return: a muted-but-alive stream
+      // must not be judged dead by the resume staleness check.
+      this._lastFrameAt = Date.now();
       const shouldUpdateWsDataUpdateTimes = this._showPerpsRenderStats;
 
       if (shouldUpdateWsDataUpdateTimes) {
@@ -2116,6 +2688,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
       if (subscriptionType === ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE) {
         const stateData = data as IWsAllDexsClearinghouseState;
+        if (this._shouldInspectFundedActivation(stateData.user)) {
+          void this._refreshActivationFromFundedState({
+            eventAddress: stateData.user,
+            hasFundedBalance: hasPositivePerpsBalance(
+              (stateData.clearinghouseStates ?? []).map(
+                ([, state]) => state?.marginSummary?.accountValue,
+              ),
+            ),
+          });
+        }
         const statePair =
           stateData.clearinghouseStates?.find(
             ([name]) => name === '', // Hyperliquid perps is empty string
@@ -2191,8 +2773,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.SPOT_STATE) {
+        const spotStateData = data as IWsSpotState;
+        if (this._shouldInspectFundedActivation(spotStateData.user)) {
+          void this._refreshActivationFromFundedState({
+            eventAddress: spotStateData.user,
+            hasFundedBalance: hasPositivePerpsBalance(
+              (spotStateData.spotState?.balances ?? []).map(
+                (balance) => balance.total,
+              ),
+            ),
+          });
+        }
         void this.backgroundApi.serviceHyperliquid.updateSpotBalances(
-          data as IWsSpotState,
+          spotStateData,
         );
         this._emitHyperliquidDataUpdate(subscriptionType, data);
         this._updateNetworkLiveness();
@@ -2513,6 +3106,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   async dispose(): Promise<void> {
+    this._resetFundedActivationRefreshState();
     await this.disconnect();
   }
 }

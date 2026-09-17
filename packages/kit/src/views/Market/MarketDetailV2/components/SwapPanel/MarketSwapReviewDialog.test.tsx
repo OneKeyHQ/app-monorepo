@@ -62,6 +62,7 @@ describe('MarketSwapReviewDialog', () => {
 
   it('delegates to the generic swap review shell with market-specific config', () => {
     const onDone = jest.fn();
+    const onConfirmStart = jest.fn();
     const adapter = {
       prepareReview: jest.fn(),
       sendApproveTx: jest.fn(),
@@ -84,17 +85,21 @@ describe('MarketSwapReviewDialog', () => {
     render(
       <MarketSwapReviewDialog
         onDone={onDone}
+        onConfirmStart={onConfirmStart}
         adapter={adapter}
+        disableSaveSlippageForFutureOrders
         reviewState={reviewState}
       />,
     );
 
     expect(swapReviewDialogMock).toHaveBeenCalledWith({
       onDone,
+      onConfirmStart,
       adapter,
       reviewState,
       storeName: EJotaiContextStoreNames.marketSwapReview,
       disableGlobalApproveSync: true,
+      disableSaveSlippageForFutureOrders: true,
       approveTransactionSource: ESwapReviewApproveTransactionSource.SpeedSwap,
       accountSelectorConfig: {
         config: {

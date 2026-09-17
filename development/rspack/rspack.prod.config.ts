@@ -28,12 +28,14 @@ interface IProdConfigOptions {
   platform: string;
   basePath: string;
   dropConsole?: boolean;
+  compressPasses?: number;
 }
 
 export function createProductionConfig({
   platform,
   basePath,
   dropConsole,
+  compressPasses = 2,
 }: IProdConfigOptions): RspackOptions {
   const isExt = platform === developmentConsts.platforms.ext;
   const isWeb = platform === developmentConsts.platforms.web;
@@ -70,6 +72,7 @@ export function createProductionConfig({
         new rspack.SwcJsMinimizerRspackPlugin({
           minimizerOptions: {
             compress: {
+              passes: compressPasses,
               // Preserve dependency runtime logging; first-party console calls
               // are stripped earlier by the scoped Babel rule.
               drop_console: shouldDropConsole,

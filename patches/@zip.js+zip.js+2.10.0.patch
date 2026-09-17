@@ -1,0 +1,15 @@
+diff --git a/node_modules/@zip.js/zip.js/lib/core/codec-registry.js b/node_modules/@zip.js/zip.js/lib/core/codec-registry.js
+index 655ee8b..49fc051 100644
+--- a/node_modules/@zip.js/zip.js/lib/core/codec-registry.js
++++ b/node_modules/@zip.js/zip.js/lib/core/codec-registry.js
+@@ -116,6 +116,9 @@ function setCodecStreams(format, streams) {
+ 
+ async function ensureCodecStreams(format, codecURI) {
+ 	if (!codecStreams.has(format) && codecURI) {
+-		setCodecStreams(format, await import(/* webpackIgnore: true */ /* @vite-ignore */ codecURI));
++		// OneKey patch: Hermes cannot compile variable dynamic imports.
++		// Custom codecs must register their streams directly instead of a URI.
++		// setCodecStreams(format, await import(/* webpackIgnore: true */ /* @vite-ignore */ codecURI));
++		throw new Error("Loading compression codecs by URI is not supported");
+ 	}
+ }

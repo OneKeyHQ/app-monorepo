@@ -99,6 +99,27 @@ describe('LoggerConfigManager', () => {
     expect(manager.shouldLog('setting', 'device')).toBe(true);
   });
 
+  it('persists every scene like production when enableAllScenes is on', () => {
+    const store = {
+      readStoredConfig: jest.fn<Promise<ILoggerConfig | undefined>, []>(),
+      loadRuntimeConfig: jest.fn(),
+      saveConfig: jest.fn(),
+    };
+    const manager = new LoggerConfigManager({
+      env: { isDev: true, isProduction: false, isWebEmbed: false },
+      store,
+      catalog: { buildConfig: jest.fn(), expandConfig: jest.fn() },
+      runtime: { drain: jest.fn() },
+    });
+
+    manager.saveLoggerConfig({ enabled: {} });
+    expect(manager.shouldLog('hardware', 'sdkLog')).toBe(false);
+
+    manager.saveLoggerConfig({ enableAllScenes: true, enabled: {} });
+    expect(manager.shouldLog('hardware', 'sdkLog')).toBe(true);
+    expect(manager.shouldLog('setting', 'device')).toBe(true);
+  });
+
   it('falls back to default config when readStoredConfig rejects', async () => {
     const store = {
       readStoredConfig: jest

@@ -105,7 +105,7 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
             </Badge>
           </XStack>
           <Stack
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={isExpanded ? '-180deg' : '-90deg'}
           >

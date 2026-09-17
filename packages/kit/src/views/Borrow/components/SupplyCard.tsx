@@ -12,24 +12,30 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useToOnBoardingPage } from '../../Onboarding/hooks/useToOnBoardingPage';
-import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { isBorrowReservesPending } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
 
-import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
+import {
+  filterUnsupportedAaveNativeReserveAssets,
+  hasPositiveBorrowBalance,
+} from './borrowRepayPosition.utils';
 import {
   ActionField,
   AmountField,
   AssetField,
   AssetWithAmountField,
-  BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
+  BORROW_TABLE_ACTION_COLUMN_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
+  BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
   BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
+  BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
-  CollateralBadge,
 } from './BorrowTableList';
 import { Card } from './Card';
 
@@ -144,10 +150,7 @@ export const SupplyCard = () => {
     [navigation, market, gtMd, handleManageSupply, accountId, indexedAccountId],
   );
 
-  const showLoading =
-    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
-    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
-    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const showLoading = isBorrowReservesPending(borrowDataStatus);
 
   // Per-row disabled state: dim + block tap for disabled supply assets on mobile.
   // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
@@ -177,10 +180,9 @@ export const SupplyCard = () => {
     if (!gtMd) return supportedAssets;
     // Desktop: filter based on showZeroBalance toggle
     if (showZeroBalance) return supportedAssets;
-    return supportedAssets.filter((asset) => {
-      const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
-      return balance.gt(0);
-    });
+    return supportedAssets.filter((asset) =>
+      hasPositiveBorrowBalance(asset.walletBalance),
+    );
   }, [
     gtMd,
     market?.networkId,
@@ -196,9 +198,6 @@ export const SupplyCard = () => {
       supply: intl.formatMessage({ id: ETranslations.defi_supply }),
       assetCanBeCollateral: intl.formatMessage({
         id: ETranslations.global_asset,
-      }),
-      canBeCollateral: intl.formatMessage({
-        id: ETranslations.defi_can_be_collateral,
       }),
       assetsToSupply: intl.formatMessage({
         id: ETranslations.defi_assets_to_supply,
@@ -244,9 +243,9 @@ export const SupplyCard = () => {
           <AssetWithAmountField
             token={item.token}
             canBeCollateral={item.canBeCollateral}
+            amountLabel={{ text: `${labels.balance}:` }}
             amount={item.walletBalance.title}
             amountDescription={item.walletBalance.description}
-            showWalletIcon
             platformBonusApy={item.platformBonusApy}
           />
         ),
@@ -267,15 +266,19 @@ export const SupplyCard = () => {
   const desktopColumns = useMemo(
     () => [
       {
+        // The collateral mark stays on the symbol, the way the mobile list
+        // shows it — it labels the asset, not a value of its own.
         label: labels.assetCanBeCollateral,
         key: 'asset',
         render: (item: ISupplyAsset) => (
           <AssetField
             token={item.token}
+            canBeCollateral={item.canBeCollateral}
             platformBonusApy={item.platformBonusApy}
           />
         ),
-        flex: 1.5,
+        flex: 1,
+        minWidth: BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
       },
       {
         label: labels.balance,
@@ -294,6 +297,8 @@ export const SupplyCard = () => {
           />
         ),
         flex: 1,
+        minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
+        maxWidth: BORROW_TABLE_AMOUNT_COLUMN_MAX_WIDTH,
       },
       {
         label: labels.supplyApy,
@@ -302,15 +307,7 @@ export const SupplyCard = () => {
         render: BorrowAPYField,
         flex: 1,
         minWidth: BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
-      },
-      {
-        label: labels.canBeCollateral,
-        align: 'center' as const,
-        key: 'canBeCollateral',
-        render: (item: ISupplyAsset) => (
-          <CollateralBadge canBeCollateral={item.canBeCollateral} />
-        ),
-        flex: 1,
+        maxWidth: BORROW_TABLE_APY_COLUMN_MAX_WIDTH,
       },
       {
         label: '',
@@ -318,7 +315,7 @@ export const SupplyCard = () => {
         key: 'actions',
         render: (item: ISupplyAsset) => (
           <ActionField
-            buttonText={<EarnText text={{ text: labels.supply }} />}
+            actionLabel={labels.supply}
             item={item}
             onPress={() => handleManageSupply(item)}
             needAdditionButton={showAdditionalActions}
@@ -328,8 +325,10 @@ export const SupplyCard = () => {
             disabled={noConnectedWallet ? false : item.supplyButton?.disabled}
           />
         ),
-        flex: 1,
-        minWidth: BORROW_TABLE_ACTION_COLUMN_MIN_WIDTH,
+        flex: 0,
+        minWidth: showAdditionalActions
+          ? BORROW_TABLE_ACTION_COLUMN_WIDTH
+          : BORROW_TABLE_ACTION_COLUMN_COMPACT_WIDTH,
       },
     ],
     [

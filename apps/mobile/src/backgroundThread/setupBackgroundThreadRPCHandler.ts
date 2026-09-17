@@ -1,16 +1,30 @@
 import {
+  type ISharedRPC,
   getSharedRPC,
   getSharedStore,
 } from '@onekeyfe/react-native-background-thread';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   LogLevel,
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
+import {
+  type INativeStorageContractViolation,
+  type INativeStorageGlobal,
+  NATIVE_SYNC_STORAGE_MUTATION_EVENT,
+} from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
+import {
+  persistNativeStorageContractViolation,
+  readPersistedNativeStorageContractViolations,
+} from './nativeStorageContractViolationQueue';
 import {
   BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
   BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY,
@@ -24,6 +38,8 @@ import {
   type IBackgroundThreadJotaiStateBroadcastBatchPayload,
   type IBackgroundThreadJotaiStateBroadcastPayload,
   type IBackgroundThreadRequest,
+  type IBackgroundThreadResponseErrorPayload,
+  type IBackgroundThreadResponsePayload,
   type IBackgroundThreadServiceCallRequest,
   WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX,
   buildBackgroundThreadAppEventKey,
@@ -101,12 +117,14 @@ let handlerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let handlerInstalled = false;
 let readySignalEmitted = false;
 let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+let backgroundInitializationFailure: Error | undefined;
 // Tracks the main runtime's current advertised support for the batched
 // jotai broadcast wire protocol. Mirrors whatever main last published so
 // an OTA rollback (new bg bundle + older main bundle that no longer
 // advertises batch support) flips us back to the legacy per-item path
 // instead of writing keys the main observer can't decode.
 let mainBatchProtocolReady = false;
+let mainRuntimeReady = false;
 // Ring buffer size for broadcast sequences (#48).
 // If the producer wraps before the consumer reads a slot, the old message is lost.
 // 4096 slots gives ~4K messages of headroom before overwrite.
@@ -130,6 +148,84 @@ function logBgRpcTrace(message: string, level: 'info' | 'error' = 'info') {
   }
 }
 
+function getBackgroundThreadErrorMessage(error: unknown) {
+  try {
+    return (error as Error)?.message || 'unknown';
+  } catch {
+    return 'unreadable error';
+  }
+}
+
+const SERIALIZED_BACKGROUND_THREAD_RESPONSE_FALLBACK =
+  serializeBackgroundThreadResponse({
+    ok: false,
+    error: {
+      name: 'BackgroundThreadResponseError',
+      message: 'Background response failed',
+    },
+  });
+
+function writeBackgroundThreadResponse({
+  sharedRPC,
+  responseKey,
+  buildResponse,
+  callId,
+  requestLabel,
+}: {
+  sharedRPC: ISharedRPC;
+  responseKey: string;
+  buildResponse: () => IBackgroundThreadResponsePayload;
+  callId: string;
+  requestLabel: string;
+}) {
+  let serializedResponse = SERIALIZED_BACKGROUND_THREAD_RESPONSE_FALLBACK;
+  let isFallbackResponse = false;
+  try {
+    serializedResponse = serializeBackgroundThreadResponse(buildResponse());
+  } catch (serializationError) {
+    isFallbackResponse = true;
+    logBgRpcTrace(
+      `serialize-fail callId=${callId}, request=${requestLabel}, error=${getBackgroundThreadErrorMessage(
+        serializationError,
+      )}`,
+      'error',
+    );
+  }
+
+  try {
+    sharedRPC.write(responseKey, serializedResponse);
+    return !isFallbackResponse;
+  } catch (writeError) {
+    logBgRpcTrace(
+      `write-fail callId=${callId}, request=${requestLabel}, error=${getBackgroundThreadErrorMessage(
+        writeError,
+      )}`,
+      'error',
+    );
+  }
+
+  if (!isFallbackResponse) {
+    try {
+      sharedRPC.write(
+        responseKey,
+        SERIALIZED_BACKGROUND_THREAD_RESPONSE_FALLBACK,
+      );
+      logBgRpcTrace(
+        `fallback-write-ok callId=${callId}, request=${requestLabel}`,
+      );
+    } catch (fallbackWriteError) {
+      logBgRpcTrace(
+        `fallback-write-fail callId=${callId}, request=${requestLabel}, error=${getBackgroundThreadErrorMessage(
+          fallbackWriteError,
+        )}`,
+        'error',
+      );
+    }
+  }
+
+  return false;
+}
+
 const bridgeStateMap: Partial<
   Record<IBackgroundThreadBridgeChannel, IBackgroundThreadBridgeStatePayload>
 > = {};
@@ -139,67 +235,27 @@ let handleWebEmbedBridgeResponse: (
 ) => void = () => {};
 
 function buildErrorPayload(error: unknown) {
-  const runtimeError = error as Error & {
-    autoToast?: unknown;
-    className?: unknown;
-    code?: unknown;
-    key?: unknown;
-    requestId?: unknown;
-    httpStatusCode?: unknown;
-    constructorName?: unknown;
-    data?: unknown;
-    payload?: unknown;
+  const runtimeError = error as
+    | { $isHardwareError?: unknown }
+    | null
+    | undefined;
+  const {
+    constructorName: _constructorName,
+    data,
+    stack: _stack,
+    ...plainError
+  } = toPlainErrorObject(error);
+  const errorPayload: IBackgroundThreadResponseErrorPayload = {
+    ...plainError,
+    name: plainError.name || 'BackgroundThreadError',
+    message: plainError.message || 'Unknown background thread error',
   };
-  const errorPayload: {
-    name: string;
-    message: string;
-    stack?: string;
-    autoToast?: boolean;
-    className?: string;
-    code?: string | number;
-    key?: string;
-    requestId?: string;
-    httpStatusCode?: number;
-    constructorName?: string;
-    data?: unknown;
-    payload?: unknown;
-  } = {
-    name: runtimeError?.name || 'BackgroundThreadError',
-    message: runtimeError?.message || 'Unknown background thread error',
-  };
-  if (typeof runtimeError?.stack === 'string') {
-    errorPayload.stack = runtimeError.stack;
+  if (runtimeError?.$isHardwareError === true) {
+    errorPayload.$isHardwareError = true;
   }
-  if (typeof runtimeError?.autoToast === 'boolean') {
-    errorPayload.autoToast = runtimeError.autoToast;
-  }
-  if (typeof runtimeError?.className === 'string') {
-    errorPayload.className = runtimeError.className;
-  }
-  if (
-    typeof runtimeError?.code === 'string' ||
-    typeof runtimeError?.code === 'number'
-  ) {
-    errorPayload.code = runtimeError.code;
-  }
-  if (typeof runtimeError?.key === 'string') {
-    errorPayload.key = runtimeError.key;
-  }
-  if (typeof runtimeError?.requestId === 'string') {
-    errorPayload.requestId = runtimeError.requestId;
-  }
-  if (typeof runtimeError?.httpStatusCode === 'number') {
-    errorPayload.httpStatusCode = runtimeError.httpStatusCode;
-  }
-  if (typeof runtimeError?.constructorName === 'string') {
-    errorPayload.constructorName = runtimeError.constructorName;
-  }
-  const safeData = buildSafeBackgroundThreadErrorData(runtimeError?.data);
+  const safeData = buildSafeBackgroundThreadErrorData(data);
   if (safeData) {
     errorPayload.data = safeData;
-  }
-  if (runtimeError?.payload !== undefined) {
-    errorPayload.payload = runtimeError.payload;
   }
   return {
     ok: false,
@@ -249,6 +305,13 @@ function emitBackgroundRuntimeFailedSignal(error: unknown) {
     ),
     { allowRepeat: true },
   );
+}
+
+function emitBackgroundRuntimeStateSignal() {
+  if (backgroundInitializationFailure) {
+    return emitBackgroundRuntimeFailedSignal(backgroundInitializationFailure);
+  }
+  return emitBackgroundRuntimeReadySignal();
 }
 
 function startBackgroundRuntimeHeartbeat() {
@@ -333,6 +396,59 @@ function emitAppEventFromBgToUi(payload: {
     serializeBackgroundThreadAppEventBroadcastPayload(payload),
   );
   return true;
+}
+
+function broadcastNativeStorageContractViolation(
+  violation: INativeStorageContractViolation,
+) {
+  const sharedStore = getSharedStore();
+  const persisted = sharedStore
+    ? persistNativeStorageContractViolation(sharedStore, violation)
+    : false;
+  if (!persisted) {
+    logBgRpcTrace(
+      `failed to persist native storage contract violation id=${violation.id}`,
+      'error',
+    );
+  }
+  const delivered = mainRuntimeReady
+    ? emitAppEventFromBgToUi({
+        eventName: EAppEventBusNames.NativeStorageContractViolation,
+        payload: violation,
+      })
+    : false;
+  return persisted || delivered;
+}
+
+function rebroadcastPersistedNativeStorageContractViolations() {
+  const sharedStore = getSharedStore();
+  if (!mainRuntimeReady || !sharedStore) {
+    return;
+  }
+  const { entries, invalidKeys } =
+    readPersistedNativeStorageContractViolations(sharedStore);
+  invalidKeys.forEach((key) => sharedStore.delete(key));
+  entries.forEach(({ violation }) => {
+    emitAppEventFromBgToUi({
+      eventName: EAppEventBusNames.NativeStorageContractViolation,
+      payload: violation,
+    });
+  });
+}
+
+function flushPendingNativeStorageContractViolations() {
+  const runtimeGlobal = globalThis as INativeStorageGlobal;
+  const queue = runtimeGlobal.__onekeyNativeStorageContractViolationQueue;
+  if (!queue?.length) {
+    return;
+  }
+
+  const pending = queue.splice(0);
+  pending.forEach((violation) => {
+    if (!broadcastNativeStorageContractViolation(violation)) {
+      queue.push(violation);
+    }
+  });
 }
 
 function sendBridgeMessageFromBgToUi(
@@ -477,22 +593,18 @@ async function handleRequest(callId: string, value: string | number | boolean) {
         Date.now() - requestStartedAt
       }`,
     );
-    try {
-      sharedRPC.write(
-        responseKey,
-        serializeBackgroundThreadResponse({
-          ok: true,
-          result,
-        }),
-      );
+    const isOriginalResponseWritten = writeBackgroundThreadResponse({
+      sharedRPC,
+      responseKey,
+      buildResponse: () => ({
+        ok: true,
+        result,
+      }),
+      callId,
+      requestLabel,
+    });
+    if (isOriginalResponseWritten) {
       logBgRpcTrace(`write-ok callId=${callId}, request=${requestLabel}`);
-    } catch (writeError) {
-      logBgRpcTrace(
-        `write-fail callId=${callId}, request=${requestLabel}, error=${
-          (writeError as Error)?.message || 'unknown'
-        }`,
-        'error',
-      );
     }
     if (shouldTracePendingInstallTask) {
       logBgRpcTrace(
@@ -505,22 +617,16 @@ async function handleRequest(callId: string, value: string | number | boolean) {
     logBgRpcTrace(
       `error callId=${callId}, request=${requestLabel}, elapsedMs=${
         Date.now() - requestStartedAt
-      }, message=${(error as Error)?.message || 'unknown'}`,
+      }, message=${getBackgroundThreadErrorMessage(error)}`,
       'error',
     );
-    try {
-      sharedRPC.write(
-        responseKey,
-        serializeBackgroundThreadResponse(buildErrorPayload(error)),
-      );
-    } catch (writeError) {
-      logBgRpcTrace(
-        `error-write-fail callId=${callId}, error=${
-          (writeError as Error)?.message || 'unknown'
-        }`,
-        'error',
-      );
-    }
+    writeBackgroundThreadResponse({
+      sharedRPC,
+      responseKey,
+      buildResponse: () => buildErrorPayload(error),
+      callId,
+      requestLabel,
+    });
   } finally {
     if (traceHeartbeatTimer) {
       clearInterval(traceHeartbeatTimer);
@@ -542,6 +648,11 @@ function applyMainCapabilities() {
     // latch — an OTA rollback can drop batch support and we must follow it
     // back down to the legacy path on the very next capability read.
     mainBatchProtocolReady = payload?.jotaiStateBatch === true;
+    mainRuntimeReady = payload !== undefined;
+    if (mainRuntimeReady) {
+      rebroadcastPersistedNativeStorageContractViolations();
+      flushPendingNativeStorageContractViolations();
+    }
   } catch (error) {
     logBgRpcTrace(
       `failed to read main capabilities: ${(error as Error)?.message || String(error)}`,
@@ -597,6 +708,8 @@ function installBackgroundRequestHandler() {
     applyMainCapabilities();
   }
 
+  flushPendingNativeStorageContractViolations();
+
   return true;
 }
 
@@ -618,7 +731,7 @@ function scheduleBackgroundHandlerInstall() {
       return;
     }
 
-    if (!emitBackgroundRuntimeReadySignal()) {
+    if (!emitBackgroundRuntimeStateSignal()) {
       scheduleBackgroundHandlerInstall();
     }
   }, HANDLER_RETRY_MS);
@@ -631,7 +744,7 @@ function ensureBackgroundRequestHandlerInstalled() {
       return;
     }
 
-    if (!emitBackgroundRuntimeReadySignal()) {
+    if (!emitBackgroundRuntimeStateSignal()) {
       scheduleBackgroundHandlerInstall();
     }
   } catch (error) {
@@ -644,7 +757,18 @@ function ensureBackgroundRequestHandlerInstalled() {
 export function setBackgroundThreadRequestExecutor(
   executor: IBackgroundThreadRequestExecutor,
 ) {
+  backgroundInitializationFailure = undefined;
   requestExecutor = executor;
+  ensureBackgroundRequestHandlerInstalled();
+}
+
+export function reportBackgroundThreadInitializationFailure(error: unknown) {
+  backgroundInitializationFailure =
+    error instanceof Error
+      ? error
+      : new OneKeyLocalError('Background runtime initialization failed');
+  requestExecutor = undefined;
+  readySignalEmitted = false;
   ensureBackgroundRequestHandlerInstalled();
 }
 
@@ -721,6 +845,15 @@ export function callWebEmbedBridgeViaMainThread(
 
 export function setupBackgroundThreadRPCHandler() {
   const runtimeGlobal = globalThis as IBackgroundRuntimeGlobal;
+  const nativeStorageGlobal = globalThis as INativeStorageGlobal;
+
+  nativeStorageGlobal.__onekeyNativeStorageContractViolationBroadcast =
+    broadcastNativeStorageContractViolation;
+  nativeStorageGlobal.__onekeyNativeSyncStorageBroadcast = (mutation) =>
+    emitAppEventFromBgToUi({
+      eventName: NATIVE_SYNC_STORAGE_MUTATION_EVENT,
+      payload: mutation,
+    });
 
   runtimeGlobal.__setupBackgroundRPCHandler = () => {
     ensureBackgroundRequestHandlerInstalled();

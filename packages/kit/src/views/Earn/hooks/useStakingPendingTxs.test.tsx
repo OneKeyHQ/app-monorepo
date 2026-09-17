@@ -26,8 +26,9 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
   };
 });
 
+const mockRouteFocus = { current: true };
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockRouteFocus.current,
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -113,6 +114,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import {
   type IStakePendingTx,
@@ -141,17 +143,22 @@ const timerMock = (
 const pendingTag = 'borrow:aave:setEMode';
 const pendingTagMatcher = (tag: string) => tag === pendingTag;
 
-function createPendingTx(id: string): IStakePendingTx {
+function createPendingTx(
+  id: string,
+  replacedType?: EReplaceTxType,
+): IStakePendingTx {
   return {
     id,
     stakingInfo: {
       tags: [pendingTag],
     },
+    replacedType,
   } as unknown as IStakePendingTx;
 }
 
 describe('useStakingPendingTxsByInfo history verification', () => {
   beforeEach(() => {
+    mockRouteFocus.current = true;
     timerMock.durationMs = 0;
     backgroundMock.fetchAccountHistory.mockReset();
     backgroundMock.fetchAccountHistory.mockResolvedValue(undefined);
@@ -178,6 +185,77 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     );
     backgroundMock.getFetchHistoryPollingIntervalsBatch.mockReset();
     backgroundMock.getFetchHistoryPollingIntervalsBatch.mockResolvedValue({});
+  });
+
+  it('does not expose cancellation replacements as pending staking actions', async () => {
+    const cancelledTx = createPendingTx(
+      'cancelled-pending',
+      EReplaceTxType.Cancel,
+    );
+    const activeTx = createPendingTx('active-pending');
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      cancelledTx,
+      activeTx,
+    ]);
+
+    const { result } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1'],
+        accountId: 'route-account',
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.filteredTxs).toEqual([activeTx]);
+  });
+
+  it('preserves verified history on picker return and refreshes on the next ordinary focus', async () => {
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+    const networkIds = ['evm--1'];
+    const view = renderHook(
+      ({ revalidateOnFocus }: { revalidateOnFocus: boolean }) =>
+        useStakingPendingTxsByInfo({
+          networkIds,
+          accountId: 'route-account',
+          tagMatcher: pendingTagMatcher,
+          revalidateOnFocus,
+        }),
+      { initialProps: { revalidateOnFocus: true } },
+    );
+    await waitFor(() => {
+      expect(view.result.current.isLoading).toBe(false);
+      expect(view.result.current.isPendingHistoryVerified).toBe(true);
+    });
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockClear();
+
+    mockRouteFocus.current = false;
+    view.rerender({ revalidateOnFocus: true });
+    mockRouteFocus.current = true;
+    view.rerender({ revalidateOnFocus: false });
+    view.rerender({ revalidateOnFocus: true });
+
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs,
+    ).not.toHaveBeenCalled();
+    expect(view.result.current.isLoading).toBe(false);
+    expect(view.result.current.isPendingHistoryVerified).toBe(true);
+
+    const pendingTx = createPendingTx('new-pending');
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([
+      pendingTx,
+    ]);
+    mockRouteFocus.current = false;
+    view.rerender({ revalidateOnFocus: true });
+    mockRouteFocus.current = true;
+    view.rerender({ revalidateOnFocus: true });
+    await waitFor(() => {
+      expect(view.result.current.isLoading).toBe(false);
+      expect(view.result.current.filteredTxs).toEqual([pendingTx]);
+    });
   });
 
   it('fails closed after every pending-history query fails on a cold mount', async () => {

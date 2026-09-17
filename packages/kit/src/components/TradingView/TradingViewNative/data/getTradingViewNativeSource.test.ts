@@ -5,6 +5,12 @@ import {
 } from './getTradingViewNativeSource';
 
 describe('TradingViewNative source resolver', () => {
+  it('normalizes stock identities independently from token sources', () => {
+    expect(
+      getTradingViewNativeSourceKey({ kind: 'stock', stockId: ' aapl ' }),
+    ).toBe('stock:AAPL');
+  });
+
   it('prefers a normalized Hyperliquid coin', () => {
     expect(
       getTradingViewNativeSource({
@@ -18,6 +24,41 @@ describe('TradingViewNative source resolver', () => {
       kind: 'hyperliquid',
       coin: 'BTC',
       environment: 'mainnet',
+    });
+  });
+
+  it('applies Hyperliquid mappings only for the requested branch', () => {
+    const tokenIdentity = {
+      hyperliquidCoin: '',
+      isNative: true,
+      marketDataSource: undefined,
+      networkId: 'evm--999',
+      symbol: 'HYPE',
+      tokenAddress: '',
+    } as const;
+
+    expect(
+      getTradingViewNativeSource({
+        ...tokenIdentity,
+        hyperliquidWhitelistBranch: 'swap',
+      }),
+    ).toEqual({
+      kind: 'hyperliquid',
+      coin: '@107',
+      environment: 'mainnet',
+    });
+    expect(
+      getTradingViewNativeSource({
+        ...tokenIdentity,
+        hyperliquidWhitelistBranch: 'market',
+      }),
+    ).toEqual({
+      kind: 'market',
+      isNative: true,
+      networkId: 'evm--999',
+      tokenAddress: '',
+      symbol: 'HYPE',
+      realtime: 'disabled',
     });
   });
 
@@ -37,9 +78,7 @@ describe('TradingViewNative source resolver', () => {
       symbol: 'TOKEN',
       realtime: 'websocket',
     });
-    expect(getTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xabc:TOKEN',
-    );
+    expect(getTradingViewNativeSourceKey(source)).toBe('market:evm--1:0xabc');
   });
 
   it('keeps the native-token identity for interval persistence', () => {
@@ -61,7 +100,7 @@ describe('TradingViewNative source resolver', () => {
       realtime: 'disabled',
     });
     expect(getTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xeeee:ETH:native',
+      'market:evm--1:0xeeee:native',
     );
   });
 
@@ -81,9 +120,7 @@ describe('TradingViewNative source resolver', () => {
       tokenAddress: '0xAbC',
     });
 
-    expect(getTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xabc:ETH',
-    );
+    expect(getTradingViewNativeSourceKey(source)).toBe('market:evm--1:0xabc');
   });
 
   it('keeps a CoinGecko fallback hint inside the Market source', () => {

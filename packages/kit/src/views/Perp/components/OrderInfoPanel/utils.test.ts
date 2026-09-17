@@ -1,15 +1,62 @@
+import { createIntl, createIntlCache } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   calculateSpotHoldingPnl,
   canChasePerpsOrder,
+  filterSpotHoldingBalances,
   formatSpotHoldingPnlText,
+  getFillDirectionDisplayInfo,
   getOrderAssetDisplayName,
   getOrderSizeDisplayName,
   getTwapHistoryEventTimeMs,
+  getVisibleSpotHoldingsCount,
   isSpotHoldingStableCoin,
   normalizeEpochMs,
 } from './utils';
+
+describe('fill direction translations', () => {
+  const messages: Record<string, string> = {
+    [ETranslations.perp_trade_settlement__title]: '结算',
+  };
+  const intl = createIntl(
+    {
+      locale: 'zh-CN',
+      messages,
+    },
+    createIntlCache(),
+  );
+
+  it.each(['Settlement', ' settlement '])(
+    'localizes %s without changing the side color',
+    (dir) => {
+      expect(
+        getFillDirectionDisplayInfo({
+          fill: { coin: 'TON', dir, side: 'A' },
+          intl,
+        }),
+      ).toEqual({ text: '结算', color: '$red11' });
+    },
+  );
+
+  it('preserves unrecognized directions', () => {
+    expect(
+      getFillDirectionDisplayInfo({
+        fill: { coin: 'TON', dir: 'Unknown event', side: 'B' },
+        intl,
+      }),
+    ).toEqual({ text: 'Unknown event', color: '$green11' });
+  });
+});
+
+type ISpotHoldingFilterTestItem = {
+  rawCoin: string;
+  total: string;
+  usdcValueNum: number;
+  hasPriceSource: boolean;
+};
 
 function makeOpenOrder(
   overrides: Partial<IPerpsFrontendOrder> = {},
@@ -80,6 +127,86 @@ describe('calculateSpotHoldingPnl', () => {
         isStable: isSpotHoldingStableCoin('USDH'),
       }),
     ).toEqual({});
+  });
+});
+
+describe('filterSpotHoldingBalances', () => {
+  const balances: ISpotHoldingFilterTestItem[] = [
+    {
+      rawCoin: 'USDC',
+      total: '0.5',
+      usdcValueNum: 0.5,
+      hasPriceSource: true,
+    },
+    {
+      rawCoin: 'BELOW',
+      total: '2',
+      usdcValueNum: 4.99,
+      hasPriceSource: true,
+    },
+    {
+      rawCoin: 'EXACT',
+      total: '1',
+      usdcValueNum: 5,
+      hasPriceSource: true,
+    },
+    {
+      rawCoin: 'ABOVE',
+      total: '1',
+      usdcValueNum: 5.01,
+      hasPriceSource: true,
+    },
+    {
+      rawCoin: 'UNKNOWN',
+      total: '1',
+      usdcValueNum: 0,
+      hasPriceSource: false,
+    },
+    {
+      rawCoin: 'ZERO',
+      total: '0',
+      usdcValueNum: 10,
+      hasPriceSource: true,
+    },
+  ];
+
+  it('keeps every non-zero holding when the filter is disabled', () => {
+    expect(
+      filterSpotHoldingBalances({
+        balances,
+        hideBelowThreshold: false,
+      }).map((item) => item.rawCoin),
+    ).toEqual(['USDC', 'BELOW', 'EXACT', 'ABOVE', 'UNKNOWN']);
+  });
+
+  it('hides only priced non-USDC holdings strictly below five dollars', () => {
+    expect(
+      filterSpotHoldingBalances({
+        balances,
+        hideBelowThreshold: true,
+      }).map((item) => item.rawCoin),
+    ).toEqual(['USDC', 'EXACT', 'ABOVE', 'UNKNOWN']);
+  });
+});
+
+describe('getVisibleSpotHoldingsCount', () => {
+  it('uses the same threshold and price-source rules as the holdings list', () => {
+    expect(
+      getVisibleSpotHoldingsCount({
+        balances: [
+          { coin: 'USDC', total: '0', entryNtl: '0' },
+          { coin: 'BELOW', total: '2', entryNtl: '1' },
+          { coin: 'EXACT', total: '1', entryNtl: '1' },
+          { coin: 'UNKNOWN', total: '1', entryNtl: '0' },
+        ],
+        tokenPriceLookup: {
+          BELOW: '2.495',
+          EXACT: '5',
+        },
+        hideBelowThreshold: true,
+        hasPerpsUsdc: true,
+      }),
+    ).toBe(3);
   });
 });
 

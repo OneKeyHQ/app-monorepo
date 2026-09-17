@@ -36,6 +36,8 @@ export type IIdentityExitSnapshot = {
 export type IIdentityExitExecutionTarget = {
   logoutOneKeyId: boolean;
   removeKeyless: boolean;
+  explicitLocalOneKeyIdLogout?: boolean;
+  explicitLocalKeylessRemoval?: boolean;
   clearKeylessSession?: boolean;
   switchOAuthProvider?: EOAuthSocialLoginProvider;
   allowUnknownKeylessSessionIdentity?: boolean;

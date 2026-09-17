@@ -6,14 +6,18 @@ import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type'
 import { LevelAccordionItem } from './LevelAccordionItem';
 
 export function LevelListSection({
+  currentLevel,
   levels,
 }: {
+  currentLevel: number;
   levels: IInviteLevelDetail['levels'];
 }) {
   const defaultValue = useMemo(() => {
-    const currentLevel = levels.find((level) => level.isCurrent);
-    return currentLevel ? `level-${currentLevel.level}` : undefined;
-  }, [levels]);
+    const currentLevelInfo = levels.find(
+      (level) => level.level === currentLevel,
+    );
+    return currentLevelInfo ? `level-${currentLevelInfo.level}` : undefined;
+  }, [currentLevel, levels]);
   const displayLevels = useMemo(() => levels.toReversed(), [levels]);
 
   return (
@@ -37,12 +41,13 @@ export function LevelListSection({
         const nextLevelLabel = isHighestLevel
           ? undefined
           : levels[ascendingIndex + 1]?.label;
+        const isCurrent = level.level === currentLevel;
 
         return (
           <LevelAccordionItem
             key={level.level}
             level={level}
-            isCurrent={level.isCurrent}
+            isCurrent={isCurrent}
             isLast={index === displayLevels.length - 1}
             isHighestLevel={isHighestLevel}
             isLowestLevel={isLowestLevel}

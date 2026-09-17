@@ -39,7 +39,11 @@ import {
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
-import { SubtitleText } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+  SubtitleText,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
@@ -55,9 +59,11 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import perpsUtils, {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
@@ -77,7 +83,6 @@ import {
   DEFAULT_PERP_TOKEN_ACTIVE_TAB,
   DEFAULT_PERP_TOKEN_SORT_DIRECTION,
   DEFAULT_PERP_TOKEN_SORT_FIELD,
-  XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import {
@@ -111,6 +116,7 @@ import {
   getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorFavoritesTabUserSort,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSortFieldActive,
   isPerpTokenSelectorSpotTab,
@@ -242,6 +248,7 @@ const InitialRowsSnapshotRow = memo(
     const imageName = mockedToken.spotUniverse
       ? displayName
       : parsed.displayName;
+    const dexLabel = mockedToken.spotUniverse ? undefined : parsed.dexLabel;
     const subtitle = mockedToken.tokenSubtitle;
     const maxLeverage = mockedToken.tokenMaxLeverage ?? 0;
     const hasDisplayAssetCtx = Boolean(
@@ -272,7 +279,9 @@ const InitialRowsSnapshotRow = memo(
           <Token
             size="lg"
             borderRadius="$full"
-            tokenImageUri={getHyperliquidTokenImageUrl(imageName)}
+            {...(mockedToken.spotUniverse
+              ? { tokenImageUri: getHyperliquidTokenImageUrl(imageName) }
+              : { tokenImageUris: getHyperliquidTokenImageUris(tokenName) })}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>
@@ -281,19 +290,12 @@ const InitialRowsSnapshotRow = memo(
             <SizableText size="$bodyMdMedium" numberOfLines={1}>
               {displayName}
             </SizableText>
-            {maxLeverage > 0 ? (
-              <XStack
-                borderRadius="$1"
-                bg="$bgStrong"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText fontSize={10} color="$textSubdued" lineHeight={16}>
-                  {maxLeverage}x
-                </SizableText>
-              </XStack>
-            ) : null}
+            <XStack gap="$1">
+              {maxLeverage > 0 ? (
+                <LeverageBadge leverage={maxLeverage} />
+              ) : null}
+              <PerpDexBadge dexLabel={dexLabel} />
+            </XStack>
           </XStack>
           <XStack gap="$1" alignItems="center" minWidth={0}>
             {subtitle ? (
@@ -383,6 +385,10 @@ function MobileTokenSelectorModal({
       const isSpotToken = isSpotInstrument(symbol);
       try {
         onLoadingChange(true);
+        const subscriptionRecoveryProof =
+          await actions.current.captureInstrumentSwitchSubscriptionProof({
+            source: 'token-selector',
+          });
         navigation.popStack();
         if (isSpotToken) {
           const universe = spotUniverses.find((u) => u.name === symbol);
@@ -392,11 +398,13 @@ function MobileTokenSelectorModal({
             mode: 'spot',
             coin: symbol,
             spotUniverse: universe,
+            subscriptionRecoveryProof,
           });
         } else {
           await actions.current.switchTradeInstrument({
             mode: 'perp',
             coin: symbol,
+            subscriptionRecoveryProof,
           });
         }
       } catch (error) {
@@ -765,11 +773,9 @@ function MobileTokenSelectorModal({
       (assets: IPerpsUniverse[], dexIndex: number) => {
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
-          const normalizedAssetId =
-            dexIndex === 1
-              ? asset.assetId - XYZ_ASSET_ID_OFFSET
-              : asset.assetId;
-          const sortValues = computeSortValues(ctxs?.[normalizedAssetId]);
+          const sortValues = computeSortValues(
+            ctxs?.[toCtxIndex(asset.assetId, dexIndex)],
+          );
           return { dexIndex, index, assetId: asset.assetId, asset, sortValues };
         });
       },
@@ -955,6 +961,11 @@ function MobileTokenSelectorModal({
   const dynamicSortAssetCtxsByDex = activeDynamicTabUserSort
     ? assetCtxsByDex
     : undefined;
+  const activeFavoritesTabUserSort = isPerpTokenSelectorFavoritesTabUserSort({
+    activeTab: displayActiveTab,
+    sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
+  });
 
   // Layer 2: filter — cheap O(n) filter; only dynamic user sort sorts the
   // filtered dynamic-token subset against live values.
@@ -986,7 +997,7 @@ function MobileTokenSelectorModal({
           tokenSearchAliases,
         }),
       });
-      if (sortField) {
+      if (activeFavoritesTabUserSort && sortField) {
         result = sortTokenSelectorFavoriteItems({
           items: result,
           sortField,
@@ -1016,9 +1027,9 @@ function MobileTokenSelectorModal({
             .map((item, index) => {
               const asset = assetsByDex?.[item.dexIndex]?.[item.index];
               const normalizedAssetId =
-                item.dexIndex === 1 && item.assetId !== undefined
-                  ? item.assetId - XYZ_ASSET_ID_OFFSET
-                  : item.assetId;
+                item.assetId === undefined
+                  ? undefined
+                  : toCtxIndex(item.assetId, item.dexIndex);
               const assetCtx =
                 normalizedAssetId !== undefined
                   ? dynamicSortAssetCtxsByDex?.[item.dexIndex]?.[
@@ -1072,6 +1083,7 @@ function MobileTokenSelectorModal({
     displayActiveTab,
     displayPrimaryTab,
     activeDynamicTabUserSort,
+    activeFavoritesTabUserSort,
     assetsByDex,
     categoryTabs,
     favoritesOrder.sequence,
@@ -1247,9 +1259,9 @@ function MobileTokenSelectorModal({
         const assetId = mockedToken.assetId;
         const dexIndex = mockedToken.dexIndex;
         const ctxIndex =
-          dexIndex === 1 && typeof assetId === 'number'
-            ? assetId - XYZ_ASSET_ID_OFFSET
-            : assetId;
+          typeof assetId === 'number'
+            ? toCtxIndex(assetId, dexIndex)
+            : undefined;
         const rawAssetCtx =
           typeof ctxIndex === 'number'
             ? assetCtxsByDex?.[dexIndex]?.[ctxIndex]
@@ -1426,7 +1438,7 @@ function MobileTokenSelectorModal({
                 platformEnv.isNativeIOS ? IOS_INITIAL_ROWS_SNAPSHOT_COUNT : 5
               }
               decelerationRate="normal"
-              showsVerticalScrollIndicator
+              showsVerticalScrollIndicator={false}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
               {...tokenSelectorScrollBehaviorProps}
               contentContainerStyle={{

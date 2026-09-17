@@ -32,6 +32,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
@@ -156,6 +157,17 @@ function BaseBulkSendReview({
       const tokenAddress = approveInfo.tokenInfo?.address ?? '';
       const tokenDecimals = approveInfo.tokenInfo?.decimals ?? 18;
       const tokenSymbol = approveInfo.tokenInfo?.symbol ?? '';
+
+      // Scaled-UI (rebase) tokens: the standalone editor re-encodes the
+      // string as raw units; fail-close editing (same policy as the
+      // signature-confirm editor). The pre-built approve amount stays as-is.
+      if (
+        tokenRebaseUtils.isScalingBalanceMultiplier(
+          approveInfo.tokenInfo?.balanceMultiplier,
+        )
+      ) {
+        return;
+      }
 
       showStandaloneApproveEditor({
         accountId,

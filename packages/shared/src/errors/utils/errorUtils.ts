@@ -34,6 +34,7 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
       name: e.name,
       constructorName: e.constructorName,
       className: e.className,
+      $isHardwareError: e.$isHardwareError,
       key: e.key,
       code: e.code,
       message: e.message,
@@ -53,6 +54,47 @@ export function toPlainErrorObject(error: unknown | IOneKeyError | undefined) {
     },
     isUndefined,
   );
+}
+
+type IOneKeyIdFailureServerLogData = Record<string, unknown> & {
+  $$oneKeyIdFailureServerLogged?: boolean;
+};
+
+function getOneKeyIdFailureServerLogData(
+  error: unknown,
+): IOneKeyIdFailureServerLogData | undefined {
+  if (!error || typeof error !== 'object') {
+    return undefined;
+  }
+  const data = (error as IOneKeyError).data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return undefined;
+  }
+  return data as IOneKeyIdFailureServerLogData;
+}
+
+export function markOneKeyIdFailureServerLogged(error: unknown): void {
+  if (!error || typeof error !== 'object') {
+    return;
+  }
+  try {
+    const oneKeyError = error as IOneKeyError;
+    const data = getOneKeyIdFailureServerLogData(error);
+    if (oneKeyError.data !== undefined && !data) {
+      return;
+    }
+    oneKeyError.data = {
+      ...data,
+      $$oneKeyIdFailureServerLogged: true,
+    };
+  } catch {
+    // Some third-party errors are frozen. Same-runtime callers keep a WeakSet fallback.
+  }
+}
+
+export function wasOneKeyIdFailureServerLogged(error: unknown): boolean {
+  const data = getOneKeyIdFailureServerLogData(error);
+  return data?.$$oneKeyIdFailureServerLogged === true;
 }
 
 // 生成 jsdoc 文档, 包含一个 example
@@ -227,8 +269,27 @@ function logCurrentCallStack(name?: string) {
   }
 }
 
+/**
+ * Detects an axios request cancellation, including cancel errors that crossed
+ * the main <-> background RPC boundary. Those are rebuilt as plain Errors on
+ * the receiving runtime, so `instanceof CanceledError` / `axios.isCancel`
+ * miss them; only the serialized `name` / `code` survive.
+ */
+export function isRequestCanceledError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const e = error as { name?: string; code?: string; __CANCEL__?: boolean };
+  return (
+    e.__CANCEL__ === true ||
+    e.name === 'CanceledError' ||
+    e.code === 'ERR_CANCELED'
+  );
+}
+
 const errorUtils = {
   autoPrintErrorIgnore,
+  isRequestCanceledError,
   normalizeErrorProps,
   safeConsoleLogError,
   toPlainErrorObject,

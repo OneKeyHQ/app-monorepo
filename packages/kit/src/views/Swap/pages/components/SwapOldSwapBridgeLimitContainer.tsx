@@ -61,6 +61,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   swapTypeSwitch: ESwapTabSwitchType;
+  routeSwapType?: ESwapTabSwitchType;
   alerts: {
     states: ISwapAlertState[];
     quoteId: string;
@@ -76,6 +77,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   headerContent?: ReactNode;
+  hideRecentTokenPairs?: boolean;
 }
 
 const DESKTOP_SWAP_TITLE_TRANSITION =
@@ -133,12 +135,14 @@ const SwapOldSwapBridgeLimitContainer = ({
   quoteLoading,
   quoteEventFetching,
   swapTypeSwitch,
+  routeSwapType,
   alerts,
   isWrapped,
   onSelectRecentTokenPairs,
   fromTokenAmountValue,
   swapRecentTokenPairs,
   headerContent,
+  hideRecentTokenPairs,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
@@ -260,12 +264,17 @@ const SwapOldSwapBridgeLimitContainer = ({
       alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
         <SwapAlertContainer alerts={alerts.states} />
       ) : null}
-      <SwapRecentTokenPairsGroup
-        onSelectTokenPairs={onSelectRecentTokenPairs}
-        tokenPairs={swapRecentTokenPairs}
-        fromTokenAmount={fromTokenAmountValue}
+      {hideRecentTokenPairs ? null : (
+        <SwapRecentTokenPairsGroup
+          onSelectTokenPairs={onSelectRecentTokenPairs}
+          tokenPairs={swapRecentTokenPairs}
+          fromTokenAmount={fromTokenAmountValue}
+        />
+      )}
+      <SwapPendingHistoryListComponent
+        pageType={pageType}
+        storeName={storeName}
       />
-      <SwapPendingHistoryListComponent pageType={pageType} />
     </YStack>
   );
 
@@ -292,9 +301,11 @@ const SwapOldSwapBridgeLimitContainer = ({
         <XStack alignItems="center" justifyContent="space-between">
           {swapTitleContent}
           <SwapHeaderRightActionContainer
+            storeName={storeName}
             pageType={pageType}
             iconSize="$5"
             iconColor="$iconStrong"
+            routeSwapType={routeSwapType}
           />
         </XStack>
         <LimitOrderOpenItem storeName={storeName} />
@@ -321,12 +332,17 @@ const SwapOldSwapBridgeLimitContainer = ({
         alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
           <SwapAlertContainer alerts={alerts.states} />
         ) : null}
-        <SwapRecentTokenPairsGroup
-          onSelectTokenPairs={onSelectRecentTokenPairs}
-          tokenPairs={swapRecentTokenPairs}
-          fromTokenAmount={fromTokenAmountValue}
+        {hideRecentTokenPairs ? null : (
+          <SwapRecentTokenPairsGroup
+            onSelectTokenPairs={onSelectRecentTokenPairs}
+            tokenPairs={swapRecentTokenPairs}
+            fromTokenAmount={fromTokenAmountValue}
+          />
+        )}
+        <SwapPendingHistoryListComponent
+          pageType={pageType}
+          storeName={storeName}
         />
-        <SwapPendingHistoryListComponent pageType={pageType} />
       </YStack>
     );
     return (
@@ -396,9 +412,11 @@ const SwapOldSwapBridgeLimitContainer = ({
             <XStack alignItems="center" justifyContent="space-between">
               {swapTitleContent}
               <SwapHeaderRightActionContainer
+                storeName={storeName}
                 pageType={pageType}
                 iconSize="$5"
                 iconColor="$iconStrong"
+                routeSwapType={routeSwapType}
               />
             </XStack>
             <LimitOrderOpenItem storeName={storeName} />
@@ -426,12 +444,17 @@ const SwapOldSwapBridgeLimitContainer = ({
             alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
               <SwapAlertContainer alerts={alerts.states} />
             ) : null}
-            <SwapRecentTokenPairsGroup
-              onSelectTokenPairs={onSelectRecentTokenPairs}
-              tokenPairs={swapRecentTokenPairs}
-              fromTokenAmount={fromTokenAmountValue}
+            {hideRecentTokenPairs ? null : (
+              <SwapRecentTokenPairsGroup
+                onSelectTokenPairs={onSelectRecentTokenPairs}
+                tokenPairs={swapRecentTokenPairs}
+                fromTokenAmount={fromTokenAmountValue}
+              />
+            )}
+            <SwapPendingHistoryListComponent
+              pageType={pageType}
+              storeName={storeName}
             />
-            <SwapPendingHistoryListComponent pageType={pageType} />
           </YStack>
         </YStack>
       </ScrollView>

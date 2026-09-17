@@ -3,6 +3,7 @@ import { Children, cloneElement, useCallback } from 'react';
 
 import type { IPropsWithTestId } from '@onekeyhq/components';
 import { ESwitchSize, SizableText, Switch, YStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useFirmwareUpdateDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -14,7 +15,7 @@ interface IFirmwareUpdateSectionFieldItem extends PropsWithChildren {
   name?: IFirmwareUpdateDevSettingsKeys;
   title: IListItemProps['title'];
   titleProps?: IListItemProps['titleProps'];
-  onValueChange?: (v: any) => void;
+  onValueChange?: (v: any) => Promise<void> | void;
 }
 
 function FirmwareUpdateSectionFieldItem({
@@ -32,7 +33,7 @@ function FirmwareUpdateSectionFieldItem({
     async (v: any) => {
       if (name) {
         setDevSetting((o) => ({ ...o, [name]: v }));
-        onValueChange?.(v);
+        await onValueChange?.(v);
       }
     },
     [name, onValueChange, setDevSetting],
@@ -53,6 +54,15 @@ function FirmwareUpdateSectionFieldItem({
 
 export function FirmwareUpdateDevSettings() {
   const [devSetting] = useFirmwareUpdateDevSettingsPersistAtom();
+  const handlePreReleaseConfigChange = useCallback(
+    async (usePreReleaseConfig: boolean) => {
+      await backgroundApiProxy.serviceDevSetting.updateFirmwareUpdateDevSettings(
+        { usePreReleaseConfig },
+      );
+      await backgroundApiProxy.serviceHardware.resetHardwareSDK();
+    },
+    [],
+  );
 
   return (
     <YStack>
@@ -95,6 +105,7 @@ export function FirmwareUpdateDevSettings() {
       <FirmwareUpdateSectionFieldItem
         name="usePreReleaseConfig"
         title="Use pre-release config"
+        onValueChange={handlePreReleaseConfigChange}
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>

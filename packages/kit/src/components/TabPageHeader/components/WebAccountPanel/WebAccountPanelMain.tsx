@@ -83,7 +83,8 @@ function PerpsSection({
   onRequestClose: () => void;
 }) {
   const intl = useIntl();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('webAccountPanel');
 
   // Prefer the live computed value — it's the exact source the header Trigger
   // pill renders, and it's correct for unified accounts (spot total). It's only

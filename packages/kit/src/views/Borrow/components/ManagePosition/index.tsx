@@ -109,11 +109,15 @@ export function ManagePosition(props: IManagePositionProps) {
   const submitBorrowAction = useCallback(async () => {
     if (!onConfirm) return;
 
-    await onConfirm({
+    const started = await onConfirm({
       amount: amountValue,
       withdrawAll: baseState.isWithdrawAll,
       repayAll: baseState.isRepayAll,
     });
+
+    if (started === false) {
+      return;
+    }
 
     setAmountValue('');
   }, [
@@ -126,8 +130,10 @@ export function ManagePosition(props: IManagePositionProps) {
 
   const approval = useBorrowApproval({
     action,
+    providerName,
     amountValue,
     repayAll: baseState.isRepayAll,
+    withdrawAll: baseState.isWithdrawAll,
     approveType,
     approveTarget,
     borrowDelegationApproveTarget,
@@ -136,7 +142,7 @@ export function ManagePosition(props: IManagePositionProps) {
   });
 
   const effectiveTokenSelectorTriggerProps = useMemo(() => {
-    if (!approval.approving) {
+    if (!approval.isFormInteractionLocked) {
       return tokenSelectorTriggerProps;
     }
     return {
@@ -145,7 +151,7 @@ export function ManagePosition(props: IManagePositionProps) {
       onPress: undefined,
       popover: undefined,
     };
-  }, [approval.approving, tokenSelectorTriggerProps]);
+  }, [approval.isFormInteractionLocked, tokenSelectorTriggerProps]);
 
   // Build complete state
   const state: IManagePositionState = useMemo(

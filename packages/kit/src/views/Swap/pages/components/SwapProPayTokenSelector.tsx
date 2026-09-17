@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useSwapActions,
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
@@ -52,6 +53,7 @@ const SwapProPayTokenSelector = ({
     useSwapProUseSelectBuyTokenAtom();
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
+  const { clearSwapTokenCarryIntent } = useSwapActions().current;
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
@@ -211,6 +213,7 @@ const SwapProPayTokenSelector = ({
             tokens={defaultTokensFromType as IToken[]}
             onTokenPress={handleTokenSelect}
             onTradePress={() => {
+              clearSwapTokenCarryIntent();
               setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
             }}
             disabledOnSwitchToTrade

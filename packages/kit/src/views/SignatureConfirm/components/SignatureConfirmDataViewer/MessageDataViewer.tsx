@@ -44,9 +44,23 @@ function MessageDataViewer(props: IProps) {
         return message;
       }
 
+      case EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE: {
+        // Version 1 carries the UTF-8 body verbatim, so it is already displayable.
+        // Version 0 keeps the shared path below.
+        if (payload?.version === 1) {
+          return message;
+        }
+        try {
+          const buffer = ethUtils.toBuffer(message);
+          return buffer.toString('utf8');
+        } catch (e) {
+          console.error('Failed to parse personal sign message: ', e);
+          return message;
+        }
+      }
+
       case EMessageTypesEth.PERSONAL_SIGN:
       case EMessageTypesCommon.SIGN_MESSAGE:
-      case EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE:
       case EMessageTypesTron.SIGN_MESSAGE_V2: {
         try {
           const buffer = ethUtils.toBuffer(message);

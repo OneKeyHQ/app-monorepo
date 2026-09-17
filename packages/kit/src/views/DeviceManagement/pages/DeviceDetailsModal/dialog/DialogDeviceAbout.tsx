@@ -18,6 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 const VERSION_PLACEHOLDER = '--';
@@ -91,7 +92,13 @@ function SpecItem({ title, value, hasCopy }: ISpecItemProps) {
   );
 }
 
-function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
+function DialogDeviceSpecsContent({
+  data,
+  state: resolvedState,
+}: {
+  data: IHwQrWalletWithDevice;
+  state?: IOneKeyDeviceState;
+}) {
   const intl = useIntl();
   const { device } = data;
   const defaultDeviceInfo = useMemo(
@@ -108,72 +115,104 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
   );
   const { result: deviceInfo } = usePromiseResult(
     async () => {
-      if (!device || !device.featuresInfo) {
+      if (!device) {
         return defaultDeviceInfo;
       }
 
-      const profile = getVendorProfile(device.vendor ?? EHardwareVendor.onekey);
-      const versions = profile.isThirdParty
-        ? thirdPartyDeviceUtils.getDeviceVersion({
-            device,
-            features: device.featuresInfo,
-          })
-        : await deviceUtils.getDeviceVersion({
-            device,
-            features: device.featuresInfo,
-          });
+      const vendorProfile = getVendorProfile(
+        device.vendor ?? EHardwareVendor.onekey,
+      );
+      const state = vendorProfile.isThirdParty
+        ? undefined
+        : (resolvedState ?? device.deviceStateInfo);
+
+      let versions;
+      if (vendorProfile.isThirdParty) {
+        versions = thirdPartyDeviceUtils.getDeviceVersion({
+          device,
+          features: device.featuresInfo ?? ({} as never),
+        });
+      } else if (state) {
+        versions = deviceUtils.getDeviceVersionsFromState({ state });
+      } else {
+        versions = await deviceUtils.getDeviceVersion({
+          device,
+          features: device.featuresInfo,
+        });
+      }
 
       const features = device.featuresInfo as typeof device.featuresInfo & {
         internal_model?: string;
         model?: string;
       };
-      const model = profile.isThirdParty
-        ? thirdPartyDeviceUtils.getDeviceModelName({
-            device,
-            features,
-            defaultDeviceName: profile.defaultDeviceName,
-          })
-        : await deviceUtils.buildDeviceLabel({
-            features: device.featuresInfo,
-            buildModelName: true,
-          });
+      let model: string | undefined;
+      if (vendorProfile.isThirdParty && device.featuresInfo) {
+        model = thirdPartyDeviceUtils.getDeviceModelName({
+          device,
+          features,
+          defaultDeviceName: vendorProfile.defaultDeviceName,
+        });
+      } else if (state) {
+        model = deviceUtils.getDefaultDeviceLabel(state.identity.deviceType);
+      } else if (device.featuresInfo) {
+        model = await deviceUtils.buildDeviceLabel({
+          features: device.featuresInfo,
+          buildModelName: true,
+        });
+      }
 
-      const firmwareTypeLabel = profile.isThirdParty
-        ? deviceUtils.getFirmwareTypeLabelByFirmwareType({
-            firmwareType: thirdPartyDeviceUtils.getFirmwareType({
-              features: device?.featuresInfo,
-            }),
-            displayFormat: 'withSpace',
-          })
-        : await deviceUtils.getFirmwareTypeLabel({
+      let firmwareTypeLabel;
+      if (vendorProfile.isThirdParty) {
+        firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+          firmwareType: thirdPartyDeviceUtils.getFirmwareType({
             features: device?.featuresInfo,
-            displayFormat: 'withSpace',
-          });
+          }),
+          displayFormat: 'withSpace',
+        });
+      } else if (state) {
+        firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+          firmwareType: state.identity.firmwareType,
+          displayFormat: 'withSpace',
+        });
+      } else {
+        firmwareTypeLabel = await deviceUtils.getFirmwareTypeLabel({
+          features: device?.featuresInfo,
+          displayFormat: 'withSpace',
+        });
+      }
       const firmwareVersion = `${firmwareTypeLabel}${getDisplayVersion(
         versions?.firmwareVersion,
       )}`;
+      const deviceType = state?.identity.deviceType ?? device.deviceType;
 
       return {
         model: model ?? VERSION_PLACEHOLDER,
-        bleName: device.featuresInfo.ble_name ?? VERSION_PLACEHOLDER,
+        bleName:
+          state?.identity.bleName ??
+          deviceUtils.buildDeviceBleName({
+            features: device.featuresInfo,
+          }) ??
+          VERSION_PLACEHOLDER,
         bleVersion: getDisplayVersion(versions?.bleVersion),
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
         firmwareVersion,
         serialNumber:
-          (profile.isThirdParty
+          (vendorProfile.isThirdParty && device.featuresInfo
             ? thirdPartyDeviceUtils.getSerialNo(device.featuresInfo)
-            : deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo)) ??
+            : state?.identity.serialNo ||
+              deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo)) ??
           VERSION_PLACEHOLDER,
         certifications: [
           EDeviceType.Pro,
+          EDeviceType.Pro2,
           EDeviceType.Classic1s,
           EDeviceType.ClassicPure,
-        ].includes(device.deviceType)
+        ].includes(deviceType)
           ? 'EAL 6+'
           : null,
       };
     },
-    [device, defaultDeviceInfo],
+    [device, defaultDeviceInfo, resolvedState],
     {
       initResult: defaultDeviceInfo,
     },
@@ -234,14 +273,14 @@ export function useDialogDeviceAbout() {
   const intl = useIntl();
 
   const show = useCallback(
-    (data: IHwQrWalletWithDevice) => {
+    (data: IHwQrWalletWithDevice, state?: IOneKeyDeviceState) => {
       Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.global_about_device,
         }),
         icon: 'InfoCircleOutline',
         showFooter: false,
-        renderContent: <DialogDeviceSpecsContent data={data} />,
+        renderContent: <DialogDeviceSpecsContent data={data} state={state} />,
       });
     },
     [intl],

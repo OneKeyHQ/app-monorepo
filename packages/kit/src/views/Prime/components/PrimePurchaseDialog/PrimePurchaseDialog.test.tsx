@@ -16,6 +16,7 @@ type IPrimeInfiniPaymentEntryGuard = {
   isLoggedIn: boolean;
   hasPendingPayment: boolean;
   onekeyUserId: string | undefined;
+  pendingSubscriptionPeriod?: 'P1M' | 'P1Y';
 };
 
 type IMockDialogConfig = {
@@ -236,6 +237,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       isLoggedIn: true,
       hasPendingPayment: true,
       onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
     });
     const onPurchase = jest.fn(async () => undefined);
     const { result } = renderHook(() =>
@@ -250,8 +252,9 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
 
     expect(onPurchase).toHaveBeenCalledTimes(1);
     expect(mockPurchaseByCrypto).toHaveBeenCalledWith({
-      selectedSubscriptionPeriod: 'P1Y',
+      selectedSubscriptionPeriod: 'P1M',
       featureName: undefined,
+      createNewPayment: false,
     });
     expect(mockDialogShow).not.toHaveBeenCalled();
   });
@@ -484,6 +487,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     expect(mockPurchaseByCrypto).toHaveBeenCalledWith({
       selectedSubscriptionPeriod: 'P1Y',
       featureName: undefined,
+      createNewPayment: false,
     });
     expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
   });

@@ -297,6 +297,12 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         return purchase;
       } catch (error) {
         console.error('purchasePaywallPackage ERROR', error);
+        primePaymentUtils.trackPrimeSubscriptionFailed({
+          error,
+          paymentMethod: 'stripe',
+          subscriptionPeriod,
+          featureName,
+        });
         // TODO alert error
         // errorToastUtils.toastIfError(error);
         throw error;

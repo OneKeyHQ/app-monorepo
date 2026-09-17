@@ -16,11 +16,24 @@ export type IWsOpenOrders = HL.OpenOrdersWsEvent;
 export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 export type IWsBbo = HL.BboWsEvent;
+export type IWsTrades = HL.TradesWsEvent;
 export type IWsTwapStates = HL.TwapStatesWsEvent;
 export type IWsUserTwapHistory = HL.UserTwapHistoryWsEvent;
 export type IWsUserTwapSliceFills = HL.UserTwapSliceFillsWsEvent;
 export type ITwapState = IWsTwapStates['states'][number][1];
-export type ITwapHistoryRecord = HL.TwapHistoryResponse[number];
+// The SDK status union lags the live API: trigger TWAPs report
+// `waitingForTrigger` / `stopped`, and Hyperliquid keeps adding values. Widen it
+// here so exhaustive maps fail to compile instead of throwing at render time.
+type ITwapHistoryRecordRaw = HL.TwapHistoryResponse[number];
+export type ITwapHistoryStatusValue =
+  | ITwapHistoryRecordRaw['status']['status']
+  | 'waitingForTrigger'
+  | 'stopped';
+export type ITwapHistoryRecord = Omit<ITwapHistoryRecordRaw, 'status'> & {
+  status:
+    | { status: Exclude<ITwapHistoryStatusValue, 'error'> }
+    | { status: 'error'; description: string };
+};
 export type ITwapSliceFill = HL.UserTwapSliceFillsResponse[number];
 
 // Spot WebSocket event types
@@ -90,6 +103,7 @@ export type IMarginTable = HL.MarginTableResponse;
 export type IMarginTableMap = Partial<Record<number, IMarginTable>>;
 export type IMetaAndAssetCtxsResponse = HL.MetaAndAssetCtxsResponse;
 export type IFundingHistoryRecord = HL.FundingHistoryResponse[number];
+export type IUserFunding = HL.UserFundingResponse[number];
 export type IRecentTrade = HL.RecentTradesResponse[number];
 export type IPerpAnnotation = HL.PerpAnnotationResponse;
 export type IPerpsAtOpenInterestCapResponse = HL.PerpsAtOpenInterestCapResponse;
@@ -187,6 +201,7 @@ export type IEventFastL2Parameters = {
   m?: IEventL2BookParameters['mantissa'];
 };
 export type IEventBboParameters = HL.BboWsParameters;
+export type IEventTradesParameters = HL.TradesWsParameters;
 export type IEventWebData2Parameters = HL.WebData2WsParameters;
 export type IEventUserFillsParameters = HL.UserFillsWsParameters;
 export type IEventUserNonFundingLedgerUpdatesParameters =
@@ -213,6 +228,7 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
   [ESubscriptionType.L2]: IEventFastL2Parameters;
   [ESubscriptionType.BBO]: IEventBboParameters;
+  [ESubscriptionType.TRADES]: IEventTradesParameters;
   [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
   [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: IEventUserNonFundingLedgerUpdatesParameters;
 

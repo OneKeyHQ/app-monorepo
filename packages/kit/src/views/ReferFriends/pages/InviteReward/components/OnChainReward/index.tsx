@@ -29,9 +29,8 @@ export function OnChainReward({ onChain }: IOnChainRewardProps) {
     <Card.Container flex={1}>
       <Card.Title
         icon="CoinsOutline"
-        title="DeFi"
-        description={intl.formatMessage({
-          id: ETranslations.referral_onchain_desc,
+        title={intl.formatMessage({
+          id: ETranslations.referral_referred_type_2,
         })}
         showChevron
         onPress={toEarnRewardPage}

@@ -24,7 +24,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { SubtitleText } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+  SubtitleText,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   type ISpotAssetCtxEntry,
   spotAssetCtxsMapAtom,
@@ -49,6 +53,7 @@ import {
   formatSpotPairDisplayName,
   formatSpotPriceToValid,
   formatWithPrecision,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
@@ -58,6 +63,7 @@ import {
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
+import { PerpTestIDs } from '../../testIDs';
 
 interface IPerpTokenSelectorRowProps {
   mockedToken: {
@@ -356,7 +362,8 @@ const TokenInfoCellDesktop = memo(() => {
           width={useFlexibleLayout ? undefined : 180}
           flex={useFlexibleLayout ? columnLayout.asset.flex : undefined}
           flexBasis={useFlexibleLayout ? 0 : undefined}
-          minWidth={useFlexibleLayout ? columnLayout.asset.minWidth : 180}
+          minWidth={0}
+          flexShrink={1}
           justifyContent="flex-start"
           gap="$1.5"
           alignItems="center"
@@ -373,9 +380,13 @@ const TokenInfoCellDesktop = memo(() => {
             <Token
               size="sm"
               borderRadius="$full"
-              tokenImageUri={getHyperliquidTokenImageUrl(
-                isSpot ? token.name : token.displayName,
-              )}
+              {...(isSpot
+                ? {
+                    tokenImageUri: getHyperliquidTokenImageUrl(token.name),
+                  }
+                : {
+                    tokenImageUris: getHyperliquidTokenImageUris(token.name),
+                  })}
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack flex={1} minWidth={0}>
@@ -396,22 +407,13 @@ const TokenInfoCellDesktop = memo(() => {
                   />
                 ) : null}
                 {!isSpot && token.maxLeverage > 0 ? (
-                  <XStack
-                    borderRadius="$1"
-                    bg="$bgStrong"
-                    justifyContent="center"
-                    alignItems="center"
-                    px="$1.5"
-                  >
-                    <SizableText
-                      fontSize={10}
-                      alignSelf="center"
-                      color="$textSubdued"
-                      lineHeight={16}
-                    >
-                      {token.maxLeverage}x
-                    </SizableText>
-                  </XStack>
+                  <LeverageBadge leverage={token.maxLeverage} />
+                ) : null}
+                {!isSpot ? (
+                  <PerpDexBadge
+                    dexLabel={token.dexLabel}
+                    testID={PerpTestIDs.TokenSelectorDexBadge(token.name)}
+                  />
                 ) : null}
               </XStack>
               {token.subtitle ? (
@@ -425,13 +427,13 @@ const TokenInfoCellDesktop = memo(() => {
     [
       token.displayName,
       token.subtitle,
+      token.dexLabel,
       token.maxLeverage,
       token.name,
       isSpot,
       pairCoin,
       useFlexibleLayout,
       columnLayout.asset.flex,
-      columnLayout.asset.minWidth,
     ],
   );
   return content;
@@ -456,7 +458,8 @@ const TokenPriceCellDesktop = memo(() => {
           width={useFlexibleLayout ? undefined : 110}
           flex={useFlexibleLayout ? columnLayout.price.flex : undefined}
           flexBasis={useFlexibleLayout ? 0 : undefined}
-          minWidth={useFlexibleLayout ? columnLayout.price.minWidth : 110}
+          minWidth={0}
+          flexShrink={1}
           justifyContent="flex-start"
           alignItems="center"
         >
@@ -489,7 +492,6 @@ const TokenPriceCellDesktop = memo(() => {
       isSpot,
       useFlexibleLayout,
       columnLayout.price.flex,
-      columnLayout.price.minWidth,
     ],
   );
   return content;
@@ -514,7 +516,8 @@ const Token24hChangeCellDesktop = memo(() => {
           width={useFlexibleLayout ? undefined : 150}
           flex={useFlexibleLayout ? columnLayout.change24h.flex : undefined}
           flexBasis={useFlexibleLayout ? 0 : undefined}
-          minWidth={useFlexibleLayout ? columnLayout.change24h.minWidth : 150}
+          minWidth={0}
+          flexShrink={1}
           justifyContent="flex-start"
           alignItems="center"
         >
@@ -552,7 +555,6 @@ const Token24hChangeCellDesktop = memo(() => {
       isLoading,
       useFlexibleLayout,
       columnLayout.change24h.flex,
-      columnLayout.change24h.minWidth,
     ],
   );
   return content;
@@ -579,11 +581,8 @@ const TokenFundingCellDesktop = memo(() => {
             useFlexibleLayout ? mixedColumnLayout.fundingRate.flex : undefined
           }
           flexBasis={useFlexibleLayout ? 0 : undefined}
-          minWidth={
-            useFlexibleLayout
-              ? mixedColumnLayout.fundingRate.minWidth
-              : undefined
-          }
+          minWidth={0}
+          flexShrink={1}
           justifyContent="flex-start"
           alignItems="center"
         >
@@ -611,7 +610,6 @@ const TokenFundingCellDesktop = memo(() => {
       isSpot,
       useFlexibleLayout,
       mixedColumnLayout.fundingRate.flex,
-      mixedColumnLayout.fundingRate.minWidth,
     ],
   );
   return content;
@@ -636,7 +634,8 @@ const TokenVolumeCellDesktop = memo(() => {
           width={useFlexibleLayout ? undefined : 110}
           flex={useFlexibleLayout ? columnLayout.volume.flex : undefined}
           flexBasis={useFlexibleLayout ? 0 : undefined}
-          minWidth={useFlexibleLayout ? columnLayout.volume.minWidth : 110}
+          minWidth={0}
+          flexShrink={1}
           justifyContent="flex-start"
           alignItems="center"
         >
@@ -660,7 +659,6 @@ const TokenVolumeCellDesktop = memo(() => {
       isLoading,
       useFlexibleLayout,
       columnLayout.volume.flex,
-      columnLayout.volume.minWidth,
     ],
   );
   return content;
@@ -680,7 +678,8 @@ const TokenMarketCapCellDesktop = memo(() => {
         width={useFlexibleLayout ? undefined : 120}
         flex={useFlexibleLayout ? columnLayout.marketCap.flex : undefined}
         flexBasis={useFlexibleLayout ? 0 : undefined}
-        minWidth={useFlexibleLayout ? columnLayout.marketCap.minWidth : 120}
+        minWidth={0}
+        flexShrink={1}
         justifyContent="flex-start"
         alignItems="center"
       >
@@ -705,7 +704,6 @@ const TokenMarketCapCellDesktop = memo(() => {
       isSpot,
       useFlexibleLayout,
       columnLayout.marketCap.flex,
-      columnLayout.marketCap.minWidth,
     ],
   );
   return content;
@@ -741,11 +739,8 @@ const TokenOpenInterestCellDesktop = memo(() => {
             useFlexibleLayout ? mixedColumnLayout.openInterest.flex : undefined
           }
           flexBasis={useFlexibleLayout ? 0 : undefined}
-          minWidth={
-            useFlexibleLayout
-              ? mixedColumnLayout.openInterest.minWidth
-              : undefined
-          }
+          minWidth={0}
+          flexShrink={1}
           justifyContent="flex-start"
           alignItems="center"
         >
@@ -771,7 +766,6 @@ const TokenOpenInterestCellDesktop = memo(() => {
       isSpot,
       useFlexibleLayout,
       mixedColumnLayout.openInterest.flex,
-      mixedColumnLayout.openInterest.minWidth,
     ],
   );
   return content;
@@ -780,7 +774,8 @@ const TokenOpenInterestCellDesktop = memo(() => {
 TokenOpenInterestCellDesktop.displayName = 'TokenOpenInterestCellDesktop';
 
 const TokenSelectorRowDesktop = memo(() => {
-  const { onPress, isSpot, desktopLayout } = useTokenSelectorRowContext();
+  const { onPress, isSpot, desktopLayout, token } =
+    useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -791,6 +786,7 @@ const TokenSelectorRowDesktop = memo(() => {
       >
         <XStack
           onPress={onPress}
+          testID={PerpTestIDs.TokenSelectorRow(token.name)}
           borderRadius="$0"
           justifyContent="flex-start"
           width="100%"
@@ -828,7 +824,7 @@ const TokenSelectorRowDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [onPress, isSpot, desktopLayout],
+    [onPress, isSpot, desktopLayout, token.name],
   );
   return content;
 });
@@ -855,15 +851,19 @@ const TokenImageMobile = memo(() => {
           <Token
             size="lg"
             borderRadius="$full"
-            tokenImageUri={getHyperliquidTokenImageUrl(
-              isSpot ? token.name : token.displayName,
-            )}
+            {...(isSpot
+              ? {
+                  tokenImageUri: getHyperliquidTokenImageUrl(token.name),
+                }
+              : {
+                  tokenImageUris: getHyperliquidTokenImageUris(token.name),
+                })}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.name, isSpot, pairCoin],
+    [token.name, isSpot, pairCoin],
   );
   return content;
 });
@@ -889,29 +889,20 @@ const TokenNameMobile = memo(() => {
                 <TradingModeBadge isSpot px="$1.5" bg="$bgStrong" />
               ) : null}
               {!isSpot && token.maxLeverage > 0 ? (
-                <XStack
-                  borderRadius="$1"
-                  bg="$bgStrong"
-                  justifyContent="center"
-                  alignItems="center"
-                  px="$1.5"
-                >
-                  <SizableText
-                    fontSize={10}
-                    alignSelf="center"
-                    color="$textSubdued"
-                    lineHeight={16}
-                  >
-                    {token.maxLeverage}x
-                  </SizableText>
-                </XStack>
+                <LeverageBadge leverage={token.maxLeverage} />
+              ) : null}
+              {!isSpot ? (
+                <PerpDexBadge
+                  dexLabel={token.dexLabel}
+                  testID={PerpTestIDs.TokenSelectorDexBadge(token.name)}
+                />
               ) : null}
             </XStack>
           </XStack>
         </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, isSpot],
+    [token.dexLabel, token.displayName, token.maxLeverage, token.name, isSpot],
   );
   return content;
 });
@@ -1030,7 +1021,7 @@ const Token24hChangeMobile = memo(() => {
 Token24hChangeMobile.displayName = 'Token24hChangeMobile';
 
 const TokenSelectorRowMobile = memo(() => {
-  const { onPress } = useTokenSelectorRowContext();
+  const { onPress, token } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -1046,6 +1037,7 @@ const TokenSelectorRowMobile = memo(() => {
           justifyContent="space-between"
           alignItems="center"
           onPress={onPress}
+          testID={PerpTestIDs.TokenSelectorRow(token.name)}
           pressStyle={{
             bg: '$bgHover',
           }}
@@ -1067,7 +1059,7 @@ const TokenSelectorRowMobile = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [onPress],
+    [onPress, token.name],
   );
   return content;
 });

@@ -279,12 +279,9 @@ export function buildSwapReviewState({
     accountId,
     needApprove,
   });
-  const needFetchGas =
-    needApprove &&
-    !(
-      batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
-      batchTransferType === ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
-    );
+  const isBatchApproveAndSwap =
+    batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
+  const needFetchGas = needApprove && !isBatchApproveAndSwap;
   const reviewRateDifference =
     rateDifference ??
     buildSwapRateDifference({
@@ -324,12 +321,7 @@ export function buildSwapReviewState({
     }
 
     steps = [...steps, createSignStep(texts)];
-  } else if (
-    (batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
-      batchTransferType ===
-        ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP) &&
-    quoteResult?.allowanceResult
-  ) {
+  } else if (isBatchApproveAndSwap && quoteResult?.allowanceResult) {
     steps = [
       createBatchApproveSwapStep({
         texts,

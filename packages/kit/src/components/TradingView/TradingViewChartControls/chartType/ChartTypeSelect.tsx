@@ -56,7 +56,7 @@ export function ChartTypeSelect({
           onChartTypeChange(chartType);
         }
       }}
-      placement="bottom-end"
+      placement="bottom-start"
       floatingPanelProps={{
         width: '$56',
       }}

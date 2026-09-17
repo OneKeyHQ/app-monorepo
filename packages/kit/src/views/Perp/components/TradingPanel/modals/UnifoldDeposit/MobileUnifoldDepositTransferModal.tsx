@@ -181,6 +181,10 @@ export default function MobileUnifoldDepositTransferModal() {
             ref={transferContentRef}
             expectedRecipient={expectedRecipient}
             onOpenTracker={openTracker}
+            analyticsEntrySource={route.params?.analyticsEntrySource}
+            trackDefaultSourceSelection={
+              !route.params?.openSourceSelectorOnReady
+            }
             sourceSelectorResult={route.params?.sourceSelectorResult}
             onSourceSelectorResultHandled={clearSourceSelectorResult}
             onSourceSelectorReady={prepareInitialSourceSelector}

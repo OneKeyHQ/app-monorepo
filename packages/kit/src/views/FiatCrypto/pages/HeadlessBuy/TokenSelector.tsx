@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import { Page } from '@onekeyhq/components';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   EModalFiatCryptoRoutes,
@@ -10,10 +11,10 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
 
-import { NetworkContainer } from '../../components/NetworkContainer';
 import { TokenDataContainer } from '../../components/TokenDataContainer';
 import { TokenList } from '../../components/TokenList';
-import { useGetTokensList } from '../../hooks';
+import { TokenListMetaContainer } from '../../components/TokenListMeta';
+import { useGetTokensListWithNetworks } from '../../hooks';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -31,22 +32,21 @@ function HeadlessBuyTokenSelectorPage() {
   const { networkId, accountId, onSelected } = route.params;
   const navigation = useAppNavigation();
 
-  const { result: tokens, isLoading } = useGetTokensList({
+  const {
+    result: { tokens, networksMap, mergeDeriveAssetsNetworkIds },
+    isLoading,
+  } = useGetTokensListWithNetworks({
     networkId,
     accountId,
     type: 'buy',
   });
+  const { account } = useAccountData({ networkId, accountId });
 
   // Same eligibility as tryOpenHeadlessBuy's gate: a token missing the
   // server-delivered network slug can never quote, so it must not be offered.
   const items = useMemo(
     () => tokens.filter((o) => o.headlessSupported && o.onramperNetworkCode),
     [tokens],
-  );
-
-  const networkIds = useMemo(
-    () => Array.from(new Set(items.map((o) => o.networkId))),
-    [items],
   );
 
   const handlePress = useCallback(
@@ -73,14 +73,18 @@ function HeadlessBuyTokenSelectorPage() {
           initialTokens={[]}
           initialMap={{}}
         >
-          <NetworkContainer networkIds={networkIds}>
+          <TokenListMetaContainer
+            networksMap={networksMap}
+            mergeDeriveAssetsNetworkIds={mergeDeriveAssetsNetworkIds}
+            account={account}
+          >
             <TokenList
               items={items}
               type="buy"
               isLoading={isLoading}
               onPress={handlePress}
             />
-          </NetworkContainer>
+          </TokenListMetaContainer>
         </TokenDataContainer>
       </Page.Body>
     </Page>

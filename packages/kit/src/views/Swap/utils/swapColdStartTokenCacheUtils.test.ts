@@ -15,12 +15,15 @@ import {
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
+  getSwapSelectedTokensHomeAccountSyncAction,
   getSwapTokenSupportTypes,
   isSwapSelectedTokensColdStartContextMatched,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   isSwapTokenSupportedBySwapType,
+  resolveSwapTokenNetworkLogoURI,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
+  shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
   shouldHandleSwapColdStartHomeAccountUpdate,
   shouldMarkSwapInitialSelectedTokensSynced,
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
@@ -103,6 +106,29 @@ function buildSwapNetwork({
 }
 
 describe('swap cold-start selected token context', () => {
+  it('resolves each token network logo from its own network identity', () => {
+    const swapNetworks = [
+      {
+        networkId: 'evm--1',
+        logoURI: 'https://example.com/eth.png',
+      },
+      {
+        networkId: 'evm--56',
+        logoURI: 'https://example.com/bsc.png',
+      },
+    ] as ISwapNetwork[];
+
+    expect(
+      resolveSwapTokenNetworkLogoURI({
+        swapNetworks,
+        token: {
+          networkId: 'evm--56',
+          networkLogoURI: 'https://example.com/eth.png',
+        } as ISwapToken,
+      }),
+    ).toBe('https://example.com/bsc.png');
+  });
+
   it('preserves swap user input when selected tokens and from amount are present', () => {
     expect(
       shouldPreserveSwapUserInputOnAccountSwitch({
@@ -565,6 +591,38 @@ describe('swap cold-start selected token context', () => {
       context: expect.objectContaining({
         accountKey: 'wallet-1|indexed-account-1|default',
         networkId: 'btc--0',
+        swapType: ESwapTabSwitchType.BRIDGE,
+        updatedAt: 1,
+      }),
+      swapType: ESwapTabSwitchType.BRIDGE,
+    });
+  });
+
+  it('preselects the Arc ERC-20 USDC to Ethereum ETH pair on bridge', () => {
+    const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: buildSelectedAccount({
+        networkId: 'evm--5042',
+      }),
+      now: 1,
+    });
+
+    expect(defaultTokens).toEqual({
+      fromToken: expect.objectContaining({
+        contractAddress: '0x3600000000000000000000000000000000000000',
+        decimals: 6,
+        isNative: false,
+        networkId: 'evm--5042',
+        symbol: 'USDC',
+      }),
+      toToken: expect.objectContaining({
+        contractAddress: '',
+        isNative: true,
+        networkId: 'evm--1',
+        symbol: 'ETH',
+      }),
+      context: expect.objectContaining({
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'evm--5042',
         swapType: ESwapTabSwitchType.BRIDGE,
         updatedAt: 1,
       }),
@@ -1533,6 +1591,82 @@ describe('swap cold-start selected token context', () => {
         initialSelectedTokensSynced: true,
       }),
     ).toBe(false);
+  });
+
+  it('defers shared Swap token sync while Native Pro owns the token UI', () => {
+    expect(
+      shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+        isNative: true,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+        isNative: false,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+        isNative: true,
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    ).toBe(false);
+  });
+
+  it('changes the owner dependency only when Native Pro returns to Swap', () => {
+    expect(
+      [ESwapTabSwitchType.LIMIT, ESwapTabSwitchType.SWAP].map((swapType) =>
+        shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+          isNative: true,
+          swapType,
+        }),
+      ),
+    ).toEqual([true, false]);
+
+    expect(
+      [ESwapTabSwitchType.LIMIT, ESwapTabSwitchType.SWAP].map((swapType) =>
+        shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+          isNative: false,
+          swapType,
+        }),
+      ),
+    ).toEqual([false, false]);
+  });
+
+  it('preserves parked Swap tokens while Native Pro owns token state', () => {
+    const homeSelectedAccount = buildSelectedAccount({
+      indexedAccountId: 'indexed-account-2',
+      networkId: 'sol--101',
+    });
+    const swapSelectedAccount = buildSelectedAccount({
+      indexedAccountId: 'indexed-account-1',
+      networkId: 'evm--1',
+    });
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        homeSelectedAccount,
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        cachedContext: undefined,
+        deferSelectedTokenSync: true,
+        hasSelectedTokens: true,
+        homeSelectedAccount,
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toEqual({ type: 'preserve' });
   });
 
   it('builds one-shot consumption keys only for swap init handoff params', () => {

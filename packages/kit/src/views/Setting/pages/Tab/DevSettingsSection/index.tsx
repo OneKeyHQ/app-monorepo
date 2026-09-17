@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
@@ -14,6 +15,7 @@ import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,
+  Button,
   Checkbox,
   Dialog,
   ESwitchSize,
@@ -59,6 +61,7 @@ import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
+  TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -109,6 +112,11 @@ import {
   SearchFilterItem,
   matchesDevSearchQuery,
 } from './DevSettingsSearchContext';
+import {
+  addDevSettingsSearchHistoryItem,
+  parseDevSettingsSearchHistory,
+  removeDevSettingsSearchHistoryItem,
+} from './devSettingsSearchHistoryUtils';
 import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
@@ -120,6 +128,7 @@ import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
+import { SectionLoggerParityItem } from './SectionLoggerParityItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -212,7 +221,7 @@ const DevSettingsAccordionTrigger = ({
             />
           ) : null}
           <View
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={open ? '0deg' : '-90deg'}
           >
@@ -223,6 +232,59 @@ const DevSettingsAccordionTrigger = ({
     )}
   </Accordion.Trigger>
 );
+
+function DevSettingsSavedSearchItem({
+  searchText,
+  removeLabel,
+  onSelect,
+  onRemove,
+}: {
+  searchText: string;
+  removeLabel: string;
+  onSelect: (value: string) => void;
+  onRemove: (value: string) => void;
+}) {
+  const handleSelect = useCallback(() => {
+    onSelect(searchText);
+  }, [onSelect, searchText]);
+  const handleRemove = useCallback(() => {
+    onRemove(searchText);
+  }, [onRemove, searchText]);
+
+  return (
+    <XStack
+      maxWidth="100%"
+      minWidth={0}
+      alignItems="center"
+      borderRadius="$2"
+      bg="$bgStrong"
+      overflow="hidden"
+    >
+      <Button
+        size="small"
+        variant="tertiary"
+        icon="ClockTimeHistoryOutline"
+        borderRadius="$0"
+        minWidth={0}
+        flexShrink={1}
+        textEllipsis
+        onPress={handleSelect}
+      >
+        {searchText}
+      </Button>
+      <IconButton
+        icon="CrossedSmallOutline"
+        iconSize="$4"
+        size="small"
+        variant="tertiary"
+        m="$0"
+        mr="$1"
+        title={removeLabel}
+        onPress={handleRemove}
+      />
+    </XStack>
+  );
+}
 
 function getSearchableString(value: unknown) {
   return typeof value === 'string' ? value : undefined;
@@ -687,7 +749,7 @@ const BaseDevSettingsSection = () => {
   const inPageDialog = useInPageDialog();
 
   // ---------------------------------------------------------------------------
-  // Search & Pin (MMKV sync read/write for instant restore)
+  // Search, pin, and history (MMKV sync read/write for instant restore)
   // ---------------------------------------------------------------------------
   const PINNED_STORAGE_KEY = 'onekey_dev_settings_pinned_sections';
 
@@ -710,13 +772,62 @@ const BaseDevSettingsSection = () => {
       const next = prev.includes(sectionKey)
         ? prev.filter((k) => k !== sectionKey)
         : [...prev, sectionKey];
-      appStorage.syncStorage.set(
+      void appStorage.syncStorage.set(
         PINNED_STORAGE_KEY as any,
         JSON.stringify(next),
       );
       return next;
     });
   }, []);
+
+  const [devSettingsSearchHistory, setDevSettingsSearchHistory] = useState<
+    string[]
+  >(() => {
+    try {
+      return parseDevSettingsSearchHistory(
+        appStorage.syncStorage.getString(
+          EAppSyncStorageKeys.onekey_dev_settings_search_history,
+        ),
+      );
+    } catch {
+      return [];
+    }
+  });
+  const devSettingsSearchHistoryRef = useRef(devSettingsSearchHistory);
+  const persistDevSettingsSearchHistory = useCallback((next: string[]) => {
+    devSettingsSearchHistoryRef.current = next;
+    void appStorage.syncStorage.set(
+      EAppSyncStorageKeys.onekey_dev_settings_search_history,
+      JSON.stringify(next),
+    );
+    setDevSettingsSearchHistory(next);
+  }, []);
+  const handleSaveSearch = useCallback(() => {
+    const nextSearchText = searchText.trim();
+    if (!nextSearchText) {
+      return;
+    }
+    persistDevSettingsSearchHistory(
+      addDevSettingsSearchHistoryItem(
+        devSettingsSearchHistoryRef.current,
+        nextSearchText,
+      ),
+    );
+  }, [persistDevSettingsSearchHistory, searchText]);
+  const handleSelectSavedSearch = useCallback((value: string) => {
+    setSearchText(value);
+  }, []);
+  const handleRemoveSavedSearch = useCallback(
+    (value: string) => {
+      persistDevSettingsSearchHistory(
+        removeDevSettingsSearchHistoryItem(
+          devSettingsSearchHistoryRef.current,
+          value,
+        ),
+      );
+    },
+    [persistDevSettingsSearchHistory],
+  );
 
   const sectionMeta: {
     key: string;
@@ -730,14 +841,14 @@ const BaseDevSettingsSection = () => {
         title: 'Basic Info',
         description: '基本信息',
         keywords:
-          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path',
+          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path Persist all logs 日志落盘',
       },
       {
         key: 'devtools',
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -772,7 +883,7 @@ const BaseDevSettingsSection = () => {
         title: 'Webview & WebEmbed & TrandingView',
         description: 'Webview WebEmbed TrandingView',
         keywords:
-          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL',
+          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL TradingViewNative 事件日志 event log',
       },
       {
         key: 'galleries',
@@ -786,7 +897,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -820,14 +931,52 @@ const BaseDevSettingsSection = () => {
       title={intl.formatMessage({ id: ETranslations.global_dev_mode })}
       titleProps={{ color: '$textCritical' }}
     >
+      {devSettingsSearchHistory.length ? (
+        <YStack px="$3" pb="$2" gap="$2">
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_recents })}
+          </SizableText>
+          <XStack gap="$2" flexWrap="wrap">
+            {devSettingsSearchHistory.map((savedSearchText) => (
+              <DevSettingsSavedSearchItem
+                key={savedSearchText}
+                searchText={savedSearchText}
+                removeLabel={intl.formatMessage({
+                  id: ETranslations.global_remove,
+                })}
+                onSelect={handleSelectSavedSearch}
+                onRemove={handleRemoveSavedSearch}
+              />
+            ))}
+          </XStack>
+        </YStack>
+      ) : null}
       {/* Search bar */}
       <Stack px="$3" pb="$2">
-        <Input
-          placeholder="Search sections and items..."
-          value={searchText}
-          onChangeText={setSearchText}
-          leftIconName="SearchOutline"
-        />
+        <Stack position="relative">
+          <Input
+            testID="dev-settings-search-input"
+            placeholder="Search sections and items..."
+            value={searchText}
+            onChangeText={setSearchText}
+            leftIconName="SearchOutline"
+            containerProps={{ width: '100%' }}
+            InputComponentStyle={{ pr: '$10' }}
+          />
+          <IconButton
+            testID="dev-settings-search-save"
+            position="absolute"
+            top="$1"
+            right="$1"
+            m="$0"
+            size="small"
+            variant="tertiary"
+            icon="BookmarkPlusOutline"
+            disabled={!searchText.trim()}
+            title={intl.formatMessage({ id: ETranslations.action_save })}
+            onPress={handleSaveSearch}
+          />
+        </Stack>
       </Stack>
       {normalizedSearchText ? (
         <BundleCommitSearch searchText={debouncedSearchText} />
@@ -871,9 +1020,9 @@ const BaseDevSettingsSection = () => {
                     icon="InfoCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -909,6 +1058,18 @@ const BaseDevSettingsSection = () => {
                             void backgroundApiProxy.serviceApp.restartApp();
                           }, 300);
                         }}
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldOutline"
+                        name="disableIpTableFailover"
+                        title="禁用 IP 快速故障切换"
+                        subtitle={
+                          devSettings.settings?.disableIpTableFailover
+                            ? '域名失败时不自动切换到 IP'
+                            : '域名连续失败时自动切换到 IP (默认)'
+                        }
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -1096,9 +1257,17 @@ const BaseDevSettingsSection = () => {
                         title="Copy Log Path"
                         subtitle="Log Path"
                         onPress={() => {
-                          copyText(NativeLogger.getLogDirectory() || 'N/A');
+                          // react-native-file-logger is a no-op stub outside
+                          // native; desktop resolves via the preload bridge.
+                          copyText(
+                            (platformEnv.isDesktop
+                              ? globalThis.desktopApi?.logDirectory
+                              : NativeLogger.getLogDirectory()) || 'N/A',
+                          );
                         }}
                       />
+
+                      <SectionLoggerParityItem />
 
                       {platformEnv.isNativeAndroid ? (
                         <SectionPressItem
@@ -1140,9 +1309,9 @@ const BaseDevSettingsSection = () => {
                     icon="LabOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1298,18 +1467,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="ShieldOutline"
-                        name="disableIpTableFailover"
-                        title="禁用 IP 快速故障切换"
-                        subtitle={
-                          devSettings.settings?.disableIpTableFailover
-                            ? '域名失败时不自动切换到 IP'
-                            : '域名连续失败时自动切换到 IP (默认)'
-                        }
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="Reset IP Table Cache"
@@ -1324,6 +1481,20 @@ const BaseDevSettingsSection = () => {
                       <SearchFilterItem keywords="IpTableSelector IP直连选择">
                         <IpTableSelector />
                       </SearchFilterItem>
+                      {platformEnv.isDesktop || platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="SNI Queue & Abort QA"
+                          subtitle="Run fixed /health, 20/40 request, cancellation, and recovery cases"
+                          searchKeywords="SNI Queue AbortController QA health 20 40 requests concurrency cancellation recovery Native Desktop"
+                          testID="desktop-sni-queue-qa-menu"
+                          onPress={() => {
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevSniRequestQa,
+                            );
+                          }}
+                        />
+                      ) : null}
                       <SectionPressItem
                         icon="ForkOutline"
                         title="Check Network info"
@@ -1436,9 +1607,9 @@ const BaseDevSettingsSection = () => {
                     icon="ArrowTopCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1494,6 +1665,18 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
                       <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="Pro2 Firmware Update Dev Settings"
+                        subtitle="Configure forced targets for Pro 2 firmwareUpdateV4"
+                        testID="pro2-firmware-update-dev-settings-menu"
+                        searchKeywords="Pro2 firmware boot app coprocessor resource SE force update"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
                         icon="ActivityOutline"
                         title="App/Bundle Update Status"
                         subtitle="Update state, strategy, download progress, pending task"
@@ -1517,9 +1700,9 @@ const BaseDevSettingsSection = () => {
                     icon="ServerOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1563,7 +1746,7 @@ const BaseDevSettingsSection = () => {
                               ) ?? false
                             }
                             onChange={(v) => {
-                              appStorage.syncStorage.set(
+                              void appStorage.syncStorage.set(
                                 EAppSyncStorageKeys.onekey_debug_render_tracker,
                                 v,
                               );
@@ -1604,7 +1787,7 @@ const BaseDevSettingsSection = () => {
                               !isBgApiSerializableCheckingDisabled()
                             }
                             onChange={(v) => {
-                              toggleBgApiSerializableChecking(v);
+                              void toggleBgApiSerializableChecking(v);
                             }}
                           />
                         </ListItem>
@@ -1709,9 +1892,9 @@ const BaseDevSettingsSection = () => {
                     icon="LayoutWindowOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       exitStyle={{ opacity: 0 }}
                     >
                       <LazyNavigationDiagnosticsSection />
@@ -1728,9 +1911,9 @@ const BaseDevSettingsSection = () => {
                     icon="TableOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1920,6 +2103,7 @@ const BaseDevSettingsSection = () => {
                         icon="LockOutline"
                         title="Clear Cached Password"
                         subtitle="清除缓存密码"
+                        testID="clear-cached-password"
                         onPress={async () => {
                           await backgroundApiProxy.servicePassword.clearCachedPassword();
                           Toast.success({
@@ -1973,9 +2157,9 @@ const BaseDevSettingsSection = () => {
                     icon="BrowserOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2051,19 +2235,34 @@ const BaseDevSettingsSection = () => {
                         subtitle={
                           devSettings.settings?.useLocalTradingViewUrl
                             ? localTradingViewUrlSubtitle
-                            : 'https://tradingview.onekeytest.com/'
+                            : TRADING_VIEW_URL_TEST
                         }
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="TradeOutline"
-                        name="useTradingViewNativeInMarketDetail"
-                        title="Use TradingViewNative in Market Detail"
-                        subtitle="关闭时继续使用 TradingViewV2"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
+                      {platformEnv.isWeb ? (
+                        <SearchFilterItem keywords="TradingViewNative event log debug panel 事件日志 调试窗口">
+                          <ListItem
+                            icon="CodeOutline"
+                            title="显示 TradingViewNative 事件日志"
+                            subtitle="关闭浮窗会同步关闭此开关"
+                          >
+                            <Switch
+                              size={ESwitchSize.small}
+                              value={
+                                devSettings.settings
+                                  ?.showTradingViewNativeDebugPanel ?? false
+                              }
+                              onChange={(value) => {
+                                void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                                  'showTradingViewNativeDebugPanel',
+                                  value,
+                                );
+                              }}
+                            />
+                          </ListItem>
+                        </SearchFilterItem>
+                      ) : null}
                       <SectionPressItem
                         icon="TradeOutline"
                         title="Mock TradingView 空 K 线"
@@ -2110,9 +2309,9 @@ const BaseDevSettingsSection = () => {
                     icon="AiImagesOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2196,9 +2395,9 @@ const BaseDevSettingsSection = () => {
                     icon="HeadOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2285,6 +2484,19 @@ const BaseDevSettingsSection = () => {
                           Toast.success({
                             title: 'success',
                           });
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="WalletOutline"
+                        title="Create Real HD Wallets: 10 × 100 / 100 × 100"
+                        subtitle="创建 1,000 或 10,000 个可派生、可签名、可同步的真实账户"
+                        searchKeywords="large data wallet account NativeList performance stress test 大数据 性能 压力测试"
+                        testID="create-large-wallet-account-data"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevLargeWalletDataCreation,
+                          );
                         }}
                       />
 
@@ -2386,9 +2598,9 @@ const BaseDevSettingsSection = () => {
                     icon="SignatureOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >

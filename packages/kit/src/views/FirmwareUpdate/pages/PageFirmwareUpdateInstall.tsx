@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
@@ -9,6 +11,7 @@ import type {
   EModalFirmwareUpdateRoutes,
   IModalFirmwareUpdateParamList,
 } from '@onekeyhq/shared/src/routes';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -21,29 +24,35 @@ import {
 } from '../components/FirmwareUpdateExitPrevent';
 import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
+import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 
-function PageFirmwareUpdateInstall() {
-  const route = useAppRoute<
-    IModalFirmwareUpdateParamList,
-    EModalFirmwareUpdateRoutes.Install
-  >();
-  const { result } = route.params;
+import { FirmwareUpdateInstallPage } from './FirmwareUpdateInstallPageContent';
+
+/**
+ * Legacy install page, kept only for Mini: its manual-bootloader guide with
+ * the illustrated instructions has no equivalent in the unified page yet.
+ */
+function PageFirmwareUpdateInstallMini({
+  result,
+}: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+}) {
   const navigation = useAppNavigation();
 
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
 
-  /*
-     await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(
-              {
-                backuped: true,
-                usbConnected: true,
-                connectId: firmwareUpdateInfo.connectId,
-                updateFirmware: firmwareUpdateInfo,
-                updateBle: bleUpdateInfo,
-              },
-            )
+  useFirmwareUpdateWorkflowLifetime({
+    onReallyLeave: async () => {
+      await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+      if (result?.originalConnectId) {
+        await backgroundApiProxy.serviceHardware.cancel({
+          connectId: result.originalConnectId,
+          forceDeviceResetToHome: true,
+        });
+      }
+    },
+  });
 
-            */
   const content = useMemo(() => {
     if (
       stepInfo.step === EFirmwareUpdateSteps.updateStart ||
@@ -83,19 +92,7 @@ function PageFirmwareUpdateInstall() {
   }, [stepInfo.step, navigation, result]);
 
   return (
-    <Page
-      scrollEnabled
-      onUnmounted={async () => {
-        console.log('PageFirmwareUpdateInstall unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-        if (result?.originalConnectId) {
-          await backgroundApiProxy.serviceHardware.cancel({
-            connectId: result.originalConnectId,
-            forceDeviceResetToHome: true,
-          });
-        }
-      }}
-    >
+    <Page scrollEnabled>
       <FirmwareUpdatePageLayout>
         <ForceExtensionUpdatingFromExpandTab />
         {content}
@@ -104,6 +101,18 @@ function PageFirmwareUpdateInstall() {
   );
 }
 
-// PageFirmwareUpdateBootloaderMode
-// PageFirmwareUpdateInstall
+function PageFirmwareUpdateInstall() {
+  const route = useAppRoute<
+    IModalFirmwareUpdateParamList,
+    EModalFirmwareUpdateRoutes.Install
+  >();
+  const { result } = route.params;
+
+  if (result?.deviceType === EDeviceType.Mini) {
+    return <PageFirmwareUpdateInstallMini result={result} />;
+  }
+
+  return <FirmwareUpdateInstallPage result={result} />;
+}
+
 export default PageFirmwareUpdateInstall;

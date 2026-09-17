@@ -1,10 +1,15 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   buildDeviceDetailsVisibility,
   canOpenDeviceManagementDetails,
   canShowTrezorBleBinding,
+  getFirmwareTypeChangeAvailability,
   getTrezorAutoLockOptionsMs,
+  shouldShowDeviceInteractiveSections,
+  syncRelevantDeviceStateEvent,
 } from './utils';
 
 describe('DeviceDetailsModal utils', () => {
@@ -44,6 +49,80 @@ describe('DeviceDetailsModal utils', () => {
       showPassphraseSettings: false,
       showDeviceConnection: true,
     });
+  });
+
+  it('shows Passphrase settings for OneKey devices, including Pro2', () => {
+    expect(
+      buildDeviceDetailsVisibility({
+        vendor: EHardwareVendor.onekey,
+        isQrWallet: false,
+        hasLoadedDevice: true,
+      }),
+    ).toMatchObject({
+      showDeviceSettings: true,
+      showPassphraseSettings: true,
+    });
+  });
+
+  it.each([EDeviceType.Pro, EDeviceType.Classic1s, EDeviceType.ClassicPure])(
+    'enables firmware type switching for %s',
+    (deviceType) => {
+      expect(getFirmwareTypeChangeAvailability(deviceType)).toBe('enabled');
+    },
+  );
+
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'hides firmware type switching for unsupported Protocol V2 device %s',
+    (deviceType) => {
+      expect(getFirmwareTypeChangeAvailability(deviceType)).toBe('hidden');
+    },
+  );
+
+  it.each([
+    EDeviceType.Classic,
+    EDeviceType.Mini,
+    EDeviceType.Touch,
+    EDeviceType.Unknown,
+  ])('hides firmware type switching for %s', (deviceType) => {
+    expect(getFirmwareTypeChangeAvailability(deviceType)).toBe('hidden');
+  });
+
+  it('shows Pro2 interactive settings consistently with Pro devices', () => {
+    expect(shouldShowDeviceInteractiveSections(EDeviceType.Pro2, false)).toBe(
+      true,
+    );
+    expect(shouldShowDeviceInteractiveSections(EDeviceType.Pro2, true)).toBe(
+      true,
+    );
+    expect(
+      shouldShowDeviceInteractiveSections(EDeviceType.Classic1s, false),
+    ).toBe(true);
+  });
+
+  it('does not refresh details for an unrelated device state event', async () => {
+    const refresh = jest.fn();
+
+    await expect(
+      syncRelevantDeviceStateEvent({
+        event: { connectId: 'OTHER' },
+        applyEvent: jest.fn().mockResolvedValue(false),
+        refresh,
+      }),
+    ).resolves.toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('refreshes details after applying a relevant device state event', async () => {
+    const refresh = jest.fn().mockResolvedValue(undefined);
+
+    await expect(
+      syncRelevantDeviceStateEvent({
+        event: { connectId: 'CURRENT' },
+        applyEvent: jest.fn().mockResolvedValue(true),
+        refresh,
+      }),
+    ).resolves.toBe(true);
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it('shows Trezor BLE binding on BLE capable models, including re-binding when already bound', () => {

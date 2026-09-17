@@ -91,6 +91,7 @@ export enum EVaultKeyringTypes {
 }
 
 export { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+export type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {
@@ -743,6 +744,16 @@ export interface ISignTransactionParamsBase {
   useDefaultRpc?: boolean;
 }
 
+// Credentials collected once by a caller that signs several transactions in a
+// row (batch psbt signing): passing them into signTransaction skips its
+// per-call password prompt, so the no-re-prompt window stays bounded by that
+// caller's own loop instead of a global password security session that
+// unrelated transactions could piggyback on.
+export type ISignTransactionPrefetchedCredentials = {
+  password: string;
+  deviceParams: IDeviceSharedCallParams | undefined;
+};
+
 export type ISignAndSendTransactionParams = ISignTransactionParams;
 export type ISignTransactionParams = ISignTransactionParamsBase & {
   password: string;
@@ -771,7 +782,7 @@ export interface IBatchSignTransactionParamsBase {
   useDefaultRpc?: boolean;
 }
 
-export interface ISignMessageParams {
+export interface ISignMessageParams extends IPbkdf2KdfParams {
   messages: IUnsignedMessage[];
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;

@@ -13,6 +13,7 @@ import type {
 // These values are authoritative in bg and must never accept the generic
 // UI-to-bg Jotai synchronization write path.
 const BACKGROUND_OWNED_ATOM_NAMES = new Set<EAtomNames>([
+  EAtomNames.inscriptionProtectionControlPersistAtom,
   EAtomNames.perpsUnifoldActiveRecipientAtom,
 ]);
 

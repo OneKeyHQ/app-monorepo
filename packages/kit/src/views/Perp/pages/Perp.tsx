@@ -61,6 +61,10 @@ import {
 import { buildPerpAccountStatusAnalyticsParams } from '../utils/perpAccountStatusAnalytics';
 import { preloadPerpsDepositSelectTokenModal } from '../utils/preloadPerpsDepositSelectTokenModal';
 import { preloadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+import {
+  loadPerpsMobileMarketPage,
+  preloadPerpsMobileMarketPage,
+} from '../utils/preloadPerpsMobileMarketPage';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
@@ -72,9 +76,10 @@ import type { LayoutChangeEvent } from 'react-native';
 // shared sub-components (PerpCandles / PerpOrderBook / PerpTokenSelectorRow)
 // across the seg:Perp ↔ seg:MobilePerpMarket boundary and break the
 // split-bundle integrity check. Lazy-load here too so the edge stays async.
-const MobilePerpMarketInline = LazyLoadPage(() => import('./MobilePerpMarket'));
+const MobilePerpMarketInline = LazyLoadPage(loadPerpsMobileMarketPage);
 const PERP_NATIVE_HEADER_ROW_HEIGHT = 44;
 const PERP_NATIVE_HEADER_TOP_OFFSET = 20;
+const PERP_NATIVE_IOS_HEADER_TOP_PADDING = 26;
 
 function PerpLayout() {
   const { gtMd } = useMedia();
@@ -200,6 +205,7 @@ function PerpContent() {
 
   useEffect(() => {
     if (platformEnv.isNative) {
+      void preloadPerpsMobileMarketPage();
       void preloadPerpsMobileTokenSelectorPage();
       void preloadPerpsDepositWithdrawModal();
       void preloadPerpsDepositSelectTokenModal();
@@ -207,7 +213,11 @@ function PerpContent() {
   }, []);
 
   const fallbackTabPageHeight = platformEnv.isNative
-    ? resolvedSafeAreaTop + PERP_NATIVE_HEADER_ROW_HEIGHT
+    ? resolvedSafeAreaTop +
+      PERP_NATIVE_HEADER_ROW_HEIGHT +
+      (platformEnv.isNativeIOS
+        ? PERP_NATIVE_IOS_HEADER_TOP_PADDING - PERP_NATIVE_HEADER_TOP_OFFSET
+        : 0)
     : 92;
   const [measuredTabPageHeight, setMeasuredTabPageHeight] = useState<
     number | undefined
@@ -292,7 +302,11 @@ function PerpContent() {
             // safe-area top+28, matching the Wallet header. The MDHeader non-home
             // row is h=44 → center top+22 with the -20/pt($5) cancel; pt=26
             // (=20 offset + 6) lands it at top+28. Other platforms keep $5.
-            pt={platformEnv.isNativeIOS ? 26 : '$5'}
+            pt={
+              platformEnv.isNativeIOS
+                ? PERP_NATIVE_IOS_HEADER_TOP_PADDING
+                : '$5'
+            }
             width="100%"
             onLayout={handleTabPageLayout}
             zIndex={FLOAT_NAV_BAR_Z_INDEX}

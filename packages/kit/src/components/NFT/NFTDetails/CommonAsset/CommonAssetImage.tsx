@@ -17,13 +17,14 @@ const unSupportedImage = ['data:image/svg+xml;'];
 
 function CommonAssetImage(props: IProps) {
   const { nft } = props;
-  const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
+  const image = nft.metadata?.image;
+  const [isVideo, setIsVideo] = useState<boolean>(!!image);
 
   const isUnSupportedImageInNative = useMemo(
     () =>
       platformEnv.isNative &&
-      !!unSupportedImage.find((i) => nft.metadata?.image?.includes(i)),
-    [nft.metadata?.image],
+      !!unSupportedImage.find((i) => image?.includes(i)),
+    [image],
   );
   if (isUnSupportedImageInNative) {
     return <UnSupportedImageContainer src={nft.metadata?.image} />;
@@ -32,9 +33,9 @@ function CommonAssetImage(props: IProps) {
   return (
     <>
       <Stack width="100%" height="100%" borderRadius={12}>
-        {isVideo ? (
+        {isVideo && image ? (
           <Video
-            source={{ uri: nft.metadata?.image }}
+            source={{ uri: image }}
             controls
             onError={() => setIsVideo(false)}
             style={{

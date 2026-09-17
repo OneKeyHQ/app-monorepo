@@ -20,7 +20,6 @@ import {
   Icon,
   IconButton,
   Page,
-  SegmentControl,
   SizableText,
   Spinner,
   Stack,
@@ -31,6 +30,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBulkExportHistory } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerBulkExportHistory';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
@@ -43,10 +43,12 @@ import {
   EModalRoutes,
   type IModalBulkExportHistoryParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountTransactionRange } from '@onekeyhq/shared/types/history';
 
 import { PageFrame } from '../../Staking/components/PageFrame';
+import BulkExportHistoryDateRangeSelector from '../components/BulkExportHistoryDateRangeSelector';
 import BulkExportHistoryNetworkTrigger from '../components/BulkExportHistoryNetworkTrigger';
 import { useBulkExportHistorySupportedNetworks } from '../hooks/useBulkExportHistorySupportedNetworks';
 import {
@@ -120,6 +122,7 @@ function BulkExportHistoryContent({
 >) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const actions = useAccountSelectorActions();
   const {
     networkId: homeNetworkId,
@@ -380,6 +383,18 @@ function BulkExportHistoryContent({
       return;
     }
 
+    // Expired/logged-out users can still view previous tasks and download a
+    // still-valid CSV; only creating a new task requires active Prime.
+    if (!isPrimeSubscriptionActive) {
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeDashboard,
+        params: {
+          fromFeature: EPrimeFeatures.HistoryExport,
+        },
+      });
+      return;
+    }
+
     const controller = new AbortController();
     abortControllerRef.current = controller;
     setIsExporting(true);
@@ -626,6 +641,7 @@ function BulkExportHistoryContent({
   }, [
     exportAccountIdentity,
     isExporting,
+    isPrimeSubscriptionActive,
     hasRangeData,
     selectedNetworkIds,
     dateRange,
@@ -736,11 +752,12 @@ function BulkExportHistoryContent({
             pointerEvents={isDateRangeDisabled || isExporting ? 'none' : 'auto'}
             gap="$3"
           >
-            <SegmentControl
-              fullWidth
+            <BulkExportHistoryDateRangeSelector
               value={dateRange}
               options={dateRangeOptions}
               onChange={setDateRange}
+              disabled={isDateRangeDisabled || isExporting}
+              testID="bulk-export-history-date-range"
             />
             {dateRange === EDateRange.Custom ? (
               <>
@@ -794,6 +811,7 @@ function BulkExportHistoryContent({
               !hasRangeData ||
               !isCustomDateRangeValid,
             loading: isExporting,
+            iconAfter: isPrimeSubscriptionActive ? undefined : 'PrimeOutline',
           }}
         />
       </Page.Footer>

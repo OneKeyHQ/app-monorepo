@@ -17,6 +17,7 @@ import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
+import { DeviceStageContainerLazy } from './DeviceStageContainer/Lazy';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
@@ -28,6 +29,7 @@ import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
+import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
@@ -65,11 +67,13 @@ function DetailRouter() {
       <VerifyTxContainer />
       <HardwareUiStateContainerLazy />
       <ThirdPartyHardwareUiStateContainerLazy />
+      <DeviceStageContainerLazy />
       <PrimeLoginContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <LinuxUdevGuideDialogContainer />
+      <LocalDbDowngradeDialogContainer />
       <LocalSecretEnvelopeErrorDialogContainer />
       <CloudBackupContainer />
 

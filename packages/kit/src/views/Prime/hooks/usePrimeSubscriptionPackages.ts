@@ -9,58 +9,9 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { usePrimePayment } from './usePrimePayment';
 import { usePrimePaymentMethodsWeb } from './usePrimePaymentMethodsWeb';
-
-type IRandomUUID = typeof globalThis.crypto.randomUUID;
-
-let temporaryRandomUUIDUsageCount = 0;
-let temporaryRandomUUIDOriginal: IRandomUUID | undefined;
-let temporaryRandomUUID: IRandomUUID | undefined;
-
-async function withTemporaryRandomUUID<T>(fn: () => Promise<T>): Promise<T> {
-  const crypto = globalThis.crypto;
-  if (!crypto || !platformEnv.isNativeAndroid) {
-    return fn();
-  }
-
-  const currentRandomUUID = Reflect.get(crypto, 'randomUUID') as
-    | IRandomUUID
-    | undefined;
-  const shouldUseTemporaryRandomUUID =
-    !currentRandomUUID || currentRandomUUID === temporaryRandomUUID;
-
-  if (!shouldUseTemporaryRandomUUID) {
-    return fn();
-  }
-
-  if (temporaryRandomUUIDUsageCount === 0) {
-    temporaryRandomUUIDOriginal = currentRandomUUID;
-    temporaryRandomUUID = () => {
-      return stringUtils.generateUUID() as `${string}-${string}-${string}-${string}-${string}`;
-    };
-    Reflect.set(crypto, 'randomUUID', temporaryRandomUUID);
-  }
-
-  temporaryRandomUUIDUsageCount += 1;
-  try {
-    return await fn();
-  } finally {
-    temporaryRandomUUIDUsageCount = Math.max(
-      0,
-      temporaryRandomUUIDUsageCount - 1,
-    );
-    if (temporaryRandomUUIDUsageCount === 0) {
-      if (Reflect.get(crypto, 'randomUUID') === temporaryRandomUUID) {
-        Reflect.set(crypto, 'randomUUID', temporaryRandomUUIDOriginal);
-      }
-      temporaryRandomUUIDOriginal = undefined;
-      temporaryRandomUUID = undefined;
-    }
-  }
-}
 
 export function usePrimeSubscriptionPackages({
   enabled,
@@ -83,10 +34,8 @@ export function usePrimeSubscriptionPackages({
         return [];
       }
 
-      return withTemporaryRandomUUID(async () => {
-        const pkgList = await getPackagesWebFallback?.();
-        return pkgList ?? [];
-      });
+      const pkgList = await getPackagesWebFallback?.();
+      return pkgList ?? [];
     },
     [enabled, getPackagesWebFallback, isPurchaseReady],
     {

@@ -537,6 +537,7 @@ export const StakeSection = ({
             accountId,
             networkId,
             spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+              networkId,
               approveType: initialAllowanceTarget.approveType,
               approveSpenderAddress: initialAllowanceTarget.spenderAddress,
             }),
@@ -576,14 +577,15 @@ export const StakeSection = ({
       stakeType: confirmStakeType,
       onStepChange,
     }: IApproveConfirmFnParams) => {
-      if (!hasRequiredData) return;
+      // Nothing was started, so the form keeps what the user typed.
+      if (!hasRequiredData) return false;
 
       const token = effectiveStakeTokenInfo?.token as IToken;
       const effectiveStakeType = confirmStakeType ?? nativeStakeType;
 
-      if (borrowApiCtx.isBorrow) return;
+      if (borrowApiCtx.isBorrow) return false;
 
-      await handleStake({
+      return handleStake({
         amount,
         approveType,
         permitSignature,
@@ -711,7 +713,8 @@ export const StakeSection = ({
         !borrowApiCtx.isBorrow ||
         unsupportedAaveNativeReserve
       ) {
-        return;
+        // Nothing was started, so the form keeps what the user typed.
+        return false;
       }
 
       const token = tokenInfo?.token as IToken;
@@ -742,7 +745,7 @@ export const StakeSection = ({
         tags.push(protocolInfo.stakeTag);
       }
 
-      await (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
+      return (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
         amount,
         provider,
         marketAddress,
@@ -814,6 +817,7 @@ export const StakeSection = ({
         networkId={networkId}
         balance="0"
         tokenImageUri={fallbackTokenImageUri}
+        tokenImageLoading={!tokenInfo?.token && !fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
         isDisabled
         approveTarget={{
@@ -889,6 +893,14 @@ export const StakeSection = ({
           balance={effectiveStakeTokenInfo?.balanceParsed ?? ''}
           tokenImageUri={
             effectiveStakeTokenInfo?.token.logoURI || fallbackTokenImageUri
+          }
+          // Token metadata not in yet and no image came from route params:
+          // skeleton the icon rather than flashing the placeholder coin.
+          // Guarded on the metadata being absent (not merely on a missing
+          // image) so a token that genuinely has no logo still renders its
+          // fallback instead of a skeleton that never resolves (OK-59961).
+          tokenImageLoading={
+            !effectiveStakeTokenInfo?.token && !fallbackTokenImageUri
           }
           tokenSymbol={effectiveStakeTokenInfo?.token.symbol}
           providerLogo={protocolInfo?.providerDetail.logoURI}

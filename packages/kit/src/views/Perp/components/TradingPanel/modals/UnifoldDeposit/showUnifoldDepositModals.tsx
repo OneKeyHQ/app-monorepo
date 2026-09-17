@@ -20,6 +20,7 @@ import {
   usePerpsDepositTokensAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { TPerpDepositEntrySource } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getUnifoldDesktopDialogBodyMaxHeight } from './unifoldDialogLayout';
@@ -64,9 +65,11 @@ function useDesktopDialogBodyMaxHeight() {
 function DesktopTransferBody({
   expectedRecipient,
   onOpenTracker,
+  analyticsEntrySource,
 }: {
   expectedRecipient: string;
   onOpenTracker: () => void;
+  analyticsEntrySource?: TPerpDepositEntrySource;
 }) {
   const bodyMaxHeight = useDesktopDialogBodyMaxHeight();
   return (
@@ -74,6 +77,8 @@ function DesktopTransferBody({
       expectedRecipient={expectedRecipient}
       bodyMaxHeight={bodyMaxHeight}
       onOpenTracker={onOpenTracker}
+      analyticsEntrySource={analyticsEntrySource}
+      trackDefaultSourceSelection
       useDialogHeader
     />
   );
@@ -423,10 +428,12 @@ export function showUnifoldTransferDialog({
   dialogInTab,
   expectedRecipient,
   intl,
+  analyticsEntrySource,
 }: {
   dialogInTab: IDialogInTab;
   expectedRecipient: string;
   intl: IntlShape;
+  analyticsEntrySource?: TPerpDepositEntrySource;
 }) {
   // The whole UnifoldDeposit module already sits behind the deposit-entry
   // lazy chunk (preloadPerpsUnifoldDeposit), so static imports are fine here.
@@ -442,6 +449,7 @@ export function showUnifoldTransferDialog({
           dialogInTab,
           expectedRecipient,
           intl,
+          analyticsEntrySource,
         });
       },
       onBackPress: () => {
@@ -449,6 +457,7 @@ export function showUnifoldTransferDialog({
           dialogInTab,
           expectedRecipient,
           intl,
+          analyticsEntrySource,
         });
       },
     });
@@ -467,6 +476,7 @@ export function showUnifoldTransferDialog({
     renderContent: (
       <DesktopTransferBody
         expectedRecipient={expectedRecipient}
+        analyticsEntrySource={analyticsEntrySource}
         onOpenTracker={() => {
           void handleOpenTracker();
         }}

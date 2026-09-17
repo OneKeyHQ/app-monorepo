@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
@@ -132,8 +133,13 @@ async function migrateBackupedDataToBucket({
     ELocalDBStoreNames.Account,
   );
 
-  const credentials: IDBCredential[] = await backupDB.getAll(
-    ELocalDBStoreNames.Credential,
+  const credentials: IDBCredential[] = (
+    await backupDB.getAll(ELocalDBStoreNames.Credential)
+  ).filter(
+    (credential) =>
+      !accountUtils.isHyperLiquidAgentCredentialId({
+        credentialId: credential.id,
+      }),
   );
 
   const devices: IDBDevice[] = await backupDB.getAll(ELocalDBStoreNames.Device);
@@ -150,7 +156,7 @@ async function migrateBackupedDataToBucket({
 
   await timerUtils.wait(1000);
 
-  const tx = accountBucket.transaction(
+  const tx = await accountBucket.transactionAsync(
     INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
     'readwrite',
   );
@@ -211,8 +217,16 @@ async function migrateOneKeyV5LegacyDBToBucket({
   const legacyAccounts: IDBAccount[] = await legacyIndexedDb.getAll(
     ELocalDBStoreNames.Account,
   );
-  const legacyCredentials: IDBCredential[] = await legacyIndexedDb.getAll(
-    ELocalDBStoreNames.Credential,
+  // Bucket storage migration shipped before HyperLiquid agent credentials.
+  // A legitimate legacy primary DB cannot contain them; this filter only
+  // defends against manually modified or otherwise unsupported database state.
+  const legacyCredentials: IDBCredential[] = (
+    await legacyIndexedDb.getAll(ELocalDBStoreNames.Credential)
+  ).filter(
+    (credential) =>
+      !accountUtils.isHyperLiquidAgentCredentialId({
+        credentialId: credential.id,
+      }),
   );
   const legacyDevices: IDBDevice[] = await legacyIndexedDb.getAll(
     ELocalDBStoreNames.Device,
@@ -254,7 +268,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
     indexedAccount: legacyIndexedAccounts,
     account: legacyAccounts,
   };
-  const accountBucketTx = accountBucket.transaction(
+  const accountBucketTx = await accountBucket.transactionAsync(
     objectStoreNames,
     'readwrite',
   );
@@ -280,7 +294,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
   // #endregion
 
   // #region migrate address bucket
-  const addressBucketTx = addressBucket.transaction(
+  const addressBucketTx = await addressBucket.transactionAsync(
     INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.address],
     'readwrite',
   );
@@ -294,7 +308,7 @@ async function migrateOneKeyV5LegacyDBToBucket({
   // #endregion
 
   // #region migrate archive bucket
-  const archiveBucketTx = archiveBucket.transaction(
+  const archiveBucketTx = await archiveBucket.transactionAsync(
     INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.archive],
     'readwrite',
   );

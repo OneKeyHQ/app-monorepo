@@ -136,6 +136,9 @@ export function useSwapTxHistoryActions() {
             socketBridgeScanUrl:
               swapTxInfo.swapBuildResData.socketBridgeScanUrl,
             oneKeyFee: swapTxInfo.swapBuildResData.result?.fee?.percentageFee,
+            isFreeNetworkFee:
+              swapTxInfo.isNetworkFeeSponsored ??
+              swapTxInfo.swapBuildResData.result?.fee?.isFreeNetworkFee,
             protocolFee: swapTxInfo.swapBuildResData.result?.fee?.protocolFees,
             hideProtocolFee: true,
             otherFeeInfos:
@@ -149,15 +152,17 @@ export function useSwapTxHistoryActions() {
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };
-        await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
-          swapHistoryItem,
-        );
+        const persistResult =
+          await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
+            swapHistoryItem,
+          );
         if (swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
           // Record SWAP task completion for rookie guide
           void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
             ERookieTaskType.SWAP,
           );
         }
+        return persistResult;
       }
     },
     [

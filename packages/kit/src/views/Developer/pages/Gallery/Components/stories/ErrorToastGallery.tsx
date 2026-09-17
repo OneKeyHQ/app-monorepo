@@ -3,8 +3,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   BadAuthError,
   InvoiceExpiredError,
+  NeedFirmwareUpgradeFromWeb,
   OneKeyError,
   OneKeyLocalError,
+  UnknownHardwareError,
 } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -40,6 +42,13 @@ async function showHyperLiquidVariableErrorToast() {
   } catch (error) {
     console.log('HyperLiquid variable error toast demo', error);
   }
+}
+
+// Hardware error classes drop props.autoToast in their constructor, so the flag
+// has to be set on the instance before the toast pipeline sees it.
+function showHardwareErrorToast(error: Error) {
+  errorToastUtils.toastIfError(error);
+  errorToastUtils.showToastOfError(error);
 }
 
 function error10() {
@@ -305,6 +314,27 @@ Timestamp: ${new Date().toISOString()}`,
         }}
       >
         Error without Diagnostic Info
+      </Button>
+      <Button
+        onPress={() => {
+          showHardwareErrorToast(
+            new UnknownHardwareError({
+              payload: {
+                code: 'DEV_TEST',
+                error: 'Simulated unknown hardware error',
+              },
+            }),
+          );
+        }}
+      >
+        Unknown Hardware Error (firmware upgrade button)
+      </Button>
+      <Button
+        onPress={() => {
+          showHardwareErrorToast(new NeedFirmwareUpgradeFromWeb());
+        }}
+      >
+        Need Firmware Upgrade From Web (reference)
       </Button>
       <Button
         onPress={() => {

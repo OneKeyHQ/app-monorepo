@@ -18,13 +18,11 @@ import {
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
-  useSwapProTokenMarketDetailInfoAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSpeedQuoteFetchingAtom,
-  useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -50,7 +48,6 @@ import {
   useSwapZeroProviderQuoteCompleted,
 } from '../../hooks/useSwapState';
 import { ESwapProAccountStatus } from '../../utils/swapProAccountUtils';
-import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
 
 /**
  * Format value with compact notation (k, M, B, T)
@@ -99,21 +96,13 @@ const SwapProActionButton = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
-  // Stock market closed → trading is impossible even if a quote returns a price.
-  // Guard on the selected token so a stale Pro detail can't drive this state.
-  const stockMarketClosed = isSelectedProStockMarketClosed(
-    proTokenDetail,
-    swapProSelectToken,
-  );
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
   const { isWaitingActionableQuote, hasPreviousActionableQuote } =
     useSwapQuoteProgressState();
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
   const currencyInfo = useCurrency();
-  const [quoteFetching] = useSwapSpeedQuoteFetchingAtom();
+  const [quoteFetching] = useSwapQuoteFetchingAtom();
   const [swapProInputAmount] = useSwapProInputAmountAtom();
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapFromInputAmount] = useSwapFromTokenAmountAtom();
@@ -128,7 +117,7 @@ const SwapProActionButton = ({
   }, [swapProTradeType, swapProInputAmount, swapFromInputAmount.value]);
   const quoteToAmount = useMemo(() => {
     if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult?.toAmount || '0';
+      return swapQuoteResult?.toAmount || '0';
     }
     if (swapProTradeType === ESwapProTradeType.LIMIT) {
       // Single source with the Est. Receive row (synced from the computed
@@ -148,7 +137,6 @@ const SwapProActionButton = ({
   }, [
     swapProTradeType,
     swapQuoteResult?.toAmount,
-    swapProQuoteResult?.toAmount,
     toTokenAmount.value,
     limitPriceUseRate?.rate,
     swapFromInputAmount.value,
@@ -172,17 +160,15 @@ const SwapProActionButton = ({
   }, [inputToken?.price, inputAmount]);
 
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
-  const { selectToToken, selectFromToken } = useSwapActions().current;
+  const { clearSwapTokenCarryIntent, selectToToken, selectFromToken } =
+    useSwapActions().current;
   const [swapSelectToken, setSwapSelectFromToken] =
     useSwapSelectFromTokenAtom();
   const [swapSelectToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [, setSwapFromInputAmount] = useSwapFromTokenAmountAtom();
   const currentQuoteRes = useMemo(() => {
-    if (swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
     return swapQuoteResult;
-  }, [swapProTradeType, swapProQuoteResult, swapQuoteResult]);
+  }, [swapQuoteResult]);
   const isWrapped = useMemo(
     () =>
       checkWrappedTokenPair({
@@ -194,6 +180,7 @@ const SwapProActionButton = ({
   const canExecuteInPro = supportSpeedSwap || isWrapped;
 
   const handleJumpToSwapAction = useCallback(() => {
+    clearSwapTokenCarryIntent();
     void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
     if (swapProDirection === ESwapDirection.BUY) {
       if (
@@ -237,6 +224,7 @@ const SwapProActionButton = ({
   }, [
     swapProDirection,
     swapProInputAmount,
+    clearSwapTokenCarryIntent,
     setSwapTypeSwitch,
     swapSelectToken,
     swapProSelectToken,
@@ -288,7 +276,7 @@ const SwapProActionButton = ({
     if (!canExecuteInPro) {
       originalDisabled = !!isActionDisabled || !hasEnoughBalance;
     }
-    return originalDisabled || stockMarketClosed;
+    return originalDisabled;
   }, [
     isActionDisabled,
     hasEnoughBalance,
@@ -297,7 +285,6 @@ const SwapProActionButton = ({
     balanceLoading,
     currentQuoteLoading,
     canExecuteInPro,
-    stockMarketClosed,
   ]);
 
   const actionButtonText = useMemo(() => {

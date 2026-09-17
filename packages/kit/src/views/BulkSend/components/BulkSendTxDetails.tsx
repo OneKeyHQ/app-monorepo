@@ -552,7 +552,7 @@ function BatchAccordionItem({
               </SizableText>
             </XStack>
             <View
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '180deg' : '0deg'}
               transformOrigin="center"

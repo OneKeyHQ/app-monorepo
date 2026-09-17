@@ -1,15 +1,20 @@
 import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {
   appendBorrowRepaySetupState,
+  buildAaveNativeGatewayReceiveToken,
   buildBorrowRepayPositionKey,
   buildBorrowRepayWithCollateralConfirmationParams,
+  filterUnsupportedAaveNativeReserveAssets,
   getBorrowBalanceAmount,
   getBorrowRepayProgressStep,
   getEffectiveBorrowRepayNeedsSetupLut,
   hasPositiveBorrowBalance,
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
+  isUnsupportedAaveNativeReserve,
+  shouldUseAaveNativeGateway,
 } from './borrowRepayPosition.utils';
 
 describe('borrowRepayPosition utils', () => {
@@ -22,6 +27,99 @@ describe('borrowRepayPosition utils', () => {
 
     expect(getBorrowBalanceAmount(balance)).toBe('0.0000001');
     expect(hasPositiveBorrowBalance(balance)).toBe(true);
+  });
+
+  it.each(['evm--1', 'evm--8453', 'evm--42161'])(
+    'routes the Aave native reserve through the gateway on %s',
+    (networkId) => {
+      expect(
+        shouldUseAaveNativeGateway({
+          networkId,
+          providerName: 'Aave',
+          reserveAddress: '',
+        }),
+      ).toBe(true);
+      expect(
+        isUnsupportedAaveNativeReserve({
+          networkId,
+          providerName: 'aave',
+          reserveAddress: '',
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it('keeps the Arbitrum native ETH asset in the available supply list', () => {
+    const ethAsset = { reserveAddress: '', token: { symbol: 'ETH' } };
+
+    expect(
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: [ethAsset],
+        networkId: 'evm--42161',
+        providerName: 'aave',
+      }),
+    ).toEqual([ethAsset]);
+  });
+
+  it('uses native token metadata for an Aave gateway withdrawal', () => {
+    const wrappedToken = {
+      address: '0xWrappedToken',
+      decimals: 18,
+      isNative: false,
+      name: 'Wrapped Ether',
+      networkId: 'evm--8453',
+      symbol: 'WETH',
+    } as IToken;
+    const nativeToken = {
+      address: '',
+      decimals: 18,
+      isNative: true,
+      logoURI: 'https://example.com/eth.png',
+      name: 'Ether',
+      networkId: 'evm--8453',
+      symbol: 'ETH',
+    } as IToken;
+
+    expect(
+      buildAaveNativeGatewayReceiveToken({
+        token: wrappedToken,
+        nativeToken,
+        networkId: 'evm--8453',
+      }),
+    ).toEqual({
+      ...nativeToken,
+      address: '',
+      isNative: true,
+      networkId: 'evm--8453',
+      name: 'Ether',
+      symbol: 'ETH',
+    });
+  });
+
+  it('keeps non-gateway networks and non-native reserves off the gateway path', () => {
+    // A network without backend gateway coverage stays filtered out.
+    expect(
+      shouldUseAaveNativeGateway({
+        networkId: 'evm--10',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(false);
+    expect(
+      isUnsupportedAaveNativeReserve({
+        networkId: 'evm--10',
+        providerName: 'aave',
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    // ERC20 reserves never use the gateway regardless of network.
+    expect(
+      shouldUseAaveNativeGateway({
+        networkId: 'evm--1',
+        providerName: 'aave',
+        reserveAddress: '0xreserve',
+      }),
+    ).toBe(false);
   });
 
   it('treats zero debt as not eligible for collateral repay entry', () => {

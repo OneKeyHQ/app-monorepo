@@ -1,6 +1,8 @@
 import {
   buildPerpsAccountStatusCheckInitialDetails,
   canApplyPerpsNotActivatedZeroState,
+  hasPositivePerpsBalance,
+  shouldRefreshPerpsActivationFromFundedState,
 } from './perpsAccountStatusCheckUtils';
 
 describe('buildPerpsAccountStatusCheckInitialDetails', () => {
@@ -59,5 +61,89 @@ describe('canApplyPerpsNotActivatedZeroState', () => {
         activeAddress: '0xABC',
       }),
     ).toBe(true);
+  });
+
+  it('preserves balances when a funded event triggered the activation check', () => {
+    expect(
+      canApplyPerpsNotActivatedZeroState({
+        checkSeq: 2,
+        latestCheckSeq: 2,
+        checkedAddress: '0xabc',
+        activeAddress: '0xabc',
+        preserveFundedBalances: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('hasPositivePerpsBalance', () => {
+  it('detects a funded balance across clearinghouse or spot values', () => {
+    expect(hasPositivePerpsBalance(['0', undefined, '5.99'])).toBe(true);
+  });
+
+  it('rejects empty, invalid, zero, and negative values', () => {
+    expect(hasPositivePerpsBalance([undefined, '', 'invalid', '0', '-1'])).toBe(
+      false,
+    );
+  });
+});
+
+describe('shouldRefreshPerpsActivationFromFundedState', () => {
+  const baseParams = {
+    activeAddress: '0xabc',
+    eventAddress: '0xABC',
+    activatedOk: false,
+    hasFundedBalance: true,
+    refreshInFlight: false,
+    refreshPending: false,
+    refreshCoolingDown: false,
+  };
+
+  it('refreshes a still-unactivated account after a funded event', () => {
+    expect(shouldRefreshPerpsActivationFromFundedState(baseParams)).toBe(true);
+  });
+
+  it.each([
+    ['different account', { eventAddress: '0xdef' }],
+    ['activation already confirmed', { activatedOk: true }],
+    ['zero balance event', { hasFundedBalance: false }],
+    ['refresh already in flight', { refreshInFlight: true }],
+    ['refresh still cooling down', { refreshCoolingDown: true }],
+  ])('does not refresh for %s', (_, override) => {
+    expect(
+      shouldRefreshPerpsActivationFromFundedState({
+        ...baseParams,
+        ...override,
+      }),
+    ).toBe(false);
+  });
+
+  it('retries after a funded activation refresh leaves activation unknown', () => {
+    expect(
+      shouldRefreshPerpsActivationFromFundedState({
+        ...baseParams,
+        activatedOk: undefined,
+        refreshPending: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not refresh an unknown activation without a pending funded retry', () => {
+    expect(
+      shouldRefreshPerpsActivationFromFundedState({
+        ...baseParams,
+        activatedOk: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('stops a pending funded retry after activation is confirmed', () => {
+    expect(
+      shouldRefreshPerpsActivationFromFundedState({
+        ...baseParams,
+        activatedOk: true,
+        refreshPending: true,
+      }),
+    ).toBe(false);
   });
 });

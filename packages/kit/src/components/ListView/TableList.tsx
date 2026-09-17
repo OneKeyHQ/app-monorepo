@@ -5,6 +5,7 @@ import stringify from 'fast-json-stable-stringify';
 
 import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
+  HeightTransition,
   Icon,
   ListView,
   SizableText,
@@ -14,11 +15,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // ==================== Types ====================
 
@@ -29,6 +28,7 @@ export interface ITableColumn<T> {
   minWidth?: number | string;
   maxWidth?: number | string;
   align?: 'flex-start' | 'center' | 'flex-end';
+  headerNumberOfLines?: number;
   // Sorting
   sortable?: boolean;
   sortKey?: string;
@@ -234,24 +234,37 @@ interface ISortButtonProps {
   iconName?: IKeyOfIcons;
   onPress?: IXStackProps['onPress'];
   align?: 'flex-start' | 'center' | 'flex-end';
+  numberOfLines?: number;
 }
 
 const SortButton = memo(
-  ({ label, iconName, onPress, align = 'flex-start' }: ISortButtonProps) => (
+  ({
+    label,
+    iconName,
+    onPress,
+    align = 'flex-start',
+    numberOfLines,
+  }: ISortButtonProps) => (
     <XStack
       role="button"
       ai="center"
       jc={align}
       gap="$1"
+      maxWidth="100%"
       cursor="pointer"
       hoverStyle={{ opacity: 0.7 }}
       userSelect="none"
       onPress={onPress}
     >
       {iconName ? (
-        <Icon name={iconName} color="$iconSubdued" size="$4.5" />
+        <Icon name={iconName} color="$iconSubdued" size="$4.5" flexShrink={0} />
       ) : null}
-      <SizableText size="$bodySmMedium" color="$textSubdued">
+      <SizableText
+        size="$bodySmMedium"
+        color="$textSubdued"
+        numberOfLines={numberOfLines}
+        flexShrink={1}
+      >
         {label}
       </SizableText>
     </XStack>
@@ -319,11 +332,17 @@ function TableListHeader<T>({
                 iconName={getSortIcon(column.sortKey ?? column.key)}
                 onPress={() => handleSort(column.sortKey ?? column.key)}
                 align={column.align ?? 'flex-start'}
+                numberOfLines={column.headerNumberOfLines}
               />
             );
           } else {
             content = (
-              <SizableText size="$bodySmMedium" color="$textSubdued">
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={column.headerNumberOfLines}
+                maxWidth="100%"
+              >
                 {column.label}
               </SizableText>
             );
@@ -479,7 +498,7 @@ function TableListRow<T>({
             flexShrink={0}
             ai="center"
             jc="center"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
@@ -491,22 +510,22 @@ function TableListRow<T>({
           </Stack>
         ) : null}
       </ListItem>
-      {expandable && expandable.renderExpandedContent ? (
-        <YStack
-          px="$5"
-          py={isExpanded ? '$4' : '$0'}
-          animation="quick"
-          animateOnly={ANIMATE_ONLY_OPACITY}
-          opacity={isExpanded ? 1 : 0}
-          maxHeight={isExpanded ? 1000 : 0}
-          overflow="hidden"
-          {...(!isExpanded && {
-            pointerEvents: 'none' as const,
-            display: 'none' as const,
-          })}
-        >
-          {expandable.renderExpandedContent(item, index)}
-        </YStack>
+      {expandable ? (
+        <HeightTransition hide={!isExpanded}>
+          <YStack
+            px="$5"
+            py="$4"
+            pointerEvents={isExpanded ? 'auto' : 'none'}
+            aria-hidden={!isExpanded}
+            accessibilityElementsHidden={!isExpanded}
+            importantForAccessibility={
+              isExpanded ? 'auto' : 'no-hide-descendants'
+            }
+            {...(platformEnv.isNative ? {} : { inert: !isExpanded })}
+          >
+            {expandable.renderExpandedContent(item, index)}
+          </YStack>
+        </HeightTransition>
       ) : null}
     </YStack>
   );
@@ -725,6 +744,7 @@ function BasicTableList<T>({
   return (
     <ListView
       data={sortedData}
+      extraData={expandedRowIndex}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       ListHeaderComponent={headerComponent}

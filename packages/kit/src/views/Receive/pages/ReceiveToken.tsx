@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
-import { useThrottledCallback } from 'use-debounce';
+import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
 
 import {
   Button,
@@ -16,6 +16,7 @@ import {
   QRCode,
   SizableText,
   Stack,
+  Theme,
   XStack,
   YStack,
   useSafeAreaInsets,
@@ -111,6 +112,15 @@ function ReceiveToken() {
       networkId,
     });
   }, [accountId, networkId]);
+
+  // Server overrides for the arrival ETA and protocol-standard label.
+  // Resolves to undefined on fetch failure so the bundled defaults apply.
+  const { result: receiveArrivalConfig, isLoading: isArrivalConfigLoading } =
+    usePromiseResult(
+      () => backgroundApiProxy.serviceNetwork.getReceiveArrivalConfig(),
+      [],
+      { watchLoading: true },
+    );
 
   const { handleBannerOnPress } = useWalletBanner({
     account,
@@ -307,15 +317,34 @@ function ReceiveToken() {
     }
   }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
 
+  // A verify can be superseded before its promise settles: the hardware stage's
+  // user-close fires the device cancel with `void` and announces
+  // CloseHardwareUiStateDialogManually straight away, so the abandoned call
+  // rejects well after the page has re-armed for a retry. Scope every
+  // settlement to the attempt that started it, otherwise a stale one clears the
+  // guard out from under the attempt now running.
+  const verifyAttemptRef = useRef(0);
+  const isVerifyingRef = useRef(false);
+
+  // Every out-of-band reset invalidates the in-flight attempt.
+  const resetVerifyState = useCallback(() => {
+    verifyAttemptRef.current += 1;
+    isVerifyingRef.current = false;
+    setAddressState(EAddressState.Unverified);
+  }, []);
+
   const handleVerifyOnDevicePress = useCallback(async () => {
+    if (isVerifyingRef.current) return;
+    if (!currentDeriveType) return;
+    if (!displayAddress) {
+      setAddressState(EAddressState.Unverified);
+      return;
+    }
+    const attempt = verifyAttemptRef.current + 1;
+    verifyAttemptRef.current = attempt;
+    isVerifyingRef.current = true;
     setAddressState(EAddressState.Verifying);
     try {
-      if (!currentDeriveType) return;
-      if (!displayAddress) {
-        setAddressState(EAddressState.Unverified);
-        return;
-      }
-
       const addresses =
         await backgroundApiProxy.serviceAccount.verifyHWAccountAddresses({
           walletId,
@@ -324,6 +353,7 @@ function ReceiveToken() {
           deriveType: currentDeriveType,
           confirmOnDevice: EConfirmOnDeviceType.EveryItem,
           customReceiveAddressPath: verificationPath,
+          expectedAddress: displayAddress,
         });
 
       const isSameAddress =
@@ -358,11 +388,15 @@ function ReceiveToken() {
           },
         });
       }
-      setAddressState(
-        isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
-      );
+      if (verifyAttemptRef.current === attempt) {
+        setAddressState(
+          isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
+        );
+      }
     } catch (e: any) {
-      setAddressState(EAddressState.Unverified);
+      if (verifyAttemptRef.current === attempt) {
+        setAddressState(EAddressState.Unverified);
+      }
       // verifyHWAccountAddresses handler error toast
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -370,6 +404,11 @@ function ReceiveToken() {
         failedReason: (e as Error).message,
       });
       throw e;
+    } finally {
+      // A superseded attempt must not release the guard the live one holds.
+      if (verifyAttemptRef.current === attempt) {
+        isVerifyingRef.current = false;
+      }
     }
   }, [
     currentAccount?.indexedAccountId,
@@ -382,19 +421,30 @@ function ReceiveToken() {
     walletId,
   ]);
 
+  const isVerifying = addressState === EAddressState.Verifying;
+
+  // Two surfaces start the same hardware call: the footer button and the QR
+  // placeholder card. On native the device stage UI only covers the page once
+  // the BLE transport is ready, seconds after the press, so the debounce
+  // collapses a rapid double tap and isVerifying holds the rest of that window.
+  const handleVerifyOnDevicePressDebounced = useDebouncedCallback(
+    handleVerifyOnDevicePress,
+    500,
+    { leading: true, trailing: false },
+  );
+
   useEffect(() => {
-    const callback = () => setAddressState(EAddressState.Unverified);
     appEventBus.on(
       EAppEventBusNames.CloseHardwareUiStateDialogManually,
-      callback,
+      resetVerifyState,
     );
     return () => {
       appEventBus.off(
         EAppEventBusNames.CloseHardwareUiStateDialogManually,
-        callback,
+        resetVerifyState,
       );
     };
-  }, []);
+  }, [resetVerifyState]);
 
   const fetchAccount = useCallback(async () => {
     if (!accountId && networkId && indexedAccountId) {
@@ -492,9 +542,9 @@ function ReceiveToken() {
 
   useEffect(() => {
     if (btcUsedAddress || btcUsedAddressPath) {
-      setAddressState(EAddressState.Unverified);
+      resetVerifyState();
     }
-  }, [btcUsedAddress, btcUsedAddressPath]);
+  }, [btcUsedAddress, btcUsedAddressPath, resetVerifyState]);
 
   const renderAddressCell = useCallback(() => {
     if (!displayAddress) return null;
@@ -546,6 +596,14 @@ function ReceiveToken() {
   }, [displayAddress, handleCopyAddress]);
 
   const arrivalTimeText = useMemo(() => {
+    // Until the server override settles, render no ETA instead of the
+    // bundled default — the default may differ a lot from the override and
+    // would flash before being replaced. `isLoading` starts as undefined,
+    // so gate on `!== false`. Failure resolves undefined and falls back to
+    // the bundled defaults below.
+    if (isArrivalConfigLoading !== false) {
+      return undefined;
+    }
     // The text is formatted via appLocale inside the util; depending on
     // intl.locale recomputes it when the app language changes.
     void intl.locale;
@@ -553,8 +611,16 @@ function ReceiveToken() {
       networkId,
       isTestnet: network?.isTestnet,
       isCustomNetwork: network?.isCustomNetwork,
+      override: receiveArrivalConfig,
     });
-  }, [intl.locale, networkId, network?.isTestnet, network?.isCustomNetwork]);
+  }, [
+    isArrivalConfigLoading,
+    intl.locale,
+    networkId,
+    network?.isTestnet,
+    network?.isCustomNetwork,
+    receiveArrivalConfig,
+  ]);
 
   const pageTitleText = useMemo(
     () =>
@@ -573,8 +639,15 @@ function ReceiveToken() {
         networkId,
         isTestnet: network?.isTestnet,
         isCustomNetwork: network?.isCustomNetwork,
+        override: { byNetworkId: receiveArrivalConfig?.standardByNetworkId },
       }),
-    [network?.name, networkId, network?.isTestnet, network?.isCustomNetwork],
+    [
+      network?.name,
+      networkId,
+      network?.isTestnet,
+      network?.isCustomNetwork,
+      receiveArrivalConfig?.standardByNetworkId,
+    ],
   );
 
   const shareData = useMemo<IReceiveShareData | null>(() => {
@@ -665,13 +738,14 @@ function ReceiveToken() {
   const renderVerifyFooter = useCallback(() => {
     if (platformEnv.isNative) {
       return (
-        <Page.Footer>
+        <Page.Footer safeAreaBottomMode="content">
           <YStack p="$5" pb={bottom || '$5'} gap="$2.5" bg="$bgApp">
             <Button
               testID={ReceiveTestIDs.VerifyOnDeviceButton}
               variant="primary"
               size="large"
-              onPress={handleVerifyOnDevicePress}
+              loading={isVerifying}
+              onPress={handleVerifyOnDevicePressDebounced}
             >
               {intl.formatMessage({
                 id: ETranslations.global_verify_on_device,
@@ -693,12 +767,13 @@ function ReceiveToken() {
 
     return (
       <Page.Footer
-        onConfirm={() => handleVerifyOnDevicePress()}
+        onConfirm={() => handleVerifyOnDevicePressDebounced()}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_verify_on_device,
         })}
         confirmButtonProps={{
           variant: 'primary',
+          loading: isVerifying,
           testID: ReceiveTestIDs.VerifyOnDeviceButton,
         }}
         // keep one declared param: FooterCancelButton auto-closes the page
@@ -712,7 +787,13 @@ function ReceiveToken() {
         }}
       />
     );
-  }, [bottom, handleSkipVerifyPress, handleVerifyOnDevicePress, intl]);
+  }, [
+    bottom,
+    handleSkipVerifyPress,
+    handleVerifyOnDevicePressDebounced,
+    intl,
+    isVerifying,
+  ]);
 
   const deriveTypeTrigger = useMemo(() => {
     if (!currentDeriveInfo) {
@@ -783,7 +864,7 @@ function ReceiveToken() {
         indexedAccountId={currentAccount?.indexedAccountId ?? ''}
         onSelect={async (value) => {
           if (value.account) {
-            setAddressState(EAddressState.Unverified);
+            resetVerifyState();
             setCurrentAccount(value.account);
             setCurrentDeriveType(value.deriveType);
             setCurrentDeriveInfo(value.deriveInfo);
@@ -802,11 +883,12 @@ function ReceiveToken() {
     walletId,
     networkId,
     onDeriveTypeChange,
+    resetVerifyState,
   ]);
 
   const renderNativeActionsFooter = useCallback(() => {
     return (
-      <Page.Footer>
+      <Page.Footer safeAreaBottomMode="content">
         <YStack p="$5" pb={bottom || '$5'} bg="$bgApp">
           <XStack gap="$2.5">
             {canShowShareEntry ? (
@@ -876,23 +958,24 @@ function ReceiveToken() {
         justifyContent="center"
         py={27}
         px="$4"
-        {...(!shouldShowQRCode && {
-          onPress: handleVerifyOnDevicePress,
-          userSelect: 'none',
-          hoverStyle: {
-            bg: '$bgHover',
-          },
-          pressStyle: {
-            bg: '$bgActive',
-          },
-          focusable: true,
-          focusVisibleStyle: {
-            outlineWidth: 2,
-            outlineColor: '$focusRing',
-            outlineOffset: 2,
-            outlineStyle: 'solid',
-          },
-        })}
+        {...(!shouldShowQRCode &&
+          !isVerifying && {
+            onPress: handleVerifyOnDevicePressDebounced,
+            userSelect: 'none',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+            focusable: true,
+            focusVisibleStyle: {
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineOffset: 2,
+              outlineStyle: 'solid',
+            },
+          })}
       >
         {shouldShowQRCode ? (
           <YStack testID={ReceiveTestIDs.QRCode}>
@@ -901,31 +984,37 @@ function ReceiveToken() {
               size={platformEnv.isNative ? 208 : 176}
             />
             {network.isCustomNetwork ? null : (
-              // full-bleed overlay + flex centering: percentage translate
-              // is unreliable on native, so avoid left/top 50% -50% here
-              <YStack
-                position="absolute"
-                top={0}
-                left={0}
-                right={0}
-                bottom={0}
-                alignItems="center"
-                justifyContent="center"
-              >
+              // The overlay sits on the QR plate, which is always light, so
+              // resolve theme tokens (the network badge ring and its icon
+              // backing use $bgApp) against the light theme the same way the
+              // QRCode component does for the plate itself.
+              <Theme name="light">
+                {/* full-bleed overlay + flex centering: percentage translate
+                    is unreliable on native, so avoid left/top 50% -50% here */}
                 <YStack
-                  borderWidth={4}
-                  borderColor="white"
-                  borderRadius="$full"
-                  bg="white"
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
+                  alignItems="center"
+                  justifyContent="center"
                 >
-                  <Token
-                    size="lg"
-                    tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
-                    networkImageUri={network.logoURI}
-                    networkId={networkId}
-                  />
+                  <YStack
+                    borderWidth={4}
+                    borderColor="white"
+                    borderRadius="$full"
+                    bg="white"
+                  >
+                    <Token
+                      size="lg"
+                      tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
+                      networkImageUri={network.logoURI}
+                      networkId={networkId}
+                    />
+                  </YStack>
                 </YStack>
-              </YStack>
+              </Theme>
             )}
           </YStack>
         ) : (
@@ -952,7 +1041,8 @@ function ReceiveToken() {
     displayAddress,
     network,
     shouldShowQRCode,
-    handleVerifyOnDevicePress,
+    handleVerifyOnDevicePressDebounced,
+    isVerifying,
     token?.logoURI,
     networkId,
     nativeToken?.logoURI,

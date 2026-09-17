@@ -20,7 +20,11 @@ import {
   EPerpUserType,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   IUnifoldDepositExecution,
@@ -30,8 +34,19 @@ import type {
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
+import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
+
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
+
+// Shared by Market entries and Web Perps, including expanded extension windows.
+export const {
+  target: webviewPerpTradeTargetAtom,
+  use: useWebviewPerpTradeTargetAtom,
+} = globalAtom<{ coin?: string; revision: number }>({
+  name: EAtomNames.webviewPerpTradeTargetAtom,
+  initialValue: { revision: 0 },
+});
 
 // #region Active Account
 export interface IPerpsActiveAccountAtom {
@@ -571,6 +586,9 @@ export const {
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
+    const { requiresPasswordSetupOrVerify } = get(
+      hyperLiquidAgentPasswordStatusAtom.atom(),
+    );
 
     const accountId = account.accountId ?? account.indexedAccountId;
 
@@ -589,15 +607,17 @@ export const {
       accountUtils.isImportedAccount({ accountId });
     const isHardwareAccount = accountUtils.isHwAccount({ accountId });
     const shouldUseOrderPanelEnableTradingDialog =
-      isHardwareAccount || !isSoftwareAccount;
+      isHardwareAccount || !isSoftwareAccount || requiresPasswordSetupOrVerify;
 
     return {
       isSoftwareAccount,
       isHardwareAccount,
-      canAutoEnableInOrderPanel: isSoftwareAccount,
+      canAutoEnableInOrderPanel:
+        isSoftwareAccount && !requiresPasswordSetupOrVerify,
       requiresEnableTradingDialogInOrderPanel:
         shouldUseOrderPanelEnableTradingDialog,
-      requiresExplicitEnableTrading: !isSoftwareAccount,
+      requiresExplicitEnableTrading:
+        !isSoftwareAccount || requiresPasswordSetupOrVerify,
     };
   },
 });
@@ -793,6 +813,7 @@ export type ITradingMode = 'perp' | 'spot';
 export const { target: tradingModeAtom, use: useTradingModeAtom } =
   globalAtom<ITradingMode>({
     name: EAtomNames.tradingModeAtom,
+    persist: true,
     initialValue: 'perp',
   });
 // #endregion
@@ -1068,12 +1089,17 @@ export const {
 
 export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 
+export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
+
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
+  chartPosition?: IPerpsChartPosition;
+  hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
+  lastUsdcWithdrawDestinationId: IUsdcWithdrawDestinationId;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -1085,8 +1111,11 @@ export const {
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
+    chartPosition: 'bottom',
+    hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    lastUsdcWithdrawDestinationId: DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
   },
 });
 
@@ -1213,6 +1242,7 @@ export interface IPerpsLayoutState {
   orderBook?: {
     visible: boolean;
   };
+  chartHeight?: number;
   chartExpanded?: boolean;
   resetAt?: number;
 }

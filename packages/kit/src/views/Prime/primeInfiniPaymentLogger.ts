@@ -2,10 +2,14 @@
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentFlowParams } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
+import { getPrimeInfiniPaymentErrorFailure } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 
 import { scrubSensitiveErrorMessageText } from '../../utils/sensitiveErrorMessageUtils';
 
 import type { IPrimePurchaseMonitorEvent } from './hooks/usePrimePurchaseMonitor';
+
+export { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 
 type IPrimeInfiniPaymentLogParams = IPrimeCryptoPaymentFlowParams & {
   error?: unknown;
@@ -23,34 +27,6 @@ function toOptionalString(value: unknown) {
     return String(value);
   }
   return undefined;
-}
-
-export function getPrimeInfiniPaymentSafeError(error: unknown) {
-  const plainError = toPlainErrorObject(error);
-  const responseStatus = (error as { response?: { status?: unknown } } | null)
-    ?.response?.status;
-  let httpStatusCode: number | undefined;
-  if (
-    typeof plainError.httpStatusCode === 'number' &&
-    Number.isFinite(plainError.httpStatusCode)
-  ) {
-    httpStatusCode = plainError.httpStatusCode;
-  } else if (
-    typeof responseStatus === 'number' &&
-    Number.isFinite(responseStatus)
-  ) {
-    httpStatusCode = responseStatus;
-  }
-  return {
-    errorName:
-      toOptionalString(plainError.name) ??
-      toOptionalString(plainError.className) ??
-      toOptionalString(plainError.constructorName),
-    errorCode:
-      toOptionalString(plainError.code) ?? toOptionalString(plainError.key),
-    requestId: toOptionalString(plainError.requestId),
-    httpStatusCode,
-  };
 }
 
 export function getPrimeInfiniPaymentLocalError(error: unknown) {
@@ -79,13 +55,15 @@ export function logPrimeInfiniPaymentFlow({
   defaultLogger.prime.subscription.primeCryptoPaymentFlow({
     ...params,
     ...safeError,
+    failureReason:
+      params.failureReason ?? getPrimeInfiniPaymentErrorFailure(error),
   });
   if (error) {
-    const localError = getPrimeInfiniPaymentLocalError(error);
     defaultLogger.prime.subscription.primeCryptoPaymentError({
       ...params,
-      ...localError,
-      errorMessage: localError.errorMessage ?? 'Unknown payment error',
+      ...safeError,
+      failureReason:
+        params.failureReason ?? getPrimeInfiniPaymentErrorFailure(error),
     });
   }
 }

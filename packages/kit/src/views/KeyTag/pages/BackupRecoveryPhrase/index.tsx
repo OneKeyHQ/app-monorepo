@@ -123,7 +123,7 @@ export function ImportRecoveryPhrase() {
         ) : null}
       </YStack>
       {!gtMd ? (
-        <Page.Footer>
+        <Page.Footer safeAreaBottomMode="content">
           <Page.FooterActions
             pb={safeAreaBottom ? safeAreaBottom + 8 : 20}
             onConfirmText={intl.formatMessage({

@@ -39,7 +39,10 @@ import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQui
 import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataInput/recipientSelectionUtils';
 import { useWebDappRecipientOptions } from '../../../Send/pages/SendDataInput/useWebDappRecipientOptions';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import { getSwapRecipientValidationAccountId } from '../../hooks/useSwapAccount.utils';
+import {
+  getSwapRecipientEditorAccountInfo,
+  getSwapRecipientValidationAccountId,
+} from '../../hooks/useSwapAccount.utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { IRecipientQuickSelectTab } from '../../../Send/pages/SendDataInput/recipientQuickSelectTabUtils';
@@ -62,6 +65,10 @@ const SwapToAnotherAddressPage = () => {
     address: recipientAccountAddress,
     networkId,
   } = useSwapAddressInfo(ESwapDirectionType.TO);
+  const editorAccountInfo = getSwapRecipientEditorAccountInfo({
+    recipientAccountInfo: accountInfo,
+    activeAccount,
+  });
   const validationAccountId = getSwapRecipientValidationAccountId({
     accountId: accountInfo?.account?.id,
     accountAddress: accountInfo?.account?.addressDetail?.address,
@@ -178,7 +185,7 @@ const SwapToAnotherAddressPage = () => {
     setSwapToAddress((v) => ({ ...v, address: undefined }));
   }, [setSwapToAddress, setSettings]);
 
-  return accountInfo && networkId ? (
+  return editorAccountInfo && networkId ? (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({

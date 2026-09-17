@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
 import { Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -7,7 +7,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorSceneInfo,
   useActiveAccount,
@@ -17,11 +16,15 @@ import {
   useDevSettingsPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeTestIDs } from '../../testIDs';
+import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
@@ -33,20 +36,28 @@ import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
+import { WalletActionPortfolioSync } from './WalletActionPortfolioSync';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
 import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
 
+type IRenderMoreItemsParams = {
+  handleActionListClose: () => void;
+  resolvedVaultSettings?: IVaultSettings;
+  resolvedIsBotWalletDeactivated?: boolean;
+};
+
 export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
 
   const show = useReviewControl();
-  const { config, getMoreActionGroups, getActionCustomization } =
+  const { config, getMoreActionGroups, getActionCustomization, vaultSettings } =
     useWalletActionConfig();
 
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
@@ -68,35 +79,15 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
     ],
   );
 
-  const rewardCenterConfig = getRewardCenterConfig({
-    accountId: account?.id ?? '',
-    networkId: network?.id ?? '',
-  });
-
-  const vaultSettings = usePromiseResult(async () => {
-    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: network?.id ?? '',
-    });
-    return settings;
-  }, [network?.id]).result;
-
-  const isCoinsEnabled = useMemo(
+  const rewardCenterConfig = useMemo(
     () =>
-      Boolean(account?.id) &&
-      Boolean(network?.id) &&
-      Boolean(activeAccount?.wallet?.id) &&
-      Boolean(vaultSettings?.coinControlEnabled),
-    [
-      account?.id,
-      activeAccount?.wallet?.id,
-      network?.id,
-      vaultSettings?.coinControlEnabled,
-    ],
+      getRewardCenterConfig({
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+      }),
+    [account?.id, network?.id],
   );
 
-  const displaySignAndVerify = usePromiseResult(async () => {
-    return vaultSettings?.enabledInternalSignAndVerify;
-  }, [vaultSettings]);
   const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {
       walletId: activeAccount?.wallet?.id,
@@ -125,14 +116,19 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
     account?.createAtNetwork,
   ]);
 
-  const renderItemsAsync = useCallback(
-    async ({
+  const renderItems = useCallback(
+    ({
       handleActionListClose,
-    }: {
-      handleActionListClose: () => void;
-    }) => {
+      resolvedVaultSettings = vaultSettings,
+      resolvedIsBotWalletDeactivated = isBotWalletDeactivated,
+    }: IRenderMoreItemsParams) => {
       const groups = getMoreActionGroups();
       const elements: ReactNode[] = [];
+      const resolvedIsCoinsEnabled =
+        Boolean(account?.id) &&
+        Boolean(network?.id) &&
+        Boolean(activeAccount?.wallet?.id) &&
+        Boolean(resolvedVaultSettings?.coinControlEnabled);
 
       const renderTradingGroup = () => {
         const tradingGroup = groups.find((group) => group.type === 'trading');
@@ -141,6 +137,9 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
         const actions = tradingGroup.actions.filter((action) => {
           if (action === 'buy') {
             return show;
+          }
+          if (action === 'swap' && resolvedVaultSettings?.disabledSwapAction) {
+            return false;
           }
           return config.moreActions.includes(action);
         });
@@ -174,11 +173,11 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
         const actions = toolsGroup.actions.filter((action) => {
           switch (action) {
             case 'explorer':
-              return !vaultSettings?.hideBlockExplorer;
+              return !resolvedVaultSettings?.hideBlockExplorer;
             case 'copy':
-              return !vaultSettings?.copyAddressDisabled;
+              return !resolvedVaultSettings?.copyAddressDisabled;
             case 'sign':
-              return displaySignAndVerify.result;
+              return resolvedVaultSettings?.enabledInternalSignAndVerify;
             case 'reward':
               return !!rewardCenterConfig;
             case 'approvals':
@@ -186,7 +185,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
             case 'addressList':
               return isAddressListEnabled;
             case 'coins':
-              return isCoinsEnabled;
+              return resolvedIsCoinsEnabled;
             default:
               return config.moreActions.includes(action);
           }
@@ -277,7 +276,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
                 devSettings?.settings?.showDevExportPrivateKey &&
                 !shouldHideBotWalletExport({
                   isBotWallet,
-                  isBotWalletDeactivated,
+                  isBotWalletDeactivated: resolvedIsBotWalletDeactivated,
                 })
               );
             default:
@@ -323,6 +322,15 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
         elements.push(...devElements);
       }
 
+      if (activeTabId === EHomeWalletTab.Portfolio) {
+        elements.push(
+          <WalletActionPortfolioSync
+            key="portfolio-sync"
+            onClose={handleActionListClose}
+          />,
+        );
+      }
+
       return (
         <AccountSelectorProviderMirror
           config={{
@@ -331,9 +339,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
           }}
           enabledNum={[0]}
         >
-          <HomeTokenListProviderMirrorWrapper
-            accountId={activeAccount?.account?.id ?? ''}
-          >
+          <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
             {elements}
           </HomeTokenListProviderMirrorWrapper>
         </AccountSelectorProviderMirror>
@@ -341,16 +347,16 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
     },
     [
       getMoreActionGroups,
-      activeAccount?.account?.id,
+      account?.id,
+      activeAccount?.wallet?.id,
+      activeTabId,
+      network?.id,
       config.moreActions,
       show,
-      vaultSettings?.hideBlockExplorer,
-      vaultSettings?.copyAddressDisabled,
-      displaySignAndVerify.result,
+      vaultSettings,
       rewardCenterConfig,
       isApprovalEnabled,
       isAddressListEnabled,
-      isCoinsEnabled,
       getActionCustomization,
       devSettings?.settings?.showDevExportPrivateKey,
       isBotWallet,
@@ -360,8 +366,46 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
     ],
   );
 
+  const renderItemsAsync = useCallback(
+    async ({
+      handleActionListClose,
+    }: {
+      handleActionListClose: () => void;
+    }) => {
+      const walletId = activeAccount?.wallet?.id;
+      const [resolvedVaultSettings, resolvedIsBotWalletDeactivated] =
+        await Promise.all([
+          network?.id
+            ? backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId: network.id,
+              })
+            : Promise.resolve(vaultSettings),
+          isBotWallet && walletId
+            ? backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+                walletId,
+              })
+            : Promise.resolve(isBotWalletDeactivated),
+        ]);
+
+      return renderItems({
+        handleActionListClose,
+        resolvedVaultSettings,
+        resolvedIsBotWalletDeactivated,
+      });
+    },
+    [
+      activeAccount?.wallet?.id,
+      isBotWallet,
+      isBotWalletDeactivated,
+      network?.id,
+      renderItems,
+      vaultSettings,
+    ],
+  );
+
   return (
     <RawActions.More
+      renderItems={platformEnv.isNative ? renderItems : undefined}
       renderItemsAsync={renderItemsAsync}
       testID={HomeTestIDs.moreButton}
       iconOnly={iconOnly}

@@ -3,6 +3,7 @@ import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { IDBDevice } from '../../types';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 import type Realm from 'realm';
 
 class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
@@ -20,6 +21,10 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
    * the features of the device
    */
   public features!: string;
+
+  public deviceState?: string;
+
+  public connectProtocol?: HardwareConnectProtocol;
 
   /**
    * ble connectId address (mac)
@@ -80,6 +85,8 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       deviceType: 'string',
       settingsRaw: 'string',
       features: 'string',
+      deviceState: 'string?',
+      connectProtocol: 'string?',
       createdAt: 'int',
       updatedAt: 'int',
       verifiedAtVersion: 'string?',
@@ -98,6 +105,8 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       deviceId: this.deviceId,
       deviceType: this.deviceType,
       features: this.features,
+      deviceState: this.deviceState,
+      connectProtocol: this.connectProtocol,
       settingsRaw: this.settingsRaw,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

@@ -2,6 +2,7 @@
 
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import type { INativeStorageRequest } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import type { ILazyServiceProxy } from './lazyServiceProxy';
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
@@ -21,7 +22,9 @@ import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
+import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceBulkSend from '../services/ServiceBulkSend';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
@@ -41,6 +44,7 @@ import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceFreshAddress from '../services/ServiceFreshAddress';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
+import type ServiceHardwarePortfolioSync from '../services/ServiceHardware/serviceHardwarePortfolioSync';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
@@ -90,6 +94,7 @@ import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardwar
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
+import type ServiceTravelMode from '../services/ServiceTravelMode';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
@@ -125,10 +130,14 @@ export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
   module: keyof IOffscreenApi;
 };
 
+export type IBackgroundAtomStates = Partial<Record<EAtomNames, any>>;
+
 export interface IBackgroundApiBridge {
   // **** jotai
   setAtomValue: (atomName: EAtomNames, value: any) => Promise<void>;
-  getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
+  getAtomStates: (
+    atomNames?: EAtomNames[],
+  ) => Promise<{ states: IBackgroundAtomStates }>;
 
   // **** eventBus
   emitEvent<T extends keyof IAppEventBusPayload>(
@@ -137,6 +146,7 @@ export interface IBackgroundApiBridge {
     originNodeId?: string,
   ): Promise<boolean>;
   writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void>;
+  nativeStorage(request: INativeStorageRequest): Promise<unknown>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;
@@ -166,6 +176,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
+  serviceTravelMode: ServiceTravelMode;
   serviceWebviewPerp: ServiceWebviewPerp;
   serviceDevSetting: ServiceDevSetting;
   serviceSetting: ServiceSetting;
@@ -179,6 +190,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAccount: ServiceAccount;
   serviceAccountSelector: ServiceAccountSelector;
   serviceBatchCreateAccount: ServiceBatchCreateAccount;
+  serviceBatchTxSign: ServiceBatchTxSign;
   serviceAllNetwork: ServiceAllNetwork;
   serviceToken: ServiceToken;
   serviceTokenViewModel: ServiceTokenViewModel;
@@ -197,9 +209,10 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;
   serviceNotification: ServiceNotification;
-  serviceIdentityExit: ServiceIdentityExit;
+  serviceIdentityExit: ILazyServiceProxy<ServiceIdentityExit>;
   servicePrime: ServicePrime;
   servicePrimeCloudSync: ServicePrimeCloudSync;
+  serviceHardwarePortfolioSync: ServiceHardwarePortfolioSync;
   serviceKeylessCloudSync: ServiceKeylessCloudSync;
   serviceQrWallet: ServiceQrWallet;
   serviceAccountProfile: ServiceAccountProfile;
@@ -234,6 +247,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;
+  serviceBulkSend: ServiceBulkSend;
   serviceFiatCrypto: ServiceFiatCrypto;
   serviceSignature: ServiceSignature;
   serviceNostr: ServiceNostr;

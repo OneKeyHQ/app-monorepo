@@ -15,7 +15,14 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { mapMarketStockPublicItemToSearchToken } from '@onekeyhq/shared/src/utils/marketSearchStock';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  buildCoinFromSearchAssetType,
+  buildTradablePerpMaxLeverageMap,
+  isPerpsUniverseCacheComplete,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import { matchesTokenSearchAlias } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
@@ -31,6 +38,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { PERPS_ASSET_TYPE_VERSION } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -46,6 +54,17 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
+
+const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
+  minute: 5,
+});
+// Every market's search aliases include its pair notations (`btc-usdc`), so
+// `usdc` returns every USDC settled market. Only short ASCII tickers are held
+// to a literal match: a longer query is where the index's description hits
+// such as `nasdaq` are the point, and a non-ASCII one is where the localized
+// aliases the server may hold beyond our cached map are.
+const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
+const UNIVERSAL_SEARCH_STOCK_LIMIT = 10;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -196,6 +215,9 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.V2MarketToken)
         ? this.universalSearchOfV2MarketToken(input)
         : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.MarketStock)
+        ? this.universalSearchOfMarketStock(input)
+        : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
         : Promise.resolve([]),
@@ -226,6 +248,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const [
       addressResultSettled,
       v2MarketTokenResultSettled,
+      marketStockResultSettled,
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
@@ -249,6 +272,19 @@ class ServiceUniversalSearch extends ServiceBase {
       result[EUniversalSearchType.V2MarketToken] = {
         items: v2MarketTokenResultSettled.value.map((item) => ({
           type: EUniversalSearchType.V2MarketToken,
+          payload: item,
+        })),
+      };
+    }
+
+    if (
+      marketStockResultSettled.status === 'fulfilled' &&
+      marketStockResultSettled.value &&
+      marketStockResultSettled.value.length > 0
+    ) {
+      result[EUniversalSearchType.MarketStock] = {
+        items: marketStockResultSettled.value.map((item) => ({
+          type: EUniversalSearchType.MarketStock,
           payload: item,
         })),
       };
@@ -311,6 +347,19 @@ class ServiceUniversalSearch extends ServiceBase {
   @backgroundMethod()
   async universalSearchOfV2MarketToken(query: string) {
     return this.backgroundApi.serviceMarket.searchV2Token(query);
+  }
+
+  @backgroundMethod()
+  async universalSearchOfMarketStock(query: string) {
+    const stockResult =
+      await this.backgroundApi.serviceMarketV2.searchMarketStocks({
+        query,
+        limit: UNIVERSAL_SEARCH_STOCK_LIMIT,
+      });
+    if (!Array.isArray(stockResult?.items)) {
+      return [];
+    }
+    return stockResult.items.map(mapMarketStockPublicItemToSearchToken);
   }
 
   async universalSearchOfAccountAssets({
@@ -1219,9 +1268,43 @@ class ServiceUniversalSearch extends ServiceBase {
     return { items } as IUniversalSearchSingleResult;
   }
 
+  // Undefined when the universe is not fully cached: an incomplete cache cannot
+  // prove an asset is gone, and filtering against it would empty the results.
+  private async readTradablePerpMaxLeverageMap(): Promise<
+    Map<string, number> | undefined
+  > {
+    try {
+      const { universesByDex, updatedAt } =
+        await this.backgroundApi.simpleDb.perp.getTradingUniverse();
+      if (!isPerpsUniverseCacheComplete(universesByDex)) {
+        return undefined;
+      }
+      const isStale =
+        !updatedAt || Date.now() - updatedAt > PERPS_UNIVERSE_SEARCH_MAX_AGE_MS;
+      if (isStale) {
+        return undefined;
+      }
+      return buildTradablePerpMaxLeverageMap(universesByDex);
+    } catch {
+      return undefined;
+    }
+  }
+
   private universalSearchOfPerpCached = memoizee(
     async (input: string): Promise<IUniversalSearchPerpResult> => {
       try {
+        // Kick the refresh off before the request so both are in flight at
+        // once: a missing or stale universe is only awaited below, and only
+        // when there are perp rows that actually need filtering.
+        const cachedPerpMaxLeverage =
+          await this.readTradablePerpMaxLeverageMap();
+        const refreshPromise = cachedPerpMaxLeverage
+          ? undefined
+          : this.backgroundApi.serviceHyperliquid
+              .refreshTradingMeta()
+              .then(() => true)
+              .catch(() => false);
+
         const client = await this.getClient(EServiceEndpointEnum.Wallet);
         const response = await client.get<{
           data: Array<{
@@ -1234,22 +1317,83 @@ class ServiceUniversalSearch extends ServiceBase {
             subtitle?: string;
           }>;
         }>('/wallet/v1/proxy/hyperliquid/perpsAsset', {
-          params: { query: input },
+          params: {
+            query: input,
+            assetTypeVersion: PERPS_ASSET_TYPE_VERSION,
+          },
         });
 
+        const rawAssets = response?.data?.data;
+        // Only wait on the refresh when there is something to filter: a query
+        // that matches no perp asset needs no universe at all.
+        const tradablePerpMaxLeverage =
+          rawAssets?.length && (await refreshPromise)
+            ? await this.readTradablePerpMaxLeverageMap()
+            : cachedPerpMaxLeverage;
+
+        const normalizedQuery = input.trim().toLowerCase();
+        const requiresLiteralMatch =
+          /^[a-z0-9]+$/.test(normalizedQuery) &&
+          normalizedQuery.length <= PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH;
+        // Read only when the filter can drop something: an alias is the only
+        // way a query reaches a market whose ticker and subtitle both miss it.
+        const tokenSearchAliases = requiresLiteralMatch
+          ? await this.backgroundApi.serviceHyperliquid.getTokenSearchAliases()
+          : undefined;
+
         const items: IUniversalSearchPerpResult['items'] =
-          response?.data?.data?.map((asset) => ({
-            type: EUniversalSearchType.Perp,
-            payload: {
-              assetType: asset.type,
-              logoUrl: asset.logoUrl,
-              name: asset.name,
-              maxLeverage: asset.maxLeverage,
-              midPx: asset.midPx,
-              dayNtlVlm: asset.dayNtlVlm,
-              subtitle: asset.subtitle,
-            },
-          })) ?? [];
+          rawAssets
+            ?.filter((asset) => {
+              const coin = buildCoinFromSearchAssetType({
+                assetType: asset.type,
+                name: asset.name,
+              });
+              // `asset.type` is the dex prefix, so matching it exactly keeps
+              // `xyz` browsing that sub-dex without a fragment such as `ar`
+              // waving through every `para` row.
+              if (
+                requiresLiteralMatch &&
+                asset.type?.toLowerCase() !== normalizedQuery &&
+                ![asset.name, asset.subtitle].some((field) =>
+                  field?.toLowerCase().includes(normalizedQuery),
+                ) &&
+                !matchesTokenSearchAlias({
+                  query: normalizedQuery,
+                  aliases: coin
+                    ? tokenSearchAliases?.[coin]?.aliases
+                    : undefined,
+                })
+              ) {
+                return false;
+              }
+              // The search index still carries delisted assets — `xyz:UNITREE`
+              // survives there after moving to `para`, so the same ticker would
+              // appear twice with one dead row.
+              if (!tradablePerpMaxLeverage) {
+                return true;
+              }
+              return Boolean(coin && tradablePerpMaxLeverage.has(coin));
+            })
+            .map((asset) => {
+              const coin = buildCoinFromSearchAssetType({
+                assetType: asset.type,
+                name: asset.name,
+              });
+              return {
+                type: EUniversalSearchType.Perp,
+                payload: {
+                  assetType: asset.type,
+                  logoUrl: asset.logoUrl,
+                  name: asset.name,
+                  maxLeverage:
+                    (coin ? tradablePerpMaxLeverage?.get(coin) : undefined) ??
+                    asset.maxLeverage,
+                  midPx: asset.midPx,
+                  dayNtlVlm: asset.dayNtlVlm,
+                  subtitle: asset.subtitle,
+                },
+              };
+            }) ?? [];
 
         return { items };
       } catch (error) {

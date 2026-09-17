@@ -104,4 +104,34 @@ describe('buildSwapTokenFetchParams', () => {
       }),
     ).not.toHaveProperty('limit');
   });
+
+  it('requests only supported swap tokens for keyword searches', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentNetworkId: 'evm--56',
+        currentSelectNetworkId: 'evm--56',
+        keywords: '苹果',
+        swapType: ESwapTabSwitchType.SWAP,
+        requestCurrency: 'usd',
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).toMatchObject({
+      keywords: '苹果',
+      onlySwapTokens: true,
+    });
+  });
+
+  it('keeps LP token keyword searches unchanged', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentNetworkId: 'evm--56',
+        currentSelectNetworkId: 'evm--56',
+        keywords: 'LP',
+        swapType: ESwapTabSwitchType.SWAP,
+        lpToken: true,
+        requestCurrency: 'usd',
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).not.toHaveProperty('onlySwapTokens');
+  });
 });

@@ -8,6 +8,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EmailOTPDialog } from './EmailOTPDialog';
 import { createEmailOtpRateLimitError } from './emailOtpRateLimitError';
 
+const mockOneKeyIdLoginFailedReason = jest.fn();
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }, values?: { seconds?: number }) => {
@@ -61,6 +63,18 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    prime: {
+      subscription: {
+        onekeyIdLoginFailedReason: (...args: unknown[]) => {
+          mockOneKeyIdLoginFailedReason(...args);
+        },
+      },
+    },
+  },
+}));
+
 describe('EmailOTPDialog', () => {
   const rateLimitError = createEmailOtpRateLimitError({
     message: 'Please retry after 33 seconds.',
@@ -90,6 +104,10 @@ describe('EmailOTPDialog', () => {
     });
     expect(Toast.error).toHaveBeenCalledWith({
       title: ETranslations.email_verification_rate_limit,
+    });
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason:
+        'Email verification code request failed: name=OneKeyLocalError message=Please retry after 33 seconds. code=-99999 status= requestId=',
     });
   });
 

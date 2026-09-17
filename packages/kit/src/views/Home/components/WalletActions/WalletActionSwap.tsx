@@ -14,14 +14,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import { HomeTestIDs } from '../../testIDs';
 
 import { RawActions } from './RawActions';
+import { buildWalletHomeSwapInitParams } from './WalletActionSwap.utils';
 
 import type { IActionCustomization } from './types';
 
@@ -61,22 +59,14 @@ function WalletActionSwap({
     if (customization?.onPress) {
       void customization.onPress();
     } else {
-      // Ext popup/side panel has no Swap tab, so the Trade action opens this
-      // modal instead. Omit importNetworkId there to match the tab's
-      // "resume the last-selected network/token" behavior: passing
-      // importNetworkId forces a default-token re-sync that clears From/To
-      // when the current network has no configured defaults (e.g. All
-      // Networks), which is why the modal otherwise opens empty.
       const isExtPopupOrSidePanel =
         platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
-        params: isExtPopupOrSidePanel
-          ? { swapSource: ESwapSource.WALLET_HOME }
-          : {
-              importNetworkId: network?.id ?? '',
-              swapSource: ESwapSource.WALLET_HOME,
-            },
+        params: buildWalletHomeSwapInitParams({
+          isExtPopupOrSidePanel,
+          networkId: network?.id,
+        }),
       });
     }
 

@@ -9,6 +9,7 @@ import {
   Button,
   Icon,
   IconButton,
+  LottieView,
   Page,
   Popover,
   SectionList,
@@ -16,12 +17,14 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSortAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteCurrentEventProviderKeysAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -44,6 +47,10 @@ import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.cons
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProviderListItem from '../../components/SwapProviderListItem';
+import {
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
+} from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -77,6 +84,14 @@ const SwapProviderSelectModal = () => {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const quoteLoading = useSwapQuoteLoading();
+  const quoteEventFetching = useSwapQuoteEventFetching();
+  const isQuoteFetching = quoteLoading || quoteEventFetching;
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
+  const activeFromTokenAmount =
+    quoteActionLock.fromTokenAmount ?? fromTokenAmount.value;
+  const activeFromToken = quoteActionLock.fromToken ?? fromToken;
+  const activeToToken = quoteActionLock.toToken ?? toToken;
   const [manualSelectQuoteProvider, setSwapManualSelect] =
     useSwapManualSelectQuoteProvidersAtom();
   const [providerSort, setProviderSort] = useSwapProviderSortAtom();
@@ -179,7 +194,7 @@ const SwapProviderSelectModal = () => {
   const renderItem = useCallback(
     ({ item }: { item: IFetchQuoteResult; index: number }) => {
       let disabled = !item.toAmount;
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
+      const fromTokenAmountBN = new BigNumber(activeFromTokenAmount || 0);
       if (item.limit) {
         if (item.limit.min) {
           const minBN = new BigNumber(item.limit.min);
@@ -220,9 +235,9 @@ const SwapProviderSelectModal = () => {
           autoOpenRoute={autoOpenRoute}
           autoOpenRouteTrigger={autoOpenRouteTrigger}
           routeCollapseTrigger={selectedProviderKey}
-          fromTokenAmount={fromTokenAmount.value}
-          fromToken={fromToken}
-          toToken={toToken}
+          fromTokenAmount={activeFromTokenAmount}
+          fromToken={activeFromToken}
+          toToken={activeToToken}
           providerResult={item}
           currencySymbol={settingsPersist.currencyInfo.symbol}
           disabled={disabled}
@@ -230,15 +245,15 @@ const SwapProviderSelectModal = () => {
       );
     },
     [
-      fromToken,
-      fromTokenAmount,
+      activeFromToken,
+      activeFromTokenAmount,
+      activeToToken,
       manualSelectQuoteProvider,
       onSelectQuote,
       selectedProviderKey,
       selectedProviderInfo?.provider,
       selectedProviderInfo?.providerName,
       settingsPersist.currencyInfo.symbol,
-      toToken,
     ],
   );
 
@@ -306,6 +321,23 @@ const SwapProviderSelectModal = () => {
         estimatedItemSize="$10"
         renderItem={renderItem}
         sections={sectionData}
+        ListHeaderComponent={
+          sectionData.length === 0 && isQuoteFetching ? (
+            <YStack
+              testID="swap-provider-list-loading"
+              alignItems="center"
+              justifyContent="center"
+              py="$16"
+            >
+              <LottieView
+                source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+                autoPlay
+                loop
+                style={{ width: 48, height: 20 }}
+              />
+            </YStack>
+          ) : null
+        }
         renderSectionHeader={({ section: { type, title } }) => {
           if (type === ESwapProviderStatus.AVAILABLE) {
             return (

@@ -77,10 +77,13 @@ function PageStatusBar() {
   return <StatusBar animated barStyle="dark-content" />;
 }
 
-function AbsoluteContainer({ children }: PropsWithChildren) {
+function AbsoluteContainer({
+  children,
+  backgroundColor,
+}: PropsWithChildren<Pick<IBasicPageProps, 'backgroundColor'>>) {
   return (
     <Stack
-      bg="$bgApp"
+      backgroundColor={backgroundColor ?? '$bgApp'}
       position="absolute"
       top={0}
       left={0}
@@ -88,7 +91,7 @@ function AbsoluteContainer({ children }: PropsWithChildren) {
       bottom={0}
       opacity={1}
       flex={1}
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_OPACITY}
       exitStyle={exitStyleFadeOut}
     >
@@ -103,7 +106,10 @@ function AbsoluteContainer({ children }: PropsWithChildren) {
 function LoadingScreenAndroid({
   children,
   fullPage,
-}: PropsWithChildren<{ fullPage: boolean }>) {
+  backgroundColor,
+}: PropsWithChildren<
+  { fullPage: boolean } & Pick<IBasicPageProps, 'backgroundColor'>
+>) {
   const [showLoading, changeLoadingVisibleStatus] = useState(true);
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
 
@@ -120,11 +126,15 @@ function LoadingScreenAndroid({
 
   const minHeight = useMinHeight(fullPage);
   return (
-    <View flex={1} minHeight={minHeight} bg="$bgApp">
+    <View
+      flex={1}
+      minHeight={minHeight}
+      backgroundColor={backgroundColor ?? '$bgApp'}
+    >
       {showChildren ? children : null}
       <AnimatePresence>
         {showLoading ? (
-          <AbsoluteContainer>
+          <AbsoluteContainer backgroundColor={backgroundColor}>
             <Loading />
           </AbsoluteContainer>
         ) : null}
@@ -136,14 +146,19 @@ function LoadingScreenAndroid({
 function LoadingScreen({
   children,
   fullPage,
-}: PropsWithChildren<{ fullPage: boolean }>) {
+  backgroundColor,
+}: PropsWithChildren<
+  { fullPage: boolean } & Pick<IBasicPageProps, 'backgroundColor'>
+>) {
   // iOS: skip loading overlay — performWithoutAnimation fix handles animation artifacts
   if (platformEnv.isNativeIOS) {
     return <>{children}</>;
   }
 
   return (
-    <LoadingScreenAndroid fullPage={fullPage}>{children}</LoadingScreenAndroid>
+    <LoadingScreenAndroid fullPage={fullPage} backgroundColor={backgroundColor}>
+      {children}
+    </LoadingScreenAndroid>
   );
 }
 
@@ -157,21 +172,28 @@ export function BasicPage({
   lazyLoad = false,
   fullPage = false,
   testID,
+  backgroundColor,
 }: IBasicPageProps) {
   const { layout, onPageLayout } = useIPadModalPageSizeChange();
   const isIpadModalPage = useIsIpadModalPage();
   const content = useMemo(() => {
     return (
-      <Stack bg="$bgApp" flex={1} testID={testID}>
+      <Stack
+        backgroundColor={backgroundColor ?? '$bgApp'}
+        flex={1}
+        testID={testID}
+      >
         {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
         {lazyLoad ? (
-          <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
+          <LoadingScreen fullPage={fullPage} backgroundColor={backgroundColor}>
+            {children}
+          </LoadingScreen>
         ) : (
           <AbsoluteLoadingContainer>{children}</AbsoluteLoadingContainer>
         )}
       </Stack>
     );
-  }, [children, lazyLoad, fullPage, testID]);
+  }, [backgroundColor, children, lazyLoad, fullPage, testID]);
   return isIpadModalPage ? (
     <YStack flex={1} onLayout={onPageLayout}>
       <iPadModalPageContext.Provider value={layout}>

@@ -59,6 +59,53 @@ describe('useTrackTokenAllowance', () => {
     expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(0);
   });
 
+  it('refreshes a seeded allowance when requested', async () => {
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({
+        ...params,
+        initialValue: '5',
+        refreshOnMount: true,
+      }),
+    );
+
+    expect(result.current.allowance).toBe('5');
+    expect(result.current.loading).toBe(true);
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.allowance).toBe('10');
+    });
+    expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1);
+  });
+
+  it('reconciles again when the seeded allowance changes', async () => {
+    serviceStaking.fetchTokenAllowance
+      .mockResolvedValueOnce({
+        allowance: '10000000',
+        allowanceParsed: '10',
+      })
+      .mockResolvedValueOnce({
+        allowance: '20000000',
+        allowanceParsed: '20',
+      });
+    const { result, rerender } = renderHook(
+      ({ initialValue }: { initialValue: string }) =>
+        useTrackTokenAllowance({
+          ...params,
+          initialValue,
+          refreshOnMount: true,
+        }),
+      { initialProps: { initialValue: '5' } },
+    );
+
+    await waitFor(() => expect(result.current.allowance).toBe('10'));
+    rerender({ initialValue: '6' });
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.allowance).toBe('20');
+    });
+    expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(2);
+  });
+
   it('keeps the fallback allowance when the initial fetch fails', async () => {
     serviceStaking.fetchTokenAllowance.mockRejectedValue(
       new Error('network error'),

@@ -1,4 +1,4 @@
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import type { IBorrowToken, IEarnText } from '@onekeyhq/shared/types/staking';
@@ -14,7 +14,6 @@ type IAssetWithAmountFieldProps = {
   amountLabel?: IEarnText;
   amount?: IEarnText;
   amountDescription?: IEarnText;
-  showWalletIcon?: boolean;
   platformBonusApy?: {
     title: IEarnText;
     logoURI?: string;
@@ -27,7 +26,6 @@ export const AssetWithAmountField = ({
   amountLabel,
   amount,
   amountDescription,
-  showWalletIcon,
   platformBonusApy,
 }: IAssetWithAmountFieldProps) => {
   return (
@@ -59,9 +57,6 @@ export const AssetWithAmountField = ({
             </XStack>
           ) : null}
           <XStack ai="center" gap="$1">
-            {showWalletIcon ? (
-              <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
-            ) : null}
             <EarnText text={amountLabel} size="$bodySm" color="$textSubdued" />
             <EarnText text={amount} size="$bodySm" color="$textSubdued" />
             {amountDescription ? (

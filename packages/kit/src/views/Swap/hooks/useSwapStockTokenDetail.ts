@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   swrCacheUtils,
@@ -46,9 +47,12 @@ export function useSwapStockTokenDetail({
   enabled?: boolean;
   token?: ISwapToken;
 }) {
+  const locale = useLocaleVariant().toLowerCase();
   const tokenKey = getTokenIdentityKey(token);
   const isActive = Boolean(enabled && token?.networkId && tokenKey);
-  const tokenDetailScope = isActive ? tokenKey : '';
+  // Stock metadata contains localized fields. Include the active locale in the
+  // scope so a locale switch cannot hydrate the previous language's detail.
+  const tokenDetailScope = isActive ? `${tokenKey}:${locale}` : '';
   const lastGoodTokenDetailRef = useRef<IStockTokenDetailFetchState | null>(
     null,
   );

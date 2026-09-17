@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,6 +32,7 @@ import { getStockTradeAlertAnalyticsPayload } from '../../utils/swapStockAnalyti
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 
 import SwapAlertContainer from './SwapAlertContainer';
+import { SwapSmoothReveal } from './SwapSmoothReveal';
 import {
   getStockErrorAlertLevel,
   getStockTradeAlertType,
@@ -50,6 +52,8 @@ type ISwapStockTradeAlertProps = {
   quoteLoading: boolean;
   quoteResult?: IFetchQuoteResult;
   stockChannel: IUseSwapStockChannelReturn;
+  /** px value of the hosting Stack gap, offset by SwapSmoothReveal */
+  parentGap: number;
 };
 
 function useStockQuoteAlert({
@@ -101,6 +105,7 @@ function BasicSwapStockTradeAlert({
   quoteLoading,
   quoteResult,
   stockChannel,
+  parentGap,
 }: ISwapStockTradeAlertProps) {
   const intl = useIntl();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
@@ -134,14 +139,15 @@ function BasicSwapStockTradeAlert({
     ],
   );
 
-  const isStockMarketClosed =
-    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed ||
-    isCurrentStockMarketClosedQuoteEventError({
-      fromToken: stockChannel.fromToken,
-      fromTokenAmount: fromTokenAmount.value,
-      quoteEventError,
-      toToken: stockChannel.toToken,
-    });
+  // Market closed is no longer predicted from the market-status feed
+  // (OK-58986): the alert appears only when the quote path itself reports
+  // that no provider can fill while the market is closed.
+  const isStockMarketClosed = isCurrentStockMarketClosedQuoteEventError({
+    fromToken: stockChannel.fromToken,
+    fromTokenAmount: fromTokenAmount.value,
+    quoteEventError,
+    toToken: stockChannel.toToken,
+  });
 
   const stockEventAlert = useMemo<ISwapAlertState | undefined>(() => {
     if (
@@ -258,6 +264,7 @@ function BasicSwapStockTradeAlert({
     stockTradeDisabled,
   ]);
 
+  let alertContent: ReactNode = null;
   if (isStockMarketClosed) {
     // Backend returns a localized countdown string (the first line of
     // stock.description); its presence means "we know the next open time".
@@ -270,7 +277,7 @@ function BasicSwapStockTradeAlert({
       hasOpenTime: Boolean(closedTimeText),
       hasPerps,
     });
-    return (
+    alertContent = (
       <StockMarketStatusAlert
         testID={SwapTestIDs.stockTradeStatusAlert}
         statusCase={statusCase}
@@ -278,10 +285,10 @@ function BasicSwapStockTradeAlert({
         onTradePerps={hlTicker ? () => navigateToPerps(hlTicker) : undefined}
       />
     );
-  }
-
-  if (stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken) {
-    return (
+  } else if (
+    stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken
+  ) {
+    alertContent = (
       <Alert
         testID={SwapTestIDs.stockTradeStatusAlert}
         type="warning"
@@ -291,16 +298,23 @@ function BasicSwapStockTradeAlert({
         })}
       />
     );
+  } else if (mergedQuoteAlerts.some((item) => item.message || item.title)) {
+    // Marker-only states (e.g. noConnectWallet) render nothing in
+    // SwapAlertContainer, so they must not open the reveal wrapper.
+    alertContent = (
+      <YStack testID={SwapTestIDs.stockTradeStatusAlert}>
+        <SwapAlertContainer alerts={mergedQuoteAlerts} />
+      </YStack>
+    );
   }
 
-  if (!mergedQuoteAlerts.length) {
-    return null;
-  }
-
+  // OK-58690: the alert hides while a quote refresh is in flight and comes
+  // back if the error persists; SwapSmoothReveal expands/collapses it
+  // smoothly so the content below is eased instead of shoved.
   return (
-    <YStack testID={SwapTestIDs.stockTradeStatusAlert}>
-      <SwapAlertContainer alerts={mergedQuoteAlerts} />
-    </YStack>
+    <SwapSmoothReveal visible={!!alertContent} parentGap={parentGap}>
+      {alertContent}
+    </SwapSmoothReveal>
   );
 }
 

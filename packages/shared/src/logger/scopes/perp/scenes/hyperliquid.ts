@@ -279,7 +279,9 @@ export class HyperLiquidScene extends BaseScene {
   @LogToServer()
   public withdraw(
     params: IHyperLiquidLogParams<
-      IWithdrawParams,
+      // The two new branch points: rails fail differently and charge
+      // differently, and neither choice is visible anywhere else.
+      IWithdrawParams & { route?: string; sourceDex?: string },
       { success: true } | IApiErrorResponse
     >,
   ) {
@@ -419,7 +421,8 @@ export class HyperLiquidScene extends BaseScene {
       | 'refresh_trading_meta'
       | 'refresh_spot_meta'
       | 'active_asset_ctx_snapshot'
-      | 'active_asset_ctx_cache';
+      | 'active_asset_ctx_cache'
+      | 'prewarm_subscriptions';
     coin?: string;
     error: unknown;
   }) {

@@ -16,9 +16,12 @@ import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 import {
   CategoryFilterItem,
   CategoryFilterItemWithLayout,
+  MARKET_MOBILE_CATEGORY_CHIP_PROPS,
 } from '../CategoryFilterItem';
 
-export type IWatchlistFilterType = 'all' | 'spot' | 'perps';
+export type IWatchlistFilterType = 'all' | 'spot' | 'stocks' | 'perps';
+
+export const DEFAULT_WATCHLIST_FILTER: IWatchlistFilterType = 'all';
 
 interface IMarketWatchlistCategorySelectorProps {
   selectedFilter: IWatchlistFilterType;
@@ -37,6 +40,14 @@ function useWatchlistFilterCategories() {
       {
         id: 'spot' as const,
         name: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
+      },
+      {
+        id: 'stocks' as const,
+        // The only existing "Stocks" string; a Market-specific key is an
+        // i18n follow-up.
+        name: intl.formatMessage({
+          id: ETranslations.perps_token_selector_stocks,
+        }),
       },
       {
         id: 'perps' as const,
@@ -72,6 +83,7 @@ function MarketWatchlistCategorySelectorMobile({
           name={c.name}
           isSelected={c.id === selectedFilter}
           onPress={() => handleSelect(c.id)}
+          {...MARKET_MOBILE_CATEGORY_CHIP_PROPS}
         />
       ))}
     </ScrollableFilterBar>
@@ -81,6 +93,7 @@ function MarketWatchlistCategorySelectorMobile({
 function MarketWatchlistCategorySelectorDesktop({
   selectedFilter,
   onSelectFilter,
+  containerStyle,
 }: IMarketWatchlistCategorySelectorProps) {
   const categories = useWatchlistFilterCategories();
   const handleSelect = useCallback(
@@ -99,17 +112,13 @@ function MarketWatchlistCategorySelectorDesktop({
   } = useNetworkFilterScroll();
 
   return (
+    // Same plain frame the Stocks selector uses: the shared toolbar band owns
+    // the spacing, so the selector carries no border, margin or padding.
     <XStack
       position="relative"
-      p="$1"
-      gap="$1"
-      mt="$3"
-      mb="$2"
       maxWidth="100%"
       overflow="hidden"
-      borderWidth={1}
-      borderColor="$neutral4"
-      borderRadius="$3"
+      {...containerStyle}
     >
       <XStack flex={1} position="relative">
         <ScrollView

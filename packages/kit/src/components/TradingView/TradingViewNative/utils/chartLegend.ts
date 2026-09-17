@@ -11,12 +11,18 @@ import {
 } from '../chartConstants';
 
 import { formatTradingViewNativePriceTick } from './chartLayout';
+import { getTradingViewNativePrimarySeriesModel } from './chartType';
 
-import type { ITradingViewNativeChartType } from '../types';
+import type {
+  ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartType,
+} from '../types';
 
 export interface ITradingViewNativeLegendItem {
+  customPaintId?: string;
   label: string;
   value: string;
+  valueColorRole?: 'trend';
 }
 
 export interface ITradingViewNativeChartLegend {
@@ -54,6 +60,7 @@ const VOLUME_UNITS = [
   { divisor: 1_000_000, suffix: 'M' },
   { divisor: 1000, suffix: 'K' },
 ] as const;
+const WIDEST_COMMON_VOLUME_AXIS_LABEL = '888.888';
 
 function formatPrice(value: number) {
   'worklet';
@@ -124,7 +131,7 @@ function formatTradingViewNativePriceChangeValue(value: number) {
   }
 
   if (Math.abs(value) >= 1e-6) {
-    return formatTradingViewNativePriceTick(value);
+    return Number(value.toPrecision(6)).toString();
   }
 
   const preciseValue = value.toPrecision(6);
@@ -183,8 +190,43 @@ export function formatTradingViewNativeVolume(volume: number) {
   return `${value}${unit.suffix}`;
 }
 
+export function getTradingViewNativeVolumeAxisLabel(
+  points: IMarketTokenKLineDataPoint[],
+) {
+  'worklet';
+
+  let maxVolume = 0;
+  let minVolume = Number.POSITIVE_INFINITY;
+  for (const point of points) {
+    if (Number.isFinite(point.v) && point.v > 0) {
+      maxVolume = Math.max(maxVolume, point.v);
+      minVolume = Math.min(minVolume, point.v);
+    }
+  }
+  if (maxVolume <= 0) {
+    return '';
+  }
+
+  const candidateVolumes = [
+    minVolume,
+    maxVolume / 3,
+    maxVolume / 2,
+    (maxVolume * 2) / 3,
+    maxVolume,
+  ];
+  let widestLabel = WIDEST_COMMON_VOLUME_AXIS_LABEL;
+  for (const volume of candidateVolumes) {
+    const label = formatTradingViewNativeVolume(volume);
+    if (label.length > widestLabel.length) {
+      widestLabel = label;
+    }
+  }
+  return widestLabel;
+}
+
 export function getTradingViewNativeChartLegend(
   point: IMarketTokenKLineDataPoint,
+  candleLabels: ITradingViewNativeCandleLabels,
   chartType: ITradingViewNativeChartType = 'candlestick',
   previousClose?: number,
 ): ITradingViewNativeChartLegend {
@@ -193,23 +235,25 @@ export function getTradingViewNativeChartLegend(
   // TradingView compares each close with the prior bar's close and falls back
   // to the current bar's open when there is no prior bar.
   const changeReference = previousClose ?? point.o;
-  const priceChangeItem = {
+  const priceChangeItem: ITradingViewNativeLegendItem = {
     label: '',
     value: formatTradingViewNativePriceChange({
       close: point.c,
       open: changeReference,
     }),
+    valueColorRole: 'trend',
   };
+  const primarySeries = getTradingViewNativePrimarySeriesModel(chartType);
   return {
     isUp: point.c >= changeReference,
     priceItems:
-      chartType === 'line'
+      primarySeries.priceSource === 'close'
         ? [{ label: 'Price', value: formatPrice(point.c) }, priceChangeItem]
         : [
-            { label: 'O', value: formatPrice(point.o) },
-            { label: 'H', value: formatPrice(point.h) },
-            { label: 'L', value: formatPrice(point.l) },
-            { label: 'C', value: formatPrice(point.c) },
+            { label: candleLabels.open, value: formatPrice(point.o) },
+            { label: candleLabels.high, value: formatPrice(point.h) },
+            { label: candleLabels.low, value: formatPrice(point.l) },
+            { label: candleLabels.close, value: formatPrice(point.c) },
             priceChangeItem,
           ],
     volumeItem: {

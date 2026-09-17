@@ -58,6 +58,13 @@ const VARIANT_COPY = {
     step3CtaId: ETranslations.referral_web_landing_step3_defi_cta,
     step3Illustration: 'BlockCoins' satisfies IIllustrationName,
   },
+  swap: {
+    heroTitleId: ETranslations.swap_referral_landing__title,
+    heroSubtitleId: ETranslations.swap_referral_landing_fee_cashback__title,
+    step3TitleId: ETranslations.swap_referral_landing_step3__title,
+    step3CtaId: ETranslations.swap_now__action,
+    step3Illustration: 'BlockPercentage' satisfies IIllustrationName,
+  },
 } as const;
 
 export type IReferralVariant = keyof typeof VARIANT_COPY;

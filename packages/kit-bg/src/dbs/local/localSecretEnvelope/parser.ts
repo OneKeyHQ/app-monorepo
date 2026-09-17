@@ -92,6 +92,7 @@ function parseLayerKind(value: string): ILocalSecretEnvelopeLayerKind {
     value === 'keychain' ||
       value === 'keystore' ||
       value === 'secure-storage' ||
+      value === 'mmkv-profile-key' ||
       value === 'indexeddb-cryptokey',
     'Invalid local secret envelope layer kind',
   );

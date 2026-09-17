@@ -10,62 +10,56 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
+import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
-import {
-  DEX_PREFIXES,
-  DEX_SEPARATOR,
-} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 
-const SPOT_PAIR_SEPARATOR = '_';
+import {
+  SPOT_PAIR_SEPARATOR,
+  decodeCoinFromUrl,
+  encodeCoinForUrl,
+} from './usePerpTokenUrlSync.utils';
 
-function findDexPrefix(token: string): string | null {
-  const lowerToken = token.toLowerCase();
-  return DEX_PREFIXES.find((prefix) => lowerToken.startsWith(prefix)) ?? null;
+async function readCompleteUniverses() {
+  const { universesByDex } =
+    await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+  return isPerpsUniverseCacheComplete(universesByDex)
+    ? universesByDex
+    : undefined;
 }
 
-function encodeCoinForUrl(params: {
-  coin: string;
-  mode: 'perp' | 'spot';
-  spotUniverse?: ISpotUniverse;
-}): string {
-  const { coin, mode, spotUniverse } = params;
-  if (!coin) return '';
-
-  // Spot raw forms (`@149`, `PURR/USDC`, `UETH`) URL-encode to `%40149` /
-  // `PURR%2FUSDC` — unreadable. Use BASE_QUOTE with the normalized base name
-  // when the universe is available; perp falls through to the upper-cased coin.
-  if (mode === 'spot' && spotUniverse) {
-    const base = getSpotTokenDisplayName(spotUniverse.baseName);
-    return `${base}${SPOT_PAIR_SEPARATOR}${spotUniverse.quoteName}`;
+// A guessed prefix is only trustworthy once the coin is known to exist.
+async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
+  const { coin, isAmbiguousLegacyGuess, unverifiedFallbackCoin } =
+    decodeCoinFromUrl(urlToken);
+  if (!isAmbiguousLegacyGuess) {
+    return coin;
   }
-
-  const dexPrefix = findDexPrefix(coin);
-  if (dexPrefix && coin.includes(DEX_SEPARATOR)) {
-    const symbol = coin.slice(dexPrefix.length + DEX_SEPARATOR.length);
-    return `${dexPrefix}${symbol.toUpperCase()}`;
+  try {
+    let universesByDex = await readCompleteUniverses();
+    if (!universesByDex) {
+      // URL resolution runs once, so an incomplete cache would freeze an
+      // unverified guess for the whole session. The refresh is single-flight and
+      // cold start already starts one, so this joins it instead of adding a
+      // request.
+      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      universesByDex = await readCompleteUniverses();
+    }
+    // Still incomplete, and URL resolution runs once, so no later refresh gets
+    // to settle it: take whichever reading is likelier for this prefix.
+    if (!universesByDex) {
+      return unverifiedFallbackCoin;
+    }
+    const exists = universesByDex.some((assets) =>
+      assets?.some((asset) => asset.name === coin),
+    );
+    return exists ? coin : urlToken.toUpperCase();
+  } catch {
+    return unverifiedFallbackCoin;
   }
-
-  return coin.toUpperCase();
-}
-
-function decodeCoinFromUrl(urlToken: string): string {
-  if (!urlToken) return '';
-
-  const dexPrefix = findDexPrefix(urlToken);
-  if (dexPrefix && urlToken.length > dexPrefix.length) {
-    const hasNoSeparator = !urlToken.includes(DEX_SEPARATOR);
-    const symbolStartIndex = hasNoSeparator
-      ? dexPrefix.length
-      : dexPrefix.length + DEX_SEPARATOR.length;
-    const symbol = urlToken.slice(symbolStartIndex);
-    return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
-  }
-
-  return urlToken.toUpperCase();
 }
 
 async function resolveSpotInstrumentFromUrl(urlToken: string): Promise<{
@@ -118,7 +112,7 @@ async function getInstrumentFromUrl(): Promise<{
     }
 
     return {
-      coin: decodeCoinFromUrl(urlToken),
+      coin: await resolvePerpCoinFromUrl(urlToken),
       mode,
     };
   } catch {
@@ -185,6 +179,8 @@ export function usePerpTokenUrlSync(): void {
   ]);
 
   const updateTitle = (price: string) => {
+    if (!isFocused) return;
+
     try {
       if (!price || !symbolDisplay) {
         globalThis.document.title = originalTitleRef.current;
@@ -211,9 +207,6 @@ export function usePerpTokenUrlSync(): void {
       isInitializedRef.current = true;
     })();
 
-    return () => {
-      globalThis.document.title = originalTitleRef.current;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused]);
 
@@ -245,12 +238,8 @@ export function usePerpTokenUrlSync(): void {
   useEffect(() => {
     if (!isInitializedRef.current || !isFocused) return;
     debouncedUpdateTitle(markPrice);
-  }, [markPrice, symbolDisplay, debouncedUpdateTitle, isFocused]);
 
-  useEffect(() => {
-    if (!isInitializedRef.current) return;
-    if (!isFocused) {
-      globalThis.document.title = originalTitleRef.current;
-    }
-  }, [isFocused]);
+    // Navigation owns the next screen's title; only cancel pending price updates.
+    return () => debouncedUpdateTitle.cancel();
+  }, [markPrice, symbolDisplay, debouncedUpdateTitle, isFocused]);
 }

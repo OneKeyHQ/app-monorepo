@@ -1,97 +1,101 @@
-import { isPlainObject } from 'lodash';
-
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
 import platformEnv from '../../platformEnv';
-import resetUtils from '../../utils/resetUtils';
+import { travelModeManager } from '../../travelMode';
 
-import coldStartCacheMMKVInstance from './coldStartCacheMMKVInstance';
-import mmkvStorageInstance from './mmkvStorageInstance';
+import { createMMKVSyncStorage } from './createMMKVSyncStorage';
+import {
+  createNativeColdStartCacheStorage,
+  createNativeSettingsSyncStorage,
+} from './nativeSyncStorageParts';
+import { createNonNativeColdStartCacheStorage } from './nonNativeColdStartStorage';
 
-import type { EAppSyncStorageKeys } from '../syncStorageKeys';
+import type { IMMKVInstance, ISyncStorage } from './createMMKVSyncStorage';
 
-// ---- MMKV instance interface (subset used by wrapper) ---- cspell:ignore IMMKV
+export { createMMKVSyncStorage };
+export type { ISyncStorage };
 
-type IMMKVInstance = {
-  getString(key: string): string | undefined;
-  getNumber(key: string): number | undefined;
-  getBoolean(key: string): boolean | undefined;
-  set(key: string, value: string | number | boolean): void;
-  remove(key: string): void;
-  clearAll(): void;
-  getAllKeys(): string[];
-};
-
-// ---- Factory: create ISyncStorage wrapper from any MMKV instance ----
-
-export function createMMKVSyncStorage(
-  mmkv: IMMKVInstance,
-  options?: { checkResetting?: boolean },
-) {
-  const checkResetting = options?.checkResetting ?? false;
-
-  /**
-   * Safe MMKV set — guards against undefined/null values that crash MMKV.
-   * undefined/null → writes empty string (key preserved, value cleared).
-   */
-  function safeSet(
-    key: string,
-    value: string | number | boolean | undefined | null,
-  ) {
-    if (checkResetting) {
-      resetUtils.checkNotInResetting();
-    }
-    if (value === undefined || value === null) {
-      mmkv.set(key, '');
-      return;
-    }
-    mmkv.set(key, value);
-  }
+function createRuntimeSelectedSyncStorage(
+  createRealStorage: () => ISyncStorage,
+): ISyncStorage {
+  let realStorage: ISyncStorage | undefined;
+  const getRealStorage = () => {
+    realStorage ??= createRealStorage();
+    return realStorage;
+  };
+  const runSync = <T>({
+    operation,
+    onBlocked,
+  }: {
+    operation: (storage: ISyncStorage) => T;
+    onBlocked: () => T;
+  }): T =>
+    travelModeManager.getRuntimeEnvironmentSync().persistence.runSync({
+      operation: () => operation(getRealStorage()),
+      onBlocked,
+    });
 
   return {
-    set(key: EAppSyncStorageKeys, value: boolean | string | number) {
-      safeSet(key, value);
+    set(key, value) {
+      return runSync({
+        operation: (storage) => storage.set(key, value),
+        onBlocked: () => undefined,
+      });
     },
-    setObject<T extends Record<string, any>>(
-      key: EAppSyncStorageKeys,
-      value: T,
-    ) {
-      if (!isPlainObject(value)) {
-        throw new OneKeyLocalError('value must be a plain object');
-      }
-      safeSet(key, JSON.stringify(value));
+    setObject(key, value) {
+      return runSync({
+        operation: (storage) => storage.setObject(key, value),
+        onBlocked: () => undefined,
+      });
     },
-    getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-      try {
-        const raw = mmkv.getString(key);
-        if (!raw) return undefined;
-        return JSON.parse(raw) as T;
-      } catch {
-        return undefined;
-      }
+    getObject(key) {
+      return runSync({
+        operation: (storage) => storage.getObject(key),
+        onBlocked: () => undefined,
+      });
     },
-    getString(key: EAppSyncStorageKeys) {
-      return mmkv.getString(key);
+    getString(key) {
+      return runSync({
+        operation: (storage) => storage.getString(key),
+        onBlocked: () => undefined,
+      });
     },
-    getNumber(key: EAppSyncStorageKeys) {
-      return mmkv.getNumber(key);
+    getNumber(key) {
+      return runSync({
+        operation: (storage) => storage.getNumber(key),
+        onBlocked: () => undefined,
+      });
     },
-    getBoolean(key: EAppSyncStorageKeys) {
-      return mmkv.getBoolean(key);
+    getBoolean(key) {
+      return runSync({
+        operation: (storage) => storage.getBoolean(key),
+        onBlocked: () => undefined,
+      });
     },
-    delete(key: EAppSyncStorageKeys) {
-      mmkv.remove(key);
+    delete(key) {
+      return runSync({
+        operation: (storage) => storage.delete(key),
+        onBlocked: () => undefined,
+      });
     },
     clearAll() {
-      mmkv.clearAll();
+      return runSync({
+        operation: (storage) => storage.clearAll(),
+        onBlocked: () => undefined,
+      });
     },
     getAllKeys() {
-      return mmkv.getAllKeys();
+      return runSync({
+        operation: (storage) => storage.getAllKeys(),
+        onBlocked: () => [],
+      });
+    },
+    applySWRCachePatch(patch) {
+      return runSync({
+        operation: (storage) => storage.applySWRCachePatch?.(patch),
+        onBlocked: () => undefined,
+      });
     },
   };
 }
-
-export type ISyncStorage = ReturnType<typeof createMMKVSyncStorage>;
 
 // ---- No-op stub for extension background service worker ----
 
@@ -119,28 +123,44 @@ const syncStorageExtBg: ISyncStorage = {
 
 // ---- Exports ----
 
-/** App settings storage (onekey-app-setting MMKV instance) */
-export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
-  ? syncStorageExtBg
-  : createMMKVSyncStorage(mmkvStorageInstance, { checkResetting: true });
+function createSettingsSyncStorage(): ISyncStorage {
+  if (platformEnv.isExtensionBackgroundServiceWorker) {
+    return syncStorageExtBg;
+  }
+  if (platformEnv.isNative) {
+    return createNativeSettingsSyncStorage();
+  }
+  return createMMKVSyncStorage(
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('./mmkvStorageInstance').default as IMMKVInstance,
+    {
+      checkResetting: true,
+    },
+  );
+}
+
+/** App settings. Native bg owns MMKV; native main uses a bootstrapped mirror. */
+export const syncStorage = createRuntimeSelectedSyncStorage(
+  createSettingsSyncStorage,
+);
 
 /** Cold-start cache storage.
- *  Native: backed by `coldStartCacheMMKVInstance` (synchronous MMKV).
+ *  Native bg: backed by `coldStartCacheMMKVInstance` (synchronous MMKV).
+ *  Native main: synchronous in-memory mirror with serialized writes to bg.
  *  Web/Desktop: backed by an in-memory Map pre-warmed by hydrate.ts at
  *    boot, with debounced IndexedDB persistence (`onekey-cold-start-cache`).
  *    Synchronous reads/writes operate on the Map; IDB is the durability layer.
  *  Extension background service worker: no-op stub. */
 function createColdStartCacheStorage(): ISyncStorage {
   if (platformEnv.isNative) {
-    return createMMKVSyncStorage(coldStartCacheMMKVInstance);
+    return createNativeColdStartCacheStorage();
   }
   if (platformEnv.isWeb || platformEnv.isDesktop) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createWebColdStartStorage } =
-      require('./webColdStartStorage') as typeof import('./webColdStartStorage');
-    return createWebColdStartStorage();
+    return createNonNativeColdStartCacheStorage();
   }
   return syncStorageExtBg;
 }
 
-export const coldStartCacheStorage = createColdStartCacheStorage();
+export const coldStartCacheStorage = createRuntimeSelectedSyncStorage(
+  createColdStartCacheStorage,
+);

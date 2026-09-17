@@ -1,12 +1,13 @@
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type {
+  EHostSecurityLevel,
   ETranslateDisplayMode,
   ETranslateEngine,
 } from '@onekeyhq/shared/types/discovery';
 import type {
   EKytRiskLevel,
-  IReceiveKytIntroEntryPoint,
+  IReceiveKytIntroTrackingEntryPoint,
 } from '@onekeyhq/shared/types/kyt';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -20,6 +21,7 @@ import type {
 } from '../types';
 
 type IReceiveKytFeatureName = EPrimeFeatures.ReceiveRiskMonitoring;
+type ISiteScanFeatureName = EPrimeFeatures.BlockaidSiteScan;
 
 export class PrimeUsageScene extends BaseScene {
   @LogToLocal({ level: 'error' })
@@ -107,6 +109,21 @@ export class PrimeUsageScene extends BaseScene {
     return params;
   }
 
+  /**
+   * Enhanced DApp security (BlockaidSiteScan) delivered value.
+   * Triggered when a Prime user is shown a High/Medium risk warning in the
+   * DApp connection / signing flow. Deliberately carries no URL or domain —
+   * only the severity — to avoid building a browsing profile.
+   */
+  @LogToServer()
+  public siteScanRiskWarned(params: {
+    featureName: ISiteScanFeatureName;
+    riskLevel: EHostSecurityLevel;
+    isPrimeActive: true;
+  }) {
+    return params;
+  }
+
   @LogToServer()
   public dappTranslateSuccess({
     engine,
@@ -133,7 +150,7 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public primeReceiveKytIntroShown(params: {
     featureName: IReceiveKytFeatureName;
-    entryPoint: IReceiveKytIntroEntryPoint;
+    entryPoint: IReceiveKytIntroTrackingEntryPoint;
     isPrimeActive: true;
   }) {
     return params;
@@ -145,7 +162,7 @@ export class PrimeUsageScene extends BaseScene {
   @LogToServer()
   public primeReceiveKytIntroAction(params: {
     featureName: IReceiveKytFeatureName;
-    entryPoint: IReceiveKytIntroEntryPoint;
+    entryPoint: IReceiveKytIntroTrackingEntryPoint;
     isPrimeActive: true;
     action: 'enable' | 'dismiss' | 'learnMore';
   }) {

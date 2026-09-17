@@ -48,8 +48,12 @@ export const OnboardingTestIDs = {
   iCloudBackupViewOlderBackupsBtn:
     'onboarding-icloud-backup-view-older-backups-btn',
   iCloudBackupKeylessWalletHint: 'onboarding-icloud-backup-keyless-wallet-hint',
+  iCloudBackupKeylessWalletDialogTitle:
+    'onboarding-icloud-backup-keyless-wallet-dialog-title',
   iCloudBackupKeylessWalletDialog:
     'onboarding-icloud-backup-keyless-wallet-dialog',
+  iCloudBackupDevDownloadDataBtn:
+    'onboarding-icloud-backup-dev-download-data-btn',
   iCloudBackupDevMockEmptyBtn: 'onboarding-icloud-backup-dev-mock-empty-btn',
   iCloudBackupDevClearPasswordBtn:
     'onboarding-icloud-backup-dev-clear-password-btn',
@@ -120,6 +124,10 @@ export const OnboardingTestIDs = {
   connectQRCodePage: 'onboarding-connect-qr-code-page',
   connectQRCodeScanBtn: 'onboarding-connect-qr-code-scan-btn',
 
+  // Pick your device
+  pickYourDeviceLegacyOptionBtn: (key: string) =>
+    `onboarding-pick-your-device-legacy-${key}-btn`,
+
   // Connect your device
   connectYourDeviceTroubleshootingBtn:
     'onboarding-connect-your-device-troubleshooting-btn',
@@ -133,6 +141,9 @@ export const OnboardingTestIDs = {
     'onboarding-connect-your-device-create-qr-wallet-btn',
   connectYourDeviceAdvancedMenuBtn:
     'onboarding-connect-your-device-advanced-menu-btn',
+  connectYourDeviceConnectBtn: 'onboarding-connect-your-device-connect-btn',
+  connectYourDeviceItem: (key: string) =>
+    `onboarding-connect-your-device-item-${key}`,
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',

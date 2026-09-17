@@ -25,6 +25,7 @@ export enum EModalReferFriendsRoutes {
   ReferralLevel = 'ReferralLevel',
   RedemptionHistory = 'RedemptionHistory',
   PerpsReward = 'PerpsReward',
+  SwapReward = 'SwapReward',
   BtcRewardRecover = 'BtcRewardRecover',
   BtcRewardVerifyVoucher = 'BtcRewardVerifyVoucher',
   BtcRewardSelectAddress = 'BtcRewardSelectAddress',
@@ -82,6 +83,7 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.ReferralLevel]: undefined;
   [EModalReferFriendsRoutes.RedemptionHistory]: undefined;
   [EModalReferFriendsRoutes.PerpsReward]: undefined;
+  [EModalReferFriendsRoutes.SwapReward]: undefined;
   [EModalReferFriendsRoutes.BtcRewardRecover]: undefined;
   [EModalReferFriendsRoutes.BtcRewardVerifyVoucher]: {
     codeInfo: IBtcRewardCodeInfoParam;

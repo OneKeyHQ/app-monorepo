@@ -139,7 +139,7 @@ export function QRWalletGallerySignTx() {
           });
           Dialog.show({
             title: qrUri,
-            renderContent: <QRCode size={300} value={qrUri} drawType="line" />,
+            renderContent: <QRCode size={300} value={qrUri} />,
           });
         }}
       >
@@ -243,11 +243,7 @@ export function QRWalletGallerySignTx() {
           Dialog.show({
             title: 'PSBT QRCode',
             renderContent: (
-              <QRCode
-                size={300}
-                valueUr={airGapUrUtils.urToJson({ ur })}
-                drawType="animated"
-              />
+              <QRCode size={300} valueUr={airGapUrUtils.urToJson({ ur })} />
             ),
           });
         }}

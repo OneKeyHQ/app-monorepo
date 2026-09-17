@@ -18,6 +18,7 @@ import {
   loadPerpsDepositSelectTokenModal,
 } from '../utils/preloadPerpsDepositSelectTokenModal';
 import { loadPerpsDepositWithdrawModal } from '../utils/preloadPerpsDepositWithdrawModal';
+import { loadPerpsMobileMarketPage } from '../utils/preloadPerpsMobileMarketPage';
 import {
   getLoadedPerpsMobileTokenSelectorPage,
   loadPerpsMobileTokenSelectorPage,
@@ -31,9 +32,7 @@ const PagePerp = LazyLoadRootTabPage(
   () => import('../pages/Perp'),
   createElement(RootTabLoadingFallback, { tabRoute: ETabRoutes.Perp }),
 );
-const MobilePerpMarketPage = LazyLoadPage(
-  () => import('../pages/MobilePerpMarket'),
-);
+const MobilePerpMarketPage = LazyLoadPage(loadPerpsMobileMarketPage);
 
 const MobileTokenSelectorLazyPage = LazyLoadPage(
   loadPerpsMobileTokenSelectorPage,

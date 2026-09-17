@@ -1,11 +1,11 @@
+import type { AsyncStorageStatic } from '@onekeyhq/shared/src/storage/appStorageTypes';
+
 import { createLazyServiceProxy } from '../../../apis/lazyServiceProxy';
 
 import {
   getSimpleDbEntityKey,
   getXpubOrAddressFromAccountKey,
 } from './simpleDbFacadeCompatibility';
-
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 export class SimpleDb {
   // Lazy load entities using getters
@@ -556,6 +556,19 @@ export class SimpleDb {
     return value;
   }
 
+  get hardwarePortfolioSync() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@hardwarePortfolioSync',
+      loader: () =>
+        import('../entity/SimpleDbEntityHardwarePortfolioSync').then(
+          ({ SimpleDbEntityHardwarePortfolioSync }) =>
+            new SimpleDbEntityHardwarePortfolioSync(),
+        ),
+    });
+    Object.defineProperty(this, 'hardwarePortfolioSync', { value });
+    return value;
+  }
+
   get appStatus() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@appStatus',
@@ -655,6 +668,19 @@ export class SimpleDb {
     return value;
   }
 
+  get transferRecipientsCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@transferRecipientsCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityTransferRecipientsCache').then(
+          ({ SimpleDbEntityTransferRecipientsCache }) =>
+            new SimpleDbEntityTransferRecipientsCache(),
+        ),
+    });
+    Object.defineProperty(this, 'transferRecipientsCache', { value });
+    return value;
+  }
+
   get riskTokenManagement() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@riskTokenManagement',
@@ -727,6 +753,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'chainResource', { value });
+    return value;
+  }
+
+  get receiveArrivalConfig() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@receiveArrivalConfig',
+      loader: () =>
+        import('../entity/SimpleDbEntityReceiveArrivalConfig').then(
+          ({ SimpleDbEntityReceiveArrivalConfig }) =>
+            new SimpleDbEntityReceiveArrivalConfig(),
+        ),
+    });
+    Object.defineProperty(this, 'receiveArrivalConfig', { value });
     return value;
   }
 

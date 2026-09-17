@@ -4,10 +4,8 @@ import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core/errors';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
-import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
 import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
@@ -27,7 +25,10 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import type {
+  IJotaiGetter,
+  IJotaiSetter,
+} from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -41,16 +42,22 @@ import {
   type IContextAtomColdStartCacheKey,
 } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   classifyThirdPartyHwCreateFailures,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
   shouldOfferLedgerCoreAppInstallForCreateFailures,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
+  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { ILedgerCoreAppName } from '@onekeyhq/shared/src/hardware/ledgerApps';
@@ -88,6 +95,7 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import { shouldKeepCurrentActiveAccountForIncompleteSelection } from './activeAccountInitGuard';
 import {
   accountSelectorActiveAccountInitDoneAtom,
+  accountSelectorAvailableNetworksAtom,
   accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
   accountSelectorStorageInitDoneAtom,
@@ -198,6 +206,12 @@ export type IFinalizeWalletSetupCreateWalletResult = {
   };
 };
 
+export type IFinalizeWalletSetupAccountCreationResult = {
+  status: 'completed' | 'requires-hidden-wallet';
+};
+
+export type IHardwareWalletCreationMode = 'onboarding' | 'standard-wallet';
+
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
@@ -305,7 +319,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
   }
 
-  setRecentAccountSelectorSelectionCache({
+  async setRecentAccountSelectorSelectionCache({
     sceneName,
     sceneUrl,
     num,
@@ -403,7 +417,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
       }
 
-      coldStartCacheStorage.setObject(
+      await coldStartCacheStorage.setObject(
         EAppSyncStorageKeys.onekey_account_selector_recent_selection,
         nextCache,
       );
@@ -424,6 +438,40 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     } catch {
       // Native MMKV writes are synchronous; extension background has no cache.
     }
+  }
+
+  // OK-62330: within RECENT_ACCOUNT_SWITCH_COLD_START_MS a recent-selection
+  // cache written by confirmAccountSelect outranks simpleDb on the next cold
+  // start. Any later in-memory change (network / derive type switch) must be
+  // mirrored into that cache, or a restart resurrects the pre-switch selection
+  // and writes it back over the newer simpleDb record. Only an existing, still
+  // valid entry is refreshed so no new cache is created outside that window.
+  async refreshRecentAccountSelectorSelectionCacheIfActive({
+    sceneName,
+    sceneUrl,
+    num,
+    selectedAccountsMap,
+    updateMeta,
+  }: {
+    sceneName: EAccountSelectorSceneName | undefined;
+    sceneUrl?: string;
+    num: number;
+    selectedAccountsMap: ISelectedAccountsAtomMap;
+    updateMeta: Partial<{
+      [num: number]: IAccountSelectorUpdateMeta;
+    }>;
+  }) {
+    if (!this.getRecentAccountSelectorSelectionCache({ sceneName, sceneUrl })) {
+      return;
+    }
+    await this.setRecentAccountSelectorSelectionCache({
+      sceneName,
+      sceneUrl,
+      num,
+      selectedAccountsMap,
+      updateMeta,
+    });
+    await this.flushRecentAccountSelectorSelectionCacheNowIfNeeded();
   }
 
   async flushAccountSelectorColdStartSnapshot({
@@ -594,11 +642,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       payload: {
         num: number;
         selectedAccount: IAccountSelectorSelectedAccount;
+        forceReload?: boolean;
       },
     ): Promise<IAccountSelectorActiveAccountInfo> =>
       this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
-        const { num, selectedAccount } = payload;
+        const { num, selectedAccount, forceReload } = payload;
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
@@ -611,6 +660,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
         };
         if (
+          !forceReload &&
           shouldKeepCurrentActiveAccountForIncompleteSelection({
             storageInitDone: get(accountSelectorStorageInitDoneAtom()),
             selectedAccount,
@@ -626,6 +676,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
               {
                 selectedAccount,
+                sceneName: get(accountSelectorContextDataAtom())?.sceneName,
               },
             ));
         } catch (_error) {
@@ -650,11 +701,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) {
           return currentActiveAccount;
         }
-        const newActiveAccounts = {
+        set(activeAccountsAtom(), {
           ...get(activeAccountsAtom()),
           [num]: activeAccount,
-        };
-        set(activeAccountsAtom(), newActiveAccounts);
+        });
         markActiveAccountInitDone();
         // contextAtom snapshot saving is now automatic via coldStartCache.
         return activeAccount;
@@ -671,19 +721,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { num, focusedWallet } = payload;
-      const focusedWalletFixed = focusedWallet;
-      if (
-        focusedWalletFixed &&
-        accountUtils.isOthersWallet({ walletId: focusedWalletFixed })
-      ) {
-        // **** focus to grouped Others Tab
-        // focusedWalletFixed = '$$others';
-      }
       await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => ({
           ...v,
-          focusedWallet: focusedWalletFixed,
+          focusedWallet,
         }),
       });
     },
@@ -903,10 +945,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
     const wallet = await serviceAccount.getWalletSafe({ walletId });
     const isMissingWallet = !wallet;
-    const isDeprecatedOrMocked = Boolean(
-      wallet && accountUtils.isWalletDeprecatedOrMocked(wallet),
-    );
-    return isMissingWallet || isDeprecatedOrMocked;
+    return isMissingWallet || Boolean(wallet?.isMocked);
   };
 
   clearUnavailableWalletSelectionsInStorage = async ({
@@ -1131,6 +1170,55 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     return contextData;
   });
 
+  // An account selection must always carry a network: the background treats
+  // an identity without a network as "no address" and home renders the
+  // create-address empty state with a blank network selector (OK-62137).
+  // Callers such as autoSelectToCreatedWallet inherit whatever the store had,
+  // which is nothing until useAutoSelectNetwork has run, so fill the scene
+  // default here instead of relying on that effect.
+  fillMissingNetworkIdForAccountSelection({
+    get,
+    num,
+    sceneName,
+    selectedAccount,
+  }: {
+    get: IJotaiGetter;
+    num: number;
+    sceneName: EAccountSelectorSceneName | undefined;
+    selectedAccount: IAccountSelectorSelectedAccount;
+  }): IAccountSelectorSelectedAccount {
+    if (selectedAccount.networkId) {
+      return selectedAccount;
+    }
+    const hasAccountIdentity = Boolean(
+      selectedAccount.walletId &&
+      (selectedAccount.indexedAccountId ||
+        selectedAccount.othersWalletAccountId),
+    );
+    if (!hasAccountIdentity) {
+      return selectedAccount;
+    }
+    const availableNetworks = get(accountSelectorAvailableNetworksAtom())[num];
+    const networkIds = availableNetworks?.networkIds ?? [];
+    const defaultNetworkId = availableNetworks?.defaultNetworkId;
+    let networkId: string | undefined =
+      defaultNetworkId &&
+      (networkIds.length === 0 || networkIds.includes(defaultNetworkId))
+        ? defaultNetworkId
+        : networkIds[0];
+    if (!networkId) {
+      // Discover scenes never select All Networks (see useAutoSelectNetwork).
+      if (sceneName === EAccountSelectorSceneName.discover) {
+        return selectedAccount;
+      }
+      networkId = getNetworkIdsMap().onekeyall;
+    }
+    return {
+      ...selectedAccount,
+      networkId,
+    };
+  }
+
   mutexUpdateSelectedAccount = new Semaphore(1);
 
   updateSelectedAccount = contextAtomMethod(
@@ -1155,9 +1243,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           this.getSelectedAccount.call(set, { num }) ||
             defaultSelectedAccount(),
         );
-        const newSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
+        let newSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
           builder(oldSelectedAccount),
         );
+        newSelectedAccount = this.fillMissingNetworkIdForAccountSelection({
+          get,
+          num,
+          sceneName: sceneInfo?.sceneName,
+          selectedAccount: newSelectedAccount,
+        });
 
         if (
           platformEnv.isWebDappMode
@@ -1197,22 +1291,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           newSelectedAccount,
         });
 
-        if (
-          oldSelectedAccount.walletId &&
-          oldSelectedAccount.indexedAccountId &&
-          !newSelectedAccount.walletId &&
-          !newSelectedAccount.indexedAccountId
-        ) {
-          // debugger;
-        }
-
-        if (
-          sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
-          oldSelectedAccount?.walletId?.startsWith('watching') &&
-          newSelectedAccount?.walletId?.startsWith('hw-')
-        ) {
-          // debugger;
-        }
         // if (
         //   sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
         //   sceneInfo?.sceneUrl?.startsWith('https://app.pendle.finance') &&
@@ -1305,6 +1383,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updatedAt: Date.now(),
           },
         }));
+        await this.refreshRecentAccountSelectorSelectionCacheIfActive({
+          sceneName: sceneInfo?.sceneName,
+          sceneUrl: sceneInfo?.sceneUrl,
+          num,
+          selectedAccountsMap: get(selectedAccountsAtom()),
+          updateMeta: get(accountSelectorUpdateMetaAtom()),
+        });
       });
     },
   );
@@ -1391,6 +1476,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         confirmRequestId,
       );
 
+      let wallet: IDBWallet | undefined;
+      try {
+        wallet = await serviceAccount.getWalletSafe({ walletId });
+      } catch {
+        return false;
+      }
+      if (!wallet || wallet.isMocked) {
+        return false;
+      }
+      if (
+        this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) !==
+        confirmRequestId
+      ) {
+        return false;
+      }
+
       const accountNetworkId: string =
         forceSelectToNetworkId ||
         this.getAutoSelectNetworkIdForAccount.call(set, {
@@ -1436,16 +1537,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         this.confirmAccountSelectLatestRequestIdMap.get(confirmRequestKey) !==
         confirmRequestId
       ) {
-        return;
+        return false;
       }
 
-      const newSelectedAccount: IAccountSelectorSelectedAccount = {
-        ...oldSelectedAccount,
-        networkId: resolvedNetworkId || oldSelectedAccount.networkId,
-        walletId,
-        othersWalletAccountId: othersWalletAccount?.id,
-        indexedAccountId: indexedAccount?.id,
-      };
+      const newSelectedAccount: IAccountSelectorSelectedAccount =
+        this.fillMissingNetworkIdForAccountSelection({
+          get,
+          num,
+          sceneName: requestContextData?.sceneName,
+          selectedAccount: {
+            ...oldSelectedAccount,
+            networkId: resolvedNetworkId || oldSelectedAccount.networkId,
+            walletId,
+            othersWalletAccountId: othersWalletAccount?.id,
+            indexedAccountId: indexedAccount?.id,
+          },
+        });
       const shouldUseFastConfirm =
         !resolvedNetworkId ||
         resolvedNetworkId === oldSelectedAccount.networkId;
@@ -1512,7 +1619,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const sceneInfo = get(accountSelectorContextDataAtom());
       const selectedAccount = this.getSelectedAccount.call(set, { num });
 
-      this.setRecentAccountSelectorSelectionCache({
+      await this.setRecentAccountSelectorSelectionCache({
         sceneName: sceneInfo?.sceneName,
         sceneUrl: sceneInfo?.sceneUrl,
         num,
@@ -1546,6 +1653,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccountId: indexedAccount?.id,
         othersWalletAccountId: othersWalletAccount?.id,
       });
+      return true;
     },
   );
 
@@ -1673,7 +1781,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         createWalletFn: () => Promise<IFinalizeWalletSetupCreateWalletResult>;
         generatingAccountsFn?: (
           params: IFinalizeWalletSetupCreateWalletResult,
-        ) => Promise<void>;
+        ) => Promise<IFinalizeWalletSetupAccountCreationResult | void>;
       },
     ) => {
       let createdResult: IFinalizeWalletSetupCreateWalletResult | null = null;
@@ -1689,13 +1797,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         if (generatingAccountsFn) {
           appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
             step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+            walletId: wallet.id,
+            dbDeviceId: wallet.associatedDevice,
           });
-
-          await Promise.all([
-            generatingAccountsFn({ wallet, indexedAccount, hidden }),
-            timerUtils.wait(1000),
-          ]);
         }
+        const [accountCreationResult] = await Promise.all([
+          generatingAccountsFn?.({ wallet, indexedAccount, hidden }),
+          generatingAccountsFn ? timerUtils.wait(1000) : undefined,
+        ]);
 
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.Ready,
@@ -1705,6 +1814,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           wallet,
           indexedAccount,
           isOverrideWallet,
+          accountCreationResult: accountCreationResult || undefined,
         };
         return createResult;
       } catch (error) {
@@ -1768,6 +1878,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         hideCheckingDeviceLoading?: boolean;
         autoHandleExitError?: boolean;
         isCreateWallet?: boolean;
+        deferPassphraseAlwaysOnDeviceToast?: boolean;
       },
     ) => {
       const {
@@ -1777,6 +1888,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         hideCheckingDeviceLoading,
         autoHandleExitError = true,
         isCreateWallet,
+        deferPassphraseAlwaysOnDeviceToast,
       } = params;
       defaultLogger.account.batchCreatePerf.addDefaultNetworkAccounts({
         wallet,
@@ -1922,35 +2034,47 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               ? filterThirdPartyHwCreateFailureToasts(failedList)
               : failedList;
           for (const failedAccount of failedListForToast) {
-            const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-              networkId: failedAccount.networkId,
-            });
-            const deriveTypeInfo =
-              await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
-                networkId: failedAccount.networkId,
-                deriveType: failedAccount.deriveType,
-              });
             if (
-              accountUtils.isQrWallet({
-                walletId: wallet.id,
-              })
+              isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+                failedAccount.error.code,
+              )
             ) {
-              // mute error toast for qr wallet
+              if (!deferPassphraseAlwaysOnDeviceToast) {
+                Toast.error({
+                  title:
+                    ETranslations.hardware_third_party_passphrase_always_on_device,
+                });
+              }
             } else {
-              Toast.error({
-                // eslint-disable-next-line onekey/no-app-locale-main-thread
-                title: appLocale.intl.formatMessage(
-                  {
-                    id: ETranslations.feedback_hw_create_unsupported_address_title,
-                  },
-                  {
-                    network: network?.name || failedAccount.networkId,
-                    addressType:
-                      deriveTypeInfo?.label || failedAccount.deriveType,
-                  },
-                ),
-                message: failedAccount.error.message || 'Unknown error',
-              });
+              const network =
+                await backgroundApiProxy.serviceNetwork.getNetwork({
+                  networkId: failedAccount.networkId,
+                });
+              const deriveTypeInfo =
+                await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
+                  networkId: failedAccount.networkId,
+                  deriveType: failedAccount.deriveType,
+                });
+              if (
+                !accountUtils.isQrWallet({
+                  walletId: wallet.id,
+                })
+              ) {
+                Toast.error({
+                  // eslint-disable-next-line onekey/no-app-locale-main-thread
+                  title: appLocale.intl.formatMessage(
+                    {
+                      id: ETranslations.feedback_hw_create_unsupported_address_title,
+                    },
+                    {
+                      network: network?.name || failedAccount.networkId,
+                      addressType:
+                        deriveTypeInfo?.label || failedAccount.deriveType,
+                    },
+                  ),
+                  message: failedAccount.error.message || 'Unknown error',
+                });
+              }
             }
           }
         })();
@@ -2088,38 +2212,33 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           isAttachPinMode,
         });
         if (options?.addDefaultNetworkAccounts) {
-          let dialog: IDialogInstance | undefined;
-          try {
-            if (options?.showAddAccountsLoading) {
-              dialog = Dialog.show({
-                // eslint-disable-next-line onekey/no-app-locale-main-thread
-                title: appLocale.intl.formatMessage({
-                  id: ETranslations.onboarding_finalize_generating_accounts,
-                }),
-                showCancelButton: false,
-                showConfirmButton: false,
-                dismissOnOverlayPress: false,
-                showExitButton: false,
-                showFooter: false,
-                disableDrag: true,
-                renderContent: <CommonDeviceLoading />,
-              });
-            }
-            await this.addDefaultNetworkAccounts.call(set, {
-              wallet,
-              indexedAccount,
-              isCreateWallet: true,
-              skipDeviceCancel,
-              hideCheckingDeviceLoading: options?.showAddAccountsLoading
-                ? true
-                : hideCheckingDeviceLoading,
-            });
-          } finally {
-            await dialog?.close();
-          }
+          // The legacy "Generating your accounts" dialog stood down here:
+          // the DeviceStage capsule already narrates this whole phase, and
+          // the two surfaces were showing at once (OK-59934).
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
+            isCreateWallet: true,
+            skipDeviceCancel,
+            hideCheckingDeviceLoading: options?.showAddAccountsLoading
+              ? true
+              : hideCheckingDeviceLoading,
+          });
         }
         return res;
       } catch (error) {
+        // Creation owns recovery here; signing flows have their own dialogs.
+        if (
+          errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+          })
+        ) {
+          appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+            errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
+            payload: { params: { walletId } },
+          });
+        }
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         throw error;
       }
@@ -2127,149 +2246,33 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   createHWWalletWithoutHidden = contextAtomMethod(
-    async (_, set, params: IDBCreateHwWalletParamsBase) => {
-      return this.withFinalizeWalletSetupStep.call(set, {
-        createWalletFn: async () => {
-          const { wallet, indexedAccount, isOverrideWallet } =
-            await this.createHWWallet.call(
-              set,
-              {
-                ...params,
-                skipDeviceCancel: true,
-              },
-              {
-                // will autoSelect later by wallet is mocked or not
-                disableAutoSelect: true,
-              },
-            );
-          if (!wallet.isMocked && indexedAccount?.id) {
-            // autoSelect account here
-            await this.autoSelectToCreatedWallet.call(set, {
-              wallet,
-              indexedAccount,
-              isOverrideWallet,
-              isAttachPinMode: params.isAttachPinMode,
-            });
-          }
-          await serviceAccount.restoreTempCreatedWallet({
-            walletId: wallet.id,
-          });
-          return {
-            isOverrideWallet,
-            wallet,
-            indexedAccount,
-            hidden: undefined,
-          };
-        },
-        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
-          await this.addDefaultNetworkAccounts.call(set, {
-            wallet,
-            indexedAccount,
-            isCreateWallet: true,
-            skipDeviceCancel: false,
-            hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-          });
-        },
+    async (
+      _,
+      set,
+      params: IDBCreateHwWalletParamsBase,
+      options?: { mode: IHardwareWalletCreationMode },
+    ) => {
+      const { createHWWalletWithoutHidden } =
+        await import('./hardwareWalletActions');
+      return createHWWalletWithoutHidden({
+        actions: this,
+        set,
+        params,
+        mode: options?.mode,
       });
     },
   );
 
   createHWWalletWithHidden = contextAtomMethod(
-    async (_, set, params: IDBCreateHwWalletParamsBase) =>
-      this.withFinalizeWalletSetupStep.call(set, {
-        createWalletFn: async () => {
-          const shouldCreateHiddenWalletOnly = Boolean(
-            params?.features?.passphrase_protection,
-          );
-          const { wallet, device, indexedAccount, isOverrideWallet } =
-            await this.createHWWallet.call(
-              set,
-              {
-                ...params,
-                isMockedStandardHwWallet: shouldCreateHiddenWalletOnly,
-                skipDeviceCancel: true,
-              },
-              {
-                disableAutoSelect: true,
-              },
-            );
-
-          let hiddenWalletCreatedResult:
-            | {
-                wallet: IDBWallet;
-                indexedAccount: IDBIndexedAccount | undefined;
-              }
-            | undefined;
-          // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
-          if (device && shouldCreateHiddenWalletOnly) {
-            // wait previous action done, wait device ready
-            if (!params.hideCheckingDeviceLoading) {
-              await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
-                {
-                  connectId: device.connectId,
-                },
-              );
-            }
-            await timerUtils.wait(100);
-
-            hiddenWalletCreatedResult = await this.createHWHiddenWallet.call(
-              set,
-              {
-                walletId: wallet.id,
-                skipDeviceCancel: true,
-                hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-              },
-            );
-          }
-
-          await serviceAccount.restoreTempCreatedWallet({
-            walletId: wallet.id,
-          });
-          if (!hiddenWalletCreatedResult) {
-            await this.autoSelectToCreatedWallet.call(set, {
-              wallet,
-              indexedAccount,
-              isOverrideWallet,
-              isAttachPinMode: params.isAttachPinMode,
-            });
-          }
-
-          return {
-            isOverrideWallet,
-            wallet,
-            indexedAccount,
-            hidden: hiddenWalletCreatedResult
-              ? {
-                  wallet: hiddenWalletCreatedResult?.wallet,
-                  indexedAccount: hiddenWalletCreatedResult?.indexedAccount,
-                }
-              : undefined,
-          };
-        },
-        generatingAccountsFn: async ({ wallet, indexedAccount, hidden }) => {
-          if (hidden && hidden.wallet && hidden.indexedAccount) {
-            // hidden wallet account should be first create before normal wallet account
-            // otherwise, passphrase input will be asked many times
-            await this.addDefaultNetworkAccounts.call(set, {
-              wallet: hidden.wallet,
-              indexedAccount: hidden.indexedAccount,
-              isCreateWallet: true,
-              skipDeviceCancel: true,
-              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-            });
-            await timerUtils.wait(100);
-          }
-          if (wallet && indexedAccount) {
-            await this.addDefaultNetworkAccounts.call(set, {
-              wallet,
-              indexedAccount,
-              isCreateWallet: true,
-              skipDeviceCancel: false,
-              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-            });
-          }
-        },
-      }),
+    async (_, set, params: IDBCreateHwWalletParamsBase) => {
+      const { createHWWalletWithHidden } =
+        await import('./hardwareWalletActions');
+      return createHWWalletWithHidden({
+        actions: this,
+        set,
+        params,
+      });
+    },
   );
 
   createQrWallet = contextAtomMethod(
@@ -2406,55 +2409,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   updateHwWalletsDeprecatedStatus = contextAtomMethod(
     async (
-      get,
-      set,
-      { connectId, deviceId }: { connectId: string; deviceId: string },
+      _,
+      __,
+      params: {
+        connectId: string;
+        usbConnectId?: string;
+        bleConnectId?: string;
+        deviceId: string;
+      },
     ) => {
-      if (!connectId || !deviceId) {
-        return;
-      }
-
-      // Best-effort cleanup: callers run it after the wallet is already
-      // created + committed; a throw must never fail that success path.
-      try {
-        const allHwWallets =
-          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-            filterHiddenWallet: false,
-            filterQrWallet: true,
-          });
-
-        const willUpdateDeprecateMap: Record<string, boolean> = {};
-
-        for (const walletWithDevice of Object.values(allHwWallets)) {
-          const wallet = walletWithDevice.wallet;
-          const device = walletWithDevice.device;
-
-          if (wallet?.id && device?.connectId) {
-            const isSameConnectId =
-              device.connectId === connectId ||
-              device.bleConnectId === connectId;
-            const isSameDevice = device.deviceId === deviceId;
-
-            // only handle wallet with same connectId
-            if (isSameConnectId) {
-              // if connectId is same, deviceId is different, the wallet should be deprecated
-              // if connectId is same, deviceId is same, the wallet should be not deprecated
-              const newDeprecatedStatus = !isSameDevice;
-              willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
-            }
-          }
-        }
-
-        const result =
-          await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
-            willUpdateDeprecateMap,
-          });
-        if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
-          appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-        }
-      } catch (error) {
-        console.error('updateHwWalletsDeprecatedStatus failed:', error);
-      }
+      const { updateHwWalletsDeprecatedStatus } =
+        await import('./hardwareWalletActions');
+      return updateHwWalletsDeprecatedStatus(params);
     },
   );
 
@@ -2549,9 +2515,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         walletId,
         isRemoveToMocked,
+        removeSameDeviceWallets,
       }: {
         walletId: string;
         isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
+        removeSameDeviceWallets?: boolean;
       },
     ) => {
       // TODO add home scene check
@@ -2564,12 +2532,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         await serviceAccount.removeWallet({
           walletId,
           isRemoveToMocked,
+          removeSameDeviceWallets,
         });
         set(accountSelectorEditModeAtom(), false);
 
         await this.autoSelectNextAccount.call(set, {
           num,
           triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+          removedWalletId: walletId,
         });
       } finally {
         set(accountSelectorSyncLoadingAtom(), {
@@ -3017,9 +2987,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         }
         if (isEqual(selectedAccount, defaultSelectedAccount())) {
-          console.error(
-            'AccountSelector.saveToStorage skip, selectedAccount is default',
-          );
           return;
         }
         // Identity-less selections (e.g. network-only cold-start snapshots)
@@ -3033,6 +3000,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount.othersWalletAccountId),
         );
         if (!hasAccountIdentityForStorage) {
+          return;
+        }
+        // An account without a network cannot be rendered (OK-62137): never
+        // let it replace a saved record; the in-memory fill above repairs it.
+        if (!selectedAccount.networkId) {
           return;
         }
         // Skip stale async saves: the in-memory selection may have moved on
@@ -3129,19 +3101,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         // **** emit event
         if (!eventEmitDisabled) {
-          if (
-            networkUtils.isAllNetwork({
-              networkId: payload.selectedAccount?.networkId,
-            })
-          ) {
-            // debugger;
-          }
-          if (sceneName === EAccountSelectorSceneName.discover) {
-            if (payload?.selectedAccount?.indexedAccountId === 'hd-1--0') {
-              // alert('AccountSelectorSelectedAccountUpdate');
-              // debugger;
-            }
-          }
           appEventBus.emit(
             EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
             fixedPayload,
@@ -3497,10 +3456,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   autoSelectNextAccountMutex = new Semaphore(1);
 
-  // Public barrier for components that want to write to selectedAccount only
-  // AFTER autoSelectNextAccount has completed. syncFromScene uses the same
-  // mutex internally; external writers (e.g. keyless preselect) previously
-  // had to guess a timeout, which raced AutoSelect on slow paths.
+  // Wait until the current auto-select pass completes.
   waitForAutoSelectUnlock = contextAtomMethod(async (_get, _set) => {
     await this.autoSelectNextAccountMutex.waitForUnlock();
   });
@@ -3514,11 +3470,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl,
         num,
         triggerBy,
+        removedWalletId,
       }: {
         sceneName?: EAccountSelectorSceneName;
         sceneUrl?: string;
         num: number;
         triggerBy?: EAccountSelectorAutoSelectTriggerBy;
+        removedWalletId?: string;
       },
     ) => {
       // console.log('accountSelector actions.autoSelectAccount >>> ', {
@@ -3534,10 +3492,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
 
       await this.autoSelectNextAccountMutex.runExclusive(async () => {
-        // wait activeAccount build done — must be INSIDE runExclusive so
-        // waitForAutoSelectUnlock callers actually block until the full
-        // auto-select pass completes (acquiring mutex AFTER the wait would
-        // let external writers slip through during the 300ms window).
+        // Keep the readiness wait inside the auto-select mutex.
         await timerUtils.wait(300);
         const storageReady = get(accountSelectorStorageReadyAtom());
         const activeAccount = this.getActiveAccount.call(set, { num });
@@ -3557,15 +3512,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           activeAccount;
         const selectedAccount = this.getSelectedAccount.call(set, { num });
         const isAccountExist = Boolean(indexedAccount || account || dbAccount);
-        // Mocked / deprecated wallets are no longer user-facing — treat them
-        // as needing replacement so the auto-select loop runs and either picks
-        // the next valid wallet or resets to undefined (OK-51091).
+        let isSelectedWalletRemoved = Boolean(
+          removedWalletId && selectedAccount?.walletId === removedWalletId,
+        );
+        if (
+          removedWalletId &&
+          selectedAccount?.walletId &&
+          !isSelectedWalletRemoved
+        ) {
+          const selectedWalletInDb = await serviceAccount.getWalletSafe({
+            walletId: selectedAccount.walletId,
+          });
+          isSelectedWalletRemoved = !selectedWalletInDb;
+        }
         const shouldAutoSelectNextAccount =
           !selectedAccount?.focusedWallet ||
           !network ||
           !wallet ||
-          accountUtils.isWalletDeprecatedOrMocked(wallet) ||
-          !isAccountExist;
+          wallet.isMocked ||
+          !isAccountExist ||
+          isSelectedWalletRemoved;
 
         if (shouldAutoSelectNextAccount) {
           defaultLogger.accountSelector.autoSelect.startAutoSelect({
@@ -3586,8 +3552,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount: selectedAccountNew,
           });
 
-          let selectedWalletId = wallet?.id || selectedAccount?.walletId;
-          let selectedWallet = wallet;
+          let selectedWalletId = isSelectedWalletRemoved
+            ? undefined
+            : wallet?.id || selectedAccount?.walletId;
+          let selectedWallet = isSelectedWalletRemoved ? undefined : wallet;
           if (!selectedWallet && selectedWalletId) {
             selectedWallet = await serviceAccount.getWalletSafe({
               walletId: selectedWalletId,
@@ -3602,8 +3570,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               selectedWallet = undefined;
             }
           }
-          let selectedIndexedAccountId =
-            indexedAccount?.id || selectedAccount?.indexedAccountId;
+          let selectedIndexedAccountId = isSelectedWalletRemoved
+            ? undefined
+            : indexedAccount?.id || selectedAccount?.indexedAccountId;
           // accountUtils.isHwWallet
           const hasIndexedAccounts =
             selectedWalletId &&
@@ -3621,7 +3590,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (
             !selectedWalletId ||
             !hasIndexedAccounts ||
-            accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
+            selectedWallet?.isMocked
           ) {
             let shouldSelectHdHwWallet = true;
             if (
@@ -3683,10 +3652,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 selectedAccountNew.focusedWallet = selectedWalletId;
               }
               // maybe no hd hw wallet found, reset walletId and indexedAccountId
-              if (
-                !selectedWallet ||
-                accountUtils.isWalletDeprecatedOrMocked(selectedWallet)
-              ) {
+              if (!selectedWallet || selectedWallet.isMocked) {
                 defaultLogger.accountSelector.autoSelect.resetSelectedWalletToUndefined(
                   {
                     selectedAccount: selectedAccountNew,
@@ -3810,7 +3776,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
             if (
               !finalWallet ||
-              accountUtils.isWalletDeprecatedOrMocked(finalWallet) ||
+              finalWallet.isMocked ||
               (await serviceAccount.isTempWalletRemoved({
                 wallet: finalWallet,
               }))
@@ -3863,6 +3829,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
 
           if (
+            isSelectedWalletRemoved &&
+            isSelectedAccountIdentityIncomplete(selectedAccountNew)
+          ) {
+            // A network-only selection is the final empty state after removing
+            // the last wallet, so it must replace the stale active account.
+            await this.reloadActiveAccountInfo.call(set, {
+              num,
+              selectedAccount: selectedAccountNew,
+              forceReload: true,
+            });
+          }
+
+          if (
             selectedAccount.walletId !== selectedAccountNew.walletId &&
             triggerBy !==
               EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount &&
@@ -3872,18 +3851,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         }
 
-        const isTriggerByRemoveWalletOrLastOthersAccount =
-          triggerBy &&
-          [
-            EAccountSelectorAutoSelectTriggerBy.removeWallet,
-            EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount,
-          ].includes(triggerBy);
-        // (else if) when auto select logic not trigger, should fix focusedWallet only
-        // focused A wallet, but remove B wallet, should focus back to A wallet
-        if (
-          !shouldAutoSelectNextAccount &&
-          isTriggerByRemoveWalletOrLastOthersAccount
-        ) {
+        const shouldRepairFocusedWallet =
+          triggerBy ===
+            EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount ||
+          (triggerBy === EAccountSelectorAutoSelectTriggerBy.removeWallet &&
+            (!removedWalletId ||
+              selectedAccount.focusedWallet === removedWalletId));
+        // Repair focus without replacing an otherwise valid selection.
+        if (!shouldAutoSelectNextAccount && shouldRepairFocusedWallet) {
           const selectedAccountNew = await this.cloneSelectedAccountNew.call(
             set,
             {

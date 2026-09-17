@@ -1,6 +1,10 @@
+import { useEffect, useMemo, useRef } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
+import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
 interface IUseBorrowEModeStatusParams {
   networkId?: string;
@@ -8,7 +12,14 @@ interface IUseBorrowEModeStatusParams {
   marketAddress?: string;
   accountId?: string;
   enabled?: boolean;
+  revalidateOnFocus?: boolean;
 }
+
+type IScopedEModeResult = {
+  scopeKey: string;
+  eModeStatus: IBorrowEModeStatus | null;
+  state: 'resolved' | 'error';
+};
 
 export const useBorrowEModeStatus = ({
   networkId,
@@ -16,6 +27,7 @@ export const useBorrowEModeStatus = ({
   marketAddress,
   accountId,
   enabled = true,
+  revalidateOnFocus = true,
 }: IUseBorrowEModeStatusParams) => {
   const scopeKey = JSON.stringify([
     networkId,
@@ -24,48 +36,90 @@ export const useBorrowEModeStatus = ({
     accountId,
     enabled,
   ]);
+  const lastSuccessfulStatusRef = useRef<{
+    scopeKey: string;
+    eModeStatus: IBorrowEModeStatus;
+  } | null>(null);
+  const requestParams = useMemo(
+    () =>
+      networkId &&
+      provider &&
+      marketAddress &&
+      accountId &&
+      enabled &&
+      provider.toLowerCase() === EBorrowProviderEnum.Aave
+        ? { networkId, provider, marketAddress, accountId }
+        : null,
+    [accountId, enabled, marketAddress, networkId, provider],
+  );
+  const canRequestStatus = Boolean(requestParams);
+  const swrKey = requestParams
+    ? swrKeys.borrowEModeStatus(requestParams)
+    : undefined;
   const {
     result: scopedResult,
     run,
     isLoading,
   } = usePromiseResult(
-    async () => {
+    async (): Promise<IScopedEModeResult> => {
       // e-mode is an Aave-only feature; never query it for other providers
       // (e.g. Kamino), which the backend rejects with "not implemented".
-      if (
-        !networkId ||
-        !provider ||
-        !marketAddress ||
-        !accountId ||
-        !enabled ||
-        provider.toLowerCase() !== EBorrowProviderEnum.Aave
-      ) {
-        return { scopeKey, eModeStatus: null };
+      if (!requestParams) {
+        return { scopeKey, eModeStatus: null, state: 'resolved' };
       }
-      return {
-        scopeKey,
-        eModeStatus:
-          await backgroundApiProxy.serviceStaking.getBorrowEModeStatus({
-            networkId,
-            provider,
-            marketAddress,
-            accountId,
-          }),
-      };
+      try {
+        return {
+          scopeKey,
+          eModeStatus:
+            await backgroundApiProxy.serviceStaking.getBorrowEModeStatus(
+              requestParams,
+            ),
+          state: 'resolved',
+        };
+      } catch {
+        return {
+          scopeKey,
+          eModeStatus:
+            lastSuccessfulStatusRef.current?.scopeKey === scopeKey
+              ? lastSuccessfulStatusRef.current.eModeStatus
+              : null,
+          state: 'error',
+        };
+      }
     },
-    [networkId, provider, marketAddress, accountId, enabled, scopeKey],
+    [requestParams, scopeKey],
     {
       initResult: null,
       watchLoading: true,
       alwaysSetState: true,
       checkIsFocused: true,
-      revalidateOnFocus: true,
+      revalidateOnFocus,
       undefinedResultIfError: true,
+      swrKey,
+      swrShouldPersist: (result) =>
+        result?.state === 'resolved' && Boolean(result.eModeStatus),
     },
   );
 
-  const eModeStatus =
-    scopedResult?.scopeKey === scopeKey ? scopedResult.eModeStatus : null;
+  const hasResolvedCurrentScope = scopedResult?.scopeKey === scopeKey;
+  const eModeStatus = hasResolvedCurrentScope ? scopedResult.eModeStatus : null;
+  // A resolved-but-empty payload leaves consumers with neither a status to
+  // render nor an error to recover from, stranding them on their loading branch.
+  const isError =
+    canRequestStatus &&
+    hasResolvedCurrentScope &&
+    (scopedResult?.state === 'error' || !eModeStatus);
+  useEffect(() => {
+    if (eModeStatus) {
+      lastSuccessfulStatusRef.current = { scopeKey, eModeStatus };
+    }
+  }, [eModeStatus, scopeKey]);
 
-  return { eModeStatus, isLoading, refresh: run };
+  return {
+    eModeStatus,
+    isInitialLoading: canRequestStatus && !hasResolvedCurrentScope,
+    isLoading,
+    isError,
+    refresh: run,
+  };
 };

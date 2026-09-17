@@ -1,5 +1,24 @@
+import { resolveHardwarePassphraseEnabled } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type {
+  EHardwareVendor,
+  IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
+} from '@onekeyhq/shared/types/device';
+
+export function resolveWalletPassphraseProtection({
+  deviceState,
+  features,
+}: {
+  deviceState?: IOneKeyDeviceState;
+  features?: IOneKeyDeviceFeatures;
+}): boolean {
+  const canonicalValue = deviceState?.status.passphraseProtection;
+  if (typeof canonicalValue === 'boolean') {
+    return canonicalValue;
+  }
+  return features ? resolveHardwarePassphraseEnabled({ features }) : false;
+}
 
 export function shouldShowAddHiddenWalletButtonForWallet(params: {
   isKeyless?: boolean;

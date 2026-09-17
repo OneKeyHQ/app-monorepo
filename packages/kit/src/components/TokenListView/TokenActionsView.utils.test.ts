@@ -1,9 +1,12 @@
+import {
+  ARC_ERC20_USDC_CONTRACT_ADDRESS,
+  ARC_NETWORK_ID,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
   buildTokenActionSwapFromToken,
-  findTokenActionAggregateKey,
   getResolvedTokenActionToken,
   getTokenActionSameNetworkSwapToToken,
   getTokenActionSwapToToken,
@@ -187,6 +190,16 @@ describe('getTokenActionSwapToToken', () => {
     ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
   });
 
+  it('leaves account-scoped balances to Swap after the Home handoff', () => {
+    const fromToken = buildTokenActionSwapFromToken({
+      token: buildAccountToken(),
+      networkId: 'btc--0',
+    });
+
+    expect(fromToken).not.toHaveProperty('accountAddress');
+    expect(fromToken).not.toHaveProperty('balanceParsed');
+  });
+
   it.each([
     undefined,
     { isSupportCrossChain: true, isSupportSwap: false },
@@ -280,32 +293,48 @@ describe('getTokenActionSwapToToken', () => {
       }),
     ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
   });
-});
 
-describe('findTokenActionAggregateKey', () => {
-  it('finds the network-scoped member behind an aggregate Home token', () => {
+  it('uses the configured Arc ERC-20 USDC to Ethereum ETH pair', () => {
     expect(
-      findTokenActionAggregateKey({
-        ownedAggregateTokenListMap: {
-          aggregate_USDC_: {
-            tokens: [
-              buildAccountToken({
-                $key: 'bsc-usdc',
-                address: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
-                isNative: false,
-                networkId: 'evm--56',
-                symbol: 'USDC',
-              }),
-            ],
-          },
-        },
-        targetToken: buildSwapToken({
-          contractAddress: '0x8AC76A51CC950D9822D68B83FE1AD97B32CD580D',
+      getTokenActionSwapToToken({
+        fromToken: buildSwapToken({
+          contractAddress: ARC_ERC20_USDC_CONTRACT_ADDRESS,
+          decimals: 6,
           isNative: false,
-          networkId: 'evm--56',
+          name: 'USD Coin',
+          networkId: ARC_NETWORK_ID,
           symbol: 'USDC',
         }),
+        swapSupport: {
+          isSupportCrossChain: true,
+          isSupportSwap: true,
+        },
       }),
-    ).toBe('aggregate_USDC_');
+    ).toEqual(
+      expect.objectContaining({
+        isNative: true,
+        networkId: 'evm--1',
+        symbol: 'ETH',
+      }),
+    );
+  });
+
+  it('does not use Arc native USDC as the target for another Arc token', () => {
+    expect(
+      getTokenActionSwapToToken({
+        fromToken: buildSwapToken({
+          contractAddress: '0x1111111111111111111111111111111111111111',
+          decimals: 18,
+          isNative: false,
+          name: 'Other Token',
+          networkId: ARC_NETWORK_ID,
+          symbol: 'OTHER',
+        }),
+        swapSupport: {
+          isSupportCrossChain: true,
+          isSupportSwap: true,
+        },
+      }),
+    ).toBeUndefined();
   });
 });

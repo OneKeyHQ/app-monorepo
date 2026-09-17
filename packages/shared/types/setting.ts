@@ -1,6 +1,7 @@
 import type { IAggregateToken, IHomeDefaultToken } from './token';
 
 export type IClearCacheOnAppState = {
+  oneKeyId: boolean;
   tokenAndNFT: boolean;
   transactionHistory: boolean;
   swapHistory: boolean;
@@ -13,6 +14,7 @@ export type IClearCacheOnAppState = {
   serverNetworks: boolean;
   connectSites: boolean;
   signatureRecord: boolean;
+  perpsData?: boolean;
 };
 
 export enum EReasonForNeedPassword {

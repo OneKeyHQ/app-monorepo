@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { TPerpDepositEntrySource } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -28,6 +30,15 @@ type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 function isUnifoldDepositFeatureEnabled(remoteEnabled: boolean | undefined) {
   return remoteEnabled === true;
+}
+
+export function usePreloadPerpsUnifoldDepositModals(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    void loadPerpsUnifoldDepositModals().catch(() => undefined);
+  }, [enabled]);
 }
 
 export function useUnifoldDepositTrackerAvailability() {
@@ -97,7 +108,9 @@ export function useShowUnifoldDepositTracker() {
   };
 }
 
-export function useShowDepositWithdrawModal() {
+export function useShowDepositWithdrawModal(
+  entrySource: TPerpDepositEntrySource,
+) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
@@ -182,14 +195,28 @@ export function useShowDepositWithdrawModal() {
             id: ETranslations.perp_unifold_deposit_menu_connected_wallet__title,
           })
         : 'OneKey Wallet';
+      const analyticsContext = {
+        entrySource,
+        walletType: selectedAccount.walletType ?? 'unknown',
+      };
       showPerpsUnifoldDepositMenuDialog({
         intl,
         walletName,
         showTrackerAction: false,
         onAction: (action) => {
           if (action === 'onekey') {
+            defaultLogger.perp.deposit.perpDepositMethodSelect({
+              ...analyticsContext,
+              depositMethod: 'connectedWallet',
+            });
             void openDepositWithdrawForm('deposit');
             return;
+          }
+          if (action === 'transfer') {
+            defaultLogger.perp.deposit.perpDepositMethodSelect({
+              ...analyticsContext,
+              depositMethod: 'depositAddress',
+            });
           }
           if (gtMd) {
             if (action === 'transfer') {
@@ -197,6 +224,7 @@ export function useShowDepositWithdrawModal() {
                 dialogInTab,
                 expectedRecipient: safeRecipient,
                 intl,
+                analyticsEntrySource: entrySource,
               });
             } else {
               showUnifoldTrackerDialog({
@@ -213,6 +241,7 @@ export function useShowDepositWithdrawModal() {
               params: {
                 expectedRecipient: safeRecipient,
                 openSourceSelectorOnReady: true,
+                analyticsEntrySource: entrySource,
               },
             });
             return;
@@ -223,10 +252,12 @@ export function useShowDepositWithdrawModal() {
           });
         },
       });
+      defaultLogger.perp.deposit.perpDepositMethodPanelView(analyticsContext);
     },
     [
       getLatestDepositDisabled,
       openDepositWithdrawForm,
+      entrySource,
       gtMd,
       dialogInTab,
       intl,

@@ -71,7 +71,7 @@ function AutoRiskControlContent() {
                   })}
                 </SizableText>
                 <YStack
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '180deg' : '0deg'}
                 >

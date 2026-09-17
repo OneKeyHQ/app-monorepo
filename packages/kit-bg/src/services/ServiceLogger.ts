@@ -3,6 +3,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
+import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -48,6 +50,17 @@ class ServiceLogger extends ServiceBase {
       this.writeIndex = (this.writeIndex + 1) % this.maxLength;
     }
     return Promise.resolve(true);
+  }
+
+  /**
+   * Persist a logger config from the UI. On native, main and bg hold
+   * separate LoggerConfigManager singletons in isolated JS heaps; routing the
+   * save through bg keeps the runtime that emits most logs in sync without a
+   * restart. Callers must mirror the config into their own runtime afterwards.
+   */
+  @backgroundMethod()
+  async updateLoggerConfig(config: ILoggerConfig) {
+    loggerConfig.saveLoggerConfig(config);
   }
 
   @backgroundMethod()

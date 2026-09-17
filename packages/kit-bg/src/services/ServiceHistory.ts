@@ -35,9 +35,13 @@ import {
   getPrivateSendHistoryDisplayStatus,
   isPrivateSendAccountHistoryTx,
   isPrivateSendSwapHistoryItem,
+  isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressBadge,
   IAddressInfo,
@@ -68,6 +72,7 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
+  IDecodedTxAction,
   IReplaceTxInfo,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
@@ -97,13 +102,6 @@ const HISTORY_TIME_RANGE_MS = timerUtils.getTimeDurationMs({
   month: HISTORY_TIME_RANGE_MONTHS,
 });
 
-const PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES = new Set([
-  ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.FAILED,
-  ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
-]);
-
 type IHistoryDecodedAction = IAccountHistoryTx['decodedTx']['actions'][number];
 type IHistoryDecodedTransfer = NonNullable<
   IHistoryDecodedAction['assetTransfer']
@@ -123,12 +121,8 @@ function shouldPreferPrivateSendSwapHistory(
   next: ISwapTxHistory,
   current: ISwapTxHistory,
 ) {
-  const isNextTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
-    next.status,
-  );
-  const isCurrentTerminal = PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES.has(
-    current.status,
-  );
+  const isNextTerminal = isSwapHistoryTerminalStatus(next.status);
+  const isCurrentTerminal = isSwapHistoryTerminalStatus(current.status);
 
   if (isNextTerminal !== isCurrentTerminal) {
     return isNextTerminal;
@@ -725,6 +719,145 @@ function mergePrivateSendLocalDecodedTxFields({
       ...(outputActionsResult.updated
         ? { outputActions: outputActionsResult.actions }
         : {}),
+    },
+  };
+}
+
+// The indexer owns a tx's display label, but networks it cannot parse return an
+// empty one. Replacing the local record with such an on-chain record drops the
+// semantics the app already knew when it built the tx (Earn claim/redeem,
+// internal swap), leaving both the history row and its details page with an
+// empty title. Carry those local display fields over, but only when the indexer
+// gave us nothing to show. Replacement linkage is local-only, so it is carried
+// independently of the display-label branch below.
+function getLocalReplacementFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): Pick<
+  IAccountHistoryTx,
+  'replacedPrevId' | 'replacedNextId' | 'replacedType' | 'replacedMethod'
+> {
+  // Replacement linkage is local-only metadata. The indexer response can
+  // replace the local record after confirmation, so carry it forward when the
+  // response does not provide an equivalent field. In particular, a cancel
+  // replacement must remain distinguishable from the staking metadata it
+  // inherits for pending-state guards.
+  return {
+    ...(isNil(onChainHistoryTx.replacedPrevId) && !isNil(localTx.replacedPrevId)
+      ? { replacedPrevId: localTx.replacedPrevId }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedNextId) && !isNil(localTx.replacedNextId)
+      ? { replacedNextId: localTx.replacedNextId }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedType) && !isNil(localTx.replacedType)
+      ? { replacedType: localTx.replacedType }
+      : {}),
+    ...(isNil(onChainHistoryTx.replacedMethod) && !isNil(localTx.replacedMethod)
+      ? { replacedMethod: localTx.replacedMethod }
+      : {}),
+  };
+}
+
+export function mergeLocalTxDisplayFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): IAccountHistoryTx {
+  const localStakingInfo = localTx.stakingInfo;
+  const localReplacementFields = getLocalReplacementFields({
+    localTx,
+    onChainHistoryTx,
+  });
+  if (onChainHistoryTx.decodedTx.payload?.label) {
+    return {
+      ...onChainHistoryTx,
+      ...localReplacementFields,
+      ...(localStakingInfo && !onChainHistoryTx.stakingInfo
+        ? { stakingInfo: localStakingInfo }
+        : {}),
+    };
+  }
+
+  const localTransfer = localTx.decodedTx.actions?.[0]?.assetTransfer;
+  // stakingInfo also identifies a staking tx whose merged record no longer has
+  // an assetTransfer action (the indexer parsed no transfers), so the label
+  // survives every later refresh instead of only the first merge.
+  const isInternalStaking = Boolean(
+    localTransfer?.isInternalStaking || localStakingInfo,
+  );
+  const isInternalSwap = localTransfer?.isInternalSwap;
+  if (!isInternalStaking && !isInternalSwap) {
+    return { ...onChainHistoryTx, ...localReplacementFields };
+  }
+
+  // Keep local staking metadata even when the indexer already supplied a
+  // display label. Borrow metadata-only actions such as setCollateral are
+  // identified by these tags and otherwise disappear after confirmation.
+  const preserveLocalStakingInfo =
+    localStakingInfo && !onChainHistoryTx.stakingInfo
+      ? { stakingInfo: localStakingInfo }
+      : {};
+
+  const internalStakingLabel = isInternalStaking
+    ? localTransfer?.internalStakingLabel ||
+      (localStakingInfo
+        ? getStakingActionLabel({ stakingInfo: localStakingInfo })
+        : undefined)
+    : undefined;
+
+  const mergeAction = (action: IDecodedTxAction): IDecodedTxAction => {
+    if (action.assetTransfer) {
+      return {
+        ...action,
+        assetTransfer: {
+          ...action.assetTransfer,
+          ...(isInternalStaking ? { isInternalStaking } : {}),
+          ...(isInternalSwap ? { isInternalSwap } : {}),
+          ...(internalStakingLabel ? { internalStakingLabel } : {}),
+        },
+      };
+    }
+
+    // The indexer parsed no transfers at all, so the tx renders as a function
+    // call / unknown action instead. Those views read their own label field.
+    if (!internalStakingLabel) {
+      return action;
+    }
+    if (action.functionCall && !action.functionCall.functionName) {
+      return {
+        ...action,
+        functionCall: {
+          ...action.functionCall,
+          functionName: internalStakingLabel,
+        },
+      };
+    }
+    if (action.unknownAction && !action.unknownAction.label) {
+      return {
+        ...action,
+        unknownAction: {
+          ...action.unknownAction,
+          label: internalStakingLabel,
+        },
+      };
+    }
+    return action;
+  };
+
+  return {
+    ...onChainHistoryTx,
+    ...localReplacementFields,
+    ...preserveLocalStakingInfo,
+    decodedTx: {
+      ...onChainHistoryTx.decodedTx,
+      actions: onChainHistoryTx.decodedTx.actions.map((action, index) =>
+        index === 0 ? mergeAction(action) : action,
+      ),
     },
   };
 }
@@ -2185,12 +2318,16 @@ class ServiceHistory extends ServiceBase {
           const localHistoryTx = localHistoryTxs.find((tx) =>
             this.isSameScopedHistoryTx(onChainHistoryTx, tx),
           );
-          return localHistoryTx
-            ? mergePrivateSendLocalDecodedTxFields({
-                localTx: localHistoryTx,
-                onChainHistoryTx,
-              })
-            : onChainHistoryTx;
+          if (!localHistoryTx) {
+            return onChainHistoryTx;
+          }
+          return mergeLocalTxDisplayFields({
+            localTx: localHistoryTx,
+            onChainHistoryTx: mergePrivateSendLocalDecodedTxFields({
+              localTx: localHistoryTx,
+              onChainHistoryTx,
+            }),
+          });
         },
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
@@ -2604,6 +2741,9 @@ class ServiceHistory extends ServiceBase {
     supported: boolean;
     data: ITransferRecipient[];
     lastUsedDeriveType?: string;
+    // True when `supported: false` comes from a failed request rather than
+    // the server, so callers do not memoize the network as unsupported.
+    errored?: boolean;
   }> {
     const { accountId, networkId, limit = 10 } = params;
 
@@ -2649,12 +2789,23 @@ class ServiceHistory extends ServiceBase {
         return { supported: supported ?? true, data: data ?? [] };
       } catch (error) {
         console.error('Failed to fetch transfer recipients:', error);
-        return { supported: false, data: [] as ITransferRecipient[] };
+        return {
+          supported: false,
+          data: [] as ITransferRecipient[],
+          errored: true,
+        };
       }
     };
 
     if (xpubEntries.length <= 1) {
-      return callOnce(xpubEntries[0]?.xpub, limit);
+      const single = await callOnce(xpubEntries[0]?.xpub, limit);
+      this.persistTransferRecipients({
+        accountId,
+        networkId,
+        limit,
+        result: single,
+      });
+      return single;
     }
 
     // Each xpub requests the full limit so that addresses concentrated
@@ -2674,6 +2825,7 @@ class ServiceHistory extends ServiceBase {
         deriveType: IAccountDeriveTypes;
         supported: boolean;
         data: ITransferRecipient[];
+        errored?: boolean;
       } => !!r,
     );
 
@@ -2704,11 +2856,78 @@ class ServiceHistory extends ServiceBase {
       }
     }
     merged.sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
-    return {
+    const result = {
       supported: anySupported,
       data: merged.slice(0, limit),
       lastUsedDeriveType: newestDeriveType,
+      errored: responses.length > 0 && responses.every((r) => r.errored),
     };
+    this.persistTransferRecipients({ accountId, networkId, limit, result });
+    return result;
+  }
+
+  // Remember the last successful answer so the Send address page can paint
+  // it on a cold start while the network refresh runs (OK-63452). Only a
+  // server-confirmed list is stored; unsupported or failed answers are not.
+  private persistTransferRecipients({
+    accountId,
+    networkId,
+    limit,
+    result,
+  }: {
+    accountId: string;
+    networkId: string;
+    limit: number;
+    result: {
+      supported: boolean;
+      data: ITransferRecipient[];
+      lastUsedDeriveType?: string;
+      errored?: boolean;
+    };
+  }) {
+    if (!result.supported || result.errored) {
+      return;
+    }
+    void this.backgroundApi.simpleDb.transferRecipientsCache
+      .setEntry({
+        accountId,
+        networkId,
+        limit,
+        data: result.data,
+        lastUsedDeriveType: result.lastUsedDeriveType,
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to persist transfer recipients:', error);
+      });
+  }
+
+  @backgroundMethod()
+  public async getCachedTransferRecipients({
+    accountId,
+    networkId,
+    limit = 10,
+  }: {
+    accountId: string;
+    networkId: string;
+    // Must match the `limit` passed to fetchTransferRecipients.
+    limit?: number;
+  }): Promise<
+    | {
+        data: ITransferRecipient[];
+        lastUsedDeriveType?: string;
+      }
+    | undefined
+  > {
+    const entry =
+      await this.backgroundApi.simpleDb.transferRecipientsCache.getEntry({
+        accountId,
+        networkId,
+        limit,
+      });
+    if (!entry) {
+      return undefined;
+    }
+    return { data: entry.data, lastUsedDeriveType: entry.lastUsedDeriveType };
   }
 
   @backgroundMethod()
@@ -3136,6 +3355,9 @@ class ServiceHistory extends ServiceBase {
         xpub,
       });
       if (prevTx) {
+        if (prevTx.stakingInfo && !newHistoryTx.stakingInfo) {
+          newHistoryTx.stakingInfo = prevTx.stakingInfo;
+        }
         prevTx.decodedTx.status = EDecodedTxStatus.Dropped;
         prevTx.replacedNextId = newHistoryTx.id;
 

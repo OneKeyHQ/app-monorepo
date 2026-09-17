@@ -9,11 +9,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { OptimizationView } from '../../optimization';
 
-import { useSafeAreaBottom, useTabBarHeight } from './hooks';
+import {
+  usePageFooterSafeAreaBottom,
+  usePageFooterTabBarHeight,
+  useSafeAreaBottom,
+} from './hooks';
 import { PageContext } from './PageContext';
 import { FooterActions } from './PageFooterActions';
 
-import type { IPageFooterProps } from './type';
+import type { IPageFooterProps, IPageFooterSafeAreaBottomMode } from './type';
+
+// The default FooterActions already adds $5 (20) of bottom padding. Subtracting
+// 10 preserves its existing visual gap above native system UI.
+const DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION = 10;
 
 const Placeholder = () => {
   const bottom = useSafeAreaBottom();
@@ -24,23 +32,52 @@ const Placeholder = () => {
 const PageFooterContainer = ({
   children,
   disableKeyboardAnimation,
-}: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
-  const tabBarHeight = useTabBarHeight();
-  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
+  hasDefaultFooterActions,
+  safeAreaBottomMode,
+}: PropsWithChildren & {
+  disableKeyboardAnimation: boolean;
+  hasDefaultFooterActions: boolean;
+  safeAreaBottomMode: IPageFooterSafeAreaBottomMode;
+}) => {
+  const footerSafeBottomHeight = usePageFooterSafeAreaBottom();
+  const tabBarHeight = usePageFooterTabBarHeight();
+  const { height: keyboardHeight, progress: keyboardProgress } =
+    useReanimatedKeyboardAnimation();
   const { gtMd } = useMedia();
+  const containerOwnsSafeBottom = safeAreaBottomMode === 'container';
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0),
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const keyboardAnimationDisabled = disableKeyboardAnimation || gtMd;
+    const keyboardOffset = keyboardAnimationDisabled
+      ? 0
+      : Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0);
+    const safeBottomHeight = containerOwnsSafeBottom
+      ? footerSafeBottomHeight
+      : 0;
+    const adjustedSafeBottomHeight =
+      hasDefaultFooterActions &&
+      safeBottomHeight > DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
+        ? safeBottomHeight - DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
+        : safeBottomHeight;
+    const safeBottomOffset = keyboardAnimationDisabled
+      ? adjustedSafeBottomHeight
+      : adjustedSafeBottomHeight * (1 - keyboardProgress.value);
+    // Content-owned footers keep the raw inset in their children. Once the
+    // keyboard covers that region, remove it from the parent's keyboard
+    // movement so the inset is not counted twice.
+    const contentSafeBottomCompensation =
+      !keyboardAnimationDisabled && !containerOwnsSafeBottom
+        ? footerSafeBottomHeight * keyboardProgress.value
+        : 0;
+
+    return {
+      paddingBottom:
+        keyboardOffset + safeBottomOffset - contentSafeBottomCompensation,
+    };
+  });
 
   return (
-    <Animated.View
-      style={
-        gtMd || disableKeyboardAnimation || !platformEnv.isNative
-          ? undefined
-          : animatedStyle
-      }
-    >
+    <Animated.View style={platformEnv.isNative ? animatedStyle : undefined}>
       {children}
     </Animated.View>
   );
@@ -81,18 +118,26 @@ export function BasicPageFooter() {
     };
   }, [footerRef]);
 
-  return footerProps ? (
+  if (!footerProps) {
+    return <Placeholder />;
+  }
+
+  const {
+    children,
+    disableKeyboardAnimation = false,
+    safeAreaBottomMode = 'container',
+    ...footerActionsProps
+  } = footerProps;
+  const hasDefaultFooterActions = !children;
+
+  return (
     <PageFooterContainer
-      disableKeyboardAnimation={footerProps?.disableKeyboardAnimation ?? false}
+      disableKeyboardAnimation={disableKeyboardAnimation}
+      hasDefaultFooterActions={hasDefaultFooterActions}
+      safeAreaBottomMode={safeAreaBottomMode}
     >
-      {footerProps.children ? (
-        footerProps.children
-      ) : (
-        <FooterActions {...footerProps} />
-      )}
+      {children || <FooterActions {...footerActionsProps} />}
     </PageFooterContainer>
-  ) : (
-    <Placeholder />
   );
 }
 

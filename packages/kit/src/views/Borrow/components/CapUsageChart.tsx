@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
 
-import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+  useTheme,
+} from '@onekeyhq/components';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import type { IEarnText, IEarnTooltip } from '@onekeyhq/shared/types/staking';
@@ -22,7 +28,11 @@ export function CapUsageChart({
   description,
   tooltip,
 }: ICapUsageChartProps) {
-  const percentageValue = parseFloat(percentage) || 0;
+  const theme = useTheme();
+  const rawPercentageValue = parseFloat(percentage) || 0;
+  const percentageValue = Math.min(Math.max(rawPercentageValue, 0), 100);
+  const progressColor =
+    rawPercentageValue >= 100 ? theme.textCritical.val : undefined;
   const media = useMedia();
 
   const labelRender = useMemo(() => {
@@ -44,7 +54,12 @@ export function CapUsageChart({
 
   return (
     <XStack gap="$3.5" ai="center" py="$2">
-      <CircleProgress percentage={percentageValue} size={80} strokeWidth={6} />
+      <CircleProgress
+        percentage={percentageValue}
+        size={80}
+        strokeWidth={6}
+        progressColor={progressColor}
+      />
       <YStack gap="$1.5" flex={1}>
         <XStack ai="center" gap="$1.5">
           <SizableText size="$bodyMd" color="$textSubdued">

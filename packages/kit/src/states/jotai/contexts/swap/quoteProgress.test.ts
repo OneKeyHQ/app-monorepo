@@ -17,7 +17,9 @@ import {
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteInputAmountValid,
   isSwapQuoteManualRefreshRequired,
+  isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
   resolveSwapQuoteForDisplay,
@@ -59,6 +61,33 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('validates the amount on the active quote side', () => {
+    expect(
+      isSwapQuoteInputAmountValid({
+        quoteKind: ESwapQuoteKind.SELL,
+        fromTokenAmount: { value: '5', isInput: true },
+        toTokenAmount: { value: '21', isInput: false },
+        hasTokenPair: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteInputAmountValid({
+        quoteKind: ESwapQuoteKind.BUY,
+        fromTokenAmount: { value: '5', isInput: false },
+        toTokenAmount: { value: '21', isInput: true },
+        hasTokenPair: true,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteInputAmountValid({
+        quoteKind: ESwapQuoteKind.BUY,
+        fromTokenAmount: { value: '5', isInput: false },
+        toTokenAmount: { value: '21', isInput: false },
+        hasTokenPair: true,
+      }),
+    ).toBe(false);
+  });
+
   it('allows exactly five automatic refresh requests before requiring manual refresh', () => {
     expect(
       resolveSwapQuoteRefreshAction({
@@ -709,6 +738,7 @@ describe('swap quote progress', () => {
   it('offers refresh only after quote mismatch and request state settle', () => {
     expect(
       shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: true,
         isRefreshQuote: false,
         quoteResultNoMatch: false,
         quoteResultNoMatchDebounced: true,
@@ -718,6 +748,7 @@ describe('swap quote progress', () => {
     ).toBe(false);
     expect(
       shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: true,
         isRefreshQuote: false,
         quoteResultNoMatch: true,
         quoteResultNoMatchDebounced: true,
@@ -727,6 +758,7 @@ describe('swap quote progress', () => {
     ).toBe(false);
     expect(
       shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: true,
         isRefreshQuote: false,
         quoteResultNoMatch: true,
         quoteResultNoMatchDebounced: true,
@@ -736,6 +768,7 @@ describe('swap quote progress', () => {
     ).toBe(true);
     expect(
       shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: true,
         isRefreshQuote: true,
         quoteResultNoMatch: false,
         quoteResultNoMatchDebounced: false,
@@ -743,6 +776,16 @@ describe('swap quote progress', () => {
         quoteEventFetching: true,
       }),
     ).toBe(true);
+    expect(
+      shouldOfferSwapQuoteRefresh({
+        hasValidQuoteInput: false,
+        isRefreshQuote: true,
+        quoteResultNoMatch: true,
+        quoteResultNoMatchDebounced: true,
+        quoteLoading: false,
+        quoteEventFetching: false,
+      }),
+    ).toBe(false);
   });
 
   it('stops action loading when the first actionable quote arrives', () => {
@@ -1074,5 +1117,78 @@ describe('swap quote progress', () => {
     });
 
     expect(selectedQuote).toBe(manualErrorQuote);
+  });
+});
+
+describe('isSwapQuoteProvenForCurrentRequest', () => {
+  const retainedQuote = buildQuote({ eventId: 'event-1', provider: 'p1' });
+
+  it('proves an idle settled quote from the current event', () => {
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: retainedQuote,
+        quoteEventTotalCount: { count: 1, eventId: 'event-1' },
+        quoteLoading: false,
+        quoteEventFetching: false,
+        quoteActionLocked: false,
+        requestMatchesCurrentInput: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects the request-starting interval before the event reports (OK-58326)', () => {
+    // quoteAction clears the event id and writes the new matching lock BEFORE
+    // runQuoteEvent flips the loading flags. A same-pair previous-account
+    // quote is still selected in that interval and must stay unproven even
+    // though the no-event-id fallback and the lock match would both pass.
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: retainedQuote,
+        quoteEventTotalCount: { count: 0 },
+        quoteLoading: false,
+        quoteEventFetching: false,
+        quoteActionLocked: true,
+        requestMatchesCurrentInput: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects a previous-event quote once the new event reports its id', () => {
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: retainedQuote,
+        quoteEventTotalCount: { count: 1, eventId: 'event-2' },
+        quoteLoading: false,
+        quoteEventFetching: true,
+        quoteActionLocked: true,
+        requestMatchesCurrentInput: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('proves streamed quotes of the active event while it is still locked', () => {
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: buildQuote({ eventId: 'event-2', provider: 'p1' }),
+        quoteEventTotalCount: { count: 1, eventId: 'event-2' },
+        quoteLoading: false,
+        quoteEventFetching: true,
+        quoteActionLocked: true,
+        requestMatchesCurrentInput: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects any quote when the request lock no longer matches the input', () => {
+    expect(
+      isSwapQuoteProvenForCurrentRequest({
+        quote: retainedQuote,
+        quoteEventTotalCount: { count: 1, eventId: 'event-1' },
+        quoteLoading: false,
+        quoteEventFetching: false,
+        quoteActionLocked: false,
+        requestMatchesCurrentInput: false,
+      }),
+    ).toBe(false);
   });
 });

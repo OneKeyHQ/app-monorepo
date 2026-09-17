@@ -41,6 +41,16 @@ function getErrorMessage(error: unknown): string {
   return String(error || 'Identity exit failed.');
 }
 
+function logIdentityExitError(label: string, error: unknown) {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
+  // Keep the original Error object so the browser console preserves its stack.
+  // eslint-disable-next-line no-console
+  console.error(`[IdentityExit] ${label}`, error);
+}
+
 function showBlockedMessage(intl: IntlShape) {
   Toast.error({
     title: intl.formatMessage({
@@ -76,7 +86,28 @@ export function useIdentityExitFlow() {
           await backgroundApiProxy.serviceIdentityExit.prepareIdentityExit(
             intent,
           );
+        if (plan.status === 'completed') {
+          defaultLogger.prime.subscription.onekeyIdLogout({
+            reason:
+              options?.analyticsReason ||
+              `identityExit:${intent.type}:${intent.scene}:alreadyCompleted`,
+          });
+          try {
+            await options?.onCompletedReceipt?.(plan.receipt);
+          } catch (error) {
+            logIdentityExitError('post-receipt continuation failed', error);
+            const message = getErrorMessage(error);
+            defaultLogger.prime.subscription.onekeyIdLogout({
+              reason: `identityExit: post-receipt continuation failed: ${scrubSensitiveErrorMessageText(
+                message,
+              )}`,
+            });
+            showBlockedMessageForError(intl, error);
+          }
+          return { status: 'completed' };
+        }
         if (plan.status === 'blocked') {
+          logIdentityExitError('prepare blocked', plan);
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: `identityExit: prepare blocked: ${scrubSensitiveErrorMessageText(
               plan.message,
@@ -96,6 +127,7 @@ export function useIdentityExitFlow() {
           return { status: 'cancelled' };
         }
         if (dialogResult.status === 'blocked') {
+          logIdentityExitError('execute blocked', dialogResult);
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: `identityExit: execute blocked: ${scrubSensitiveErrorMessageText(
               dialogResult.message,
@@ -113,6 +145,7 @@ export function useIdentityExitFlow() {
         try {
           await options?.onCompletedReceipt?.(dialogResult.receipt);
         } catch (error) {
+          logIdentityExitError('post-receipt continuation failed', error);
           const message = getErrorMessage(error);
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: `identityExit: post-receipt continuation failed: ${scrubSensitiveErrorMessageText(
@@ -123,6 +156,7 @@ export function useIdentityExitFlow() {
         }
         return { status: 'completed' };
       } catch (error) {
+        logIdentityExitError('flow failed', error);
         const message = getErrorMessage(error);
         defaultLogger.prime.subscription.onekeyIdLogout({
           reason: `identityExit: flow failed: ${scrubSensitiveErrorMessageText(

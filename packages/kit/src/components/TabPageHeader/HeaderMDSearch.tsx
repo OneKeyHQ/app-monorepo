@@ -9,6 +9,6 @@ export function HeaderMDSearch({
   tabRoute,
 }: ITabPageHeaderProp) {
   return tabRoute === ETabRoutes.Home || tabRoute === ETabRoutes.Market ? (
-    <MDUniversalSearchInput />
+    <MDUniversalSearchInput tabRoute={tabRoute} />
   ) : null;
 }

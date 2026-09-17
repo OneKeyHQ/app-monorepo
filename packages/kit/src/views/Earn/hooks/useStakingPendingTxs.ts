@@ -8,6 +8,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
@@ -169,6 +170,7 @@ export const useStakingPendingTxsByInfo = ({
   tagMatcher,
   onRefreshDelayMs = 0,
   precomputed,
+  revalidateOnFocus = true,
   accountId: explicitAccountId,
   indexedAccountId: explicitIndexedAccountId,
 }: {
@@ -178,6 +180,7 @@ export const useStakingPendingTxsByInfo = ({
   tagMatcher?: (tag: string) => boolean;
   onRefreshDelayMs?: number;
   precomputed?: IStakingPendingTxsPrecomputed;
+  revalidateOnFocus?: boolean;
   accountId?: string;
   indexedAccountId?: string;
 }) => {
@@ -641,6 +644,7 @@ export const useStakingPendingTxsByInfo = ({
         }
 
         return pendingTxs.filter((tx): tx is IStakePendingTx => {
+          if (tx.replacedType === EReplaceTxType.Cancel) return false;
           if (!tx.stakingInfo) return false;
           const tags = tx.stakingInfo.tags ?? [];
           if (tags.length === 0) return false;
@@ -676,7 +680,7 @@ export const useStakingPendingTxsByInfo = ({
     isLoading: filteredTxsLoading,
   } = usePromiseResult(fetchFilteredPendingTxs, [fetchFilteredPendingTxs], {
     initResult: UNVERIFIED_PENDING_TXS_RESULT,
-    revalidateOnFocus: true,
+    revalidateOnFocus,
     watchLoading: true,
   });
   const {

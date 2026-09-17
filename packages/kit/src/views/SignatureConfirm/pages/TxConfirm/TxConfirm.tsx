@@ -17,7 +17,7 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_INTERVAL_FOR_NATIVE_TOKEN_INFO } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -47,7 +47,11 @@ import {
 } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
 import DeFiActionInfo from '../../components/DeFiActionInfo';
-import { SecurityCheckCard } from '../../components/SecurityCheckCard';
+import {
+  SecurityCheckCard,
+  TransactionPreview,
+  buildSecurityCheckModel,
+} from '../../components/SecurityCheckCard';
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
@@ -63,6 +67,7 @@ import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
+import { useTransactionSecurityCheck } from '../../hooks/useTransactionSecurityCheck';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -84,6 +89,7 @@ function TxConfirm() {
     unsignedTxs,
     isQueueMode,
     unsignedTxQueue,
+    gasAccountScenario,
   } = route.params;
 
   const {
@@ -98,7 +104,7 @@ function TxConfirm() {
     updateCustomRpcStatus,
   } = useSignatureConfirmActions().current;
 
-  const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
   const [effectiveFeePayer] = useEffectiveFeePayerAtom();
@@ -116,7 +122,7 @@ function TxConfirm() {
     closeWindowAfterResolved: true,
   });
 
-  const { urlSecurityInfo, showContinueOperate } = useRiskDetection({
+  const { urlSecurityInfo } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
     walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
   });
@@ -204,48 +210,54 @@ function TxConfirm() {
     updateSendTxStatus,
   ]);
 
-  const fetchNativeTokenInfo = useCallback(async () => {
-    const nativeTokenAddress =
-      await backgroundApiProxy.serviceToken.getNativeTokenAddress({
-        networkId,
-      });
+  const fetchNativeTokenInfo = useCallback(
+    async () => {
+      const nativeTokenAddress =
+        await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+          networkId,
+        });
 
-    const checkInscriptionProtectionEnabled =
-      await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
-        {
+      const withCheckInscription =
+        await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
+          {
+            networkId,
+            accountId,
+          },
+        );
+      const tokenResp =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,
           accountId,
-        },
-      );
-    const withCheckInscription =
-      checkInscriptionProtectionEnabled && settings.inscriptionProtection;
-    const tokenResp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-      networkId,
+          contractList: [nativeTokenAddress],
+          withFrozenBalance: true,
+          withCheckInscription,
+        });
+      // Coin-control txs can only spend the user-selected UTXOs, so treat the
+      // selected subtotal as the spendable balance. The account-level balance
+      // fetched above excludes find-address claimed UTXOs (never aggregated),
+      // which would otherwise read as 0 and falsely trip the insufficient
+      // native balance checks.
+      const balance =
+        transferPayload?.selectedUtxoTotalAmount ??
+        tokenResp?.[0]?.balanceParsed;
+      updateNativeTokenInfo({
+        isLoading: false,
+        balance,
+        logoURI: tokenResp?.[0]?.info.logoURI ?? '',
+        info: tokenResp?.[0]?.info,
+      });
+    },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [
+      updateNativeTokenInfo,
       accountId,
-      contractList: [nativeTokenAddress],
-      withFrozenBalance: true,
-      withCheckInscription,
-    });
-    // Coin-control txs can only spend the user-selected UTXOs, so treat the
-    // selected subtotal as the spendable balance. The account-level balance
-    // fetched above excludes find-address claimed UTXOs (never aggregated),
-    // which would otherwise read as 0 and falsely trip the insufficient
-    // native balance checks.
-    const balance =
-      transferPayload?.selectedUtxoTotalAmount ?? tokenResp?.[0]?.balanceParsed;
-    updateNativeTokenInfo({
-      isLoading: false,
-      balance,
-      logoURI: tokenResp?.[0]?.info.logoURI ?? '',
-      info: tokenResp?.[0]?.info,
-    });
-  }, [
-    updateNativeTokenInfo,
-    accountId,
-    networkId,
-    settings.inscriptionProtection,
-    transferPayload?.selectedUtxoTotalAmount,
-  ]);
+      networkId,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
+      transferPayload?.selectedUtxoTotalAmount,
+    ],
+  );
 
   usePromiseResult(
     async () => {
@@ -364,7 +376,7 @@ function TxConfirm() {
     [simulationComponents],
   );
 
-  // SecurityCheckCard owns every simulation slot on this page. Empty
+  // TransactionPreview owns every simulation slot on this page. Empty
   // simulations carry no asset information and must not fall back to the old
   // glowing card in TxConfirmDetails.
   const shouldHideSimulationInDetails = simulationComponents.length > 0;
@@ -378,6 +390,51 @@ function TxConfirm() {
         )
         .join('|'),
     [reactiveUnsignedTxs],
+  );
+
+  const {
+    result: transactionSecurityInfo,
+    isPending: isTransactionSecurityPending,
+    isApplicable: isTransactionSecurityApplicable,
+    isPrimeUser,
+    requestKey: transactionSecurityRequestKey,
+    retry: retryTransactionSecurityCheck,
+  } = useTransactionSecurityCheck({
+    requestKey: securityCheckRequestKey,
+    origin: sourceInfo?.origin,
+    accountId,
+    networkId,
+    unsignedTxs: reactiveUnsignedTxs,
+  });
+
+  const securityCheckModel = useMemo(
+    () =>
+      buildSecurityCheckModel({
+        kind: 'transaction',
+        requestKey: transactionSecurityRequestKey,
+        origin: sourceInfo?.origin,
+        urlSecurityInfo,
+        decodedTxs,
+        isParserPending: !decodedTxsInit || isBuildingDecodedTxs,
+        transactionSecurityInfo,
+        isTransactionSecurityPending,
+        isTransactionSecurityApplicable,
+        isPrimeUser,
+        intl,
+      }),
+    [
+      decodedTxs,
+      decodedTxsInit,
+      intl,
+      isBuildingDecodedTxs,
+      isPrimeUser,
+      isTransactionSecurityApplicable,
+      isTransactionSecurityPending,
+      sourceInfo?.origin,
+      transactionSecurityRequestKey,
+      transactionSecurityInfo,
+      urlSecurityInfo,
+    ],
   );
 
   const handleOnClose = (extra?: { flag?: string }) => {
@@ -460,6 +517,7 @@ function TxConfirm() {
           networkId={networkId}
           accountId={accountId}
           transferPayload={transferPayload}
+          gasAccountScenario={gasAccountScenario}
         />
         {sourceInfo?.origin ? (
           <DAppSiteMark
@@ -469,14 +527,15 @@ function TxConfirm() {
           />
         ) : null}
         <SecurityCheckCard
-          kind="transaction"
-          requestKey={securityCheckRequestKey}
-          requestIdentity={reactiveUnsignedTxs}
-          origin={sourceInfo?.origin}
-          urlSecurityInfo={urlSecurityInfo}
-          decodedTxs={decodedTxs}
-          simulationComponents={visibleSimulationComponents}
+          model={securityCheckModel}
+          onRetry={retryTransactionSecurityCheck}
         />
+        {visibleSimulationComponents.length ? (
+          <TransactionPreview
+            key={securityCheckRequestKey}
+            simulationComponents={visibleSimulationComponents}
+          />
+        ) : null}
         <TxConfirmDetails
           accountId={accountId}
           networkId={networkId}
@@ -499,11 +558,13 @@ function TxConfirm() {
     networkId,
     accountId,
     transferPayload,
+    gasAccountScenario,
     sourceInfo?.origin,
     urlSecurityInfo,
-    securityCheckRequestKey,
-    reactiveUnsignedTxs,
     visibleSimulationComponents,
+    securityCheckRequestKey,
+    securityCheckModel,
+    retryTransactionSecurityCheck,
     shouldHideSimulationInDetails,
     unsignedTxs,
     swapInfo,
@@ -572,7 +633,8 @@ function TxConfirm() {
         {...route.params}
         accountId={accountId}
         networkId={networkId}
-        forceTakeRiskAlert={showContinueOperate}
+        securityCheckConfirmation={securityCheckModel.confirmation}
+        securityCheckAcknowledgementKey={securityCheckModel.acknowledgementKey}
       />
     </Page>
   );

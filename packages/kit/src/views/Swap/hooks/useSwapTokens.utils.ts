@@ -1,3 +1,17 @@
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+
+export function isSwapSupportAllAccountsRequestCurrent({
+  isCancelled,
+  requestGeneration,
+  currentGeneration,
+}: {
+  isCancelled: boolean;
+  requestGeneration: number;
+  currentGeneration: number;
+}) {
+  return !isCancelled && requestGeneration === currentGeneration;
+}
+
 export function releaseSwapTokenListFetchEffectKey({
   effectKey,
   latestEffectKey,
@@ -8,24 +22,14 @@ export function releaseSwapTokenListFetchEffectKey({
   return latestEffectKey === effectKey ? '' : latestEffectKey;
 }
 
-export function getSwapTokenSearchResults<T>({
-  isTokenListFetchSettled,
-  remoteTokens,
-  searchLocalTokens,
-  useLocalSearchFallback,
-}: {
-  isTokenListFetchSettled: boolean;
-  remoteTokens: T[];
-  searchLocalTokens: () => T[];
-  useLocalSearchFallback: boolean;
-}) {
-  if (
-    !useLocalSearchFallback ||
-    remoteTokens.length > 0 ||
-    isTokenListFetchSettled
-  ) {
-    return remoteTokens;
-  }
-
-  return searchLocalTokens();
+// The server also matches aliases that are not present in the display fields.
+// Fuse enriches those rows with highlights but must not decide membership.
+export function buildServerAuthoritativeSearchResults<T>(
+  tokens: T[],
+  matchesByToken?: Map<T, IFuseResult<T>['matches']>,
+): IFuseResult<T>[] {
+  return tokens.map((item, refIndex) => {
+    const matches = matchesByToken?.get(item);
+    return matches ? { item, refIndex, matches } : { item, refIndex };
+  });
 }

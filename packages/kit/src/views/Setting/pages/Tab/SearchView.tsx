@@ -1,158 +1,125 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
-  Accordion,
   Empty,
-  Icon,
   Page,
   ScrollView,
   SizableText,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
+import {
+  MobileTabSettingsSection,
+  TabSettingsInsetDivider,
+  TabSettingsListGrid,
+  TabSettingsSection,
+} from './ListItem';
+import { getSettingsItemAnalyticsId } from './settingsAnalytics';
+import {
+  SETTINGS_PAGE_CONTENT_PADDING_X,
+  SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE,
+  resolveSettingsSectionPresentation,
+} from './settingsSurface';
+import { useSettingsLayout } from './useIsTabNavigator';
+import { useSettingsPageStyle } from './useSettingsPageStyle';
 
-import type { ISubSettingConfig } from './config';
 import type { ISettingsSearchResult } from './useSearch';
-import type { FuseResult } from 'fuse.js';
 
 export function SearchView({
-  sections,
+  results,
   isSearching,
+  searchQueryLength,
 }: {
-  sections: ISettingsSearchResult[];
+  results: ISettingsSearchResult[];
   isSearching: boolean;
+  searchQueryLength: number;
 }) {
   const intl = useIntl();
+  const { isMobileLayout, isTabNavigator, preferMobileNaming } =
+    useSettingsLayout();
+  const sectionPresentation = resolveSettingsSectionPresentation({
+    isMobileLayout,
+    isNative: Boolean(platformEnv.isNative),
+    isTabNavigator,
+  });
   if (!isSearching) {
     return null;
   }
-  return sections.length ? (
-    <YStack gap="$4" px="$5">
-      {sections.map((section) => (
-        <Accordion
-          overflow="hidden"
-          width="100%"
-          type="multiple"
-          key={section.title}
-          defaultValue={[section.title]}
-        >
-          <Accordion.Item value={section.title}>
-            <Accordion.Trigger
-              unstyled
-              flexDirection="row"
-              alignItems="center"
-              alignSelf="flex-start"
-              px="$3"
-              pt="$2"
-              mx="$-1"
-              width="100%"
-              justifyContent="space-between"
-              borderWidth={0}
-              bg="$transparent"
-              userSelect="none"
-              borderRadius="$1"
-            >
-              {({ open }: { open: boolean }) => (
-                <>
-                  <XStack gap="$1.5" alignItems="center">
-                    <Icon name={section.icon as IKeyOfIcons} size="$5" />
-                    <SizableText size="$bodyMdMedium">
-                      {section.title}
-                    </SizableText>
-                  </XStack>
-                  <XStack>
-                    <YStack
-                      animation="quick"
-                      animateOnly={ANIMATE_ONLY_TRANSFORM}
-                      rotate={open ? '180deg' : '0deg'}
-                      left="$2"
-                    >
-                      <Icon
-                        name="ChevronDownSmallOutline"
-                        color={open ? '$iconDisabled' : '$iconSubdued'}
-                        size="$5"
-                      />
-                    </YStack>
-                  </XStack>
-                </>
-              )}
-            </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
-              <Accordion.Content
-                animation="quick"
-                animateOnly={ANIMATE_ONLY_OPACITY}
-                exitStyle={{ opacity: 0 }}
-                px={0}
-                pb={0}
-                pt="$3.5"
-                gap="$2.5"
-              >
-                <TabSettingsSection>
-                  {section.configs.map((config) => (
-                    <TabSettingsListGrid
-                      key={config.item.title}
-                      item={config.item}
-                      titleMatch={config.matches?.find(
-                        (m) => m.key === 'title',
-                      )}
-                    />
-                  ))}
-                </TabSettingsSection>
-              </Accordion.Content>
-            </Accordion.HeightAnimator>
-          </Accordion.Item>
-        </Accordion>
-      ))}
+  if (!results.length) {
+    return (
+      <YStack flex={1} ai="center" jc="center">
+        <Empty
+          illustration="SearchDocument"
+          title={intl.formatMessage({
+            id: ETranslations.global_no_results,
+          })}
+        />
+      </YStack>
+    );
+  }
+  const rows = results.map((result, index) => (
+    <Fragment
+      key={`${result.item.sectionName}-${
+        getSettingsItemAnalyticsId(result.item) ??
+        result.item.desktopTab ??
+        `${result.item.title}-${index}`
+      }`}
+    >
+      <TabSettingsListGrid
+        item={result.item}
+        matches={result.matches}
+        preferMobileNaming={preferMobileNaming}
+        searchPath={result.item.sectionTitle}
+        useMobilePresentation={isMobileLayout}
+        analyticsSource="search"
+        analyticsCategory={result.item.sectionName}
+        searchResultIndex={index}
+        searchQueryLength={searchQueryLength}
+      />
+      {index !== results.length - 1 ? <TabSettingsInsetDivider /> : null}
+    </Fragment>
+  ));
+  return isMobileLayout ? (
+    <YStack px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$2">
+      <MobileTabSettingsSection>{rows}</MobileTabSettingsSection>
     </YStack>
   ) : (
-    <YStack flex={1} ai="center" jc="center">
-      <Empty
-        illustration="SearchDocument"
-        title={intl.formatMessage({
-          id: ETranslations.global_no_results,
-        })}
-      />
+    <YStack px={SETTINGS_PAGE_CONTENT_PADDING_X}>
+      <TabSettingsSection presentation={sectionPresentation}>
+        {rows}
+      </TabSettingsSection>
     </YStack>
   );
 }
 
 export function SearchViewPage() {
   const intl = useIntl();
+  const { isMobileLayout, isTabNavigator } = useSettingsLayout();
+  const sectionPresentation = resolveSettingsSectionPresentation({
+    isMobileLayout,
+    isNative: Boolean(platformEnv.isNative),
+    isTabNavigator,
+  });
+  const { headerBackgroundColor, headerStyle, pageBackgroundColor } =
+    useSettingsPageStyle(sectionPresentation === 'tab');
   const [searchText, setSearchText] = useState('');
-  const [searchResult, setSearchResult] = useState<
-    {
-      title: string;
-      icon: string;
-      configs: FuseResult<ISubSettingConfig>[];
-    }[]
-  >([]);
+  const [searchResult, setSearchResult] = useState<ISettingsSearchResult[]>([]);
 
   useEffect(() => {
-    const callback = ({
-      list,
-      searchText: searchTextString,
-    }: {
-      list: {
-        title: string;
-        icon: string;
-        configs: FuseResult<ISubSettingConfig>[];
-      }[];
-      searchText: string;
-    }) => {
-      setSearchResult(list ?? []);
-      setSearchText(searchTextString);
+    const callback = (
+      payload: IAppEventBusPayload[EAppEventBusNames.SettingsSearchResult],
+    ) => {
+      // The bus keeps search items opaque so shared stays decoupled from kit;
+      // this pane is the emitting feature's own consumer, so narrowing is safe.
+      setSearchResult(payload.list as ISettingsSearchResult[]);
+      setSearchText(payload.searchText);
     };
     appEventBus.on(EAppEventBusNames.SettingsSearchResult, callback);
     return () => {
@@ -179,15 +146,31 @@ export function SearchViewPage() {
     );
   }, [intl, searchText]);
   return (
-    <Page>
-      <Page.Header headerTitle={renderHeaderTitle} />
+    <Page backgroundColor={pageBackgroundColor}>
+      <Page.Header
+        {...(headerBackgroundColor
+          ? { headerContainerBackgroundColor: headerBackgroundColor }
+          : undefined)}
+        {...(sectionPresentation === 'tab'
+          ? {
+              headerTitleContainerStyle:
+                SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE,
+            }
+          : undefined)}
+        headerStyle={headerStyle}
+        headerTitle={renderHeaderTitle}
+      />
       <Page.Body>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
-          <SearchView isSearching={isSearching} sections={searchResult} />
+          <SearchView
+            isSearching={isSearching}
+            results={searchResult}
+            searchQueryLength={searchText.length}
+          />
         </ScrollView>
       </Page.Body>
     </Page>

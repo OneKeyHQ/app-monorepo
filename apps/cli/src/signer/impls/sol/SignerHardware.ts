@@ -1,13 +1,17 @@
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiSignMsgPayload,
   ISignedTxPro,
+  IUnsignedMessageSolana,
 } from '@onekeyhq/core/src/types';
 import {
   EMessageTypesCommon,
@@ -211,7 +215,7 @@ export class SignerHardware extends SignerHardwareBase {
       | {
           type: string;
           message: string;
-          payload?: { applicationDomain?: string };
+          payload?: IUnsignedMessageSolana['payload'];
         }
       | undefined;
     if (!unsignedMsg) {
@@ -242,31 +246,75 @@ export class SignerHardware extends SignerHardwareBase {
     }
 
     if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
-      const applicationDomain = unsignedMsg.payload?.applicationDomain;
-      const result = await sdk.solSignOffchainMessage(
-        this.device.connectId,
-        this.device.deviceId,
-        {
-          path,
-          messageHex,
-          ...(applicationDomain
-            ? {
-                applicationDomainHex:
-                  Buffer.from(applicationDomain).toString('hex'),
-              }
-            : {}),
-          // @ts-expect-error firmware SDK accepts the format hint without typing it
-          messageFormat: OffchainMessage.guessMessageFormat(
-            Buffer.from(unsignedMsg.message ?? ''),
-          ),
-          ...commonParams,
-        },
+      const versionKind = classifyOffchainMessageVersion(
+        unsignedMsg.payload?.version,
       );
-      const sig = unwrapSDKResult<ISolSignMessagePayload>(
-        result,
-        'signMessage',
+      if (versionKind === 'v1') {
+        const requiredSigners =
+          unsignedMsg.payload?.version === 1
+            ? unsignedMsg.payload.requiredSigners
+            : undefined;
+        if (!requiredSigners?.length) {
+          throw new AppError(
+            ERROR_CODES.INVALID_PAYLOAD.code,
+            'Version 1 Solana offchain messages require at least one signer.',
+            'Pass requiredSigners as base58-encoded Solana public keys.',
+          );
+        }
+        if (
+          !payload.account?.address ||
+          !requiredSigners.includes(payload.account.address)
+        ) {
+          throw new AppError(
+            ERROR_CODES.INVALID_PAYLOAD.code,
+            'Version 1 requiredSigners must include the signing account.',
+            'Add payload.account.address to unsignedMsg.payload.requiredSigners.',
+          );
+        }
+
+        const requiredSignerBytes = requiredSigners.map((signer) =>
+          bs58.decode(signer),
+        );
+        OffchainMessage.createOffChainMessageV1Bytes({
+          message: unsignedMsg.message,
+          requiredSigners: requiredSignerBytes,
+        });
+
+        const result = await sdk.solSignOffchainMessage(
+          this.device.connectId,
+          this.device.deviceId,
+          {
+            path,
+            messageHex,
+            messageVersion: 1,
+            requiredSigners: requiredSignerBytes
+              .map((signer) => Buffer.from(signer).toString('hex'))
+              .toSorted(),
+            ...commonParams,
+          },
+        );
+        const sig = unwrapSDKResult<ISolSignMessagePayload>(
+          result,
+          'signMessage',
+        );
+        return bs58.encode(
+          decodeEd25519Signature(sig.signature, 'signMessage'),
+        );
+      }
+      if (versionKind === 'unsupported') {
+        throw new AppError(
+          ERROR_CODES.INVALID_PAYLOAD.code,
+          `Unsupported Solana offchain message version: ${String(
+            unsignedMsg.payload?.version,
+          )}`,
+          'Only version 0 and version 1 are supported.',
+        );
+      }
+      throw new AppError(
+        ERROR_CODES.INVALID_PAYLOAD.code,
+        'Version 0 Solana offchain messages are not supported by hardware wallets.',
+        'Use a version 1 Solana offchain message.',
       );
-      return bs58.encode(decodeEd25519Signature(sig.signature, 'signMessage'));
     }
 
     throw new AppError(

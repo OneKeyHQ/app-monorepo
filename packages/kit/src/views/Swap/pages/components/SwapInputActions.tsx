@@ -72,7 +72,7 @@ const SwapInputActions = ({
       <AnimatePresence>
         {showActionBuy ? (
           <XStack
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,
@@ -108,7 +108,7 @@ const SwapInputActions = ({
       <AnimatePresence>
         {!platformEnv.isNative && showPercentageInput ? (
           <XStack
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={{
               opacity: 0,
