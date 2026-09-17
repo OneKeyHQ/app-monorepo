@@ -493,6 +493,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         response,
         ...buildHyperLiquidLogResult({ startedAt }),
       });
+      if (context.accountAddress) {
+        await this.backgroundApi.serviceHyperliquidReferral.invalidateBannerCache(
+          { userAddress: context.accountAddress },
+        );
+      }
       return response;
     } catch (error) {
       defaultLogger.perp.hyperliquid.setReferrer({
