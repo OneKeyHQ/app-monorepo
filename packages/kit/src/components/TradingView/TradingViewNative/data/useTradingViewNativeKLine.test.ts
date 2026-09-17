@@ -62,12 +62,13 @@ const mockSubscribeRealtime = jest.fn<
   [ITradingViewNativeRealtimeSubscriptionRequest]
 >();
 let realtimePointListener:
-  | ((point: IMarketTokenKLineDataPoint) => void)
+  | ITradingViewNativeRealtimeSubscriptionRequest['onPoint']
   | undefined;
 let mockCurrentVisibility = true;
 let mockVisibilityListener: ((isVisible: boolean) => void) | undefined;
 let mockHistoryBatchSize = 1;
 let mockHistoryRequestCandleCount = 1;
+let mockRealtimeInterval: ITradingViewNativeDataProvider['realtimeInterval'];
 
 jest.mock('@onekeyhq/components/src/hooks/useVisibilityChange', () => ({
   getCurrentVisibilityState: () => mockCurrentVisibility,
@@ -247,6 +248,7 @@ describe('TradingViewNative K-line data state machine', () => {
     );
     mockHistoryBatchSize = 1;
     mockHistoryRequestCandleCount = 1;
+    mockRealtimeInterval = undefined;
     mockCurrentVisibility = true;
     mockVisibilityListener = undefined;
     realtimePointListener = undefined;
@@ -265,6 +267,7 @@ describe('TradingViewNative K-line data state machine', () => {
       historyRefreshInterval: source.kind === 'asset' ? 30_000 : undefined,
       isReady: true,
       key: buildProviderKey(source),
+      realtimeInterval: mockRealtimeInterval,
       supportsRealtime:
         source.kind === 'hyperliquid' ||
         (source.kind === 'market' && source.realtime === 'websocket'),
@@ -4045,6 +4048,132 @@ describe('TradingViewNative K-line data state machine', () => {
       t: 200,
     });
   });
+
+  it('applies price ticks to 1m candles without replacing history OHLCV', async () => {
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 3720));
+    const onRealtimePoint = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        onRealtimePoint,
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+
+    act(() => {
+      realtimePointListener?.({ price: 105, t: 3730 });
+      realtimePointListener?.({ price: 95, t: 3731 });
+    });
+    expect(result.current.points).toEqual([
+      { o: 100, h: 105, l: 95, c: 95, v: 10, t: 3720 },
+    ]);
+    expect(onRealtimePoint).toHaveBeenLastCalledWith(result.current.points[0]);
+
+    act(() => {
+      realtimePointListener?.({ price: 110, t: 3780 });
+      realtimePointListener?.({ price: 115, t: 3781 });
+      realtimePointListener?.({ price: 90, t: 3779 });
+    });
+    expect(result.current.points).toEqual([
+      { o: 100, h: 105, l: 95, c: 95, v: 10, t: 3720 },
+      { o: 110, h: 115, l: 110, c: 115, v: 0, t: 3780 },
+    ]);
+    expect(onRealtimePoint).toHaveBeenCalledTimes(4);
+    expect(onRealtimePoint).toHaveBeenLastCalledWith(result.current.points[1]);
+  });
+
+  it('keeps one fixed realtime subscription across chart interval changes', async () => {
+    mockRealtimeInterval = '15';
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 3600));
+    const onRealtimePoint = jest.fn();
+    const { result, unmount } = renderHook(() =>
+      useTradingViewNativeKLine({
+        onRealtimePoint,
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1));
+    const request = mockSubscribeRealtime.mock.calls[0][0];
+    expect(request.interval.marketWsValue).toBe('15m');
+
+    for (const interval of ['1', '15', '240', '1D', '1'] as const) {
+      act(() => result.current.handleIntervalChange(interval));
+      await waitFor(() => {
+        expect(result.current.intervalConfig.activeInterval).toBe(interval);
+        expect(result.current.points[0]?.c).toBe(100);
+      });
+      expect(request.getActiveInterval?.().value).toBe(interval);
+      expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1);
+      expect(mockUnsubscribe).not.toHaveBeenCalled();
+      expect(request.signal.aborted).toBe(false);
+      act(() => request.onPoint({ price: 105, t: 3630 }));
+      expect(result.current.points.at(-1)?.c).toBe(105);
+      expect(onRealtimePoint).toHaveBeenLastCalledWith(
+        result.current.points.at(-1),
+      );
+    }
+    unmount();
+    expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
+    expect(request.signal.aborted).toBe(true);
+  });
+
+  it.each([
+    [
+      '60',
+      '2026-09-17T04:00:00Z',
+      '2026-09-17T05:02:00Z',
+      '2026-09-17T05:00:00Z',
+    ],
+    [
+      '1W',
+      '2026-09-14T00:00:00Z',
+      '2026-09-21T01:00:00Z',
+      '2026-09-21T00:00:00Z',
+    ],
+    [
+      '1M',
+      '2026-01-01T00:00:00Z',
+      '2026-03-01T01:00:00Z',
+      '2026-03-01T00:00:00Z',
+    ],
+    [
+      '1M',
+      '2026-01-31T16:00:00Z',
+      '2026-02-28T17:00:00Z',
+      '2026-02-28T16:00:00Z',
+    ],
+  ] as const)(
+    'keeps the %s history boundary when a price tick starts a new candle',
+    async (interval, historyDate, tickDate, expectedDate) => {
+      mockReadTradingViewNativeActiveInterval.mockReturnValue(interval);
+      const historyTimestamp = Date.parse(historyDate) / 1000;
+      mockFetchHistory.mockResolvedValue(buildResponse(100, historyTimestamp));
+      const { result } = renderHook(() =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ realtime: 'websocket' }),
+        }),
+      );
+      await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+      await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+      act(() => {
+        realtimePointListener?.({ price: 105, t: Date.parse(tickDate) / 1000 });
+      });
+      expect(result.current.points.at(-1)).toEqual({
+        o: 105,
+        h: 105,
+        l: 105,
+        c: 105,
+        v: 0,
+        t: Date.parse(expectedDate) / 1000,
+      });
+      expect(result.current.points[0]).toEqual(
+        buildResponse(100, historyTimestamp).points[0],
+      );
+    },
+  );
 
   it.each(['commit', 'cancel'] as const)(
     'keeps the committed subscription live through a suspended source change and %s',
