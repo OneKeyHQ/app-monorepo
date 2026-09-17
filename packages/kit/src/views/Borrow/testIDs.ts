@@ -27,6 +27,7 @@ export const BorrowTestIDs = {
   overviewClaimRewardsBtn: 'borrow-overview-claim-rewards-btn',
   overviewHealthFactor: 'borrow-overview-health-factor',
   overviewHealthFactorInfoBtn: 'borrow-overview-health-factor-info-btn',
+  overviewNetWorth: 'borrow-overview-net-worth',
   overviewNetApy: 'borrow-overview-net-apy',
   overviewEModeCell: 'borrow-overview-emode-cell',
   overviewBonusInfoBtn: 'borrow-overview-bonus-info-btn',
