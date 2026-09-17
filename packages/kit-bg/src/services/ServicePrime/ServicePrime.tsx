@@ -105,6 +105,7 @@ import type {
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+import { persistOneKeyIdLastLoginMethod } from '../../states/jotai/atoms/oneKeyIdLastLoginMethod';
 import {
   primeGiftEligibilityPersistAtom,
   primeLoginDialogAtom,
@@ -1668,6 +1669,7 @@ class ServicePrime extends ServiceBase {
         defaultLogger.prime.subscription.onekeyIdLoginSuccess({
           method: 'email',
         });
+        await persistOneKeyIdLastLoginMethod('email');
         return { success: true };
       });
     } catch (error) {
