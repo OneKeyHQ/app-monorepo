@@ -10,10 +10,12 @@ import type {
   IMarketAssetDetailData,
   IMarketWatchListItemV2,
 } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { useTokenDetailActions, useWatchListV2Actions } from './actions';
 import {
   ProviderJotaiContextMarketV2,
+  isNativeAtom,
   marketV2StorageReadyAtom,
   marketWatchListV2Atom,
   networkIdAtom,
@@ -270,6 +272,95 @@ describe('token detail refresh failures', () => {
     expect(store.get(tokenDetailWebsocketAtom())).toBeUndefined();
     expect(store.get(perpsInfoAtom())).toBeUndefined();
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+});
+
+describe('retained token navigation identity', () => {
+  const target = {
+    tokenAddress: '0xabc',
+    networkId: 'evm--1',
+    isNative: false,
+  };
+  const detail = {
+    address: target.tokenAddress,
+    networkId: target.networkId,
+    name: 'Token',
+    symbol: 'TOKEN',
+    decimals: 18,
+    logoUrl: '',
+    price: '2',
+  };
+  const preview: IMarketTokenDetailPreview = {
+    ...detail,
+    price: 1,
+    selectedAt: 1,
+  };
+
+  it.each([preview, undefined])(
+    'preserves loaded state and pending requests on refocus',
+    (routePreview) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        result.current.prepareTokenDetailPreview(routePreview, target);
+        result.current.setTokenDetail(detail);
+        result.current.setTokenDetailWebsocket({ txs: true, kline: true });
+        result.current.setPerpsInfo({ hlTicker: 'TOKEN' });
+        result.current.setTokenDetailLoading(true);
+      });
+      const requestId = store.get(tokenDetailRequestIdAtom());
+      act(() => result.current.prepareTokenDetailPreview(routePreview, target));
+      expect(store.get(tokenDetailAtom())).toEqual(detail);
+      expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId);
+      expect(store.get(tokenDetailLoadingAtom())).toBe(true);
+      expect(store.get(tokenDetailWebsocketAtom())).toEqual({
+        txs: true,
+        kline: true,
+      });
+      expect(store.get(perpsInfoAtom())).toEqual({ hlTicker: 'TOKEN' });
+      expect(store.get(tokenAddressAtom())).toBe(target.tokenAddress);
+      expect(store.get(networkIdAtom())).toBe(target.networkId);
+    },
+  );
+
+  it('reclaims the shared store from another route even without a preview', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const other = { tokenAddress: '', networkId: 'sol--101', isNative: true };
+    act(() => {
+      result.current.prepareTokenDetailPreview(preview, target);
+      result.current.setTokenDetail(detail);
+      result.current.prepareTokenDetailPreview(undefined, other);
+    });
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(networkIdAtom())).toBe(other.networkId);
+    expect(store.get(isNativeAtom())).toBe(true);
+    act(() => result.current.prepareTokenDetailPreview(undefined, target));
+    expect(store.get(tokenAddressAtom())).toBe(target.tokenAddress);
+    expect(store.get(networkIdAtom())).toBe(target.networkId);
+    expect(store.get(isNativeAtom())).toBe(false);
+    expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
+  });
+
+  it('keeps the default destructive initialization for non-retained callers', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      result.current.prepareTokenDetailPreview(preview);
+      result.current.setTokenDetail(detail);
+    });
+    const requestId = store.get(tokenDetailRequestIdAtom());
+    act(() => result.current.prepareTokenDetailPreview(preview));
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId + 1);
+    act(() => result.current.prepareTokenDetailPreview(undefined));
+    expect(store.get(networkIdAtom())).toBe('');
   });
 });
 

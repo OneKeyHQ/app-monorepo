@@ -126,6 +126,12 @@ export async function navigateToMarketTokenDetail(
           legacyTokenPreview: opts.tokenDetailPreview,
         }
       : undefined),
+    ...(!shouldResolveMarketAsset &&
+    !stockId &&
+    opts.tokenDetailPreview &&
+    (platformEnv.isDesktop || platformEnv.isWeb)
+      ? { legacyTokenPreview: opts.tokenDetailPreview }
+      : undefined),
     ...(!token.assetId && opts.marketTokenCategory
       ? { marketTokenCategory: opts.marketTokenCategory }
       : undefined),

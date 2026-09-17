@@ -59,7 +59,9 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    isDesktop: true,
     isNative: false,
+    isWeb: false,
   },
 }));
 
@@ -97,14 +99,18 @@ describe('navigateToMarketTokenDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    platformEnv.isDesktop = true;
     platformEnv.isNative = false;
+    platformEnv.isWeb = false;
     getRootStateMock.mockReturnValue(undefined);
     getCurrentRouteMock.mockReturnValue(undefined);
   });
 
   afterEach(() => {
     jest.useRealTimers();
+    platformEnv.isDesktop = true;
     platformEnv.isNative = false;
+    platformEnv.isWeb = false;
   });
 
   it.each([false, true])(
@@ -364,6 +370,15 @@ describe('navigateToMarketTokenDetail', () => {
   });
 
   it('keeps the current category when selecting another normal token', () => {
+    const preview = {
+      address: '',
+      networkId: 'evm--1',
+      isNative: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      selectedAt: 1,
+    };
     void navigateToMarketTokenDetail(
       {
         address: '',
@@ -373,10 +388,7 @@ describe('navigateToMarketTokenDetail', () => {
       {
         marketTokenCategory: 'top_coins',
         tokenDetailActions,
-        tokenDetailPreview: {
-          symbol: 'ETH',
-          name: 'Ethereum',
-        } as never,
+        tokenDetailPreview: preview,
       },
     );
 
@@ -385,6 +397,48 @@ describe('navigateToMarketTokenDetail', () => {
     expect(changeActiveTokenMock).toHaveBeenCalledTimes(1);
     expect(navigateMock).toHaveBeenCalledWith('main', {
       screen: 'Market',
+      params: {
+        screen: 'MarketDetailV2',
+        params: {
+          tokenAddress: '',
+          network: 'eth',
+          isNative: true,
+          legacyTokenPreview: preview,
+          marketTokenCategory: 'top_coins',
+        },
+      },
+    });
+  });
+
+  it('preserves native route params when selecting another normal token', () => {
+    platformEnv.isDesktop = false;
+    platformEnv.isNative = true;
+    const preview = {
+      address: '',
+      networkId: 'evm--1',
+      isNative: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    void navigateToMarketTokenDetail(
+      {
+        address: '',
+        networkId: 'evm--1',
+        isNative: true,
+      },
+      {
+        marketTokenCategory: 'top_coins',
+        tokenDetailActions,
+        tokenDetailPreview: preview,
+      },
+    );
+
+    jest.runAllTimers();
+
+    expect(navigateMock).toHaveBeenCalledWith('main', {
+      screen: 'Discovery',
       params: {
         screen: 'MarketDetailV2',
         params: {

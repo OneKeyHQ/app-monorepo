@@ -679,10 +679,10 @@ export function TopCoinsDesktopLayout({
         </YStack>
 
         <YStack {...MARKET_DETAIL_TRADE_COLUMN_PROPS}>
-          {/* Renders only when the token has a Hyperliquid counterpart, and
-              stays hidden once dismissed. Sits above the trade panel, where the
-              pre-redesign desktop layout carried it. */}
-          <PerpetualTradingBanner px="$5" py="$5" />
+          {/* Keeps the trade panel aligned while Hyperliquid availability changes,
+              and stays hidden once dismissed. Sits above the trade panel, where
+              the pre-redesign desktop layout carried it. */}
+          <PerpetualTradingBanner px="$5" py="$5" reserveSpace />
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
           ) : null}

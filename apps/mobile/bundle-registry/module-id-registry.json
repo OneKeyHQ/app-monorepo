@@ -22335,6 +22335,7 @@
     "packages/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/unifoldFormat.ts": 19326,
     "packages/kit/src/views/Perp/components/TradingPanel/modals/depositTokenDisplayUtils.ts": 22397,
     "packages/kit/src/views/Perp/components/TradingPanel/modals/usePerpsAmountInput.ts": 2040,
+    "packages/kit/src/views/Perp/components/TradingPanel/modals/withdrawFeeDisplayUtils.ts": 17933,
     "packages/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm.tsx": 19194,
     "packages/kit/src/views/Perp/components/TradingPanel/panels/PerpAccountPanel.tsx": 22332,
     "packages/kit/src/views/Perp/components/TradingPanel/panels/PerpTradingForm.tsx": 21274,
