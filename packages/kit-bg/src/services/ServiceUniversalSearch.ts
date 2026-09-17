@@ -213,9 +213,10 @@ class ServiceUniversalSearch extends ServiceBase {
         ? this.universalSearchOfAddress({ input, networkId })
         : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.V2MarketToken)
-        ? this.universalSearchOfV2MarketToken(input, {
-            includeStockListings: true,
-          })
+        ? this.universalSearchOfV2MarketToken(input)
+        : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.MarketStock)
+        ? this.universalSearchOfMarketStock(input)
         : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
@@ -247,6 +248,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const [
       addressResultSettled,
       v2MarketTokenResultSettled,
+      marketStockResultSettled,
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
@@ -270,6 +272,19 @@ class ServiceUniversalSearch extends ServiceBase {
       result[EUniversalSearchType.V2MarketToken] = {
         items: v2MarketTokenResultSettled.value.map((item) => ({
           type: EUniversalSearchType.V2MarketToken,
+          payload: item,
+        })),
+      };
+    }
+
+    if (
+      marketStockResultSettled.status === 'fulfilled' &&
+      marketStockResultSettled.value &&
+      marketStockResultSettled.value.length > 0
+    ) {
+      result[EUniversalSearchType.MarketStock] = {
+        items: marketStockResultSettled.value.map((item) => ({
+          type: EUniversalSearchType.MarketStock,
           payload: item,
         })),
       };
@@ -330,27 +345,21 @@ class ServiceUniversalSearch extends ServiceBase {
   }
 
   @backgroundMethod()
-  async universalSearchOfV2MarketToken(
-    query: string,
-    options?: { includeStockListings?: boolean },
-  ) {
-    if (!options?.includeStockListings) {
-      return this.backgroundApi.serviceMarket.searchV2Token(query);
-    }
-    const [tokenResult, stockResult] = await Promise.allSettled([
-      this.backgroundApi.serviceMarket.searchV2Token(query),
-      this.backgroundApi.serviceMarketV2.searchMarketStocks({
+  async universalSearchOfV2MarketToken(query: string) {
+    return this.backgroundApi.serviceMarket.searchV2Token(query);
+  }
+
+  @backgroundMethod()
+  async universalSearchOfMarketStock(query: string) {
+    const stockResult =
+      await this.backgroundApi.serviceMarketV2.searchMarketStocks({
         query,
         limit: UNIVERSAL_SEARCH_STOCK_LIMIT,
-      }),
-    ]);
-    const tokens = tokenResult.status === 'fulfilled' ? tokenResult.value : [];
-    const stocks =
-      stockResult.status === 'fulfilled' &&
-      Array.isArray(stockResult.value?.items)
-        ? stockResult.value.items.map(mapMarketStockPublicItemToSearchToken)
-        : [];
-    return [...stocks, ...tokens];
+      });
+    if (!Array.isArray(stockResult?.items)) {
+      return [];
+    }
+    return stockResult.items.map(mapMarketStockPublicItemToSearchToken);
   }
 
   async universalSearchOfAccountAssets({

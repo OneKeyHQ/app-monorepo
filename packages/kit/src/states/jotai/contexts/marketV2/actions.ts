@@ -118,24 +118,54 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   prepareTokenDetailPreview = contextAtomMethod(
-    (get, set, payload: IMarketTokenDetailPreview | undefined) => {
+    (
+      get,
+      set,
+      payload: IMarketTokenDetailPreview | undefined,
+      retainedTarget?: {
+        tokenAddress: string;
+        networkId: string;
+        isNative: boolean;
+      },
+    ) => {
+      const detail = get(tokenDetailAtom());
+      const preview = get(tokenDetailPreviewAtom());
+      // Retained routes may reconnect their effects without changing identity.
+      // Read the shared store now: another route may have owned it while hidden.
+      if (
+        retainedTarget &&
+        get(tokenAddressAtom()) === retainedTarget.tokenAddress &&
+        get(networkIdAtom()) === retainedTarget.networkId &&
+        get(isNativeAtom()) === Boolean(retainedTarget.isNative) &&
+        (!detail ||
+          isSameMarketTokenDetail({
+            tokenDetail: detail,
+            ...retainedTarget,
+          })) &&
+        (!preview ||
+          (preview.address === retainedTarget.tokenAddress &&
+            preview.networkId === retainedTarget.networkId))
+      ) {
+        return;
+      }
       set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
       set(tokenDetailAtom(), undefined);
       set(tokenDetailPreviewAtom(), payload);
       set(tokenDetailLoadingAtom(), false);
       set(tokenDetailWebsocketAtom(), undefined);
       set(perpsInfoAtom(), undefined);
-
-      if (!payload) {
-        set(tokenAddressAtom(), '');
-        set(networkIdAtom(), '');
-        set(isNativeAtom(), false);
-        return;
-      }
-
-      set(tokenAddressAtom(), payload.address);
-      set(networkIdAtom(), payload.networkId);
-      set(isNativeAtom(), Boolean(payload.isNative));
+      set(
+        tokenAddressAtom(),
+        retainedTarget?.tokenAddress ?? payload?.address ?? '',
+      );
+      set(
+        networkIdAtom(),
+        retainedTarget?.networkId ?? payload?.networkId ?? '',
+      );
+      set(
+        isNativeAtom(),
+        Boolean(retainedTarget?.isNative ?? payload?.isNative),
+      );
     },
   );
 
