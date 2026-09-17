@@ -41,6 +41,9 @@ export class HardwareConnectionScene extends BaseScene {
     status: 'success' | 'failed';
     failureStage?: 'unlock' | 'prepare' | 'pack' | 'device-sync';
     errorCode?: string;
+    schemaVersion?: 1 | 2;
+    firmwareVersion?: string;
+    deFiSource?: 'live' | 'cache' | 'empty' | 'unknown';
     syncDurationMs: number;
     packDurationMs?: number;
     hardwareDurationMs?: number;
