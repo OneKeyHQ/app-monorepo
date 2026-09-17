@@ -23,9 +23,13 @@ export function isSwapEntryDisabledToken(token: ISwapEntryTokenIdentity) {
   return token.isNative === true || token.contractAddress === '';
 }
 
-export function getSwapConfiguredCrossNetworkDefaultToToken(
+export function getSwapConfiguredDefaultToToken(
   fromToken: ISwapToken,
 ): ISwapToken | undefined {
+  if (fromToken.networkId !== ARC_NETWORK_ID) {
+    return undefined;
+  }
+
   const defaultTokens = swapDefaultSetTokens[fromToken.networkId];
   if (
     !defaultTokens?.fromToken ||
@@ -34,10 +38,6 @@ export function getSwapConfiguredCrossNetworkDefaultToToken(
       token2: defaultTokens.fromToken,
     })
   ) {
-    return undefined;
-  }
-
-  if (defaultTokens.toToken?.networkId === fromToken.networkId) {
     return undefined;
   }
 
