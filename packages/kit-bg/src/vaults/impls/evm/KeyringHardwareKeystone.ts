@@ -68,6 +68,21 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     };
   }
 
+  // Keystone derives addresses locally, so a device-mode verification would
+  // mark an address the device never displayed as verified. Refuse it and let
+  // the UI fall back to manual comparison. Same guard as btc.
+  override async batchGetAddresses(
+    params: IPrepareHardwareAccountsParams,
+  ): Promise<{ address: string; path: string }[]> {
+    if (params.isVerifyAddressAction) {
+      throw new OneKeyLocalError({
+        message:
+          'Keystone address verification requires manual derivation-path confirmation',
+      });
+    }
+    return [];
+  }
+
   private async _getAdapter(): Promise<IThirdPartyHardwareAdapter> {
     const adapter =
       await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(

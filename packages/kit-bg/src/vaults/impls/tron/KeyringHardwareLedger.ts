@@ -189,6 +189,15 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
+    // Pre-check the whole batch: a mixed batch must not put the first message
+    // on the device before rejecting a later unsupported one.
+    if (
+      messages.some(
+        (message) => message.type !== EMessageTypesTron.SIGN_MESSAGE_V2,
+      )
+    ) {
+      throw new ThirdPartyMethodNotSupported();
+    }
     const checkedDeviceParams = checkIsDefined(deviceParams);
     const { dbDevice } = checkedDeviceParams;
     const account = await this.vault.getAccount();
@@ -203,9 +212,6 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
 
     const signatures: ISignedMessagePro = [];
     for (const message of messages) {
-      if (message.type !== EMessageTypesTron.SIGN_MESSAGE_V2) {
-        throw new ThirdPartyMethodNotSupported();
-      }
       const result =
         // eslint-disable-next-line no-await-in-loop
         await callLedgerWithFingerprint(
