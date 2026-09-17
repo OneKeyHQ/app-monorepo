@@ -1901,13 +1901,20 @@ function collectReadHelpers(ast, isReadCallee, classify) {
     if (!pathArgument) {
       return;
     }
+    const conditions = {
+      fallbackGuards: returned.fallbackGuards,
+      parameters: returned.parameters,
+    };
     // The whole path is the parameter: classify the call-site argument.
     const passedWhole = returned.parameters.findIndex(
       (parameter) =>
         parameter !== undefined && bindingOf(pathArgument) === parameter,
     );
     if (passedWhole >= 0) {
-      helpers.set(returned.binding, { parameterIndex: passedWhole });
+      helpers.set(returned.binding, {
+        ...conditions,
+        parameterIndex: passedWhole,
+      });
       return;
     }
     // The parameter is spliced into a path the helper owns, e.g.
@@ -1920,6 +1927,7 @@ function collectReadHelpers(ast, isReadCallee, classify) {
     );
     if (splicedIn >= 0) {
       helpers.set(returned.binding, {
+        ...conditions,
         parameterIndex: splicedIn,
         path: pathArgument,
         // `(root) => readFileSync(join(root, 'index.ts'))`: the caller supplies
@@ -1933,7 +1941,7 @@ function collectReadHelpers(ast, isReadCallee, classify) {
     }
     const kind = classify(pathArgument);
     if (kind) {
-      helpers.set(returned.binding, { kind });
+      helpers.set(returned.binding, { ...conditions, kind });
     }
   });
   return helpers;
@@ -1962,24 +1970,39 @@ function hasFileAvailabilityCheck(node) {
   return found;
 }
 
-/** Return values paired with whether they are inside an availability fallback. */
+/** Return values paired with the guards that select them. */
 function readHelperReturns(fn) {
   if (fn.body.type !== 'BlockStatement') {
-    return [{ value: fn.body, fallback: false }];
+    return [{ value: fn.body, guards: [], availabilityFallback: false }];
   }
   const values = [];
-  const visit = (node, fallback) => {
+  const visit = (node, guards, availabilityFallback) => {
     if (!node || typeof node.type !== 'string') {
       return;
     }
     if (node.type === 'ReturnStatement') {
-      values.push({ value: node.argument, fallback });
+      values.push({ value: node.argument, guards, availabilityFallback });
       return;
     }
-    const childFallback =
-      fallback ||
-      node.type === 'CatchClause' ||
-      (node.type === 'IfStatement' && hasFileAvailabilityCheck(node.test));
+    if (node.type === 'IfStatement') {
+      const availability = hasFileAvailabilityCheck(node.test);
+      const guard = { test: node.test, taken: true, availability };
+      visit(
+        node.consequent,
+        [...guards, guard],
+        availabilityFallback || availability,
+      );
+      if (node.alternate) {
+        visit(
+          node.alternate,
+          [...guards, { ...guard, taken: false }],
+          availabilityFallback || availability,
+        );
+      }
+      return;
+    }
+    const childAvailability =
+      availabilityFallback || node.type === 'CatchClause';
     for (const key of childKeys(node)) {
       const value = node[key];
       const children = Array.isArray(value) ? value : [value];
@@ -1989,12 +2012,12 @@ function readHelperReturns(fn) {
           typeof child.type === 'string' &&
           !FUNCTION_NODE_TYPES.has(child.type)
         ) {
-          visit(child, childFallback);
+          visit(child, guards, childAvailability);
         }
       }
     }
   };
-  visit(fn.body, false);
+  visit(fn.body, [], false);
   return values;
 }
 
@@ -2021,6 +2044,135 @@ function isStaticFallbackValue(value, fn, depth = 0) {
   return value.type.endsWith('Literal');
 }
 
+/** Evaluate the small set of call-site values used by conditional guards. */
+function staticPrimitiveValue(node, parameters, argumentsList, depth = 0) {
+  if (!node || depth > 16) {
+    return undefined;
+  }
+  if (node.type === 'Identifier') {
+    const parameterIndex = parameters.findIndex(
+      (parameter) => parameter && bindingOf(node) === parameter,
+    );
+    if (parameterIndex >= 0) {
+      return staticPrimitiveValue(
+        argumentsList[parameterIndex],
+        parameters,
+        argumentsList,
+        depth + 1,
+      );
+    }
+    return bindingOf(node)?.global === 'undefined'
+      ? { known: true, value: undefined }
+      : undefined;
+  }
+  if (
+    node.type === 'StringLiteral' ||
+    node.type === 'NumericLiteral' ||
+    node.type === 'BooleanLiteral' ||
+    node.type === 'NullLiteral' ||
+    node.type === 'BigIntLiteral'
+  ) {
+    return { known: true, value: node.value };
+  }
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0) {
+    return {
+      known: true,
+      value: node.quasis.map((quasi) => quasi.value.cooked ?? '').join(''),
+    };
+  }
+  if (
+    node.type === 'ParenthesizedExpression' ||
+    node.type === 'TSAsExpression' ||
+    node.type === 'TSSatisfiesExpression' ||
+    node.type === 'TSNonNullExpression'
+  ) {
+    return staticPrimitiveValue(
+      node.expression,
+      parameters,
+      argumentsList,
+      depth + 1,
+    );
+  }
+  if (node.type === 'UnaryExpression') {
+    if (node.operator === 'void') {
+      return { known: true, value: undefined };
+    }
+    const argument = staticPrimitiveValue(
+      node.argument,
+      parameters,
+      argumentsList,
+      depth + 1,
+    );
+    if (!argument?.known) {
+      return undefined;
+    }
+    if (node.operator === '!') {
+      return { known: true, value: !argument.value };
+    }
+    if (node.operator === '+') {
+      return { known: true, value: +argument.value };
+    }
+    if (node.operator === '-') {
+      return { known: true, value: -argument.value };
+    }
+    return undefined;
+  }
+  if (node.type === 'BinaryExpression') {
+    const left = staticPrimitiveValue(
+      node.left,
+      parameters,
+      argumentsList,
+      depth + 1,
+    );
+    const right = staticPrimitiveValue(
+      node.right,
+      parameters,
+      argumentsList,
+      depth + 1,
+    );
+    if (!left?.known || !right?.known) {
+      return undefined;
+    }
+    switch (node.operator) {
+      case '===':
+        return { known: true, value: left.value === right.value };
+      case '!==':
+        return { known: true, value: left.value !== right.value };
+      default:
+        return undefined;
+    }
+  }
+  if (node.type === 'LogicalExpression') {
+    const left = staticPrimitiveValue(
+      node.left,
+      parameters,
+      argumentsList,
+      depth + 1,
+    );
+    if (!left?.known) {
+      return undefined;
+    }
+    if (node.operator === '&&' && !left.value) {
+      return { known: true, value: left.value };
+    }
+    if (node.operator === '||' && left.value) {
+      return { known: true, value: left.value };
+    }
+    return staticPrimitiveValue(
+      node.right,
+      parameters,
+      argumentsList,
+      depth + 1,
+    );
+  }
+  return undefined;
+}
+
+function staticBooleanValue(node, parameters, argumentsList) {
+  const value = staticPrimitiveValue(node, parameters, argumentsList);
+  return value?.known ? Boolean(value.value) : undefined;
+}
+
 /**
  * The read a named function with a single return hands back, and its path
  * with the constants the function declares for itself written in place. A
@@ -2035,13 +2187,24 @@ function returnedRead(node, isReadCallee) {
   }
   const { fn } = named;
   const values = readHelperReturns(fn);
-  // Availability guards commonly return an empty value when the file is
-  // absent; unrelated conditional fallbacks must remain separate returns.
-  const readCandidates = values
-    .filter(
-      ({ value, fallback }) => !fallback || !isStaticFallbackValue(value, fn),
-    )
-    .map(({ value }) => value);
+  // Static returns in a guarded branch are fallback values. Keep their
+  // conditions so the caller can select the read branch when the arguments
+  // make that possible; catch and availability fallbacks are intentionally
+  // treated as reads because the filesystem decides whether they run.
+  const fallbackGuards = [];
+  const readCandidates = [];
+  values.forEach(({ value, guards, availabilityFallback }) => {
+    if (
+      isStaticFallbackValue(value, fn) &&
+      (guards.length > 0 || availabilityFallback)
+    ) {
+      guards
+        .filter((guard) => !guard.availability)
+        .forEach((guard) => fallbackGuards.push(guard));
+      return;
+    }
+    readCandidates.push(value);
+  });
   if (readCandidates.length !== 1) {
     return undefined;
   }
@@ -2061,7 +2224,11 @@ function returnedRead(node, isReadCallee) {
     isReadCallee(value.callee) &&
     value.arguments[0];
   return read
-    ? { ...named, pathArgument: inlineConstants(read, fn) }
+    ? {
+        ...named,
+        fallbackGuards,
+        pathArgument: inlineConstants(read, fn),
+      }
     : undefined;
 }
 
@@ -2340,6 +2507,18 @@ function analyzeFile(
       }
       const helper = readHelpers.get(bindingOf(callNode.callee));
       if (!helper) {
+        return undefined;
+      }
+      if (
+        helper.fallbackGuards?.some((guard) => {
+          const condition = staticBooleanValue(
+            guard.test,
+            helper.parameters,
+            callNode.arguments,
+          );
+          return condition !== undefined && condition === guard.taken;
+        })
+      ) {
         return undefined;
       }
       if (helper.kind) {

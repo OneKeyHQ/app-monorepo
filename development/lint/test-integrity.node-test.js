@@ -1125,6 +1125,26 @@ test('what a named function returns is still source', () => {
   `,
     'guarded read helper reading data at the call',
   );
+  const literalGuardedRead = `
+    function loadFixture(name) {
+      if (!name) {
+        return '';
+      }
+      return readFileSync(join(__dirname, 'src', name), 'utf8');
+    }
+  `;
+  assertGated(
+    `${literalGuardedRead}
+    it('x', () => { expect(loadFixture('Thing.ts')).toContain('go'); });
+  `,
+    'literal guard reading source at the call',
+  );
+  assertClean(
+    `${literalGuardedRead}
+    it('x', () => { expect(loadFixture('')).toContain('go'); });
+  `,
+    'literal guard selecting its fallback at the call',
+  );
   const constantGuardedRead = guardedRead.replace(
     "return '';",
     "const empty = '';\n        return empty;",
@@ -1150,6 +1170,14 @@ test('what a named function returns is still source', () => {
     });
   `,
     'conditional literal fallback is not treated as a source read',
+  );
+  assertGated(
+    `${conditionalFallbackRead}
+    it('x', () => {
+      expect(loadFixture('Thing.ts', false)).toContain('go');
+    });
+  `,
+    'conditional read branch is still gated',
   );
   // Whole or cut, as it was returned.
   const script =
