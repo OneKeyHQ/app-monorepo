@@ -607,6 +607,12 @@ describe('navigateToMarketTokenDetail', () => {
         source: 'swap-detail',
       }),
     );
+    const dispatched = dispatchMock.mock.calls[0]?.[0] as {
+      payload?: { params?: Record<string, unknown> };
+    };
+    expect(dispatched.payload?.params).not.toHaveProperty('from');
+    expect(dispatched.payload?.params).not.toHaveProperty('disableTrade');
+    expect(dispatched.payload?.params).not.toHaveProperty('showFavoriteButton');
   });
 
   it('updates the focused detail after the selector closes when nested state is missing', async () => {

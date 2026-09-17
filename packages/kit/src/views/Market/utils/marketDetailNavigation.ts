@@ -43,6 +43,12 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'showFavoriteButton',
 ] as const;
 
+const SWAP_PRO_OWNED_PARAM_KEYS = [
+  'from',
+  'disableTrade',
+  'showFavoriteButton',
+] as const;
+
 export type INavigationRouteNode = {
   key?: string;
   name?: string;
@@ -99,6 +105,14 @@ export function buildReplacedMarketDetailParams(
   const next: Record<string, unknown> = {};
   for (const key of DETAIL_ROUTE_PARAM_KEYS) {
     next[key] = key in params ? params[key] : undefined;
+  }
+  return next;
+}
+
+function omitSwapProOwnedParams(params: Record<string, unknown>) {
+  const next = { ...params };
+  for (const key of SWAP_PRO_OWNED_PARAM_KEYS) {
+    delete next[key];
   }
   return next;
 }
@@ -332,10 +346,14 @@ export function replaceFocusedMarketDetailRoute({
   }
 
   const nextParams = buildReplacedMarketDetailParams(params);
-  if (
-    current?.name === routeName ||
-    current?.name === EModalSwapRoutes.SwapProMarketDetail
-  ) {
+  if (current?.name === EModalSwapRoutes.SwapProMarketDetail) {
+    navigation.dispatch({
+      ...CommonActions.setParams(omitSwapProOwnedParams(nextParams)),
+      ...(current.key ? { source: current.key } : {}),
+    });
+    return true;
+  }
+  if (current?.name === routeName) {
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
       ...(current.key ? { source: current.key } : {}),

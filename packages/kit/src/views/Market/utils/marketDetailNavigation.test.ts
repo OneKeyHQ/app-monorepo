@@ -442,16 +442,24 @@ describe('marketDetailNavigation', () => {
       }),
     ).toBe(true);
 
-    expect(dispatchMock).toHaveBeenCalledWith({
-      type: 'SET_PARAMS',
-      payload: {
-        params: buildReplacedMarketDetailParams({
-          tokenAddress: '0xabc',
-          network: 'eth',
-        }),
-      },
-      source: 'swap-detail',
-    });
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SET_PARAMS',
+        source: 'swap-detail',
+      }),
+    );
+    const dispatched = dispatchMock.mock.calls[0]?.[0] as {
+      payload?: { params?: Record<string, unknown> };
+    };
+    expect(dispatched.payload?.params).toEqual(
+      expect.objectContaining({
+        tokenAddress: '0xabc',
+        network: 'eth',
+      }),
+    );
+    expect(dispatched.payload?.params).not.toHaveProperty('from');
+    expect(dispatched.payload?.params).not.toHaveProperty('disableTrade');
+    expect(dispatched.payload?.params).not.toHaveProperty('showFavoriteButton');
   });
 
   it('pops to the list when previous route is a leftover detail', () => {
