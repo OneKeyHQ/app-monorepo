@@ -15,7 +15,12 @@ on:
         type: boolean
         default: false
       ENABLE_STARTUP_PROFILE:
-        description: "Build with startup and function tracing enabled (ONEKEY_STARTUP_PROFILE=1; NativeLogger begin/end logs, large output). Forces qa-internal-startup-profile, no store submit."
+        description: "Build with ONEKEY_STARTUP_PROFILE=1 (forces qa-internal-startup-profile, no store submit). See skill 1k-startup-profile."
+        required: false
+        type: boolean
+        default: false
+      ENABLE_FUNCTION_TRACE:
+        description: "Build with per-function tracing (ONEKEY_FUNCTION_TRACE=1; implies startup profile; large bundle and log output). Forces qa-internal-function-trace, no store submit."
         required: false
         type: boolean
         default: false
@@ -25,6 +30,7 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
   ENABLE_STARTUP_PROFILE: ${{ github.event.inputs.ENABLE_STARTUP_PROFILE || 'false' }}
+  ENABLE_FUNCTION_TRACE: ${{ github.event.inputs.ENABLE_FUNCTION_TRACE || 'false' }}
 
 jobs:
   release-android:
@@ -123,11 +129,14 @@ jobs:
             STORE_PROFILE="production-store"
           fi
 
-          if [[ "${ENABLE_STARTUP_PROFILE}" == "true" ]]; then
+          if [[ "${ENABLE_FUNCTION_TRACE}" == "true" ]]; then
+            # Function trace build: internal APK only, never store-submits.
+            eas build --profile="qa-internal-function-trace" --platform android --non-interactive --no-wait --resource-class large
+          elif [[ "${ENABLE_STARTUP_PROFILE}" == "true" ]]; then
             # Profiling build: forces qa-internal-startup-profile (internal APK
             # only, never store-submits). See skill 1k-startup-profile.
             eas build --profile="qa-internal-startup-profile" --platform android --non-interactive --no-wait --resource-class large
-          # if env.WORKFLOW_BUILD_NUMBER exists and starts with 1000, it's a dev build
+          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
           elif [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
             eas build --profile="${INTERNAL_PROFILE}" --platform android --non-interactive --no-wait --resource-class large
           else
@@ -139,7 +148,10 @@ jobs:
         if: ${{ !github.event.workflow_run }}
         run: |
           cd apps/mobile
-          if [[ "${ENABLE_STARTUP_PROFILE}" == "true" ]]; then
+          if [[ "${ENABLE_FUNCTION_TRACE}" == "true" ]]; then
+            # Function trace build: internal APK only, never store-submits.
+            PROFILE="qa-internal-function-trace"
+          elif [[ "${ENABLE_STARTUP_PROFILE}" == "true" ]]; then
             # Profiling build: forces qa-internal-startup-profile (internal APK
             # only, never store-submits). See skill 1k-startup-profile.
             PROFILE="qa-internal-startup-profile"

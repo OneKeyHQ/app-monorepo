@@ -92,6 +92,12 @@
     "qa-internal-startup-profile": {
       "extends": "qa-internal",
       "env": {
+        "ONEKEY_STARTUP_PROFILE": "1"
+      }
+    },
+    "qa-internal-function-trace": {
+      "extends": "qa-internal",
+      "env": {
         "ONEKEY_STARTUP_PROFILE": "1",
         "ONEKEY_FUNCTION_TRACE": "1"
       }
