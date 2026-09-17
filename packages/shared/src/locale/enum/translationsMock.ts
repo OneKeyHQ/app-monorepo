@@ -40,4 +40,5 @@ export enum ETranslationsMock {
   // one shared "does not match" string can only be right for one of them.
   hardware_third_party_usb_wrong_device = 'The connected device is not this wallet. Unplug it and connect the right device.',
   hardware_third_party_ble_binding_not_saved = 'Bluetooth setup was not saved. You can set it up again later.',
+  hardware_third_party_manual_verify_desc = 'This device cannot verify the address inside the app. Open the receive address on the device and compare it with the address and derivation path shown here, character by character.',
 }
