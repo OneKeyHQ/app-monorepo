@@ -14,7 +14,17 @@ import {
 } from './ipTableAdapter';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
+import type { IAvailabilityOutcome } from '../availabilityAggregator';
+import type { IApiAvailabilityTiming } from '../availabilityMetrics';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+
+const mockAvailabilityOutcomes: IAvailabilityOutcome[] = [];
+
+jest.mock('../availabilityAggregator', () => ({
+  recordAvailabilityOutcome: (outcome: IAvailabilityOutcome) => {
+    mockAvailabilityOutcomes.push(outcome);
+  },
+}));
 
 jest.mock('../requestHelper', () => ({
   __esModule: true,
@@ -292,6 +302,110 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
 
     expect(mockedSniRequest).toHaveBeenCalledTimes(1);
     expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  describe('availability metrics context', () => {
+    function buildTimedConfig(url: string) {
+      const config = buildConfig(url);
+      const timing: IApiAvailabilityTiming = {
+        startedAt: 0,
+        service: 'wallet',
+        routeGroup: '/v1',
+      };
+      config.$oneKeyAvailabilityTiming = timing;
+      return { config, timing };
+    }
+
+    beforeEach(() => {
+      mockAvailabilityOutcomes.length = 0;
+      resetAdapterFailoverStatesForTesting();
+    });
+
+    test('marks the route and proxy state each request takes', async () => {
+      const adapter = createIpTableAdapter({});
+      mockedSniRequest.mockResolvedValue({
+        statusCode: 200,
+        headers: {},
+        body: '{}',
+      });
+      const sni = buildTimedConfig('https://metrics-sni.example.com/v1');
+      await adapter(sni.config);
+      expect(sni.timing).toMatchObject({ route: 'sni', proxyActive: false });
+
+      mockedSniRequest.mockRejectedValue(new Error('connection reset'));
+      const fallback = buildTimedConfig('https://metrics-fb.example.com/v1');
+      await adapter(fallback.config);
+      expect(fallback.timing.route).toBe('fallback');
+
+      mockedIsProxyActiveForUrl.mockResolvedValue(true);
+      const proxied = buildTimedConfig('https://metrics-proxy.example.com/v1');
+      await adapter(proxied.config);
+      expect(proxied.timing).toMatchObject({
+        route: 'domain',
+        proxyActive: true,
+      });
+      expect(mockAvailabilityOutcomes).toHaveLength(0);
+    });
+
+    test('records errors raised by the adapter itself with their context', async () => {
+      mockedSniRequest.mockRejectedValue(
+        Object.assign(new Error('certificate rejected'), {
+          code: 'SNI_CERT_FAILED',
+        }),
+      );
+      const { config, timing } = buildTimedConfig(
+        'https://metrics-closed.example.com/v1',
+      );
+
+      await expect(createIpTableAdapter({})(config)).rejects.toMatchObject({
+        code: 'SNI_CERT_FAILED',
+      });
+
+      expect(timing.reported).toBe(true);
+      expect(mockAvailabilityOutcomes).toEqual([
+        expect.objectContaining({
+          source: 'api',
+          status: 'network_error',
+          failure: { detail: 'sni:/v1', errorCode: 'sni_cert_failed' },
+        }),
+        expect.objectContaining({ source: 'api_net', status: 'failed' }),
+        expect.objectContaining({ source: 'api_route', target: 'sni' }),
+        expect.objectContaining({ source: 'api_proxy', target: 'off' }),
+        expect.objectContaining({ source: 'api_ip_table', target: 'enabled' }),
+      ]);
+    });
+
+    test.each([
+      [
+        'noConfig',
+        () => mockedRequestHelper.getIpTableConfig.mockResolvedValue(null),
+      ],
+      [
+        'disabled',
+        () =>
+          mockedRequestHelper.getDevSettingsPersistAtom.mockResolvedValue({
+            settings: { disableIpTableInProd: true },
+          } as never),
+      ],
+    ])(
+      'labels proxied requests with the current IP Table state (%s)',
+      async (state, arrange) => {
+        arrange();
+        mockedIsProxyActiveForUrl.mockResolvedValue(true);
+        fallbackAdapter.mockRejectedValueOnce(new Error('offline'));
+        const { config } = buildTimedConfig(
+          `https://metrics-proxy-${mockAvailabilityOutcomes.length}${state.length}.example.com/v1`,
+        );
+
+        await expect(createIpTableAdapter({})(config)).rejects.toThrow(
+          'offline',
+        );
+
+        expect(mockAvailabilityOutcomes).toContainEqual(
+          expect.objectContaining({ source: 'api_ip_table', target: state }),
+        );
+      },
+    );
   });
 
   test('skips IP speed test when proxy preflight is active', async () => {
