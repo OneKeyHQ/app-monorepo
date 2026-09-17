@@ -16,20 +16,32 @@
  *   This is only log noise: the hooks are undefined on the UI runtime and every
  *   call site is guarded by a typeof check, so it cannot crash.
  */
+const path = require('path');
+
 const FUNCTION_TRACE_START = '__onekeyFunctionTraceStart';
 const FUNCTION_TRACE_END = '__onekeyFunctionTraceEnd';
+const MONOREPO_ROOT = path.resolve(__dirname, '../../..');
 
 function normalizePath(filename) {
   return filename.replace(/\\/g, '/');
 }
 
-function isBusinessFile(filename) {
+function relativeBusinessPath(filename, rootDir = MONOREPO_ROOT) {
   const normalized = normalizePath(filename || '');
+  if (!path.isAbsolute(normalized)) {
+    return normalized.replace(/^\.\//, '');
+  }
+  return normalizePath(path.relative(rootDir, normalized));
+}
+
+function isBusinessFile(filename, rootDir = MONOREPO_ROOT) {
+  // Match on the repo-relative path. The checkout location is arbitrary: EAS
+  // builds from /home/expo/workingdir/build/ (or /Users/expo/...), which would
+  // otherwise hit the '/build/' exclusion for every file.
+  const relative = relativeBusinessPath(filename, rootDir);
   if (
-    !normalized.includes('/packages/') &&
-    !normalized.includes('/apps/mobile/') &&
-    !normalized.startsWith('packages/') &&
-    !normalized.startsWith('apps/mobile/')
+    !relative.startsWith('packages/') &&
+    !relative.startsWith('apps/mobile/')
   ) {
     return false;
   }
@@ -49,18 +61,12 @@ function isBusinessFile(filename) {
     '/src/performance/',
     '/modules3rdParty/react-native-file-logger/',
   ];
+  const normalized = `/${relative}`;
   if (excludedParts.some((part) => normalized.includes(part))) {
     return false;
   }
 
   return !/(^|[/.])(test|spec|mock)\.[^.]+$/.test(normalized);
-}
-
-function relativeBusinessPath(filename) {
-  const normalized = normalizePath(filename || '');
-  const match = normalized.match(/\/(apps|packages)\//);
-  if (match) return normalized.slice(match.index + 1);
-  return normalized.replace(/^\.\//, '');
 }
 
 function getFunctionName(functionPath) {

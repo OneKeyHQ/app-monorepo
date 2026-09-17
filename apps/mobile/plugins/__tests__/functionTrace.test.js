@@ -1,6 +1,11 @@
+const path = require('path');
+
 const babel = require('@babel/core');
 
 const functionTracePlugin = require('../functionTrace');
+
+const { isBusinessFile, relativeBusinessPath } = functionTracePlugin._internal;
+const repoRoot = path.resolve(__dirname, '../../../..');
 
 function transform(source, filename) {
   return babel.transformSync(source, {
@@ -24,11 +29,12 @@ describe('functionTrace Babel plugin', () => {
         const object = { method() { return arrow(1); } };
         class Example { constructor() {} method() { return 4; } }
       `,
-      '/repo/packages/kit/src/example.ts',
+      path.join(repoRoot, 'packages/kit/src/example.ts'),
     );
 
     expect(code).toContain('__onekeyFunctionTraceStart');
     expect(code).toContain('__onekeyFunctionTraceEnd');
+    expect(code).toContain('file: "packages/kit/src/example.ts"');
     expect(code).toContain('name: "arrow"');
     expect(code).toContain('name: "ordinary"');
     expect(code).toContain('name: "method"');
@@ -39,14 +45,34 @@ describe('functionTrace Babel plugin', () => {
   it('does not instrument dependencies or test files', () => {
     const dependencyCode = transform(
       'export const dependency = () => 1;',
-      '/repo/node_modules/example/index.js',
+      path.join(repoRoot, 'node_modules/example/index.js'),
     );
     const testCode = transform(
       'export const testHelper = () => 1;',
-      '/repo/packages/kit/src/example.test.ts',
+      path.join(repoRoot, 'packages/kit/src/example.test.ts'),
     );
 
     expect(dependencyCode).not.toContain('__onekeyFunctionTraceStart');
     expect(testCode).not.toContain('__onekeyFunctionTraceStart');
+  });
+
+  it('matches paths relative to the monorepo root', () => {
+    // EAS checks the project out into a directory named "build".
+    const easRoot = '/home/expo/workingdir/build';
+    const businessFile = `${easRoot}/packages/kit/src/views/Sample.tsx`;
+
+    expect(isBusinessFile(businessFile, easRoot)).toBe(true);
+    expect(relativeBusinessPath(businessFile, easRoot)).toBe(
+      'packages/kit/src/views/Sample.tsx',
+    );
+    expect(
+      isBusinessFile(`${easRoot}/node_modules/example/index.js`, easRoot),
+    ).toBe(false);
+    expect(
+      isBusinessFile(`${easRoot}/packages/kit/build/generated.js`, easRoot),
+    ).toBe(false);
+    expect(
+      isBusinessFile('/elsewhere/packages/kit/src/views/Sample.tsx', easRoot),
+    ).toBe(false);
   });
 });
