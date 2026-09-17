@@ -3,10 +3,16 @@ import {
   pickTopSupplyAssetsByBalance,
 } from './borrowEmptyState.utils';
 
-const asset = (symbol: string, fiatValue?: string, disabled?: boolean) => ({
+const asset = (
+  symbol: string,
+  fiatValue?: string,
+  disabled?: boolean,
+  apy?: string,
+) => ({
   symbol,
   walletBalance: fiatValue === undefined ? undefined : { fiatValue },
   supplyButton: disabled === undefined ? undefined : { disabled },
+  apyDetail: apy === undefined ? undefined : { apy },
 });
 
 describe('pickTopSupplyAssetsByBalance', () => {
@@ -39,6 +45,24 @@ describe('pickTopSupplyAssetsByBalance', () => {
       'SECOND',
       'THIRD',
       'FOURTH',
+    ]);
+  });
+
+  // APY is what this list used to rank by, so a fixture without it cannot tell
+  // a server-order tie-break from an APY one. Every tie here carries an APY
+  // that would reverse it if APY were still consulted.
+  it('does not fall back to APY when balances tie', () => {
+    const picked = pickTopSupplyAssetsByBalance([
+      asset('HELD_FIRST', '5', undefined, '1'),
+      asset('HELD_SECOND', '5', undefined, '99'),
+      asset('ZERO_FIRST', '0', undefined, '1'),
+      asset('ZERO_SECOND', '0', undefined, '99'),
+    ]);
+    expect(picked.map((item) => item.symbol)).toEqual([
+      'HELD_FIRST',
+      'HELD_SECOND',
+      'ZERO_FIRST',
+      'ZERO_SECOND',
     ]);
   });
 
