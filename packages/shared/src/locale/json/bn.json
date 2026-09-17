@@ -1224,6 +1224,7 @@
   "export_history_partial__title": "আংশিক",
   "export_history_queued__title": "সারিতে আছে",
   "export_history_ready__title": "প্রস্তুত",
+  "export_history_sign_in__desc": "এক্সপোর্ট হিস্ট্রি OneKey ID-এর সাথে সংযুক্ত, তা দেখতে সংশ্লিষ্ট অ্যাকাউন্টে সাইন ইন করুন।",
   "export_history_time_zone__title": "সময় অঞ্চল",
   "export_history_transaction_limit__title": "লেনদেনের সীমা",
   "export_history_transactions_count__desc": "{count, plural, one {#টি লেনদেন} other {#টি লেনদেন}}",

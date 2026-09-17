@@ -1224,6 +1224,7 @@
   "export_history_partial__title": "บางส่วน",
   "export_history_queued__title": "อยู่ในคิว",
   "export_history_ready__title": "พร้อมแล้ว",
+  "export_history_sign_in__desc": "ประวัติการส่งออกเชื่อมโยงกับ OneKey ID เข้าสู่ระบบบัญชีที่เกี่ยวข้องเพื่อดูข้อมูล",
   "export_history_time_zone__title": "เขตเวลา",
   "export_history_transaction_limit__title": "ขีดจำกัดจำนวนธุรกรรม",
   "export_history_transactions_count__desc": "{count, plural, other {# ธุรกรรม}}",

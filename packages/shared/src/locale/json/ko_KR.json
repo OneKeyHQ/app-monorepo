@@ -1224,6 +1224,7 @@
   "export_history_partial__title": "일부 완료",
   "export_history_queued__title": "대기 중",
   "export_history_ready__title": "준비 완료",
+  "export_history_sign_in__desc": "내보내기 기록은 OneKey ID와 연결되어 있으며, 해당 계정으로 로그인하면 확인할 수 있습니다.",
   "export_history_time_zone__title": "시간대",
   "export_history_transaction_limit__title": "거래 한도",
   "export_history_transactions_count__desc": "{count, plural, one {#건의 거래} other {#건의 거래}}",
