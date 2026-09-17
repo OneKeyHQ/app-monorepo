@@ -5,7 +5,10 @@ import {
   initBitcoinEcc,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
-import { AddressNotSupportSignMethodError } from '@onekeyhq/shared/src/errors';
+import {
+  AddressNotSupportSignMethodError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -596,6 +599,77 @@ describe('KeyringHardwareKeystone signing', () => {
     expect(btcSignPsbt).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects a signed PSBT whose outputs differ from the submitted one', async () => {
+    const attackerAddress = BitcoinJS.payments.p2wpkh({
+      pubkey: Buffer.from(
+        '02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9',
+        'hex',
+      ),
+      network: btcNetwork,
+    }).address!;
+    const btcSignPsbt = jest
+      .fn()
+      .mockImplementation(
+        async (
+          _connectId: string,
+          _deviceId: string,
+          request: { psbt: string },
+        ) => {
+          const submitted = BitcoinJS.Psbt.fromHex(request.psbt, {
+            network: btcNetwork,
+          });
+          const tampered = new BitcoinJS.Psbt({ network: btcNetwork });
+          tampered.addInput({
+            hash: submitted.txInputs[0].hash,
+            index: submitted.txInputs[0].index,
+          });
+          tampered.addOutput({ address: attackerAddress, value: 9000n });
+          return {
+            success: true,
+            payload: { signedPsbt: tampered.toHex() },
+          };
+        },
+      );
+    const btcGetMasterFingerprint = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { masterFingerprint: 'aabbccdd' },
+    });
+    const { keyring } = buildSigningKeyring({
+      btcSignPsbt,
+      btcGetMasterFingerprint,
+    });
+
+    await expect(
+      keyring.signTransaction({
+        unsignedTx: {
+          encodedTx: {
+            inputs: [
+              {
+                txid: '00'.repeat(32),
+                vout: 0,
+                value: '10000',
+                address: accountAddress,
+                path: fullPath,
+              },
+            ],
+            outputs: [{ address: recipientAddress, value: '9000' }],
+          },
+        },
+        signOnly: false,
+        deviceParams: {
+          dbDevice: {
+            id: 'device-1',
+            connectId: 'keystone-wallet:test',
+            deviceId: 'wallet-id',
+          },
+        },
+      } as never),
+    ).rejects.toBeInstanceOf(OneKeyLocalError);
+    // The device was reached, so the rejection can only come from the
+    // post-signing PSBT comparison.
+    expect(btcSignPsbt).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects a non-taproot dApp PSBT before contacting the device', async () => {
     const btcSignPsbt = jest.fn();
     const btcGetMasterFingerprint = jest.fn();
@@ -629,5 +703,88 @@ describe('KeyringHardwareKeystone signing', () => {
     ).rejects.toBeInstanceOf(AddressNotSupportSignMethodError);
     expect(getAdapterForVendor).not.toHaveBeenCalled();
     expect(btcSignPsbt).not.toHaveBeenCalled();
+  });
+});
+
+describe('KeyringHardwareKeystone.signMessage', () => {
+  const dbAccount = {
+    id: 'account-1',
+    path: "m/84'/0'/0'",
+    relPath: '0/0',
+    template: "m/84'/0'/0'/0/0",
+    address: 'bc1qaddress',
+    pub: '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
+    xpub: 'account-xpub',
+  } as IDBUtxoAccount;
+
+  const deviceParams = {
+    dbDevice: {
+      connectId: 'keystone-wallet:test',
+      deviceId: 'wallet-id',
+    },
+  };
+
+  function buildKeyring(btcSignMessage: jest.Mock) {
+    const getAdapterForVendor = jest.fn().mockResolvedValue({
+      hw: { btcSignMessage },
+    });
+    const keyring = Object.assign(
+      Object.create(KeyringHardwareKeystone.prototype),
+      {
+        backgroundApi: {
+          serviceThirdPartyHardware: { getAdapterForVendor },
+        },
+        vault: {
+          getAccount: jest.fn().mockResolvedValue(dbAccount),
+        },
+        getCoreApiNetworkInfo: jest.fn().mockResolvedValue({
+          networkChainCode: 'btc',
+        }),
+      },
+    ) as KeyringHardwareKeystone;
+    return { keyring, btcSignMessage };
+  }
+
+  it('signs with the receiveAddressPath from chainExtraParams when provided', async () => {
+    const btcSignMessage = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { signature: 'sig' },
+    });
+    const { keyring } = buildKeyring(btcSignMessage);
+
+    await keyring.signMessage({
+      messages: [{ message: 'hello' }],
+      password: '',
+      deviceParams,
+      chainExtraParams: { receiveAddressPath: "m/84'/0'/0'/1/2" },
+    } as never);
+
+    expect(btcSignMessage).toHaveBeenCalledWith(
+      'keystone-wallet:test',
+      'wallet-id',
+      expect.objectContaining({ path: "m/84'/0'/0'/1/2" }),
+    );
+  });
+
+  it('falls back to the account derivation path when receiveAddressPath is absent', async () => {
+    const btcSignMessage = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { signature: 'sig' },
+    });
+    const { keyring } = buildKeyring(btcSignMessage);
+
+    await keyring.signMessage({
+      messages: [{ message: 'hello' }],
+      password: '',
+      deviceParams,
+    } as never);
+
+    expect(btcSignMessage).toHaveBeenCalledWith(
+      'keystone-wallet:test',
+      'wallet-id',
+      expect.objectContaining({
+        path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+      }),
+    );
   });
 });

@@ -8,6 +8,7 @@ import {
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import { verifyBtcSignedPsbtMatched } from '@onekeyhq/core/src/chains/btc/sdkBtc/verify';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -531,19 +532,29 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
 
     const signedPsbtHex = result.payload.signedPsbt;
 
+    // The device is an untrusted channel: reject a signed PSBT whose inputs,
+    // outputs or global map differ from the one we handed it. Must stay ahead
+    // of the finalize try/catch below, which tolerates failures by design.
+    const signedPsbt = BitcoinJS.Psbt.fromHex(signedPsbtHex, {
+      network: btcNetwork,
+    });
+    verifyBtcSignedPsbtMatched({
+      unsignedPsbt: BitcoinJS.Psbt.fromHex(enrichedPsbtHex, {
+        network: btcNetwork,
+      }),
+      signedPsbt,
+    });
+
     let rawTx = '';
     let finalizedPsbtHex = '';
     try {
-      const finalizedPsbt = BitcoinJS.Psbt.fromHex(signedPsbtHex, {
-        network: btcNetwork,
-      });
       inputsToSign?.forEach((v) => {
-        finalizedPsbt.finalizeInput(v.index);
+        signedPsbt.finalizeInput(v.index);
       });
       if (!signOnly) {
-        rawTx = finalizedPsbt.extractTransaction().toHex();
+        rawTx = signedPsbt.extractTransaction().toHex();
       }
-      finalizedPsbtHex = finalizedPsbt.toHex();
+      finalizedPsbtHex = signedPsbt.toHex();
     } catch {
       // Device returned a partially-signed PSBT (multisig, or otherwise not
       // ready to finalize): hand it back as-is rather than dropping signatures.
@@ -568,7 +579,9 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
     const adapter = await this._getAdapter();
     const dbAccount = await this.vault.getAccount();
     const networkInfo = await this.getCoreApiNetworkInfo();
-    const path = `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
+    const path =
+      params.chainExtraParams?.receiveAddressPath ??
+      `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
 
     const signatures: ISignedMessagePro = [];
     for (const payload of messages as Array<{

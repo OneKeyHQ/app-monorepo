@@ -268,9 +268,9 @@ export function createTrezorBlePairingIpcMain(
           if (!Array.isArray(result)) {
             return result;
           }
-          // The unfiltered scan sees every BLE device in range, so the Trezor
-          // filter that used to happen in noble now happens here — the renderer
-          // must still only ever see Trezor devices.
+          // The unfiltered scan sees every BLE device in range. Trezor results
+          // are filtered here by name/service; Ledger results are already
+          // filtered by the SDK's match and are passed through unchanged.
           const all = result as ThirdPartyBleDeviceInfo[];
           const scanOptions: ElectronBleScanOptions | undefined = args[0];
           // Ledger results were service-filtered in the SDK; retain their addresses
