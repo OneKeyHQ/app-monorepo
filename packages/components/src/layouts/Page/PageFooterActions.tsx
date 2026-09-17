@@ -27,6 +27,18 @@ const confirmButtonMdStyle = {
   size: 'large',
 } as any;
 
+// Stacked buttons keep their natural height: the row's equal split
+// (flexGrow 1, flexBasis 0) would act on the height in a column and
+// collapse each button to its padding.
+const stackedButtonMdStyle = {
+  size: 'large',
+} as any;
+
+const stackedButtonContainerMdStyle = {
+  flexDirection: 'column-reverse',
+  gap: '$3',
+} as const;
+
 const footerActionsGtMdStyle = {
   flexDirection: 'row',
   alignItems: 'center',
@@ -54,6 +66,11 @@ export type IFooterActionsProps = {
   /** use Page.confirmButton */
   confirmButton?: ReactElement;
   buttonContainerProps?: IStackProps;
+  /**
+   * Below md, stack the buttons with the primary action on top instead of
+   * the equal-width row. Wider layouts keep the row.
+   */
+  stacked?: boolean;
 } & IStackProps;
 
 const usePageNavigation = () => {
@@ -99,9 +116,11 @@ const usePageNavigation = () => {
 export function FooterCancelButton({
   children,
   onCancel,
+  stacked,
   ...props
 }: IButtonProps & {
   onCancel: IFooterActionsProps['onCancel'];
+  stacked?: boolean;
 }) {
   const intl = useIntl();
   const { pop, popStack } = usePageNavigation();
@@ -113,7 +132,7 @@ export function FooterCancelButton({
   }, [onCancel, pop, popStack]);
   return (
     <Button
-      $md={cancelButtonMdStyle}
+      $md={stacked ? stackedButtonMdStyle : cancelButtonMdStyle}
       onPress={handleCancel}
       testID="page-footer-cancel"
       {...props}
@@ -126,9 +145,11 @@ export function FooterCancelButton({
 export function FooterConfirmButton({
   onConfirm,
   children,
+  stacked,
   ...props
 }: IButtonProps & {
   onConfirm: IFooterActionsProps['onConfirm'];
+  stacked?: boolean;
 }) {
   const intl = useIntl();
   const { pop, popStack } = usePageNavigation();
@@ -139,7 +160,7 @@ export function FooterConfirmButton({
 
   return (
     <Button
-      $md={confirmButtonMdStyle}
+      $md={stacked ? stackedButtonMdStyle : confirmButtonMdStyle}
       variant="primary"
       onPress={handleConfirm}
       testID="page-footer-confirm"
@@ -161,6 +182,7 @@ export function FooterActions({
   children,
   cancelButton,
   confirmButton,
+  stacked,
   ...restProps
 }: PropsWithChildren<IFooterActionsProps>) {
   const renderCancelButton = useCallback(() => {
@@ -168,27 +190,36 @@ export function FooterActions({
       return cancelButton;
     }
     return !!cancelButtonProps || !!onCancel ? (
-      <FooterCancelButton onCancel={onCancel} {...cancelButtonProps}>
+      <FooterCancelButton
+        onCancel={onCancel}
+        stacked={stacked}
+        {...cancelButtonProps}
+      >
         {onCancelText}
       </FooterCancelButton>
     ) : null;
-  }, [cancelButton, cancelButtonProps, onCancel, onCancelText]);
+  }, [cancelButton, cancelButtonProps, onCancel, onCancelText, stacked]);
   const renderConfirmButton = useCallback(() => {
     if (confirmButton) {
       return confirmButton;
     }
     return !!confirmButtonProps || !!onConfirm ? (
-      <FooterConfirmButton onConfirm={onConfirm} {...confirmButtonProps}>
+      <FooterConfirmButton
+        onConfirm={onConfirm}
+        stacked={stacked}
+        {...confirmButtonProps}
+      >
         {onConfirmText}
       </FooterConfirmButton>
     ) : null;
-  }, [confirmButton, confirmButtonProps, onConfirm, onConfirmText]);
+  }, [confirmButton, confirmButtonProps, onConfirm, onConfirmText, stacked]);
   return (
     <Stack p="$5" $gtMd={footerActionsGtMdStyle} bg="$bgApp" {...restProps}>
       {children}
       <XStack
         gap="$2.5"
         $gtMd={footerButtonContainerGtMdStyle}
+        {...(stacked ? { $md: stackedButtonContainerMdStyle } : {})}
         {...(buttonContainerProps as IXStackProps)}
       >
         {renderCancelButton()}

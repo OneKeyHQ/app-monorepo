@@ -9,7 +9,13 @@ import {
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard, PixelRatio, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Keyboard,
+  PixelRatio,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -1165,20 +1171,35 @@ export function DeviceStage({
     }),
     [pillHeight, portHeight, progress],
   );
+  // The window itself rides to the thumbnail box at the row's start. The
+  // port stays replica-wide and clips, so shifting the device inside it
+  // instead pushed the thumbnail past the port's edge once the capsule
+  // outgrew the port (a two-line title widened it to the 288 cap and the
+  // seat vanished, OK-63523). Its own style: reading morphWidth beside the
+  // height would re-lay out the port on every frame of a width spring.
+  const portSeatStyle = useAnimatedStyle(
+    () => ({
+      transform: [
+        {
+          translateX:
+            progress.value < SEAT_SWAP_AT
+              ? PILL.pad +
+                CAPSULE_ROW.paddingX +
+                CAPSULE_ROW.thumbBox / 2 -
+                morphWidth.value / 2
+              : 0,
+        },
+      ],
+    }),
+    [morphWidth, progress],
+  );
   const deviceSeatStyle = useAnimatedStyle(() => {
     if (progress.value < SEAT_SWAP_AT) {
-      // Centered in the thumbnail box at the row's start, in port
-      // coordinates (the layer shift above pins the port to the face
-      // top): translate in parent units, then shrink about top-center.
+      // Centered in the thumbnail box, in port coordinates (the port sits
+      // at the seat and the layer shift above pins it to the face top):
+      // shrink about top-center.
       return {
         transform: [
-          {
-            translateX:
-              PILL.pad +
-              CAPSULE_ROW.paddingX +
-              CAPSULE_ROW.thumbBox / 2 -
-              morphWidth.value / 2,
-          },
           {
             translateY: pillHeight / 2 - (deviceHeight * thumbScale) / 2,
           },
@@ -1187,13 +1208,9 @@ export function DeviceStage({
       };
     }
     return {
-      transform: [
-        { translateX: 0 },
-        { translateY: 0 },
-        { scale: deviceScale.value },
-      ],
+      transform: [{ translateY: 0 }, { scale: deviceScale.value }],
     };
-  }, [deviceHeight, deviceScale, morphWidth, pillHeight, progress, thumbScale]);
+  }, [deviceHeight, deviceScale, pillHeight, progress, thumbScale]);
   // The fog belongs to the stage seats only: the capsule wears the whole
   // device, foot and all.
   const fogMotionStyle = useAnimatedStyle(
@@ -1216,8 +1233,13 @@ export function DeviceStage({
     [replicaLayerStyle, replicaWidth],
   );
   const portStyle = useMemo(
-    () => [styles.portWindow, { width: replicaWidth }, portWindowStyle],
-    [portWindowStyle, replicaWidth],
+    () => [
+      styles.portWindow,
+      { width: replicaWidth },
+      portWindowStyle,
+      portSeatStyle,
+    ],
+    [portSeatStyle, portWindowStyle, replicaWidth],
   );
   const deviceStyle = useMemo(
     () => [styles.miniature, deviceSeatStyle],
@@ -1425,6 +1447,16 @@ export function DeviceStage({
   }
   const capsuleText = capsuleTextRef.current;
   const capsuleGlyph = capsuleGlyphRef.current;
+
+  const lastAnnouncedStepRef = useRef<IDeviceStageStep | undefined>(undefined);
+  useEffect(() => {
+    const previousStep = lastAnnouncedStepRef.current;
+    lastAnnouncedStepRef.current = step;
+    // iOS does not support live regions; announce each success once.
+    if (platformEnv.isNativeIOS && step === 'done' && previousStep !== 'done') {
+      AccessibilityInfo.announceForAccessibility(capsuleText.title);
+    }
+  }, [capsuleText.title, step]);
 
   // The seat gate's aim (declared with the notice logic above): the
   // frozen glyph decides the seat on the capsule's own clock, so the

@@ -9,6 +9,7 @@ import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -20,6 +21,7 @@ export function PerpetualTradingBanner({
   px,
   py = '$3',
   stableLayout = false,
+  reserveSpace = false,
   disabled = false,
 }: {
   pl?: string;
@@ -27,6 +29,7 @@ export function PerpetualTradingBanner({
   px?: string;
   py?: string;
   stableLayout?: boolean;
+  reserveSpace?: boolean;
   disabled?: boolean;
 }) {
   const intl = useIntl();
@@ -62,14 +65,16 @@ export function PerpetualTradingBanner({
     navigateToPerps(hlTicker);
   }, [hlTicker, navigateToPerps, perpDisabled, tokenDetail?.symbol]);
 
+  const isVisible = Boolean(hlTicker) && (!stableLayout || initiallyVisible);
+  const shouldReserveSpace = reserveSpace || (stableLayout && initiallyVisible);
+
   if (
     disabled ||
     perpDisabled ||
     dismissed ||
-    (stableLayout && !initiallyVisible)
+    (!shouldReserveSpace && !isVisible)
   )
     return null;
-  if (!hlTicker && !stableLayout) return null;
 
   const title = intl.formatMessage(
     { id: ETranslations.dexmarket_perpetual_trading_title },
@@ -78,10 +83,13 @@ export function PerpetualTradingBanner({
 
   return (
     <XStack
-      opacity={hlTicker ? 1 : 0}
-      pointerEvents={hlTicker ? 'auto' : 'none'}
-      accessibilityElementsHidden={!hlTicker}
-      importantForAccessibility={hlTicker ? 'auto' : 'no-hide-descendants'}
+      opacity={isVisible ? 1 : 0}
+      pointerEvents={isVisible ? 'auto' : 'none'}
+      accessibilityElementsHidden={!isVisible}
+      importantForAccessibility={isVisible ? 'auto' : 'no-hide-descendants'}
+      {...(platformEnv.isNative
+        ? {}
+        : { 'aria-hidden': !isVisible, inert: !isVisible })}
       py={py}
       pl={pl ?? px}
       pr={pr ?? px}

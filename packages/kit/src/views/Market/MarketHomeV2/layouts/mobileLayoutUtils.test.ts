@@ -151,31 +151,12 @@ describe('getMarketNativeCompactListStyle', () => {
 });
 
 describe('getMarketRecommendContainerPaddingTop', () => {
-  it('does not add viewport-based padding on native', () => {
-    expect(
-      getMarketRecommendContainerPaddingTop({
-        isNative: true,
-        windowHeight: 874,
-      }),
-    ).toBe(0);
+  it('does not add top padding on native', () => {
+    expect(getMarketRecommendContainerPaddingTop({ isNative: true })).toBe(0);
   });
 
-  it('preserves viewport-based padding outside native', () => {
-    expect(
-      getMarketRecommendContainerPaddingTop({
-        isNative: false,
-        windowHeight: 874,
-      }),
-    ).toBe(37);
-  });
-
-  it('keeps a minimum top gap on short windows outside native', () => {
-    expect(
-      getMarketRecommendContainerPaddingTop({
-        isNative: false,
-        windowHeight: 800,
-      }),
-    ).toBe(16);
+  it('uses a fixed 24px top gap outside native', () => {
+    expect(getMarketRecommendContainerPaddingTop({ isNative: false })).toBe(24);
   });
 });
 
