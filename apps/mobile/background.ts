@@ -9,15 +9,17 @@
   }
 ).__ONEKEY_RUNTIME_KIND__ = 'background';
 
-// Install function tracing before business modules load in the background runtime.
-const startupProfile =
-  require('./src/startupProfile') as typeof import('./src/startupProfile');
-startupProfile.installFunctionTrace();
-
 require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
 markRuntimePolyfillsReady();
+
+// Function tracing is compiled in only by the qa-internal-function-trace EAS
+// profile. Install it right after the polyfill bootstrap to keep the entry contract.
+const startupProfile =
+  require('./src/startupProfile') as typeof import('./src/startupProfile');
+startupProfile.installFunctionTrace();
+
 const { initSentry } =
   require('@onekeyhq/shared/src/modules3rdParty/sentry') as typeof import('@onekeyhq/shared/src/modules3rdParty/sentry');
 initSentry();
