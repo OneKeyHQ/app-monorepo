@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import { BorrowTestIDs } from '../testIDs';
 
@@ -40,8 +40,16 @@ jest.mock('@onekeyhq/components', () => {
   }
   return {
     __esModule: true,
-    IconButton: ({ testID }: { testID?: string }) => (
-      <div data-testid={testID} />
+    IconButton: ({
+      testID,
+      onPress,
+    }: {
+      testID?: string;
+      onPress?: () => void;
+    }) => (
+      <button type="button" data-testid={testID} onClick={onPress}>
+        refresh
+      </button>
     ),
     SizableText: Container,
     XStack: Container,
@@ -68,6 +76,19 @@ describe('BorrowMobileEmptyState', () => {
     );
 
     expect(queryByTestId(BorrowTestIDs.overviewRefreshBtn)).toBeTruthy();
+  });
+
+  // Rendering the button is only half of it; the mock keeps onPress so a button
+  // wired to the wrong prop cannot pass on presence alone.
+  it('asks for a refresh when the button is pressed', () => {
+    const onRefresh = jest.fn();
+    const { getByTestId } = render(
+      <BorrowMobileEmptyState assets={[]} onRefresh={onRefresh} />,
+    );
+
+    fireEvent.click(getByTestId(BorrowTestIDs.overviewRefreshBtn));
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the heading alone when no refresh was handed down', () => {
