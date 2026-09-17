@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import { SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS } from '../../utils/swrCacheLimits';
 import { callNativeStorage } from '../nativeStorageBridge';
 import { parseNativeSyncStorageMutation } from '../nativeStorageTypes';
 import {
@@ -684,7 +685,15 @@ function replayPendingLocalMutations(store: INativeSyncStorageName) {
   });
 }
 
-function applyCanonicalMutation(mutation: INativeSyncStorageMutation) {
+function perfNow(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function applyCanonicalMutation(
+  mutation: INativeSyncStorageMutation,
+  source: 'ack' | 'broadcast',
+) {
+  const startedAt = perfNow();
   const state = mirrors[mutation.store];
   let localMutation: INativeSyncStorageLocalMutation;
   if (mutation.operation === 'set') {
@@ -708,6 +717,19 @@ function applyCanonicalMutation(mutation: INativeSyncStorageMutation) {
   }
   applyLocalMutation(state, localMutation);
   replayPendingLocalMutations(mutation.store);
+  // Every SWR patch here, replays included, re-serializes the whole store.
+  const durationMs = Math.round(perfNow() - startedAt);
+  if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+    const swrStore = state.values.get(SWR_CACHE_KEY);
+    defaultLogger.app.perf.swrCacheSlowOp({
+      op: 'mirrorApply',
+      durationMs,
+      storeChars: typeof swrStore === 'string' ? swrStore.length : 0,
+      source,
+      mutationOp: mutation.operation,
+      replayedCount: remoteMutationQueues[mutation.store].pending.size,
+    });
+  }
 }
 
 function acknowledgeRemoteMutation(
@@ -730,7 +752,7 @@ function acknowledgeRemoteMutation(
   }
   queue.pending.delete(mutationId);
   resolveMutationAcknowledgements(queue, mutationId);
-  applyCanonicalMutation(canonical);
+  applyCanonicalMutation(canonical, 'ack');
 }
 
 function mutate(
@@ -748,7 +770,7 @@ function mutate(
 }
 
 function applyBroadcastMutation(mutation: INativeSyncStorageMutation) {
-  applyCanonicalMutation(mutation);
+  applyCanonicalMutation(mutation, 'broadcast');
 }
 
 (globalThis as INativeStorageGlobal).__onekeyNativeSyncStorageApplyMutation =
