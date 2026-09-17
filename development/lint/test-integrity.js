@@ -1902,7 +1902,8 @@ function collectReadHelpers(ast, isReadCallee, classify) {
       return;
     }
     const conditions = {
-      fallbackGuards: returned.fallbackGuards,
+      fallbackGuardChains: returned.fallbackGuardChains,
+      readGuards: returned.readGuards,
       parameters: returned.parameters,
     };
     // The whole path is the parameter: classify the call-site argument.
@@ -2233,30 +2234,50 @@ function returnedRead(node, isReadCallee) {
     return undefined;
   }
   const { fn } = named;
-  const values = readHelperReturns(fn);
-  // Static returns in a guarded branch are fallback values. Keep their
-  // conditions so the caller can select the read branch when the arguments
-  // make that possible; catch and availability fallbacks are intentionally
-  // treated as reads because the filesystem decides whether they run.
-  const fallbackGuards = [];
-  const readCandidates = [];
-  values.forEach(({ value, guards, availabilityFallback }) => {
+  const values = readHelperReturns(fn).map((entry, index, all) => {
+    // In `if (name) return read(name); return ''`, the trailing return is
+    // the false branch even though the AST does not put it under the IfStatement.
+    // Carry the inverse guard so the caller can select the read branch safely.
+    if (!isStaticFallbackValue(entry.value, fn) && entry.guards.length === 0) {
+      return entry;
+    }
+    const previous = all[index - 1];
+    const lastGuard = previous?.guards.at(-1);
     if (
-      isStaticFallbackValue(value, fn) &&
-      (guards.length > 0 || availabilityFallback)
+      !previous ||
+      isStaticFallbackValue(previous.value, fn) ||
+      entry.guards.length > 0 ||
+      lastGuard?.kind !== 'if' ||
+      lastGuard.taken !== true
     ) {
-      guards
-        .filter((guard) => !guard.availability)
-        .forEach((guard) => fallbackGuards.push(guard));
+      return entry;
+    }
+    return {
+      ...entry,
+      guards: [...previous.guards.slice(0, -1), { ...lastGuard, taken: false }],
+    };
+  });
+  // Every static return is a fallback. Keep one guard chain per return so a
+  // nested fallback is selected only when all of its conditions are true.
+  // Catch and availability fallbacks are intentionally treated as reads
+  // because the filesystem decides whether they run.
+  const fallbackGuardChains = [];
+  const readCandidates = [];
+  values.forEach(({ value, guards }) => {
+    if (isStaticFallbackValue(value, fn)) {
+      const chain = guards.filter((guard) => !guard.availability);
+      if (chain.length > 0) {
+        fallbackGuardChains.push(chain);
+      }
       return;
     }
-    readCandidates.push(value);
+    readCandidates.push({ value, guards });
   });
   if (readCandidates.length !== 1) {
     return undefined;
   }
   // Peel conversions and constants off the returned value until a read shows.
-  let value = readCandidates[0];
+  let value = readCandidates[0].value;
   for (let step = 0; step < 16; step += 1) {
     value = unwrapWholeConversion(value);
     const constant = constantValue(value, fn);
@@ -2273,7 +2294,8 @@ function returnedRead(node, isReadCallee) {
   return read
     ? {
         ...named,
-        fallbackGuards,
+        fallbackGuardChains,
+        readGuards: readCandidates[0].guards,
         pathArgument: inlineConstants(read, fn),
       }
     : undefined;
@@ -2556,16 +2578,19 @@ function analyzeFile(
       if (!helper) {
         return undefined;
       }
-      if (
-        helper.fallbackGuards?.some((guard) => {
-          const fallbackSelected = staticGuardValue(
-            guard,
-            helper.parameters,
-            callNode.arguments,
-          );
-          return fallbackSelected === true;
-        })
-      ) {
+      const readSelected = !helper.readGuards?.some(
+        (guard) =>
+          staticGuardValue(guard, helper.parameters, callNode.arguments) ===
+          false,
+      );
+      const fallbackSelected = helper.fallbackGuardChains?.some((chain) =>
+        chain.every(
+          (guard) =>
+            staticGuardValue(guard, helper.parameters, callNode.arguments) ===
+            true,
+        ),
+      );
+      if (!readSelected || fallbackSelected) {
         return undefined;
       }
       if (helper.kind) {

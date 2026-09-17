@@ -1179,6 +1179,52 @@ test('what a named function returns is still source', () => {
   `,
     'conditional read branch is still gated',
   );
+  const nestedFallbackRead = `
+    function loadFixture(name, strict) {
+      if (strict) {
+        if (!name) {
+          return '';
+        }
+      }
+      return readFileSync(join(__dirname, 'src', name), 'utf8');
+    }
+  `;
+  assertGated(
+    `${nestedFallbackRead}
+    it('x', () => {
+      expect(loadFixture('Thing.ts', true)).toContain('go');
+    });
+  `,
+    'nested fallback conditions keep the source read gated',
+  );
+  assertClean(
+    `${nestedFallbackRead}
+    it('x', () => {
+      expect(loadFixture('', true)).toContain('go');
+    });
+  `,
+    'nested fallback conditions select the fallback when both are true',
+  );
+  const invertedGuardedRead = `
+    function loadFixture(name) {
+      if (name) {
+        return readFileSync(join(__dirname, 'src', name), 'utf8');
+      }
+      return '';
+    }
+  `;
+  assertGated(
+    `${invertedGuardedRead}
+    it('x', () => { expect(loadFixture('Thing.ts')).toContain('go'); });
+  `,
+    'trailing fallback keeps the guarded source read gated',
+  );
+  assertClean(
+    `${invertedGuardedRead}
+    it('x', () => { expect(loadFixture('')).toContain('go'); });
+  `,
+    'trailing fallback is selected when the read guard is false',
+  );
   const switchFallbackRead = `
     function loadFixture(name) {
       switch (name) {
