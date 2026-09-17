@@ -17,11 +17,7 @@ function PerpNetworkAlertComponent() {
   }
 
   return (
-    <YStack
-      height={Platform.select<number | 'auto'>({ web: 'auto', default: 0 })}
-      overflow="visible"
-      zIndex={10}
-    >
+    <YStack overflow="visible" zIndex={10}>
       <Alert
         type="default"
         fullBleed
