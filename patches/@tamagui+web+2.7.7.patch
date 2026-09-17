@@ -48,11 +48,15 @@ index 7384d83..90f4cf8 100644
            if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
            for (const psuedoStyle of pseudoStyles) {
 diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js b/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
-index b83ef32..1dc96a2 100644
+index b83ef32..4b1f048 100644
 --- a/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
-@@ -31,6 +31,29 @@ var import_native = require("@tamagui/native");
+@@ -29,8 +29,33 @@ __export(mainThreadPressEvents_native_exports, {
+ module.exports = __toCommonJS(mainThreadPressEvents_native_exports);
+ var import_native = require("@tamagui/native");
  var import_react = require("react");
++// OneKey patch
++var import_react_native = require("react-native");
  var DEFAULT_LONG_PRESS_DELAY = 500;
  var DEFAULT_MIN_PRESS_DURATION = 130;
 +// OneKey patch: same press retention offsets as react-native Pressability
@@ -81,7 +85,7 @@ index b83ef32..1dc96a2 100644
  function useMainThreadPressEvents(events, viewProps) {
    var enabled = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : true,
      debugName = arguments.length > 3 ? arguments[3] : void 0;
-@@ -42,7 +65,9 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -42,7 +67,9 @@ function useMainThreadPressEvents(events, viewProps) {
        pressOutTimer: null,
        longPressTimer: null,
        activateTime: 0,
@@ -92,7 +96,7 @@ index b83ef32..1dc96a2 100644
      };
    }
    if (!enabled || !events) return;
-@@ -54,9 +79,15 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -54,9 +81,15 @@ function useMainThreadPressEvents(events, viewProps) {
    var delayLongPress = Math.max(0, (_events_delayLongPress = events.delayLongPress) !== null && _events_delayLongPress !== void 0 ? _events_delayLongPress : DEFAULT_LONG_PRESS_DELAY);
    var _events_minPressDuration;
    var minPressDuration = Math.max(0, (_events_minPressDuration = events.minPressDuration) !== null && _events_minPressDuration !== void 0 ? _events_minPressDuration : DEFAULT_MIN_PRESS_DURATION);
@@ -108,7 +112,7 @@ index b83ef32..1dc96a2 100644
      ref.current.activateTime = Date.now();
      (_events_onPressIn = events.onPressIn) === null || _events_onPressIn === void 0 ? void 0 : _events_onPressIn.call(events, e);
    }
-@@ -81,6 +112,58 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -81,6 +114,62 @@ function useMainThreadPressEvents(events, viewProps) {
      ref.current.pressOutTimer = null;
      ref.current.longPressTimer = null;
    }
@@ -119,6 +123,10 @@ index b83ef32..1dc96a2 100644
 +  // (no retention) behavior.
 +  function measureResponderRegion(e) {
 +    ref.current.responderRegion = null;
++    // OneKey patch: Android only for now, iOS keeps the previous behavior until
++    // it is verified. Read Platform lazily: it is not initialized yet when the
++    // compiler loads this bundle for static extraction.
++    if ((import_react_native.Platform === null || import_react_native.Platform === void 0 ? void 0 : import_react_native.Platform.OS) !== "android") return;
 +    var target = e === null || e === void 0 ? void 0 : e.currentTarget;
 +    var touch = getTouchFromPressEvent(e);
 +    if (!target || typeof target.measure !== "function") return;
@@ -167,7 +175,7 @@ index b83ef32..1dc96a2 100644
    var userStartShouldSet = viewProps.onStartShouldSetResponder;
    var userGrant = viewProps.onResponderGrant;
    var userRelease = viewProps.onResponderRelease;
-@@ -101,6 +184,9 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -101,6 +190,9 @@ function useMainThreadPressEvents(events, viewProps) {
      userGrant === null || userGrant === void 0 ? void 0 : userGrant(e);
      ref.current.blockedByExternalOwnership = false;
      ref.current.state = "pressing";
@@ -177,7 +185,7 @@ index b83ef32..1dc96a2 100644
      if (delayPressIn > 0) {
        ref.current.pressInTimer = setTimeout(function () {
          return activate(e);
-@@ -128,6 +214,13 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -128,6 +220,13 @@ function useMainThreadPressEvents(events, viewProps) {
      userRelease === null || userRelease === void 0 ? void 0 : userRelease(e);
      var wasLongPressed = ref.current.state === "longPressed";
      cleanup();
@@ -191,7 +199,7 @@ index b83ef32..1dc96a2 100644
      if (ref.current.state === "pressing") {
        activate(e);
      }
-@@ -142,11 +235,14 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -142,11 +241,14 @@ function useMainThreadPressEvents(events, viewProps) {
    viewProps.onResponderTerminate = function (e) {
      userTerminate === null || userTerminate === void 0 ? void 0 : userTerminate(e);
      cleanup();
@@ -207,7 +215,7 @@ index b83ef32..1dc96a2 100644
    };
    viewProps.onResponderTerminationRequest = function (e) {
      if (userTerminationRequest) return userTerminationRequest(e);
-@@ -156,6 +252,8 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -156,6 +258,8 @@ function useMainThreadPressEvents(events, viewProps) {
      var _events_onPressMove;
      userMove === null || userMove === void 0 ? void 0 : userMove(e);
      (_events_onPressMove = events.onPressMove) === null || _events_onPressMove === void 0 ? void 0 : _events_onPressMove.call(events, e);
@@ -387,11 +395,14 @@ index abf7a63..cec9cf3 100644
            if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
            for (const psuedoStyle of pseudoStyles) {
 diff --git a/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js b/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
-index bd0a1d6..f6cc040 100644
+index bd0a1d6..e4d0431 100644
 --- a/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
 +++ b/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
-@@ -2,6 +2,29 @@ import { unstable_hasExternalPressOwnership } from "@tamagui/native";
+@@ -1,7 +1,32 @@
+ import { unstable_hasExternalPressOwnership } from "@tamagui/native";
  import { useRef } from "react";
++// OneKey patch
++import { Platform } from "react-native";
  var DEFAULT_LONG_PRESS_DELAY = 500;
  var DEFAULT_MIN_PRESS_DURATION = 130;
 +// OneKey patch: same press retention offsets as react-native Pressability
@@ -420,7 +431,7 @@ index bd0a1d6..f6cc040 100644
  function useMainThreadPressEvents(events, viewProps) {
    var enabled = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : true,
      debugName = arguments.length > 3 ? arguments[3] : void 0;
-@@ -13,7 +36,9 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -13,7 +38,9 @@ function useMainThreadPressEvents(events, viewProps) {
        pressOutTimer: null,
        longPressTimer: null,
        activateTime: 0,
@@ -431,7 +442,7 @@ index bd0a1d6..f6cc040 100644
      };
    }
    if (!enabled || !events) return;
-@@ -25,9 +50,15 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -25,9 +52,15 @@ function useMainThreadPressEvents(events, viewProps) {
    var delayLongPress = Math.max(0, (_events_delayLongPress = events.delayLongPress) !== null && _events_delayLongPress !== void 0 ? _events_delayLongPress : DEFAULT_LONG_PRESS_DELAY);
    var _events_minPressDuration;
    var minPressDuration = Math.max(0, (_events_minPressDuration = events.minPressDuration) !== null && _events_minPressDuration !== void 0 ? _events_minPressDuration : DEFAULT_MIN_PRESS_DURATION);
@@ -447,7 +458,7 @@ index bd0a1d6..f6cc040 100644
      ref.current.activateTime = Date.now();
      (_events_onPressIn = events.onPressIn) === null || _events_onPressIn === void 0 ? void 0 : _events_onPressIn.call(events, e);
    }
-@@ -52,6 +83,58 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -52,6 +85,62 @@ function useMainThreadPressEvents(events, viewProps) {
      ref.current.pressOutTimer = null;
      ref.current.longPressTimer = null;
    }
@@ -458,6 +469,10 @@ index bd0a1d6..f6cc040 100644
 +  // (no retention) behavior.
 +  function measureResponderRegion(e) {
 +    ref.current.responderRegion = null;
++    // OneKey patch: Android only for now, iOS keeps the previous behavior until
++    // it is verified. Read Platform lazily: it is not initialized yet when the
++    // compiler loads this bundle for static extraction.
++    if ((Platform === null || Platform === void 0 ? void 0 : Platform.OS) !== "android") return;
 +    var target = e === null || e === void 0 ? void 0 : e.currentTarget;
 +    var touch = getTouchFromPressEvent(e);
 +    if (!target || typeof target.measure !== "function") return;
@@ -506,7 +521,7 @@ index bd0a1d6..f6cc040 100644
    var userStartShouldSet = viewProps.onStartShouldSetResponder;
    var userGrant = viewProps.onResponderGrant;
    var userRelease = viewProps.onResponderRelease;
-@@ -72,6 +155,9 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -72,6 +161,9 @@ function useMainThreadPressEvents(events, viewProps) {
      userGrant === null || userGrant === void 0 ? void 0 : userGrant(e);
      ref.current.blockedByExternalOwnership = false;
      ref.current.state = "pressing";
@@ -516,7 +531,7 @@ index bd0a1d6..f6cc040 100644
      if (delayPressIn > 0) {
        ref.current.pressInTimer = setTimeout(function () {
          return activate(e);
-@@ -99,6 +185,13 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -99,6 +191,13 @@ function useMainThreadPressEvents(events, viewProps) {
      userRelease === null || userRelease === void 0 ? void 0 : userRelease(e);
      var wasLongPressed = ref.current.state === "longPressed";
      cleanup();
@@ -530,7 +545,7 @@ index bd0a1d6..f6cc040 100644
      if (ref.current.state === "pressing") {
        activate(e);
      }
-@@ -113,11 +206,14 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -113,11 +212,14 @@ function useMainThreadPressEvents(events, viewProps) {
    viewProps.onResponderTerminate = function (e) {
      userTerminate === null || userTerminate === void 0 ? void 0 : userTerminate(e);
      cleanup();
@@ -546,7 +561,7 @@ index bd0a1d6..f6cc040 100644
    };
    viewProps.onResponderTerminationRequest = function (e) {
      if (userTerminationRequest) return userTerminationRequest(e);
-@@ -127,6 +223,8 @@ function useMainThreadPressEvents(events, viewProps) {
+@@ -127,6 +229,8 @@ function useMainThreadPressEvents(events, viewProps) {
      var _events_onPressMove;
      userMove === null || userMove === void 0 ? void 0 : userMove(e);
      (_events_onPressMove = events.onPressMove) === null || _events_onPressMove === void 0 ? void 0 : _events_onPressMove.call(events, e);
@@ -714,10 +729,19 @@ index c91b74f..f93aa0b 100644
  
            if (process.env.NODE_ENV === 'development' && debug === 'verbose') {
 diff --git a/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts b/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
-index 8ad8f79..70a51c6 100644
+index 8ad8f79..618cd64 100644
 --- a/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
 +++ b/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
-@@ -15,6 +15,14 @@ type PressState =
+@@ -8,6 +8,8 @@
+ 
+ import { unstable_hasExternalPressOwnership } from '@tamagui/native'
+ import { useRef } from 'react'
++// OneKey patch
++import { Platform } from 'react-native'
+ 
+ type PressState =
+   | 'idle'
+@@ -15,6 +17,14 @@ type PressState =
    | 'active' // pressIn fired
    | 'longPressed' // long press detected
  
@@ -732,7 +756,7 @@ index 8ad8f79..70a51c6 100644
  interface PressRef {
    state: PressState
    pressInTimer: ReturnType<typeof setTimeout> | null
-@@ -22,10 +30,39 @@ interface PressRef {
+@@ -22,10 +32,39 @@ interface PressRef {
    longPressTimer: ReturnType<typeof setTimeout> | null
    activateTime: number
    blockedByExternalOwnership: boolean
@@ -772,7 +796,7 @@ index 8ad8f79..70a51c6 100644
  
  export function useMainThreadPressEvents(
    events: any,
-@@ -42,6 +79,8 @@ export function useMainThreadPressEvents(
+@@ -42,6 +81,8 @@ export function useMainThreadPressEvents(
        longPressTimer: null,
        activateTime: 0,
        blockedByExternalOwnership: false,
@@ -781,7 +805,7 @@ index 8ad8f79..70a51c6 100644
      }
    }
  
-@@ -54,9 +93,14 @@ export function useMainThreadPressEvents(
+@@ -54,9 +95,14 @@ export function useMainThreadPressEvents(
      0,
      events.minPressDuration ?? DEFAULT_MIN_PRESS_DURATION
    )
@@ -796,7 +820,7 @@ index 8ad8f79..70a51c6 100644
      ref.current.activateTime = Date.now()
      events.onPressIn?.(e)
    }
-@@ -83,6 +127,55 @@ export function useMainThreadPressEvents(
+@@ -83,6 +129,59 @@ export function useMainThreadPressEvents(
      ref.current.longPressTimer = null
    }
  
@@ -807,6 +831,10 @@ index 8ad8f79..70a51c6 100644
 +  // (no retention) behavior.
 +  function measureResponderRegion(e: any) {
 +    ref.current.responderRegion = null
++    // OneKey patch: Android only for now, iOS keeps the previous behavior until
++    // it is verified. Read Platform lazily: it is not initialized yet when the
++    // compiler loads this bundle for static extraction.
++    if (Platform?.OS !== 'android') return
 +    const target = e?.currentTarget
 +    const touch = getTouchFromPressEvent(e)
 +    if (typeof target?.measure !== 'function') return
@@ -852,7 +880,7 @@ index 8ad8f79..70a51c6 100644
    // user-supplied responder props (the View's raw RN gesture API) must keep
    // working: blindly overwriting them here silently killed any press-hold-drag
    // gesture built on onResponderMove/onResponderRelease whenever the element
-@@ -112,6 +205,9 @@ export function useMainThreadPressEvents(
+@@ -112,6 +211,9 @@ export function useMainThreadPressEvents(
      userGrant?.(e)
      ref.current.blockedByExternalOwnership = false
      ref.current.state = 'pressing'
@@ -862,7 +890,7 @@ index 8ad8f79..70a51c6 100644
  
      if (delayPressIn > 0) {
        ref.current.pressInTimer = setTimeout(() => activate(e), delayPressIn)
-@@ -141,6 +237,14 @@ export function useMainThreadPressEvents(
+@@ -141,6 +243,14 @@ export function useMainThreadPressEvents(
      const wasLongPressed = ref.current.state === 'longPressed'
      cleanup()
  
@@ -877,7 +905,7 @@ index 8ad8f79..70a51c6 100644
      // if pressIn hasn't fired yet (was in delay), fire it now then immediately deactivate
      if (ref.current.state === 'pressing') {
        activate(e)
-@@ -158,11 +262,17 @@ export function useMainThreadPressEvents(
+@@ -158,11 +268,17 @@ export function useMainThreadPressEvents(
    viewProps.onResponderTerminate = (e: any) => {
      userTerminate?.(e)
      cleanup()
@@ -896,7 +924,7 @@ index 8ad8f79..70a51c6 100644
    }
  
    viewProps.onResponderTerminationRequest = (e: any) => {
-@@ -173,5 +283,7 @@ export function useMainThreadPressEvents(
+@@ -173,5 +289,7 @@ export function useMainThreadPressEvents(
    viewProps.onResponderMove = (e: any) => {
      userMove?.(e)
      events.onPressMove?.(e)
