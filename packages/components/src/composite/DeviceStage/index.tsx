@@ -9,7 +9,13 @@ import {
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard, PixelRatio, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Keyboard,
+  PixelRatio,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -530,6 +536,7 @@ export function DeviceStage({
   errorReason,
   errorMessage,
   errorI18n,
+  doneI18n,
   authChecklist,
   authFailureReason,
   onAuthSupport,
@@ -581,6 +588,7 @@ export function DeviceStage({
     errorMessage,
     errorI18n,
   );
+  const localizedDoneTitle = resolveErrorMessage(intl, undefined, doneI18n);
   // The failure's own words, where no reason claims it — the message the
   // live flow's toast used to speak. A reason's considered wording wins.
   const errorOwnWords = errorReason ? undefined : localizedErrorMessage;
@@ -1392,8 +1400,8 @@ export function DeviceStage({
     resolveCapsuleText(intl, 'connecting', deviceName, vendor),
   );
   // The capsule's glyph seat freezes on the same clock as its words: the
-  // vendor's product shot for the device beats, the ✓ for `done`, the ✗
-  // for the notice, the Bluetooth badge for the wireless waits.
+  // vendor's product shot for the device beats, the ✓ for either track's
+  // `done`, the ✗ for the notice, the Bluetooth badge for the wireless waits.
   const capsuleGlyphRef = useRef<'device' | 'done' | 'error' | 'bluetooth'>(
     'device',
   );
@@ -1408,6 +1416,7 @@ export function DeviceStage({
       errorReason,
       localizedErrorMessage,
       waitStalled ? (connectionType ?? 'usb') : undefined,
+      localizedDoneTitle,
     );
     // Same words, same object: the capsule row's memo then bails on
     // every render that changed nothing it shows.
@@ -1419,8 +1428,10 @@ export function DeviceStage({
     }
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
+    } else if (step === 'done') {
+      capsuleGlyphRef.current = 'done';
     } else if (vendor) {
-      capsuleGlyphRef.current = step === 'done' ? 'done' : 'device';
+      capsuleGlyphRef.current = 'device';
     } else {
       // The wireless waits — connecting and processing alike — wear the
       // Bluetooth badge in the device seat: the replica steps aside
@@ -1437,11 +1448,23 @@ export function DeviceStage({
   const capsuleText = capsuleTextRef.current;
   const capsuleGlyph = capsuleGlyphRef.current;
 
+  const lastAnnouncedStepRef = useRef<IDeviceStageStep | undefined>(undefined);
+  useEffect(() => {
+    const previousStep = lastAnnouncedStepRef.current;
+    lastAnnouncedStepRef.current = step;
+    // iOS does not support live regions; announce each success once.
+    if (platformEnv.isNativeIOS && step === 'done' && previousStep !== 'done') {
+      AccessibilityInfo.announceForAccessibility(capsuleText.title);
+    }
+  }, [capsuleText.title, step]);
+
   // The seat gate's aim (declared with the notice logic above): the
   // frozen glyph decides the seat on the capsule's own clock, so the
   // exit keeps whatever the capsule last showed.
   const capsuleSeatCleared =
-    capsuleGlyph === 'error' || capsuleGlyph === 'bluetooth';
+    capsuleGlyph === 'done' ||
+    capsuleGlyph === 'error' ||
+    capsuleGlyph === 'bluetooth';
   useEffect(() => {
     const target = capsuleSeatCleared ? 0 : 1;
     if (reducedMotion || sceneEntryInstant) {
@@ -2187,15 +2210,20 @@ export function DeviceStage({
         px={CAPSULE_ROW.paddingX}
         gap={CAPSULE_ROW.gap}
         alignItems="center"
+        accessible={capsuleGlyph === 'done'}
+        accessibilityLabel={
+          capsuleGlyph === 'done' ? capsuleText.title : undefined
+        }
+        accessibilityLiveRegion={capsuleGlyph === 'done' ? 'polite' : 'none'}
       >
         {/* The device's capsule seat, held open: the one standing replica
           wears the thumbnail arrangement over this box — the
           connecting-state device itself, never a second instance.
           Living outside the keyed row, it also never rebuilds when the
           capsule's words swap. The vendor track fills the same box
-          itself — a product shot, or the ✓ on `done` — since those
-          devices have no replica to seat here. The notice fills it with
-          the failure ✗ on both tracks, and the wireless waits
+          itself with a product shot since those devices have no replica
+          to seat here. The ✓ on `done` and the failure ✗ clear either
+          track's device seat, as do the wireless waits
           (connecting and processing) with the Bluetooth badge — the
           seat gate clears the replica for both (the wired waits keep
           the replica: the plugged-in device itself). */}
