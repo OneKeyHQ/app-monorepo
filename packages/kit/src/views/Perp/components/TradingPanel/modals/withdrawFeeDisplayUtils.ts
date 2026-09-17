@@ -5,17 +5,6 @@ import {
   USDC_WITHDRAW_GAS_RESERVE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-function formatAmount(amount: string) {
-  return new BigNumber(amount).toFixed(2);
-}
-
-function formatReserve(reserve: string) {
-  const prefix = new BigNumber(reserve).lte(USDC_WITHDRAW_GAS_RESERVE)
-    ? '< '
-    : '';
-  return `${prefix}$${formatAmount(reserve)}`;
-}
-
 export function formatUsdcWithdrawFeeText({
   feeQuote,
   reserve,
@@ -27,18 +16,29 @@ export function formatUsdcWithdrawFeeText({
 }) {
   if (!feeQuote || (includeReserve && !reserve)) return undefined;
 
-  const feeParts = feeQuote.components
-    .filter((component) => !includeReserve || component.kind !== 'hyperEvmGas')
-    .map((component) => {
-      const amount = formatAmount(component.amount);
-      if (component.kind === 'hyperEvmGas') {
-        return `< $${amount}`;
-      }
-      return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
-    });
+  const components = feeQuote.components.filter(
+    (component) => !includeReserve || component.kind !== 'hyperEvmGas',
+  );
+  let total = components.reduce(
+    (sum, component) => sum.plus(component.amount),
+    new BigNumber(0),
+  );
+  let isLessThan = components.some(
+    (component) => component.kind === 'hyperEvmGas',
+  );
+  const isEstimate = components.some(
+    (component) => component.kind !== 'hyperEvmGas' && component.isEstimate,
+  );
 
   if (includeReserve && reserve) {
-    feeParts.unshift(formatReserve(reserve));
+    total = total.plus(reserve);
+    isLessThan ||= new BigNumber(reserve).lte(USDC_WITHDRAW_GAS_RESERVE);
   }
-  return feeParts.join(' + ');
+  let prefix = '';
+  if (isEstimate) {
+    prefix = '≈ ';
+  } else if (isLessThan) {
+    prefix = '< ';
+  }
+  return `${prefix}$${total.toFixed(2)}`;
 }

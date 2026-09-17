@@ -10,6 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -308,6 +309,56 @@ describe('DeviceStageBurstScope', () => {
     await scope.end();
     await letTheExitRun();
     expect(stage?.step).toBe('off');
+  });
+
+  it('lands an explicit success and releases its hold atomically', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.endExplicit({
+      token,
+      doneI18n: { key: ETranslations.global_done },
+    });
+
+    expect(stage).toMatchObject({
+      step: 'done',
+      doneI18n: { key: ETranslations.global_done },
+    });
+    await jest.advanceTimersByTimeAsync(1599);
+    expect(stage?.step).toBe('done');
+    await jest.advanceTimersByTimeAsync(1);
+    expect(stage?.step).toBe('off');
+  });
+
+  it('does not land success after the person dismisses its explicit hold', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.userClose();
+    await scope.endExplicit({
+      token,
+      doneI18n: { key: ETranslations.global_done },
+    });
+
+    expect(stage?.step).toBe('off');
+  });
+
+  it('replaces a previous success as soon as a new explicit burst begins', async () => {
+    const scope = new DeviceStageBurstScope();
+    const firstToken = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.endExplicit({
+      token: firstToken,
+      doneI18n: { key: ETranslations.global_done },
+    });
+    expect(stage?.step).toBe('done');
+
+    const nextToken = await scope.beginExplicit({ connectId: CONNECT_ID });
+    expect(stage?.step).toBe('connecting');
+
+    await scope.endExplicit({ token: nextToken });
   });
 
   it('does not release a new burst when a dismissed join later fails', async () => {

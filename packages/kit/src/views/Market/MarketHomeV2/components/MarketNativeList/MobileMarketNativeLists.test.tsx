@@ -2,7 +2,7 @@
 
 import type { PropsWithChildren, ReactElement } from 'react';
 
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
 import {
   MobileMarketNativeStockList,
@@ -89,6 +89,7 @@ const mockWatchlistData: IMarketToken[] = [
 ];
 let mockRowAction: ((event: RowActionEvent) => void) | undefined;
 let mockEndReached: (() => void) | undefined;
+let mockNativeRefresh: (() => void) | undefined;
 let mockNativeSnapshot: NativeListSnapshot | undefined;
 let mockTravelMode = false;
 const mockRefetch = jest.fn();
@@ -96,7 +97,6 @@ const mockRefresh = jest.fn();
 const mockLoadMore = jest.fn();
 let mockCanLoadMore = false;
 let mockIsLoadMoreError = false;
-let mockPullToRefresh: () => void;
 let mockIsNativeAndroid = false;
 const mockData: IMarketToken[] = [];
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
@@ -133,10 +133,7 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
     NativeList: React.forwardRef<
-      Pick<
-        NativeListRef,
-        'setRefreshing' | 'applyPatches' | 'setActionAnchorState'
-      >,
+      Pick<NativeListRef, 'applyPatches' | 'setActionAnchorState'>,
       {
         snapshot: NativeListSnapshot;
         onRefresh?: () => void;
@@ -146,25 +143,13 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
     >(({ snapshot, onRefresh, onRowAction, onEndReached }, ref) => {
       mockRowAction = onRowAction;
       mockEndReached = onEndReached;
+      mockNativeRefresh = onRefresh;
       mockNativeSnapshot = snapshot;
-      const [nativeRefreshing, setNativeRefreshing] = React.useState(false);
-      React.useEffect(() => {
-        setNativeRefreshing(Boolean(snapshot.capabilities?.refreshing));
-      }, [snapshot.capabilities?.refreshing]);
       React.useImperativeHandle(ref, () => ({
-        setRefreshing: setNativeRefreshing,
         applyPatches: mockApplyPatches,
         setActionAnchorState: mockSetAnchorState,
       }));
-      mockPullToRefresh = () => {
-        setNativeRefreshing(true);
-        onRefresh?.();
-      };
-      return (
-        <button type="button" onClick={mockPullToRefresh}>
-          {nativeRefreshing ? 'Refreshing' : 'Refresh'}
-        </button>
-      );
+      return null;
     }),
   };
 });
@@ -356,7 +341,7 @@ describe.each([false, true])(
           }),
         ]),
       );
-      expect(mockNativeSnapshot?.capabilities?.pullToRefresh).toBe(!isAndroid);
+      expect(mockNativeSnapshot?.capabilities?.pullToRefresh).toBe(false);
       await act(async () => mockEndReached?.());
       expect(mockStockLoadMore).not.toHaveBeenCalled();
       await act(async () =>
@@ -463,26 +448,74 @@ describe.each([false, true])(
   },
 );
 
+describe.each([false, true])(
+  'Market pager list pull-to-refresh (Android=%s)',
+  (isAndroid) => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockIsNativeAndroid = isAndroid;
+      mockNativeRefresh = undefined;
+      mockNativeSnapshot = undefined;
+    });
+
+    afterEach(() => {
+      mockIsNativeAndroid = false;
+    });
+
+    it.each([
+      [
+        'token',
+        () => (
+          <MobileMarketNativeTokenList
+            networkId="evm--1"
+            listContainerProps={{ paddingBottom: 20 }}
+          />
+        ),
+      ],
+      [
+        'stock',
+        () => (
+          <MobileMarketNativeStockList
+            selectedCategoryId="all"
+            listContainerProps={{ paddingBottom: 20 }}
+          />
+        ),
+      ],
+      [
+        'top coins',
+        () => (
+          <MobileMarketNativeTopCoinsList
+            dataCacheRef={{ current: undefined }}
+            listContainerProps={{ paddingBottom: 20 }}
+          />
+        ),
+      ],
+      [
+        'watchlist',
+        () => (
+          <MobileMarketNativeWatchlist
+            listContainerProps={{ paddingBottom: 20 }}
+          />
+        ),
+      ],
+    ])('disables pull-to-refresh on the %s list', (_name, renderList) => {
+      render(renderList());
+
+      expect(mockNativeSnapshot?.capabilities).toMatchObject({
+        pullToRefresh: false,
+        refreshing: false,
+      });
+      expect(mockNativeRefresh).toBeUndefined();
+    });
+  },
+);
+
 describe('MobileMarketNativeTokenList refresh', () => {
   beforeEach(() => {
     mockIsNativeAndroid = false;
     mockCanLoadMore = false;
     mockIsLoadMoreError = false;
     jest.clearAllMocks();
-  });
-
-  it('keeps pull-to-refresh disabled on Android Market lists', async () => {
-    mockIsNativeAndroid = true;
-    render(
-      <MobileMarketNativeTokenList
-        networkId="evm--1"
-        listContainerProps={{ paddingBottom: 20 }}
-      />,
-    );
-
-    expect(mockNativeSnapshot?.capabilities?.pullToRefresh).toBe(false);
-    await act(async () => mockPullToRefresh());
-    expect(mockRefetch).not.toHaveBeenCalled();
   });
 
   it('retries an error row through the uncached native request', async () => {
@@ -523,57 +556,6 @@ describe('MobileMarketNativeTokenList refresh', () => {
     });
     expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
-
-  it.each([false, true])(
-    'keeps the native indicator active until the request settles (rejects: %s)',
-    async (rejects) => {
-      let settle: () => void = () => undefined;
-      mockRefetch.mockImplementation(
-        () =>
-          new Promise<void>((resolve, reject) => {
-            settle = rejects ? () => reject(new Error('offline')) : resolve;
-          }),
-      );
-      render(
-        <MobileMarketNativeTokenList
-          networkId="evm--1"
-          listContainerProps={{ paddingBottom: 20 }}
-        />,
-      );
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-      });
-      expect(screen.getByRole('button', { name: 'Refreshing' })).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: 'Refreshing' }));
-      expect(mockRefetch).toHaveBeenCalledTimes(1);
-      expect(mockRefresh).not.toHaveBeenCalled();
-
-      await act(async () => settle());
-      expect(screen.getByRole('button', { name: 'Refresh' })).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-      expect(mockRefetch).toHaveBeenCalledTimes(2);
-      await act(async () => settle());
-    },
-  );
-
-  it.each([false, true])(
-    'ends batched native refreshes (rejects: %s)',
-    async (rejects) => {
-      if (rejects) mockRefetch.mockRejectedValue(new Error('offline'));
-      else mockRefetch.mockResolvedValue(undefined);
-      render(
-        <MobileMarketNativeTokenList
-          networkId="evm--1"
-          listContainerProps={{ paddingBottom: 20 }}
-        />,
-      );
-      await act(async () => {
-        mockPullToRefresh();
-      });
-      expect(screen.getByRole('button', { name: 'Refresh' })).toBeTruthy();
-    },
-  );
 });
 
 describe('MobileMarketNativeWatchlist action anchor', () => {
