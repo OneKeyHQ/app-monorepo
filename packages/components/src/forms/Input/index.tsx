@@ -298,6 +298,9 @@ function BaseInput(
   // Tamagui v2 Group only zeroes the joined corners of its items and no longer
   // passes its radius down, so addons round their outer corners themselves to
   // keep hover/press backgrounds inside the container border.
+  // Keep physical left/right corners, as Group does: native RTL already swaps
+  // left/right styles (doLeftAndRightSwapInRTL), so flipping them on
+  // I18nManager.isRTL would round the inner side instead.
   const containerBorderRadius =
     containerProps?.borderRadius ?? sharedStyles.borderRadius;
   const addOnsBorderRadius =
