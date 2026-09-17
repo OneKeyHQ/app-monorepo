@@ -1224,6 +1224,7 @@
   "export_history_partial__title": "Teilweise",
   "export_history_queued__title": "In Warteschlange",
   "export_history_ready__title": "Bereit",
+  "export_history_sign_in__desc": "Der Exportverlauf ist mit Ihrer OneKey ID verknüpft. Melden Sie sich beim entsprechenden Konto an, um ihn anzuzeigen.",
   "export_history_time_zone__title": "Zeitzone",
   "export_history_transaction_limit__title": "Transaktionslimit",
   "export_history_transactions_count__desc": "{count, plural, one {# Transaktion} other {# Transaktionen}}",

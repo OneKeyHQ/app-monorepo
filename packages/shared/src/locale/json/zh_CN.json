@@ -1224,6 +1224,7 @@
   "export_history_partial__title": "部分完成",
   "export_history_queued__title": "排队中",
   "export_history_ready__title": "可下载",
+  "export_history_sign_in__desc": "导出记录与 OneKey ID 关联，登录对应账号后即可查看。",
   "export_history_time_zone__title": "时区",
   "export_history_transaction_limit__title": "交易数量上限",
   "export_history_transactions_count__desc": "{count, plural, other {# 笔交易}}",

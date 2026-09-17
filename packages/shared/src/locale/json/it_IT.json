@@ -1224,6 +1224,7 @@
   "export_history_partial__title": "Parziale",
   "export_history_queued__title": "In coda",
   "export_history_ready__title": "Pronto",
+  "export_history_sign_in__desc": "La cronologia delle esportazioni è associata al tuo OneKey ID. Accedi all'account corrispondente per visualizzarla.",
   "export_history_time_zone__title": "Fuso orario",
   "export_history_transaction_limit__title": "Limite transazioni",
   "export_history_transactions_count__desc": "{count, plural, one {# transazione} other {# transazioni}}",

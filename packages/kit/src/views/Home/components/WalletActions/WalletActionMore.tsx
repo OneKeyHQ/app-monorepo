@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
 import { Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -21,8 +21,10 @@ import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/confi
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeTestIDs } from '../../testIDs';
+import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
@@ -34,6 +36,7 @@ import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
+import { WalletActionPortfolioSync } from './WalletActionPortfolioSync';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
 import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
@@ -49,6 +52,7 @@ type IRenderMoreItemsParams = {
 export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
 
@@ -318,6 +322,15 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
         elements.push(...devElements);
       }
 
+      if (activeTabId === EHomeWalletTab.Portfolio) {
+        elements.push(
+          <WalletActionPortfolioSync
+            key="portfolio-sync"
+            onClose={handleActionListClose}
+          />,
+        );
+      }
+
       return (
         <AccountSelectorProviderMirror
           config={{
@@ -336,6 +349,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       getMoreActionGroups,
       account?.id,
       activeAccount?.wallet?.id,
+      activeTabId,
       network?.id,
       config.moreActions,
       show,
