@@ -1247,6 +1247,29 @@ test('what a named function returns is still source', () => {
   `,
     'switch read branch is still gated',
   );
+  const switchFallthroughRead = `
+    function loadFixture(kind) {
+      switch (kind) {
+        case 'Thing.ts':
+        case 'Thing.tsx':
+          return readFileSync(join(__dirname, 'src', kind), 'utf8');
+        default:
+          return '';
+      }
+    }
+  `;
+  assertGated(
+    `${switchFallthroughRead}
+    it('x', () => { expect(loadFixture('Thing.ts')).toContain('go'); });
+  `,
+    'a fallthrough switch case still selects the source read',
+  );
+  assertClean(
+    `${switchFallthroughRead}
+    it('x', () => { expect(loadFixture('json')).toContain('go'); });
+  `,
+    'the fallthrough switch default still selects its fallback',
+  );
   // Whole or cut, as it was returned.
   const script =
     "const code = readFileSync(join(__dirname, 'thing.js'), 'utf8');";

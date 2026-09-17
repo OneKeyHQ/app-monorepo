@@ -2009,16 +2009,28 @@ function readHelperReturns(fn) {
     }
     if (node.type === 'SwitchStatement') {
       const tests = node.cases.map((caseNode) => caseNode.test).filter(Boolean);
+      let fallthroughTests = [];
       node.cases.forEach((caseNode) => {
+        const caseTests = [...fallthroughTests, caseNode.test];
         const guard = {
           kind: 'switch',
           caseTest: caseNode.test,
+          caseTests,
           discriminant: node.discriminant,
           tests,
         };
         caseNode.consequent.forEach((statement) =>
           visit(statement, [...guards, guard], availabilityFallback),
         );
+        const stopsFallthrough = caseNode.consequent.some((statement) =>
+          [
+            'BreakStatement',
+            'ContinueStatement',
+            'ReturnStatement',
+            'ThrowStatement',
+          ].includes(statement.type),
+        );
+        fallthroughTests = stopsFallthrough ? [] : caseTests;
       });
       return;
     }
@@ -2212,10 +2224,11 @@ function staticGuardValue(guard, parameters, argumentsList) {
       );
       return expected?.known && actual.value === expected.value;
     };
-    if (guard.caseTest === null) {
-      return !guard.tests.some(matchesCase);
-    }
-    return matchesCase(guard.caseTest);
+    return (guard.caseTests ?? [guard.caseTest]).some((caseTest) =>
+      caseTest === null
+        ? !guard.tests.some(matchesCase)
+        : matchesCase(caseTest),
+    );
   }
   const condition = staticBooleanValue(guard.test, parameters, argumentsList);
   return condition === undefined ? undefined : condition === guard.taken;
