@@ -41,4 +41,7 @@ export enum ETranslationsMock {
   hardware_third_party_usb_wrong_device = 'The connected device is not this wallet. Unplug it and connect the right device.',
   hardware_third_party_ble_binding_not_saved = 'Bluetooth setup was not saved. You can set it up again later.',
   hardware_third_party_manual_verify_desc = 'This device cannot verify the address inside the app. Open the receive address on the device and compare it with the address and derivation path shown here, character by character.',
+  hardware_third_party_manual_verify_address_only_desc = 'This device cannot verify the address inside the app. Open the receive address on the device and compare it with the address shown here, character by character.',
+  hardware_third_party_secure_channel_error = 'The secure session with the device was interrupted. Reconnect the device and try again.',
+  hardware_third_party_app_already_installed = 'This app is already installed on the device.',
 }
