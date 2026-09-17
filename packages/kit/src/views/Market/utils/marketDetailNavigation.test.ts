@@ -156,6 +156,7 @@ describe('marketDetailNavigation', () => {
       resolveMarketAsset: undefined,
       skipMarketDataFetch: undefined,
       legacyTokenPreview: undefined,
+      marketTokenPreviewId: undefined,
       stockId: undefined,
       stockPreviewSymbol: undefined,
       stockPreviewName: undefined,
@@ -164,6 +165,22 @@ describe('marketDetailNavigation', () => {
       disableTrade: undefined,
       showFavoriteButton: undefined,
     });
+  });
+
+  it('clears a stale extension preview handle when the asset changes', () => {
+    expect(
+      buildReplacedMarketDetailParams({
+        tokenAddress: '0xnew',
+        network: 'eth',
+      }).marketTokenPreviewId,
+    ).toBeUndefined();
+    expect(
+      buildReplacedMarketDetailParams({
+        tokenAddress: '0xnew',
+        network: 'eth',
+        marketTokenPreviewId: 'preview-2',
+      }).marketTokenPreviewId,
+    ).toBe('preview-2');
   });
 
   it('resets stacked details to a single current detail', () => {
