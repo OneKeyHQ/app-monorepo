@@ -1229,6 +1229,7 @@ export enum ETranslations {
   export_history_partial__title = 'export_history_partial__title',
   export_history_queued__title = 'export_history_queued__title',
   export_history_ready__title = 'export_history_ready__title',
+  export_history_sign_in__desc = 'export_history_sign_in__desc',
   export_history_time_zone__title = 'export_history_time_zone__title',
   export_history_transaction_limit__title = 'export_history_transaction_limit__title',
   export_history_transactions_count__desc = 'export_history_transactions_count__desc',
