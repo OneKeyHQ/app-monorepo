@@ -458,3 +458,38 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `replaceFocusedMarketDetailRoute` wrote every identity key including `undefined` for `from` / `disableTrade` / `showFavoriteButton`. SET_PARAMS merges those undefineds over the SwapPro-owned route params.
 **Fix**: Omit SwapPro-owned keys when updating `SwapProMarketDetail` in place so the modal keeps disableTrade and from.
 **Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — SET_PARAMS that writes explicit undefined must not clobber host-owned route flags the caller does not re-supply
+
+## Case: Market Simple chart last price lagged the title quote
+**Date**: 2026-09-17 | **Platforms**: Desktop, Web (Market detail Simple chart; same component on stock/token desktop layouts)
+**Symptom**: AAPL Simple 1H showed title `$332.41` while the chart's last price label stayed at `$334.76`.
+**Root Cause**: Simple fetched 5m historical buckets once and never merged the live title quote. The last point was a 5m cutoff (often the still-open bucket's stale close). Pro already pushed websocket last-close into the title; Simple did the opposite and froze the line.
+**Fix**: Drop a still-open bucket, keep closed 5m cutoffs, and append a single `[now, titlePrice]` point so the line tail tracks the title without rewriting a closed cutoff.
+**Catchable by**: Section 4: Data flow end-to-end; NEW — a Simple/line chart that uses coarse buckets must overlay the same live quote the header reads, not wait for the next bucket close
+
+## Case: Market Simple chart live merge skipped stale/future bars and compact labels
+**Date**: 2026-09-17 | **Platforms**: Desktop, Web (Market detail Simple chart)
+**Symptom**: 1H title `$0.0000653` while hover and the last-value tag showed `$0.0006459` / `$0.000645`; pre-market share 1H stayed on the last session close.
+**Root Cause**: Merge skipped when the last closed bar was outside `rangeSeconds` or `t > now`, so the line never received the title quote. Hover used `numberFormat` string flattening and the axis used an 8-character `$0.0₄…` compact form, so even a matching value looked like a different price.
+**Fix**: Always append `[now, titlePrice]` after dropping open/future tail bars; render hover with `NumberSizeableText` `price` (same as the title) and give the axis a 10-character budget so `$0.0000653` stays in full.
+**Catchable by**: Section 4: Data flow end-to-end; Section 6: hover vs last-value vs title must share one formatter; NEW — do not skip a live overlay because the last historical bar sits outside the visible window
+
+## Case: Chart axis and header rounded the same quote with two different algorithms
+**Date**: 2026-09-17 | **Platforms**: Desktop, Web, iOS, Android (Market Simple chart, Swap stock chart)
+**Symptom**: Header showed `$0.001235` while the axis last-value tag showed `$0.0012345`; at five leading zeros the header used `$0.0₅653` and the axis used `$0.00000653`. Widening the axis character budget to 10 only moved the mismatch to a different price band.
+**Root Cause**: Two independent formatters. `formatPrice` rounds the decimal string half-up to `4 + leadingZeros` places via BigNumber and switches to subscript above 4 zeros. `formatChartPrice` truncated a double's full decimal expansion to a character budget and switched to subscript above 5 zeros. Matching them by tuning the budget only widens the band where they happen to agree.
+**Fix**: Give `formatChartPrice` the same sub-$1 rule — 4 significant digits, subscript above 4 leading zeros. Round the `toExponential()` digit string rather than calling `toFixed` on the double, because the double behind `0.0012345` is `0.00123449…` and would round down. Locked in with a test that compares both formatters over a price sweep, plus one that pins the deliberate divergences (axis drops trailing zeros and compacts K/M/B).
+**Catchable by**: NEW — when two components must display the same number, assert equality against the other formatter; matching the rendered width or digit budget is not the same as sharing the rounding rule
+
+## Case: Pro K-line chart rounded sub-$1 prices away from the header
+**Date**: 2026-09-17 | **Platforms**: iOS, Android (Market detail Pro chart — mobile has no Simple chart)
+**Symptom**: The header and the chart could print different digits for one quote, e.g. `$0.001235` above `0.001234`. Reported from a mobile screenshot where the axis also mixed `0.0₄9463` with `0.0002756`.
+**Root Cause**: `formatTradingViewNativePriceTick` in `chartLayout.ts` is a third price formatter, independent of `formatPrice` and `formatChartPrice`. It called `toFixed` on the binary double, so `0.0012345` (stored as `0.00123449…`) rounded down while the header's BigNumber `ROUND_HALF_UP` on the decimal string rounded up.
+**Fix**: Round the `toExponential()` digit string half-up inside the worklet. Left `PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 3` untouched: subscript versus plain is notation, and the chart legitimately compacts harder than the header. Test compares both formatters after expanding subscripts and normalizing trailing zeros, so it asserts the value and ignores the notation.
+**Catchable by**: NEW — when two components show the same number, the parity test must compare the value after normalizing notation; and a repo can hold more than two formatters for one concept, so grep for every implementation before declaring a display bug fixed
+
+## Case: Watchlist stock rows rendered NaN prices while their quote batch was still in flight
+**Date**: 2026-09-17 | **Platforms**: Desktop, Web (Market detail token selector; Market Home watchlist shared the same hook)
+**Symptom**: OK-63638. Switching the detail-page selector from Favorites to another tab and back flashed four stock rows with placeholder logos, a literal `NaN` price and `--` for every other metric, while the crypto rows in the same list vanished entirely for ~1s.
+**Root Cause**: Tab switching swaps `WatchlistTokenSelectorList` for `CategoryTokenSelectorList`, so `useMarketWatchlistTokenList` remounts with every request reset. Its merge step builds listing (stock/asset) rows straight from the local watchlist record — `stockId` alone is enough for a name — and filled the missing quote fields with `NaN`, whereas spot rows require a server match and were dropped. Those synthesized rows made `data.length > 0`, which defeated the list's `isLoading && data.length === 0` spinner guard, and the price cell was the only metric with no empty-value branch.
+**Fix**: Hold listing rows back until the quote batch resolves (distinguish "batch unresolved" from "batch returned no entry", so delisted favorites stay removable); cache the resolved batch on `IMarketWatchlistDataCache.listing` and park the ref on the selector shell that outlives the tabs, invalidating it when the watchlist gains an uncovered entry; give the price cell the same `--` fallback the other metrics already had.
+**Catchable by**: Section 5: "not loaded" vs "empty" properly distinguished — a row synthesized from local state is not loaded data; NEW — when one list builds rows from two sources with different readiness, the loading guard must key on the slowest source, not on row count
