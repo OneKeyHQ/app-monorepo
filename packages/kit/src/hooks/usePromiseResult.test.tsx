@@ -995,6 +995,45 @@ describe('usePromiseResult', () => {
       },
     );
 
+    it.each([false, true])(
+      'retains reconnect refresh when blur occurs during debounce (native=%s)',
+      async (native) => {
+        platformEnv.isNative = native;
+        globalNetInfo.state = { isInternetReachable: true };
+        const debounceMs = 100;
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [], {
+            pollingInterval: POLLING_MS,
+            debounced: debounceMs,
+            revalidateOnReconnect: true,
+          }),
+        );
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(1);
+
+        act(() => globalNetInfo.updateState({ isInternetReachable: false }));
+        await tick();
+        act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+        await tick();
+        // Reconnect queues a refresh while focused, but blur gates it
+        // before the debounce callback can start the request.
+        await setFocus(false);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(1);
+
+        await setFocus(true);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(2);
+        await tick(POLLING_MS);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(3);
+        await tick(POLLING_MS);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(4);
+      },
+    );
+
     it.each([{ checkIsFocused: false }, { alwaysSetState: true }])(
       'still refreshes on a blurred reconnect when the focus gate is bypassed: %j',
       async (focusOptions) => {

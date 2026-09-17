@@ -316,6 +316,14 @@ export function usePromiseResult<T>(
                 swrCacheUtils.set(capturedSwrKey, r);
               }
             }
+          } else if (
+            pollingInterval &&
+            config?.pollingNonce === pollingNonceRef.current &&
+            !isFocusedRef.current
+          ) {
+            // Focus can change while an automatic refresh is debounced.
+            // Keep it pending until a request can actually start.
+            isDepsChangedOnBlur.current = true;
           }
         } catch (err) {
           // AbortError is expected when IndexedDB transactions are cancelled
