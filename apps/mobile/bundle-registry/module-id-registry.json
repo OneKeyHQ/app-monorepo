@@ -18372,6 +18372,7 @@
     "packages/components/src/utils/scale.ts": 5332,
     "packages/components/src/utils/sidebar.ts": 11880,
     "packages/components/src/utils/tabularNums.ts": 6553,
+    "packages/components/src/utils/usableWindowBottom.ts": 2719,
     "packages/components/src/utils/webFontFamily.ts": 14323,
     "packages/components/svg/illus/logo.svg": 16582,
     "packages/components/svg/outline/code-brackets.svg": 22981,

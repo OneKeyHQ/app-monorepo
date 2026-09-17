@@ -42,9 +42,11 @@ import { IconButton } from '../../actions/IconButton';
 import { publishToastTopObstruction } from '../../actions/Toast/topObstruction';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { Portal } from '../../hocs';
+import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
+import { usableWindowBottom } from '../../utils/usableWindowBottom';
 
 import { dynamicIslandRect } from './dynamicIsland';
 
@@ -255,6 +257,8 @@ export const arrangeEase = Easing.bezierFn(0.4, 0, 0.2, 1);
 /** Extra travel past the shell's own height and lift when it slides off
  * the top edge, covering the shadow's spread under the shell. */
 const EXIT_OVERSHOOT = 80;
+
+const IS_NATIVE_ANDROID = Boolean(platformEnv.isNativeAndroid);
 
 /**
  * The Dynamic Island morph (see ./dynamicIsland): on an island phone
@@ -1177,16 +1181,50 @@ export function MorphOverlay<T>({
     }),
     [height, radius, width],
   );
+  // The one keyboard term, and a native one (the web feed reads 0): the
+  // shell hangs above the app's inputs and never rides the keyboard, but
+  // a card carries inputs of its own (the passphrase form, the pairing
+  // code), and on a short window the system keyboard would cover the
+  // actions under them. A shell whose bottom edge the keyboard covers
+  // rises by exactly that overlap — its top may slip under the status bar
+  // band, its actions stay reachable — and every other shell is untouched:
+  // a capsule, or a card on a tall window, never reaches the keyboard.
+  // The layer's own height is the window's, whatever the platform's
+  // window metrics call one.
+  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
+  const layerHeight = useSharedValue(0);
+  const handleLayerLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      layerHeight.value = event.nativeEvent.layout.height;
+    },
+    [layerHeight],
+  );
+  const bottomInset = insets.bottom;
   const positionStyle = useAnimatedStyle(() => {
     // Being-there, the shell's door, spoken off the top edge it hangs
     // from: a slide exit lifts the shell whole past that edge — the
     // notification's move — and a drag pulls presence under 1 (and a
     // breath over it, rubber-banded), so the finger rides this same
     // line. The island morph never moves this axis: it keeps presence
-    // at 1 and shrinks the box instead. No keyboard term on purpose:
-    // the shell hangs above the app's inputs and never rides it.
+    // at 1 and shrinks the box instead.
     const travel =
       (1 - presence.value) * (height.value + lift.value + EXIT_OVERSHOOT);
+    const keyboard = Math.abs(keyboardHeight.value);
+    const rise =
+      keyboard > 0 && layerHeight.value > 0
+        ? Math.max(
+            0,
+            lift.value +
+              height.value +
+              CARD.margin -
+              usableWindowBottom(
+                layerHeight.value,
+                bottomInset,
+                keyboard,
+                IS_NATIVE_ANDROID,
+              ),
+          )
+        : 0;
     return {
       // The hard gate on the hidden rest (OK-62485): fully departed, the
       // shell paints nothing at all. The slide itself stays opaque to the
@@ -1194,9 +1232,9 @@ export function MorphOverlay<T>({
       // no longer be caught on screen when a layout and this transform
       // land in different frames (a rotation re-seats the capsule).
       opacity: presence.value > 0 ? 1 : 0,
-      transform: [{ translateY: lift.value - travel }],
+      transform: [{ translateY: lift.value - travel - rise }],
     };
-  }, [height, lift, presence]);
+  }, [bottomInset, height, keyboardHeight, layerHeight, lift, presence]);
   // The scrim's being-there is the shell's: it fades with the entrance,
   // the exit and the drag alike. Its level rides a clock of its own, so a
   // flip while the shell is up (a wait turning into a failure card,
@@ -1368,7 +1406,12 @@ export function MorphOverlay<T>({
           box-none layer out of the native hierarchy, and the flattened
           path loses hit-testing for the whole subtree — the stage draws
           but nothing inside takes a touch. Keep the native view. */}
-      <Stack style={styles.layer} pointerEvents="box-none" collapsable={false}>
+      <Stack
+        style={styles.layer}
+        pointerEvents="box-none"
+        collapsable={false}
+        onLayout={handleLayerLayout}
+      >
         {/* The wall blocks the app whenever the shell is there, and is
             deliberately NOT a dismissal surface: a stray tap outside
             must never cancel a device operation mid-flight — the close
