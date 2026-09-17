@@ -11,26 +11,11 @@
 //     same map via its own babel-loader pass.
 //
 // The values come from packages/shared/src/buildTimeEnv (which derives them
-// from process.env.ONEKEY_PLATFORM), except isJest (see isJestBuild). Folding
-// these to literals lets the minifier dead-code-eliminate platform branches
-// (tree shaking).
+// from process.env.ONEKEY_PLATFORM). Folding these to literals lets the
+// minifier dead-code-eliminate platform branches (tree shaking).
 //
 // CommonJS on purpose: required from both the CJS babel config and the TS
 // rspack config (mirrors buildTimeEnv.js / envExposedToClient.js).
-
-/**
- * Whether this build transforms code for a Jest run.
- *
- * buildTimeEnv.isJest also trusts JEST_WORKER_ID, which only holds at runtime:
- * Metro runs Babel inside jest-worker threads that set JEST_WORKER_ID, so every
- * native bundle would inline `platformEnv.isJest` as `true`. Jest itself sets
- * NODE_ENV=test before transforming.
- *
- * @returns {boolean}
- */
-function isJestBuild() {
-  return process.env.NODE_ENV === 'test';
-}
 
 /**
  * @param {Record<string, boolean>} buildTimeEnv - the buildTimeEnv module exports
@@ -38,7 +23,7 @@ function isJestBuild() {
  */
 function buildPlatformEnvDefineMap(buildTimeEnv) {
   return {
-    'platformEnv.isJest': isJestBuild(),
+    'platformEnv.isJest': buildTimeEnv.isJest,
     'platformEnv.isDev': buildTimeEnv.isDev,
     'platformEnv.isE2E': buildTimeEnv.isE2E,
     'platformEnv.isProduction': buildTimeEnv.isProduction,
@@ -60,4 +45,4 @@ function buildPlatformEnvDefineMap(buildTimeEnv) {
   };
 }
 
-module.exports = { buildPlatformEnvDefineMap, isJestBuild };
+module.exports = { buildPlatformEnvDefineMap };
