@@ -788,6 +788,154 @@ describe('usePromiseResult', () => {
       expect(method).toHaveBeenCalledTimes(callsAfterRefresh + 2);
     });
 
+    it.each([
+      { native: false, recovery: 'focus' },
+      { native: true, recovery: 'focus' },
+      { native: false, recovery: 'network' },
+      { native: true, recovery: 'network' },
+    ])(
+      'keeps polling when a manual refresh replaces debounced $recovery recovery (native=$native)',
+      async ({ native, recovery }) => {
+        platformEnv.isNative = native;
+        globalNetInfo.state = { isInternetReachable: true };
+        const debounceMs = 100;
+        const method = jest.fn(async () => 'ok');
+        const { result } = renderHook(() =>
+          usePromiseResult(method, [], {
+            pollingInterval: POLLING_MS,
+            debounced: debounceMs,
+            revalidateOnFocus: true,
+            revalidateOnReconnect: true,
+          }),
+        );
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(1);
+
+        if (recovery === 'focus') {
+          await setFocus(false);
+          await setFocus(true);
+        } else {
+          act(() => globalNetInfo.updateState({ isInternetReachable: false }));
+          await tick();
+          act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+          await tick();
+        }
+        act(() => {
+          void result.current.run();
+        });
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(2);
+
+        await tick(POLLING_MS);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(3);
+        await tick(POLLING_MS);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(4);
+
+        act(() => {
+          result.current.setStopPolling(true);
+        });
+        await tick(POLLING_MS * 2);
+        expect(method).toHaveBeenCalledTimes(4);
+        act(() => {
+          result.current.setStopPolling(false);
+          void result.current.run();
+        });
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(5);
+        await tick(POLLING_MS);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(6);
+      },
+    );
+
+    it('does not copy an already started debounced polling chain into a manual refresh', async () => {
+      const method = jest.fn(async () => 'ok');
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], {
+          pollingInterval: POLLING_MS,
+          debounced: 100,
+        }),
+      );
+      await tick(100);
+      await tick(100);
+      act(() => {
+        void result.current.run();
+      });
+      await tick(100);
+      expect(method).toHaveBeenCalledTimes(2);
+
+      await tick(800);
+      await tick(100);
+      expect(method).toHaveBeenCalledTimes(3);
+      // A manual request must not schedule another tick of its own.
+      await tick(300);
+      expect(method).toHaveBeenCalledTimes(3);
+      await tick(700);
+      await tick(100);
+      expect(method).toHaveBeenCalledTimes(4);
+    });
+
+    it('preserves the manual focus override when merging a debounced automatic refresh', async () => {
+      const method = jest.fn(async () => 'ok');
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], {
+          pollingInterval: POLLING_MS,
+          debounced: 100,
+          revalidateOnFocus: true,
+        }),
+      );
+      await tick(100);
+      await setFocus(false);
+      await setFocus(true);
+      await setFocus(false);
+      act(() => {
+        void result.current.run({ alwaysSetState: true });
+      });
+      await tick(100);
+      expect(method).toHaveBeenCalledTimes(2);
+      expect(result.current.result).toBe('ok');
+      await tick(POLLING_MS * 2);
+      expect(method).toHaveBeenCalledTimes(2);
+      await setFocus(true);
+      await tick(100);
+      expect(method).toHaveBeenCalledTimes(3);
+      await tick(POLLING_MS);
+      await tick(100);
+      expect(method).toHaveBeenCalledTimes(4);
+    });
+
+    it.each([false, true])(
+      'continues polling after a blurred network recovery without focus revalidation (native=%s)',
+      async (native) => {
+        platformEnv.isNative = native;
+        globalNetInfo.state = { isInternetReachable: true };
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [], {
+            pollingInterval: POLLING_MS,
+            revalidateOnReconnect: true,
+          }),
+        );
+        await tick();
+        await setFocus(false);
+        act(() => globalNetInfo.updateState({ isInternetReachable: false }));
+        await tick(POLLING_MS * 2);
+        act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+        await tick();
+        await tick(POLLING_MS * 2);
+        expect(method).toHaveBeenCalledTimes(1);
+
+        await setFocus(true);
+        expect(method).toHaveBeenCalledTimes(2);
+        await tick(POLLING_MS);
+        expect(method).toHaveBeenCalledTimes(3);
+        await tick(POLLING_MS);
+        expect(method).toHaveBeenCalledTimes(4);
+      },
+    );
+
     it('resumes the existing polling chain when focus revalidation is disabled', async () => {
       const method = jest.fn(async () => 'ok');
       renderHook(() =>

@@ -403,11 +403,23 @@ export function usePromiseResult<T>(
       };
 
       if (optionsRef.current.debounced) {
-        const runnerDebounced = debounce(runner, optionsRef.current.debounced, {
-          leading: false,
-          trailing: true,
-        });
+        let pendingPollingNonce: number | undefined;
+        const runnerDebounced = debounce(
+          (config?: IRunnerConfig) => {
+            const pollingNonce = config?.pollingNonce ?? pendingPollingNonce;
+            pendingPollingNonce = undefined;
+            return runner(
+              pollingNonce === undefined ? config : { ...config, pollingNonce },
+            );
+          },
+          optionsRef.current.debounced,
+          { leading: false, trailing: true },
+        );
         return async (config?: IRunnerConfig) => {
+          // A manual refresh can replace a queued automatic refresh. Keep
+          // that queued run's polling ownership, but never inherit it from
+          // a run that already started (which would create another chain).
+          pendingPollingNonce = config?.pollingNonce ?? pendingPollingNonce;
           // Loading transitions are owned by the inner runner: setting
           // setLoadingTrue here would leak `isLoading=true` if the
           // route blurred during the debounce window and the runner
