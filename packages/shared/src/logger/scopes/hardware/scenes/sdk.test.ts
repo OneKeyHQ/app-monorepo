@@ -53,4 +53,30 @@ describe('hardware SDK log payload', () => {
       existsAttachPinUser: true,
     });
   });
+
+  test('keeps firmware transfer metrics in UI event diagnostics', () => {
+    expect(
+      buildHardwareUiEventLogPayload({
+        type: 'ui-firmware-progress',
+        progress: 42,
+        progressType: 'transferData',
+        transferredBytes: 420_000,
+        totalBytes: 1_000_000,
+        rateBytesPerSecond: 16_760,
+        elapsedMs: 25_060,
+        device: {
+          deviceType: 'pro2',
+        },
+      }),
+    ).toEqual({
+      eventType: 'ui-firmware-progress',
+      deviceType: 'pro2',
+      progress: 42,
+      progressType: 'transferData',
+      transferredBytes: 420_000,
+      totalBytes: 1_000_000,
+      rateBytesPerSecond: 16_760,
+      elapsedMs: 25_060,
+    });
+  });
 });
