@@ -800,7 +800,11 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async deviceStageEndBurst(params: { token: number; error?: unknown }) {
+  async deviceStageEndBurst(params: {
+    token: number;
+    error?: unknown;
+    doneI18n?: IDeviceStageState['doneI18n'];
+  }) {
     await this.deviceStageBurst.endExplicit(params);
   }
 
