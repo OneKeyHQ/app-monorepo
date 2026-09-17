@@ -24337,7 +24337,5 @@
     "packages/shared/types/unifoldDeposit.ts": 11163,
     "packages/shared/types/wallet.ts": 1105
   },
-  "tombstones": {
-    "packages/kit-bg/src/services/ServiceFirmwareUpdate/FirmwareTransferStallGuard.ts": 14433
-  }
+  "tombstones": {}
 }

@@ -284,7 +284,7 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
       return;
     }
     updateProgressRef.current('checking');
-  }, [firmwareProgress, lastFirmwareTipMessage, stepInfo]);
+  }, [stepInfo]);
 
   useEffect(() => {
     if (
