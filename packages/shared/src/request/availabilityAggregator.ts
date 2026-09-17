@@ -759,10 +759,7 @@ function createRuntimeAggregator() {
       load: () => appStorage.getItem(key),
       save: (text) => appStorage.setItem(key, text),
     },
-    // Wired unconditionally. These were gated on `platformEnv.isJest`, a
-    // build-time define that Metro's worker-thread transformer resolves to
-    // `true`, so native bundles shipped with neither the tick nor the
-    // visibility flush. Tests construct the aggregator with their own deps.
+    // Wired unconditionally; tests construct the aggregator with their own deps.
     setInterval: (fn, ms) =>
       trackedSetInterval('availabilityAggregator', fn, ms),
     subscribeVisibility: onVisibilityStateChange,

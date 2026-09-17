@@ -65,10 +65,8 @@ function resolveNetInfoModule() {
  * than cancelling it.
  */
 export function startAvailabilityNetworkTypeTracking() {
-  // No `platformEnv.isJest` guard: that flag is a build-time define, and
-  // Metro's worker-thread transformer sets JEST_WORKER_ID, so the shipped
-  // bundle compiled it to `true` and this function to a bare `return`. Jest
-  // never resolves `.native.ts`, so the guard protected nothing anyway.
+  // No `platformEnv.isJest` guard: Jest never resolves `.native.ts`, so it
+  // would protect nothing.
   if (networkType !== undefined || attempts >= MAX_TRACKING_ATTEMPTS) return;
   const now = Date.now();
   if (attempts > 0 && now - lastAttemptAt < TRACKING_RETRY_GAP_MS) return;
