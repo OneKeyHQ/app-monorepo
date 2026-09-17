@@ -4,17 +4,22 @@
  * profiles); the hooks are installed by installFunctionTrace() in
  * apps/mobile/src/startupProfile.
  *
+ * The wrapper declares no variables. It passes an equal (not identical) meta
+ * object to both hooks, and the runtime pairs them by value. A per-call
+ * variable would be rewritten by react-native-worklets/plugin: in a worklet
+ * function it treats anything this plugin adds as a captured closure variable
+ * and emits it at module scope, where it does not exist, so the module throws
+ * "Property '_functionTraceToken8' doesn't exist" on startup.
+ *
  * Known trade-offs, accepted on purpose:
  * - Trace events are written at ERROR level. NativeLogger rate-limits
  *   DEBUG/INFO/WARN (INFO: 400 lines/s, burst 2000, shared by both JS runtimes)
  *   and would drop most per-call events; ERROR is never rate-limited. Logging
  *   cost is included in measured durations, and on long runs the oldest lines
  *   are rotated out of app-latest.log.
- * - Explicit 'worklet' functions can be instrumented twice:
- *   react-native-worklets/plugin runs after this plugin and clones the
- *   already-wrapped function, so the JS-side copy gets a second begin/end pair.
- *   This is only log noise: the hooks are undefined on the UI runtime and every
- *   call site is guarded by a typeof check, so it cannot crash.
+ * - Explicit 'worklet' functions are not instrumented at all. They run on the
+ *   UI runtime, where the hooks do not exist, so tracing them only inflates
+ *   the worklet code that react-native-worklets/plugin serializes.
  */
 const path = require('path');
 
@@ -119,6 +124,23 @@ function getFunctionName(functionPath) {
   return 'anonymous';
 }
 
+function hasWorkletDirective(functionPath) {
+  const directives = functionPath.node?.body?.directives;
+  return (
+    Array.isArray(directives) &&
+    directives.some((directive) => directive.value?.value === 'worklet')
+  );
+}
+
+function isWorkletFunction(functionPath) {
+  for (let current = functionPath; current; current = current.parentPath) {
+    if (typeof current.isFunction === 'function' && current.isFunction()) {
+      if (hasWorkletDirective(current)) return true;
+    }
+  }
+  return false;
+}
+
 function buildFunctionMeta(functionPath, filename, t) {
   const meta = [
     t.objectProperty(
@@ -142,6 +164,19 @@ function buildFunctionMeta(functionPath, filename, t) {
 }
 
 module.exports = function functionTracePlugin({ types: t }) {
+  const hookCall = (hookName, meta) => {
+    const hook = () =>
+      t.memberExpression(t.identifier('globalThis'), t.identifier(hookName));
+    return t.ifStatement(
+      t.binaryExpression(
+        '===',
+        t.unaryExpression('typeof', hook()),
+        t.stringLiteral('function'),
+      ),
+      t.expressionStatement(t.callExpression(hook(), [meta])),
+    );
+  };
+
   return {
     name: 'onekey-function-trace',
     visitor: {
@@ -151,6 +186,9 @@ module.exports = function functionTracePlugin({ types: t }) {
 
       Function(functionPath, state) {
         if (state.skipFile || functionPath.getData('onekeyFunctionTrace')) {
+          return;
+        }
+        if (isWorkletFunction(functionPath)) {
           return;
         }
 
@@ -165,64 +203,22 @@ module.exports = function functionTracePlugin({ types: t }) {
         }
 
         const filename = state.filename || 'unknown';
-        const tokenId =
-          functionPath.scope.generateUidIdentifier('functionTraceToken');
-        const meta = buildFunctionMeta(functionPath, filename, t);
-        const startCall = t.variableDeclaration('const', [
-          t.variableDeclarator(
-            tokenId,
-            t.conditionalExpression(
-              t.binaryExpression(
-                '===',
-                t.unaryExpression(
-                  'typeof',
-                  t.memberExpression(
-                    t.identifier('globalThis'),
-                    t.identifier(FUNCTION_TRACE_START),
-                  ),
-                ),
-                t.stringLiteral('function'),
-              ),
-              t.callExpression(
-                t.memberExpression(
-                  t.identifier('globalThis'),
-                  t.identifier(FUNCTION_TRACE_START),
-                ),
-                [meta],
-              ),
-              t.identifier('undefined'),
-            ),
-          ),
-        ]);
-        const endCall = t.ifStatement(
-          t.binaryExpression(
-            '===',
-            t.unaryExpression(
-              'typeof',
-              t.memberExpression(
-                t.identifier('globalThis'),
-                t.identifier(FUNCTION_TRACE_END),
-              ),
-            ),
-            t.stringLiteral('function'),
-          ),
-          t.expressionStatement(
-            t.callExpression(
-              t.memberExpression(
-                t.identifier('globalThis'),
-                t.identifier(FUNCTION_TRACE_END),
-              ),
-              [tokenId],
-            ),
-          ),
+        // Both hooks get their own meta literal: the runtime pairs them by
+        // value, so the wrapper needs no variable of its own.
+        const startCall = hookCall(
+          FUNCTION_TRACE_START,
+          buildFunctionMeta(functionPath, filename, t),
+        );
+        const endCall = hookCall(
+          FUNCTION_TRACE_END,
+          buildFunctionMeta(functionPath, filename, t),
         );
 
         const originalBody = bodyPath.node.body;
         const originalDirectives = bodyPath.node.directives || [];
         const wrappedBody = t.blockStatement([
-          startCall,
           t.tryStatement(
-            t.blockStatement(originalBody),
+            t.blockStatement([startCall, ...originalBody]),
             null,
             t.blockStatement([endCall]),
           ),

@@ -7,8 +7,8 @@ type IFunctionTraceMeta = {
 };
 
 type IFunctionTraceHooks = {
-  start: (meta: IFunctionTraceMeta) => unknown;
-  end: (token: unknown) => void;
+  start: (meta: IFunctionTraceMeta) => void;
+  end: (meta: IFunctionTraceMeta) => void;
 };
 
 type IFunctionTraceTestGlobal = typeof globalThis & {
@@ -77,13 +77,15 @@ describe('installFunctionTrace', () => {
       .mockReturnValueOnce(112.5);
     const hooks = installHooks();
 
-    hooks.end(
-      hooks.start({
-        name: 'loadWallet',
-        file: 'packages/kit/src/wallet.ts',
-        line: 12,
-      }),
-    );
+    // The plugin emits a separate meta literal per hook, so the end hook never
+    // receives the same object the start hook got.
+    const meta = {
+      name: 'loadWallet',
+      file: 'packages/kit/src/wallet.ts',
+      line: 12,
+    };
+    hooks.start({ ...meta });
+    hooks.end({ ...meta });
 
     expect(mockNativeLoggerWrite).toHaveBeenCalledTimes(2);
     const [[beginLevel, beginLine], [endLevel, endLine]] =
@@ -99,5 +101,37 @@ describe('installFunctionTrace', () => {
     expect(beginMatch).not.toBeNull();
     expect(endMatch).not.toBeNull();
     expect(endMatch?.[1]).toBe(beginMatch?.[1]);
+  });
+
+  it('pairs interleaved calls with their own begin line', () => {
+    testGlobal.__ONEKEY_FUNCTION_TRACE__ = true;
+    const hooks = installHooks();
+    const outer = { name: 'outer', file: 'packages/kit/src/a.ts', line: 1 };
+    const inner = { name: 'inner', file: 'packages/kit/src/b.ts', line: 2 };
+
+    // `outer` is still open (awaiting) while `inner` runs to completion.
+    hooks.start({ ...outer });
+    hooks.start({ ...inner });
+    hooks.end({ ...inner });
+    hooks.end({ ...outer });
+
+    const ids = mockNativeLoggerWrite.mock.calls.map(
+      ([, line]) => /id=(\d+)/.exec(line)?.[1],
+    );
+    const names = mockNativeLoggerWrite.mock.calls.map(
+      ([, line]) => /name=(\w+)/.exec(line)?.[1],
+    );
+    expect(names).toEqual(['outer', 'inner', 'inner', 'outer']);
+    expect(ids[2]).toBe(ids[1]);
+    expect(ids[3]).toBe(ids[0]);
+  });
+
+  it('ignores an end without a matching begin', () => {
+    testGlobal.__ONEKEY_FUNCTION_TRACE__ = true;
+    const hooks = installHooks();
+
+    hooks.end({ name: 'orphan', file: 'packages/kit/src/c.ts', line: 3 });
+
+    expect(mockNativeLoggerWrite).not.toHaveBeenCalled();
   });
 });

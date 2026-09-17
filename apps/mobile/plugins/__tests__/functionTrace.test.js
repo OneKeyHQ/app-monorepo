@@ -35,6 +35,11 @@ describe('functionTrace Babel plugin', () => {
     expect(code).toContain('__onekeyFunctionTraceStart');
     expect(code).toContain('__onekeyFunctionTraceEnd');
     expect(code).toContain('file: "packages/kit/src/example.ts"');
+    // The wrapper must not declare anything: in a worklet function,
+    // react-native-worklets captures any variable added here as a closure
+    // variable and emits it at module scope, where it does not exist.
+    expect(code).not.toMatch(/_functionTraceToken/);
+    expect(code).not.toMatch(/(?:const|let|var)\s+_\w*[tT]race\w*\s*=/);
     expect(code).toContain('name: "arrow"');
     expect(code).toContain('name: "ordinary"');
     expect(code).toContain('name: "method"');
@@ -54,6 +59,24 @@ describe('functionTrace Babel plugin', () => {
 
     expect(dependencyCode).not.toContain('__onekeyFunctionTraceStart');
     expect(testCode).not.toContain('__onekeyFunctionTraceStart');
+  });
+
+  it('does not instrument worklets or functions nested in them', () => {
+    const code = transform(
+      `
+        const shift = (bottom) => {
+          'worklet';
+          const clamp = (value) => Math.max(0, value);
+          return clamp(bottom);
+        };
+        const plain = (value) => value + 1;
+      `,
+      path.join(repoRoot, 'packages/components/src/anim.ts'),
+    );
+
+    expect(code).toContain('name: "plain"');
+    expect(code).not.toContain('name: "shift"');
+    expect(code).not.toContain('name: "clamp"');
   });
 
   it('matches paths relative to the monorepo root', () => {
