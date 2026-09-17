@@ -1270,6 +1270,46 @@ test('what a named function returns is still source', () => {
   `,
     'the fallthrough switch default still selects its fallback',
   );
+  const bracedSwitchRead = `
+    function loadFixture(kind) {
+      switch (kind) {
+        case 'Thing.ts': {
+          return readFileSync(join(__dirname, 'src', kind), 'utf8');
+        }
+        default:
+          return '';
+      }
+    }
+  `;
+  assertGated(
+    `${bracedSwitchRead}
+    it('x', () => { expect(loadFixture('Thing.ts')).toContain('go'); });
+  `,
+    'a braced switch case terminates before the fallback case',
+  );
+  assertClean(
+    `${bracedSwitchRead}
+    it('x', () => { expect(loadFixture('fixture.json')).toContain('go'); });
+  `,
+    'a braced switch default still selects its fallback',
+  );
+  const constantSwitchRead = `
+    const KIND = 'Thing.ts';
+    function loadFixture(kind) {
+      switch (kind) {
+        case KIND:
+          return readFileSync(join(__dirname, 'src', kind), 'utf8');
+        default:
+          return '';
+      }
+    }
+  `;
+  assertGated(
+    `${constantSwitchRead}
+    it('x', () => { expect(loadFixture('Thing.ts')).toContain('go'); });
+  `,
+    'an unknown switch label keeps the source read conservatively gated',
+  );
   // Whole or cut, as it was returned.
   const script =
     "const code = readFileSync(join(__dirname, 'thing.js'), 'utf8');";

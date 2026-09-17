@@ -1971,6 +1971,42 @@ function hasFileAvailabilityCheck(node) {
   return found;
 }
 
+/** Whether a statement always completes the current switch case. */
+function alwaysTerminates(node) {
+  if (!node) {
+    return false;
+  }
+  switch (node.type) {
+    case 'BreakStatement':
+    case 'ContinueStatement':
+    case 'ReturnStatement':
+    case 'ThrowStatement':
+      return true;
+    case 'BlockStatement': {
+      const last = node.body.at(-1);
+      return Boolean(last) && alwaysTerminates(last);
+    }
+    case 'IfStatement':
+      return (
+        Boolean(node.alternate) &&
+        alwaysTerminates(node.consequent) &&
+        alwaysTerminates(node.alternate)
+      );
+    case 'LabeledStatement':
+      return alwaysTerminates(node.body);
+    case 'TryStatement':
+      if (node.finalizer && alwaysTerminates(node.finalizer)) {
+        return true;
+      }
+      return (
+        alwaysTerminates(node.block) &&
+        (!node.handler || alwaysTerminates(node.handler.body))
+      );
+    default:
+      return false;
+  }
+}
+
 /** Return values paired with the guards that select them. */
 function readHelperReturns(fn) {
   if (fn.body.type !== 'BlockStatement') {
@@ -2022,14 +2058,7 @@ function readHelperReturns(fn) {
         caseNode.consequent.forEach((statement) =>
           visit(statement, [...guards, guard], availabilityFallback),
         );
-        const stopsFallthrough = caseNode.consequent.some((statement) =>
-          [
-            'BreakStatement',
-            'ContinueStatement',
-            'ReturnStatement',
-            'ThrowStatement',
-          ].includes(statement.type),
-        );
+        const stopsFallthrough = caseNode.consequent.some(alwaysTerminates);
         fallthroughTests = stopsFallthrough ? [] : caseTests;
       });
       return;
@@ -2222,13 +2251,31 @@ function staticGuardValue(guard, parameters, argumentsList) {
         parameters,
         argumentsList,
       );
-      return expected?.known && actual.value === expected.value;
+      return expected?.known === true
+        ? actual.value === expected.value
+        : undefined;
     };
-    return (guard.caseTests ?? [guard.caseTest]).some((caseTest) =>
-      caseTest === null
-        ? !guard.tests.some(matchesCase)
-        : matchesCase(caseTest),
-    );
+    const defaultMatches = () => {
+      let unknown = false;
+      for (const test of guard.tests) {
+        const result = matchesCase(test);
+        if (result === true) {
+          return false;
+        }
+        unknown ||= result === undefined;
+      }
+      return unknown ? undefined : true;
+    };
+    let unknown = false;
+    for (const caseTest of guard.caseTests ?? [guard.caseTest]) {
+      const result =
+        caseTest === null ? defaultMatches() : matchesCase(caseTest);
+      if (result === true) {
+        return true;
+      }
+      unknown ||= result === undefined;
+    }
+    return unknown ? undefined : false;
   }
   const condition = staticBooleanValue(guard.test, parameters, argumentsList);
   return condition === undefined ? undefined : condition === guard.taken;
