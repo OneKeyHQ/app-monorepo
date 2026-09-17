@@ -52,6 +52,7 @@ import {
 import {
   HYPEREVM_SYSTEM_ADDRESS,
   SPOT_ASSET_ID_OFFSET,
+  USDC_WITHDRAW_GAS_RESERVE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IUsdcWithdrawDestinationId,
@@ -109,6 +110,7 @@ import {
   getUsdcWithdrawFee,
   requireUsdcWithdrawDestination,
 } from './cctpWithdraw';
+import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import {
   getLiveUsdcWithdrawRoute,
   getUsdcWithdrawRoute,
@@ -1902,6 +1904,38 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     destinationId: IUsdcWithdrawDestinationId;
   }): Promise<IUsdcWithdrawFeeQuote> {
     return getUsdcWithdrawFee(params.destinationId, this._callHyperEvmRpc);
+  }
+
+  @backgroundMethod()
+  async getUsdcWithdrawReserve(params: { userAccountId: string }) {
+    try {
+      const wallet =
+        await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet(
+          params,
+        );
+      const accountAddress = await wallet.getAddress();
+      const result = await hyperLiquidApiClients.infoClient.preTransferCheck({
+        source: accountAddress,
+        user: HYPEREVM_SYSTEM_ADDRESS,
+      });
+      const fee = result?.fee;
+      if (
+        typeof fee !== 'string' ||
+        !/^\d+(\.\d+)?$/.test(fee) ||
+        !new BigNumber(fee).isFinite() ||
+        result.isSanctioned !== false
+      ) {
+        return undefined;
+      }
+      return {
+        accountAddress,
+        // The cent is a minimum buffer, not an extra charge on top of the fee.
+        reserve: BigNumber.maximum(fee, USDC_WITHDRAW_GAS_RESERVE).toFixed(),
+      };
+    } catch (error) {
+      console.error('[getUsdcWithdrawReserve] Failed to check reserve:', error);
+      return undefined;
+    }
   }
 
   // Mirrors perpsComputedAccountValueAtom so the action spends the same balance
