@@ -6,13 +6,14 @@ import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 /**
  * User-facing stages of the install page. Every SDK tip message and page
- * step collapses into one of these six words.
+ * step collapses into one of these words.
  */
 export type IFirmwareUpdateStage =
   | 'preparing'
   | 'downloading'
   | 'enteringUpdateMode'
   | 'waitingForDevice'
+  | 'transferring'
   | 'installing'
   | 'verifying';
 
@@ -41,11 +42,14 @@ const ENTERING_UPDATE_MODE_TIPS = new Set<string>([
   EFirmwareUpdateTipMessages.SwitchFirmwareReconnectDevice,
 ]);
 
+const TRANSFERRING_TIPS = new Set<string>([
+  EFirmwareUpdateTipMessages.StartTransferData,
+]);
+
 const INSTALLING_TIPS = new Set<string>([
   EFirmwareUpdateTipMessages.UpdateSysResource,
   EFirmwareUpdateTipMessages.UpdateSysResourceSuccess,
   EFirmwareUpdateTipMessages.FirmwareEraseSuccess,
-  EFirmwareUpdateTipMessages.StartTransferData,
   EFirmwareUpdateTipMessages.InstallingFirmware,
   EFirmwareUpdateTipMessages.FirmwareUpdating,
   'installing',
@@ -75,6 +79,9 @@ export function getFirmwareUpdateStage({
   }
   if (ENTERING_UPDATE_MODE_TIPS.has(progressType)) {
     return 'enteringUpdateMode';
+  }
+  if (TRANSFERRING_TIPS.has(progressType)) {
+    return 'transferring';
   }
   if (INSTALLING_TIPS.has(progressType)) {
     return installPhase === 'verify' ? 'verifying' : 'installing';

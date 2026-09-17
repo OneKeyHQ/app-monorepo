@@ -35,6 +35,10 @@ export const firmwareUpdateInstallCopy = {
         return intl.formatMessage({
           id: ETranslations.firmware_update_stage_waiting_for_device__msg,
         });
+      case 'transferring':
+        return intl.formatMessage({
+          id: ETranslations.update_transferring_data,
+        });
       case 'installing':
         return intl.formatMessage({
           id: ETranslations.firmware_update_stage_installing__msg,
