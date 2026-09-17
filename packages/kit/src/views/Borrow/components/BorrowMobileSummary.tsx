@@ -69,6 +69,12 @@ function BalanceMetric({
   );
 }
 
+/** Counts what is actually in the groups: a group with no items behind it
+ * opens a claim dialog with nothing to claim. */
+function hasRewardItems(groups?: { items: unknown[] }[] | null) {
+  return Boolean(groups?.some((group) => group.items.length > 0));
+}
+
 export function BorrowMobileSummary({
   overviewData,
   showPositionTotals = true,
@@ -96,12 +102,14 @@ export function BorrowMobileSummary({
     Boolean(reserves.data?.overview?.platformBonus) || isPositionTotalsLoading;
   // The rewards payload still arrives when there is nothing to collect — a
   // zero-valued object rather than an absent one — so its presence answers
-  // nothing. These two lists are what the claim dialog is built from; with both
-  // empty there is no figure worth a cell and nothing behind it to open.
+  // nothing, and neither does button.disabled: the claim dialog is built from
+  // these two lists alone and counts the items inside the groups to decide it
+  // has anything to show. A claim left enabled over an empty payload opens a
+  // dialog with nothing in it, so the lists are what the cell follows.
   const rewardsDetail = borrowRewards?.button?.data?.rewardsDetail;
   const showRewards =
-    Boolean(rewardsDetail?.claimable?.length) ||
-    Boolean(rewardsDetail?.unclaimable?.length) ||
+    hasRewardItems(rewardsDetail?.claimable) ||
+    hasRewardItems(rewardsDetail?.unclaimable) ||
     isRewardsLoading;
 
   // Otherwise the frame below is a rule drawn across the page with nothing

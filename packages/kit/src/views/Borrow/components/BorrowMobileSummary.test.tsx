@@ -21,13 +21,31 @@ const context: { reserves: { data?: IReservesData } } = {
   reserves: { data: undefined },
 };
 
-// Shaped the way the server sends it: the object arrives either way, and the
-// two lists are what say whether there is anything in it.
-const rewards = (claimable: unknown[], unclaimable: unknown[] = []) =>
+type IRewardGroup = { items: { id: string }[] };
+
+const group = (...ids: string[]): IRewardGroup => ({
+  items: ids.map((id) => ({ id })),
+});
+
+// Shaped the way the server sends it: the object arrives either way. `disabled`
+// is the server's own verdict on whether a claim can be made, and it tracks the
+// claimable list unless a case overrides it to pull the two apart.
+const rewards = ({
+  claimable = [],
+  unclaimable = [],
+  disabled,
+}: {
+  claimable?: IRewardGroup[];
+  unclaimable?: IRewardGroup[];
+  disabled?: boolean;
+} = {}) =>
   ({
     title: { text: 'Rewards' },
-    description: { text: claimable.length ? '$12.00' : '$0' },
-    button: { data: { rewardsDetail: { claimable, unclaimable } } },
+    description: { text: '$0' },
+    button: {
+      disabled: disabled ?? !claimable.some((item) => item.items.length > 0),
+      data: { rewardsDetail: { claimable, unclaimable } },
+    },
   }) as unknown as IBorrowOverviewData['borrowRewards'];
 
 const overviewData = (over: Partial<IBorrowOverviewData> = {}) =>
@@ -116,7 +134,9 @@ describe('BorrowMobileSummary', () => {
   it('keeps rewards reachable after the last position is gone', () => {
     const { queryByTestId } = render(
       <BorrowMobileSummary
-        overviewData={overviewData({ borrowRewards: rewards([{ id: 'r1' }]) })}
+        overviewData={overviewData({
+          borrowRewards: rewards({ claimable: [group('r1')] }),
+        })}
         showPositionTotals={false}
       />,
     );
@@ -131,7 +151,7 @@ describe('BorrowMobileSummary', () => {
   it('drops the whole frame when rewards arrive with nothing to collect', () => {
     const { container, queryByTestId } = render(
       <BorrowMobileSummary
-        overviewData={overviewData({ borrowRewards: rewards([]) })}
+        overviewData={overviewData({ borrowRewards: rewards() })}
         showPositionTotals={false}
       />,
     );
@@ -146,13 +166,50 @@ describe('BorrowMobileSummary', () => {
     const { queryByTestId } = render(
       <BorrowMobileSummary
         overviewData={overviewData({
-          borrowRewards: rewards([], [{ id: 'u1' }]),
+          borrowRewards: rewards({ unclaimable: [group('u1')] }),
         })}
         showPositionTotals={false}
       />,
     );
 
     expect(queryByTestId('rewards-metric')).toBeTruthy();
+  });
+
+  // The dialog behind the cell is built from the two lists alone, so a server
+  // that leaves the claim enabled over an empty payload is offering a button
+  // that opens nothing. The lists decide, not the flag.
+  it('stays hidden when the claim reads live over an empty payload', () => {
+    const { container, queryByTestId } = render(
+      <BorrowMobileSummary
+        overviewData={overviewData({
+          borrowRewards: rewards({
+            disabled: false,
+          }),
+        })}
+        showPositionTotals={false}
+      />,
+    );
+
+    expect(queryByTestId('rewards-metric')).toBeNull();
+    expect(container.firstChild).toBeNull();
+  });
+
+  // Counting groups rather than the items inside them let an empty group stand
+  // in for a reward, putting up a $0 cell whose dialog had nothing to claim.
+  it('drops the cell for a claim group with nothing inside it', () => {
+    const { container, queryByTestId } = render(
+      <BorrowMobileSummary
+        overviewData={overviewData({
+          borrowRewards: rewards({
+            claimable: [group()],
+          }),
+        })}
+        showPositionTotals={false}
+      />,
+    );
+
+    expect(queryByTestId('rewards-metric')).toBeNull();
+    expect(container.firstChild).toBeNull();
   });
 
   it('drops the bonus cell when the market sent no bonus', () => {
