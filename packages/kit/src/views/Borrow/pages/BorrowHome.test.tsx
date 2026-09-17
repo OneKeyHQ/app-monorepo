@@ -81,9 +81,13 @@ jest.mock('../components/BorrowEModeMetric', () => ({
   ),
 }));
 
+const mockOverviewProps: Record<string, unknown>[] = [];
 jest.mock('../components/Overview', () => ({
   __esModule: true,
-  Overview: () => <div data-testid="overview" />,
+  Overview: (props: Record<string, unknown>) => {
+    mockOverviewProps.push(props);
+    return <div data-testid="overview" />;
+  },
 }));
 
 jest.mock('../components/BorrowAlerts', () => ({
@@ -173,9 +177,10 @@ jest.mock('../hooks/useBorrowOverviewData', () => ({
   __esModule: true,
   useBorrowOverviewData: () => ({}),
 }));
+const mockPositionEntries: unknown[] = [];
 jest.mock('../hooks/useBorrowPositionEntries', () => ({
   __esModule: true,
-  useBorrowPositionEntries: () => [],
+  useBorrowPositionEntries: () => mockPositionEntries,
 }));
 
 describe('BorrowHome e-mode entry point', () => {
@@ -220,5 +225,49 @@ describe('BorrowHome e-mode entry point', () => {
     expect(getByTestId(BorrowTestIDs.reservesErrorState)).toBeTruthy();
     expect(getByTestId('overview')).toBeTruthy();
     expect(queryByTestId('e-mode-metric')).toBeNull();
+  });
+});
+
+describe('BorrowHome overview metrics', () => {
+  beforeEach(() => {
+    media.gtMd = false;
+    media.gtXl = false;
+    context.borrowDataStatus = EBorrowDataStatus.Ready;
+    mockPositionEntries.length = 0;
+    mockOverviewProps.length = 0;
+  });
+
+  const lastOverviewProps = () =>
+    mockOverviewProps[mockOverviewProps.length - 1];
+
+  // Net worth, health factor and net APY all describe a position. This page
+  // owns the only list that knows whether one exists, so it is what has to
+  // tell Overview.
+  it('tells the overview an empty market has no position metrics', () => {
+    render(<BorrowHome />);
+
+    expect(lastOverviewProps()).toMatchObject({
+      showPositionMetrics: false,
+      isPositionMetricsLoading: false,
+    });
+  });
+
+  it('turns them back on as soon as a position is in the list', () => {
+    mockPositionEntries.push({ kind: 'supplied' });
+    render(<BorrowHome />);
+
+    expect(lastOverviewProps()).toMatchObject({ showPositionMetrics: true });
+  });
+
+  // An unsettled list is not evidence of an empty market. Without this the
+  // metrics would blank out for the length of every load and come straight
+  // back, which is the flicker the separate loading flag exists to prevent.
+  it('reports the position list as loading while reserves are pending', () => {
+    context.borrowDataStatus = EBorrowDataStatus.LoadingReserves;
+    render(<BorrowHome />);
+
+    expect(lastOverviewProps()).toMatchObject({
+      isPositionMetricsLoading: true,
+    });
   });
 });

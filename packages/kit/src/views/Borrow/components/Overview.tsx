@@ -48,6 +48,8 @@ export const Overview = ({
   isEModeLoading = false,
   overviewData,
   showBottomSpacing = true,
+  showPositionMetrics = true,
+  isPositionMetricsLoading = false,
   onBorrowHistoryActionChange,
 }: {
   eModeStatus: IBorrowEModeStatus | null;
@@ -55,6 +57,12 @@ export const Overview = ({
   isEModeLoading?: boolean;
   overviewData: IBorrowOverviewData;
   showBottomSpacing?: boolean;
+  /** Phones only: net worth, health factor and net APY all describe positions,
+   * so a market the user holds nothing in has no value to put under any of the
+   * three. The wide layout keeps them regardless — the net worth hero is what
+   * the whole page is built around there. */
+  showPositionMetrics?: boolean;
+  isPositionMetricsLoading?: boolean;
   onBorrowHistoryActionChange?: (
     handler: (() => void) | null,
     visible: boolean,
@@ -292,25 +300,31 @@ export const Overview = ({
            stay pinned to the right and top-aligned with that row. */
         <XStack ai="flex-start" gap="$2">
           <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
-            <OverviewMetric
-              title={{ text: labels.netWorth }}
-              text={netWorthText}
-              isLoading={isNetWorthLoading}
-              widthMode="equal"
-            />
-            <BorrowHealthFactorSummary
-              {...healthSummaryProps}
-              widthMode="equal"
-            />
-            <OverviewMetric
-              testID={BorrowTestIDs.overviewNetApy}
-              title={{ text: labels.netApy }}
-              text={netApyText}
-              isLoading={isNetApyLoading}
-              widthMode="equal"
-            />
+            {showPositionMetrics || isPositionMetricsLoading ? (
+              <>
+                <OverviewMetric
+                  testID={BorrowTestIDs.overviewNetWorth}
+                  title={{ text: labels.netWorth }}
+                  text={netWorthText}
+                  isLoading={isNetWorthLoading}
+                  widthMode="equal"
+                />
+                <BorrowHealthFactorSummary
+                  {...healthSummaryProps}
+                  widthMode="equal"
+                />
+                <OverviewMetric
+                  testID={BorrowTestIDs.overviewNetApy}
+                  title={{ text: labels.netApy }}
+                  text={netApyText}
+                  isLoading={isNetApyLoading}
+                  widthMode="equal"
+                />
+              </>
+            ) : null}
           </XStack>
-          {/* Clears the metric cells' own $3 of top padding */}
+          {/* Clears the metric cells' own $3 of top padding, and holds the
+              button at that offset once the cells are gone */}
           <XStack pt="$3">{refreshButton}</XStack>
         </XStack>
       )}

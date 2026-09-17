@@ -513,6 +513,8 @@ const BorrowHomeContent = memo(
               isEModeLoading={isEModeInitialLoading}
               overviewData={overviewData}
               showBottomSpacing={!hasAlerts}
+              showPositionMetrics={hasPositions}
+              isPositionMetricsLoading={isReservesPending}
               onBorrowHistoryActionChange={onBorrowHistoryActionChange}
             />
             {hasAlerts ? (
