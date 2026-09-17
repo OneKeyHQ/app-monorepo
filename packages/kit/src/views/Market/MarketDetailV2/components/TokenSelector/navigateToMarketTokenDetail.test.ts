@@ -525,6 +525,7 @@ describe('navigateToMarketTokenDetail', () => {
     platformEnv.isNative = true;
     getRootStateMock.mockReturnValue({
       key: 'root',
+      index: 1,
       routes: [
         {
           name: 'main',
@@ -541,6 +542,7 @@ describe('navigateToMarketTokenDetail', () => {
         { key: 'modal', name: 'MobileTokenSelector' },
       ],
     });
+    getCurrentRouteMock.mockReturnValue({ name: 'MobileTokenSelector' });
     const beforeNavigate = jest.fn();
     await navigateToMarketTokenDetail(
       { address: '0xabc', networkId: 'evm--1', isNative: false },
@@ -549,6 +551,62 @@ describe('navigateToMarketTokenDetail', () => {
 
     expect(beforeNavigate).toHaveBeenCalledTimes(1);
     expect(navigateMock).not.toHaveBeenCalled();
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RESET',
+        target: 'discovery-stack',
+      }),
+    );
+  });
+
+  it('updates SwapPro in place instead of rewriting the background Market stack', async () => {
+    platformEnv.isNative = true;
+    getRootStateMock.mockReturnValue({
+      key: 'root',
+      index: 1,
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'market-stack',
+            index: 1,
+            routes: [
+              { key: 'list', name: 'TabMarket' },
+              { key: 'detail-bg', name: 'MarketDetailV2' },
+            ],
+          },
+        },
+        {
+          key: 'swap-modal',
+          name: 'SwapModal',
+          state: {
+            key: 'swap-stack',
+            index: 0,
+            routes: [{ key: 'swap-detail', name: 'SwapProMarketDetail' }],
+          },
+        },
+      ],
+    });
+    getCurrentRouteMock.mockReturnValue({
+      name: 'SwapProMarketDetail',
+      key: 'swap-detail',
+    });
+    const beforeNavigate = jest.fn();
+    await navigateToMarketTokenDetail(
+      { address: '0xabc', networkId: 'evm--1', isNative: false },
+      { tokenDetailActions, beforeNavigate },
+    );
+
+    expect(beforeNavigate).toHaveBeenCalledTimes(1);
+    expect(dispatchMock).not.toHaveBeenCalled();
+    jest.runAllTimers();
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SET_PARAMS',
+        source: 'swap-detail',
+      }),
+    );
   });
 
   it('updates the focused detail after the selector closes when nested state is missing', async () => {

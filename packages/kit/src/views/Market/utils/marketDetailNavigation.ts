@@ -1,18 +1,25 @@
 import { CommonActions, StackActions } from '@react-navigation/native';
 
 import { rootNavigationRef } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalSwapRoutes,
+  ERootRoutes,
   ETabDiscoveryRoutes,
   ETabMarketRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-const MARKET_DETAIL_ROUTE_NAMES = new Set<string>([
+const REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES = new Set<string>([
   ETabMarketRoutes.MarketDetail,
   ETabMarketRoutes.MarketDetailV2,
   ETabMarketRoutes.MarketStockDetail,
   ETabMarketRoutes.MarketNativeDetail,
+]);
+
+const MARKET_HOST_ROUTE_NAMES = new Set<string>([
+  ...REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES,
   ETabMarketRoutes.MarketBannerDetail,
 ]);
 
@@ -53,7 +60,7 @@ export type IMarketDetailBackAction =
   | { type: 'pop' }
   | { type: 'popToTop' }
   | { type: 'popAndSwitchDiscovery' }
-  | { type: 'reset'; name: string };
+  | { type: 'reset'; name: string; params?: Record<string, unknown> };
 
 type INavigationLike = {
   dispatch: (action: object) => void;
@@ -61,14 +68,29 @@ type INavigationLike = {
   getCurrentRoute?: () => { name?: string; key?: string } | undefined;
 };
 
-export function isMarketDetailRouteName(name?: string) {
-  return Boolean(name && MARKET_DETAIL_ROUTE_NAMES.has(name));
+export function isReplaceableMarketDetailRouteName(name?: string) {
+  return Boolean(name && REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES.has(name));
+}
+
+export function isMarketHostRouteName(name?: string) {
+  return Boolean(name && MARKET_HOST_ROUTE_NAMES.has(name));
+}
+
+export function isFocusedMarketDetailRouteName(name?: string) {
+  return (
+    isReplaceableMarketDetailRouteName(name) ||
+    name === EModalSwapRoutes.SwapProMarketDetail
+  );
 }
 
 export function getMarketListRootName() {
   return platformEnv.isNative
     ? ETabDiscoveryRoutes.TabDiscovery
     : ETabMarketRoutes.TabMarket;
+}
+
+export function getNativeMarketListResetParams() {
+  return { defaultTab: ETranslations.global_market };
 }
 
 export function buildReplacedMarketDetailParams(
@@ -88,7 +110,7 @@ function isMarketTabStack(state: INavigationStateNode) {
       (route) =>
         route.name === ETabMarketRoutes.TabMarket ||
         route.name === ETabDiscoveryRoutes.TabDiscovery ||
-        isMarketDetailRouteName(route.name),
+        isMarketHostRouteName(route.name),
     ),
   );
 }
@@ -110,7 +132,7 @@ function collectMarketTabStacks(
 
 function getMarketTabStackScore(stack: INavigationStateNode) {
   const routes = stack.routes ?? [];
-  if (routes.some((route) => isMarketDetailRouteName(route.name))) {
+  if (routes.some((route) => isReplaceableMarketDetailRouteName(route.name))) {
     return 3;
   }
   const listRootName = getMarketListRootName();
@@ -133,42 +155,121 @@ export function findMarketTabStack(state?: INavigationStateNode) {
   );
 }
 
+function containsStack(
+  state: INavigationStateNode | undefined,
+  stackKey: string,
+): boolean {
+  if (!state) {
+    return false;
+  }
+  if (state.key === stackKey) {
+    return true;
+  }
+  return Boolean(
+    state.routes?.some((route) => containsStack(route.state, stackKey)),
+  );
+}
+
+function isBackgroundMainMarketStack(
+  root: INavigationStateNode | undefined,
+  stack: INavigationStateNode,
+) {
+  if (!root?.routes?.length || !stack.key) {
+    return false;
+  }
+  const focused = root.routes[root.index ?? root.routes.length - 1];
+  if (!focused?.name || focused.name === ERootRoutes.Main) {
+    return false;
+  }
+  const mainRoute = root.routes.find(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  return containsStack(mainRoute?.state, stack.key);
+}
+
+function stackOwnsFocusedRoute(stack: INavigationStateNode, routeKey?: string) {
+  return Boolean(
+    routeKey && stack.routes?.some((route) => route.key === routeKey),
+  );
+}
+
+function shouldSkipUnfocusedMainMarketStack({
+  root,
+  stack,
+  focusedRoute,
+}: {
+  root?: INavigationStateNode;
+  stack: INavigationStateNode;
+  focusedRoute?: { name?: string; key?: string };
+}) {
+  if (!isBackgroundMainMarketStack(root, stack)) {
+    return false;
+  }
+  if (!isFocusedMarketDetailRouteName(focusedRoute?.name)) {
+    return false;
+  }
+  return !stackOwnsFocusedRoute(stack, focusedRoute?.key);
+}
+
+type IResetRoute = {
+  name: string;
+  key?: string;
+  params?: Record<string, unknown>;
+};
+
+function toResetRoute(route: INavigationRouteNode): IResetRoute {
+  return {
+    name: route.name ?? getMarketListRootName(),
+    ...(route.key ? { key: route.key } : {}),
+    ...(route.params ? { params: route.params } : {}),
+  };
+}
+
+function getPreservedHostRoutes(stack: INavigationStateNode): IResetRoute[] {
+  const preserved: IResetRoute[] = [];
+  for (const route of stack.routes ?? []) {
+    if (isReplaceableMarketDetailRouteName(route.name)) {
+      break;
+    }
+    preserved.push(toResetRoute(route));
+  }
+  if (preserved.length) {
+    return preserved;
+  }
+  return [toResetRoute({ name: getMarketListRootName() })];
+}
+
 function canUpdateCurrentDetailInPlace(
   stack: INavigationStateNode,
   routeName: string,
 ) {
   const routes = stack.routes ?? [];
   const current = routes[stack.index ?? routes.length - 1];
-  const detailCount = routes.filter((route) =>
-    isMarketDetailRouteName(route.name),
+  const leftoverDetailCount = routes.filter((route) =>
+    isReplaceableMarketDetailRouteName(route.name),
   ).length;
   return Boolean(
-    current?.key && current.name === routeName && detailCount <= 1,
+    current?.key && current.name === routeName && leftoverDetailCount <= 1,
   );
 }
 
 function dispatchResetToSingleDetail({
   navigation,
   stackKey,
-  listRoute,
+  hostRoutes,
   routeName,
   params,
 }: {
   navigation: INavigationLike;
   stackKey: string;
-  listRoute: INavigationRouteNode;
+  hostRoutes: IResetRoute[];
   routeName: string;
   params: Record<string, unknown>;
 }) {
-  const listResetRoute = {
-    name: listRoute.name ?? getMarketListRootName(),
-    ...(listRoute.key ? { key: listRoute.key } : {}),
-    ...(listRoute.params ? { params: listRoute.params } : {}),
-  };
   navigation.dispatch({
     ...CommonActions.reset({
-      index: 1,
-      routes: [listResetRoute, { name: routeName, params }],
+      index: hostRoutes.length,
+      routes: [...hostRoutes, { name: routeName, params }],
     }),
     target: stackKey,
   });
@@ -182,8 +283,18 @@ export function openOrReplaceMarketDetailRoute({
   params: Record<string, unknown>;
 }): boolean {
   const navigation = rootNavigationRef.current as INavigationLike | undefined;
-  const stack = findMarketTabStack(navigation?.getRootState?.());
+  const rootState = navigation?.getRootState?.();
+  const stack = findMarketTabStack(rootState);
   if (!navigation || !stack?.key || !stack.routes?.length) {
+    return false;
+  }
+  if (
+    shouldSkipUnfocusedMainMarketStack({
+      root: rootState,
+      stack,
+      focusedRoute: navigation.getCurrentRoute?.(),
+    })
+  ) {
     return false;
   }
 
@@ -197,16 +308,10 @@ export function openOrReplaceMarketDetailRoute({
     return true;
   }
 
-  const listRootName = getMarketListRootName();
-  const listRoute = stack.routes.find(
-    (route) => route.name === listRootName,
-  ) ?? {
-    name: listRootName,
-  };
   dispatchResetToSingleDetail({
     navigation,
     stackKey: stack.key,
-    listRoute,
+    hostRoutes: getPreservedHostRoutes(stack),
     routeName,
     params: nextParams,
   });
@@ -222,12 +327,15 @@ export function replaceFocusedMarketDetailRoute({
 }): boolean {
   const navigation = rootNavigationRef.current as INavigationLike | undefined;
   const current = navigation?.getCurrentRoute?.();
-  if (!navigation || !isMarketDetailRouteName(current?.name)) {
+  if (!navigation || !isFocusedMarketDetailRouteName(current?.name)) {
     return false;
   }
 
   const nextParams = buildReplacedMarketDetailParams(params);
-  if (current?.name === routeName) {
+  if (
+    current?.name === routeName ||
+    current?.name === EModalSwapRoutes.SwapProMarketDetail
+  ) {
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
       ...(current.key ? { source: current.key } : {}),
@@ -237,6 +345,35 @@ export function replaceFocusedMarketDetailRoute({
 
   navigation.dispatch(StackActions.replace(routeName, nextParams));
   return true;
+}
+
+function buildNativeListResetAction(): IMarketDetailBackAction {
+  return {
+    type: 'reset',
+    name: ETabDiscoveryRoutes.TabDiscovery,
+    params: getNativeMarketListResetParams(),
+  };
+}
+
+function resolveEntryBackAction({
+  isNative,
+  from,
+  routes,
+}: {
+  isNative: boolean;
+  from?: EEnterWay;
+  routes?: Array<{ name?: string }>;
+}): IMarketDetailBackAction | undefined {
+  if (isNative && from === EEnterWay.Search) {
+    if (!routes?.length || routes.length <= 1) {
+      return buildNativeListResetAction();
+    }
+    return { type: 'popAndSwitchDiscovery' };
+  }
+  if (from === EEnterWay.SwapPro || from === EEnterWay.BannerList) {
+    return { type: 'pop' };
+  }
+  return undefined;
 }
 
 export function resolveMarketDetailBackAction({
@@ -256,33 +393,24 @@ export function resolveMarketDetailBackAction({
     return { type: 'pop' };
   }
 
+  const fromAction = resolveEntryBackAction({ isNative, from, routes });
+  if (fromAction) {
+    return fromAction;
+  }
+
   const listRootName = isNative
     ? ETabDiscoveryRoutes.TabDiscovery
     : ETabMarketRoutes.TabMarket;
-
-  if (isNative && from === EEnterWay.Search) {
-    if (!routes?.length || routes.length <= 1) {
-      return { type: 'reset', name: ETabDiscoveryRoutes.TabDiscovery };
-    }
-    return { type: 'popAndSwitchDiscovery' };
-  }
-
-  if (from === EEnterWay.SwapPro) {
-    return { type: 'pop' };
-  }
-
   if (!routes?.length || routes.length <= 1) {
-    return { type: 'reset', name: listRootName };
+    return isNative
+      ? buildNativeListResetAction()
+      : { type: 'reset', name: listRootName };
   }
 
   const currentIndex = index ?? routes.length - 1;
   const previousRoute = currentIndex > 0 ? routes[currentIndex - 1] : undefined;
-  if (
-    previousRoute?.name === ETabMarketRoutes.TabMarket ||
-    previousRoute?.name === ETabDiscoveryRoutes.TabDiscovery
-  ) {
-    return { type: 'pop' };
+  if (isReplaceableMarketDetailRouteName(previousRoute?.name)) {
+    return { type: 'popToTop' };
   }
-
-  return { type: 'popToTop' };
+  return { type: 'pop' };
 }

@@ -1,9 +1,11 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   buildReplacedMarketDetailParams,
   findMarketTabStack,
+  getNativeMarketListResetParams,
   openOrReplaceMarketDetailRoute,
   replaceFocusedMarketDetailRoute,
   resolveMarketDetailBackAction,
@@ -46,6 +48,7 @@ jest.mock('@react-navigation/native', () => ({
 
 const stackedTokenDetailsState = {
   key: 'root',
+  index: 0,
   routes: [
     {
       name: 'main',
@@ -59,7 +62,61 @@ const stackedTokenDetailsState = {
         ],
       },
     },
+  ],
+};
+
+const bannerThenTokenState = {
+  key: 'root',
+  index: 0,
+  routes: [
+    {
+      name: 'main',
+      state: {
+        key: 'market-stack',
+        index: 2,
+        routes: [
+          { key: 'list', name: 'TabMarket' },
+          { key: 'banner', name: 'MarketBannerDetail' },
+          { key: 'detail-1', name: 'MarketDetailV2' },
+        ],
+      },
+    },
+  ],
+};
+
+const selectorOverlayStackedState = {
+  key: 'root',
+  index: 1,
+  routes: [
+    stackedTokenDetailsState.routes[0],
     { key: 'modal', name: 'MobileTokenSelector' },
+  ],
+};
+
+const swapProOverlayState = {
+  key: 'root',
+  index: 1,
+  routes: [
+    {
+      name: 'main',
+      state: {
+        key: 'market-stack',
+        index: 1,
+        routes: [
+          { key: 'list', name: 'TabMarket' },
+          { key: 'detail-bg', name: 'MarketDetailV2' },
+        ],
+      },
+    },
+    {
+      key: 'swap-modal',
+      name: 'SwapModal',
+      state: {
+        key: 'swap-stack',
+        index: 0,
+        routes: [{ key: 'swap-detail', name: 'SwapProMarketDetail' }],
+      },
+    },
   ],
 };
 
@@ -76,7 +133,7 @@ describe('marketDetailNavigation', () => {
   });
 
   it('finds the deepest market stack under a selector overlay', () => {
-    expect(findMarketTabStack(stackedTokenDetailsState)).toEqual(
+    expect(findMarketTabStack(selectorOverlayStackedState)).toEqual(
       stackedTokenDetailsState.routes[0].state,
     );
   });
@@ -182,6 +239,124 @@ describe('marketDetailNavigation', () => {
     });
   });
 
+  it('keeps the banner list when replacing leftover token details', () => {
+    getRootStateMock.mockReturnValue({
+      key: 'root',
+      index: 0,
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'market-stack',
+            index: 3,
+            routes: [
+              { key: 'list', name: 'TabMarket' },
+              { key: 'banner', name: 'MarketBannerDetail' },
+              { key: 'detail-a', name: 'MarketDetailV2' },
+              { key: 'detail-b', name: 'MarketStockDetail' },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(
+      openOrReplaceMarketDetailRoute({
+        routeName: 'MarketDetailV2',
+        params: {
+          tokenAddress: '0xabc',
+          network: 'eth',
+        },
+      }),
+    ).toBe(true);
+
+    expect(dispatchMock).toHaveBeenCalledWith({
+      type: 'RESET',
+      payload: {
+        index: 2,
+        routes: [
+          { key: 'list', name: 'TabMarket' },
+          { key: 'banner', name: 'MarketBannerDetail' },
+          {
+            name: 'MarketDetailV2',
+            params: buildReplacedMarketDetailParams({
+              tokenAddress: '0xabc',
+              network: 'eth',
+            }),
+          },
+        ],
+      },
+      target: 'market-stack',
+    });
+  });
+
+  it('updates the token detail in place when it sits on a banner list', () => {
+    getRootStateMock.mockReturnValue(bannerThenTokenState);
+    platformEnv.isNative = false;
+
+    expect(
+      openOrReplaceMarketDetailRoute({
+        routeName: 'MarketDetailV2',
+        params: {
+          tokenAddress: '0xabc',
+          network: 'eth',
+        },
+      }),
+    ).toBe(true);
+
+    expect(dispatchMock).toHaveBeenCalledWith({
+      type: 'SET_PARAMS',
+      payload: {
+        params: buildReplacedMarketDetailParams({
+          tokenAddress: '0xabc',
+          network: 'eth',
+        }),
+      },
+      source: 'detail-1',
+    });
+  });
+
+  it('still collapses leftover details under a token selector overlay', () => {
+    getRootStateMock.mockReturnValue(selectorOverlayStackedState);
+    getCurrentRouteMock.mockReturnValue({ name: 'MobileTokenSelector' });
+
+    expect(
+      openOrReplaceMarketDetailRoute({
+        routeName: 'MarketDetailV2',
+        params: {
+          tokenAddress: '0xabc',
+          network: 'eth',
+        },
+      }),
+    ).toBe(true);
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RESET',
+        target: 'discovery-stack',
+      }),
+    );
+  });
+
+  it('does not rewrite the background Market stack from SwapPro', () => {
+    getRootStateMock.mockReturnValue(swapProOverlayState);
+    getCurrentRouteMock.mockReturnValue({
+      name: 'SwapProMarketDetail',
+      key: 'swap-detail',
+    });
+
+    expect(
+      openOrReplaceMarketDetailRoute({
+        routeName: 'MarketDetailV2',
+        params: {
+          tokenAddress: '0xabc',
+          network: 'eth',
+        },
+      }),
+    ).toBe(false);
+    expect(dispatchMock).not.toHaveBeenCalled();
+  });
+
   it('returns false when no market tab stack is mounted', () => {
     expect(
       openOrReplaceMarketDetailRoute({
@@ -251,6 +426,34 @@ describe('marketDetailNavigation', () => {
     expect(dispatchMock).not.toHaveBeenCalled();
   });
 
+  it('updates SwapPro in place instead of replacing a tab route', () => {
+    getCurrentRouteMock.mockReturnValue({
+      name: 'SwapProMarketDetail',
+      key: 'swap-detail',
+    });
+
+    expect(
+      replaceFocusedMarketDetailRoute({
+        routeName: 'MarketDetailV2',
+        params: {
+          tokenAddress: '0xabc',
+          network: 'eth',
+        },
+      }),
+    ).toBe(true);
+
+    expect(dispatchMock).toHaveBeenCalledWith({
+      type: 'SET_PARAMS',
+      payload: {
+        params: buildReplacedMarketDetailParams({
+          tokenAddress: '0xabc',
+          network: 'eth',
+        }),
+      },
+      source: 'swap-detail',
+    });
+  });
+
   it('pops to the list when previous route is a leftover detail', () => {
     expect(
       resolveMarketDetailBackAction({
@@ -277,6 +480,49 @@ describe('marketDetailNavigation', () => {
     ).toEqual({ type: 'pop' });
   });
 
+  it('pops once from a banner-list token detail', () => {
+    expect(
+      resolveMarketDetailBackAction({
+        isTabletDetailView: false,
+        isNative: false,
+        from: EEnterWay.BannerList,
+        routes: [
+          { name: 'TabMarket' },
+          { name: 'MarketBannerDetail' },
+          { name: 'MarketDetailV2' },
+        ],
+        index: 2,
+      }),
+    ).toEqual({ type: 'pop' });
+  });
+
+  it('pops once when previous route is the banner list', () => {
+    expect(
+      resolveMarketDetailBackAction({
+        isTabletDetailView: false,
+        isNative: true,
+        routes: [
+          { name: 'TabDiscovery' },
+          { name: 'MarketBannerDetail' },
+          { name: 'MarketDetailV2' },
+        ],
+        index: 2,
+      }),
+    ).toEqual({ type: 'pop' });
+  });
+
+  it('pops once from SwapPro market detail', () => {
+    expect(
+      resolveMarketDetailBackAction({
+        isTabletDetailView: false,
+        isNative: true,
+        from: EEnterWay.SwapPro,
+        routes: [{ name: 'SwapProMarketDetail' }],
+        index: 0,
+      }),
+    ).toEqual({ type: 'pop' });
+  });
+
   it('resets native empty history to Discovery instead of TabMarket', () => {
     expect(
       resolveMarketDetailBackAction({
@@ -285,7 +531,14 @@ describe('marketDetailNavigation', () => {
         routes: [{ name: 'MarketDetailV2' }],
         index: 0,
       }),
-    ).toEqual({ type: 'reset', name: 'TabDiscovery' });
+    ).toEqual({
+      type: 'reset',
+      name: 'TabDiscovery',
+      params: getNativeMarketListResetParams(),
+    });
+    expect(getNativeMarketListResetParams()).toEqual({
+      defaultTab: ETranslations.global_market,
+    });
   });
 
   it('keeps search-entry native back switching to Discovery', () => {
@@ -298,5 +551,21 @@ describe('marketDetailNavigation', () => {
         index: 1,
       }),
     ).toEqual({ type: 'popAndSwitchDiscovery' });
+  });
+
+  it('resets native search empty history onto the Market tab', () => {
+    expect(
+      resolveMarketDetailBackAction({
+        isTabletDetailView: false,
+        isNative: true,
+        from: EEnterWay.Search,
+        routes: [{ name: 'MarketDetailV2' }],
+        index: 0,
+      }),
+    ).toEqual({
+      type: 'reset',
+      name: 'TabDiscovery',
+      params: getNativeMarketListResetParams(),
+    });
   });
 });

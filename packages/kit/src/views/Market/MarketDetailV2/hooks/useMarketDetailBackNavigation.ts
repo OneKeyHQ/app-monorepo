@@ -48,7 +48,12 @@ export function useMarketDetailBackNavigation() {
     reactNavigation.dispatch(
       CommonActions.reset({
         index: 0,
-        routes: [{ name: action.name }],
+        routes: [
+          {
+            name: action.name,
+            ...(action.params ? { params: action.params } : {}),
+          },
+        ],
       }),
     );
   }, [params, reactNavigation, navigation, isTabletDetailView]);

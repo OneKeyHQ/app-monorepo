@@ -444,3 +444,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Home and the token selector used nested `navigate`, which stacked `MarketDetailV2` / `MarketStockDetail`. The custom back handler only `pop()`ped one screen, and native empty history reset to `TabMarket` which does not exist on Discovery.
 **Fix**: Collapse the Market/Discovery stack to `[list, one detail]` when opening or switching a detail, and `popToTop` when the previous route is still a leftover detail.
 **Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition; NEW — custom back handlers must collapse stacked same-feature screens, not assume one-to-one push/pop
+
+## Case: Market detail collapse treated banner and SwapPro as leftover token pages
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Home banner → banner list → token detail back skipped the banner list; switching tokens from that path reset away the banner page. SwapPro modal token changes rewrote the background Market stack. Native empty-history back could land on Browser instead of Market.
+**Root Cause**: `MarketBannerDetail` was counted as a leftover detail, so back used `popToTop` and switch used `reset` to `[list, detail]`. `openOrReplaceMarketDetailRoute` rewrote any unfocused Main Market stack, including when SwapPro owned the focused detail. Native `CommonActions.reset` to `TabDiscovery` omitted `defaultTab`.
+**Fix**: Treat only token/stock/native pages as leftover details and keep banner hosts when collapsing. Skip rewriting Main only when the focused route is a market detail the found stack does not own. Pass `defaultTab: global_market` on native list reset.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a collapse/reset of stacked feature screens must preserve legitimate intermediate hosts and must not rewrite an unfocused background stack
