@@ -174,6 +174,7 @@ import type { ScrollView as ScrollViewNative } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
+  storeName?: EJotaiContextStoreNames;
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
   singleSwapBridgeHeader?: boolean;
@@ -183,12 +184,19 @@ interface ISwapMainLoadProps {
   stockSpeedConfig?: ISwapStockSpeedConfig;
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: React.ReactNode;
+  stockTradeIdentityLoading?: boolean;
+  reviewContextKey?: string;
   stockTradeToken?: ISwapToken;
   initialInputAmountDraft?: ISwapInputAmountDraft;
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
 }
 
+type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
+  storeName: EJotaiContextStoreNames;
+};
+
 const SwapMainLoad = ({
+  storeName,
   swapInitParams,
   pageType,
   singleSwapBridgeHeader,
@@ -196,13 +204,17 @@ const SwapMainLoad = ({
   stockSpeedConfig,
   stockTradeConfig,
   stockTradeHeader,
+  stockTradeIdentityLoading,
+  reviewContextKey,
   stockTradeToken,
   onInputDraftChange,
-}: ISwapMainLoadProps) => {
+}: ISwapMainLoadContentProps) => {
   const dialogRef = useRef<IDialogInstance>(null);
   const reviewDialogTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
+  // Retained Market routes must invalidate delayed review and close callbacks.
+  const reviewGenerationRef = useRef(0);
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
@@ -360,6 +372,16 @@ const SwapMainLoad = ({
     },
     [dialogClose],
   );
+  useLayoutEffect(() => {
+    if (reviewContextKey === undefined) {
+      return;
+    }
+    return () => {
+      reviewGenerationRef.current += 1;
+      dialogClose();
+      resetPendingReview();
+    };
+  }, [dialogClose, resetPendingReview, reviewContextKey]);
 
   const swapFromTokenRef = useRef<ISwapToken | undefined>(undefined);
   if (swapFromTokenRef.current !== fromSelectTokenAtom) {
@@ -607,14 +629,6 @@ const SwapMainLoad = ({
     }
     return InModalDialog;
   }, [InModalDialog, InTabDialog, pageType]);
-  const storeName = useMemo(
-    () =>
-      pageType === EPageType.modal
-        ? EJotaiContextStoreNames.swapModal
-        : EJotaiContextStoreNames.swap,
-    [pageType],
-  );
-
   const swapStepsRef = useRef<ISwapStep[]>([]);
   if (
     swapStepsRef.current !== swapStepData.steps ||
@@ -1133,23 +1147,32 @@ const SwapMainLoad = ({
     onActionHandlerBefore();
   }, [markCurrentGasAccountReviewSubmitted, onActionHandlerBefore]);
 
-  const onPreSwapClose = useCallback(() => {
-    endGasAccountReviewSession();
-    dialogClose();
-    setSwapBuildTxFetching(false);
-    void backgroundApiProxy.serviceGas.abortEstimateFee();
-    setTimeout(() => {
-      setSwapSteps({
-        steps: [],
-        preSwapData: {},
-      });
-    }, 100);
-  }, [
-    setSwapBuildTxFetching,
-    endGasAccountReviewSession,
-    dialogClose,
-    setSwapSteps,
-  ]);
+  const onPreSwapClose = useCallback(
+    (reviewGeneration: number) => {
+      if (reviewGeneration !== reviewGenerationRef.current) {
+        return;
+      }
+      endGasAccountReviewSession();
+      dialogClose();
+      setSwapBuildTxFetching(false);
+      void backgroundApiProxy.serviceGas.abortEstimateFee();
+      setTimeout(() => {
+        if (reviewGeneration !== reviewGenerationRef.current) {
+          return;
+        }
+        setSwapSteps({
+          steps: [],
+          preSwapData: {},
+        });
+      }, 100);
+    },
+    [
+      setSwapBuildTxFetching,
+      endGasAccountReviewSession,
+      dialogClose,
+      setSwapSteps,
+    ],
+  );
 
   const handleSelectAccountClick = useCallback(() => {
     dismissKeyboard();
@@ -1182,17 +1205,25 @@ const SwapMainLoad = ({
       cleanQuoteInterval();
       setSwapShouldRefreshQuote(true);
     }
+    if (reviewContextKey !== undefined) {
+      reviewGenerationRef.current += 1;
+    }
+    const reviewGeneration = reviewGenerationRef.current;
+    const closeReview = () => onPreSwapClose(reviewGeneration);
     beginGasAccountReviewSession();
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
     reviewDialogTimerRef.current = setTimeout(() => {
+      if (reviewGeneration !== reviewGenerationRef.current) {
+        return;
+      }
       reviewDialogTimerRef.current = undefined;
       if (shouldCloseReviewOnFocusLoss()) {
         resetPendingReview();
         return;
       }
       dialogRef.current = reviewDialogController.show({
-        onClose: onPreSwapClose,
+        onClose: closeReview,
         title: intl.formatMessage({
           id: ETranslations.global_review_order,
         }),
@@ -1216,7 +1247,7 @@ const SwapMainLoad = ({
                 showCustomNetworkFeeOption={
                   showSwapProReviewCustomNetworkFeeOption
                 }
-                onDone={onPreSwapClose}
+                onDone={closeReview}
                 onConfirm={handleConfirm}
               />
             </SwapProviderMirror>
@@ -1250,6 +1281,7 @@ const SwapMainLoad = ({
     storeName,
     resetPendingReview,
     shouldCloseReviewOnFocusLoss,
+    reviewContextKey,
   ]);
 
   const onOpenOrdersClick = useCallback(
@@ -1411,6 +1443,7 @@ const SwapMainLoad = ({
           stockSpeedConfig={stockSpeedConfig}
           stockTradeConfig={stockTradeConfig}
           stockTradeHeader={stockTradeHeader}
+          stockTradeIdentityLoading={stockTradeIdentityLoading}
           stockTradeToken={stockTradeToken}
           embedded
         />
@@ -1446,6 +1479,7 @@ const SwapMainLoad = ({
           stockTradeToken={stockTradeToken}
           headerContent={
             <SwapHeaderContainer
+              storeName={storeName}
               pageType={pageType}
               defaultSwapType={swapInitParams?.swapTabSwitchType}
               showSwapPro={platformEnv.isNative}
@@ -1506,6 +1540,7 @@ const SwapMainLoad = ({
           headerContent={
             gtLg && pageType !== EPageType.modal ? (
               <SwapHeaderContainer
+                storeName={storeName}
                 pageType={pageType}
                 defaultSwapType={swapInitParams?.swapTabSwitchType}
                 showSwapPro={platformEnv.isNative}
@@ -1548,6 +1583,7 @@ const SwapMainLoad = ({
     stockSpeedConfig,
     stockTradeConfig,
     stockTradeHeader,
+    stockTradeIdentityLoading,
     stockTradeToken,
     pageType,
     onSelectToken,
@@ -1643,6 +1679,7 @@ const SwapMainLoad = ({
             pageType !== EPageType.modal &&
             !platformEnv.isNative) ? null : (
             <SwapHeaderContainer
+              storeName={storeName}
               pageType={pageType}
               defaultSwapType={swapInitParams?.swapTabSwitchType}
               showSwapPro={platformEnv.isNative}
@@ -1699,8 +1736,14 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     initialInputAmountDraft,
     pageType,
     singleSwapBridgeHeader,
+    storeName: providedStoreName,
     swapInitParams,
   } = props;
+  const storeName =
+    providedStoreName ??
+    (pageType === EPageType.modal
+      ? EJotaiContextStoreNames.swapModal
+      : EJotaiContextStoreNames.swap);
   const shouldSeedMarketEmbeddedPair = Boolean(
     singleSwapBridgeHeader &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
@@ -1728,18 +1771,14 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
 
   return (
     <SwapProviderMirror
-      storeName={
-        pageType === EPageType.modal
-          ? EJotaiContextStoreNames.swapModal
-          : EJotaiContextStoreNames.swap
-      }
+      storeName={storeName}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <LazyPageContainer>
-          <SwapMainLoad {...props} pageType={pageType} />
+          <SwapMainLoad {...props} storeName={storeName} pageType={pageType} />
         </LazyPageContainer>
       </MarketWatchListProviderMirrorV2>
     </SwapProviderMirror>
