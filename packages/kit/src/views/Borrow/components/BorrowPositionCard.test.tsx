@@ -96,12 +96,50 @@ jest.mock('@onekeyhq/components', () => {
   }
   MockIcon.displayName = 'MockIcon';
 
+  const AccordionValueContext = React.createContext('');
+  const AccordionItemContext = React.createContext(false);
+  const MockAccordionHeightAnimator = asDom('div');
+  const MockAccordionContentFrame = asDom('div');
+
+  function MockAccordion({ children, value }: IMockProps & { value?: string }) {
+    return (
+      <AccordionValueContext.Provider value={value ?? ''}>
+        {children}
+      </AccordionValueContext.Provider>
+    );
+  }
+
+  function MockAccordionItem({
+    children,
+    value,
+  }: IMockProps & { value: string }) {
+    const openValue = React.useContext(AccordionValueContext);
+    return (
+      <AccordionItemContext.Provider value={openValue === value}>
+        {children}
+      </AccordionItemContext.Provider>
+    );
+  }
+
+  function MockAccordionContent(props: IMockProps) {
+    const open = React.useContext(AccordionItemContext);
+    return open ? <MockAccordionContentFrame {...props} /> : null;
+  }
+
+  const Accordion = Object.assign(MockAccordion, {
+    Item: MockAccordionItem,
+    HeightAnimator: MockAccordionHeightAnimator,
+    Content: MockAccordionContent,
+  });
+
   return {
     __esModule: true,
     // jest.config.js maps the bare substring '@onekeyhq/components', so the
     // deep animationConstants path resolves to this same module and cannot be
     // mocked separately.
+    ANIMATE_ONLY_OPACITY: ['opacity'],
     ANIMATE_ONLY_TRANSFORM: ['transform'],
+    Accordion,
     Badge: asDom('div'),
     Button: asDom('button'),
     Icon: MockIcon,
