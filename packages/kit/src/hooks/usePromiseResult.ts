@@ -502,6 +502,17 @@ export function usePromiseResult<T>(
   const isLoadingRef = useRef(isLoading);
   const runWithPollingNonce = useCallback(
     (scheduleOnIdle = false) => {
+      if (
+        optionsRef.current.pollingInterval &&
+        optionsRef.current.checkIsFocused &&
+        !optionsRef.current.alwaysSetState &&
+        !isFocusedRef.current
+      ) {
+        // Keep a focus-gated reconnect pending instead of replacing the
+        // parked polling chain with a fresh interval while still blurred.
+        isDepsChangedOnBlur.current = true;
+        return undefined;
+      }
       // An automatic refresh replaces the previous polling chain. Advance
       // the nonce now so old ticks released on focus cannot run while the
       // replacement waits for a native idle callback.

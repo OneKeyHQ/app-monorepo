@@ -951,6 +951,131 @@ describe('usePromiseResult', () => {
       expect(method).toHaveBeenCalledTimes(3);
     });
 
+    it.each([
+      { native: false, debounceMs: 0 },
+      { native: true, debounceMs: 0 },
+      { native: false, debounceMs: 100 },
+      { native: true, debounceMs: 100 },
+    ])(
+      'refreshes promptly after repeated blurred reconnects (native=$native, debounce=$debounceMs)',
+      async ({ native, debounceMs }) => {
+        platformEnv.isNative = native;
+        globalNetInfo.state = { isInternetReachable: true };
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [], {
+            pollingInterval: POLLING_MS,
+            debounced: debounceMs,
+            revalidateOnReconnect: true,
+          }),
+        );
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(1);
+        await setFocus(false);
+        // Park the existing chain before reconnecting, then refocus well
+        // before a new polling interval could elapse.
+        await tick(POLLING_MS * 2);
+        for (let i = 0; i < 3; i += 1) {
+          act(() => globalNetInfo.updateState({ isInternetReachable: false }));
+          await tick();
+          act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+          await tick(debounceMs);
+        }
+        expect(method).toHaveBeenCalledTimes(1);
+
+        await setFocus(true);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(2);
+        await tick(POLLING_MS);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(3);
+        await tick(POLLING_MS);
+        await tick(debounceMs);
+        expect(method).toHaveBeenCalledTimes(4);
+      },
+    );
+
+    it.each([{ checkIsFocused: false }, { alwaysSetState: true }])(
+      'still refreshes on a blurred reconnect when the focus gate is bypassed: %j',
+      async (focusOptions) => {
+        globalNetInfo.state = { isInternetReachable: true };
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [], {
+            pollingInterval: POLLING_MS,
+            revalidateOnReconnect: true,
+            ...focusOptions,
+          }),
+        );
+        await tick();
+        await setFocus(false);
+        act(() => globalNetInfo.updateState({ isInternetReachable: false }));
+        await tick();
+        act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+        await tick();
+        expect(method).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it('keeps explicit polling pause after a deferred reconnect refresh', async () => {
+      globalNetInfo.state = { isInternetReachable: true };
+      const method = jest.fn(async () => 'ok');
+      const { result } = renderHook(() =>
+        usePromiseResult(method, [], {
+          pollingInterval: POLLING_MS,
+          revalidateOnReconnect: true,
+        }),
+      );
+      await tick();
+      act(() => {
+        result.current.setStopPolling(true);
+      });
+      await setFocus(false);
+      act(() => globalNetInfo.updateState({ isInternetReachable: false }));
+      await tick();
+      act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+      await tick();
+      expect(method).toHaveBeenCalledTimes(1);
+
+      await setFocus(true);
+      expect(method).toHaveBeenCalledTimes(2);
+      await tick(POLLING_MS * 2);
+      expect(method).toHaveBeenCalledTimes(2);
+      act(() => {
+        result.current.setStopPolling(false);
+      });
+      await tick();
+      expect(method).toHaveBeenCalledTimes(3);
+      await tick(POLLING_MS);
+      expect(method).toHaveBeenCalledTimes(4);
+    });
+
+    it.each([false, true])(
+      'preserves non-polling focus behavior after a blurred reconnect (native=%s)',
+      async (native) => {
+        platformEnv.isNative = native;
+        globalNetInfo.state = { isInternetReachable: true };
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [], {
+            initResult: 'initial',
+            revalidateOnReconnect: true,
+          }),
+        );
+        await tick();
+        await setFocus(false);
+        act(() => globalNetInfo.updateState({ isInternetReachable: false }));
+        await tick();
+        act(() => globalNetInfo.updateState({ isInternetReachable: true }));
+        await tick();
+        expect(method).toHaveBeenCalledTimes(1);
+        await setFocus(true);
+        expect(method).toHaveBeenCalledTimes(1);
+        await tick(POLLING_MS * 2);
+        expect(method).toHaveBeenCalledTimes(1);
+      },
+    );
+
     it('replaces native polling before releasing deferred tasks or running idle callbacks', async () => {
       platformEnv.isNative = true;
       // PopularTrading updates state itself and returns no result. Both
