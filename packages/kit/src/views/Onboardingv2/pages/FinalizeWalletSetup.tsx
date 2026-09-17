@@ -118,6 +118,12 @@ import {
   registerOnboardingCompletion,
 } from '../utils/enterWalletAfterOnboarding';
 
+import { resolveOperationReleaseForAttempt } from './finalizeWalletSetupOperationUtils';
+
+import type {
+  IFinalizeWalletSetupActiveOperation,
+  IFinalizeWalletSetupOperation,
+} from './finalizeWalletSetupOperationUtils';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 const POPUP_LAYERED_SHADOW =
@@ -296,12 +302,12 @@ function FinalizeWalletSetupPage({
   // the unmount cancel to the first-contact window: cancelling later phases
   // would abort wallet/account creation that used to finish in background.
   const keystoneFirstContactInFlightRef = useRef(false);
+  // Identifies one setup run. A retry re-enters createWallet while the
+  // abandoned run may still be settling, and only the latest attempt owns the
+  // shared refs below.
+  const setupAttemptRef = useRef(0);
   const activeThirdPartyOperationRef = useRef<
-    | {
-        vendor: EHardwareVendor;
-        operationId: string;
-      }
-    | undefined
+    IFinalizeWalletSetupActiveOperation | undefined
   >(undefined);
   const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
   const prefetchedGiftSerialNoRef = useRef<string | undefined>(undefined);
@@ -410,6 +416,12 @@ function FinalizeWalletSetupPage({
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
+    const attempt = setupAttemptRef.current + 1;
+    setupAttemptRef.current = attempt;
+    // The operation this run opened itself, so a superseded run can still
+    // release it without touching the ref a newer run owns.
+    let ownThirdPartyOperation: IFinalizeWalletSetupOperation | undefined;
+    const isCurrentAttempt = () => setupAttemptRef.current === attempt;
     // The stage hold is opened inside the hardware branch below, and only
     // there: a software wallet (new mnemonic, import, keyless restore) has
     // no device, and a hold taken here regardless painted the connecting
@@ -573,9 +585,13 @@ function FinalizeWalletSetupPage({
               );
             }
             const connectedDevice = connected.payload;
-            activeThirdPartyOperationRef.current = {
+            ownThirdPartyOperation = {
               vendor: deviceData.vendor,
               operationId: connectedDevice.operationId,
+            };
+            activeThirdPartyOperationRef.current = {
+              ...ownThirdPartyOperation,
+              attempt,
             };
             const rawThirdPartyDevice = (
               thirdPartyDevice as SearchDevice & {
@@ -727,9 +743,13 @@ function FinalizeWalletSetupPage({
               }
               const connectedDevice: IThirdPartyConnectedDevicePayload =
                 connected.payload;
-              activeThirdPartyOperationRef.current = {
+              ownThirdPartyOperation = {
                 vendor: deviceData.vendor,
                 operationId: connectedDevice.operationId,
+              };
+              activeThirdPartyOperationRef.current = {
+                ...ownThirdPartyOperation,
+                attempt,
               };
               const rawThirdPartyDevice = (
                 thirdPartyDevice as SearchDevice & {
@@ -803,9 +823,13 @@ function FinalizeWalletSetupPage({
                 );
               }
               const connected = connectedResult.payload;
-              activeThirdPartyOperationRef.current = {
+              ownThirdPartyOperation = {
                 vendor: deviceData.vendor,
                 operationId: connected.operationId,
+              };
+              activeThirdPartyOperationRef.current = {
+                ...ownThirdPartyOperation,
+                attempt,
               };
               const connectedFeatures = connected.features;
               const legacyConnectedFeatures = connectedFeatures as
@@ -898,8 +922,7 @@ function FinalizeWalletSetupPage({
                     defaultIsTemp: true,
                     vendor: deviceData.vendor,
                     hardwareOperationContext: {
-                      operationId:
-                        activeThirdPartyOperationRef.current?.operationId,
+                      operationId: ownThirdPartyOperation?.operationId,
                     },
                   },
                   { mode: 'onboarding' },
@@ -965,12 +988,16 @@ function FinalizeWalletSetupPage({
           createdWalletRef.current = createdWallet;
         }
       }
-      hardwareCreateInFlightRef.current = false;
+      if (isCurrentAttempt()) {
+        hardwareCreateInFlightRef.current = false;
+      }
       setIsWalletCreationReadyForReferralCheck(true);
     } catch (error) {
-      hardwareCreateInFlightRef.current = false;
-      // A throw means connectDevice has settled; nothing is left to cancel.
-      keystoneFirstContactInFlightRef.current = false;
+      if (isCurrentAttempt()) {
+        hardwareCreateInFlightRef.current = false;
+        // A throw means connectDevice has settled; nothing is left to cancel.
+        keystoneFirstContactInFlightRef.current = false;
+      }
       console.error('createWallet error:', error);
       const hardwareError = error as IOneKeyError<IOneKeyErrorI18nInfo> & {
         messageId?: ETranslations;
@@ -980,6 +1007,10 @@ function FinalizeWalletSetupPage({
         };
       };
       const errorKey = hardwareError?.key;
+      // A stale run must not paint its error over the run now in progress.
+      if (!isCurrentAttempt()) {
+        return;
+      }
       setSetupError({
         code: hardwareError?.code,
         recovery: hardwareError?.payload?.recovery,
@@ -998,11 +1029,18 @@ function FinalizeWalletSetupPage({
         info: hardwareError?.info,
       });
     } finally {
-      const activeOperation = activeThirdPartyOperationRef.current;
-      activeThirdPartyOperationRef.current = undefined;
-      if (activeOperation) {
+      const { operationToRelease, shouldClearActiveOperation } =
+        resolveOperationReleaseForAttempt({
+          attempt,
+          activeOperation: activeThirdPartyOperationRef.current,
+          ownOperation: ownThirdPartyOperation,
+        });
+      if (shouldClearActiveOperation) {
+        activeThirdPartyOperationRef.current = undefined;
+      }
+      if (operationToRelease) {
         await backgroundApiProxy.serviceThirdPartyHardware
-          .releaseOperation(activeOperation)
+          .releaseOperation(operationToRelease)
           .catch((endError: unknown) => {
             defaultLogger.hardware.sdkLog.log(
               '[3rdPartyHW] releaseOperation failed',

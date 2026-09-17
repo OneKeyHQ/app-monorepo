@@ -36,7 +36,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -351,8 +351,29 @@ function ReceiveToken() {
   const handleVerifyOnDevicePress = useCallback(async () => {
     if (isVerifyingRef.current) return;
     if (addressVerification.mode === 'manual') {
-      setShowManualVerificationPath(true);
-      setAddressState(EAddressState.ForceShow);
+      // Manual mode has no device round-trip to gate on, so the address is
+      // only revealed once the user acknowledges they must compare it on the
+      // device themselves.
+      Dialog.confirm({
+        icon: 'ErrorOutline',
+        tone: 'warning',
+        title: intl.formatMessage({
+          id: ETranslations.global_receive_address_confirmation,
+        }),
+        description: intl.formatMessage({
+          id: ETranslationsMock.hardware_third_party_manual_verify_desc,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_i_got_it,
+        }),
+        onConfirm: () => {
+          setShowManualVerificationPath(true);
+          setAddressState(EAddressState.ForceShow);
+        },
+        confirmButtonProps: {
+          variant: 'secondary',
+        },
+      });
       return;
     }
     if (!currentDeriveType) return;
