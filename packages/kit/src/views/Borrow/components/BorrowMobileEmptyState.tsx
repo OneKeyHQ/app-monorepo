@@ -78,12 +78,10 @@ export function BorrowMobileEmptyState({
     <YStack testID={BorrowTestIDs.mobileEmptyState}>
       <YStack gap="$2">
         <XStack ai="center" jc="space-between" gap="$3" minHeight="$9">
-          <SizableText
-            size="$headingMd"
-            px="$1"
-            flexShrink={1}
-            numberOfLines={1}
-          >
+          {/* Deliberately allowed to wrap: "Earns on your holding" runs to 29
+              characters in Russian, which does not fit beside the button on a
+              320pt screen. Centering keeps the button aligned either way. */}
+          <SizableText size="$headingMd" px="$1" flexShrink={1}>
             {intl.formatMessage({
               id: ETranslations.earns_on_your_holding__title,
             })}
