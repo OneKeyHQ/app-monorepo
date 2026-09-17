@@ -35,6 +35,7 @@ function PerpNetworkAlertComponent() {
         px="$4"
         {...Platform.select({
           web: {
+            icon: 'ChartColumnarSignal2Outline',
             borderTopWidth: 0,
             borderBottomWidth: platformEnv.isWeb ? StyleSheet.hairlineWidth : 0,
           },
