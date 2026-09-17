@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-
 import {
   ABSOLUTE_MAX_TTL_MS,
   REFRESH_THRESHOLD_MS,
@@ -268,18 +265,19 @@ describe('SignerSoftwareBase.getHdCredential happy path', () => {
     expect(fetchKey).not.toHaveBeenCalled();
   });
 
-  it('does not introduce timer-based async paths inside getHdCredential', () => {
-    const source = readFileSync(
-      path.resolve(__dirname, '../SignerSoftwareBase.ts'),
-      'utf-8',
-    );
-    const methodSource = source.match(
-      /async getHdCredential\(\): Promise<string> \{[\s\S]*?\n {2}\}/,
-    )?.[0];
+  // A timer-based hop would leave the decrypted credential alive across a tick.
+  // Asserted by running the call under fake timers rather than by reading the
+  // method body, which would miss a timer scheduled in anything it calls.
+  it('does not introduce timer-based async paths inside getHdCredential', async () => {
+    jest.useFakeTimers({ doNotFake: ['performance'] });
+    try {
+      const { signer } = createSigner();
 
-    expect(methodSource).toBeDefined();
-    expect(methodSource).not.toMatch(
-      /setImmediate|setTimeout|process\.nextTick/,
-    );
+      await expect(signer.getHdCredential()).resolves.toBe('hd-from-service');
+
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
