@@ -34,6 +34,7 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'resolveMarketAsset',
   'skipMarketDataFetch',
   'legacyTokenPreview',
+  'marketTokenPreviewId',
   'stockId',
   'stockPreviewSymbol',
   'stockPreviewName',

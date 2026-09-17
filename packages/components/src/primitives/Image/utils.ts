@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
@@ -34,18 +34,21 @@ export const isEmptyResolvedSource = (source?: ImageSourcePropType | null) => {
 // Keyed by request identity rather than object identity: callers commonly pass
 // a fresh `{ uri }` object on every render, which must not clear a failed load
 // and remount the image (visible as a placeholder flash plus a refetch).
+// The reset runs during render rather than in an effect because a failing image
+// hands the error to its caller synchronously: the caller's swap to the next
+// fallback source lands in the same commit, so an effect-based reset would paint
+// one frame of the previous source's error state under the new source.
 export const useResetError = (
   sourceIdentity: string,
   hasError: boolean,
   onResetError: (hasError: boolean) => void,
 ) => {
-  const hasErrorRef = useRef(hasError);
-  const sourceIdentityRef = useRef(sourceIdentity);
-  hasErrorRef.current = hasError;
-  useEffect(() => {
-    if (hasErrorRef.current && sourceIdentityRef.current !== sourceIdentity) {
+  const [trackedSourceIdentity, setTrackedSourceIdentity] =
+    useState(sourceIdentity);
+  if (trackedSourceIdentity !== sourceIdentity) {
+    setTrackedSourceIdentity(sourceIdentity);
+    if (hasError) {
       onResetError(false);
     }
-    sourceIdentityRef.current = sourceIdentity;
-  }, [sourceIdentity, hasError, onResetError]);
+  }
 };

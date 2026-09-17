@@ -493,3 +493,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Tab switching swaps `WatchlistTokenSelectorList` for `CategoryTokenSelectorList`, so `useMarketWatchlistTokenList` remounts with every request reset. Its merge step builds listing (stock/asset) rows straight from the local watchlist record — `stockId` alone is enough for a name — and filled the missing quote fields with `NaN`, whereas spot rows require a server match and were dropped. Those synthesized rows made `data.length > 0`, which defeated the list's `isLoading && data.length === 0` spinner guard, and the price cell was the only metric with no empty-value branch.
 **Fix**: Hold listing rows back until the quote batch resolves (distinguish "batch unresolved" from "batch returned no entry", so delisted favorites stay removable); cache the resolved batch on `IMarketWatchlistDataCache.listing` and park the ref on the selector shell that outlives the tabs, invalidating it when the watchlist gains an uncovered entry; give the price cell the same `--` fallback the other metrics already had.
 **Catchable by**: Section 5: "not loaded" vs "empty" properly distinguished — a row synthesized from local state is not loaded data; NEW — when one list builds rows from two sources with different readiness, the loading guard must key on the slowest source, not on row count
+
+## Case: Same-route detail entry still pushed another page
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Opening a token from a list while already on a detail page of the same route added another detail page, so Back walked through the previous token.
+**Root Cause**: `useToDetailPage` derived `shouldReplaceCurrentDetail` from `currentRouteName !== detailRouteName`, so the same-route case fell through to `navigation.push`. The stack collapse added for the token selector never ran on this entry.
+**Fix**: Add a `shouldUpdateCurrentDetail` branch that calls `setParams` with `buildReplacedMarketDetailParams`, sharing the identity-clearing list with the selector path.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a "replace instead of push" option must also cover the same-route case, not only route changes
+
+## Case: Extension preview handle survived a token switch
+**Date**: 2026-09-17 | **Platforms**: Browser extension (expand tab)
+**Symptom**: Switching assets on an extension market detail could show a retry error instead of the new asset.
+**Root Cause**: `bg` writes the preview into `chrome.storage.session` and the expand-tab `main` runtime reads `marketTokenPreviewId` back from the URL hash. `DETAIL_ROUTE_PARAM_KEYS` omitted that key, and SET_PARAMS merges, so the stale handle stayed attached to the new identity.
+**Fix**: Add `marketTokenPreviewId` to the cleared identity keys so a switch without a new handle writes `undefined`.
+**Catchable by**: Section 4: state atoms modified → verified all readers/writers; NEW — an identity-clearing allowlist must enumerate every route param that carries cross-runtime handles
+
+## Case: Selector keyboard stayed up after picking a searched token
+**Date**: 2026-09-17 | **Platforms**: Android
+**Symptom**: Searching in the market token selector and tapping a result left the IME on top of the detail page unless the list had been dragged first.
+**Root Cause**: The selector list uses persist-taps, so a row tap never blurs the SearchBar. Closing the modal alone does not blur the RN input.
+**Fix**: Blur the focused RN input (`blurFocusedInput`) on select. Do not use `dismissKeyboard` here — its Android `hideSoftInputFromWindow` blocks the next programmatic `autoFocus` from showing the IME.
+**Catchable by**: Section 5: stale IME / focus state after dismiss; NEW — closing an autoFocused overlay must blur its input, and window-level IME hiding must not be used on a path that later autoFocuses
