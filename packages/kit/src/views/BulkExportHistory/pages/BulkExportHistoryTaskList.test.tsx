@@ -2,27 +2,17 @@
 
 import type { ReactNode } from 'react';
 
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IExportTransactionHistoryTask } from '@onekeyhq/shared/types/history';
+import type { IModalBulkExportHistoryParamList } from '@onekeyhq/shared/src/routes/bulkExportHistory';
+import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 
 import BulkExportHistoryTaskList from './BulkExportHistoryTaskList';
 
+const HISTORY_BOUNDARY_TEST_ID = 'bulk-export-history-history-boundary';
 const mockLoginOneKeyId = jest.fn<Promise<void>, []>();
-const mockFetchExportTransactionHistoryTasks = jest.fn<
-  Promise<{ list: IExportTransactionHistoryTask[] }>,
-  []
->();
-const mockUseBulkExportHistoryTaskPolling = jest.fn();
-const mockSyncFromScene = jest.fn(async () => undefined);
-
 let mockIsLoggedIn = false;
 const mockUser: {
   onekeyUserId?: string;
@@ -32,30 +22,18 @@ const mockUser: {
   primeSubscription: { isActive: false },
 };
 
-function createTask({
-  id,
-  status = 'success',
-}: {
-  id: number;
-  status?: IExportTransactionHistoryTask['status'];
-}): IExportTransactionHistoryTask {
-  return {
-    id,
-    next: null,
-    createdAt: id,
-    updatedAt: id,
-    uid: `task-${id}`,
-    query: {
-      networkIdToAddressArray: { 'evm--1': ['0xabc'] },
-      limit: 10,
-      maxTimestampMs: 2,
-      minTimestampMs: 1,
-    },
-    status,
-    filename: `export-${id}.csv`,
-    count: 1,
-  };
-}
+type ITaskListProps = IPageScreenProps<
+  IModalBulkExportHistoryParamList,
+  EModalBulkExportHistoryRoutes.BulkExportHistoryTaskList
+>;
+
+const taskListProps: ITaskListProps = {
+  navigation: { push: jest.fn() } as unknown as ITaskListProps['navigation'],
+  route: {
+    key: 'bulk-export-history-task-list',
+    name: EModalBulkExportHistoryRoutes.BulkExportHistoryTaskList,
+  },
+};
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -71,180 +49,62 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {
-    serviceHistory: {
-      fetchExportTransactionHistoryTasks: () =>
-        mockFetchExportTransactionHistoryTasks(),
-    },
-  },
-}));
-
-jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
-}));
-
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  return {
-    usePromiseResult: (
-      method: () => Promise<unknown>,
-      deps: unknown[] = [],
-    ) => {
-      const [result, setResult] = React.useState<unknown>(undefined);
-      const [isLoading, setIsLoading] = React.useState<boolean | undefined>(
-        true,
-      );
-      const methodRef = React.useRef(method);
-      methodRef.current = method;
-
-      // Test mock forwards the production deps array; oxlint cannot treat a
-      // dynamic array as a literal dependency list.
-      // oxlint-disable-next-line react-hooks/exhaustive-deps
-      React.useEffect(() => {
-        let cancelled = false;
-        setIsLoading(true);
-        void methodRef
-          .current()
-          .then((value) => {
-            if (!cancelled) {
-              setResult(value);
-              setIsLoading(false);
-            }
-          })
-          .catch(() => {
-            if (!cancelled) {
-              setResult(undefined);
-              setIsLoading(false);
-            }
-          });
-        return () => {
-          cancelled = true;
-        };
-        // oxlint-disable-next-line react-hooks/exhaustive-deps
-      }, deps);
-
-      return {
-        result,
-        isLoading,
-        run: jest.fn(),
-      };
-    },
-  };
-});
-
-jest.mock('../hooks/useBulkExportHistoryTasks', () => {
-  const actual = jest.requireActual<
-    typeof import('../hooks/useBulkExportHistoryTasks')
-  >('../hooks/useBulkExportHistoryTasks');
-  return {
-    useBulkExportHistoryTasks: actual.useBulkExportHistoryTasks,
-    useBulkExportHistoryTaskPolling: (params: unknown) => {
-      mockUseBulkExportHistoryTaskPolling(params);
-    },
-  };
-});
-
-jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
-  AccountSelectorProviderMirror: ({ children }: { children?: ReactNode }) => (
-    <>{children}</>
-  ),
-}));
-
+// Remaining mocks only break import-time coupling from the unmounted list tree.
+jest.mock(
+  '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
+  () => ({}),
+);
 jest.mock(
   '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerBase',
-  () => ({
-    AccountSelectorTriggerBase: () => null,
-  }),
+  () => ({}),
 );
-
+jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({}));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({}));
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/accountSelector',
+  () => ({}),
+);
 jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions',
-  () => ({
-    useAccountSelectorActions: () => ({
-      current: { syncFromScene: mockSyncFromScene },
-    }),
-  }),
+  () => ({}),
 );
-
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({
-    activeAccount: {
-      account: undefined,
-      dbAccount: undefined,
-      indexedAccount: undefined,
-      ready: true,
-    },
-  }),
-}));
-
 jest.mock(
   '@onekeyhq/kit/src/views/ChainSelector/hooks/useNetworkOptions',
-  () => ({
-    useNetworkOptions: () => ({ networks: [], isLoading: false }),
-  }),
+  () => ({}),
 );
+jest.mock('../../Staking/components/PageFrame', () => ({}));
+jest.mock('../components/BulkExportHistoryDownloadButton', () => ({}));
+jest.mock('../components/BulkExportHistoryNetworkAvatars', () => ({}));
+jest.mock('../hooks/useBulkExportHistoryTasks', () => ({}));
+jest.mock('./BulkExportHistoryTaskStatus', () => ({}));
 
-jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
-  ListItem: ({
-    children,
-    testID,
-    title,
-  }: {
-    children?: ReactNode;
-    testID?: string;
-    title?: string;
-  }) => (
-    <div data-testid={testID}>
-      {title}
-      {children}
-    </div>
-  ),
-}));
-
-jest.mock('../components/BulkExportHistoryDownloadButton', () => ({
-  BulkExportHistoryDownloadIconButton: () => null,
-}));
-
-jest.mock('../components/BulkExportHistoryNetworkAvatars', () => ({
-  __esModule: true,
-  default: () => null,
-}));
-
-jest.mock('./BulkExportHistoryTaskStatus', () => ({
-  __esModule: true,
-  default: () => null,
-}));
+jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    AccountSelectorProviderMirror: () => {
+      const [mountedOneKeyUserId] = React.useState(mockUser.onekeyUserId);
+      return React.createElement('div', {
+        'data-mounted-onekey-user-id': mountedOneKeyUserId,
+        'data-testid': HISTORY_BOUNDARY_TEST_ID,
+      });
+    },
+  };
+});
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
-
-  function Container({
-    children,
-    testID,
-  }: {
-    children?: ReactNode;
-    testID?: string;
-  }) {
-    return React.createElement('div', { 'data-testid': testID }, children);
+  function Box({ children }: { children?: ReactNode }) {
+    return React.createElement('div', null, children);
   }
-
-  const Page = Object.assign(Container, {
+  const Page = Object.assign(Box, {
+    Body: Box,
     Header: ({ title }: { title?: string }) =>
       React.createElement('span', null, title),
-    Body: Container,
   });
-
-  const Skeleton = Object.assign(() => React.createElement('div'), {
-    BodyLg: () => null,
-    BodyMd: () => null,
-  });
-
   return {
     Empty: ({
       buttonProps,
-      icon,
+      description,
       title,
     }: {
       buttonProps?: {
@@ -252,13 +112,14 @@ jest.mock('@onekeyhq/components', () => {
         onPress?: () => void;
         testID?: string;
       };
-      icon?: string;
+      description?: ReactNode;
       title?: ReactNode;
     }) =>
       React.createElement(
         'div',
-        { 'data-icon': icon },
+        null,
         React.createElement('span', null, title),
+        React.createElement('span', null, description),
         buttonProps
           ? React.createElement(
               'button',
@@ -271,44 +132,12 @@ jest.mock('@onekeyhq/components', () => {
             )
           : null,
       ),
-    ListView: ({
-      ListEmptyComponent,
-      data,
-      keyExtractor,
-      renderItem,
-    }: {
-      ListEmptyComponent?: ReactNode;
-      data: IExportTransactionHistoryTask[];
-      keyExtractor: (item: IExportTransactionHistoryTask) => string;
-      renderItem: (info: { item: IExportTransactionHistoryTask }) => ReactNode;
-    }) =>
-      data.length
-        ? React.createElement(
-            'div',
-            null,
-            data.map((item) =>
-              React.createElement(
-                'div',
-                { key: keyExtractor(item) },
-                renderItem({ item }),
-              ),
-            ),
-          )
-        : ListEmptyComponent,
     Page,
-    Skeleton,
-    Stack: Container,
-    useMedia: () => ({ gtMd: false }),
   };
 });
 
 function renderTaskList() {
-  return render(
-    <BulkExportHistoryTaskList
-      navigation={{ push: jest.fn() } as never}
-      route={{} as never}
-    />,
-  );
+  return render(<BulkExportHistoryTaskList {...taskListProps} />);
 }
 
 describe('BulkExportHistoryTaskList', () => {
@@ -318,24 +147,22 @@ describe('BulkExportHistoryTaskList', () => {
     mockUser.primeSubscription = { isActive: false };
     mockLoginOneKeyId.mockReset();
     mockLoginOneKeyId.mockResolvedValue(undefined);
-    mockFetchExportTransactionHistoryTasks.mockReset();
-    mockFetchExportTransactionHistoryTasks.mockResolvedValue({ list: [] });
-    mockUseBulkExportHistoryTaskPolling.mockReset();
-    mockSyncFromScene.mockClear();
   });
 
-  it('shows a sign-in empty state until OneKey ID login, then loads history without Prime', async () => {
-    const { rerender } = renderTaskList();
+  it('shows the sign-in empty state and does not mount history until OneKey ID login', () => {
+    renderTaskList();
 
     expect(screen.getByText(ETranslations.export_history__title)).toBeTruthy();
     expect(
       screen.getByText(ETranslations.sign_in_to_onekey_id__title),
     ).toBeTruthy();
+    expect(
+      screen.getByText(ETranslations.export_history_sign_in__desc),
+    ).toBeTruthy();
     expect(screen.getByTestId('bulk-export-history-task-list-sign-in')).toBe(
       screen.getByText(ETranslations.global_sign_in),
     );
-    expect(mockFetchExportTransactionHistoryTasks).not.toHaveBeenCalled();
-    expect(mockUseBulkExportHistoryTaskPolling).not.toHaveBeenCalled();
+    expect(screen.queryByTestId(HISTORY_BOUNDARY_TEST_ID)).toBeNull();
 
     fireEvent.click(
       screen.getByTestId('bulk-export-history-task-list-sign-in'),
@@ -343,133 +170,39 @@ describe('BulkExportHistoryTaskList', () => {
 
     expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
     expect(mockLoginOneKeyId).toHaveBeenCalledWith();
+  });
+
+  it('mounts history after sign-in, remounts on OneKey ID change, and unmounts on logout', () => {
+    const { rerender } = renderTaskList();
 
     mockIsLoggedIn = true;
     mockUser.onekeyUserId = 'user-a';
-    rerender(
-      <BulkExportHistoryTaskList
-        navigation={{ push: jest.fn() } as never}
-        route={{} as never}
-      />,
-    );
+    rerender(<BulkExportHistoryTaskList {...taskListProps} />);
 
-    await waitFor(() => {
-      expect(mockFetchExportTransactionHistoryTasks).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(screen.getByText(ETranslations.global_no_data)).toBeTruthy();
-    });
     expect(
-      screen.queryByText(ETranslations.sign_in_to_onekey_id__title),
+      screen.getByTestId(HISTORY_BOUNDARY_TEST_ID).dataset.mountedOnekeyUserId,
+    ).toBe('user-a');
+    expect(
+      screen.queryByText(ETranslations.export_history_sign_in__desc),
     ).toBeNull();
-    expect(screen.queryByText(ETranslations.global_sign_in)).toBeNull();
-  });
-
-  it('unmounts history on logout so a late response cannot redisplay records', async () => {
-    const task = createTask({ id: 11, status: 'processing' });
-    mockIsLoggedIn = true;
-    mockUser.onekeyUserId = 'user-a';
-    mockFetchExportTransactionHistoryTasks.mockResolvedValue({
-      list: [task],
-    });
-
-    const { rerender } = renderTaskList();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('bulk-export-history-task-11')).toBeTruthy();
-    });
-    expect(mockUseBulkExportHistoryTaskPolling).toHaveBeenCalled();
-
-    mockIsLoggedIn = false;
-    mockUser.onekeyUserId = undefined;
-    mockUseBulkExportHistoryTaskPolling.mockClear();
-    rerender(
-      <BulkExportHistoryTaskList
-        navigation={{ push: jest.fn() } as never}
-        route={{} as never}
-      />,
-    );
-
-    expect(screen.queryByTestId('bulk-export-history-task-11')).toBeNull();
-    expect(
-      screen.getByText(ETranslations.sign_in_to_onekey_id__title),
-    ).toBeTruthy();
-    expect(mockUseBulkExportHistoryTaskPolling).not.toHaveBeenCalled();
-
-    let resolveFetch:
-      | ((value: { list: IExportTransactionHistoryTask[] }) => void)
-      | undefined;
-    mockFetchExportTransactionHistoryTasks.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveFetch = resolve;
-        }),
-    );
-    mockIsLoggedIn = true;
-    mockUser.onekeyUserId = 'user-a';
-    rerender(
-      <BulkExportHistoryTaskList
-        navigation={{ push: jest.fn() } as never}
-        route={{} as never}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(resolveFetch).toBeDefined();
-    });
-
-    mockIsLoggedIn = false;
-    mockUser.onekeyUserId = undefined;
-    mockUseBulkExportHistoryTaskPolling.mockClear();
-    rerender(
-      <BulkExportHistoryTaskList
-        navigation={{ push: jest.fn() } as never}
-        route={{} as never}
-      />,
-    );
-
-    await act(async () => {
-      resolveFetch?.({ list: [task] });
-    });
-
-    expect(screen.queryByTestId('bulk-export-history-task-11')).toBeNull();
-    expect(
-      screen.getByText(ETranslations.sign_in_to_onekey_id__title),
-    ).toBeTruthy();
-    expect(mockUseBulkExportHistoryTaskPolling).not.toHaveBeenCalled();
-  });
-
-  it('remounts the list when the OneKey ID changes', async () => {
-    const taskA = createTask({ id: 21 });
-    const taskB = createTask({ id: 22 });
-    mockIsLoggedIn = true;
-    mockUser.onekeyUserId = 'user-a';
-    mockFetchExportTransactionHistoryTasks.mockResolvedValue({
-      list: [taskA],
-    });
-
-    const { rerender } = renderTaskList();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('bulk-export-history-task-21')).toBeTruthy();
-    });
-    expect(mockFetchExportTransactionHistoryTasks).toHaveBeenCalledTimes(1);
 
     mockUser.onekeyUserId = 'user-b';
-    mockFetchExportTransactionHistoryTasks.mockResolvedValue({
-      list: [taskB],
-    });
-    rerender(
-      <BulkExportHistoryTaskList
-        navigation={{ push: jest.fn() } as never}
-        route={{} as never}
-      />,
-    );
+    rerender(<BulkExportHistoryTaskList {...taskListProps} />);
 
-    await waitFor(() => {
-      expect(screen.getByTestId('bulk-export-history-task-22')).toBeTruthy();
-    });
-    expect(screen.queryByTestId('bulk-export-history-task-21')).toBeNull();
-    expect(mockFetchExportTransactionHistoryTasks).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByTestId(HISTORY_BOUNDARY_TEST_ID).dataset.mountedOnekeyUserId,
+    ).toBe('user-b');
+
+    mockIsLoggedIn = false;
+    mockUser.onekeyUserId = undefined;
+    rerender(<BulkExportHistoryTaskList {...taskListProps} />);
+
+    expect(screen.queryByTestId(HISTORY_BOUNDARY_TEST_ID)).toBeNull();
+    expect(
+      screen.getByText(ETranslations.export_history_sign_in__desc),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId('bulk-export-history-task-list-sign-in'),
+    ).toBeTruthy();
   });
 });
