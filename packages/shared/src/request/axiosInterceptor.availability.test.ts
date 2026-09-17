@@ -151,6 +151,25 @@ describe('API availability counting in request interceptors', () => {
     ]);
   });
 
+  it('counts a timeout carried by a Request as a timeout, not a cancellation', async () => {
+    // The signal lives on the Request, not in the options.
+    const controller = new AbortController();
+    controller.abort({ name: 'TimeoutError' });
+    stubFetch.mockImplementation(async () => {
+      throw Object.assign(new Error('The operation was aborted'), {
+        name: 'AbortError',
+      });
+    });
+
+    await expect(
+      globalThis.fetch(new Request(WALLET_URL, { signal: controller.signal })),
+    ).rejects.toThrow();
+
+    expect(apiOutcomes()).toEqual([
+      expect.objectContaining({ status: 'timeout' }),
+    ]);
+  });
+
   it('records an API error before the interceptor throws on it', async () => {
     const client = axios.create({
       adapter: adapterOf((config) => ({

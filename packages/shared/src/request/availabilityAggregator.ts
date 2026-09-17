@@ -618,16 +618,33 @@ export class AvailabilityAggregator {
       window = this.pending;
     };
     const lock = this.deps.withSendLock;
-    const held = lock
-      ? await withTimeout<boolean | typeof STALLED>(
-          lock(claim).then(() => true),
-          FLUSH_STEP_TIMEOUT_MS,
-          STALLED,
-        )
-      : await claim().then(() => true);
-    if (held !== true) {
-      report('lockStalled');
-      return;
+    if (lock) {
+      // Only the wait for the lock is bounded. Once it is granted the claim
+      // runs to the end, since each of its steps is bounded already; a grant
+      // that arrives after this attempt gave up claims nothing, because a
+      // slot taken then would have nobody left to send it.
+      let granted = false;
+      let abandoned = false;
+      const run = lock(async () => {
+        if (abandoned) return;
+        granted = true;
+        await claim();
+      });
+      const settled = await withTimeout<boolean | typeof STALLED>(
+        run.then(() => true),
+        FLUSH_STEP_TIMEOUT_MS,
+        STALLED,
+      );
+      if (settled === STALLED) {
+        if (!granted) {
+          abandoned = true;
+          report('lockStalled');
+          return;
+        }
+        await run;
+      }
+    } else {
+      await claim();
     }
     if (!window) return;
     try {
@@ -689,7 +706,12 @@ export class AvailabilityAggregator {
       .then(() => this.deps.storage.save(text))
       .then(
         () => true,
-        () => false,
+        () => {
+          // Still unwritten: let a later trigger try again, rather than leave
+          // the counters in memory for a process that may be killed.
+          this.dirty = true;
+          return false;
+        },
       );
     // The queue itself must stay settled, whatever the result was.
     this.writeQueue = written.then(() => undefined);

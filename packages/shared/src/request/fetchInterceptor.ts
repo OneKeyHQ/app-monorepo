@@ -112,6 +112,9 @@ const newFetch = async function (
     isEventStream(options)
       ? undefined
       : createApiAvailabilityTiming({ url });
+  // A Request carries its own signal, which `options.signal` overrides when
+  // set. Reading only the latter counted a Request's timeout as a cancellation.
+  const abortSignal: unknown = options.signal ?? resourceInfo?.signal;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
   return (
     fetchOrigin
@@ -148,17 +151,13 @@ const newFetch = async function (
                 httpStatus: res.status,
               }),
             (e: unknown) =>
-              reportApiAvailabilityError(
-                availabilityTiming,
-                e,
-                options?.signal,
-              ),
+              reportApiAvailabilityError(availabilityTiming, e, abortSignal),
           );
         }
         return response;
       })
       .catch((e: unknown) => {
-        reportApiAvailabilityError(availabilityTiming, e, options?.signal);
+        reportApiAvailabilityError(availabilityTiming, e, abortSignal);
         if (e) {
           defaultLogger.app.network.error({
             requestType: 'fetch',

@@ -663,6 +663,61 @@ describe('AvailabilityAggregator', () => {
     ]);
   });
 
+  it('retries a failed write on a later tick instead of keeping counters in memory', async () => {
+    const { aggregator, deps, store } = createHarness({
+      storage: { text: JSON.stringify({ version: 3, lastSendTs: START }) },
+    });
+    let failNextWrite = true;
+    deps.storage.save = async (text) => {
+      if (failNextWrite) {
+        failNextWrite = false;
+        throw new OneKeyLocalError('disk full');
+      }
+      store.text = text;
+    };
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    await aggregator.flush('tick');
+    await settle();
+    expect(JSON.parse(String(store.text))).not.toHaveProperty('current');
+
+    // A tick only writes a window that is still marked unwritten.
+    await aggregator.flush('tick');
+    await settle();
+    expect(JSON.parse(String(store.text)).current.counters).toEqual({
+      api_wallet_ok: 1,
+    });
+  });
+
+  it('claims nothing when the send lock is granted after the attempt gave up', async () => {
+    jest.useFakeTimers();
+    const { aggregator, deps, sent, store } = createHarness({
+      persistWindows: false,
+    });
+    const results: string[] = [];
+    deps.log = (_reason, result) => results.push(result);
+    let grant: (() => void) | undefined;
+    deps.withSendLock = (task) =>
+      new Promise<void>((resolve, reject) => {
+        grant = () => {
+          task().then(resolve, reject);
+        };
+      });
+
+    aggregator.record({ source: 'api', target: 'wallet', status: 'ok' });
+    void aggregator.flush('hidden');
+    await jest.advanceTimersByTimeAsync(11_000);
+    expect(results).toContain('lockStalled');
+
+    grant?.();
+    await jest.advanceTimersByTimeAsync(11_000);
+
+    // Claiming now would store a send time with nobody left to send, and
+    // block every instance for the rest of the gap.
+    expect(store.text).toBeUndefined();
+    expect(sent).toHaveLength(0);
+  });
+
   it('gives up on stored state that never loads instead of parking the flush', async () => {
     jest.useFakeTimers();
     const { aggregator, deps, sent } = createHarness();
