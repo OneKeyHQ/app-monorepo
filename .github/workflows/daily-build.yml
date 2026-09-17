@@ -11,12 +11,12 @@ on:
         type: boolean
         default: false
       ENABLE_STARTUP_PROFILE:
-        description: 'Build with ONEKEY_STARTUP_PROFILE=1 (forces qa-internal-startup-profile, no store submit, skips simulator). See skill 1k-startup-profile.'
+        description: 'Build with ONEKEY_STARTUP_PROFILE=1 (uses the -startup-profile variant of the normal EAS profiles; still uploads to TestFlight and Google Play). See skill 1k-startup-profile.'
         required: false
         type: boolean
         default: false
       ENABLE_FUNCTION_TRACE:
-        description: 'Build with per-function tracing (ONEKEY_FUNCTION_TRACE=1; implies startup profile; large bundle and log output). Forces qa-internal-function-trace, no store submit.'
+        description: 'Build with per-function tracing (ONEKEY_FUNCTION_TRACE=1; implies startup profile; large bundle and log output). Uses the -function-trace variant of the normal EAS profiles; still uploads to TestFlight and Google Play.'
         required: false
         type: boolean
         default: false

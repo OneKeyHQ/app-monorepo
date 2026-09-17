@@ -1,7 +1,7 @@
 /**
  * Babel plugin that wraps first-party function bodies with begin/end trace
- * hooks. Enabled only when ONEKEY_FUNCTION_TRACE=1 (qa-internal-function-trace
- * EAS profile); the hooks are installed by installFunctionTrace() in
+ * hooks. Enabled only when ONEKEY_FUNCTION_TRACE=1 (*-function-trace EAS
+ * profiles); the hooks are installed by installFunctionTrace() in
  * apps/mobile/src/startupProfile.
  *
  * Known trade-offs, accepted on purpose:
