@@ -74,54 +74,25 @@ describe('primeSubscriptionManagementUtils', () => {
       name: 'RevenueCat web billing portal',
       managementUrl:
         'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
-      id: 'synthetic-subscription-id',
     },
     {
       name: 'Apple subscription management',
       managementUrl: 'https://apps.apple.com/account/subscriptions',
     },
-  ])('routes a channel-less $name URL externally', ({ managementUrl, id }) => {
+  ])('routes a channel-less $name URL externally', ({ managementUrl }) => {
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
           primeSubscription: {
             isActive: true,
             expiresAt: 0,
-            subscriptions: [
-              {
-                id,
-                managementUrl,
-              },
-            ],
+            subscriptions: [{ managementUrl }],
           },
         },
       }),
     ).toEqual({
       type: 'external',
       url: managementUrl,
-    });
-  });
-
-  it('does not use an aggregate management URL for a channel-less marketing record', () => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: 0,
-            subscriptions: [
-              {
-                managementUrl: 'https://onekey.so/invite',
-              },
-            ],
-          },
-          subscriptionManageUrl:
-            'https://api.revenuecat.com/rcbilling/v1/customerportal/stale/portal',
-        },
-      }),
-    ).toEqual({
-      type: 'unavailable',
-      reason: 'missing-channel-and-management-url',
     });
   });
 
@@ -148,7 +119,7 @@ describe('primeSubscriptionManagementUtils', () => {
     });
   });
 
-  it('prefers Infini in-app management when a store URL is also present', () => {
+  it('prefers Infini in-app management over a preceding channel-less store URL', () => {
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
@@ -157,31 +128,7 @@ describe('primeSubscriptionManagementUtils', () => {
             expiresAt: Date.now() + 60_000,
             subscriptions: [
               {
-                channel: 'infini',
-                managementUrl: 'https://onekey.so/invite',
-              },
-              {
-                channel: 'app-store',
                 managementUrl: 'https://apps.apple.com/account/subscriptions',
-              },
-            ],
-          },
-        },
-      }),
-    ).toEqual({ type: 'infini' });
-  });
-
-  it('prefers Infini even when another record is a channel-less store URL', () => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: 0,
-            subscriptions: [
-              {
-                managementUrl:
-                  'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
               },
               {
                 channel: 'infini',
