@@ -51,11 +51,19 @@ export type ISecurityCheckStatus =
   | ISecurityCheckFindingStatus
   | 'success'
   | 'loading'
-  | 'check_failed';
+  | 'check_failed'
+  | 'limited';
 
 const CHECK_FAILED_FINDING_ID = 'tx-security-check-failed';
+const PARSE_FALLBACK_FINDING_IDS = new Set([
+  'tx-parse-fallback',
+  'message-parse-fallback',
+]);
 
-const SECURITY_CHECK_STATUS_WEIGHT: Record<ISecurityCheckStatus, number> = {
+const SECURITY_CHECK_STATUS_WEIGHT: Record<
+  Exclude<ISecurityCheckStatus, 'limited'>,
+  number
+> = {
   critical: 5,
   warning: 4,
   unknown: 3,
@@ -67,11 +75,7 @@ const SECURITY_CHECK_STATUS_WEIGHT: Record<ISecurityCheckStatus, number> = {
 
 const CATEGORY_ORDER: ISecurityCheckCategory[] = ['site', 'operation'];
 
-export type ISecurityCheckConfirmation =
-  | 'none'
-  | 'pending'
-  | 'request'
-  | 'risk';
+export type ISecurityCheckConfirmation = 'none' | 'pending' | 'risk';
 
 type ISecurityCheckFindingAction =
   | {
@@ -284,6 +288,30 @@ function shouldUseCheckFailedStatus(findings: ISecurityCheckFinding[]) {
 
 function isDecisionSecurityFinding(finding: ISecurityCheckFinding) {
   return finding.status === 'critical' || finding.status === 'warning';
+}
+
+function isParseFallbackFinding(finding: ISecurityCheckFinding) {
+  return PARSE_FALLBACK_FINDING_IDS.has(finding.id);
+}
+
+function shouldUseLimitedStatus({
+  status,
+  confirmation,
+  findings,
+}: {
+  status?: ISecurityCheckStatus;
+  confirmation: ISecurityCheckConfirmation;
+  findings: ISecurityCheckFinding[];
+}) {
+  if (status !== 'unknown' || confirmation !== 'none') {
+    return false;
+  }
+  const unknownFindings = findings.filter(
+    (finding) => finding.status === 'unknown',
+  );
+  return (
+    unknownFindings.length > 0 && unknownFindings.every(isParseFallbackFinding)
+  );
 }
 
 export function sortSecurityFindings(findings: ISecurityCheckFinding[]) {
@@ -962,7 +990,12 @@ function getOperationFindings(
       id: 'tx-parse-fallback',
       category: 'operation',
       status: 'unknown',
-      title: intl.formatMessage({ id: ETranslations.global_unverified }),
+      title: intl.formatMessage({
+        id: ETranslations.dapp_connect_transaction_analysis_limited__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.dapp_connect_transaction_analysis_limited__desc,
+      }),
     });
   }
 
@@ -1006,8 +1039,7 @@ function getDisplayComponents({
 export function buildSecurityCheckModel(
   params: IBuildSecurityCheckModelParams,
 ): ISecurityCheckViewModel {
-  const { kind, decodedTxs, isMessageParseFallback, transactionSecurityInfo } =
-    params;
+  const { kind, transactionSecurityInfo } = params;
   const coverage = getSecurityCheckCoverage(params);
   const requestScanCoverage =
     coverage.find(({ source }) => source === 'requestScan')?.state ??
@@ -1056,7 +1088,8 @@ export function buildSecurityCheckModel(
   });
   // Confirmation follows explicit reasons, not card warning severity. Common
   // High/Medium site or Prime risk is evaluated before the trusted Permit
-  // exemption. Tx parser/Hex findings and ordinary address tags are display-only.
+  // exemption. Tx parser/Hex findings, parse fallbacks, and ordinary address
+  // tags are display-only.
   const hasRiskConfirmation = Boolean(
     causes.site ||
     causes.prime ||
@@ -1066,17 +1099,11 @@ export function buildSecurityCheckModel(
     causes.parserAlerts?.length ||
     causes.addressRisk?.length,
   );
-  const requestNeedsConfirmation =
-    kind === 'transaction'
-      ? Boolean(params.origin && decodedTxs?.some(isTransactionParseFallback))
-      : Boolean(isMessageParseFallback);
   let confirmation: ISecurityCheckConfirmation = 'none';
   if (isSecurityCheckPending) {
     confirmation = 'pending';
   } else if (hasRiskConfirmation) {
     confirmation = 'risk';
-  } else if (requestNeedsConfirmation) {
-    confirmation = 'request';
   }
   let status: ISecurityCheckStatus | undefined = highestFindingStatus;
   if (
@@ -1091,6 +1118,9 @@ export function buildSecurityCheckModel(
     (!status || status === 'unknown')
   ) {
     status = 'check_failed';
+  }
+  if (shouldUseLimitedStatus({ status, confirmation, findings })) {
+    status = 'limited';
   }
   const showPrimeInvite = Boolean(
     requestScanCoverage === 'locked' &&

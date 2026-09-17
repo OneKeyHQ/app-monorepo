@@ -1,6 +1,7 @@
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import { createNetworkNotSupportedTransactionSecurityResult } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -501,7 +502,7 @@ describe('securityCheckModel', () => {
     ).toBe('pending');
   });
 
-  it('requires review when message or transaction parsing falls back', () => {
+  it('does not require acknowledgement when message or transaction parsing falls back', () => {
     const messageFallback = buildSecurityCheckModel({
       kind: 'message',
       origin: 'https://app.example.com',
@@ -537,13 +538,32 @@ describe('securityCheckModel', () => {
     });
 
     expect(messageFallback).toMatchObject({
-      status: 'unknown',
-      confirmation: 'request',
+      status: 'limited',
+      confirmation: 'none',
     });
     expect(transactionFallback).toMatchObject({
-      status: 'unknown',
-      confirmation: 'request',
+      status: 'limited',
+      confirmation: 'none',
     });
+    expect(messageFallback.findings).toContainEqual(
+      expect.objectContaining({
+        id: 'message-parse-fallback',
+        status: 'unknown',
+      }),
+    );
+    expect(transactionFallback.findings).toContainEqual(
+      expect.objectContaining({
+        id: 'tx-parse-fallback',
+        status: 'unknown',
+      }),
+    );
+    expect(
+      messageFallback.coverage.find((item) => item.source === 'parser')?.state,
+    ).toBe('unknown');
+    expect(
+      transactionFallback.coverage.find((item) => item.source === 'parser')
+        ?.state,
+    ).toBe('unknown');
     expect(
       getCardSecurityFindings(messageFallback.findings).visibleFindings[0]?.id,
     ).toBe('message-parse-fallback');
@@ -561,6 +581,152 @@ describe('securityCheckModel', () => {
         (finding) => finding.id === 'tx-parse-fallback',
       ),
     ).toBe(false);
+  });
+
+  it.each([
+    [
+      'transaction fallback plus site Medium',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: {
+            ...verifiedSite,
+            level: EHostSecurityLevel.Medium,
+          },
+          decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+          intl,
+        }),
+    ],
+    [
+      'message fallback plus Prime High',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: parsedMessage,
+          isMessageParseFallback: true,
+          transactionSecurityInfo: buildTransactionSecurityResult(
+            EHostSecurityLevel.High,
+          ),
+          intl,
+        }),
+    ],
+    [
+      'transaction fallback plus explicit confirmation',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          decodedTxs: [
+            buildDecodedTx({
+              isLocalParsed: true,
+              isConfirmationRequired: true,
+            }),
+          ],
+          intl,
+        }),
+    ],
+    [
+      'message fallback plus explicit confirmation',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: parsedMessage,
+          isMessageParseFallback: true,
+          isConfirmationRequired: true,
+          intl,
+        }),
+    ],
+    [
+      'trusted-site eth_sign plus message fallback',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: parsedMessage,
+          unsignedMessage: {
+            type: EMessageTypesEth.ETH_SIGN,
+            message: '0xdead',
+          },
+          isRiskSignMethod: true,
+          isMessageParseFallback: true,
+          intl,
+        }),
+    ],
+    [
+      'unknown-site Permit plus message fallback',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: {
+            level: EHostSecurityLevel.Unknown,
+          } as IHostSecurity,
+          messageDisplay: parsedMessage,
+          unsignedMessage: permitMessage,
+          isRiskSignMethod: true,
+          isMessageParseFallback: true,
+          intl,
+        }),
+    ],
+    [
+      'unknown-site Order plus message fallback',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: {
+            level: EHostSecurityLevel.Unknown,
+          } as IHostSecurity,
+          messageDisplay: parsedMessage,
+          unsignedMessage: buildTypedDataMessage('Order'),
+          isRiskSignMethod: true,
+          isMessageParseFallback: true,
+          intl,
+        }),
+    ],
+    [
+      'trusted Permit specific alert plus message fallback',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: {
+            ...parsedMessage,
+            alerts: ['The spender is known to be malicious.'],
+          },
+          unsignedMessage: permitMessage,
+          isMessageParseFallback: true,
+          intl,
+        }),
+    ],
+    [
+      'trusted Permit address risk plus message fallback',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: {
+            ...parsedMessage,
+            components: [buildAddressComponent({ displayType: 'warning' })],
+          },
+          unsignedMessage: permitMessage,
+          isMessageParseFallback: true,
+          intl,
+        }),
+    ],
+  ] as const)('%s stays risk and not limited', (_title, buildModel) => {
+    const model = buildModel();
+    expect(model.confirmation).toBe('risk');
+    expect(model.status).not.toBe('limited');
   });
 
   it('does not treat a failed request scan as SignGuard coverage', () => {
@@ -1009,7 +1175,7 @@ describe('securityCheckModel', () => {
     );
   });
 
-  it('invalidates acknowledgement when pending, request, or risk reasons change', () => {
+  it('invalidates acknowledgement when pending or risk reasons change', () => {
     const messageWithAlert = (alert: string) =>
       buildSecurityCheckModel({
         kind: 'message',
@@ -1057,6 +1223,18 @@ describe('securityCheckModel', () => {
       isMessageParseFallback: true,
       intl,
     });
+    const fallbackWithSiteRisk = buildSecurityCheckModel({
+      kind: 'message',
+      requestKey: 'same-request',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: {
+        ...verifiedSite,
+        level: EHostSecurityLevel.Medium,
+      },
+      messageDisplay: parsedMessage,
+      isMessageParseFallback: true,
+      intl,
+    });
     const primeMedium = buildSecurityCheckModel({
       kind: 'transaction',
       requestKey: 'same-request',
@@ -1081,7 +1259,10 @@ describe('securityCheckModel', () => {
     });
 
     expect(pending.acknowledgementKey).not.toBe(resolved.acknowledgementKey);
-    expect(fallback.acknowledgementKey).not.toBe(resolved.acknowledgementKey);
+    expect(fallback.acknowledgementKey).toBe(resolved.acknowledgementKey);
+    expect(fallbackWithSiteRisk.acknowledgementKey).not.toBe(
+      fallback.acknowledgementKey,
+    );
     expect(primeHigh.acknowledgementKey).not.toBe(
       primeMedium.acknowledgementKey,
     );
@@ -1393,9 +1574,182 @@ describe('getCardSecurityFindings presentation', () => {
     const card = getCardSecurityFindings(model.findings, model.status);
 
     expect(stableStringify(model.findings)).toBe(rawFindings);
-    expect(card.visibleFindings).toEqual([]);
+    expect(card.visibleFindings.map((finding) => finding.id)).toEqual([
+      'tx-parse-fallback',
+    ]);
+    expect(
+      card.visibleFindings.some((finding) => finding.id === 'site-unknown'),
+    ).toBe(false);
     expect(card.allDecisionFindings).toEqual([]);
   });
+
+  it('keeps a verified-site Arc local parse fallback visible when the network is unsupported', () => {
+    const transactionSecurityInfo =
+      createNetworkNotSupportedTransactionSecurityResult();
+    const model = buildSecurityCheckModel({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+      transactionSecurityInfo,
+      intl,
+    });
+    expect(model.status).toBe('limited');
+    expect(model.confirmation).toBe('none');
+    expect(model.showPrimeInvite).toBe(false);
+    expect(
+      model.coverage.find((item) => item.source === 'requestScan')?.state,
+    ).toBe('networkUnsupported');
+  });
+
+  it('keeps verified-site parse fallback limited when Prime is locked', () => {
+    const model = buildSecurityCheckModel({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+      isPrimeUser: false,
+      isTransactionSecurityApplicable: true,
+      intl,
+    });
+
+    expect(model.status).toBe('limited');
+    expect(model.confirmation).toBe('none');
+    expect(model.showPrimeInvite).toBe(false);
+    expect(
+      model.coverage.find((item) => item.source === 'requestScan')?.state,
+    ).toBe('locked');
+  });
+
+  it.each([
+    [
+      'parser pending',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+          isParserPending: true,
+          intl,
+        }),
+      'unknown',
+      'pending',
+    ],
+    [
+      'Prime pending',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+          isTransactionSecurityPending: true,
+          intl,
+        }),
+      'unknown',
+      'pending',
+    ],
+    [
+      'site unknown',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: {
+            level: EHostSecurityLevel.Unknown,
+          } as IHostSecurity,
+          decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+          intl,
+        }),
+      'unknown',
+      'none',
+    ],
+    [
+      'check failure',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'message',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          messageDisplay: parsedMessage,
+          isMessageParseFallback: true,
+          transactionSecurityInfo: {
+            level: EHostSecurityLevel.Unknown,
+            detail: {
+              code: ETransactionSecurityResultCode.CheckFailed,
+              features: [],
+            },
+          },
+          intl,
+        }),
+      'unknown',
+      'none',
+    ],
+    [
+      'Prime Unknown',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+          transactionSecurityInfo: buildTransactionSecurityResult(
+            EHostSecurityLevel.Unknown,
+          ),
+          intl,
+        }),
+      'unknown',
+      'none',
+    ],
+    [
+      'Prime UnableToAssess',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+          transactionSecurityInfo: {
+            level: EHostSecurityLevel.Unknown,
+            detail: {
+              code: ETransactionSecurityResultCode.UnableToAssess,
+              features: [],
+            },
+          },
+          intl,
+        }),
+      'unknown',
+      'none',
+    ],
+    [
+      'Prime partial coverage',
+      () =>
+        buildSecurityCheckModel({
+          kind: 'transaction',
+          origin: 'https://app.example.com',
+          urlSecurityInfo: verifiedSite,
+          decodedTxs: [buildDecodedTx({ isLocalParsed: true })],
+          transactionSecurityInfo: {
+            ...buildTransactionSecurityResult(EHostSecurityLevel.Security),
+            coverage: {
+              hasUncoveredRequests: true,
+              hasFailedRequests: false,
+            },
+          },
+          intl,
+        }),
+      'unknown',
+      'none',
+    ],
+  ] as const)(
+    'does not use limited for fallback plus %s',
+    (_title, buildModel, status, confirmation) => {
+      const model = buildModel();
+      expect(model.status).toBe(status);
+      expect(model.confirmation).toBe(confirmation);
+    },
+  );
 
   it('keeps Retry on the check-failed row when the header is unknown', () => {
     const model = buildSecurityCheckModel({
