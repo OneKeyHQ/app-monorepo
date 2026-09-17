@@ -15,7 +15,11 @@ import { OneKeyHardwareError } from './hardwareErrors';
 
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
-export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
+// App-internal marker, never on the wire: an all-network install cancelled
+// mid-batch, so the remaining chains soft-skip instead of failing the flow.
+// Deliberately above the SDK's 10000-99999 code space — it used to sit on
+// 10_504, which the SDK now mints as AppAlreadyInstalled.
+export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 100_504;
 export const THIRD_PARTY_HW_NETWORK_ERROR_CODE =
   ThirdPartyHwErrorCode.NetworkError;
 export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
@@ -30,6 +34,12 @@ export const THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE =
   ThirdPartyHwErrorCode.OperationNotFound;
 export const THIRD_PARTY_HW_OPERATION_ENDED_CODE =
   ThirdPartyHwErrorCode.OperationEnded;
+// Minted by the SDK as LedgerSecureChannelError / LedgerFirmwareMetadataError /
+// AppAlreadyInstalled. Literals because the pinned alpha.4 HardwareErrorCode
+// enum predates them; switch to the enum members from alpha.5.
+export const THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE = 10_311;
+export const THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE = 10_312;
+export const THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE = 10_504;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -222,6 +232,26 @@ export class ThirdPartyInstallAppUserCancelled extends ThirdPartyHardwareError {
   override code = THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE;
 }
 
+/**
+ * The device refused the install because the app is already there. The outcome
+ * the caller wanted, so install flows treat it as done rather than a failure;
+ * it carries copy only for the paths that surface it verbatim.
+ */
+export class ThirdPartyAppAlreadyInstalled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslationsMock.hardware_third_party_app_already_installed,
+        defaultAutoToast: false,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE;
+}
+
 export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
   reason?: EThirdPartyDevicePermissionDeniedReason;
 
@@ -373,6 +403,27 @@ export class ThirdPartyDeviceSearchMismatch extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.DeviceSearchMismatch;
+}
+
+/**
+ * The Ledger secure channel (the websocket session used by app install and
+ * the genuine check) broke mid-operation. The device link itself may be
+ * fine; the session has to be rebuilt before another install is attempted.
+ * Distinct from ThirdPartyNetworkError, which is a plain failure to reach
+ * Ledger's servers.
+ */
+export class ThirdPartySecureChannelError extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.hardware_third_party_secure_channel_error,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE;
 }
 
 /** Operation timed out */

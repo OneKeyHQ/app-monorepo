@@ -7,14 +7,20 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import {
+  THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
+  THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
   THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
   THIRD_PARTY_HW_NETWORK_ERROR_CODE,
   THIRD_PARTY_HW_OPERATION_ENDED_CODE,
   THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
   THIRD_PARTY_HW_PIN_MISMATCH_CODE,
+  THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+  ThirdPartyAppAlreadyInstalled,
+  ThirdPartyInstallAppUserCancelled,
   ThirdPartyNetworkError,
+  ThirdPartySecureChannelError,
 } from '../errors/thirdPartyHardwareErrors';
 
 import { convertDeviceError } from './deviceErrorUtils';
@@ -22,6 +28,7 @@ import {
   classifyThirdPartyHwCreateFailures,
   convertThirdPartyDeviceError,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyInstallAppUserCancelCode,
   normalizeThirdPartyDeviceErrorCode,
   normalizeThirdPartyHardwareRecoveryHint,
   shouldOfferLedgerCoreAppInstallForCreateFailures,
@@ -36,6 +43,97 @@ describe('convertThirdPartyDeviceError', () => {
     });
 
     expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+  });
+
+  it('maps the SDK secure channel code without needing the DMK tag', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+        error: 'Ledger secure channel closed',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error).toBeInstanceOf(ThirdPartySecureChannelError);
+    expect(error.code).toBe(THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE);
+  });
+
+  it('shares the network error copy and remedy for the firmware metadata code', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
+        error: 'GetApplicationsMetadataTaskError',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error).toBeInstanceOf(ThirdPartyNetworkError);
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+  });
+
+  it.each([
+    'InvalidGetFirmwareMetadataResponseError',
+    'GetApplicationsMetadataTaskError',
+  ])('still recognizes the legacy %s tag on an uncoded failure', (tag) => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.UnknownError,
+      error: tag,
+      _tag: tag,
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+  });
+
+  it('maps an already-installed app apart from an install the user cancelled', () => {
+    const alreadyInstalled = convertThirdPartyDeviceError(
+      {
+        code: THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
+        error: 'AppAlreadyInstalledDAError',
+        appName: 'Bitcoin',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+    const userCancelled = convertThirdPartyDeviceError({
+      code: THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+      error: 'cancelled',
+    });
+
+    expect(alreadyInstalled).toBeInstanceOf(ThirdPartyAppAlreadyInstalled);
+    expect(userCancelled).toBeInstanceOf(ThirdPartyInstallAppUserCancelled);
+    // The app-minted cancel marker had to move off 10504 once the SDK claimed it.
+    expect(THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE).not.toBe(
+      THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
+    );
+    expect(isThirdPartyInstallAppUserCancelCode(alreadyInstalled.code)).toBe(
+      false,
+    );
+  });
+
+  it('maps a broken Ledger secure channel to its own error, not a network error', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.UnknownError,
+        error: 'SecureChannelError',
+        _tag: 'SecureChannelError',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error.code).toBe(THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE);
+    expect(error).toBeInstanceOf(ThirdPartySecureChannelError);
+    expect(error).not.toBeInstanceOf(ThirdPartyNetworkError);
+    expect(error).toMatchObject({ vendor: EHardwareVendor.ledger });
+  });
+
+  it('leaves a secure channel tag alone once the SDK already classified the code', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.NetworkError,
+      error: 'websocket closed',
+      _tag: 'SecureChannelError',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+    expect(error).toBeInstanceOf(ThirdPartyNetworkError);
   });
 
   it('maps the adapter network error code to the retryable network error', () => {

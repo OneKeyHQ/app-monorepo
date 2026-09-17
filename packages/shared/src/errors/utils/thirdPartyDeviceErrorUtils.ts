@@ -9,14 +9,31 @@ import type {
   IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
 
+/** Failure payload shape shared by every third-party SDK `{ success: false }` response. */
+export interface IThirdPartyDeviceErrorPayload {
+  error: string;
+  code: number;
+  appName?: string;
+  params?: IOneKeyHardwareErrorPayload['params'];
+  /** Vendor SDK error tag (e.g. Ledger DMK `_tag`), forwarded verbatim. */
+  _tag?: string;
+  recovery?: unknown;
+}
+
 interface IThirdPartyErrorContext {
   vendor?: string;
   chain?: string;
   silentMode?: boolean;
 }
 
-const LEDGER_INVALID_FIRMWARE_METADATA_RESPONSE_TAG =
-  'InvalidGetFirmwareMetadataResponseError';
+// Ledger DMK tags. Kept only as a fallback for SDK builds older than the one
+// that mints 10311 / 10312: those left both cases on UnknownError, so the tag
+// was the sole signal. Newer builds arrive already coded and skip this.
+const LEDGER_FIRMWARE_METADATA_TAGS = new Set([
+  'InvalidGetFirmwareMetadataResponseError',
+  'GetApplicationsMetadataTaskError',
+]);
+const LEDGER_SECURE_CHANNEL_TAG = 'SecureChannelError';
 
 export function normalizeThirdPartyDeviceErrorCode(payload: {
   code: number | string | undefined;
@@ -24,11 +41,19 @@ export function normalizeThirdPartyDeviceErrorCode(payload: {
 }): number | string | undefined {
   const code =
     typeof payload.code === 'string' ? Number(payload.code) : payload.code;
-  if (
-    code === ThirdPartyHwErrorCode.UnknownError &&
-    payload._tag === LEDGER_INVALID_FIRMWARE_METADATA_RESPONSE_TAG
-  ) {
+  // Reaching Ledger's catalog is a network round trip either way, so the
+  // metadata code shares the network error's copy and its "fix your
+  // connection, then retry" remedy.
+  if (code === ThirdPartyErrors.THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE) {
     return ThirdPartyErrors.THIRD_PARTY_HW_NETWORK_ERROR_CODE;
+  }
+  if (code === ThirdPartyHwErrorCode.UnknownError && payload._tag) {
+    if (LEDGER_FIRMWARE_METADATA_TAGS.has(payload._tag)) {
+      return ThirdPartyErrors.THIRD_PARTY_HW_NETWORK_ERROR_CODE;
+    }
+    if (payload._tag === LEDGER_SECURE_CHANNEL_TAG) {
+      return ThirdPartyErrors.THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE;
+    }
   }
   return Number.isFinite(code) ? code : payload.code;
 }
@@ -81,14 +106,7 @@ export function isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
  * ```
  */
 export function convertThirdPartyDeviceError(
-  payload: {
-    error: string;
-    code: number;
-    appName?: string;
-    params?: IOneKeyHardwareErrorPayload['params'];
-    _tag?: string;
-    recovery?: unknown;
-  },
+  payload: IThirdPartyDeviceErrorPayload,
   context?: IThirdPartyErrorContext,
 ) {
   const normalizedCode = normalizeThirdPartyDeviceErrorCode(payload);
@@ -170,6 +188,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyErrors.THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE:
       return new ThirdPartyErrors.ThirdPartyInstallAppUserCancelled(props);
 
+    case ThirdPartyErrors.THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE:
+      return new ThirdPartyErrors.ThirdPartyAppAlreadyInstalled(props);
+
     case ThirdPartyHwErrorCode.DevicePermissionDenied:
       return new ThirdPartyErrors.ThirdPartyDevicePermissionDenied({
         ...props,
@@ -184,6 +205,9 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyErrors.THIRD_PARTY_HW_NETWORK_ERROR_CODE:
       return new ThirdPartyErrors.ThirdPartyNetworkError(props);
+
+    case ThirdPartyErrors.THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE:
+      return new ThirdPartyErrors.ThirdPartySecureChannelError(props);
 
     case ThirdPartyHwErrorCode.WrongApp:
       return new ThirdPartyErrors.ThirdPartyWrongApp(props);
