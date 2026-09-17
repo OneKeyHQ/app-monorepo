@@ -470,6 +470,7 @@ export function useCloudBackup() {
               await timerUtils.wait(350);
             }
             importProcessingDialog = showPrimeTransferImportProcessingDialog({
+              intl,
               navigation,
             });
             const result =
@@ -493,8 +494,11 @@ export function useCloudBackup() {
             }
             // eslint-disable-next-line no-useless-catch
           } catch (error) {
-            // password error
-            void importProcessingDialog?.close?.();
+            // Failed imports should close without asking the user to cancel them.
+            if (importProcessingDialog) {
+              await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
+              await importProcessingDialog.close();
+            }
             throw error;
           } finally {
             setCheckLoading(false);

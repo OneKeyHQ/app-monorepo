@@ -65,6 +65,15 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import {
+  PRIME_TRANSFER_CHUNK_TIMEOUT,
+  PRIME_TRANSFER_MAX_PAYLOAD_SIZE,
+} from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
+import type {
+  IPrimeTransferChunk,
+  IPrimeTransferChunkManifest,
+  IPrimeTransferNetworkProgress,
+} from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 import type {
   EPrimeTransferDataType,
   IE2EESocketUserInfo,
@@ -108,6 +117,12 @@ import {
 import ServiceBase from '../ServiceBase';
 import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup';
 
+import {
+  PrimeTransferChunkReceiver,
+  sendPrimeTransferChunks,
+  supportsPrimeTransferChunks,
+  waitForTransferRequest,
+} from './e2ee/chunkedTransfer';
 import e2eeClientToClientApi, {
   generateEncryptedKey,
 } from './e2ee/e2eeClientToClientApi';
@@ -148,6 +163,15 @@ export interface ITransferProgress {
 }
 
 type IPrimeTransferImportFlow = 'transfer' | 'cloudBackupRestore';
+
+type IPrimeTransferNetworkTask = {
+  transferId: string;
+  roomId: string;
+  controller: AbortController;
+  receiver?: PrimeTransferChunkReceiver;
+  lastProgressAt: number;
+  timeout?: ReturnType<typeof setTimeout>;
+};
 
 type IPrimeTransferImportTraceEvent = 'start' | 'done' | 'progress' | 'error';
 
@@ -272,6 +296,10 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   private socket: Socket | null = null;
+
+  private serverSupportsChunkedTransfer = false;
+
+  private networkTask: IPrimeTransferNetworkTask | undefined;
 
   private e2eeServerApiProxy: E2EEServerApiProxy | null = null;
 
@@ -1019,6 +1047,7 @@ class ServicePrimeTransfer extends ServiceBase {
         appPlatform: headerPlatform,
         appDeviceName: platformEnv.appFullName,
       });
+      this.serverSupportsChunkedTransfer = result?.chunkedTransferVersion === 1;
       await primeTransferAtom.set(
         (v): IPrimeTransferAtomData => ({
           ...v,
@@ -1287,6 +1316,17 @@ class ServicePrimeTransfer extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async cancelTransfer() {
+    await this.cancelNetworkTransfer();
+    await primeTransferAtom.set((state) =>
+      state.status === EPrimeTransferStatus.transferring
+        ? {
+            ...state,
+            status: state.pairedRoomId
+              ? EPrimeTransferStatus.paired
+              : EPrimeTransferStatus.init,
+          }
+        : state,
+    );
     this.checkWebSocketConnected();
     await this.e2eeClientToClientApiProxy?.api.cancelTransfer();
   }
@@ -1941,9 +1981,207 @@ class ServicePrimeTransfer extends ServiceBase {
     if (!this.e2eeClientToClientApiProxy) {
       throw new OneKeyLocalError('Client to Client API not initialized');
     }
-    return this.e2eeClientToClientApiProxy.api.sendTransferData({
-      rawData: encryptedData.toString('base64'),
+    const rawData = encryptedData.toString('base64');
+    const proxy = this.e2eeClientToClientApiProxy;
+    const state = await primeTransferAtom.get();
+    if (
+      state.pairedRoomId !== pairedRoomId ||
+      state.status !== EPrimeTransferStatus.transferring
+    ) {
+      throw new OneKeyLocalError('Transfer cancelled');
+    }
+    if (this.networkTask) {
+      throw new OneKeyLocalError('Transfer already in progress');
+    }
+    const task: IPrimeTransferNetworkTask = {
+      transferId: stringUtils.generateUUID(),
+      roomId: pairedRoomId,
+      controller: new AbortController(),
+      lastProgressAt: 0,
+    };
+    this.networkTask = task;
+    const request = <T>(promise: Promise<T>) =>
+      waitForTransferRequest(promise, task.controller.signal);
+    try {
+      // Old relays and peers retain the existing single-message transport.
+      const supportsChunks = await supportsPrimeTransferChunks({
+        serverSupportsChunkedTransfer: this.serverSupportsChunkedTransfer,
+        getTransferType: () => proxy.api.getTransferType(),
+        signal: task.controller.signal,
+      });
+      this.assertNetworkTask(task);
+      if (!supportsChunks) {
+        const result = await waitForTransferRequest(
+          proxy.api.sendTransferData({ rawData }),
+          task.controller.signal,
+          10 * 60 * 1000,
+        );
+        this.assertNetworkTask(task);
+        return result;
+      }
+      if (rawData.length > PRIME_TRANSFER_MAX_PAYLOAD_SIZE) {
+        throw new OneKeyLocalError('Transfer data exceeds the supported size');
+      }
+      const manifest = {
+        transferId: task.transferId,
+        totalBytes: rawData.length,
+      };
+      await request(proxy.api.beginChunkedTransfer(manifest));
+      this.assertNetworkTask(task);
+      this.publishNetworkProgress(task, {
+        ...manifest,
+        direction: 'sending',
+        transferredBytes: 0,
+      });
+      await sendPrimeTransferChunks({
+        rawData,
+        transferId: task.transferId,
+        signal: task.controller.signal,
+        sendChunk: (chunk) => request(proxy.api.sendTransferChunk(chunk)),
+        onProgress: (transferredBytes) =>
+          this.publishNetworkProgress(task, {
+            ...manifest,
+            direction: 'sending',
+            transferredBytes,
+          }),
+      });
+      this.assertNetworkTask(task);
+      await request(
+        proxy.api.finishChunkedTransfer({ transferId: task.transferId }),
+      );
+      this.assertNetworkTask(task);
+    } finally {
+      if (this.networkTask === task) {
+        await this.cancelNetworkTransfer();
+      }
+    }
+  }
+
+  private assertNetworkTask(task: IPrimeTransferNetworkTask) {
+    if (
+      this.networkTask !== task ||
+      task.controller.signal.aborted ||
+      this.e2eeClientToClientApiProxy?.bridge.roomId !== task.roomId
+    ) {
+      throw new OneKeyLocalError('Transfer cancelled');
+    }
+    this.checkWebSocketConnected();
+  }
+
+  private publishNetworkProgress(
+    task: IPrimeTransferNetworkTask,
+    progress: IPrimeTransferNetworkProgress,
+  ) {
+    this.assertNetworkTask(task);
+    const now = Date.now();
+    if (
+      progress.transferredBytes !== 0 &&
+      progress.transferredBytes !== progress.totalBytes &&
+      now - task.lastProgressAt < 100
+    ) {
+      return;
+    }
+    task.lastProgressAt = now;
+    void primeTransferAtom.set((prev) =>
+      this.networkTask === task ? { ...prev, networkProgress: progress } : prev,
+    );
+  }
+
+  @backgroundMethod()
+  async cancelNetworkTransfer() {
+    const task = this.networkTask;
+    this.networkTask = undefined;
+    if (task) task.receiver = undefined;
+    task?.controller.abort();
+    clearTimeout(task?.timeout);
+    await primeTransferAtom.set((prev) =>
+      prev.networkProgress?.transferId === task?.transferId
+        ? { ...prev, networkProgress: undefined }
+        : prev,
+    );
+  }
+
+  private refreshReceiveTimeout(task: IPrimeTransferNetworkTask) {
+    clearTimeout(task.timeout);
+    task.timeout = setTimeout(() => {
+      if (this.networkTask !== task) return;
+      void this.cancelNetworkTransfer();
+      appEventBus.emit(EAppEventBusNames.PrimeTransferForceExit, {
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+        description: appLocale.intl.formatMessage({
+          id: ETranslations.communication_timeout,
+        }),
+      });
+    }, PRIME_TRANSFER_CHUNK_TIMEOUT);
+  }
+
+  @backgroundMethod()
+  async beginChunkedTransfer(manifest: IPrimeTransferChunkManifest) {
+    this.checkWebSocketConnected();
+    const state = await primeTransferAtom.get();
+    if (
+      !connectedEncryptedKey ||
+      !state.pairedRoomId ||
+      state.status !== EPrimeTransferStatus.transferring ||
+      state.transferDirection?.toUserId !== state.myUserId ||
+      this.networkTask
+    ) {
+      throw new OneKeyLocalError('Not ready to receive transfer data');
+    }
+    const receiver = new PrimeTransferChunkReceiver(manifest);
+    const task: IPrimeTransferNetworkTask = {
+      transferId: manifest.transferId,
+      roomId: state.pairedRoomId,
+      controller: new AbortController(),
+      receiver,
+      lastProgressAt: 0,
+    };
+    this.networkTask = task;
+    this.refreshReceiveTimeout(task);
+    this.publishNetworkProgress(task, {
+      ...manifest,
+      direction: 'receiving',
+      transferredBytes: 0,
     });
+  }
+
+  @backgroundMethod()
+  async receiveTransferChunk(chunk: IPrimeTransferChunk) {
+    const task = this.networkTask;
+    if (!task?.receiver || task.transferId !== chunk.transferId) {
+      throw new OneKeyLocalError('Unknown transfer');
+    }
+    this.assertNetworkTask(task);
+    const ack = task.receiver.receive(chunk);
+    this.refreshReceiveTimeout(task);
+    this.publishNetworkProgress(task, {
+      ...task.receiver.manifest,
+      direction: 'receiving',
+      transferredBytes: ack.receivedBytes,
+    });
+    return ack;
+  }
+
+  @backgroundMethod()
+  async finishChunkedTransfer({ transferId }: { transferId: string }) {
+    const task = this.networkTask;
+    if (!task?.receiver || task.transferId !== transferId) {
+      throw new OneKeyLocalError('Unknown transfer');
+    }
+    this.assertNetworkTask(task);
+    const rawData = task.receiver.complete();
+    task.receiver = undefined;
+    clearTimeout(task.timeout);
+    try {
+      await this.receiveTransferData({
+        rawData,
+        networkTransferId: transferId,
+      });
+    } finally {
+      if (this.networkTask === task) await this.cancelNetworkTransfer();
+    }
   }
 
   private async sendCliBotWalletEncryptedCredentialTransferData({
@@ -2191,7 +2429,13 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async receiveTransferData({ rawData }: { rawData: string }) {
+  async receiveTransferData({
+    rawData,
+    networkTransferId,
+  }: {
+    rawData: string;
+    networkTransferId?: string;
+  }) {
     this.checkPairingCodeValid(connectedPairingCode);
     if (!connectedPairingCode) {
       throw new OneKeyLocalError(
@@ -2241,6 +2485,13 @@ class ServicePrimeTransfer extends ServiceBase {
       }
       account.createAtNetwork = networkId || account.createAtNetwork;
     }
+    if (
+      networkTransferId &&
+      (this.networkTask?.transferId !== networkTransferId ||
+        this.networkTask.controller.signal.aborted)
+    ) {
+      throw new OneKeyLocalError('Transfer cancelled');
+    }
     appEventBus.emit(EAppEventBusNames.PrimeTransferDataReceived, {
       data: transferData,
     });
@@ -2248,6 +2499,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   async clearSensitiveData() {
+    await this.cancelNetworkTransfer();
     connectedPairingCode = null;
     connectedEncryptedKey = null;
     e2eeClientToClientApi.setSelfPairingCode({ pairingCode: '' });
@@ -2255,6 +2507,8 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   async handleDisconnect() {
+    this.serverSupportsChunkedTransfer = false;
+    await this.cancelNetworkTransfer();
     connectedPairingCode = null;
     connectedEncryptedKey = null;
     await primeTransferAtom.set(
@@ -2278,6 +2532,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   async handleLeaveRoom() {
+    await this.cancelNetworkTransfer();
     connectedPairingCode = null;
     connectedEncryptedKey = null;
     await primeTransferAtom.set(
@@ -2804,7 +3059,9 @@ class ServicePrimeTransfer extends ServiceBase {
       ...prev,
       importProgress: undefined,
     }));
-    await this.finallyImportProgress();
+    void this.finallyImportProgress();
+    // Confirmed exits must cancel the current loop before the dialog closes.
+    await this.finallyImportProgress.flush();
   }
 
   @backgroundMethod()

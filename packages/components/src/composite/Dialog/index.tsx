@@ -736,6 +736,7 @@ function BaseDialogContainer(
   {
     onOpen,
     onClose,
+    onBeforeClose,
     renderContent,
     title,
     tone,
@@ -763,23 +764,33 @@ function BaseDialogContainer(
     [isControlled, onOpenChange],
   );
   const formRef = useRef<UseFormReturn<any, any, any> | undefined>(undefined);
+  const pendingCloseRef = useRef<Promise<void> | undefined>(undefined);
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
-      if (
-        props.trackID &&
-        extra?.flag !== 'confirm' &&
-        extra?.flag !== 'cancel'
-      ) {
-        defaultLogger.ui.dialog.dialogClose({
-          trackId: props.trackID,
-        });
+      if (pendingCloseRef.current) {
+        return pendingCloseRef.current;
       }
-      changeIsOpen(false);
-      void Keyboard.dismissWithDelay(50);
-      return onClose(extra);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const close = async () => {
+        if (onBeforeClose && !(await onBeforeClose(extra))) {
+          return;
+        }
+        if (
+          props.trackID &&
+          extra?.flag !== 'confirm' &&
+          extra?.flag !== 'cancel'
+        ) {
+          defaultLogger.ui.dialog.dialogClose({ trackId: props.trackID });
+        }
+        changeIsOpen(false);
+        void Keyboard.dismissWithDelay(50);
+        await onClose(extra);
+      };
+      pendingCloseRef.current = close().finally(() => {
+        pendingCloseRef.current = undefined;
+      });
+      return pendingCloseRef.current;
     },
-    [changeIsOpen, onClose, props.trackID],
+    [changeIsOpen, onClose, props.trackID, onBeforeClose],
   );
 
   const handleIsExist = useCallback(

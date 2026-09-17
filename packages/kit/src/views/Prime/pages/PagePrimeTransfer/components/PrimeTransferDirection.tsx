@@ -11,10 +11,12 @@ import {
   Icon,
   IconButton,
   Page,
+  Progress,
   SizableText,
   Stack,
   Toast,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmailOTPDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/EmailOTPDialog';
@@ -368,6 +370,16 @@ export function PrimeTransferDirection({
 
   const isClosedBySendData = useRef(false);
 
+  const networkProgress = primeTransferAtom.networkProgress;
+  useEffect(() => {
+    if (networkProgress?.direction === 'receiving') {
+      // Verification is finished once the peer starts delivering ciphertext.
+      // Release the code dialog so the receiver can see the transfer progress.
+      isClosedBySendData.current = true;
+      void dialogRef.current?.close();
+    }
+  }, [networkProgress?.transferId, networkProgress?.direction]);
+
   const dialogOnClose = useCallback(async () => {
     if (isClosedBySendData.current) {
       return;
@@ -697,7 +709,10 @@ export function PrimeTransferDirection({
             px="$5"
             color="$iconSubdued"
             variant="tertiary"
-            disabled={isBotWalletExport}
+            disabled={
+              isBotWalletExport ||
+              primeTransferAtom.status === EPrimeTransferStatus.transferring
+            }
             onPress={changeDirection}
           />
         </XStack>
@@ -712,6 +727,47 @@ export function PrimeTransferDirection({
           <DeviceItem userInfo={directionUserInfo?.toUser} />
         </Stack>
 
+        {networkProgress ? (
+          <YStack gap="$3" testID="prime-transfer-network-progress">
+            <XStack justifyContent="space-between" gap="$3">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.hardware_transferring_data,
+                })}
+              </SizableText>
+              <SizableText
+                size="$bodyMdMedium"
+                testID="prime-transfer-network-progress-percent"
+              >
+                {Math.floor(
+                  (networkProgress.transferredBytes /
+                    networkProgress.totalBytes) *
+                    100,
+                )}
+                %
+              </SizableText>
+            </XStack>
+            <Progress
+              size="medium"
+              value={
+                (networkProgress.transferredBytes /
+                  networkProgress.totalBytes) *
+                100
+              }
+            />
+          </YStack>
+        ) : null}
+        {primeTransferAtom.status === EPrimeTransferStatus.transferring ? (
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            testID="prime-transfer-network-keep-unlocked"
+          >
+            {intl.formatMessage({
+              id: ETranslations.transfer_keep_foreground__desc,
+            })}
+          </SizableText>
+        ) : null}
         {waitingAlertVisible ? <WaitingTransferCompleteAlert /> : null}
 
         {debugButtons}

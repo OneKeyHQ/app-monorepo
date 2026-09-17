@@ -572,6 +572,7 @@ export default function PagePrimeTransferPreview() {
           return;
         }
         importInFlightRef.current = true;
+        let importDialog: IDialogInstance | undefined;
         try {
           void remotePasswordDialog?.close();
 
@@ -588,7 +589,8 @@ export default function PagePrimeTransferPreview() {
           });
 
           // Show progress dialog
-          showPrimeTransferImportProcessingDialog({
+          importDialog = showPrimeTransferImportProcessingDialog({
+            intl,
             navigation,
           });
 
@@ -622,6 +624,7 @@ export default function PagePrimeTransferPreview() {
         } catch (error) {
           console.error(error);
           await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
+          await importDialog?.close();
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.global_an_error_occurred,
