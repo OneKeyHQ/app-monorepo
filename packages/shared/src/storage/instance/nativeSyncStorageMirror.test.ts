@@ -1,5 +1,6 @@
 const mockCallNativeStorage = jest.fn();
 const mockNativeStorageQueueState = jest.fn();
+const mockSWRCacheSlowOp = jest.fn();
 
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
@@ -7,6 +8,11 @@ jest.mock('../../logger/logger', () => ({
       background: {
         nativeStorageQueueState: (params: unknown) => {
           mockNativeStorageQueueState(params);
+        },
+      },
+      perf: {
+        swrCacheSlowOp: (params: unknown) => {
+          mockSWRCacheSlowOp(params);
         },
       },
     },
@@ -78,6 +84,7 @@ describe('nativeSyncStorageMirror', () => {
     jest.resetModules();
     mockCallNativeStorage.mockReset();
     mockNativeStorageQueueState.mockReset();
+    mockSWRCacheSlowOp.mockReset();
     delete (
       globalThis as typeof globalThis & {
         __onekeyNativeStorageIsTransportReady?: () => boolean;
@@ -658,6 +665,59 @@ describe('nativeSyncStorageMirror', () => {
     await bootstrap;
 
     expect(storage.getString('key')).toBe('fresh-bg');
+  });
+
+  it('reports a slow SWR apply with its source, and stays silent when fast', async () => {
+    mockCallNativeStorage.mockImplementation(
+      async (request: Parameters<typeof buildMutationAcknowledgement>[0]) =>
+        request.scope === 'bootstrap'
+          ? { settings: [], coldStart: [], devSettings: [] }
+          : buildMutationAcknowledgement(request),
+    );
+    const {
+      bootstrapNativeSyncStorageMirrors,
+      createNativeSyncStorageMirror,
+      waitForNativeSyncStorageMutations,
+    } = loadMirror();
+    const storage = createNativeSyncStorageMirror('coldStart');
+    await bootstrapNativeSyncStorageMirrors();
+    const perfSpy = jest.spyOn(globalThis.performance, 'now');
+    const applyBroadcast = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeSyncStorageApplyMutation?: (mutation: {
+          store: 'coldStart';
+          operation: 'patchSWR';
+          entries: Array<readonly [string, string | null]>;
+        }) => void;
+      }
+    ).__onekeyNativeSyncStorageApplyMutation;
+
+    // An acknowledgement applied within the budget leaves no trace.
+    perfSpy.mockReturnValue(0);
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [],
+      updates: [['mine', JSON.stringify({ d: 'a', t: 1 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+    expect(mockSWRCacheSlowOp).not.toHaveBeenCalled();
+
+    perfSpy.mockReturnValueOnce(0).mockReturnValueOnce(80);
+    applyBroadcast?.({
+      store: 'coldStart',
+      operation: 'patchSWR',
+      entries: [['theirs', JSON.stringify({ d: 'b', t: 2 })]],
+    });
+
+    expect(mockSWRCacheSlowOp).toHaveBeenCalledTimes(1);
+    expect(mockSWRCacheSlowOp).toHaveBeenCalledWith({
+      op: 'mirrorApply',
+      durationMs: 80,
+      storeChars: storage.getString('onekey_swr_cache')?.length,
+      source: 'broadcast',
+      mutationOp: 'patchSWR',
+      replayedCount: 0,
+    });
   });
 
   it('refreshes all mirrors after the bg runtime restarts', async () => {
