@@ -10,6 +10,7 @@ import {
   SWR_CACHE_MAX_KEY_CHARS,
   SWR_CACHE_MAX_KEY_UTF8_BYTES,
   SWR_CACHE_MAX_SERIALIZED_CHARS,
+  SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS,
   isValidSWRCacheKey,
 } from './swrCacheLimits';
 
@@ -314,26 +315,33 @@ function loadStore(): ISWRStore {
 function readStoreFromDisk(): {
   store: ISWRStore | undefined;
   unreadable: boolean;
+  rawChars: number;
 } {
   let raw: string | undefined;
   try {
     raw = getSyncStorage().getString(EAppSyncStorageKeys.onekey_swr_cache);
   } catch {
-    return { store: undefined, unreadable: true };
+    return { store: undefined, unreadable: true, rawChars: 0 };
   }
   if (!raw) {
-    return { store: undefined, unreadable: false };
+    return { store: undefined, unreadable: false, rawChars: 0 };
   }
+  const rawChars = raw.length;
   try {
-    return { store: JSON.parse(raw) as ISWRStore, unreadable: false };
+    return { store: JSON.parse(raw) as ISWRStore, unreadable: false, rawChars };
   } catch {
-    return { store: undefined, unreadable: true };
+    return { store: undefined, unreadable: true, rawChars };
   }
+}
+
+function perfNow(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
 }
 
 function reloadFromStorage(): void {
   flush();
-  const { store, unreadable } = readStoreFromDisk();
+  const startedAt = perfNow();
+  const { store, unreadable, rawChars } = readStoreFromDisk();
   if (unreadable && _cache && Object.keys(_cache).length > 0) {
     // Repairing from an empty copy instead would leave a parseable empty
     // store, costing the runtime holding a full copy its only chance.
@@ -355,6 +363,15 @@ function reloadFromStorage(): void {
     if (_dirty) {
       scheduleFlush();
     }
+  }
+  const durationMs = Math.round(perfNow() - startedAt);
+  if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+    defaultLogger.app.perf.swrCacheSlowOp({
+      op: 'reload',
+      durationMs,
+      storeChars: rawChars,
+      entryCount: _cacheEntrySerializedChars.size,
+    });
   }
 }
 
@@ -526,10 +543,12 @@ function adoptPrunedStore(store: ISWRStore): ISWRStore {
 function flush() {
   if (!_dirty || !_cache) return;
   try {
+    const startedAt = perfNow();
     // Each runtime keeps its own JS cache. Native persistence is bg-owned, so
     // native callers send only changed entries and deletion intents; other
     // platforms retain the full-store adapter below.
-    const { store: disk, unreadable } = readStoreFromDisk();
+    const { store: disk, unreadable, rawChars } = readStoreFromDisk();
+    const readAt = perfNow();
     const merged: ISWRStore = {};
     if (unreadable) {
       // Nothing on disk survives, so rebuild from this copy — a pending-keys
@@ -552,6 +571,9 @@ function flush() {
       }
     }
     const limitedMerged = pruneSWRCacheStore(merged).store;
+    const prunedAt = perfNow();
+    const updatedKeyCount = _updatedKeys.size;
+    let patchChars = 0;
     const storage = getSyncStorage();
     if (storage.applySWRCachePatch) {
       const patch: INativeSWRCachePatchIntent = {
@@ -568,6 +590,10 @@ function flush() {
           return [[key, JSON.stringify(entry)] as const];
         }),
       };
+      patchChars = patch.updates.reduce(
+        (sum, [, value]) => sum + value.length,
+        0,
+      );
       void storage.applySWRCachePatch(patch);
     } else {
       void storage.setObject(
@@ -575,6 +601,7 @@ function flush() {
         limitedMerged,
       );
     }
+    const patchedAt = perfNow();
     // Adopting the merged store also refreshes this runtime's copy, which
     // otherwise only ages — reads pick up what the other runtime persisted.
     // Skipped without a store to merge against: `merged` is then only the
@@ -589,6 +616,22 @@ function flush() {
     _removedPrefixesAt = [];
     _clearedAllAt = 0;
     _dirty = false;
+    const finishedAt = perfNow();
+    const durationMs = Math.round(finishedAt - startedAt);
+    if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+      defaultLogger.app.perf.swrCacheSlowOp({
+        op: 'flush',
+        durationMs,
+        storeChars: rawChars,
+        entryCount: _cacheEntrySerializedChars.size,
+        readMs: Math.round(readAt - startedAt),
+        pruneMs: Math.round(prunedAt - readAt),
+        patchMs: Math.round(patchedAt - prunedAt),
+        adoptMs: Math.round(finishedAt - patchedAt),
+        updatedKeyCount,
+        patchChars,
+      });
+    }
   } catch {
     // MMKV write failure is non-fatal; cache is best-effort.
   }

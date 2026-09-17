@@ -316,6 +316,14 @@ export function usePromiseResult<T>(
                 swrCacheUtils.set(capturedSwrKey, r);
               }
             }
+          } else if (
+            pollingInterval &&
+            config?.pollingNonce === pollingNonceRef.current &&
+            !isFocusedRef.current
+          ) {
+            // Focus can change while an automatic refresh is debounced.
+            // Keep it pending until a request can actually start.
+            isDepsChangedOnBlur.current = true;
           }
         } catch (err) {
           // AbortError is expected when IndexedDB transactions are cancelled
@@ -403,11 +411,23 @@ export function usePromiseResult<T>(
       };
 
       if (optionsRef.current.debounced) {
-        const runnerDebounced = debounce(runner, optionsRef.current.debounced, {
-          leading: false,
-          trailing: true,
-        });
+        let pendingPollingNonce: number | undefined;
+        const runnerDebounced = debounce(
+          (config?: IRunnerConfig) => {
+            const pollingNonce = config?.pollingNonce ?? pendingPollingNonce;
+            pendingPollingNonce = undefined;
+            return runner(
+              pollingNonce === undefined ? config : { ...config, pollingNonce },
+            );
+          },
+          optionsRef.current.debounced,
+          { leading: false, trailing: true },
+        );
         return async (config?: IRunnerConfig) => {
+          // A manual refresh can replace a queued automatic refresh. Keep
+          // that queued run's polling ownership, but never inherit it from
+          // a run that already started (which would create another chain).
+          pendingPollingNonce = config?.pollingNonce ?? pendingPollingNonce;
           // Loading transitions are owned by the inner runner: setting
           // setLoadingTrue here would leak `isLoading=true` if the
           // route blurred during the debounce window and the runner
@@ -488,10 +508,41 @@ export function usePromiseResult<T>(
   const isFocusedRefValue = isFocusedRef.current;
   const prevFocusedRef = useRef(isFocusedRefValue);
   const isLoadingRef = useRef(isLoading);
-  const runWithPollingNonce = useCallback(() => {
-    isDepsChangedOnBlur.current = false;
-    void runRef.current({ pollingNonce: pollingNonceRef.current });
-  }, [runRef]);
+  const runWithPollingNonce = useCallback(
+    (scheduleOnIdle = false) => {
+      if (
+        optionsRef.current.pollingInterval &&
+        optionsRef.current.checkIsFocused &&
+        !optionsRef.current.alwaysSetState &&
+        !isFocusedRef.current
+      ) {
+        // Keep a focus-gated reconnect pending instead of replacing the
+        // parked polling chain with a fresh interval while still blurred.
+        isDepsChangedOnBlur.current = true;
+        return undefined;
+      }
+      // An automatic refresh replaces the previous polling chain. Advance
+      // the nonce now so old ticks released on focus cannot run while the
+      // replacement waits for a native idle callback.
+      pollingNonceRef.current += 1;
+      const pollingNonce = pollingNonceRef.current;
+      const callback = () => {
+        if (pollingNonceRef.current !== pollingNonce) {
+          return;
+        }
+        isDepsChangedOnBlur.current = false;
+        void runRef.current({ pollingNonce });
+      };
+      if (scheduleOnIdle) {
+        // If blur cancels this idle callback, the next focus must retry it.
+        isDepsChangedOnBlur.current = true;
+        return requestIdleCallback(callback);
+      }
+      callback();
+      return undefined;
+    },
+    [runRef],
+  );
 
   // Most callers don't need reconnect revalidation. Avoid subscribing them
   // to global network polling updates, which can cause periodic rerenders.
@@ -520,39 +571,28 @@ export function usePromiseResult<T>(
       // On native, defer focus-recovery re-execution until the JS thread is
       // idle so the first render frame after tab switch can paint without
       // being blocked by data fetching across 40+ hooks.
-      const idleHandles: ReturnType<typeof requestIdleCallback>[] = [];
-      const scheduleRun = () => {
-        if (platformEnv.isNative) {
-          idleHandles.push(requestIdleCallback(runWithPollingNonce));
-        } else {
-          runWithPollingNonce();
-        }
-      };
-
-      // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
-      if (
+      let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
+      const shouldRecoverEmptyResult =
         platformEnv.isNative &&
         !isLoadingRef.current &&
         isEmptyResultRef.current &&
-        optionsRef.current.revalidateOnReconnect
-      ) {
-        scheduleRun();
-      }
-
-      if (
+        optionsRef.current.revalidateOnReconnect;
+      const shouldRevalidateOnFocus =
         prevFocusedRef.current === false &&
+        optionsRef.current.revalidateOnFocus;
+      if (
         isFocusedRefValue &&
-        optionsRef.current.revalidateOnFocus
+        (shouldRecoverEmptyResult ||
+          shouldRevalidateOnFocus ||
+          isDepsChangedOnBlur.current)
       ) {
-        scheduleRun();
-      } else if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        scheduleRun();
+        idleHandle = runWithPollingNonce(platformEnv.isNative);
       }
       prevFocusedRef.current = isFocusedRefValue;
 
       return () => {
-        if (platformEnv.isNative) {
-          idleHandles.forEach(cancelIdleCallback);
+        if (idleHandle !== undefined) {
+          cancelIdleCallback(idleHandle);
         }
       };
     }
