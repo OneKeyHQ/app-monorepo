@@ -638,7 +638,10 @@ function MobileLayoutComponent({
       const index = tabNames.indexOf(tabName);
       if (index >= 0 && index !== activeIndexRef.current) {
         handleTabChange(tabName);
-        setPagerIndex(index, true);
+        // An animated setPage scrolls through every page in between, flashing
+        // unmounted (blank) pages and neighboring lists. Jump straight to the
+        // tapped page instead; swipes still animate between adjacent pages.
+        setPagerIndex(index, false);
       }
     },
     [handleTabChange, setPagerIndex, tabNames],
@@ -790,6 +793,7 @@ function MobileLayoutComponent({
         nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
         testID="market-native-collapsible-pager"
         nativeTabBar={nativeTabBar}
+        nativeTabPressAnimationEnabled={false}
         nativeSubHeader={nativeSubHeader}
         onNativeTabPress={handleNativeTabPress}
         onNativeSubHeaderPress={handleNativeSubHeaderPress}
