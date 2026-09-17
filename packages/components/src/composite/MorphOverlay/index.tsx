@@ -39,6 +39,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IconButton } from '../../actions/IconButton';
+import { publishToastTopObstruction } from '../../actions/Toast/topObstruction';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
 import { Portal } from '../../hocs';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
@@ -193,9 +194,8 @@ export const CARD = {
 };
 
 /** The toolbar's furniture: the 44pt close circle inset from the card's
- * top-right corner. (The sheet grammar's grabber left with the bottom
- * posture — a card hung from the top dismisses by an upward drag,
- * undecorated, the way desktop prompt cards do.) */
+ * top-right corner. A card hung from the top dismisses by an upward
+ * drag, undecorated, the way desktop prompt cards do. */
 const CLOSE = { inset: 16, size: 44 };
 
 /** The optional scrim over the app — the design's dark overlay, lighter
@@ -252,8 +252,8 @@ export const SWAP_IN_MS = 280;
 export const ARRANGE_MS = 560;
 export const arrangeEase = Easing.bezierFn(0.4, 0, 0.2, 1);
 
-/** Extra travel past the shell's own height when it slides off the top
- * edge, covering the lift and the shadow's spread under the shell. */
+/** Extra travel past the shell's own height and lift when it slides off
+ * the top edge, covering the shadow's spread under the shell. */
 const EXIT_OVERSHOOT = 80;
 
 /**
@@ -868,7 +868,7 @@ export function MorphOverlay<T>({
   // (see ./dynamicIsland). Read off the same inset, so a rotation
   // (landscape reports no inset) drops it and the plain slide takes over.
   const island = useMemo(
-    () => dynamicIslandRect(insets.top, Boolean(platformEnv.isNativeIOS)),
+    () => dynamicIslandRect(insets.top, platformEnv.isNativeIOSPhone),
     [insets.top],
   );
   const cardWidth = capCardWidth
@@ -917,6 +917,9 @@ export function MorphOverlay<T>({
     prevTokenRef.current = heightArrangeToken;
     const first = firstRunRef.current;
     firstRunRef.current = false;
+    // The island the shell morphs out of and back into — none on the
+    // mount's own landing, under reduced motion, or without an island.
+    const growFrom = first || reducedMotion ? undefined : island;
     // The settled signal rides the height animation, not the progress
     // spring: height is the one size axis every transition class moves
     // (a live in-card move never touches progress), so "settled" means
@@ -942,14 +945,14 @@ export function MorphOverlay<T>({
       // dismissing drag the slide is already in flight on the presence
       // axis (the finger's own line): the spring re-aimed here simply
       // carries on, velocity and all, and never turns into a shrink.
-      if (island && !first && !reducedMotion && presence.value === 1) {
+      if (growFrom && presence.value === 1) {
         reveal.value = withTiming(0, {
           duration: ISLAND_HIDE_MS,
           easing: easeInFn,
         });
-        width.value = withSpring(island.width, MORPH_SPRING);
+        width.value = withSpring(growFrom.width, MORPH_SPRING);
         height.value = withSpring(
-          island.height,
+          growFrom.height,
           MORPH_SPRING,
           (finished?: boolean) => {
             'worklet';
@@ -959,8 +962,8 @@ export function MorphOverlay<T>({
             }
           },
         );
-        radius.value = withSpring(island.radius, MORPH_SPRING);
-        lift.value = withSpring(island.top, MORPH_SPRING);
+        radius.value = withSpring(growFrom.radius, MORPH_SPRING);
+        lift.value = withSpring(growFrom.top, MORPH_SPRING);
       } else {
         presence.value =
           first || reducedMotion ? 0 : withSpring(0, MORPH_SPRING);
@@ -998,11 +1001,11 @@ export function MorphOverlay<T>({
       EXIT_OVERSHOOT / (targets.height + targets.lift + EXIT_OVERSHOOT);
     const arriving = prevPose === 'hidden' || presence.value < offscreenAbove;
     if (first || reducedMotion || arriving) {
-      if (island && !first && !reducedMotion) {
-        width.value = island.width;
-        height.value = island.height;
-        radius.value = island.radius;
-        lift.value = island.top;
+      if (growFrom) {
+        width.value = growFrom.width;
+        height.value = growFrom.height;
+        radius.value = growFrom.radius;
+        lift.value = growFrom.top;
         reveal.value = 0;
         progress.value = targets.progress;
         onAim?.({ snap: true, card, landInPlace: true });
@@ -1086,6 +1089,26 @@ export function MorphOverlay<T>({
     width,
   ]);
 
+  // The pose's resting bottom edge, for the toasters (see Toast's
+  // topObstruction): they land where the shell hangs, so they clear it
+  // instead of covering it. The exit publishes 0 as it starts, and the
+  // toasts rise behind the departing shell. A card still waiting on its
+  // content measure holds the last edge — its height lands a commit
+  // later, and the toasts would re-aim mid-ride.
+  let restingBottom = 0;
+  if (pose === 'card') {
+    restingBottom = cardTop + cardHeight;
+  } else if (pose === 'capsule') {
+    restingBottom = pillTop + pillSize.height;
+  }
+  const restingBottomSettled = pose !== 'card' || cardContentMeasured;
+  useEffect(() => {
+    if (restingBottomSettled) {
+      publishToastTopObstruction(restingBottom);
+    }
+  }, [restingBottom, restingBottomSettled]);
+  useEffect(() => () => publishToastTopObstruction(0), []);
+
   // The dismiss callback rides a ref so the gesture never rebuilds for a
   // fresh closure — the driver's identity is its own business.
   const onDismissRef = useRef(onDismiss);
@@ -1160,9 +1183,8 @@ export function MorphOverlay<T>({
     // notification's move — and a drag pulls presence under 1 (and a
     // breath over it, rubber-banded), so the finger rides this same
     // line. The island morph never moves this axis: it keeps presence
-    // at 1 and shrinks the box instead. The keyboard is nobody's
-    // business up here — the app's own inputs ride below, in its
-    // territory.
+    // at 1 and shrinks the box instead. No keyboard term on purpose:
+    // the shell hangs above the app's inputs and never rides it.
     const travel =
       (1 - presence.value) * (height.value + lift.value + EXIT_OVERSHOOT);
     return {
@@ -1285,8 +1307,8 @@ export function MorphOverlay<T>({
     [reveal],
   );
   const ringRevealStyle = useAnimatedStyle(
-    () => ({ borderRadius: radius.value, opacity: reveal.value }),
-    [radius, reveal],
+    () => ({ opacity: reveal.value }),
+    [reveal],
   );
   const shellStyle = useMemo(
     () =>
@@ -1301,8 +1323,13 @@ export function MorphOverlay<T>({
     [geometrySizeStyle, positionStyle, shellEdgeColor, shellRevealStyle],
   );
   const ringStyle = useMemo(
-    () => [styles.ring, ringRevealStyle, { borderColor: shellEdgeColor }],
-    [ringRevealStyle, shellEdgeColor],
+    () => [
+      styles.ring,
+      faceRadiusStyle,
+      ringRevealStyle,
+      { borderColor: shellEdgeColor },
+    ],
+    [faceRadiusStyle, ringRevealStyle, shellEdgeColor],
   );
   const faceStyle = useMemo(
     () => [styles.face, faceRadiusStyle],

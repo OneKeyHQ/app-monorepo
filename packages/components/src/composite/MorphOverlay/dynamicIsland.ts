@@ -30,9 +30,9 @@ export interface IDynamicIslandRect {
 
 export function dynamicIslandRect(
   insetTop: number,
-  isNativeIOS: boolean,
+  isIPhone: boolean | undefined,
 ): IDynamicIslandRect | undefined {
-  if (!isNativeIOS || insetTop < DYNAMIC_ISLAND.minInsetTop) {
+  if (!isIPhone || insetTop < DYNAMIC_ISLAND.minInsetTop) {
     return undefined;
   }
   return {

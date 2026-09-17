@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { Keyboard, useWindowDimensions } from 'react-native';
 
+import { Toast } from '@onekeyhq/components/src/actions/Toast';
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type {
   IAuthChecklistItem,
@@ -296,6 +297,13 @@ export function StepButton({
   );
 }
 
+// A flow's own news landing while the stage is up (an approval's toast
+// under the next signature's capsule): the toasters rest under the shell
+// instead of covering it — see Toast's topObstruction.
+function showDemoToast() {
+  Toast.success({ title: 'Approved', message: 'Approve 1 USDC' });
+}
+
 /** The demo host: the stage portals to the shell's canvas-wide mount
  * (the hardware-dialog level) on every platform, and its minHeight
  * (window minus a workbench-chrome allowance) keeps the canvas — and so
@@ -331,6 +339,9 @@ export function StageHost({
         pointerEvents="box-none"
       >
         {children}
+        <Button testID="device-stage-demo-toast" onPress={showDemoToast}>
+          Toast
+        </Button>
       </XStack>
     ),
     [barBottom, children],
