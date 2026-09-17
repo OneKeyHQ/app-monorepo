@@ -140,6 +140,11 @@ const BorrowHomeContent = memo(
       (reserves.loading && !reserves.data);
     const isReservesError =
       !isReservesPending && borrowDataStatus === EBorrowDataStatus.Error;
+    // renderCards short-circuits to its error block before it ever reaches the
+    // empty state, so a failed load is not evidence of an empty market — it is
+    // no evidence at all. Both states leave the market's contents undecided,
+    // and the headline metrics stay up for either.
+    const isPositionStateUnsettled = isReservesPending || isReservesError;
     const { activeAccount } = useActiveAccount({ num: 0 });
     const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
     const inferredEModeProvider = market?.provider ?? markets[0]?.provider;
@@ -238,6 +243,15 @@ const BorrowHomeContent = memo(
     const handleRetryReserves = useCallback(() => {
       void refreshReserves();
     }, [refreshReserves]);
+
+    // Overview drops its metric row along with the metrics, and refresh rides
+    // that row. The empty state takes it over on its own heading so the market
+    // can still be refreshed by hand — the two rows never coexist, so the
+    // button shows up exactly once either way.
+    const requestRefresh = overviewData.requestRefresh;
+    const handleEmptyStateRefresh = useCallback(() => {
+      void requestRefresh();
+    }, [requestRefresh]);
 
     const isMidWidth = gtMd && !gtXl;
     const isPhone = !gtMd;
@@ -457,6 +471,10 @@ const BorrowHomeContent = memo(
                 assets={supplyAssets}
                 isLoading={reserves.loading}
                 onPressAsset={handleSupplyAsset}
+                onRefresh={handleEmptyStateRefresh}
+                isRefreshing={
+                  reserves.loading || overviewData.isManualRefreshing
+                }
               />
             )}
             <BorrowMobileSummary
@@ -513,6 +531,8 @@ const BorrowHomeContent = memo(
               isEModeLoading={isEModeInitialLoading}
               overviewData={overviewData}
               showBottomSpacing={!hasAlerts}
+              showPositionMetrics={hasPositions}
+              isPositionStateUnsettled={isPositionStateUnsettled}
               onBorrowHistoryActionChange={onBorrowHistoryActionChange}
             />
             {hasAlerts ? (

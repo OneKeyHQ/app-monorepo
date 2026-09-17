@@ -71,6 +71,18 @@ const measureInlineTextWidthPx = (
 
 const INLINE_WIDTH_SAFETY_PX = 8;
 
+// containerProps.minWidth beats width and maxWidth in CSS, so the box never
+// renders narrower than this. Budgeting without the floor under-counts a
+// narrow amount and lets the suffix symbol overflow (OK-63548).
+const getInlineAmountBoxWidthPx = (
+  measuredAmountWidthPx: number,
+  fontSize: number,
+) =>
+  Math.max(
+    Math.ceil(measuredAmountWidthPx + Math.max(18, Math.round(fontSize * 0.5))),
+    Math.ceil(fontSize * 1.2),
+  );
+
 function getInlineContentWidthPx({
   text,
   fontSize,
@@ -88,10 +100,10 @@ function getInlineContentWidthPx({
   inlineSuffixGapPx: number;
   measurementRevision: number;
 }) {
-  const amountWidthPx =
-    Math.ceil(
-      measureInlineTextWidthPx(text, fontSize, 500, measurementRevision),
-    ) + Math.max(18, Math.round(fontSize * 0.5));
+  const amountWidthPx = getInlineAmountBoxWidthPx(
+    measureInlineTextWidthPx(text, fontSize, 500, measurementRevision),
+    fontSize,
+  );
   const prefixWidthPx = currencyLabel
     ? Math.ceil(
         measureInlineTextWidthPx(
@@ -289,9 +301,9 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     // Same floor as containerProps.minWidth below: min-width beats width in
     // CSS, so the trailing-space math must use the width the box renders at.
     const inlineInputMinWidthPx = Math.ceil(effectiveFontSize * 1.2);
-    const inlineInputWidthPx = Math.max(
-      inlineAmountTextWidthPx,
-      inlineInputMinWidthPx,
+    const inlineInputWidthPx = getInlineAmountBoxWidthPx(
+      inlineMeasuredAmountWidthPx,
+      effectiveFontSize,
     );
     const inlineInputSlackPx = Math.max(
       inlineInputWidthPx - inlineAmountTextWidthPx,

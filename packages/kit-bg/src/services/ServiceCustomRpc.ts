@@ -544,6 +544,17 @@ class ServiceCustomRpc extends ServiceBase {
     }
   }
 
+  // Whether the server-network cache has been filled at least once. Unlike
+  // getServerNetworks, which swallows storage errors and returns an empty
+  // list, a read failure propagates here so callers gating on the registry
+  // can tell "unavailable" apart from "empty" and fail open.
+  @backgroundMethod()
+  public async isServerNetworkRegistryFilled(): Promise<boolean> {
+    const { lastFetchTime } =
+      await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+    return !!lastFetchTime;
+  }
+
   private _fetchNetworkFromServerPromise: Promise<IServerNetwork[]> | undefined;
 
   // Single-flight: getServerNetworks fires a background refresh from every
