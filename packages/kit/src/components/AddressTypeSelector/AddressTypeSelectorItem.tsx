@@ -137,11 +137,12 @@ function AddressTypeSelectorItem(props: IProps) {
           placement="top"
           renderTrigger={dashTrigger}
           renderContent={tooltipText}
+          disabled={isCreatingAddress}
           onPress={handleSelect}
         />
       </YStack>
     );
-  }, [handleSelect, titleText, tooltipText]);
+  }, [handleSelect, isCreatingAddress, titleText, tooltipText]);
 
   const renderItemText = useMemo(
     () => (

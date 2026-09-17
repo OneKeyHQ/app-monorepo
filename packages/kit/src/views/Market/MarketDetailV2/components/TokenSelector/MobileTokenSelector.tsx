@@ -32,6 +32,7 @@ import {
 } from '../../utils/marketDetailPreview';
 
 import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import { dismissMobileTokenSelectorKeyboard } from './dismissMobileTokenSelectorKeyboard';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
 
@@ -116,6 +117,7 @@ function MobileTokenSelectorContent() {
     }) => {
       navigationRequestIdRef.current += 1;
       const requestId = navigationRequestIdRef.current;
+      dismissMobileTokenSelectorKeyboard();
       if (token.perpsCoin) {
         navigation.popStack();
         navigateToPerps(token.perpsCoin);
