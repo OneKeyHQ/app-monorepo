@@ -236,7 +236,7 @@ export function registerBleBindingUi({
       } else {
         // Only the BLE column. Writing the same value into the legacy
         // connectId as well is what made that column ambiguous in the first
-        // place — see config/CONNECT-ID.md.
+        // place.
         await localDb.updateDeviceConnectId({
           dbDeviceId,
           bleConnectId: request.connection.connectId,

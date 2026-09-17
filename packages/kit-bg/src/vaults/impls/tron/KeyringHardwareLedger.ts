@@ -6,11 +6,13 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import {
@@ -201,6 +203,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
 
     const signatures: ISignedMessagePro = [];
     for (const message of messages) {
+      if (message.type !== EMessageTypesTron.SIGN_MESSAGE_V2) {
+        throw new ThirdPartyMethodNotSupported();
+      }
       const result =
         // eslint-disable-next-line no-await-in-loop
         await callLedgerWithFingerprint(

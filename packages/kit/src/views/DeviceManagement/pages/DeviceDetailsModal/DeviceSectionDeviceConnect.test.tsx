@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { act, fireEvent, render } from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 
@@ -13,9 +14,26 @@ import DeviceSectionDeviceConnect from './DeviceSectionDeviceConnect';
 const mockRemoveWallet = jest.fn<Promise<void>, unknown[]>();
 const mockShowDialog = jest.fn();
 const mockBack = jest.fn();
+const mockRebindBleDevice = jest.fn<Promise<void>, unknown[]>();
+const mockRefresh = jest.fn<Promise<void>, unknown[]>();
+// Only the fields DeviceSectionDeviceConnect reads off the device atom.
+interface IMockDevice {
+  id: string;
+  uuid: string;
+  deviceId: string;
+  vendor?: EHardwareVendor;
+  bleConnectId?: string;
+  connectId?: string;
+}
+const defaultDevice: IMockDevice = {
+  id: 'db-current',
+  uuid: 'SERIAL',
+  deviceId: 'new-seed',
+};
+let currentDevice: IMockDevice = defaultDevice;
 const currentWallet = {
   wallet: { id: 'hw-current' },
-  device: { id: 'db-current', uuid: 'SERIAL', deviceId: 'new-seed' },
+  device: defaultDevice,
 };
 
 jest.mock('@onekeyhq/components', () => ({
@@ -24,12 +42,18 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
-jest.mock(
-  '@onekeyhq/kit/src/components/Hardware/TrezorBleBindingDialog',
-  () => ({
-    showTrezorBleBindingDialog: jest.fn(),
-  }),
-);
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: true, isSupportDesktopBle: false },
+}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceThirdPartyHardware: {
+      rebindBleDevice: (...args: unknown[]) => mockRebindBleDevice(...args),
+    },
+  },
+}));
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: ({
     onPress,
@@ -52,9 +76,10 @@ jest.mock(
   }),
 );
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/deviceDetails', () => ({
-  useDeviceAtom: () => [currentWallet.device],
+  useDeviceAtom: () => [currentDevice],
   useDeviceDetailsActions: () => ({
     getWalletWithDevice: async () => currentWallet,
+    refresh: (...args: unknown[]) => mockRefresh(...args),
   }),
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -69,12 +94,14 @@ jest.mock('../ListItemGroup', () => ({
 jest.mock('./dialog/DialogForgetDevice', () => ({
   useDialogForgetDevice: () => ({ show: mockShowDialog }),
 }));
-jest.mock('./utils', () => ({ canShowTrezorBleBinding: () => false }));
 
 describe('forgetting a physical device after reset', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    currentDevice = defaultDevice;
     mockRemoveWallet.mockResolvedValue(undefined);
+    mockRebindBleDevice.mockResolvedValue(undefined);
+    mockRefresh.mockResolvedValue(undefined);
   });
 
   async function confirmForgetDevice() {
@@ -110,5 +137,38 @@ describe('forgetting a physical device after reset', () => {
     expect(Toast.success).not.toHaveBeenCalled();
     expect(Toast.error).toHaveBeenCalledTimes(1);
     expect(mockBack).not.toHaveBeenCalled();
+  });
+});
+
+describe('rebinding bluetooth from the device connection section', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    currentDevice = defaultDevice;
+    mockRebindBleDevice.mockResolvedValue(undefined);
+    mockRefresh.mockResolvedValue(undefined);
+  });
+
+  it('hides the bluetooth entry for a device with no bluetooth endpoint', () => {
+    const { queryByTestId } = render(<DeviceSectionDeviceConnect />);
+    expect(queryByTestId(DeviceManagementTestIDs.rebindBleItem)).toBeNull();
+  });
+
+  it('rebinds through the background service and refreshes the details', async () => {
+    currentDevice = {
+      ...defaultDevice,
+      vendor: EHardwareVendor.ledger,
+      bleConnectId: 'ble-endpoint',
+    };
+    const { getByTestId } = render(<DeviceSectionDeviceConnect />);
+    await act(async () => {
+      fireEvent.click(getByTestId(DeviceManagementTestIDs.rebindBleItem));
+    });
+    expect(mockRebindBleDevice).toHaveBeenCalledTimes(1);
+    expect(mockRebindBleDevice).toHaveBeenCalledWith({
+      dbDeviceId: 'db-current',
+    });
+    expect(mockRefresh).toHaveBeenCalledWith(undefined, {
+      skipDeviceStateSnapshot: true,
+    });
   });
 });
