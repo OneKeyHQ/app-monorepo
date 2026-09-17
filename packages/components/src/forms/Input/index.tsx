@@ -295,6 +295,13 @@ function BaseInput(
     error,
     size,
   });
+  // Tamagui v2 Group only zeroes the joined corners of its items and no longer
+  // passes its radius down, so addons round their outer corners themselves to
+  // keep hover/press backgrounds inside the container border.
+  const containerBorderRadius =
+    containerProps?.borderRadius ?? sharedStyles.borderRadius;
+  const addOnsBorderRadius =
+    addOnsContainerProps?.borderRadius ?? containerBorderRadius;
   const themeName = useThemeName();
   const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
@@ -507,6 +514,8 @@ function BaseInput(
       {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
+            borderTopLeftRadius={containerBorderRadius}
+            borderBottomLeftRadius={containerBorderRadius}
             {...leftAddOnProps}
             size={size}
             error={error}
@@ -583,7 +592,6 @@ function BaseInput(
             borderRadius={sharedStyles.borderRadius}
             orientation="horizontal"
             disabled={disabled}
-            disablePassBorderRadius="start"
             {...(addOnsContainerProps as any)}
           >
             {addOns.map(
@@ -625,6 +633,10 @@ function BaseInput(
                         error={error}
                         onPress={onPress}
                         tooltipProps={tooltipProps}
+                        {...(index === addOns.length - 1 && {
+                          borderTopRightRadius: addOnsBorderRadius,
+                          borderBottomRightRadius: addOnsBorderRadius,
+                        })}
                         {...addOnsItemProps}
                         {...addOnRest}
                       />
