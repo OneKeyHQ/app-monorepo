@@ -73,6 +73,7 @@ import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types
 import {
   EProtocolOfExchange,
   ESwapProTradeType,
+  ESwapQuoteKind,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
@@ -317,7 +318,7 @@ const SwapSettingsDialogContent = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const resolvedSwapType = swapType ?? swapTypeSwitch;
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
-  const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
+  const { cleanQuoteInterval, closeQuoteEvent, quoteAction, resetQuoteAction } =
     useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
   const { top: safeAreaTop } = useSafeAreaInsets();
@@ -394,16 +395,32 @@ const SwapSettingsDialogContent = ({
     [intl, setNoPersistSettings, slippageItem.key],
   );
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
-  const handleProviderManagerSaved = useCallback(() => {
+  const handleProviderManagerSaved = useCallback(async () => {
     cleanQuoteInterval();
     closeQuoteEvent(quoteActionLock.quoteRequestId);
-    void resetQuoteAction();
-    void dialogRef.current?.close();
+    await resetQuoteAction();
+    await quoteAction(
+      slippageItem,
+      quoteActionLock.address,
+      quoteActionLock.accountId,
+      undefined,
+      undefined,
+      quoteActionLock.kind ?? ESwapQuoteKind.SELL,
+      true,
+      quoteActionLock.receivingAddress,
+    );
+    await dialogRef.current?.close();
   }, [
     cleanQuoteInterval,
     closeQuoteEvent,
+    quoteAction,
     quoteActionLock.quoteRequestId,
+    quoteActionLock.address,
+    quoteActionLock.accountId,
+    quoteActionLock.kind,
+    quoteActionLock.receivingAddress,
     resetQuoteAction,
+    slippageItem,
   ]);
   return (
     <ScrollView
