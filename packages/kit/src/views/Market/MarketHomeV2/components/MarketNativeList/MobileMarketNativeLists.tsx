@@ -212,7 +212,6 @@ type INativeMarketListProps = {
   onRowAction: (event: RowActionEvent) => void;
   onActionAnchorInvalidated?: (event: ActionAnchorInvalidatedEvent) => void;
   onEndReached?: () => void;
-  onRefresh?: () => Promise<unknown> | void;
 };
 
 function NativeMarketList({
@@ -231,36 +230,9 @@ function NativeMarketList({
   onRowAction,
   onActionAnchorInvalidated,
   onEndReached,
-  onRefresh,
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
-  const nativeRefreshEnabled = Boolean(
-    onRefresh && !platformEnv.isNativeAndroid,
-  );
-  const refreshingRef = useRef(false);
-  const [refreshing, setRefreshing] = useState(false);
-  useEffect(
-    () => () => {
-      refreshingRef.current = false;
-    },
-    [],
-  );
-  const handleRefresh = useCallback(async () => {
-    if (!onRefresh || refreshingRef.current) return;
-    refreshingRef.current = true;
-    setRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      if (platformEnv.isNativeIOS && refreshingRef.current) {
-        // A batched true/false render can leave UIKit's gesture-started spinner active.
-        listRef.current?.setRefreshing(false);
-      }
-      refreshingRef.current = false;
-      setRefreshing(false);
-    }
-  }, [listRef, onRefresh]);
   const structuralIdentity = `${rows.map((row) => row.key).join('|')}:${
     loading && rows.length === 0
   }:${Boolean(errorMessage && rows.length === 0)}:${Boolean(
@@ -276,7 +248,6 @@ function NativeMarketList({
         generation,
         presentation,
         loading,
-        refreshing,
         loadingMore,
         loadMoreError,
         errorMessage,
@@ -285,7 +256,6 @@ function NativeMarketList({
         }),
         retryMessage: intl.formatMessage({ id: ETranslations.global_retry }),
         canLoadMore,
-        canRefresh: nativeRefreshEnabled,
         showEnd,
         contentPaddingBottom,
         emptyContentHeight,
@@ -302,9 +272,7 @@ function NativeMarketList({
       loadMoreError,
       loading,
       loadingMore,
-      nativeRefreshEnabled,
       presentation,
-      refreshing,
       rows,
       showEnd,
     ],
@@ -319,11 +287,6 @@ function NativeMarketList({
       onRowAction={onRowAction}
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
-      onRefresh={
-        nativeRefreshEnabled
-          ? () => void handleRefresh().catch(() => undefined)
-          : undefined
-      }
     />
   );
 }
@@ -704,7 +667,6 @@ function MobileMarketNativeTokenListImpl({
             void result.loadMore();
           }
         }}
-        onRefresh={() => result.refetch()}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>
@@ -973,10 +935,6 @@ function MobileMarketNativeWatchlistImpl({
         testID={MarketTestIDs.watchList}
         onRowAction={handleRowAction}
         onActionAnchorInvalidated={onActionAnchorInvalidated}
-        onRefresh={async () => {
-          await actions.current.refreshWatchListV2();
-          await result.refetch();
-        }}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>
@@ -1070,7 +1028,6 @@ function MobileMarketNativeStockListImpl({
           void result.loadMore();
         }
       }}
-      onRefresh={() => result.refresh()}
     />
   );
 }
@@ -1132,7 +1089,6 @@ function MobileMarketNativeTopCoinsListImpl({
       contentPaddingBottom={listContainerProps.paddingBottom}
       emptyContentHeight={listContainerProps.emptyContentHeight}
       onRowAction={handleRowAction}
-      onRefresh={() => refresh()}
     />
   );
 }
@@ -1207,7 +1163,6 @@ function MobileMarketNativePerpsListImpl({
         testID={MarketTestIDs.perpsList}
         onRowAction={handleRowAction}
         onActionAnchorInvalidated={badgeInfo.onActionAnchorInvalidated}
-        onRefresh={() => refresh()}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>

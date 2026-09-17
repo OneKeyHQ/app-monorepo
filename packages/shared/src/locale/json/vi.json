@@ -1224,6 +1224,7 @@
   "export_history_partial__title": "Một phần",
   "export_history_queued__title": "Đang chờ",
   "export_history_ready__title": "Sẵn sàng",
+  "export_history_sign_in__desc": "Lịch sử xuất được liên kết với OneKey ID. Đăng nhập vào tài khoản tương ứng để xem.",
   "export_history_time_zone__title": "Múi giờ",
   "export_history_transaction_limit__title": "Giới hạn giao dịch",
   "export_history_transactions_count__desc": "{count, plural, other {# giao dịch}}",

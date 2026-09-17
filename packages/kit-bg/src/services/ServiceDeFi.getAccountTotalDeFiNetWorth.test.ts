@@ -107,7 +107,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'usd',
     });
 
-    expect(result).toEqual({ netWorth: '0', hasCache: false });
+    expect(result).toEqual({
+      hasCache: false,
+      netWorth: '0',
+      networkIds: [],
+    });
   });
 
   test('single-network entry, same currency → returns raw netWorth', async () => {
@@ -134,7 +138,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'usd',
     });
 
-    expect(result).toEqual({ netWorth: '1000', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '1000',
+      networkIds: ['evm--1'],
+    });
   });
 
   test('single-network entry, different currency (usd→cny) → converts', async () => {
@@ -158,7 +166,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'cny',
     });
 
-    expect(result).toEqual({ netWorth: '7200', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '7200',
+      networkIds: ['evm--1'],
+    });
   });
 
   test('All-Networks: sums across multiple child addresses and networks', async () => {
@@ -189,7 +201,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'usd',
     });
 
-    expect(result).toEqual({ netWorth: '1000', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '1000',
+      networkIds: ['btc--0', 'evm--1', 'evm--56'],
+    });
   });
 
   test('All-Networks: filters DeFi net worth to enabled networks when provided', async () => {
@@ -221,7 +237,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       enabledNetworkIds: ['evm--1', 'btc--0'],
     });
 
-    expect(result).toEqual({ netWorth: '800', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '800',
+      networkIds: ['btc--0', 'evm--1'],
+    });
   });
 
   test('missing target currency → falls back to USD', async () => {
@@ -242,6 +262,10 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'xxx-not-a-real-code',
     });
 
-    expect(result).toEqual({ netWorth: '1000', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '1000',
+      networkIds: ['evm--1'],
+    });
   });
 });
