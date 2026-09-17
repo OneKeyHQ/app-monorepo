@@ -3676,6 +3676,7 @@
   "perps_hide_other_pairs": "Nascondi altre coppie",
   "perps_layout_reset__msg": "Il layout è stato ripristinato",
   "perps_layout_settings__title": "Impostazioni del layout",
+  "perps_offline_desktop__msg": "I tuoi dati potrebbero non essere aggiornati. Prova ad aggiornare la pagina.",
   "perps_referral_campaign__desc": "Invita amici, vinci 99U insieme. Scala la classifica per avere una chance al premio principale!",
   "perps_spot_add_funds__title": "Aggiungi fondi",
   "perps_spot_buy_token_spot__action": "Acquista Spot {token}",

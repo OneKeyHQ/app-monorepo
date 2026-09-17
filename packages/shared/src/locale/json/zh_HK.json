@@ -3676,6 +3676,7 @@
   "perps_hide_other_pairs": "隱藏其他交易對",
   "perps_layout_reset__msg": "佈局已重設",
   "perps_layout_settings__title": "佈局設定",
+  "perps_offline_desktop__msg": "你的資料可能不是最新的，請嘗試重新整理頁面",
   "perps_referral_campaign__desc": "邀請好友，一起贏取 99U。提升排名，爭取大獎。",
   "perps_spot_add_funds__title": "添加資金",
   "perps_spot_buy_token_spot__action": "買入 {token} 現貨",

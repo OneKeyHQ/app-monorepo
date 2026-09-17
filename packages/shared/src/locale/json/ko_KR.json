@@ -3676,6 +3676,7 @@
   "perps_hide_other_pairs": "다른 페어 숨기기",
   "perps_layout_reset__msg": "레이아웃이 재설정되었습니다",
   "perps_layout_settings__title": "레이아웃 설정",
+  "perps_offline_desktop__msg": "데이터가 최신 상태가 아닐 수 있습니다. 페이지를 새로고침해 보세요.",
   "perps_referral_campaign__desc": "친구를 초대하고 함께 99U를 받아가세요. 리더보드를 올라 대상을 노려보세요!",
   "perps_spot_add_funds__title": "자금 추가",
   "perps_spot_buy_token_spot__action": "{token} 현물 구매",

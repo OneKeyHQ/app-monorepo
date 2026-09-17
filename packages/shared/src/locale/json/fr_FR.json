@@ -3676,6 +3676,7 @@
   "perps_hide_other_pairs": "Masquer les autres paires",
   "perps_layout_reset__msg": "La disposition a été réinitialisée",
   "perps_layout_settings__title": "Paramètres de mise en page",
+  "perps_offline_desktop__msg": "Vos données peuvent être obsolètes. Veuillez essayer d’actualiser la page.",
   "perps_referral_campaign__desc": "Invitez des amis et gagnez 99U ensemble. Montez dans le classement pour tenter de remporter le grand prix !",
   "perps_spot_add_funds__title": "Ajouter des fonds",
   "perps_spot_buy_token_spot__action": "Acheter le spot {token}",

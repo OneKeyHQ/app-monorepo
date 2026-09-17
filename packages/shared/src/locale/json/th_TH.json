@@ -3676,6 +3676,7 @@
   "perps_hide_other_pairs": "ซ่อนคู่เทรดอื่น",
   "perps_layout_reset__msg": "รีเซ็ตเลย์เอาต์แล้ว",
   "perps_layout_settings__title": "การตั้งค่าเลย์เอาต์",
+  "perps_offline_desktop__msg": "ข้อมูลของคุณอาจไม่เป็นปัจจุบัน โปรดลองรีเฟรชหน้าเว็บ",
   "perps_referral_campaign__desc": "ชวนเพื่อน ลุ้น 99U ด้วยกัน ปีนอันดับลีดเดอร์บอร์ดเพื่อลุ้นรางวัลใหญ่!",
   "perps_spot_add_funds__title": "เพิ่มเงินทุน",
   "perps_spot_buy_token_spot__action": "ซื้อสปอต {token}",

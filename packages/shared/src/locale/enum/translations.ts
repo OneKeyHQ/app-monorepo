@@ -3681,6 +3681,7 @@ export enum ETranslations {
   perps_hide_other_pairs = 'perps_hide_other_pairs',
   perps_layout_reset__msg = 'perps_layout_reset__msg',
   perps_layout_settings__title = 'perps_layout_settings__title',
+  perps_offline_desktop__msg = 'perps_offline_desktop__msg',
   perps_referral_campaign__desc = 'perps_referral_campaign__desc',
   perps_spot_add_funds__title = 'perps_spot_add_funds__title',
   perps_spot_buy_token_spot__action = 'perps_spot_buy_token_spot__action',

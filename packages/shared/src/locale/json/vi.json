@@ -3676,6 +3676,7 @@
   "perps_hide_other_pairs": "Ẩn các cặp khác",
   "perps_layout_reset__msg": "Đã đặt lại bố cục",
   "perps_layout_settings__title": "Cài đặt bố cục",
+  "perps_offline_desktop__msg": "Dữ liệu của bạn có thể đã lỗi thời. Vui lòng thử làm mới trang.",
   "perps_referral_campaign__desc": "Mời bạn bè, cùng nhau giành 99U. Leo bảng xếp hạng để có cơ hội giành giải lớn!",
   "perps_spot_add_funds__title": "Thêm tiền",
   "perps_spot_buy_token_spot__action": "Mua giao ngay {token}",

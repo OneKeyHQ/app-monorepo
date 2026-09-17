@@ -3676,6 +3676,7 @@
   "perps_hide_other_pairs": "Приховати інші пари",
   "perps_layout_reset__msg": "Макет скинуто",
   "perps_layout_settings__title": "Налаштування макета",
+  "perps_offline_desktop__msg": "Ваші дані можуть бути застарілими. Спробуйте оновити сторінку.",
   "perps_referral_campaign__desc": "Запрошуйте друзів і вигравайте 99U разом. Підіймайтеся в рейтингу та змагайтеся за головний приз!",
   "perps_spot_add_funds__title": "Додати кошти",
   "perps_spot_buy_token_spot__action": "Купити спот {token}",

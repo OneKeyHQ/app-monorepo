@@ -3676,6 +3676,7 @@
   "perps_hide_other_pairs": "Andere Paare ausblenden",
   "perps_layout_reset__msg": "Layout wurde zurückgesetzt",
   "perps_layout_settings__title": "Layout-Einstellungen",
+  "perps_offline_desktop__msg": "Ihre Daten sind möglicherweise veraltet. Versuchen Sie bitte, die Seite neu zu laden.",
   "perps_referral_campaign__desc": "Lade Freunde ein und gewinne gemeinsam 99U. Klettere in der Rangliste nach oben und erhalte die Chance auf den Hauptpreis!",
   "perps_spot_add_funds__title": "Geld hinzufügen",
   "perps_spot_buy_token_spot__action": "{token} Spot kaufen",
