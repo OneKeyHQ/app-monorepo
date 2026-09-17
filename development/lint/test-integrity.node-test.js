@@ -1310,6 +1310,35 @@ test('what a named function returns is still source', () => {
   `,
     'an unknown switch label keeps the source read conservatively gated',
   );
+  const conditionalFallthroughRead = `
+    function loadFixture(kind, shouldRead) {
+      const file = join(__dirname, 'src', kind);
+      switch (kind) {
+        case 'Thing.ts':
+          if (shouldRead) {
+            return readFileSync(file, 'utf8');
+          }
+        default:
+          return '';
+      }
+    }
+  `;
+  assertGated(
+    `${conditionalFallthroughRead}
+    it('x', () => {
+      expect(loadFixture('Thing.ts', true)).toContain('go');
+    });
+  `,
+    'a may-fallthrough case does not select the static fallback',
+  );
+  assertClean(
+    `${conditionalFallthroughRead}
+    it('x', () => {
+      expect(loadFixture('json', false)).toContain('go');
+    });
+  `,
+    'a may-fallthrough default still selects its fallback when unmatched',
+  );
   // Whole or cut, as it was returned.
   const script =
     "const code = readFileSync(join(__dirname, 'thing.js'), 'utf8');";

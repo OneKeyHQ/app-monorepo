@@ -2047,7 +2047,10 @@ function readHelperReturns(fn) {
       const tests = node.cases.map((caseNode) => caseNode.test).filter(Boolean);
       let fallthroughTests = [];
       node.cases.forEach((caseNode) => {
-        const caseTests = [...fallthroughTests, caseNode.test];
+        const caseTests = [
+          ...fallthroughTests,
+          { caseTest: caseNode.test, conditional: false },
+        ];
         const guard = {
           kind: 'switch',
           caseTest: caseNode.test,
@@ -2059,7 +2062,16 @@ function readHelperReturns(fn) {
           visit(statement, [...guards, guard], availabilityFallback),
         );
         const stopsFallthrough = caseNode.consequent.some(alwaysTerminates);
-        fallthroughTests = stopsFallthrough ? [] : caseTests;
+        if (stopsFallthrough) {
+          fallthroughTests = [];
+        } else if (caseNode.consequent.length === 0) {
+          fallthroughTests = caseTests;
+        } else {
+          fallthroughTests = caseTests.map((entry) => ({
+            ...entry,
+            conditional: true,
+          }));
+        }
       });
       return;
     }
@@ -2267,13 +2279,26 @@ function staticGuardValue(guard, parameters, argumentsList) {
       return unknown ? undefined : true;
     };
     let unknown = false;
-    for (const caseTest of guard.caseTests ?? [guard.caseTest]) {
-      const result =
-        caseTest === null ? defaultMatches() : matchesCase(caseTest);
-      if (result === true) {
-        return true;
+    for (const entry of guard.caseTests ?? [guard.caseTest]) {
+      const caseTest =
+        entry && typeof entry === 'object' && 'caseTest' in entry
+          ? entry.caseTest
+          : entry;
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        'conditional' in entry &&
+        entry.conditional
+      ) {
+        unknown = true;
+      } else {
+        const result =
+          caseTest === null ? defaultMatches() : matchesCase(caseTest);
+        if (result === true) {
+          return true;
+        }
+        unknown ||= result === undefined;
       }
-      unknown ||= result === undefined;
     }
     return unknown ? undefined : false;
   }
