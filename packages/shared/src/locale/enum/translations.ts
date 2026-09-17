@@ -5217,6 +5217,7 @@ export enum ETranslations {
   transfer_verify_passcode = 'transfer.verify_passcode',
   transfer_web_only_supports_watch_only_transfer = 'transfer.web_only_supports_watch_only_transfer',
   transfer_exit_import__desc = 'transfer_exit_import__desc',
+  transfer_keep_foreground__desc = 'transfer_keep_foreground__desc',
   transfer_keep_unlocked__desc = 'transfer_keep_unlocked__desc',
   travel_mode__about__title = 'travel_mode__about__title',
   travel_mode__app_icon_change__desc = 'travel_mode__app_icon_change__desc',
