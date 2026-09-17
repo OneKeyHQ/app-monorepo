@@ -14,6 +14,7 @@ import {
 } from './swrCacheUtils';
 
 const mockSWRCacheCapacityLimit = jest.fn();
+const mockSWRCacheSlowOp = jest.fn();
 
 jest.mock('../logger/logger', () => ({
   defaultLogger: {
@@ -21,6 +22,9 @@ jest.mock('../logger/logger', () => ({
       perf: {
         swrCacheCapacityLimit: (params: unknown) => {
           mockSWRCacheCapacityLimit(params);
+        },
+        swrCacheSlowOp: (params: unknown) => {
+          mockSWRCacheSlowOp(params);
         },
       },
     },
@@ -955,5 +959,84 @@ describe('SWR cache native incremental persistence', () => {
     expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
       expect.objectContaining({ reason: 'keyLimit' }),
     );
+  });
+});
+
+describe('SWR cache slow-op log', () => {
+  let perfSpy: jest.SpyInstance<number, []>;
+
+  // Every clock read advances by `stepMs`, so each timed phase "takes" it.
+  const tickPerfClock = (stepMs: number) => {
+    let now = 0;
+    perfSpy.mockImplementation(() => {
+      now += stepMs;
+      return now;
+    });
+  };
+
+  beforeEach(() => {
+    fakeDiskGlobal.__swrFakeDisk = {};
+    fakeDiskGlobal.__swrPatches = [];
+    fakeDiskGlobal.__swrUsePatch = true;
+    mockSWRCacheSlowOp.mockReset();
+    jest.spyOn(Date, 'now').mockReturnValue(2);
+    perfSpy = jest.spyOn(globalThis.performance, 'now');
+  });
+
+  afterEach(() => {
+    fakeDiskGlobal.__swrUsePatch = false;
+    jest.restoreAllMocks();
+  });
+
+  it('reports a slow flush with the store size and per-phase timings', () => {
+    otherRuntimeFlush({ existing: { d: 'x'.repeat(1000), t: 1 } });
+    const storeChars = fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY]?.length;
+    const swr = loadFreshRuntime();
+    swr.set('changed', 'small');
+
+    tickPerfClock(30);
+    swr.flushNow();
+
+    expect(mockSWRCacheSlowOp).toHaveBeenCalledTimes(1);
+    expect(mockSWRCacheSlowOp).toHaveBeenCalledWith({
+      op: 'flush',
+      durationMs: 120,
+      storeChars,
+      entryCount: 2,
+      readMs: 30,
+      pruneMs: 30,
+      patchMs: 30,
+      adoptMs: 30,
+      updatedKeyCount: 1,
+      patchChars: JSON.stringify({ d: 'small', t: 2 }).length,
+    });
+  });
+
+  it('stays silent while a flush fits the long-task budget', () => {
+    const swr = loadFreshRuntime();
+    swr.set('changed', 'small');
+
+    tickPerfClock(10);
+    swr.flushNow();
+
+    expect(readDiskStore().changed?.d).toBe('small');
+    expect(mockSWRCacheSlowOp).not.toHaveBeenCalled();
+  });
+
+  it('reports a slow reload on its own, without a clean flush', () => {
+    otherRuntimeFlush({ existing: { d: 'value', t: 1 } });
+    const storeChars = fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY]?.length;
+    const swr = loadFreshRuntime();
+
+    tickPerfClock(60);
+    swr.reloadFromStorage();
+
+    expect(mockSWRCacheSlowOp).toHaveBeenCalledTimes(1);
+    expect(mockSWRCacheSlowOp).toHaveBeenCalledWith({
+      op: 'reload',
+      durationMs: 60,
+      storeChars,
+      entryCount: 1,
+    });
   });
 });
