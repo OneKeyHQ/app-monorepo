@@ -395,6 +395,124 @@ describe('useBorrowApproval', () => {
     expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
   });
 
+  it('locks only while preparing and unlocks when the confirm screen takes over', async () => {
+    const navigationDeferred = createDeferred<void>();
+    let onCancel: (() => void) | undefined;
+    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+      async (params: { onCancel?: () => void }) => {
+        onCancel = params.onCancel;
+        await navigationDeferred.promise;
+      },
+    );
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    let approvalPromise!: Promise<void>;
+    act(() => {
+      approvalPromise = result.current.onApprove();
+    });
+    await waitFor(() =>
+      expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+
+    expect(result.current.approving).toBe(true);
+    expect(result.current.isFormInteractionLocked).toBe(true);
+
+    await act(async () => {
+      navigationDeferred.resolve(undefined);
+      await approvalPromise;
+    });
+
+    expect(result.current.approving).toBe(true);
+    expect(result.current.isFormInteractionLocked).toBe(false);
+
+    act(() => {
+      onCancel?.();
+    });
+
+    expect(result.current.approving).toBe(false);
+    expect(result.current.isFormInteractionLocked).toBe(false);
+  });
+
+  it('does not restore confirming after a synchronous cancel callback', async () => {
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(result.current.approving).toBe(false);
+    expect(result.current.isFormInteractionLocked).toBe(false);
+  });
+
+  it('locks the form while a submitted approval is settling', async () => {
+    const settlementDeferred = createDeferred<
+      EOnChainHistoryTxStatus | undefined
+    >();
+    waitForTxFinalStatusMock.mockReturnValueOnce(settlementDeferred.promise);
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+
+    act(() => {
+      confirmParams.onSuccess([
+        { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
+      ]);
+    });
+
+    expect(result.current.approving).toBe(true);
+    expect(result.current.isFormInteractionLocked).toBe(true);
+
+    await act(async () => {
+      settlementDeferred.resolve(EOnChainHistoryTxStatus.Success);
+      await settlementDeferred.promise;
+    });
+    await waitFor(() => expect(result.current.approving).toBe(false));
+
+    expect(result.current.isFormInteractionLocked).toBe(false);
+    expect(onApprovedSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it('resets approval progress when the request scope changes', async () => {
     const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
     const { result, rerender } = renderHook(

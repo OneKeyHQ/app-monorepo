@@ -681,6 +681,7 @@ function runLocalChecks(logDir) {
       'lint:background-api-contract',
     ]),
     runCommand(logDir, 'test-integrity', 'yarn', ['lint:test-integrity']),
+    runCommand(logDir, 'onekeyfe-patches', 'yarn', ['lint:onekeyfe-patches']),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];

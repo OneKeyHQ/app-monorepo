@@ -17,6 +17,7 @@ import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { flushAvailabilitySnapshotOnHidden } from '@onekeyhq/shared/src/request/availabilityAggregator';
 import {
   ERootRoutes,
   ETabHomeRoutes,
@@ -64,6 +65,12 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async getEndpointInfo({ name }: { name: EServiceEndpointEnum }) {
     return this.getClientEndpointInfo(name);
+  }
+
+  /** Relayed by the main runtime: the native bg runtime gets no AppState events. */
+  @backgroundMethod()
+  async flushAvailabilitySnapshotOnHidden() {
+    flushAvailabilitySnapshotOnHidden();
   }
 
   @backgroundMethod()
