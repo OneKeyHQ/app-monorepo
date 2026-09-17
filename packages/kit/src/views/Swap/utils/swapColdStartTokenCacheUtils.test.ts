@@ -598,7 +598,7 @@ describe('swap cold-start selected token context', () => {
     });
   });
 
-  it('preselects the Arc ERC-20 USDC to Ethereum ETH pair on bridge', () => {
+  it('preselects the Arc ERC-20 USDC to Arc EURC pair on swap', () => {
     const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
       homeSelectedAccount: buildSelectedAccount({
         networkId: 'evm--5042',
@@ -615,18 +615,19 @@ describe('swap cold-start selected token context', () => {
         symbol: 'USDC',
       }),
       toToken: expect.objectContaining({
-        contractAddress: '',
-        isNative: true,
-        networkId: 'evm--1',
-        symbol: 'ETH',
+        contractAddress: '0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1',
+        decimals: 6,
+        isNative: false,
+        networkId: 'evm--5042',
+        symbol: 'EURC',
       }),
       context: expect.objectContaining({
         accountKey: 'wallet-1|indexed-account-1|default',
         networkId: 'evm--5042',
-        swapType: ESwapTabSwitchType.BRIDGE,
+        swapType: ESwapTabSwitchType.SWAP,
         updatedAt: 1,
       }),
-      swapType: ESwapTabSwitchType.BRIDGE,
+      swapType: ESwapTabSwitchType.SWAP,
     });
   });
 

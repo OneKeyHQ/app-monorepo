@@ -1,5 +1,6 @@
 import {
   ARC_ERC20_USDC_CONTRACT_ADDRESS,
+  ARC_EURC_CONTRACT_ADDRESS,
   ARC_NETWORK_ID,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -294,7 +295,7 @@ describe('getTokenActionSwapToToken', () => {
     ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
   });
 
-  it('uses the configured Arc ERC-20 USDC to Ethereum ETH pair', () => {
+  it('uses the configured Arc ERC-20 USDC to Arc EURC pair', () => {
     expect(
       getTokenActionSwapToToken({
         fromToken: buildSwapToken({
@@ -312,9 +313,10 @@ describe('getTokenActionSwapToToken', () => {
       }),
     ).toEqual(
       expect.objectContaining({
-        isNative: true,
-        networkId: 'evm--1',
-        symbol: 'ETH',
+        contractAddress: ARC_EURC_CONTRACT_ADDRESS,
+        isNative: false,
+        networkId: ARC_NETWORK_ID,
+        symbol: 'EURC',
       }),
     );
   });
