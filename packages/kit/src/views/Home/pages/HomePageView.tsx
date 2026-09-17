@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
-import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
@@ -25,11 +24,7 @@ import {
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
-import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
-import {
-  WALLET_TYPE_HD,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -58,18 +53,12 @@ import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
-import {
-  useAccountOverviewActions,
-  useApprovalsInfoAtom,
-} from '../../../states/jotai/contexts/accountOverview';
 import {
   useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
   useIsAccountSelectorActiveAccountInitDone,
   useIsAccountSelectorSyncLoading,
 } from '../../../states/jotai/contexts/accountSelector';
-import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
@@ -95,8 +84,6 @@ import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-const networksSupportBulkRevokeApproval =
-  getNetworksSupportBulkRevokeApproval();
 const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
 
 interface IAndroidScrollContainerProps {
@@ -267,8 +254,6 @@ export function HomePageView({
     },
   );
 
-  const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
-  const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
 
   // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
@@ -292,11 +277,6 @@ export function HomePageView({
       };
     }, []),
   );
-
-  const hasRiskApprovalsRef = useRef(hasRiskApprovals);
-  useEffect(() => {
-    hasRiskApprovalsRef.current = hasRiskApprovals;
-  }, [hasRiskApprovals]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -356,96 +336,6 @@ export function HomePageView({
     }
     return false;
   }, [wallet]);
-
-  const isBulkRevokeApprovalEnabled = useMemo(() => {
-    if (wallet?.type === WALLET_TYPE_WATCHING) {
-      return false;
-    }
-
-    if (network?.isAllNetworks) {
-      if (
-        accountUtils.isOthersAccount({
-          accountId: account?.id ?? '',
-        })
-      ) {
-        return networkUtils.isEvmNetwork({
-          networkId: account?.createAtNetwork ?? '',
-        });
-      }
-      return true;
-    }
-
-    return networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
-  }, [
-    wallet?.type,
-    network?.isAllNetworks,
-    network?.id,
-    account?.id,
-    account?.createAtNetwork,
-  ]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    // Keep the red-dot state from becoming stale across account/network switches.
-    if (hasRiskApprovalsRef.current) {
-      updateApprovalsInfo({ hasRiskApprovals: false, riskApprovalsCount: 0 });
-    }
-
-    const run = async (_trigger: string) => {
-      if (!isBulkRevokeApprovalEnabled) return;
-      if (!account?.id || !network?.id) return;
-
-      await deferHeavyWorkUntilUIIdle();
-      if (cancelled) return;
-
-      try {
-        const resp =
-          await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
-            networkId: network.id,
-            accountId: account.id,
-            indexedAccountId: indexedAccount?.id,
-            accountAddress: account.address,
-          });
-        if (cancelled) return;
-        const riskApprovals = resp.contractApprovals.filter(
-          (i) => i.isRiskContract,
-        );
-        updateApprovalsInfo({
-          hasRiskApprovals: riskApprovals.length > 0,
-          riskApprovalsCount: riskApprovals.length,
-        });
-      } catch (error) {
-        if (error instanceof CanceledError) {
-          return;
-        }
-        console.error(error);
-      }
-    };
-
-    const cleanup = runAfterTokensDone({
-      enabled: isBulkRevokeApprovalEnabled,
-      fallbackDelayMs: 12_000,
-      deferWhileRefreshing: true,
-      retryDelayMs: 2000,
-      maxWaitMs: 30_000,
-      networkId: network?.id,
-      matchNetworkId: true,
-      onRun: run,
-    });
-
-    return () => {
-      cancelled = true;
-      cleanup();
-    };
-  }, [
-    account?.address,
-    account?.id,
-    indexedAccount?.id,
-    isBulkRevokeApprovalEnabled,
-    network?.id,
-    updateApprovalsInfo,
-  ]);
 
   const isRequiredValidation = vaultSettings?.validationRequired;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
