@@ -90,9 +90,7 @@ function PrimeLoginOAuthDialog(props: {
     lastLoginMethodPersist.method,
   );
   const lastUsedBadgeLabel = intl.formatMessage({
-    // Wired to ETranslations after the i18n apply; defaultMessage is the interim EN copy.
-    id: 'last_used_sign_in_method__title' as ETranslations,
-    defaultMessage: 'Last used',
+    id: ETranslations.last_used_sign_in_method__title,
   });
   const [loggingInProvider, setLoggingInProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
