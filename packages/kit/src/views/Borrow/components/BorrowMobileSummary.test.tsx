@@ -21,6 +21,15 @@ const context: { reserves: { data?: IReservesData } } = {
   reserves: { data: undefined },
 };
 
+// Shaped the way the server sends it: the object arrives either way, and the
+// two lists are what say whether there is anything in it.
+const rewards = (claimable: unknown[], unclaimable: unknown[] = []) =>
+  ({
+    title: { text: 'Rewards' },
+    description: { text: claimable.length ? '$12.00' : '$0' },
+    button: { data: { rewardsDetail: { claimable, unclaimable } } },
+  }) as unknown as IBorrowOverviewData['borrowRewards'];
+
 const overviewData = (over: Partial<IBorrowOverviewData> = {}) =>
   ({
     healthFactorData: undefined,
@@ -107,15 +116,43 @@ describe('BorrowMobileSummary', () => {
   it('keeps rewards reachable after the last position is gone', () => {
     const { queryByTestId } = render(
       <BorrowMobileSummary
-        overviewData={overviewData({
-          borrowRewards: { description: { text: '$12.00' } },
-        } as Partial<IBorrowOverviewData>)}
+        overviewData={overviewData({ borrowRewards: rewards([{ id: 'r1' }]) })}
         showPositionTotals={false}
       />,
     );
 
     expect(queryByTestId('rewards-metric')).toBeTruthy();
     expect(queryByTestId(suppliedMetricId)).toBeNull();
+  });
+
+  // The server answers a first-time account with a zero-valued rewards object
+  // rather than nothing at all, so the cell used to render "$0" under a rule of
+  // its own on a page that had just finished hiding every other empty figure.
+  it('drops the whole frame when rewards arrive with nothing to collect', () => {
+    const { container, queryByTestId } = render(
+      <BorrowMobileSummary
+        overviewData={overviewData({ borrowRewards: rewards([]) })}
+        showPositionTotals={false}
+      />,
+    );
+
+    expect(queryByTestId('rewards-metric')).toBeNull();
+    expect(container.firstChild).toBeNull();
+  });
+
+  // Rewards that exist but cannot be claimed yet still have a dialog behind
+  // them listing why, so the cell stays.
+  it('keeps the cell for rewards that are not claimable yet', () => {
+    const { queryByTestId } = render(
+      <BorrowMobileSummary
+        overviewData={overviewData({
+          borrowRewards: rewards([], [{ id: 'u1' }]),
+        })}
+        showPositionTotals={false}
+      />,
+    );
+
+    expect(queryByTestId('rewards-metric')).toBeTruthy();
   });
 
   it('drops the bonus cell when the market sent no bonus', () => {

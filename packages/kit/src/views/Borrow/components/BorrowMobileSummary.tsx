@@ -94,7 +94,15 @@ export function BorrowMobileSummary({
   // the totals, hence the shared pending flag.
   const showBonus =
     Boolean(reserves.data?.overview?.platformBonus) || isPositionTotalsLoading;
-  const showRewards = Boolean(borrowRewards) || isRewardsLoading;
+  // The rewards payload still arrives when there is nothing to collect — a
+  // zero-valued object rather than an absent one — so its presence answers
+  // nothing. These two lists are what the claim dialog is built from; with both
+  // empty there is no figure worth a cell and nothing behind it to open.
+  const rewardsDetail = borrowRewards?.button?.data?.rewardsDetail;
+  const showRewards =
+    Boolean(rewardsDetail?.claimable?.length) ||
+    Boolean(rewardsDetail?.unclaimable?.length) ||
+    isRewardsLoading;
 
   // Otherwise the frame below is a rule drawn across the page with nothing
   // under it.
