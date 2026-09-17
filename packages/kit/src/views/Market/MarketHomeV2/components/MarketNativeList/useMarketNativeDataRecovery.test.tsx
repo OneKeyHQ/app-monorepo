@@ -14,7 +14,10 @@ import {
   type IMarketWatchlistDataCache,
   useMarketWatchlistTokenList,
 } from '../MarketTokenList/hooks/useMarketWatchlistTokenList';
-import { useMarketTopCoins } from '../MarketTopCoinsList/hooks/useMarketTopCoins';
+import {
+  type IMarketTopCoinsDataCache,
+  useMarketTopCoins,
+} from '../MarketTopCoinsList/hooks/useMarketTopCoins';
 
 const mockNetworks: IMarketBasicConfigNetwork[] = [];
 let mockFocused = true;
@@ -367,7 +370,7 @@ it('restores Watchlist data after unmounting offline without reviving removed fa
 
 it('restores Top Coins from its page owner after unmounting offline, including an empty replacement', async () => {
   const dataCacheRef = {
-    current: undefined as IMarketAssetListData['list'] | undefined,
+    current: undefined as IMarketTopCoinsDataCache | undefined,
   };
   fetchTopCoins.mockResolvedValue(topCoins);
   const first = renderHook(() => useMarketTopCoins({ dataCacheRef }));
@@ -385,6 +388,50 @@ it('restores Top Coins from its page owner after unmounting offline, including a
   const third = renderHook(() => useMarketTopCoins({ dataCacheRef }));
   await waitFor(() => expect(third.result.current.isError).toBe(true));
   expect(third.result.current.data).toEqual([]);
+});
+
+it('requests Top Coins sub-categories through type and caches each one separately', async () => {
+  const dataCacheRef = {
+    current: undefined as IMarketTopCoinsDataCache | undefined,
+  };
+  const chains: IMarketAssetListData = {
+    list: [{ ...topCoins.list[0], assetId: 'eth', symbol: 'ETH' }],
+    total: 1,
+  };
+  fetchTopCoins.mockResolvedValue(topCoins);
+  const first = renderHook(
+    ({ categoryId }) => useMarketTopCoins({ categoryId, dataCacheRef }),
+    { initialProps: { categoryId: 'all' } },
+  );
+  await waitFor(() => expect(first.result.current.data).toEqual(topCoins.list));
+  expect(fetchTopCoins).toHaveBeenLastCalledWith(
+    expect.objectContaining({ type: 'top_coins' }),
+  );
+
+  const chainsRequest = deferred<IMarketAssetListData>();
+  fetchTopCoins.mockReturnValue(chainsRequest.promise);
+  first.rerender({ categoryId: 'market_l1_l2_chains' });
+  await waitFor(() =>
+    expect(fetchTopCoins).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'market_l1_l2_chains' }),
+    ),
+  );
+  expect(first.result.current.data).toEqual([]);
+  await act(async () => chainsRequest.resolve(chains));
+  await waitFor(() => expect(first.result.current.data).toEqual(chains.list));
+
+  fetchTopCoins.mockReturnValue(deferred<IMarketAssetListData>().promise);
+  first.rerender({ categoryId: 'all' });
+  expect(first.result.current.data).toEqual(topCoins.list);
+  first.unmount();
+
+  fetchTopCoins.mockRejectedValue(new Error('offline'));
+  const second = renderHook(() =>
+    useMarketTopCoins({ categoryId: 'market_l1_l2_chains', dataCacheRef }),
+  );
+  expect(second.result.current.data).toEqual(chains.list);
+  await waitFor(() => expect(second.result.current.isError).toBe(true));
+  expect(second.result.current.data).toEqual(chains.list);
 });
 
 it('restores Perps from its page owner without leaking another category or reviving cleared rows', async () => {

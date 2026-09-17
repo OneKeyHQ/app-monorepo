@@ -16,6 +16,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { useToDetailPage } from '../../MarketTokenList/hooks/useToMarketDetailPage';
+import { getMarketTopCoinsRequestType } from '../marketTopCoinsCategoryUtils';
 
 import { fetchMarketTopCoinsForPlatform } from './marketTopCoinsPlatformApi';
 
@@ -159,12 +160,18 @@ export function useMarketTopCoinNavigation({
   return handleItemPress;
 }
 
+export type IMarketTopCoinsDataCache = Partial<
+  Record<string, IMarketAssetListItem[]>
+>;
+
 export function useMarketTopCoins(
   options: IUseMarketTopCoinNavigationOptions & {
-    dataCacheRef?: RefObject<IMarketAssetListItem[] | undefined>;
+    categoryId?: string;
+    dataCacheRef?: RefObject<IMarketTopCoinsDataCache | undefined>;
   } = {},
 ) {
   const handleItemPress = useMarketTopCoinNavigation(options);
+  const requestType = getMarketTopCoinsRequestType(options.categoryId);
   const {
     result,
     isLoading,
@@ -172,35 +179,46 @@ export function useMarketTopCoins(
   } = usePromiseResult(
     async () => {
       try {
-        const response = await fetchMarketTopCoinsForPlatform();
-        return { response, failed: false };
+        const response = await fetchMarketTopCoinsForPlatform(requestType);
+        return { requestType, response, failed: false };
       } catch (error) {
         if (!platformEnv.isNative) throw error;
-        return { response: undefined, failed: true };
+        return { requestType, response: undefined, failed: true };
       }
     },
-    [],
+    [requestType],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
       revalidateOnReconnect: true,
       watchLoading: true,
     },
   );
-  const localDataCacheRef = useRef<IMarketAssetListItem[] | undefined>(
+  const localDataCacheRef = useRef<IMarketTopCoinsDataCache | undefined>(
     undefined,
   );
   const dataCacheRef = options.dataCacheRef ?? localDataCacheRef;
+  // The previous sub-category's result stays around until the new request
+  // settles; never render it under the newly selected chip.
+  const currentResult =
+    result?.requestType === requestType ? result : undefined;
   useEffect(() => {
-    if (result?.response) dataCacheRef.current = result.response.list;
-  }, [dataCacheRef, result]);
+    if (currentResult?.response) {
+      dataCacheRef.current = {
+        ...dataCacheRef.current,
+        [requestType]: currentResult.response.list,
+      };
+    }
+  }, [currentResult, dataCacheRef, requestType]);
   const data =
-    result?.response?.list ?? dataCacheRef.current ?? EMPTY_MARKET_ASSET_LIST;
+    currentResult?.response?.list ??
+    dataCacheRef.current?.[requestType] ??
+    EMPTY_MARKET_ASSET_LIST;
 
   return {
     data,
     handleItemPress,
     isLoading,
-    isError: Boolean(result?.failed),
+    isError: Boolean(currentResult?.failed),
     refresh,
   };
 }
