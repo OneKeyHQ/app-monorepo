@@ -51,7 +51,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
-  getSwapConfiguredCrossNetworkDefaultToToken,
+  getSwapConfiguredDefaultToToken,
   isSwapEntryDisabledToken,
 } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -138,8 +138,7 @@ export async function pushSwapFromTokenDetails({
     logoURI: token.logoURI,
     networkLogoURI,
   };
-  let importToToken =
-    getSwapConfiguredCrossNetworkDefaultToToken(importFromToken);
+  let importToToken = getSwapConfiguredDefaultToToken(importFromToken);
   try {
     const { isSupportSwap, isSupportCrossChain } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
