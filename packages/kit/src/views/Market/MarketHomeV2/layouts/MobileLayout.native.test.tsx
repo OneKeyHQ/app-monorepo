@@ -7,14 +7,11 @@ import { act, render } from '@testing-library/react';
 import { MobileLayout } from './MobileLayout.native';
 
 import type { IMarketFilterBarProps } from '../types';
-import type {
-  CollapsiblePagerViewOnNativeTabPressEvent,
-  CollapsiblePagerViewOnPageSelectedEvent,
-} from 'react-native-pager-view';
+import type { CollapsiblePagerViewOnNativeTabPressEvent } from 'react-native-pager-view';
 
 type IMockPagerProps = {
+  nativeTabPressAnimationEnabled?: boolean;
   onNativeTabPress: (event: CollapsiblePagerViewOnNativeTabPressEvent) => void;
-  onPageSelected: (event: CollapsiblePagerViewOnPageSelectedEvent) => void;
 };
 
 const mockSetPage = jest.fn();
@@ -178,14 +175,6 @@ function pressNativeTab(key: string) {
   });
 }
 
-function selectNativePage(position: number) {
-  act(() => {
-    mockPagerProps?.onPageSelected({
-      nativeEvent: { position },
-    } as CollapsiblePagerViewOnPageSelectedEvent);
-  });
-}
-
 describe('native market home tab presses', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -208,20 +197,17 @@ describe('native market home tab presses', () => {
     expect(mockSetPage).not.toHaveBeenCalled();
   });
 
-  it('supersedes the pager animation when the pending tab is pressed again', () => {
+  it('stops the pager from animating its own native tab press command', () => {
     renderLayout();
+
+    expect(mockPagerProps?.nativeTabPressAnimationEnabled).toBe(false);
 
     pressNativeTab('Perps');
     pressNativeTab('Perps');
 
     expect(mockHandleTabChange).toHaveBeenCalledTimes(1);
-    expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(2);
-    expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(4);
-
-    selectNativePage(4);
-    pressNativeTab('Perps');
-
-    expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(2);
+    expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(1);
     expect(mockSetPage).not.toHaveBeenCalled();
+    expect(mockPagerProps?.nativeTabPressAnimationEnabled).toBe(false);
   });
 });

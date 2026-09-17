@@ -377,8 +377,6 @@ function MobileLayoutComponent({
   const internalTabsRef = useRef<ITabContainerRef | null>(null);
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
   const activeIndexRef = useRef(initialIndex);
-  // Page last reported by the native pager, including programmatic jumps.
-  const nativeSelectedIndexRef = useRef(initialIndex);
   const activeTabNameRef = useRef(
     tabNames[initialIndex] ?? selectedTabName ?? tabNames[0] ?? '',
   );
@@ -652,16 +650,7 @@ function MobileLayoutComponent({
   const handleNativeTabPress = useCallback(
     (event: CollapsiblePagerViewOnNativeTabPressEvent) => {
       const { key } = event.nativeEvent;
-      const index = tabNames.indexOf(key);
-      if (index < 0) return;
-      if (index !== activeIndexRef.current) {
-        handleTabPress(key);
-      } else if (index !== nativeSelectedIndexRef.current) {
-        // CollapsiblePagerView queues an animated setPage for a native tab
-        // press until the pager settles, so a repeated press on the pending
-        // tab has to supersede it as well.
-        pagerRef.current?.setPageWithoutAnimation(index);
-      }
+      if (tabNames.includes(key)) handleTabPress(key);
     },
     [handleTabPress, tabNames],
   );
@@ -679,13 +668,12 @@ function MobileLayoutComponent({
 
   const handlePageSelected = useCallback(
     (event: CollapsiblePagerViewOnPageSelectedEvent) => {
-      const index = Math.max(0, Math.trunc(event.nativeEvent.position));
-      nativeSelectedIndexRef.current = index;
       if (
         !shouldHandleMarketPagerPageSelected(isPagerUserDraggingRef.current)
       ) {
         return;
       }
+      const index = Math.max(0, Math.trunc(event.nativeEvent.position));
       const tabName = tabNames[index];
       if (!tabName) return;
       updateActivePage(index);
@@ -805,6 +793,7 @@ function MobileLayoutComponent({
         nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
         testID="market-native-collapsible-pager"
         nativeTabBar={nativeTabBar}
+        nativeTabPressAnimationEnabled={false}
         nativeSubHeader={nativeSubHeader}
         onNativeTabPress={handleNativeTabPress}
         onNativeSubHeaderPress={handleNativeSubHeaderPress}
