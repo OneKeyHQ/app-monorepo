@@ -22,6 +22,7 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
+import type { IMarketWatchlistDataCache } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import type {
@@ -260,6 +261,13 @@ function BaseMarketTokenSelectorContent({
   const { searchLoading, searchTokenList } =
     useSwapProTokenSearch(searchValueDebounce);
 
+  // The favorites list is unmounted on every tab switch, so its fetched data
+  // is parked on this shell — which outlives the tabs — and handed back on
+  // remount instead of the list restarting from an empty state.
+  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
+    undefined,
+  );
+
   const handleCategoryChange = useCallback(
     (categoryId: string) => {
       hasUserSelectedTabRef.current = true;
@@ -458,6 +466,7 @@ function BaseMarketTokenSelectorContent({
             onItemPress={handleSelectToken}
             pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
             isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
+            watchlistDataCacheRef={watchlistDataCacheRef}
             searchQuery={searchValueDebounce}
             searchLoading={searchLoading}
             searchResults={searchTokenList}
