@@ -124,7 +124,7 @@ jest.mock('./BorrowHealthFactorSummary', () => {
 
 function renderOverview(props?: {
   showPositionMetrics?: boolean;
-  isPositionMetricsLoading?: boolean;
+  isPositionStateUnsettled?: boolean;
 }) {
   return render(
     <Overview eModeStatus={null} overviewData={overviewData} {...props} />,
@@ -163,13 +163,13 @@ describe('Overview position metrics', () => {
     expect(queryByTestId(BorrowTestIDs.overviewRefreshBtn)).toBeTruthy();
   });
 
-  // Whether a position exists is unknown until reserves settle. Hiding on the
-  // strength of a list that has not arrived would blank the metrics mid-load
-  // and bring them straight back.
-  it('holds the metrics while the position list is still loading', () => {
+  // Whether a position exists is unknown both while reserves are in flight and
+  // after they fail. Hiding on the strength of a list that never arrived would
+  // blank the metrics and bring them straight back on the next attempt.
+  it('holds the metrics while the position state is unsettled', () => {
     const { queryByTestId } = renderOverview({
       showPositionMetrics: false,
-      isPositionMetricsLoading: true,
+      isPositionStateUnsettled: true,
     });
 
     expect(queryByTestId(BorrowTestIDs.overviewNetWorth)).toBeTruthy();

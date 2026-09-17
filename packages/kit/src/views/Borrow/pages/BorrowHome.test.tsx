@@ -248,7 +248,7 @@ describe('BorrowHome overview metrics', () => {
 
     expect(lastOverviewProps()).toMatchObject({
       showPositionMetrics: false,
-      isPositionMetricsLoading: false,
+      isPositionStateUnsettled: false,
     });
   });
 
@@ -261,13 +261,43 @@ describe('BorrowHome overview metrics', () => {
 
   // An unsettled list is not evidence of an empty market. Without this the
   // metrics would blank out for the length of every load and come straight
-  // back, which is the flicker the separate loading flag exists to prevent.
-  it('reports the position list as loading while reserves are pending', () => {
+  // back, which is the flicker the separate flag exists to prevent.
+  it('reports the position state as unsettled while reserves are pending', () => {
     context.borrowDataStatus = EBorrowDataStatus.LoadingReserves;
     render(<BorrowHome />);
 
     expect(lastOverviewProps()).toMatchObject({
-      isPositionMetricsLoading: true,
+      isPositionStateUnsettled: true,
     });
+  });
+
+  // renderCards short-circuits to its own error block here, so the empty state
+  // never renders and there is nothing for the metrics to make way for. A
+  // failed load also says nothing about whether positions exist, and reporting
+  // it as settled-and-empty made the whole row vanish behind the error.
+  it('reports the position state as unsettled when reserves failed', () => {
+    context.borrowDataStatus = EBorrowDataStatus.Error;
+    const { getByTestId } = render(<BorrowHome />);
+
+    expect(getByTestId(BorrowTestIDs.reservesErrorState)).toBeTruthy();
+    expect(lastOverviewProps()).toMatchObject({
+      showPositionMetrics: false,
+      isPositionStateUnsettled: true,
+    });
+  });
+
+  // Retry walks Error -> LoadingReserves -> Error. Both ends have to agree, or
+  // the row flashes into view as a skeleton on every attempt and back out.
+  it('keeps the position state unsettled across a failed retry', () => {
+    context.borrowDataStatus = EBorrowDataStatus.Error;
+    render(<BorrowHome />);
+    const whenFailed = lastOverviewProps().isPositionStateUnsettled;
+
+    mockOverviewProps.length = 0;
+    context.borrowDataStatus = EBorrowDataStatus.LoadingReserves;
+    render(<BorrowHome />);
+    const whenRetrying = lastOverviewProps().isPositionStateUnsettled;
+
+    expect([whenFailed, whenRetrying]).toEqual([true, true]);
   });
 });

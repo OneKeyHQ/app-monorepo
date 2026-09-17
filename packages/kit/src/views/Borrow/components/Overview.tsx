@@ -39,8 +39,9 @@ import type { IBorrowOverviewData } from '../hooks/useBorrowOverviewData';
 /**
  * Top of the Borrow home. Desktop keeps the net worth hero with the whole
  * metric strip under it; phones drop the hero and show net worth, health factor
- * and net APY as three equal metrics followed by the E-Mode row, with the rest
- * of the strip moved to the summary below the positions.
+ * and net APY as three equal metrics — see showPositionMetrics for when the
+ * three stand down — followed by the E-Mode row, with the rest of the strip
+ * moved to the summary below the positions.
  */
 export const Overview = ({
   eModeStatus,
@@ -49,7 +50,7 @@ export const Overview = ({
   overviewData,
   showBottomSpacing = true,
   showPositionMetrics = true,
-  isPositionMetricsLoading = false,
+  isPositionStateUnsettled = false,
   onBorrowHistoryActionChange,
 }: {
   eModeStatus: IBorrowEModeStatus | null;
@@ -62,7 +63,9 @@ export const Overview = ({
    * three. The wide layout keeps them regardless — the net worth hero is what
    * the whole page is built around there. */
   showPositionMetrics?: boolean;
-  isPositionMetricsLoading?: boolean;
+  /** A load still in flight, or one that failed: either way the market's
+   * contents are undecided, and the three stay up rather than assert a zero. */
+  isPositionStateUnsettled?: boolean;
   onBorrowHistoryActionChange?: (
     handler: (() => void) | null,
     visible: boolean,
@@ -300,7 +303,7 @@ export const Overview = ({
            stay pinned to the right and top-aligned with that row. */
         <XStack ai="flex-start" gap="$2">
           <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
-            {showPositionMetrics || isPositionMetricsLoading ? (
+            {showPositionMetrics || isPositionStateUnsettled ? (
               <>
                 <OverviewMetric
                   testID={BorrowTestIDs.overviewNetWorth}

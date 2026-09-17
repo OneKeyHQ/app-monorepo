@@ -140,6 +140,11 @@ const BorrowHomeContent = memo(
       (reserves.loading && !reserves.data);
     const isReservesError =
       !isReservesPending && borrowDataStatus === EBorrowDataStatus.Error;
+    // renderCards short-circuits to its error block before it ever reaches the
+    // empty state, so a failed load is not evidence of an empty market — it is
+    // no evidence at all. Both states leave the market's contents undecided,
+    // and the headline metrics stay up for either.
+    const isPositionStateUnsettled = isReservesPending || isReservesError;
     const { activeAccount } = useActiveAccount({ num: 0 });
     const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
     const inferredEModeProvider = market?.provider ?? markets[0]?.provider;
@@ -514,7 +519,7 @@ const BorrowHomeContent = memo(
               overviewData={overviewData}
               showBottomSpacing={!hasAlerts}
               showPositionMetrics={hasPositions}
-              isPositionMetricsLoading={isReservesPending}
+              isPositionStateUnsettled={isPositionStateUnsettled}
               onBorrowHistoryActionChange={onBorrowHistoryActionChange}
             />
             {hasAlerts ? (
