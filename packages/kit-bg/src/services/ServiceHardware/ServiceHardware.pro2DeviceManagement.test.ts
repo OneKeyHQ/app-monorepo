@@ -2252,11 +2252,13 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
           },
         } as unknown as IBackgroundApi,
       });
-      service.deviceSettingsManager.setDeviceLabel = jest.fn().mockResolvedValue(
-        message === undefined
-          ? { label: 'Hardware Label' }
-          : { message, label: 'Hardware Label' },
-      );
+      service.deviceSettingsManager.setDeviceLabel = jest
+        .fn()
+        .mockResolvedValue(
+          message === undefined
+            ? { label: 'Hardware Label' }
+            : { message, label: 'Hardware Label' },
+        );
       // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
       jest.mocked(appEventBus.emit).mockClear();
       jest.mocked(localDb.updateDeviceState).mockClear();
