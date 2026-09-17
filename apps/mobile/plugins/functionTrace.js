@@ -35,6 +35,7 @@ function relativeBusinessPath(filename, rootDir = MONOREPO_ROOT) {
 }
 
 function isBusinessFile(filename, rootDir = MONOREPO_ROOT) {
+  // cspell:ignore workingdir
   // Match on the repo-relative path. The checkout location is arbitrary: EAS
   // builds from /home/expo/workingdir/build/ (or /Users/expo/...), which would
   // otherwise hit the '/build/' exclusion for every file.
