@@ -25,6 +25,7 @@ function PerpNetworkAlertComponent() {
       <Alert
         type="default"
         fullBleed
+        icon="ChartColumnarSignal2Outline"
         title={intl.formatMessage({
           id: Platform.select({
             web: ETranslations.perps_offline_desktop__msg,
@@ -35,7 +36,6 @@ function PerpNetworkAlertComponent() {
         px="$4"
         {...Platform.select({
           web: {
-            icon: 'ChartColumnarSignal2Outline',
             borderTopWidth: 0,
             borderBottomWidth: platformEnv.isWeb ? StyleSheet.hairlineWidth : 0,
           },
