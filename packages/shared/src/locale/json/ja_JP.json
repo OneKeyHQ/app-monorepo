@@ -1224,6 +1224,7 @@
   "export_history_partial__title": "一部完了",
   "export_history_queued__title": "キューに追加済み",
   "export_history_ready__title": "準備完了",
+  "export_history_sign_in__desc": "エクスポート履歴は OneKey ID に関連付けられています。該当するアカウントにログインすると確認できます。",
   "export_history_time_zone__title": "タイムゾーン",
   "export_history_transaction_limit__title": "取引件数の上限",
   "export_history_transactions_count__desc": "{count, plural, one {# 件の取引} other {# 件の取引}}",

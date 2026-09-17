@@ -64,8 +64,12 @@ describe('TokenListBlock portfolio sync producer', () => {
 
   it('checks the Protocol V2 device type before building the cross-runtime payload', () => {
     const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
-    const buttonSource = readFileSync(
-      join(__dirname, 'PortfolioSyncButton.tsx'),
+    const actionSource = readFileSync(
+      join(__dirname, '../WalletActions/WalletActionPortfolioSync.tsx'),
+      'utf8',
+    );
+    const moreSource = readFileSync(
+      join(__dirname, '../WalletActions/WalletActionMore.tsx'),
       'utf8',
     );
     const gateIndex = source.indexOf(
@@ -121,9 +125,20 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain('networkId: network.id');
     expect(source).toContain('networkId: network?.id');
     expect(source.match(/const portfolioSynced =/g)).toHaveLength(2);
-    expect(source.match(/if \(portfolioSynced\) \{/g)).toHaveLength(2);
+    expect(source).not.toContain('deviceStageNoteDone');
+    expect(
+      source.match(/ETranslations\.portfolio_updated__title/g),
+    ).toHaveLength(2);
     expect(source).toContain('const handleSyncPortfolio = useCallback(() => {');
-    expect(source).toContain('<PortfolioSyncButton');
+    expect(source).toContain('beginPortfolioSyncStage({');
+    expect(source.indexOf('beginPortfolioSyncStage({')).toBeLessThan(
+      source.indexOf(
+        'refreshWalletTokenList();',
+        source.indexOf('beginPortfolioSyncStage({'),
+      ),
+    );
+    expect(source).toContain('endPortfolioSyncStage');
+    expect(source).not.toContain('<PortfolioSyncButton');
     expect(source).toContain('const showPortfolioSyncButton = Boolean(');
     expect(source).not.toContain('isWalletConnected(wallet)');
     expect(source).toContain(
@@ -133,7 +148,7 @@ describe('TokenListBlock portfolio sync producer', () => {
       source.match(/isProtocolV2ProductType\(portfolioSyncDeviceType\)/g),
     ).toHaveLength(3);
     expect(source).toMatch(
-      /!hasPortfolioSyncTarget \|\|\s+hardwareUiState \|\|\s+firmwareUpdateWorkflowRunning/,
+      /!hasPortfolioSyncTarget \|\|\s+isPortfolioSyncing \|\|\s+hardwareUiState \|\|\s+firmwareUpdateWorkflowRunning/,
     );
     expect(source).toContain(
       'const isInteractivePortfolioSync = Boolean(portfolioSyncRequest);',
@@ -141,10 +156,13 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toMatch(
       /!isInteractivePortfolioSync &&\s+assetStatusAggregationComplete/,
     );
-    expect(source).toContain('return renderPortfolioSyncButton();');
+    expect(source).toContain('updatePortfolioSyncUiState({');
+    expect(source).toContain('visible: showPortfolioSyncButton');
+    expect(source).toContain('request: handleSyncPortfolio');
+    expect(source).not.toContain('headerActions=');
     expect(source).toContain('useFirmwareUpdateWorkflowRunningAtom');
-    expect(source).toContain('completePortfolioSyncRequest');
-    expect(source).toContain("setPortfolioSyncFeedback('success')");
+    expect(source).not.toContain('completePortfolioSyncRequest');
+    expect(source).not.toContain('setPortfolioSyncFeedback');
     expect(source).toContain('keepPortfolioSyncRequest');
     expect(source).toContain('skipPortfolioSyncRequestFinish');
     expect(source).toContain(
@@ -170,14 +188,27 @@ describe('TokenListBlock portfolio sync producer', () => {
       'if (portfolioSyncRequest && !keepPortfolioSyncRequest)',
     );
     expect(source).not.toContain('<TokenSelectorLpTokenSwitch');
-    expect(buttonSource).toContain('testID="home-sync-portfolio"');
-    expect(buttonSource).toContain("state === 'loading'");
-    expect(buttonSource).toContain("state === 'success'");
-    expect(buttonSource).toContain(
+    expect(actionSource).toContain(
+      'testID={HomeTestIDs.portfolioUpdateAction}',
+    );
+    expect(actionSource).not.toContain("status === 'loading'");
+    expect(actionSource).not.toContain("status === 'success'");
+    expect(actionSource).toContain(
       'ETranslations.portfolio_sync_to_device__action',
     );
-    expect(buttonSource).toContain('accessibilityLiveRegion="polite"');
-    expect(source).toContain('errorToastUtils.showToastOfError(error)');
+    expect(actionSource).toContain('icon="OnekeyDeviceCustom"');
+    expect(actionSource).toContain('runAfterActionListClose');
+    expect(actionSource).toContain('if (!visible)');
+    expect(actionSource).not.toContain('HomeStickyHeaderContext');
+    expect(moreSource).toContain('<WalletActionPortfolioSync');
+    expect(moreSource).toContain('activeTabId === EHomeWalletTab.Portfolio');
+    expect(source).toContain('if (!isOneKeyHardwareError(error))');
+    expect(source).toContain(
+      'appEventBus.on(EAppEventBusNames.DeviceStageOff, handleDeviceStageOff)',
+    );
+    expect(source).toContain(
+      'finishPortfolioSyncRequest(request.id, { error })',
+    );
     expect(source).toContain(
       'activePortfolioSyncRequest &&\n            activePortfolioSyncRequest.id === portfolioSyncRequest?.id',
     );
