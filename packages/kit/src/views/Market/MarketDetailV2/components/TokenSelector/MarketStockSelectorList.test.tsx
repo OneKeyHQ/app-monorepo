@@ -170,6 +170,7 @@ describe('MarketStockSelectorList', () => {
       estimatedItemSize: 56,
       headerRowProps: { height: 40, minHeight: 40 },
       rowProps: {
+        bg: '$bg',
         width: '100%',
         height: 56,
         minHeight: 56,
