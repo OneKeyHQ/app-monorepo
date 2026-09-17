@@ -913,6 +913,7 @@ export function SwapStockHeaderRightActionContainer({
 }
 
 const SwapHeaderRightActionContainer = ({
+  storeName,
   pageType,
   iconSize,
   iconColor,
@@ -921,6 +922,7 @@ const SwapHeaderRightActionContainer = ({
   marketPresetSettings,
   routeSwapType,
 }: {
+  storeName?: EJotaiContextStoreNames;
   pageType?: EPageType;
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
@@ -945,9 +947,10 @@ const SwapHeaderRightActionContainer = ({
   const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
     useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
   const swapStoreName =
-    pageType === EPageType.modal
+    storeName ??
+    (pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
-      : EJotaiContextStoreNames.swap;
+      : EJotaiContextStoreNames.swap);
   const historyProtocolType = useMemo(() => {
     if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
       return EProtocolOfExchange.STOCK;
@@ -1131,6 +1134,7 @@ const SwapHeaderRightActionContainer = ({
         {kLineButton}
         {showActivityHubInSettings ? (
           <SwapSettingsHeaderButtonWithActivityHub
+            storeName={swapStoreName}
             pageType={pageType}
             iconSize={iconSize}
             iconColor={iconColor}
@@ -1139,6 +1143,7 @@ const SwapHeaderRightActionContainer = ({
           />
         ) : (
           <SwapSettingsHeaderButton
+            storeName={swapStoreName}
             pageType={pageType}
             iconSize={iconSize}
             iconColor={iconColor}

@@ -437,3 +437,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
 **Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
 **Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
+
+## Case: Market detail back walked leftover token pages
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens in a Market detail, or opening multiple details from Wallet Home, made the top-left back button pass through previous detail pages instead of returning to the Market list.
+**Root Cause**: Home and the token selector used nested `navigate`, which stacked `MarketDetailV2` / `MarketStockDetail`. The custom back handler only `pop()`ped one screen, and native empty history reset to `TabMarket` which does not exist on Discovery.
+**Fix**: Collapse the Market/Discovery stack to `[list, one detail]` when opening or switching a detail, and `popToTop` when the previous route is still a leftover detail.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition; NEW — custom back handlers must collapse stacked same-feature screens, not assume one-to-one push/pop
+
+## Case: Market detail collapse treated banner and SwapPro as leftover token pages
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Home banner → banner list → token detail back skipped the banner list; switching tokens from that path reset away the banner page. SwapPro modal token changes rewrote the background Market stack. Native empty-history back could land on Browser instead of Market.
+**Root Cause**: `MarketBannerDetail` was counted as a leftover detail, so back used `popToTop` and switch used `reset` to `[list, detail]`. `openOrReplaceMarketDetailRoute` rewrote any unfocused Main Market stack, including when SwapPro owned the focused detail. Native `CommonActions.reset` to `TabDiscovery` omitted `defaultTab`.
+**Fix**: Treat only token/stock/native pages as leftover details and keep banner hosts when collapsing. Skip rewriting Main only when the focused route is a market detail the found stack does not own. Pass `defaultTab: global_market` on native list reset.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a collapse/reset of stacked feature screens must preserve legitimate intermediate hosts and must not rewrite an unfocused background stack
+
+## Case: SwapPro setParams cleared disableTrade and from
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens inside SwapPro market detail could re-enable Buy/Sell and break Back, resetting a TabDiscovery route onto SwapModal.
+**Root Cause**: `replaceFocusedMarketDetailRoute` wrote every identity key including `undefined` for `from` / `disableTrade` / `showFavoriteButton`. SET_PARAMS merges those undefineds over the SwapPro-owned route params.
+**Fix**: Omit SwapPro-owned keys when updating `SwapProMarketDetail` in place so the modal keeps disableTrade and from.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — SET_PARAMS that writes explicit undefined must not clobber host-owned route flags the caller does not re-supply
