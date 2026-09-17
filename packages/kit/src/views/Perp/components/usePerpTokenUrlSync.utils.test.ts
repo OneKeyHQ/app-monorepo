@@ -1,4 +1,5 @@
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
+
 import {
   decodeCoinFromUrl,
   encodeCoinForUrl,
