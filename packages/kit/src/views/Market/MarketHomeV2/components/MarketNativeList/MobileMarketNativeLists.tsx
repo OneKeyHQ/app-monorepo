@@ -759,6 +759,7 @@ function MobileMarketNativeWatchlistImpl({
   );
   const result = useMarketWatchlistTokenList({
     watchlist,
+    isWatchlistMounted: watchlistState.isMounted,
     pageSize: 999,
     dataCacheRef,
   });
@@ -932,7 +933,18 @@ function MobileMarketNativeWatchlistImpl({
 
   const showSkeleton = Boolean(result.isLoading) && result.data.length === 0;
   if (!watchlistState.isMounted) {
-    return <ScrollView style={NATIVE_LIST_STYLE.fill} />;
+    return (
+      <NativeMarketList
+        listRef={listRef}
+        rows={[]}
+        loading
+        showEnd={false}
+        contentPaddingBottom={listContainerProps.paddingBottom}
+        emptyContentTopSpacing={40}
+        testID={MarketTestIDs.watchList}
+        onRowAction={() => undefined}
+      />
+    );
   }
   if (watchlist.length === 0 && !showSkeleton) {
     return (

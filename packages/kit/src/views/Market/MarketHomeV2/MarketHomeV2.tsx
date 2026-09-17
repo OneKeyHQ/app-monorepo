@@ -33,10 +33,7 @@ import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed
 import { markMarketPerf } from '../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
-import {
-  MarketBannerProvider,
-  useMarketBannerState,
-} from './components/MarketBanner/MarketBannerList';
+import { MarketBannerProvider } from './components/MarketBanner/MarketBannerList';
 import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -331,7 +328,6 @@ const useMarketHomeLayoutProps = () => {
 };
 
 function MarketHomeLayoutContent() {
-  const { isLoading: isBannerPending } = useMarketBannerState();
   markMarketPerf('market-home-base-layout-render');
   useMarketRenderCommitProbe('MarketHome.BaseLayout');
   const { md, layoutProps, shouldWaitForSpotCategoryReady } =
@@ -339,10 +335,10 @@ function MarketHomeLayoutContent() {
   const isFocused = useRouteIsFocused();
   useRefreshWatchListV2OnFocus(isFocused);
 
-  if (
-    shouldWaitForSpotCategoryReady ||
-    (platformEnv.isNative && isBannerPending)
-  ) {
+  // Native watchlist quotes cannot start until Market layout mounts, so the
+  // banner request must not sit on this first-paint path. Banner header height
+  // is applied after fetch via resolveMarketBannerHeaderDecision.
+  if (shouldWaitForSpotCategoryReady) {
     return (
       <LazyPageContainer eager={platformEnv.isWeb}>
         {md || platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
@@ -419,11 +415,7 @@ function BaseMarketHomeWithProvider({
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
   useRefreshWatchListV2OnFocus(isFocused);
-  const { isLoading: isBannerPending } = useMarketBannerState();
-  if (
-    shouldWaitForSpotCategoryReady ||
-    (platformEnv.isNative && isBannerPending)
-  ) {
+  if (shouldWaitForSpotCategoryReady) {
     return platformEnv.isNative ? <MarketHomeLoadingFallback /> : null;
   }
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted

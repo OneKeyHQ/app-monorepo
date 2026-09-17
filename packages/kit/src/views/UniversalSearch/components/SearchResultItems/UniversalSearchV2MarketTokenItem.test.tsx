@@ -98,11 +98,18 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/TokenTagsPopover', () => ({
 jest.mock('../../../Market/components/MarketStarV2Deferred', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
   return {
-    MarketStarV2Deferred: (props: { stockId?: string; chainId: string }) =>
+    MarketStarV2Deferred: (props: {
+      stockId?: string;
+      chainId: string;
+      logoUrl?: string;
+      tokenName?: string;
+    }) =>
       ReactModule.createElement('div', {
         'data-testid': 'market-search-star',
         'data-stock-id': props.stockId ?? '',
         'data-chain-id': props.chainId,
+        'data-logo-url': props.logoUrl ?? '',
+        'data-token-name': props.tokenName ?? '',
       }),
   };
 });
@@ -237,7 +244,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
         symbol: 'AAPL',
         address: '',
         network: '',
-        logoUrl: '',
+        logoUrl: 'https://example.com/aapl.png',
         isNative: false,
         decimals: 0,
         liquidity: '0',
@@ -262,6 +269,12 @@ describe('UniversalSearchV2MarketTokenItem', () => {
     expect(
       getByTestId('market-search-star').getAttribute('data-stock-id'),
     ).toBe('AAPL');
+    expect(
+      getByTestId('market-search-star').getAttribute('data-logo-url'),
+    ).toBe('https://example.com/aapl.png');
+    expect(
+      getByTestId('market-search-star').getAttribute('data-token-name'),
+    ).toBe('Apple Inc.');
     expect(queryByTestId('subtitle-badge')).toBeNull();
     expect(queryByTestId('stock-source-logo')).toBeNull();
 

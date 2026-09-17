@@ -100,6 +100,7 @@ function MobileMarketWatchlistFlatListImpl({
 
   const watchlistResult = useMarketWatchlistTokenList({
     watchlist,
+    isWatchlistMounted: watchlistState.isMounted,
     pageSize: 999,
   });
 

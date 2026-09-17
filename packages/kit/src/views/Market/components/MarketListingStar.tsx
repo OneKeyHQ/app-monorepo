@@ -8,6 +8,8 @@ export function MarketListingStar({
   listingId,
   from,
   tokenSymbol,
+  tokenName,
+  logoUrl,
   testID,
   customIconSize = '$4',
 }: {
@@ -15,6 +17,8 @@ export function MarketListingStar({
   listingId: string;
   from: EWatchlistFrom;
   tokenSymbol?: string;
+  tokenName?: string;
+  logoUrl?: string;
   testID?: string;
   customIconSize?: string;
 }) {
@@ -23,6 +27,8 @@ export function MarketListingStar({
       <MarketStarV2
         testID={testID ?? `market-listing-star-${kind}-${listingId}`}
         tokenSymbol={tokenSymbol}
+        tokenName={tokenName}
+        logoUrl={logoUrl}
         assetId={kind === 'asset' ? listingId : undefined}
         stockId={kind === 'stock' ? listingId : undefined}
         chainId=""

@@ -417,6 +417,90 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Detect the stocks category and load `fetchMarketStockList`; map `stockId` / `stockListingName` for display and hide network icons.
 **Catchable by**: Section 4: shared hook/utility modified → check all category consumers; NEW — a Market category named like another product surface must use that surface's list API, not the generic token list
 
+## Case: Android Market watchlist first paint blocked for seconds
+**Date**: 2026-09-16 | **Platforms**: Android (native main); iOS kept banner wait
+**Symptom**: Opening Market on Android left the Watchlist tab blank/skeleton for several seconds; iOS was acceptably fast. Top Coins / other tabs were not the bottleneck.
+**Root Cause**: Native Market layout waited for banner fetch before mounting the pager, so watchlist quote hooks could not start. Spot/perps `usePromiseResult` also required route focus + carousel page 0, which arrives later on Android split `main`/`bg`. Combined `isLoading` stayed true for empty listing/perps pipelines, and spot/perps rows were omitted until quotes returned, so the native list kept showing skeleton. Android JS-bridge cost made the serial wait visible; iOS hid it.
+**Fix**: Skip Android banner-before-layout wait; allow Android first-load quotes without focus; emit spot/perps identity rows while quotes are in flight; ignore empty listing loading; show native list skeleton instead of a blank ScrollView before mount.
+**Catchable by**: Section 3: Cross-platform Impact — do not apply an iOS header-height wait to Android first paint; Section 5: "Not loaded" vs "empty" — empty listing/perps pipelines must not block spot first paint; NEW — split-runtime focus gating must not serialize the first paint of the default tab
+
+## Case: iOS Market watchlist first paint used the same serial banner/focus wait
+**Date**: 2026-09-16 | **Platforms**: iOS (native main)
+**Symptom**: The Android watchlist first-paint fix still left iOS waiting for banners and focused page 0 before quotes started.
+**Root Cause**: Banner-before-layout and first-load focus bypass were Android-only; iOS kept the collapsible-header wait and 300ms empty delay.
+**Fix**: Native iOS and Android share the same first-paint path: do not wait for banners, fetch watchlist quotes on first load without focus, and skip the empty-list delay. Header height still settles via resolveMarketBannerHeaderDecision after fetch.
+**Catchable by**: Section 3: Cross-platform Impact — a native first-paint optimization should not stay Android-only when iOS shares the same serial gate
+
+## Case: Search-starred stock missing watchlist icon until revisit
+**Date**: 2026-09-16 | **Platforms**: mobile, desktop, web, extension
+**Symptom**: Starring AAPL from universal search showed CryptoCoinOutline on the watchlist until leaving and coming back (OK-63469).
+**Root Cause**: Star only persisted `stockId`. Watchlist `tokenImageUri` came from `fetchMarketStockBatch`, which is gated on Market focus, so the first paint after search had an empty logo.
+**Fix**: Remember search/detail listing preview (logo, name, symbol) at star time and use it until the batch quote arrives.
+**Catchable by**: Section 4: Data flow search → star → watchlist row; NEW — identity-only persisted favorites must not drop display fields the source already had
+
+## Case: Native watchlist first-load bypass ended on empty atom hydration
+**Date**: 2026-09-16 | **Platforms**: iOS, Android (main)
+**Symptom**: First-load quote bypass flipped off after empty watchlist requests completed, then real SimpleDB favorites arrived under the focus gate and Favorites stayed blank.
+**Root Cause**: Native `main` renders an unmounted empty atom before `bg` hydrates. Empty quote hooks resolved immediately and cleared `isInitialLoad`.
+**Fix**: Keep the bypass until `watchlistState.isMounted`; only then treat completed pipelines as first-load done.
+**Catchable by**: Section 5: "Not loaded" vs "empty"; NEW — split-runtime first-load flags must wait for atom hydration, not empty-list request success
+
+## Case: Native union build failed on unregistered watchlist modules
+**Date**: 2026-09-16 | **Platforms**: iOS/Android CI (Native startup graph budget)
+**Symptom**: Union Build aborted: `watchlistListingPreview.ts` not in `module-id-registry.json`.
+**Root Cause**: New files entered the native graph via sync imports but were not registered.
+**Fix**: `yarn workspace @onekeyhq/mobile module-id:update --map` for the three production files and commit the registry.
+**Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push
+
+## Case: Pending watchlist row opened Swap with decimals 0
+**Date**: 2026-09-16 | **Platforms**: iOS, Android (native main)
+**Symptom**: Tapping a Favorites identity row before quotes arrived opened token detail with a Swap panel using `decimals: 0`.
+**Root Cause**: Pending rows now carry a real `name`/`symbol`, so `buildPreviewTokenDetail` passed the placeholder `decimals: 0` into `prepareTokenDetailPreview`.
+**Fix**: Mark pending rows with `isPendingWatchlistRow` and skip preview seeding; wait for real quotes.
+**Catchable by**: Section 4: placeholder identity rows must not unlock trade-ready preview fields; NEW — display-only first-paint rows need an explicit non-tradeable flag
+
+## Case: Token selector Favorites flashed empty on native
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Market token selector Favorites cleared `isInitialLoad` on the unmounted empty atom, then hid rows until a focused refetch.
+**Root Cause**: `isWatchlistMounted` defaulted to hydrated (`!== false`); `MarketTokenSelectorList` omitted the prop.
+**Fix**: Make `isWatchlistMounted` required and pass `watchListData.isMounted` from the selector.
+**Catchable by**: Section 4: Type definitions / every caller of a new required gate; NEW — optional hydration flags that default to "ready" hide missed call sites
+
+## Case: Cached quotes hid newly starred native favorites
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Starring a token already missing from the in-memory quote cache left it off native Favorites until a successful refresh.
+**Root Cause**: Pending rows were suppressed whenever any quote payload existed, including a stale non-empty cache.
+**Fix**: Emit native pending rows for cache misses while quotes are in flight or a non-empty cache is being reused; do not revive rows after a failed empty first load.
+**Catchable by**: Section 5: stale cache vs in-flight; NEW — cache-hit paths must still surface identities absent from that cache
+
+## Case: Native union build failed after merging x launchpad modules
+**Date**: 2026-09-16 | **Platforms**: iOS/Android CI (Native startup graph budget)
+**Symptom**: Union Build aborted: `TokenLaunchpad.tsx` not in `module-id-registry.json`.
+**Root Cause**: Merging `x` pulled `TokenLaunchpad` / `resolveLaunchpadDisplay` / `inlineStatusFit` / `stockLastUpdate` into the native graph; this branch's registry was not updated.
+**Fix**: Register the four production modules and commit the registry.
+**Catchable by**: NEW — merging `x` can introduce unregistered native-graph files that this PR did not author
+
+## Case: Watchlist kept a removed listing logo
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: After a quote returned an empty `logoUrl`, Favorites still showed the starred search/detail logo.
+**Root Cause**: `resolveListingWatchlistDisplay` used `quote?.logoUrl || preview`, so a present-but-empty server logo never replaced the remembered preview.
+**Fix**: When a quote exists, take `quote.logoUrl || ''` and do not fall back to the preview logo.
+**Catchable by**: Section 4: empty string vs missing field; NEW — truthy fallbacks hide intentional server clears
+
+## Case: Newly starred native favorite stayed missing on a mounted list
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Starring a token while Favorites was already showing quotes left the new row absent until the batch finished.
+**Root Cause**: `hasSuccessfulQuotes` short-circuited on the previous successful `spotResult`, which `usePromiseResult` keeps during a re-run.
+**Fix**: Emit pending rows from `hasQuotesInFlight` (`apiLoading !== false`) so a cache-miss identity appears while the covering request is in flight.
+**Catchable by**: Section 5: stale result vs in-flight re-run; NEW — a successful previous payload must not hide identities added after it
+
+## Case: Failed native watchlist refresh created blank ghost rows
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: After a failed poll, tokens omitted from the last good quote appeared as blank pending rows next to the retry banner.
+**Root Cause**: The cache-miss pending branch ignored `quotesFailed` once a cached payload existed.
+**Fix**: Never emit pending rows when `quotesFailed` is true.
+**Catchable by**: Section 5: failed refresh vs cache miss; NEW — pending identity rows are only for in-flight requests, not for failed polls
+
 ## Case: Universal search mixed stock listings into the Market tab
 **Date**: 2026-09-16 | **Platforms**: Desktop, Web, Extension, iOS, Android
 **Symptom**: Searching AAPL put the real stock next to AAPLon / xStock under Market, and the Liquidity column showed `--` because listings have no liquidity.
@@ -437,3 +521,73 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
 **Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
 **Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
+
+## Case: Known-absent watchlist favorites flickered blank rows on every poll
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Favorites omitted from the batch response appeared and disappeared as blank pending rows on each polling cycle.
+**Root Cause**: `hasQuotesInFlight` used `apiLoading`, which toggles on every poll, and the pending gate no longer distinguished "not yet queried" from "queried and absent".
+**Fix**: Track identities covered by the last settled request and only emit pending rows for `isIdentityUnqueried` identities while quotes are in flight.
+**Catchable by**: Section 5: stale result vs in-flight re-run; NEW — in-flight gates must not treat known-absent identities as pending on refresh
+
+## Case: First favorite after an empty settle stayed skeletal
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Starring the first token after an empty successful quote left Favorites on skeleton until the covering request finished.
+**Root Cause**: `hasCachedRows` required a non-empty prior payload, so an empty settled list blocked pending emission for the new identity.
+**Fix**: Replace `hasCachedRows` with `isIdentityUnqueried` so an empty prior settle still allows pending rows for newly added identities.
+**Catchable by**: Section 4: empty vs first-item transition; NEW — empty successful payloads must not block first-paint identity rows
+
+## Case: Failed stock poll restored the star-time search logo
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: After a successful quote showed a newer logo, a later failed poll fell back to the original search preview logo.
+**Root Cause**: `listingPreviews` kept the star-time identity and `resolveListingWatchlistDisplay` used it whenever `quote` was missing.
+**Fix**: Sync the preview from each successful listing quote so failed polls fall back to the last good display.
+**Catchable by**: Section 4: empty/missing quote vs last-known display; NEW — star-time previews must be refreshed by successful quotes
+
+## Case: Known-absent watchlist favorites flickered blank rows on every poll
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Favorites omitted from the batch response appeared and disappeared as blank pending rows on each polling cycle.
+**Root Cause**: `hasQuotesInFlight` used `apiLoading`, which toggles on every poll, and the pending gate no longer distinguished "not yet queried" from "queried and absent".
+**Fix**: Track identities covered by the last settled request and only emit pending rows for `isIdentityUnqueried` identities while quotes are in flight.
+**Catchable by**: Section 5: stale result vs in-flight re-run; NEW — in-flight gates must not treat known-absent identities as pending on refresh
+
+## Case: First favorite after an empty settle stayed skeletal
+**Date**: 2026-09-16 | **Platforms**: iOS, Android
+**Symptom**: Starring the first token after an empty successful quote left Favorites on skeleton until the covering request finished.
+**Root Cause**: `hasCachedRows` required a non-empty prior payload, so an empty settled list blocked pending emission for the new identity.
+**Fix**: Replace `hasCachedRows` with `isIdentityUnqueried` so an empty prior settle still allows pending rows for newly added identities.
+**Catchable by**: Section 4: empty vs first-item transition; NEW — empty successful payloads must not block first-paint identity rows
+
+## Case: Failed stock poll restored the star-time search logo
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: After a successful quote showed a newer logo, a later failed poll fell back to the original search preview logo.
+**Root Cause**: `listingPreviews` kept the star-time identity and `resolveListingWatchlistDisplay` used it whenever `quote` was missing.
+**Fix**: Sync the preview from each successful listing quote so failed polls fall back to the last good display.
+**Catchable by**: Section 4: empty/missing quote vs last-known display; NEW — star-time previews must be refreshed by successful quotes
+
+## Case: Watchlist listings test inferred never[] and failed CI lint
+**Date**: 2026-09-17 | **Platforms**: CI
+**Symptom**: `lint (24.x)` failed with `Type '{ chainId: string; contractAddress: string; isNative: false; }' is not assignable to type 'never'`.
+**Root Cause**: `renderHook` inferred `Props` from `initialProps: { watchlist: [] }` as `never[]`, which overrode the callback annotation.
+**Fix**: Cast empty `initialProps` to `ISpotWatchlistProps` so rerender can pass real watchlist items.
+**Catchable by**: Section 7: lint/tsc; NEW — `renderHook` empty-array `initialProps` must be typed, not inferred
+
+## Case: Stale watchlist quote runs overwrote settled coverage
+**Date**: 2026-09-17 | **Platforms**: iOS, Android
+**Symptom**: After overlapping batch requests, a known-absent favorite flickered as a blank pending row on later polls.
+**Root Cause**: `lastSettledSpotRequestKeysRef` was written inside `usePromiseResult`'s method even when that run's result was discarded.
+**Fix**: Return `requestedKeys` with the quote result and read coverage from the applied payload.
+**Catchable by**: Section 5: race conditions in async operations; NEW — side-channel refs must not commit state for discarded async runs
+
+## Case: Stale listing quotes restored an older logo
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web, Extension
+**Symptom**: Out-of-order listing fetches wrote an older logo into the preview map; a later failed poll showed the old image.
+**Root Cause**: `syncWatchlistListingPreviewFromQuote` ran inside the fetch, not after `usePromiseResult` applied the result.
+**Fix**: Sync previews from applied `listingQuotes` in an effect.
+**Catchable by**: Section 5: race conditions in async operations; NEW — preview caches must update from applied results only
+
+## Case: Failed quote retry hid a newly starred native favorite
+**Date**: 2026-09-17 | **Platforms**: iOS, Android
+**Symptom**: After a native quote failure, starring another token left it absent until the retry settled.
+**Root Cause**: `quotesFailed` short-circuited all pending rows, including unqueried identities whose covering request was in flight.
+**Fix**: Drop the blanket `quotesFailed` gate; known-absent identities stay suppressed via applied `requestedKeys`.
+**Catchable by**: Section 5: failed refresh vs cache miss; NEW — failed payloads must not hide identities added after the failure

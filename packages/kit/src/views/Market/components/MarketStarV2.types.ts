@@ -9,6 +9,8 @@ export type IMarketStarV2Props = {
   contractAddress: string;
   from: EWatchlistFrom;
   tokenSymbol?: string;
+  tokenName?: string;
+  logoUrl?: string;
   isNative?: boolean;
   customIconSize?: string;
 } & IStackProps;

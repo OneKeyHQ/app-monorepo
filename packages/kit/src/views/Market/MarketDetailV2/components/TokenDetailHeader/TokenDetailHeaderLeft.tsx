@@ -158,6 +158,8 @@ export function TokenDetailHeaderLeft({
         customIconSize={desktopRedesign ? '$5' : '$4'}
         from={EWatchlistFrom.Detail}
         tokenSymbol={symbol}
+        tokenName={tokenDetail?.name}
+        logoUrl={logoUrl}
         isNative={isNative}
       />
     ) : null;

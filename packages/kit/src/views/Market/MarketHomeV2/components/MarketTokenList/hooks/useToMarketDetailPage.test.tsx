@@ -862,6 +862,33 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
+  it('does not seed token detail preview from a pending watchlist row', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+      isNative: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    mockedPlatformEnv.isNative = true;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        name: 'Pepe',
+        symbol: 'PEPE',
+        address: '0xabc',
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        decimals: 0,
+        isPendingWatchlistRow: true,
+      });
+    });
+
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockNavigationPush).toHaveBeenCalled();
+    mockedPlatformEnv.isExtensionUiPopup = true;
+    mockedPlatformEnv.isNative = false;
+  });
+
   it('does not block a later navigation on Asset resolution', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
