@@ -1986,7 +1986,12 @@ function readHelperReturns(fn) {
     }
     if (node.type === 'IfStatement') {
       const availability = hasFileAvailabilityCheck(node.test);
-      const guard = { test: node.test, taken: true, availability };
+      const guard = {
+        kind: 'if',
+        test: node.test,
+        taken: true,
+        availability,
+      };
       visit(
         node.consequent,
         [...guards, guard],
@@ -1999,6 +2004,21 @@ function readHelperReturns(fn) {
           availabilityFallback || availability,
         );
       }
+      return;
+    }
+    if (node.type === 'SwitchStatement') {
+      const tests = node.cases.map((caseNode) => caseNode.test).filter(Boolean);
+      node.cases.forEach((caseNode) => {
+        const guard = {
+          kind: 'switch',
+          caseTest: caseNode.test,
+          discriminant: node.discriminant,
+          tests,
+        };
+        caseNode.consequent.forEach((statement) =>
+          visit(statement, [...guards, guard], availabilityFallback),
+        );
+      });
       return;
     }
     const childAvailability =
@@ -2171,6 +2191,33 @@ function staticPrimitiveValue(node, parameters, argumentsList, depth = 0) {
 function staticBooleanValue(node, parameters, argumentsList) {
   const value = staticPrimitiveValue(node, parameters, argumentsList);
   return value?.known ? Boolean(value.value) : undefined;
+}
+
+function staticGuardValue(guard, parameters, argumentsList) {
+  if (guard.kind === 'switch') {
+    const actual = staticPrimitiveValue(
+      guard.discriminant,
+      parameters,
+      argumentsList,
+    );
+    if (!actual?.known) {
+      return undefined;
+    }
+    const matchesCase = (caseTest) => {
+      const expected = staticPrimitiveValue(
+        caseTest,
+        parameters,
+        argumentsList,
+      );
+      return expected?.known && actual.value === expected.value;
+    };
+    if (guard.caseTest === null) {
+      return !guard.tests.some(matchesCase);
+    }
+    return matchesCase(guard.caseTest);
+  }
+  const condition = staticBooleanValue(guard.test, parameters, argumentsList);
+  return condition === undefined ? undefined : condition === guard.taken;
 }
 
 /**
@@ -2511,12 +2558,12 @@ function analyzeFile(
       }
       if (
         helper.fallbackGuards?.some((guard) => {
-          const condition = staticBooleanValue(
-            guard.test,
+          const fallbackSelected = staticGuardValue(
+            guard,
             helper.parameters,
             callNode.arguments,
           );
-          return condition !== undefined && condition === guard.taken;
+          return fallbackSelected === true;
         })
       ) {
         return undefined;
