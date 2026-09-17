@@ -28,10 +28,7 @@ import {
   OneKeyLocalError,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
-import {
-  FirmwareUpdateTransferInterruptedError,
-  FirmwareUpdateVersionMismatchError,
-} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -54,7 +51,6 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { onVisibilityStateChange } from '@onekeyhq/shared/src/utils/appVisibility';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -98,12 +94,6 @@ import {
 import ServiceBase from '../ServiceBase';
 import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
 
-import {
-  FIRMWARE_TRANSFER_RESUME_GRACE_MS,
-  didFirmwareTransferResume,
-  getFirmwareTransferUiSnapshot,
-  isFirmwareTransferInProgress,
-} from './FirmwareTransferStallGuard';
 import {
   FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
   FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
@@ -323,163 +313,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-  }
-
-  private transferStallUnsub?: () => void;
-
-  private transferStallAborting = false;
-
-  private transferStallConnectId?: string;
-
-  private transferStallEpoch = 0;
-
-  private transferStallResumeCheckPending = false;
-
-  private backgroundedDuringTransfer = false;
-
-  private startFirmwareTransferStallGuard(connectId: string | undefined) {
-    this.stopFirmwareTransferStallGuard();
-    this.transferStallEpoch += 1;
-    const epoch = this.transferStallEpoch;
-    this.transferStallAborting = false;
-    this.transferStallResumeCheckPending = false;
-    this.backgroundedDuringTransfer = false;
-    this.transferStallConnectId = connectId;
-    this.transferStallUnsub = onVisibilityStateChange((visible) => {
-      void this.onFirmwareUpdateVisibilityChange(visible, epoch);
-    });
-  }
-
-  private stopFirmwareTransferStallGuard() {
-    this.transferStallEpoch += 1;
-    this.transferStallUnsub?.();
-    this.transferStallUnsub = undefined;
-    this.backgroundedDuringTransfer = false;
-    this.transferStallAborting = false;
-    this.transferStallResumeCheckPending = false;
-  }
-
-  private async setFirmwareUpdateWorkflowRunning({
-    running,
-    connectId,
-  }: {
-    running: boolean;
-    connectId?: string;
-  }) {
-    if (running) {
-      this.startFirmwareTransferStallGuard(connectId);
-    } else {
-      this.stopFirmwareTransferStallGuard();
-    }
-    await firmwareUpdateWorkflowRunningAtom.set(running);
-  }
-
-  private getFirmwareTransferConnectId(
-    params: IUpdateFirmwareWorkflowParams,
-  ): string | undefined {
-    return (
-      params.releaseResult.updatingConnectId ??
-      params.releaseResult.originalConnectId
-    );
-  }
-
-  private async readFirmwareTransferUiSnapshot() {
-    return getFirmwareTransferUiSnapshot(await hardwareUiStateAtom.get());
-  }
-
-  private async onFirmwareUpdateVisibilityChange(
-    visible: boolean,
-    epoch: number,
-  ) {
-    if (epoch !== this.transferStallEpoch || this.transferStallAborting) {
-      return;
-    }
-    const running = await firmwareUpdateWorkflowRunningAtom.get();
-    if (!running) {
-      return;
-    }
-    const snapshot = await this.readFirmwareTransferUiSnapshot();
-    if (!isFirmwareTransferInProgress(snapshot)) {
-      this.backgroundedDuringTransfer = false;
-      return;
-    }
-    if (!visible) {
-      this.backgroundedDuringTransfer = true;
-      return;
-    }
-    if (
-      !this.backgroundedDuringTransfer ||
-      this.transferStallResumeCheckPending
-    ) {
-      return;
-    }
-    this.backgroundedDuringTransfer = false;
-    this.transferStallResumeCheckPending = true;
-    try {
-      await timerUtils.wait(FIRMWARE_TRANSFER_RESUME_GRACE_MS);
-      if (epoch !== this.transferStallEpoch || this.transferStallAborting) {
-        return;
-      }
-      if (this.backgroundedDuringTransfer) {
-        return;
-      }
-      const stillRunning = await firmwareUpdateWorkflowRunningAtom.get();
-      if (!stillRunning) {
-        return;
-      }
-      const after = await this.readFirmwareTransferUiSnapshot();
-      if (didFirmwareTransferResume({ before: snapshot, after })) {
-        return;
-      }
-      await this.abortFirmwareTransferAfterBackground(epoch);
-    } finally {
-      if (epoch === this.transferStallEpoch) {
-        this.transferStallResumeCheckPending = false;
-      }
-    }
-  }
-
-  private async abortFirmwareTransferAfterBackground(epoch: number) {
-    if (epoch !== this.transferStallEpoch || this.transferStallAborting) {
-      return;
-    }
-    this.transferStallAborting = true;
-    const error = new FirmwareUpdateTransferInterruptedError();
-    const taskId = Number(Object.keys(this.updateTasks)[0]);
-    serviceHardwareUtils.hardwareLog(
-      'firmware transfer stalled after returning to foreground',
-      {
-        connectId: serviceHardwareUtils.maskLogIdentifier(
-          this.transferStallConnectId,
-        ),
-      },
-    );
-    if (Number.isFinite(taskId)) {
-      const stepInfo = await firmwareUpdateStepInfoAtom.get();
-      if (stepInfo.step === EFirmwareUpdateSteps.updateStart) {
-        await firmwareUpdateStepInfoAtom.set({
-          step: EFirmwareUpdateSteps.installing,
-          payload: {},
-        });
-      }
-      await firmwareUpdateRetryAtom.set({
-        id: taskId,
-        error: toUserFacingFirmwareUpdateError(
-          toPlainErrorObject(error as any),
-        ),
-      });
-    }
-    try {
-      await this.backgroundApi.serviceHardware.cancel({
-        connectId: this.transferStallConnectId,
-        immediate: true,
-      });
-    } catch (cancelError) {
-      serviceHardwareUtils.hardwareLog(
-        'firmware transfer stall cancel ERROR',
-        cancelError,
-      );
-    }
   }
 
   private async getActiveTransportType(): Promise<EHardwareTransportType> {
@@ -2397,7 +2230,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await cancelFirmwareArtifactPreparations();
     } finally {
       await this.updateTasksClear('exitUpdateWorkflow');
-      await this.setFirmwareUpdateWorkflowRunning({ running: false });
+      await firmwareUpdateWorkflowRunningAtom.set(false);
     }
   }
 
@@ -2467,10 +2300,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // and repaint over the update page until the drain below ended. The
     // retry path orders these the same way; the finally covers a failed
     // silence too.
-    await this.setFirmwareUpdateWorkflowRunning({
-      running: true,
-      connectId: this.getFirmwareTransferConnectId(params),
-    });
+    await firmwareUpdateWorkflowRunningAtom.set(true);
     try {
       await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
       const dbDevice = await localDb.getDeviceByQuery({
@@ -2682,7 +2512,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     } finally {
       // The bg guard outlives the UI and must cover lock acquisition failures too.
-      await this.setFirmwareUpdateWorkflowRunning({ running: false });
+      await firmwareUpdateWorkflowRunningAtom.set(false);
     }
   }
 
@@ -2982,7 +2812,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     } finally {
       // Reset workflow running state at service level to prevent lock-screen bypass
-      await this.setFirmwareUpdateWorkflowRunning({ running: false });
+      await firmwareUpdateWorkflowRunningAtom.set(false);
     }
   }
 
@@ -2998,15 +2828,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // fails must not leave the guard up: nothing below would run to drop it.
     // Unless a newer start has already taken the workflow over — the guard
     // is shared, and dropping it here would uncover THAT workflow's page.
-    await this.setFirmwareUpdateWorkflowRunning({
-      running: true,
-      connectId: this.getFirmwareTransferConnectId(params),
-    });
+    await firmwareUpdateWorkflowRunningAtom.set(true);
     try {
       await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
     } catch (error) {
       if (this.isUpdateWorkflowCurrent(workflowId)) {
-        await this.setFirmwareUpdateWorkflowRunning({ running: false });
+        await firmwareUpdateWorkflowRunningAtom.set(false);
       }
       throw error;
     }
@@ -3157,14 +2984,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
           payload: {},
         });
       }
-      if (!this.transferStallAborting) {
-        await firmwareUpdateRetryAtom.set({
-          id,
-          error: toUserFacingFirmwareUpdateError(
-            toPlainErrorObject(error as any),
-          ),
-        });
-      }
+      await firmwareUpdateRetryAtom.set({
+        id,
+        error: toUserFacingFirmwareUpdateError(
+          toPlainErrorObject(error as any),
+        ),
+      });
 
       await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
         skipDeviceCancel: true,
@@ -3180,7 +3005,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           // Allow lock screen since no active hardware communication is happening
           const retryInfo = await firmwareUpdateRetryAtom.get();
           if (retryInfo) {
-            await this.setFirmwareUpdateWorkflowRunning({ running: false });
+            await firmwareUpdateWorkflowRunningAtom.set(false);
           }
         } catch (error2) {
           await this.updateTasksReject({ id, error: error2 });
@@ -3213,15 +3038,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // fails must not leave the guard, and with it the blocked lock screen,
     // up for the rest of the session. Dropped only while this workflow is
     // still the current one: a newer start owns the shared guard by then.
-    await this.setFirmwareUpdateWorkflowRunning({
-      running: true,
-      connectId,
-    });
+    await firmwareUpdateWorkflowRunningAtom.set(true);
     try {
       await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
     } catch (error) {
       if (this.isUpdateWorkflowCurrent(task.workflowId)) {
-        await this.setFirmwareUpdateWorkflowRunning({ running: false });
+        await firmwareUpdateWorkflowRunningAtom.set(false);
       }
       throw error;
     }
