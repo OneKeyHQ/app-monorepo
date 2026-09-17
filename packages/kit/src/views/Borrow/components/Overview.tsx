@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  IconButton,
   SizableText,
   Skeleton,
   XStack,
@@ -30,6 +29,7 @@ import { BorrowBonusMetric } from './BorrowBonusMetric';
 import { BorrowEModeMetric } from './BorrowEModeMetric';
 import { BorrowHealthFactorSummary } from './BorrowHealthFactorSummary';
 import { withNetApySignColor } from './borrowOverview.utils';
+import { BorrowRefreshButton } from './BorrowRefreshButton';
 import { BorrowRewardsMetric } from './BorrowRewardsMetric';
 import { Markets } from './Markets';
 import { OverviewMetric } from './OverviewMetric';
@@ -175,10 +175,7 @@ export const Overview = ({
   ]);
 
   const refreshButton = (
-    <IconButton
-      testID={BorrowTestIDs.overviewRefreshBtn}
-      icon="RefreshCcwOutline"
-      variant="tertiary"
+    <BorrowRefreshButton
       loading={reserves.loading || isManualRefreshing}
       onPress={handleRefreshPress}
     />
@@ -219,6 +216,42 @@ export const Overview = ({
       ) : null}
     </XStack>
   );
+
+  // Phones keep the three headline numbers in equal-width columns so staggered
+  // loading results cannot move the later metrics, with the refresh button
+  // pinned to the right and top-aligned with that row.
+  //
+  // The whole row stands down together: refresh rides it only while the metrics
+  // are here, and the empty state puts it on its list heading instead. Keeping
+  // the row for the button alone left it stranded in the gap under the market
+  // picker with nothing to pair with.
+  const phoneMetricsRow =
+    showPositionMetrics || isPositionStateUnsettled ? (
+      <XStack ai="flex-start" gap="$2">
+        <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
+          <OverviewMetric
+            testID={BorrowTestIDs.overviewNetWorth}
+            title={{ text: labels.netWorth }}
+            text={netWorthText}
+            isLoading={isNetWorthLoading}
+            widthMode="equal"
+          />
+          <BorrowHealthFactorSummary
+            {...healthSummaryProps}
+            widthMode="equal"
+          />
+          <OverviewMetric
+            testID={BorrowTestIDs.overviewNetApy}
+            title={{ text: labels.netApy }}
+            text={netApyText}
+            isLoading={isNetApyLoading}
+            widthMode="equal"
+          />
+        </XStack>
+        {/* Clears the metric cells' own $3 of top padding */}
+        <XStack pt="$3">{refreshButton}</XStack>
+      </XStack>
+    ) : null;
 
   return (
     <YStack
@@ -298,38 +331,7 @@ export const Overview = ({
           </XStack>
         </YStack>
       ) : (
-        /* Phones keep the three headline numbers in equal-width columns so
-           staggered loading results cannot move the later metrics. The tools
-           stay pinned to the right and top-aligned with that row. */
-        <XStack ai="flex-start" gap="$2">
-          <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
-            {showPositionMetrics || isPositionStateUnsettled ? (
-              <>
-                <OverviewMetric
-                  testID={BorrowTestIDs.overviewNetWorth}
-                  title={{ text: labels.netWorth }}
-                  text={netWorthText}
-                  isLoading={isNetWorthLoading}
-                  widthMode="equal"
-                />
-                <BorrowHealthFactorSummary
-                  {...healthSummaryProps}
-                  widthMode="equal"
-                />
-                <OverviewMetric
-                  testID={BorrowTestIDs.overviewNetApy}
-                  title={{ text: labels.netApy }}
-                  text={netApyText}
-                  isLoading={isNetApyLoading}
-                  widthMode="equal"
-                />
-              </>
-            ) : null}
-          </XStack>
-          {/* Clears the metric cells' own $3 of top padding, and holds the
-              button at that offset once the cells are gone */}
-          <XStack pt="$3">{refreshButton}</XStack>
-        </XStack>
+        phoneMetricsRow
       )}
     </YStack>
   );

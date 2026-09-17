@@ -155,12 +155,19 @@ describe('Overview position metrics', () => {
     expect(queryByTestId(BorrowTestIDs.overviewNetApy)).toBeNull();
   });
 
-  // Refresh shares the metrics' row but not their fate: on phones it is the
-  // only way to re-pull a market whose emptiness is already out of date.
-  it('keeps the refresh button when the metrics are gone', () => {
-    const { queryByTestId } = renderOverview({ showPositionMetrics: false });
+  it('keeps the refresh button alongside the metrics', () => {
+    const { queryByTestId } = renderOverview({ showPositionMetrics: true });
 
     expect(queryByTestId(BorrowTestIDs.overviewRefreshBtn)).toBeTruthy();
+  });
+
+  // Refresh rides the metric row, so it stands down with it and the empty state
+  // picks it up on its own list heading. Holding the row open for the button
+  // alone left it stranded in the gap under the market picker.
+  it('takes the refresh button down with the metrics', () => {
+    const { queryByTestId } = renderOverview({ showPositionMetrics: false });
+
+    expect(queryByTestId(BorrowTestIDs.overviewRefreshBtn)).toBeNull();
   });
 
   // Whether a position exists is unknown both while reserves are in flight and

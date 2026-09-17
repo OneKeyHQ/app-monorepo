@@ -244,6 +244,15 @@ const BorrowHomeContent = memo(
       void refreshReserves();
     }, [refreshReserves]);
 
+    // Overview drops its metric row along with the metrics, and refresh rides
+    // that row. The empty state takes it over on its own heading so the market
+    // can still be refreshed by hand — the two rows never coexist, so the
+    // button shows up exactly once either way.
+    const requestRefresh = overviewData.requestRefresh;
+    const handleEmptyStateRefresh = useCallback(() => {
+      void requestRefresh();
+    }, [requestRefresh]);
+
     const isMidWidth = gtMd && !gtXl;
     const isPhone = !gtMd;
 
@@ -462,6 +471,10 @@ const BorrowHomeContent = memo(
                 assets={supplyAssets}
                 isLoading={reserves.loading}
                 onPressAsset={handleSupplyAsset}
+                onRefresh={handleEmptyStateRefresh}
+                isRefreshing={
+                  reserves.loading || overviewData.isManualRefreshing
+                }
               />
             )}
             <BorrowMobileSummary
