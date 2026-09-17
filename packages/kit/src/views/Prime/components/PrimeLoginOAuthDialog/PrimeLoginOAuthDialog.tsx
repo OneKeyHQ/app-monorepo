@@ -19,10 +19,13 @@ import {
   shouldRunOneKeyIdAuthInExtExpandTab,
 } from '@onekeyhq/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab';
 import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
+import { persistOneKeyIdLastLoginMethod } from '@onekeyhq/kit-bg/src/states/jotai/atoms/oneKeyIdLastLoginMethod';
+import { useOneKeyIdLastLoginMethodPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
   EExtOneKeyIdAuthFlow,
   EOAuthSocialLoginProvider,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import { resolveOneKeyIdLastLoginMethod } from '@onekeyhq/shared/src/consts/oneKeyIdLastLoginMethod';
 import type { IOneKeyIdLoginWithLocalKeylessPrepareResult } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import {
   ELocalKeylessWalletOAuthState,
@@ -36,6 +39,7 @@ import type {
   IKeylessOAuthSessionRollbackHandle,
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
+import { OneKeyIdLastUsedBadge } from '../OneKeyIdLastUsedBadge';
 import {
   getSanitizedAuthErrorText,
   logOneKeyIdLoginFailureReason,
@@ -81,13 +85,24 @@ function PrimeLoginOAuthDialog(props: {
   } = props;
   const intl = useIntl();
   const { run: runIdentityExit } = useIdentityExitFlow();
+  const [lastLoginMethodPersist] = useOneKeyIdLastLoginMethodPersistAtom();
+  const lastLoginMethod = resolveOneKeyIdLastLoginMethod(
+    lastLoginMethodPersist.method,
+  );
+  const lastUsedBadgeLabel = intl.formatMessage({
+    // Wired to ETranslations after the i18n apply; defaultMessage is the interim EN copy.
+    id: 'last_used_sign_in_method__title' as ETranslations,
+    defaultMessage: 'Last used',
+  });
   const [loggingInProvider, setLoggingInProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
   const [isEmailLoginStarting, setIsEmailLoginStarting] = useState(false);
   const [emailVerificationEmail, setEmailVerificationEmail] = useState<
     string | undefined
   >();
-  const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
+  const [expandedSignInMethod, setExpandedSignInMethod] = useState(
+    lastLoginMethod === 'email' ? MORE_SIGN_IN_METHODS_VALUE : '',
+  );
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
     initialShowKeylessLogoutAction ?? false,
   );
@@ -252,6 +267,7 @@ function PrimeLoginOAuthDialog(props: {
           }
           throw error;
         }
+        await persistOneKeyIdLastLoginMethod(provider);
         showOneKeyIdLoginSuccessToast(intl);
         if (closeDialogOnSuccess && !didCloseDialogBeforeOAuth) {
           await onComplete();
@@ -592,24 +608,31 @@ function PrimeLoginOAuthDialog(props: {
       void handleSocialLogin(method.provider);
     };
     return (
-      <Button
-        key={method.provider}
-        size="large"
-        icon={
-          method.provider === EOAuthSocialLoginProvider.Google
-            ? 'GoogleIllus'
-            : 'AppleBrand'
-        }
-        testID={`prime-login-oauth-${method.provider}-btn`}
-        disabled={isLoginBusy}
-        loading={loggingInProvider === method.provider}
-        onPress={handleOAuthPress}
-      >
-        {intl.formatMessage(
-          { id: ETranslations.continue_with_social_platform },
-          { platform: providerName },
-        )}
-      </Button>
+      <Stack key={method.provider} position="relative">
+        <Button
+          size="large"
+          icon={
+            method.provider === EOAuthSocialLoginProvider.Google
+              ? 'GoogleIllus'
+              : 'AppleBrand'
+          }
+          testID={`prime-login-oauth-${method.provider}-btn`}
+          disabled={isLoginBusy}
+          loading={loggingInProvider === method.provider}
+          onPress={handleOAuthPress}
+        >
+          {intl.formatMessage(
+            { id: ETranslations.continue_with_social_platform },
+            { platform: providerName },
+          )}
+        </Button>
+        {lastLoginMethod === method.provider ? (
+          <OneKeyIdLastUsedBadge
+            method={method.provider}
+            label={lastUsedBadgeLabel}
+          />
+        ) : null}
+      </Stack>
     );
   };
 
@@ -727,6 +750,8 @@ function PrimeLoginOAuthDialog(props: {
                   onComplete={onComplete}
                   onLoginSuccess={onLoginSuccess}
                   onCancel={onCancel}
+                  showLastUsedBadge={lastLoginMethod === 'email'}
+                  lastUsedBadgeLabel={lastUsedBadgeLabel}
                 />
               </Accordion.Content>
             </HeightTransition>

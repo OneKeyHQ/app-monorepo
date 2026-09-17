@@ -19,6 +19,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
+import { OneKeyIdLastUsedBadge } from '../OneKeyIdLastUsedBadge';
 import { showOneKeyIdLegacyOAuthBindDialog } from '../OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind';
 import {
   getSanitizedAuthErrorText,
@@ -38,6 +39,8 @@ type IPrimeLoginEmailDialogV2Props = {
   onCancel?: () => void | Promise<void>;
   disabled?: boolean;
   onSubmittingChange?: (isSubmitting: boolean) => void;
+  showLastUsedBadge?: boolean;
+  lastUsedBadgeLabel?: string;
 } & (
   | {
       embedded: true;
@@ -64,6 +67,8 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     onEmbeddedVerificationEmailChange,
     disabled = false,
     onSubmittingChange,
+    showLastUsedBadge = false,
+    lastUsedBadgeLabel,
   } = props;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [
@@ -344,18 +349,26 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
               </Form.Field>
             </Form>
             {embedded ? (
-              <Button
-                variant="primary"
-                size="large"
-                testID="prime-login-email-btn"
-                loading={isSubmitting}
-                disabled={disabled || !form.formState.isValid || !isReady}
-                onPress={() => void submit()}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.sign_in_or_sign_up__action,
-                })}
-              </Button>
+              <Stack position="relative">
+                <Button
+                  variant="primary"
+                  size="large"
+                  testID="prime-login-email-btn"
+                  loading={isSubmitting}
+                  disabled={disabled || !form.formState.isValid || !isReady}
+                  onPress={() => void submit()}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.sign_in_or_sign_up__action,
+                  })}
+                </Button>
+                {showLastUsedBadge && lastUsedBadgeLabel ? (
+                  <OneKeyIdLastUsedBadge
+                    method="email"
+                    label={lastUsedBadgeLabel}
+                  />
+                ) : null}
+              </Stack>
             ) : null}
           </YStack>
           {embedded ? null : (

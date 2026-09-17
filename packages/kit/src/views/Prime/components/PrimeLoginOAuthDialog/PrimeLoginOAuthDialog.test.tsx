@@ -14,6 +14,7 @@ import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
 const mockEmailDialogMount = jest.fn();
 const mockEmailDialogUnmount = jest.fn();
+let mockLastLoginMethod: string | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -32,9 +33,24 @@ jest.mock('@onekeyhq/components', () => {
   });
   const AccordionItemContext = React.createContext('');
 
-  function Container({ children }: { children?: import('react').ReactNode }) {
-    return React.createElement('div', null, children);
+  function Container({
+    children,
+    testID,
+  }: {
+    children?: import('react').ReactNode;
+    testID?: string;
+  }) {
+    return React.createElement(
+      'div',
+      testID ? { 'data-testid': testID } : null,
+      children,
+    );
   }
+
+  function Badge({ children }: { children?: import('react').ReactNode }) {
+    return React.createElement('span', null, children);
+  }
+  Badge.Text = Container;
 
   function AccordionHeightAnimator({
     children,
@@ -197,6 +213,7 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Accordion,
+    Badge,
     Button: ({
       children,
       disabled,
@@ -235,6 +252,19 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Container,
   };
 });
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
+  useOneKeyIdLastLoginMethodPersistAtom: () => [
+    { method: mockLastLoginMethod },
+  ],
+}));
+
+jest.mock(
+  '@onekeyhq/kit-bg/src/states/jotai/atoms/oneKeyIdLastLoginMethod',
+  () => ({
+    persistOneKeyIdLastLoginMethod: jest.fn(async () => true),
+  }),
+);
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const servicePrime = {
@@ -285,16 +315,29 @@ jest.mock('../oneKeyIdLoginToastUtils', () => ({
 jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
   const React = jest.requireActual('react') as typeof import('react');
 
-  function MockPrimeLoginEmailDialog() {
+  function MockPrimeLoginEmailDialog({
+    showLastUsedBadge,
+  }: {
+    showLastUsedBadge?: boolean;
+  }) {
     React.useEffect(() => {
       mockEmailDialogMount();
       return () => {
         mockEmailDialogUnmount();
       };
     }, []);
-    return React.createElement('div', {
-      'data-testid': 'mock-prime-login-email-dialog',
-    });
+    return React.createElement(
+      'div',
+      {
+        'data-show-last-used-badge': String(Boolean(showLastUsedBadge)),
+        'data-testid': 'mock-prime-login-email-dialog',
+      },
+      showLastUsedBadge
+        ? React.createElement('span', {
+            'data-testid': 'prime-login-last-used-badge-email',
+          })
+        : null,
+    );
   }
 
   return {
@@ -342,6 +385,12 @@ function getOAuthMocks() {
   };
 }
 
+function getPersistOneKeyIdLastLoginMethodMock() {
+  return jest.requireMock(
+    '@onekeyhq/kit-bg/src/states/jotai/atoms/oneKeyIdLastLoginMethod',
+  ).persistOneKeyIdLastLoginMethod as jest.Mock;
+}
+
 function getBackgroundApiMocks() {
   return jest.requireMock(
     '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
@@ -353,6 +402,8 @@ function getBackgroundApiMocks() {
 describe('PrimeLoginOAuthDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLastLoginMethod = undefined;
+    getPersistOneKeyIdLastLoginMethodMock().mockResolvedValue(true);
     const platformEnv = getPlatformEnvMock();
     platformEnv.isNative = false;
     platformEnv.isNativeIOS = false;
@@ -418,6 +469,10 @@ describe('PrimeLoginOAuthDialog', () => {
       'loginSuccess',
     ]);
     expect(onReopenAfterOAuthFailure).not.toHaveBeenCalled();
+    expect(getPersistOneKeyIdLastLoginMethodMock()).toHaveBeenCalledTimes(1);
+    expect(getPersistOneKeyIdLastLoginMethodMock()).toHaveBeenCalledWith(
+      'google',
+    );
   });
 
   test('reopens the iOS dialog with recovery after account mismatch', async () => {
@@ -448,6 +503,7 @@ describe('PrimeLoginOAuthDialog', () => {
       });
     });
     expect(onCancel).not.toHaveBeenCalled();
+    expect(getPersistOneKeyIdLastLoginMethodMock()).not.toHaveBeenCalled();
   });
 
   test('keeps the existing success-then-close order outside iOS', async () => {
@@ -488,6 +544,10 @@ describe('PrimeLoginOAuthDialog', () => {
       'closeDialog',
       'loginSuccess',
     ]);
+    expect(getPersistOneKeyIdLastLoginMethodMock()).toHaveBeenCalledTimes(1);
+    expect(getPersistOneKeyIdLastLoginMethodMock()).toHaveBeenCalledWith(
+      'google',
+    );
   });
 
   test('starts collapsed and can reopen without remounting the email flow', () => {
@@ -537,5 +597,107 @@ describe('PrimeLoginOAuthDialog', () => {
     expect(mockEmailDialogMount).toHaveBeenCalledTimes(1);
     expect(mockEmailDialogUnmount).not.toHaveBeenCalled();
     expect(screen.getByTestId('mock-prime-login-email-dialog')).toBeTruthy();
+    expect(
+      screen.queryByTestId('prime-login-last-used-badge-google'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('prime-login-last-used-badge-apple'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('prime-login-last-used-badge-email'),
+    ).toBeNull();
+  });
+
+  test('shows a last-used badge on Google when that method is stored', () => {
+    mockLastLoginMethod = 'google';
+
+    render(
+      <PrimeLoginOAuthDialog
+        onComplete={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('prime-login-last-used-badge-google'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('prime-login-last-used-badge-apple'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('prime-login-last-used-badge-email'),
+    ).toBeNull();
+    expect(
+      screen
+        .getByTestId('prime-login-more-methods-height-transition')
+        .getAttribute('data-height'),
+    ).toBe('0');
+  });
+
+  test('shows a last-used badge on Apple when that method is stored', () => {
+    mockLastLoginMethod = 'apple';
+
+    render(
+      <PrimeLoginOAuthDialog
+        onComplete={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('prime-login-last-used-badge-apple'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('prime-login-last-used-badge-google'),
+    ).toBeNull();
+  });
+
+  test('opens email methods and shows the email badge when email was last used', () => {
+    mockLastLoginMethod = 'email';
+
+    render(
+      <PrimeLoginOAuthDialog
+        onComplete={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(
+      screen
+        .getByTestId('prime-login-more-methods-height-transition')
+        .getAttribute('data-height'),
+    ).toBe('240');
+    expect(
+      screen
+        .getByTestId('prime-login-more-methods-content')
+        .getAttribute('aria-hidden'),
+    ).toBe('false');
+    expect(
+      screen
+        .getByTestId('mock-prime-login-email-dialog')
+        .getAttribute('data-show-last-used-badge'),
+    ).toBe('true');
+    expect(
+      screen.getByTestId('prime-login-last-used-badge-email'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('prime-login-last-used-badge-google'),
+    ).toBeNull();
+  });
+
+  test('does not persist last login method when OAuth login fails', async () => {
+    const { getOAuthAccessToken } = getOAuthMocks();
+    getOAuthAccessToken.mockRejectedValueOnce(
+      new OneKeyLocalError('OAuth failed'),
+    );
+
+    render(
+      <PrimeLoginOAuthDialog
+        onComplete={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('prime-login-oauth-google-btn'));
+
+    await waitFor(() => {
+      expect(getOAuthAccessToken).toHaveBeenCalledTimes(1);
+    });
+    expect(getPersistOneKeyIdLastLoginMethodMock()).not.toHaveBeenCalled();
   });
 });
