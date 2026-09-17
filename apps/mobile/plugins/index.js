@@ -39,10 +39,7 @@ module.exports = (config, projectRoot) => {
         'metro/src/DeltaBundler/Serializers/sourceMapString',
       ),
     );
-    const {
-      isSourceMapModule,
-      normalizeModulesForSourceMap,
-    } = require('./metroSourceMapCompat');
+    const { normalizeModulesForSourceMap } = require('./metroSourceMapCompat');
     // 1. Watch all files within the monorepo
     config.watchFolders = [workspaceRoot];
     // 2. Let Metro know where to resolve packages and in what order
@@ -202,9 +199,8 @@ module.exports = (config, projectRoot) => {
           ]);
           map = await sourceMapStringNonBlocking(sourceMapModules, {
             excludeSource: false,
-            processModuleFilter: (module) =>
-              isSourceMapModule(module) &&
-              (bundleOptions.processModuleFilter || (() => true))(module),
+            processModuleFilter:
+              bundleOptions.processModuleFilter || (() => true),
             shouldAddToIgnoreList:
               bundleOptions.shouldAddToIgnoreList || (() => false),
             getSourceUrl: (module) => module.path,

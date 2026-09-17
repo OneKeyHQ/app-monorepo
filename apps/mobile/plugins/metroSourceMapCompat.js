@@ -30,13 +30,7 @@ const normalizeModulesForSourceMap = (modules) => {
   return modules;
 };
 
-const isSourceMapModule = (module) =>
-  module.output?.some(
-    ({ type }) => type.startsWith('js/') && type !== 'js/module/asset',
-  );
-
 module.exports = {
-  isSourceMapModule,
   normalizeMap,
   normalizeModulesForSourceMap,
 };
