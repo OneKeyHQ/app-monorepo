@@ -34,11 +34,18 @@ jest.mock('../logger/logger', () => ({
 // On globalThis so jest.resetModules() rebuilds the module (a fresh runtime)
 // while the "MMKV file" persists — exactly the cross-runtime setup under test.
 type IFakeDisk = Record<string, string>;
+type IFakeEntriesListener = (
+  entries: Array<readonly [string, string | null]> | null,
+) => void;
 const fakeDiskGlobal = globalThis as typeof globalThis & {
   __swrFakeDisk?: IFakeDisk;
   __swrFakeDiskReadCount?: number;
   __swrPatches?: unknown[];
   __swrUsePatch?: boolean;
+  __swrUseEntries?: boolean;
+  __swrDeclareEmptyEntries?: boolean;
+  __swrEntries?: Map<string, string>;
+  __swrEntryListeners?: Set<IFakeEntriesListener>;
 };
 
 jest.mock('../storage/instance/syncStorageInstance', () => {
@@ -119,6 +126,54 @@ jest.mock('../storage/instance/syncStorageInstance', () => {
               store[key] = JSON.parse(entry) as { t: number };
             });
             disk.onekey_swr_cache = JSON.stringify(store);
+          },
+        }
+      : {}),
+    // Mirrors the runtime wrapper on a backend without the capability: the
+    // methods exist and forward with `?.`, so they answer undefined.
+    ...((globalThis as { __swrDeclareEmptyEntries?: boolean })
+      .__swrDeclareEmptyEntries
+      ? {
+          applySWRCachePatch: () => undefined,
+          readSWRCacheEntries: () => undefined,
+          subscribeSWRCacheEntries: () => () => undefined,
+        }
+      : {}),
+    // The native main mirror: one serialized entry per key, patches applied
+    // per key, bg changes pushed to subscribers. Never a whole-store string.
+    ...((globalThis as { __swrUseEntries?: boolean }).__swrUseEntries
+      ? {
+          applySWRCachePatch: (patch: {
+            removals: Array<readonly [string, number]>;
+            updates: Array<readonly [string, string]>;
+          }) => {
+            const globalState = globalThis as {
+              __swrEntries?: Map<string, string>;
+              __swrPatches?: unknown[];
+            };
+            globalState.__swrPatches ??= [];
+            globalState.__swrPatches.push(patch);
+            const entries = (globalState.__swrEntries ??= new Map());
+            patch.removals.forEach(([key]) => entries.delete(key));
+            patch.updates.forEach(([key, entry]) => entries.set(key, entry));
+          },
+          readSWRCacheEntries: () => [
+            ...((globalThis as { __swrEntries?: Map<string, string> })
+              .__swrEntries ?? new Map<string, string>()),
+          ],
+          subscribeSWRCacheEntries: (
+            listener: (
+              entries: Array<readonly [string, string | null]> | null,
+            ) => void,
+          ) => {
+            const globalState = globalThis as {
+              __swrEntryListeners?: Set<typeof listener>;
+            };
+            const listeners = (globalState.__swrEntryListeners ??= new Set());
+            listeners.add(listener);
+            return () => {
+              listeners.delete(listener);
+            };
           },
         }
       : {}),
@@ -1022,6 +1077,165 @@ describe('SWR cache native incremental persistence', () => {
     expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
       expect.objectContaining({ reason: 'keyLimit' }),
     );
+  });
+});
+
+describe('SWR cache native entry mirror', () => {
+  const entry = (data: unknown, t: number) => JSON.stringify({ d: data, t });
+  const emitNativeEntries = (
+    entries: Array<readonly [string, string | null]> | null,
+  ) => {
+    fakeDiskGlobal.__swrEntryListeners?.forEach((listener) =>
+      listener(entries),
+    );
+  };
+  const sentPatches = () =>
+    fakeDiskGlobal.__swrPatches as Array<{
+      removals: Array<readonly [string, number]>;
+      updates: Array<readonly [string, string]>;
+    }>;
+
+  beforeEach(() => {
+    fakeDiskGlobal.__swrFakeDisk = {};
+    fakeDiskGlobal.__swrFakeDiskReadCount = 0;
+    fakeDiskGlobal.__swrPatches = [];
+    fakeDiskGlobal.__swrUsePatch = false;
+    fakeDiskGlobal.__swrUseEntries = true;
+    fakeDiskGlobal.__swrDeclareEmptyEntries = false;
+    fakeDiskGlobal.__swrEntries = new Map();
+    fakeDiskGlobal.__swrEntryListeners = new Set();
+    mockSWRCacheCapacityLimit.mockReset();
+    jest.spyOn(Date, 'now').mockReturnValue(10);
+  });
+
+  afterEach(() => {
+    fakeDiskGlobal.__swrUseEntries = false;
+    fakeDiskGlobal.__swrDeclareEmptyEntries = false;
+    jest.restoreAllMocks();
+  });
+
+  it('ignores a wrapper that declares the capabilities but implements none', () => {
+    // The runtime storage wrapper always declares the optional methods and
+    // forwards them with `?.`, so only a real answer may enable this path.
+    fakeDiskGlobal.__swrUseEntries = false;
+    fakeDiskGlobal.__swrDeclareEmptyEntries = true;
+    otherRuntimeFlush({ onDisk: { d: 'value', t: 1 } });
+    const swr = loadFreshRuntime();
+
+    // Hydrated by reading the store, and nothing subscribed to the mirror.
+    expect(swr.get('onDisk')).toBe('value');
+    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBeGreaterThan(0);
+    expect(fakeDiskGlobal.__swrEntryListeners?.size ?? 0).toBe(0);
+  });
+
+  it('hydrates from the mirror entries without reading a whole store', () => {
+    fakeDiskGlobal.__swrEntries?.set('first', entry('one', 1));
+    fakeDiskGlobal.__swrEntries?.set('second', entry({ nested: true }, 2));
+    const swr = loadFreshRuntime();
+
+    expect(swr.get('first')).toBe('one');
+    expect(swr.getWithTimestamp('second')).toEqual({
+      data: { nested: true },
+      updatedAt: 2,
+    });
+    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(0);
+    expect(fakeDiskGlobal.__swrEntryListeners?.size).toBe(1);
+  });
+
+  it('flushes only changed entries and adopts what bg reports back', () => {
+    fakeDiskGlobal.__swrEntries?.set('existing', entry('x'.repeat(10_000), 1));
+    const swr = loadFreshRuntime();
+    expect(swr.get('existing')).toHaveLength(10_000);
+
+    swr.set('changed', 'small');
+    swr.flushNow();
+
+    expect(sentPatches()).toEqual([
+      {
+        removePrefixes: [],
+        removals: [],
+        updates: [['changed', entry('small', 10)]],
+      },
+    ]);
+    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(0);
+
+    emitNativeEntries([
+      ['changed', entry('small', 10)],
+      ['fromBg', entry('bg', 11)],
+    ]);
+    expect(swr.get('fromBg')).toBe('bg');
+    expect(swr.get('changed')).toBe('small');
+
+    emitNativeEntries([['changed', null]]);
+    expect(swr.get('changed')).toBeUndefined();
+    expect(swr.get('existing')).toHaveLength(10_000);
+  });
+
+  it('keeps a pending local write over an older canonical entry', () => {
+    const swr = loadFreshRuntime();
+    swr.set('key', 'local');
+
+    emitNativeEntries([['key', entry('older-bg', 4)]]);
+    expect(swr.getWithTimestamp('key')).toEqual({
+      data: 'local',
+      updatedAt: 10,
+    });
+
+    emitNativeEntries([['key', entry('newer-bg', 12)]]);
+    expect(swr.getWithTimestamp('key')).toEqual({
+      data: 'newer-bg',
+      updatedAt: 12,
+    });
+    swr.flushNow();
+    expect(sentPatches()).toEqual([]);
+  });
+
+  it('does not resurrect a locally removed entry from an older canonical entry', () => {
+    fakeDiskGlobal.__swrEntries?.set('key', entry('seeded', 1));
+    const swr = loadFreshRuntime();
+    expect(swr.get('key')).toBe('seeded');
+
+    swr.remove('key');
+    emitNativeEntries([['key', entry('stale-bg', 3)]]);
+    expect(swr.get('key')).toBeUndefined();
+
+    emitNativeEntries([['key', entry('fresh-bg', 12)]]);
+    expect(swr.get('key')).toBe('fresh-bg');
+  });
+
+  it('rebuilds from a re-primed mirror while keeping unflushed writes', () => {
+    fakeDiskGlobal.__swrEntries?.set('old', entry('old', 1));
+    const swr = loadFreshRuntime();
+    expect(swr.get('old')).toBe('old');
+    swr.set('pending', 'local');
+
+    fakeDiskGlobal.__swrEntries = new Map([['fresh', entry('fresh', 2)]]);
+    emitNativeEntries(null);
+
+    expect(swr.get('old')).toBeUndefined();
+    expect(swr.get('fresh')).toBe('fresh');
+    expect(swr.get('pending')).toBe('local');
+    swr.flushNow();
+    expect(sentPatches()).toEqual([
+      {
+        removePrefixes: [],
+        removals: [],
+        updates: [['pending', entry('local', 10)]],
+      },
+    ]);
+  });
+
+  it('reloads by flushing pending writes only', () => {
+    fakeDiskGlobal.__swrEntries?.set('seeded', entry('seeded', 1));
+    const swr = loadFreshRuntime();
+    swr.set('changed', 'value');
+
+    swr.reloadFromStorage();
+
+    expect(sentPatches()).toHaveLength(1);
+    expect(swr.get('seeded')).toBe('seeded');
+    expect(swr.get('changed')).toBe('value');
+    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(0);
   });
 });
 

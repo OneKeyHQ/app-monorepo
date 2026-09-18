@@ -35,6 +35,7 @@ import { EAppSyncStorageKeys } from './syncStorageKeys';
 import type { ILegacyAsyncStorageNativeModule } from './legacyAsyncStorageMigration';
 import type {
   INativeAsyncStorageRequest,
+  INativeSWRCacheSerializedEntry,
   INativeStorageBootstrapSnapshot,
   INativeStorageRequest,
   INativeStorageScalar,
@@ -1558,7 +1559,6 @@ function sanitizeColdStartValue({
 function readSyncStorageEntries(
   mmkv: IMMKVInstance,
   store: INativeSyncStorageName,
-  swrCacheBootstrapSerialized?: string,
 ) {
   const entries: INativeSyncStorageEntry[] = [];
   for (const key of mmkv.getAllKeys()) {
@@ -1586,9 +1586,6 @@ function readSyncStorageEntries(
       }
     }
   }
-  if (store === 'coldStart') {
-    entries.push([SWR_CACHE_KEY, swrCacheBootstrapSerialized ?? '{}']);
-  }
   return entries;
 }
 
@@ -1596,10 +1593,11 @@ async function buildBootstrapSnapshot(): Promise<INativeStorageBootstrapSnapshot
   await prepareNativeStorageForBackgroundStartup();
   await ensureNativeAppStorageMigrated();
   const swrCachePersistence = getSWRCachePersistence();
-  let swrCacheBootstrapSerialized = '{}';
+  // Sent per entry: the UI mirror keeps them that way and never joins them.
+  let swrCacheEntries: INativeSWRCacheSerializedEntry[] = [];
   try {
     await swrCachePersistence.ensureMigrated();
-    swrCacheBootstrapSerialized = swrCachePersistence.readSerializedSubset({
+    swrCacheEntries = swrCachePersistence.readBootstrapEntries({
       keyPrefixes: SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
       maxEntries: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
       maxSerializedChars: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
@@ -1615,12 +1613,12 @@ async function buildBootstrapSnapshot(): Promise<INativeStorageBootstrapSnapshot
     coldStart: readSyncStorageEntries(
       getSyncStorageMMKV('coldStart'),
       'coldStart',
-      swrCacheBootstrapSerialized,
     ),
     devSettings: readSyncStorageEntries(
       getSyncStorageMMKV('devSettings'),
       'devSettings',
     ),
+    swrCacheEntries,
   };
 }
 
