@@ -62,6 +62,7 @@ import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
 import {
+  STAKING_TX_SETTLE_DELAY_MS,
   useEarnPendingTxsSharedMeta,
   useStakingPendingTxsByInfo,
 } from './hooks/useStakingPendingTxs';
@@ -451,21 +452,20 @@ function BasicEarnHome({
     extraNetworkIds: borrowNetworkIds,
   });
 
-  const { filteredTxs } = useStakingPendingTxsByInfo({
+  const refreshAfterPendingTxs = useCallback(
+    () => refreshEarnData({ silent: true }),
+    [refreshEarnData],
+  );
+  // Refresh once the pending transactions have cleared, after the same settle
+  // delay the detail page uses. Fired at once, the refresh landed while the
+  // node could still be a block behind and cached the pre-transaction balance
+  // for the positions page (OK-63659).
+  useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
     precomputed: sharedPendingTxsMeta,
+    onRefresh: refreshAfterPendingTxs,
+    onRefreshDelayMs: STAKING_TX_SETTLE_DELAY_MS,
   });
-  const isPending = useMemo(() => {
-    return filteredTxs.length > 0;
-  }, [filteredTxs]);
-  const previousIsPendingRef = useRef(isPending);
-
-  useEffect(() => {
-    if (previousIsPendingRef.current && !isPending) {
-      void refreshEarnData({ silent: true });
-    }
-    previousIsPendingRef.current = isPending;
-  }, [isPending, refreshEarnData]);
 
   const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
 
