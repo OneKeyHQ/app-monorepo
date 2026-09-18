@@ -14,6 +14,7 @@ import {
 } from './tradingViewEmbedAssetIntegrity';
 import {
   cacheTradingViewCompletionMarker,
+  matchVerifiedTradingViewCachedResponse,
   putTradingViewResponseInCache,
 } from './tradingViewEmbedCache';
 import {
@@ -737,6 +738,13 @@ async function fetchTradingViewAsset(asset, baseUrl, priority = 'low') {
   };
 }
 
+function findTradingViewManifestAsset(manifest, requestUrl, baseUrl) {
+  return manifest.assets.find((item) => {
+    const assetUrl = resolveTradingViewAssetUrl(item.file, baseUrl);
+    return assetUrl?.toString() === requestUrl;
+  });
+}
+
 async function cacheTradingViewAssets(cache, assets, baseUrl, priority) {
   let assetsCached = true;
   await runConcurrent(
@@ -744,7 +752,7 @@ async function cacheTradingViewAssets(cache, assets, baseUrl, priority) {
     TRADINGVIEW_PREFETCH_CONCURRENCY,
     async (asset) => {
       const request = new Request(new URL(asset.file, baseUrl));
-      if (await cache.match(request)) {
+      if (await matchVerifiedTradingViewCachedResponse(cache, request, asset)) {
         return;
       }
       const fetched = await fetchTradingViewAsset(asset, baseUrl, priority);
@@ -1119,19 +1127,23 @@ async function handleTradingViewAssetRequest(request) {
     });
   }
   const cache = await caches.open(manifestState.cacheName);
-  const cachedResponse = await cache.match(assetRequest);
+  const asset = findTradingViewManifestAsset(
+    manifestState.manifest,
+    normalizedRequestUrl,
+    baseUrl,
+  );
+  if (!asset) {
+    throw new ServiceWorkerVersionError('tradingview_asset_not_in_manifest');
+  }
+  const cachedResponse = await matchVerifiedTradingViewCachedResponse(
+    cache,
+    assetRequest,
+    asset,
+  );
   if (cachedResponse) {
     return proxySourceUrl
       ? createTradingViewProxyResponse(cachedResponse)
       : cachedResponse;
-  }
-  const requestUrl = normalizedRequestUrl;
-  const asset = manifestState.manifest.assets.find((item) => {
-    const assetUrl = resolveTradingViewAssetUrl(item.file, baseUrl);
-    return assetUrl?.toString() === requestUrl;
-  });
-  if (!asset) {
-    throw new ServiceWorkerVersionError('tradingview_asset_not_in_manifest');
   }
   const fetched = await fetchTradingViewAsset(asset, baseUrl);
   await putTradingViewResponseInCache(cache, fetched.request, fetched.response);

@@ -1,7 +1,19 @@
+import { createHash } from 'node:crypto';
+
 import {
   cacheTradingViewCompletionMarker,
+  matchVerifiedTradingViewCachedResponse,
   putTradingViewResponseInCache,
 } from './tradingViewEmbedCache';
+
+function createAsset(body) {
+  const encoded = new TextEncoder().encode(body);
+  return {
+    file: 'entry.js',
+    integrity: `sha384-${createHash('sha384').update(encoded).digest('base64')}`,
+    size: encoded.byteLength,
+  };
+}
 
 describe('putTradingViewResponseInCache', () => {
   test('does not reject when Cache Storage is unavailable', async () => {
@@ -30,6 +42,76 @@ describe('putTradingViewResponseInCache', () => {
         new Response('verified asset'),
       ),
     ).resolves.toBe(true);
+  });
+});
+
+describe('matchVerifiedTradingViewCachedResponse', () => {
+  const request = new Request(
+    'https://tradingview.onekey.so/v1/embed/entry.js',
+  );
+
+  test('returns a cached body only after SHA-384 verification', async () => {
+    const body = 'verified asset';
+    const cache = {
+      match: jest.fn(async () => new Response(body)),
+      delete: jest.fn(async () => true),
+    };
+
+    const cachedResponse = await matchVerifiedTradingViewCachedResponse(
+      cache,
+      request,
+      createAsset(body),
+    );
+
+    await expect(cachedResponse?.text()).resolves.toBe(body);
+    expect(cache.delete).not.toHaveBeenCalled();
+  });
+
+  test('evicts a cache hit whose digest does not match the manifest', async () => {
+    const cache = {
+      match: jest.fn(async () => new Response('tampered asset')),
+      delete: jest.fn(async () => true),
+    };
+
+    await expect(
+      matchVerifiedTradingViewCachedResponse(
+        cache,
+        request,
+        createAsset('verified asset'),
+      ),
+    ).resolves.toBeUndefined();
+    expect(cache.delete).toHaveBeenCalledWith(request);
+  });
+
+  test('does not return a tampered body when eviction fails', async () => {
+    const cache = {
+      match: jest.fn(async () => new Response('tampered asset')),
+      delete: jest.fn(() => Promise.reject(new Error('QuotaExceededError'))),
+    };
+
+    await expect(
+      matchVerifiedTradingViewCachedResponse(
+        cache,
+        request,
+        createAsset('verified asset'),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  test('returns undefined on a cache miss without deleting', async () => {
+    const cache = {
+      match: jest.fn(async () => undefined),
+      delete: jest.fn(async () => true),
+    };
+
+    await expect(
+      matchVerifiedTradingViewCachedResponse(
+        cache,
+        request,
+        createAsset('verified asset'),
+      ),
+    ).resolves.toBeUndefined();
+    expect(cache.delete).not.toHaveBeenCalled();
   });
 });
 
