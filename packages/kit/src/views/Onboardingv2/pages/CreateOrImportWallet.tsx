@@ -323,7 +323,7 @@ function CreateOrImportWallet() {
     <ListItem
       key={key}
       testID={
-        key === 'watch'
+        key === 'external' || key === 'watch'
           ? OnboardingTestIDs.createOrImportWalletOptionBtn(key)
           : undefined
       }
