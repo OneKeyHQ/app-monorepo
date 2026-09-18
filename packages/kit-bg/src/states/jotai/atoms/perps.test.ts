@@ -14,6 +14,7 @@ import {
   perpsAccountLoadingInfoAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountEnableTradingModeAtom,
+  perpsActiveAccountMmrAtom,
   perpsActiveAccountStatusAtom,
   perpsActiveAccountStatusInfoAtom,
   perpsActiveAccountSummaryAtom,
@@ -684,6 +685,7 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       totalMarginUsed: undefined,
       crossAccountValue: '900',
       crossMaintenanceMarginUsed: undefined,
+      isolatedMarginUsed: undefined,
       totalNtlPos: undefined,
       totalRawUsd: undefined,
       // Per-dex perp withdrawable (not meaningful in unified/PM); set != USDC
@@ -791,5 +793,109 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
         isLoading: false,
       },
     );
+  });
+});
+
+describe('perpsActiveAccountMmrAtom', () => {
+  const ADDR = '0xabc';
+
+  function seedAtoms(params: {
+    mode?: EHyperLiquidAbstractionMode;
+    spotAddress?: `0x${string}`;
+  }) {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-1',
+      deriveType: 'default',
+      accountAddress: ADDR,
+    });
+    jotaiDefaultStore.set(
+      perpsAbstractionModeAtom.atom(),
+      params.mode
+        ? { accountAddress: ADDR, mode: params.mode, source: 'live' }
+        : undefined,
+    );
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), {
+      accountAddress: ADDR,
+      accountValue: '10.768008',
+      totalMarginUsed: '10.46045',
+      crossAccountValue: '10.768008',
+      crossMaintenanceMarginUsed: '5.230225',
+      isolatedMarginUsed: '0',
+      totalNtlPos: undefined,
+      totalRawUsd: undefined,
+      withdrawable: undefined,
+      totalUnrealizedPnl: undefined,
+    });
+    jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), {
+      accountAddress: params.spotAddress ?? ADDR,
+      spotTotalUsd: '550',
+      balances: [
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '513.85341389',
+          hold: '10.46045',
+          entryNtl: '0',
+        },
+      ],
+    });
+  }
+
+  afterEach(() => {
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: null,
+      indexedAccountId: null,
+      deriveType: 'default',
+      accountAddress: null,
+    });
+    jotaiDefaultStore.set(perpsAbstractionModeAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), undefined);
+    jotaiDefaultStore.set(perpsSpotBalancesAtom.atom(), undefined);
+  });
+
+  it('rates a unified account against its spot USDC, not the perp-side hold', () => {
+    seedAtoms({ mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom()),
+    ).toMatchObject({ status: 'ready', mmrPercent: '1.02' });
+  });
+
+  it('stays loading while the account mode is unknown', () => {
+    seedAtoms({});
+
+    expect(jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom())).toEqual({
+      status: 'loading',
+      mmr: null,
+      mmrPercent: null,
+    });
+  });
+
+  it("does not rate against another account's spot balance", () => {
+    seedAtoms({
+      mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      spotAddress: '0xother',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom()),
+    ).toMatchObject({ status: 'loading' });
+  });
+
+  it('is unavailable under portfolio margin', () => {
+    seedAtoms({ mode: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom()),
+    ).toMatchObject({ status: 'unavailable', mmrPercent: null });
+  });
+
+  it('shows nothing without an active account', () => {
+    expect(jotaiDefaultStore.get(perpsActiveAccountMmrAtom.atom())).toEqual({
+      status: 'ready',
+      mmr: null,
+      mmrPercent: null,
+    });
   });
 });
