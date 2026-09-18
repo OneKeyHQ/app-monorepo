@@ -23,9 +23,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EModalRoutes, EModalWebViewRoutes } from '@onekeyhq/shared/src/routes';
 import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 
 import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
@@ -137,13 +138,21 @@ type IReceiveRiskSupportedAssetsContentProps = {
   contentContainerProps?: IYStackProps;
 };
 
-function openReceiveRiskMonitoringHelpLink(intl: ReturnType<typeof useIntl>) {
-  openUrlInApp(
-    RECEIVE_RISK_MONITORING_HELP_LINK,
-    intl.formatMessage({
-      id: ETranslations.prime_feature_receive_risk_monitoring__title,
-    }),
-  );
+export function useOpenReceiveRiskMonitoringHelp() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+
+  return useCallback(() => {
+    navigation.pushModal(EModalRoutes.WebViewModal, {
+      screen: EModalWebViewRoutes.WebView,
+      params: {
+        url: RECEIVE_RISK_MONITORING_HELP_LINK,
+        title: intl.formatMessage({
+          id: ETranslations.prime_feature_receive_risk_monitoring__title,
+        }),
+      },
+    });
+  }, [intl, navigation]);
 }
 
 export function ReceiveRiskSupportedAssetsContent({
@@ -246,9 +255,7 @@ export function ReceiveRiskSupportedAssetsDialogContent(
   props: IReceiveRiskSupportedAssetsContentProps,
 ) {
   const intl = useIntl();
-  const handleOpenHelp = useCallback(() => {
-    openReceiveRiskMonitoringHelpLink(intl);
-  }, [intl]);
+  const handleOpenHelp = useOpenReceiveRiskMonitoringHelp();
 
   return (
     <>
@@ -276,16 +283,16 @@ export function ReceiveRiskSupportedAssetsDialogContent(
 
 const ReceiveRiskSupportedAssetsPage = () => {
   const intl = useIntl();
+  const handleOpenHelp = useOpenReceiveRiskMonitoringHelp();
   const headerRight = useCallback(
     () => (
       <HeaderIconButton
         icon="QuestionmarkOutline"
-        onPress={() => {
-          openReceiveRiskMonitoringHelpLink(intl);
-        }}
+        testID="receive-risk-supported-assets-help"
+        onPress={handleOpenHelp}
       />
     ),
-    [intl],
+    [handleOpenHelp],
   );
 
   return (

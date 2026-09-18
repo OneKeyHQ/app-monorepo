@@ -514,3 +514,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The selector list uses persist-taps, so a row tap never blurs the SearchBar. Closing the modal alone does not blur the RN input.
 **Fix**: Blur the focused RN input (`blurFocusedInput`) on select. Do not use `dismissKeyboard` here — its Android `hideSoftInputFromWindow` blocks the next programmatic `autoFocus` from showing the IME.
 **Catchable by**: Section 5: stale IME / focus state after dismiss; NEW — closing an autoFocused overlay must blur its input, and window-level IME hiding must not be used on a path that later autoFocuses
+
+## Case: Receive-risk supported-assets help opened behind the assets dialog
+**Date**: 2026-09-18 | **Platforms**: desktop, iOS, Android
+**Symptom**: Tapping the question mark on the supported-monitoring-assets screen opened the help WebView behind the current page, so it could not be read or dismissed.
+**Root Cause**: The help action used `openUrlInApp` → `navigate(ERootRoutes.Modal, WebViewModal)` while already inside the Settings modal. `navigate` updates the same root Modal slot, and the assets Dialog is portaled above that navigator's StackView, so the WebView landed one layer behind.
+**Fix**: Open help with `pushModal(EModalRoutes.WebViewModal)` like the KYT risk-detail page, and leave the assets Dialog/page mounted underneath.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope — a help URL opened from an in-modal Dialog must push a new root Modal, not `navigate` the current one
