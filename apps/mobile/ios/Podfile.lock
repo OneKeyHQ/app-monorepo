@@ -3966,7 +3966,7 @@ DEPENDENCIES:
   - "ReactNativeDeviceUtils (from `../../../node_modules/@onekeyfe/react-native-device-utils`)"
   - ReactNativeFs (from `../../../node_modules/react-native-fs`)
   - ReactNativeGetRandomValues (from `../../../node_modules/react-native-get-random-values`)
-  - ReactNativeImageCropPicker (from `../../../node_modules/react-native-image-crop-picker`)
+  - "ReactNativeImageCropPicker (from `../../../node_modules/@onekeyfe/react-native-image-crop-picker`)"
   - "ReactNativeLiteCard (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - "ReactNativeNativeLogger (from `../../../node_modules/@onekeyfe/react-native-native-logger`)"
   - "ReactNativeNetworkThrottle (from `../../../node_modules/@onekeyfe/react-native-network-throttle`)"
@@ -4353,7 +4353,7 @@ EXTERNAL SOURCES:
   ReactNativeGetRandomValues:
     :path: "../../../node_modules/react-native-get-random-values"
   ReactNativeImageCropPicker:
-    :path: "../../../node_modules/react-native-image-crop-picker"
+    :path: "../../../node_modules/@onekeyfe/react-native-image-crop-picker"
   ReactNativeLiteCard:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   ReactNativeNativeLogger:
