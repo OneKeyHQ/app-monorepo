@@ -358,11 +358,65 @@ it('keeps cached rows when remote revalidation fails', async () => {
     useMarketStockSelectorList({ query: '' }),
   );
   expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
 
-  await waitFor(() => expect(fetchList).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(result.current.isRevalidatingFirstPage).toBe(false),
+  );
   expect(result.current.items).toEqual(firstPage.items);
   expect(result.current.isError).toBe(false);
   expect(result.current.isLoading).toBe(false);
+  expect(result.current.canLoadMore).toBe(true);
+});
+
+it('replays cached rows immediately but waits for remote page one before pagination', async () => {
+  seedHomeStockList(firstPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isLoading).toBe(false);
+  expect(result.current.canLoadMore).toBe(false);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+
+  await act(async () => result.current.loadMore());
+  expect(fetchList.mock.calls.every(([params]) => !params?.cursor)).toBe(true);
+
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+  await waitFor(() => expect(result.current.canLoadMore).toBe(true));
+  expect(result.current.isRevalidatingFirstPage).toBe(false);
+});
+
+it('queues end-reached during first-page revalidation', async () => {
+  seedHomeStockList(firstPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+  await act(async () => result.current.loadMore());
+
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor ? secondPage : firstPage,
+  );
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+  await waitFor(() =>
+    expect(result.current.items.map((item) => item.stockId)).toEqual([
+      'AAPL',
+      'MSFT',
+    ]),
+  );
 });
 
 it('keeps the same table during pagination with the real selector hook', async () => {

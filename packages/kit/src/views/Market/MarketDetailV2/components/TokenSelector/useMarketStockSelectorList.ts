@@ -114,6 +114,13 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadMoreError, setIsLoadMoreError] = useState(false);
   const loadMoreRequestRef = useRef<object | undefined>(undefined);
+  const queuedLoadMoreRef = useRef<string | undefined>(undefined);
+  const remoteQueryKeyRef = useRef<string | undefined>(undefined);
+  const previousQueryKeyRef = useRef(queryKey);
+  if (previousQueryKeyRef.current !== queryKey) {
+    previousQueryKeyRef.current = queryKey;
+    remoteQueryKeyRef.current = undefined;
+  }
 
   const {
     result: firstPageResult,
@@ -121,6 +128,7 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     run: refresh,
   } = usePromiseResult<IMarketStockSelectorListResult>(
     async () => {
+      const requestQueryKey = queryKey;
       try {
         const response = normalizedQuery
           ? await backgroundApiProxy.serviceMarketV2.searchMarketStocks({
@@ -130,9 +138,15 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
           : await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
               limit: MARKET_STOCK_SELECTOR_PAGE_SIZE,
             });
-        return { queryKey, response };
+        if (queryKeyRef.current === requestQueryKey) {
+          remoteQueryKeyRef.current = requestQueryKey;
+        }
+        return { queryKey: requestQueryKey, response };
       } catch {
-        return { queryKey, failed: true };
+        if (queryKeyRef.current === requestQueryKey) {
+          remoteQueryKeyRef.current = requestQueryKey;
+        }
+        return { queryKey: requestQueryKey, failed: true };
       }
     },
     [normalizedQuery, queryKey],
@@ -184,12 +198,17 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
   const isFirstPagePending =
     firstPageResult?.queryKey !== queryKey ||
     (!firstPageResult?.response && !firstPageResult?.failed);
+  const isAwaitingRemoteFirstPage = remoteQueryKeyRef.current !== queryKey;
+  const isRevalidatingFirstPage = isAwaitingRemoteFirstPage && items.length > 0;
 
   const loadMore = useCallback(async () => {
+    if (isLoading || isAwaitingRemoteFirstPage) {
+      queuedLoadMoreRef.current = queryKey;
+      return;
+    }
     if (
       !hasCurrentData ||
       !nextCursor ||
-      isLoading ||
       isLoadingMore ||
       loadMoreRequestRef.current !== undefined
     ) {
@@ -247,10 +266,28 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     }
   }, [
     hasCurrentData,
+    isAwaitingRemoteFirstPage,
     isLoading,
     isLoadingMore,
     nextCursor,
     normalizedQuery,
+    queryKey,
+  ]);
+
+  useEffect(() => {
+    if (isLoading || isAwaitingRemoteFirstPage) {
+      return;
+    }
+    const queuedQueryKey = queuedLoadMoreRef.current;
+    queuedLoadMoreRef.current = undefined;
+    if (queuedQueryKey === queryKey && !isFirstPageError) {
+      void loadMore();
+    }
+  }, [
+    isAwaitingRemoteFirstPage,
+    isFirstPageError,
+    isLoading,
+    loadMore,
     queryKey,
   ]);
 
@@ -264,7 +301,9 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     isError: isFirstPageError && items.length === 0,
     isLoadingMore,
     isLoadMoreError,
-    canLoadMore: Boolean(nextCursor) && hasCurrentData && !isLoading,
+    canLoadMore:
+      Boolean(nextCursor) && hasCurrentData && !isAwaitingRemoteFirstPage,
+    isRevalidatingFirstPage,
     loadMore,
     refresh,
   };

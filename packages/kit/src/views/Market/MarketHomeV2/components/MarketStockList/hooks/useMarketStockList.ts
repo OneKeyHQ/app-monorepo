@@ -94,7 +94,6 @@ export function useMarketStockList({ category }: { category?: string }) {
     remoteQueryKeyRef.current = undefined;
   }
   const swrKey = useMemo(() => {
-    if (!platformEnv.isNative) return undefined;
     const key = swrKeys.marketHomeStocks(queryKey);
     if (
       swrCacheUtils.getWithTimestamp(key) &&
