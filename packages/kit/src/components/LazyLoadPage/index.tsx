@@ -16,6 +16,22 @@ type IExtractComponentProps<T> = T extends () => Promise<{
   ? P
   : never;
 
+// Desktop-mode tab pages render BasicPage as a rounded card. This backdrop
+// fills the area around its rounded corners.
+export function LazyLoadPageBackdrop({ children }: { children: ReactNode }) {
+  const isDesktopModeUI = useIsDesktopModeUIInTabPages();
+
+  return (
+    <Stack
+      flex={1}
+      className="LazyLoadPageContainer"
+      bg={isDesktopModeUI ? '$bgSubdued' : '$bgApp'}
+    >
+      {children}
+    </Stack>
+  );
+}
+
 export function LazyLoadPage<
   T extends () => Promise<{ default: ComponentType<any> }>,
 >(
@@ -37,20 +53,14 @@ export function LazyLoadPage<
     fallback ?? defaultFallback,
   );
   function LazyLoadPageContainer(props: IExtractComponentProps<T>) {
-    const isDesktopModeUI = useIsDesktopModeUIInTabPages();
-
     if (unStyle) {
       return <LazyLoadComponent {...props} />;
     }
 
     return (
-      <Stack
-        flex={1}
-        className="LazyLoadPageContainer"
-        bg={isDesktopModeUI ? '$bgSubdued' : '$bgApp'}
-      >
+      <LazyLoadPageBackdrop>
         <LazyLoadComponent {...props} />
-      </Stack>
+      </LazyLoadPageBackdrop>
     );
   }
   return memo(LazyLoadPageContainer) as ComponentType<

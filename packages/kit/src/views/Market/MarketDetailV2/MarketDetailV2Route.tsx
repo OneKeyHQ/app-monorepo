@@ -8,7 +8,10 @@ import type {
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import {
+  LazyLoadPage,
+  LazyLoadPageBackdrop,
+} from '../../../components/LazyLoadPage';
 
 import {
   getPreloadedMarketDetailV2Shell,
@@ -47,7 +50,15 @@ export function createMarketDetailV2Route(
       : getPreloadedMarketDetailV2Shell()?.default;
 
     if (PreloadedMarketDetailV2) {
-      return <PreloadedMarketDetailV2 {...props} />;
+      const content = <PreloadedMarketDetailV2 {...props} />;
+      // Rendering the preloaded shell directly also skips LazyLoadPage's
+      // backdrop. Without it, the square stack card background shows around
+      // the rounded corners of the desktop-mode BasicPage card.
+      return platformEnv.isNative ? (
+        content
+      ) : (
+        <LazyLoadPageBackdrop>{content}</LazyLoadPageBackdrop>
+      );
     }
 
     return <LazyMarketDetailV2Route {...props} />;
