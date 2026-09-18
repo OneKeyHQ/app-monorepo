@@ -117,6 +117,7 @@ export function PerpSettingsButton({
           </Stack>
           {showActivityCenterEntry ? (
             <PerpsActivityCenterAction
+              nativeSheet
               copyAsUrl
               open={isActivityCenterOpen}
               onOpenChange={setIsActivityCenterOpen}

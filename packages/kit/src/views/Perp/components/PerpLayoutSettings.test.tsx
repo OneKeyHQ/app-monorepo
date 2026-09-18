@@ -163,6 +163,7 @@ describe('PerpLayoutSettings', () => {
     expect(Dialog.show).toHaveBeenCalledWith(
       expect.objectContaining({
         title: '布局设置',
+        nativeSheet: true,
         showFooter: false,
         renderContent: expect.any(Object),
       }),

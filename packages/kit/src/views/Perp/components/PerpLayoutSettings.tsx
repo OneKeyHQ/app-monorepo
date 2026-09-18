@@ -294,6 +294,7 @@ export function PerpLayoutSettingsContent() {
 export function showPerpLayoutSettingsDialog({ title }: { title: string }) {
   return Dialog.show({
     title,
+    nativeSheet: true,
     showFooter: false,
     contentContainerProps: {
       p: '$0',

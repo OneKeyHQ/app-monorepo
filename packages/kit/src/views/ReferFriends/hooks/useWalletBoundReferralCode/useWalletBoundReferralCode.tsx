@@ -335,13 +335,16 @@ export function useWalletBoundReferralCode({
       onSuccess,
       onClose,
       defaultReferralCode,
+      nativeSheet,
     }: {
       wallet?: IDBWallet;
       onSuccess?: () => void;
       onClose?: () => void;
       defaultReferralCode?: string;
+      nativeSheet?: boolean;
     }) => {
       dialog.show({
+        nativeSheet,
         showExitButton: true,
         onClose,
         title: intl.formatMessage({

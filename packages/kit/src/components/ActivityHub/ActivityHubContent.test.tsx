@@ -162,6 +162,7 @@ describe('ActivityHubContent', () => {
         undefined,
         'Swap',
         true,
+        false,
       ),
     );
 
@@ -171,6 +172,30 @@ describe('ActivityHubContent', () => {
 
     resolveClose?.();
     await waitFor(() => expect(onOpenInviteeReward).toHaveBeenCalledTimes(1));
+  });
+
+  it('forwards the native sheet option to the invite share dialog', async () => {
+    render(
+      <ActivityHubContent
+        source="Perps"
+        copyAsUrl
+        nativeSheet
+        closePopover={jest.fn()}
+        onOpenInviteeReward={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('activity-hub-invite'));
+
+    await waitFor(() =>
+      expect(mockShareReferRewards).toHaveBeenCalledWith(
+        undefined,
+        undefined,
+        'Perps',
+        true,
+        true,
+      ),
+    );
   });
 
   it.each([

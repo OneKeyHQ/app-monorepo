@@ -286,6 +286,7 @@ export const useReferFriends = () => {
       _onFail?: () => void,
       source: IReferralShareSource = 'Earn',
       copyAsUrl = false,
+      nativeSheet = false,
     ) => {
       const [isLogin, postConfig] = await Promise.all([
         backgroundApiProxy.servicePrime.isLoggedIn(),
@@ -349,7 +350,13 @@ export const useReferFriends = () => {
         } else {
           try {
             await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
-            void shareReferRewards(_onSuccess, _onFail, source, copyAsUrl);
+            void shareReferRewards(
+              _onSuccess,
+              _onFail,
+              source,
+              copyAsUrl,
+              nativeSheet,
+            );
           } catch {
             // User cancelled login, do nothing
           }
@@ -473,6 +480,7 @@ export const useReferFriends = () => {
       };
 
       const dialog = Dialog.show({
+        nativeSheet,
         icon: 'GiftOutline',
         title: sourceConfig?.title,
         description:

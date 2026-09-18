@@ -702,6 +702,7 @@ export function showPerpSettingsDialog({
 
   const dialogInstance = Dialog.show({
     title,
+    nativeSheet: true,
     showFooter: false,
     contentContainerProps: {
       p: '$0',

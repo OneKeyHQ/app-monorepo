@@ -11,7 +11,11 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { showInviteeRewardDialog } from '../InviteeRewardContent';
 
-export function useShowInviteeRewardModal() {
+export function useShowInviteeRewardModal({
+  nativeSheet = false,
+}: {
+  nativeSheet?: boolean;
+} = {}) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const dialogInTab = useInTabDialog();
@@ -50,6 +54,7 @@ export function useShowInviteeRewardModal() {
     if (shouldBound) {
       bindWalletInviteCode({
         wallet,
+        nativeSheet,
         onSuccess: () => {
           if (gtMd) {
             void showInviteeRewardDialog(dialogInTab);
@@ -76,6 +81,7 @@ export function useShowInviteeRewardModal() {
     navigation,
     getReferralCodeBondStatus,
     bindWalletInviteCode,
+    nativeSheet,
   ]);
 
   return { showInviteeRewardModal: showModal };

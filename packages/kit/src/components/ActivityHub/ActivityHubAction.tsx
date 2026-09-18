@@ -29,6 +29,7 @@ export function ActivityHubAction({
   onOpenChange,
   testID = 'header-gift-action',
   triggerProps,
+  nativeSheet = false,
 }: {
   source: IActivityHubSource;
   size?: IButtonProps['size'];
@@ -43,6 +44,7 @@ export function ActivityHubAction({
     ComponentProps<typeof HeaderIconButton>,
     'icon' | 'title' | 'onPress'
   >;
+  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -60,6 +62,7 @@ export function ActivityHubAction({
     <Popover
       open={open}
       onOpenChange={onOpenChange}
+      nativeSheet={nativeSheet}
       title={activityCenterTitle}
       showHeader={!gtMd}
       placement="bottom-end"
@@ -92,6 +95,7 @@ export function ActivityHubAction({
           isCompactPanel={isCompactPanel}
           onOpenInviteeReward={onOpenInviteeReward}
           campaigns={campaigns}
+          nativeSheet={nativeSheet}
         />
       )}
     />

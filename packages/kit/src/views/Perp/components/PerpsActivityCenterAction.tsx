@@ -10,8 +10,14 @@ import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jot
 
 import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
 
-function usePerpsActivityHubProps() {
-  const { showInviteeRewardModal } = useShowInviteeRewardModal();
+function usePerpsActivityHubProps({
+  nativeSheet,
+}: {
+  nativeSheet?: boolean;
+} = {}) {
+  const { showInviteeRewardModal } = useShowInviteeRewardModal({
+    nativeSheet,
+  });
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const campaigns = useMemo(
     () => perpConfigCommon?.activityCards ?? [],
@@ -54,14 +60,18 @@ export function PerpsActivityCenterAction({
   renderTrigger,
   open,
   onOpenChange,
+  nativeSheet = false,
 }: {
   size?: IButtonProps['size'];
   copyAsUrl?: boolean;
   renderTrigger?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  nativeSheet?: boolean;
 }) {
-  const { campaigns, handleOpenInviteeReward } = usePerpsActivityHubProps();
+  const { campaigns, handleOpenInviteeReward } = usePerpsActivityHubProps({
+    nativeSheet,
+  });
 
   return (
     <ActivityHubAction
@@ -71,6 +81,7 @@ export function PerpsActivityCenterAction({
       renderTrigger={renderTrigger}
       open={open}
       onOpenChange={onOpenChange}
+      nativeSheet={nativeSheet}
       onOpenInviteeReward={handleOpenInviteeReward}
       campaigns={campaigns}
     />

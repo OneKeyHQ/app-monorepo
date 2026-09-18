@@ -183,6 +183,7 @@ export function ActivityHubContent({
   isCompactPanel = false,
   onOpenInviteeReward,
   campaigns,
+  nativeSheet = false,
 }: {
   source: IActivityHubSource;
   copyAsUrl?: boolean;
@@ -193,6 +194,7 @@ export function ActivityHubContent({
   isCompactPanel?: boolean;
   onOpenInviteeReward: () => void;
   campaigns?: IActivityHubCampaign[];
+  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -232,7 +234,13 @@ export function ActivityHubContent({
             })}
             onPress={() => {
               closeThenRun(closePopover, () => {
-                void shareReferRewards(undefined, undefined, source, copyAsUrl);
+                void shareReferRewards(
+                  undefined,
+                  undefined,
+                  source,
+                  copyAsUrl,
+                  nativeSheet,
+                );
               });
             }}
           />
