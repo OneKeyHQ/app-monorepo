@@ -115,8 +115,11 @@ class ServiceApp extends ServiceBase {
     // clean app storage
     try {
       await appStorage.clear();
-    } catch {
+    } catch (error) {
       console.error('appStorage.clear() error');
+      if (platformEnv.isNative) {
+        throw error;
+      }
     }
     defaultLogger.setting.page.clearDataStep('appStorage-clear');
 
