@@ -21,6 +21,9 @@ let mockPreloadedComponent:
   | undefined;
 
 jest.mock('../../../components/LazyLoadPage', () => ({
+  LazyLoadPageBackdrop: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="page-backdrop">{children}</div>
+  ),
   LazyLoadPage: () =>
     function MockLazyRoute(props: {
       route: { params: { tokenAddress: string } };
@@ -48,12 +51,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     isDesktop: true,
     isWeb: false,
+    isNative: false,
   },
 }));
 
 const mockedPlatformEnv = platformEnv as typeof platformEnv & {
   isDesktop: boolean;
   isWeb: boolean;
+  isNative: boolean;
 };
 
 function MockDirectRoute(props: {
@@ -90,6 +95,7 @@ describe('createMarketDetailV2Route', () => {
     mockPreloadedComponent = undefined;
     mockedPlatformEnv.isDesktop = true;
     mockedPlatformEnv.isWeb = false;
+    mockedPlatformEnv.isNative = false;
   });
 
   it('keeps a cold-loaded route mounted after preload finishes', () => {
@@ -115,8 +121,21 @@ describe('createMarketDetailV2Route', () => {
     expect(mockDirectMounts).toEqual({ mounted: 1, unmounted: 0 });
   });
 
+  it('keeps the page backdrop around the preloaded shell on desktop and web', () => {
+    mockPreloadedComponent = MockDirectRoute;
+    const MarketDetailRoute = createMarketDetailV2Route();
+    const view = render(<MarketDetailRoute {...buildRouteProps('ready')} />);
+
+    expect(
+      view
+        .getByTestId('page-backdrop')
+        .contains(view.getByTestId('direct-route')),
+    ).toBe(true);
+  });
+
   it('preserves the existing component selection behavior on native routes', () => {
     mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
     const MarketDetailRoute = createMarketDetailV2Route();
     const view = render(<MarketDetailRoute {...buildRouteProps('first')} />);
 
@@ -124,6 +143,7 @@ describe('createMarketDetailV2Route', () => {
     view.rerender(<MarketDetailRoute {...buildRouteProps('second')} />);
 
     expect(view.getByTestId('direct-route').textContent).toBe('second');
+    expect(view.queryByTestId('page-backdrop')).toBeNull();
     expect(mockLazyMounts).toEqual({ mounted: 1, unmounted: 1 });
     expect(mockDirectMounts).toEqual({ mounted: 1, unmounted: 0 });
   });
