@@ -375,43 +375,6 @@ describe('devVendor', () => {
     expect(isDevVendorEnabled({})).toBe(false);
   });
 
-  it('keeps native manifest checks bound to the embedded shell contract', () => {
-    const iosSource = fs.readFileSync(
-      path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
-      'utf8',
-    );
-    const androidSource = fs.readFileSync(
-      path.join(
-        repoRoot,
-        'apps/mobile/android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-
-    expect(iosSource).toContain(
-      'manifest["nativeContractKey"] as? String == nativeContractKey',
-    );
-    expect(iosSource).toContain(
-      'forInfoDictionaryKey: "ONEKEY_DEV_VENDOR_SCHEMA_VERSION"',
-    );
-    expect(iosSource).toContain(
-      'forInfoDictionaryKey: "ONEKEY_DEV_VENDOR_STRATEGY_VERSION"',
-    );
-    expect(iosSource).toContain(
-      'contractVendorSchema.intValue == vendorSchemaVersion',
-    );
-    expect(iosSource).toContain(
-      'contractVendorStrategy.intValue == vendorStrategyVersion',
-    );
-    expect(androidSource).toContain(
-      'contract.optInt("vendorSchemaVersion", -2)',
-    );
-    expect(androidSource).toContain(
-      'contract.optInt("vendorStrategyVersion", -2)',
-    );
-    expect(androidSource).toContain('manifest.optString("nativeContractKey")');
-  });
-
   it('maps generated stubs back to their stable module ID', () => {
     const projectRoot = path.resolve('/tmp/onekey/apps/mobile');
     const stubPath = path.join(

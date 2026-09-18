@@ -1,6 +1,9 @@
+import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
+
 import {
   decodeCoinFromUrl,
   encodeCoinForUrl,
+  findSpotUniverseByUrlToken,
 } from './usePerpTokenUrlSync.utils';
 
 describe('encodeCoinForUrl', () => {
@@ -70,5 +73,42 @@ describe('decodeCoinFromUrl', () => {
       isAmbiguousLegacyGuess: false,
       unverifiedFallbackCoin: 'BTC',
     });
+  });
+});
+
+describe('findSpotUniverseByUrlToken', () => {
+  const buildUniverse = (
+    name: string,
+    baseName: string,
+    quoteName: string,
+  ): ISpotUniverse =>
+    ({ name, baseName, quoteName }) as unknown as ISpotUniverse;
+  const universes = [
+    buildUniverse('PURR/USDC', 'PURR', 'USDC'),
+    buildUniverse('@107', 'HYPE', 'USDC'),
+    buildUniverse('@232', 'HYPE', 'USDH'),
+    buildUniverse('@300', 'ONLYH', 'USDH'),
+  ];
+
+  it('matches the BASE_QUOTE form the app writes to the address bar', () => {
+    expect(findSpotUniverseByUrlToken(universes, 'HYPE_USDH')?.name).toBe(
+      '@232',
+    );
+  });
+
+  it('keeps accepting legacy raw market names', () => {
+    expect(findSpotUniverseByUrlToken(universes, '@107')?.name).toBe('@107');
+    expect(findSpotUniverseByUrlToken(universes, 'PURR/USDC')?.name).toBe(
+      'PURR/USDC',
+    );
+  });
+
+  it('reads a bare base as its USDC market', () => {
+    expect(findSpotUniverseByUrlToken(universes, 'HYPE')?.name).toBe('@107');
+  });
+
+  it('does not guess another quote when the base has no USDC market', () => {
+    expect(findSpotUniverseByUrlToken(universes, 'ONLYH')).toBeUndefined();
+    expect(findSpotUniverseByUrlToken(universes, 'NOPE')).toBeUndefined();
   });
 });

@@ -16,6 +16,7 @@ jest.mock('react-intl', () => ({
 
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
+const mockNavigationSetParams = jest.fn();
 const mockClearTokenDetail = jest.fn();
 const mockPrepareStockTokenDetail = jest.fn();
 const mockPrepareTokenDetailPreview = jest.fn();
@@ -33,6 +34,18 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({ name: mockCurrentRouteName })),
+  CommonActions: {
+    setParams: (params: unknown) => ({
+      type: 'SET_PARAMS',
+      payload: { params },
+    }),
+  },
+  StackActions: {
+    replace: (name: string, params: unknown) => ({
+      type: 'REPLACE',
+      payload: { name, params },
+    }),
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -90,6 +103,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: jest.fn(() => ({
     push: mockNavigationPush,
     replace: mockNavigationReplace,
+    setParams: mockNavigationSetParams,
     switchTab: jest.fn(),
   })),
 }));
@@ -634,14 +648,16 @@ describe('useToDetailPage', () => {
       });
     });
 
-    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
-      tokenAddress: '',
-      network: 'eth',
-      isNative: true,
-      from: undefined,
-      marketTokenId: 'ethereum',
-      marketTokenCategory: 'top_coins',
-    });
+    expect(mockNavigationSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokenAddress: '',
+        network: 'eth',
+        isNative: true,
+        marketTokenId: 'ethereum',
+        marketTokenCategory: 'top_coins',
+      }),
+    );
+    expect(mockNavigationPush).not.toHaveBeenCalled();
     expect(mockNavigationReplace).not.toHaveBeenCalled();
   });
 

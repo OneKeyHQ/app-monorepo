@@ -71,6 +71,20 @@ export function resolveStockSimpleChartPulseLastPoint({
   );
 }
 
+export function resolveStockSimpleChartLivePrice({
+  priceMode,
+  stockDetail,
+  tokenDetail,
+}: {
+  priceMode: 'share' | 'token';
+  stockDetail?: { price?: string } | null;
+  tokenDetail?: { price?: string } | null;
+}): string | undefined {
+  const rawPrice =
+    priceMode === 'share' ? stockDetail?.price : tokenDetail?.price;
+  return rawPrice?.trim() || undefined;
+}
+
 type IStockSimpleChartRequestParams = {
   coinGeckoId?: string;
   isNative: boolean;
@@ -153,6 +167,103 @@ const MARKET_ASSET_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1H': '5m',
   '1D': '5m',
 };
+
+export function resolveStockSimpleChartBucketSeconds({
+  coinGeckoId,
+  marketAssetId,
+  priceMode,
+  range,
+}: {
+  coinGeckoId?: string;
+  marketAssetId?: string;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): number | undefined {
+  if (priceMode === 'share') {
+    return undefined;
+  }
+  if (marketAssetId) {
+    return getMarketApiKLineIntervalSeconds(
+      MARKET_ASSET_CHART_INTERVALS[range],
+    );
+  }
+  if (coinGeckoId || range === 'All') {
+    return undefined;
+  }
+  return getMarketApiKLineIntervalSeconds(STOCK_TOKEN_CHART_INTERVALS[range]);
+}
+
+function shouldDropLiveMergeTailPoint({
+  intervalSeconds,
+  nowSeconds,
+  timestamp,
+}: {
+  intervalSeconds?: number;
+  nowSeconds: number;
+  timestamp: number;
+}): boolean {
+  if (timestamp > nowSeconds) {
+    return true;
+  }
+  return Boolean(
+    intervalSeconds &&
+    intervalSeconds > 0 &&
+    timestamp + intervalSeconds > nowSeconds,
+  );
+}
+
+/**
+ * Pins the line's last displayed price to the title quote without rewriting a
+ * closed bucket's cutoff. K-line `t` is the bucket start, so a still-open (or
+ * clock-ahead) bucket is dropped and replaced by a single `[now, livePrice]`
+ * point. The live tail is always appended so the last label matches the title,
+ * including pre-market / stale 1H windows.
+ */
+export function mergeStockSimpleChartLivePrice({
+  intervalSeconds,
+  livePrice,
+  nowSeconds,
+  points,
+}: {
+  intervalSeconds?: number;
+  livePrice?: string | number;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+}): IMarketTokenChart {
+  const price = Number(livePrice);
+  if (
+    points.length === 0 ||
+    !Number.isFinite(price) ||
+    price <= 0 ||
+    !Number.isFinite(nowSeconds)
+  ) {
+    return points;
+  }
+
+  let keptLength = points.length;
+  while (
+    keptLength > 0 &&
+    shouldDropLiveMergeTailPoint({
+      intervalSeconds,
+      nowSeconds,
+      timestamp: points[keptLength - 1][0],
+    })
+  ) {
+    keptLength -= 1;
+  }
+  if (keptLength === 0) {
+    return [[nowSeconds, price]];
+  }
+  const historical =
+    keptLength === points.length ? points : points.slice(0, keptLength);
+
+  const lastClosedTimestamp = historical[historical.length - 1][0];
+  if (nowSeconds === lastClosedTimestamp) {
+    return [...historical.slice(0, -1), [nowSeconds, price]];
+  }
+
+  return [...historical, [nowSeconds, price]];
+}
 
 // Five minutes short of a day, to stay on the 5m series. The chart loses its
 // oldest bucket, which reads the same at this scale as a full day.
