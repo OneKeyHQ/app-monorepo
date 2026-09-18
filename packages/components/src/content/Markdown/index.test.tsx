@@ -24,8 +24,10 @@ jest.mock('react-native', () => {
   };
 });
 
+let mockGtMd = true;
+
 jest.mock('../../hooks/useStyle', () => ({
-  useMedia: () => ({ gtMd: true }),
+  useMedia: () => ({ gtMd: mockGtMd }),
 }));
 
 jest.mock('../../primitives/SizeableText', () => ({
@@ -145,6 +147,26 @@ describe('Markdown renderer parity with the previous renderer', () => {
     expect(bold.length).toBeGreaterThan(0);
     bold.forEach((node) => expect(node.props.size).toBe('$bodyMd'));
     expect(boldItalic?.props.size).toBe('$bodyMd');
+  });
+
+  it('keeps inline marks at the mobile body size and heading font size', async () => {
+    mockGtMd = false;
+    try {
+      const elements = await renderMarkdown(
+        '## **Important** update\n\n- **Bold** _em_ ~~s~~ `code` [link](https://onekey.so)',
+      );
+      const texts = elements.filter((node) => node.type === 'SizableText');
+      const headingBold = texts.find(
+        (node) =>
+          node.props.fontSize === 24 && node.props.fontWeight === 'bold',
+      );
+
+      expect(texts.length).toBeGreaterThan(0);
+      texts.forEach((node) => expect(node.props.size).toBe('$bodyLg'));
+      expect(headingBold?.props.size).toBe('$bodyLg');
+    } finally {
+      mockGtMd = true;
+    }
   });
 
   it('renders h3 with the previous font size inside a body-size line', async () => {
