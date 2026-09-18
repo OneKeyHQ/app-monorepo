@@ -1036,12 +1036,15 @@ describe('nativeStorageExecutor', () => {
       scope: 'bootstrap',
     })) as {
       coldStart: Array<[string, IScalar]>;
+      swrCacheEntries: Array<[string, string]>;
     };
-    const snapshotValue = new Map(snapshot.coldStart).get('onekey_swr_cache');
-    const snapshotStore = JSON.parse(snapshotValue as string) as Record<
-      string,
-      { d: unknown; t: number }
-    >;
+    expect(new Map(snapshot.coldStart).has('onekey_swr_cache')).toBe(false);
+    const snapshotStore = Object.fromEntries(
+      snapshot.swrCacheEntries.map(([key, serialized]) => [
+        key,
+        JSON.parse(serialized) as { d: unknown; t: number },
+      ]),
+    );
     const persistedStore = readPersistedSWRCache() as Record<
       string,
       { d: unknown; t: number }
@@ -1080,13 +1083,12 @@ describe('nativeStorageExecutor', () => {
     const snapshot = (await executeNativeStorageRequest({
       scope: 'bootstrap',
     })) as {
-      coldStart: Array<[string, IScalar]>;
+      swrCacheEntries: Array<[string, string]>;
     };
-    const snapshotValue = new Map(snapshot.coldStart).get('onekey_swr_cache');
-    const bootstrapStore = JSON.parse(snapshotValue as string) as Record<
-      string,
-      unknown
-    >;
+    const bootstrapStore = Object.fromEntries(snapshot.swrCacheEntries);
+    const bootstrapSerializedChars = `{${snapshot.swrCacheEntries
+      .map(([key, serialized]) => `${JSON.stringify(key)}:${serialized}`)
+      .join(',')}}`.length;
 
     expect(NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS).toBe(
       10 * 1024 * 1024,
@@ -1107,7 +1109,7 @@ describe('nativeStorageExecutor', () => {
         },
       ),
     );
-    expect((snapshotValue as string).length).toBeLessThanOrEqual(
+    expect(bootstrapSerializedChars).toBeLessThanOrEqual(
       NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
     );
     expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(

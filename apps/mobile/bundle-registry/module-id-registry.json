@@ -24236,6 +24236,7 @@
     "packages/shared/src/utils/pendingTaskUtils.ts": 10103,
     "packages/shared/src/utils/perpsDexUtils.ts": 4040,
     "packages/shared/src/utils/perpsHomeViewUtils.ts": 21226,
+    "packages/shared/src/utils/perpsMarginRatioUtils.ts": 7574,
     "packages/shared/src/utils/perpsOrderBookTickOptionsCache.ts": 7823,
     "packages/shared/src/utils/perpsTokenSelectorFavorites.ts": 5131,
     "packages/shared/src/utils/perpsTpSlUtils.ts": 14907,
