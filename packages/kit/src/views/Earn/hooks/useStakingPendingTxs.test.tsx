@@ -114,6 +114,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import {
@@ -389,6 +393,109 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     expect(result.current.pendingHistoryFailedNetworkIds).toEqual([
       'evm--8453',
     ]);
+  });
+
+  it('verifies a wallet that has no account on some monitored networks', async () => {
+    timerMock.durationMs = 5;
+    // The resolution succeeds and simply reports no account on evm--8453:
+    // accounts are created per network on demand, so this is the normal
+    // shape for most wallets rather than a failed lookup.
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue([
+      {
+        network: { id: 'evm--1' },
+        account: { id: 'network-1-account' },
+      },
+    ]);
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+
+    const { result, unmount } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1', 'evm--8453'],
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.isPendingHistoryVerified).toBe(true);
+    });
+    expect(result.current.pendingHistoryFailedNetworkIds).toEqual([]);
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.every(
+        ([params]) => params.networkId === 'evm--1',
+      ),
+    ).toBe(true);
+
+    // Several polling intervals pass without the unverified retry firing.
+    const settledLookups =
+      backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.length;
+    const settledAccountMaps =
+      backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls.length;
+    await act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 60);
+      });
+    });
+
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.length,
+    ).toBe(settledLookups);
+    expect(
+      backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls.length,
+    ).toBe(settledAccountMaps);
+
+    unmount();
+  });
+
+  it('re-resolves the account map when an account is added', async () => {
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue([
+      {
+        network: { id: 'evm--1' },
+        account: { id: 'network-1-account' },
+      },
+    ]);
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+
+    const { result, unmount } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1', 'evm--8453'],
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isPendingHistoryVerified).toBe(true);
+    });
+    const settledAccountMaps =
+      backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls.length;
+
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue([
+      {
+        network: { id: 'evm--1' },
+        account: { id: 'network-1-account' },
+      },
+      {
+        network: { id: 'evm--8453' },
+        account: { id: 'network-8453-account' },
+      },
+    ]);
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    });
+
+    await waitFor(() => {
+      expect(
+        backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls
+          .length,
+      ).toBeGreaterThan(settledAccountMaps);
+      expect(
+        backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.some(
+          ([params]) => params.networkId === 'evm--8453',
+        ),
+      ).toBe(true);
+    });
+
+    unmount();
   });
 
   it('parks history lookups and the retry poll while the host surface is hidden', async () => {
