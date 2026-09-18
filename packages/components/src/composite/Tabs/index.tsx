@@ -29,6 +29,7 @@ export type { ITabBarVariant, ITabBarItemProps } from './TabBar';
 export type { IGetWebRowHeight, IWebRowHeightInfo } from './List';
 export * from './hooks';
 
+export { startViewTransition } from './utils';
 export {
   CollapsibleTabContext,
   CollapsibleTabNameContext,

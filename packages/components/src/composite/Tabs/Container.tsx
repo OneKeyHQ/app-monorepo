@@ -717,10 +717,10 @@ export function Container({
         const index = tabNamesRef.current.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
 
-        // Execute DOM updates synchronously instead of inside
-        // document.startViewTransition. Its callback runs asynchronously and gets
-        // aborted when a new transition starts during rapid switching, which
-        // causes scrollTo to never execute and the tab switch to visually fail.
+        // Execute DOM updates synchronously instead of inside startViewTransition.
+        // startViewTransition's callback runs asynchronously and gets aborted when
+        // a new transition starts during rapid switching, which causes scrollTo
+        // to never execute and the tab switch to visually fail.
         attachObserverForFocusedTab();
         const width = scrollElement?.clientWidth || 0;
         listContainerRef.current?.scrollTo({

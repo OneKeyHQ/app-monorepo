@@ -35,6 +35,7 @@ import {
   XStack,
   YStack,
   rootNavigationRef,
+  startViewTransition,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -965,8 +966,10 @@ export function DesktopBluetoothListItem({
         source: analyticsSource,
         logItemClick,
       });
-      void backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
-      defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+        defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+      });
     },
     [analyticsSource, logItemClick],
   );
@@ -1002,10 +1005,12 @@ export function MenuBarTrayListItem({
         from: String(isEnabled),
         to: String(value),
       });
-      void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
-      if (platformEnv.isDesktopMac) {
-        globalThis.desktopApi?.toggleTray(value);
-      }
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
+        if (platformEnv.isDesktopMac) {
+          globalThis.desktopApi?.toggleTray(value);
+        }
+      });
     },
     [analyticsSource, isEnabled, logItemClick],
   );
@@ -1038,7 +1043,9 @@ export function HapticFeedbackListItem({
         from: String(hapticFeedbackEnabled ?? true),
         to: String(value),
       });
-      void backgroundApiProxy.serviceSetting.setHapticFeedbackEnabled(value);
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setHapticFeedbackEnabled(value);
+      });
     },
     [analyticsSource, hapticFeedbackEnabled, logItemClick],
   );
@@ -1066,9 +1073,11 @@ export function BTCFreshAddressListItem({
         source: analyticsSource,
         logItemClick,
       });
-      void backgroundApiProxy.serviceSetting.setEnableBTCFreshAddress(value);
-      defaultLogger.setting.page.settingsEnableBTCFreshAddress({
-        enabled: value,
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setEnableBTCFreshAddress(value);
+        defaultLogger.setting.page.settingsEnableBTCFreshAddress({
+          enabled: value,
+        });
       });
     },
     [analyticsSource, logItemClick],
@@ -1104,7 +1113,9 @@ export function UseGasAccountByDefaultListItem({
         from: String(useGasAccountByDefault ?? true),
         to: String(value),
       });
-      void backgroundApiProxy.serviceSetting.setUseGasAccountByDefault(value);
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setUseGasAccountByDefault(value);
+      });
     },
     [analyticsSource, logItemClick, useGasAccountByDefault],
   );
