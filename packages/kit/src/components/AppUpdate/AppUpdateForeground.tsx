@@ -413,7 +413,9 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           !isAutoUpdateStrategy(info.updateStrategy) &&
           !whatsNewAlreadyShown
         ) {
-          await backgroundApiProxy.serviceAppUpdate.refreshCurrentFeaturedChangelog();
+          if (fileType === EUpdateFileType.appShell) {
+            await backgroundApiProxy.serviceAppUpdate.refreshCurrentFeaturedChangelog();
+          }
           if (cancelled) return;
           await markWhatsNewShown(Boolean(info.jsBundleVersion));
           onViewReleaseInfo();

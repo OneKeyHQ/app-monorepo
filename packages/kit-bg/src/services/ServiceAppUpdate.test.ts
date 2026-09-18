@@ -4546,13 +4546,25 @@ describe('Featured Changelog preview and post-install refresh', () => {
     );
     expect(mockAtom.set).not.toHaveBeenCalled();
   });
-  test('refreshes installed-version cards while preserving update controls', async () => {
+  test('refreshes installed-version cards even when version-info selects a hot release', async () => {
+    get.mockImplementation((url: string) =>
+      Promise.resolve({
+        data: {
+          code: 0,
+          data:
+            url === '/utility/v1/app-update/version-info'
+              ? { version: '6.6.0', changeLog: 'Hot release' }
+              : { version: '6.6.0', featuredChangelog: featured },
+        },
+      }),
+    );
     await service.refreshCurrentFeaturedChangelog();
-    expect(get).toHaveBeenCalledWith('/utility/v1/app-update/version-info', {
-      timeout: 5000,
-    });
     expect(atomValue.featuredChangelog?.features[0].ctaAction).toBe('next');
     expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
+    expect(get).toHaveBeenCalledWith(
+      '/utility/v1/app-update/featured-changelog-preview',
+      { params: { version: '6.6.0' }, timeout: 5000 },
+    );
   });
   test('preserves cache when offline or when a different version is returned', async () => {
     get.mockRejectedValueOnce(new Error('offline'));
@@ -4579,5 +4591,19 @@ describe('Featured Changelog preview and post-install refresh', () => {
     resetAtom({ latestVersion: '6.7.0', featuredChangelog: cached });
     await service.refreshCurrentFeaturedChangelog();
     expect(atomValue.featuredChangelog).toEqual(cached);
+  });
+  test('does not attach full-release cards when the update state changes to a hot update', async () => {
+    get.mockImplementationOnce(() => {
+      resetAtom({ latestVersion: '6.6.0', jsBundleVersion: '222' });
+      return Promise.resolve({
+        data: {
+          code: 0,
+          data: { version: '6.6.0', featuredChangelog: featured },
+        },
+      });
+    });
+    await service.refreshCurrentFeaturedChangelog();
+    expect(atomValue.featuredChangelog).toBeUndefined();
+    expect(atomValue.jsBundleVersion).toBe('222');
   });
 });

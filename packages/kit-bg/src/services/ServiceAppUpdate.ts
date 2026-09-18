@@ -714,10 +714,15 @@ class ServiceAppUpdate extends ServiceBase {
     const installedVersion = String(platformEnv.version);
     try {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
+      // Read the full-release cards directly: version-info can select a hot
+      // release for the installed bundle and omit Featured Changelog.
       const response = await client.get<{
         code: number;
         data: { version?: string; featuredChangelog?: unknown };
-      }>('/utility/v1/app-update/version-info', { timeout: 5000 });
+      }>('/utility/v1/app-update/featured-changelog-preview', {
+        params: { version: installedVersion },
+        timeout: 5000,
+      });
       const { code, data } = response.data;
       if (code !== 0 || data?.version !== installedVersion) return;
       const featuredChangelog = normalizeFeaturedChangelog(
@@ -728,7 +733,7 @@ class ServiceAppUpdate extends ServiceBase {
       // valid empty result (e.g. platform filtering removed every card).
       if (data.featuredChangelog && !featuredChangelog) return;
       await appUpdatePersistAtom.set((prev) =>
-        prev.latestVersion === installedVersion
+        prev.latestVersion === installedVersion && !prev.jsBundleVersion
           ? { ...prev, featuredChangelog }
           : prev,
       );

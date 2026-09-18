@@ -336,6 +336,7 @@ import * as React from 'react';
 import { act, renderHook } from '@testing-library/react';
 
 import {
+  clearWhatsNewShown,
   EAppUpdateStatus,
   EUpdateFileType,
   EUpdateStrategy,
@@ -2560,6 +2561,30 @@ describe('useAppUpdateInfo useEffect', () => {
         await jest.runAllTimersAsync();
       });
 
+      expect(nav.pushModal).toHaveBeenCalledWith('AppUpdateModal', {
+        screen: 'WhatsNew',
+      });
+      expect(svc.refreshUpdateStatus).toHaveBeenCalled();
+    });
+
+    test('first manual hot-update launch shows WhatsNew without refreshing full-release cards', async () => {
+      await clearWhatsNewShown();
+      setAtom({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '1',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(svc.refreshCurrentFeaturedChangelog).not.toHaveBeenCalled();
       expect(nav.pushModal).toHaveBeenCalledWith('AppUpdateModal', {
         screen: 'WhatsNew',
       });
