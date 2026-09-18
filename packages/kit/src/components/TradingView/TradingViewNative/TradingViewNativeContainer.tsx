@@ -60,6 +60,7 @@ import {
   getTradingViewNativeKLineInterval,
   getTradingViewNativeKLineIntervalForTimeRange,
 } from './data/tradingViewNativeIntervals';
+import { useTradingViewNativeAccountMarks } from './data/useTradingViewNativeAccountMarks';
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import {
   getTradingViewNativeActiveMainIndicators,
@@ -212,6 +213,7 @@ const TradingViewNativeContent = memo(
     indicatorSettingsState,
     forcedChartType,
     chartComponents,
+    accountMarksContext,
     previousClose,
     enablePreviousClose = false,
     enableNativeChartSettings,
@@ -495,8 +497,17 @@ const TradingViewNativeContent = memo(
       () => getTradingViewNativeCurrentPriceLabel(primarySeriesPoints),
       [primarySeriesPoints],
     );
+    const accountMarks = useTradingViewNativeAccountMarks({
+      context: accountMarksContext,
+      from: points[0]?.t,
+      to: latestPoint ? latestPoint.t + candleIntervalSeconds : undefined,
+    });
+    const chartComponentsWithAccountMarks = useMemo(
+      () => [...(chartComponents ?? []), ...accountMarks],
+      [accountMarks, chartComponents],
+    );
     const chartComponentRenderNodes = useTradingViewNativeChartComponents({
-      chartComponents,
+      chartComponents: chartComponentsWithAccountMarks,
       previousClose,
       referenceLineColor:
         themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine],
