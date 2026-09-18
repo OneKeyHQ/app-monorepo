@@ -4,9 +4,13 @@ import {
   buildSignedTxFromSignatureEvm,
   packUnsignedTxForSignEvm,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import { ethers } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
-import { ThirdPartyUserRejected } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  ThirdPartyDeviceMismatch,
+  ThirdPartyUserRejected,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
@@ -42,8 +46,10 @@ describe('KeyringHardwareKeystone.signTransaction', () => {
     connectId: 'keystone-wallet:test',
     deviceId: 'wallet-id',
   };
+  const accountPrivateKey = `0x${'0a'.repeat(32)}`;
+  const otherPrivateKey = `0x${'0b'.repeat(32)}`;
   const encodedTx: IEncodedTxEvm = {
-    from: `0x${'11'.repeat(20)}`,
+    from: ethers.utils.computeAddress(accountPrivateKey),
     nonce: '0x1',
     gasLimit: '0x5208',
     gasPrice: '0x3b9aca00',
@@ -52,6 +58,18 @@ describe('KeyringHardwareKeystone.signTransaction', () => {
     value: '0x0',
     data: '0x',
   };
+
+  // Sign the packed tx for real: the keyring now recovers the signer from the
+  // rebuilt raw tx, so a placeholder v/r/s no longer reaches the return value.
+  function signWith(privateKey: string) {
+    const { digest } = packUnsignedTxForSignEvm({ encodedTx } as never);
+    const { v, r, s } = new ethers.utils.SigningKey(privateKey).signDigest(
+      digest,
+    );
+    return { v, r, s };
+  }
+
+  const accountSignature = signWith(accountPrivateKey);
 
   function buildKeyring(evmSignTransaction: jest.Mock) {
     const getAdapterForVendor = jest
@@ -72,11 +90,7 @@ describe('KeyringHardwareKeystone.signTransaction', () => {
   }
 
   it('rebuilds the raw transaction from the device-returned v/r/s', async () => {
-    const signature = {
-      v: '0x1c',
-      r: `0x${'11'.repeat(32)}`,
-      s: `0x${'22'.repeat(32)}`,
-    };
+    const signature = accountSignature;
     const evmSignTransaction = jest.fn().mockResolvedValue({
       success: true,
       payload: signature,
@@ -108,11 +122,7 @@ describe('KeyringHardwareKeystone.signTransaction', () => {
   it('uses the operationId instead of connectId when one is supplied', async () => {
     const evmSignTransaction = jest.fn().mockResolvedValue({
       success: true,
-      payload: {
-        v: '0x1b',
-        r: `0x${'33'.repeat(32)}`,
-        s: `0x${'44'.repeat(32)}`,
-      },
+      payload: accountSignature,
     });
     const { keyring } = buildKeyring(evmSignTransaction);
 
@@ -148,6 +158,38 @@ describe('KeyringHardwareKeystone.signTransaction', () => {
       } as never),
     ).rejects.toBeInstanceOf(ThirdPartyUserRejected);
     expect(evmSignTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a signature that recovers to another address', async () => {
+    const evmSignTransaction = jest.fn().mockResolvedValue({
+      success: true,
+      payload: signWith(otherPrivateKey),
+    });
+    const { keyring } = buildKeyring(evmSignTransaction);
+
+    await expect(
+      keyring.signTransaction({
+        unsignedTx: { encodedTx },
+        deviceParams: { dbDevice },
+      } as never),
+    ).rejects.toBeInstanceOf(ThirdPartyDeviceMismatch);
+  });
+
+  it('returns the signed tx when the signature recovers to the account', async () => {
+    const evmSignTransaction = jest.fn().mockResolvedValue({
+      success: true,
+      payload: accountSignature,
+    });
+    const { keyring } = buildKeyring(evmSignTransaction);
+
+    const result = await keyring.signTransaction({
+      unsignedTx: { encodedTx },
+      deviceParams: { dbDevice },
+    } as never);
+
+    expect(
+      ethers.utils.parseTransaction(result.rawTx).from?.toLowerCase(),
+    ).toBe(encodedTx.from.toLowerCase());
   });
 });
 
