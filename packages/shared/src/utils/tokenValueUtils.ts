@@ -46,20 +46,36 @@ export function isUnavailableOrZeroFiatValue(
 
 type ITokenFiatValueShape = {
   fiatValue?: string | null;
+  // Resolved shared-balance decision (ITokenFiat.sharedBalanceExcludedFromTotal,
+  // set by sharedBalanceUtils): the row is displayed but must not be counted
+  // in any total.
+  sharedBalanceExcludedFromTotal?: boolean;
 };
+
+function isCountedInTotal(
+  entry: ITokenFiatValueShape | undefined,
+): entry is ITokenFiatValueShape & { fiatValue: string } {
+  return (
+    !!entry &&
+    entry.sharedBalanceExcludedFromTotal !== true &&
+    isValidNumberValue(entry.fiatValue)
+  );
+}
 
 type IFiatValueIndexed = { $key: string };
 
 // Sum tokens[i].$key → map[$key].fiatValue, silently dropping entries whose
 // value is unavailable so the subtotal stays a partial sum rather than NaN.
+// Entries flagged `sharedBalanceExcludedFromTotal` (Arc shared-balance rows,
+// see sharedBalanceUtils) are skipped by every sum helper in this file.
 export function sumFiatValuesFromTokens(
   tokens: IFiatValueIndexed[],
   map: Record<string, ITokenFiatValueShape | undefined> | undefined,
 ): BigNumber {
   if (!map) return new BigNumber(0);
   return tokens.reduce<BigNumber>((acc, token) => {
-    const v = map[token.$key]?.fiatValue;
-    return isValidNumberValue(v) ? acc.plus(v) : acc;
+    const entry = map[token.$key];
+    return isCountedInTotal(entry) ? acc.plus(entry.fiatValue) : acc;
   }, new BigNumber(0));
 }
 
@@ -73,7 +89,7 @@ export function sumFiatValuesIgnoringUnavailable(
   if (!map) return '0';
   return Object.values(map)
     .reduce<BigNumber>((acc, entry) => {
-      if (!entry || !isValidNumberValue(entry.fiatValue)) return acc;
+      if (!isCountedInTotal(entry)) return acc;
       return acc.plus(entry.fiatValue);
     }, new BigNumber(0))
     .toFixed();
@@ -104,7 +120,7 @@ export function sumTokenGroupsFiatValueIgnoringUnavailable(r: {
     for (const [key, entry] of Object.entries(map)) {
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
-        if (entry && isValidNumberValue(entry.fiatValue)) {
+        if (isCountedInTotal(entry)) {
           acc = acc.plus(entry.fiatValue);
         }
       }
