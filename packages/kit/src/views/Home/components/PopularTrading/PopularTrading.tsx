@@ -65,6 +65,7 @@ import {
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
+  HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
   renderPopularTradingCommunityBadge,
   renderPopularTradingStockBadges,
@@ -1122,10 +1123,15 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           keyExtractor={(item) =>
             item.perpsCoin ? `perps-${item.perpsCoin}` : getTokenKey(item)
           }
-          estimatedItemSize={56}
+          estimatedItemSize={
+            shouldUseTableLayout ? HOME_MARKET_TABLE_ROW_MIN_HEIGHT : 56
+          }
           rowProps={{
             mx: '$2',
             px: '$3',
+            ...(shouldUseTableLayout
+              ? { minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }
+              : undefined),
           }}
           headerRowProps={{
             px: '$3',
@@ -1140,24 +1146,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <Button
               testID="home-show-view-more-button-btn"
               variant="secondary"
+              iconAfter="ChevronRightSmallOutline"
               onPress={handleViewMore}
               flexGrow={1}
               flexBasis={0}
-              childrenAsText={false}
-              $md={
-                {
-                  borderRadius: '$full',
-                  hoverStyle: { bg: 'transparent' },
-                  pressStyle: { bg: 'transparent' },
-                } as any
-              }
+              {...(md
+                ? {
+                    borderRadius: '$full',
+                    hoverStyle: { bg: 'transparent' },
+                    pressStyle: { bg: 'transparent' },
+                  }
+                : undefined)}
             >
-              <XStack alignItems="center" gap="$2">
-                <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({ id: ETranslations.global_view_more })}
-                </SizableText>
-                <Icon name="ChevronRightSmallOutline" size="$5.5" />
-              </XStack>
+              {intl.formatMessage({ id: ETranslations.global_view_more })}
             </Button>
           </XStack>
         ) : null}
@@ -1169,6 +1170,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     handleTokenPress,
     handleViewMore,
     intl,
+    md,
     shouldUseTableLayout,
     totalFavoritesCount,
   ]);

@@ -12,7 +12,13 @@ import {
 } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IMarketStockPublicListResponse } from '@onekeyhq/shared/types/marketV2';
+
+import { buildMarketStockListQueryKey } from '../../../MarketHomeV2/components/MarketStockList/utils';
 
 import { MarketStockSelectorList } from './MarketStockSelectorList';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
@@ -59,6 +65,9 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
 }));
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
+}));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: false },
@@ -101,9 +110,26 @@ const secondPage: IMarketStockPublicListResponse = {
   total: 2,
 };
 
+function seedHomeStockList(response: IMarketStockPublicListResponse) {
+  const queryKey = buildMarketStockListQueryKey({ locale: 'en-US' });
+  swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
+    queryKey,
+    response,
+  });
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   fetchList.mockReset();
   searchStocks.mockReset();
+  swrCacheUtils.clearAll();
 });
 
 it('loads selector pages and appends unique stocks', async () => {
@@ -231,6 +257,62 @@ it.each([
     expect(nextTable.textContent).not.toContain('AAPL');
   },
 );
+
+it('shows cached home stocks immediately instead of replacing the table with loading', async () => {
+  seedHomeStockList(firstPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+  const onItemPress = jest.fn();
+  render(<MarketStockSelectorList query="" onItemPress={onItemPress} />);
+
+  expect(screen.getByTestId('stock-table').textContent).toContain('AAPL');
+  expect(screen.queryByTestId('loading')).toBeNull();
+
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+});
+
+it('replays the selector cache on remount without a loading flash', async () => {
+  fetchList.mockResolvedValue(firstPage);
+  const onItemPress = jest.fn();
+  const { unmount } = render(
+    <MarketStockSelectorList query="" onItemPress={onItemPress} />,
+  );
+  await screen.findByTestId('stock-table');
+  unmount();
+
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+  render(<MarketStockSelectorList query="" onItemPress={onItemPress} />);
+
+  expect(screen.getByTestId('stock-table').textContent).toContain('AAPL');
+  expect(screen.queryByTestId('loading')).toBeNull();
+
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+});
+
+it('hydrates the default list from the home stocks cache before the request resolves', async () => {
+  seedHomeStockList(firstPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isLoading).toBe(false);
+
+  await act(async () => {
+    pending.resolve(firstPage);
+    await pending.promise;
+  });
+});
 
 it('keeps the same table during pagination with the real selector hook', async () => {
   let resolvePage: (response: IMarketStockPublicListResponse) => void = () =>

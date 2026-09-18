@@ -1,13 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  DEFAULT_MARKET_STOCK_SORT_BY,
+  DEFAULT_MARKET_STOCK_SORT_TYPE,
+} from '@onekeyhq/shared/src/consts/marketConsts';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketStockPublicItem,
   IMarketStockPublicListResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { appendUniqueMarketStocks } from '../../../MarketHomeV2/components/MarketStockList/utils';
+import {
+  appendUniqueMarketStocks,
+  buildMarketStockListQueryKey,
+} from '../../../MarketHomeV2/components/MarketStockList/utils';
 
 const MARKET_STOCK_SELECTOR_PAGE_SIZE = 20;
 
@@ -24,11 +36,60 @@ type IMarketStockSelectorListState = {
   total: number;
 };
 
+const EMPTY_STOCK_SELECTOR_RESULT: IMarketStockSelectorListResult = {
+  queryKey: '',
+  response: undefined,
+};
+
+function readCachedStockListResponse(swrKey: string) {
+  const cached = swrCacheUtils.getWithTimestamp<{
+    failed?: boolean;
+    response?: IMarketStockPublicListResponse;
+  }>(swrKey);
+  if (!cached?.data.response || cached.data.failed) {
+    return undefined;
+  }
+  return cached.data.response;
+}
+
 export function useMarketStockSelectorList({ query }: { query?: string }) {
+  const locale = useLocaleVariant();
   const normalizedQuery = query?.trim() ?? '';
   const queryKey = normalizedQuery;
   const queryKeyRef = useRef(queryKey);
   queryKeyRef.current = queryKey;
+  const defaultListQueryKey = useMemo(
+    () =>
+      buildMarketStockListQueryKey({
+        locale,
+        sortBy: DEFAULT_MARKET_STOCK_SORT_BY,
+        sortType: DEFAULT_MARKET_STOCK_SORT_TYPE,
+      }),
+    [locale],
+  );
+  const emptyListSwrKey = useMemo(
+    () =>
+      normalizedQuery
+        ? undefined
+        : swrKeys.marketHomeStocks(`selector:${defaultListQueryKey}`),
+    [defaultListQueryKey, normalizedQuery],
+  );
+  const cachedEmptyListInitResult = useMemo(() => {
+    if (normalizedQuery) {
+      return EMPTY_STOCK_SELECTOR_RESULT;
+    }
+    const response =
+      (emptyListSwrKey
+        ? readCachedStockListResponse(emptyListSwrKey)
+        : undefined) ??
+      readCachedStockListResponse(
+        swrKeys.marketHomeStocks(defaultListQueryKey),
+      );
+    if (!response) {
+      return EMPTY_STOCK_SELECTOR_RESULT;
+    }
+    return { queryKey: '', response };
+  }, [defaultListQueryKey, emptyListSwrKey, normalizedQuery]);
 
   const [listState, setListState] = useState<IMarketStockSelectorListState>({
     queryKey: '',
@@ -61,9 +122,10 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     },
     [normalizedQuery, queryKey],
     {
-      initResult: { queryKey: '', response: undefined },
-      undefinedResultIfReRun: true,
+      initResult: cachedEmptyListInitResult,
       watchLoading: true,
+      swrKey: emptyListSwrKey,
+      swrShouldPersist: (result) => Boolean(result.response && !result.failed),
     },
   );
 
@@ -89,9 +151,16 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     });
   }, [firstPageResult, queryKey]);
 
-  const hasCurrentData = listState.queryKey === queryKey;
-  const items = hasCurrentData ? listState.items : [];
-  const nextCursor = hasCurrentData ? listState.nextCursor : undefined;
+  const currentResponse =
+    firstPageResult?.queryKey === queryKey
+      ? firstPageResult.response
+      : undefined;
+  const hasListState = listState.queryKey === queryKey;
+  const items = hasListState ? listState.items : (currentResponse?.items ?? []);
+  const nextCursor = hasListState
+    ? listState.nextCursor
+    : currentResponse?.nextCursor;
+  const hasCurrentData = hasListState || Boolean(currentResponse);
   const isFirstPageError =
     firstPageResult?.queryKey === queryKey && Boolean(firstPageResult.failed);
   const isFirstPagePending =
@@ -169,8 +238,11 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
 
   return {
     items,
-    total: hasCurrentData ? listState.total : 0,
-    isLoading: Boolean(isLoading) || isFirstPagePending,
+    total: hasListState ? listState.total : (currentResponse?.total ?? 0),
+    isLoading:
+      items.length === 0 &&
+      !isFirstPageError &&
+      (Boolean(isLoading) || isFirstPagePending),
     isError: isFirstPageError,
     isLoadingMore,
     isLoadMoreError,

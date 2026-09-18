@@ -18,7 +18,10 @@ import type {
   IMarketStockPublicListSortBy,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { appendUniqueMarketStocks } from '../utils';
+import {
+  appendUniqueMarketStocks,
+  buildMarketStockListQueryKey,
+} from '../utils';
 
 const MARKET_STOCK_LIST_PAGE_SIZE = 20;
 const MARKET_STOCK_LIST_MAX_PERSISTED_PAGES = 3;
@@ -70,7 +73,7 @@ export function useMarketStockList({ category }: { category?: string }) {
   >(undefined);
   const forceRefreshRef = useRef(false);
   const queryKey = useMemo(
-    () => JSON.stringify({ category, sortBy, sortType, locale }),
+    () => buildMarketStockListQueryKey({ category, sortBy, sortType, locale }),
     [category, sortBy, sortType, locale],
   );
   const queryKeyRef = useRef(queryKey);
