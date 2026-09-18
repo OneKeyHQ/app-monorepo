@@ -1,4 +1,5 @@
 /* eslint-disable no-continue -- Token scanners advance immediately after consuming a Markdown construct. */
+// cspell:ignore apos darr emsp harr hellip laquo larr ldquo lsquo middot ndash plusmn raquo rarr rdquo rsquo thinsp uarr setext rescanning GHSA fmfq
 
 export type IMarkdownNodeType =
   | 'blockquote'
@@ -152,15 +153,272 @@ function decodeEntity(entity: string) {
   return namedEntities[entity.toLowerCase()] ?? `&${entity};`;
 }
 
+const scopedAbbreviations: Record<string, string> = {
+  c: '©',
+  p: '§',
+  r: '®',
+  tm: '™',
+};
+
+// Typographer replacements from markdown-it 10, the parser behind the previous
+// react-native-markdown-display renderer, so existing release notes keep the
+// exact same glyphs.
+function replaceTypography(value: string) {
+  const text = value.replace(
+    /\((c|tm|r|p)\)/gi,
+    (_, name: string) => scopedAbbreviations[name.toLowerCase()],
+  );
+  if (!/\+-|\.\.|\?\?\?\?|!!!!|,,|--/.test(text)) {
+    return text;
+  }
+  return text
+    .replace(/\+-/g, '±')
+    .replace(/\.{2,}/g, '…')
+    .replace(/([?!])…/g, '$1..')
+    .replace(/([?!]){4,}/g, '$1$1$1')
+    .replace(/,{2,}/g, ',')
+    .replace(/(^|[^-])---([^-]|$)/gm, '$1—$2')
+    .replace(/(^|\s)--(\s|$)/gm, '$1–$2')
+    .replace(/(^|[^-\s])--([^-\s]|$)/gm, '$1–$2');
+}
+
 function formatText(value: string) {
-  return value
-    .replace(/&(#(?:x[\da-f]+|\d+)|[a-z][a-z\d]+);/gi, (_, entity) =>
+  return replaceTypography(
+    value.replace(/&(#(?:x[\da-f]+|\d+)|[a-z][a-z\d]+);/gi, (_, entity) =>
       decodeEntity(String(entity)),
+    ),
+  );
+}
+
+// Unicode punctuation (General Category P) from uc.micro 1.0.6, the table
+// markdown-it 10 used for smart quotes. Kept as literal ranges because Hermes
+// has no reliable \p{...} support.
+const unicodePunctuation =
+  // eslint-disable-next-line no-useless-escape -- verbatim uc.micro table
+  /[!-#%-\*,-\/:;\?@\[-\]_\{\}\xA1\xA7\xAB\xB6\xB7\xBB\xBF\u037E\u0387\u055A-\u055F\u0589\u058A\u05BE\u05C0\u05C3\u05C6\u05F3\u05F4\u0609\u060A\u060C\u060D\u061B\u061E\u061F\u066A-\u066D\u06D4\u0700-\u070D\u07F7-\u07F9\u0830-\u083E\u085E\u0964\u0965\u0970\u09FD\u0A76\u0AF0\u0C84\u0DF4\u0E4F\u0E5A\u0E5B\u0F04-\u0F12\u0F14\u0F3A-\u0F3D\u0F85\u0FD0-\u0FD4\u0FD9\u0FDA\u104A-\u104F\u10FB\u1360-\u1368\u1400\u166D\u166E\u169B\u169C\u16EB-\u16ED\u1735\u1736\u17D4-\u17D6\u17D8-\u17DA\u1800-\u180A\u1944\u1945\u1A1E\u1A1F\u1AA0-\u1AA6\u1AA8-\u1AAD\u1B5A-\u1B60\u1BFC-\u1BFF\u1C3B-\u1C3F\u1C7E\u1C7F\u1CC0-\u1CC7\u1CD3\u2010-\u2027\u2030-\u2043\u2045-\u2051\u2053-\u205E\u207D\u207E\u208D\u208E\u2308-\u230B\u2329\u232A\u2768-\u2775\u27C5\u27C6\u27E6-\u27EF\u2983-\u2998\u29D8-\u29DB\u29FC\u29FD\u2CF9-\u2CFC\u2CFE\u2CFF\u2D70\u2E00-\u2E2E\u2E30-\u2E4E\u3001-\u3003\u3008-\u3011\u3014-\u301F\u3030\u303D\u30A0\u30FB\uA4FE\uA4FF\uA60D-\uA60F\uA673\uA67E\uA6F2-\uA6F7\uA874-\uA877\uA8CE\uA8CF\uA8F8-\uA8FA\uA8FC\uA92E\uA92F\uA95F\uA9C1-\uA9CD\uA9DE\uA9DF\uAA5C-\uAA5F\uAADE\uAADF\uAAF0\uAAF1\uABEB\uFD3E\uFD3F\uFE10-\uFE19\uFE30-\uFE52\uFE54-\uFE61\uFE63\uFE68\uFE6A\uFE6B\uFF01-\uFF03\uFF05-\uFF0A\uFF0C-\uFF0F\uFF1A\uFF1B\uFF1F\uFF20\uFF3B-\uFF3D\uFF3F\uFF5B\uFF5D\uFF5F-\uFF65]|\uD800[\uDD00-\uDD02\uDF9F\uDFD0]|\uD801\uDD6F|\uD802[\uDC57\uDD1F\uDD3F\uDE50-\uDE58\uDE7F\uDEF0-\uDEF6\uDF39-\uDF3F\uDF99-\uDF9C]|\uD803[\uDF55-\uDF59]|\uD804[\uDC47-\uDC4D\uDCBB\uDCBC\uDCBE-\uDCC1\uDD40-\uDD43\uDD74\uDD75\uDDC5-\uDDC8\uDDCD\uDDDB\uDDDD-\uDDDF\uDE38-\uDE3D\uDEA9]|\uD805[\uDC4B-\uDC4F\uDC5B\uDC5D\uDCC6\uDDC1-\uDDD7\uDE41-\uDE43\uDE60-\uDE6C\uDF3C-\uDF3E]|\uD806[\uDC3B\uDE3F-\uDE46\uDE9A-\uDE9C\uDE9E-\uDEA2]|\uD807[\uDC41-\uDC45\uDC70\uDC71\uDEF7\uDEF8]|\uD809[\uDC70-\uDC74]|\uD81A[\uDE6E\uDE6F\uDEF5\uDF37-\uDF3B\uDF44]|\uD81B[\uDE97-\uDE9A]|\uD82F\uDC9F|\uD836[\uDE87-\uDE8B]|\uD83A[\uDD5E\uDD5F]/;
+
+function isQuoteWhiteSpace(code: number) {
+  return (
+    (code >= 0x20_00 && code <= 0x20_0a) ||
+    code === 0x09 ||
+    code === 0x0a ||
+    code === 0x0b ||
+    code === 0x0c ||
+    code === 0x0d ||
+    code === 0x20 ||
+    code === 0xa0 ||
+    code === 0x16_80 ||
+    code === 0x20_2f ||
+    code === 0x20_5f ||
+    code === 0x30_00
+  );
+}
+
+function isQuotePunctuation(code: number) {
+  return (
+    (code >= 0x21 && code <= 0x2f) ||
+    (code >= 0x3a && code <= 0x40) ||
+    (code >= 0x5b && code <= 0x60) ||
+    (code >= 0x7b && code <= 0x7e) ||
+    unicodePunctuation.test(String.fromCharCode(code))
+  );
+}
+
+interface IQuoteToken {
+  level: number;
+  node?: IMarkdownNode;
+  type: 'break' | 'other' | 'text';
+}
+
+interface IQuoteOpener {
+  level: number;
+  position: number;
+  previousSameQuote: number;
+  single: boolean;
+  tokenIndex: number;
+}
+
+function flattenQuoteTokens(
+  nodes: IMarkdownNode[],
+  level: number,
+  tokens: IQuoteToken[],
+) {
+  nodes.forEach((node) => {
+    if (node.type === 'text') {
+      tokens.push({ level, node, type: 'text' });
+    } else if (node.type === 'softbreak' || node.type === 'hardbreak') {
+      tokens.push({ level, type: 'break' });
+    } else if (
+      node.type === 'strong' ||
+      node.type === 'em' ||
+      node.type === 's' ||
+      node.type === 'link'
+    ) {
+      tokens.push({ level, type: 'other' });
+      flattenQuoteTokens(node.children, level + 1, tokens);
+      tokens.push({ level, type: 'other' });
+    } else {
+      tokens.push({ level, type: 'other' });
+    }
+  });
+  return tokens;
+}
+
+function findQuoteNeighbor(
+  tokens: IQuoteToken[],
+  from: number,
+  step: 1 | -1,
+): number {
+  for (let index = from; index >= 0 && index < tokens.length; index += step) {
+    const { node, type } = tokens[index];
+    if (type === 'break') {
+      break;
+    }
+    if (type === 'text' && node) {
+      return step < 0
+        ? node.content.charCodeAt(node.content.length - 1)
+        : node.content.charCodeAt(0);
+    }
+  }
+  return 0x20;
+}
+
+// Smart quotes with markdown-it 10 semantics. The opener lookup and batched
+// replacements follow markdown-it 15.0.2, which fixed the quadratic cases of
+// the original rule (GHSA-6v5v-wf23-fmfq and mismatched quote types).
+function applySmartQuotes(nodes: IMarkdownNode[]) {
+  const tokens = flattenQuoteTokens(nodes, 0, []);
+  if (
+    !tokens.some(
+      ({ node, type }) => type === 'text' && /['"]/.test(node?.content ?? ''),
     )
-    .replace(/\(c\)/gi, '©')
-    .replace(/\(r\)/gi, '®')
-    .replace(/\(tm\)/gi, '™')
-    .replace(/\.{3}/g, '…');
+  ) {
+    return nodes;
+  }
+
+  const stack: IQuoteOpener[] = [];
+  const heads = { double: -1, single: -1 };
+  const replacements = new Map<number, Array<[number, string]>>();
+  const replaceQuote = (
+    tokenIndex: number,
+    position: number,
+    value: string,
+  ) => {
+    const tokenReplacements = replacements.get(tokenIndex) ?? [];
+    tokenReplacements.push([position, value]);
+    replacements.set(tokenIndex, tokenReplacements);
+  };
+  const truncateStack = (length: number) => {
+    while (stack.length > length) {
+      const opener = stack.pop();
+      if (opener?.single) {
+        heads.single = opener.previousSameQuote;
+      } else if (opener) {
+        heads.double = opener.previousSameQuote;
+      }
+    }
+  };
+
+  tokens.forEach(({ level, node, type }, tokenIndex) => {
+    let keep = stack.length;
+    while (keep > 0 && stack[keep - 1].level > level) {
+      keep -= 1;
+    }
+    truncateStack(keep);
+    if (type !== 'text' || !node) {
+      return;
+    }
+
+    const text = node.content;
+    const quotePattern = /['"]/g;
+    let match = quotePattern.exec(text);
+    while (match) {
+      const position = match.index;
+      const single = match[0] === "'";
+      const lastChar =
+        position > 0
+          ? text.charCodeAt(position - 1)
+          : findQuoteNeighbor(tokens, tokenIndex - 1, -1);
+      const nextChar =
+        position + 1 < text.length
+          ? text.charCodeAt(position + 1)
+          : findQuoteNeighbor(tokens, tokenIndex + 1, 1);
+      const isLastPunctuation = isQuotePunctuation(lastChar);
+      const isNextPunctuation = isQuotePunctuation(nextChar);
+      const isLastWhiteSpace = isQuoteWhiteSpace(lastChar);
+      const isNextWhiteSpace = isQuoteWhiteSpace(nextChar);
+
+      let canOpen = !isNextWhiteSpace;
+      if (canOpen && isNextPunctuation) {
+        canOpen = isLastWhiteSpace || isLastPunctuation;
+      }
+      let canClose = !isLastWhiteSpace;
+      if (canClose && isLastPunctuation) {
+        canClose = isNextWhiteSpace || isNextPunctuation;
+      }
+      // `1""`: the first quote is an inch mark.
+      if (
+        !single &&
+        nextChar === 0x22 &&
+        lastChar >= 0x30 &&
+        lastChar <= 0x39
+      ) {
+        canOpen = false;
+        canClose = false;
+      }
+      if (canOpen && canClose) {
+        canOpen = false;
+        canClose = isNextPunctuation;
+      }
+
+      if (!canOpen && !canClose) {
+        if (single) {
+          replaceQuote(tokenIndex, position, '’');
+        }
+      } else {
+        const openerIndex = single ? heads.single : heads.double;
+        if (
+          canClose &&
+          openerIndex >= 0 &&
+          stack[openerIndex].level === level
+        ) {
+          const opener = stack[openerIndex];
+          replaceQuote(tokenIndex, position, single ? '’' : '”');
+          replaceQuote(opener.tokenIndex, opener.position, single ? '‘' : '“');
+          truncateStack(openerIndex);
+        } else if (canOpen) {
+          stack.push({
+            level,
+            position,
+            previousSameQuote: single ? heads.single : heads.double,
+            single,
+            tokenIndex,
+          });
+          if (single) {
+            heads.single = stack.length - 1;
+          } else {
+            heads.double = stack.length - 1;
+          }
+        } else if (single) {
+          replaceQuote(tokenIndex, position, '’');
+        }
+      }
+      match = quotePattern.exec(text);
+    }
+  });
+
+  replacements.forEach((tokenReplacements, tokenIndex) => {
+    const { node } = tokens[tokenIndex];
+    if (!node) {
+      return;
+    }
+    const characters = node.content.split('');
+    tokenReplacements.forEach(([position, value]) => {
+      characters[position] = value;
+    });
+    node.content = characters.join('');
+  });
+  return nodes;
 }
 
 function findUnescaped(source: string, marker: string, from: number) {
@@ -187,24 +445,38 @@ function findUnescaped(source: string, marker: string, from: number) {
   return -1;
 }
 
-function findClosingBracket(source: string, openingIndex: number) {
-  let depth = 0;
-  for (let index = openingIndex; index < source.length; index += 1) {
-    if (source[index] === '\\') {
-      index += 1;
-      continue;
-    }
-    if (source[index] === '[') {
-      depth += 1;
-    } else if (source[index] === ']') {
-      depth -= 1;
-      if (depth === 0) {
-        return index;
+// Matches every `[` with its closing `]` in one pass. Scanning forward from
+// each `[` separately made unmatched brackets quadratic.
+function createClosingBracketFinder(source: string) {
+  let closingBrackets: Map<number, number> | undefined;
+  return (openingIndex: number) => {
+    if (!closingBrackets) {
+      closingBrackets = new Map();
+      const openingBrackets: number[] = [];
+      for (let index = 0; index < source.length; index += 1) {
+        if (source[index] === '\\') {
+          index += 1;
+          continue;
+        }
+        if (source[index] === '[') {
+          openingBrackets.push(index);
+        } else if (source[index] === ']') {
+          const opening = openingBrackets.pop();
+          if (opening !== undefined) {
+            closingBrackets.set(opening, index);
+          }
+        }
       }
     }
-  }
-  return -1;
+    return closingBrackets.get(openingIndex) ?? -1;
+  };
 }
+
+type IClosingBracketFinder = ReturnType<typeof createClosingBracketFinder>;
+
+// Same nesting limit markdown-it applies to link destinations; it keeps a run
+// of unclosed `[a](` from rescanning the rest of the text for every link.
+const MAX_LINK_PAREN_DEPTH = 32;
 
 function readParenthesized(source: string, openingIndex: number) {
   let depth = 0;
@@ -224,6 +496,10 @@ function readParenthesized(source: string, openingIndex: number) {
       continue;
     }
     if (character === '<') {
+      // `<` cannot appear inside a `<...>` destination.
+      if (angleBracket) {
+        return undefined;
+      }
       angleBracket = true;
       continue;
     }
@@ -237,6 +513,9 @@ function readParenthesized(source: string, openingIndex: number) {
     }
     if (!angleBracket && character === '(') {
       depth += 1;
+      if (depth > MAX_LINK_PAREN_DEPTH) {
+        return undefined;
+      }
     } else if (!angleBracket && character === ')') {
       depth -= 1;
       if (depth === 0) {
@@ -280,9 +559,10 @@ function parseLink(
   references: ReadonlyMap<string, ILinkDefinition>,
   isImage: boolean,
   depth: number,
+  findClosingBracket: IClosingBracketFinder,
 ): IParsedLink | undefined {
   const openingBracket = start + (isImage ? 1 : 0);
-  const closingBracket = findClosingBracket(source, openingBracket);
+  const closingBracket = findClosingBracket(openingBracket);
   if (closingBracket < 0) {
     return undefined;
   }
@@ -299,7 +579,7 @@ function parseLink(
     definition = parseLinkTarget(destination.value);
     end = destination.end + 1;
   } else if (source[end] === '[') {
-    const referenceEnd = findClosingBracket(source, end);
+    const referenceEnd = findClosingBracket(end);
     if (referenceEnd < 0) {
       return undefined;
     }
@@ -337,7 +617,7 @@ function parseLink(
         title: definition.title,
       },
       // eslint-disable-next-line @typescript-eslint/no-use-before-define -- Inline links can recursively contain inline Markdown.
-      children: parseInline(label, references, depth),
+      children: parseInlineNodes(label, references, depth),
       markup: '[]',
     }),
   };
@@ -384,6 +664,9 @@ const emphasisMarkers: Array<{
   { marker: '_', type: 'em' },
 ];
 
+const autoLinkPattern =
+  /<(https?:\/\/[^\s<>]+|mailto:[^\s<>]+|[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)>/iy;
+
 function getEmphasisAt(source: string, index: number) {
   return emphasisMarkers.find(({ marker }) => source.startsWith(marker, index));
 }
@@ -416,31 +699,54 @@ function canCloseEmphasis(source: string, index: number, marker: string) {
   );
 }
 
-function findClosingEmphasis(source: string, marker: string, from: number) {
-  let cursor = from;
-  while (cursor < source.length) {
-    const closingIndex = findUnescaped(source, marker, cursor);
-    if (closingIndex < 0) {
-      return -1;
+// Walks the same marker occurrences as a plain forward search, but remembers
+// the answer for every occurrence it visits. Openers such as `_a _a _a` would
+// otherwise rescan the rest of the text for each `_`.
+function createClosingEmphasisFinder(source: string) {
+  const answers = new Map<string, Map<number, number>>();
+  return (marker: string, from: number) => {
+    let markerAnswers = answers.get(marker);
+    if (!markerAnswers) {
+      markerAnswers = new Map();
+      answers.set(marker, markerAnswers);
     }
-    if (canCloseEmphasis(source, closingIndex, marker)) {
-      return closingIndex;
+    const visited: number[] = [];
+    let result = -1;
+    let cursor = from;
+    while (cursor < source.length) {
+      const closingIndex = findUnescaped(source, marker, cursor);
+      if (closingIndex < 0) {
+        break;
+      }
+      const known = markerAnswers.get(closingIndex);
+      if (known !== undefined) {
+        result = known;
+        break;
+      }
+      visited.push(closingIndex);
+      if (canCloseEmphasis(source, closingIndex, marker)) {
+        result = closingIndex;
+        break;
+      }
+      cursor = closingIndex + marker.length;
     }
-    cursor = closingIndex + marker.length;
-  }
-  return -1;
+    visited.forEach((position) => markerAnswers?.set(position, result));
+    return result;
+  };
 }
 
-export function parseInline(
+function parseInlineNodes(
   source: string,
-  references: ReadonlyMap<string, ILinkDefinition> = new Map(),
-  depth = 0,
-) {
+  references: ReadonlyMap<string, ILinkDefinition>,
+  depth: number,
+): IMarkdownNode[] {
   if (depth >= MAX_MARKDOWN_DEPTH) {
     return [createNode('text', { content: formatText(source) })];
   }
 
   const nodes: IMarkdownNode[] = [];
+  const findClosingBracket = createClosingBracketFinder(source);
+  const findClosingEmphasis = createClosingEmphasisFinder(source);
   let buffer = '';
   let index = 0;
 
@@ -465,17 +771,24 @@ export function parseInline(
     }
 
     if (character === '\n') {
-      let hardBreak = false;
-      if (buffer.endsWith('  ')) {
-        buffer = buffer.slice(0, -2);
-        hardBreak = true;
-      } else if (buffer.endsWith('\\')) {
+      // markdown-it drops the spaces around a line break; two or more
+      // trailing spaces make it a hard break.
+      let textEnd = buffer.length;
+      while (textEnd > 0 && buffer[textEnd - 1] === ' ') {
+        textEnd -= 1;
+      }
+      let hardBreak = buffer.length - textEnd >= 2;
+      buffer = buffer.slice(0, textEnd);
+      if (!hardBreak && buffer.endsWith('\\')) {
         buffer = buffer.slice(0, -1);
         hardBreak = true;
       }
       flushText();
       nodes.push(createNode(hardBreak ? 'hardbreak' : 'softbreak'));
       index += 1;
+      while (source[index] === ' ' || source[index] === '\t') {
+        index += 1;
+      }
       continue;
     }
 
@@ -502,7 +815,14 @@ export function parseInline(
     }
 
     if (character === '!' && source[index + 1] === '[') {
-      const image = parseLink(source, index, references, true, depth + 1);
+      const image = parseLink(
+        source,
+        index,
+        references,
+        true,
+        depth + 1,
+        findClosingBracket,
+      );
       if (image) {
         flushText();
         nodes.push(image.node);
@@ -512,7 +832,14 @@ export function parseInline(
     }
 
     if (character === '[') {
-      const link = parseLink(source, index, references, false, depth + 1);
+      const link = parseLink(
+        source,
+        index,
+        references,
+        false,
+        depth + 1,
+        findClosingBracket,
+      );
       if (link) {
         flushText();
         nodes.push(link.node);
@@ -522,10 +849,10 @@ export function parseInline(
     }
 
     if (character === '<') {
-      const remainingSource = source.slice(index);
-      const autoLink = remainingSource.match(
-        /^<(https?:\/\/[^\s<>]+|mailto:[^\s<>]+|[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)>/i,
-      );
+      // Sticky match on the full source: slicing per `<` copies the tail on
+      // Hermes and turns long runs of `<` quadratic.
+      autoLinkPattern.lastIndex = index;
+      const autoLink = autoLinkPattern.exec(source);
       if (autoLink) {
         const visibleText = autoLink[1].replace(/^mailto:/i, '');
         const href =
@@ -548,14 +875,10 @@ export function parseInline(
     const emphasis = getEmphasisAt(source, index);
     if (emphasis && canOpenEmphasis(source, index, emphasis.marker)) {
       const contentStart = index + emphasis.marker.length;
-      const closingIndex = findClosingEmphasis(
-        source,
-        emphasis.marker,
-        contentStart,
-      );
+      const closingIndex = findClosingEmphasis(emphasis.marker, contentStart);
       if (closingIndex > contentStart) {
         flushText();
-        let children = parseInline(
+        let children = parseInlineNodes(
           source.slice(contentStart, closingIndex),
           references,
           depth + 1,
@@ -582,6 +905,36 @@ export function parseInline(
 
   flushText();
   return nodes;
+}
+
+export function parseInline(
+  source: string,
+  references: ReadonlyMap<string, ILinkDefinition> = new Map(),
+  depth = 0,
+) {
+  const nodes = parseInlineNodes(source, references, depth);
+  // markdown-it only ran smart quotes when the raw block contained a quote.
+  return /['"]/.test(source) ? applySmartQuotes(nodes) : nodes;
+}
+
+// Removes an optional closing `###` sequence and surrounding whitespace with a
+// linear scan; the previous regex backtracked quadratically on long runs.
+function stripClosingHeadingSequence(value: string) {
+  let end = value.length;
+  while (end > 0 && /[ \t]/.test(value[end - 1])) {
+    end -= 1;
+  }
+  let hashStart = end;
+  while (hashStart > 0 && value[hashStart - 1] === '#') {
+    hashStart -= 1;
+  }
+  if (
+    hashStart < end &&
+    (hashStart === 0 || /[ \t]/.test(value[hashStart - 1]))
+  ) {
+    end = hashStart;
+  }
+  return value.slice(0, end).trim();
 }
 
 function countIndent(value: string) {
@@ -808,7 +1161,7 @@ function parseList(
     const item = matchListItem(lines[cursor]);
     if (
       !item ||
-      item.indent !== firstItem.indent ||
+      item.indent > 3 ||
       item.ordered !== firstItem.ordered ||
       item.delimiter !== firstItem.delimiter
     ) {
@@ -821,9 +1174,12 @@ function parseList(
     while (nextIndex < lines.length) {
       const line = lines[nextIndex];
       const nextItem = matchListItem(line);
+      // A marker left of this item's content column starts a sibling item
+      // (CommonMark 5.2), so ` - b` under `- a` is not a nested list.
       if (
         nextItem &&
-        nextItem.indent === firstItem.indent &&
+        nextItem.indent < item.contentIndent &&
+        nextItem.indent <= 3 &&
         nextItem.ordered === firstItem.ordered &&
         nextItem.delimiter === firstItem.delimiter
       ) {
@@ -837,10 +1193,10 @@ function parseList(
       }
 
       const lineIndent = countIndent(line);
-      if (hasBlankLine && lineIndent <= firstItem.indent) {
+      if (hasBlankLine && lineIndent < item.contentIndent) {
         break;
       }
-      if (lineIndent <= firstItem.indent && isBlockStart(lines, nextIndex)) {
+      if (lineIndent < item.contentIndent && isBlockStart(lines, nextIndex)) {
         break;
       }
       if (lineIndent < firstItem.indent) {
@@ -945,7 +1301,7 @@ function parseBlocks(
     const headingMatch = line.match(/^ {0,3}(#{1,6})(?:[ \t]+(.*?)|[ \t]*)$/);
     if (headingMatch) {
       const level = headingMatch[1].length;
-      const content = (headingMatch[2] ?? '').replace(/[ \t]+#+[ \t]*$/, '');
+      const content = stripClosingHeadingSequence(headingMatch[2] ?? '');
       nodes.push(
         createNode(`heading${level}` as IMarkdownNodeType, {
           children: parseInline(content, references, depth + 1),
@@ -953,22 +1309,6 @@ function parseBlocks(
         }),
       );
       index += 1;
-      continue;
-    }
-
-    if (
-      index + 1 < lines.length &&
-      line.trim() &&
-      /^ {0,3}(=+|-+)\s*$/.test(lines[index + 1])
-    ) {
-      const markup = lines[index + 1].trim();
-      nodes.push(
-        createNode(markup.startsWith('=') ? 'heading1' : 'heading2', {
-          children: parseInline(line.trim(), references, depth + 1),
-          markup,
-        }),
-      );
-      index += 2;
       continue;
     }
 
@@ -1023,14 +1363,31 @@ function parseBlocks(
 
     const paragraphLines = [line];
     let cursor = index + 1;
+    let setextMarkup = '';
     while (cursor < lines.length && lines[cursor].trim()) {
+      // Only a paragraph can take a setext underline; a `---` right after a
+      // list item or quote is a thematic break (CommonMark 4.3).
+      if (/^ {0,3}(=+|-+)\s*$/.test(lines[cursor])) {
+        setextMarkup = lines[cursor].trim();
+        break;
+      }
       if (isParagraphInterrupt(lines, cursor)) {
         break;
       }
       paragraphLines.push(lines[cursor]);
       cursor += 1;
     }
-    const content = paragraphLines.join('\n');
+    const content = paragraphLines.join('\n').trim();
+    if (setextMarkup) {
+      nodes.push(
+        createNode(setextMarkup.startsWith('=') ? 'heading1' : 'heading2', {
+          children: parseInline(content.trim(), references, depth + 1),
+          markup: setextMarkup,
+        }),
+      );
+      index = cursor + 1;
+      continue;
+    }
     nodes.push(
       createNode('paragraph', {
         children: parseInline(content, references, depth + 1),

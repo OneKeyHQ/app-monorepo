@@ -17,16 +17,31 @@ import type { ISizableTextProps } from '../../primitives';
 
 const gtMdStyle = { h: '$5' } as const;
 
+// Headings keep the body size token for line height and use the font sizes of
+// the previous react-native-markdown-display renderer, so release notes look
+// exactly as they did before the migration.
 const headingConfigs = {
-  heading1: { mt: '$9', size: '$headingXl' },
-  heading2: { pt: '$7', size: '$headingLg' },
-  heading3: { pt: '$5', size: '$headingMd' },
-  heading4: { size: '$bodyLgMedium' },
-  heading5: { size: '$bodyMdMedium' },
-  heading6: { size: '$bodySmMedium' },
+  heading1: { mt: '$9', fontSize: 32 },
+  heading2: { pt: '$7', fontSize: 24 },
+  heading3: { pt: '$5', fontSize: 18, fontWeight: '600' },
+  heading4: { fontSize: 16 },
+  heading5: { fontSize: 13 },
+  heading6: { fontSize: 11 },
+} as const;
+
+const inlineMarkStyles = {
+  em: { fontStyle: 'italic' },
+  s: { textDecorationLine: 'line-through' },
+  strong: { fontWeight: 'bold' },
 } as const;
 
 type IBodyTextSize = ISizableTextProps['size'];
+// A nested SizableText re-applies its size token (font size, line height and
+// weight), so each inline wrapper carries the full style of its ancestors.
+type IInlineTextStyle = Pick<
+  ISizableTextProps,
+  'fontSize' | 'fontStyle' | 'fontWeight' | 'size' | 'textDecorationLine'
+>;
 type IRenderBlockNode = (
   node: IMarkdownNode,
   bodyTextSize: IBodyTextSize,
@@ -78,27 +93,21 @@ function MarkdownImage({ alt, src }: { alt?: string; src?: string }) {
 function MarkdownLink({
   children,
   href,
-}: {
+  ...textStyle
+}: IInlineTextStyle & {
   children: ReactNode;
-  href: string | undefined;
+  href: string;
 }) {
-  const safeHref = useMemo(() => getSafeMarkdownHref(href), [href]);
   const handlePress = useCallback(() => {
-    if (safeHref) {
-      openUrlExternal(safeHref);
-    }
-  }, [safeHref]);
-
-  if (!safeHref) {
-    return children;
-  }
+    openUrlExternal(href);
+  }, [href]);
 
   return (
     <SizableText
-      color="$textInfo"
+      color="$text"
       cursor="pointer"
       onPress={handlePress}
-      textDecorationLine="underline"
+      {...textStyle}
     >
       {children}
     </SizableText>
@@ -126,10 +135,15 @@ function MarkdownMediaLink({
   return <Pressable onPress={handlePress}>{children}</Pressable>;
 }
 
-function renderInlineNode(node: IMarkdownNode, key: string): ReactNode {
-  const children = node.children.map((child, index) =>
-    renderInlineNode(child, `${key}-inline-${index}`),
-  );
+function renderInlineNode(
+  node: IMarkdownNode,
+  key: string,
+  textStyle: IInlineTextStyle,
+): ReactNode {
+  const renderChildren = (childStyle: IInlineTextStyle) =>
+    node.children.map((child, index) =>
+      renderInlineNode(child, `${key}-inline-${index}`, childStyle),
+    );
 
   switch (node.type) {
     case 'text':
@@ -138,27 +152,24 @@ function renderInlineNode(node: IMarkdownNode, key: string): ReactNode {
     case 'hardbreak':
       return '\n';
     case 'strong':
-      return (
-        <SizableText key={key} fontWeight="700">
-          {children}
-        </SizableText>
-      );
     case 'em':
+    case 's': {
+      const markStyle: IInlineTextStyle = {
+        ...textStyle,
+        ...inlineMarkStyles[node.type],
+      };
       return (
-        <SizableText key={key} fontStyle="italic">
-          {children}
+        <SizableText key={key} color="$text" {...markStyle}>
+          {renderChildren(markStyle)}
         </SizableText>
       );
-    case 's':
-      return (
-        <SizableText key={key} textDecorationLine="line-through">
-          {children}
-        </SizableText>
-      );
+    }
     case 'code_inline':
       return (
         <SizableText
           key={key}
+          color="$text"
+          {...textStyle}
           bg="$bgSubdued"
           borderColor="$borderSubdued"
           borderRadius="$1"
@@ -169,25 +180,39 @@ function renderInlineNode(node: IMarkdownNode, key: string): ReactNode {
           {node.content}
         </SizableText>
       );
-    case 'link':
+    case 'link': {
+      const href = getSafeMarkdownHref(node.attributes.href);
+      if (!href) {
+        return <Fragment key={key}>{renderChildren(textStyle)}</Fragment>;
+      }
+      // The previous renderer underlined links and kept the text color.
+      const linkStyle: IInlineTextStyle = {
+        ...textStyle,
+        textDecorationLine: 'underline',
+      };
       return (
-        <MarkdownLink key={key} href={node.attributes.href}>
-          {children}
+        <MarkdownLink key={key} href={href} {...linkStyle}>
+          {renderChildren(linkStyle)}
         </MarkdownLink>
       );
+    }
     case 'image':
       return node.attributes.alt ?? '';
     default:
-      if (children.length > 0) {
-        return <Fragment key={key}>{children}</Fragment>;
+      if (node.children.length > 0) {
+        return <Fragment key={key}>{renderChildren(textStyle)}</Fragment>;
       }
       return node.content || null;
   }
 }
 
-function renderInlineNodes(nodes: IMarkdownNode[], keyPrefix: string) {
+function renderInlineNodes(
+  nodes: IMarkdownNode[],
+  keyPrefix: string,
+  textStyle: IInlineTextStyle,
+) {
   return nodes.map((node, index) =>
-    renderInlineNode(node, `${keyPrefix}-inline-${index}`),
+    renderInlineNode(node, `${keyPrefix}-inline-${index}`, textStyle),
   );
 }
 
@@ -201,7 +226,7 @@ function hasInlineImage(node: IMarkdownNode): boolean {
 function renderMediaNode(
   node: IMarkdownNode,
   key: string,
-  bodyTextSize: IBodyTextSize,
+  textStyle: IInlineTextStyle,
 ): ReactNode {
   if (node.type === 'image') {
     return (
@@ -216,11 +241,11 @@ function renderMediaNode(
   const children = node.children.map((child, index) => {
     const childKey = `${key}-media-${index}`;
     if (hasInlineImage(child)) {
-      return renderMediaNode(child, childKey, bodyTextSize);
+      return renderMediaNode(child, childKey, textStyle);
     }
     return (
-      <SizableText key={childKey} color="$text" size={bodyTextSize}>
-        {renderInlineNode(child, childKey)}
+      <SizableText key={childKey} color="$text" {...textStyle}>
+        {renderInlineNode(child, childKey, textStyle)}
       </SizableText>
     );
   });
@@ -239,19 +264,24 @@ function renderMediaNode(
 function renderInlineContent(
   nodes: IMarkdownNode[],
   keyPrefix: string,
-  size: IBodyTextSize,
-  fontWeight?: ISizableTextProps['fontWeight'],
+  textStyle: IInlineTextStyle,
   textAlign?: ISizableTextProps['textAlign'],
+  // Line-box style of the wrapping text. Headings keep the body size here and
+  // nest their own font size inside it, which sets the line height exactly as
+  // the previous renderer did.
+  containerStyle: IInlineTextStyle = textStyle,
 ) {
   if (!nodes.some((node) => hasInlineImage(node))) {
+    const inlineNodes = renderInlineNodes(nodes, keyPrefix, textStyle);
     return (
-      <SizableText
-        color="$text"
-        fontWeight={fontWeight}
-        size={size}
-        textAlign={textAlign}
-      >
-        {renderInlineNodes(nodes, keyPrefix)}
+      <SizableText color="$text" textAlign={textAlign} {...containerStyle}>
+        {containerStyle === textStyle ? (
+          inlineNodes
+        ) : (
+          <SizableText color="$text" {...textStyle}>
+            {inlineNodes}
+          </SizableText>
+        )}
       </SizableText>
     );
   }
@@ -276,18 +306,17 @@ function renderInlineContent(
         const segmentKey = `${keyPrefix}-segment-${segmentIndex}`;
         if (segment.containsImage) {
           return segment.nodes.map((node, nodeIndex) =>
-            renderMediaNode(node, `${segmentKey}-${nodeIndex}`, size),
+            renderMediaNode(node, `${segmentKey}-${nodeIndex}`, textStyle),
           );
         }
         return (
           <SizableText
             key={segmentKey}
             color="$text"
-            fontWeight={fontWeight}
-            size={size}
             textAlign={textAlign}
+            {...textStyle}
           >
-            {renderInlineNodes(segment.nodes, segmentKey)}
+            {renderInlineNodes(segment.nodes, segmentKey, textStyle)}
           </SizableText>
         );
       })}
@@ -295,15 +324,28 @@ function renderInlineContent(
   );
 }
 
-function renderHeading(node: IMarkdownNode, key: string) {
+function renderHeading(
+  node: IMarkdownNode,
+  bodyTextSize: IBodyTextSize,
+  key: string,
+) {
   const config = headingConfigs[node.type as keyof typeof headingConfigs];
+  const textStyle: IInlineTextStyle = {
+    size: bodyTextSize,
+    fontSize: config.fontSize,
+  };
+  if ('fontWeight' in config) {
+    textStyle.fontWeight = config.fontWeight;
+  }
   return (
     <Stack
       key={key}
       mt={'mt' in config ? config.mt : undefined}
       pt={'pt' in config ? config.pt : undefined}
     >
-      {renderInlineContent(node.children, key, config.size)}
+      {renderInlineContent(node.children, key, textStyle, undefined, {
+        size: bodyTextSize,
+      })}
     </Stack>
   );
 }
@@ -316,10 +358,12 @@ function renderListItemChildren(
 ) {
   return nodes.map((node, index) => {
     const key = `${keyPrefix}-content-${index}`;
-    if (node.type === 'paragraph') {
+    // As before, only the paragraph that opens a list item drops its block
+    // spacing; later paragraphs keep their margins.
+    if (node.type === 'paragraph' && index === 0) {
       return (
         <Fragment key={key}>
-          {renderInlineContent(node.children, key, bodyTextSize)}
+          {renderInlineContent(node.children, key, { size: bodyTextSize })}
         </Fragment>
       );
     }
@@ -337,7 +381,11 @@ function renderList(
   const start = node.attributes.start ?? 1;
 
   return (
-    <YStack key={key} gap="$2" pt="$2">
+    <YStack
+      key={key}
+      gap={isOrdered ? undefined : '$2'}
+      pt={isOrdered ? undefined : '$2'}
+    >
       {node.children.map((item, index) => {
         const itemKey = `${key}-item-${index}`;
         const children = renderListItemChildren(
@@ -394,8 +442,9 @@ function renderTableCell(
       {renderInlineContent(
         node.children,
         key,
-        bodyTextSize,
-        isHeader ? '600' : undefined,
+        isHeader
+          ? { size: bodyTextSize, fontWeight: '600' }
+          : { size: bodyTextSize },
         node.attributes.align,
       )}
     </Stack>
@@ -448,14 +497,14 @@ function renderBlockNode(
   key: string,
 ): ReactNode {
   if (node.type in headingConfigs) {
-    return renderHeading(node, key);
+    return renderHeading(node, bodyTextSize, key);
   }
 
   switch (node.type) {
     case 'paragraph':
       return (
         <YStack key={key} my="$2.5">
-          {renderInlineContent(node.children, key, bodyTextSize)}
+          {renderInlineContent(node.children, key, { size: bodyTextSize })}
         </YStack>
       );
     case 'bullet_list':
@@ -495,7 +544,8 @@ function renderBlockNode(
         </SizableText>
       );
     case 'hr':
-      return <Stack key={key} bg="$borderSubdued" height={1} my="$2.5" />;
+      // Same 1px black rule, without margins, as the previous renderer.
+      return <Stack key={key} bg="#000000" height={1} />;
     case 'table':
       return renderTable(node, bodyTextSize, key);
     case 'image':
