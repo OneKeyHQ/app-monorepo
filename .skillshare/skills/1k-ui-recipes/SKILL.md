@@ -13,7 +13,7 @@ Bite-sized solutions for common UI issues.
 | Recipe | Guide | Key Points |
 |--------|-------|------------|
 | iOS Tab Bar Scroll Offset | [ios-tab-bar-scroll-offset.md](references/rules/ios-tab-bar-scroll-offset.md) | Use `useScrollContentTabBarOffset` for `paddingBottom` on iOS tab pages |
-| Smooth State Transitions | [start-view-transition.md](references/rules/start-view-transition.md) | Wrap heavy state updates in `startViewTransition` for fade on web |
+| Avoid View Transitions | — | Never wrap state updates in `document.startViewTransition`: the whole-window cross-fade flashes on desktop and rendering pauses until the callback settles |
 | Horizontal Scroll in Collapsible Tab Headers | [collapsible-tab-horizontal-scroll.md](references/rules/collapsible-tab-horizontal-scroll.md) | Bidirectional `Gesture.Pan()` + programmatic `scrollTo` via `CollapsibleTabContext` |
 | Android Bottom Tab Touch Interception | [android-bottom-tab-touch-intercept.md](references/rules/android-bottom-tab-touch-intercept.md) | **Temporary** — `GestureDetector` + `Gesture.Tap()` in `.android.tsx` to bypass native tab bar touch stealing |
 | Keyboard Avoidance for Input Fields | [keyboard-avoidance.md](references/rules/keyboard-avoidance.md) | `KeyboardAwareScrollView` auto-scroll, Footer animated padding, `useKeyboardHeight` / `useKeyboardEvent` hooks |
@@ -35,17 +35,15 @@ const tabBarHeight = useScrollContentTabBarOffset();
 <ScrollView contentContainerStyle={{ paddingBottom: tabBarHeight }} />
 ```
 
-### 2. Smooth State Transitions with `startViewTransition`
+### 2. Avoid `document.startViewTransition` for State Updates
 
-Wrap heavy state updates in `startViewTransition` — fade on web/desktop via View Transition API, `setTimeout` fallback on native.
+The `startViewTransition` wrapper was removed from `@onekeyhq/components` (OK-63696). Do not reintroduce it or call `document.startViewTransition` to smooth state updates:
 
-```typescript
-import { startViewTransition } from '@onekeyhq/components';
+- It snapshots the whole document and cross-fades the snapshots. On desktop this intermittently flashed the white window background when settings switches were toggled.
+- Rendering stays paused until the callback settles, and Chromium aborts after ~4 s. A passcode prompt awaited inside it stayed invisible for ~4 s.
+- The Suspense re-suspend flicker it used to hide was fixed at the source (OK-53013): async computed atoms must not depend on atoms that change at runtime. See `packages/kit-bg/src/states/jotai/atoms/password.ts`.
 
-startViewTransition(() => {
-  setIsReady(true);
-});
-```
+Write state directly. If something needs a transition, animate that element.
 
 ### 3. Horizontal Scroll in Collapsible Tab Headers (Native)
 

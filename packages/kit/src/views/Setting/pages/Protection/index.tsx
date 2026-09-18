@@ -18,7 +18,6 @@ import {
   Toast,
   XStack,
   YStack,
-  startViewTransition,
   useInModalDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -84,11 +83,9 @@ const SettingProtectionModal = () => {
     }, 60 * 1000);
   }, [clearLockTimer]);
 
-  // https://github.com/facebook/react/issues/31819
-  // Page flicker caused by Suspense throttling behavior.
   const handleTransition = useCallback(
     (fn: () => Promise<void>) => {
-      startViewTransition(fn);
+      void fn();
       updateLockTimer();
     },
     [updateLockTimer],
