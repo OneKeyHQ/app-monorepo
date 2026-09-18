@@ -1491,6 +1491,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               walletId: params.walletId,
               saveToDb,
               autoHandleExitError: params.autoHandleExitError,
+              hwAllNetworkPrepareAccountsResponse,
             });
             const plainError = errorUtils.toPlainErrorObject(error);
             failedAccounts.push({
@@ -1537,12 +1538,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToDb,
     autoHandleExitError,
     showUIProgress,
+    hwAllNetworkPrepareAccountsResponse,
   }: {
     walletId: string;
     error: any;
     saveToDb: boolean | undefined;
     autoHandleExitError?: boolean;
     showUIProgress?: boolean;
+    hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   }) {
     errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
 
@@ -1571,7 +1574,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
       throw error;
     }
 
-    if (shouldAbortAccountCreation(error)) {
+    if (
+      shouldAbortAccountCreation(error) &&
+      !hwAllNetworkPrepareAccountsResponse?.isCompletedAppFailure(error)
+    ) {
       throw error;
     }
   }
