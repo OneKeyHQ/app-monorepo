@@ -20,6 +20,8 @@ const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+const ZXING_READER_WASM_TEST =
+  /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -281,7 +283,7 @@ module.exports = ({ platform, basePath, configName }) => {
         },
         {
           'oneOf': [
-            // cspell:ignore emscripten Skia skia's
+            // cspell:ignore emscripten Skia skia's zxing ZXING
             // Canvaskit ships a prebuilt wasm loaded at runtime by emscripten;
             // emit it as a URL asset so react-native-skia's LoadSkiaWeb can
             // fetch it via locateFile (see OrbShader.tsx). Must come before
@@ -293,9 +295,18 @@ module.exports = ({ platform, basePath, configName }) => {
               type: 'asset/resource',
               generator: { filename: 'static/canvaskit/[name][ext]' },
             },
+            // zxing reader wasm for the barcode-detector polyfill; mirrors the
+            // rule in rspack.base.config.ts.
+            {
+              test: ZXING_READER_WASM_TEST,
+              type: 'asset/resource',
+              generator: {
+                filename: 'static/zxing/[name].[contenthash:8][ext]',
+              },
+            },
             {
               test: /\.wasm$/,
-              exclude: CANVASKIT_WASM_TEST,
+              exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
               type: 'webassembly/async',
             },
             {
