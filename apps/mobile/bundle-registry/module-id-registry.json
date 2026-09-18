@@ -16210,6 +16210,8 @@
     "packages/components/src/content/LottieView/index.tsx": 10460,
     "packages/components/src/content/LottieView/type.tsx": 16329,
     "packages/components/src/content/Markdown/index.tsx": 94,
+    "packages/components/src/content/Markdown/parser.ts": 16687,
+    "packages/components/src/content/Markdown/urlUtils.ts": 9330,
     "packages/components/src/content/MatchSizeableText/index.tsx": 18684,
     "packages/components/src/content/MiniDevice/index.tsx": 10992,
     "packages/components/src/content/MiniDevice/scenes.tsx": 24510,
