@@ -71,7 +71,7 @@ describe('isLegacyOneKeyIdAccountMissingOAuthIdentity', () => {
   test('empty identities array returns false (unknown data is NOT legacy)', () => {
     // Documented contract: callers needing a different classification for
     // unknown identity data (offline / stale persisted state) must handle
-    // the empty case themselves (see the WithFallback wrapper in kit).
+    // the empty case themselves (see shouldShowOneKeyIdLegacyOAuthBindPrompt).
     expect(isLegacyOneKeyIdAccountMissingOAuthIdentity(buildAccount([]))).toBe(
       false,
     );
