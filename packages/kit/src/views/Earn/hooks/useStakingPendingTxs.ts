@@ -64,6 +64,16 @@ export type IStakingPendingTxsPrecomputed = {
 
 const DEFAULT_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 30 });
 
+/**
+ * Wait before refreshing once the pending transactions have cleared. The tx
+ * tracker reports success up to a block before the node the figures are
+ * computed from; a refresh fired in that gap fetches, and the server caches,
+ * the pre-transaction balance (OK-63659).
+ */
+export const STAKING_TX_SETTLE_DELAY_MS = timerUtils.getTimeDurationMs({
+  seconds: 3,
+});
+
 export const useStakingPendingTxs = ({
   accountId,
   networkId,
@@ -143,13 +153,9 @@ export const useStakingPendingTxs = ({
   // Trigger onRefresh callback when all pending transactions complete
   useEffect(() => {
     if (!isPending && prevIsPending) {
-      // Delay refresh to allow backend data sync after transaction confirmation
-      setTimeout(
-        () => {
-          onRefreshRef.current?.();
-        },
-        timerUtils.getTimeDurationMs({ seconds: 3 }),
-      );
+      setTimeout(() => {
+        onRefreshRef.current?.();
+      }, STAKING_TX_SETTLE_DELAY_MS);
     }
   }, [isPending, prevIsPending]);
 

@@ -381,6 +381,32 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(swr.get('diskNewer')).toBe('fresh-disk');
   });
 
+  it('refreshes the timestamp of an unchanged result without rewriting the store', () => {
+    jest.useFakeTimers({ doNotFake: ['Date'] });
+    try {
+      otherRuntimeFlush({ polled: { d: { price: 1 }, t: 1 } });
+      const swr = loadFreshRuntime();
+
+      setNow(2);
+      swr.set('polled', { price: 1 });
+      jest.advanceTimersByTime(10_000);
+
+      expect(readDiskStore().polled).toEqual({ d: { price: 1 }, t: 1 });
+      expect(swr.getWithTimestamp('polled')).toEqual({
+        data: { price: 1 },
+        updatedAt: 2,
+      });
+
+      setNow(3);
+      swr.set('polled', { price: 2 });
+      jest.advanceTimersByTime(10_000);
+
+      expect(readDiskStore().polled).toEqual({ d: { price: 2 }, t: 3 });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('rebuilds the store from this copy when the disk JSON is unparseable', () => {
     otherRuntimeFlush({
       kept: { d: 'disk', t: 500 },
@@ -936,6 +962,43 @@ describe('SWR cache native incremental persistence', () => {
     jest.restoreAllMocks();
   });
 
+  it('lets an unchanged result ride along with the next flush instead of starting one', () => {
+    jest.useFakeTimers({ doNotFake: ['Date'] });
+    const clock = jest.spyOn(Date, 'now');
+    try {
+      const swr = loadFreshRuntime();
+      clock.mockReturnValue(1);
+      swr.set('polled', { price: 1 });
+      swr.flushNow();
+      expect(fakeDiskGlobal.__swrPatches).toHaveLength(1);
+
+      clock.mockReturnValue(2);
+      swr.set('polled', { price: 1 });
+      jest.advanceTimersByTime(10_000);
+
+      expect(fakeDiskGlobal.__swrPatches).toHaveLength(1);
+      expect(readDiskStore().polled).toEqual({ d: { price: 1 }, t: 1 });
+      expect(swr.getWithTimestamp('polled')?.updatedAt).toBe(2);
+
+      clock.mockReturnValue(3);
+      swr.set('changed', 'value');
+      jest.advanceTimersByTime(10_000);
+
+      expect(fakeDiskGlobal.__swrPatches).toHaveLength(2);
+      expect(fakeDiskGlobal.__swrPatches?.[1]).toEqual({
+        removePrefixes: [],
+        removals: [],
+        updates: [
+          ['polled', JSON.stringify({ d: { price: 1 }, t: 2 })],
+          ['changed', JSON.stringify({ d: 'value', t: 3 })],
+        ],
+      });
+    } finally {
+      clock.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
   it('drops invalid mutation keys without blocking a later flush', () => {
     const swr = loadFreshRuntime();
     const invalidKey = 'x'.repeat(SWR_CACHE_MAX_KEY_CHARS + 1);
@@ -1010,6 +1073,42 @@ describe('SWR cache slow-op log', () => {
       updatedKeyCount: 1,
       patchChars: JSON.stringify({ d: 'small', t: 2 }).length,
     });
+  });
+
+  it('attaches Hermes heap deltas to a slow flush when the runtime exposes them', () => {
+    const hermesGlobal = globalThis as { HermesInternal?: unknown };
+    let sample = 0;
+    hermesGlobal.HermesInternal = {
+      getInstrumentedStats: () => {
+        sample += 1;
+        const after = sample > 1;
+        return {
+          js_numGCs: after ? 12 : 10,
+          js_gcTime: after ? 1.53 : 1.5,
+          js_heapSize: after ? 160 : 100,
+          js_totalAllocatedBytes: after ? 1400 : 1000,
+        };
+      },
+    };
+    try {
+      const swr = loadFreshRuntime();
+      swr.set('changed', 'small');
+
+      tickPerfClock(30);
+      swr.flushNow();
+
+      expect(mockSWRCacheSlowOp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          op: 'flush',
+          heapBytes: 160,
+          allocatedBytes: 400,
+          gcCount: 2,
+          gcMs: 30,
+        }),
+      );
+    } finally {
+      delete hermesGlobal.HermesInternal;
+    }
   });
 
   it('stays silent while a flush fits the long-task budget', () => {
