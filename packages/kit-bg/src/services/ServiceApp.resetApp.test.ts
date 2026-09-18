@@ -18,7 +18,9 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 
 jest.mock('../dbs/local/localDb', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    reset: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 jest.mock('../dbs/simple/simpleDb', () => ({
@@ -33,6 +35,28 @@ jest.mock('../dbs/local/localSecretEnvelope', () => ({
     clearCapabilityCache: jest.fn(),
   },
 }));
+
+jest.mock('../states/jotai/jotaiStorage', () => ({
+  clearNativeJotaiStorageForReset: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../migrations/v4ToV5Migration/v4appStorage', () => ({
+  v4appStorage: {
+    clear: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/storage/instance/syncStorageInstance', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance')
+  >('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+  return {
+    ...actual,
+    coldStartCacheStorage: {
+      clearAll: jest.fn().mockResolvedValue(undefined),
+    },
+  };
+});
 
 jest.mock(
   '@onekeyhq/shared/src/storage/instance/secureStorageInstance',
@@ -49,6 +73,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import localDb from '../dbs/local/localDb';
 
 import ServiceApp from './ServiceApp';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
@@ -209,7 +235,7 @@ describe('ServiceApp.resetApp', () => {
     expect(restartApp).not.toHaveBeenCalled();
   });
 
-  test('rejects native AppStorage clear failures before further reset and allows retry', async () => {
+  test('cleans security-critical storage before rejecting a native AppStorage clear failure', async () => {
     platformEnv.isNative = true;
     const service = new ServiceApp({
       backgroundApi: {
@@ -225,8 +251,13 @@ describe('ServiceApp.resetApp', () => {
     });
     const clearError = new Error('AppStorage recovery failed');
     const clear = jest.spyOn(appStorage, 'clear').mockRejectedValue(clearError);
-    const clearSyncStorage = jest.spyOn(appStorage.syncStorage, 'clearAll');
-    const deletePassword = jest.spyOn(biologyAuthUtils, 'deletePassword');
+    const clearSyncStorage = jest
+      .spyOn(appStorage.syncStorage, 'clearAll')
+      .mockResolvedValue(undefined);
+    const deletePassword = jest
+      .spyOn(biologyAuthUtils, 'deletePassword')
+      .mockResolvedValue(undefined);
+    const resetLocalDb = jest.spyOn(localDb, 'reset');
     const restartApp = jest
       .spyOn(service, 'restartApp')
       .mockResolvedValue(undefined);
@@ -241,11 +272,12 @@ describe('ServiceApp.resetApp', () => {
     expect(clear).toHaveBeenCalledTimes(2);
     expect(endResetting).toHaveBeenCalledTimes(2);
     expect(resetUtils.getIsResetting()).toBe(false);
-    expect(clearSyncStorage).not.toHaveBeenCalled();
-    expect(deletePassword).not.toHaveBeenCalled();
+    expect(clearSyncStorage).toHaveBeenCalledTimes(2);
+    expect(deletePassword).toHaveBeenCalledTimes(2);
     expect(
       mockDeleteMmkvProfileKeyForLocalSecretEnvelope,
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalledTimes(2);
+    expect(resetLocalDb).toHaveBeenCalledTimes(2);
     expect(restartApp).not.toHaveBeenCalled();
   });
 });

@@ -106,6 +106,7 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetData() {
+    let appStorageClearError: unknown;
     let nativeJotaiResetError: unknown;
     // const v4migrationPersistData = await v4migrationPersistAtom.get();
     // const v4migrationAutoStartDisabled =
@@ -118,7 +119,7 @@ class ServiceApp extends ServiceBase {
     } catch (error) {
       console.error('appStorage.clear() error');
       if (platformEnv.isNative) {
-        throw error;
+        appStorageClearError = error;
       }
     }
     defaultLogger.setting.page.clearDataStep('appStorage-clear');
@@ -329,6 +330,13 @@ class ServiceApp extends ServiceBase {
           console.error('desktopApi.storeClear() error', error);
         }
       }
+    }
+    if (appStorageClearError) {
+      return Promise.reject(
+        appStorageClearError instanceof Error
+          ? appStorageClearError
+          : new OneKeyLocalError('AppStorage clear failed'),
+      );
     }
     if (nativeJotaiResetError) {
       throw new OneKeyLocalError('Jotai storage reset failed');
