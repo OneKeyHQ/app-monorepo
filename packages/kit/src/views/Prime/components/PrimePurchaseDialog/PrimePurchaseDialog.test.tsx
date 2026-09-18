@@ -128,6 +128,8 @@ const mockListItem = jest.fn<
       onPress?: () => Promise<void>;
       subtitle?: string;
       testID?: string;
+      disabled?: boolean;
+      isLoading?: boolean;
     },
   ]
 >(() => null);
@@ -809,4 +811,51 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     expect(mockPaymentMethodDialogClose).toHaveBeenCalledTimes(1);
     expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['prime-pay-with-card', 'prime-pay-with-crypto'])(
+    'unlocks %s after dismissing a pending payment discovered in the open picker',
+    async (testID) => {
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValueOnce({
+        isLoggedIn: true,
+        hasPendingPayment: false,
+        onekeyUserId: 'user-1',
+      });
+      const { result } = renderHook(() => usePrimePurchaseCallback());
+      await act(async () => {
+        await result.current.purchase({ selectedSubscriptionPeriod: 'P1M' });
+      });
+      render(mockDialogShow.mock.calls[0][0].renderContent);
+
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: true,
+        onekeyUserId: 'user-1',
+        pendingSubscriptionPeriod: 'P1M',
+      });
+      mockPendingChoice = 'cancel';
+      const getLatestRow = () =>
+        mockListItem.mock.calls
+          .filter(([props]) => props.testID === testID)
+          .at(-1)?.[0];
+      await act(async () => {
+        await getLatestRow()?.onPress?.();
+      });
+
+      expect(mockDialogShow).toHaveBeenCalledTimes(2);
+      expect(mockPaymentMethodDialogClose).not.toHaveBeenCalled();
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      expect(mockSupersedePaymentSession).not.toHaveBeenCalled();
+      expect(getLatestRow()?.disabled).toBe(false);
+      expect(getLatestRow()?.isLoading).toBe(false);
+
+      mockPendingChoice = 'resume';
+      await act(async () => {
+        await getLatestRow()?.onPress?.();
+      });
+      expect(mockPaymentMethodDialogClose).toHaveBeenCalledTimes(1);
+      expect(mockPurchaseByCrypto).toHaveBeenCalledTimes(1);
+    },
+  );
 });

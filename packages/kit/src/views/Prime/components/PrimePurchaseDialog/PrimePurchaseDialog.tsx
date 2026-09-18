@@ -353,7 +353,7 @@ export function usePrimePurchaseCallback({
         beforeContinue,
       }: {
         beforeContinue: () => void | Promise<void>;
-      }) => {
+      }): Promise<'continuePurchase' | 'resumed' | 'cancelled'> => {
         let entryGuard: Awaited<
           ReturnType<typeof getPrimeInfiniPaymentEntryGuard>
         >;
@@ -396,12 +396,12 @@ export function usePrimePurchaseCallback({
           };
         }
         if (!entryGuard.hasPendingPayment) {
-          return false;
+          return 'continuePurchase';
         }
         pendingContext ??= await getPrimeInfiniPendingPaymentContext();
         const { pendingPaymentSession, onekeyUserId } = pendingContext;
         if (!pendingPaymentSession) {
-          return false;
+          return 'continuePurchase';
         }
         if (!onekeyUserId || onekeyUserId !== entryGuard.onekeyUserId) {
           throw new OneKeyLocalError('Infini purchase user changed');
@@ -436,7 +436,7 @@ export function usePrimePurchaseCallback({
           },
         );
         if (choice === 'cancel') {
-          return true;
+          return 'cancelled';
         }
         const currentUser =
           await backgroundApiProxy.servicePrime.getLocalUserInfo();
@@ -459,7 +459,7 @@ export function usePrimePurchaseCallback({
           if (!archivedSession) {
             throw new OneKeyLocalError('Infini payment session changed');
           }
-          return false;
+          return 'continuePurchase';
         }
         await beforeContinue();
         if (platformEnv.isNativeAndroidGooglePlay) {
@@ -471,7 +471,7 @@ export function usePrimePurchaseCallback({
               session: { ...pendingPaymentSession, featureName },
             },
           });
-          return true;
+          return 'resumed';
         }
         await startCryptoPayment({
           // Resume the in-flight invoice on its own period. Passing the period
@@ -482,18 +482,17 @@ export function usePrimePurchaseCallback({
             entryGuard.pendingSubscriptionPeriod ?? selectedSubscriptionPeriod,
           createNewPayment: false,
         });
-        return true;
+        return 'resumed';
       };
 
       // Offer recovery or an explicit new purchase before choosing a channel.
       // Store builds can continue to IAP without opening an unsupported page.
-      if (
-        await continuePendingCryptoPayment({
-          beforeContinue: async () => {
-            await onPurchase?.();
-          },
-        })
-      ) {
+      const pendingPaymentResult = await continuePendingCryptoPayment({
+        beforeContinue: async () => {
+          await onPurchase?.();
+        },
+      });
+      if (pendingPaymentResult !== 'continuePurchase') {
         return;
       }
 
@@ -537,14 +536,13 @@ export function usePrimePurchaseCallback({
               methods={paymentMethods}
               freeTrial={freeTrial}
               onSelect={async (method) => {
-                if (
-                  await continuePendingCryptoPayment({
-                    beforeContinue: async () => {
-                      await paymentMethodDialog.close();
-                    },
-                  })
-                ) {
-                  return true;
+                const pendingResult = await continuePendingCryptoPayment({
+                  beforeContinue: async () => {
+                    await paymentMethodDialog.close();
+                  },
+                });
+                if (pendingResult !== 'continuePurchase') {
+                  return pendingResult === 'resumed';
                 }
                 if (
                   !(await ensurePrimePurchaseEligible({
