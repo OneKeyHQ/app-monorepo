@@ -217,6 +217,42 @@ describe('installLedgerCoreApps', () => {
     expect(deps.installApp).toHaveBeenCalledTimes(2);
   });
 
+  it('probes after a failed retry too, and takes a landed app as success', async () => {
+    const deps = makeDeps();
+    deps.installApp
+      .mockResolvedValueOnce(codedSecureChannelFailure)
+      // The retry wrote the app, then failed fetching the catalog.
+      .mockResolvedValueOnce(metadataFailure);
+    deps.listInstalledAppNames
+      .mockResolvedValueOnce({ success: true, payload: [] })
+      .mockResolvedValueOnce({ success: true, payload: ['Bitcoin'] });
+
+    await expect(run(deps)).resolves.toBeUndefined();
+
+    expect(deps.installApp).toHaveBeenCalledTimes(2);
+    // Once before the retry, once after it.
+    expect(deps.listInstalledAppNames).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips the post-retry probe when the retry ended in a terminal answer', async () => {
+    const deps = makeDeps();
+    deps.installApp
+      .mockResolvedValueOnce(codedSecureChannelFailure)
+      .mockResolvedValueOnce({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.UserRejected,
+          error: 'Rejected on device',
+        },
+      });
+
+    await expect(run(deps)).rejects.toMatchObject({
+      code: HardwareErrorCode.UserRejected,
+    });
+
+    expect(deps.listInstalledAppNames).toHaveBeenCalledTimes(1);
+  });
+
   it('accepts an already-installed answer on the retry too', async () => {
     const deps = makeDeps();
     deps.installApp
