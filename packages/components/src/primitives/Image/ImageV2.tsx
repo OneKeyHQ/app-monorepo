@@ -28,6 +28,7 @@ import { Skeleton } from '../Skeleton';
 import { Stack, YStack } from '../Stack';
 
 import { buildOptimizedImageSource } from './optimization';
+import { isPreloadedImageUri } from './preloadedImageUris';
 import { isEmptyResolvedSource, useResetError } from './utils';
 
 import type {
@@ -79,38 +80,9 @@ function getResizeMode({
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   const theme = useTheme();
   const imageContainerRef = useRef<HTMLElement | null>(null);
-  const [shouldLoadImage, setShouldLoadImage] = useState(!platformEnv.isWeb);
   const setImageContainerRef = useCallback((element: unknown) => {
     imageContainerRef.current = element as HTMLElement | null;
   }, []);
-
-  useEffect(() => {
-    if (!platformEnv.isWeb || shouldLoadImage) {
-      return undefined;
-    }
-
-    const element = imageContainerRef.current;
-    if (!element || typeof IntersectionObserver === 'undefined') {
-      setShouldLoadImage(true);
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setShouldLoadImage(true);
-          observer.disconnect();
-        }
-      },
-      {
-        rootMargin: '200px',
-        // Expand nested ScrollView clipping bounds as well as the viewport.
-        scrollMargin: '200px',
-      } as IntersectionObserverInit & { scrollMargin: string },
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [shouldLoadImage]);
 
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
@@ -223,6 +195,47 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   // URI alone identifies the web request.
   const resolvedSourceIdentity = resolvedSource?.uri ?? '';
   useResetError(resolvedSourceIdentity, hasError, setHasError);
+
+  // A prefetched URI is in react-native-web's own cache, so passing it at
+  // mount lets the image start LOADED and paint in the first commit. Holding
+  // it back for the IntersectionObserver instead costs two blank frames on
+  // every mount, which is visible as a flash in lists that remount their rows.
+  const [shouldLoadImage, setShouldLoadImage] = useState(
+    () => !platformEnv.isWeb || isPreloadedImageUri(resolvedSourceIdentity),
+  );
+  if (!shouldLoadImage && isPreloadedImageUri(resolvedSourceIdentity)) {
+    // A deferred image whose source was swapped to (or has since been)
+    // prefetched can paint now instead of waiting to intersect the viewport.
+    setShouldLoadImage(true);
+  }
+
+  useEffect(() => {
+    if (!platformEnv.isWeb || shouldLoadImage) {
+      return undefined;
+    }
+
+    const element = imageContainerRef.current;
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      setShouldLoadImage(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadImage(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: '200px',
+        // Expand nested ScrollView clipping bounds as well as the viewport.
+        scrollMargin: '200px',
+      } as IntersectionObserverInit & { scrollMargin: string },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [shouldLoadImage]);
 
   // react-native-web aborts a superseded request from a passive effect, and it
   // cannot abort the `decode()` that follows a completed load at all, so the
