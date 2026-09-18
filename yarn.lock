@@ -10361,7 +10361,6 @@ __metadata:
     redux-persist: "npm:^6.0.0"
     url-parse: "npm:^1.5.10"
     use-debounce: "npm:^9.0.4"
-    zbar.wasm: "npm:^2.1.1"
     zxing-wasm: "npm:3.1.3"
   languageName: unknown
   linkType: soft
@@ -51094,13 +51093,6 @@ __metadata:
   version: 1.2.2
   resolution: "yocto-queue@npm:1.2.2"
   checksum: 10/92dd9880c324dbc94ff4b677b7d350ba8d835619062b7102f577add7a59ab4d87f40edc5a03d77d369dfa9d11175b1b2ec4a06a6f8a5d8ce5d1306713f66ee41
-  languageName: node
-  linkType: hard
-
-"zbar.wasm@npm:^2.1.1":
-  version: 2.1.1
-  resolution: "zbar.wasm@npm:2.1.1"
-  checksum: 10/9d86151bfe18791b3823842555ddfce16a0082187fcb9eb141945d90291f854cc25a23f902d8372d3d3af455e33d3177b6331ece5a435abb6aa60d875fadad19
   languageName: node
   linkType: hard
 
