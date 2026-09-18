@@ -563,3 +563,31 @@ export function sumPerpsNetDeposits(
     }, new BigNumber(0))
     .toNumber();
 }
+
+export function computeAccountHealthRisk(
+  mmrPct: number | null,
+  leverageX: number,
+  marginUsedPct: number,
+): { level: 'safe' | 'caution' | 'danger' } {
+  let levScore = 2;
+  if (leverageX <= 5) levScore = 0;
+  else if (leverageX <= 15) levScore = 1;
+
+  let marginScore = 2;
+  if (marginUsedPct <= 60) marginScore = 0;
+  else if (marginUsedPct <= 85) marginScore = 1;
+
+  // An unknown ratio must not vote "safe"; it follows the worse known signal.
+  let mmrScore = Math.max(levScore, marginScore);
+  if (mmrPct !== null) {
+    mmrScore = 2;
+    if (mmrPct <= 30) mmrScore = 0;
+    else if (mmrPct <= 60) mmrScore = 1;
+  }
+
+  const total = mmrScore * 3 + levScore * 2 + marginScore * 1;
+
+  if (total >= 6) return { level: 'danger' };
+  if (total >= 3) return { level: 'caution' };
+  return { level: 'safe' };
+}
