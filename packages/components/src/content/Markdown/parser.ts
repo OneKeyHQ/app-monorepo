@@ -1,5 +1,5 @@
 /* eslint-disable no-continue -- Token scanners advance immediately after consuming a Markdown construct. */
-// cspell:ignore apos darr emsp harr hellip laquo larr ldquo lsquo middot ndash plusmn raquo rarr rdquo rsquo thinsp uarr setext rescanning GHSA fmfq
+// cspell:ignore apos darr emsp harr hellip laquo larr ldquo lsquo middot ndash plusmn raquo rarr rdquo rsquo thinsp uarr setext rescanning GHSA fmfq autolinks
 
 export type IMarkdownNodeType =
   | 'blockquote'
@@ -67,7 +67,10 @@ interface IParsedLink {
   node: IMarkdownNode;
 }
 
-const escapedPunctuation = new Set('\\`*{}[]()#+-.!_>~|'.split(''));
+// Every ASCII punctuation character can be backslash-escaped (CommonMark 2.4).
+const escapedPunctuation = new Set(
+  '\\!"#$%&\'()*+,./:;<=>?@[]^_`{|}~-'.split(''),
+);
 
 const MAX_MARKDOWN_DEPTH = 32;
 
@@ -135,22 +138,47 @@ function unescapeMarkdown(value: string) {
   return value.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1');
 }
 
-function decodeEntity(entity: string) {
-  if (entity.startsWith('#x') || entity.startsWith('#X')) {
-    const value = Number.parseInt(entity.slice(2), 16);
-    return Number.isInteger(value) && value >= 0 && value <= 1_114_111
-      ? String.fromCodePoint(value)
-      : `&${entity};`;
-  }
+// Entity decoding from markdown-it 10, applied while scanning so an escaped
+// `\&` never starts an entity.
+const numericEntityPattern = /&#(x[\da-f]{1,6}|\d{1,7});/iy;
+const namedEntityPattern = /&([a-z][a-z\d]{1,31});/iy;
 
-  if (entity.startsWith('#')) {
-    const value = Number.parseInt(entity.slice(1), 10);
-    return Number.isInteger(value) && value >= 0 && value <= 1_114_111
-      ? String.fromCodePoint(value)
-      : `&${entity};`;
-  }
+function isValidEntityCode(code: number) {
+  return !(
+    (code >= 0xd8_00 && code <= 0xdf_ff) ||
+    (code >= 0xfd_d0 && code <= 0xfd_ef) ||
+    code % 0x1_00_00 >= 0xff_fe ||
+    code <= 0x08 ||
+    code === 0x0b ||
+    (code >= 0x0e && code <= 0x1f) ||
+    (code >= 0x7f && code <= 0x9f) ||
+    code > 0x10_ff_ff
+  );
+}
 
-  return namedEntities[entity.toLowerCase()] ?? `&${entity};`;
+function readEntity(source: string, index: number) {
+  if (source[index + 1] === '#') {
+    numericEntityPattern.lastIndex = index;
+    const match = numericEntityPattern.exec(source);
+    if (!match) {
+      return undefined;
+    }
+    const code = /^x/i.test(match[1])
+      ? Number.parseInt(match[1].slice(1), 16)
+      : Number.parseInt(match[1], 10);
+    return {
+      length: match[0].length,
+      value: isValidEntityCode(code)
+        ? String.fromCodePoint(code)
+        : String.fromCharCode(0xff_fd),
+    };
+  }
+  namedEntityPattern.lastIndex = index;
+  const match = namedEntityPattern.exec(source);
+  const value = match ? namedEntities[match[1].toLowerCase()] : undefined;
+  return match && value !== undefined
+    ? { length: match[0].length, value }
+    : undefined;
 }
 
 const scopedAbbreviations: Record<string, string> = {
@@ -160,15 +188,17 @@ const scopedAbbreviations: Record<string, string> = {
   tm: '™',
 };
 
-// Typographer replacements from markdown-it 10, the parser behind the previous
-// react-native-markdown-display renderer, so existing release notes keep the
-// exact same glyphs.
-function replaceTypography(value: string) {
-  const text = value.replace(
-    /\((c|tm|r|p)\)/gi,
-    (_, name: string) => scopedAbbreviations[name.toLowerCase()],
-  );
-  if (!/\+-|\.\.|\?\?\?\?|!!!!|,,|--/.test(text)) {
+const scopedAbbreviationPattern = /\((c|tm|r|p)\)/i;
+const rareReplacementPattern = /\+-|\.\.|\?\?\?\?|!!!!|,,|--/;
+
+function replaceTypography(value: string, scoped: boolean, rare: boolean) {
+  const text = scoped
+    ? value.replace(
+        /\((c|tm|r|p)\)/gi,
+        (_, name: string) => scopedAbbreviations[name.toLowerCase()],
+      )
+    : value;
+  if (!rare || !rareReplacementPattern.test(text)) {
     return text;
   }
   return text
@@ -182,12 +212,26 @@ function replaceTypography(value: string) {
     .replace(/(^|[^-\s])--([^-\s]|$)/gm, '$1–$2');
 }
 
-function formatText(value: string) {
-  return replaceTypography(
-    value.replace(/&(#(?:x[\da-f]+|\d+)|[a-z][a-z\d]+);/gi, (_, entity) =>
-      decodeEntity(String(entity)),
-    ),
-  );
+// Typographer replacements from markdown-it 10, the parser behind the previous
+// react-native-markdown-display renderer, so existing release notes keep the
+// exact same glyphs. Like markdown-it, they run on the finished text nodes,
+// only when the raw block contains a candidate, and never inside autolinks.
+function applyTypography(nodes: IMarkdownNode[], source: string) {
+  const scoped = scopedAbbreviationPattern.test(source);
+  const rare = rareReplacementPattern.test(source);
+  if (!scoped && !rare) {
+    return;
+  }
+  const visit = (list: IMarkdownNode[]) => {
+    list.forEach((node) => {
+      if (node.type === 'text') {
+        node.content = replaceTypography(node.content, scoped, rare);
+      } else if (node.markup !== '<>') {
+        visit(node.children);
+      }
+    });
+  };
+  visit(nodes);
 }
 
 // Unicode punctuation (General Category P) from uc.micro 1.0.6, the table
@@ -197,7 +241,7 @@ const unicodePunctuation =
   // eslint-disable-next-line no-useless-escape -- verbatim uc.micro table
   /[!-#%-\*,-\/:;\?@\[-\]_\{\}\xA1\xA7\xAB\xB6\xB7\xBB\xBF\u037E\u0387\u055A-\u055F\u0589\u058A\u05BE\u05C0\u05C3\u05C6\u05F3\u05F4\u0609\u060A\u060C\u060D\u061B\u061E\u061F\u066A-\u066D\u06D4\u0700-\u070D\u07F7-\u07F9\u0830-\u083E\u085E\u0964\u0965\u0970\u09FD\u0A76\u0AF0\u0C84\u0DF4\u0E4F\u0E5A\u0E5B\u0F04-\u0F12\u0F14\u0F3A-\u0F3D\u0F85\u0FD0-\u0FD4\u0FD9\u0FDA\u104A-\u104F\u10FB\u1360-\u1368\u1400\u166D\u166E\u169B\u169C\u16EB-\u16ED\u1735\u1736\u17D4-\u17D6\u17D8-\u17DA\u1800-\u180A\u1944\u1945\u1A1E\u1A1F\u1AA0-\u1AA6\u1AA8-\u1AAD\u1B5A-\u1B60\u1BFC-\u1BFF\u1C3B-\u1C3F\u1C7E\u1C7F\u1CC0-\u1CC7\u1CD3\u2010-\u2027\u2030-\u2043\u2045-\u2051\u2053-\u205E\u207D\u207E\u208D\u208E\u2308-\u230B\u2329\u232A\u2768-\u2775\u27C5\u27C6\u27E6-\u27EF\u2983-\u2998\u29D8-\u29DB\u29FC\u29FD\u2CF9-\u2CFC\u2CFE\u2CFF\u2D70\u2E00-\u2E2E\u2E30-\u2E4E\u3001-\u3003\u3008-\u3011\u3014-\u301F\u3030\u303D\u30A0\u30FB\uA4FE\uA4FF\uA60D-\uA60F\uA673\uA67E\uA6F2-\uA6F7\uA874-\uA877\uA8CE\uA8CF\uA8F8-\uA8FA\uA8FC\uA92E\uA92F\uA95F\uA9C1-\uA9CD\uA9DE\uA9DF\uAA5C-\uAA5F\uAADE\uAADF\uAAF0\uAAF1\uABEB\uFD3E\uFD3F\uFE10-\uFE19\uFE30-\uFE52\uFE54-\uFE61\uFE63\uFE68\uFE6A\uFE6B\uFF01-\uFF03\uFF05-\uFF0A\uFF0C-\uFF0F\uFF1A\uFF1B\uFF1F\uFF20\uFF3B-\uFF3D\uFF3F\uFF5B\uFF5D\uFF5F-\uFF65]|\uD800[\uDD00-\uDD02\uDF9F\uDFD0]|\uD801\uDD6F|\uD802[\uDC57\uDD1F\uDD3F\uDE50-\uDE58\uDE7F\uDEF0-\uDEF6\uDF39-\uDF3F\uDF99-\uDF9C]|\uD803[\uDF55-\uDF59]|\uD804[\uDC47-\uDC4D\uDCBB\uDCBC\uDCBE-\uDCC1\uDD40-\uDD43\uDD74\uDD75\uDDC5-\uDDC8\uDDCD\uDDDB\uDDDD-\uDDDF\uDE38-\uDE3D\uDEA9]|\uD805[\uDC4B-\uDC4F\uDC5B\uDC5D\uDCC6\uDDC1-\uDDD7\uDE41-\uDE43\uDE60-\uDE6C\uDF3C-\uDF3E]|\uD806[\uDC3B\uDE3F-\uDE46\uDE9A-\uDE9C\uDE9E-\uDEA2]|\uD807[\uDC41-\uDC45\uDC70\uDC71\uDEF7\uDEF8]|\uD809[\uDC70-\uDC74]|\uD81A[\uDE6E\uDE6F\uDEF5\uDF37-\uDF3B\uDF44]|\uD81B[\uDE97-\uDE9A]|\uD82F\uDC9F|\uD836[\uDE87-\uDE8B]|\uD83A[\uDD5E\uDD5F]/;
 
-function isQuoteWhiteSpace(code: number) {
+function isWhiteSpaceCode(code: number) {
   return (
     (code >= 0x20_00 && code <= 0x20_0a) ||
     code === 0x09 ||
@@ -214,7 +258,7 @@ function isQuoteWhiteSpace(code: number) {
   );
 }
 
-function isQuotePunctuation(code: number) {
+function isPunctuationCode(code: number) {
   return (
     (code >= 0x21 && code <= 0x2f) ||
     (code >= 0x3a && code <= 0x40) ||
@@ -343,10 +387,10 @@ function applySmartQuotes(nodes: IMarkdownNode[]) {
         position + 1 < text.length
           ? text.charCodeAt(position + 1)
           : findQuoteNeighbor(tokens, tokenIndex + 1, 1);
-      const isLastPunctuation = isQuotePunctuation(lastChar);
-      const isNextPunctuation = isQuotePunctuation(nextChar);
-      const isLastWhiteSpace = isQuoteWhiteSpace(lastChar);
-      const isNextWhiteSpace = isQuoteWhiteSpace(nextChar);
+      const isLastPunctuation = isPunctuationCode(lastChar);
+      const isNextPunctuation = isPunctuationCode(nextChar);
+      const isLastWhiteSpace = isWhiteSpaceCode(lastChar);
+      const isNextWhiteSpace = isWhiteSpaceCode(nextChar);
 
       let canOpen = !isNextWhiteSpace;
       if (canOpen && isNextPunctuation) {
@@ -671,38 +715,66 @@ function getEmphasisAt(source: string, index: number) {
   return emphasisMarkers.find(({ marker }) => source.startsWith(marker, index));
 }
 
-function isAsciiWordCharacter(character: string | undefined) {
-  return Boolean(character && /[A-Za-z0-9]/.test(character));
+interface IDelimiterRun {
+  canClose: boolean;
+  canOpen: boolean;
 }
 
-function canOpenEmphasis(source: string, index: number, marker: string) {
-  if (!marker.includes('_')) {
-    return true;
-  }
-  const previous = source[index - 1];
-  const next = source[index + marker.length];
-  return (
-    Boolean(next && !/\s/.test(next)) &&
-    !(isAsciiWordCharacter(previous) && isAsciiWordCharacter(next))
-  );
+// CommonMark delimiter-run flanking as markdown-it 10 computes it
+// (scanDelims): over the whole run of the marker character, with Unicode
+// whitespace and punctuation, so `2 * 3` or `账户_id_值` stay plain text.
+// `_` may not open or close inside a word; `*` and `~` may.
+function createDelimiterRunReader(source: string) {
+  const runs = new Map<number, IDelimiterRun>();
+  return (index: number): IDelimiterRun => {
+    const known = runs.get(index);
+    if (known) {
+      return known;
+    }
+    const marker = source[index];
+    let start = index;
+    while (start > 0 && source[start - 1] === marker) {
+      start -= 1;
+    }
+    let end = index + 1;
+    while (end < source.length && source[end] === marker) {
+      end += 1;
+    }
+    const lastChar = start > 0 ? source.charCodeAt(start - 1) : 0x20;
+    const nextChar = end < source.length ? source.charCodeAt(end) : 0x20;
+    const isLastPunctuation = isPunctuationCode(lastChar);
+    const isNextPunctuation = isPunctuationCode(nextChar);
+    const isLastWhiteSpace = isWhiteSpaceCode(lastChar);
+    const isNextWhiteSpace = isWhiteSpaceCode(nextChar);
+    const leftFlanking =
+      !isNextWhiteSpace &&
+      (!isNextPunctuation || isLastWhiteSpace || isLastPunctuation);
+    const rightFlanking =
+      !isLastWhiteSpace &&
+      (!isLastPunctuation || isNextWhiteSpace || isNextPunctuation);
+    const run =
+      marker === '_'
+        ? {
+            canClose: rightFlanking && (!leftFlanking || isNextPunctuation),
+            canOpen: leftFlanking && (!rightFlanking || isLastPunctuation),
+          }
+        : { canClose: rightFlanking, canOpen: leftFlanking };
+    for (let position = start; position < end; position += 1) {
+      runs.set(position, run);
+    }
+    return run;
+  };
 }
 
-function canCloseEmphasis(source: string, index: number, marker: string) {
-  if (!marker.includes('_')) {
-    return true;
-  }
-  const previous = source[index - 1];
-  const next = source[index + marker.length];
-  return (
-    Boolean(previous && !/\s/.test(previous)) &&
-    !(isAsciiWordCharacter(previous) && isAsciiWordCharacter(next))
-  );
-}
+type IDelimiterRunReader = ReturnType<typeof createDelimiterRunReader>;
 
 // Walks the same marker occurrences as a plain forward search, but remembers
 // the answer for every occurrence it visits. Openers such as `_a _a _a` would
 // otherwise rescan the rest of the text for each `_`.
-function createClosingEmphasisFinder(source: string) {
+function createClosingEmphasisFinder(
+  source: string,
+  readDelimiterRun: IDelimiterRunReader,
+) {
   const answers = new Map<string, Map<number, number>>();
   return (marker: string, from: number) => {
     let markerAnswers = answers.get(marker);
@@ -724,7 +796,7 @@ function createClosingEmphasisFinder(source: string) {
         break;
       }
       visited.push(closingIndex);
-      if (canCloseEmphasis(source, closingIndex, marker)) {
+      if (readDelimiterRun(closingIndex).canClose) {
         result = closingIndex;
         break;
       }
@@ -741,18 +813,22 @@ function parseInlineNodes(
   depth: number,
 ): IMarkdownNode[] {
   if (depth >= MAX_MARKDOWN_DEPTH) {
-    return [createNode('text', { content: formatText(source) })];
+    return [createNode('text', { content: source })];
   }
 
   const nodes: IMarkdownNode[] = [];
   const findClosingBracket = createClosingBracketFinder(source);
-  const findClosingEmphasis = createClosingEmphasisFinder(source);
+  const readDelimiterRun = createDelimiterRunReader(source);
+  const findClosingEmphasis = createClosingEmphasisFinder(
+    source,
+    readDelimiterRun,
+  );
   let buffer = '';
   let index = 0;
 
   const flushText = () => {
     if (buffer) {
-      nodes.push(createNode('text', { content: formatText(buffer) }));
+      nodes.push(createNode('text', { content: buffer }));
       buffer = '';
     }
   };
@@ -872,27 +948,42 @@ function parseInlineNodes(
       }
     }
 
+    if (character === '&') {
+      const entity = readEntity(source, index);
+      if (entity) {
+        buffer += entity.value;
+        index += entity.length;
+        continue;
+      }
+    }
+
     const emphasis = getEmphasisAt(source, index);
-    if (emphasis && canOpenEmphasis(source, index, emphasis.marker)) {
+    if (emphasis && readDelimiterRun(index).canOpen) {
       const contentStart = index + emphasis.marker.length;
       const closingIndex = findClosingEmphasis(emphasis.marker, contentStart);
       if (closingIndex > contentStart) {
         flushText();
-        let children = parseInlineNodes(
+        const children = parseInlineNodes(
           source.slice(contentStart, closingIndex),
           references,
           depth + 1,
         );
-        if (emphasis.marker.length === 3) {
-          children = [
-            createNode('em', { children, markup: emphasis.marker[0] }),
-          ];
-        }
+        // `***x***` nests strong inside em, as markdown-it does.
         nodes.push(
-          createNode(emphasis.type, {
-            children,
-            markup: emphasis.marker,
-          }),
+          emphasis.marker.length === 3
+            ? createNode('em', {
+                children: [
+                  createNode('strong', {
+                    children,
+                    markup: emphasis.marker.slice(1),
+                  }),
+                ],
+                markup: emphasis.marker[0],
+              })
+            : createNode(emphasis.type, {
+                children,
+                markup: emphasis.marker,
+              }),
         );
         index = closingIndex + emphasis.marker.length;
         continue;
@@ -913,6 +1004,7 @@ export function parseInline(
   depth = 0,
 ) {
   const nodes = parseInlineNodes(source, references, depth);
+  applyTypography(nodes, source);
   // markdown-it only ran smart quotes when the raw block contained a quote.
   return /['"]/.test(source) ? applySmartQuotes(nodes) : nodes;
 }

@@ -136,14 +136,15 @@ describe('Markdown renderer parity with the previous renderer', () => {
     );
     const texts = elements.filter((node) => node.type === 'SizableText');
     const bold = texts.filter((node) => node.props.fontWeight === 'bold');
-    const italic = texts.find((node) => node.props.fontStyle === 'italic');
+    // `***both***` nests strong inside em; the inner text keeps both styles.
+    const boldItalic = texts.find(
+      (node) =>
+        node.props.fontStyle === 'italic' && node.props.fontWeight === 'bold',
+    );
 
     expect(bold.length).toBeGreaterThan(0);
     bold.forEach((node) => expect(node.props.size).toBe('$bodyMd'));
-    expect(italic?.props).toMatchObject({
-      fontWeight: 'bold',
-      size: '$bodyMd',
-    });
+    expect(boldItalic?.props.size).toBe('$bodyMd');
   });
 
   it('renders h3 with the previous font size inside a body-size line', async () => {

@@ -291,6 +291,44 @@ describe('Markdown parser parity with the previous markdown-it renderer', () => 
     expect(nodes[2].children).toHaveLength(0);
   });
 
+  const inlineShape = (nodes: IMarkdownNode[]): string =>
+    nodes
+      .map((node) =>
+        node.type === 'text'
+          ? node.content
+          : `<${node.type}>${inlineShape(node.children)}</${node.type}>`,
+      )
+      .join('');
+
+  it('only opens emphasis on flanking delimiter runs', () => {
+    [
+      '2 * 3 * 4',
+      '5 ** 2 ** 3',
+      '~~ not struck ~~',
+      '账户_id_值',
+      '查看_help_文档',
+      '修复_iOS_崩溃',
+      'snake_case_name',
+    ].forEach((source) => {
+      expect(inlineShape(parseInline(source))).toBe(source);
+    });
+    expect(inlineShape(parseInline('_italic_ and 中文*强调*中文'))).toBe(
+      '<em>italic</em> and 中文<em>强调</em>中文',
+    );
+    expect(inlineShape(parseInline('「**加粗**」 ***both***'))).toBe(
+      '「<strong>加粗</strong>」 <em><strong>both</strong></em>',
+    );
+  });
+
+  it('unescapes every ASCII punctuation character and decodes entities once', () => {
+    expect(inlineText(parseInline('\\$5 \\@name \\, \\% \\= \\^'))).toBe(
+      '$5 @name , % = ^',
+    );
+    expect(inlineText(parseInline('\\&amp; &amp; &#0; &nope;'))).toBe(
+      '&amp; & � &nope;',
+    );
+  });
+
   it('parses adversarial input in linear time', () => {
     const inputs = [
       `a${' '.repeat(100_000)}b  \nc`,
