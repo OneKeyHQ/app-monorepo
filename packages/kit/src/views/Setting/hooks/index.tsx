@@ -89,8 +89,14 @@ export function useResetApp(
     await timerUtils.wait(50);
 
     if (silentReset) {
-      await doReset();
-      return;
+      try {
+        await doReset();
+        return true;
+      } catch {
+        // The background proxy displays the error. Let password verification
+        // leave VERIFYING and retry instead of aborting its error handler.
+        return false;
+      }
     }
 
     if (inAppStateLock) {

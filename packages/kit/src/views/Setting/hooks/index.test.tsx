@@ -6,6 +6,8 @@ import { inAppStateLockDialogProps, useResetApp } from '.';
 
 import { act, renderHook } from '@testing-library/react';
 
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -127,6 +129,13 @@ describe('useResetApp', () => {
       '@onekeyhq/shared/src/platformEnv',
     ).__platformEnv.isNative = false;
     getMocks().isAppLocked.mockResolvedValue(true);
+    getMocks().resetApp.mockReset();
+    getMocks().resetApp.mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('opens the lock-screen reset dialog with the lock overlay props', async () => {
@@ -195,15 +204,39 @@ describe('useResetApp', () => {
     );
   });
 
-  it('propagates reset failures to the caller', async () => {
+  it('rejects manual confirmation on failure and allows the same dialog to retry', async () => {
     const resetError = new Error('AppStorage clear failed');
-    getMocks().resetApp.mockRejectedValue(resetError);
+    getMocks().resetApp.mockRejectedValueOnce(resetError);
+    const { result } = renderHook(() => useResetApp());
+    await act(async () => {
+      await result.current();
+    });
+    const { onConfirm } = getMocks().dialogShow.mock
+      .calls[0][0] as IDialogShowProps;
+    const confirmArgs: Parameters<
+      NonNullable<IDialogShowProps['onConfirm']>
+    >[0] = {
+      close: jest.fn(),
+      preventClose: jest.fn(),
+      getForm: jest.fn(),
+      isExist: jest.fn().mockReturnValue(true),
+    };
+
+    await expect(onConfirm?.(confirmArgs)).rejects.toBe(resetError);
+    await expect(onConfirm?.(confirmArgs)).resolves.toBeUndefined();
+    expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns failure for silent reset so password verification can finish and retry', async () => {
+    getMocks().resetApp.mockRejectedValueOnce(
+      new Error('AppStorage clear failed'),
+    );
     const { result } = renderHook(() => useResetApp({ silentReset: true }));
 
-    await expect(
-      act(async () => {
-        await result.current();
-      }),
-    ).rejects.toBe(resetError);
+    await act(async () => {
+      await expect(result.current()).resolves.toBe(false);
+      await expect(result.current()).resolves.toBe(true);
+    });
+    expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
   });
 });
