@@ -11,16 +11,15 @@ import {
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
 import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
-import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 
 import {
-  SPOT_PAIR_SEPARATOR,
   decodeCoinFromUrl,
   encodeCoinForUrl,
+  findSpotUniverseByUrlToken,
 } from './usePerpTokenUrlSync.utils';
 
 async function readCompleteUniverses() {
@@ -76,23 +75,8 @@ async function resolveSpotInstrumentFromUrl(urlToken: string): Promise<{
   }
   if (!universes?.length) return null;
 
-  // Legacy URLs ship asset.name verbatim ("@151", "PURR/USDC"); accept them so
-  // existing bookmarks keep working alongside the new BASE_QUOTE form.
-  const direct = universes.find((u) => u.name === urlToken);
-  if (direct) return { coin: direct.name, spotUniverse: direct };
-
-  if (urlToken.includes(SPOT_PAIR_SEPARATOR)) {
-    const idx = urlToken.lastIndexOf(SPOT_PAIR_SEPARATOR);
-    const base = urlToken.slice(0, idx);
-    const quote = urlToken.slice(idx + SPOT_PAIR_SEPARATOR.length);
-    const match = universes.find(
-      (u) =>
-        getSpotTokenDisplayName(u.baseName) === base && u.quoteName === quote,
-    );
-    if (match) return { coin: match.name, spotUniverse: match };
-  }
-
-  return null;
+  const match = findSpotUniverseByUrlToken(universes, urlToken);
+  return match ? { coin: match.name, spotUniverse: match } : null;
 }
 
 async function getInstrumentFromUrl(): Promise<{
