@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -116,6 +117,7 @@ import {
   pickProtocolInfoDisplayName,
   resolveProviderSubtitle,
 } from './mobile/providerSubtitle.utils';
+import { scheduleSettleRefreshes } from './mobile/settleRefresh.utils';
 import { useMobileDetailLayout } from './mobile/useMobileDetailLayout';
 import {
   buildHeadlineApyParts,
@@ -1284,13 +1286,38 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // stayed stale (OK-63229). Track the position's pending transactions the
   // way the positions page does and reload once they clear. The wide layout
   // has its own activity indicator, so this stays phone-only.
+  // One read after the clear is not always enough: a provider that answers
+  // from its own index can still report the pre-transaction state, and a
+  // first deposit then never grew a Portfolio tab until the page was reopened.
+  // Keep re-reading for a while, and stop as soon as the tab has appeared.
+  const hasPortfolioRef = useRef(hasPortfolio);
+  hasPortfolioRef.current = hasPortfolio;
+  const cancelSettleRefreshesRef = useRef<(() => void) | undefined>(undefined);
+  const refreshUntilSettled = useCallback(() => {
+    cancelSettleRefreshesRef.current?.();
+    const hadPortfolio = hasPortfolioRef.current;
+    cancelSettleRefreshesRef.current = scheduleSettleRefreshes({
+      refresh: () => {
+        void refreshData();
+      },
+      // A position that already existed changes in ways this page cannot
+      // check, so it takes every read; a new one is settled once the tab is up.
+      shouldStop: () => !hadPortfolio && hasPortfolioRef.current,
+    });
+  }, [refreshData]);
+  useEffect(
+    () => () => {
+      cancelSettleRefreshesRef.current?.();
+    },
+    [],
+  );
   const { refreshPending } = useStakingPendingTxs({
     accountId: isMobileLayout
       ? protocolInfo?.earnAccount?.accountId
       : undefined,
     networkId,
     stakeTag: protocolInfo?.stakeTag,
-    onRefresh: refreshData,
+    onRefresh: refreshUntilSettled,
   });
   // Every broadcast reloads the page at once and re-reads the local pending
   // list, so the poller picks the transaction up without waiting for focus.
