@@ -1,8 +1,7 @@
-/* eslint-disable onekey/no-app-locale-main-thread -- low-level cropper utility consumed via callbacks */
 import {
   openCropper as nativeOpenCropper,
   openPicker as nativeOpenPicker,
-} from 'react-native-image-crop-picker';
+} from '@onekeyfe/react-native-image-crop-picker';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';

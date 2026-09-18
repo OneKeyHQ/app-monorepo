@@ -9701,6 +9701,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-image-crop-picker@npm:3.0.147":
+  version: 3.0.147
+  resolution: "@onekeyfe/react-native-image-crop-picker@npm:3.0.147"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: 0.37.0
+  checksum: 10/827bde81573476b170adfbb693bec20d807ded70f73178393c332477eecb54e28a567f361e11addd9911ec5c8b23aa745a9b4970d37c0d03f8f9fb4b7001d18c
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-image@npm:3.0.147":
   version: 3.0.147
   resolution: "@onekeyfe/react-native-image@npm:3.0.147"
@@ -10388,6 +10399,7 @@ __metadata:
     "@onekeyfe/react-native-cloud-kit-module": "npm:3.0.147"
     "@onekeyfe/react-native-device-utils": "npm:3.0.147"
     "@onekeyfe/react-native-image": "npm:3.0.147"
+    "@onekeyfe/react-native-image-crop-picker": "npm:3.0.147"
     "@onekeyfe/react-native-keychain-module": "npm:3.0.147"
     "@onekeyfe/react-native-lite-card": "npm:3.0.147"
     "@onekeyfe/react-native-native-list": "npm:3.0.147"
@@ -10488,7 +10500,6 @@ __metadata:
     react-native-gesture-handler: "npm:~2.32.0"
     react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@3.0.147"
     react-native-image-colors: "npm:^2.5.0"
-    react-native-image-crop-picker: "npm:@onekeyfe/react-native-image-crop-picker@3.0.147"
     react-native-keyboard-controller: "npm:1.21.9"
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:4.3.2"
@@ -42861,17 +42872,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/128f41e4017cab0fbcd8d08a5ac126c516ce46dd95ba169faacb71ab6b232c0958af8a08706e4c721cb1bdc647ac031fa23049c0818f1bb440ae04cbf5f0776a
-  languageName: node
-  linkType: hard
-
-"react-native-image-crop-picker@npm:@onekeyfe/react-native-image-crop-picker@3.0.147":
-  version: 3.0.147
-  resolution: "@onekeyfe/react-native-image-crop-picker@npm:3.0.147"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: 0.37.0
-  checksum: 10/827bde81573476b170adfbb693bec20d807ded70f73178393c332477eecb54e28a567f361e11addd9911ec5c8b23aa745a9b4970d37c0d03f8f9fb4b7001d18c
   languageName: node
   linkType: hard
 
