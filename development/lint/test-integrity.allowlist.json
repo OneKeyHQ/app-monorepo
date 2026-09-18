@@ -1,0 +1,46 @@
+{
+  "entries": [
+    {
+      "file": "apps/cli/src/__tests__/bip39-no-inline.test.ts",
+      "rule": "source-text-assertion",
+      "block": "keeps real mnemonic phrases out of TypeScript test source",
+      "count": 1,
+      "reason": "A real BIP-39 mnemonic must not appear literally in any TypeScript test source. That is a property of the whole checked-in test set, not of any module's behaviour, so nothing can be executed to demonstrate it. The check walks the source tree and asserts the set of hits is empty. Replace with a secret scanner over the tree if one is adopted."
+    },
+    {
+      "file": "apps/cli/src/__tests__/no-migration.test.ts",
+      "rule": "source-text-assertion",
+      "block": "only references legacy mnemonic cleanup in auth cleanup production code",
+      "count": 1,
+      "reason": "Pins the legacy mnemonic cleanup reference to one production file, so a second call site anywhere under commands/ or infra/vault fails. Which files mention an identifier is a property of the source set; running the code only exercises the call site that exists today. Replace with a static reference check over the built CLI bundle."
+    },
+    {
+      "file": "apps/cli/src/__tests__/secure-cache.degraded.test.ts",
+      "rule": "source-text-assertion",
+      "block": "only writes session memo entries inside SignerSoftwareBase.getHdCredential",
+      "count": 2,
+      "reason": "Constrains where a decrypted HD credential may be memoized: this is the only check that fails when a new CLI production file starts calling secureCache.set or sessionCache.set. It walks the source set and asserts on what it found, twice - the list of files, then the method that holds the write. Tests that run the code only cover the call sites that exist today, so they cannot see a write added elsewhere. Replace with a static check over the built CLI bundle."
+    },
+    {
+      "file": "apps/cli/src/commands/__tests__/get-address.test.ts",
+      "rule": "source-text-assertion",
+      "block": "does not import axios, secureCache, or getHdCredential",
+      "count": 1,
+      "reason": "get-address must stay a pure vault read: no network (axios), no session cache write, no seed access (getHdCredential). That is a property of the module's whole reachable graph, not of any one call, so no invocation of the command can demonstrate the absence of those imports. Replace with a static import-graph check over the built CLI bundle, which would also cover transitive reintroduction."
+    },
+    {
+      "file": "packages/kit-bg/src/services/ServiceHardware/resourceBase64StartupGraph.test.ts",
+      "rule": "source-text-assertion",
+      "block": "%s keeps resource calls JSON-safe without a global codec",
+      "count": 3,
+      "reason": "On iOS, Android and the extension, main and bg are isolated JS runtimes and hardware resources cross between them as JSON. Reintroducing jpegRgbaUtils or offscreenApiBinaryCodec anywhere on that path breaks the crossing, and absence from a module graph is not observable from any single call. Replace with a static import-graph check over the bg bundle."
+    },
+    {
+      "file": "packages/shared/src/utils/thirdPartyDeviceUtils.test.ts",
+      "rule": "source-text-assertion",
+      "block": "keeps the adapter SDK out of the runtime import graph",
+      "count": 1,
+      "reason": "thirdPartyDeviceUtils ships in every platform's main bundle, and a runtime import of @onekeyfe/hwk-trezor-adapter would drag in hwk-trezor-core (~620KB). The parity test in the same file imports that SDK on purpose, so the import graph under test cannot be observed from inside this runtime. Replace with a static import-graph check over the main bundle."
+    }
+  ]
+}

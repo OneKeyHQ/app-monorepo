@@ -1,9 +1,13 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
   fetchStockSimpleChartPoints,
+  mergeStockSimpleChartLivePrice,
+  resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
@@ -655,5 +659,180 @@ describe('resolveStockSimpleChartPulseLastPoint', () => {
     expect(
       resolveStockSimpleChartPulseLastPoint({ tokenStock: { isOpen: false } }),
     ).toBe(false);
+  });
+});
+
+describe('resolveStockSimpleChartLivePrice', () => {
+  it('uses the same quote the title reads in each price mode', () => {
+    expect(
+      resolveStockSimpleChartLivePrice({
+        priceMode: 'token',
+        stockDetail: { price: '334.76' },
+        tokenDetail: { price: '332.41' },
+      }),
+    ).toBe('332.41');
+    expect(
+      resolveStockSimpleChartLivePrice({
+        priceMode: 'share',
+        stockDetail: { price: '334.76' },
+        tokenDetail: { price: '332.41' },
+      }),
+    ).toBe('334.76');
+  });
+});
+
+describe('resolveStockSimpleChartBucketSeconds', () => {
+  it('uses the 5m asset buckets shown on an AAPL 1H simple chart', () => {
+    expect(
+      resolveStockSimpleChartBucketSeconds({
+        marketAssetId: 'aapl',
+        priceMode: 'token',
+        range: '1H',
+      }),
+    ).toBe(5 * 60);
+  });
+
+  it('leaves share and All-range CoinGecko series without a fixed bucket', () => {
+    expect(
+      resolveStockSimpleChartBucketSeconds({
+        priceMode: 'share',
+        range: '1H',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartBucketSeconds({
+        priceMode: 'token',
+        range: 'All',
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('mergeStockSimpleChartLivePrice', () => {
+  const fiveMinutes = 5 * 60;
+  const closedBucket = 1_725_000_000;
+  const openBucket = closedBucket + fiveMinutes;
+  const nowSeconds = openBucket + 120;
+  const points: IMarketTokenChart = [
+    [closedBucket, 331.2],
+    [openBucket, 334.76],
+  ];
+
+  it('drops the open 5m cutoff and appends one live point at now', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: fiveMinutes,
+        livePrice: '332.41',
+        nowSeconds,
+        points,
+      }),
+    ).toEqual([
+      [closedBucket, 331.2],
+      [nowSeconds, 332.41],
+    ]);
+  });
+
+  it('does not rewrite a closed 5m cutoff', () => {
+    const closedPoints: IMarketTokenChart = [
+      [closedBucket - fiveMinutes, 330],
+      [closedBucket, 334.76],
+    ];
+    const now = closedBucket + fiveMinutes + 30;
+
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: fiveMinutes,
+        livePrice: '332.41',
+        nowSeconds: now,
+        points: closedPoints,
+      }),
+    ).toEqual([
+      [closedBucket - fiveMinutes, 330],
+      [closedBucket, 334.76],
+      [now, 332.41],
+    ]);
+  });
+
+  it('still pins a stale last-session 1H series to the title quote', () => {
+    const now = closedBucket + 8 * 60 * 60;
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: fiveMinutes,
+        livePrice: '332.41',
+        nowSeconds: now,
+        points: [[closedBucket, 334.76]],
+      }),
+    ).toEqual([
+      [closedBucket, 334.76],
+      [now, 332.41],
+    ]);
+  });
+
+  it('drops a clock-ahead last bar and appends the live point at now', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: 60,
+        livePrice: '0.0000653',
+        nowSeconds: closedBucket,
+        points: [
+          [closedBucket - 60, 0.000_064_5],
+          [closedBucket + 60, 0.000_064_59],
+        ],
+      }),
+    ).toEqual([
+      [closedBucket - 60, 0.000_064_5],
+      [closedBucket, 0.000_065_3],
+    ]);
+  });
+
+  it('drops every clock-ahead tail bar, not just the last one', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds: 60,
+        livePrice: '0.0000653',
+        nowSeconds: closedBucket,
+        points: [
+          [closedBucket - 120, 0.000_064_4],
+          [closedBucket - 60, 0.000_064_5],
+          [closedBucket + 60, 0.000_064_59],
+          [closedBucket + 120, 0.000_064_6],
+          [closedBucket + 180, 0.000_064_7],
+        ],
+      }),
+    ).toEqual([
+      [closedBucket - 120, 0.000_064_4],
+      [closedBucket - 60, 0.000_064_5],
+      [closedBucket, 0.000_065_3],
+    ]);
+  });
+
+  it('appends a live point on All-range series without a bucket width', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        livePrice: '332.41',
+        nowSeconds: closedBucket + 60,
+        points: [[closedBucket, 334.76]],
+      }),
+    ).toEqual([
+      [closedBucket, 334.76],
+      [closedBucket + 60, 332.41],
+    ]);
+  });
+
+  it('leaves empty or invalid live quotes untouched', () => {
+    expect(
+      mergeStockSimpleChartLivePrice({
+        livePrice: '332.41',
+        nowSeconds,
+        points: [],
+      }),
+    ).toEqual([]);
+    expect(
+      mergeStockSimpleChartLivePrice({
+        livePrice: 'n/a',
+        nowSeconds,
+        points,
+      }),
+    ).toBe(points);
   });
 });
