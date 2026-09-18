@@ -300,6 +300,14 @@ textarea {
   cursor: default !important;
 }
 
+/* @onekeyfe/react-native-native-list ships `cursor: pointer` on its icon
+   buttons. Account selector row controls follow the app's buttons, which keep
+   the default cursor and signal interactivity through their hover background. */
+.ok-native-list-account-row[data-native-list-selector='accountSelector']
+  .ok-native-list-icon-button {
+  cursor: default;
+}
+
 .onekey-img-cropper {
   height: 100%;
 }
