@@ -1,12 +1,16 @@
 /* eslint-disable import/first */
 
 const mockRuntimeHealthCensus = jest.fn<void, [Record<string, unknown>]>();
+const mockMainInboundCensus = jest.fn<void, [Record<string, unknown>]>();
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
       perf: {
         runtimeHealthCensus: (report: Record<string, unknown>) => {
           mockRuntimeHealthCensus(report);
+        },
+        mainInboundCensus: (report: Record<string, unknown>) => {
+          mockMainInboundCensus(report);
         },
       },
     },
@@ -17,6 +21,7 @@ import { OneKeyLocalError } from '../../errors';
 
 import {
   createDistinctChangeCounter,
+  recordInboundFromBackground,
   startRuntimeHealthCensus,
   stopRuntimeHealthCensus,
 } from './jsBlockCollector';
@@ -66,6 +71,7 @@ describe('startRuntimeHealthCensus', () => {
     now = 0;
     nowSpy = jest.spyOn(performance, 'now').mockImplementation(() => now);
     mockRuntimeHealthCensus.mockClear();
+    mockMainInboundCensus.mockClear();
   });
 
   afterEach(() => {
@@ -238,5 +244,126 @@ describe('startRuntimeHealthCensus', () => {
     expect(mockRuntimeHealthCensus.mock.calls[0][0]).not.toHaveProperty(
       'cpuAvg',
     );
+  });
+});
+
+describe('recordInboundFromBackground', () => {
+  let now = 0;
+  let nowSpy: jest.SpyInstance;
+
+  const runIdle = (ms: number) => {
+    for (let elapsed = 0; elapsed < ms; elapsed += 100) {
+      now += 100;
+      jest.advanceTimersByTime(100);
+    }
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    now = 0;
+    nowSpy = jest.spyOn(performance, 'now').mockImplementation(() => now);
+    mockMainInboundCensus.mockClear();
+    mockRuntimeHealthCensus.mockClear();
+    startRuntimeHealthCensus();
+  });
+
+  afterEach(() => {
+    stopRuntimeHealthCensus();
+    // Drain whatever the test recorded so it cannot leak into the next one.
+    startRuntimeHealthCensus();
+    runIdle(30_000);
+    stopRuntimeHealthCensus();
+    nowSpy.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it('totals what each sender pushed, biggest first', () => {
+    recordInboundFromBackground({ kind: 'rpc', name: 'a.big', chars: 40_960 });
+    recordInboundFromBackground({ kind: 'rpc', name: 'a.big', chars: 40_960 });
+    recordInboundFromBackground({ kind: 'rpc', name: 'b.small', chars: 1024 });
+    recordInboundFromBackground({
+      kind: 'atom',
+      name: 'someAtom',
+      chars: 2048,
+    });
+    recordInboundFromBackground({
+      kind: 'event',
+      name: 'SomeEvent',
+      chars: 512,
+    });
+    runIdle(30_000);
+
+    expect(mockMainInboundCensus).toHaveBeenCalledTimes(1);
+    const report = mockMainInboundCensus.mock.calls[0][0] as {
+      total: number;
+      totalKB: number;
+      byKind: { kind: string; count: number; kb: number }[];
+      bySender: { sender: string; count: number; kb: number }[];
+    };
+    expect(report.total).toBe(5);
+    expect(report.totalKB).toBe(84);
+    expect(report.byKind).toEqual([
+      { kind: 'rpc', count: 3, kb: 81 },
+      { kind: 'atom', count: 1, kb: 2 },
+      { kind: 'event', count: 1, kb: 1 },
+    ]);
+    expect(report.bySender[0]).toEqual({
+      sender: 'rpc:a.big',
+      count: 2,
+      kb: 80,
+    });
+  });
+
+  it('says nothing in a window where the background pushed nothing', () => {
+    runIdle(30_000);
+
+    expect(mockMainInboundCensus).not.toHaveBeenCalled();
+    expect(mockRuntimeHealthCensus).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts each window from zero', () => {
+    recordInboundFromBackground({ kind: 'rpc', name: 'a', chars: 1024 });
+    runIdle(30_000);
+    recordInboundFromBackground({ kind: 'rpc', name: 'b', chars: 2048 });
+    runIdle(30_000);
+
+    expect(mockMainInboundCensus).toHaveBeenCalledTimes(2);
+    expect(
+      (mockMainInboundCensus.mock.calls[1][0] as { bySender: unknown[] })
+        .bySender,
+    ).toEqual([{ sender: 'rpc:b', count: 1, kb: 2 }]);
+  });
+
+  it('keeps a sender that mints unique names from growing the table', () => {
+    for (let i = 0; i < 500; i += 1) {
+      recordInboundFromBackground({
+        kind: 'event',
+        name: `unique-${i}`,
+        chars: 1024,
+      });
+    }
+    runIdle(30_000);
+
+    const report = mockMainInboundCensus.mock.calls[0][0] as {
+      total: number;
+      byKind: { kind: string; count: number }[];
+      bySender: { sender: string; count: number }[];
+    };
+    expect(report.total).toBe(500);
+    expect(report.byKind[0].count).toBe(500);
+    expect(report.bySender.length).toBeLessThanOrEqual(8);
+    expect(
+      report.bySender.find((entry) => entry.sender === 'event:others')?.count,
+    ).toBeGreaterThan(400);
+  });
+
+  it('counts an unnamed payload without dropping its size', () => {
+    recordInboundFromBackground({ kind: 'rpc', name: undefined, chars: 3072 });
+    runIdle(30_000);
+
+    expect(
+      (mockMainInboundCensus.mock.calls[0][0] as { bySender: unknown[] })
+        .bySender,
+    ).toEqual([{ sender: 'rpc:others', count: 1, kb: 3 }]);
   });
 });

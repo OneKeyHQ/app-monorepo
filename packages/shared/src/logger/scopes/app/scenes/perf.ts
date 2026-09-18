@@ -65,6 +65,19 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // How much data the background pushed into this runtime, per window.
+  // Sender names and sizes only, never payloads.
+  @LogToLocal()
+  public mainInboundCensus(params: {
+    windowMs: number;
+    total: number;
+    totalKB: number;
+    byKind: { kind: string; count: number; kb: number }[];
+    bySender: { sender: string; count: number; kb: number }[];
+  }) {
+    return [params];
+  }
+
   @LogToLocal()
   public cpuWatchdogFired(params: {
     reason:

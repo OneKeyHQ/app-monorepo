@@ -86,6 +86,9 @@ type IHermesCounters = {
   gcTimeSeconds: number;
   heapBytes: number;
   totalAllocatedBytes: number;
+  // Optional: not every Hermes build reports these.
+  liveBytes?: number;
+  mallocBytes?: number;
 };
 
 // Hermes only; every counter is cumulative since the VM was created.
@@ -115,7 +118,16 @@ function readHermesCounters(): IHermesCounters | undefined {
   ) {
     return undefined;
   }
-  return { gcCount, gcTimeSeconds, heapBytes, totalAllocatedBytes };
+  const liveBytes = stats?.js_allocatedBytes;
+  const mallocBytes = stats?.js_mallocSizeEstimate;
+  return {
+    gcCount,
+    gcTimeSeconds,
+    heapBytes,
+    totalAllocatedBytes,
+    ...(typeof liveBytes === 'number' ? { liveBytes } : {}),
+    ...(typeof mallocBytes === 'number' ? { mallocBytes } : {}),
+  };
 }
 
 const toMB = (bytes: number) => Math.round(bytes / (1024 * 1024));
@@ -134,6 +146,88 @@ export function createDistinctChangeCounter() {
     },
     getCount: () => count,
   };
+}
+
+// ---- Inbound traffic census ----------------------------------------------
+//
+// Everything the background sends this runtime arrives as a JSON string
+// through a handful of handlers, and parsing it is the one allocation source
+// the request log cannot size: it records that a call was made, never how much
+// data came back. Counting bytes per sender here answers "what is allocating"
+// without sampling the heap.
+
+// Distinct names per kind; beyond this everything lands in one bucket, so a
+// sender that mints unique names cannot grow this map without bound.
+const INBOUND_MAX_NAMES = 96;
+const INBOUND_TOP = 8;
+
+export type IInboundKind = 'rpc' | 'atom' | 'event';
+
+type IInboundTotals = { count: number; chars: number };
+
+const inboundByKind = new Map<IInboundKind, IInboundTotals>();
+const inboundByName = new Map<string, IInboundTotals>();
+
+function addInbound(
+  target: Map<string, IInboundTotals> | Map<IInboundKind, IInboundTotals>,
+  key: string,
+  chars: number,
+) {
+  const totals = (target as Map<string, IInboundTotals>).get(key);
+  if (totals) {
+    totals.count += 1;
+    totals.chars += chars;
+    return;
+  }
+  (target as Map<string, IInboundTotals>).set(key, { count: 1, chars });
+}
+
+/**
+ * Record one payload the background pushed into this runtime. `chars` is the
+ * length of the raw string as it arrived, so the caller pays nothing beyond a
+ * property read.
+ */
+export function recordInboundFromBackground({
+  kind,
+  name,
+  chars,
+}: {
+  kind: IInboundKind;
+  name: string | undefined;
+  chars: number;
+}) {
+  addInbound(inboundByKind, kind, chars);
+  const named =
+    name && inboundByName.size < INBOUND_MAX_NAMES ? name : 'others';
+  addInbound(inboundByName, `${kind}:${named}`, chars);
+}
+
+function flushInboundCensus(windowMs: number) {
+  if (inboundByKind.size === 0) {
+    return;
+  }
+  const byName = [...inboundByName].toSorted(
+    (left, right) => right[1].chars - left[1].chars,
+  );
+  const totalChars = byName.reduce((sum, [, t]) => sum + t.chars, 0);
+  const totalCount = byName.reduce((sum, [, t]) => sum + t.count, 0);
+  defaultLogger.app.perf.mainInboundCensus({
+    windowMs: Math.round(windowMs),
+    total: totalCount,
+    totalKB: Math.round(totalChars / 1024),
+    byKind: [...inboundByKind].map(([kind, totals]) => ({
+      kind,
+      count: totals.count,
+      kb: Math.round(totals.chars / 1024),
+    })),
+    bySender: byName.slice(0, INBOUND_TOP).map(([sender, totals]) => ({
+      sender,
+      count: totals.count,
+      kb: Math.round(totals.chars / 1024),
+    })),
+  });
+  inboundByKind.clear();
+  inboundByName.clear();
 }
 
 let healthTimer: ReturnType<typeof setInterval> | null = null;
@@ -183,6 +277,14 @@ export function startRuntimeHealthCensus({
       ...(counters
         ? {
             heapMB: toMB(counters.heapBytes),
+            // Live bytes separates real retention from a heap that only
+            // ratchets its capacity upward.
+            ...(counters.liveBytes === undefined
+              ? {}
+              : { liveMB: toMB(counters.liveBytes) }),
+            ...(counters.mallocBytes === undefined
+              ? {}
+              : { mallocMB: toMB(counters.mallocBytes) }),
             ...(before
               ? {
                   allocatedMB: toMB(
@@ -209,6 +311,7 @@ export function startRuntimeHealthCensus({
       ...getExtra?.(),
     };
     defaultLogger.app.perf.runtimeHealthCensus(report);
+    flushInboundCensus(report.windowMs);
 
     windowStartedAt = now;
     countersAtWindowStart = counters;
