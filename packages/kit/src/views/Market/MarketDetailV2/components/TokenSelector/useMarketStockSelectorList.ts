@@ -22,11 +22,17 @@ import {
 } from '../../../MarketHomeV2/components/MarketStockList/utils';
 
 const MARKET_STOCK_SELECTOR_PAGE_SIZE = 20;
+const MARKET_STOCK_SELECTOR_CACHE_FRESH_MS = 5 * 60 * 1000;
+const UNINITIALIZED_STOCK_SELECTOR_QUERY_KEY = '__uninitialized__';
 
 type IMarketStockSelectorListResult = {
   queryKey: string;
   response?: IMarketStockPublicListResponse;
   failed?: boolean;
+};
+
+type ICachedMarketStockListResult = IMarketStockSelectorListResult & {
+  firstPage?: IMarketStockPublicListResponse;
 };
 
 type IMarketStockSelectorListState = {
@@ -41,15 +47,23 @@ const EMPTY_STOCK_SELECTOR_RESULT: IMarketStockSelectorListResult = {
   response: undefined,
 };
 
+function dropStaleStockListCache(swrKey: string) {
+  if (
+    swrCacheUtils.getWithTimestamp(swrKey) &&
+    !swrCacheUtils.isFresh(swrKey, MARKET_STOCK_SELECTOR_CACHE_FRESH_MS)
+  ) {
+    swrCacheUtils.remove(swrKey);
+  }
+}
+
 function readCachedStockListResponse(swrKey: string) {
-  const cached = swrCacheUtils.getWithTimestamp<{
-    failed?: boolean;
-    response?: IMarketStockPublicListResponse;
-  }>(swrKey);
-  if (!cached?.data.response || cached.data.failed) {
+  dropStaleStockListCache(swrKey);
+  const cached =
+    swrCacheUtils.getWithTimestamp<ICachedMarketStockListResult>(swrKey);
+  if (!cached?.data || cached.data.failed) {
     return undefined;
   }
-  return cached.data.response;
+  return cached.data.firstPage ?? cached.data.response;
 }
 
 export function useMarketStockSelectorList({ query }: { query?: string }) {
@@ -67,13 +81,14 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
       }),
     [locale],
   );
-  const emptyListSwrKey = useMemo(
-    () =>
-      normalizedQuery
-        ? undefined
-        : swrKeys.marketHomeStocks(`selector:${defaultListQueryKey}`),
-    [defaultListQueryKey, normalizedQuery],
-  );
+  const emptyListSwrKey = useMemo(() => {
+    if (normalizedQuery) {
+      return undefined;
+    }
+    const key = swrKeys.marketHomeStocks(`selector:${defaultListQueryKey}`);
+    dropStaleStockListCache(key);
+    return key;
+  }, [defaultListQueryKey, normalizedQuery]);
   const cachedEmptyListInitResult = useMemo(() => {
     if (normalizedQuery) {
       return EMPTY_STOCK_SELECTOR_RESULT;
@@ -92,7 +107,7 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
   }, [defaultListQueryKey, emptyListSwrKey, normalizedQuery]);
 
   const [listState, setListState] = useState<IMarketStockSelectorListState>({
-    queryKey: '',
+    queryKey: UNINITIALIZED_STOCK_SELECTOR_QUERY_KEY,
     items: [],
     total: 0,
   });
@@ -138,7 +153,10 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     setIsLoadingMore(false);
     setIsLoadMoreError(false);
 
-    if (firstPageResult.failed || !firstPageResult.response) {
+    if (firstPageResult.failed) {
+      return;
+    }
+    if (!firstPageResult.response) {
       setListState({ queryKey, items: [], total: 0 });
       return;
     }
@@ -243,7 +261,7 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
       items.length === 0 &&
       !isFirstPageError &&
       (Boolean(isLoading) || isFirstPagePending),
-    isError: isFirstPageError,
+    isError: isFirstPageError && items.length === 0,
     isLoadingMore,
     isLoadMoreError,
     canLoadMore: Boolean(nextCursor) && hasCurrentData && !isLoading,

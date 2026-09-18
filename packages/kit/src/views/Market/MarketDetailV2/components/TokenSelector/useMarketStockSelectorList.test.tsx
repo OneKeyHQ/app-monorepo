@@ -314,6 +314,57 @@ it('hydrates the default list from the home stocks cache before the request reso
   });
 });
 
+it('hydrates only the home first page when the cached response has extra pages', () => {
+  const queryKey = buildMarketStockListQueryKey({ locale: 'en-US' });
+  swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
+    queryKey,
+    firstPage,
+    response: {
+      items: [...firstPage.items, createStock('MSFT')],
+      total: 2,
+    },
+    loadedPageCount: 2,
+  });
+  fetchList.mockReturnValue(new Promise(() => undefined));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+
+  expect(result.current.items.map((item) => item.stockId)).toEqual(['AAPL']);
+  expect(result.current.isLoading).toBe(false);
+});
+
+it('rejects an expired stock snapshot on entry', () => {
+  const now = Date.now();
+  const clock = jest.spyOn(Date, 'now').mockReturnValue(now - 6 * 60 * 1000);
+  seedHomeStockList(firstPage);
+  clock.mockRestore();
+  fetchList.mockReturnValue(new Promise(() => undefined));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+
+  expect(result.current.items).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
+});
+
+it('keeps cached rows when remote revalidation fails', async () => {
+  seedHomeStockList(firstPage);
+  fetchList.mockRejectedValue(new Error('offline'));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+
+  await waitFor(() => expect(fetchList).toHaveBeenCalled());
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isError).toBe(false);
+  expect(result.current.isLoading).toBe(false);
+});
+
 it('keeps the same table during pagination with the real selector hook', async () => {
   let resolvePage: (response: IMarketStockPublicListResponse) => void = () =>
     undefined;
