@@ -1,4 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IMarketAccountTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 import {
   EProtocolOfExchange,
@@ -37,6 +38,7 @@ export function buildLocalAccountTransactionMarks({
     // Order submissions, partial fills and cross-chain settlements need indexed fills.
     if (
       history.status !== ESwapTxHistoryStatus.SUCCESS ||
+      isPrivateSendSwapHistoryItem(history) ||
       (history.protocol &&
         history.protocol !== EProtocolOfExchange.SWAP &&
         history.protocol !== EProtocolOfExchange.STOCK) ||

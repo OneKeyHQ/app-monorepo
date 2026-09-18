@@ -1,3 +1,4 @@
+import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
   ESwapTxHistoryStatus,
@@ -159,6 +160,15 @@ describe('local account transaction marks', () => {
         }),
       ).toEqual([]);
     }
+  });
+
+  it('excludes legacy private transfers identified only by their provider', () => {
+    const history = createHistory();
+    history.protocol = undefined;
+    history.swapInfo.provider.provider = privateSendProvider;
+    expect(
+      buildLocalAccountTransactionMarks({ ...params, histories: [history] }),
+    ).toEqual([]);
   });
 
   it('accepts EVM checksum differences and reconciles indexed fills by transaction and side', () => {

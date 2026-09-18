@@ -352,4 +352,16 @@ describe('useTradingViewNativeAccountMarks', () => {
       ITradingViewNativeTradeMark[]
     >([buyMark]);
   });
+
+  it('clears indexed marks after a successful empty refresh', async () => {
+    const { result, rerender } = renderHook(useTradingViewNativeAccountMarks, {
+      initialProps: params,
+    });
+    await flushRequests();
+    expect(result.current[0].props.marks).toEqual([buyMark]);
+    fetchMarks.mockResolvedValueOnce([]);
+    rerender({ ...params, from: 500 });
+    await flushRequests();
+    expect(result.current).toEqual([]);
+  });
 });
