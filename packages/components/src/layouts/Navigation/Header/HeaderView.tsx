@@ -15,8 +15,8 @@ import { WINDOWS_OVERLAY_BUTTONS_WIDTH } from '../../../utils/sidebar';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
 import HeaderBackButton from './HeaderBackButton';
-import HeaderSearchBar from './HeaderSearchBar';
 import { HEADER_RIGHT_SLOT_PROPS } from './headerRightSlot';
+import HeaderSearchBar from './HeaderSearchBar';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { IStackHeaderProps } from '../ScreenProps';

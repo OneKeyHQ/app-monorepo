@@ -85,7 +85,9 @@ describe('DesktopHeaderRightActions', () => {
     render(<DesktopHeaderRightActions tabRoute={ETabRoutes.Swap} />);
 
     const group = getHeaderRightGroup();
-    expect(screen.queryByTestId('swap-invitee-reward-top-nav-button')).toBeNull();
+    expect(
+      screen.queryByTestId('swap-invitee-reward-top-nav-button'),
+    ).toBeNull();
     expect(screen.queryByTestId('header-gift-action')).toBeNull();
     expect(group).toContainElement(screen.getByTestId('header-update-button'));
     expect(group).toContainElement(
