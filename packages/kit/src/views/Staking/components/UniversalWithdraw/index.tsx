@@ -100,6 +100,10 @@ import {
 import StakingFormWrapper from '../StakingFormWrapper';
 
 import {
+  getCheckAmountRequestKey,
+  isLatestCheckAmountRequest,
+} from './checkAmountRequestUtils';
+import {
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
 } from './transactionConfirmationRequestUtils';
@@ -428,6 +432,8 @@ export function UniversalWithdraw({
     useState<IStakeTransactionConfirmation | undefined>();
   const [resolvedTransactionConfirmationRequestKey, setResolvedRequestKey] =
     useState<string>();
+  const checkAmountRequestIdRef = useRef(0);
+  const checkAmountRequestKeyRef = useRef('');
   const transactionConfirmationRequestIdRef = useRef(0);
   const transactionConfirmationRequestKeyRef = useRef('');
 
@@ -1143,48 +1149,126 @@ export function UniversalWithdraw({
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
-  const checkAmount = useDebouncedCallback(async (amount: string) => {
-    if (isInvalidAmount(amount)) {
-      return;
-    }
-    // Treat a non-positive amount (0 / "0.00" / mid-typing) as "not entered
-    // yet": clear any previous error and skip the backend check. Otherwise
-    // providers whose backend rejects 0 (e.g. Bitway) would flash an error
-    // before the user finishes typing (OK-58205).
-    if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
+  const checkAmountRequestParams = useMemo(
+    () => ({
+      accountId,
+      action: ECheckAmountActionType.UNSTAKING,
+      amount: amountValue,
+      identity,
+      inputTokenAddress: transactionInputTokenAddress,
+      networkId,
+      outputTokenAddress: transactionOutputTokenAddress,
+      protocolVault,
+      provider: providerName,
+      slippage: pendleSlippage,
+      symbol: actionSymbol,
+      withdrawAll: isWithdrawAll,
+      withdrawType: selectedWithdrawType,
+    }),
+    [
+      accountId,
+      actionSymbol,
+      amountValue,
+      identity,
+      isWithdrawAll,
+      networkId,
+      pendleSlippage,
+      protocolVault,
+      providerName,
+      selectedWithdrawType,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+    ],
+  );
+  const checkAmountRequestKey = useMemo(
+    () => getCheckAmountRequestKey(checkAmountRequestParams),
+    [checkAmountRequestParams],
+  );
+  checkAmountRequestKeyRef.current = checkAmountRequestKey;
+
+  const debouncedCheckAmount = useDebouncedCallback(
+    async ({
+      requestId,
+      requestKey,
+      params,
+    }: {
+      requestId: number;
+      requestKey: string;
+      params: typeof checkAmountRequestParams;
+    }) => {
+      try {
+        const response =
+          await backgroundApiProxy.serviceStaking.checkAmount(params);
+        if (
+          !isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          return;
+        }
+
+        if (Number(response.code) === 0) {
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts(response.data?.alerts || []);
+        } else {
+          setCheckoutAmountMessage(response.message);
+          setCheckAmountAlerts([]);
+        }
+      } finally {
+        if (
+          isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          setCheckAmountLoading(false);
+        }
+      }
+    },
+    300,
+  );
+
+  useEffect(() => {
+    checkAmountRequestIdRef.current += 1;
+    const requestId = checkAmountRequestIdRef.current;
+    const requestKey = checkAmountRequestKey;
+    const isCheckableAmount =
+      !isCancelWithdrawal &&
+      !isInvalidAmount(amountValue) &&
+      new BigNumber(amountValue).isGreaterThan(0);
+
+    if (!isCheckableAmount) {
+      setCheckAmountLoading(false);
       setCheckoutAmountMessage('');
       setCheckAmountAlerts([]);
-      return;
+      return undefined;
     }
-    setCheckAmountLoading(true);
-    try {
-      const response = await backgroundApiProxy.serviceStaking.checkAmount({
-        accountId,
-        networkId,
-        symbol: actionSymbol,
-        provider: providerName,
-        action: ECheckAmountActionType.UNSTAKING,
-        amount,
-        protocolVault,
-        withdrawAll: withdrawAllRef.current,
-        identity,
-        inputTokenAddress: transactionInputTokenAddress,
-        outputTokenAddress: transactionOutputTokenAddress,
-        slippage: pendleSlippage,
-        withdrawType: selectedWithdrawType,
-      });
 
-      if (Number(response.code) === 0) {
-        setCheckoutAmountMessage('');
-        setCheckAmountAlerts(response.data?.alerts || []);
-      } else {
-        setCheckoutAmountMessage(response.message);
-        setCheckAmountAlerts([]);
+    setCheckAmountLoading(true);
+    void debouncedCheckAmount({
+      params: checkAmountRequestParams,
+      requestId,
+      requestKey,
+    });
+
+    return () => {
+      if (checkAmountRequestIdRef.current === requestId) {
+        checkAmountRequestIdRef.current += 1;
       }
-    } finally {
-      setCheckAmountLoading(false);
-    }
-  }, 300);
+      debouncedCheckAmount.cancel();
+    };
+  }, [
+    amountValue,
+    checkAmountRequestKey,
+    checkAmountRequestParams,
+    debouncedCheckAmount,
+    isCancelWithdrawal,
+  ]);
 
   const fetchTransactionConfirmation = useCallback(
     async (amount: string, withdrawType = selectedWithdrawType) => {
@@ -1372,23 +1456,9 @@ export function UniversalWithdraw({
       }
       withdrawAllRef.current = !!isMax;
       setIsWithdrawAll(!!isMax);
-      void checkAmount(value);
     },
-    [checkAmount, decimals, isCancelWithdrawal],
+    [decimals, isCancelWithdrawal],
   );
-
-  // Re-trigger checkAmount when output token changes
-  useEffect(() => {
-    if (!isCancelWithdrawal && amountValue && !isInvalidAmount(amountValue)) {
-      void checkAmount(amountValue);
-    }
-  }, [
-    transactionOutputTokenAddress,
-    checkAmount,
-    amountValue,
-    isCancelWithdrawal,
-    selectedWithdrawType,
-  ]);
 
   const currentValue = useMemo<string | undefined>(() => {
     if (Number(amountValue) > 0 && Number(price) > 0) {
