@@ -10,8 +10,10 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
 import { MarketTestIDs } from '../../testIDs';
 
+import { MarketBannerDesktopScroller } from './MarketBannerDesktopScroller';
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
 import { useMarketBannerList } from './useMarketBannerList';
@@ -37,15 +39,18 @@ export function useMarketBannerState() {
 }
 
 function BannerContainerMobile({
+  height,
   children,
   hidden = false,
 }: {
   children: ReactNode;
+  height?: number;
   hidden?: boolean;
 }) {
   return (
     <ScrollGuard>
       <ScrollView
+        h={height}
         opacity={hidden ? 0 : 1}
         pointerEvents={hidden ? 'none' : 'auto'}
         accessibilityElementsHidden={hidden}
@@ -54,9 +59,10 @@ function BannerContainerMobile({
         bounces={false}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          py: '$2',
+          py: '$4',
           px: '$4',
           gap: '$3',
+          alignItems: platformEnv.isNativeAndroid ? 'center' : undefined,
         }}
       >
         {children}
@@ -67,11 +73,25 @@ function BannerContainerMobile({
 
 function BannerContainerDesktop({
   children,
+  itemCount,
   hidden = false,
+  divided,
 }: {
   children: ReactNode;
+  itemCount: number;
   hidden?: boolean;
+  // True when every card renders token previews, which desktop web separates
+  // with dividers.
+  divided: boolean;
 }) {
+  if (!platformEnv.isNative) {
+    // Web never renders a hidden desktop banner; it unmounts the row instead.
+    return (
+      <MarketBannerDesktopScroller itemCount={itemCount} divided={divided}>
+        {children}
+      </MarketBannerDesktopScroller>
+    );
+  }
   return (
     <XStack
       opacity={hidden ? 0 : 1}
@@ -79,7 +99,7 @@ function BannerContainerDesktop({
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
       pt="$4"
-      pb="$2"
+      pb="$4"
       px="$5"
       gap="$3"
       overflow="scroll"
@@ -97,14 +117,18 @@ function MarketBannerListSkeletonComponent({
 }) {
   const skeletonCount = isSmallScreen ? 3 : 7;
   const skeletonItems = Array.from({ length: skeletonCount }, (_, i) => (
-    <MarketBannerItemSkeleton key={i} />
+    <MarketBannerItemSkeleton key={i} isSmallScreen={isSmallScreen} />
   ));
 
   if (isSmallScreen) {
     return <BannerContainerMobile>{skeletonItems}</BannerContainerMobile>;
   }
 
-  return <BannerContainerDesktop>{skeletonItems}</BannerContainerDesktop>;
+  return (
+    <BannerContainerDesktop itemCount={skeletonCount} divided>
+      {skeletonItems}
+    </BannerContainerDesktop>
+  );
 }
 
 const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
@@ -116,15 +140,19 @@ function MarketBannerListComponent() {
 
   // md = true when screen width <= 767px (small screen)
   const isSmallScreen = md;
-  // Commit only a successful response; a failed request can still recover.
-  // A successful empty response keeps the native header absent until re-entry.
-  const [initialBannerList, setInitialBannerList] = useState(
+  // Retain the latest successful non-empty response so an empty refresh keeps
+  // card dimensions aligned with the current native header height.
+  // A successful first empty response still locks that header absent.
+  const [retainedBannerList, setRetainedBannerList] = useState(
     isFetched ? bannerList : undefined,
   );
-  if (initialBannerList === undefined && isFetched) {
-    setInitialBannerList(bannerList);
+  const canRetainBannerList =
+    retainedBannerList === undefined ||
+    (retainedBannerList.length > 0 && bannerList.length > 0);
+  if (canRetainBannerList && isFetched && retainedBannerList !== bannerList) {
+    setRetainedBannerList(bannerList);
   }
-  if (platformEnv.isNative && !initialBannerList?.length) return null;
+  if (platformEnv.isNative && !retainedBannerList?.length) return null;
 
   // Only show skeleton on initial load (before first fetch completes).
   // Skip skeleton on re-fetch to avoid header height flicker when
@@ -137,26 +165,38 @@ function MarketBannerListComponent() {
   if (hidden && !platformEnv.isNative) return null;
   // Preserve the actual card dimensions (including tablet layouts) if a
   // reconnect removes the banners, without retaining interactive stale links.
-  const visibleBannerList = hidden ? (initialBannerList ?? []) : bannerList;
+  const visibleBannerList = hidden ? (retainedBannerList ?? []) : bannerList;
+  // One legacy banner pulls the whole row back to the filled layout: the
+  // scroller and the cards have to agree, or 272px transparent cards sit
+  // beside variable-width filled ones.
+  const isDividedList = visibleBannerList.every((item) => Boolean(item.tokens));
   const bannerItems = visibleBannerList.map((item) => (
     <MarketBannerItem
       key={item._id}
       item={item}
       isSmallScreen={isSmallScreen}
       onPress={toMarketBannerDetail}
+      divided={isDividedList}
     />
   ));
 
   if (isSmallScreen) {
     return (
-      <BannerContainerMobile hidden={hidden}>
+      <BannerContainerMobile
+        height={getMarketMobileBannerHeaderHeight(visibleBannerList)}
+        hidden={hidden}
+      >
         {bannerItems}
       </BannerContainerMobile>
     );
   }
 
   return (
-    <BannerContainerDesktop hidden={hidden}>
+    <BannerContainerDesktop
+      itemCount={bannerItems.length}
+      hidden={hidden}
+      divided={isDividedList}
+    >
       {bannerItems}
     </BannerContainerDesktop>
   );

@@ -79,6 +79,7 @@ import {
 } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 import {
   getMarketTradingViewSubIndicatorCount,
   normalizeMarketTradingViewSubIndicatorCountPersist,
@@ -270,6 +271,7 @@ function MobileMarketTradingView({
 }
 
 export interface IMobileLayoutProps {
+  isLayoutPending?: boolean;
   isInitialContentPending?: boolean;
   disablePerpsBanner?: boolean;
   disableTrade?: boolean;
@@ -285,6 +287,7 @@ export interface IMobileLayoutProps {
 }
 
 export function MobileLayout({
+  isLayoutPending,
   isInitialContentPending,
   disablePerpsBanner,
   disableTrade,
@@ -307,7 +310,8 @@ export function MobileLayout({
     perpsInfo,
     isStockToken,
   } = useTokenDetail();
-  const { selectedTokenVariant } = useStockDetail();
+  const { isStockRoute, selectedTokenVariant, stockDetail, stockId } =
+    useStockDetail();
   const networkId =
     selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
   const tokenAddress =
@@ -318,6 +322,18 @@ export function MobileLayout({
       ? routeIsNative
       : storeIsNative;
   const tokenSymbol = tokenDetail?.symbol;
+  // Stock detail charts offer Prev close; the mobile chart always plots the
+  // token price.
+  const isStockDetailChart = isStockRoute && Boolean(stockId);
+  const stockPreviousClose = isStockDetailChart
+    ? getMarketStockChartPreviousClose({
+        priceSource: 'token',
+        stockDetail,
+        selectedTokenVariant,
+        tokenDetail,
+        tokenDetailNetworkId: storeNetworkId,
+      })
+    : undefined;
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
@@ -435,6 +451,7 @@ export function MobileLayout({
 
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(0);
+  const [pageViewportHeight, setPageViewportHeight] = useState(0);
   const { top, bottom } = useSafeAreaInsets();
 
   // Skip top inset for iOS modal pages, as modal has its own safe area handling
@@ -458,7 +475,11 @@ export function MobileLayout({
     }
     return windowWidth;
   }, [containerWidth, width, windowWidth]);
-  const layoutHeight = height;
+  // Android overlays hide the main tab bar, so use the actual page viewport.
+  const layoutHeight =
+    platformEnv.isNativeAndroid && isModalPage && pageViewportHeight > 0
+      ? pageViewportHeight
+      : height;
   const layoutPageWidth = effectivePageWidth;
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
@@ -537,6 +558,21 @@ export function MobileLayout({
     [],
   );
 
+  const handlePageViewportLayout = useCallback(
+    (event: { nativeEvent: { layout: { height: number } } }) => {
+      if (!platformEnv.isNativeAndroid || !isModalPage) {
+        return;
+      }
+      const { height: nextHeight } = event.nativeEvent.layout;
+      if (nextHeight > 0) {
+        setPageViewportHeight((previousHeight) =>
+          previousHeight === nextHeight ? previousHeight : nextHeight,
+        );
+      }
+    },
+    [isModalPage],
+  );
+
   useEffect(() => {
     const activeTabIndex = tabNames.indexOf(focusedTab.value);
     if (
@@ -561,7 +597,7 @@ export function MobileLayout({
   useEffect(() => {
     setIsTradingViewIndicatorsDialogOpen(false);
     setIsTradingViewInteractionOverlayOpen(false);
-    if (isTradingViewNative) {
+    if (isTradingViewNative && !platformEnv.isNative) {
       setNativeIndicatorQuickBarState({
         status: 'loading',
         quickBar: null,
@@ -603,7 +639,8 @@ export function MobileLayout({
   const tradingViewHeight = useMemo(() => {
     if (platformEnv.isNative) {
       const baseChartHeight = Math.round(
-        Number(height) * MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO,
+        Number(layoutHeight) *
+          MARKET_DETAIL_MOBILE_TRADING_VIEW_BASE_HEIGHT_RATIO,
       );
       const fixedMainChartHeight =
         baseChartHeight +
@@ -617,11 +654,10 @@ export function MobileLayout({
       );
     }
     return 'calc(100vh - 96px - 74px - 250px)';
-  }, [height, tradingViewSubIndicatorCount]);
+  }, [layoutHeight, tradingViewSubIndicatorCount]);
 
   const shouldReserveNativeIndicatorQuickBar =
     platformEnv.isNative &&
-    !isTradingViewNative &&
     shouldReserveTradingViewNativeIndicatorQuickBar(
       nativeIndicatorQuickBarState,
     );
@@ -733,7 +769,9 @@ export function MobileLayout({
             panFailOffsetX={chartAreaPanFailOffsetX}
             excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
             excludeBottomEdgeHeight={
-              TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
+              isTradingViewNative
+                ? 0
+                : TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
             }
             scrollScale={1.2}
             verticalPanMaxPointers={isTradingViewNative ? 1 : undefined}
@@ -752,7 +790,16 @@ export function MobileLayout({
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
                       onPriceUpdate={handleNativeChartPriceUpdate}
+                      enablePreviousClose={isStockDetailChart}
+                      previousClose={stockPreviousClose}
                       enableNativeChartSettings
+                      nativeChartSettingsInToolbar={platformEnv.isNative}
+                      showNativeIndicatorQuickBar={platformEnv.isNative}
+                      onNativeIndicatorQuickBarChange={
+                        platformEnv.isNative
+                          ? handleNativeIndicatorQuickBarChange
+                          : undefined
+                      }
                       maxSelectableSubIndicatorCount={
                         MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                       }
@@ -845,6 +892,7 @@ export function MobileLayout({
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
     isChartFullscreen,
+    isStockDetailChart,
     isTradingViewScrollLocked,
     isTradingViewNative,
     layoutPageWidth,
@@ -855,6 +903,7 @@ export function MobileLayout({
     networkId,
     onChartFullscreenChange,
     onChartSwitch,
+    stockPreviousClose,
     tradingViewNativeSource,
     tradingViewChartHeight,
   ]);
@@ -941,6 +990,8 @@ export function MobileLayout({
     isStockToken,
   ]);
   const isSwapTokenReady =
+    tokenDetail?.address?.toLowerCase() === tokenAddress.toLowerCase() &&
+    tokenDetail?.networkId === networkId &&
     tokenDetail?.decimalsResolved !== false &&
     typeof tokenDetail?.decimals === 'number' &&
     Number.isInteger(tokenDetail.decimals) &&
@@ -984,7 +1035,7 @@ export function MobileLayout({
 
   // Reveal quotes and the chart only after the first detail request has
   // also determined whether the perps banner exists. Polling keeps them mounted.
-  if (platformEnv.isNative && isInitialContentPending) {
+  if (platformEnv.isNative && (isLayoutPending || isInitialContentPending)) {
     return (
       <Stack
         flex={1}
@@ -1012,7 +1063,13 @@ export function MobileLayout({
         tabNames={tabNames}
         focusedTab={focusedTab}
       />
-      <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
+      <ScrollView
+        horizontal
+        ref={scrollViewRef}
+        flex={1}
+        scrollEnabled={false}
+        onLayout={handlePageViewportLayout}
+      >
         {tabNames.map((_, index) => (
           <YStack
             key={index}

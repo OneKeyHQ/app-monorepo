@@ -20,6 +20,22 @@ Entry surfaces own navigation params and analytics source, not the downstream
 data or execution state. Preserve provider, network, token/symbol, vault or
 market, account, indexed account, action, and return target across handoffs.
 
+## Readiness, Cache, And Refresh
+
+Keep a cached complete snapshot, a true cache miss, an authoritative empty
+response, and an error/retry state distinct. A cache hit may keep the current
+layout while a background request refreshes it; it must not suppress a needed
+refresh forever or turn a resolved empty result into a skeleton. Scope cache,
+request, and event invalidation by the identity that can change (account,
+network, provider, market/reserve, or action), and verify every consumer that
+depends on the capability map—not only the home screen.
+
+For dynamic rows, keep the data owner and presentation owner separate. Preserve
+the last complete visible snapshot while measuring or refreshing, and make
+expanded/collapsed state settle before declaring the route ready. A successful
+request or static element is not proof that the visible route settled
+correctly.
+
 ## Platform Hosts
 
 - Native Earn lives under the Discovery host. Validate a fresh open, repeated
@@ -29,6 +45,15 @@ market, account, indexed account, action, and return target across handoffs.
 - AssetDetails is its own modal stack. Pass required account identity through
   typed route params or the protocol payload; do not depend on Home-only
   providers unless that stack proves it mounts the matching mirror.
+
+Cross-surface Market-to-Earn links keep source context at the entry and let Earn
+resolve the returned protocol/product. Pass server-derived asset and protocol
+identity, including native/wrapped mapping, through the existing detail
+handoff; hide the link only when the current response has no usable protocol.
+
+Borrow navigation is host-dependent. Use the existing host- and mode-aware
+navigation helpers instead of assuming a Borrow home route is directly below
+the current stack, especially for share or deep-link entries.
 
 ## Runtime Ownership
 

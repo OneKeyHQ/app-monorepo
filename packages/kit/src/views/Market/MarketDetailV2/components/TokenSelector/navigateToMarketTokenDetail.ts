@@ -11,6 +11,10 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  openOrReplaceMarketDetailRoute,
+  replaceFocusedMarketDetailRoute,
+} from '../../../utils/marketDetailNavigation';
 import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
 import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
@@ -26,7 +30,10 @@ export async function navigateToMarketTokenDetail(
     tokenDetailActions: {
       current: Pick<
         ReturnType<typeof useTokenDetailActions>['current'],
-        'clearTokenDetail' | 'changeActiveToken' | 'prepareTokenDetailPreview'
+        | 'prepareStockTokenDetail'
+        | 'changeActiveToken'
+        | 'prepareTokenDetailPreview'
+        | 'clearTokenDetail'
       >;
     };
     beforeNavigate?: () => void;
@@ -70,16 +77,17 @@ export async function navigateToMarketTokenDetail(
 
   const stockId = resolveMarketStockId({
     stockId: token.stockId,
-    stock: opts.tokenDetailPreview?.stock,
-    name: opts.tokenDetailPreview?.name,
-    symbol: opts.tokenDetailPreview?.symbol,
   });
   const shouldResolveMarketAsset = Boolean(
     opts.resolveMarketAsset && !token.assetId && !stockId,
   );
 
   if (stockId) {
-    opts.tokenDetailActions.current.clearTokenDetail();
+    opts.tokenDetailActions.current.prepareStockTokenDetail({
+      tokenAddress: token.address,
+      networkId: token.networkId,
+      isNative: token.isNative,
+    });
   } else if (shouldResolveMarketAsset) {
     if (opts.tokenDetailPreview) {
       opts.tokenDetailActions.current.prepareTokenDetailPreview(
@@ -96,8 +104,6 @@ export async function navigateToMarketTokenDetail(
       tokenDetailPreview: opts.tokenDetailPreview,
     });
   }
-
-  opts.beforeNavigate?.();
 
   const targetTab = platformEnv.isNative
     ? ETabRoutes.Discovery
@@ -120,6 +126,12 @@ export async function navigateToMarketTokenDetail(
           legacyTokenPreview: opts.tokenDetailPreview,
         }
       : undefined),
+    ...(!shouldResolveMarketAsset &&
+    !stockId &&
+    opts.tokenDetailPreview &&
+    (platformEnv.isDesktop || platformEnv.isWeb)
+      ? { legacyTokenPreview: opts.tokenDetailPreview }
+      : undefined),
     ...(!token.assetId && opts.marketTokenCategory
       ? { marketTokenCategory: opts.marketTokenCategory }
       : undefined),
@@ -136,8 +148,33 @@ export async function navigateToMarketTokenDetail(
   const routeName = stockId
     ? ETabMarketRoutes.MarketStockDetail
     : ETabMarketRoutes.MarketDetailV2;
+  if (!isCurrentRequest()) {
+    return;
+  }
+  // Update the already-open detail first, while a selector overlay still
+  // leaves the tab stack visible in getRootState(). Root-navigating
+  // Discovery/Market otherwise stacks another detail page.
+  const replacedCurrentDetail = openOrReplaceMarketDetailRoute({
+    routeName,
+    params: params as Record<string, unknown>,
+  });
+  opts.beforeNavigate?.();
+  if (replacedCurrentDetail) {
+    return;
+  }
   setTimeout(() => {
     if (!isCurrentRequest()) return;
+    // After the selector overlay closes, nested tab state is often missing
+    // from getRootState(). Updating the focused detail avoids pushing another
+    // page onto Discovery/Market.
+    if (
+      replaceFocusedMarketDetailRoute({
+        routeName,
+        params: params as Record<string, unknown>,
+      })
+    ) {
+      return;
+    }
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {
       screen: targetTab,
       params: {

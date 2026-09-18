@@ -229,9 +229,59 @@ function compactTradingViewNativePriceLeadingZeros(value: string) {
   )}${value.slice(firstSignificantDigitIndex)}`;
 }
 
+function roundTradingViewNativeSubOnePrice(
+  price: number,
+  significantDigits: number,
+) {
+  'worklet';
+
+  // `toFixed` rounds the binary double, so 0.0012345 — stored as 0.00123449… —
+  // rounds down, while the page header rounds the decimal string half-up
+  // through BigNumber and reaches 0.001235. `toExponential()` returns the
+  // shortest round-trip decimal, so rounding its digit string keeps the chart
+  // and the header on the same number.
+  const exponentialParts = Math.abs(price).toExponential().split('e');
+  let digits = exponentialParts[0].replace('.', '');
+  let exponent = Number(exponentialParts[1]);
+  if (digits.length > significantDigits) {
+    const kept = digits.slice(0, significantDigits);
+    if (digits.charAt(significantDigits) >= '5') {
+      const bumped = String(Number(kept) + 1);
+      if (bumped.length > kept.length) {
+        // 9999 -> 10000: one more integer digit, so the decimal point moves.
+        digits = bumped.slice(0, significantDigits);
+        exponent += 1;
+      } else {
+        digits = bumped;
+      }
+    } else {
+      digits = kept;
+    }
+  }
+  let digitsEndIndex = digits.length;
+  while (digitsEndIndex > 1 && digits[digitsEndIndex - 1] === '0') {
+    digitsEndIndex -= 1;
+  }
+  digits = digits.slice(0, digitsEndIndex);
+
+  const sign = price < 0 ? '-' : '';
+  if (exponent >= 0) {
+    // Rounding carried the value up to at least 1.
+    const integerLength = exponent + 1;
+    return digits.length > integerLength
+      ? `${sign}${digits.slice(0, integerLength)}.${digits.slice(
+          integerLength,
+        )}`
+      : `${sign}${digits}${'0'.repeat(integerLength - digits.length)}`;
+  }
+  return `${sign}0.${'0'.repeat(-exponent - 1)}${digits}`;
+}
+
 export function formatTradingViewNativePriceTick(
   price: number,
-  significantFractionDigits: 4 | 6 = PRICE_SIGNIFICANT_FRACTION_DIGITS,
+  // Worklet default parameters cannot read captured constants before __closure is initialized.
+  // Keep this literal in sync manually with PRICE_SIGNIFICANT_FRACTION_DIGITS.
+  significantFractionDigits: 4 | 6 = 4,
 ) {
   'worklet';
 
@@ -256,7 +306,10 @@ export function formatTradingViewNativePriceTick(
     return Number(price.toPrecision(significantFractionDigits)).toString();
   }
 
-  const fixedPrice = price.toFixed(fractionDigits);
+  const fixedPrice = roundTradingViewNativeSubOnePrice(
+    price,
+    significantFractionDigits,
+  );
   const roundedPrice = Number(fixedPrice);
   if (Math.abs(roundedPrice) >= 1) {
     return roundedPrice.toFixed(PRICE_INTEGER_FRACTION_DIGITS);

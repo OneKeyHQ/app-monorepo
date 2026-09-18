@@ -1,5 +1,12 @@
 import type { ComponentType, ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   type ImageErrorEvent,
@@ -212,14 +219,24 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     shouldUseRawSourceFallback,
   ]);
 
-  useResetError(resolvedSource, hasError, setHasError);
+  // react-native-web loads images by URI and ignores `source.headers`, so the
+  // URI alone identifies the web request.
+  const resolvedSourceIdentity = resolvedSource?.uri ?? '';
+  useResetError(resolvedSourceIdentity, hasError, setHasError);
+
+  // react-native-web aborts a superseded request from a passive effect, and it
+  // cannot abort the `decode()` that follows a completed load at all, so the
+  // previous source's callbacks can still arrive after a swap. Tracking the
+  // displayed URI in a layout effect keeps that marker on committed renders
+  // only, so a discarded concurrent render cannot silence a live callback.
+  const displayedSourceIdentityRef = useRef(resolvedSourceIdentity);
+  useLayoutEffect(() => {
+    displayedSourceIdentityRef.current = resolvedSourceIdentity;
+  }, [resolvedSourceIdentity]);
 
   const retryLimit = Number.isFinite(retryTimes)
     ? Math.max(0, Math.floor(retryTimes))
     : 1;
-  const resolvedSourceIdentity = `${resolvedSource?.uri ?? ''}|${JSON.stringify(
-    resolvedSource?.headers ?? {},
-  )}`;
   const clearRetryTimer = useCallback(() => {
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
@@ -272,6 +289,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
 
   const handleLoad = useCallback(
     (event: ImageLoadEvent) => {
+      if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+        return;
+      }
       clearPlaceholderTimer();
       setHasError(false);
       setIsImageLoaded(true);
@@ -321,17 +341,29 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       onLoad?.(loadEvent);
       onDisplay?.();
     },
-    [clearPlaceholderTimer, onDisplay, onLoad, resolvedSource?.uri],
+    [
+      clearPlaceholderTimer,
+      onDisplay,
+      onLoad,
+      resolvedSource?.uri,
+      resolvedSourceIdentity,
+    ],
   );
 
   const handleLoadEnd = useCallback(() => {
+    if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+      return;
+    }
     clearPlaceholderTimer();
     setIsPlaceholderVisible(false);
     onLoadEnd?.();
-  }, [clearPlaceholderTimer, onLoadEnd]);
+  }, [clearPlaceholderTimer, onLoadEnd, resolvedSourceIdentity]);
 
   const handleError = useCallback(
     (event: ImageErrorEvent) => {
+      if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+        return;
+      }
       if (
         optimizedSourceResult.optimized &&
         optimizedSourceResult.rawUri &&
@@ -354,6 +386,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       onError,
       optimizedSourceResult.optimized,
       optimizedSourceResult.rawUri,
+      resolvedSourceIdentity,
       scheduleRetry,
       shouldUseRawSourceFallback,
     ],
@@ -378,9 +411,14 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     if (hasError || isEmptyResolvedSource(resolvedSource)) {
       return null;
     }
+    // The key deliberately excludes the source URI. react-native-web paints
+    // nothing until its own load state leaves IDLE, so remounting on every URI
+    // change costs an extra blank frame even when the new image is already
+    // cached; updating `source` in place keeps the previous LOADED state and
+    // lets a cached image paint in the same commit.
     return (
       <ImageComponent
-        key={`${recyclingKey ?? resolvedSource?.uri ?? 'image'}:${retryNonce}`}
+        key={`${recyclingKey ?? 'image'}:${retryNonce}`}
         source={
           shouldLoadImage ? (resolvedSource as ImageSourcePropType) : undefined
         }

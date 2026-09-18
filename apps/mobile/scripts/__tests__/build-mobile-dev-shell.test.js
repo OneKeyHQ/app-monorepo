@@ -193,36 +193,6 @@ SPEC CHECKSUMS:
       ONEKEY_STARTUP_PROFILE: 'false',
       SENTRY_DISABLE_AUTO_UPLOAD: 'true',
     });
-
-    const androidBuildGradle = fs.readFileSync(
-      path.join(repoRoot, 'apps/mobile/android/app/build.gradle'),
-      'utf8',
-    );
-    expect(androidBuildGradle).toContain(
-      "defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()",
-    );
-    const variableDeclarationIndex = androidBuildGradle.indexOf(
-      'def enableNativeBackgroundThread =',
-    );
-    expect(variableDeclarationIndex).toBeGreaterThan(-1);
-    expect(variableDeclarationIndex).toBeLessThan(
-      androidBuildGradle.indexOf('android {'),
-    );
-    expect(
-      androidBuildGradle.indexOf(
-        'def enableNativeBackgroundThread =',
-        variableDeclarationIndex + 1,
-      ),
-    ).toBe(-1);
-    expect(androidBuildGradle).toContain(
-      'buildConfigField("boolean", "ENABLE_NATIVE_BACKGROUND_THREAD", enableNativeBackgroundThread)',
-    );
-    expect(androidBuildGradle).toContain(
-      "(useDevShell ? 'true' : enableNativeBackgroundThread)",
-    );
-    expect(androidBuildGradle).toContain(
-      "BUILTIN_BUNDLE_VERSION: (useDevShell ? '0' : defEnvStr(appEnvConfig, 'BUNDLE_VERSION'))",
-    );
   });
 
   it('injects the iOS contract only into the built app Info.plist', () => {

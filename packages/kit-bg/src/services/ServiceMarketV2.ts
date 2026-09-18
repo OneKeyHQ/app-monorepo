@@ -1,11 +1,16 @@
 // cspell:ignore financials
-import { isNil } from 'lodash';
+import { chunk, isNil } from 'lodash';
 import pLimit from 'p-limit';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  DEFAULT_MARKET_STOCK_SORT_BY,
+  DEFAULT_MARKET_STOCK_SORT_TYPE,
+  MARKET_STOCK_BATCH_MAX_IDS,
+} from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -47,11 +52,13 @@ import type {
   IMarketStockPublicChartRequest,
   IMarketStockPublicChartResponse,
   IMarketStockPublicDetail,
+  IMarketStockPublicItem,
   IMarketStockPublicListRequest,
   IMarketStockPublicListResponse,
   IMarketStockPublicSearchRequest,
   IMarketStockTokenVariantsResponse,
   IMarketTokenBatchListResponse,
+  IMarketTokenBatchRequestParams,
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
   IMarketTokenKLineResponse,
@@ -559,15 +566,7 @@ class ServiceMarketV2 extends ServiceBase {
     tokenAddressList,
     requestLocale,
     skipCache = false,
-  }: {
-    tokenAddressList: {
-      contractAddress: string;
-      chainId: string;
-      isNative: boolean;
-    }[];
-    requestLocale?: string;
-    skipCache?: boolean;
-  }) {
+  }: IMarketTokenBatchRequestParams) {
     // Clean expired cache entries periodically
     this._cleanExpiredMarketTokenBatchCache();
 
@@ -1062,21 +1061,25 @@ class ServiceMarketV2 extends ServiceBase {
     }
   }
 
-  private memoizedFetchMarketBannerList = memoizee(
-    async () => {
+  private memoizedFetchMarketBannerData = memoizee(
+    async (path: string, locale: string) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<{
-        code: number;
-        message: string;
-        data: IMarketBannerListResponse;
-      }>('/utility/v2/market/banner/list');
-      const { data } = response.data;
-      return data.data;
+        data:
+          | IMarketBannerListResponse
+          | IMarketBannerTokenListResponse
+          | IMarketStockPublicItem[]
+          | {
+              list?: IMarketStockPublicItem[];
+              items?: IMarketStockPublicItem[];
+            };
+      }>(path, {
+        params: { currency: 'usd' },
+        headers: { 'x-onekey-request-locale': locale },
+      });
+      return response.data.data;
     },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-      promise: true,
-    },
+    { maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }), promise: true },
   );
 
   @backgroundMethod()
@@ -1085,28 +1088,36 @@ class ServiceMarketV2 extends ServiceBase {
     if (devSettings.enabled && devSettings.settings?.enableMockMarketBanner) {
       return MOCK_MARKET_BANNER_LIST;
     }
-    return this.memoizedFetchMarketBannerList();
+    const data = (await this.memoizedFetchMarketBannerData(
+      '/utility/v2/market/banner/list',
+      await this._getMarketTokenBatchCacheLocale(),
+    )) as IMarketBannerListResponse;
+    return data.data;
   }
 
   @backgroundMethod()
   async clearMarketBannerCache(): Promise<void> {
-    // memoizee's clear() is synchronous, returns void
-    void this.memoizedFetchMarketBannerList.clear();
+    this.memoizedFetchMarketBannerData.clear();
   }
 
   @backgroundMethod()
   async fetchMarketBannerTokenList({ tokenListId }: { tokenListId: string }) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketBannerTokenListResponse;
-    }>(
+    const data = (await this.memoizedFetchMarketBannerData(
       `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
-      { params: { currency: 'usd' } },
-    );
-    const { data } = response.data;
+      await this._getMarketTokenBatchCacheLocale(),
+    )) as IMarketBannerTokenListResponse;
     return data.list;
+  }
+
+  @backgroundMethod()
+  async fetchMarketBannerStockTokenList({ id }: { id: string }) {
+    const data = (await this.memoizedFetchMarketBannerData(
+      `/utility/v2/market/banner/stock-token-list/${encodeURIComponent(id)}`,
+      await this._getMarketTokenBatchCacheLocale(),
+    )) as
+      | IMarketStockPublicItem[]
+      | { list?: IMarketStockPublicItem[]; items?: IMarketStockPublicItem[] };
+    return Array.isArray(data) ? data : (data.list ?? data.items ?? []);
   }
 
   @backgroundMethod()
@@ -1132,8 +1143,8 @@ class ServiceMarketV2 extends ServiceBase {
         cursor: params.cursor,
         limit: params.limit ?? 20,
         category: params.category,
-        sortBy: params.sortBy ?? 'default',
-        sortType: params.sortType ?? 'asc',
+        sortBy: params.sortBy ?? DEFAULT_MARKET_STOCK_SORT_BY,
+        sortType: params.sortType ?? DEFAULT_MARKET_STOCK_SORT_TYPE,
       },
       headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
@@ -1149,6 +1160,7 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async searchMarketStocks({
     query,
+    cursor,
     limit = 20,
   }: IMarketStockPublicSearchRequest) {
     const normalizedQuery = query.trim();
@@ -1160,7 +1172,11 @@ class ServiceMarketV2 extends ServiceBase {
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
     } = {
-      params: { query: normalizedQuery, limit },
+      params: {
+        query: normalizedQuery,
+        limit,
+        ...(cursor ? { cursor } : {}),
+      },
       headers: { 'x-onekey-request-currency': 'usd' },
       autoHandleError: false,
     };
@@ -1187,6 +1203,40 @@ class ServiceMarketV2 extends ServiceBase {
       data: IMarketStockPublicDetail | null;
     }>(`/utility/v1/stocks/${encodeURIComponent(stockId)}`, requestConfig);
     return response.data.data;
+  }
+
+  // Same item shape as the Stocks list, variants included. Unknown IDs are
+  // omitted from the response rather than failing the request.
+  @backgroundMethod()
+  async fetchMarketStockBatch({
+    stockIds,
+  }: {
+    stockIds: string[];
+  }): Promise<IMarketStockPublicItem[]> {
+    if (stockIds.length === 0) {
+      return [];
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.post>[2] & {
+      autoHandleError?: boolean;
+    } = {
+      headers: { 'x-onekey-request-currency': 'usd' },
+      autoHandleError: false,
+    };
+    const responses = await Promise.all(
+      chunk(stockIds, MARKET_STOCK_BATCH_MAX_IDS).map((stockIdsChunk) =>
+        client.post<{
+          code: number;
+          message: string;
+          data: IMarketStockPublicListResponse | null;
+        }>(
+          '/utility/v1/stocks/batch',
+          { stockIds: stockIdsChunk },
+          requestConfig,
+        ),
+      ),
+    );
+    return responses.flatMap((response) => response.data.data?.items ?? []);
   }
 
   @backgroundMethod()
@@ -1372,8 +1422,16 @@ class ServiceMarketV2 extends ServiceBase {
         );
 
       if (action === 'add' && !existing) {
+        const { data } =
+          await this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
+        const [sortIndex] = sortUtils.buildTopSortIndexes({
+          oldList: data,
+          count: 1,
+        });
         await this.addMarketWatchListV2({
-          watchList: [{ chainId: '', contractAddress: '', perpsCoin: coin }],
+          watchList: [
+            { chainId: '', contractAddress: '', perpsCoin: coin, sortIndex },
+          ],
           callerName: 'syncToMarketWatchList',
         });
       } else if (action === 'remove' && existing) {
@@ -1453,11 +1511,17 @@ class ServiceMarketV2 extends ServiceBase {
 
       // Sync missing items to Market watchlist
       if (missingInMarket.length > 0) {
+        // Perps favorites are stored oldest-first, so the newest lands on top.
+        const sortIndexes = sortUtils.buildTopSortIndexes({
+          oldList: watchListData.data,
+          count: missingInMarket.length,
+        });
         await this.addMarketWatchListV2({
-          watchList: missingInMarket.map((coin) => ({
+          watchList: missingInMarket.map((coin, index) => ({
             chainId: '',
             contractAddress: '',
             perpsCoin: coin,
+            sortIndex: sortIndexes[index],
           })),
           callerName: 'reconcilePerpsFavorites',
         });

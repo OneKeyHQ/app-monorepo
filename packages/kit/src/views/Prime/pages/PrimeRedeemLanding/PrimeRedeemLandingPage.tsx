@@ -133,11 +133,7 @@ function openOneKeyDownload() {
   openUrlUtils.openUrlExternal(DOWNLOAD_URL);
 }
 
-function RedeemLandingBenefitsPanel({
-  showDownload,
-}: {
-  showDownload: boolean;
-}) {
+function RedeemLandingBenefitsPanel() {
   const intl = useIntl();
   const [expanded, setExpanded] = useState(false);
   const features = PRIME_FEATURE_INTROS.filter(
@@ -195,59 +191,76 @@ function RedeemLandingBenefitsPanel({
           ))}
         </YStack>
       ) : null}
-      {showDownload ? (
-        <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
-          <Button
-            testID={PrimeTestIDs.redemptionDownloadBtn}
-            variant="tertiary"
-            size="medium"
-            height="auto"
-            width="100%"
-            mx={0}
-            my={0}
-            childrenAsText={false}
-            borderWidth={0}
-            borderRadius={0}
-            px="$3.5"
-            py="$3"
-            justifyContent="space-between"
-            iconAfter="ArrowTopRightOutline"
-            onPress={openOneKeyDownload}
-          >
-            <YStack flex={1} minWidth={0} gap="$1" alignItems="flex-start">
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.global_download_onekey_wallet,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                iOS / Android / macOS / Windows / Linux
-              </SizableText>
-            </YStack>
-          </Button>
-        </YStack>
-      ) : null}
+      <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
+        <Button
+          testID={PrimeTestIDs.redemptionDownloadBtn}
+          variant="tertiary"
+          size="medium"
+          height="auto"
+          width="100%"
+          mx={0}
+          my={0}
+          childrenAsText={false}
+          borderWidth={0}
+          borderRadius={0}
+          px="$3.5"
+          py="$3"
+          justifyContent="space-between"
+          iconAfter="ArrowTopRightOutline"
+          onPress={openOneKeyDownload}
+        >
+          <YStack flex={1} minWidth={0} gap="$1" alignItems="flex-start">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.global_download_onekey_wallet,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              iOS / Android / macOS / Windows / Linux
+            </SizableText>
+          </YStack>
+        </Button>
+      </YStack>
     </YStack>
   );
 }
 
 function RedeemLandingLayout({
+  centered = false,
   children,
-  showDownload = true,
+  showBenefits = true,
 }: {
+  centered?: boolean;
   children: ReactNode;
-  showDownload?: boolean;
+  showBenefits?: boolean;
 }) {
   return (
     <YStack
+      flexGrow={1}
+      flexShrink={0}
       w="100%"
-      maxWidth={360}
-      gap="$6"
       alignItems="center"
-      $gtMd={{ maxWidth: 320 }}
+      justifyContent={centered ? 'center' : 'flex-start'}
+      px="$4"
+      pt="$8"
+      pb="$8"
+      $gtMd={{
+        px: '$8',
+        pt: '$20',
+        pb: '$20',
+      }}
+      testID={PrimeTestIDs.redemptionLandingBody}
     >
-      {children}
-      <RedeemLandingBenefitsPanel showDownload={showDownload} />
+      <YStack
+        w="100%"
+        maxWidth={360}
+        gap="$6"
+        alignItems="center"
+        $gtMd={{ maxWidth: 320 }}
+      >
+        {children}
+        {showBenefits ? <RedeemLandingBenefitsPanel /> : null}
+      </YStack>
     </YStack>
   );
 }
@@ -426,21 +439,17 @@ function PrimeRedeemFormSection({
 
   if (redemptionResult) {
     return (
-      <RedeemLandingLayout showDownload={false}>
+      <RedeemLandingLayout centered showBenefits={false}>
         <RedeemLandingContent testID={PrimeTestIDs.redemptionSuccess}>
-          <PrimeRedemptionSuccessView redemptionResult={redemptionResult} />
-          <YStack gap="$1.5" width="100%">
-            {maskedEmail ? (
-              <SizableText size="$bodyMd" textAlign="center">
-                {maskedEmail}
-              </SizableText>
-            ) : null}
-            <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
-              {intl.formatMessage({
-                id: ETranslations.prime_onekeyid_continue_description,
-              })}
+          <PrimeRedemptionSuccessView
+            compact
+            redemptionResult={redemptionResult}
+          />
+          {maskedEmail ? (
+            <SizableText size="$bodyMd" textAlign="center">
+              {maskedEmail}
             </SizableText>
-          </YStack>
+          ) : null}
           <RedeemLandingAction>
             <Button
               {...LANDING_ACTION_BUTTON}
@@ -566,34 +575,18 @@ function PrimeRedeemLandingPage() {
             testID={PrimeTestIDs.redemptionLandingPage}
           >
             <Header />
-            <YStack
-              flex={1}
-              w="100%"
-              alignItems="center"
-              justifyContent="flex-start"
-              px="$4"
-              pt="$8"
-              pb="$8"
-              $gtMd={{
-                px: '$8',
-                pt: '$20',
-                pb: '$20',
-              }}
-              testID={PrimeTestIDs.redemptionLandingBody}
-            >
-              <PrimeRedeemFormSection
-                canRedeem={Boolean(isLoggedIn && expectedOneKeyUserId)}
-                displayEmail={user?.displayEmail}
-                expectedOneKeyUserId={expectedOneKeyUserId}
-                initialCode={initialCode}
-                isLoginLoading={isLoginLoading}
-                isPrimeActiveBeforeRedeem={Boolean(
-                  user?.primeSubscription?.isActive,
-                )}
-                onekeyAccount={user?.onekeyAccount}
-                onLogin={handleLogin}
-              />
-            </YStack>
+            <PrimeRedeemFormSection
+              canRedeem={Boolean(isLoggedIn && expectedOneKeyUserId)}
+              displayEmail={user?.displayEmail}
+              expectedOneKeyUserId={expectedOneKeyUserId}
+              initialCode={initialCode}
+              isLoginLoading={isLoginLoading}
+              isPrimeActiveBeforeRedeem={Boolean(
+                user?.primeSubscription?.isActive,
+              )}
+              onekeyAccount={user?.onekeyAccount}
+              onLogin={handleLogin}
+            />
           </YStack>
         </Page.Body>
       </Page>

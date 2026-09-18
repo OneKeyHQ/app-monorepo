@@ -84,7 +84,7 @@ export function PerpHoldingsEmptyState({ isMobile }: { isMobile?: boolean }) {
   return (
     <YStack
       flex={1}
-      justifyContent="center"
+      justifyContent={isMobile ? 'center' : 'flex-start'}
       alignItems="center"
       px="$5"
       py="$6"

@@ -668,6 +668,19 @@ export class SimpleDb {
     return value;
   }
 
+  get transferRecipientsCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@transferRecipientsCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityTransferRecipientsCache').then(
+          ({ SimpleDbEntityTransferRecipientsCache }) =>
+            new SimpleDbEntityTransferRecipientsCache(),
+        ),
+    });
+    Object.defineProperty(this, 'transferRecipientsCache', { value });
+    return value;
+  }
+
   get riskTokenManagement() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@riskTokenManagement',

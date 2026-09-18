@@ -23,6 +23,7 @@ import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.consta
 import {
   EProtocolOfExchange,
   type ISpeedSwapConfig,
+  type ISwapStockSpeedConfig,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -163,6 +164,7 @@ export function useSwapStockPayTokens({
   payToken,
   selectPayToken,
   stockNetworkId,
+  stockSpeedConfig,
   syncPayTokenDetail,
 }: {
   currentStockToken?: ISwapToken;
@@ -172,6 +174,7 @@ export function useSwapStockPayTokens({
   payToken?: ISwapToken;
   selectPayToken: (token: IToken, manual?: boolean) => void;
   stockNetworkId: string;
+  stockSpeedConfig?: ISwapStockSpeedConfig;
   syncPayTokenDetail: (token: IToken) => void;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -221,6 +224,12 @@ export function useSwapStockPayTokens({
   const { result: speedSwapConfigState, isLoading: speedSwapConfigLoading } =
     usePromiseResult(
       async () => {
+        if (stockSpeedConfig?.networkId === stockNetworkId) {
+          return {
+            scope: speedSwapConfigScope,
+            config: stockSpeedConfig.config,
+          };
+        }
         if (!stockNetworkId) {
           return {
             scope: speedSwapConfigScope,
@@ -236,7 +245,7 @@ export function useSwapStockPayTokens({
           config,
         };
       },
-      [speedSwapConfigScope, stockNetworkId],
+      [speedSwapConfigScope, stockNetworkId, stockSpeedConfig],
       {
         initResult: {
           scope: '',
@@ -248,13 +257,17 @@ export function useSwapStockPayTokens({
           : undefined,
       },
     );
-  const speedConfigReady = speedSwapConfigState.scope === speedSwapConfigScope;
+  const speedConfigReady = speedSwapConfigState?.scope === speedSwapConfigScope;
   const defaultTokens = useMemo(
     () =>
       (speedConfigReady
-        ? speedSwapConfigState.config.speedConfig.defaultTokens
+        ? (speedSwapConfigState?.config?.speedConfig?.defaultTokens ??
+          EMPTY_DEFAULT_TOKENS)
         : EMPTY_DEFAULT_TOKENS) as IToken[],
-    [speedConfigReady, speedSwapConfigState.config.speedConfig.defaultTokens],
+    [
+      speedConfigReady,
+      speedSwapConfigState?.config?.speedConfig?.defaultTokens,
+    ],
   );
 
   useEffect(() => {

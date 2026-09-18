@@ -17,6 +17,7 @@ import { parseNativeSWRCachePatchIntent } from './nativeStorageTypes';
 import type {
   INativeSWRCacheCanonicalEntry,
   INativeSWRCachePatchIntent,
+  INativeSWRCacheSerializedEntry,
 } from './nativeStorageTypes';
 import type { ISWRCacheCapacityDrop } from '../utils/swrCacheUtils';
 
@@ -34,7 +35,7 @@ type IPersistenceState = {
   store: SWRCacheStore | undefined;
 };
 
-type IReadSerializedSubsetOptions = {
+type IReadBootstrapEntriesOptions = {
   keyPrefixes: readonly string[];
   maxEntries: number;
   maxSerializedChars: number;
@@ -261,10 +262,12 @@ function loadPhysicalStore(mmkv: MMKVStorageInstance) {
   return store;
 }
 
-function readSerializedSubset(
+// The budget is measured as the joined store would serialize, so the cap
+// keeps meaning the same thing as the bg runtime's serialized size.
+function readBootstrapEntries(
   mmkv: MMKVStorageInstance,
-  { keyPrefixes, maxEntries, maxSerializedChars }: IReadSerializedSubsetOptions,
-) {
+  { keyPrefixes, maxEntries, maxSerializedChars }: IReadBootstrapEntriesOptions,
+): INativeSWRCacheSerializedEntry[] {
   if (
     maxEntries <= 0 ||
     maxSerializedChars < 2 ||
@@ -272,7 +275,7 @@ function readSerializedSubset(
     mmkv.getString(SWR_CACHE_MIGRATION_MARKER) !==
       SWR_CACHE_MIGRATION_MARKER_VALUE
   ) {
-    return '{}';
+    return [];
   }
 
   const candidates: ISerializedSubsetCandidate[] = [];
@@ -353,7 +356,8 @@ function readSerializedSubset(
     (left, right) =>
       right.updatedAt - left.updatedAt || right.index - left.index,
   );
-  const retained: Array<ISerializedSubsetCandidate & { pair: string }> = [];
+  const retained: Array<ISerializedSubsetCandidate & { serialized: string }> =
+    [];
   const bootstrapEntryCountDrops: ISWRCacheCapacityDrop[] = [];
   let totalSerializedChars = 2;
   for (
@@ -386,10 +390,7 @@ function readSerializedSubset(
         serialized.length === candidate.serializedChars &&
         currentEntry?.t === candidate.updatedAt
       ) {
-        retained.push({
-          ...candidate,
-          pair: `${candidate.serializedKey}:${serialized}`,
-        });
+        retained.push({ ...candidate, serialized });
         totalSerializedChars += separatorChars + pairSerializedChars;
       }
     } else {
@@ -413,7 +414,7 @@ function readSerializedSubset(
     bootstrapCapacityLimits,
   );
   reportSWRCacheCapacityDrops(bootstrapSizeDrops, bootstrapCapacityLimits);
-  return `{${retained.map(({ pair }) => pair).join(',')}}`;
+  return retained.map(({ key, serialized }) => [key, serialized] as const);
 }
 
 function applyPatchToStore(
@@ -467,40 +468,6 @@ function applyPatchToStore(
   return { entries, store };
 }
 
-export function applyNativeSWRCachePatchToSerializedStore(
-  serializedStore: string | undefined,
-  patchValue: unknown,
-) {
-  const patch = parseNativeSWRCachePatchIntent(patchValue);
-  if (!patch) {
-    throw new OneKeyLocalError('Native SWR cache patch is invalid');
-  }
-  const result = applyPatchToStore(parseStore(serializedStore), patch);
-  return { entries: result.entries, serialized: serializeStore(result.store) };
-}
-
-export function applyNativeSWRCacheCanonicalEntries(
-  serializedStore: string | undefined,
-  entries: INativeSWRCacheCanonicalEntry[],
-) {
-  const store = parseStore(serializedStore);
-  entries.forEach(([key, serializedEntry]) => {
-    if (!isValidSWRCacheKey(key)) {
-      return;
-    }
-    if (serializedEntry === null) {
-      delete store[key];
-      return;
-    }
-    const entry = parseEntry(serializedEntry);
-    if (!entry) {
-      throw new OneKeyLocalError('Native SWR cache canonical entry is invalid');
-    }
-    defineStoreEntry(store, key, entry);
-  });
-  return serializeStore(store);
-}
-
 export function getNativeSWRCachePersistence(mmkv: MMKVStorageInstance) {
   return {
     async ensureMigrated() {
@@ -527,8 +494,8 @@ export function getNativeSWRCachePersistence(mmkv: MMKVStorageInstance) {
     readSerialized() {
       return serializeStore(loadPhysicalStore(mmkv));
     },
-    readSerializedSubset(options: IReadSerializedSubsetOptions) {
-      return readSerializedSubset(mmkv, options);
+    readBootstrapEntries(options: IReadBootstrapEntriesOptions) {
+      return readBootstrapEntries(mmkv, options);
     },
     applyPatch(patchValue: unknown) {
       const patch = parseNativeSWRCachePatchIntent(patchValue);

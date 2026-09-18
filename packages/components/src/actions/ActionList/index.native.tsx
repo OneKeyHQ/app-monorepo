@@ -2,11 +2,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import {
-  Dimensions,
-  type GestureResponderEvent,
-  I18nManager,
-} from 'react-native';
+import { Dimensions, I18nManager } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -37,6 +33,7 @@ import {
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { LazyPopover } from '../LazyPopover';
+import { shouldUseNativeSheetPresentation } from '../Popover/sheetPresentation';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
@@ -61,6 +58,7 @@ export type {
   IActionListTriggerPosition,
   IActionListTriggerRect,
 } from './imperativeShowUtils';
+export { runAfterActionListClose } from './runAfterClose';
 
 export interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -107,16 +105,32 @@ const ACTION_LIST_MD_HEADING = {
 } as const;
 
 export function ActionListSkeletonItem() {
+  const { gtMd } = useMedia();
   return (
     <XStack
       flex={1}
       mx="$2"
-      height="$8"
+      height="$11"
       position="relative"
       borderRadius="$2"
       overflow="hidden"
     >
-      <Skeleton height="100%" width="100%" />
+      {/* Content-sized sheets — the same condition the Popover sheet frame uses
+          — grow to the placeholder's intrinsic width, so an in-flow 100%-wide
+          skeleton expanded them to the max width until the real item replaced
+          it. The absolute fill keeps it out of that measurement. Full-width
+          sheets keep the in-flow placeholder. */}
+      {gtMd || platformEnv.isNativeIOSPad ? (
+        <Skeleton
+          position="absolute"
+          top={0}
+          left={0}
+          height="100%"
+          width="100%"
+        />
+      ) : (
+        <Skeleton height="100%" width="100%" />
+      )}
     </XStack>
   );
 }
@@ -157,16 +171,12 @@ export function ActionListItem(
     !shouldKeepExtraInteractive,
   );
 
-  const handlePress = useCallback(
-    async (event: GestureResponderEvent) => {
-      event.stopPropagation();
-      await onPress?.(onClose);
-      if (!onPress?.length) {
-        onClose?.();
-      }
-    },
-    [onClose, onPress],
-  );
+  const handlePress = useCallback(async () => {
+    await onPress?.(onClose);
+    if (!onPress?.length) {
+      onClose?.();
+    }
+  }, [onClose, onPress]);
 
   const keys = useMemo(() => {
     if (shortcutKeys) {
@@ -284,8 +294,8 @@ export interface IActionListProps extends Omit<
     handleActionListOpen: () => void;
   }) => React.ReactNode;
   /**
-   * Starts loading when the list opens. Native applies the resolved content
-   * after the entry animation so fit-mode height stays stable while sliding.
+   * Starts loading when the list opens. Native measures the resolved initial
+   * content before presentation, then keeps the outer sheet height stable.
    */
   renderItemsAsync?: IActionListRenderItemsAsync;
   /**
@@ -325,15 +335,25 @@ function BasicActionList({
   renderItemsAsync,
   title,
   trackID,
+  nativeSheet = false,
+  usingSheet = true,
   sheetProps,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
+  const { gtMd } = useMedia();
+  const useNativeSheetPresentation = shouldUseNativeSheetPresentation({
+    usingSheet,
+    nativeSheet,
+    isGtMd: Boolean(gtMd),
+    isNativeIOSPad: Boolean(platformEnv.isNativeIOSPad),
+  });
   const handleActionListOpenRef = useRef<() => void>(() => undefined);
   const handleActionListCloseRef = useRef<() => void>(() => undefined);
   const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
     useAsyncItemsLifecycle({
       isOpen,
+      nativeSheet: useNativeSheetPresentation,
       renderItemsAsync,
       handleActionListCloseRef,
       handleActionListOpenRef,
@@ -468,14 +488,20 @@ function BasicActionList({
     handleActionListOpen,
   ]);
 
+  const shouldOpenPopover =
+    isOpen &&
+    (!useNativeSheetPresentation || !renderItemsAsync || Boolean(asyncItems));
+
   return (
     <LazyPopover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
-      open={isOpen}
+      open={shouldOpenPopover}
       onOpenChange={handleOpenStatusChange}
       renderContent={renderContentMemo}
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
+      nativeSheet={nativeSheet}
+      usingSheet={usingSheet}
       mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
       sheetProps={resolvedSheetProps}

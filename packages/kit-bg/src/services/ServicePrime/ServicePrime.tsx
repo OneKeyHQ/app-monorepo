@@ -51,6 +51,10 @@ import {
   isOneKeyIdOAuthIdentityBound,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import {
+  getPrimeGiftVerifyFailureLogPayload,
+  isPrimeGiftVerifyCancellationError,
+} from '@onekeyhq/shared/src/utils/primeGiftVerifyError';
 import { isValidPrimeInfiniPaymentContract } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
@@ -74,6 +78,7 @@ import type {
   IPrimeGiftClaimResult,
   IPrimeGiftEligibility,
   IPrimeGiftPreparedRedemption,
+  IPrimeGiftVerifyV2Result,
 } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
   IOneKeyIdAccount,
@@ -525,6 +530,7 @@ class ServicePrime extends ServiceBase {
         message: appLocale.intl.formatMessage({
           id: ETranslations.id_login_expired_description,
         }),
+        key: ETranslations.id_login_expired_description,
         autoToast: false,
       });
     }
@@ -539,10 +545,33 @@ class ServicePrime extends ServiceBase {
   }: IPrimeGiftClaimParams): Promise<IPrimeGiftPreparedRedemption> {
     return this.primeGiftMutex.runExclusive(async () => {
       await this.getPrimeGiftUser();
-      const verification =
-        await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
-          { device, serialNo },
+      let verification: IPrimeGiftVerifyV2Result;
+      try {
+        verification =
+          await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
+            { device, serialNo },
+          );
+      } catch (error) {
+        if (
+          isPrimeGiftVerifyCancellationError(error) ||
+          (error instanceof OneKeyLocalError &&
+            (error.key === ETranslations.feedback_hardware_is_busy ||
+              error.key === ETranslations.prime_gift_connect_device__msg))
+        ) {
+          throw error;
+        }
+        defaultLogger.hardware.sdkLog.serviceEvent(
+          'firmwareAuthenticateForPrimeGift',
+          getPrimeGiftVerifyFailureLogPayload(error),
         );
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.prime_gift_verify_failed__msg,
+          }),
+          key: ETranslations.prime_gift_verify_failed__msg,
+          autoToast: false,
+        });
+      }
       return {
         serialNo,
         onekeyUserId: expectedOneKeyUserId,
@@ -5551,6 +5580,7 @@ class ServicePrime extends ServiceBase {
         message: appLocale.intl.formatMessage({
           id: ETranslations.redemption_invalid_code_error,
         }),
+        key: ETranslations.redemption_invalid_code_error,
         autoToast: false,
       });
     }

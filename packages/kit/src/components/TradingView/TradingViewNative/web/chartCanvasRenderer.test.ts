@@ -1,4 +1,7 @@
-import { drawTradingViewNativeCanvasScene } from './chartCanvasRenderer';
+import {
+  drawTradingViewNativeCanvasScene,
+  getTradingViewNativeCanvasFont,
+} from './chartCanvasRenderer';
 
 import type {
   ITradingViewNativeChartSceneCommand,
@@ -46,6 +49,12 @@ const colors = {
 };
 
 describe('TradingViewNative web canvas scene renderer', () => {
+  it('preserves the price-axis font for reference labels on web', () => {
+    expect(getTradingViewNativeCanvasFont('referenceLineLabel', 14)).toBe(
+      getTradingViewNativeCanvasFont('priceAxis', 14),
+    );
+  });
+
   it('uses custom paint styles before the semantic fallback', () => {
     const context = createCanvasContext();
     const commands: ITradingViewNativeChartSceneCommand[] = [

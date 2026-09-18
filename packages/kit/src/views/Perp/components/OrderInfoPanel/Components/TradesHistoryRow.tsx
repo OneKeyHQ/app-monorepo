@@ -403,7 +403,6 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[2])}
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
-              minWidth={0}
             >
               <XStack gap="$1.5" alignItems="center" width="100%" minWidth={0}>
                 <SizableText
@@ -469,14 +468,18 @@ const TradesHistoryRow = memo(
             >
               <Tooltip
                 placement="top"
+                triggerAsChild="except-style"
                 renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    dashThickness={0.3}
-                  >
-                    {tradeBaseInfo.feeFormatted}
-                  </DashText>
+                  <XStack cursor="help">
+                    <DashText
+                      size="$bodySm"
+                      color="$text"
+                      dashThickness={0.3}
+                      dashOverlay
+                    >
+                      {tradeBaseInfo.feeFormatted}
+                    </DashText>
+                  </XStack>
                 }
                 renderContent={feeTooltipContent}
               />

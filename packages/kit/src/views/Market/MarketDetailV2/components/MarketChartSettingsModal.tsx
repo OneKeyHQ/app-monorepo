@@ -15,9 +15,15 @@ import {
   getTradingViewChartSettingsValue,
   getTradingViewNativeChartSettings,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartSettingsAdapter';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type {
+  EModalMarketRoutes,
+  IModalMarketParamList,
+} from '../../router/types';
 
 const NATIVE_HIDDEN_APPEARANCE_SECTION_IDS = [
   'events',
@@ -32,6 +38,13 @@ const NATIVE_HIDDEN_OPTION_IDS = [
 ] as const satisfies NonNullable<
   ITradingViewChartSettingsProps['hiddenOptionIds']
 >;
+// Prev close anchors on a stock's previous session close, so only stock detail
+// charts offer it; every other chart keeps the option out of settings.
+const PREVIOUS_CLOSE_HIDDEN_OPTION_IDS = [
+  'previousClose',
+] as const satisfies NonNullable<
+  ITradingViewChartSettingsProps['hiddenOptionIds']
+>;
 const NON_NATIVE_HIDDEN_OPTION_IDS = [
   ...NATIVE_HIDDEN_OPTION_IDS,
   'clickInteraction',
@@ -42,10 +55,12 @@ const NON_NATIVE_HIDDEN_OPTION_IDS = [
 function MarketChartSettingsContent({
   mobileLayout = false,
   usePageFooter = false,
+  showPreviousClose = false,
   onClose,
 }: {
   mobileLayout?: boolean;
   usePageFooter?: boolean;
+  showPreviousClose?: boolean;
   onClose?: () => void;
 }) {
   const [chartSettings, setChartSettings] =
@@ -62,6 +77,17 @@ function MarketChartSettingsContent({
     },
     [setChartSettings],
   );
+  const hiddenOptionIds = useMemo<
+    NonNullable<ITradingViewChartSettingsProps['hiddenOptionIds']>
+  >(
+    () => [
+      ...(platformEnv.isNative
+        ? NATIVE_HIDDEN_OPTION_IDS
+        : NON_NATIVE_HIDDEN_OPTION_IDS),
+      ...(showPreviousClose ? [] : PREVIOUS_CLOSE_HIDDEN_OPTION_IDS),
+    ],
+    [showPreviousClose],
+  );
   const handleMobileSettingsChange = useCallback(
     (value: ITradingViewChartSettingsValue) => {
       void updateChartSettings(value);
@@ -76,11 +102,7 @@ function MarketChartSettingsContent({
       mobileLayout={mobileLayout}
       showChartType={mobileLayout}
       hiddenAppearanceSectionIds={NATIVE_HIDDEN_APPEARANCE_SECTION_IDS}
-      hiddenOptionIds={
-        platformEnv.isNative
-          ? NATIVE_HIDDEN_OPTION_IDS
-          : NON_NATIVE_HIDDEN_OPTION_IDS
-      }
+      hiddenOptionIds={hiddenOptionIds}
       onChange={mobileLayout ? handleMobileSettingsChange : undefined}
       onConfirm={updateChartSettings}
       onCancel={onClose}
@@ -89,10 +111,17 @@ function MarketChartSettingsContent({
   );
 }
 
-export function showMarketChartSettingsDialog() {
+export function showMarketChartSettingsDialog({
+  showPreviousClose = false,
+}: {
+  showPreviousClose?: boolean;
+} = {}) {
   return showTradingViewChartSettingsDialog({
     renderContent: (closeDialog) => (
-      <MarketChartSettingsContent onClose={closeDialog} />
+      <MarketChartSettingsContent
+        showPreviousClose={showPreviousClose}
+        onClose={closeDialog}
+      />
     ),
   });
 }
@@ -100,6 +129,11 @@ export function showMarketChartSettingsDialog() {
 export default function MarketChartSettingsModal() {
   const intl = useIntl();
   const { md } = useMedia();
+  const route = useAppRoute<
+    IModalMarketParamList,
+    EModalMarketRoutes.MarketChartSettings
+  >();
+  const showPreviousClose = route.params?.showPreviousClose ?? false;
 
   return (
     <Page>
@@ -107,7 +141,11 @@ export default function MarketChartSettingsModal() {
         title={intl.formatMessage({ id: ETranslations.market_chart_settings })}
       />
       <Page.Body minHeight={0}>
-        <MarketChartSettingsContent usePageFooter={!md} mobileLayout={md} />
+        <MarketChartSettingsContent
+          usePageFooter={!md}
+          mobileLayout={md}
+          showPreviousClose={showPreviousClose}
+        />
       </Page.Body>
     </Page>
   );

@@ -105,6 +105,7 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number | string;
   errorClassName?: string;
   errorName?: string;
+  isHardwareError?: boolean;
   // hardware device the error came from, when the error carries one
   connectId?: string;
   httpStatusCode?: number;
@@ -605,6 +606,7 @@ export interface IAppEventBusPayload {
     subType: ESubscriptionType;
     data: unknown;
   };
+  [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
     symbol: string;

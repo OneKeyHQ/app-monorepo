@@ -1609,3 +1609,24 @@ scure
 
 # password manager brand referenced in Input suppression comment
 Dashlane
+robinhood
+usdg
+USDG
+cyeth
+# Market launchpad protocol names (logo file names from the token detail API)
+bankr
+clanker
+dyorfun
+dyorfunvthree
+fourmeme
+jupstudio
+launchlab
+longxyz
+meteoradbc
+moonshotmoney
+ooneexchange
+ponsvtwo
+poolsfun
+poolstrade
+pumpfun
+sunpump

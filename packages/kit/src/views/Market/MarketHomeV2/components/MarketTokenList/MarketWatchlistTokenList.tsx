@@ -34,6 +34,7 @@ import {
   MarketTokenListBase,
 } from './MarketTokenListBase';
 import {
+  DEFAULT_WATCHLIST_FILTER,
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from './MarketWatchlistCategorySelector';
@@ -83,9 +84,10 @@ function MarketWatchlistTokenList({
 
   const actions = useWatchListV2Actions();
 
-  // Watchlist category filter: all / spot / perps
-  const [selectedFilter, setSelectedFilter] =
-    useState<IWatchlistFilterType>('all');
+  // Watchlist category filter: all / spot / stocks / perps
+  const [selectedFilter, setSelectedFilter] = useState<IWatchlistFilterType>(
+    DEFAULT_WATCHLIST_FILTER,
+  );
   const handleSelectFilter = useCallback(
     (filter: IWatchlistFilterType) => setSelectedFilter(filter),
     [],
@@ -135,8 +137,15 @@ function MarketWatchlistTokenList({
     hideListings,
   });
 
+  // The category selector only renders on the home Favorites tab; surfaces
+  // that pass their own toolbar or hide perps (Swap Pro, the detail token
+  // picker) see every row at once.
+  const showCategorySelector = !toolbar && !hidePerps;
+
   const filteredResult = useMemo(() => {
-    const filtered = filteredGroups[selectedFilter];
+    const filtered = showCategorySelector
+      ? filteredGroups[selectedFilter]
+      : filteredGroups.all;
     if (filtered === watchlistResult.data) return watchlistResult;
     return {
       ...watchlistResult,
@@ -146,13 +155,20 @@ function MarketWatchlistTokenList({
       isLoading:
         watchlistResult.data.length > 0 ? false : watchlistResult.isLoading,
     };
-  }, [watchlistResult, filteredGroups, selectedFilter]);
+  }, [watchlistResult, filteredGroups, selectedFilter, showCategorySelector]);
 
-  // Disable drag reorder when the list is filtered (hidePerps or category filter).
-  // Dragging in a filtered view would pass visible-only neighbors to
-  // sortWatchListV2Items, which computes sortIndex against the full watchlist,
-  // producing incorrect order for hidden items.
-  const isDraggable = filteredResult.data === watchlistResult.data;
+  const showInitialLoadingFallback =
+    !watchlistState.isMounted ||
+    (watchlist.length > 0 &&
+      filteredResult.data.length === 0 &&
+      Boolean(filteredResult.isLoading));
+
+  // Reordering inside a category is safe: sortWatchListV2Items places the
+  // dragged row between its visible neighbors' sortIndex, so the relative
+  // order inside every other category is untouched. Surfaces that hide rows by
+  // option instead only drag when nothing is filtered out.
+  const isDraggable =
+    showCategorySelector || filteredResult.data === watchlistResult.data;
 
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
@@ -321,9 +337,11 @@ function MarketWatchlistTokenList({
     ),
     [selectedFilter, handleSelectFilter],
   );
-  // Wait for data to be loaded before rendering anything
-  // This prevents flashing the recommend list while data is still loading
-  if (!watchlistState.isMounted) {
+  // Keep one explicit skeleton across both cold-start phases: hydrating the
+  // watchlist from bg and resolving its first batch of market rows. Rendering
+  // MarketTokenListBase during the hand-off can otherwise leave an empty table
+  // frame before the transformed rows are committed.
+  if (showInitialLoadingFallback) {
     // When tab-integrated on native, register a scroll view with collapsible tabs
     // even during loading, so the tab system has a valid scroll ref.
     if (tabIntegrated && platformEnv.isNative) {

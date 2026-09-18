@@ -936,10 +936,7 @@ function TxConfirmActions(props: IProps) {
   );
 
   const isSecurityCheckPending = securityCheckConfirmation === 'pending';
-  const showConfirmationAlert =
-    !isSecurityCheckPending && securityCheckConfirmation !== 'none';
-  const showTakeRiskAlert =
-    showConfirmationAlert && securityCheckConfirmation === 'risk';
+  const showTakeRiskAlert = securityCheckConfirmation === 'risk';
 
   const isGasAccountQuoteExpired = useMemo(() => {
     if (gasAccountUiState.selectedPayer !== 'gasAccount') {
@@ -1082,7 +1079,7 @@ function TxConfirmActions(props: IProps) {
 
     if (isSecurityCheckPending) return true;
 
-    if (showConfirmationAlert && !continueOperate) return true;
+    if (showTakeRiskAlert && !continueOperate) return true;
 
     if (sendTxStatus.isSubmitting) return true;
     if (
@@ -1108,7 +1105,7 @@ function TxConfirmActions(props: IProps) {
     txFeeInfoInit,
     decodedTxsInit,
     isSecurityCheckPending,
-    showConfirmationAlert,
+    showTakeRiskAlert,
     continueOperate,
     sendTxStatus.isSubmitting,
     sendTxStatus.isInsufficientNativeBalance,
@@ -1231,13 +1228,11 @@ function TxConfirmActions(props: IProps) {
           />
           {/* The checkbox only gates the confirm action, which readOnly
               removes entirely. */}
-          {showConfirmationAlert && !readOnly ? (
+          {showTakeRiskAlert && !readOnly ? (
             <Checkbox
               testID={SignatureConfirmTestIDs.TxConfirmRiskCheckbox}
               label={intl.formatMessage({
-                id: showTakeRiskAlert
-                  ? ETranslations.dapp_connect_proceed_at_my_own_risk
-                  : ETranslations.global_i_understand,
+                id: ETranslations.dapp_connect_proceed_at_my_own_risk,
               })}
               value={continueOperate}
               onChange={(checked) => {

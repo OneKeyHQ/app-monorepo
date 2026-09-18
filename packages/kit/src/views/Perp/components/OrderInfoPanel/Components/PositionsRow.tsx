@@ -432,6 +432,7 @@ const PositionRowDesktopFunding = memo(
         >
           <Tooltip
             hovering
+            closeOnScroll
             placement="top"
             contentProps={{ p: 0, maxWidth: 300 }}
             renderTrigger={

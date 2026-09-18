@@ -17,6 +17,7 @@ import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { flushAvailabilitySnapshotOnHidden } from '@onekeyhq/shared/src/request/availabilityAggregator';
 import {
   ERootRoutes,
   ETabHomeRoutes,
@@ -28,6 +29,7 @@ import appStorage, {
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { storeExtensionTokenPreview } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -63,6 +65,12 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async getEndpointInfo({ name }: { name: EServiceEndpointEnum }) {
     return this.getClientEndpointInfo(name);
+  }
+
+  /** Relayed by the main runtime: the native bg runtime gets no AppState events. */
+  @backgroundMethod()
+  async flushAvailabilitySnapshotOnHidden() {
+    flushAvailabilitySnapshotOnHidden();
   }
 
   @backgroundMethod()
@@ -438,9 +446,16 @@ class ServiceApp extends ServiceBase {
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
-    if (typeof isNative === 'boolean') {
-      routeParams.isNative = isNative;
+    if (
+      typeof tokenAddress !== 'string' ||
+      typeof network !== 'string' ||
+      !network ||
+      (!tokenAddress && isNative === false)
+    ) {
+      throw new OneKeyLocalError('Invalid market token identity');
     }
+    const routeIsNative = isNative ?? tokenAddress.length === 0;
+    routeParams.isNative = routeIsNative;
     if (from) {
       routeParams.from = from;
     }
@@ -469,11 +484,18 @@ class ServiceApp extends ServiceBase {
       routeParams.disableTrade = disableTrade;
     }
     if (tokenDetailPreview) {
-      routeParams.legacyTokenPreview = JSON.stringify(tokenDetailPreview);
+      const previewId = await storeExtensionTokenPreview(
+        { network, tokenAddress, isNative: routeIsNative },
+        tokenDetailPreview,
+      );
+      if (previewId) routeParams.marketTokenPreviewId = previewId;
+    }
+    if (skipMarketDataFetch && !routeParams.marketTokenPreviewId) {
+      throw new OneKeyLocalError('Unable to transfer market token preview');
     }
 
     return extUtils.openExpandTab({
-      path: `/market/token/${network}/${tokenAddress}`,
+      path: `/market/token/${encodeURIComponent(network)}/${encodeURIComponent(tokenAddress)}`,
       params: routeParams,
     });
   }

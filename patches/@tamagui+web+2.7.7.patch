@@ -1,5 +1,5 @@
 diff --git a/node_modules/@tamagui/web/dist/cjs/createComponent.cjs b/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
-index 2044e88..10bf6b9 100644
+index 2044e88..323d3b1 100644
 --- a/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
 +++ b/node_modules/@tamagui/web/dist/cjs/createComponent.cjs
 @@ -296,6 +296,7 @@ function createComponent(staticConfig) {
@@ -18,8 +18,24 @@ index 2044e88..10bf6b9 100644
        styledContext: styledContextValue
      };
      const themeName = themeState?.name || "";
+diff --git a/node_modules/@tamagui/web/dist/cjs/createComponent.native.js b/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
+index 12e4d30..20e1c66 100644
+--- a/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
++++ b/node_modules/@tamagui/web/dist/cjs/createComponent.native.js
+@@ -561,7 +561,11 @@ ${banner}
+     var shouldListenForMedia = (0, import_createVariable.didGetVariableValue)() || hasRuntimeMediaKeys || noClass && (splitStyles === null || splitStyles === void 0 ? void 0 : splitStyles.hasMedia) === true;
+     var mediaListeningKeys = hasRuntimeMediaKeys ? splitStyles.hasMedia : null;
+     if (process.env.NODE_ENV === "development" && debugProp === "verbose") console.info(`useMedia() createComponent`, shouldListenForMedia, mediaListeningKeys);
++    // OneKey patch: also store media listening state per component (its
++    // useMedia proxy). useMedia reads the per-component entry on tablet-like
++    // devices and the shared component-context entry everywhere else.
+     (0, import_useMedia.setMediaShouldUpdate)(componentContext, shouldListenForMedia, mediaListeningKeys);
++    (0, import_useMedia.setMediaShouldUpdate)(mediaState, shouldListenForMedia, mediaListeningKeys);
+     var {
+       viewProps: viewPropsIn,
+       pseudos,
 diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs b/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
-index 7384d83..a00ea1f 100644
+index 7384d83..90f4cf8 100644
 --- a/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
 +++ b/node_modules/@tamagui/web/dist/cjs/helpers/getSplitStyles.cjs
 @@ -340,7 +340,7 @@ const getSplitStyles = (props, staticConfig, theme, themeName, componentState, s
@@ -31,6 +47,183 @@ index 7384d83..a00ea1f 100644
            const pseudoStyles = (0, import_getCSSStylesAtomic.getStyleAtomic)(pseudoStyleObject, descriptor);
            if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
            for (const psuedoStyle of pseudoStyles) {
+diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js b/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
+index b83ef32..4b1f048 100644
+--- a/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
++++ b/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
+@@ -29,8 +29,33 @@ __export(mainThreadPressEvents_native_exports, {
+ module.exports = __toCommonJS(mainThreadPressEvents_native_exports);
+ var import_native = require("@tamagui/native");
+ var import_react = require("react");
++// OneKey patch
++var import_react_native = require("react-native");
+ var DEFAULT_LONG_PRESS_DELAY = 500;
+ var DEFAULT_MIN_PRESS_DURATION = 130;
++// OneKey patch: same press retention offsets as react-native Pressability
++var DEFAULT_PRESS_RECT_OFFSETS = {
++  top: 20,
++  left: 20,
++  right: 20,
++  bottom: 30
++};
++// OneKey patch: same touch lookup as react-native Pressability
++function getTouchFromPressEvent(e) {
++  var nativeEvent = e === null || e === void 0 ? void 0 : e.nativeEvent;
++  if (nativeEvent && nativeEvent.touches && nativeEvent.touches.length > 0) return nativeEvent.touches[0];
++  if (nativeEvent && nativeEvent.changedTouches && nativeEvent.changedTouches.length > 0) return nativeEvent.changedTouches[0];
++  return nativeEvent;
++}
++// OneKey patch: hitSlop is either a number or a per-side rect
++function getHitSlop(hitSlop, side) {
++  if (typeof hitSlop === "number") return hitSlop;
++  return hitSlop && typeof hitSlop[side] === "number" ? hitSlop[side] : 0;
++}
++// OneKey patch: responder region + hitSlop + press retention offsets
++function isTouchWithinPressRect(touch, region, hitSlop) {
++  return touch.pageX > region.left - getHitSlop(hitSlop, "left") - DEFAULT_PRESS_RECT_OFFSETS.left && touch.pageX < region.right + getHitSlop(hitSlop, "right") + DEFAULT_PRESS_RECT_OFFSETS.right && touch.pageY > region.top - getHitSlop(hitSlop, "top") - DEFAULT_PRESS_RECT_OFFSETS.top && touch.pageY < region.bottom + getHitSlop(hitSlop, "bottom") + DEFAULT_PRESS_RECT_OFFSETS.bottom;
++}
+ function useMainThreadPressEvents(events, viewProps) {
+   var enabled = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : true,
+     debugName = arguments.length > 3 ? arguments[3] : void 0;
+@@ -42,7 +67,9 @@ function useMainThreadPressEvents(events, viewProps) {
+       pressOutTimer: null,
+       longPressTimer: null,
+       activateTime: 0,
+-      blockedByExternalOwnership: false
++      blockedByExternalOwnership: false,
++      responderRegion: null,
++      isOutsidePressRect: false
+     };
+   }
+   if (!enabled || !events) return;
+@@ -54,9 +81,15 @@ function useMainThreadPressEvents(events, viewProps) {
+   var delayLongPress = Math.max(0, (_events_delayLongPress = events.delayLongPress) !== null && _events_delayLongPress !== void 0 ? _events_delayLongPress : DEFAULT_LONG_PRESS_DELAY);
+   var _events_minPressDuration;
+   var minPressDuration = Math.max(0, (_events_minPressDuration = events.minPressDuration) !== null && _events_minPressDuration !== void 0 ? _events_minPressDuration : DEFAULT_MIN_PRESS_DURATION);
++  // OneKey patch
++  var _events_hitSlop;
++  var hitSlop = (_events_hitSlop = events.hitSlop) !== null && _events_hitSlop !== void 0 ? _events_hitSlop : viewProps.hitSlop;
+   function activate(e) {
+     var _events_onPressIn;
+     ref.current.state = "active";
++    // OneKey patch: a delayed activation that lands outside the press rect stays
++    // silent, onPressIn fires once the touch moves back inside
++    if (ref.current.isOutsidePressRect) return;
+     ref.current.activateTime = Date.now();
+     (_events_onPressIn = events.onPressIn) === null || _events_onPressIn === void 0 ? void 0 : _events_onPressIn.call(events, e);
+   }
+@@ -81,6 +114,62 @@ function useMainThreadPressEvents(events, viewProps) {
+     ref.current.pressOutTimer = null;
+     ref.current.longPressTimer = null;
+   }
++  // OneKey patch: measured once per gesture like react-native Pressability.
++  // Touches can be reported against a different root than layout (e.g. content
++  // reparented into a native sheet), so the region is only trusted when it
++  // contains the start touch. Without a region the press keeps the original
++  // (no retention) behavior.
++  function measureResponderRegion(e) {
++    ref.current.responderRegion = null;
++    // OneKey patch: Android only for now, iOS keeps the previous behavior until
++    // it is verified. Read Platform lazily: it is not initialized yet when the
++    // compiler loads this bundle for static extraction.
++    if ((import_react_native.Platform === null || import_react_native.Platform === void 0 ? void 0 : import_react_native.Platform.OS) !== "android") return;
++    var target = e === null || e === void 0 ? void 0 : e.currentTarget;
++    var touch = getTouchFromPressEvent(e);
++    if (!target || typeof target.measure !== "function") return;
++    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
++    var startTouch = {
++      pageX: touch.pageX,
++      pageY: touch.pageY
++    };
++    target.measure(function (x, y, width, height, pageX, pageY) {
++      if (!x && !y && !width && !height && !pageX && !pageY) return;
++      var region = {
++        top: pageY,
++        left: pageX,
++        right: pageX + width,
++        bottom: pageY + height
++      };
++      if (!isTouchWithinPressRect(startTouch, region, hitSlop)) return;
++      ref.current.responderRegion = region;
++    });
++  }
++  // OneKey patch: moving the touch out of the press rect deactivates the press
++  // (onPressOut, pending long press cancelled) so releasing there does not fire
++  // onPress. Moving back inside re-activates it, same as react-native Pressability.
++  function updatePressRect(e) {
++    var region = ref.current.responderRegion;
++    if (!region || ref.current.state === "idle") return;
++    var touch = getTouchFromPressEvent(e);
++    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
++    var isOutside = !isTouchWithinPressRect(touch, region, hitSlop);
++    if (isOutside === ref.current.isOutsidePressRect) return;
++    ref.current.isOutsidePressRect = isOutside;
++    var isActive = ref.current.state === "active" || ref.current.state === "longPressed";
++    if (isOutside) {
++      if (ref.current.longPressTimer) clearTimeout(ref.current.longPressTimer);
++      ref.current.longPressTimer = null;
++      if (isActive) {
++        var _events_onPressOut3;
++        (_events_onPressOut3 = events.onPressOut) === null || _events_onPressOut3 === void 0 ? void 0 : _events_onPressOut3.call(events, e);
++      }
++    } else if (isActive) {
++      var _events_onPressIn2;
++      ref.current.activateTime = Date.now();
++      (_events_onPressIn2 = events.onPressIn) === null || _events_onPressIn2 === void 0 ? void 0 : _events_onPressIn2.call(events, e);
++    }
++  }
+   var userStartShouldSet = viewProps.onStartShouldSetResponder;
+   var userGrant = viewProps.onResponderGrant;
+   var userRelease = viewProps.onResponderRelease;
+@@ -101,6 +190,9 @@ function useMainThreadPressEvents(events, viewProps) {
+     userGrant === null || userGrant === void 0 ? void 0 : userGrant(e);
+     ref.current.blockedByExternalOwnership = false;
+     ref.current.state = "pressing";
++    // OneKey patch
++    ref.current.isOutsidePressRect = false;
++    measureResponderRegion(e);
+     if (delayPressIn > 0) {
+       ref.current.pressInTimer = setTimeout(function () {
+         return activate(e);
+@@ -128,6 +220,13 @@ function useMainThreadPressEvents(events, viewProps) {
+     userRelease === null || userRelease === void 0 ? void 0 : userRelease(e);
+     var wasLongPressed = ref.current.state === "longPressed";
+     cleanup();
++    // OneKey patch: released outside the press rect, the press is cancelled and
++    // onPressOut already fired when the touch left
++    if (ref.current.isOutsidePressRect) {
++      ref.current.state = "idle";
++      ref.current.isOutsidePressRect = false;
++      return;
++    }
+     if (ref.current.state === "pressing") {
+       activate(e);
+     }
+@@ -142,11 +241,14 @@ function useMainThreadPressEvents(events, viewProps) {
+   viewProps.onResponderTerminate = function (e) {
+     userTerminate === null || userTerminate === void 0 ? void 0 : userTerminate(e);
+     cleanup();
+-    if (ref.current.state === "active" || ref.current.state === "longPressed") {
++    // OneKey patch: skip when onPressOut already fired on leaving the press rect
++    // if (ref.current.state === "active" || ref.current.state === "longPressed") {
++    if (!ref.current.isOutsidePressRect && (ref.current.state === "active" || ref.current.state === "longPressed")) {
+       deactivate(e);
+     }
+     ref.current.state = "idle";
+     ref.current.blockedByExternalOwnership = false;
++    ref.current.isOutsidePressRect = false;
+   };
+   viewProps.onResponderTerminationRequest = function (e) {
+     if (userTerminationRequest) return userTerminationRequest(e);
+@@ -156,6 +258,8 @@ function useMainThreadPressEvents(events, viewProps) {
+     var _events_onPressMove;
+     userMove === null || userMove === void 0 ? void 0 : userMove(e);
+     (_events_onPressMove = events.onPressMove) === null || _events_onPressMove === void 0 ? void 0 : _events_onPressMove.call(events, e);
++    // OneKey patch
++    updatePressRect(e);
+   };
+ }
+ //# sourceMappingURL=mainThreadPressEvents.native.js.map
 diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js b/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
 index 421eb93..c6a975f 100644
 --- a/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
@@ -46,7 +239,7 @@ index 421eb93..c6a975f 100644
    htmlFor: 1,
    dangerouslySetInnerHTML: 1
 diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs b/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
-index 7436a67..43602e9 100644
+index 7436a67..9d38770 100644
 --- a/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
 +++ b/node_modules/@tamagui/web/dist/cjs/hooks/useComponentState.cjs
 @@ -71,9 +71,16 @@ const useComponentState = (props, animationDriver, staticConfig, config) => {
@@ -76,6 +269,82 @@ index 7436a67..43602e9 100644
      setState,
      setStateShallow,
      noClass,
+diff --git a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
+index 17b78fc..7dfaf16 100644
+--- a/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
++++ b/node_modules/@tamagui/web/dist/cjs/hooks/useMedia.native.js
+@@ -200,6 +200,13 @@ function subscribe(subscriber) {
+     listeners.delete(subscriber);
+   };
+ }
++// OneKey patch: the media fixes below apply only to tablet-like devices
++// (iPad, dual-screen), the only ones that toggle clamped/real-width media at
++// runtime. Phones keep upstream behavior.
++function isOneKeyTabletLikeMedia() {
++  var control = globalThis.$$onekeyNativeMedia;
++  return Boolean(control && control.isTabletLike);
++}
+ function useMedia(componentContext, debug) {
+   "use no memo";
+ 
+@@ -224,7 +231,12 @@ function useMedia(componentContext, debug) {
+     r.proxy = tracker;
+     r.getSnapshot = function () {
+       var _States_get;
+-      var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      // OneKey patch: read media listening state per component (keyed by its
++      // useMedia proxy). The component context is shared by every styled
++      // component below the same provider, so keys stored by the last rendered
++      // component were used for all of them.
++      // var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      var curKeys = r.componentContext ? ((_States_get = States.get(isOneKeyTabletLikeMedia() ? r.proxy : r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
+       var {
+         lastState,
+         pendingState
+@@ -244,7 +256,12 @@ function useMedia(componentContext, debug) {
+             if (process.env.NODE_ENV === "development" && r.debug) {
+               console.warn(`useMedia() \u270D\uFE0F`, key, lastState[key], "=>", ms[key]);
+             }
+-            if ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit) {
++            // OneKey patch: mediaEmit lives on the shared component context and only
++            // restyles components that registered an emit listener (animated ones).
++            // On tablet-like devices that skipped the re-render of every other styled
++            // component, leaving media styles stale after a real-width toggle, so
++            // there we fall through to the normal re-render path below.
++            if (!isOneKeyTabletLikeMedia() && ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit)) {
+               r.componentContext.mediaEmit(ms);
+               r.pendingState = ms;
+               return lastState;
+@@ -290,7 +307,9 @@ function useMedia(componentContext, debug) {
+   (0, import_react.useEffect)(function () {
+     var _States_get;
+     var renderVersion = ref.renderVersion;
+-    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
++    // OneKey patch: per-component listening state on tablet-like devices, see
++    // getSnapshot above; phones keep the shared component-context entry.
++    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(isOneKeyTabletLikeMedia() ? ref.proxy : ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
+     if (shouldSubscribe) {
+       if (!ref.unsubscribe) {
+         ref.unsubscribe = subscribe(function () {
+@@ -301,6 +320,18 @@ function useMedia(componentContext, debug) {
+             forceUpdate();
+           }
+         });
++        // OneKey patch: on tablet-like devices media can change between render
++        // and this passive effect (a layout effect toggling iPad real-width
++        // media), so re-check once; otherwise a late subscriber keeps stale
++        // breakpoints.
++        if (isOneKeyTabletLikeMedia()) {
++          var nextOnSubscribe = ref.getSnapshot();
++          if (nextOnSubscribe !== ref.proxyTarget) {
++            ref.proxyTarget = nextOnSubscribe;
++            ref.proxy[refSlot].proxyTarget = nextOnSubscribe;
++            forceUpdate();
++          }
++        }
+       }
+     } else if (ref.unsubscribe) {
+       ref.unsubscribe();
 diff --git a/node_modules/@tamagui/web/dist/esm/createComponent.mjs b/node_modules/@tamagui/web/dist/esm/createComponent.mjs
 index 57af6df..b4415ac 100644
 --- a/node_modules/@tamagui/web/dist/esm/createComponent.mjs
@@ -96,6 +365,22 @@ index 57af6df..b4415ac 100644
        styledContext: styledContextValue
      };
      const themeName = themeState?.name || "";
+diff --git a/node_modules/@tamagui/web/dist/esm/createComponent.native.js b/node_modules/@tamagui/web/dist/esm/createComponent.native.js
+index 10f06bd..57cbcb4 100644
+--- a/node_modules/@tamagui/web/dist/esm/createComponent.native.js
++++ b/node_modules/@tamagui/web/dist/esm/createComponent.native.js
+@@ -523,7 +523,11 @@ ${banner}
+     var shouldListenForMedia = didGetVariableValue() || hasRuntimeMediaKeys || noClass && (splitStyles === null || splitStyles === void 0 ? void 0 : splitStyles.hasMedia) === true;
+     var mediaListeningKeys = hasRuntimeMediaKeys ? splitStyles.hasMedia : null;
+     if (process.env.NODE_ENV === "development" && debugProp === "verbose") console.info(`useMedia() createComponent`, shouldListenForMedia, mediaListeningKeys);
++    // OneKey patch: also store media listening state per component (its
++    // useMedia proxy). useMedia reads the per-component entry on tablet-like
++    // devices and the shared component-context entry everywhere else.
+     setMediaShouldUpdate(componentContext, shouldListenForMedia, mediaListeningKeys);
++    setMediaShouldUpdate(mediaState, shouldListenForMedia, mediaListeningKeys);
+     var {
+       viewProps: viewPropsIn,
+       pseudos,
 diff --git a/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs b/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs
 index abf7a63..cec9cf3 100644
 --- a/node_modules/@tamagui/web/dist/esm/helpers/getSplitStyles.mjs
@@ -109,6 +394,182 @@ index abf7a63..cec9cf3 100644
            const pseudoStyles = getStyleAtomic(pseudoStyleObject, descriptor);
            if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
            for (const psuedoStyle of pseudoStyles) {
+diff --git a/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js b/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
+index bd0a1d6..e4d0431 100644
+--- a/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
++++ b/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
+@@ -1,7 +1,32 @@
+ import { unstable_hasExternalPressOwnership } from "@tamagui/native";
+ import { useRef } from "react";
++// OneKey patch
++import { Platform } from "react-native";
+ var DEFAULT_LONG_PRESS_DELAY = 500;
+ var DEFAULT_MIN_PRESS_DURATION = 130;
++// OneKey patch: same press retention offsets as react-native Pressability
++var DEFAULT_PRESS_RECT_OFFSETS = {
++  top: 20,
++  left: 20,
++  right: 20,
++  bottom: 30
++};
++// OneKey patch: same touch lookup as react-native Pressability
++function getTouchFromPressEvent(e) {
++  var nativeEvent = e === null || e === void 0 ? void 0 : e.nativeEvent;
++  if (nativeEvent && nativeEvent.touches && nativeEvent.touches.length > 0) return nativeEvent.touches[0];
++  if (nativeEvent && nativeEvent.changedTouches && nativeEvent.changedTouches.length > 0) return nativeEvent.changedTouches[0];
++  return nativeEvent;
++}
++// OneKey patch: hitSlop is either a number or a per-side rect
++function getHitSlop(hitSlop, side) {
++  if (typeof hitSlop === "number") return hitSlop;
++  return hitSlop && typeof hitSlop[side] === "number" ? hitSlop[side] : 0;
++}
++// OneKey patch: responder region + hitSlop + press retention offsets
++function isTouchWithinPressRect(touch, region, hitSlop) {
++  return touch.pageX > region.left - getHitSlop(hitSlop, "left") - DEFAULT_PRESS_RECT_OFFSETS.left && touch.pageX < region.right + getHitSlop(hitSlop, "right") + DEFAULT_PRESS_RECT_OFFSETS.right && touch.pageY > region.top - getHitSlop(hitSlop, "top") - DEFAULT_PRESS_RECT_OFFSETS.top && touch.pageY < region.bottom + getHitSlop(hitSlop, "bottom") + DEFAULT_PRESS_RECT_OFFSETS.bottom;
++}
+ function useMainThreadPressEvents(events, viewProps) {
+   var enabled = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : true,
+     debugName = arguments.length > 3 ? arguments[3] : void 0;
+@@ -13,7 +38,9 @@ function useMainThreadPressEvents(events, viewProps) {
+       pressOutTimer: null,
+       longPressTimer: null,
+       activateTime: 0,
+-      blockedByExternalOwnership: false
++      blockedByExternalOwnership: false,
++      responderRegion: null,
++      isOutsidePressRect: false
+     };
+   }
+   if (!enabled || !events) return;
+@@ -25,9 +52,15 @@ function useMainThreadPressEvents(events, viewProps) {
+   var delayLongPress = Math.max(0, (_events_delayLongPress = events.delayLongPress) !== null && _events_delayLongPress !== void 0 ? _events_delayLongPress : DEFAULT_LONG_PRESS_DELAY);
+   var _events_minPressDuration;
+   var minPressDuration = Math.max(0, (_events_minPressDuration = events.minPressDuration) !== null && _events_minPressDuration !== void 0 ? _events_minPressDuration : DEFAULT_MIN_PRESS_DURATION);
++  // OneKey patch
++  var _events_hitSlop;
++  var hitSlop = (_events_hitSlop = events.hitSlop) !== null && _events_hitSlop !== void 0 ? _events_hitSlop : viewProps.hitSlop;
+   function activate(e) {
+     var _events_onPressIn;
+     ref.current.state = "active";
++    // OneKey patch: a delayed activation that lands outside the press rect stays
++    // silent, onPressIn fires once the touch moves back inside
++    if (ref.current.isOutsidePressRect) return;
+     ref.current.activateTime = Date.now();
+     (_events_onPressIn = events.onPressIn) === null || _events_onPressIn === void 0 ? void 0 : _events_onPressIn.call(events, e);
+   }
+@@ -52,6 +85,62 @@ function useMainThreadPressEvents(events, viewProps) {
+     ref.current.pressOutTimer = null;
+     ref.current.longPressTimer = null;
+   }
++  // OneKey patch: measured once per gesture like react-native Pressability.
++  // Touches can be reported against a different root than layout (e.g. content
++  // reparented into a native sheet), so the region is only trusted when it
++  // contains the start touch. Without a region the press keeps the original
++  // (no retention) behavior.
++  function measureResponderRegion(e) {
++    ref.current.responderRegion = null;
++    // OneKey patch: Android only for now, iOS keeps the previous behavior until
++    // it is verified. Read Platform lazily: it is not initialized yet when the
++    // compiler loads this bundle for static extraction.
++    if ((Platform === null || Platform === void 0 ? void 0 : Platform.OS) !== "android") return;
++    var target = e === null || e === void 0 ? void 0 : e.currentTarget;
++    var touch = getTouchFromPressEvent(e);
++    if (!target || typeof target.measure !== "function") return;
++    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
++    var startTouch = {
++      pageX: touch.pageX,
++      pageY: touch.pageY
++    };
++    target.measure(function (x, y, width, height, pageX, pageY) {
++      if (!x && !y && !width && !height && !pageX && !pageY) return;
++      var region = {
++        top: pageY,
++        left: pageX,
++        right: pageX + width,
++        bottom: pageY + height
++      };
++      if (!isTouchWithinPressRect(startTouch, region, hitSlop)) return;
++      ref.current.responderRegion = region;
++    });
++  }
++  // OneKey patch: moving the touch out of the press rect deactivates the press
++  // (onPressOut, pending long press cancelled) so releasing there does not fire
++  // onPress. Moving back inside re-activates it, same as react-native Pressability.
++  function updatePressRect(e) {
++    var region = ref.current.responderRegion;
++    if (!region || ref.current.state === "idle") return;
++    var touch = getTouchFromPressEvent(e);
++    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
++    var isOutside = !isTouchWithinPressRect(touch, region, hitSlop);
++    if (isOutside === ref.current.isOutsidePressRect) return;
++    ref.current.isOutsidePressRect = isOutside;
++    var isActive = ref.current.state === "active" || ref.current.state === "longPressed";
++    if (isOutside) {
++      if (ref.current.longPressTimer) clearTimeout(ref.current.longPressTimer);
++      ref.current.longPressTimer = null;
++      if (isActive) {
++        var _events_onPressOut3;
++        (_events_onPressOut3 = events.onPressOut) === null || _events_onPressOut3 === void 0 ? void 0 : _events_onPressOut3.call(events, e);
++      }
++    } else if (isActive) {
++      var _events_onPressIn2;
++      ref.current.activateTime = Date.now();
++      (_events_onPressIn2 = events.onPressIn) === null || _events_onPressIn2 === void 0 ? void 0 : _events_onPressIn2.call(events, e);
++    }
++  }
+   var userStartShouldSet = viewProps.onStartShouldSetResponder;
+   var userGrant = viewProps.onResponderGrant;
+   var userRelease = viewProps.onResponderRelease;
+@@ -72,6 +161,9 @@ function useMainThreadPressEvents(events, viewProps) {
+     userGrant === null || userGrant === void 0 ? void 0 : userGrant(e);
+     ref.current.blockedByExternalOwnership = false;
+     ref.current.state = "pressing";
++    // OneKey patch
++    ref.current.isOutsidePressRect = false;
++    measureResponderRegion(e);
+     if (delayPressIn > 0) {
+       ref.current.pressInTimer = setTimeout(function () {
+         return activate(e);
+@@ -99,6 +191,13 @@ function useMainThreadPressEvents(events, viewProps) {
+     userRelease === null || userRelease === void 0 ? void 0 : userRelease(e);
+     var wasLongPressed = ref.current.state === "longPressed";
+     cleanup();
++    // OneKey patch: released outside the press rect, the press is cancelled and
++    // onPressOut already fired when the touch left
++    if (ref.current.isOutsidePressRect) {
++      ref.current.state = "idle";
++      ref.current.isOutsidePressRect = false;
++      return;
++    }
+     if (ref.current.state === "pressing") {
+       activate(e);
+     }
+@@ -113,11 +212,14 @@ function useMainThreadPressEvents(events, viewProps) {
+   viewProps.onResponderTerminate = function (e) {
+     userTerminate === null || userTerminate === void 0 ? void 0 : userTerminate(e);
+     cleanup();
+-    if (ref.current.state === "active" || ref.current.state === "longPressed") {
++    // OneKey patch: skip when onPressOut already fired on leaving the press rect
++    // if (ref.current.state === "active" || ref.current.state === "longPressed") {
++    if (!ref.current.isOutsidePressRect && (ref.current.state === "active" || ref.current.state === "longPressed")) {
+       deactivate(e);
+     }
+     ref.current.state = "idle";
+     ref.current.blockedByExternalOwnership = false;
++    ref.current.isOutsidePressRect = false;
+   };
+   viewProps.onResponderTerminationRequest = function (e) {
+     if (userTerminationRequest) return userTerminationRequest(e);
+@@ -127,6 +229,8 @@ function useMainThreadPressEvents(events, viewProps) {
+     var _events_onPressMove;
+     userMove === null || userMove === void 0 ? void 0 : userMove(e);
+     (_events_onPressMove = events.onPressMove) === null || _events_onPressMove === void 0 ? void 0 : _events_onPressMove.call(events, e);
++    // OneKey patch
++    updatePressRect(e);
+   };
+ }
+ export { useMainThreadPressEvents };
 diff --git a/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js b/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
 index a976632..d5f0121 100644
 --- a/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
@@ -154,6 +615,82 @@ index 02ca38a..6a57138 100644
      setState,
      setStateShallow,
      noClass,
+diff --git a/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js b/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
+index 3231656..606d560 100644
+--- a/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
++++ b/node_modules/@tamagui/web/dist/esm/hooks/useMedia.native.js
+@@ -159,6 +159,13 @@ function subscribe(subscriber) {
+     listeners.delete(subscriber);
+   };
+ }
++// OneKey patch: the media fixes below apply only to tablet-like devices
++// (iPad, dual-screen), the only ones that toggle clamped/real-width media at
++// runtime. Phones keep upstream behavior.
++function isOneKeyTabletLikeMedia() {
++  var control = globalThis.$$onekeyNativeMedia;
++  return Boolean(control && control.isTabletLike);
++}
+ function useMedia(componentContext, debug) {
+   "use no memo";
+ 
+@@ -183,7 +190,12 @@ function useMedia(componentContext, debug) {
+     r.proxy = tracker;
+     r.getSnapshot = function () {
+       var _States_get;
+-      var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      // OneKey patch: read media listening state per component (keyed by its
++      // useMedia proxy). The component context is shared by every styled
++      // component below the same provider, so keys stored by the last rendered
++      // component were used for all of them.
++      // var curKeys = r.componentContext ? ((_States_get = States.get(r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
++      var curKeys = r.componentContext ? ((_States_get = States.get(isOneKeyTabletLikeMedia() ? r.proxy : r.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.keys) || r.keys : r.keys;
+       var {
+         lastState,
+         pendingState
+@@ -203,7 +215,12 @@ function useMedia(componentContext, debug) {
+             if (process.env.NODE_ENV === "development" && r.debug) {
+               console.warn(`useMedia() \u270D\uFE0F`, key, lastState[key], "=>", ms[key]);
+             }
+-            if ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit) {
++            // OneKey patch: mediaEmit lives on the shared component context and only
++            // restyles components that registered an emit listener (animated ones).
++            // On tablet-like devices that skipped the re-render of every other styled
++            // component, leaving media styles stale after a real-width toggle, so
++            // there we fall through to the normal re-render path below.
++            if (!isOneKeyTabletLikeMedia() && ((_r_componentContext = r.componentContext) === null || _r_componentContext === void 0 ? void 0 : _r_componentContext.mediaEmit)) {
+               r.componentContext.mediaEmit(ms);
+               r.pendingState = ms;
+               return lastState;
+@@ -249,7 +266,9 @@ function useMedia(componentContext, debug) {
+   useEffect(function () {
+     var _States_get;
+     var renderVersion = ref.renderVersion;
+-    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
++    // OneKey patch: per-component listening state on tablet-like devices, see
++    // getSnapshot above; phones keep the shared component-context entry.
++    var shouldSubscribe = !ref.componentContext || !!((_States_get = States.get(isOneKeyTabletLikeMedia() ? ref.proxy : ref.componentContext)) === null || _States_get === void 0 ? void 0 : _States_get.enabled);
+     if (shouldSubscribe) {
+       if (!ref.unsubscribe) {
+         ref.unsubscribe = subscribe(function () {
+@@ -260,6 +279,18 @@ function useMedia(componentContext, debug) {
+             forceUpdate();
+           }
+         });
++        // OneKey patch: on tablet-like devices media can change between render
++        // and this passive effect (a layout effect toggling iPad real-width
++        // media), so re-check once; otherwise a late subscriber keeps stale
++        // breakpoints.
++        if (isOneKeyTabletLikeMedia()) {
++          var nextOnSubscribe = ref.getSnapshot();
++          if (nextOnSubscribe !== ref.proxyTarget) {
++            ref.proxyTarget = nextOnSubscribe;
++            ref.proxy[refSlot].proxyTarget = nextOnSubscribe;
++            forceUpdate();
++          }
++        }
+       }
+     } else if (ref.unsubscribe) {
+       ref.unsubscribe();
 diff --git a/node_modules/@tamagui/web/src/createComponent.tsx b/node_modules/@tamagui/web/src/createComponent.tsx
 index 11a6863..2b1555d 100644
 --- a/node_modules/@tamagui/web/src/createComponent.tsx
@@ -191,6 +728,210 @@ index c91b74f..f93aa0b 100644
            const pseudoStyles = getStyleAtomic(pseudoStyleObject, descriptor)
  
            if (process.env.NODE_ENV === 'development' && debug === 'verbose') {
+diff --git a/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts b/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
+index 8ad8f79..618cd64 100644
+--- a/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
++++ b/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
+@@ -8,6 +8,8 @@
+ 
+ import { unstable_hasExternalPressOwnership } from '@tamagui/native'
+ import { useRef } from 'react'
++// OneKey patch
++import { Platform } from 'react-native'
+ 
+ type PressState =
+   | 'idle'
+@@ -15,6 +17,14 @@ type PressState =
+   | 'active' // pressIn fired
+   | 'longPressed' // long press detected
+ 
++// OneKey patch: responder region in page coordinates, used for press retention
++interface PressRect {
++  top: number
++  left: number
++  right: number
++  bottom: number
++}
++
+ interface PressRef {
+   state: PressState
+   pressInTimer: ReturnType<typeof setTimeout> | null
+@@ -22,10 +32,39 @@ interface PressRef {
+   longPressTimer: ReturnType<typeof setTimeout> | null
+   activateTime: number
+   blockedByExternalOwnership: boolean
++  // OneKey patch: press retention state, see onResponderMove
++  responderRegion: PressRect | null
++  isOutsidePressRect: boolean
+ }
+ 
+ const DEFAULT_LONG_PRESS_DELAY = 500
+ const DEFAULT_MIN_PRESS_DURATION = 130
++// OneKey patch: same press retention offsets as react-native Pressability
++const DEFAULT_PRESS_RECT_OFFSETS: PressRect = { top: 20, left: 20, right: 20, bottom: 30 }
++
++// OneKey patch: same touch lookup as react-native Pressability
++function getTouchFromPressEvent(e: any) {
++  const nativeEvent = e?.nativeEvent
++  if (nativeEvent?.touches?.length > 0) return nativeEvent.touches[0]
++  if (nativeEvent?.changedTouches?.length > 0) return nativeEvent.changedTouches[0]
++  return nativeEvent
++}
++
++// OneKey patch: hitSlop is either a number or a per-side rect
++function getHitSlop(hitSlop: any, side: keyof PressRect): number {
++  if (typeof hitSlop === 'number') return hitSlop
++  return typeof hitSlop?.[side] === 'number' ? hitSlop[side] : 0
++}
++
++// OneKey patch: responder region + hitSlop + press retention offsets
++function isTouchWithinPressRect(touch: any, region: PressRect, hitSlop: any) {
++  return (
++    touch.pageX > region.left - getHitSlop(hitSlop, 'left') - DEFAULT_PRESS_RECT_OFFSETS.left &&
++    touch.pageX < region.right + getHitSlop(hitSlop, 'right') + DEFAULT_PRESS_RECT_OFFSETS.right &&
++    touch.pageY > region.top - getHitSlop(hitSlop, 'top') - DEFAULT_PRESS_RECT_OFFSETS.top &&
++    touch.pageY < region.bottom + getHitSlop(hitSlop, 'bottom') + DEFAULT_PRESS_RECT_OFFSETS.bottom
++  )
++}
+ 
+ export function useMainThreadPressEvents(
+   events: any,
+@@ -42,6 +81,8 @@ export function useMainThreadPressEvents(
+       longPressTimer: null,
+       activateTime: 0,
+       blockedByExternalOwnership: false,
++      responderRegion: null,
++      isOutsidePressRect: false,
+     }
+   }
+ 
+@@ -54,9 +95,14 @@ export function useMainThreadPressEvents(
+     0,
+     events.minPressDuration ?? DEFAULT_MIN_PRESS_DURATION
+   )
++  // OneKey patch
++  const hitSlop = events.hitSlop ?? viewProps.hitSlop
+ 
+   function activate(e: any) {
+     ref.current.state = 'active'
++    // OneKey patch: a delayed activation that lands outside the press rect stays
++    // silent, onPressIn fires once the touch moves back inside
++    if (ref.current.isOutsidePressRect) return
+     ref.current.activateTime = Date.now()
+     events.onPressIn?.(e)
+   }
+@@ -83,6 +129,59 @@ export function useMainThreadPressEvents(
+     ref.current.longPressTimer = null
+   }
+ 
++  // OneKey patch: measured once per gesture like react-native Pressability.
++  // Touches can be reported against a different root than layout (e.g. content
++  // reparented into a native sheet), so the region is only trusted when it
++  // contains the start touch. Without a region the press keeps the original
++  // (no retention) behavior.
++  function measureResponderRegion(e: any) {
++    ref.current.responderRegion = null
++    // OneKey patch: Android only for now, iOS keeps the previous behavior until
++    // it is verified. Read Platform lazily: it is not initialized yet when the
++    // compiler loads this bundle for static extraction.
++    if (Platform?.OS !== 'android') return
++    const target = e?.currentTarget
++    const touch = getTouchFromPressEvent(e)
++    if (typeof target?.measure !== 'function') return
++    if (typeof touch?.pageX !== 'number' || typeof touch?.pageY !== 'number') return
++    const startTouch = { pageX: touch.pageX, pageY: touch.pageY }
++    target.measure(
++      (x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
++        if (!x && !y && !width && !height && !pageX && !pageY) return
++        const region = {
++          top: pageY,
++          left: pageX,
++          right: pageX + width,
++          bottom: pageY + height,
++        }
++        if (!isTouchWithinPressRect(startTouch, region, hitSlop)) return
++        ref.current.responderRegion = region
++      }
++    )
++  }
++
++  // OneKey patch: moving the touch out of the press rect deactivates the press
++  // (onPressOut, pending long press cancelled) so releasing there does not fire
++  // onPress. Moving back inside re-activates it, same as react-native Pressability.
++  function updatePressRect(e: any) {
++    const region = ref.current.responderRegion
++    if (!region || ref.current.state === 'idle') return
++    const touch = getTouchFromPressEvent(e)
++    if (typeof touch?.pageX !== 'number' || typeof touch?.pageY !== 'number') return
++    const isOutside = !isTouchWithinPressRect(touch, region, hitSlop)
++    if (isOutside === ref.current.isOutsidePressRect) return
++    ref.current.isOutsidePressRect = isOutside
++    const isActive = ref.current.state === 'active' || ref.current.state === 'longPressed'
++    if (isOutside) {
++      if (ref.current.longPressTimer) clearTimeout(ref.current.longPressTimer)
++      ref.current.longPressTimer = null
++      if (isActive) events.onPressOut?.(e)
++    } else if (isActive) {
++      ref.current.activateTime = Date.now()
++      events.onPressIn?.(e)
++    }
++  }
++
+   // user-supplied responder props (the View's raw RN gesture API) must keep
+   // working: blindly overwriting them here silently killed any press-hold-drag
+   // gesture built on onResponderMove/onResponderRelease whenever the element
+@@ -112,6 +211,9 @@ export function useMainThreadPressEvents(
+     userGrant?.(e)
+     ref.current.blockedByExternalOwnership = false
+     ref.current.state = 'pressing'
++    // OneKey patch
++    ref.current.isOutsidePressRect = false
++    measureResponderRegion(e)
+ 
+     if (delayPressIn > 0) {
+       ref.current.pressInTimer = setTimeout(() => activate(e), delayPressIn)
+@@ -141,6 +243,14 @@ export function useMainThreadPressEvents(
+     const wasLongPressed = ref.current.state === 'longPressed'
+     cleanup()
+ 
++    // OneKey patch: released outside the press rect, the press is cancelled and
++    // onPressOut already fired when the touch left
++    if (ref.current.isOutsidePressRect) {
++      ref.current.state = 'idle'
++      ref.current.isOutsidePressRect = false
++      return
++    }
++
+     // if pressIn hasn't fired yet (was in delay), fire it now then immediately deactivate
+     if (ref.current.state === 'pressing') {
+       activate(e)
+@@ -158,11 +268,17 @@ export function useMainThreadPressEvents(
+   viewProps.onResponderTerminate = (e: any) => {
+     userTerminate?.(e)
+     cleanup()
+-    if (ref.current.state === 'active' || ref.current.state === 'longPressed') {
++    // OneKey patch: skip when onPressOut already fired on leaving the press rect
++    // if (ref.current.state === 'active' || ref.current.state === 'longPressed') {
++    if (
++      !ref.current.isOutsidePressRect &&
++      (ref.current.state === 'active' || ref.current.state === 'longPressed')
++    ) {
+       deactivate(e)
+     }
+     ref.current.state = 'idle'
+     ref.current.blockedByExternalOwnership = false
++    ref.current.isOutsidePressRect = false
+   }
+ 
+   viewProps.onResponderTerminationRequest = (e: any) => {
+@@ -173,5 +289,7 @@ export function useMainThreadPressEvents(
+   viewProps.onResponderMove = (e: any) => {
+     userMove?.(e)
+     events.onPressMove?.(e)
++    // OneKey patch
++    updatePressRect(e)
+   }
+ }
 diff --git a/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts b/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
 index 08cc802..8f8c675 100644
 --- a/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
@@ -258,7 +999,7 @@ index 1378c7b..b636320 100644
    enterVariant?: string
  }
 diff --git a/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts b/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
-index 6d30ff2..a3701a3 100644
+index 6d30ff2..fc4562e 100644
 --- a/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
 +++ b/node_modules/@tamagui/web/types/hooks/useComponentState.d.ts
 @@ -12,6 +12,7 @@ export declare const useComponentState: (props: ViewProps | TextProps | Record<s
@@ -270,7 +1011,7 @@ index 6d30ff2..a3701a3 100644
      setStateShallow: import("../types").ComponentSetStateShallow;
      noClass: boolean;
 diff --git a/node_modules/@tamagui/web/types/types.d.ts b/node_modules/@tamagui/web/types/types.d.ts
-index 28fb92c..ead048a 100644
+index 28fb92c..8be72b6 100644
 --- a/node_modules/@tamagui/web/types/types.d.ts
 +++ b/node_modules/@tamagui/web/types/types.d.ts
 @@ -303,6 +303,7 @@ export type TamaguiComponentStateRef = {

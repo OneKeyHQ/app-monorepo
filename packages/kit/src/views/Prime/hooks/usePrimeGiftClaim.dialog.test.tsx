@@ -62,6 +62,16 @@ jest.mock('../pages/PrimeDashboard/PrimeRedemptionDialog', () => ({
   showPrimeRedemptionDialog: jest.fn(),
 }));
 
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    prime: {
+      subscription: {
+        primeGiftStage: jest.fn(),
+      },
+    },
+  },
+}));
+
 const servicePrime = jest.mocked(backgroundApiProxy.servicePrime);
 const showDialog = jest.mocked(showPrimeRedemptionDialog);
 const initialProps: Parameters<typeof usePrimeGiftClaim>[0] = {
@@ -74,6 +84,7 @@ const initialProps: Parameters<typeof usePrimeGiftClaim>[0] = {
     name: 'OneKey hardware wallet',
   },
   serialNo: 'DEVICE-A',
+  source: 'deviceDetails',
 };
 const prepared: IPrimeGiftPreparedRedemption = {
   serialNo: 'DEVICE-A',
@@ -127,6 +138,7 @@ describe('Prime gift redemption dialog lifecycle', () => {
         initialCode: 'TEST_DEVICE_CODE',
         expectedOneKeyUserId: 'user-a',
         primeGiftSerialNo: 'DEVICE-A',
+        giftSource: 'deviceDetails',
       }),
     );
     expect(result.current.result).toBeUndefined();

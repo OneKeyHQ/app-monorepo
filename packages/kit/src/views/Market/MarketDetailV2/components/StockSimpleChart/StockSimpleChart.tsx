@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,10 +10,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  type IStockPriceLineChartHoverPoint,
-  StockPriceLineChart,
-} from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,6 +22,11 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   type IStockSimpleChartRange,
   fetchStockSimpleChartPoints,
+  mergeStockSimpleChartLivePrice,
+  resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartLivePrice,
+  resolveStockSimpleChartPreviousClose,
+  resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
@@ -44,15 +46,11 @@ export function StockSimpleChart({
   marketAssetId,
   range,
   priceMode,
-  onHoverChange,
 }: {
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
-  // Forwarded to the line chart so the price header above can follow the
-  // crosshair; called with undefined once the pointer leaves the plot.
-  onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
   const intl = useIntl();
   const [chartHeight, setChartHeight] = useState(
@@ -78,6 +76,28 @@ export function StockSimpleChart({
     range,
     stockId,
     tokenAddress,
+  });
+
+  const previousClose = resolveStockSimpleChartPreviousClose({
+    priceMode: requestPriceMode,
+    range: requestRange,
+    stockDetail,
+  });
+  const pulseLastPoint = resolveStockSimpleChartPulseLastPoint({
+    stockDetail,
+    stockId,
+    tokenStock: tokenDetail?.stock,
+  });
+  const livePrice = resolveStockSimpleChartLivePrice({
+    priceMode: requestPriceMode,
+    stockDetail,
+    tokenDetail,
+  });
+  const intervalSeconds = resolveStockSimpleChartBucketSeconds({
+    coinGeckoId: requestCoinGeckoId,
+    marketAssetId: requestMarketAssetId,
+    priceMode: requestPriceMode,
+    range: requestRange,
   });
 
   const {
@@ -121,6 +141,20 @@ export function StockSimpleChart({
       watchLoading: true,
       checkIsFocused: false,
     },
+  );
+
+  // `Date.now()` is read during the memo rather than tracked as a dependency:
+  // the tail point only needs a fresh timestamp when the quote it carries
+  // changes. Ticking it on a timer would redraw the line without moving it.
+  const chartData = useMemo(
+    () =>
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds,
+        livePrice,
+        nowSeconds: Math.floor(Date.now() / 1000),
+        points: chartState.data,
+      }),
+    [chartState.data, intervalSeconds, livePrice],
   );
 
   let chartContent;
@@ -178,16 +212,12 @@ export function StockSimpleChart({
     chartContent = (
       <StockPriceLineChart
         testID="stock-simple-chart-content"
-        data={chartState.data}
+        data={chartData}
         height={chartHeight}
-        pulseLastPoint={
-          stockDetail?.marketStatus?.isOpen === true ||
-          tokenDetail?.stock?.isOpen === true
-        }
-        // Design decision: the hover card keeps its price even though the
-        // price header above also mirrors the hovered point.
-        hoverLabelShowsPrice
-        onHoverChange={onHoverChange}
+        pulseLastPoint={pulseLastPoint}
+        previousClose={previousClose}
+        showCurrentPriceLabel
+        hoverLabelLargePrice
       />
     );
   }

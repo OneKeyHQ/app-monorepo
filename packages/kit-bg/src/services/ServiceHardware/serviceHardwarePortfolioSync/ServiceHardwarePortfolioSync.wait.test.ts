@@ -2,6 +2,8 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   BluetoothUnavailableWhileUsbConnectedError,
   DeviceNotSame,
@@ -13,6 +15,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IPortfolioCategoryFiat } from '@onekeyhq/shared/src/utils/portfolioPayload';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
@@ -21,6 +24,7 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../../dbs/local/localDb';
+import { perpsCommonConfigPersistAtom } from '../../../states/jotai/atoms';
 import { HardwareProcessingManager } from '../../ServiceHardwareUI/HardwareProcessingManager';
 
 import ServiceHardwarePortfolioSync, {
@@ -96,8 +100,702 @@ jest.mock('../../../dbs/local/localDb', () => ({
 
 jest.mock('../../../states/jotai/atoms', () => ({
   currencyPersistAtom: { get: jest.fn() },
+  perpsCommonConfigPersistAtom: { get: jest.fn() },
   settingsPersistAtom: { get: jest.fn() },
 }));
+
+describe('Portfolio v2 category retrieval', () => {
+  const eventPayload: IPortfolioSyncSettledPayload = {
+    accountId: 'account-1',
+    indexedAccountId: 'indexed-account-1',
+    networkId: getNetworkIdsMap().onekeyall,
+    aggregateTokenMap: {},
+    totalFiat: '100',
+    totalFiatCurrency: 'usd',
+    totalTokenCount: 0,
+    tokenMap: {},
+    tokens: [],
+  };
+
+  function prepare() {
+    jest.mocked(perpsCommonConfigPersistAtom.get).mockResolvedValue({
+      perpConfigLoaded: true,
+      perpConfigCommon: { disablePerp: false },
+    } as Awaited<ReturnType<typeof perpsCommonConfigPersistAtom.get>>);
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    const getAllNetworksState = jest.fn().mockResolvedValue({
+      enabledNetworks: { 'evm--1': true },
+      disabledNetworks: {},
+    });
+    const getAllNetworkAccounts = jest.fn().mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+      ],
+    });
+    const getDeFiEnabledNetworksMapState = jest.fn().mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true },
+    });
+    const getAccountTotalDeFiNetWorth = jest.fn().mockResolvedValue({
+      hasCache: false,
+      netWorth: '0',
+      networkIds: [],
+    });
+    const getAllNetworks = jest.fn().mockResolvedValue({
+      networks: [{ id: 'evm--1', isTestnet: false }],
+    });
+    const getNetworkAccount = jest.fn().mockResolvedValue({
+      address: '0x2222',
+      addressDetail: { normalizedAddress: '0x3333' },
+    });
+    const getHyperliquidPortfolioSnapshot = jest.fn().mockResolvedValue({
+      netWorthUsd: '30',
+      isDegraded: false,
+    });
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {
+        serviceDeFi: {
+          getDeFiEnabledNetworksMapState,
+          getAccountTotalDeFiNetWorth,
+        },
+        serviceNetwork: {
+          getAllNetworks,
+          getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
+        },
+        serviceAllNetwork: { getAllNetworksState, getAllNetworkAccounts },
+        serviceAccount: { getNetworkAccount },
+        serviceAccountProfile: {
+          _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+        },
+        serviceHyperliquid: { getHyperliquidPortfolioSnapshot },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      getClient: jest.Mock;
+      getPortfolioCategoryFiat: (
+        payload: IPortfolioSyncSettledPayload,
+        signal?: AbortSignal,
+        cacheKey?: string,
+      ) => Promise<IPortfolioCategoryFiat>;
+    };
+    internals.getClient = jest.fn().mockResolvedValue({ post });
+    return {
+      internals,
+      post,
+      getAllNetworks,
+      getAllNetworksState,
+      getAllNetworkAccounts,
+      getDeFiEnabledNetworksMapState,
+      getAccountTotalDeFiNetWorth,
+      getNetworkAccount,
+      getHyperliquidPortfolioSnapshot,
+    };
+  }
+
+  test('fetches USD category net worth using the Home Perps snapshot policy', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        networksEnabledOnly: true,
+        DeFiEnabledOnly: true,
+      }),
+    );
+    expect(mocks.post).toHaveBeenCalledWith(
+      '/wallet/v1/portfolio/positions',
+      {
+        networkId: 'evm--1',
+        accountAddress: '0x1111',
+      },
+      expect.objectContaining({
+        headers: { 'x-onekey-request-currency': 'usd' },
+      }),
+    );
+    expect(mocks.getNetworkAccount).toHaveBeenCalledWith({
+      accountId: undefined,
+      indexedAccountId: 'indexed-account-1',
+      networkId: PERPS_NETWORK_ID,
+      deriveType: 'default',
+    });
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledWith({
+      address: '0x3333',
+    });
+  });
+
+  test('passes deriveType for a single-network DeFi lookup', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat({
+        ...eventPayload,
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        deriveType: 'default',
+      }),
+    );
+  });
+
+  test('treats an empty DeFi account set as zero instead of unknown', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({ accountsInfo: [] });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'empty',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  test('treats a confirmed zero DeFi response as zero', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+  });
+
+  test('keeps DeFi unknown when the requested network is not confirmed', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: [],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('rejects nonzero DeFi totals without actual network coverage', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('treats a missing perps account row as zero instead of unknown', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(
+      new Error('indexedAccounts not found: indexed-account-1'),
+    );
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '0',
+    });
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+
+  test('keeps a perps infrastructure failure unknown instead of zero', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(new Error('storage failed'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('does not treat a generic Account not found read as zero perps equity', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(new Error('Account not found'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('reuses category fiat within the hardware cooldown window', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(1);
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not reuse category fiat after enabled networks change', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'btc--0': true },
+      disabledNetworks: {},
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not reuse category fiat after the DeFi-enabled map changes', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not memoize an unknown category leg', async () => {
+    const mocks = prepare();
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('keeps a failed category unknown while retaining the successful one', async () => {
+    const mocks = prepare();
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('does not send a partial DeFi live total when some networks fail', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('uses the Home DeFi cache when live coverage is incomplete', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'btc--0', isTestnet: false },
+      ],
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'btc--0': true, 'evm--1': true },
+      disabledNetworks: {},
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'btc--0': true, 'evm--1': true },
+    });
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['btc--0', 'evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'cache',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1', 'btc--0'],
+        targetCurrency: 'usd',
+      }),
+    );
+  });
+
+  test('does not sum extra catalog DeFi networks from the Home cache', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'evm--56', isTestnet: false },
+      ],
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'evm--56': true },
+      disabledNetworks: {},
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'evm--56': true },
+    });
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'cache',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1'],
+        targetCurrency: 'usd',
+      }),
+    );
+  });
+
+  test('does not use a partial Home DeFi cache as a complete total', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('does not use cache when multiple DeFi addresses share a network', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'btc-native',
+          networkId: 'btc--0',
+          apiAddress: 'bc1qnative',
+        },
+        {
+          accountId: 'btc-taproot',
+          networkId: 'btc--0',
+          apiAddress: 'bc1ptaproot',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['btc--0'],
+              requestedNetworkIds: ['btc--0'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['btc--0'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).not.toHaveBeenCalled();
+  });
+
+  test('rejects degraded results instead of reporting partial totals', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: true,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    mocks.getHyperliquidPortfolioSnapshot.mockResolvedValue({
+      netWorthUsd: '30',
+      isDegraded: true,
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('does not infer no assets while network support is still loading', async () => {
+    const mocks = prepare();
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: false,
+      enabledNetworksMap: {},
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({});
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+
+  test('excludes disabled networks using the same scope as Home', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: {},
+      disabledNetworks: { 'evm--1': true },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'empty',
+      perpsFiat: '0',
+    });
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+});
 
 describe('validatePortfolioPackageBase64', () => {
   test('preserves valid Base64 and reports the decoded size', () => {
@@ -645,6 +1343,195 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       transportType: EHardwareTransportType.DesktopWebBle,
     });
   }
+
+  test('selects v2 before server packing and carries category changes into the upload', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+    const now = Date.now();
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            account: expect.objectContaining({ label: '1' }),
+            tokensFiat: '$100.00',
+            defiFiat: '$20.00',
+            perpsFiat: '$30.00',
+            totalFiat: '$150.00',
+            ts: expect.any(Number),
+          }),
+        }),
+      }),
+    );
+    const submittedTimestamp = (
+      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
+        artifacts: { portfolio: { ts: number } };
+      }
+    ).artifacts.portfolio.ts;
+    expect(submittedTimestamp).toBeGreaterThanOrEqual(now);
+    expect(submittedTimestamp).toBeLessThanOrEqual(Date.now());
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceType: EDeviceType.Pro2,
+        firmwareVersion: '1.0.2',
+        schemaVersion: 2,
+        status: 'success',
+      }),
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    portfolioSyncResultSpy.mockRestore();
+  });
+
+  test('selects v2 for Neo firmware 1.0.2', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Neo,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+
+    expect(getCategory).toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            account: expect.objectContaining({ label: '1' }),
+            tokensFiat: '$100.00',
+            defiFiat: '$20.00',
+            perpsFiat: '$30.00',
+            totalFiat: '$150.00',
+          }),
+        }),
+      }),
+    );
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceType: EDeviceType.Neo,
+        firmwareVersion: '1.0.2',
+        schemaVersion: 2,
+        status: 'success',
+      }),
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    portfolioSyncResultSpy.mockRestore();
+  });
+
+  test('keeps Pro2 firmware 1.0.1 on the v1 payload', async () => {
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.1' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+
+    expect(getCategory).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 1,
+            account: expect.objectContaining({ label: 'Account #1' }),
+            totalFiat: '$100.00',
+          }),
+        }),
+      }),
+    );
+    const submitted = (
+      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
+        artifacts: { portfolio: Record<string, unknown> };
+      }
+    ).artifacts.portfolio;
+    expect(submitted).not.toHaveProperty('defiFiat');
+    expect(submitted).not.toHaveProperty('perpsFiat');
+    expect(submitted).not.toHaveProperty('tokensFiat');
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('records lastAttemptAt when a silent snapshot is skipped as a duplicate', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
+    const payload = buildHardwarePayload();
+    const first = prepareHardwareSync({ busyResults: [false, false] });
+    await first.serviceInternals.syncSettledPortfolio(payload);
+    const firstState = first.updateTargetState.mock.calls.find((call) =>
+      Boolean((call[1] as { lastContentHash?: string }).lastContentHash),
+    )?.[1] as { lastContentHash: string; lastWalletId: string };
+    const duplicate = prepareHardwareSync({
+      busyResults: [false, false],
+      targetState: {
+        lastContentHash: firstState.lastContentHash,
+        lastWalletId: firstState.lastWalletId,
+      },
+    });
+
+    await duplicate.serviceInternals.syncSettledPortfolio(payload);
+
+    expect(duplicate.uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(duplicate.updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastAttemptAt: 1_785_723_200_000 }),
+    );
+  });
 
   test('uploads a signed empty standard-wallet snapshot to overwrite stale device data', async () => {
     const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
@@ -2847,6 +3734,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         packageBytes: 3,
         packDurationMs: 0,
         portfolioJsonBytes: expect.any(Number),
+        schemaVersion: 1,
         status: 'success',
         syncDurationMs: 1000,
         syncMode: 'silent',
@@ -2885,6 +3773,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         failureStage: 'pack',
         packDurationMs: expect.any(Number),
         portfolioJsonBytes: expect.any(Number),
+        schemaVersion: 1,
         status: 'failed',
         syncDurationMs: expect.any(Number),
         syncMode: 'silent',

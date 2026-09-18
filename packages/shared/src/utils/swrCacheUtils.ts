@@ -1,4 +1,6 @@
 /* cspell:ignore ISWR IMMKV */
+import { isEqual } from 'lodash';
+
 import { defaultLogger } from '../logger/logger';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
@@ -10,12 +12,18 @@ import {
   SWR_CACHE_MAX_KEY_CHARS,
   SWR_CACHE_MAX_KEY_UTF8_BYTES,
   SWR_CACHE_MAX_SERIALIZED_CHARS,
+  SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS,
   isValidSWRCacheKey,
 } from './swrCacheLimits';
 
 import type * as HL from '../../types/hyperliquid/sdk';
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
-import type { INativeSWRCachePatchIntent } from '../storage/nativeStorageTypes';
+import type {
+  INativeSWRCacheCanonicalEntry,
+  INativeSWRCacheEntriesListener,
+  INativeSWRCachePatchIntent,
+  INativeSWRCacheSerializedEntry,
+} from '../storage/nativeStorageTypes';
 import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
 
 export {
@@ -81,9 +89,16 @@ type ISerializedSWRCacheEntry<T extends IPrunableSWREntry> = {
   entrySerializedChars: number;
   index: number;
   key: string;
-  pair: string;
+  // Absent for entries adopted from a native mirror, which never re-joins them.
+  pair?: string;
   serializedChars: number;
   updatedAt: number;
+};
+
+type ISWRCacheBudgets = {
+  maxEntries: number;
+  maxEntrySerializedChars: number;
+  maxSerializedChars: number;
 };
 
 function serializeSWRCacheEntry<T extends IPrunableSWREntry>(
@@ -113,47 +128,27 @@ function serializeSWRCacheEntry<T extends IPrunableSWREntry>(
   }
 }
 
-export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
-  store: Record<string, T>,
+function resolveSWRCacheBudgets(
   options?: IPruneSWRCacheStoreOptions,
-): {
-  removedKeys: string[];
-  serialized: string;
-  store: Record<string, T>;
-} {
-  const maxEntries = options?.maxEntries ?? SWR_CACHE_MAX_ENTRIES;
-  const maxEntrySerializedChars =
-    options?.maxEntrySerializedChars ?? SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS;
-  const maxSerializedChars =
-    options?.maxSerializedChars ?? SWR_CACHE_MAX_SERIALIZED_CHARS;
-  const removedKeys: string[] = [];
-  const capacityDrops: ISWRCacheCapacityDrop[] = [];
-  const candidates: ISerializedSWRCacheEntry<T>[] = [];
+): ISWRCacheBudgets {
+  return {
+    maxEntries: options?.maxEntries ?? SWR_CACHE_MAX_ENTRIES,
+    maxEntrySerializedChars:
+      options?.maxEntrySerializedChars ?? SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars:
+      options?.maxSerializedChars ?? SWR_CACHE_MAX_SERIALIZED_CHARS,
+  };
+}
 
-  Object.entries(store).forEach(([key, entry], index) => {
-    if (!isValidSWRCacheKey(key)) {
-      removedKeys.push(key);
-      capacityDrops.push({ key, reason: 'keyLimit' });
-      return;
-    }
-    const serializedEntry = serializeSWRCacheEntry(key, entry);
-    if (!serializedEntry) {
-      removedKeys.push(key);
-      return;
-    }
-    if (serializedEntry.entrySerializedChars > maxEntrySerializedChars) {
-      removedKeys.push(key);
-      capacityDrops.push({
-        entrySerializedChars: serializedEntry.entrySerializedChars,
-        key,
-        reason: 'entryLimit',
-      });
-      return;
-    }
-    serializedEntry.index = index;
-    candidates.push(serializedEntry);
-  });
-
+// Newest first within the count and size budgets, account scopes on their
+// own budget, then back in the original order. Reports every drop.
+function retainSWRCacheCandidates<T extends IPrunableSWREntry>(
+  candidates: ISerializedSWRCacheEntry<T>[],
+  budgets: ISWRCacheBudgets,
+  removedKeys: string[],
+  capacityDrops: ISWRCacheCapacityDrop[],
+): ISerializedSWRCacheEntry<T>[] {
+  const { maxEntries, maxEntrySerializedChars, maxSerializedChars } = budgets;
   candidates.sort(
     (left, right) =>
       right.updatedAt - left.updatedAt || right.index - left.index,
@@ -215,16 +210,6 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
   });
   retained.sort((left, right) => left.index - right.index);
 
-  const retainedStore = {} as Record<string, T>;
-  retained.forEach(({ entry, key }) => {
-    Object.defineProperty(retainedStore, key, {
-      configurable: true,
-      enumerable: true,
-      value: entry,
-      writable: true,
-    });
-  });
-
   reportSWRCacheCapacityDrops(capacityDrops, {
     maxEntries,
     maxEntrySerializedChars,
@@ -239,16 +224,81 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
     retainedEntryCount: accountSelectorEntries,
     retainedSerializedChars: accountSelectorSerializedChars,
   });
+  return retained;
+}
+
+export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
+  store: Record<string, T>,
+  options?: IPruneSWRCacheStoreOptions,
+): {
+  removedKeys: string[];
+  serialized: string;
+  store: Record<string, T>;
+} {
+  const budgets = resolveSWRCacheBudgets(options);
+  const removedKeys: string[] = [];
+  const capacityDrops: ISWRCacheCapacityDrop[] = [];
+  const candidates: ISerializedSWRCacheEntry<T>[] = [];
+
+  Object.entries(store).forEach(([key, entry], index) => {
+    if (!isValidSWRCacheKey(key)) {
+      removedKeys.push(key);
+      capacityDrops.push({ key, reason: 'keyLimit' });
+      return;
+    }
+    const serializedEntry = serializeSWRCacheEntry(key, entry);
+    if (!serializedEntry) {
+      removedKeys.push(key);
+      return;
+    }
+    if (
+      serializedEntry.entrySerializedChars > budgets.maxEntrySerializedChars
+    ) {
+      removedKeys.push(key);
+      capacityDrops.push({
+        entrySerializedChars: serializedEntry.entrySerializedChars,
+        key,
+        reason: 'entryLimit',
+      });
+      return;
+    }
+    serializedEntry.index = index;
+    candidates.push(serializedEntry);
+  });
+
+  const retained = retainSWRCacheCandidates(
+    candidates,
+    budgets,
+    removedKeys,
+    capacityDrops,
+  );
+
+  const retainedStore = {} as Record<string, T>;
+  retained.forEach(({ entry, key }) => {
+    Object.defineProperty(retainedStore, key, {
+      configurable: true,
+      enumerable: true,
+      value: entry,
+      writable: true,
+    });
+  });
 
   return {
     removedKeys,
-    serialized: `{${retained.map(({ pair }) => pair).join(',')}}`,
+    serialized: `{${retained
+      .map(
+        ({ entry, key, pair }) =>
+          pair ?? `${JSON.stringify(key)}:${JSON.stringify(entry)}`,
+      )
+      .join(',')}}`,
     store: retainedStore,
   };
 }
 
 let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
+let _nativeEntriesSubscribed = false;
+let _nativeEntriesSource: INativeSWRCacheEntriesSource | null | undefined;
 let _cacheEntrySerializedChars = new Map<string, number>();
 let _cacheSerializedChars = 2;
 let _dirty = false;
@@ -291,14 +341,200 @@ function getSyncStorage(): ISyncStorage {
   return _syncStorage;
 }
 
+type INativeSWRCacheEntriesSource = {
+  applyPatch: (patch: INativeSWRCachePatchIntent) => void | Promise<void>;
+  read: () => INativeSWRCacheSerializedEntry[];
+  subscribe: (listener: INativeSWRCacheEntriesListener) => () => void;
+};
+
+// Native main: the mirror holds one serialized entry per key and reports
+// what bg changed, so this copy is kept current without whole-store reads.
+// The runtime storage wrapper declares every optional capability and forwards
+// it with `?.`, so presence proves nothing: only a backend that implements the
+// read answers with an array. Detected once per runtime.
+function getNativeSWRCacheEntriesSource():
+  | INativeSWRCacheEntriesSource
+  | undefined {
+  if (_nativeEntriesSource !== undefined) {
+    return _nativeEntriesSource ?? undefined;
+  }
+  const { applySWRCachePatch, readSWRCacheEntries, subscribeSWRCacheEntries } =
+    getSyncStorage();
+  const entries = readSWRCacheEntries?.();
+  _nativeEntriesSource =
+    applySWRCachePatch &&
+    readSWRCacheEntries &&
+    subscribeSWRCacheEntries &&
+    Array.isArray(entries)
+      ? {
+          applyPatch: applySWRCachePatch,
+          read: () => readSWRCacheEntries() ?? [],
+          subscribe: subscribeSWRCacheEntries,
+        }
+      : null;
+  return _nativeEntriesSource ?? undefined;
+}
+
+function parseSerializedSWRCacheEntry(
+  key: string,
+  serialized: string,
+): ISerializedSWRCacheEntry<ISWREntry> | undefined {
+  try {
+    const entry = JSON.parse(serialized) as unknown;
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return undefined;
+    }
+    const updatedAt = (entry as ISWREntry).t;
+    return {
+      entry: entry as ISWREntry,
+      entrySerializedChars: serialized.length,
+      index: 0,
+      key,
+      serializedChars: JSON.stringify(key).length + 1 + serialized.length,
+      updatedAt: typeof updatedAt === 'number' ? updatedAt : 0,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function hydrateFromNativeEntries(
+  source: INativeSWRCacheEntriesSource,
+): ISWRStore {
+  const removedKeys: string[] = [];
+  const capacityDrops: ISWRCacheCapacityDrop[] = [];
+  const candidates: ISerializedSWRCacheEntry<ISWREntry>[] = [];
+  source.read().forEach(([key, serialized], index) => {
+    if (!isValidSWRCacheKey(key)) {
+      capacityDrops.push({ key, reason: 'keyLimit' });
+      return;
+    }
+    if (serialized.length > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS) {
+      capacityDrops.push({
+        entrySerializedChars: serialized.length,
+        key,
+        reason: 'entryLimit',
+      });
+      return;
+    }
+    const candidate = parseSerializedSWRCacheEntry(key, serialized);
+    if (!candidate) {
+      return;
+    }
+    candidate.index = index;
+    candidates.push(candidate);
+  });
+  const retained = retainSWRCacheCandidates(
+    candidates,
+    resolveSWRCacheBudgets(),
+    removedKeys,
+    capacityDrops,
+  );
+  const store: ISWRStore = {};
+  _cacheEntrySerializedChars = new Map();
+  _cacheSerializedChars = 2;
+  retained.forEach((candidate) => setCachedEntry(store, candidate));
+  if (removedKeys.length > 0) {
+    const removedAt = Date.now();
+    removedKeys.forEach((key) => {
+      _updatedKeys.delete(key);
+      _removedKeysAt.set(key, removedAt);
+    });
+    _dirty = true;
+  }
+  return store;
+}
+
+// The mirror was primed again (bootstrap or bg restart): rebuild from it,
+// keeping this runtime's not yet flushed writes and deletions on top.
+function rehydrateFromNativeEntries(source: INativeSWRCacheEntriesSource) {
+  const previous = _cache;
+  const store = hydrateFromNativeEntries(source);
+  _cache = store;
+  if (!previous) {
+    return;
+  }
+  for (const key of _updatedKeys) {
+    const entry = previous[key];
+    const candidate = entry ? serializeSWRCacheEntry(key, entry) : undefined;
+    if (candidate) {
+      setCachedEntry(store, candidate);
+    }
+  }
+  for (const key of Object.keys(store)) {
+    if (!_updatedKeys.has(key) && isDeletedLocally(key, store[key].t ?? 0)) {
+      removeCachedEntry(store, key);
+    }
+  }
+}
+
+// Same precedence as the flush merge: a pending local write beats anything
+// older, a local deletion beats anything not newer than it.
+function adoptNativeCanonicalEntries(entries: INativeSWRCacheCanonicalEntry[]) {
+  const store = _cache;
+  if (!store) {
+    return;
+  }
+  entries.forEach(([key, serialized]) => {
+    if (!isValidSWRCacheKey(key)) {
+      return;
+    }
+    const incoming =
+      serialized === null ||
+      serialized.length > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS
+        ? undefined
+        : parseSerializedSWRCacheEntry(key, serialized);
+    if (serialized !== null && !incoming) {
+      return;
+    }
+    if (_updatedKeys.has(key)) {
+      const local = store[key];
+      if (!incoming || (local && (local.t ?? 0) >= incoming.updatedAt)) {
+        return;
+      }
+      _updatedKeys.delete(key);
+      setCachedEntry(store, incoming);
+      return;
+    }
+    if (!incoming) {
+      removeCachedEntry(store, key);
+      return;
+    }
+    if (isDeletedLocally(key, incoming.updatedAt)) {
+      return;
+    }
+    setCachedEntry(store, incoming);
+  });
+}
+
+function subscribeToNativeEntries(source: INativeSWRCacheEntriesSource) {
+  if (_nativeEntriesSubscribed) {
+    return;
+  }
+  _nativeEntriesSubscribed = true;
+  source.subscribe((entries) => {
+    if (entries === null) {
+      rehydrateFromNativeEntries(source);
+    } else {
+      adoptNativeCanonicalEntries(entries);
+    }
+  });
+}
+
 function loadStore(): ISWRStore {
   if (_cache !== undefined) return _cache;
   try {
-    const loaded =
-      getSyncStorage().getObject<ISWRStore>(
-        EAppSyncStorageKeys.onekey_swr_cache,
-      ) ?? {};
-    _cache = adoptPrunedStore(loaded);
+    const nativeEntries = getNativeSWRCacheEntriesSource();
+    if (nativeEntries) {
+      _cache = hydrateFromNativeEntries(nativeEntries);
+      subscribeToNativeEntries(nativeEntries);
+    } else {
+      const loaded =
+        getSyncStorage().getObject<ISWRStore>(
+          EAppSyncStorageKeys.onekey_swr_cache,
+        ) ?? {};
+      _cache = adoptPrunedStore(loaded);
+    }
     if (_dirty) {
       scheduleFlush();
     }
@@ -314,26 +550,96 @@ function loadStore(): ISWRStore {
 function readStoreFromDisk(): {
   store: ISWRStore | undefined;
   unreadable: boolean;
+  rawChars: number;
 } {
   let raw: string | undefined;
   try {
     raw = getSyncStorage().getString(EAppSyncStorageKeys.onekey_swr_cache);
   } catch {
-    return { store: undefined, unreadable: true };
+    return { store: undefined, unreadable: true, rawChars: 0 };
   }
   if (!raw) {
-    return { store: undefined, unreadable: false };
+    return { store: undefined, unreadable: false, rawChars: 0 };
   }
+  const rawChars = raw.length;
   try {
-    return { store: JSON.parse(raw) as ISWRStore, unreadable: false };
+    return { store: JSON.parse(raw) as ISWRStore, unreadable: false, rawChars };
   } catch {
-    return { store: undefined, unreadable: true };
+    return { store: undefined, unreadable: true, rawChars };
   }
 }
 
+function perfNow(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+type IHermesHeapStats = {
+  gcCount: number;
+  gcTimeSeconds: number;
+  heapBytes: number;
+  totalAllocatedBytes: number;
+};
+
+// Hermes only; every counter is cumulative since the VM was created.
+function readHermesHeapStats(): IHermesHeapStats | undefined {
+  const hermes = (
+    globalThis as {
+      HermesInternal?: {
+        getInstrumentedStats?: () => Record<string, unknown>;
+      };
+    }
+  ).HermesInternal;
+  let stats: Record<string, unknown> | undefined;
+  try {
+    stats = hermes?.getInstrumentedStats?.();
+  } catch {
+    return undefined;
+  }
+  if (!stats) {
+    return undefined;
+  }
+  const gcCount = stats.js_numGCs;
+  const gcTimeSeconds = stats.js_gcTime;
+  const heapBytes = stats.js_heapSize;
+  const totalAllocatedBytes = stats.js_totalAllocatedBytes;
+  if (
+    typeof gcCount !== 'number' ||
+    typeof gcTimeSeconds !== 'number' ||
+    typeof heapBytes !== 'number' ||
+    typeof totalAllocatedBytes !== 'number'
+  ) {
+    return undefined;
+  }
+  return { gcCount, gcTimeSeconds, heapBytes, totalAllocatedBytes };
+}
+
+// What the timed operation allocated and how much GC it paid for; empty on
+// runtimes without the stats so the log line stays unchanged there.
+function diffHermesHeapStats(before: IHermesHeapStats | undefined) {
+  const after = before ? readHermesHeapStats() : undefined;
+  if (!before || !after) {
+    return {};
+  }
+  return {
+    heapBytes: after.heapBytes,
+    allocatedBytes: after.totalAllocatedBytes - before.totalAllocatedBytes,
+    gcCount: after.gcCount - before.gcCount,
+    // Hermes reports cumulative GC wall time in seconds.
+    gcMs: Math.round((after.gcTimeSeconds - before.gcTimeSeconds) * 1000),
+  };
+}
+
 function reloadFromStorage(): void {
+  if (getNativeSWRCacheEntriesSource()) {
+    // The mirror subscription already delivered every bg write; only this
+    // runtime's own pending writes are outstanding.
+    flush();
+    return;
+  }
   flush();
-  const { store, unreadable } = readStoreFromDisk();
+  const startedAt = perfNow();
+  const heapBefore = readHermesHeapStats();
+  const { store, unreadable, rawChars } = readStoreFromDisk();
   if (unreadable && _cache && Object.keys(_cache).length > 0) {
     // Repairing from an empty copy instead would leave a parseable empty
     // store, costing the runtime holding a full copy its only chance.
@@ -355,6 +661,16 @@ function reloadFromStorage(): void {
     if (_dirty) {
       scheduleFlush();
     }
+  }
+  const durationMs = Math.round(perfNow() - startedAt);
+  if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+    defaultLogger.app.perf.swrCacheSlowOp({
+      op: 'reload',
+      durationMs,
+      storeChars: rawChars,
+      entryCount: _cacheEntrySerializedChars.size,
+      ...diffHermesHeapStats(heapBefore),
+    });
   }
 }
 
@@ -523,13 +839,90 @@ function adoptPrunedStore(store: ISWRStore): ISWRStore {
   return result.store;
 }
 
+function buildNativeSWRCachePatch() {
+  const patch: INativeSWRCachePatchIntent = {
+    ...(Number.isSafeInteger(_clearedAllAt) && _clearedAllAt > 0
+      ? { clearBefore: _clearedAllAt }
+      : {}),
+    removePrefixes: [..._removedPrefixesAt],
+    removals: [..._removedKeysAt],
+    updates: [..._updatedKeys].flatMap((key) => {
+      const entry = _cache?.[key];
+      if (!entry) {
+        return [];
+      }
+      return [[key, JSON.stringify(entry)] as const];
+    }),
+  };
+  const patchChars = patch.updates.reduce(
+    (sum, [, value]) => sum + value.length,
+    0,
+  );
+  return { patch, patchChars };
+}
+
+function clearPendingIntents() {
+  _updatedKeys.clear();
+  _removedKeysAt.clear();
+  _removedPrefixesAt = [];
+  _clearedAllAt = 0;
+  _dirty = false;
+}
+
+// Only the changed entries are serialized; the mirror applies them per key
+// and bg's acknowledgement comes back through the subscription.
+function flushToNativeEntries(source: INativeSWRCacheEntriesSource) {
+  try {
+    const startedAt = perfNow();
+    const heapBefore = readHermesHeapStats();
+    const updatedKeyCount = _updatedKeys.size;
+    const { patch, patchChars } = buildNativeSWRCachePatch();
+    // A pending write that bg since superseded leaves nothing to send.
+    if (
+      patch.clearBefore !== undefined ||
+      patch.removePrefixes.length > 0 ||
+      patch.removals.length > 0 ||
+      patch.updates.length > 0
+    ) {
+      void source.applyPatch(patch);
+    }
+    clearPendingIntents();
+    const durationMs = Math.round(perfNow() - startedAt);
+    if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+      defaultLogger.app.perf.swrCacheSlowOp({
+        op: 'flush',
+        durationMs,
+        storeChars: _cacheSerializedChars,
+        entryCount: _cacheEntrySerializedChars.size,
+        readMs: 0,
+        pruneMs: 0,
+        patchMs: durationMs,
+        adoptMs: 0,
+        updatedKeyCount,
+        patchChars,
+        ...diffHermesHeapStats(heapBefore),
+      });
+    }
+  } catch {
+    // Mirror apply failure is non-fatal; cache is best-effort.
+  }
+}
+
 function flush() {
   if (!_dirty || !_cache) return;
+  const nativeEntries = getNativeSWRCacheEntriesSource();
+  if (nativeEntries) {
+    flushToNativeEntries(nativeEntries);
+    return;
+  }
   try {
+    const startedAt = perfNow();
+    const heapBefore = readHermesHeapStats();
     // Each runtime keeps its own JS cache. Native persistence is bg-owned, so
     // native callers send only changed entries and deletion intents; other
     // platforms retain the full-store adapter below.
-    const { store: disk, unreadable } = readStoreFromDisk();
+    const { store: disk, unreadable, rawChars } = readStoreFromDisk();
+    const readAt = perfNow();
     const merged: ISWRStore = {};
     if (unreadable) {
       // Nothing on disk survives, so rebuild from this copy — a pending-keys
@@ -552,29 +945,21 @@ function flush() {
       }
     }
     const limitedMerged = pruneSWRCacheStore(merged).store;
+    const prunedAt = perfNow();
+    const updatedKeyCount = _updatedKeys.size;
+    let patchChars = 0;
     const storage = getSyncStorage();
     if (storage.applySWRCachePatch) {
-      const patch: INativeSWRCachePatchIntent = {
-        ...(Number.isSafeInteger(_clearedAllAt) && _clearedAllAt > 0
-          ? { clearBefore: _clearedAllAt }
-          : {}),
-        removePrefixes: [..._removedPrefixesAt],
-        removals: [..._removedKeysAt],
-        updates: [..._updatedKeys].flatMap((key) => {
-          const entry = _cache?.[key];
-          if (!entry) {
-            return [];
-          }
-          return [[key, JSON.stringify(entry)] as const];
-        }),
-      };
-      void storage.applySWRCachePatch(patch);
+      const built = buildNativeSWRCachePatch();
+      patchChars = built.patchChars;
+      void storage.applySWRCachePatch(built.patch);
     } else {
       void storage.setObject(
         EAppSyncStorageKeys.onekey_swr_cache,
         limitedMerged,
       );
     }
+    const patchedAt = perfNow();
     // Adopting the merged store also refreshes this runtime's copy, which
     // otherwise only ages — reads pick up what the other runtime persisted.
     // Skipped without a store to merge against: `merged` is then only the
@@ -584,11 +969,24 @@ function flush() {
       _cache = limitedMerged;
       resetCacheSerializedChars(limitedMerged);
     }
-    _updatedKeys.clear();
-    _removedKeysAt.clear();
-    _removedPrefixesAt = [];
-    _clearedAllAt = 0;
-    _dirty = false;
+    clearPendingIntents();
+    const finishedAt = perfNow();
+    const durationMs = Math.round(finishedAt - startedAt);
+    if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+      defaultLogger.app.perf.swrCacheSlowOp({
+        op: 'flush',
+        durationMs,
+        storeChars: rawChars,
+        entryCount: _cacheEntrySerializedChars.size,
+        readMs: Math.round(readAt - startedAt),
+        pruneMs: Math.round(prunedAt - readAt),
+        patchMs: Math.round(patchedAt - prunedAt),
+        adoptMs: Math.round(finishedAt - patchedAt),
+        updatedKeyCount,
+        patchChars,
+        ...diffHermesHeapStats(heapBefore),
+      });
+    }
   } catch {
     // MMKV write failure is non-fatal; cache is best-effort.
   }
@@ -635,6 +1033,17 @@ function set<T>(key: string, data: T): void {
   }
   const store = loadStore();
   const now = Date.now();
+  const existing = store[key];
+  // Pollers re-set an unchanged payload for as long as a screen stays open,
+  // and every flush re-reads and re-serializes the whole store. An unchanged
+  // result only refreshes the timestamp: the key stays pending so the fresher
+  // timestamp rides along with the next flush, but it never starts one.
+  if (existing && isEqual(existing.d, data)) {
+    existing.t = now;
+    _updatedKeys.add(key);
+    _dirty = true;
+    return;
+  }
   const entry = { d: data, t: now };
   const serializedEntry = serializeSWRCacheEntry(key, entry);
   if (

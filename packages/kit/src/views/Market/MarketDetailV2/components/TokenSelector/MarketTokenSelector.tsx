@@ -22,6 +22,7 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
+import type { IMarketWatchlistDataCache } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import type {
@@ -45,6 +46,7 @@ import type {
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { buildMarketTokenDetailPreview } from '../../utils/marketDetailPreview';
+import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketStockSelectorList } from './MarketStockSelectorList';
@@ -95,7 +97,9 @@ function convertTopCoinToSelectorToken(
     networkLogoUri: '',
     networkId: '',
     chainId: '',
-    selectorSubtitle: item.symbol.toUpperCase(),
+    // The row title is already the symbol, so the subtitle carries the full
+    // name and stays empty rather than repeating the symbol when it is missing.
+    selectorSubtitle: item.name?.trim() || undefined,
   };
 }
 
@@ -148,7 +152,9 @@ function BaseMarketTokenSelectorContent({
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
-  const toMarketStockDetailPage = useToMarketStockDetailPage();
+  const toMarketStockDetailPage = useToMarketStockDetailPage({
+    replaceCurrentDetail: true,
+  });
   const {
     data: topCoins,
     handleItemPress: handleTopCoinPress,
@@ -252,8 +258,14 @@ function BaseMarketTokenSelectorContent({
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
-  const { searchLoading, searchTokenList } = useSwapProTokenSearch(
-    isStockSelection ? '' : searchValueDebounce,
+  const { searchLoading, searchTokenList } =
+    useSwapProTokenSearch(searchValueDebounce);
+
+  // The favorites list is unmounted on every tab switch, so its fetched data
+  // is parked on this shell — which outlives the tabs — and handed back on
+  // remount instead of the list restarting from an empty state.
+  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
+    undefined,
   );
 
   const handleCategoryChange = useCallback(
@@ -285,6 +297,10 @@ function BaseMarketTokenSelectorContent({
       networkId: string;
       assetId?: string;
       stockId?: string;
+      stock?: IMarketToken['stock'];
+      name?: string;
+      symbol?: string;
+      tokenImageUri?: string;
       isNative?: boolean;
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
@@ -294,6 +310,26 @@ function BaseMarketTokenSelectorContent({
       if (token.perpsCoin) {
         void closePopover?.();
         navigateToPerps(token.perpsCoin);
+        return;
+      }
+
+      const stockId = resolveMarketStockId({
+        stockId: token.stockId,
+      });
+      if (stockId) {
+        void closePopover?.();
+        void toMarketStockDetailPage({
+          stockId,
+          symbol: token.tokenDetailPreview?.symbol ?? token.symbol ?? stockId,
+          name: token.tokenDetailPreview?.name ?? token.name ?? stockId,
+          logoUrl:
+            token.tokenDetailPreview?.tokenImageUri ??
+            token.tokenImageUri ??
+            '',
+          tokenAddress: token.address,
+          networkId: token.networkId,
+          isNative: token.isNative,
+        });
         return;
       }
 
@@ -319,6 +355,7 @@ function BaseMarketTokenSelectorContent({
       tokenDetailActions,
       closePopover,
       navigateToPerps,
+      toMarketStockDetailPage,
       searchValueDebounce,
       selectedCategory,
       showFavoriteButton,
@@ -416,7 +453,7 @@ function BaseMarketTokenSelectorContent({
         )}
 
         {/* List content */}
-        {isStockSelection ? (
+        {isStockSelection && !searchValueDebounce ? (
           <MarketStockSelectorList
             query={searchValueDebounce}
             onItemPress={handleSelectStock}
@@ -429,6 +466,7 @@ function BaseMarketTokenSelectorContent({
             onItemPress={handleSelectToken}
             pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
             isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
+            watchlistDataCacheRef={watchlistDataCacheRef}
             searchQuery={searchValueDebounce}
             searchLoading={searchLoading}
             searchResults={searchTokenList}

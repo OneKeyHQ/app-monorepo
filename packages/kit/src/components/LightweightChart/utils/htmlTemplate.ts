@@ -1,3 +1,4 @@
+import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
 
 import type { ILightweightChartConfig } from '../types';
@@ -14,7 +15,13 @@ function getStyles(): string {
 
 function getChartInitScript(): string {
   return `
+      var compactPriceFormatter = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
+        if (nextConfig.compactPriceMaxCharacters) {
+          return function(price) {
+            return compactPriceFormatter(price, nextConfig.compactPriceMaxCharacters);
+          };
+        }
         if (nextConfig.priceFormatterType === 'usd') return usdPriceFormatter;
         if (nextConfig.priceFormatterType === 'number') {
           return function(price) {
@@ -39,6 +46,7 @@ function getChartInitScript(): string {
           {
             visible: Boolean(nextConfig.showPriceScale),
             borderVisible: false,
+            minimumWidth: nextConfig.priceScaleMinimumWidth ?? 0,
             entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
           },
           nextConfig.priceScaleMargins
@@ -85,15 +93,21 @@ function getChartInitScript(): string {
         return formatter.format(date);
       }
       function getTimeScaleOptions(nextConfig) {
+        // fixRightEdge clamps any right offset back to zero. Scrolling and
+        // scaling are off, so the lock can go when a tail gap is asked for.
+        var rightGap = Number(nextConfig.timeScaleRightOffsetPixels) || 0;
         var options = {
           visible: nextConfig.showTimeScale !== false,
           borderVisible: false,
           timeVisible: true,
           secondsVisible: false,
           fixLeftEdge: true,
-          fixRightEdge: true,
+          fixRightEdge: rightGap <= 0,
           lockVisibleTimeRangeOnResize: true,
         };
+        if (rightGap > 0) {
+          options.rightOffsetPixels = rightGap;
+        }
         if (nextConfig.timeZone) {
           options.tickMarkFormatter = function(time, tickMarkType) {
             return formatTimeScaleTickMark(time, tickMarkType, nextConfig);
@@ -352,6 +366,33 @@ function getChartInitScript(): string {
         if (lineStyle === 'sparse-dotted') return LightweightCharts.LineStyle.SparseDotted;
         return LightweightCharts.LineStyle.Solid;
       }
+      function getLastValueSeriesOptions(nextConfig) {
+        var showLast = Boolean(nextConfig.showLastValue);
+        return {
+          lastValueVisible: showLast,
+          priceLineVisible: showLast && nextConfig.showLastValuePriceLine !== false,
+          priceLineColor: nextConfig.lastValueLabelColor || '',
+        };
+      }
+      function getReferenceLineAutoscaleInfoProvider(nextConfig) {
+        var referenceLine = nextConfig.referenceLine;
+        var price =
+          referenceLine && referenceLine.includeInAutoscale
+            ? referenceLine.price
+            : undefined;
+        return function(baseImplementation) {
+          var autoscaleInfo = baseImplementation();
+          if (!Number.isFinite(price) || !autoscaleInfo || !autoscaleInfo.priceRange) {
+            return autoscaleInfo;
+          }
+          return Object.assign({}, autoscaleInfo, {
+            priceRange: {
+              minValue: Math.min(autoscaleInfo.priceRange.minValue, price),
+              maxValue: Math.max(autoscaleInfo.priceRange.maxValue, price),
+            },
+          });
+        };
+      }
       function getHistogramSeriesOptions(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
         var showLast = Boolean(nextConfig.showLastValue);
@@ -464,24 +505,35 @@ function getChartInitScript(): string {
         } else {
           applyPrimarySeriesOptions(nextConfig);
         }
+        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
       }
       function syncReferenceLine(nextConfig) {
         if (!window.series) return;
+        window.series.applyOptions({
+          autoscaleInfoProvider: getReferenceLineAutoscaleInfoProvider(nextConfig),
+        });
         if (window.referencePriceLine) {
           window.series.removePriceLine(window.referencePriceLine);
           window.referencePriceLine = null;
         }
         if (!nextConfig.referenceLine) return;
-        window.referencePriceLine = window.series.createPriceLine({
+        var referenceLineOptions = {
           price: nextConfig.referenceLine.price,
           color: nextConfig.referenceLine.color,
           lineWidth: getNormalizedLineWidth(nextConfig.referenceLine.lineWidth, 1),
           lineStyle: getReferenceLineStyle(nextConfig.referenceLine.lineStyle),
           lineVisible: true,
           axisLabelVisible: Boolean(nextConfig.referenceLine.axisLabelVisible),
-          title: '',
-        });
+          title: nextConfig.referenceLine.title || '',
+        };
+        if (nextConfig.referenceLine.axisLabelColor) {
+          referenceLineOptions.axisLabelColor = nextConfig.referenceLine.axisLabelColor;
+        }
+        if (nextConfig.referenceLine.axisLabelTextColor) {
+          referenceLineOptions.axisLabelTextColor = nextConfig.referenceLine.axisLabelTextColor;
+        }
+        window.referencePriceLine = window.series.createPriceLine(referenceLineOptions);
       }
       function getSecondarySeriesOptions(nextConfig) {
         return {
@@ -497,22 +549,13 @@ function getChartInitScript(): string {
         var hasSecondaryData =
           Array.isArray(nextConfig.secondaryLineData) &&
           nextConfig.secondaryLineData.length > 0;
+        // Returns whether the overlay's points changed; applyChartConfig then
+        // re-issues the primary data (see the note there).
         if (!hasSecondaryData) {
-          if (window.secondarySeries) {
-            window.secondarySeries.setData([]);
-            window.secondarySeries.applyOptions({ visible: false });
-            // Taking a series' points away (emptying it, and removing it
-            // alike) can leave the time scale with no visible range once the
-            // line has been shown before: the whole chart goes blank, axes
-            // included, and fitContent / autoscale do not bring it back
-            // (Pendle's "show underlying APY" off, OK-62390). Re-issuing the
-            // primary data is the one call that rebuilds the range — it is
-            // what a date-range switch does, which is why that "repaired" it.
-            if (window.series) {
-              window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
-            }
-          }
-          return;
+          if (!window.secondarySeries) return false;
+          window.secondarySeries.setData([]);
+          window.secondarySeries.applyOptions({ visible: false });
+          return true;
         }
         if (!window.secondarySeries) {
           window.secondarySeries = chart.addSeries(
@@ -525,6 +568,7 @@ function getChartInitScript(): string {
           );
         }
         window.secondarySeries.setData(nextConfig.secondaryLineData);
+        return true;
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -616,7 +660,18 @@ function getChartInitScript(): string {
         window.chart.applyOptions(getChartOptions(nextConfig));
         syncPrimarySeries(nextConfig);
         syncReferenceLine(nextConfig);
-        syncSecondarySeries(nextConfig);
+        var overlayChanged = syncSecondarySeries(nextConfig);
+        // Replacing the overlay's points — emptying it (OK-62390), or swapping
+        // a week of hourly points for a month of daily ones when the range
+        // switches (OK-63666) — can leave the time scale with no visible
+        // range: the chart goes blank, and fitContent / autoscale alone do not
+        // bring it back. Re-issuing the primary data is the one call that
+        // rebuilds the range, so it is the last data write, after any overlay
+        // change. The primary is created first so the overlay keeps drawing
+        // on top of it.
+        if (overlayChanged && window.series) {
+          window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+        }
         window.chart.timeScale().fitContent();
       };
       window.applyChartConfig(config);

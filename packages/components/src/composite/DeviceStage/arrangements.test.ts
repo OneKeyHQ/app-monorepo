@@ -1,4 +1,5 @@
 import { arrangementOf, panelLeftBehind } from './arrangements';
+import { COMPACT_STAGED_STEPS, FULL_STAGED_STEPS, STEP_POSE } from './stepCopy';
 
 /**
  * The seat-reset rule (OK-59934). A stateful seat is never unmounted,
@@ -14,6 +15,18 @@ describe('arrangementOf', () => {
   it('seats the staged steps together', () => {
     expect(arrangementOf('enterPin')).toBe('stage');
     expect(arrangementOf('genuineCheck')).toBe('stage');
+    // The confirm capsule (2026-09-11) is not on the stage: a PIN card
+    // folding into it is a pose flight, never an in-stage port move.
+    expect(arrangementOf('confirm')).toBe('confirm');
+  });
+
+  // The stage arrangement exists on the card alone — the engine reads
+  // the scene map and seats the device badge only under the card pose —
+  // so a staged step with another pose would play a dark, bare seat.
+  it('stages only card-posed steps', () => {
+    for (const step of [...FULL_STAGED_STEPS, ...COMPACT_STAGED_STEPS]) {
+      expect(STEP_POSE[step]).toBe('card');
+    }
   });
 });
 

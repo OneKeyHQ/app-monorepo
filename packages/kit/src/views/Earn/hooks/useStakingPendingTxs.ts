@@ -8,6 +8,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '../../../states/jotai/contexts/earn';
@@ -62,6 +63,16 @@ export type IStakingPendingTxsPrecomputed = {
 };
 
 const DEFAULT_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ seconds: 30 });
+
+/**
+ * Wait before refreshing once the pending transactions have cleared. The tx
+ * tracker reports success up to a block before the node the figures are
+ * computed from; a refresh fired in that gap fetches, and the server caches,
+ * the pre-transaction balance (OK-63659).
+ */
+export const STAKING_TX_SETTLE_DELAY_MS = timerUtils.getTimeDurationMs({
+  seconds: 3,
+});
 
 export const useStakingPendingTxs = ({
   accountId,
@@ -142,13 +153,9 @@ export const useStakingPendingTxs = ({
   // Trigger onRefresh callback when all pending transactions complete
   useEffect(() => {
     if (!isPending && prevIsPending) {
-      // Delay refresh to allow backend data sync after transaction confirmation
-      setTimeout(
-        () => {
-          onRefreshRef.current?.();
-        },
-        timerUtils.getTimeDurationMs({ seconds: 3 }),
-      );
+      setTimeout(() => {
+        onRefreshRef.current?.();
+      }, STAKING_TX_SETTLE_DELAY_MS);
     }
   }, [isPending, prevIsPending]);
 
@@ -169,6 +176,7 @@ export const useStakingPendingTxsByInfo = ({
   tagMatcher,
   onRefreshDelayMs = 0,
   precomputed,
+  revalidateOnFocus = true,
   accountId: explicitAccountId,
   indexedAccountId: explicitIndexedAccountId,
 }: {
@@ -178,6 +186,7 @@ export const useStakingPendingTxsByInfo = ({
   tagMatcher?: (tag: string) => boolean;
   onRefreshDelayMs?: number;
   precomputed?: IStakingPendingTxsPrecomputed;
+  revalidateOnFocus?: boolean;
   accountId?: string;
   indexedAccountId?: string;
 }) => {
@@ -641,6 +650,7 @@ export const useStakingPendingTxsByInfo = ({
         }
 
         return pendingTxs.filter((tx): tx is IStakePendingTx => {
+          if (tx.replacedType === EReplaceTxType.Cancel) return false;
           if (!tx.stakingInfo) return false;
           const tags = tx.stakingInfo.tags ?? [];
           if (tags.length === 0) return false;
@@ -676,7 +686,7 @@ export const useStakingPendingTxsByInfo = ({
     isLoading: filteredTxsLoading,
   } = usePromiseResult(fetchFilteredPendingTxs, [fetchFilteredPendingTxs], {
     initResult: UNVERIFIED_PENDING_TXS_RESULT,
-    revalidateOnFocus: true,
+    revalidateOnFocus,
     watchLoading: true,
   });
   const {

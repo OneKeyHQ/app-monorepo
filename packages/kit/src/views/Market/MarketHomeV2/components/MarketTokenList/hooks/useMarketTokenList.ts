@@ -286,6 +286,7 @@ export function useMarketTokenList({
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoadMoreError, setIsLoadMoreError] = useState(false);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const [errorQueryKey, setErrorQueryKey] = useState<string>();
   const forceRemoteFirstPageRef = useRef(false);
@@ -573,6 +574,7 @@ export function useMarketTokenList({
       // Native pages can mount before the default network is initialized.
       // usePromiseResult captures watchLoading when its runner is created.
       watchLoading: platformEnv.isNative || hasNetworkId,
+      undefinedResultIfError: true,
       pollingInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -614,6 +616,40 @@ export function useMarketTokenList({
           networkLogoUri,
           timeRange: timeRangeRef.current,
         });
+
+  const previousLoadingStateRef = useRef({
+    isLoading,
+    queryKey: currentQueryKey,
+  });
+
+  useEffect(() => {
+    const previous = previousLoadingStateRef.current;
+    previousLoadingStateRef.current = { isLoading, queryKey: currentQueryKey };
+
+    if (isLoading === true && transformedData.length === 0) {
+      setIsNetworkSwitching(true);
+      return;
+    }
+
+    // A fast failure may settle before the loading render commits. Clear it
+    // only within the same query so an old request cannot discard new rows.
+    if (
+      hasNetworkId &&
+      previous.queryKey === currentQueryKey &&
+      previous.isLoading !== false &&
+      isLoading === false &&
+      apiResult === undefined
+    ) {
+      setTransformedDataState({ data: [], queryKey: currentQueryKey });
+      setIsNetworkSwitching(false);
+    }
+  }, [
+    apiResult,
+    currentQueryKey,
+    hasNetworkId,
+    isLoading,
+    transformedData.length,
+  ]);
 
   const effectiveIsLoading = hasNetworkId
     ? isLoading !== false
@@ -740,6 +776,7 @@ export function useMarketTokenList({
     }));
     setCurrentPage(1);
     setHasReachedEnd(false);
+    setIsLoadMoreError(false);
 
     // Track network loading analytics
     trackNetworkLoading(networkId, apiResult.list.length);
@@ -788,6 +825,7 @@ export function useMarketTokenList({
     setCurrentPage(1);
     setIsLoadingMore(false);
     setHasReachedEnd(false);
+    setIsLoadMoreError(false);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
   }, [networkId, sortBy, sortType, type, category, timeFrame]);
@@ -843,6 +881,7 @@ export function useMarketTokenList({
     if (platformEnv.isNative) loadMoreRequestRef.current = request;
 
     setIsLoadingMore(true);
+    setIsLoadMoreError(false);
 
     try {
       // Load the next page
@@ -899,8 +938,13 @@ export function useMarketTokenList({
         // Empty response - stop loading immediately
         setHasReachedEnd(true);
       }
-    } catch (error) {
-      console.error('Failed to load more market tokens:', error);
+    } catch (_error) {
+      if (
+        currentQueryKeyRef.current === requestQueryKey &&
+        (!platformEnv.isNative || loadMoreRequestRef.current === request)
+      ) {
+        setIsLoadMoreError(true);
+      }
     } finally {
       if (!platformEnv.isNative || loadMoreRequestRef.current === request) {
         loadMoreRequestRef.current = undefined;
@@ -949,6 +993,7 @@ export function useMarketTokenList({
     isLoading: effectiveIsLoading,
     isError: errorQueryKey === currentQueryKey,
     isLoadingMore,
+    isLoadMoreError,
     isNetworkSwitching: isNetworkSwitching && transformedData.length === 0,
     isProvisionalFirstPageResult,
     initialSortBy,

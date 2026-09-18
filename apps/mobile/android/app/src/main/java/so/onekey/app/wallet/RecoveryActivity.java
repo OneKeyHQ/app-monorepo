@@ -13,17 +13,23 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
+import com.margelo.nitro.nativelogger.OneKeyLog;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochModule;
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeSplashScreen;
 
 public class RecoveryActivity extends AppCompatActivity {
 
@@ -161,31 +167,56 @@ public class RecoveryActivity extends AppCompatActivity {
     }
 
     private void exportLogs() {
-        try {
-            File logDir = findNativeLoggerDir();
-            if (logDir == null || !logDir.exists() || !logDir.isDirectory()) {
-                showError(sNoLogs);
-                return;
+        setRecoveryButtonsEnabled(false);
+        recoveryExecutor.execute(() -> {
+            try {
+                OneKeyNativeCrashDiagnostics.flush(1000L);
+                OneKeyLog.flushPendingRepeat();
+                OneKeyLog.flush();
+
+                File logDir = findNativeLoggerDir();
+                if (logDir == null) {
+                    throw new NoLogsException();
+                }
+
+                List<File> logFiles = eligibleLogFiles(logDir);
+                if (logFiles.isEmpty()) {
+                    throw new NoLogsException();
+                }
+
+                File zipFile = exportArchiveFile();
+                zipFiles(logDir, logFiles, zipFile);
+
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    setRecoveryButtonsEnabled(true);
+                    Uri uri = OnekeyFileProvider.getUriForFile(this, zipFile);
+                    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                    shareIntent.setType("application/zip");
+                    shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+                    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(shareIntent, sExportLogs));
+                });
+            } catch (NoLogsException e) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    setRecoveryButtonsEnabled(true);
+                    showError(sNoLogs);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    setRecoveryButtonsEnabled(true);
+                    showError(sExportError + ": " + e.getMessage());
+                });
             }
-
-            File[] logFiles = logDir.listFiles();
-            if (logFiles == null || logFiles.length == 0) {
-                showError(sNoLogs);
-                return;
-            }
-
-            File zipFile = exportArchiveFile();
-            zipDirectory(logDir, zipFile);
-
-            Uri uri = OnekeyFileProvider.getUriForFile(this, zipFile);
-            Intent shareIntent = new Intent(Intent.ACTION_SEND);
-            shareIntent.setType("application/zip");
-            shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(shareIntent, sExportLogs));
-        } catch (Exception e) {
-            showError(sExportError + ": " + e.getMessage());
-        }
+        });
     }
 
     private File exportArchiveFile() {
@@ -203,34 +234,80 @@ public class RecoveryActivity extends AppCompatActivity {
         return null;
     }
 
-    private void zipDirectory(File sourceDir, File zipFile) throws IOException {
-        try (FileOutputStream fos = new FileOutputStream(zipFile);
-             ZipOutputStream zos = new ZipOutputStream(fos)) {
-            zipFiles(sourceDir, sourceDir.getName(), zos);
+    private List<File> eligibleLogFiles(File sourceDir) throws IOException {
+        List<File> files = new ArrayList<>();
+        collectEligibleLogFiles(sourceDir, sourceDir, files);
+        files.sort(Comparator.comparing(File::getAbsolutePath));
+        return files;
+    }
+
+    private void collectEligibleLogFiles(File rootDir, File current, List<File> files)
+        throws IOException {
+        File[] children = current.listFiles();
+        if (children == null) {
+            throw new IOException("Unable to read logs directory");
+        }
+        for (File child : children) {
+            if (child.isHidden()) {
+                continue;
+            }
+            if (child.isDirectory()) {
+                collectEligibleLogFiles(rootDir, child, files);
+                continue;
+            }
+            if (!child.isFile()) {
+                continue;
+            }
+            String relativePath = relativeLogPath(rootDir, child);
+            if (relativePath.endsWith(".log") ||
+                (relativePath.startsWith("crashes/") && relativePath.endsWith(".json"))) {
+                files.add(child);
+            }
         }
     }
 
-    private void zipFiles(File file, String parentPath, ZipOutputStream zos) throws IOException {
-        if (file.isDirectory()) {
-            File[] children = file.listFiles();
-            if (children != null) {
-                for (File child : children) {
-                    zipFiles(child, parentPath + "/" + child.getName(), zos);
+    private String relativeLogPath(File rootDir, File file) {
+        return rootDir.toPath()
+            .relativize(file.toPath())
+            .toString()
+            .replace(File.separatorChar, '/');
+    }
+
+    private void zipFiles(File sourceDir, List<File> logFiles, File zipFile) throws IOException {
+        if (zipFile.exists() && !zipFile.delete()) {
+            throw new IOException("Unable to replace previous log archive");
+        }
+        boolean completed = false;
+        try {
+            try (FileOutputStream fos = new FileOutputStream(zipFile);
+                 ZipOutputStream zos = new ZipOutputStream(fos)) {
+                byte[] buffer = new byte[8192];
+                for (File file : logFiles) {
+                    ZipEntry entry = new ZipEntry(
+                        sourceDir.getName() + "/" + relativeLogPath(sourceDir, file)
+                    );
+                    zos.putNextEntry(entry);
+                    try (FileInputStream fis = new FileInputStream(file)) {
+                        int len;
+                        while ((len = fis.read(buffer)) != -1) {
+                            zos.write(buffer, 0, len);
+                        }
+                    }
+                    zos.closeEntry();
                 }
             }
-        } else {
-            try (FileInputStream fis = new FileInputStream(file)) {
-                ZipEntry entry = new ZipEntry(parentPath);
-                zos.putNextEntry(entry);
-                byte[] buffer = new byte[4096];
-                int len;
-                while ((len = fis.read(buffer)) > 0) {
-                    zos.write(buffer, 0, len);
-                }
-                zos.closeEntry();
+            if (!zipFile.isFile() || zipFile.length() == 0L) {
+                throw new IOException("Log archive is empty");
+            }
+            completed = true;
+        } finally {
+            if (!completed && zipFile.exists()) {
+                zipFile.delete();
             }
         }
     }
+
+    private static final class NoLogsException extends Exception {}
 
     private void tryAgain() {
         setRecoveryButtonsEnabled(false);
@@ -307,6 +384,7 @@ public class RecoveryActivity extends AppCompatActivity {
     }
 
     private void setRecoveryButtonsEnabled(boolean enabled) {
+        findViewById(R.id.btn_export_logs).setEnabled(enabled);
         findViewById(R.id.btn_try_again).setEnabled(enabled);
         findViewById(R.id.btn_auto_repair).setEnabled(enabled);
     }
@@ -327,9 +405,12 @@ public class RecoveryActivity extends AppCompatActivity {
 
     private void forceDisableTravelModeForRecoveryBestEffort() {
         try {
-            OneKeyTravelModeLaunchEpochModule.forceDisableTravelModeForRecovery(
+            boolean didChange = OneKeyTravelModeLaunchEpochModule.forceDisableTravelModeForRecovery(
                 getApplicationContext()
             );
+            if (didChange) {
+                runOnUiThread(() -> OneKeyTravelModeSplashScreen.synchronizeBestEffort(this, false));
+            }
         } catch (Exception ignored) {
             // The original recovery action must continue if this safeguard fails.
         }

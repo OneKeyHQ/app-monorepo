@@ -7,6 +7,8 @@ import {
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
 
+import { getMarketStockPreviousClose } from '../../utils/marketStockPreviousClose';
+
 export type IStockSimpleChartRange = '1H' | '1D' | '1W' | '1M' | '1Y' | 'All';
 
 export const TOKEN_SIMPLE_CHART_RANGES = [
@@ -22,6 +24,66 @@ export const STOCK_SHARE_SIMPLE_CHART_RANGES =
   TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
 
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
+
+// The previous session close frames the within-day ranges. On longer ranges
+// it is one of the many closes already on the line, so it stays off.
+const STOCK_SIMPLE_CHART_PREVIOUS_CLOSE_RANGES =
+  new Set<IStockSimpleChartRange>(['1H', '1D']);
+
+export function resolveStockSimpleChartPreviousClose({
+  priceMode,
+  range,
+  stockDetail,
+}: {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
+}): number | undefined {
+  // Only the share quote reports the figure; a tokenized share trades on its
+  // own price and has no session close to compare against.
+  if (
+    priceMode !== 'share' ||
+    !STOCK_SIMPLE_CHART_PREVIOUS_CLOSE_RANGES.has(range)
+  ) {
+    return undefined;
+  }
+  return getMarketStockPreviousClose(stockDetail);
+}
+
+// The line ends on a live pulse while the asset is trading. Crypto trades
+// around the clock, so it always pulses; a stock only pulses while its market
+// is open.
+export function resolveStockSimpleChartPulseLastPoint({
+  stockDetail,
+  stockId,
+  tokenStock,
+}: {
+  stockDetail?: { marketStatus?: { isOpen?: boolean } } | null;
+  stockId?: string;
+  tokenStock?: { isOpen?: boolean } | null;
+}): boolean {
+  const isStock = Boolean(stockId) || Boolean(tokenStock);
+  if (!isStock) {
+    return true;
+  }
+  return (
+    stockDetail?.marketStatus?.isOpen === true || tokenStock?.isOpen === true
+  );
+}
+
+export function resolveStockSimpleChartLivePrice({
+  priceMode,
+  stockDetail,
+  tokenDetail,
+}: {
+  priceMode: 'share' | 'token';
+  stockDetail?: { price?: string } | null;
+  tokenDetail?: { price?: string } | null;
+}): string | undefined {
+  const rawPrice =
+    priceMode === 'share' ? stockDetail?.price : tokenDetail?.price;
+  return rawPrice?.trim() || undefined;
+}
 
 type IStockSimpleChartRequestParams = {
   coinGeckoId?: string;
@@ -105,6 +167,103 @@ const MARKET_ASSET_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1H': '5m',
   '1D': '5m',
 };
+
+export function resolveStockSimpleChartBucketSeconds({
+  coinGeckoId,
+  marketAssetId,
+  priceMode,
+  range,
+}: {
+  coinGeckoId?: string;
+  marketAssetId?: string;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): number | undefined {
+  if (priceMode === 'share') {
+    return undefined;
+  }
+  if (marketAssetId) {
+    return getMarketApiKLineIntervalSeconds(
+      MARKET_ASSET_CHART_INTERVALS[range],
+    );
+  }
+  if (coinGeckoId || range === 'All') {
+    return undefined;
+  }
+  return getMarketApiKLineIntervalSeconds(STOCK_TOKEN_CHART_INTERVALS[range]);
+}
+
+function shouldDropLiveMergeTailPoint({
+  intervalSeconds,
+  nowSeconds,
+  timestamp,
+}: {
+  intervalSeconds?: number;
+  nowSeconds: number;
+  timestamp: number;
+}): boolean {
+  if (timestamp > nowSeconds) {
+    return true;
+  }
+  return Boolean(
+    intervalSeconds &&
+    intervalSeconds > 0 &&
+    timestamp + intervalSeconds > nowSeconds,
+  );
+}
+
+/**
+ * Pins the line's last displayed price to the title quote without rewriting a
+ * closed bucket's cutoff. K-line `t` is the bucket start, so a still-open (or
+ * clock-ahead) bucket is dropped and replaced by a single `[now, livePrice]`
+ * point. The live tail is always appended so the last label matches the title,
+ * including pre-market / stale 1H windows.
+ */
+export function mergeStockSimpleChartLivePrice({
+  intervalSeconds,
+  livePrice,
+  nowSeconds,
+  points,
+}: {
+  intervalSeconds?: number;
+  livePrice?: string | number;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+}): IMarketTokenChart {
+  const price = Number(livePrice);
+  if (
+    points.length === 0 ||
+    !Number.isFinite(price) ||
+    price <= 0 ||
+    !Number.isFinite(nowSeconds)
+  ) {
+    return points;
+  }
+
+  let keptLength = points.length;
+  while (
+    keptLength > 0 &&
+    shouldDropLiveMergeTailPoint({
+      intervalSeconds,
+      nowSeconds,
+      timestamp: points[keptLength - 1][0],
+    })
+  ) {
+    keptLength -= 1;
+  }
+  if (keptLength === 0) {
+    return [[nowSeconds, price]];
+  }
+  const historical =
+    keptLength === points.length ? points : points.slice(0, keptLength);
+
+  const lastClosedTimestamp = historical[historical.length - 1][0];
+  if (nowSeconds === lastClosedTimestamp) {
+    return [...historical.slice(0, -1), [nowSeconds, price]];
+  }
+
+  return [...historical, [nowSeconds, price]];
+}
 
 // Five minutes short of a day, to stay on the 5m series. The chart loses its
 // oldest bucket, which reads the same at this scale as a full day.

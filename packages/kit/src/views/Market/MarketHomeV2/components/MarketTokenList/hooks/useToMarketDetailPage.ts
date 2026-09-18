@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketD
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import { buildReplacedMarketDetailParams } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -29,6 +30,7 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
@@ -79,13 +81,16 @@ interface IUseToDetailPageOptions {
   resolveMarketAsset?: boolean;
 }
 
+// All entry rows navigate the same UI router. A newer selection must also
+// supersede pending navigation started by a different hook instance.
+const navigationGenerationRef = { current: 0 };
+
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const currentRouteName = useRoute().name;
   const tokenDetailActions = useTokenDetailActions();
-  const navigationGenerationRef = useRef(0);
   const splitViewType = useSplitViewType();
   const media = useMedia();
   const preloadLayout =
@@ -95,43 +100,40 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     void preloadMarketDetailV2Page();
   }, []);
 
-  const preparePreviewTokenDetail = useCallback(
-    (item: IMarketToken) => {
-      if (item.tokenDetailPreview) {
-        prewarmMarketTokenImages(item.tokenDetailPreview);
-        tokenDetailActions.current.prepareTokenDetailPreview(
-          item.tokenDetailPreview,
-        );
-        return;
-      }
+  const buildPreviewTokenDetail = useCallback((item: IMarketToken) => {
+    if (item.tokenDetailPreview) {
+      return item.tokenDetailPreview;
+    }
 
-      const previewAddress = item.address ?? item.tokenAddress;
+    const previewAddress = item.address ?? item.tokenAddress;
 
-      if (
-        (!previewAddress && !item.isNative) ||
-        !item.name ||
-        typeof item.decimals !== 'number'
-      ) {
-        tokenDetailActions.current.clearTokenDetail();
-        return;
-      }
+    if (
+      (!previewAddress && !item.isNative) ||
+      !item.name ||
+      typeof item.decimals !== 'number'
+    ) {
+      return undefined;
+    }
 
-      const tokenDetailPreview = buildMarketTokenDetailPreview({
-        ...(item as IMarketHomeToken),
-        address: previewAddress,
-        networkId: item.networkId,
-        symbol: item.symbol,
-        isNative: item.isNative,
-      });
+    const tokenDetailPreview = buildMarketTokenDetailPreview({
+      ...(item as IMarketHomeToken),
+      address: previewAddress,
+      networkId: item.networkId,
+      symbol: item.symbol,
+      isNative: item.isNative,
+    });
 
-      prewarmMarketTokenImages(tokenDetailPreview);
-      tokenDetailActions.current.prepareTokenDetailPreview(tokenDetailPreview);
-    },
-    [tokenDetailActions],
-  );
+    return tokenDetailPreview;
+  }, []);
 
   const toMarketDetailPage = useCallback(
     async (selectedItem: IMarketToken) => {
+      if (
+        travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode'
+      ) {
+        return;
+      }
       let item = selectedItem;
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
@@ -177,7 +179,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
         : options?.marketTokenCategory;
-      const stockId = resolveMarketStockId(resolvedItem);
+      const stockId = resolveMarketStockId({
+        stockId: resolvedItem.stockId,
+      });
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
@@ -235,12 +239,23 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               : undefined),
           }
         : undefined;
+      const navigationPreview = stockId
+        ? undefined
+        : buildPreviewTokenDetail(resolvedItem);
+      if (navigationPreview) {
+        prewarmMarketTokenImages(navigationPreview);
+      }
+      // Native keeps its existing eager initialization; other UIs initialize
+      // shared preview state only after the destination route takes ownership.
+      const routePreview = platformEnv.isNative
+        ? resolvedItem.tokenDetailPreview
+        : navigationPreview;
       const params =
         stockParams ??
-        (resolvedItem.tokenDetailPreview
+        (routePreview
           ? {
               ...tokenParams,
-              legacyTokenPreview: resolvedItem.tokenDetailPreview,
+              legacyTokenPreview: routePreview,
             }
           : tokenParams);
       const detailRouteName = stockId
@@ -248,6 +263,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         : ETabMarketRoutes.MarketDetailV2;
       const shouldReplaceCurrentDetail = Boolean(
         options?.replaceCurrentDetail && currentRouteName !== detailRouteName,
+      );
+      const shouldUpdateCurrentDetail = Boolean(
+        options?.replaceCurrentDetail && currentRouteName === detailRouteName,
       );
 
       // Check if in extension popup/side panel
@@ -276,11 +294,22 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             from: tokenParams.from || enterSource,
           });
         } else {
-          await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
-            ...tokenParams,
-            from: tokenParams.from || enterSource,
-            tokenDetailPreview: resolvedItem.tokenDetailPreview,
-          });
+          try {
+            await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
+              ...tokenParams,
+              from: tokenParams.from || enterSource,
+              tokenDetailPreview: navigationPreview,
+            });
+          } catch {
+            if (navigationGenerationRef.current !== navigationGeneration)
+              return;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+            return;
+          }
         }
         if (navigationGenerationRef.current !== navigationGeneration) {
           return;
@@ -288,53 +317,53 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
         if (stockId) {
-          tokenDetailActions.current.clearTokenDetail();
-        } else {
-          preparePreviewTokenDetail(resolvedItem);
+          tokenDetailActions.current.prepareStockTokenDetail({
+            tokenAddress: resolvedItem.tokenAddress,
+            networkId: resolvedItem.networkId,
+            isNative: resolvedItem.isNative,
+          });
+        } else if (platformEnv.isNative) {
+          if (!navigationPreview) {
+            tokenDetailActions.current.clearTokenDetail();
+          } else {
+            tokenDetailActions.current.prepareTokenDetailPreview(
+              navigationPreview,
+            );
+          }
         }
 
         const targetTab = platformEnv.isNative
           ? ETabRoutes.Discovery
           : ETabRoutes.Market;
 
-        if (platformEnv.isNative) {
-          await marketDetailShellPreloadPromise;
-          if (navigationGenerationRef.current !== navigationGeneration) {
-            return;
-          }
-          // Navigate directly to the nested detail route to avoid briefly
-          // revealing the Discovery root page before entering Market detail.
-          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-            screen: targetTab,
-            params: {
-              screen: detailRouteName,
-              params,
-            },
-          });
-        } else {
-          // First switch to the appropriate tab to highlight it
-          navigation.switchTab(targetTab);
-
-          // Then navigate to detail page using rootNavigationRef
-          // because the current navigation context is from modal, not from the target tab
-          setTimeout(() => {
-            if (navigationGenerationRef.current !== navigationGeneration) {
-              return;
-            }
-            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-              screen: targetTab,
-              params: {
-                screen: detailRouteName,
-                params,
-              },
-            });
-          }, 500);
+        await marketDetailShellPreloadPromise;
+        if (navigationGenerationRef.current !== navigationGeneration) {
+          return;
         }
+        // Select the tab and detail together. Desktop preview state is initialized
+        // by the destination route, never by the still-visible previous detail.
+        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+          screen: targetTab,
+          params: {
+            screen: detailRouteName,
+            params,
+          },
+        });
       } else {
         if (stockId) {
-          tokenDetailActions.current.clearTokenDetail();
-        } else {
-          preparePreviewTokenDetail(resolvedItem);
+          tokenDetailActions.current.prepareStockTokenDetail({
+            tokenAddress: resolvedItem.tokenAddress,
+            networkId: resolvedItem.networkId,
+            isNative: resolvedItem.isNative,
+          });
+        } else if (platformEnv.isNative) {
+          if (navigationPreview) {
+            tokenDetailActions.current.prepareTokenDetailPreview(
+              navigationPreview,
+            );
+          } else {
+            tokenDetailActions.current.clearTokenDetail();
+          }
         }
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
@@ -355,7 +384,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             return;
           }
         }
-        if (stockId) {
+        if (shouldUpdateCurrentDetail) {
+          navigation.setParams(
+            buildReplacedMarketDetailParams(params as Record<string, unknown>),
+          );
+        } else if (stockId) {
           if (shouldReplaceCurrentDetail) {
             navigation.replace(ETabMarketRoutes.MarketStockDetail, params);
           } else {
@@ -372,7 +405,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       currentRouteName,
       intl,
       navigation,
-      preparePreviewTokenDetail,
+      buildPreviewTokenDetail,
       options?.switchToMarketTabFirst,
       options?.from,
       options?.marketTokenCategory,

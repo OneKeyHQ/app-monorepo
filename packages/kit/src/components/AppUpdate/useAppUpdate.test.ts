@@ -37,6 +37,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     updateDownloadedEvent: jest.fn(),
     fetchAppUpdateInfo: jest.fn(),
     refreshUpdateStatus: jest.fn(),
+    refreshCurrentFeaturedChangelog: jest.fn().mockResolvedValue(undefined),
     processPendingInstallTask: jest.fn(),
     fetchChangeLog: jest.fn(),
     reset: jest.fn(),
@@ -335,6 +336,7 @@ import * as React from 'react';
 import { act, renderHook } from '@testing-library/react';
 
 import {
+  clearWhatsNewShown,
   EAppUpdateStatus,
   EUpdateFileType,
   EUpdateStrategy,
@@ -2526,12 +2528,51 @@ describe('useAppUpdateInfo useEffect', () => {
 
   // ----- C1. First launch after update -----
   describe('first launch after update', () => {
-    test('isFirstLaunchAfterUpdated + non-seamless → opens WhatsNew', async () => {
+    test('first manual launch waits for current-version featured refresh before showing WhatsNew', async () => {
       // isFirstLaunchAfterUpdated returns true when status !== done
       // and APP_VERSION >= latestVersion
       setAtom({
         status: EAppUpdateStatus.notify,
         latestVersion: '1.0.0', // same as platformEnv.version
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+      let finishRefresh!: () => void;
+      svc.refreshCurrentFeaturedChangelog.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve;
+        }),
+      );
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(svc.refreshCurrentFeaturedChangelog).toHaveBeenCalledTimes(1);
+      expect(nav.pushModal).not.toHaveBeenCalled();
+      expect(svc.refreshUpdateStatus).not.toHaveBeenCalled();
+
+      await act(async () => {
+        finishRefresh();
+        await jest.runAllTimersAsync();
+      });
+
+      expect(nav.pushModal).toHaveBeenCalledWith('AppUpdateModal', {
+        screen: 'WhatsNew',
+      });
+      expect(svc.refreshUpdateStatus).toHaveBeenCalled();
+    });
+
+    test('first manual hot-update launch shows WhatsNew without refreshing full-release cards', async () => {
+      await clearWhatsNewShown();
+      setAtom({
+        status: EAppUpdateStatus.notify,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '1',
         updateStrategy: EUpdateStrategy.manual,
       });
       svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
@@ -2543,7 +2584,10 @@ describe('useAppUpdateInfo useEffect', () => {
         await jest.runAllTimersAsync();
       });
 
-      // Should call refreshUpdateStatus then schedule fetch
+      expect(svc.refreshCurrentFeaturedChangelog).not.toHaveBeenCalled();
+      expect(nav.pushModal).toHaveBeenCalledWith('AppUpdateModal', {
+        screen: 'WhatsNew',
+      });
       expect(svc.refreshUpdateStatus).toHaveBeenCalled();
     });
 

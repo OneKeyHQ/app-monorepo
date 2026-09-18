@@ -3,14 +3,16 @@ import { Illustration, SizableText, YStack } from '@onekeyhq/components';
 export function PerpDesktopEmptyState({
   title,
   contentOffsetY = 0,
+  alignToTop = false,
 }: {
   title: string;
   contentOffsetY?: number;
+  alignToTop?: boolean;
 }) {
   return (
     <YStack
       flex={1}
-      justifyContent="center"
+      justifyContent={alignToTop ? 'flex-start' : 'center'}
       alignItems="center"
       px="$5"
       py="$6"

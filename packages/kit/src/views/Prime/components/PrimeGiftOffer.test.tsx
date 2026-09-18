@@ -17,6 +17,8 @@ import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IPrimeGiftEligibilityCache } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeGiftPages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
 import { PrimeGiftOffer } from './PrimeGiftOffer';
@@ -24,6 +26,8 @@ import { PrimeGiftOffer } from './PrimeGiftOffer';
 const enTranslations: Record<string, string> = enMessages;
 const zhTranslations: Record<string, string> = zhMessages;
 const mockNavigate = jest.fn();
+const mockOfferShown = jest.fn();
+const mockOfferClick = jest.fn();
 const mockListeners = new Set<(event: { serialNo: string }) => void>();
 let mockCache: IPrimeGiftEligibilityCache = {};
 const mockCacheListeners = new Set<() => void>();
@@ -49,24 +53,28 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => {
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual('react') as typeof import('react');
-  function Container({
-    children,
-    testID,
-    onPress,
-  }: {
-    children?: ReactNode;
-    testID?: string;
-    onPress?: () => void;
-  }) {
+  const Container = React.forwardRef(function Container(
+    {
+      children,
+      testID,
+      onPress,
+    }: {
+      children?: ReactNode;
+      testID?: string;
+      onPress?: () => void;
+    },
+    ref: React.Ref<HTMLElement>,
+  ) {
     return React.createElement(
       onPress ? 'button' : 'div',
       {
         'data-testid': testID,
         onClick: onPress,
+        ref,
       },
       children,
     );
-  }
+  });
   return {
     XStack: Container,
     YStack: Container,
@@ -79,6 +87,7 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@react-navigation/core', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
+    useIsFocused: () => true,
     useFocusEffect: (effect: () => void | (() => void)) =>
       React.useEffect(effect, [effect]),
   };
@@ -92,6 +101,21 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: { servicePrime: { apiGetPrimeGiftEligibility: jest.fn() } },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    prime: {
+      subscription: {
+        primeGiftOfferShown: (...args: unknown[]) => {
+          mockOfferShown(...args);
+        },
+        primeGiftOfferClick: (...args: unknown[]) => {
+          mockOfferClick(...args);
+        },
+      },
+    },
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
@@ -136,12 +160,49 @@ function renderOffer() {
   });
 }
 
+let autoIntersect = true;
+let lastIntersectCallback: IntersectionObserverCallback | undefined;
+
+function emitIntersection(node: Element = document.body) {
+  lastIntersectCallback?.(
+    [
+      {
+        isIntersecting: true,
+        target: node,
+        boundingClientRect: node.getBoundingClientRect(),
+        intersectionRect: node.getBoundingClientRect(),
+        rootBounds: null,
+        time: 0,
+        intersectionRatio: 1,
+      },
+    ],
+    {} as IntersectionObserver,
+  );
+}
+
 describe('PrimeGiftOffer real server eligibility', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockListeners.clear();
     mockCache = {};
     mockCacheListeners.clear();
+    autoIntersect = true;
+    lastIntersectCallback = undefined;
+    class AutoIntersectObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        lastIntersectCallback = callback;
+      }
+
+      observe(node: Element) {
+        if (autoIntersect) emitIntersection(node);
+      }
+
+      disconnect() {}
+
+      unobserve() {}
+    }
+    globalThis.IntersectionObserver =
+      AutoIntersectObserver as unknown as typeof IntersectionObserver;
     servicePrime.apiGetPrimeGiftEligibility.mockImplementation(
       async ({ serialNo }) => {
         const eligibility = await mockFetchEligibility(serialNo);
@@ -205,6 +266,8 @@ describe('PrimeGiftOffer real server eligibility', () => {
     });
     expect(screen.queryByTestId(offerTestId)).toBeNull();
     expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockOfferShown).not.toHaveBeenCalled();
+    expect(mockOfferClick).not.toHaveBeenCalled();
   });
 
   it('does not show a fabricated offer when the request fails', async () => {
@@ -325,5 +388,58 @@ describe('PrimeGiftOffer real server eligibility', () => {
       );
     });
     expect(screen.queryByTestId(offerTestId)).toBeNull();
+  });
+
+  it('does not log shown offscreen, then logs once when the banner intersects', () => {
+    autoIntersect = false;
+    mockCache = { 'DEVICE-A': eligible };
+    mockFetchEligibility.mockResolvedValue(eligible);
+    const view = renderOffer();
+    expect(screen.getByTestId(offerTestId)).toBeTruthy();
+    expect(mockOfferShown).not.toHaveBeenCalled();
+    act(() => emitIntersection());
+    expect(mockOfferShown).toHaveBeenCalledTimes(1);
+    expect(mockOfferShown).toHaveBeenCalledWith({ source: 'deviceDetails' });
+    act(() => emitIntersection());
+    expect(mockOfferShown).toHaveBeenCalledTimes(1);
+    view.unmount();
+    renderOffer();
+    act(() => emitIntersection());
+    expect(mockOfferShown).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs exposure and clicks with the source from each entry', async () => {
+    mockCache = { 'DEVICE-A': eligible };
+    mockFetchEligibility.mockResolvedValue(eligible);
+    renderOffer();
+    fireEvent.click(screen.getByTestId(offerTestId));
+    expect(mockOfferClick).toHaveBeenCalledWith({ source: 'deviceDetails' });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      EModalRoutes.PrimeGiftModal,
+      expect.objectContaining({
+        screen: EPrimeGiftPages.PrimeGift,
+        params: expect.objectContaining({
+          serialNo: 'DEVICE-A',
+          source: 'deviceDetails',
+        }),
+      }),
+    );
+    render(
+      <IntlProvider locale="zh-CN" messages={zhTranslations}>
+        <PrimeGiftOffer device={device} source="onboarding" />
+      </IntlProvider>,
+    );
+    expect(mockOfferShown).toHaveBeenCalledWith({ source: 'onboarding' });
+    fireEvent.click(screen.getByTestId('prime-gift-offer-onboarding'));
+    expect(mockOfferClick).toHaveBeenCalledWith({ source: 'onboarding' });
+    expect(mockNavigate).toHaveBeenLastCalledWith(
+      EModalRoutes.PrimeGiftModal,
+      expect.objectContaining({
+        screen: EPrimeGiftPages.PrimeGift,
+        params: expect.objectContaining({
+          source: 'onboarding',
+        }),
+      }),
+    );
   });
 });

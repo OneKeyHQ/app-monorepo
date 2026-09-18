@@ -94,6 +94,7 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-lite-card',
     '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
+    '@onekeyfe/react-native-native-sheet',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
     '@onekeyfe/react-native-perf-stats',

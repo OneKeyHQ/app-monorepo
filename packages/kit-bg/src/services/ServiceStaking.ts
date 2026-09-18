@@ -100,7 +100,7 @@ import {
   EApproveType,
   EStakeProtocolGroupEnum,
 } from '@onekeyhq/shared/types/staking';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
@@ -326,6 +326,7 @@ class ServiceStaking extends ServiceBase {
         o,
       ): o is IAccountHistoryTx &
         Required<Pick<IAccountHistoryTx, 'stakingInfo'>> =>
+        o.replacedType !== EReplaceTxType.Cancel &&
         Boolean(o.stakingInfo && o.stakingInfo.tags.includes(stakeTag)),
     );
 

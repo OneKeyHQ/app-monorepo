@@ -9,7 +9,13 @@ import {
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard, PixelRatio, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Keyboard,
+  PixelRatio,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -19,6 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ThirdPartyWalletAvatarImages,
   getThirdPartyDeviceAvatarImage,
@@ -28,10 +35,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
-import {
-  restoreAndroidSoftInputMode,
-  suspendAndroidSoftInputPan,
-} from '../../hooks/useKeyboardController';
 import {
   Button,
   Haptics,
@@ -56,6 +59,7 @@ import {
   useMorphOverlay,
 } from '../MorphOverlay';
 
+import { getCapsuleAccessibilityProps } from './accessibility';
 import { PassphraseForm, PinPad } from './AppInputs';
 import {
   CARD_ARRANGEMENTS,
@@ -76,6 +80,7 @@ import { PassphraseIntro } from './PassphraseIntro';
 import { QrPresent, QrScanFrame } from './QrPanels';
 import { ShimmerTitle } from './ShimmerTitle';
 import {
+  CAPSULE_HAPTIC_STEPS,
   COMPACT_STAGED_STEPS,
   DEVICE_BADGE_STEPS,
   ERROR_TEXT,
@@ -115,11 +120,11 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * and the per-step flow riding the container's clock through `onAim`.
  *
  * The pose table (./stepCopy's STEP_POSE): `off` is hidden — the stage
- * is simply not there, and entrances appear at their pose; `connecting`
- * and `processing` are capsule-class — waiting beats worn as the
- * flow-spec pill (device thumbnail, sweeping live title, the device's
- * name under it); every other step is card-class, its height hugging
- * that step's own content.
+ * is simply not there, and entrances appear at their pose; `connecting`,
+ * `processing` and `confirm` are capsule-class — the waiting beats and
+ * the device-side confirm, worn as the flow-spec pill (device thumbnail,
+ * sweeping live title, the device's name under it); every other step is
+ * card-class, its height hugging that step's own content.
  *
  * The replica is ONE standing device across every pose — the capsule's
  * thumbnail is the same instance worn small, its scenes a troupe parked
@@ -128,12 +133,13 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * glass plays the handover between scenes — off, then a wake from
  * black — with arrivals from a hidden device granted instant entry.
  * Inside the stage arrangement the words are StepText swapping in place
- * and the confirm move re-arranges on the arrangement clock; a change
- * of arrangement runs the container's two-phase swap, landing content
- * and height target together on the empty beat; confirm's payload card
- * rides the words' beat. The panels are the scenes' twin troupe (see
- * CARD_ARRANGEMENTS): parked built in their seats, so no crossing or
- * pose flip ever builds native views mid-animation.
+ * and a port move (full stage to miniature and back) re-arranges on
+ * the arrangement clock; a change of arrangement runs the container's
+ * two-phase swap, landing content and height target together on the
+ * empty beat; the stage tail's cards ride the words' beat. The panels
+ * are the scenes' twin troupe (see CARD_ARRANGEMENTS): parked built in
+ * their seats, so no crossing or pose flip ever builds native views
+ * mid-animation.
  *
  * The stage is modal, and undimmed for asks and waits: while it is there
  * the app behind takes no touch — the person stays with the device — and
@@ -278,12 +284,26 @@ const PIXEL_GRID = PixelRatio.get();
  * foot and all. */
 const FOG_COLORS = [stageBgAlpha(0), stageBgAlpha(0.5), STAGE_BG];
 const FOG_LOCATIONS = [0, 0.58, 0.87] as const;
+/**
+ * How far the fog runs on under the port's floor, where the window
+ * clips it away. Android paints the gradient as an anti-aliased path
+ * of exactly its own bounds (expo's LinearGradientView) while the
+ * window's clip rounds to whole pixels, so a subtree resting on a
+ * fractional pixel leaves the fog's last row half-covered and the
+ * keypad underneath showing through as a hairline (OK-63384). Ending
+ * the fog below the clip hands that edge to the clip instead; the
+ * fade's stops are rescaled so they stay put over the port. Android
+ * only: iOS's gradient layer has no edge anti-aliasing and the web
+ * draws a CSS gradient, so elsewhere the fog keeps the port's own
+ * height and the stops as authored.
+ */
+const FOG_BLEED = platformEnv.isNativeAndroid ? 2 : 0;
 
 /**
  * Which arrangement a card step gives the standing replica: the full
- * stage for the device-side asks, the miniature for confirm and the
- * authenticity flow, nothing for the app-side inputs, the air-gap pair
- * and the endings. Built off the two staged-step lists so membership is
+ * stage for the device-side asks, the miniature for the authenticity
+ * flow, nothing for the app-side inputs, the air-gap pair and the
+ * endings. Built off the two staged-step lists so membership is
  * stated once (see ./stepCopy).
  */
 type IReplicaArrangement = 'full' | 'compact';
@@ -296,8 +316,8 @@ const REPLICA_ARRANGEMENT = Object.fromEntries([
  * The staged row, to the design: the replica stands `top` under the
  * content's top edge; on the full stage the words begin `fullHeight`
  * under it — inside the port's fogged foot, the device running on
- * behind them — while the confirm miniature's row ends `bottom` under
- * the scaled device and the words sit clear below.
+ * behind them — while the miniature's row ends `bottom` under the
+ * scaled device and the words sit clear below.
  */
 const STAGE_ROW = {
   top: 16,
@@ -311,13 +331,24 @@ const REPLICA_TOP = CARD.padTop + STAGE_ROW.top;
  * default is REPLICA_WIDTH, the OK-62091 call). The design states its
  * numbers at STAGE_DESIGN_WIDTH; the full stage — its port and the
  * words' tuck into the foot — keeps its proportion of the device, while
- * the capsule thumbnail and the confirm miniature keep their own
+ * the capsule thumbnail and the compact miniature keep their own
  * absolute widths, so the width only grows or shrinks the full stage.
  */
 function replicaMetricsFor(replicaWidth: number) {
   const scale = replicaWidth / STAGE_DESIGN_WIDTH;
+  const fullPort = Math.round(PORT_HEIGHT * scale);
+  const fogHeight = fullPort + FOG_BLEED;
+  const fogStop = fullPort / fogHeight;
   return {
-    fullPort: Math.round(PORT_HEIGHT * scale),
+    fullPort,
+    /** The fog's own box: the port plus its bleed under the floor, the
+     * stops landing where they would on the port alone. */
+    fogHeight,
+    fogLocations: [
+      FOG_LOCATIONS[0] * fogStop,
+      FOG_LOCATIONS[1] * fogStop,
+      FOG_LOCATIONS[2] * fogStop,
+    ] as const,
     /** The words' margin over the spacer, per arrangement: the full
      * stage tucks them into the foot, the miniature clears them. */
     wordsMarginByKind: {
@@ -464,8 +495,12 @@ function useStageTailFlag(want: boolean, liveOnShow: boolean): boolean {
  * haptics setting, and is a no-op off the phones.
  */
 function fireStepHaptic(step: IDeviceStageStep) {
-  // `done` is the one capsule arrival that carries news rather than a
-  // wait — the burst's ✓ beat — so it buzzes like the outcome cards.
+  // Every card arrival speaks; of the capsule arrivals only the ones
+  // the vocabulary names (CAPSULE_HAPTIC_STEPS).
+  if (STEP_POSE[step] !== 'card' && !CAPSULE_HAPTIC_STEPS.has(step)) {
+    return;
+  }
+  // `done` is the burst's ✓ beat, so it buzzes like the outcome cards.
   if (step === 'authSuccess' || step === 'done') {
     Haptics.success();
     return;
@@ -498,6 +533,7 @@ export function DeviceStage({
   errorReason,
   errorMessage,
   errorI18n,
+  doneI18n,
   authChecklist,
   authFailureReason,
   onAuthSupport,
@@ -536,17 +572,20 @@ export function DeviceStage({
   const intl = useIntl();
   const {
     fullPort,
+    fogHeight,
+    fogLocations,
     wordsMarginByKind,
     compactScale,
     thumbScale,
     estimatedHeight,
-  } = replicaMetricsFor(replicaWidth);
+  } = useMemo(() => replicaMetricsFor(replicaWidth), [replicaWidth]);
   const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
   const localizedErrorMessage = resolveErrorMessage(
     intl,
     errorMessage,
     errorI18n,
   );
+  const localizedDoneTitle = resolveErrorMessage(intl, undefined, doneI18n);
   // The failure's own words, where no reason claims it — the message the
   // live flow's toast used to speak. A reason's considered wording wins.
   const errorOwnWords = errorReason ? undefined : localizedErrorMessage;
@@ -568,10 +607,11 @@ export function DeviceStage({
   // large main-thread composite, and paying it mid-flight is the stutter.
   // (A shouldRasterizeIOS freeze was tried first and made it worse: the
   // raster's own on/off each cost a full offscreen pass.) So the pose
-  // flight defers the screen handover the way the confirm shrink always
-  // has — the scene holds until the geometry has landed (see sceneStep
-  // below). Render-phase state write on purpose: the hold must ship in
-  // the same commit that starts the springs.
+  // flight defers the screen handover the way the in-stage port move
+  // (the miniature shrink) always has — the scene holds until the
+  // geometry has landed (see sceneStep below). Render-phase state write
+  // on purpose: the hold must ship in the same commit that starts the
+  // springs.
   const [poseInFlight, setPoseInFlight] = useState(false);
   const prevPoseForFlightRef = useRef(pose);
   if (prevPoseForFlightRef.current !== pose) {
@@ -590,10 +630,9 @@ export function DeviceStage({
   // down; a refused entry keeps the step, so inline retry keeps typing.
   // ...and the arrival buzz rides the same step edge — this commit is
   // the one whose layout effect aims the springs, so the buzz and the
-  // first moving frame share the beat. Every card arrival speaks (news
-  // steps buzz their news through the grammar); of the capsule steps
-  // only `done`'s ✓ does — returning to a wait, and the leave, stay
-  // silent. The very first step is the opening state, not a transition.
+  // first moving frame share the beat (which arrivals speak is
+  // fireStepHaptic's). The very first step is the opening state, not a
+  // transition.
   const prevStepEdgeRef = useRef(step);
   useEffect(() => {
     const prev = prevStepEdgeRef.current;
@@ -604,29 +643,8 @@ export function DeviceStage({
     if (prev === 'passphraseOnApp' || prev === 'pairingCode') {
       Keyboard.dismiss();
     }
-    if (STEP_POSE[step] === 'card' || step === 'done') {
-      fireStepHaptic(step);
-    }
+    fireStepHaptic(step);
   }, [step]);
-  // The system-keyboard steps own their lift: the shell already rides the
-  // keyboard (MorphOverlay), so the Android window must not pan on top of
-  // it. The manifest's adjustPan did exactly that for the passphrase field
-  // — it sits low on the screen, so the OS shoved the whole window up by
-  // the overlap while the shell rose by the keyboard's height, and the card
-  // ended a keyboard's worth above the keys with its title in the status
-  // bar (OK-62098). Adjust-nothing for the step's stay, the manifest mode
-  // back the moment it leaves. No-op off Android.
-  const systemKeyboardStep =
-    step === 'passphraseOnApp' || step === 'pairingCode';
-  useEffect(() => {
-    if (!systemKeyboardStep) {
-      return undefined;
-    }
-    suspendAndroidSoftInputPan();
-    return () => {
-      restoreAndroidSoftInputMode();
-    };
-  }, [systemKeyboardStep]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
   }, []);
@@ -641,6 +659,7 @@ export function DeviceStage({
     swapFade,
     progress,
     width: morphWidth,
+    reveal,
     pillSize,
     reducedMotion,
   } = morph;
@@ -877,8 +896,8 @@ export function DeviceStage({
     (shownPanel?.tail ?? 0);
 
   // What the replica plays, on the stage's own lag: while the geometry
-  // is moving — a pose flight, or the confirm arrangement's port move —
-  // the scene holds until it has landed; a change on a resting box hands
+  // is moving — a pose flight, or an in-stage port move — the scene
+  // holds until it has landed; a change on a resting box hands
   // over right away. The capsule side always plays connecting — the
   // thumbnail IS the connecting-state device.
   const [sceneStep, setSceneStep] = useState(shownStep);
@@ -1011,8 +1030,8 @@ export function DeviceStage({
       // the arrangement it left in may not be the one it returns to.
       // Like the flow twins below, the pair lands the new arrangement in
       // one piece on a crossing or a pose arrival (otherwise a stale
-      // confirm miniature grows to full size under the reveal); only a
-      // live stage move — the confirm shrink and back, on show — runs on
+      // miniature grows to full size under the reveal); only a live
+      // stage move — the miniature shrink and back, on show — runs on
       // the clock.
       if (shownPort) {
         if (facts.landInPlace) {
@@ -1069,6 +1088,8 @@ export function DeviceStage({
   // fade gated by the card's arrival window, so a reveal racing the
   // teleport can never show the device at the wrong seat.
   const pillHeight = pillSize.height;
+  // Both windows also wear the island morph's reveal (see MorphOverlay),
+  // under the warm floor: the layer stays rasterized through the grow.
   const replicaLayerStyle = useAnimatedStyle(() => {
     // Layout-free centering: the box's live width in a transform,
     // snapped to the physical pixel grid — Yoga rounds layout but a
@@ -1091,7 +1112,7 @@ export function DeviceStage({
               [0, PILL_OUT_END],
               [1, 0],
               Extrapolation.CLAMP,
-            ),
+            ) * reveal.value,
             REPLICA_HOLD_ALPHA,
           ) * capsuleSeatShown.value,
         transform: [{ translateX: centerX }, { translateY: -REPLICA_TOP }],
@@ -1100,6 +1121,7 @@ export function DeviceStage({
     const staged =
       replicaShown.value *
       swapFade.value *
+      reveal.value *
       interpolate(
         progress.value,
         [CARD_IN_START, 1],
@@ -1121,6 +1143,7 @@ export function DeviceStage({
     progress,
     replicaShown,
     replicaWidth,
+    reveal,
     swapFade,
   ]);
   // At the thumbnail seat the window opens to the capsule's own height —
@@ -1131,20 +1154,35 @@ export function DeviceStage({
     }),
     [pillHeight, portHeight, progress],
   );
+  // The window itself rides to the thumbnail box at the row's start. The
+  // port stays replica-wide and clips, so shifting the device inside it
+  // instead pushed the thumbnail past the port's edge once the capsule
+  // outgrew the port (a two-line title widened it to the 288 cap and the
+  // seat vanished, OK-63523). Its own style: reading morphWidth beside the
+  // height would re-lay out the port on every frame of a width spring.
+  const portSeatStyle = useAnimatedStyle(
+    () => ({
+      transform: [
+        {
+          translateX:
+            progress.value < SEAT_SWAP_AT
+              ? PILL.pad +
+                CAPSULE_ROW.paddingX +
+                CAPSULE_ROW.thumbBox / 2 -
+                morphWidth.value / 2
+              : 0,
+        },
+      ],
+    }),
+    [morphWidth, progress],
+  );
   const deviceSeatStyle = useAnimatedStyle(() => {
     if (progress.value < SEAT_SWAP_AT) {
-      // Centered in the thumbnail box at the row's start, in port
-      // coordinates (the layer shift above pins the port to the face
-      // top): translate in parent units, then shrink about top-center.
+      // Centered in the thumbnail box, in port coordinates (the port sits
+      // at the seat and the layer shift above pins it to the face top):
+      // shrink about top-center.
       return {
         transform: [
-          {
-            translateX:
-              PILL.pad +
-              CAPSULE_ROW.paddingX +
-              CAPSULE_ROW.thumbBox / 2 -
-              morphWidth.value / 2,
-          },
           {
             translateY: pillHeight / 2 - (deviceHeight * thumbScale) / 2,
           },
@@ -1153,13 +1191,9 @@ export function DeviceStage({
       };
     }
     return {
-      transform: [
-        { translateX: 0 },
-        { translateY: 0 },
-        { scale: deviceScale.value },
-      ],
+      transform: [{ translateY: 0 }, { scale: deviceScale.value }],
     };
-  }, [deviceHeight, deviceScale, morphWidth, pillHeight, progress, thumbScale]);
+  }, [deviceHeight, deviceScale, pillHeight, progress, thumbScale]);
   // The fog belongs to the stage seats only: the capsule wears the whole
   // device, foot and all.
   const fogMotionStyle = useAnimatedStyle(
@@ -1182,8 +1216,13 @@ export function DeviceStage({
     [replicaLayerStyle, replicaWidth],
   );
   const portStyle = useMemo(
-    () => [styles.portWindow, { width: replicaWidth }, portWindowStyle],
-    [portWindowStyle, replicaWidth],
+    () => [
+      styles.portWindow,
+      { width: replicaWidth },
+      portWindowStyle,
+      portSeatStyle,
+    ],
+    [portSeatStyle, portWindowStyle, replicaWidth],
   );
   const deviceStyle = useMemo(
     () => [styles.miniature, deviceSeatStyle],
@@ -1192,10 +1231,10 @@ export function DeviceStage({
   const fogStyle = useMemo(
     () => [
       styles.fog,
-      { width: replicaWidth, height: fullPort },
+      { width: replicaWidth, height: fogHeight },
       fogMotionStyle,
     ],
-    [fogMotionStyle, fullPort, replicaWidth],
+    [fogMotionStyle, fogHeight, replicaWidth],
   );
   const wordsStyle = useMemo(
     () => [styles.wordsBlock, wordsFlowStyle],
@@ -1326,12 +1365,10 @@ export function DeviceStage({
       Boolean(authChecklist?.length),
     stageTailLive,
   );
-  // Confirm's payload card rides the same beat: on show together with
-  // the confirm words, never a delayed second landing — the tail's
-  // height re-aim already carries it, so entering confirm grows the box
-  // straight to its full size in one move. Any of the three content
-  // shapes summons it; the count pill rides its beat, it never calls
-  // the card up alone.
+  // Confirm's payload card, parked: confirm rests as the capsule, so
+  // the stage seat never speaks for it and this never lights. Kept
+  // wired with the rest of the confirm channel — see
+  // CONFIRM_PAYLOAD_HIDDEN in kit-bg's DeviceStageBurst.
   const confirmCardShown = useStageTailFlag(
     stageWordsStep === 'confirm' &&
       Boolean(confirmDetails?.length || confirmMessage || confirmDescription),
@@ -1346,8 +1383,8 @@ export function DeviceStage({
     resolveCapsuleText(intl, 'connecting', deviceName, vendor),
   );
   // The capsule's glyph seat freezes on the same clock as its words: the
-  // vendor's product shot for the device beats, the ✓ for `done`, the ✗
-  // for the notice, the Bluetooth badge for the wireless waits.
+  // vendor's product shot for the device beats, the ✓ for either track's
+  // `done`, the ✗ for the notice, the Bluetooth badge for the wireless waits.
   const capsuleGlyphRef = useRef<'device' | 'done' | 'error' | 'bluetooth'>(
     'device',
   );
@@ -1362,6 +1399,7 @@ export function DeviceStage({
       errorReason,
       localizedErrorMessage,
       waitStalled ? (connectionType ?? 'usb') : undefined,
+      localizedDoneTitle,
     );
     // Same words, same object: the capsule row's memo then bails on
     // every render that changed nothing it shows.
@@ -1373,8 +1411,10 @@ export function DeviceStage({
     }
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
+    } else if (step === 'done') {
+      capsuleGlyphRef.current = 'done';
     } else if (vendor) {
-      capsuleGlyphRef.current = step === 'done' ? 'done' : 'device';
+      capsuleGlyphRef.current = 'device';
     } else {
       // The wireless waits — connecting and processing alike — wear the
       // Bluetooth badge in the device seat: the replica steps aside
@@ -1391,11 +1431,23 @@ export function DeviceStage({
   const capsuleText = capsuleTextRef.current;
   const capsuleGlyph = capsuleGlyphRef.current;
 
+  const lastAnnouncedStepRef = useRef<IDeviceStageStep | undefined>(undefined);
+  useEffect(() => {
+    const previousStep = lastAnnouncedStepRef.current;
+    lastAnnouncedStepRef.current = step;
+    // iOS does not support live regions; announce each success once.
+    if (platformEnv.isNativeIOS && step === 'done' && previousStep !== 'done') {
+      AccessibilityInfo.announceForAccessibility(capsuleText.title);
+    }
+  }, [capsuleText.title, step]);
+
   // The seat gate's aim (declared with the notice logic above): the
   // frozen glyph decides the seat on the capsule's own clock, so the
   // exit keeps whatever the capsule last showed.
   const capsuleSeatCleared =
-    capsuleGlyph === 'error' || capsuleGlyph === 'bluetooth';
+    capsuleGlyph === 'done' ||
+    capsuleGlyph === 'error' ||
+    capsuleGlyph === 'bluetooth';
   useEffect(() => {
     const target = capsuleSeatCleared ? 0 : 1;
     if (reducedMotion || sceneEntryInstant) {
@@ -2105,7 +2157,7 @@ export function DeviceStage({
 
   // The standing set: ONE device across every pose, never rebuilt, only
   // re-seated — thumbnail-small beside the capsule's words, the full
-  // stage or the confirm miniature on the card. Its scenes live parked
+  // stage or the compact miniature on the card. Its scenes live parked
   // on its one glass (the troupe grant): a crossing flips which is lit
   // and nothing ever builds; only the visible scene's clock runs, from
   // 0. The fog paints the port fade over the opaque face, and rests
@@ -2118,14 +2170,14 @@ export function DeviceStage({
           <Animated.View style={fogStyle}>
             <LinearGradient
               colors={FOG_COLORS}
-              locations={FOG_LOCATIONS}
+              locations={fogLocations}
               style={styles.fogFill}
             />
           </Animated.View>
         </Animated.View>
       </Animated.View>
     ),
-    [deviceLayer, deviceStyle, fogStyle, portStyle, replicaStyle],
+    [deviceLayer, deviceStyle, fogLocations, fogStyle, portStyle, replicaStyle],
   );
 
   // The ripple rests through pose flights too: the capsule pose stands
@@ -2141,15 +2193,16 @@ export function DeviceStage({
         px={CAPSULE_ROW.paddingX}
         gap={CAPSULE_ROW.gap}
         alignItems="center"
+        {...getCapsuleAccessibilityProps(capsuleGlyph, capsuleText.title)}
       >
         {/* The device's capsule seat, held open: the one standing replica
           wears the thumbnail arrangement over this box — the
           connecting-state device itself, never a second instance.
           Living outside the keyed row, it also never rebuilds when the
           capsule's words swap. The vendor track fills the same box
-          itself — a product shot, or the ✓ on `done` — since those
-          devices have no replica to seat here. The notice fills it with
-          the failure ✗ on both tracks, and the wireless waits
+          itself with a product shot since those devices have no replica
+          to seat here. The ✓ on `done` and the failure ✗ clear either
+          track's device seat, as do the wireless waits
           (connecting and processing) with the Bluetooth badge — the
           seat gate clears the replica for both (the wired waits keep
           the replica: the plugged-in device itself). */}
