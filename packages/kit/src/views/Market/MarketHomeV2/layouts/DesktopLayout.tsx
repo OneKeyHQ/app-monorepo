@@ -32,7 +32,10 @@ import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
-import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketListLoadingFallback';
+import {
+  MarketDesktopTableLoadingFallback,
+  MarketListLoadingFallback,
+} from '../components/MarketTokenList/MarketListLoadingFallback';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketTopCoinsList } from '../components/MarketTopCoinsList/MarketTopCoinsList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
@@ -407,7 +410,7 @@ export function DesktopLayout({
           <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
             <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
               {hasActivated(watchlistTabName) ? (
-                <Suspense fallback={<MarketListLoadingFallback />}>
+                <Suspense fallback={<MarketDesktopTableLoadingFallback />}>
                   <LazyMarketWatchlistTokenList
                     tabIntegrated
                     tabName={watchlistTabName}
