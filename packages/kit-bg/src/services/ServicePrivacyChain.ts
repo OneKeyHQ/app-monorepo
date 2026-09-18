@@ -111,6 +111,9 @@ export type ILocalWalletAccountListItem = {
   walletId: string;
   walletName: string;
   networkId: string;
+  // The wallet was created with 'do not save'. Enabling still writes a viewing
+  // key to disk, so the enable flow has to disclose that before opting in.
+  walletIsTemp: boolean;
 };
 
 @backgroundClass()
@@ -217,9 +220,6 @@ class ServicePrivacyChain extends ServiceBase {
     }
     if (!this.initPromise) {
       this.initPromise = (async () => {
-        // Primed here so the tick's gate-two check can stay synchronous.
-        await this.isPrivacySyncOnCellularAllowed();
-        await this.loadScanPausedNetworks();
         await this.forEachLocalWalletCapability((capability) =>
           capability.resumePendingOperations(),
         );
@@ -282,8 +282,6 @@ class ServicePrivacyChain extends ServiceBase {
   // Mirrors simpleDb so the scheduler can answer synchronously; primed in
   // init().
   boostPausedByNetwork: Record<string, boolean> = {};
-
-  scanPauseLoaded = false;
 
   // Blocks left in this account's backfill, from what the scheduler last
   // published. Read off the atom on purpose: the wallet's own lane is the one
@@ -352,13 +350,7 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     // Reached only by an explicit press, which IS the resume.
-    if (this.boostPausedByNetwork[networkId]) {
-      delete this.boostPausedByNetwork[networkId];
-      await this.backgroundApi.simpleDb.privacyChain.saveScanPaused({
-        networkId,
-        paused: false,
-      });
-    }
+    delete this.boostPausedByNetwork[networkId];
     // The shared UI control is capability-based, so verify the selected
     // network before asking its vault to sync.
     const wasRequested = this.foregroundBoostRequestedByNetwork[networkId];
@@ -428,11 +420,10 @@ class ServicePrivacyChain extends ServiceBase {
   }: {
     networkId: string;
   }): Promise<void> {
+    // Session-scoped on purpose: "not right now" is about this sitting, not
+    // a setting. A restart returns to the default (scan on Wi-Fi, hold on
+    // metered data), and the light is always reachable to pause again.
     this.boostPausedByNetwork[networkId] = true;
-    await this.backgroundApi.simpleDb.privacyChain.saveScanPaused({
-      networkId,
-      paused: true,
-    });
     console.log('[privacy-chain:sched] scanning PAUSED by user', { networkId });
     await this.publishBoostingNetworks();
   }
@@ -447,27 +438,19 @@ class ServicePrivacyChain extends ServiceBase {
     ? undefined
     : false;
 
-  allowPrivacySyncOnCellularCache: boolean | undefined;
+  // Consent to spend metered data. A persisted setting, not a per-session
+  // prompt: a switch that silently returns to off after every restart is the
+  // one thing a switch must never do. Backfill is the expensive half -- an
+  // account whose birthday predates the 2022 spam region downloads gigabytes
+  // -- so the copy next to it has to say what it costs.
+  // Mirrors the persisted value so the scheduler tick, which is synchronous,
+  // can still answer gate two without awaiting storage.
+  private allowCellularSyncCache = false;
 
-  // The scheduler asks this every pass, so it reads the primed mirror.
-  async loadScanPausedNetworks(): Promise<void> {
-    if (this.scanPauseLoaded) {
-      return;
-    }
-    this.boostPausedByNetwork = {
-      ...(await this.backgroundApi.simpleDb.privacyChain.getScanPausedNetworks()),
-      ...this.boostPausedByNetwork,
-    };
-    this.scanPauseLoaded = true;
-  }
-
-  // Touches arrive on a poll, so this must not hit the db every time.
   async isPrivacySyncOnCellularAllowed(): Promise<boolean> {
-    if (this.allowPrivacySyncOnCellularCache === undefined) {
-      this.allowPrivacySyncOnCellularCache =
-        await this.backgroundApi.simpleDb.privacyChain.getAllowCellularSync();
-    }
-    return this.allowPrivacySyncOnCellularCache;
+    this.allowCellularSyncCache =
+      await this.backgroundApi.simpleDb.privacyChain.getAllowCellularSync();
+    return this.allowCellularSyncCache;
   }
 
   async isLocalWalletScanAllowed(): Promise<boolean> {
@@ -496,10 +479,10 @@ class ServicePrivacyChain extends ServiceBase {
   }: {
     allow: boolean;
   }): Promise<void> {
-    this.allowPrivacySyncOnCellularCache = allow;
-    await this.backgroundApi.simpleDb.privacyChain.saveAllowCellularSync({
+    await this.backgroundApi.simpleDb.privacyChain.setAllowCellularSync({
       allow,
     });
+    this.allowCellularSyncCache = allow;
     await this.publishBoostingNetworks();
     if (allow) {
       this.scheduleBackgroundSync(0);
@@ -537,7 +520,7 @@ class ServicePrivacyChain extends ServiceBase {
     return (
       !!this.foregroundBoostRequestedByNetwork[networkId] &&
       this.deviceIsCellular !== false &&
-      this.allowPrivacySyncOnCellularCache !== true
+      !this.allowCellularSyncCache
     );
   }
 
@@ -678,6 +661,12 @@ class ServicePrivacyChain extends ServiceBase {
     let continueDelayMs: number | undefined;
     try {
       if (!(await this.isLocalWalletScanAllowed())) {
+        // Held for metered data. Returning outright used to take the light
+        // off screen with it: the light renders published progress, progress
+        // is published by a pass, and no pass runs while held -- so the one
+        // control that grants consent disappeared exactly when it was needed.
+        // Publishing costs no network; account sync status is a local read.
+        await this.publishHeldScanProgress();
         return;
       }
       let anyStateChanged = false;
@@ -1431,21 +1420,29 @@ class ServicePrivacyChain extends ServiceBase {
   // Scan cost is linear in the number of distinct viewing keys the scanner
   // trial-decrypts against, so the ceiling counts keys, not app accounts:
   // aliases sharing one key are free and must not be refused.
-  private async assertEnabledAccountLimit({
+  //
+  // Public because a chain's own enable path must be able to run it too: the
+  // debug gallery and the repair panel reach enable directly, and refusing
+  // after the viewing key is registered means the slot was denied but its
+  // cost -- an extra key trial-decrypted against every block, plus a requeued
+  // scan range -- was already paid.
+  async assertEnabledAccountLimit({
     networkId,
     accountId,
     capability,
   }: {
     networkId: string;
     accountId: string;
-    capability: ILocalWalletCapability;
+    capability?: ILocalWalletCapability;
   }): Promise<void> {
     const settings = await getVaultSettings({ networkId });
     const limit = settings.localWallet?.maxEnabledAccounts;
     if (limit === undefined) {
       return;
     }
-    const { accounts } = await capability.listAccounts();
+    const resolved =
+      capability ?? (await this.requireAccountCapability(networkId));
+    const { accounts } = await resolved.listAccounts();
     const enabledKeys = new Set(
       accounts
         .filter((account) => account.syncEnabled)
@@ -1470,6 +1467,51 @@ class ServicePrivacyChain extends ServiceBase {
 
   // The same count the ceiling is enforced against, shaped for a page.
   // Enforcement stays in assertEnabledAccountLimit.
+  @backgroundMethod()
+  // Everything the sync settings page shows about the network as a whole, in
+  // one call: the chain's own scan data footprint and where it scans from.
+  // Both are optional on the capability, so a chain that cannot answer simply
+  // leaves the row out rather than showing a zero it did not measure.
+  @backgroundMethod()
+  async getLocalWalletNetworkInfo({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<{
+    storageBytes: number | null | undefined;
+    endpointUrl: string | undefined;
+    endpointDefaultUrl: string | undefined;
+    endpointIsCustom: boolean;
+    endpointHealth:
+      | { ok: boolean; latencyMs: number | null; atMs: number }
+      | undefined;
+  }> {
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const capability = requireLocalWalletCapability(vault);
+    const [storage, endpoint] = await Promise.all([
+      capability.getStorageUsage?.().catch((e) => {
+        console.error('[privacy-chain] storage usage unavailable', {
+          networkId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return undefined;
+      }),
+      capability.getSyncEndpoint?.().catch(() => undefined),
+    ]);
+    return {
+      storageBytes: storage?.bytes,
+      endpointUrl: endpoint?.url,
+      endpointDefaultUrl: endpoint?.defaultUrl,
+      endpointIsCustom: !!endpoint && endpoint.url !== endpoint.defaultUrl,
+      // Only meaningful while it describes the node now in use: after a switch
+      // the last sample still belongs to the previous one.
+      endpointHealth:
+        endpoint?.health && endpoint.health.ok !== undefined
+          ? endpoint.health
+          : undefined,
+    };
+  }
+
   @backgroundMethod()
   async getLocalWalletSlotUsage({
     networkId,
@@ -1550,18 +1592,30 @@ class ServicePrivacyChain extends ServiceBase {
     await capability.retryAccountSetup({ accountId });
   }
 
+  // Network-wide, not per account: see IPrivacyChainDB.preferPublicSends.
   @backgroundMethod()
-  async setLocalWalletAccountSendPreference({
+  async getLocalWalletSendPreference({
     networkId,
-    accountId,
+  }: {
+    networkId: string;
+  }): Promise<boolean> {
+    return this.backgroundApi.simpleDb.privacyChain.getPreferPublicSends({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  async setLocalWalletSendPreference({
+    networkId,
     preferPublic,
   }: {
     networkId: string;
-    accountId: string;
     preferPublic: boolean;
   }): Promise<void> {
-    const capability = await this.requireAccountCapability(networkId);
-    await capability.setAccountSendPreference({ accountId, preferPublic });
+    await this.backgroundApi.simpleDb.privacyChain.setPreferPublicSends({
+      networkId,
+      preferPublic,
+    });
   }
 
   @backgroundMethod()
@@ -1643,6 +1697,9 @@ class ServicePrivacyChain extends ServiceBase {
       }),
     ]);
     const walletNames = new Map(wallets.map((w) => [w.id, w.name]));
+    const tempWalletIds = new Set(
+      wallets.flatMap((w) => (w.isTemp ? [w.id] : [])),
+    );
     const items: ILocalWalletAccountListItem[] = [];
     accounts.forEach((account) => {
       const accountWalletId = accountUtils.getWalletIdFromAccountId({
@@ -1666,6 +1723,7 @@ class ServicePrivacyChain extends ServiceBase {
           walletId: accountWalletId,
           walletName: walletNames.get(accountWalletId) ?? '',
           networkId,
+          walletIsTemp: tempWalletIds.has(accountWalletId),
         });
       }
     });
@@ -1732,6 +1790,50 @@ class ServicePrivacyChain extends ServiceBase {
     // pass). Pay the queued read once; the scheduler publishes from then on.
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     return requireLocalWalletCapability(vault).getSyncProgress({ accountId });
+  }
+
+  // Progress for a chain that is enabled but held back by metered data.
+  //
+  // No network: getSyncProgress reads the runtime's own account status. The
+  // point is purely that the light has something to render, so the user can
+  // see what is waiting and grant consent for this session.
+  async publishHeldScanProgress(): Promise<void> {
+    try {
+      for (const networkId of await this.getLocalWalletNetworkIds()) {
+        const vault = await vaultFactory.getChainOnlyVault({ networkId });
+        const capability = requireLocalWalletCapability(vault);
+        const { accounts } = await capability.listAccounts();
+        const enabled = accounts.filter(({ syncEnabled }) => syncEnabled);
+        if (enabled.length === 0) {
+          continue;
+        }
+        const entries = await Promise.all(
+          enabled.map(async ({ accountId }) => {
+            const progress = await capability
+              .getSyncProgress({ accountId })
+              .catch(() => undefined);
+            return [`${networkId}:${accountId}`, progress] as const;
+          }),
+        );
+        await privacyChainAtom.set((v) => {
+          const progress = { ...v.progress };
+          for (const [key, value] of entries) {
+            if (value) {
+              progress[key] = value;
+            }
+          }
+          return { ...v, progress };
+        });
+        // Marks the network as wanting to run, which is what turns the light
+        // into its "held on mobile data" state instead of hiding it.
+        this.foregroundBoostRequestedByNetwork[networkId] = true;
+      }
+      await this.publishBoostingNetworks();
+    } catch (e) {
+      console.error('[privacy-chain] held progress publish failed', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   // Publishes this group's progress to the atom every reader subscribes to.

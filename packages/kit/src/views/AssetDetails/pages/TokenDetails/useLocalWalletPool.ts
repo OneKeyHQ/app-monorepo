@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEqual } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -15,41 +16,55 @@ import type {
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   PRIVACY_CHAIN_SYNC_POLL_MS,
   isTipLagWorthMentioning,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
+import type { IntlShape } from 'react-intl';
+
 type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
 
 const num = (v: number) => v.toLocaleString('en-US');
+
+// Durations go through dateUtils, which carries the app locale into date-fns.
+// Hand-rolling "min"/"h" here meant two more strings to translate and two more
+// places to get plurals wrong; date-fns already ships the unit words for all
+// 19 locales.
+function formatSeconds(seconds: number, addSuffix: boolean): string {
+  const now = Date.now();
+  return formatDistanceStrict(
+    now + seconds * 1000,
+    now,
+    addSuffix,
+    addSuffix ? 'round' : 'ceil',
+  );
+}
 
 function formatEtaSuffix(
   remainingBlocks: number,
   blocksPerSec: number | null,
 ): string {
   if (!blocksPerSec || blocksPerSec <= 0 || remainingBlocks <= 0) return '';
-  const seconds = remainingBlocks / blocksPerSec;
-  if (seconds < 90) return ' · ~1 min';
-  const minutes = seconds / 60;
-  if (minutes < 90) return ` · ~${Math.ceil(minutes)} min`;
-  return ` · ~${(minutes / 60).toFixed(1)} h`;
+  return ` · ~${formatSeconds(remainingBlocks / blocksPerSec, false)}`;
 }
 
 function formatBehind(lagBlocks: number, blockTimeSeconds: number): string {
-  const minutes = (lagBlocks * blockTimeSeconds) / 60;
-  if (minutes < 60) return `${Math.max(1, Math.round(minutes))} min behind`;
-  return `${(minutes / 60).toFixed(1)} h behind`;
+  return formatSeconds(-lagBlocks * blockTimeSeconds, true);
 }
 
 export function buildLocalWalletSyncStatusText({
   syncProgress,
   settings,
   scanRatePerSec,
+  intl,
 }: {
   syncProgress: ILocalWalletSyncProgress | null | undefined;
   settings: ILocalWalletSettings | undefined;
   scanRatePerSec: number | null;
+  intl: IntlShape;
 }): string | null {
   if (!syncProgress) return null;
   const heightsPresent = [
@@ -60,16 +75,21 @@ export function buildLocalWalletSyncStatusText({
   ].some((height) => typeof height === 'number');
   if (!heightsPresent) return null;
 
+  // Same shape in both states: scanned height / chain tip. A chain has no
+  // finish line, so the pair is the honest reading of "where am I" -- and it
+  // stays the same sentence whether or not history is still being filled in.
+  // Only the extras change: a percentage and an ETA exist while backfilling,
+  // because only backfill has an end.
   if (!syncProgress.isBackfillComplete) {
     const scanned = syncProgress.backfillScannedHeight;
     const target = syncProgress.backfillTargetHeight;
     const hasHeights =
       typeof scanned === 'number' && typeof target === 'number';
+    const heights = hasHeights ? `${num(scanned)} / ${num(target)}` : '';
     const pct =
       syncProgress.backfillProgress === null
         ? ''
-        : `${Math.floor(syncProgress.backfillProgress * 100)}% · `;
-    const heights = hasHeights ? `${num(scanned)} / ${num(target)}` : '';
+        : `${Math.floor(syncProgress.backfillProgress * 100)}%`;
     const remaining = hasHeights ? Math.max(0, target - scanned) : 0;
     const region =
       typeof scanned === 'number'
@@ -77,12 +97,21 @@ export function buildLocalWalletSyncStatusText({
             (hint) => scanned >= hint.fromHeight && scanned <= hint.toHeight,
           )
         : undefined;
-    const regionText = region ? ` · ${region.label}` : '';
-    return `${pct}${heights}${regionText}${formatEtaSuffix(
-      remaining,
-      scanRatePerSec,
-    )}`;
+    const regionText = region
+      ? ` · ${intl.formatMessage({ id: region.labelId })}`
+      : '';
+    const eta = formatEtaSuffix(remaining, scanRatePerSec);
+    const line = [heights, pct].filter(Boolean).join(' · ') + regionText + eta;
+    return (
+      line ||
+      intl.formatMessage({ id: ETranslationsMock.privacy_scan_state_scanning })
+    );
   }
+  // Caught up, not finished: a chain has no end, so saying "up to date" both
+  // tells the user nothing and implies a completion that never happens. The
+  // heights ARE safe here, unlike during backfill -- every account sits at the
+  // same tip once backfill is done, so there is no per-account number to
+  // compare.
   const at = syncProgress.tipScannedHeight;
   const tip = syncProgress.chainTip;
   const heights =
@@ -97,7 +126,11 @@ export function buildLocalWalletSyncStatusText({
     ) && settings
       ? ` · ${formatBehind(lag ?? 0, settings.blockTimeSeconds)}`
       : '';
-  return heights ? `${heights}${behind}` : 'Synced';
+  return heights
+    ? `${heights}${behind}`
+    : intl.formatMessage({
+        id: ETranslationsMock.privacy_sync_state_following,
+      });
 }
 
 // Everything the token page and the account settings page need for one
@@ -115,11 +148,15 @@ export function useLocalWalletPool({
   poolId?: number;
   isActive?: boolean;
 }) {
+  const intl = useIntl();
   const [, setPoolDisplay] = usePrivacyChainPoolDisplayAtom();
   const [busy, setBusy] = useState(false);
   const [hasAttemptedBalance, setHasAttemptedBalance] = useState(false);
 
-  const { account, vaultSettings } = useAccountData({ networkId, accountId });
+  const { account, wallet, vaultSettings } = useAccountData({
+    networkId,
+    accountId,
+  });
   const settings = vaultSettings?.localWallet;
   const hasPooledBalance = settings?.balanceShape === 'pooled';
   const pool = useMemo(
@@ -295,6 +332,7 @@ export function useLocalWalletPool({
     syncProgress,
     settings,
     scanRatePerSec: scanRatePerSecRef.current,
+    intl,
   });
 
   const runBusy = useCallback(async (fn: () => Promise<void>) => {
@@ -331,16 +369,6 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, refreshState, runBusy, setPoolDisplay],
   );
-  const setPreferPublicSends = useCallback(
-    (preferPublic: boolean) =>
-      runBusy(async () => {
-        await backgroundApiProxy.servicePrivacyChain.setLocalWalletAccountSendPreference(
-          { networkId, accountId, preferPublic },
-        );
-        await refreshState();
-      }),
-    [accountId, networkId, refreshState, runBusy],
-  );
   const resetLocalData = useCallback(
     () =>
       runBusy(async () => {
@@ -373,6 +401,18 @@ export function useLocalWalletPool({
     refreshRef.current();
   }, [accountId, networkId]);
 
+  // Everything the private UI needs, answered together. The four reads above
+  // land one by one, and each one used to change the page height: the balance
+  // swapped source mid-load, the status block popped in, then the pool action.
+  // Consumers gate on this so the private UI appears once, complete.
+  const isReady =
+    !hasPooledBalance ||
+    (state !== undefined &&
+      (!enabled ||
+        (balance !== undefined &&
+          addresses !== undefined &&
+          syncProgress !== undefined)));
+
   return {
     settings,
     hasPooledBalance,
@@ -381,6 +421,7 @@ export function useLocalWalletPool({
     // Undefined until the first state read lands; consumers must not treat
     // it as "disabled" before that.
     isStateSettled: state !== undefined,
+    isReady,
     enabled,
     balance,
     poolBalance,
@@ -391,11 +432,13 @@ export function useLocalWalletPool({
     hasAttemptedBalance,
     busy,
     accountName: account?.name,
+    // A wallet the user chose not to save: enabling still writes a viewing
+    // key to disk, which the enable dialog has to disclose.
+    isTempWallet: wallet?.isTemp === true,
     refresh,
     startSync,
     enableAccount,
     disableAccount,
-    setPreferPublicSends,
     resetLocalData,
     deleteLocalData,
   };

@@ -105,8 +105,6 @@ export type ILocalWalletAccountState = {
   // disk. Distinct from never-enabled, which offers setup rather than a resume.
   paused: boolean;
   pendingOperation?: 'enable' | 'disable';
-  // Prefer spending public funds even when a private pool could pay.
-  preferPublicSends: boolean;
   birthdayHeight?: number;
   birthdaySource?: string;
   birthdayTimestamp?: number;
@@ -161,10 +159,6 @@ export type ILocalWalletCapability = {
   }) => Promise<void>;
   disableAccount: (params: { accountId: string }) => Promise<void>;
   retryAccountSetup: (params: { accountId: string }) => Promise<void>;
-  setAccountSendPreference: (params: {
-    accountId: string;
-    preferPublic: boolean;
-  }) => Promise<void>;
   // Undefined until the account is enabled and its viewing material exists.
   getAccountAddresses: (params: {
     accountId: string;
@@ -216,6 +210,33 @@ export type ILocalWalletCapability = {
   // Returns true only when the carrier can prove the timed-out execution was
   // terminated. Otherwise quarantine requires authoritative sync completion.
   recoverFromTimeout: () => Promise<boolean>;
+  // How much device storage this chain's rebuildable scan data occupies, for
+  // the settings page that offers to reset it. `bytes` is null when the chain
+  // can be asked but has nothing on disk yet; the whole call is optional
+  // because not every scanner can measure itself.
+  getStorageUsage?: () => Promise<{ bytes: number | null }>;
+  // Read-only. Which node this chain is scanning from, and the build default
+  // so the UI can say "default" without knowing any chain's constants.
+  // CHOOSING a node is not here: that is the app-wide custom-RPC setting
+  // (simpleDb.customRpc + Settings > Custom RPC), which every chain shares.
+  //
+  // `health` is what the scanner last observed while doing its normal work, not
+  // a probe: a chain that scans continuously already knows whether its node
+  // answers and how fast, and pinging separately would add traffic to measure
+  // something the user does not depend on. Absent while nothing has scanned yet.
+  getSyncEndpoint?: () => Promise<
+    | {
+        url: string;
+        defaultUrl: string;
+        health?: {
+          ok: boolean;
+          latencyMs: number | null;
+          // Epoch ms, so the UI can say "as of" instead of implying live.
+          atMs: number;
+        };
+      }
+    | undefined
+  >;
   // App reset: delete every client-side scan database for this network,
   // regardless of account state or safety gates.
   dropLocalData?: () => Promise<void>;

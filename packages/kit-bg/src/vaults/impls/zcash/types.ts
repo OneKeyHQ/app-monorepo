@@ -17,10 +17,9 @@ export type IEncodedTxZcash = IEncodedTxBtc & {
   zcashMode?: 'transparent' | 'privacy';
   zcashTo: string; // t1/t3 transparent or u1 unified
   zcashAmountValue: string; // zatoshi
-  // Shield sweep (transparent -> own shielded pool): create goes through
-  // pcztShield instead of pcztCreate; amount is display intent only (the
-  // sweep proposer takes no amount and deducts the fee itself).
   // Per-pool withdraw: note selection limited to this pool (see createPczt).
+  // Unset for the shield sweep, which builds as a transparent transaction
+  // through the stateless keys runtime.
   zcashSpendSource?: IZcashSpendSource;
   // Account preference captured when this transaction is built. Keeping it on
   // the encoded transaction makes fee quote and PCZT creation use one policy.

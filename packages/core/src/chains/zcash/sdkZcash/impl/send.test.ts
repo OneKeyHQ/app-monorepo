@@ -5,17 +5,13 @@ import {
   createPczt,
   finalizePczt,
   quotePczt,
-  quoteShieldFunds,
   releasePczt,
-  shieldFunds,
 } from './send';
 
 import type { IZcashWalletAccount } from '../types/sdk';
 
 const mockPcztQuote = jest.fn();
 const mockPcztCreate = jest.fn();
-const mockPcztShield = jest.fn();
-const mockPcztShieldQuote = jest.fn();
 const mockPcztSend = jest.fn();
 const mockBroadcastTransaction = jest.fn();
 const mockReleaseReservation = jest.fn();
@@ -25,8 +21,6 @@ const mockKeysCapabilities = jest.fn();
 const runtime = {
   pcztQuote: mockPcztQuote,
   pcztCreate: mockPcztCreate,
-  pcztShield: mockPcztShield,
-  pcztShieldQuote: mockPcztShieldQuote,
   pcztSend: mockPcztSend,
   broadcastTransaction: mockBroadcastTransaction,
   releaseReservation: mockReleaseReservation,
@@ -99,8 +93,9 @@ describe('Zcash PCZT send policy', () => {
       3,
       10,
       'ironwood',
-      false,
-      false,
+      false, // padOrchardBundle
+      false, // spendTransparent
+      false, // allowZeroConfShielding
       'orchard',
     );
   });
@@ -135,11 +130,11 @@ describe('Zcash PCZT send policy', () => {
       3,
       10,
       'ironwood',
-      false,
-      10,
+      false, // padOrchardBundle
+      10, // lockForBlocks
       'host-reservation-id',
-      false,
-      false,
+      false, // spendTransparent
+      false, // allowZeroConfShielding
       'ironwood',
     );
   });
@@ -169,8 +164,9 @@ describe('Zcash PCZT send policy', () => {
       3,
       10,
       'ironwood',
-      false,
-      false,
+      false, // padOrchardBundle
+      false, // spendTransparent
+      false, // allowZeroConfShielding
       ZCASH_CURRENT_SHIELDED_POOL,
     );
   });
@@ -206,8 +202,17 @@ describe('Zcash PCZT send policy', () => {
       spendTransparent: true,
     });
 
-    expect(mockPcztQuote.mock.calls[0][7]).toBe(true);
-    expect(mockPcztCreate.mock.calls[0][10]).toBe(true);
+    // Compare the whole policy, not just the transparent flag. The two
+    // exports take it positionally, so any field that reaches only one of them
+    // prices a transaction that never happens -- padOrchardBundle was exactly
+    // that, hardcoded false on the quote side while it changes the fee.
+    const quoted = mockPcztQuote.mock.calls[0] as unknown[];
+    const created = mockPcztCreate.mock.calls[0] as unknown[];
+    // Identical through padOrchardBundle; create then inserts lockForBlocks
+    // and reservationId before the remaining policy arguments.
+    expect(quoted.slice(0, 8)).toEqual(created.slice(0, 8));
+    expect(quoted.slice(8)).toEqual(created.slice(10));
+    expect(quoted[8]).toBe(true);
   });
 
   it('rejects transparent-first creation before locking when signing is unavailable', async () => {
@@ -229,53 +234,6 @@ describe('Zcash PCZT send policy', () => {
       params: { missing: ['transparent'] },
     });
     expect(mockPcztCreate).not.toHaveBeenCalled();
-  });
-
-  it('returns the fee of the exact shielding proposal', async () => {
-    mockPcztShield.mockReturnValue(
-      JSON.stringify({
-        pcztHex: '0304',
-        reservationId: 'shield-reservation-id',
-        feeZat: 20_000,
-      }),
-    );
-
-    await expect(
-      shieldFunds(account, { reservationId: 'host-shield-reservation-id' }),
-    ).resolves.toEqual({
-      pcztHex: '0304',
-      reservationId: 'shield-reservation-id',
-      feeZat: '20000',
-    });
-    expect(mockPcztShield).toHaveBeenCalledWith(
-      'account-uuid',
-      10_000n,
-      3,
-      10,
-      'ironwood',
-      false,
-      10,
-      'host-shield-reservation-id',
-      false,
-    );
-  });
-
-  it('quotes shielding without creating or locking a PCZT', async () => {
-    mockPcztShieldQuote.mockReturnValue(JSON.stringify({ feeZat: 20_000 }));
-
-    await expect(quoteShieldFunds(account)).resolves.toEqual({
-      feeZat: '20000',
-    });
-    expect(mockPcztShieldQuote).toHaveBeenCalledWith(
-      'account-uuid',
-      10_000n,
-      3,
-      10,
-      'ironwood',
-      false,
-      false,
-    );
-    expect(mockPcztShield).not.toHaveBeenCalled();
   });
 
   it('finalizes locally before broadcasting and can release reservations', async () => {

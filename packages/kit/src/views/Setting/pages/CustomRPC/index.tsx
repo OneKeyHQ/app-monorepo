@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -37,12 +38,18 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  EModalSettingRoutes,
+  IModalSettingParamList,
+} from '@onekeyhq/shared/src/routes/setting';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
 
+
 import { SettingTestIDs } from '../../testIDs';
 import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+import type { RouteProp } from '@react-navigation/core';
 
 type IEditRpcParams = {
   network: IServerNetwork;
@@ -96,7 +103,10 @@ function ListEmptyComponent({
   );
 }
 
-function DialogContent({
+// Exported so a chain-specific settings page can open the editor for its own
+// network directly, instead of sending the user through the cross-chain list
+// and a network picker they already answered by being on that page.
+export function CustomRpcEditDialogContent({
   network,
   rpcInfo,
   onConfirm,
@@ -211,15 +221,28 @@ function DialogContent({
 
 function CustomRPC() {
   const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<IModalSettingParamList, EModalSettingRoutes.SettingCustomRPC>
+    >();
+  const scopedNetworkId = route.params?.networkId;
   const { result: customRpcData, run } = usePromiseResult(async () => {
     const { serviceNetwork, serviceCustomRpc } = backgroundApiProxy;
     const _supportNetworks = await serviceNetwork.getCustomRpcEnabledNetworks();
     const _customRpcNetworks = await serviceCustomRpc.getAllCustomRpc();
+    const scoped = (list: { networkId: string }[]) =>
+      scopedNetworkId
+        ? list.filter((item) => item.networkId === scopedNetworkId)
+        : list;
     return {
-      supportNetworks: _supportNetworks,
-      customRpcNetworks: _customRpcNetworks,
+      supportNetworks: scopedNetworkId
+        ? _supportNetworks.filter((item) => item.id === scopedNetworkId)
+        : _supportNetworks,
+      customRpcNetworks: scoped(
+        _customRpcNetworks,
+      ) as typeof _customRpcNetworks,
     };
-  }, []);
+  }, [scopedNetworkId]);
 
   useEffect(() => {
     appEventBus.on(EAppEventBusNames.RefreshCustomRpcList, run);
@@ -310,7 +333,11 @@ function CustomRPC() {
     ({ network, rpcInfo }: IEditRpcParams) => {
       Dialog.show({
         renderContent: (
-          <DialogContent network={network} rpcInfo={rpcInfo} onConfirm={run} />
+          <CustomRpcEditDialogContent
+            network={network}
+            rpcInfo={rpcInfo}
+            onConfirm={run}
+          />
         ),
       });
     },
@@ -336,9 +363,23 @@ function CustomRPC() {
     [showChainSelector, customRpcData?.supportNetworks, onAddOrEditRpc],
   );
 
+  // Scoped entry skips the chain selector: the page was opened from that
+  // chain's own settings, so asking again is a question already answered.
   const onAddCustomRpc = useCallback(() => {
+    const scopedNetwork = customRpcData?.supportNetworks?.find(
+      (item) => item.id === scopedNetworkId,
+    );
+    if (scopedNetwork) {
+      onAddOrEditRpc({ network: scopedNetwork });
+      return;
+    }
     onSelectNetwork();
-  }, [onSelectNetwork]);
+  }, [
+    customRpcData?.supportNetworks,
+    onAddOrEditRpc,
+    onSelectNetwork,
+    scopedNetworkId,
+  ]);
 
   const onDeleteCustomRpc = useCallback(
     async (item: ICustomRpcItem) => {
@@ -505,9 +546,13 @@ function CustomRPC() {
               />
             </ListItem>
           )}
-          ListHeaderComponent={<ListHeaderComponent />}
+          ListHeaderComponent={
+            <>
+              <ListHeaderComponent />
+            </>
+          }
           ListEmptyComponent={
-            <ListEmptyComponent onAddCustomRpc={() => onSelectNetwork()} />
+            <ListEmptyComponent onAddCustomRpc={() => onAddCustomRpc()} />
           }
         />
       </Page.Body>

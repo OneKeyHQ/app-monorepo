@@ -112,54 +112,47 @@ describe('Privacy sync light pause state', () => {
   });
 });
 
-describe('Privacy scan pause persistence', () => {
+describe('Privacy scan pause is session-scoped', () => {
   const networkId = 'zec--0';
 
   beforeEach(() => {
     mockPublished = mockEmptyState();
   });
 
-  function createService(stored: Record<string, boolean>) {
-    const saveScanPaused = jest.fn(async () => undefined);
-    const service = Object.assign(
+  function createService() {
+    return Object.assign(
       Object.create(ServicePrivacyChain.prototype) as {
-        loadScanPausedNetworks: () => Promise<void>;
         pauseLocalWalletScan: (params: { networkId: string }) => Promise<void>;
         boostPausedByNetwork: Record<string, boolean>;
-        scanPauseLoaded: boolean;
+        backgroundApi: { simpleDb: { privacyChain: Record<string, unknown> } };
       },
       {
         foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
         boostPausedByNetwork: {} as Record<string, boolean>,
-        scanPauseLoaded: false,
         deviceIsCellular: false,
-        allowPrivacySyncOnCellularCache: true,
-        backgroundApi: {
-          simpleDb: {
-            privacyChain: {
-              saveScanPaused,
-              getScanPausedNetworks: jest.fn(async () => stored),
-            },
-          },
-        },
+        allowCellularSyncCache: true,
+        backgroundApi: { simpleDb: { privacyChain: {} } },
       },
     );
-    return { service, saveScanPaused };
   }
 
-  it('writes the pause down so a restart cannot undo it', async () => {
-    const { service, saveScanPaused } = createService({});
+  it('keeps the pause in memory without storing it', async () => {
+    const service = createService();
 
     await service.pauseLocalWalletScan({ networkId });
 
-    expect(saveScanPaused).toHaveBeenCalledWith({ networkId, paused: true });
+    expect(service.boostPausedByNetwork[networkId]).toBe(true);
+    // Nothing to persist through: "not right now" describes this sitting,
+    // not a setting. The empty store proves no write was attempted.
+    expect(service.backgroundApi.simpleDb.privacyChain).toEqual({});
   });
 
-  it('comes back paused after a restart', async () => {
-    const { service } = createService({ [networkId]: true });
+  it('starts the next session scanning again', async () => {
+    const first = createService();
+    await first.pauseLocalWalletScan({ networkId });
 
-    await service.loadScanPausedNetworks();
+    const restarted = createService();
 
-    expect(service.boostPausedByNetwork[networkId]).toBe(true);
+    expect(restarted.boostPausedByNetwork).toEqual({});
   });
 });

@@ -36,10 +36,6 @@ const BotWalletManager = LazyLoadPage(
 
 const PrivacyNetworks = LazyLoadPage(() => import('../pages/PrivacyNetworks'));
 
-const PrivacyNetworkAccount = LazyLoadPage(
-  () => import('../pages/PrivacyNetworkAccount'),
-);
-
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList
@@ -83,9 +79,5 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.PrivacyNetworks,
     component: PrivacyNetworks,
-  },
-  {
-    name: EAccountManagerStacksRoutes.PrivacyNetworkAccount,
-    component: PrivacyNetworkAccount,
   },
 ];

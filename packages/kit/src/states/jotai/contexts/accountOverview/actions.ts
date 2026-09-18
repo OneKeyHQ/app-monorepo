@@ -61,7 +61,14 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           get(accountWorthAtom());
         const nextWorthStatus = { ...worthStatus };
         for (const key of Object.keys(payload.worth)) {
-          nextWorthStatus[key] = payload.worthStatus?.[key] ?? 'complete';
+          // Defaulting to 'complete' would let a caller that simply forgot the
+          // field assert, on a privacy chain's behalf, that its scan has
+          // finished -- the one claim this value exists to qualify. Keep what
+          // was already known instead; only an explicit status overwrites.
+          const status = payload.worthStatus?.[key];
+          if (status !== undefined) {
+            nextWorthStatus[key] = status;
+          }
         }
         set(accountWorthAtom(), {
           worthStatus: nextWorthStatus,

@@ -39,10 +39,14 @@ runtime to retry them; it never infers broadcast intent from generic history.
 This is also the crash-recovery path for a process death after local storage
 but before the original broadcast response.
 
-For private or mixed transactions, the backend may promote a runtime Pending
-row only when it proves that the transaction is mined. Backend Failed, Dropped,
-or Removed states cannot override the runtime lifecycle. Pure transparent
-transactions remain fully backend-owned.
+Ownership follows visibility, not privacy: the question is whether the
+transaction has a transparent leg. A transaction that has one -- pure
+transparent or mixed -- is indexed by the backend, so the backend row is the
+row, including its Failed, Dropped and Removed states; the local scan only
+attaches the shielded pools the backend cannot see. A fully shielded
+transaction never appears in that index at all, so the backend has nothing to
+say about it: its silence is absence of knowledge, not evidence of failure, and
+the runtime owns that lifecycle alone.
 
 While a reservation, unsettled outgoing transaction, or unresolved broadcast
 exists, Privacy Mode pause, local privacy-data deletion, runtime-cache reset,

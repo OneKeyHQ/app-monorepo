@@ -1,8 +1,15 @@
 /* cspell:ignore xprvs */
+/* eslint-disable import/first */
+
+jest.mock('../../../dbs/local/localDbInstance', () => ({
+  __esModule: true,
+  default: {},
+}));
 
 import { getVaultSettings } from '../../settings';
 
 import settings from './settings';
+import Vault from './Vault';
 
 // Zcash spreads `{...settingsBtc}`, and every inherited `true` flag is a UI
 // entry point promising a code path. This freezes the convention review that
@@ -29,9 +36,18 @@ describe('zcash vault settings invariants', () => {
     expect(settings.supportedThirdPartyVendors).toBeUndefined();
   });
 
+  it('only offers a custom node while both custom-RPC hooks exist', () => {
+    // The flag wires ServiceSend and Settings > Custom RPC straight into these
+    // two; without them the base class throws NotImplemented and sending
+    // breaks for anyone who saved a node.
+    expect(settings.customRpcEnabled).toBe(true);
+    expect(typeof Vault.prototype.getCustomRpcEndpointStatus).toBe('function');
+    expect(typeof Vault.prototype.broadcastTransactionFromCustomRpc).toBe(
+      'function',
+    );
+  });
+
   it('disables BTC-inherited features without a zcash implementation', () => {
-    // getCustomRpcEndpointStatus / broadcastTransactionFromCustomRpc absent
-    expect(settings.customRpcEnabled).toBe(false);
     // note selection happens inside the wasm wallet; the BTC coin-control
     // screen would call a blockbook backend that does not index zcash
     expect(settings.coinControlEnabled).toBe(false);

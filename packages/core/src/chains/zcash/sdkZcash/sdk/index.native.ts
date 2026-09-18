@@ -39,7 +39,6 @@ const SAFE_SCALAR_KEYS = new Set([
   'stateChanged',
   'fullyScanned',
   'backfillRemaining',
-  'transparentCurrent',
   'enabled',
   'scan',
   'balance',

@@ -17,25 +17,20 @@ const pool = (amount: string) => ({
   pendingSpendable: '0',
   locked: '0',
 });
+// Shielded only: the scanner snapshot no longer carries a public half.
+// Transparent figures in these cases come from the indexer mocks below.
 const balance: IZcashBalance = {
   isComplete: true,
   shielded: '100',
-  transparent: '9999',
-  total: '10099',
   spendable: '100',
   shieldedSpendable: '100',
   orchardBalance: '100',
   ironwoodBalance: '0',
-  transparentBalance: '9999',
-  transparentRegularBalance: '9999',
-  transparentCoinbaseBalance: '0',
   pendingChange: '0',
   pendingSpendable: '0',
   poolsDetail: {
     orchard: pool('100'),
     ironwood: pool('0'),
-    transparentRegular: pool('9999'),
-    transparentCoinbase: pool('0'),
   },
 };
 
@@ -60,6 +55,9 @@ describe('Zcash independent transparent balance availability', () => {
         networkId: 'zec--0',
         backgroundApi: {
           simpleDb: {
+            privacyChain: {
+              getPreferPublicSends: async () => false,
+            },
             zcash: {
               getPrivacyModeState: jest
                 .fn()
@@ -111,6 +109,20 @@ describe('Zcash independent transparent balance availability', () => {
     async (privateBalance) => {
       const vault = Object.create(Vault.prototype) as Vault;
       Object.assign(vault, {
+        // Privacy Mode is ON here; what is incomplete is the scan, not the
+        // account's opt-in. The gate must not confuse the two.
+        backgroundApi: {
+          simpleDb: {
+            privacyChain: {
+              getPreferPublicSends: async () => false,
+            },
+            zcash: {
+              getPrivacyModeState: jest
+                .fn()
+                .mockResolvedValue({ intent: 'on' }),
+            },
+          },
+        },
         getLocalWalletBalance: jest.fn().mockResolvedValue(privateBalance),
         listLocalWalletSendPools: jest
           .fn()
@@ -147,6 +159,9 @@ describe('Zcash independent transparent balance availability', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
+          privacyChain: {
+            getPreferPublicSends: async () => false,
+          },
           zcash: {
             getPrivacyModeState: jest.fn().mockResolvedValue({ intent: 'off' }),
           },

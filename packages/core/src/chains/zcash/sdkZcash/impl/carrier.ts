@@ -411,9 +411,12 @@ export async function diagnoseWalletDatabase({
 
 const ENDPOINT_ROTATE_AFTER_FAILURES = 2;
 let endpointOffset = 0;
+// The URL the host last asked for, so health can name the endpoint it describes.
+let lastPreferredUrl: string | undefined;
 let consecutiveNetworkFailures = 0;
 
 export function pickLightwalletdUrl(preferred: string): string {
+  lastPreferredUrl = preferred;
   const pool = [
     preferred,
     ...ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS.filter((u) => u !== preferred),
@@ -540,7 +543,38 @@ let sameFailureCount = 0;
 
 // Count one outcome per operation. Network operations report their aggregate
 // outcome, including caught failures; the leased wrapper reports escaping errors.
+// What the node actually did for us last, fed by the scan itself rather than by
+// a separate ping. The scan already talks to this endpoint every pass, so its
+// success and its round-trip time ARE the health signal -- a dedicated probe
+// would add traffic and still measure something the user does not depend on.
+export type IZcashEndpointHealth = {
+  url: string;
+  ok: boolean;
+  // Round trip of the tip call, when this sample came from one.
+  latencyMs: number | null;
+  atMs: number;
+};
+
+let endpointHealth: IZcashEndpointHealth | undefined;
+
+export function recordEndpointHealth(sample: {
+  ok: boolean;
+  latencyMs?: number | null;
+}): void {
+  endpointHealth = {
+    url: lastPreferredUrl ?? ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS[0],
+    ok: sample.ok,
+    latencyMs: sample.latencyMs ?? endpointHealth?.latencyMs ?? null,
+    atMs: Date.now(),
+  };
+}
+
+export function getEndpointHealth(): IZcashEndpointHealth | undefined {
+  return endpointHealth;
+}
+
 export function noteNetworkOutcome(e: unknown | null): void {
+  recordEndpointHealth({ ok: e === null });
   if (e === null) {
     consecutiveNetworkFailures = 0;
     lastFailureSignature = undefined;

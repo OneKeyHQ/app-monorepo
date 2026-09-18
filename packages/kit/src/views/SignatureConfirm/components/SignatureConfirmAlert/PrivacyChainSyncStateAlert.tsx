@@ -1,8 +1,11 @@
+import { useIntl } from 'react-intl';
+
 import { Alert } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePrivacyChainBoost } from '@onekeyhq/kit/src/hooks/usePrivacyChainBoost';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import {
   PRIVACY_CHAIN_SYNC_POLL_MS,
   isTipLagWorthMentioning,
@@ -26,6 +29,7 @@ function PrivacyChainSyncStateAlert({
   // Capability off useAccountData, not a fetch of its own: awaiting the
   // settings inside the poll put a round trip in FRONT of the progress read,
   // on every poll, which is precisely the wait this alert is meant to explain.
+  const intl = useIntl();
   const { vaultSettings } = useAccountData({ networkId, accountId });
   const hasLocalWallet = !!vaultSettings?.localWallet;
 
@@ -65,7 +69,13 @@ function PrivacyChainSyncStateAlert({
       <Alert
         type="info"
         icon="RefreshCcwOutline"
-        title={`Private history is still syncing${pct} — the spendable balance may grow as it completes.`}
+        title={intl.formatMessage(
+          {
+            id: ETranslationsMock.privacy_alert_history_syncing,
+            defaultMessage: ETranslationsMock.privacy_alert_history_syncing,
+          },
+          { pct },
+        )}
       />
     );
   }
@@ -80,7 +90,9 @@ function PrivacyChainSyncStateAlert({
       <Alert
         type="default"
         icon="ClockTimeHistoryOutline"
-        title="Private balance may be slightly out of date — it refreshes automatically while you are here."
+        title={intl.formatMessage({
+          id: ETranslationsMock.privacy_alert_balance_stale,
+        })}
       />
     );
   }

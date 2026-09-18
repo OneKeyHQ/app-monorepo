@@ -50,7 +50,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalRoutes,
@@ -82,7 +82,10 @@ import type {
 import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
-import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
+import {
+  LocalWalletPoolStatus,
+  LocalWalletSyncRow,
+} from './LocalWalletPoolStatus';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -307,10 +310,13 @@ function TokenDetailsHeaderContent({
     poolId: privacyHistoryPoolId,
     isActive: focusParam,
   });
-  const isLocalWalletStateSettled = localWalletPool.isStateSettled;
+  // One gate for every private-UI decision below. Reacting to each of the four
+  // reads as it landed made the balance swap source mid-load and the page
+  // change height three or four times per open.
+  const isLocalWalletReady = localWalletPool.isReady;
   const isLocalWalletEnabled = localWalletPool.enabled;
   const isPrivatePoolDisabled =
-    isPrivatePool && isLocalWalletStateSettled && !isLocalWalletEnabled;
+    isPrivatePool && isLocalWalletReady && !isLocalWalletEnabled;
 
   // Published by useLocalWalletPool above, which owns the
   // balance and account-meta reads. The provider wrapping this component
@@ -478,7 +484,8 @@ function TokenDetailsHeaderContent({
     tokenDetailsKey,
     isLoadingTokenDetails,
   ]);
-  const shouldUsePoolBalance = hasSelectedPool && isLocalWalletEnabled;
+  const shouldUsePoolBalance =
+    hasSelectedPool && isLocalWalletReady && isLocalWalletEnabled;
   let balanceParsed: string | undefined;
   if (shouldUsePoolBalance) {
     balanceParsed = poolDisplay?.balanceParsed;
@@ -509,7 +516,10 @@ function TokenDetailsHeaderContent({
   if (shouldUsePoolBalance) {
     isBalanceLoading = !poolDisplay?.balanceSettled;
   } else if (isPrivatePool) {
-    isBalanceLoading = false;
+    // Stay in the loading state until the gate opens rather than render an
+    // empty balance first: a private pool has nothing else to show, and the
+    // blank-then-skeleton-then-number sequence read as three flashes.
+    isBalanceLoading = !isLocalWalletReady;
   }
   const tokenLogoURI = tokenDetails?.info?.logoURI ?? tokenInfo.logoURI;
 
@@ -755,7 +765,12 @@ function TokenDetailsHeaderContent({
     hasSelectedPool && poolAction ? (
       <ActionItem
         testID={`local-wallet-pool-${poolAction.type}-btn`}
-        label={poolAction.type === 'shield' ? 'Shield' : 'Withdraw'}
+        label={intl.formatMessage({
+          id:
+            poolAction.type === 'shield'
+              ? ETranslationsMock.privacy_pool_action_shield
+              : ETranslationsMock.privacy_pool_action_withdraw,
+        })}
         icon={
           poolAction.type === 'shield' ? 'ShieldOutline' : 'UnlockedOutline'
         }
@@ -812,7 +827,9 @@ function TokenDetailsHeaderContent({
             {shouldUsePoolBalance &&
             poolDisplay?.balanceStatus === 'partial' ? (
               <SizableText size="$bodySm" color="$textSubdued">
-                Partial balance · scan incomplete
+                {intl.formatMessage({
+                  id: ETranslationsMock.privacy_pool_balance_partial,
+                })}
               </SizableText>
             ) : null}
             {/* Orchard is a legacy pool that can no longer receive. Its only
@@ -907,6 +924,11 @@ function TokenDetailsHeaderContent({
           onPress={handleCopyAddressPress}
           testID={AssetDetailsTestIDs.copyAddressBtn}
           disabled={isBotWalletCopyBlocked}
+        />
+        <LocalWalletSyncRow
+          networkId={networkId}
+          accountId={accountId}
+          pool={localWalletPool}
         />
         {/* History */}
         <Divider mb="$3" />

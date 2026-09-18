@@ -40,10 +40,14 @@ metadata, enable/disable operation state, transparent pending transactions,
 and transparent outpoint reservations. Missing mode state means off; this
 development version has no compatibility migration.
 
-The Rust wallet database owns only rebuildable private scan state and private
-or mixed transaction lifecycle. Each scan call receives the exact active UFVK
-set from the App and constructs trial-decryption keys only for that set. Rust
-does not persist another product-mode flag.
+The Rust wallet database owns only rebuildable private scan state and the
+**broadcast** lifecycle of the transactions it built, private or mixed. Once a
+mixed transaction reaches the chain its displayed status comes from the
+backend, which indexes its transparent leg (ADR 0002).
+
+Each scan call receives the exact active UFVK set from the App and constructs
+trial-decryption keys only for that set. Rust does not persist another
+product-mode flag.
 
 The runtime deduplicates scan state by `(network, UFVK)`, while UI intent stays
 per App account. Enabling one alias does not make another alias display private

@@ -12,7 +12,6 @@ const balance = {
   total: '300000000',
   spendable: '125000000',
   frozen: '175000000',
-  publicSideSource: 'indexer' as const,
 };
 
 function tokenListResponse(): IFetchServerTokenListResponse {

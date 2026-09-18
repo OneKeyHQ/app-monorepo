@@ -95,7 +95,10 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingClearAppCache]: undefined;
   [EModalSettingRoutes.SettingAccountDerivationModal]: undefined;
   [EModalSettingRoutes.SettingSpendUTXOModal]: undefined;
-  [EModalSettingRoutes.SettingCustomRPC]: undefined;
+  // A chain-specific settings page can deep-link here for its own
+  // network: the list scopes to it and the chain picker is skipped,
+  // because arriving from that page already answered which chain.
+  [EModalSettingRoutes.SettingCustomRPC]: { networkId?: string } | undefined;
   [EModalSettingRoutes.SettingChainListSearch]: undefined;
   [EModalSettingRoutes.SettingCustomNetwork]:
     | {

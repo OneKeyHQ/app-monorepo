@@ -48,6 +48,15 @@ export function zcashUserMessage(e: unknown): string | null {
       return 'Zcash node unreachable — check your connection and try again.';
     case 'BROADCAST_REJECTED':
       return 'The Zcash network rejected this transaction.';
+    case 'BROADCAST_OUTCOME_UNKNOWN': {
+      // Deliberately not "failed": the node may well have accepted it. Naming
+      // the cause when we have one is the difference between a user who waits
+      // and a user who sends the same funds twice.
+      const detail = err.params.reason;
+      const because =
+        typeof detail === 'string' && detail ? ` (${detail})` : '';
+      return `Could not confirm whether the network received this transaction${because}. Do not resend — refresh history first.`;
+    }
     case 'WALLET_BUSY':
       return 'The Zcash wallet is busy with another operation — try again shortly.';
     case 'INVALID_ADDRESS':

@@ -2,6 +2,7 @@
 
 import {
   ZCASH_CURRENT_SHIELDED_POOL,
+  ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS,
   ZCASH_POOL_IDS,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -16,6 +17,7 @@ import {
   IMPL_ZCASH,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 import settingsBtc from '../btc/settings';
 
@@ -40,8 +42,11 @@ const settings: IVaultSettings = {
   accountDeriveInfo,
   impl: IMPL_ZCASH,
   coinTypeDefault: COINTYPE_ZCASH,
-  minTransferAmount: '0.0001',
-  utxoDustAmount: '0.0000546',
+  // No minTransferAmount / utxoDustAmount override here on purpose. The only
+  // reader of the former is the bulk-send builder, which this chain disables
+  // twice over (nativeBatchTransferEnabled + a throwing builder); the latter
+  // has no reader at all. The real floor that does apply is
+  // ZCASH_SHIELDING_THRESHOLD_ZAT, enforced by the Shield action.
   // fetchTokenDetails reports frozen = total - spendable (pending
   // confirmations + in-flight locks); the pool block on
   // TokenDetails breaks the same figure down per pool with labeled reasons.
@@ -102,7 +107,7 @@ const settings: IVaultSettings = {
       {
         fromHeight: ZCASH_SPAM_REGION_START_MAINNET,
         toHeight: ZCASH_SPAM_REGION_END_MAINNET,
-        label: '2022 spam zone',
+        labelId: ETranslationsMock.privacy_scan_region_2022_spam,
       },
     ],
   },
@@ -130,8 +135,11 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
   // - keyringMap.hw is undefined until zcash hardware lands
   hardwareAccountEnabled: true,
-  // - getCustomRpcEndpointStatus/broadcastTransactionFromCustomRpc not implemented
-  customRpcEnabled: false,
+  // The custom node here is the lightwalletd the scanner reads from, not just
+  // a broadcast override: shielded sends already leave through it, and
+  // transparent ones stay on the backend either way.
+  customRpcEnabled: true,
+  builtInRpcUrls: ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS,
   // - note selection happens inside the wasm wallet; the BTC coin-control
   //   screen would call a blockbook backend that does not index zcash
   coinControlEnabled: false,

@@ -252,7 +252,13 @@ export type IVaultSettings = {
     // Turns a block lag into elapsed time for the sync status line.
     blockTimeSeconds: number;
     // Height ranges worth naming while the scanner is inside them.
-    scanRegionHints?: { fromHeight: number; toHeight: number; label: string }[];
+    scanRegionHints?: {
+      fromHeight: number;
+      toHeight: number;
+      // A translation id, like ILocalWalletPoolBalance.hintId: the chain names
+      // the region, the UI decides what language to say it in.
+      labelId: ETranslations | ETranslationsMock;
+    }[];
     // Ceiling on concurrently scanning identities, for 'account-opt-in' chains.
     // Trial decryption runs once per active viewing key per block, so this is
     // the one number that multiplies scan cost. Aliases that share a viewing
@@ -319,6 +325,16 @@ export type IVaultSettings = {
 
   activateTokenRequired?: boolean;
   customRpcEnabled?: boolean;
+  // The nodes this build ships for the chain, best first. Chains that talk to
+  // the OneKey backend have none: "custom RPC" there is an override with no
+  // visible default to override. A chain that scans client-side must ship its
+  // own, because there is no backend behind it.
+  //
+  // [0] seeds the chain's custom-RPC record on first use, so from then on it
+  // is an ordinary record like any the user adds -- same store, same list,
+  // same edit and delete. The rest are what the transport rotates to when the
+  // one in use stops answering.
+  builtInRpcUrls?: string[];
   mergeDeriveAssetsEnabled?: boolean;
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
 

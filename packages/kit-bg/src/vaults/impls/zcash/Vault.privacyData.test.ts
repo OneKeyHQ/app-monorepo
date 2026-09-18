@@ -21,6 +21,20 @@ import type {
   IZcashPrivacyModeStateView,
 } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
 
+// The endpoint resolver reads the app-wide custom-RPC store; these fixtures
+// only care about the zcash entity, so the default node is enough.
+const defaultCustomRpcStub = {
+  // The chain's own node, seeded as an ordinary record; the resolver reads
+  // only this, so a fixture that leaves it out gets no endpoint at all.
+  ensureBuiltInRpc: async () => ({
+    rpc: 'https://zcash.example',
+    networkId: 'zec--0',
+    enabled: true,
+    updatedAt: undefined,
+    isCustomNetwork: undefined,
+  }),
+};
+
 describe('Zcash local privacy data deletion', () => {
   const accountId = "hd-1--m/44'/133'/0'";
   const aliasAccountId = "hd-2--m/44'/133'/0'";
@@ -59,6 +73,7 @@ describe('Zcash local privacy data deletion', () => {
             id === aliasAccountId ? { id } : undefined,
           ),
         },
+        serviceCustomRpc: defaultCustomRpcStub,
         serviceSignature: { removeSignedTransactionsForAccount },
         simpleDb: {
           zcash: {
@@ -209,6 +224,7 @@ describe('Zcash chain-only deletion expiry guard', () => {
       backgroundApi: {
         simpleDb: { zcash },
         serviceAccount: { getDBAccount },
+        serviceCustomRpc: defaultCustomRpcStub,
       },
     });
     return { vault, zcash, getDBAccount };
@@ -357,6 +373,7 @@ describe('Zcash queued rescan deletion boundary', () => {
       backgroundApi: {
         simpleDb: { zcash },
         serviceAccount: { getDBAccountSafe: async () => ({ id: accountId }) },
+        serviceCustomRpc: defaultCustomRpcStub,
       },
     });
     let observed: (() => void) | undefined;
