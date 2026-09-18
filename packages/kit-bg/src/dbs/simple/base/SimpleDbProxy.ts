@@ -25,6 +25,7 @@ import type { SimpleDbEntityBTCFreshAddress } from '../entity/SimpleDbEntityBTCF
 import type { SimpleDbEntityBTCFreshAddressMeta } from '../entity/SimpleDbEntityBTCFreshAddressMeta';
 import type { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
 import type { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
+import type { SimpleDbEntityCloudBackupPasswordCache } from '../entity/SimpleDbEntityCloudBackupPasswordCache';
 import type { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
@@ -87,6 +88,10 @@ export class SimpleDbProxy
   }
 
   prime = this._createProxyService('prime') as SimpleDbEntityPrime;
+
+  cloudBackupPasswordCache = this._createProxyService(
+    'cloudBackupPasswordCache',
+  ) as SimpleDbEntityCloudBackupPasswordCache;
 
   browserTabs = this._createProxyService(
     'browserTabs',
