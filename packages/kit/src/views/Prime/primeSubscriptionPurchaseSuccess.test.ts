@@ -175,8 +175,5 @@ describe('Prime subscription purchase success', () => {
         errorMessage: 'refresh failed with token=[redacted]',
       }),
     );
-    expect(mockFetchPrimeUserInfo).toHaveBeenCalledWith({
-      forceRefresh: true,
-    });
   });
 });

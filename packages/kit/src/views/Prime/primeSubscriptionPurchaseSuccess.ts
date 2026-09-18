@@ -53,9 +53,7 @@ export function emitPrimeSubscriptionPurchaseSuccess(
 
 export async function refreshPrimeUserInfoAfterPurchase() {
   try {
-    // A completed (or cancelled) purchase invalidates cached membership, so
-    // skip the short-TTL user-info cache instead of replaying a pre-purchase
-    // non-Prime snapshot.
+    // Checkout can change membership; skip the short-TTL user-info cache.
     await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
       forceRefresh: true,
     });
