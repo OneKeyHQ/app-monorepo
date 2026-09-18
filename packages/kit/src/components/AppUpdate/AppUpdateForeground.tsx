@@ -403,7 +403,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           status: 'success',
         });
         const whatsNewAlreadyShown = isWhatsNewShown();
-        await markWhatsNewShown(Boolean(info.jsBundleVersion));
         // Auto-update strategies (silent + seamless) complete invisibly, so
         // they must NOT pop the changelog / "what's new" page after the update
         // applies — only user-facing (manual / force) updates do. Previously
@@ -414,7 +413,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           !isAutoUpdateStrategy(info.updateStrategy) &&
           !whatsNewAlreadyShown
         ) {
+          if (fileType === EUpdateFileType.appShell) {
+            await backgroundApiProxy.serviceAppUpdate.refreshCurrentFeaturedChangelog();
+          }
+          if (cancelled) return;
+          await markWhatsNewShown(Boolean(info.jsBundleVersion));
           onViewReleaseInfo();
+        } else {
+          await markWhatsNewShown(Boolean(info.jsBundleVersion));
         }
         setTimeout(async () => {
           await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
