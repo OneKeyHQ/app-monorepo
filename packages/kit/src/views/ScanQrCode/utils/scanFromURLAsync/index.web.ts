@@ -1,3 +1,10 @@
+// cspell:ignore zxing
+import { prepareZXingReader } from '../../components/ScanCamera/zxingReader';
+
+import type { BarcodeDetector as IBarcodeDetectorPonyfill } from 'barcode-detector/ponyfill';
+
+type IBarcodeDetectorClass = typeof IBarcodeDetectorPonyfill;
+
 async function getImageData(dataUrl: string): Promise<ImageData> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -35,10 +42,29 @@ async function getImageData(dataUrl: string): Promise<ImageData> {
   });
 }
 
-export async function scanFromURLAsync(base64Url: string) {
-  const imgData = await getImageData(base64Url);
-  const { scanImageData } = require('zbar.wasm') as typeof import('zbar.wasm');
+async function getBarcodeDetectorClass(): Promise<IBarcodeDetectorClass> {
+  const { BarcodeDetector: NativeBarcodeDetector } = globalThis as {
+    BarcodeDetector?: IBarcodeDetectorClass;
+  };
+  if (NativeBarcodeDetector) {
+    return NativeBarcodeDetector;
+  }
+  // Same bundled zxing reader as the camera scanner (see zxingReader.ts).
+  await prepareZXingReader();
+  const { BarcodeDetector } = await import('barcode-detector/ponyfill');
+  return BarcodeDetector;
+}
 
-  const res = await scanImageData(imgData);
-  return res[0].decode();
+export async function decodeQrImageData(
+  imageData: ImageData,
+): Promise<string | null> {
+  const BarcodeDetector = await getBarcodeDetectorClass();
+  const [barcode] = await new BarcodeDetector({ formats: ['qr_code'] }).detect(
+    imageData,
+  );
+  return barcode?.rawValue ?? null;
+}
+
+export async function scanFromURLAsync(base64Url: string) {
+  return decodeQrImageData(await getImageData(base64Url));
 }
