@@ -552,32 +552,6 @@ export function CommonTableListView<T>({
     setDesktopContentWidth(width > 0 ? width : undefined);
   }, []);
 
-  useEffect(() => {
-    if (platformEnv.isNative || isMobile || showDesktopEmptyState) return;
-    const header: unknown = headerScrollViewRef.current?.getScrollableNode();
-    const body: unknown = scrollViewRef.current?.getScrollableNode();
-    const content: unknown = scrollViewRef.current?.getInnerViewNode();
-    if (!(header instanceof HTMLElement) || !(body instanceof HTMLElement)) {
-      return;
-    }
-    // The timeline progress and its endpoint must use the same scroll range.
-    // Header container units can differ from the body's actual viewport.
-    const syncScrollRange = () => {
-      header.style.setProperty(
-        '--perp-desktop-table-scroll-end',
-        `${-Math.max(0, body.scrollWidth - body.clientWidth)}px`,
-      );
-    };
-    syncScrollRange();
-    const observer = new ResizeObserver(syncScrollRange);
-    observer.observe(body);
-    if (content instanceof HTMLElement) observer.observe(content);
-    return () => {
-      observer.disconnect();
-      header.style.removeProperty('--perp-desktop-table-scroll-end');
-    };
-  }, [isMobile, scrollViewRef, showDesktopEmptyState]);
-
   // A web vertical scrollbar reduces the body's available width. Keep the
   // header viewport equal so scrollTo is not clamped before the body's end.
   useEffect(() => {
