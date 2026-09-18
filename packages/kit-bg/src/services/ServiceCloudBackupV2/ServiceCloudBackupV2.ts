@@ -221,6 +221,22 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return `${cloudAccountInfo.userId}:${params?.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
   }
 
+  private async assertICloudBackupAccountUnchanged(
+    accountInfo: IBackupProviderAccountInfo,
+  ): Promise<void> {
+    if (accountInfo.providerType !== ECloudBackupProviderType.iCloud) return;
+    const currentAccountInfo = await this.getCloudAccountInfo();
+    if (
+      !accountInfo.userId ||
+      currentAccountInfo.providerType !== ECloudBackupProviderType.iCloud ||
+      currentAccountInfo.userId !== accountInfo.userId
+    ) {
+      throw new OneKeyLocalError(
+        'iCloud account changed or is unavailable. Please restart the backup.',
+      );
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async clearBackupPassword(): Promise<void> {
@@ -316,6 +332,8 @@ class ServiceCloudBackupV2 extends ServiceBase {
         data,
       },
     );
+    // Local authorization may remain pending while the system account changes.
+    await this.assertICloudBackupAccountUnchanged(accountInfo);
 
     console.log('serviceCloudBackupV2__stringify_privateData');
     const privateData = stringUtils.stableStringify(data.privateData);
@@ -341,6 +359,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const privateDataEncrypted = privateDataEncryptedBuffer.toString('base64');
 
     console.log('serviceCloudBackupV2__backupData');
+    await this.assertICloudBackupAccountUnchanged(accountInfo);
     const result = await provider.backupData({
       privateDataEncrypted,
       publicData: data.publicData,
@@ -367,6 +386,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       throw new OneKeyLocalError('Failed to backup data: no data downloaded');
     }
     if (downloadData?.content !== content) {
+      await this.assertICloudBackupAccountUnchanged(accountInfo);
       void this.deleteSilently({
         recordId: recordID,
         skipManifestUpdate: true,
@@ -375,6 +395,8 @@ class ServiceCloudBackupV2 extends ServiceBase {
     }
 
     const allBackups = await this.getAllBackups();
+    // CloudKit writes and reads are separate operations, not an account-bound transaction.
+    await this.assertICloudBackupAccountUnchanged(accountInfo);
     const matchedBackup = allBackups?.items?.find(
       (item) => item.recordID === recordID,
     );

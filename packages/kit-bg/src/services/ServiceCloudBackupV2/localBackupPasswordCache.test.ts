@@ -104,6 +104,19 @@ describe('device-only iCloud backup password cache', () => {
     expect(await cache.get(scope)).toBe('newly-verified-password');
   });
 
+  it('isolates passwords for the same backup ID under different iCloud accounts with one device key', async () => {
+    const otherAccount = { ...scope, accountId: 'synthetic-account-b' };
+    await cache.set({ ...scope, password });
+    expect(await cache.get(otherAccount)).toBeUndefined();
+    await cache.set({ ...otherAccount, password: 'another-account-password' });
+    expect(await cache.get(otherAccount)).toBe('another-account-password');
+    expect(await cache.get(scope)).toBe(password);
+    await cache.remove(otherAccount);
+    expect(await cache.get(scope)).toBe(password);
+    expect(keychain.size).toBe(1);
+    expect(secure.setSecureItem).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects ciphertext copied to another account or backup, and rejects tampering', async () => {
     const otherAccount = { ...scope, accountId: 'synthetic-account-b' };
     const otherRecord = { ...scope, recordId: 'backup-b' };
