@@ -399,11 +399,13 @@ export function BorrowMobilePositions({
                     />
                   </Stack>
                 ) : (
-                  <CollateralSwitchCell
-                    item={suppliedAsset}
-                    eModeId={eModeId}
-                    size={ESwitchSize.extraSmall}
-                  />
+                  <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
+                    <CollateralSwitchCell
+                      item={suppliedAsset}
+                      eModeId={eModeId}
+                      size={ESwitchSize.extraSmall}
+                    />
+                  </Stack>
                 )}
               </>
             );
