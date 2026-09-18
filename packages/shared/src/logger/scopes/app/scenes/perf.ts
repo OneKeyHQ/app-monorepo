@@ -58,6 +58,13 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // Aggregated per window: event-loop blocks, JS heap and GC, process CPU
+  // and memory. Numbers only.
+  @LogToLocal()
+  public runtimeHealthCensus(params: Record<string, number | undefined>) {
+    return [params];
+  }
+
   @LogToLocal()
   public cpuWatchdogFired(params: {
     reason:
