@@ -258,6 +258,13 @@ export function resolveFirmwareUpdateErrorPresentation({
       { kind: 'none' },
     );
   }
+  if (classifyFirmwareUpdateFailure(error) === 'transfer') {
+    return build(
+      t(ETranslations.global_update_failed),
+      t(ETranslations.firmware_update_error_transfer_interrupted),
+      retry,
+    );
+  }
   if (classifyFirmwareUpdateFailure(error) === 'timeout') {
     return build(
       t(ETranslations.global_an_error_occurred),
