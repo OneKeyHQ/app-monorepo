@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,7 +18,10 @@ import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
-import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import {
+  type IMarketWatchlistDataCache,
+  useMarketWatchlistTokenList,
+} from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import {
@@ -70,6 +73,9 @@ interface IMarketTokenSelectorListProps {
   onItemPress: (item: IMarketTokenSelectorItem) => void;
   pollingInterval?: number;
   isWatchlistMode?: boolean;
+  // Owned by the selector shell so favorites data survives a tab switch, which
+  // unmounts this list.
+  watchlistDataCacheRef?: RefObject<IMarketWatchlistDataCache | undefined>;
   searchQuery?: string;
   searchLoading?: boolean;
   searchResults?: (IMarketSearchV2Token & { networkLogoURI: string })[];
@@ -149,12 +155,14 @@ const WatchlistTokenSelectorList = memo(
     pollingInterval,
     columns,
     listHeader,
+    dataCacheRef,
   }: {
     networkId: string;
     onItemPress: (item: IMarketTokenSelectorItem) => void;
     pollingInterval?: number;
     columns: IMarketTokenSelectorColumns;
     listHeader: ReactElement;
+    dataCacheRef?: RefObject<IMarketWatchlistDataCache | undefined>;
   }) => {
     const intl = useIntl();
     const [{ data: watchListData }] = useMarketWatchListV2Atom();
@@ -162,6 +170,7 @@ const WatchlistTokenSelectorList = memo(
     const { data, isLoading } = useMarketWatchlistTokenList({
       watchlist: watchListData ?? [],
       pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
+      dataCacheRef,
     });
 
     const filteredData = useMemo(
@@ -276,6 +285,7 @@ function ListContent({
   searchResults,
   searchLoading,
   isWatchlistMode,
+  watchlistDataCacheRef,
   networkId,
   onItemPress,
   pollingInterval,
@@ -309,6 +319,7 @@ function ListContent({
         pollingInterval={pollingInterval}
         columns={columns}
         listHeader={listHeader}
+        dataCacheRef={watchlistDataCacheRef}
       />
     );
   }
@@ -346,6 +357,7 @@ const MarketTokenSelectorList = memo(
     onItemPress,
     pollingInterval,
     isWatchlistMode,
+    watchlistDataCacheRef,
     searchQuery,
     searchLoading,
     searchResults,
@@ -451,6 +463,7 @@ const MarketTokenSelectorList = memo(
           searchResults={searchResults}
           searchLoading={searchLoading}
           isWatchlistMode={isWatchlistMode}
+          watchlistDataCacheRef={watchlistDataCacheRef}
           networkId={networkId}
           onItemPress={onItemPress}
           pollingInterval={pollingInterval}

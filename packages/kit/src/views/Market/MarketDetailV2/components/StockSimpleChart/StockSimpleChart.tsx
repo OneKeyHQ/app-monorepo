@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,6 +22,9 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   type IStockSimpleChartRange,
   fetchStockSimpleChartPoints,
+  mergeStockSimpleChartLivePrice,
+  resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
@@ -85,6 +88,17 @@ export function StockSimpleChart({
     stockId,
     tokenStock: tokenDetail?.stock,
   });
+  const livePrice = resolveStockSimpleChartLivePrice({
+    priceMode: requestPriceMode,
+    stockDetail,
+    tokenDetail,
+  });
+  const intervalSeconds = resolveStockSimpleChartBucketSeconds({
+    coinGeckoId: requestCoinGeckoId,
+    marketAssetId: requestMarketAssetId,
+    priceMode: requestPriceMode,
+    range: requestRange,
+  });
 
   const {
     result: chartState,
@@ -127,6 +141,20 @@ export function StockSimpleChart({
       watchLoading: true,
       checkIsFocused: false,
     },
+  );
+
+  // `Date.now()` is read during the memo rather than tracked as a dependency:
+  // the tail point only needs a fresh timestamp when the quote it carries
+  // changes. Ticking it on a timer would redraw the line without moving it.
+  const chartData = useMemo(
+    () =>
+      mergeStockSimpleChartLivePrice({
+        intervalSeconds,
+        livePrice,
+        nowSeconds: Math.floor(Date.now() / 1000),
+        points: chartState.data,
+      }),
+    [chartState.data, intervalSeconds, livePrice],
   );
 
   let chartContent;
@@ -184,7 +212,7 @@ export function StockSimpleChart({
     chartContent = (
       <StockPriceLineChart
         testID="stock-simple-chart-content"
-        data={chartState.data}
+        data={chartData}
         height={chartHeight}
         pulseLastPoint={pulseLastPoint}
         previousClose={previousClose}

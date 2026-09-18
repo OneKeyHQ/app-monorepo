@@ -105,6 +105,11 @@ describe('onekey get-address command', () => {
     expect(process.exitCode).toBe(1);
   });
 
+  // Exempt from the test-integrity source-text rule, see
+  // development/lint/test-integrity.allowlist.json. get-address must stay a
+  // pure vault read: no network, no session cache write, no seed access. That
+  // is a property of the whole reachable graph, so no call into this command
+  // can demonstrate the absence of those imports.
   it('does not import axios, secureCache, or getHdCredential', () => {
     const source = readFileSync(
       path.resolve(__dirname, '../get-address.ts'),

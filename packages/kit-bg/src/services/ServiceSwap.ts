@@ -28,6 +28,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  createApiAvailabilityTiming,
+  reportApiAvailabilityStream,
+} from '@onekeyhq/shared/src/request/availabilityMetrics';
+import type { IApiAvailabilityTiming } from '@onekeyhq/shared/src/request/availabilityMetrics';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -519,6 +524,7 @@ export default class ServiceSwap extends ServiceBase {
     {
       eventSource?: EventSource;
       eventSourcePolyfill?: EventSourcePolyfill;
+      availabilityTiming?: IApiAvailabilityTiming;
     }
   >();
 
@@ -668,6 +674,7 @@ export default class ServiceSwap extends ServiceBase {
     for (const requestId of requestIds) {
       this._activeQuoteEventRequestIds.delete(requestId);
       const sources = this._quoteEventSources.get(requestId);
+      reportApiAvailabilityStream(sources?.availabilityTiming, 'abandoned');
       this.removeQuoteEventSourceListeners(requestId);
       sources?.eventSource?.close();
       sources?.eventSourcePolyfill?.close();
@@ -1254,14 +1261,33 @@ export default class ServiceSwap extends ServiceBase {
     if (!this._activeQuoteEventRequestIds.has(quoteRequestId)) {
       return;
     }
+    // Interceptors skip event streams: the quote stream's first result is
+    // counted here, and a stream the user closes early is not counted.
+    const quoteAvailabilityTiming = createApiAvailabilityTiming({
+      url: swapEventUrl,
+    });
+    // Info and slippage events precede the first quote result or error event.
+    const reportQuoteMessage = (data: unknown) => {
+      try {
+        const json = JSON.parse(String(data)) as Record<string, unknown>;
+        if ('totalQuoteCount' in json || 'autoSuggestedSlippage' in json) {
+          return;
+        }
+      } catch {
+        // Unparsable data still counts as the stream's first result.
+      }
+      reportApiAvailabilityStream(quoteAvailabilityTiming, 'ok');
+    };
     if (platformEnv.isExtension) {
       const quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
         headers: headers as Record<string, string>,
       });
       this._quoteEventSources.set(quoteRequestId, {
         eventSourcePolyfill: quoteEventSourcePolyfill,
+        availabilityTiming: quoteAvailabilityTiming,
       });
       quoteEventSourcePolyfill.onmessage = (event) => {
+        reportQuoteMessage(event.data);
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event: {
@@ -1282,6 +1308,13 @@ export default class ServiceSwap extends ServiceBase {
           type: string;
           target: any;
         };
+        // An HTTP error or wrong content type arrives with `status` only.
+        const { status } = event as { status?: number };
+        reportApiAvailabilityStream(
+          quoteAvailabilityTiming,
+          errorEvent?.error || status ? 'error' : 'ok',
+          status,
+        );
         if (!errorEvent?.error) {
           appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
             type: 'done',
@@ -1327,6 +1360,7 @@ export default class ServiceSwap extends ServiceBase {
       });
       this._quoteEventSources.set(quoteRequestId, {
         eventSource: quoteEventSource,
+        availabilityTiming: quoteAvailabilityTiming,
       });
       quoteEventSource.addEventListener('open', (event) => {
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
@@ -1339,6 +1373,7 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       quoteEventSource.addEventListener('message', (event) => {
+        reportQuoteMessage((event as { data?: unknown } | undefined)?.data);
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'message',
           event,
@@ -1349,6 +1384,11 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       quoteEventSource.addEventListener('done', (event) => {
+        // Deferred: on React Native a dropped connection dispatches 'done'
+        // right before its 'error', which must win.
+        void Promise.resolve().then(() =>
+          reportApiAvailabilityStream(quoteAvailabilityTiming, 'ok'),
+        );
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'done',
           event,
@@ -1369,6 +1409,15 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
       quoteEventSource.addEventListener('error', (event) => {
+        const { type, xhrStatus } = (event ?? {}) as {
+          type?: string;
+          xhrStatus?: number;
+        };
+        reportApiAvailabilityStream(
+          quoteAvailabilityTiming,
+          type === 'timeout' ? 'timeout' : 'error',
+          xhrStatus,
+        );
         appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
           type: 'error',
           event,
