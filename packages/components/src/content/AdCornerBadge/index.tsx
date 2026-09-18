@@ -19,7 +19,6 @@ const adCornerBadgeSizeMap: Record<
     paddingY: number;
     fontSize: number;
     lineHeight: number;
-    bg: string;
     color: string;
   }
 > = {
@@ -29,7 +28,6 @@ const adCornerBadgeSizeMap: Record<
     paddingY: 0,
     fontSize: 8,
     lineHeight: 10,
-    bg: 'rgba(255, 255, 255, 0.5)',
     color: 'rgba(0, 0, 0, 0.5)',
   },
   lg: {
@@ -38,7 +36,6 @@ const adCornerBadgeSizeMap: Record<
     paddingY: 2,
     fontSize: 11,
     lineHeight: 13,
-    bg: 'rgba(255, 255, 255, 0.65)',
     color: 'rgba(0, 0, 0, 0.65)',
   },
 };
@@ -69,7 +66,6 @@ function BasicAdCornerBadge({
       paddingHorizontal={config.paddingX}
       paddingVertical={config.paddingY}
       borderRadius="$full"
-      bg={config.bg}
       pointerEvents="none"
       zIndex={1}
       {...rest}

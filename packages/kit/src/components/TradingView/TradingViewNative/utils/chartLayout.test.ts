@@ -1,3 +1,4 @@
+import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -36,6 +37,59 @@ import {
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * 60 * 60;
+
+const SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+
+// Rewrites `0.0₄9463` as `0.00009463`. The chart and the header are allowed to
+// choose different notations; only the number behind them has to agree.
+function expandSubscriptZeros(label: string) {
+  let result = '';
+  let pendingZeroCount = '';
+  const flush = () => {
+    if (pendingZeroCount) {
+      // The literal "0" before the subscript already counts as the first zero.
+      result += '0'.repeat(Number(pendingZeroCount) - 1);
+      pendingZeroCount = '';
+    }
+  };
+  for (const character of label) {
+    const subscriptIndex = SUBSCRIPT_DIGITS.indexOf(character);
+    if (subscriptIndex >= 0) {
+      pendingZeroCount += String(subscriptIndex);
+    } else {
+      flush();
+      result += character;
+    }
+  }
+  flush();
+  return result;
+}
+
+// Trailing zeros are formatting too: the header prints `1` where the chart
+// prints `1.00`. Compare the value both labels resolve to.
+function canonicalizePriceLabel(label: string) {
+  return String(Number(expandSubscriptZeros(label)));
+}
+
+function getHeaderPriceDigits(price: string) {
+  const parts = numberFormatAsRaw(price, {
+    formatter: 'price',
+    formatterOptions: { currency: '$' },
+  });
+  const label =
+    typeof parts === 'string'
+      ? parts
+      : parts
+          .map((part) =>
+            typeof part === 'string'
+              ? part
+              : String(part.value).replace(/[0-9]/g, (digit) =>
+                  SUBSCRIPT_DIGITS.charAt(Number(digit)),
+                ),
+          )
+          .join('');
+  return canonicalizePriceLabel(label.replace('$', ''));
+}
 
 function getLocalTimestamp(
   year: number,
@@ -87,6 +141,35 @@ describe('TradingViewNative chart layout', () => {
     expect(formatTradingViewNativePriceTick(0.999_99)).toBe('1.00');
     expect(formatTradingViewNativePriceTick(-0.999_99)).toBe('-1.00');
     expect(formatTradingViewNativePriceTick(Number.NaN)).toBe('--');
+  });
+
+  it('rounds half-up on the decimal value, not on its binary neighbour', () => {
+    // The double behind 0.0012345 is 0.00123449…, so toFixed(6) would round
+    // down and print a different number than the header's BigNumber.
+    expect(formatTradingViewNativePriceTick(0.001_234_5)).toBe('0.001235');
+    expect(formatTradingViewNativePriceTick(0.000_012_345)).toBe('0.0₄1235');
+    expect(formatTradingViewNativePriceTick(-0.001_234_5)).toBe('-0.001235');
+  });
+
+  // OK-63597: the chart may compact leading zeros into a subscript where the
+  // header spells them out, but both must resolve to the same number.
+  it.each([
+    '0.0002137',
+    '0.00002869',
+    '0.00009463',
+    '0.0000653',
+    '0.00000653',
+    '0.0012345',
+    '0.000000123456',
+    '0.123456789',
+    '0.999999',
+    '1',
+    '12.34567',
+    '332.41',
+  ])('shows the same number as the header for %s', (price) => {
+    expect(
+      canonicalizePriceLabel(formatTradingViewNativePriceTick(Number(price))),
+    ).toBe(getHeaderPriceDigits(price));
   });
 
   it('grows the price axis with the longest formatted price', () => {

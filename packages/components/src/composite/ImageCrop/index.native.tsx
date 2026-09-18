@@ -22,12 +22,9 @@ function BasicImageCrop() {
 const BASE64_PREFIX = `data:${RESULT_MINE_TYPE};base64,`;
 
 const openPicker: IOpenPickerFunc = async (params) => {
-  const response: IPickerImage = await nativeOpenPicker({
-    mediaType: 'photo',
+  const response = await nativeOpenPicker({
     cropping: true,
-    forceJpg: true,
     includeBase64: true,
-    sortOrder: 'desc',
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     cropperChooseText: appLocale.intl.formatMessage({
       id: ETranslations.global_confirm,
@@ -41,8 +38,7 @@ const openPicker: IOpenPickerFunc = async (params) => {
   if (response.data) {
     response.data = `${BASE64_PREFIX}${response.data}`;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return response as any;
+  return response;
 };
 
 const openCropImage = async (
@@ -56,13 +52,9 @@ const openCropImage = async (
 
   const response = await nativeOpenCropper({
     path: image,
-    mediaType: 'photo',
     width,
     height,
-    cropping: true,
-    forceJpg: true,
     includeBase64: true,
-    sortOrder: 'desc',
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     cropperChooseText: appLocale.intl.formatMessage({
       id: ETranslations.global_confirm,

@@ -66,12 +66,18 @@ export interface IUseMarketWatchlistTokenListParams {
   dataCacheRef?: RefObject<IMarketWatchlistDataCache | undefined>;
 }
 
+export interface IMarketWatchlistListingQuoteEntry {
+  key: string;
+  quote: IMarketListingWatchlistQuote | undefined;
+}
+
 export interface IMarketWatchlistDataCache {
   spot?: Awaited<
     ReturnType<
       typeof backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch
     >
   >;
+  listing?: IMarketWatchlistListingQuoteEntry[];
   perps?: {
     tokenListData: Awaited<
       ReturnType<
@@ -191,6 +197,28 @@ export function useMarketWatchlistTokenList({
       checkIsFocused: true,
     },
   );
+
+  // Listing rows are synthesized from the local watchlist record, so unlike
+  // spot rows they can render before any quote exists. Reusing the previous
+  // batch keeps a remount — the token selector drops this list on every tab
+  // switch — from falling back to that quote-less state.
+  const lastListingQuotesRef = useRef<
+    IMarketWatchlistListingQuoteEntry[] | undefined
+  >(dataCacheRef?.current?.listing);
+  useEffect(() => {
+    if (!listingQuotes) return;
+    lastListingQuotesRef.current = listingQuotes;
+    if (dataCacheRef) {
+      dataCacheRef.current = {
+        ...dataCacheRef.current,
+        listing: listingQuotes,
+      };
+    }
+  }, [dataCacheRef, listingQuotes]);
+  // usePromiseResult keeps the resolved batch on screen while a refetch is in
+  // flight, so either source can predate the current watchlist. Coverage is
+  // therefore checked per row below rather than trusting the batch as a whole.
+  const listingResult = listingQuotes ?? lastListingQuotesRef.current;
 
   // ── Spot data fetching (existing logic) ──
   const {
@@ -426,9 +454,14 @@ export function useMarketWatchlistTokenList({
       .map((watchlistItem) => {
         if (watchlistItem.assetId || watchlistItem.stockId) {
           const key = getMarketWatchlistKey(watchlistItem);
-          const quote = listingQuotes?.find(
-            (entry) => entry.key === key,
-          )?.quote;
+          const entry = listingResult?.find((item) => item.key === key);
+          // A batch that predates this favorite carries no entry for it, and a
+          // row built from the watchlist record alone would render every metric
+          // as NaN while spot rows are still missing entirely, so hold it back.
+          // An entry that resolved to no quote still renders, which keeps
+          // delisted favorites removable.
+          if (!entry) return undefined;
+          const { quote } = entry;
           return {
             id: key,
             assetId: watchlistItem.assetId,
@@ -495,7 +528,7 @@ export function useMarketWatchlistTokenList({
     return merged;
   }, [
     apiResult,
-    listingQuotes,
+    listingResult,
     watchlist,
     spotItems,
     perpsTokenMap,

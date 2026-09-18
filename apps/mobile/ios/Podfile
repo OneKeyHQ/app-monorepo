@@ -139,11 +139,6 @@ target 'OneKeyWallet' do
   # Enable modular headers for EMASCurl to fix SniConnect dependency
   pod 'EMASCurl', :modular_headers => true
 
-  # Use patched TOCropViewController with rotation crop-box shrink fix (OK-51551)
-  pod 'TOCropViewController',
-      :git => 'https://github.com/OneKeyHQ/app-modules.git',
-      :commit => '782d84097b16539c38f065cd94d7f01789a2a894'
-
   # Manually add RNGoogleSignin pod (expo-module.config.json only includes the Expo adapter, not the TurboModule)
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
 
