@@ -23,6 +23,8 @@ const VERSION = '1111111111111111111111111111111111111111';
 const OTHER_VERSION = '2222222222222222222222222222222222222222';
 const BASE_URL = `${ORIGIN}/${VERSION}/embed/`;
 const MANIFEST_URL = `${BASE_URL}embed-manifest.json`;
+const PINNED_CACHE_NAME = `onekey-tradingview-embed-pin-v1:${VERSION}`;
+const LEGACY_CACHE_NAME = `onekey-tradingview-embed:${VERSION}`;
 const PROXY_BASE_URL = `https://app.onekey.so/__onekey_tradingview_embed__/tradingview.onekeytest.com/${VERSION}/embed/`;
 const ENTRY_FILE = 'onekey-tradingview-embed.js';
 const ASSET_SOURCES = {
@@ -330,9 +332,7 @@ describe('service worker TradingView release pinning', () => {
     );
     await expect(entryResponse.text()).resolves.toBe(ASSET_SOURCES[ENTRY_FILE]);
 
-    const cache = await cacheStorage.open(
-      `onekey-tradingview-embed:${VERSION}`,
-    );
+    const cache = await cacheStorage.open(PINNED_CACHE_NAME);
     const tamperedManifestText = manifestText.replace(
       manifest.assets[0].integrity,
       (await buildAsset(ENTRY_FILE, ATTACKER_SOURCE)).integrity,
@@ -344,6 +344,33 @@ describe('service worker TradingView release pinning', () => {
     await expect(
       loadServiceWorker(cacheStorage).handle(`${PROXY_BASE_URL}${ENTRY_FILE}`),
     ).rejects.toMatchObject({ code: 'tradingview_proxy_asset_unavailable' });
+  });
+
+  test('does not serve assets left in the pre-pin cache namespace', async () => {
+    const manifest = await buildManifest();
+    const manifestText = await pinManifest(manifest);
+    const cacheStorage = createMemoryCacheStorage();
+    const legacyCache = await cacheStorage.open(LEGACY_CACHE_NAME);
+    await legacyCache.put(
+      `${BASE_URL}${ENTRY_FILE}`,
+      new Response(ATTACKER_SOURCE),
+    );
+    await legacyCache.put(
+      `${ORIGIN}/embed/latest.json`,
+      new Response(manifestText),
+    );
+    mockNetwork(releaseResponses(manifestText));
+    const serviceWorker = loadServiceWorker(cacheStorage);
+
+    await expect(
+      serviceWorker.postMessage(prefetchMessage(manifest)),
+    ).resolves.toEqual({ ok: true, version: VERSION });
+    const entryResponse = await serviceWorker.handle(
+      `${PROXY_BASE_URL}${ENTRY_FILE}`,
+    );
+
+    await expect(entryResponse.text()).resolves.toBe(ASSET_SOURCES[ENTRY_FILE]);
+    await expect(cacheStorage.keys()).resolves.toEqual([PINNED_CACHE_NAME]);
   });
 
   test('keeps accepting page-provided manifests from a local dev server', async () => {

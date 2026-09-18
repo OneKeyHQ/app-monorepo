@@ -40,7 +40,9 @@ const STATIC_RESOURCES_MAX_ENTRIES = 300;
 const STATIC_RESOURCES_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const STATIC_RESOURCE_CACHE_TIME_HEADER = 'x-onekey-cache-time';
 const PREVIOUS_VERSION_LIMIT = 1;
-const TRADINGVIEW_EMBED_CACHE_PREFIX = 'onekey-tradingview-embed:';
+// New pin-era namespace so a pre-WEB-01 CacheStorage hit cannot be reused.
+const TRADINGVIEW_EMBED_CACHE_PREFIX = 'onekey-tradingview-embed-pin-v1:';
+const LEGACY_TRADINGVIEW_EMBED_CACHE_PREFIX = 'onekey-tradingview-embed:';
 const TRADINGVIEW_PREFETCH_CONCURRENCY = 3;
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
 const TRUSTED_TRADINGVIEW_MANIFEST_ORIGINS = new Set([
@@ -460,6 +462,14 @@ function getTradingViewCacheName(version) {
   return `${TRADINGVIEW_EMBED_CACHE_PREFIX}${version}`;
 }
 
+function isCurrentTradingViewEmbedCacheName(cacheName) {
+  return cacheName.startsWith(TRADINGVIEW_EMBED_CACHE_PREFIX);
+}
+
+function isLegacyTradingViewEmbedCacheName(cacheName) {
+  return cacheName.startsWith(LEGACY_TRADINGVIEW_EMBED_CACHE_PREFIX);
+}
+
 function normalizeTradingViewUrl(url, baseUrl = self.location.origin) {
   try {
     return new URL(url, baseUrl).toString();
@@ -780,8 +790,8 @@ async function parseCachedTradingViewManifest(response, manifestUrl) {
 
 async function getCompletedTradingViewManifest(manifestUrl) {
   const manifestRequest = new Request(manifestUrl);
-  const cacheNames = (await caches.keys()).filter((cacheName) =>
-    cacheName.startsWith(TRADINGVIEW_EMBED_CACHE_PREFIX),
+  const cacheNames = (await caches.keys()).filter(
+    isCurrentTradingViewEmbedCacheName,
   );
   for (const cacheName of reverseArrayCopy(cacheNames)) {
     const cache = await caches.open(cacheName);
@@ -903,15 +913,19 @@ async function runConcurrent(items, concurrency, task) {
 }
 
 async function deleteOldTradingViewCaches(activeCacheName) {
-  const cacheNames = (await caches.keys()).filter((cacheName) =>
-    cacheName.startsWith(TRADINGVIEW_EMBED_CACHE_PREFIX),
+  const cacheNames = await caches.keys();
+  const currentCacheNames = cacheNames.filter(
+    isCurrentTradingViewEmbedCacheName,
   );
-  const previousCacheNames = reverseArrayCopy(cacheNames)
+  const previousCacheNames = reverseArrayCopy(currentCacheNames)
     .filter((cacheName) => cacheName !== activeCacheName)
     .slice(0, PREVIOUS_VERSION_LIMIT);
   const retainedCacheNames = new Set([activeCacheName, ...previousCacheNames]);
   const deletedCacheNames = cacheNames.filter(
-    (cacheName) => !retainedCacheNames.has(cacheName),
+    (cacheName) =>
+      isLegacyTradingViewEmbedCacheName(cacheName) ||
+      (isCurrentTradingViewEmbedCacheName(cacheName) &&
+        !retainedCacheNames.has(cacheName)),
   );
   await Promise.all(
     deletedCacheNames.map((cacheName) => caches.delete(cacheName)),
@@ -1081,6 +1095,9 @@ async function createTradingViewBootstrapCacheState(
 ) {
   const { baseUrl, manifest, response: manifestResponse } = resolvedManifest;
   const cacheName = getTradingViewCacheName(manifest.version);
+  // Drop pre-pin caches before opening this release so poisoned bytes cannot
+  // be reused even if a later cache hit skips integrity checks.
+  await deleteOldTradingViewCaches(cacheName);
   const manifestRequest = new Request(manifestUrl);
   const cacheState = await openTradingViewBootstrapCache(
     cacheName,
