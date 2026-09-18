@@ -226,11 +226,7 @@ function HeaderView({
       if (!node) {
         return node ?? null;
       }
-      return (
-        <XStack className="app-region-no-drag" alignItems="center">
-          {node}
-        </XStack>
-      );
+      return <XStack className="app-region-no-drag">{node}</XStack>;
     },
     [headerRight, canGoBack],
   );
