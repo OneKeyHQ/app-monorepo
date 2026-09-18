@@ -514,3 +514,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The selector list uses persist-taps, so a row tap never blurs the SearchBar. Closing the modal alone does not blur the RN input.
 **Fix**: Blur the focused RN input (`blurFocusedInput`) on select. Do not use `dismissKeyboard` here — its Android `hideSoftInputFromWindow` blocks the next programmatic `autoFocus` from showing the IME.
 **Catchable by**: Section 5: stale IME / focus state after dismiss; NEW — closing an autoFocused overlay must blur its input, and window-level IME hiding must not be used on a path that later autoFocuses
+
+## Case: Empty stock 24h change rendered as zero in watchlist
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web, Browser extension
+**Symptom**: OK-63645. Some stock favorites such as ICBC showed `0.0%` for the 24-hour change when the quote had no change value.
+**Root Cause**: The stock batch API represented a missing `priceChange24hPercent` as an empty string, and the shared watchlist hook converted it with `Number('')`, producing a valid zero.
+**Fix**: Normalize the raw change before conversion, map missing or invalid values to the existing `-`/`NaN` sentinel, and preserve the valid string `'0'` as zero.
+**Catchable by**: Section 4: edge cases covered; Section 6: bug fix includes a regression test — numeric API tests must distinguish an empty string from a real zero
+
+## Case: Metro stale-lock concurrency test reclaimed fresh locks
+**Date**: 2026-09-18 | **Platforms**: CI, local development tooling
+**Symptom**: PR unit-test shard intermittently failed with `ENOTEMPTY` while two cleaners reclaimed a stale Metro cache lock.
+**Root Cause**: The test used `staleMs: 0` to make its fixture stale, which also made a newly created ownerless lock immediately reclaimable before its owner file was written.
+**Fix**: Backdate only the initial stale fixture and use a nonzero stale threshold so replacement locks remain fresh during acquisition.
+**Catchable by**: Section 6: tests cover race conditions; NEW — concurrency tests must make the intended stale fixture old without making newly created resources instantly stale
