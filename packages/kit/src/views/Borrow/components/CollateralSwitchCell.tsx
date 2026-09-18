@@ -11,6 +11,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Dialog,
+  ESwitchSize,
   SizableText,
   Spinner,
   Stack,
@@ -192,7 +193,7 @@ const noop = () => {};
 export function CollateralSwitchCell({
   item,
   eModeId,
-  size = 'small',
+  size = ESwitchSize.extraSmall,
 }: {
   item: ISuppliedAsset;
   eModeId?: number;
@@ -673,28 +674,13 @@ export function CollateralSwitchCell({
       position="relative"
       ai="center"
       jc="center"
-      // No padded halo here, and each target reaches the 24x24 floor of WCAG
-      // 2.5.8 its own way. Web, desktop, the extension and iOS all render the
-      // same 38x24 Tamagui track, because native={!isNativeIOS} below lands
-      // after the Switch's own hard-coded native and wins; iOS adds the
-      // hitSlop set alongside it. Android is the one target that delegates to
-      // the platform control, which is larger again. Growing the target here
-      // with padding and a negative margin also put the halo outside this
-      // view's parent, where Android's ViewGroup never hit-tests and hitSlop
-      // is ignored, while on web it swallowed the desktop table's row press
-      // and overhung the next column.
+      // Keep the compact Switch's own hit target intact. The shared Switch
+      // uses the platform control by default, matching Swap's privacy mode;
+      // adding a padded halo here would put the target outside the parent on
+      // Android and swallow the desktop table's row press on web.
       //
-      // Native normally wants no handler here, so the switch below wins the
-      // responder as the deeper claimant. A disabled one claims nothing:
-      // Tamagui gates every press event, the responder claim included, on
-      // `!disabled`, and on iOS this switch is a Tamagui frame rather than the
-      // platform control (native={!isNativeIOS} below). The touch would then
-      // reach whatever sits behind the cell — on phones the position card,
-      // which would expand or collapse as though the dead control had done
-      // something. Claim it here instead, and only then, so the enabled path
-      // is untouched. Gated on isNative rather than isNativeIOS because
-      // Android's platform control may or may not cancel the responder when
-      // disabled, and claiming costs nothing either way.
+      // Absorb taps while disabled to keep the position card underneath from
+      // expanding. The enabled path remains owned by the Switch itself.
       onPress={
         platformEnv.isNative
           ? claimNativeTouch
@@ -704,31 +690,11 @@ export function CollateralSwitchCell({
       }
     >
       <Stack opacity={previewLoading ? 0 : 1}>
-        {/* The shared press-based switch avoids native row hit-testing issues on iOS. */}
         <Switch
           testID={BorrowTestIDs.suppliedCollateralSwitch}
           value={value}
           size={size}
-          native={!platformEnv.isNativeIOS}
           disabled={isSwitchDisabled}
-          {...(platformEnv.isNativeIOS
-            ? {
-                accessible: true,
-                accessibilityRole: 'switch' as const,
-                accessibilityLabel: `${item.token.symbol} ${intl.formatMessage({
-                  id: ETranslations.defi_collateral,
-                })}`,
-                accessibilityState: {
-                  checked: value,
-                  disabled: isSwitchDisabled,
-                },
-                onAccessibilityTap: () => {
-                  if (!isSwitchDisabled) handleToggle();
-                },
-                hitSlop: { top: 12, bottom: 12, left: 6, right: 6 },
-                bg: value ? '$bgAccent' : '$neutral5',
-              }
-            : undefined)}
           onChange={handleToggle}
         />
       </Stack>
