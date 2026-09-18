@@ -47,6 +47,17 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // Atom names only, aggregated per window: never a line per write.
+  @LogToLocal()
+  public uiAtomWriteCensus(params: {
+    windowMs: number;
+    total: number;
+    atomCount: number;
+    byAtom: { atom: string; count: number }[];
+  }) {
+    return [params];
+  }
+
   @LogToLocal()
   public cpuWatchdogFired(params: {
     reason:
