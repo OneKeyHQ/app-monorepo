@@ -4354,6 +4354,7 @@
     "node_modules/@onekeyfe/react-native-check-biometric-auth-changed/lib/module/index.js": 38226,
     "node_modules/@onekeyfe/react-native-cloud-kit-module/lib/module/index.js": 58812,
     "node_modules/@onekeyfe/react-native-device-utils/lib/module/index.js": 32540,
+    "node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/index.js": 56900,
     "node_modules/@onekeyfe/react-native-image/lib/module/OneKeyImage.nitro.js": 39418,
     "node_modules/@onekeyfe/react-native-image/lib/module/index.js": 42557,
     "node_modules/@onekeyfe/react-native-image/lib/nitrogen/generated/shared/json/OneKeyImageConfig.json": 32678,
