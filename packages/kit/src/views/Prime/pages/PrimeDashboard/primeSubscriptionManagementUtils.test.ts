@@ -1,4 +1,4 @@
-/* cspell:ignore Infini infini */
+/* cspell:ignore Infini infini rcbilling customerportal */
 import {
   getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
@@ -69,6 +69,33 @@ describe('primeSubscriptionManagementUtils', () => {
     });
   });
 
+  it.each([
+    {
+      name: 'RevenueCat web billing portal',
+      managementUrl:
+        'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
+    },
+    {
+      name: 'Apple subscription management',
+      managementUrl: 'https://apps.apple.com/account/subscriptions',
+    },
+  ])('routes a channel-less $name URL externally', ({ managementUrl }) => {
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: {
+          primeSubscription: {
+            isActive: true,
+            expiresAt: 0,
+            subscriptions: [{ managementUrl }],
+          },
+        },
+      }),
+    ).toEqual({
+      type: 'external',
+      url: managementUrl,
+    });
+  });
+
   it('does not use an aggregate management URL for a redemption subscription', () => {
     expect(
       getPrimeSubscriptionManagementTarget({
@@ -92,7 +119,7 @@ describe('primeSubscriptionManagementUtils', () => {
     });
   });
 
-  it('prefers Infini in-app management when a store URL is also present', () => {
+  it('prefers Infini in-app management over a preceding channel-less store URL', () => {
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
@@ -101,12 +128,11 @@ describe('primeSubscriptionManagementUtils', () => {
             expiresAt: Date.now() + 60_000,
             subscriptions: [
               {
-                channel: 'infini',
-                managementUrl: 'https://onekey.so/invite',
+                managementUrl: 'https://apps.apple.com/account/subscriptions',
               },
               {
-                channel: 'app-store',
-                managementUrl: 'https://apps.apple.com/account/subscriptions',
+                channel: 'infini',
+                managementUrl: 'https://onekey.so/invite',
               },
             ],
           },
