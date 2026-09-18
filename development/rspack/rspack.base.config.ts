@@ -95,6 +95,8 @@ const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+const ZXING_READER_WASM_TEST =
+  /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
 const ICON_MODULE_TEST =
   /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
 
@@ -442,7 +444,7 @@ export function createBaseConfig({
         // file contents), matching babel-plugin-inline-import in the webpack
         // chain. MUST be first so no later asset rule can claim `.text-js`.
         { test: /\.text-js$/, type: 'asset/source' },
-        // cspell:ignore emscripten Skia skia's
+        // cspell:ignore emscripten Skia skia's zxing ZXING
         // Canvaskit ships a prebuilt wasm loaded at runtime by emscripten;
         // emit it as a URL asset so react-native-skia's LoadSkiaWeb can fetch
         // it via locateFile (see OrbShader.tsx). Must come before the generic
@@ -453,9 +455,17 @@ export function createBaseConfig({
           type: 'asset/resource',
           generator: { filename: 'static/canvaskit/[name][ext]' },
         },
+        // The barcode-detector polyfill used by expo-camera's web scanner
+        // instantiates this wasm itself. Ship it with the app so ScanCamera can
+        // hand it over instead of the polyfill downloading it from jsDelivr.
+        {
+          test: ZXING_READER_WASM_TEST,
+          type: 'asset/resource',
+          generator: { filename: 'static/zxing/[name].[contenthash:8][ext]' },
+        },
         {
           test: /\.wasm$/,
-          exclude: CANVASKIT_WASM_TEST,
+          exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
           type: 'webassembly/async',
         },
         {
